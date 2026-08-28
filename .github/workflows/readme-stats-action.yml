@@ -1,0 +1,59 @@
+name: Update README cards
+
+on:
+  push:
+    branches:
+      - main # 如果你的默认分支是 master，请改成 master
+    paths-ignore:
+      - "profile/*.svg"
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure profile directory
+        run: mkdir -p profile
+
+      - name: Generate stats card
+        uses: readme-tools/github-readme-stats-action@v1
+        with:
+          card: stats
+          options: >-
+            {"username":"Felix201209","show_icons":true,"icon_color":"F77DF4","title_color":"F77DF4","text_color":"888888","bg_color":"ffffff00","theme":"swift","hide_border":true}
+          path: profile/stats.svg
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate top languages card
+        uses: readme-tools/github-readme-stats-action@v1
+        with:
+          card: top-langs
+          options: >-
+            {"username":"Felix201209","hide":"java,ruby","layout":"compact","theme":"swift","hide_border":true,"card_width":300}
+          path: profile/top-langs.svg
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and push cards (only if changed)
+        run: |
+          if [[ -z "$(git status --porcelain profile)" ]]; then
+            echo "No changes in profile/, skip commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add profile/*.svg
+          git commit -m "Update README cards"
+          git push
