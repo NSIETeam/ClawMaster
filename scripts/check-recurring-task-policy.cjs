@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Prevent new unmanaged recurring work while the legacy inventory is migrated. */
-const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const legacyMaximums = new Map(Object.entries({
   'packages/core/src/acp-client/acpAgentClient.ts': 2,
@@ -40,15 +41,23 @@ const legacyMaximums = new Map(Object.entries({
   'packages/server/src/server.ts': 1,
 }));
 
-const output = execFileSync('rg', [
-  '-n', '(?:window\\.)?setInterval\\(', 'packages',
-  '--glob', '!**/*.test.*', '--glob', '!**/dist/**', '--glob', '!**/*.js',
-], { encoding: 'utf8' }).trim();
 const counts = new Map();
-for (const line of output ? output.split('\n') : []) {
-  const file = line.slice(0, line.indexOf(':'));
-  counts.set(file, (counts.get(file) ?? 0) + 1);
+
+function scan(directory) {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const absolute = path.join(directory, entry.name);
+    const relative = absolute.split(path.sep).join('/');
+    if (entry.isDirectory()) {
+      if (entry.name !== 'dist' && entry.name !== 'node_modules') scan(absolute);
+      continue;
+    }
+    if (!/\.(?:ts|tsx)$/u.test(entry.name) || /\.test\.[^.]+$/u.test(entry.name)) continue;
+    const matches = fs.readFileSync(absolute, 'utf8').match(/(?:window\.)?setInterval\(/gu);
+    if (matches?.length) counts.set(relative, matches.length);
+  }
 }
+
+scan('packages');
 const violations = [];
 for (const [file, count] of counts) {
   const maximum = legacyMaximums.get(file) ?? 0;

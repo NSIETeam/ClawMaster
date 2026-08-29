@@ -19,6 +19,7 @@ export interface ModelGatewayCompositionOptions<
   getOrganization(organizationId: string): TOrganization | null;
   listOrganizationAccounts(organizationId: string): TAccount[];
   createId(): string;
+  now?(): number;
   onRecordedUsage?: ModelUsageRepositoryStore<TAccount, TOrganization>['onRecordedUsage'];
 }
 
@@ -33,6 +34,7 @@ export function createModelGatewayComposition<
     getOrganization: options.getOrganization,
     listOrganizationAccounts: options.listOrganizationAccounts,
     createUsageId: () => `usage_${options.createId()}`,
+    now: options.now,
     onRecordedUsage: options.onRecordedUsage,
   });
 }

@@ -25,6 +25,7 @@ export interface ModelUsageRepositoryStore<
   getOrganization(organizationId: string): TOrganization | null;
   listOrganizationAccounts(organizationId: string): TAccount[];
   createUsageId(): string;
+  now?(): number;
   onRecordedUsage?(input: {
     organizationId: string;
     messageId: string;
@@ -227,7 +228,7 @@ export function getOrganizationUsageSummaryFromRepository<
     Math.max(1, Math.floor(periodDays) || 30),
   );
   const since = new Date(
-    Date.now() - safePeriodDays * 86_400_000,
+    (store.now?.() ?? Date.now()) - safePeriodDays * 86_400_000,
   ).toISOString();
   const aggregates = store
     .db()
@@ -300,7 +301,9 @@ export function getPersonalTokenUsageProfileFromRepository<
   if (organization.status !== 'active') throw new Error('Organization is disabled');
 
   const safePeriodDays = Math.min(365, Math.max(1, Math.floor(periodDays) || 30));
-  const since = new Date(Date.now() - safePeriodDays * 86_400_000).toISOString();
+  const since = new Date(
+    (store.now?.() ?? Date.now()) - safePeriodDays * 86_400_000,
+  ).toISOString();
   const database = store.db();
   const aggregate = database.prepare(
     `SELECT COALESCE(SUM(input_tokens), 0) AS input_tokens,

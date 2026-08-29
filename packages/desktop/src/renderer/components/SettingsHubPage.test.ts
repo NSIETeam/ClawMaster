@@ -23,6 +23,7 @@ vi.mock('./hub/SettingsPanels.js', () => ({
   IdePanel: () => 'ide-panel',
 }));
 vi.mock('./hub/FeishuPanel.js', () => ({ FeishuPanel: () => 'feishu-panel' }));
+vi.mock('./hub/WeComPanel.js', () => ({ WeComPanel: () => 'wecom-panel' }));
 vi.mock('./hub/LocalAgentPanel.js', () => ({
   LocalAgentPanel: () => 'local-agent-panel',
 }));
@@ -172,7 +173,7 @@ describe('SettingsHubPage internal-test navigation', () => {
         'button.otto-hub__nav-item',
       ),
     );
-    expect(navButtons).toHaveLength(18);
+    expect(navButtons).toHaveLength(19);
 
     const expectedPanels = [
       'prefs-panel',
@@ -182,6 +183,7 @@ describe('SettingsHubPage internal-test navigation', () => {
       'usage-panel',
       'privacy-panel',
       'feishu-panel',
+      'wecom-panel',
       'models-panel',
       'mcp-panel',
       'extensions-panel',

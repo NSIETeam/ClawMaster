@@ -31,6 +31,7 @@ import { handleLocalAgentRoute } from './localAgentRoutes.js';
 import { handleMemberWorkflowRoute } from './memberWorkflowRoutes.js';
 import { handleSkillMarketplaceRoute } from './skillMarketplaceRoutes.js';
 import { handleCustomerModuleMarketplaceRoute } from './customerModuleMarketplaceRoutes.js';
+import { SqliteCustomerModuleMarketplaceStore } from '../modules/tool_skill_platform/index.js';
 import { handleParkResourceRoute } from './parkResourceRoutes.js';
 import { handleParkServicePublicationRoute } from './parkServicePublicationRoutes.js';
 import { handleParkStatisticsRoute } from './parkStatisticsRoutes.js';
@@ -396,6 +397,9 @@ export async function dispatchEnterpriseRoute({
       res,
       memberAccount,
       adminPrincipal,
+      store: new SqliteCustomerModuleMarketplaceStore(db.getDB()),
+      isSkillMarketEnabled: (organizationId: string) =>
+        db.getOrganizationFeatures(organizationId).skill_market,
       readBody,
       sendJSON,
     })

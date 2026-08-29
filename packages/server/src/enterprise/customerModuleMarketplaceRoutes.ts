@@ -4,11 +4,10 @@ import { canonicalCustomerModuleManifest, encodeCustomerModulePackageV1 } from '
 import {
   CustomerModuleMarketplace,
   handleCustomerModuleMarketplaceRequest,
-  SqliteCustomerModuleMarketplaceStore,
   submitCustomerModulePackage,
+  type CustomerModuleMarketplaceStore,
 } from '../modules/tool_skill_platform/index.js';
 import type { AccountView } from './db.js';
-import { getDB, getOrganizationFeatures } from './db.js';
 import type { AdminPrincipal } from './enterpriseRouteDispatcher.js';
 
 function platformSigner(market: CustomerModuleMarketplace) {
@@ -43,12 +42,14 @@ export async function handleCustomerModuleMarketplaceRoute(input: {
   res: ServerResponse;
   memberAccount: AccountView | null;
   adminPrincipal: AdminPrincipal | null;
+  store: CustomerModuleMarketplaceStore;
+  isSkillMarketEnabled(organizationId: string): boolean;
   readBody(req: IncomingMessage, maxLength?: number): Promise<Record<string, unknown>>;
   sendJSON(res: ServerResponse, status: number, data: unknown): void;
 }): Promise<boolean> {
   if (!input.path.startsWith('/enterprise/customer-modules')
     && !input.path.startsWith('/enterprise/platform/customer-modules')) return false;
-  if (input.memberAccount && !getOrganizationFeatures(input.memberAccount.organizationId).skill_market) {
+  if (input.memberAccount && !input.isSkillMarketEnabled(input.memberAccount.organizationId)) {
     input.sendJSON(input.res, 403, { error: '客户模块市场未授权或已由管理员关闭' });
     return true;
   }
@@ -58,7 +59,7 @@ export async function handleCustomerModuleMarketplaceRoute(input: {
       ? { accountId: 'platform', isPlatformReviewer: true }
       : null;
   const body = input.method === 'POST' ? await input.readBody(input.req, 24_000_000) : {};
-  const store = new SqliteCustomerModuleMarketplaceStore(getDB());
+  const store = input.store;
   const market = new CustomerModuleMarketplace(undefined, store);
   const packageMatch = input.path.match(/^\/enterprise\/customer-modules\/([a-z0-9.-]+)\/(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\/package$/u);
   if (packageMatch && input.method === 'GET') {

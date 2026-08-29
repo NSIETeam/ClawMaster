@@ -778,10 +778,11 @@ describe('受保护 vs 公开路由边界', () => {
       { method: 'POST', headers },
     );
     expect(backup.status).toBe(200);
+    const database = await import('./db.js');
     await expect(backup.json()).resolves.toMatchObject({
       lastError: null,
       backupCount: 1,
-      latestSchemaVersion: 22,
+      latestSchemaVersion: database.ENTERPRISE_SCHEMA_VERSION,
     });
 
     const telemetry = await fetch(`${base}/enterprise/deployment/telemetry`, {

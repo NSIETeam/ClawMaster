@@ -240,6 +240,7 @@ describe('model gateway composition', () => {
       listOrganizationAccounts: (organizationId) =>
         accounts.filter((candidate) => candidate.organizationId === organizationId),
       createId: () => `request-${++sequence}`,
+      now: () => Date.parse('2026-08-29T12:00:00Z'),
     });
 
     try {
