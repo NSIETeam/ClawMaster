@@ -209,6 +209,9 @@ const mockBridge = {
   },
   async openExternal(): Promise<void> {},
   async openPath(): Promise<void> {},
+  async getWorkspaceDirectories(): Promise<{ defaultPath: string; recentPaths: string[] }> {
+    return { defaultPath: '/Users/demo', recentPaths: ['/Users/demo'] };
+  },
   async writeClipboard(): Promise<boolean> { return true; },
   async saveTextFile(): Promise<string | null> { return null; },
   async feishuStart(): Promise<any> { return { text: '浏览器演示模式不启动飞书守护' }; },
@@ -220,6 +223,7 @@ const mockBridge = {
   async parkConfig(): Promise<any> { return null; },
   async themeGet(): Promise<string> { return 'system'; },
   async themeSet(value: string): Promise<string> { return value; },
+  async customerModuleInstalledList(): Promise<any[]> { return []; },
   async skillLeaderboard(): Promise<any> { return { leaderboard: '浏览器演示模式暂未接入排行榜。', starBoard: '', tabs: [] }; },
   async workLogToday(): Promise<any> { return { summary: '', date: new Date().toISOString().slice(0, 10), totalActions: 0, workResults: 0 }; },
   async workLogRecent(): Promise<any> { return []; },

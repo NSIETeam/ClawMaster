@@ -1549,7 +1549,7 @@ h6.otto-prose__h {
 .otto-account-editor footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 21px; padding-top: 15px; border-top: 1px solid var(--otto-border); }
 .otto-account-editor footer button { padding: 9px 15px; border: 1px solid var(--otto-border); border-radius: 9px; color: var(--otto-text-secondary); background: var(--otto-surface); font-size: 11px; cursor: pointer; }
 .otto-account-editor footer button.is-primary { border-color: #10241d; color: #effff5; background: #10241d; }
-.otto-account-editor footer button.is-danger { margin-right: auto; border-color: #cf6158; color: #a72e25; background: #fff5f3; }
+.otto-account-editor footer button.is-danger { margin-right: auto; border-color: color-mix(in srgb, var(--otto-danger) 55%, var(--otto-border)); color: var(--otto-danger); background: color-mix(in srgb, var(--otto-danger) 8%, var(--otto-surface)); }
 .otto-account-editor footer button.is-danger:hover:not(:disabled) { color: #fff; background: #b63d34; }
 .otto-account-editor footer button:disabled { opacity: .5; cursor: default; }
 .otto-account-editor__self { margin: 11px 0 0; color: var(--otto-text-tertiary); font-size: 10.5px; text-align: right; }
@@ -5141,6 +5141,7 @@ h6.otto-prose__h {
   width: 300px;
   min-width: 300px;
   height: 100%;
+  color-scheme: light dark;
   background: var(--otto-sidebar-bg);
   border-left: 1px solid var(--otto-border);
   display: flex;
@@ -8533,7 +8534,7 @@ h6.otto-prose__h {
   font-size: 10px;
 }
 .otto-direct-chat__presence::before { content: ''; width: 6px; height: 6px; border-radius: 999px; background: #94a3b8; }
-.otto-direct-chat__presence.is-online { color: #166534; background: #ecfdf5; }
+.otto-direct-chat__presence.is-online { color: var(--otto-success); background: color-mix(in srgb, var(--otto-success) 12%, var(--otto-surface)); }
 .otto-direct-chat__presence.is-online::before { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, .14); }
 .otto-direct-chat__icon,
 .otto-direct-chat__plus {
@@ -8694,7 +8695,7 @@ h6.otto-prose__h {
 }
 .otto-direct-chat__attachment-actions button:hover:not(:disabled) { border-color: var(--otto-accent); color: var(--otto-accent); }
 .otto-direct-chat__attachment-actions button:disabled { cursor: default; opacity: .55; }
-.otto-direct-chat__error { padding: 7px 12px; border-top: 1px solid var(--otto-border); color: var(--otto-danger); background: #fff5f5; font-size: 11px; }
+.otto-direct-chat__error { padding: 7px 12px; border-top: 1px solid var(--otto-border); color: var(--otto-danger); background: color-mix(in srgb, var(--otto-danger) 8%, var(--otto-surface)); font-size: 11px; }
 .otto-direct-chat__composer { display: grid; gap: 8px; padding: 11px 12px 12px; border-top: 1px solid var(--otto-border); background: var(--otto-surface); }
 .otto-direct-chat__composer.is-drag-over {
   background: color-mix(in srgb, var(--otto-accent-soft) 68%, var(--otto-surface));
@@ -8745,7 +8746,7 @@ h6.otto-prose__h {
   font-size: 16px;
   cursor: pointer;
 }
-.otto-direct-chat__pending-attachment > button:hover { color: var(--otto-danger); background: #fff1f2; }
+.otto-direct-chat__pending-attachment > button:hover { color: var(--otto-danger); background: color-mix(in srgb, var(--otto-danger) 10%, var(--otto-surface)); }
 .otto-direct-chat__attachment-status,
 .otto-direct-chat__attachment-error { grid-column: 1 / -1; font-size: 10px; }
 .otto-direct-chat__attachment-status { color: var(--otto-text-secondary); }
@@ -9074,7 +9075,7 @@ h6.otto-prose__h {
 .otto-product-member-info strong { font-size: 11px; }
 .otto-product-member-info span { color: var(--otto-text-tertiary); font-size: 9px; }
 .otto-hub__btn--sm { padding: 4px 10px; font-size: 10px; min-height: unset; flex-shrink: 0; }
-.otto-credit-warning { margin: 10px 0; padding: 8px; border-radius: 8px; background: var(--otto-warning-soft, #fff7ed); }
+.otto-credit-warning { margin: 10px 0; padding: 8px; border-radius: 8px; background: var(--otto-warning-soft, color-mix(in srgb, var(--otto-accent) 10%, var(--otto-surface))); }
 .otto-enterprise-models { display: grid; gap: 7px; }
 .otto-enterprise-model { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 12px; padding: 10px; border: 1px solid var(--otto-border); border-radius: 10px; }
 .otto-enterprise-model > div { display: flex; flex-direction: column; }
@@ -10530,6 +10531,95 @@ h6.otto-prose__h {
 
 .otto-auth-consent input {
   accent-color: #4f9bdf;
+}
+
+/* Login is a full product surface, not a fixed light illustration. Keep its blue
+   identity while following the same system appearance contract as the app. */
+@media (prefers-color-scheme: dark) {
+  .otto-auth-shell {
+    --auth-ink: var(--otto-text);
+    --auth-muted: var(--otto-text-secondary);
+    --auth-line: var(--otto-border);
+    --auth-night: var(--otto-bg);
+    background: var(--otto-bg);
+  }
+  .otto-auth-visual {
+    color: var(--otto-text);
+    background:
+      radial-gradient(circle at 72% 29%, rgba(49, 127, 212, .2), transparent 30%),
+      linear-gradient(145deg, var(--otto-sidebar-bg), var(--otto-bg));
+  }
+  .otto-auth-visual__aurora {
+    background: radial-gradient(ellipse, rgba(93, 166, 232, .2), transparent 68%);
+  }
+  .otto-auth-brand,
+  .otto-auth-visual__copy h1 > span:first-child,
+  .otto-auth-card h2,
+  .otto-auth-field > input,
+  .otto-auth-phone input,
+  .otto-auth-code input {
+    color: var(--otto-text);
+  }
+  .otto-auth-brand small,
+  .otto-auth-visual__copy p,
+  .otto-auth-trust,
+  .otto-auth-card__masthead small,
+  .otto-auth-card__intro,
+  .otto-auth-field,
+  .otto-auth-mode-switch,
+  .otto-auth-legal,
+  .otto-auth-consent,
+  .otto-auth-login-methods button {
+    color: var(--otto-text-secondary);
+  }
+  .otto-auth-brand__mark,
+  .otto-auth-mascot-stage__label {
+    background: color-mix(in srgb, var(--otto-surface-raised) 78%, transparent);
+  }
+  .otto-auth-panel {
+    background: var(--otto-bg);
+  }
+  .otto-auth-card,
+  .otto-auth-card--register {
+    --auth-line: var(--otto-border);
+    border-color: var(--otto-border);
+    color: var(--otto-text);
+    background: color-mix(in srgb, var(--otto-surface) 94%, transparent);
+    box-shadow: var(--otto-shadow-pop);
+  }
+  .otto-auth-card__masthead {
+    border-bottom-color: var(--otto-border);
+  }
+  .otto-auth-card__masthead strong {
+    color: var(--otto-text);
+  }
+  .otto-auth-card__topline,
+  .otto-auth-organization,
+  .otto-auth-code button {
+    border-color: color-mix(in srgb, var(--otto-accent) 28%, var(--otto-border));
+    color: var(--otto-accent-hover);
+    background: var(--otto-accent-soft);
+  }
+  .otto-auth-field > input,
+  .otto-auth-phone,
+  .otto-auth-code,
+  .otto-auth-login-methods {
+    border-color: var(--otto-border);
+    background: var(--otto-surface-raised);
+  }
+  .otto-auth-phone b {
+    border-right-color: var(--otto-border);
+    color: var(--otto-text-secondary);
+    background: var(--otto-surface);
+  }
+  .otto-auth-phone:focus-within,
+  .otto-auth-code:focus-within,
+  .otto-auth-field > input:focus,
+  .otto-auth-login-methods button[aria-pressed="true"] {
+    border-color: var(--otto-accent);
+    color: var(--otto-text);
+    background: var(--otto-surface);
+  }
 }
 
 @media (max-width: 900px) {

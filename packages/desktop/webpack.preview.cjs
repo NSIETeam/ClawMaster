@@ -21,6 +21,12 @@ module.exports = {
   },
   resolve: {
     extensions: ['.tsx', '.ts', '.jsx', '.js'],
+    alias: {
+      'react$': require.resolve('react', { paths: [__dirname] }),
+      'react-dom$': require.resolve('react-dom', { paths: [__dirname] }),
+      'react/jsx-runtime$': require.resolve('react/jsx-runtime', { paths: [__dirname] }),
+      'react/jsx-dev-runtime$': require.resolve('react/jsx-dev-runtime', { paths: [__dirname] }),
+    },
     extensionAlias: {
       '.js': ['.ts', '.tsx', '.js'],
       '.jsx': ['.tsx', '.jsx'],

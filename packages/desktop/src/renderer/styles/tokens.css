@@ -11,6 +11,7 @@
  */
 
 :root {
+  color-scheme: light dark;
   /* —— 表面 / 文字 —— */
   --otto-bg: #ffffff;
   --otto-sidebar-bg: #f5f5f7;

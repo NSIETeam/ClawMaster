@@ -276,6 +276,7 @@ const bridge = {
   parkConfig(): Promise<any> { return Promise.resolve(null); },
   themeGet(): Promise<string> { return Promise.resolve('dark'); },
   themeSet(): Promise<string> { return Promise.resolve('dark'); },
+  customerModuleInstalledList(): Promise<any[]> { return Promise.resolve([]); },
   skillLeaderboard(): Promise<any> { return Promise.resolve({ leaderboard: '{}', starBoard: '{}', tabs: [] }); },
   workLogToday(): Promise<any> { return Promise.resolve({ summary: '', date: '', totalActions: 0, workResults: 0 }); },
   workLogRecent(): Promise<any> { return Promise.resolve([]); },

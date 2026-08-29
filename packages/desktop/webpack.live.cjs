@@ -28,6 +28,10 @@ module.exports = {
     },
     // 浏览器环境不可用的 Node/Electron 模块 → 空 mock
     alias: {
+      'react$': require.resolve('react', { paths: [__dirname] }),
+      'react-dom$': require.resolve('react-dom', { paths: [__dirname] }),
+      'react/jsx-runtime$': require.resolve('react/jsx-runtime', { paths: [__dirname] }),
+      'react/jsx-dev-runtime$': require.resolve('react/jsx-dev-runtime', { paths: [__dirname] }),
       electron: false,
       'qrcode-terminal': false,
       // 浏览器模式下 node:fs / node:path 等 Node API 不可用 → 空 mock
