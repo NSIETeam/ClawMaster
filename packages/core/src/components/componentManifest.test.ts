@@ -73,4 +73,40 @@ describe('componentManifest', () => {
     expect(isKernelOwnedPath('packages\\core\\src\\policy\\centralPolicy.ts')).toBe(true);
     expect(isKernelOwnedPath('components/custom/tool.ts')).toBe(false);
   });
+
+  it('rejects entrypoints that escape the component or use absolute paths', () => {
+    const result = validateComponentManifest({
+      manifestVersion: 1,
+      id: 'vendor.unsafe-tool',
+      displayName: 'Unsafe tool',
+      version: '1.0.0',
+      kind: 'tool',
+      updateOwner: 'vendor',
+      entrypoints: {
+        tools: ['../packages/core/src/core/turn.ts', '/tmp/tool.ts'],
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain('project-relative paths');
+  });
+
+  it('rejects duplicate entrypoints and permissions', () => {
+    const result = validateComponentManifest({
+      manifestVersion: 1,
+      id: 'vendor.duplicate-tool',
+      displayName: 'Duplicate tool',
+      version: '1.0.0',
+      kind: 'tool',
+      updateOwner: 'vendor',
+      entrypoints: {
+        tools: ['components/vendor/tool.ts', 'components/vendor/tool.ts'],
+      },
+      permissions: ['filesystem:read', 'filesystem:read'],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain('entrypoints must not contain duplicate paths');
+    expect(result.errors).toContain('permissions must not contain duplicates');
+  });
 });

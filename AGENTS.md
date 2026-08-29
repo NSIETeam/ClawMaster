@@ -12,7 +12,9 @@ variables remain compatibility contracts until they are migrated deliberately:
 
 - Runtime kernel and tools in `packages/core`
 - Enterprise server in `packages/server`
-- Desktop/Electron app in `packages/desktop`
+- Desktop app in `packages/desktop`; Tauri v2 is the target shell and the
+  Electron main/preload implementation is a temporary compatibility baseline
+  until capability parity is verified
 
 The product goal is a mature agent runtime with a light kernel, strong module
 boundaries, safe defaults, observable behavior, and replaceable outer

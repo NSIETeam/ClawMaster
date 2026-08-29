@@ -71,6 +71,16 @@ The kernel owns these lifecycle-critical concerns:
 - Rule: locked enterprise kernels must be source-free compiled artifacts with SHA-256 integrity, detached signature, signing-key identity, component API version, and performance budget.
 - Rule: describe the guarantee as tamper-evident and reverse-engineering resistant; never promise that local software is impossible to inspect or crack.
 - **Architecture guide**: `docs/enterprise-component-architecture.md`
+- **Enforcement**: `npm run validate:boundaries` checks package imports and
+  external `components/` imports. The lifecycle files enumerated by the checker
+  cannot import React,
+  Electron, provider-specific adapters, or memory implementation internals.
+  External components must consume package public exports instead of
+  `packages/*/src/*` paths.
+- **Developer workflow**: create an isolated component with
+  `npm run component:new -- --id acme.weather --kind connector --name "ACME Weather"`.
+  The generator refuses overwrites and emits a versioned manifest plus a small
+  typed activation entrypoint.
 
 ### 3c. Product UX Contract
 

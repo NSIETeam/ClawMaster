@@ -75,6 +75,15 @@ function validateStringArray(
   return strings;
 }
 
+function isSafeProjectPath(value: string): boolean {
+  const normalized = value.replaceAll('\\', '/');
+  return !(
+    normalized.startsWith('/') ||
+    /^[a-zA-Z]:\//.test(normalized) ||
+    normalized.split('/').includes('..')
+  );
+}
+
 export function isKernelOwnedPath(path: string): boolean {
   const normalized = path.replaceAll('\\', '/').replace(/^\.\//, '');
   return KERNEL_PATH_PATTERNS.some((pattern) => pattern.test(normalized));
@@ -121,6 +130,14 @@ export function validateComponentManifest(value: unknown): ComponentManifestVali
       errors.push('entrypoints must declare at least one integration point');
     }
 
+    if (entrypointPaths.some((entrypoint) => !isSafeProjectPath(entrypoint))) {
+      errors.push('entrypoints must use safe project-relative paths without .. segments');
+    }
+
+    if (new Set(entrypointPaths).size !== entrypointPaths.length) {
+      errors.push('entrypoints must not contain duplicate paths');
+    }
+
     const kernelPaths = entrypointPaths.filter(isKernelOwnedPath);
     if (kernelPaths.length > 0 && value.updateOwner !== 'kernel') {
       errors.push(`organization/vendor components must not own kernel paths: ${kernelPaths.join(', ')}`);
@@ -128,6 +145,9 @@ export function validateComponentManifest(value: unknown): ComponentManifestVali
   }
 
   const permissions = validateStringArray(value.permissions, 'permissions', errors);
+  if (new Set(permissions).size !== permissions.length) {
+    errors.push('permissions must not contain duplicates');
+  }
   if ((value.kind === 'connector' || value.kind === 'runtime') && permissions.length === 0) {
     warnings.push(`${value.kind} components should declare permissions for enterprise review`);
   }

@@ -84,6 +84,16 @@ Current migration status:
 
 Optional components use the versioned `OttoComponentManifest` contract from `packages/core/src/components/componentManifest.ts`.
 
+Create a new component without copying an existing implementation:
+
+```bash
+npm run component:new -- --id acme.weather --kind connector --name "ACME Weather"
+```
+
+This creates `components/acme.weather/` with a manifest, typed activation
+entrypoint, and local README. The boundary validator scans this directory and
+rejects imports from package `src` internals, so components remain replaceable.
+
 Minimum shape:
 
 ```json

@@ -4,7 +4,7 @@ ClawMaster 是基于 Otto 成熟运行时演进的桌面优先 AI coworker / cod
 
 > 当前代码基线来自 `NSIETeam/otto-new` 的 `internal` 分支提交 `6a7c23d`，以源码快照导入，不包含上游 Git 历史。
 
-当前开发分支：`main` · 当前包版本：`1.15.3`
+当前开发分支：`main` · 当前包版本：`0.0.1-preview`
 
 ## 现在能做什么
 
@@ -18,13 +18,13 @@ ClawMaster 是基于 Otto 成熟运行时演进的桌面优先 AI coworker / cod
 
 ## 产品边界
 
-ClawMaster 是一个 npm workspaces monorepo，正式桌面入口是 Electron；服务端既支持本地会话服务，也承载企业 HTTP/WebSocket 能力。
+ClawMaster 是一个 npm workspaces monorepo，桌面壳正在从 Electron 迁移到 Tauri v2；服务端既支持本地会话服务，也承载企业 HTTP/WebSocket 能力。迁移期间 Electron main/preload 仅作为行为兼容基线，在连接、消息流、事件订阅及高风险操作策略链达到等价前不会提前删除。
 
 | 包 | 职责 |
 | --- | --- |
 | `packages/core` | Agent runtime、模型与提示词、工具、MCP、技能、记忆、策略、会话和子 agent 生命周期 |
 | `packages/server` | 本地/企业服务、HTTP/WebSocket 协议、企业数据与鉴权、模型配置、飞书桥接 |
-| `packages/desktop` | Electron main/preload/renderer、桌面交互、设置与诊断、文档工作区 |
+| `packages/desktop` | Tauri v2 目标壳、React renderer，以及迁移期 Electron 兼容实现；承载桌面交互、设置与诊断、文档工作区 |
 | `otto-native` | Rust 原生热路径绑定：agent pool、tokenizer、session store 与加密相关能力 |
 
 内核只拥有回合生命周期、工具调度、确认与策略、审计事件、模型路由、内存接口和检查点协调。UI、企业业务、供应商适配器、连接器和长期存储实现必须留在边界之外。完整规则见 [runtime kernel boundary](docs/runtime-kernel-boundary.md)。

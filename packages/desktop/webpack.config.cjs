@@ -5,13 +5,11 @@
  */
 
 /**
- * Renderer 构建链（独立的 Electron renderer webpack@react18 范式）。
+ * Renderer 构建链（Tauri WebView / 普通浏览器 webpack@react18 范式）。
  *
  * 与历史 webview 构建的关键差异：
- *   - target: 'electron-renderer'（而非 'web'）—— renderer 跑在 Electron。
- *   - 自带 html-webpack-plugin 产出 index.html（webview 当年由 VSCode host 注入，
- *     移植到 Electron 必须自产；交付文档 [WEBVIEW] §1 已点明）。
- *   - 不 external 'vscode'（Electron 无 vscode；host-only 命令经 preload 桩掉）。
+ * Tauri 不提供 Node/Electron renderer globals，因此输出必须是标准 web bundle。
+ * host-only 能力由独立的 Tauri bridge 注入，React renderer 仍输出到 dist/renderer。
  */
 
 const path = require('path');
@@ -21,7 +19,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 module.exports = (_env, argv) => {
   const isProd = (argv && argv.mode) === 'production';
   return {
-    target: 'electron-renderer',
+    target: 'web',
     entry: path.resolve(__dirname, 'src/renderer/index.tsx'),
     output: {
       path: path.resolve(__dirname, 'dist/renderer'),

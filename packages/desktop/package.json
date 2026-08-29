@@ -1,7 +1,7 @@
 {
   "name": "clawmaster-desktop",
-  "version": "1.15.3",
-  "description": "ClawMaster Desktop - Electron app shell for the ClawMaster agent runtime",
+  "version": "0.0.1-preview",
+  "description": "ClawMaster Desktop app shell for the ClawMaster agent runtime",
   "author": "NSIETeam",
   "license": "Apache-2.0",
   "private": true,
@@ -13,6 +13,8 @@
     "build:preload": "tsc -p tsconfig.preload.json --noEmit && webpack-cli --config webpack.preload.cjs --mode production && node scripts/verify-preload-bundle.mjs",
     "build:renderer": "webpack-cli --config webpack.config.cjs --mode production",
     "build": "npm run build:main && npm run build:preload && npm run build:renderer",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
     "dev:renderer": "webpack-cli --config webpack.config.cjs --mode development --watch",
     "start": "electron .",
     "runtime:verify:mac": "node scripts/verify-document-runtime.mjs --target darwin-arm64 --target darwin-x64",
@@ -44,6 +46,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
     "@testing-library/react": "^16.3.1",
     "@types/node": "^26.1.0",
     "@types/qrcode-terminal": "^0.12.2",

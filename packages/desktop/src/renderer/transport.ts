@@ -21,6 +21,7 @@ import type {
   SessionSummary,
 } from 'otto-server';
 import type { OttoBridge } from '../preload/index.js';
+import { getHostBridge } from './hostBridge.js';
 
 declare global {
   interface Window {
@@ -36,17 +37,17 @@ export type MenuHandler = (action: string) => void;
 
 /** 连接到本地 server（preload 已持有端点）。 */
 export async function connect(): Promise<boolean> {
-  return window.otto.connect();
+  return getHostBridge().connect();
 }
 
 /** 发一帧。 */
 export function send(frame: ClientToServer): void {
-  window.otto.send(frame);
+  getHostBridge().send(frame);
 }
 
 /** 订阅入站帧。 */
 export function onFrame(handler: FrameHandler): () => void {
-  return window.otto.onFrame(handler);
+  return getHostBridge().onFrame(handler);
 }
 
 /**
@@ -55,11 +56,11 @@ export function onFrame(handler: FrameHandler): () => void {
  * preload 会在注册时立即以当前状态回调一次。
  */
 export function onConnectionChange(handler: ConnectionHandler): () => void {
-  return window.otto.onConnectionChange(handler);
+  return getHostBridge().onConnectionChange(handler);
 }
 
 export function isConnected(): boolean {
-  return window.otto.isConnected();
+  return getHostBridge().isConnected();
 }
 
 /**
@@ -67,12 +68,12 @@ export function isConnected(): boolean {
  * 返回取消订阅函数。透传封装：App 经此订阅，不直接碰 window.otto。
  */
 export function onMenu(handler: MenuHandler): () => void {
-  return window.otto.onMenu(handler);
+  return getHostBridge().onMenu(handler);
 }
 
 /** host-only：用系统浏览器打开外链（斜杠命令 /hooks 等）。透传封装，不直接碰 window.otto。 */
 export function openExternal(url: string): Promise<void> {
-  return window.otto.openExternal(url);
+  return getHostBridge().openExternal(url);
 }
 
 // ── 便捷封装（实装可直接用，也可由 webview service 自行组装）──

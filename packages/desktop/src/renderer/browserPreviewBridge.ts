@@ -349,7 +349,7 @@ if (!previewWindow.otto) {
     notificationShow: () => Promise.resolve(),
     notificationMarkRead: () => Promise.resolve(),
     notificationGetUnread: () => Promise.resolve([]),
-    appVersion: () => Promise.resolve('1.10.1-browser-preview'),
+    appVersion: () => Promise.resolve('0.0.1-preview-browser-preview'),
     getWorkspaceDirectories: () => Promise.resolve({
       defaultPath: '/Users/demo',
       recentPaths: ['/Users/demo'],
@@ -372,7 +372,7 @@ if (!previewWindow.otto) {
     updateCheck: () =>
       Promise.resolve({
         status: 'up-to-date',
-        currentVersion: '1.10.1',
+        currentVersion: '0.0.1-preview',
         latestVersion: null,
       }),
     updateDownload: () =>
