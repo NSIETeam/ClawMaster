@@ -1,0 +1,344 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
+ * Otto Core — the runtime kernel and shared library.
+ *
+ * ## Kernel Boundary
+ *
+ * The kernel boundary is documented in {@link ../../docs/runtime-kernel-boundary.md | docs/runtime-kernel-boundary.md}.
+ *
+ * Quick rules:
+ * - Kernel files live under `src/core/` (client, turn, toolExecutionEngine, …)
+ * - Kernel files MUST NOT import from `react`, `ink`, `electron`, `../ui/`, `../../desktop/`, `../../cli/`, `../../server/`, `../ide/`, or `../lsp/`
+ * - The boundary is enforced by {@link ./core/kernelBoundary.test.ts | kernelBoundary.test.ts}
+ *
+ * @module otto-core
+ */
+
+// Export config
+export * from './config/config.js';
+export * from './config/agent-loop-context.js';
+export * from './policy/policy-engine.js';
+export * from './policy/policy-updater.js';
+export * from './policy/financialComputationPolicy.js';
+export * from './confirmation-bus/message-bus.js';
+export * from './config/projectSettings.js';
+export * from './config/messageRoles.js';
+export * from './config/serverConfig.js';
+export * from './config/proxyConfig.js';
+export * from './config/modelCapabilities.js';
+export {
+  FEATURE_FLAGS,
+  FeatureFlagManager,
+  type FeatureFlagChangeCallback,
+} from './config/featureFlags.js';
+
+// Export extended types
+export * from './types/extendedContent.js';
+export * from './types/customModel.js';
+
+// Export Core Logic
+export * from './core/client.js';
+export * from './core/contentGenerator.js';
+export * from './core/customModelProviderContract.js';
+export * from './core/ottoChat.js';
+export * from './core/logger.js';
+export * from './core/prompts.js';
+export * from './core/tokenLimits.js';
+export * from './core/modelConfig.js';
+export * from './core/turn.js';
+export * from './core/turnCheckpoint.js';
+export * from './core/invalidStreamError.js';
+export * from './core/ottoRequest.js';
+export * from './core/coreToolScheduler.js';
+export * from './core/nonInteractiveToolExecutor.js';
+export * from './tools/task.js';
+export * from './core/subAgent.js';
+export * from './core/agentResourceBudget.js';
+export * from './core/agentMemoryStats.js';
+export * from './components/componentManifest.js';
+export * from './kernel/kernelDistributionManifest.js';
+export * from './native/nativeCoreBridge.js';
+export * from './native/nativeAgentPoolRuntime.js';
+export * from './native/nativeSessionStoreRuntime.js';
+export * from './native/nativeTokenizerRuntime.js';
+export * from './native/nativeHotPaths.js';
+export * from './ux/agentExperienceContract.js';
+export * from './core/proxyAuth.js';
+export * from './core/toolSchedulerAdapter.js';
+export { ToolExecutionEngine } from './core/toolExecutionEngine.js';
+export * from './core/mainAgentAdapter.js';
+export * from './core/subAgentAdapter.js';
+export * from './core/sceneManager.js';
+export * from './core/imageGenerator.js';
+export * from './core/workflowRegistry.js';
+export * from './a2a/atoaProtocol.js';
+
+export * from './code_assist/codeAssist.js';
+// clearCachedCredentialFile removed with OAuth2 - no longer needed for Otto custom-model auth
+// OAuth2 module removed - only Otto custom-model authentication supported
+export * from './code_assist/server.js';
+export * from './code_assist/types.js';
+export * from './code_assist/inlineCompletion.js';
+
+// Export utilities
+export * from './utils/paths.js';
+export * from './utils/userAgent.js';
+export * from './utils/schemaValidator.js';
+export * from './utils/errors.js';
+export * from './utils/httpErrorFallback.js';
+export * from './utils/getFolderStructure.js';
+export * from './utils/memoryDiscovery.js';
+export * from './utils/gitIgnoreParser.js';
+export * from './utils/editor.js';
+export * from './utils/quotaErrorDetection.js';
+export * from './utils/fileUtils.js';
+export * from './utils/editableDocument.js';
+export * from './utils/retry.js';
+export * from './utils/functionCallValidator.js';
+export * from './utils/modelDiagnostics.js';
+export * from './utils/logging.js';
+export * from './utils/pathUtils.js';
+export * from './utils/healthyUseReminderState.js';
+export * from './utils/constants.js';
+export * from './utils/stdio.js';
+export * from './utils/version.js';
+export * from './utils/events.js';
+export * from './utils/sessionUtils.js';
+export * from './utils/sessionSelector.js';
+export * from './utils/goalContinuationPrompt.js';
+
+export * from './utils/enhancedLogger.js';
+
+// Export environment detection utilities
+export * from './utils/environment/index.js';
+
+// Export auth
+export * from './auth/authenticatedHttpClient.js';
+export * from './auth/authNavigator.js';
+export * from './auth/login/authServer.js';
+export * from './auth/login/ottoAuth.js';
+export * from './auth/login/templates/index.js';
+// Explicitly export AuthServer class
+export { AuthServer } from './auth/login/authServer.js';
+
+// Export services
+export * from './services/fileDiscoveryService.js';
+export * from './services/fileSystemService.js';
+export * from './services/gitService.js';
+export * from './services/sessionManager.js';
+export { TaskWatchdog, getTaskWatchdog, resetTaskWatchdog } from './services/taskWatchdog.js';
+export type { WatchdogConfig, WatchdogState, WatchdogStatus, WatchdogCallbacks } from './services/taskWatchdog.js';
+export * from './services/mcpResponseGuard.js';
+export * from './services/fileOperationQueue.js';
+export * from './services/backgroundTaskManager.js';
+export * from './services/backgroundModeSignal.js';
+export * from './services/recurringTaskRegistry.js';
+export * from './services/doctor.js';
+export * from './services/diagnosticBundle.js';
+export * from './services/bundledRuntime.js';
+export * from './services/sessionCheckpoint.js';
+export * from './services/taskWatchdog.js';
+export * from './services/memoryPressureMonitor.js';
+export { formatClaudeCodeTaskResult, isAcpDelegateTask } from './tools/delegate-agent.js';
+export {
+  CacheSafeParamsStore,
+  type CacheSafeParams,
+} from './services/cacheSafeParams.js';
+export {
+  runForkedAgent,
+  type RunForkedAgentOptions,
+  type RunForkedAgentResult,
+} from './agents/runForkedAgent.js';
+export {
+  runSideQuestion,
+  SIDE_QUESTION_SYSTEM_PROMPT,
+  type RunSideQuestionOptions,
+  type RunSideQuestionResult,
+} from './agents/runSideQuestion.js';
+export {
+  EXTERNAL_AGENT_TYPES,
+  isExternalAgentType,
+  resolveExternalAgentSpec,
+  type ExternalAgentType,
+  type ExternalAgentSpec,
+} from './acp-client/externalAgentRegistry.js';
+export {
+  runDelegatedTask,
+  type RunTaskOptions,
+  type DelegateResult,
+  type DelegateStatus,
+  type DelegateProgress,
+  type DelegatePlanEntry,
+} from './acp-client/acpAgentClient.js';
+export {
+  listExternalSessions,
+  type ExternalSessionDescriptor,
+  type ListExternalSessionsOptions,
+  type ListExternalSessionsResult,
+} from './acp-client/sessionDiscovery.js';
+
+// Export IDE specific logic
+export * from './ide/ide-client.js';
+export * from './ide/ideContext.js';
+
+// Export hooks
+export * from './hooks/types.js';
+
+// Export base tool definitions
+export * from './tools/tools.js';
+export * from './tools/tool-registry.js';
+export * from './tools/toolStatusSummary.js';
+export * from './tools/local-schedule.js';
+export * from './resources/resource-registry.js';
+
+// Export prompt logic
+export * from './prompts/mcp-prompts.js';
+
+// Export specific tool logic
+export * from './tools/read-file.js';
+export * from './tools/ls.js';
+export * from './tools/grep.js';
+export * from './tools/glob.js';
+export * from './tools/edit.js';
+export * from './tools/write-file.js';
+export * from './tools/web-fetch.js';
+export * from './tools/memoryTool.js';
+export * from './memory/memoryProvider.js';
+export * from './memory/mem0Adapter.js';
+export * from './memory/codebaseMemoryTypes.js';
+export * from './memory/codebaseMemoryProvider.js';
+export * from './memory/orgMemoryTypes.js';
+export * from './memory/orgMemoryStore.js';
+export * from './memory/permissionChecker.js';
+export * from './memory/skillFormation.js';
+export * from './tools/shell.js';
+export * from './tools/web-search.js';
+export * from './tools/web-search-runtime.js';
+export * from './tools/image-reader.js';
+export * from './tools/audio-reader.js';
+export * from './tools/video-analyzer.js';
+export * from './tools/self-update.js';
+export * from './tools/read-many-files.js';
+export * from './tools/read-lints.js';
+export * from './tools/lint-fix.js';
+export * from './tools/ask-user-question.js';
+export * from './tools/local-time.js';
+export * from './tools/goal-achieved.js';
+export * from './tools/mcp-client.js';
+export * from './tools/mcp-tool.js';
+export * from './tools/todo-store.js';
+
+// PPT tools
+export * from './tools/ppt/index.js';
+
+// Session 处理
+export {
+  OttoSessionManager,
+  getSessionManager,
+} from './sessions/index.js';
+export type {
+  SessionMeta,
+  SessionStatus,
+  SplitStrategy,
+  MergeStrategy as MergeSessionStrategy,
+  SessionRoutingRule,
+  ContextBridge,
+  SessionManagerConfig,
+} from './sessions/index.js';
+export {
+  SessionCheckpointService,
+  getCheckpointService,
+  resetCheckpointService,
+} from './sessions/sessionCheckpointService.js';
+export type {
+  SessionCheckpoint,
+  CheckpointStatus,
+  ResumeResult,
+} from './sessions/sessionCheckpointService.js';
+
+// 任务插入引擎
+export * from './insertion/index.js';
+
+// 记忆自动合并分割
+export type {
+  MemoryEntry,
+  MergeSuggestion,
+  SplitSuggestion,
+  MemoryCompressionResult,
+  MemoryStats,
+  AutoMemoryEngineConfig,
+} from './memory/autoMerge.js';
+export {
+  AutoMemoryEngine,
+  getAutoMemoryEngine,
+} from './memory/autoMerge.js';
+
+// Otto Enterprise 能力工具
+export * from './tools/desktop-automation.js';
+export * from './tools/convert-document.js';
+export * from './tools/generate-document.js';
+export * from './tools/analyze-data.js';
+export * from './tools/diagnose-system.js';
+export * from './tools/web-automation.js';
+export * from './tools/memory-manager.js';
+export * from './orchestration/index.js';
+export * from './tools/voice-bridge.js';
+export * from './tools/doctor.js';
+export * from './tools/enterprise-collaboration.js';
+export * from './a2a/federationAtoaProtocol.js';
+
+// 多渠道通知服务
+export { NotificationService, getNotificationService } from './services/notificationService.js';
+export type { NotificationRecord, NotificationPriority, NotificationChannel, EscalationPolicy, FeishuNotifySender, SmsNotifySender } from './services/notificationService.js';
+export {
+  AliyunSmsAuthenticationSender,
+  AliyunSmsSender,
+  createAliyunLoginSmsFromEnv,
+  createAliyunSmsFromEnv,
+} from './services/aliyunSmsSender.js';
+export type { AliyunSmsConfig, SmsSendResult } from './services/aliyunSmsSender.js';
+
+// 个人知识库（本地，无企业授权可用）
+export * from './tools/knowledge-base.js';
+export * from './knowledge/localKnowledgeStore.js';
+export * from './knowledge/knowledgeCapture.js';
+export {
+  KnowledgeCapturePipeline as LocalKnowledgeCapturePipeline,
+  getKnowledgeCapturePipeline as getLocalKnowledgeCapturePipeline,
+  resetKnowledgeCapturePipeline as resetLocalKnowledgeCapturePipeline,
+} from './knowledge/knowledgeCapturePipeline.js';
+export type {
+  KnowledgeCaptureStats as LocalKnowledgeCaptureStats,
+  PipelineRunResult as LocalPipelineRunResult,
+} from './knowledge/knowledgeCapturePipeline.js';
+
+// MCP OAuth
+export { MCPOAuthProvider } from './mcp/oauth-provider.js';
+export {
+  MCPOAuthToken,
+  MCPOAuthCredentials,
+  MCPOAuthTokenStorage,
+} from './mcp/oauth-token-storage.js';
+export type { MCPOAuthConfig } from './mcp/oauth-provider.js';
+export type {
+  OAuthAuthorizationServerMetadata,
+  OAuthProtectedResourceMetadata,
+} from './mcp/oauth-utils.js';
+export { OAuthUtils } from './mcp/oauth-utils.js';
+
+// Export telemetry functions
+export * from './telemetry/index.js';
+export { sessionId, getSessionId, setSessionId, resetSessionId } from './utils/session.js';
+export * from './utils/browser.js';
+
+// Export skills system (consolidated from cli package)
+export * from './skills/index.js';
+export * from './customer-modules/index.js';
+
+// Export ACP-facing command helpers
+export * as AcpCommands from './commands/index.js';

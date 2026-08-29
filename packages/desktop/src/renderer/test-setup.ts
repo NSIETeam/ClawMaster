@@ -1,0 +1,68 @@
+/**
+ * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ */
+
+import { beforeEach, vi } from 'vitest';
+import { configure } from '@testing-library/dom';
+
+// Full desktop runs exercise more than two hundred files in parallel. Give
+// async React effects enough time to settle on slower CI/Windows machines.
+configure({ asyncUtilTimeout: 3_000 });
+
+beforeEach(() => {
+  const existing = window.otto ?? {};
+  Object.defineProperty(window, 'otto', {
+    configurable: true,
+    writable: true,
+    value: {
+      ...existing,
+      send: vi.fn(),
+      authorizeFileForAttachment: vi.fn(async (file: File) => `/tmp/${file.name}`),
+      enterpriseOrganizationView: vi.fn(async () => ({
+        organization: null,
+        members: [],
+        employeeCount: 0,
+      })),
+      enterprisePresenceHeartbeat: vi.fn(async () => undefined),
+      enterpriseMessagesList: vi.fn(async () => []),
+      enterpriseMessagesUnread: vi.fn(async () => []),
+      enterpriseFederationContactCode: vi.fn(async () => ''),
+      enterpriseFederationContactImport: vi.fn(async () => {
+        throw new Error('federation contact import is not configured in this test');
+      }),
+      enterpriseFederationContacts: vi.fn(async () => []),
+      enterpriseFederationContactRemove: vi.fn(async () => false),
+      enterpriseFederationMessagesList: vi.fn(async () => []),
+      enterpriseFederationMessageSend: vi.fn(async () => {
+        throw new Error('federation message send is not configured in this test');
+      }),
+      enterpriseFederationContactVerification: vi.fn(async () => {
+        throw new Error('federation verification is not configured in this test');
+      }),
+      enterpriseFederationContactVerify: vi.fn(async () => {
+        throw new Error('federation verification is not configured in this test');
+      }),
+      enterpriseMessageSend: vi.fn(async (_peerAccountId: string, content: string) => ({
+        id: 'msg_test',
+        senderAccountId: 'me',
+        recipientAccountId: 'peer',
+        content,
+        createdAt: new Date(0).toISOString(),
+        readAt: null,
+      })),
+      enterpriseAtoaInbox: vi.fn(async () => []),
+      enterpriseFederationAtoaTasks: vi.fn(async () => []),
+      enterpriseFederationAtoaApprove: vi.fn(),
+      enterpriseFederationAtoaDeny: vi.fn(),
+      enterpriseFederationAtoaDispatch: vi.fn(),
+      enterpriseFederationAtoaRespond: vi.fn(),
+      workLogToday: vi.fn(async () => ({
+        summary: '',
+        date: new Date(0).toISOString().slice(0, 10),
+        totalActions: 0,
+        workResults: 0,
+      })),
+      workLogRecent: vi.fn(async () => []),
+    } as unknown as Window['otto'],
+  });
+});

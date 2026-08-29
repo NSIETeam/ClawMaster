@@ -1,0 +1,460 @@
+/**
+ * @license
+ * Copyright 2025 Otto
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
+ * ToolCalls · AskUserQuestion 问答卡单测：
+ *   工具卡在 awaiting_approval + confirmationDetails.type==='question' 时，整卡
+ *   替换成交互式问答卡。验证选项作答、Other 自由文本、提交 payload、跳过路径。
+ *   这是「答案能不能正确回传」的前端保证——server 侧闸门由 runtime.test.ts 覆盖。
+ */
+
+import { describe, it, expect, vi } from 'vitest';
+import { render, fireEvent, screen } from '@testing-library/react';
+import type { ToolCall } from 'otto-server';
+import { buildToolCompletionSummary, ToolCallsCard } from './ToolCalls.js';
+
+/** 造一张待作答的 ask_user_question 工具卡。 */
+function questionCard(overrides: Partial<ToolCall> = {}): ToolCall {
+  return {
+    id: 'call-1',
+    toolName: 'ask_user_question',
+    parameters: {},
+    status: 'awaiting_approval' as ToolCall['status'],
+    confirmationDetails: {
+      type: 'question',
+      title: '需要你确认',
+      questions: [
+        {
+          question: '选哪个？',
+          header: '选择',
+          options: [
+            { label: 'A 方案', description: '甲' },
+            { label: 'B 方案', description: '乙' },
+          ],
+        },
+      ],
+    },
+    ...overrides,
+  };
+}
+
+describe('ToolCalls · 空正文的确定性总结', () => {
+  it('失败时说明卡在哪一步和原因', () => {
+    const summary = buildToolCompletionSummary([
+      {
+        id: 'read-1',
+        toolName: 'read_file',
+        parameters: { absolute_path: '/tmp/report.pdf' },
+        status: 'success' as ToolCall['status'],
+      },
+      {
+        id: 'exec-1',
+        toolName: 'run_shell_command',
+        parameters: { command: 'npm run build' },
+        status: 'error' as ToolCall['status'],
+        result: {
+          success: false,
+          error: '缺少 TypeScript 依赖',
+          executionTime: 12,
+          toolName: 'run_shell_command',
+        },
+      },
+    ]);
+
+    expect(summary).toContain('构建项目（npm run build）没有完成');
+    expect(summary).toContain('缺少 TypeScript 依赖');
+    expect(summary).toContain('已完成：查看相关资料（PDF：report.pdf）');
+  });
+
+  it('全部完成时用自然结果句，不机械汇报步骤数', () => {
+    const summary = buildToolCompletionSummary([
+      {
+        id: 'read-1',
+        toolName: 'read_file',
+        parameters: { absolute_path: '/tmp/report.pdf' },
+        status: 'success' as ToolCall['status'],
+      },
+      {
+        id: 'exec-1',
+        toolName: 'run_shell_command',
+        parameters: { command: 'npm run build' },
+        status: 'success' as ToolCall['status'],
+      },
+    ]);
+
+    expect(summary).toBe('查看相关资料（PDF：report.pdf）、构建项目（npm run build）已完成。');
+    expect(summary).not.toContain('步骤');
+  });
+
+  it('最多列出 3 个关键步骤，避免长工具链刷屏', () => {
+    const tools = Array.from({ length: 4 }, (_, index): ToolCall => ({
+      id: `tool-${index + 1}`,
+      toolName: 'read_file',
+      parameters: { absolute_path: `/tmp/file-${index + 1}.txt` },
+      status: 'success' as ToolCall['status'],
+    }));
+
+    const summary = buildToolCompletionSummary(tools);
+    expect(summary).toContain('file-1.txt');
+    expect(summary).toContain('file-3.txt');
+    expect(summary).not.toContain('file-4.txt');
+    expect(summary).toContain('主要处理了');
+  });
+
+  it('工具区域标题展示自然语言进度，不暴露原始工具名', () => {
+    render(
+      <ToolCallsCard
+        toolCalls={[{
+          id: 'read-1',
+          toolName: 'read_file',
+          parameters: { absolute_path: '/tmp/report.pdf' },
+          status: 'executing' as ToolCall['status'],
+        }]}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /正在查看相关资料：PDF：report.pdf/ })).toBeTruthy();
+    expect(screen.queryByText(/调用了/)).toBeNull();
+    expect(screen.queryByText('read_file')).toBeNull();
+  });
+
+  it('识别常见命令意图，标题直接说明正在做什么', () => {
+    render(
+      <ToolCallsCard
+        toolCalls={[{
+          id: 'test-1',
+          toolName: 'run_shell_command',
+          parameters: { command: 'npx vitest run src/foo.test.ts' },
+          status: 'executing' as ToolCall['status'],
+        }]}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /正在运行测试/ })).toBeTruthy();
+    expect(screen.getByText('运行测试')).toBeTruthy();
+  });
+
+  it('文件目标显示成更短的业务对象，而不是整段路径', () => {
+    render(
+      <ToolCallsCard
+        toolCalls={[{
+          id: 'code-1',
+          toolName: 'read_file',
+          parameters: { absolute_path: 'D:/otto/otto-repo/packages/core/src/core/client.ts' },
+          status: 'success' as ToolCall['status'],
+        }]}
+      />,
+    );
+
+    expect(screen.getByText('代码文件：client.ts')).toBeTruthy();
+  });
+
+  it('把 RPA 的未知结果明确展示为需要人工接管，而不是已完成', () => {
+    render(
+      <ToolCallsCard
+        toolCalls={[{
+          id: 'rpa-1',
+          toolName: 'rpa_run',
+          parameters: { action: 'recover', run_id: 'rpa-00000000-0000-0000-0000-000000000000' },
+          status: 'success' as ToolCall['status'],
+          result: {
+            success: true,
+            data: 'rpa_run OK: {"state":"unknown_outcome"}',
+            executionTime: 10,
+            toolName: 'rpa_run',
+          },
+        }]}
+      />,
+    );
+
+    expect(screen.getByText('网页自动化流程')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toContain('不会自动重试');
+    expect(screen.queryByText('已完成：网页自动化流程')).toBeNull();
+  });
+
+  it('Bash 结果提供可用的复制按钮并写入系统剪贴板', async () => {
+    const writeClipboard = vi.fn(async () => true);
+    Object.defineProperty(window, 'otto', {
+      configurable: true,
+      value: { writeClipboard },
+    });
+    render(
+      <ToolCallsCard
+        toolCalls={[{
+          id: 'bash-copy-1',
+          toolName: 'run_shell_command',
+          parameters: { command: 'npm test' },
+          status: 'success' as ToolCall['status'],
+          result: {
+            success: true,
+            data: '测试输出\n全部通过',
+            executionTime: 10,
+            toolName: 'run_shell_command',
+          },
+        }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '复制结果' }));
+    await vi.waitFor(() => expect(writeClipboard).toHaveBeenCalledWith('测试输出\n全部通过'));
+    expect(await screen.findByRole('button', { name: '已复制' })).toBeTruthy();
+  });
+});
+
+describe('ToolCalls · AskUserQuestion 问答卡', () => {
+  it('渲染问题与选项，选中后提交回传正确 answers', () => {
+    const onRespond = vi.fn();
+    render(
+      <ToolCallsCard
+        toolCalls={[questionCard()]}
+        onRespondQuestion={onRespond}
+      />,
+    );
+
+    // 问题文本与两个选项 + 自动追加的 Other 都在。
+    expect(screen.getByText('选哪个？')).toBeTruthy();
+    expect(screen.getByText('A 方案')).toBeTruthy();
+    expect(screen.getByText('B 方案')).toBeTruthy();
+    expect(screen.getByText('Other')).toBeTruthy();
+
+    // 未作答时提交禁用。
+    const submit = screen.getByRole('button', { name: '提交' });
+    expect((submit as HTMLButtonElement).disabled).toBe(true);
+
+    // 选 A 方案 → 提交启用 → 点击回传。
+    fireEvent.click(screen.getByText('A 方案'));
+    expect((submit as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(submit);
+
+    expect(onRespond).toHaveBeenCalledTimes(1);
+    expect(onRespond).toHaveBeenCalledWith('call-1', 'approved', {
+      answers: { '选哪个？': 'A 方案' },
+    });
+  });
+
+  it('选 Other → 输入自由文本 → 提交用输入内容作答', () => {
+    const onRespond = vi.fn();
+    render(
+      <ToolCallsCard
+        toolCalls={[questionCard()]}
+        onRespondQuestion={onRespond}
+      />,
+    );
+
+    // 选 Other 前无输入框；选中后出现。
+    fireEvent.click(screen.getByText('Other'));
+    const input = screen.getByPlaceholderText('输入你的回答…') as HTMLInputElement;
+    expect(input).toBeTruthy();
+
+    // Other 选中但为空时不可提交。
+    const submit = screen.getByRole('button', { name: '提交' });
+    expect((submit as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.change(input, { target: { value: 'C 自定义' } });
+    expect((submit as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(submit);
+
+    expect(onRespond).toHaveBeenCalledWith('call-1', 'approved', {
+      answers: { '选哪个？': 'C 自定义' },
+    });
+  });
+
+  it('跳过 → 以 rejected 回传（不带答案）', () => {
+    const onRespond = vi.fn();
+    render(
+      <ToolCallsCard
+        toolCalls={[questionCard()]}
+        onRespondQuestion={onRespond}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '跳过' }));
+    expect(onRespond).toHaveBeenCalledWith('call-1', 'rejected');
+  });
+
+  it('多选题：选中多项，提交以逗号连接答案', () => {
+    const onRespond = vi.fn();
+    render(
+      <ToolCallsCard
+        toolCalls={[
+          questionCard({
+            confirmationDetails: {
+              type: 'question',
+              title: 't',
+              questions: [
+                {
+                  question: '要哪些？',
+                  header: '多选',
+                  multiSelect: true,
+                  options: [
+                    { label: '甲', description: '' },
+                    { label: '乙', description: '' },
+                    { label: '丙', description: '' },
+                  ],
+                },
+              ],
+            },
+          }),
+        ]}
+        onRespondQuestion={onRespond}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('甲'));
+    fireEvent.click(screen.getByText('丙'));
+    fireEvent.click(screen.getByRole('button', { name: '提交' }));
+
+    expect(onRespond).toHaveBeenCalledWith('call-1', 'approved', {
+      answers: { '要哪些？': '甲, 丙' },
+    });
+  });
+
+  it('提交后进入已提交态，按钮禁用防重复提交', () => {
+    const onRespond = vi.fn();
+    render(
+      <ToolCallsCard
+        toolCalls={[questionCard()]}
+        onRespondQuestion={onRespond}
+      />,
+    );
+    fireEvent.click(screen.getByText('A 方案'));
+    const submit = screen.getByRole('button', { name: '提交' });
+    fireEvent.click(submit);
+    // 文案变「已提交」，再点无效。
+    const sent = screen.getByRole('button', { name: '已提交' });
+    expect((sent as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(sent);
+    expect(onRespond).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ToolCalls · 敏感操作确认卡', () => {
+  it('展示风险与操作内容，并可允许或拒绝', () => {
+    const onRespond = vi.fn();
+    const tool: ToolCall = {
+      id: 'danger-1', toolName: 'run_shell_command', parameters: {},
+      status: 'awaiting_approval' as ToolCall['status'],
+      confirmationDetails: {
+        type: 'exec', title: '危险命令 - 必须确认', command: 'rm -rf build', riskLevel: 'high',
+      },
+    };
+    render(<ToolCallsCard toolCalls={[tool]} onRespondQuestion={onRespond} />);
+    expect(screen.getByText('高风险操作')).toBeTruthy();
+    expect(screen.getByText('rm -rf build')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '允许执行' }));
+    expect(onRespond).toHaveBeenCalledWith(
+      'danger-1',
+      'approved',
+      undefined,
+      tool,
+    );
+  });
+});
+
+describe('ToolCalls · 飞书授权二维码', () => {
+  it('从 lark_cli 实时输出渲染可扫码二维码，并保留浏览器授权入口', () => {
+    const openExternal = vi.fn(async () => undefined);
+    (window as unknown as { otto: { openExternal: typeof openExternal } }).otto = {
+      openExternal,
+    };
+    const authUrl =
+      'https://accounts.feishu.cn/oauth/v1/device/verify?flow_id=flow-1&user_code=9NVZ-JH8A';
+    const tool: ToolCall = {
+      id: 'lark-auth',
+      toolName: 'lark_cli',
+      parameters: { command: 'auth login' },
+      status: 'executing' as ToolCall['status'],
+      liveOutput: `请扫码授权：\n${authUrl}\n等待授权完成...`,
+    };
+
+    render(<ToolCallsCard toolCalls={[tool]} />);
+
+    expect(screen.getByRole('img', { name: '飞书授权二维码' })).toBeTruthy();
+    expect(screen.getByText('授权码：9NVZ-JH8A')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '在浏览器中打开授权页面' }));
+    expect(openExternal).toHaveBeenCalledWith(authUrl);
+  });
+
+  it('拒绝把非飞书域名伪装成授权二维码', () => {
+    const tool: ToolCall = {
+      id: 'fake-auth',
+      toolName: 'lark_cli',
+      parameters: { command: 'auth login' },
+      status: 'executing' as ToolCall['status'],
+      liveOutput:
+        'https://evil.example/oauth/v1/device/verify?user_code=STEAL-ME',
+    };
+
+    render(<ToolCallsCard toolCalls={[tool]} />);
+
+    expect(screen.queryByRole('img', { name: '飞书授权二维码' })).toBeNull();
+  });
+
+  it('同时校验 HTTPS、官方主机和已知授权路径', () => {
+    const invalidCases = [
+      'http://accounts.feishu.cn/oauth/v1/device/verify?user_code=NOPE-1',
+      'https://accounts.feishu.cn/unrelated?user_code=NOPE-2',
+      'https://accounts.feishu.cn.evil.example/oauth/v1/device/verify?user_code=NOPE-3',
+    ];
+
+    for (const [index, url] of invalidCases.entries()) {
+      const { unmount } = render(
+        <ToolCallsCard
+          toolCalls={[{
+            id: `invalid-auth-${index}`,
+            toolName: 'lark_cli',
+            parameters: {},
+            status: 'executing' as ToolCall['status'],
+            liveOutput: url,
+          }]}
+        />,
+      );
+      expect(screen.queryByRole('img', { name: '飞书授权二维码' })).toBeNull();
+      unmount();
+    }
+  });
+
+  it('支持 Lark 官方 CLI 授权页，但不信任其它工具输出的同一链接', () => {
+    const authUrl =
+      'https://open.larksuite.com/page/cli?user_code=LARK-1234&from=cli';
+    const validTool: ToolCall = {
+      id: 'lark-global-auth',
+      toolName: 'lark_cli',
+      parameters: {},
+      status: 'executing' as ToolCall['status'],
+      liveOutput: authUrl,
+    };
+    const { unmount } = render(<ToolCallsCard toolCalls={[validTool]} />);
+    expect(screen.getByRole('img', { name: '飞书授权二维码' })).toBeTruthy();
+    expect(screen.getByText('授权码：LARK-1234')).toBeTruthy();
+    unmount();
+
+    render(
+      <ToolCallsCard
+        toolCalls={[{ ...validTool, id: 'other-tool', toolName: 'web_fetch' }]}
+      />,
+    );
+    expect(screen.queryByRole('img', { name: '飞书授权二维码' })).toBeNull();
+  });
+
+  it('从彩色终端输出中提取官方授权链接', () => {
+    const escape = String.fromCharCode(27);
+    const authUrl =
+      'https://accounts.feishu.cn/oauth/v1/device/verify?user_code=COLOR-1234';
+    const tool: ToolCall = {
+      id: 'colored-lark-auth',
+      toolName: 'lark_cli',
+      parameters: {},
+      status: 'executing' as ToolCall['status'],
+      liveOutput: `${escape}[36m${authUrl}${escape}[0m`,
+    };
+
+    render(<ToolCallsCard toolCalls={[tool]} />);
+
+    expect(screen.getByRole('img', { name: '飞书授权二维码' })).toBeTruthy();
+    expect(screen.getByText('授权码：COLOR-1234')).toBeTruthy();
+  });
+});

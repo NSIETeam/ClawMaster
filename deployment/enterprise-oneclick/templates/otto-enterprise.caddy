@@ -1,0 +1,33 @@
+https://__OTTO_PUBLIC_HOST__:__OTTO_PUBLIC_PORT__ {
+	tls {
+		protocols tls1.2 tls1.3
+	}
+
+	@unfinished_local_pairing path /enterprise/local-agent /enterprise/local-agent/* /enterprise/sdk/otto-discovery.js
+	respond @unfinished_local_pairing 404
+
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+	}
+
+	@direct_message_upload {
+		method POST
+		path /enterprise/messages/*
+	}
+	handle @direct_message_upload {
+		request_body {
+			max_size 32MB
+		}
+		reverse_proxy 127.0.0.1:7778
+	}
+	handle {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy 127.0.0.1:7778
+	}
+}

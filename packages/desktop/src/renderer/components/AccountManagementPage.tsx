@@ -1,0 +1,1189 @@
+/**
+ * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type {
+  EnterpriseAccount,
+  EnterpriseAccountCreateInput,
+  EnterpriseAccountUpdateInput,
+  EnterpriseOrganizationDepartment,
+  EnterpriseOrganizationInviteContext,
+  EnterpriseOrganizationFeatures,
+  EnterprisePark,
+  EnterpriseParkAnnouncementResult,
+  EnterpriseParkSurveyResult,
+  EnterpriseParkTenantOrganization,
+} from '../../preload/index.js';
+import {
+  EnterpriseAdministrationPanel,
+  type EnterpriseAdministrationSection,
+} from './EnterpriseAdministrationPanel.js';
+import {
+  IconBuilding,
+  IconDashboard,
+  IconIdBadge,
+  IconNetwork,
+  IconPlus,
+} from './icons.js';
+
+type EnterpriseManagementSection = 'members' | EnterpriseAdministrationSection;
+
+export interface AccountDraft {
+  username: string;
+  password: string;
+  name: string;
+  phone: string;
+  feishuOpenId: string;
+  avatarUrl: string;
+  positionTitle: string;
+  positionId: string;
+  role: string;
+  department: string;
+  departmentId: string;
+  tags: string;
+  isAdmin: boolean;
+  status: 'active' | 'disabled';
+}
+
+const EMPTY_DRAFT: AccountDraft = {
+  username: '', password: '', name: '', phone: '', feishuOpenId: '', avatarUrl: '',
+  positionTitle: '', positionId: '', role: '', department: '', departmentId: '', tags: '',
+  isAdmin: false, status: 'active',
+};
+
+export const ACCOUNT_TAG_PRESETS = [
+  '普通成员', '部门负责人', '行政', '人事', '财务', '审批', '法务', '销售',
+  '市场', '产品', '研发', '设计', 'IT', '报修', '维修工作人员', '客服人员', '技术支持', '客户支持', '采购', '数据',
+] as const;
+
+export const ACCOUNT_DEPARTMENT_PRESETS = [
+  '总经办', '人力资源部', '财务部', '法务部', '销售部', '市场部',
+  '产品部', '研发部', '设计部', 'IT部', '客户成功部',
+] as const;
+
+const ACCOUNT_TEMPLATES = [
+  { id: 'member', label: '普通成员', positionTitle: '普通成员', role: '成员', department: '', tags: ['普通成员'], isAdmin: false },
+  { id: 'department-lead', label: '部门负责人', positionTitle: '部门负责人', role: '部门负责人', department: '', tags: ['部门负责人', '审批'], isAdmin: false },
+  { id: 'it-support', label: '维修工作人员', positionTitle: 'IT 支持', role: 'IT 支持', department: 'IT部', tags: ['IT', '报修', '维修工作人员', '技术支持'], isAdmin: false },
+  { id: 'park-service', label: '园区客服人员', positionTitle: '园区客服', role: '园区客服', department: '客户成功部', tags: ['客服人员', '客户支持'], isAdmin: false },
+  { id: 'administrator', label: '系统管理员', positionTitle: '系统管理员', role: '系统管理员', department: 'IT部', tags: ['IT', '系统管理员'], isAdmin: true },
+] as const;
+
+export type AccountTemplateId = typeof ACCOUNT_TEMPLATES[number]['id'];
+
+const PARK_SERVICE_OPTIONS = [
+  { id: 'announcement', label: '园区公告' },
+  { id: 'satisfaction', label: '满意度调查' },
+] as const;
+
+function tagsFromText(value: string): string[] {
+  return [...new Set(value.split(/[,，\n]+/).map((tag) => tag.trim()).filter(Boolean))];
+}
+
+export function toggleAccountTag(value: string, tag: string): string {
+  const tags = tagsFromText(value);
+  const next = tags.includes(tag) ? tags.filter((item) => item !== tag) : [...tags, tag];
+  return next.join('，');
+}
+
+export function applyAccountTemplate(draft: AccountDraft, templateId: AccountTemplateId): AccountDraft {
+  const template = ACCOUNT_TEMPLATES.find((item) => item.id === templateId);
+  if (!template) return draft;
+  return {
+    ...draft,
+    positionTitle: template.positionTitle,
+    positionId: '',
+    role: template.role,
+    department: template.department || draft.department,
+    departmentId: '',
+    tags: template.tags.join('，'),
+    isAdmin: template.isAdmin,
+  };
+}
+
+
+function isAcceptableAccountPassword(password: string): boolean {
+  if (password.length < 8 || password.length > 128) return false;
+  if (/[^\x20-\x7E]/.test(password)) return false;
+  const lower = password.toLocaleLowerCase('en-US');
+  if (['password', 'password1', '12345678', '123456789', 'qwerty123'].includes(lower)) return false;
+  if (/^\d+$/.test(password) || /^[a-z]+$/i.test(password)) return false;
+  if (/^(.)\1{7,}$/.test(password)) return false;
+  return true;
+}
+
+function errorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const withoutIpcPrefix = message.replace(/^Error invoking remote method '[^']+':\s*/, '');
+  return withoutIpcPrefix.replace(/^Error:\s*/, '') || '操作失败，请稍后重试';
+}
+
+function maskedPhone(phone: string | null): string {
+  if (!phone) return '未绑定手机';
+  const local = phone.replace(/^\+86/, '');
+  return `+86 ${local.slice(0, 3)} **** ${local.slice(-4)}`;
+}
+
+function formatLastUsedAt(value: string | null): string {
+  if (!value) return '尚无使用记录';
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return '最后使用时间不可用';
+  return `最后使用 ${new Date(timestamp).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })}`;
+}
+
+function AccountAvatar({ account }: { account: EnterpriseAccount }): React.JSX.Element {
+  const [failed, setFailed] = useState(false);
+  const avatarUrl = account.avatarUrl?.trim() || null;
+  const initial = Array.from(account.name.trim())[0]?.toLocaleUpperCase('zh-CN') || '?';
+
+  useEffect(() => {
+    setFailed(false);
+  }, [avatarUrl]);
+
+  if (avatarUrl && !failed) {
+    return (
+      <img
+        className="otto-account-table__avatar"
+        src={avatarUrl}
+        alt={`${account.name}头像`}
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <span className="otto-account-table__avatar" aria-label={`${account.name}头像占位`}>
+      {initial}
+    </span>
+  );
+}
+
+function focusableElements(container: HTMLElement): HTMLElement[] {
+  return [...container.querySelectorAll<HTMLElement>(
+    'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), '
+    + 'a[href], [tabindex]:not([tabindex="-1"])',
+  )].filter((element) => element.getAttribute('aria-hidden') !== 'true' && element.tabIndex >= 0);
+}
+
+export function formatInviteRemaining(expiresAt: string, now = Date.now()): string {
+  const remaining = Date.parse(expiresAt) - now;
+  if (!Number.isFinite(remaining)) return '失效时间不可用';
+  if (remaining <= 0) return '已失效，请生成新链接';
+  const totalSeconds = Math.ceil(remaining / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours} 小时 ${minutes} 分 ${seconds} 秒后失效`;
+}
+
+export function AccountManagementPage({
+  currentAccount,
+  onOrganizationChanged,
+}: {
+  currentAccount: EnterpriseAccount;
+  onBack: () => void;
+  onOrganizationChanged?: () => void;
+}): React.JSX.Element {
+  const [accounts, setAccounts] = useState<EnterpriseAccount[]>([]);
+  const [activeSection, setActiveSection] = useState<EnterpriseManagementSection>('members');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [editing, setEditing] = useState<EnterpriseAccount | 'new' | null>(null);
+  const [editorMode, setEditorMode] = useState<'identity' | 'assignment'>('identity');
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [draft, setDraft] = useState<AccountDraft>(EMPTY_DRAFT);
+  const [inviteContext, setInviteContext] = useState<EnterpriseOrganizationInviteContext | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(currentAccount.isAdmin);
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteDepartment, setInviteDepartment] = useState('');
+  const [invitePosition, setInvitePosition] = useState('');
+  const [inviteRole, setInviteRole] = useState('');
+  const [inviteMaxUses, setInviteMaxUses] = useState('');
+  const [parkPushServiceId, setParkPushServiceId] = useState<typeof PARK_SERVICE_OPTIONS[number]['id']>('announcement');
+  const [parkPushNote, setParkPushNote] = useState('');
+  const [parkPushBusy, setParkPushBusy] = useState(false);
+  const [parkPushMessage, setParkPushMessage] = useState<string | null>(null);
+  const [parkPushError, setParkPushError] = useState<string | null>(null);
+  const [parkServiceBrand, setParkServiceBrand] = useState('园区服务');
+  const [currentPark, setCurrentPark] = useState<EnterprisePark | null>(null);
+  const [parkAnnouncementResults, setParkAnnouncementResults] = useState<EnterpriseParkAnnouncementResult[]>([]);
+  const [parkSurveyResults, setParkSurveyResults] = useState<EnterpriseParkSurveyResult[]>([]);
+  const [parkTenantOrganizations, setParkTenantOrganizations] = useState<EnterpriseParkTenantOrganization[]>([]);
+  const [parkTenantError, setParkTenantError] = useState<string | null>(null);
+  const [parkAnnouncementError, setParkAnnouncementError] = useState<string | null>(null);
+  const [parkSurveyError, setParkSurveyError] = useState<string | null>(null);
+  const [configurationFeatures, setConfigurationFeatures] = useState<EnterpriseOrganizationFeatures | null>(null);
+  const [organizationDepartments, setOrganizationDepartments] = useState<EnterpriseOrganizationDepartment[]>([]);
+  const [copied, setCopied] = useState<'link' | 'code' | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const dialogRef = useRef<HTMLElement>(null);
+  const pageRef = useRef<HTMLElement>(null);
+  const sectionScrollPositionsRef = useRef<Partial<Record<EnterpriseManagementSection, number>>>({});
+  const initialFocusRef = useRef<HTMLInputElement>(null);
+  const assignmentFocusRef = useRef<HTMLInputElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const invite = inviteContext?.invite;
+  const isParkAdminOrganization = Boolean(
+    currentPark?.isAdminOrganization || (
+      currentPark?.adminOrganizationId && currentPark.adminOrganizationId === currentAccount.organizationId
+    ),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setParkServiceBrand('园区服务');
+    setCurrentPark(null);
+    if (!currentAccount.isAdmin || typeof window.otto.enterpriseParkView !== 'function') {
+      return () => { cancelled = true; };
+    }
+    void window.otto.enterpriseParkView()
+      .then((park) => {
+        if (!cancelled) {
+          setCurrentPark(park);
+          setParkServiceBrand(park?.brandName?.trim() || '园区服务');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCurrentPark(null);
+          setParkServiceBrand('园区服务');
+        }
+      });
+    return () => { cancelled = true; };
+  }, [currentAccount.id, currentAccount.isAdmin, currentAccount.organizationId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    void window.otto.enterpriseAccounts()
+      .then((result) => {
+        if (!cancelled) setAccounts(result);
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) setError(errorMessage(cause));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentAccount.isAdmin) return undefined;
+    let cancelled = false;
+    setInviteLoading(true);
+    void window.otto.enterpriseOrganizationInviteGet()
+      .then((result) => {
+        if (!cancelled) setInviteContext(result);
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) setInviteError(errorMessage(cause));
+      })
+      .finally(() => {
+        if (!cancelled) setInviteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentAccount.isAdmin]);
+
+  useEffect(() => {
+    if (!invite) return undefined;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [invite]);
+
+  useEffect(() => {
+    if (invite) {
+      setInviteDepartment(invite.defaultDepartment ?? '');
+      setInvitePosition(invite.positionTitle ?? '');
+      setInviteRole(invite.defaultRole ?? '');
+      setInviteMaxUses(invite.maxUses == null ? '' : String(invite.maxUses));
+    }
+  }, [invite]);
+
+  const refreshOrganizationStructure = useCallback(async (): Promise<void> => {
+    if (!currentAccount.isAdmin || !window.otto.enterpriseOrganizationDepartments) {
+      setOrganizationDepartments([]);
+      return;
+    }
+    try {
+      setOrganizationDepartments(await window.otto.enterpriseOrganizationDepartments());
+    } catch {
+      // enterprise_tree 关闭时服务端返回 403；安排入口保持 fail-closed。
+      setOrganizationDepartments([]);
+    }
+  }, [currentAccount.isAdmin]);
+
+  useEffect(() => {
+    void refreshOrganizationStructure();
+  }, [refreshOrganizationStructure]);
+
+  useEffect(() => {
+    if (!editing) return undefined;
+    const content = contentRef.current;
+    if (editorMode === 'assignment') assignmentFocusRef.current?.focus();
+    else initialFocusRef.current?.focus();
+    return () => {
+      content?.removeAttribute('inert');
+      restoreFocusRef.current?.focus();
+      restoreFocusRef.current = null;
+    };
+  }, [editing, editorMode]);
+
+  useEffect(() => {
+    if (editing) contentRef.current?.setAttribute('inert', '');
+    else contentRef.current?.removeAttribute('inert');
+  }, [editing]);
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    if (!needle) return accounts;
+    return accounts.filter((account) => [
+      account.name, account.username, account.phone, account.positionTitle,
+      account.role, account.department, ...account.tags,
+    ].filter(Boolean).some((value) => String(value).toLocaleLowerCase().includes(needle)));
+  }, [accounts, query]);
+  const departmentOptions = useMemo(() => {
+    const result = new Set<string>(ACCOUNT_DEPARTMENT_PRESETS);
+    for (const account of accounts) {
+      if (account.department?.trim()) result.add(account.department.trim());
+    }
+    return [...result];
+  }, [accounts]);
+  const assignmentDepartment = useMemo(
+    () => organizationDepartments.find((department) => department.id === draft.departmentId) ?? null,
+    [draft.departmentId, organizationDepartments],
+  );
+  const assignmentPosition = useMemo(
+    () => assignmentDepartment?.positions.find((position) => position.id === draft.positionId) ?? null,
+    [assignmentDepartment, draft.positionId],
+  );
+  const refreshParkAnnouncementResults = useCallback(async (): Promise<void> => {
+    if (!currentAccount.isAdmin || !isParkAdminOrganization) {
+      setParkAnnouncementResults([]);
+      setParkAnnouncementError(null);
+      return;
+    }
+    try {
+      setParkAnnouncementResults(await window.otto.enterpriseParkAnnouncementResults());
+      setParkAnnouncementError(null);
+    } catch (cause) {
+      setParkAnnouncementError(errorMessage(cause));
+    }
+  }, [currentAccount.isAdmin, isParkAdminOrganization]);
+
+  const refreshParkSurveyResults = useCallback(async (): Promise<void> => {
+    if (!currentAccount.isAdmin || !isParkAdminOrganization) {
+      setParkSurveyResults([]);
+      setParkSurveyError(null);
+      return;
+    }
+    try {
+      setParkSurveyResults(await window.otto.enterpriseParkSurveyResults());
+      setParkSurveyError(null);
+    } catch (cause) {
+      setParkSurveyError(errorMessage(cause));
+    }
+  }, [currentAccount.isAdmin, isParkAdminOrganization]);
+
+  const refreshParkTenantOrganizations = useCallback(async (): Promise<void> => {
+    if (!currentAccount.isAdmin || !isParkAdminOrganization || typeof window.otto.enterpriseParkTenants !== 'function') {
+      setParkTenantOrganizations([]);
+      setParkTenantError(null);
+      return;
+    }
+    try {
+      setParkTenantOrganizations(await window.otto.enterpriseParkTenants());
+      setParkTenantError(null);
+    } catch (cause) {
+      setParkTenantOrganizations([]);
+      setParkTenantError(errorMessage(cause));
+    }
+  }, [currentAccount.isAdmin, isParkAdminOrganization]);
+  useEffect(() => {
+    void refreshParkAnnouncementResults();
+  }, [refreshParkAnnouncementResults]);
+  useEffect(() => {
+    void refreshParkSurveyResults();
+  }, [refreshParkSurveyResults]);
+  useEffect(() => {
+    void refreshParkTenantOrganizations();
+  }, [refreshParkTenantOrganizations]);
+
+
+  const openCreate = (): void => {
+    if (loading) return;
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    setEditing('new');
+    setEditorMode('identity');
+    setDeleteArmed(false);
+    setDraft(EMPTY_DRAFT);
+    setError(null);
+  };
+
+  const openEdit = (account: EnterpriseAccount): void => {
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    setEditing(account);
+    setEditorMode('identity');
+    setDeleteArmed(false);
+    setDraft({
+      username: account.username,
+      password: '',
+      name: account.name,
+      phone: account.phone?.replace(/^\+86/, '') ?? '',
+      feishuOpenId: account.feishuOpenId ?? '',
+      avatarUrl: account.avatarUrl ?? '',
+      positionTitle: account.positionTitle ?? '',
+      positionId: account.positionId ?? '',
+      role: account.role ?? '',
+      department: account.department ?? '',
+      departmentId: account.departmentId ?? '',
+      tags: account.tags.join('，'),
+      isAdmin: account.isAdmin,
+      status: account.status,
+    });
+    setError(null);
+  };
+
+  const openAssignment = (account: EnterpriseAccount): void => {
+    const matchedDepartment = organizationDepartments.find((department) => (
+      department.id === account.departmentId || department.name === account.department
+    ));
+    const matchedPosition = matchedDepartment?.positions.find((position) => (
+      position.id === account.positionId || position.title === account.positionTitle
+    ));
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    setEditing(account);
+    setEditorMode('assignment');
+    setDeleteArmed(false);
+    setDraft({
+      username: account.username,
+      password: '',
+      name: account.name,
+      phone: account.phone?.replace(/^\+86/, '') ?? '',
+      feishuOpenId: account.feishuOpenId ?? '',
+      avatarUrl: account.avatarUrl ?? '',
+      positionTitle: matchedPosition?.title ?? account.positionTitle ?? '',
+      positionId: matchedPosition?.id ?? '',
+      role: account.role ?? '',
+      department: matchedDepartment?.name ?? account.department ?? '',
+      departmentId: matchedDepartment?.id ?? '',
+      tags: account.tags.join('，'),
+      isAdmin: account.isAdmin,
+      status: account.status,
+    });
+    setError(null);
+  };
+
+  const closeEditor = (): void => {
+    if (!saving) {
+      setEditing(null);
+      setDeleteArmed(false);
+    }
+  };
+
+  const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLElement>): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeEditor();
+      return;
+    }
+    if (event.key !== 'Tab' || !dialogRef.current) return;
+    const focusable = focusableElements(dialogRef.current);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      dialogRef.current.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && (document.activeElement === first || !dialogRef.current.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  const save = async (): Promise<void> => {
+    setSaving(true);
+    setError(null);
+    try {
+      const common = {
+        username: draft.username.trim(),
+        name: draft.name.trim(),
+        phone: draft.phone.trim() || null,
+        feishuOpenId: draft.feishuOpenId.trim() || null,
+        avatarUrl: draft.avatarUrl.trim() || null,
+        positionTitle: draft.positionTitle.trim() || null,
+        role: draft.role.trim() || null,
+        department: draft.department.trim() || null,
+        tags: tagsFromText(draft.tags),
+        isAdmin: draft.isAdmin,
+      };
+      let saved: EnterpriseAccount;
+      if (editing === 'new') {
+        const input: EnterpriseAccountCreateInput = { ...common, password: draft.password };
+        saved = await window.otto.enterpriseAccountCreate(input);
+        setAccounts((list) => [...list, saved]);
+      } else if (editing) {
+        const input: EnterpriseAccountUpdateInput = editorMode === 'assignment'
+          ? {
+            department: draft.department.trim() || null,
+            departmentId: draft.departmentId || null,
+            positionTitle: draft.positionTitle.trim() || null,
+            positionId: draft.positionId || null,
+          }
+          : {
+            ...common,
+            status: draft.status,
+            ...(draft.password ? { password: draft.password } : {}),
+          };
+        saved = await window.otto.enterpriseAccountUpdate(editing.id, input);
+        setAccounts((list) => list.map((item) => item.id === saved.id ? saved : item));
+      } else {
+        return;
+      }
+      onOrganizationChanged?.();
+      setEditing(null);
+      setDeleteArmed(false);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteEditingAccount = async (): Promise<void> => {
+    if (!editing || editing === 'new' || editing.id === currentAccount.id) return;
+    if (!deleteArmed) {
+      setDeleteArmed(true);
+      setError(null);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await window.otto.enterpriseAccountDelete(editing.id);
+      setAccounts((list) => list.filter((account) => account.id !== editing.id));
+      onOrganizationChanged?.();
+      setEditing(null);
+      setDeleteArmed(false);
+    } catch (cause) {
+      setDeleteArmed(false);
+      setError(errorMessage(cause));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const issueInvite = async (): Promise<void> => {
+    setInviteBusy(true);
+    setInviteError(null);
+    setCopied(null);
+    try {
+      const result = await window.otto.enterpriseOrganizationInviteIssue({
+        defaultDepartment: inviteDepartment.trim() || null,
+        positionTitle: invitePosition.trim() || null,
+        defaultRole: inviteRole.trim() || null,
+        maxUses: inviteMaxUses.trim() ? Number(inviteMaxUses.trim()) : null,
+      });
+      setInviteContext(result);
+      setNow(Date.now());
+    } catch (cause) {
+      setInviteError(errorMessage(cause));
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const copyInviteValue = async (kind: 'link' | 'code', value: string): Promise<void> => {
+    try {
+      // 优先走 IPC clipboard（Electron 桌面端），可靠且不受 CSP/navigator API 限制
+      if (window.otto?.writeClipboard) {
+        await window.otto.writeClipboard(value);
+      } else {
+        await navigator.clipboard.writeText(value);
+      }
+      setCopied(kind);
+      setInviteError(null);
+    } catch (cause) {
+      setInviteError(`复制失败：${errorMessage(cause)}`);
+    }
+  };
+
+  const pushParkService = async (): Promise<void> => {
+    if (!isParkAdminOrganization) {
+      setParkPushError('当前企业未认证为产业园管理方，不能发布园区公告或调查');
+      return;
+    }
+    setParkPushBusy(true);
+    setParkPushError(null);
+    setParkPushMessage(null);
+    try {
+      const service = PARK_SERVICE_OPTIONS.find((item) => item.id === parkPushServiceId);
+      await window.otto.enterpriseParkServicePush({
+        recipientAccountId: 'all',
+        serviceId: parkPushServiceId,
+        note: parkPushNote.trim() || null,
+      });
+      setParkPushMessage(
+        `已发布「${service?.label ?? '园区内容'}」给当前产业园全部企业成员`,
+      );
+      setParkPushNote('');
+      await refreshParkAnnouncementResults();
+      await refreshParkSurveyResults();
+    } catch (cause) {
+      setParkPushError(errorMessage(cause));
+    } finally {
+      setParkPushBusy(false);
+    }
+  };
+
+  const activeCount = accounts.filter((item) => item.status === 'active').length;
+  const smsCount = accounts.filter((item) => item.phone).length;
+  const repairWorkerCount = accounts.filter((item) => item.tags.includes('维修工作人员')).length;
+  const serviceWorkerCount = accounts.filter((item) => item.tags.includes('客服人员')).length;
+  const inviteIsActive = inviteContext?.invite?.status === 'active'
+    && Date.parse(inviteContext.invite.expiresAt) > now;
+  const enabledFeatureCount = configurationFeatures
+    ? Object.values(configurationFeatures).filter(Boolean).length
+    : 0;
+  const managementSections: Array<{
+    id: EnterpriseManagementSection;
+    label: string;
+    description: string;
+    meta: string;
+    icon: React.ComponentType<{ size?: number; className?: string }>;
+  }> = [
+    {
+      id: 'organization',
+      label: '组织结构',
+      description: '管理部门、职位和权限映射',
+      meta: `${organizationDepartments.length} 个部门`,
+      icon: IconNetwork,
+    },
+    {
+      id: 'members',
+      label: '成员目录',
+      description: '管理成员身份、邀请和访问状态',
+      meta: `${accounts.length} 名成员`,
+      icon: IconIdBadge,
+    },
+    {
+      id: 'park',
+      label: '产业园端',
+      description: '管理入驻、园区服务和内容发布',
+      meta: currentPark?.brandName || '园区服务',
+      icon: IconBuilding,
+    },
+    {
+      id: 'capabilities',
+      label: '企业能力',
+      description: '控制企业级功能的启用范围',
+      meta: configurationFeatures ? `${enabledFeatureCount} 项已开启` : '正在读取',
+      icon: IconDashboard,
+    },
+  ];
+  const activeSectionCopy = managementSections.find((section) => section.id === activeSection)
+    ?? managementSections[1];
+  const selectManagementSection = (nextSection: EnterpriseManagementSection): void => {
+    if (nextSection === activeSection) return;
+    if (pageRef.current) {
+      sectionScrollPositionsRef.current[activeSection] = pageRef.current.scrollTop;
+    }
+    setActiveSection(nextSection);
+    window.requestAnimationFrame(() => {
+      if (pageRef.current) {
+        pageRef.current.scrollTop = sectionScrollPositionsRef.current[nextSection] ?? 0;
+      }
+    });
+  };
+  const handleSectionKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    sectionIndex: number,
+  ): void => {
+    const lastIndex = managementSections.length - 1;
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+      nextIndex = sectionIndex === lastIndex ? 0 : sectionIndex + 1;
+    } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+      nextIndex = sectionIndex === 0 ? lastIndex : sectionIndex - 1;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = lastIndex;
+    }
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const nextSection = managementSections[nextIndex];
+    selectManagementSection(nextSection.id);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`otto-enterprise-tab-${nextSection.id}`)?.focus();
+    });
+  };
+
+  return (
+    <main ref={pageRef} className="otto-account-page">
+      <div
+        ref={contentRef}
+        className="otto-account-page__content"
+        aria-hidden={editing ? true : undefined}
+      >
+      <aside className="otto-account-workspace__rail" aria-label="企业管理导航">
+        <header className="otto-account-hero">
+          <h1>企业管理</h1>
+          <p>管理组织结构、成员身份、企业能力和产业园服务。</p>
+        </header>
+        <nav className="otto-account-workspace__tabs" aria-label="企业管理分类" role="tablist">
+          {managementSections.map((section, sectionIndex) => {
+            const SectionIcon = section.icon;
+            return (
+              <button
+                key={section.id}
+                id={`otto-enterprise-tab-${section.id}`}
+                type="button"
+                role="tab"
+                aria-selected={activeSection === section.id}
+                aria-controls="otto-enterprise-management-panel"
+                tabIndex={activeSection === section.id ? 0 : -1}
+                className={activeSection === section.id ? 'is-active' : ''}
+                onClick={() => selectManagementSection(section.id)}
+                onKeyDown={(event) => handleSectionKeyDown(event, sectionIndex)}
+              >
+                <SectionIcon size={17} />
+                <span>
+                  <strong>{section.label}</strong>
+                  <small>{section.meta}</small>
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      <div className="otto-account-workspace">
+        <section
+          id="otto-enterprise-management-panel"
+          className="otto-account-workspace__panel"
+          role="tabpanel"
+          aria-labelledby={`otto-enterprise-tab-${activeSection}`}
+        >
+          <header className="otto-account-workspace__head">
+            <div>
+              <h2>{activeSectionCopy.label}</h2>
+              <p>{activeSectionCopy.description}</p>
+            </div>
+            {activeSection === 'members' ? (
+              <button
+                type="button"
+                className="otto-account-page__create"
+                onClick={openCreate}
+                disabled={loading}
+                aria-label="新增账号"
+              >
+                <IconPlus size={15} />
+                新增成员
+              </button>
+            ) : null}
+          </header>
+
+      {currentAccount.isAdmin ? (
+        <section
+          className="otto-account-invite"
+          aria-label="7 天企业引入链接"
+          hidden={activeSection !== 'members'}
+        >
+          <header>
+            <div>
+              <span>SECURE ONBOARDING</span>
+              <h2>邀请成员加入 {inviteContext?.organization.name || currentAccount.organizationName}</h2>
+              <p>链接固定 7 天有效。只有你手动生成时才会换新，生成新链接会立即撤销旧链接。</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void issueInvite()}
+              disabled={inviteBusy || inviteLoading}
+              aria-label={inviteContext?.invite ? '生成新引入链接' : '生成 7 天引入链接'}
+            >
+              {inviteBusy ? '正在生成…' : inviteContext?.invite ? '换新链接' : '生成链接'}
+            </button>
+          </header>
+          <label className="otto-account-invite__department">
+            <span>新成员默认加入部门</span>
+            <input
+              aria-label="新成员默认加入部门"
+              list="otto-invite-departments"
+              value={inviteDepartment}
+              disabled={inviteBusy || inviteLoading}
+              onChange={(event) => setInviteDepartment(event.target.value)}
+              placeholder="不指定则加入未分配部门"
+            />
+            <datalist id="otto-invite-departments">
+              {departmentOptions.map((department) => (
+                <option key={department} value={department} />
+              ))}
+            </datalist>
+          </label>
+          <div className="otto-account-invite__position-grid">
+            <label>
+              <span>职位 / 岗位</span>
+              <input
+                aria-label="岗位邀请码职位"
+                value={invitePosition}
+                disabled={inviteBusy || inviteLoading}
+                onChange={(event) => setInvitePosition(event.target.value)}
+                placeholder="例如：品牌运营"
+              />
+            </label>
+            <label>
+              <span>角色权限</span>
+              <input
+                aria-label="岗位邀请码角色权限"
+                value={inviteRole}
+                disabled={inviteBusy || inviteLoading}
+                onChange={(event) => setInviteRole(event.target.value)}
+                placeholder="默认：成员"
+              />
+            </label>
+            <label>
+              <span>可注册人数</span>
+              <input
+                aria-label="岗位邀请码可注册人数"
+                type="number"
+                min={1}
+                max={10000}
+                value={inviteMaxUses}
+                disabled={inviteBusy || inviteLoading}
+                onChange={(event) => setInviteMaxUses(event.target.value)}
+                placeholder="不填则不限"
+              />
+            </label>
+          </div>
+          {inviteLoading ? <div className="otto-account-invite__loading">正在读取当前企业引入链接…</div> : null}
+          {!inviteLoading && inviteContext?.invite ? (
+            <div className="otto-account-invite__body">
+              <div className="otto-account-invite__code">
+                <span>企业邀请码</span>
+                <strong>{inviteContext.invite.code}</strong>
+                <small className={inviteIsActive ? 'is-active' : 'is-expired'}>
+                  {inviteIsActive
+                    ? formatInviteRemaining(inviteContext.invite.expiresAt, now)
+                    : '已失效，请生成新链接'}
+                </small>
+                <small>
+                  {[
+                    inviteContext.invite.defaultDepartment || '未分配部门',
+                    inviteContext.invite.positionTitle || '未指定职位',
+                    inviteContext.invite.defaultRole || '成员',
+                  ].join(' / ')}
+                  {inviteContext.invite.maxUses
+                    ? ` · ${inviteContext.invite.usedCount}/${inviteContext.invite.maxUses}`
+                    : ''}
+                </small>
+              </div>
+              <div className="otto-account-invite__link">
+                <span>公网引入链接</span>
+                <code>{inviteContext.invite.link}</code>
+                <small>员工在浏览器打开后可一键唤起 Otto，首次注册时自动填入该企业邀请码。</small>
+              </div>
+              <div className="otto-account-invite__actions">
+                <button type="button" aria-label="复制完整引入链接" onClick={() => void copyInviteValue('link', inviteContext.invite!.link)}>{copied === 'link' ? '链接已复制' : '复制链接'}</button>
+                <button type="button" aria-label="复制企业邀请码" onClick={() => void copyInviteValue('code', inviteContext.invite!.code)}>{copied === 'code' ? '邀请码已复制' : '复制邀请码'}</button>
+              </div>
+            </div>
+          ) : null}
+          {!inviteLoading && !inviteContext?.invite ? <div className="otto-account-invite__loading">尚未生成引入链接</div> : null}
+          {inviteError ? <div className="otto-account-invite__error" role="alert">{inviteError}</div> : null}
+        </section>
+      ) : null}
+
+      {currentAccount.isAdmin ? (
+        <EnterpriseAdministrationPanel
+          accounts={accounts}
+          activeSection={activeSection === 'members' ? null : activeSection}
+          onChanged={() => {
+            void window.otto.enterpriseAccounts().then(setAccounts).catch((cause: unknown) => {
+              setError(errorMessage(cause));
+            });
+            void refreshOrganizationStructure();
+            onOrganizationChanged?.();
+          }}
+          onFeaturesLoaded={setConfigurationFeatures}
+        />
+      ) : null}
+
+      {currentAccount.isAdmin && configurationFeatures?.park_service === true && isParkAdminOrganization ? (
+        <section
+          className="otto-account-invite otto-account-park-push"
+          aria-label="园区公告与调查发布"
+          hidden={activeSection !== 'park'}
+        >
+          <header>
+            <div>
+              <span>PARK SERVICE PUSH</span>
+              <h2>园区公告与调查发布</h2>
+              <p>可发布给全部成员，也可选择一名成员。其他七项服务由用户主动提交申请。</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void pushParkService()}
+              disabled={parkPushBusy}
+            >
+              {parkPushBusy ? '正在发布…' : '发布内容'}
+            </button>
+          </header>
+          <div className="otto-account-invite__position-grid">
+            <label>
+              <span>发布类型</span>
+              <select
+                aria-label={`选择${parkServiceBrand}类型`}
+                value={parkPushServiceId}
+                disabled={parkPushBusy}
+                onChange={(event) => setParkPushServiceId(event.target.value as typeof PARK_SERVICE_OPTIONS[number]['id'])}
+              >
+                {PARK_SERVICE_OPTIONS.map((service) => (
+                  <option key={service.id} value={service.id}>{service.label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>接收范围</span>
+              <input aria-label="园区公告接收范围" value="当前产业园全部企业成员" disabled />
+            </label>
+            <label>
+              <span>{parkPushServiceId === 'announcement' ? '公告正文' : '调查说明'}</span>
+              <input
+                aria-label={`${parkServiceBrand}推送备注`}
+                value={parkPushNote}
+                disabled={parkPushBusy}
+                onChange={(event) => setParkPushNote(event.target.value)}
+                placeholder={parkPushServiceId === 'announcement'
+                  ? '填写公告正文，例如：今天下午 14:00–16:00 停水'
+                  : parkPushServiceId === 'satisfaction'
+                    ? '填写本次调查说明'
+                    : '例如：请今天下班前处理'}
+              />
+            </label>
+          </div>
+          {parkPushMessage ? <div className="otto-account-invite__loading" role="status">{parkPushMessage}</div> : null}
+          {parkPushError ? <div className="otto-account-invite__error" role="alert">{parkPushError}</div> : null}
+          <div className="otto-account-survey-results" aria-label="产业园入驻企业">
+            <div className="otto-account-survey-results__head"><strong>已入驻企业</strong><span>企业管理员填写产业园邀请码后加入</span></div>
+            {parkTenantError ? <div className="otto-account-invite__error" role="alert">{parkTenantError}</div> : null}
+            {!parkTenantError && parkTenantOrganizations.length === 0 ? <div className="otto-account-invite__loading">暂无企业加入当前产业园</div> : null}
+            {parkTenantOrganizations.length ? <div className="otto-account-park-tenants">{parkTenantOrganizations.map((organization) => <article key={organization.id}><strong>{organization.name}</strong><span>{organization.slug}</span></article>)}</div> : null}
+          </div>
+          <div className="otto-account-survey-results" aria-label="园区公告确认结果">
+            <div className="otto-account-survey-results__head"><strong>公告确认</strong><span>按公告查看已确认人数 / 园区全部企业员工数</span></div>
+            {parkAnnouncementError ? <div className="otto-account-invite__error" role="alert">{parkAnnouncementError}</div> : null}
+            {!parkAnnouncementError && parkAnnouncementResults.length === 0 ? <div className="otto-account-invite__loading">尚未发布园区公告</div> : null}
+            {parkAnnouncementResults.map((announcement) => <article key={announcement.id} className="otto-account-survey-result">
+              <header><div><strong>{announcement.title}</strong><span>{announcement.body}</span><time>{new Date(announcement.createdAt).toLocaleString('zh-CN')}</time></div><b>{announcement.readCount} / {announcement.recipientCount} 已确认</b></header>
+            </article>)}
+          </div>
+          <div className="otto-account-survey-results" aria-label="满意度问卷回收结果">
+            <div className="otto-account-survey-results__head"><strong>问卷回收</strong><span>实名提交，提交后不可修改</span></div>
+            {parkSurveyError ? <div className="otto-account-invite__error" role="alert">{parkSurveyError}</div> : null}
+            {!parkSurveyError && parkSurveyResults.length === 0 ? <div className="otto-account-invite__loading">尚未发布满意度调查</div> : null}
+            {parkSurveyResults.map((survey) => <article key={survey.id} className="otto-account-survey-result">
+              <header><div><strong>{survey.title}</strong><span>{survey.body}</span></div><b>{survey.submittedCount} / {survey.recipientCount} 已提交</b></header>
+              {survey.responses.length ? <div className="otto-account-survey-result__responses">{survey.responses.map((response) => <div key={response.accountId}><strong>{response.accountName} · {response.responseData.score || '-'} 分</strong><span>{response.responseData.focus || '未填写关注项'}</span><p>{response.responseData.feedback || '未填写建议'}</p><time>{new Date(response.submittedAt).toLocaleString('zh-CN')}</time></div>)}</div> : <p className="otto-account-survey-result__empty">等待成员提交</p>}
+            </article>)}
+          </div>
+        </section>
+      ) : null}
+
+      <section
+        className="otto-account-metrics"
+        aria-label="账号概览"
+        hidden={activeSection !== 'members'}
+      >
+        <article><span>成员总数</span><strong>{accounts.length}</strong><small>组织身份目录</small></article>
+        <article><span>可登录</span><strong>{activeCount}</strong><small>{accounts.length - activeCount} 个已停用</small></article>
+        <article><span>手机已登记</span><strong>{smsCount}<i>/{accounts.length || 0}</i></strong><small>{smsCount === accounts.length && accounts.length > 0 ? '已全部登记' : '仍有账号未登记手机'}</small></article>
+        <article><span>维修工作人员</span><strong>{repairWorkerCount}</strong><small>报修将自动投递</small></article>
+        <article><span>园区客服人员</span><strong>{serviceWorkerCount}</strong><small>六类申请自动投递</small></article>
+      </section>
+
+      <section className="otto-account-directory" hidden={activeSection !== 'members'}>
+        <header>
+          <div>
+            <h2>成员目录</h2>
+            <p>账号状态与权限变更实时同步到登录网关。Token 用量由客户端回传，仅用于内部观察，不等同于模型供应商账单。</p>
+          </div>
+          <label className="otto-account-search"><span aria-hidden>⌕</span><input aria-label="搜索账号" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名、手机、职位、部门或标签" /></label>
+        </header>
+
+        {error && !editing ? <div className="otto-account-page__error" role="alert">{error}</div> : null}
+        <div className="otto-account-table">
+          <table aria-label="账号列表">
+            <thead>
+              <tr className="otto-account-table__row otto-account-table__header">
+                <th scope="col">成员</th>
+                <th scope="col">组织信息</th>
+                <th scope="col">职责标签</th>
+                <th scope="col">使用量</th>
+                <th scope="col">访问状态</th>
+                <th scope="col">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? <tr><td className="otto-account-table__empty" colSpan={6}>正在同步企业身份目录…</td></tr> : null}
+              {!loading && filtered.length === 0 ? <tr><td className="otto-account-table__empty" colSpan={6}>没有匹配的成员</td></tr> : null}
+              {filtered.map((account) => (
+                <tr className="otto-account-table__row" key={account.id}>
+                  <td><div className="otto-account-table__identity"><AccountAvatar account={account} /><div><strong>{account.name}</strong><small>@{account.username} · {maskedPhone(account.phone)}</small></div></div></td>
+                  <td>
+                    <strong>{account.positionTitle || account.role || '未设置职位'}</strong>
+                    <small>
+                      {account.department || '未分配部门'}
+                      {account.positionTitle && account.role ? ` · 角色：${account.role}` : ''}
+                    </small>
+                  </td>
+                  <td><div className="otto-account-table__tags">{account.tags.length ? account.tags.map((tag) => <span key={tag}>{tag}</span>) : <small>暂无标签</small>}</div></td>
+                  <td>
+                    <div className="otto-account-table__usage">
+                      <strong>{account.usage ? `${account.usage.totalTokens.toLocaleString('en-US')} tokens` : '暂无用量'}</strong>
+                      <small>{account.usage ? `${account.usage.requestCount.toLocaleString('en-US')} 次请求` : '尚无调用数据'}</small>
+                      {account.usage ? <small title={account.usage.lastUsedAt ?? undefined}>{formatLastUsedAt(account.usage.lastUsedAt)}</small> : null}
+                    </div>
+                  </td>
+                  <td><div className="otto-account-table__state">{account.isAdmin ? <span className="is-admin">管理员</span> : <span>成员</span>}<span className={account.status === 'active' ? 'is-active' : 'is-disabled'}>{account.status === 'active' ? '可登录' : '已停用'}</span>{account.tags.includes('维修工作人员') ? <span className="is-admin">维修人员</span> : null}{account.phone ? <span className="is-sms">短信</span> : null}{account.feishuOpenId ? <span className="is-sms">飞书</span> : null}</div></td>
+                  <td>
+                    <div className="otto-account-table__actions">
+                      <button type="button" className="is-primary" onClick={() => openAssignment(account)} aria-label={`安排职位 ${account.name}`}>安排职位</button>
+                      <button type="button" onClick={() => openEdit(account)} aria-label={`编辑 ${account.name}`}>编辑身份</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+        </section>
+      </div>
+      </div>
+
+      {editing ? (
+        <div className="otto-account-editor__overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}>
+          <section
+            ref={dialogRef}
+            className="otto-account-editor"
+            role="dialog"
+            aria-modal="true"
+            aria-label={editorMode === 'assignment' ? '安排员工职位' : editing === 'new' ? '新增账号' : '编辑账号'}
+            tabIndex={-1}
+            onKeyDown={handleEditorKeyDown}
+          >
+            <header><div><span>{editorMode === 'assignment' ? 'POSITION ASSIGNMENT' : editing === 'new' ? 'NEW IDENTITY' : 'IDENTITY DETAIL'}</span><h2>{editorMode === 'assignment' ? `安排 ${editing === 'new' ? '' : editing.name} 的职位` : editing === 'new' ? '添加企业成员' : '编辑成员身份'}</h2><p>{editorMode === 'assignment' ? '任命会同步到企业组织树、员工档案和该员工下一次身份读取。' : '账号、手机和角色决定成员如何进入 Otto 及能访问的空间。'}</p></div><button type="button" onClick={closeEditor} disabled={saving} aria-label="关闭">×</button></header>
+            {editorMode === 'identity' ? <section className="otto-account-templates" aria-label="账户模板">
+              <div><strong>账户模板</strong><small>先选一个最接近的岗位，再按需调整</small></div>
+              <div>
+                {ACCOUNT_TEMPLATES.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => setDraft((value) => applyAccountTemplate(value, template.id))}
+                  >
+                    {template.label}
+                  </button>
+                ))}
+              </div>
+            </section> : null}
+            <div className="otto-account-editor__grid">
+              {editorMode === 'identity' ? <>
+                <label><span>登录账号</span><input ref={initialFocusRef} aria-label="登录账号" value={draft.username} onChange={(e) => setDraft((v) => ({ ...v, username: e.target.value }))} required /></label>
+                <label><span>显示名称</span><input aria-label="显示名称" value={draft.name} onChange={(e) => setDraft((v) => ({ ...v, name: e.target.value }))} required /></label>
+                <label><span>头像 URL</span><input aria-label="头像 URL" type="url" value={draft.avatarUrl} onChange={(e) => setDraft((v) => ({ ...v, avatarUrl: e.target.value }))} placeholder="https://… 或 data:image/…" /></label>
+                <label><span>手机号码</span><input aria-label="手机号码" inputMode="tel" value={draft.phone} onChange={(e) => setDraft((v) => ({ ...v, phone: e.target.value }))} placeholder="用于短信验证码登录" /></label>
+                <label><span>飞书 open_id</span><input aria-label="飞书 open_id" value={draft.feishuOpenId} onChange={(e) => setDraft((v) => ({ ...v, feishuOpenId: e.target.value }))} placeholder="例如：ou_xxx，用于报修通知" /></label>
+                <label><span>{editing === 'new' ? '初始密码' : '重设密码（留空不变）'}</span><input aria-label={editing === 'new' ? '初始密码' : '重设密码（留空不变）'} type="password" minLength={8} maxLength={128} value={draft.password} onChange={(e) => setDraft((v) => ({ ...v, password: e.target.value }))} required={editing === 'new'} placeholder="至少 8 位，不能是纯数字或纯字母" /><small>不能使用常见密码、纯数字、纯字母或连续重复字符。</small></label>
+              </> : null}
+              {editorMode === 'assignment' ? <>
+                <label><span>所属部门</span><input ref={assignmentFocusRef} aria-label="安排职位部门" list="otto-assignment-departments" value={draft.department} placeholder="选择或输入部门" onChange={(event) => {
+                  const nextName = event.target.value;
+                  const department = organizationDepartments.find((item) => item.name.trim().toLocaleLowerCase() === nextName.trim().toLocaleLowerCase());
+                  setDraft((value) => ({
+                    ...value,
+                    departmentId: department?.id ?? '',
+                    department: nextName,
+                    positionId: '',
+                    positionTitle: '',
+                    role: '',
+                    isAdmin: false,
+                  }));
+                }} required /><datalist id="otto-assignment-departments">{organizationDepartments.map((department) => <option key={department.id} value={department.name} />)}</datalist></label>
+                <label><span>职位 / 岗位</span><input aria-label="安排真实职位" list="otto-assignment-positions" value={draft.positionTitle} placeholder="选择或输入自定义职位" onChange={(event) => {
+                  const nextTitle = event.target.value;
+                  const position = assignmentDepartment?.positions.find((item) => item.title.trim().toLocaleLowerCase() === nextTitle.trim().toLocaleLowerCase());
+                  setDraft((value) => ({
+                    ...value,
+                    positionId: position?.id ?? '',
+                    positionTitle: nextTitle,
+                    role: position?.roleMapping === 'enterprise_admin'
+                      ? '企业管理员'
+                      : position?.roleMapping === 'department_admin' ? '部门管理员' : nextTitle.trim() ? '成员' : '',
+                    isAdmin: position?.roleMapping === 'enterprise_admin',
+                  }));
+                }} required /><datalist id="otto-assignment-positions">{(assignmentDepartment?.positions ?? []).map((position) => <option key={position.id} value={position.title} />)}</datalist></label>
+                <label><span>权限映射</span><input aria-label="职位权限映射" value={assignmentPosition ? (assignmentPosition.roleMapping === 'enterprise_admin' ? '企业管理员' : assignmentPosition.roleMapping === 'department_admin' ? '部门管理员' : '成员') : draft.positionTitle.trim() ? '成员（自定义职位）' : ''} readOnly placeholder="自定义职位默认普通成员" /></label>
+                {organizationDepartments.length === 0 ? <div className="otto-account-page__error" role="alert">企业树未启用或尚未建立部门职位，请先在上方“部门与职位管理”中创建。</div> : null}
+              </> : <>
+                <label><span>职位 / 岗位</span><input aria-label="职位 / 岗位" value={draft.positionTitle} onChange={(e) => setDraft((v) => ({ ...v, positionTitle: e.target.value, positionId: '' }))} placeholder="例如：品牌运营" /></label>
+                <label><span>角色</span><input aria-label="角色" value={draft.role} onChange={(e) => setDraft((v) => ({ ...v, role: e.target.value }))} placeholder="例如：桌面支持" /></label>
+                <label><span>部门</span><input aria-label="部门" list="otto-account-departments" value={draft.department} onChange={(e) => setDraft((v) => ({ ...v, department: e.target.value, departmentId: '' }))} placeholder="选择或输入部门" /><datalist id="otto-account-departments">{ACCOUNT_DEPARTMENT_PRESETS.map((department) => <option key={department} value={department} />)}</datalist></label>
+              </>}
+              {editorMode === 'identity' ? <>
+                <div className="otto-account-editor__field is-wide"><span>职责标签</span><div className="otto-account-tag-presets" aria-label="预设标签">{ACCOUNT_TAG_PRESETS.map((tag) => { const selected = tagsFromText(draft.tags).includes(tag); return <button key={tag} type="button" className={selected ? 'is-selected' : ''} aria-pressed={selected} onClick={() => setDraft((v) => ({ ...v, tags: toggleAccountTag(v.tags, tag) }))}>{tag}</button>; })}</div><input aria-label="账号标签" value={draft.tags} onChange={(e) => setDraft((v) => ({ ...v, tags: e.target.value }))} placeholder="也可输入自定义标签，用逗号分隔" /><small>标签参与专家权限、工单和任务路由。</small></div>
+                {editing !== 'new' ? <label><span>账号状态</span><select aria-label="账号状态" value={draft.status} onChange={(e) => setDraft((v) => ({ ...v, status: e.target.value as AccountDraft['status'] }))}><option value="active">可登录</option><option value="disabled">停用</option></select></label> : null}
+                <label className="otto-account-editor__check"><input type="checkbox" checked={tagsFromText(draft.tags).includes('维修工作人员')} onChange={() => setDraft((v) => ({ ...v, tags: toggleAccountTag(v.tags, '维修工作人员') }))} /><span>设为维修工作人员（新报修自动投递）</span></label>
+                <label className="otto-account-editor__check"><input type="checkbox" checked={tagsFromText(draft.tags).includes('客服人员')} onChange={() => setDraft((v) => ({ ...v, tags: toggleAccountTag(v.tags, '客服人员') }))} /><span>设为园区客服人员（六类服务申请自动投递）</span></label>
+                <label className="otto-account-editor__check"><input type="checkbox" checked={draft.isAdmin} onChange={(e) => setDraft((v) => ({ ...v, isAdmin: e.target.checked }))} /><span>授予身份管理权限</span></label>
+              </> : null}
+            </div>
+            {error ? <div className="otto-account-page__error" role="alert">{error}</div> : null}
+            <footer>
+              {editorMode === 'identity' && editing !== 'new' && editing.id !== currentAccount.id ? (
+                <button
+                  type="button"
+                  className="is-danger"
+                  onClick={() => void deleteEditingAccount()}
+                  disabled={saving}
+                >
+                  {deleteArmed ? '确认删除账号' : '删除账号'}
+                </button>
+              ) : null}
+              <button type="button" onClick={closeEditor} disabled={saving}>取消</button>
+              <button type="button" className="is-primary" onClick={() => void save()} disabled={editorMode === 'assignment' ? saving || !draft.department.trim() || !draft.positionTitle.trim() : saving || !draft.username.trim() || !draft.name.trim() || (editing === 'new' && !isAcceptableAccountPassword(draft.password)) || (editing !== 'new' && Boolean(draft.password) && !isAcceptableAccountPassword(draft.password))}>{saving ? '正在保存…' : editorMode === 'assignment' ? '保存职位' : '保存身份'}</button>
+            </footer>
+            {editorMode === 'identity' && editing !== 'new' && editing.id === currentAccount.id ? <p className="otto-account-editor__self">这是你当前登录的账号；停用或降权将在会话重新校验后生效。</p> : null}
+          </section>
+        </div>
+      ) : null}
+    </main>
+  );
+}

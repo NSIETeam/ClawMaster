@@ -1,0 +1,145 @@
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import type { CompanyRecord, LicenseRecord, OrgMemoryRecord, ProjectRecord, SkillRecord, TeamRecord, UsageRecord, UserProfileRecord } from './orgMemoryTypes.js';
+
+/** 简易文件锁：用 .lock 文件 + 原子写入实现互斥 */
+async function acquireLock(lockPath: string, timeoutMs: number = 5000): Promise<void> {
+  // 首次写入时 .otto/org 尚不存在；锁文件本身也在该目录内，所以必须先建目录，
+  // 否则 fs.open(..., 'wx') 会以 ENOENT 失败，原子锁根本没有机会生效。
+  await fs.mkdir(path.dirname(lockPath), { recursive: true });
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      // 原子写入：O_EXCL 确保只有一方能创建
+      const handle = await fs.open(lockPath, 'wx');
+      await handle.write(Buffer.from(`${process.pid}\n${Date.now()}\n`));
+      await handle.close();
+      return;
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && (err as { code?: string }).code === 'EEXIST') {
+        // 检查是否是陈旧锁（超过30秒）
+        try {
+          const content = await fs.readFile(lockPath, 'utf-8');
+          const lines = content.split('\n');
+          const lockTime = parseInt(lines[1] || '0', 10);
+          if (Date.now() - lockTime > 30000) {
+            // 陈旧锁，强制释放
+            await fs.unlink(lockPath).catch(() => {});
+            continue;
+          }
+        } catch {
+          // 读锁失败也释放
+          await fs.unlink(lockPath).catch(() => {});
+          continue;
+        }
+        // 等待10ms重试
+        await new Promise((r) => setTimeout(r, 10));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error(`Lock timeout after ${timeoutMs}ms: ${lockPath}`);
+}
+
+async function releaseLock(lockPath: string): Promise<void> {
+  await fs.unlink(lockPath).catch(() => {});
+}
+
+export interface OrgMemoryStoreData {
+  companies: CompanyRecord[];
+  teams: TeamRecord[];
+  users: UserProfileRecord[];
+  projects: ProjectRecord[];
+  memories: OrgMemoryRecord[];
+  skills: SkillRecord[];
+  usage: UsageRecord[];
+  licenses: LicenseRecord[];
+}
+
+export const EMPTY_ORG_MEMORY_STORE: OrgMemoryStoreData = {
+  companies: [],
+  teams: [],
+  users: [],
+  projects: [],
+  memories: [],
+  skills: [],
+  usage: [],
+  licenses: [],
+};
+
+function cloneStore(data: OrgMemoryStoreData): OrgMemoryStoreData {
+  return JSON.parse(JSON.stringify(data)) as OrgMemoryStoreData;
+}
+
+export class OrgMemoryStore {
+  constructor(private readonly rootDir: string) {}
+
+  private get storePath(): string {
+    return path.join(this.rootDir, '.otto', 'org', 'memory-store.json');
+  }
+
+  async load() {
+    try {
+      const raw = await fs.readFile(this.storePath, 'utf-8');
+      return { ...cloneStore(EMPTY_ORG_MEMORY_STORE), ...JSON.parse(raw) } as OrgMemoryStoreData;
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        return cloneStore(EMPTY_ORG_MEMORY_STORE);
+      }
+      throw error;
+    }
+  }
+
+  async save(data: OrgMemoryStoreData) {
+    const lockPath = this.storePath + '.lock';
+    await acquireLock(lockPath);
+    try {
+      await fs.mkdir(path.dirname(this.storePath), { recursive: true });
+      // 原子写入：先写临时文件再 rename
+      const tmpPath = this.storePath + '.tmp';
+      await fs.writeFile(tmpPath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+      await fs.rename(tmpPath, this.storePath);
+    } finally {
+      await releaseLock(lockPath);
+    }
+  }
+
+  async upsertProject(project: ProjectRecord) {
+    const data = await this.load();
+    const index = data.projects.findIndex((item) => item.id === project.id);
+    if (index !== -1) {
+      data.projects[index] = project;
+    } else {
+      data.projects.push(project);
+    }
+    await this.save(data);
+    return project;
+  }
+
+  async addMemory(memory: OrgMemoryRecord) {
+    const data = await this.load();
+    data.memories.push(memory);
+    await this.save(data);
+    return memory;
+  }
+
+  async listProjectMemories(projectId: string) {
+    const data = await this.load();
+    return data.memories.filter((memory) => memory.projectId === projectId);
+  }
+
+  async addUsage(record: UsageRecord) {
+    const data = await this.load();
+    data.usage.push(record);
+    await this.save(data);
+    return record;
+  }
+
+  async addSkill(skill: SkillRecord) {
+    const data = await this.load();
+    data.skills.push(skill);
+    await this.save(data);
+    return skill;
+  }
+}

@@ -1,0 +1,585 @@
+/**
+ * @license
+ * Copyright 2025 Otto
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
+ * 设置与诊断中心 ·「设置」组面板：偏好设置 / MCP 服务器 / 扩展 / IDE 伴生。
+ * 数据与动作全部来自 useSettingsData，本文件只负责排版。
+ */
+
+import React, { useEffect, useRef, useState } from 'react';
+import { DEFAULT_UI_MODE, type UiMode } from '../../uiModePreference.js';
+import { UiModePreview } from '../UiModeGuide.js';
+import type { UseSettingsData } from '../../state/useSettingsData.js';
+import { GeneratedIcon, type GeneratedIconName } from '../GeneratedIcon.js';
+import { IconClose } from '../icons.js';
+import { Panel, Card, Dot, Badge, Empty, type DotTone } from './HubUI.js';
+import { readPetWidgetEnabled, writePetWidgetEnabled } from '../../petWidgetPreference.js';
+
+// ── 偏好设置 ──────────────────────────────────────────────────────────────
+
+const AGENT_STYLES: Array<{ id: string; label: string; icon: GeneratedIconName }> = [
+  { id: 'default', label: '日常对话（自然清晰）', icon: 'style-default' },
+  { id: 'codex', label: '快速执行（少说多做）', icon: 'style-codex' },
+  { id: 'cursor', label: '工作代码（协作开发）', icon: 'style-cursor' },
+  { id: 'augment', label: '工程交付（任务与验证）', icon: 'style-augment' },
+  { id: 'claude-code', label: '简洁开发（直接精炼）', icon: 'style-claude-code' },
+  { id: 'antigravity', label: '企业办公（资料与会议）', icon: 'style-antigravity' },
+  { id: 'windsurf', label: '协作推进（边讲边做）', icon: 'style-windsurf' },
+];
+
+const SIMPLE_AGENT_STYLES = [
+  { id: 'default', label: '平时聊天', icon: 'style-default' as GeneratedIconName, hint: '自然、清楚，适合大多数事情' },
+  { id: 'codex', label: '直接做事', icon: 'style-codex' as GeneratedIconName, hint: '少解释，优先把事情完成' },
+  { id: 'augment', label: '复杂任务', icon: 'style-augment' as GeneratedIconName, hint: '先拆解，再执行和检查' },
+];
+
+/** 外观主题选项（nativeTheme.themeSource 三态）。 */
+const THEME_OPTIONS: Array<{ id: 'system' | 'light' | 'dark'; label: string }> = [
+  { id: 'system', label: '跟随系统' },
+  { id: 'light', label: '浅色' },
+  { id: 'dark', label: '深色' },
+];
+
+export function PrefsPanel({
+  data,
+  uiMode = 'conversational',
+  onUiModeChange = () => undefined,
+}: {
+  data: UseSettingsData;
+  uiMode?: UiMode;
+  onUiModeChange?: (mode: UiMode) => void;
+}): React.JSX.Element {
+  const { state, actions } = data;
+  const s = state.settings;
+  const [langDraft, setLangDraft] = useState('');
+  // 外观主题：独立于 server settings（走 main 的 nativeTheme IPC，本机持久化）。
+  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>('system');
+  const [petWidgetEnabled, setPetWidgetEnabled] = useState(readPetWidgetEnabled);
+  const [resetStatus, setResetStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+  const [themeResetSettled, setThemeResetSettled] = useState(true);
+  const resetErrorBaseline = useRef<string | null>(null);
+
+  useEffect(() => {
+    setLangDraft(s?.preferredLanguage ?? '');
+  }, [s?.preferredLanguage]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void window.otto?.themeGet?.().then((v) => {
+      if (!cancelled && v) setTheme(v);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pickTheme = (v: 'system' | 'light' | 'dark'): void => {
+    setTheme(v);
+    void window.otto?.themeSet?.(v);
+  };
+
+  useEffect(() => {
+    if (resetStatus !== 'success') return;
+    const timer = window.setTimeout(() => setResetStatus('idle'), 1800);
+    return () => window.clearTimeout(timer);
+  }, [resetStatus]);
+
+  useEffect(() => {
+    if (resetStatus !== 'pending') return;
+    const timer = window.setTimeout(() => setResetStatus('error'), 8000);
+    return () => window.clearTimeout(timer);
+  }, [resetStatus]);
+
+  useEffect(() => {
+    if (
+      resetStatus === 'pending' &&
+      state.lastError &&
+      state.lastError !== resetErrorBaseline.current
+    ) {
+      setResetStatus('error');
+    }
+  }, [resetStatus, state.lastError]);
+
+  const preferencesAreDefault = Boolean(
+    s &&
+      uiMode === DEFAULT_UI_MODE &&
+      theme === 'system' &&
+      s.agentStyle === 'default' &&
+      !petWidgetEnabled &&
+      s.healthyUse === true &&
+      (s.preferredLanguage ?? '') === '' &&
+      langDraft === ''
+  );
+  const hasNonDefaultPreference = Boolean(s && !preferencesAreDefault);
+
+  useEffect(() => {
+    if (
+      (resetStatus === 'pending' || resetStatus === 'error') &&
+      themeResetSettled &&
+      preferencesAreDefault
+    ) {
+      setResetStatus('success');
+    }
+  }, [preferencesAreDefault, resetStatus, themeResetSettled]);
+
+  const resetPreferences = async (): Promise<void> => {
+    if (
+      !s ||
+      resetStatus === 'pending' ||
+      resetStatus === 'success' ||
+      !hasNonDefaultPreference
+    ) {
+      return;
+    }
+    if (!window.confirm(
+      '恢复外观与回复的默认设置？\n\n这会重置本页面的界面、主题和回复偏好，不会影响账号、工作目录或其他设置。',
+    )) return;
+
+    resetErrorBaseline.current = state.lastError;
+    setResetStatus('pending');
+    const previousTheme = theme;
+    const needsThemeReset = theme !== 'system';
+    setThemeResetSettled(!needsThemeReset);
+    try {
+      if (uiMode !== DEFAULT_UI_MODE) onUiModeChange(DEFAULT_UI_MODE);
+      let themeReset: Promise<unknown> | undefined;
+      if (needsThemeReset) {
+        setTheme('system');
+        themeReset = window.otto?.themeSet?.('system');
+      }
+      if (s.agentStyle !== 'default') actions.setSetting('agentStyle', 'default');
+      if (s.healthyUse !== true) actions.setSetting('healthyUse', true);
+      if ((s.preferredLanguage ?? '') !== '') {
+        actions.setSetting('preferredLanguage', '');
+      }
+      if (petWidgetEnabled) {
+        setPetWidgetEnabled(false);
+        writePetWidgetEnabled(false);
+      }
+      setLangDraft('');
+      await themeReset;
+      setThemeResetSettled(true);
+    } catch {
+      // 主题 IPC 失败时恢复原来的视觉状态，并保留可重试入口。
+      setTheme(previousTheme);
+      setThemeResetSettled(false);
+      setResetStatus('error');
+    }
+  };
+
+  const resetButtonLabel =
+    resetStatus === 'pending'
+      ? '正在恢复…'
+      : resetStatus === 'success'
+        ? '已恢复'
+        : resetStatus === 'error'
+          ? '恢复失败，重试'
+          : '恢复默认设置';
+
+  return (
+    <Panel
+      title="外观与回复"
+      desc="只保留日常真正需要的选择；默认设置已经适合大多数人。"
+      actions={(
+        <button
+          type="button"
+          className="otto-hub__btn"
+          disabled={
+            !s ||
+            resetStatus === 'pending' ||
+            resetStatus === 'success' ||
+            !hasNonDefaultPreference
+          }
+          onClick={() => { void resetPreferences(); }}
+        >
+          {resetButtonLabel}
+        </button>
+      )}
+    >
+      {!s ? (
+        <Empty>正在加载偏好设置…</Empty>
+      ) : (
+        <>
+        <Card className="otto-prefs-simple">
+          <div className="otto-hub__setting otto-hub__setting--stack">
+            <div className="otto-hub__setting-text">
+              <div className="otto-hub__field-label">界面模式</div>
+              <div className="otto-hub__field-hint">
+                两种界面的功能和数据完全相同，切换后立即生效。
+              </div>
+            </div>
+            <div className="otto-ui-mode-setting" role="radiogroup" aria-label="界面模式">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={uiMode === 'conversational'}
+                className={uiMode === 'conversational' ? 'is-active' : ''}
+                onClick={() => onUiModeChange('conversational')}
+              >
+                <UiModePreview mode="conversational" />
+                <span><strong>对话式 UI</strong><small>专注当前对话</small></span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={uiMode === 'work'}
+                className={uiMode === 'work' ? 'is-active' : ''}
+                onClick={() => onUiModeChange('work')}
+              >
+                <UiModePreview mode="work" />
+                <span><strong>工作式 UI</strong><small>右侧常驻工作区</small></span>
+              </button>
+            </div>
+          </div>
+          <div className="otto-hub__setting otto-hub__setting--stack">
+            <div className="otto-hub__setting-text">
+              <div className="otto-hub__field-label">外观</div>
+              <div className="otto-hub__field-hint">
+                选择你看着最舒服的界面。
+              </div>
+            </div>
+            <div className="otto-hub__chiprow">
+              {THEME_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className={'otto-hub__chip' + (theme === opt.id ? ' is-active' : '')}
+                  onClick={() => pickTheme(opt.id)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="otto-hub__setting otto-hub__setting--stack">
+            <div className="otto-hub__setting-text">
+              <div className="otto-hub__field-label">希望 Otto 怎么帮你</div>
+              <div className="otto-hub__field-hint">
+                不需要理解模型参数，只选最接近你的习惯。
+              </div>
+            </div>
+            <div className="otto-prefs-modes">
+              {SIMPLE_AGENT_STYLES.map((style) => (
+                <button
+                  key={style.id}
+                  type="button"
+                  className={
+                    'otto-hub__chip' + (s.agentStyle === style.id ? ' is-active' : '')
+                  }
+                  onClick={() => actions.setSetting('agentStyle', style.id)}
+                >
+                  <GeneratedIcon name={style.icon} size={18} />
+                  <span><strong>{style.label}</strong><small>{style.hint}</small></span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        <details className="otto-hub__details">
+          <summary>更多偏好</summary>
+          <Card>
+          <div className="otto-hub__setting otto-hub__setting--stack">
+            <div className="otto-hub__setting-text">
+              <div className="otto-hub__field-label">其他工作风格</div>
+              <div className="otto-hub__field-hint">只有你明确知道自己想要哪种风格时才需要改。</div>
+            </div>
+            <div className="otto-hub__chiprow">
+              {AGENT_STYLES.filter((style) => !SIMPLE_AGENT_STYLES.some((simple) => simple.id === style.id)).map((style) => (
+                <button
+                  key={style.id}
+                  type="button"
+                  className={'otto-hub__chip' + (s.agentStyle === style.id ? ' is-active' : '')}
+                  onClick={() => actions.setSetting('agentStyle', style.id)}
+                >
+                  <GeneratedIcon name={style.icon} size={18} />
+                  <span>{style.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="otto-hub__setting">
+            <div className="otto-hub__setting-text">
+              <div className="otto-hub__field-label">小宠物挂件</div>
+              <div className="otto-hub__field-hint">在右下角显示 Otto 的实时工作状态。</div>
+            </div>
+            <button
+              type="button"
+              className={'otto-hub__toggle' + (petWidgetEnabled ? ' is-on' : '')}
+              onClick={() => {
+                const next = !petWidgetEnabled;
+                setPetWidgetEnabled(next);
+                writePetWidgetEnabled(next);
+              }}
+              aria-pressed={petWidgetEnabled}
+            >
+              <span className="otto-hub__toggle-knob" />
+              {petWidgetEnabled ? '已开启' : '已关闭'}
+            </button>
+          </div>
+
+          <div className="otto-hub__setting">
+            <div className="otto-hub__setting-text">
+              <div className="otto-hub__field-label">健康使用提醒</div>
+              <div className="otto-hub__field-hint">深夜/长时间使用时收到善意提醒。</div>
+            </div>
+            <button
+              type="button"
+              className={'otto-hub__toggle' + (s.healthyUse ? ' is-on' : '')}
+              onClick={() => actions.setSetting('healthyUse', !s.healthyUse)}
+              aria-pressed={s.healthyUse}
+            >
+              <span className="otto-hub__toggle-knob" />
+              {s.healthyUse ? '已开启' : '已关闭'}
+            </button>
+          </div>
+
+          <div className="otto-hub__setting">
+            <div className="otto-hub__setting-text">
+              <div className="otto-hub__field-label">偏好语言</div>
+              <div className="otto-hub__field-hint">
+                影响 Otto 回复所用的语言（留空 = 跟随对话自动判断）。
+              </div>
+            </div>
+            <div className="otto-hub__inputrow otto-hub__inputrow--compact">
+              <input
+                className="otto-hub__input"
+                type="text"
+                value={langDraft}
+                placeholder="例如：中文 / English"
+                onChange={(e) => setLangDraft(e.target.value)}
+              />
+              <button
+                type="button"
+                className="otto-hub__btn"
+                onClick={() => actions.setSetting('preferredLanguage', langDraft.trim())}
+              >
+                保存
+              </button>
+            </div>
+          </div>
+
+          <div className="otto-hub__setting">
+            <div className="otto-hub__setting-text">
+              <div className="otto-hub__field-label">后台付费分析</div>
+              <div className="otto-hub__field-hint">
+                允许 Otto 在后台使用当前模型分析工作内容，可能产生 API 费用。新安装默认关闭，只有用户明确开启后才允许运行。
+              </div>
+            </div>
+            <button
+              type="button"
+              aria-label="后台付费分析"
+              className={'otto-hub__toggle' + (s.backgroundModelTasksEnabled ? ' is-on' : '')}
+              onClick={() => actions.setSetting(
+                'backgroundModelTasksEnabled',
+                !s.backgroundModelTasksEnabled,
+              )}
+              aria-pressed={s.backgroundModelTasksEnabled}
+            >
+              <span className="otto-hub__toggle-knob" />
+              {s.backgroundModelTasksEnabled ? '已开启' : '已关闭'}
+            </button>
+          </div>
+          </Card>
+        </details>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+// ── MCP 服务器 ────────────────────────────────────────────────────────────
+
+function mcpTone(status: 'connected' | 'connecting' | 'disconnected'): DotTone {
+  return status === 'connected' ? 'on' : status === 'connecting' ? 'busy' : 'off';
+}
+
+const MCP_STATUS_LABEL: Record<'connected' | 'connecting' | 'disconnected', string> = {
+  connected: '已连接',
+  connecting: '连接中',
+  disconnected: '未连接',
+};
+
+export function McpPanel({ data }: { data: UseSettingsData }): React.JSX.Element {
+  const { state, actions } = data;
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [command, setCommand] = useState('');
+  const [urlField, setUrlField] = useState('');
+
+  const submit = (): void => {
+    const cleanName = name.trim();
+    if (!cleanName) return;
+    const cleanCommand = command.trim();
+    const cleanUrl = urlField.trim();
+    if (!cleanCommand && !cleanUrl) return;
+    actions.addMcpServer({
+      name: cleanName,
+      ...(cleanCommand ? { command: cleanCommand, args: [] } : {}),
+      ...(cleanUrl ? { httpUrl: cleanUrl } : {}),
+    });
+    setName('');
+    setCommand('');
+    setUrlField('');
+    setOpen(false);
+  };
+
+  return (
+    <Panel
+      title="MCP 服务器"
+      desc="管理 Model Context Protocol 服务器，为 Otto 接入外部工具。"
+      actions={
+        <>
+          <button type="button" className="otto-hub__btn" onClick={actions.refreshMcpServers}>
+            刷新
+          </button>
+          <button
+            type="button"
+            className="otto-hub__btn otto-hub__btn--primary"
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? '取消' : '+ 添加服务器'}
+          </button>
+        </>
+      }
+    >
+      {open ? (
+        <div className="otto-hub__addform">
+          <input
+            className="otto-hub__input"
+            placeholder="服务器名（唯一标识）"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <input
+            className="otto-hub__input"
+            placeholder="启动命令（stdio，如 npx @my/server）"
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+          />
+          <input
+            className="otto-hub__input"
+            placeholder="或 HTTP URL（与命令二选一）"
+            value={urlField}
+            onChange={(e) => setUrlField(e.target.value)}
+          />
+          <button type="button" className="otto-hub__btn otto-hub__btn--primary" onClick={submit}>
+            确认添加
+          </button>
+        </div>
+      ) : null}
+
+      {state.mcpServers.length === 0 ? (
+        <Empty>尚未配置任何 MCP 服务器。点击右上角「添加服务器」接入第一个。</Empty>
+      ) : (
+        <Card>
+          {state.mcpServers.map((s) => (
+            <div key={s.name} className="otto-hub__item">
+              <Dot tone={mcpTone(s.status)} />
+              <span className="otto-hub__row-name">{s.name}</span>
+              <span className="otto-hub__row-detail">
+                {s.command ?? s.httpUrl ?? s.url ?? ''}
+              </span>
+              <span className="otto-hub__row-status">{MCP_STATUS_LABEL[s.status]}</span>
+              <button
+                type="button"
+                className="otto-hub__row-remove"
+                onClick={() => actions.removeMcpServer(s.name)}
+                aria-label={'移除 ' + s.name}
+              >
+                <IconClose size={12} />
+              </button>
+            </div>
+          ))}
+        </Card>
+      )}
+    </Panel>
+  );
+}
+
+// ── 扩展 ──────────────────────────────────────────────────────────────────
+
+export function ExtensionsPanel({ data }: { data: UseSettingsData }): React.JSX.Element {
+  const { state, actions } = data;
+
+  return (
+    <Panel
+      title="扩展"
+      desc="已安装的扩展包及其版本。"
+      actions={
+        <button type="button" className="otto-hub__btn" onClick={actions.refreshExtensions}>
+          刷新
+        </button>
+      }
+    >
+      {state.extensions.length === 0 ? (
+        <Empty>尚未安装任何扩展。</Empty>
+      ) : (
+        <Card>
+          {state.extensions.map((ext) => (
+            <div key={ext.name} className="otto-hub__item">
+              <span className="otto-hub__row-name">{ext.name}</span>
+              <span className="otto-hub__row-detail">{ext.path}</span>
+              <Badge>v{ext.version}</Badge>
+            </div>
+          ))}
+        </Card>
+      )}
+    </Panel>
+  );
+}
+
+// ── IDE 伴生 ──────────────────────────────────────────────────────────────
+
+function ideTone(status: string): DotTone {
+  return status === 'connected'
+    ? 'on'
+    : status === 'connecting'
+      ? 'busy'
+      : status === 'disconnected'
+        ? 'err'
+        : 'off';
+}
+
+const IDE_STATUS_LABEL: Record<string, string> = {
+  connected: '已连接',
+  connecting: '连接中',
+  disconnected: '未连接',
+  not_applicable: '不适用',
+};
+
+export function IdePanel({ data }: { data: UseSettingsData }): React.JSX.Element {
+  const { state, actions } = data;
+  const s = state.ideStatus;
+
+  return (
+    <Panel
+      title="IDE 伴生"
+      desc="VS Code 伴生插件的连接状态。"
+      actions={
+        <button type="button" className="otto-hub__btn" onClick={actions.refreshIdeStatus}>
+          刷新
+        </button>
+      }
+    >
+      {!s ? (
+        <Empty>正在查询 IDE 伴生状态…</Empty>
+      ) : (
+        <Card>
+          <div className="otto-hub__item">
+            <Dot tone={ideTone(s.status)} />
+            <span className="otto-hub__row-name">
+              {IDE_STATUS_LABEL[s.status] ?? s.status}
+            </span>
+            {s.details ? <span className="otto-hub__row-detail">{s.details}</span> : null}
+          </div>
+        </Card>
+      )}
+    </Panel>
+  );
+}
