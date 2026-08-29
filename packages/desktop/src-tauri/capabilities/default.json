@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Minimum permissions for the main ClawMaster window.",
+  "description": "Minimum core permissions for the main ClawMaster window. System access is exposed only through validated Rust commands; raw plugin commands are intentionally not granted.",
   "windows": ["main"],
   "permissions": ["core:default"]
 }

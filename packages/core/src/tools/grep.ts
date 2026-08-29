@@ -38,6 +38,10 @@ const MAX_LINE_LENGTH = 256;
  * - CLI environment: Use bundled @vscode/ripgrep package
  */
 async function getRipgrepPath(): Promise<string> {
+  const explicitPath = resolveExplicitRipgrepPath();
+  if (explicitPath) {
+    return explicitPath;
+  }
   const packagedPath = findPackagedElectronRipgrep();
   if (packagedPath) {
     logger.info('[GrepTool] Packaged Electron ripgrep detected');
@@ -57,6 +61,17 @@ async function getRipgrepPath(): Promise<string> {
     logger.info('[GrepTool] CLI environment detected - using bundled ripgrep');
     return await getBundledRipgrepPath();
   }
+}
+
+export function resolveExplicitRipgrepPath(
+  environment: NodeJS.ProcessEnv = process.env,
+): string | null {
+  const explicitPath = environment['OTTO_RIPGREP_BINARY']?.trim();
+  if (!explicitPath) return null;
+  if (fs.existsSync(explicitPath)) return explicitPath;
+  throw new Error(
+    `Failed to execute ripgrep: OTTO_RIPGREP_BINARY does not exist at ${explicitPath}`,
+  );
 }
 
 /**

@@ -5,7 +5,11 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { GrepTool, GrepToolParams } from './grep.js';
+import {
+  GrepTool,
+  GrepToolParams,
+  resolveExplicitRipgrepPath,
+} from './grep.js';
 import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
@@ -19,6 +23,15 @@ describe('GrepTool', () => {
   const mockConfig = {
     getTargetDir: () => tempRootDir,
   } as unknown as Config;
+
+  it('uses an explicitly packaged ripgrep binary and rejects missing assets', async () => {
+    const binary = path.join(tempRootDir, 'rg');
+    await fs.writeFile(binary, 'runtime');
+    expect(resolveExplicitRipgrepPath({ OTTO_RIPGREP_BINARY: binary })).toBe(binary);
+    expect(() =>
+      resolveExplicitRipgrepPath({ OTTO_RIPGREP_BINARY: `${binary}-missing` }),
+    ).toThrow('does not exist');
+  });
 
   beforeEach(async () => {
     tempRootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'grep-tool-root-'));

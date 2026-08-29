@@ -2,7 +2,7 @@
  * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
  */
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App.js';
 import type { EnterpriseAccount } from '../preload/index.js';
@@ -332,6 +332,16 @@ afterEach(() => {
 });
 
 describe('App UI mode integration', () => {
+  it('keeps the workspace mounted when an older host returns null for module records', async () => {
+    const listModules = vi.fn(async () => null);
+    window.otto.customerModuleInstalledList = listModules as never;
+
+    render(<App />);
+
+    await waitFor(() => expect(listModules).toHaveBeenCalled());
+    expect(document.querySelector('.otto-app')).toBeTruthy();
+  });
+
   it('shows boot and login states without entering the workspace', () => {
     harness.auth.current = authFor(null, 'loading');
     const view = render(<App />);

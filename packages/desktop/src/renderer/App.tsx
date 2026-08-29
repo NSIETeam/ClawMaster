@@ -270,7 +270,9 @@ function OttoWorkspaceApp({
   useEffect(() => {
     let cancelled = false;
     void window.otto.customerModuleInstalledList()
-      .then((records) => { if (!cancelled) setInstalledCustomerModules(records); })
+      .then((records) => {
+        if (!cancelled) setInstalledCustomerModules(Array.isArray(records) ? records : []);
+      })
       .catch(() => { if (!cancelled) setInstalledCustomerModules([]); });
     return () => { cancelled = true; };
   }, [account.id, account.organizationId]);

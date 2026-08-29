@@ -9,6 +9,7 @@
     "frontendDist": "../dist/renderer"
   },
   "app": {
+    "withGlobalTauri": true,
     "security": {
       "csp": "default-src 'self'; connect-src 'self' http: https: ws: wss:; img-src 'self' asset: http: https: data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'"
     },
@@ -27,6 +28,14 @@
   },
   "bundle": {
     "active": true,
+    "externalBin": [
+      "target/sidecar-staging/binaries/clawmaster-node"
+    ],
+    "resources": {
+      "target/sidecar-staging/runtime/agent/": "runtime/agent/",
+      "target/sidecar-staging/runtime/ripgrep/": "runtime/ripgrep/",
+      "target/sidecar-staging/runtime/sqlcipher/": "runtime/sqlcipher/"
+    },
     "category": "DeveloperTool",
     "copyright": "Copyright © 2026 NSIETeam",
     "icon": [
@@ -35,6 +44,7 @@
       "../build/icon.ico"
     ],
     "macOS": {
+      "entitlements": "entitlements.plist",
       "signingIdentity": "-"
     },
     "shortDescription": "ClawMaster AI coworker and coding agent",

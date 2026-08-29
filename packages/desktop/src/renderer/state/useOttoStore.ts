@@ -1029,7 +1029,15 @@ export function useOttoStore(
     });
 
     // 触发 preload 建连（onConnectionChange 已负责后续状态广播，这里不再单独 dispatch）。
-    void transport.connect();
+    void transport.connect().catch((error: unknown) => {
+      if (cancelled) return;
+      dispatch({
+        kind: 'local_error',
+        message: error instanceof Error
+          ? `无法连接本地 Agent：${error.message}`
+          : '无法连接本地 Agent，请重新启动 ClawMaster。',
+      });
+    });
 
     return () => {
       cancelled = true;
