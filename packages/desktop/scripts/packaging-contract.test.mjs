@@ -343,6 +343,8 @@ describe('desktop packaging contract', () => {
     expect(nodeWorkflow).not.toContain('--without-intl');
     expect(nodeWorkflow).not.toContain('--without-sqlite');
     expect(nodeWorkflow).not.toContain('--v8-lite-mode');
+    expect(nodeWorkflow).toContain('--enable-lto');
+    expect(nodeWorkflow).toMatch(/vcbuild\.bat[^\n]*\blto\b/u);
     expect(nodeWorkflow).toContain('verify-tauri-node-runtime.mjs');
   });
 

@@ -33,7 +33,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: native/node-runtime/${{ matrix.target }}
-          key: tauri-node-v3-${{ matrix.target }}-71b8b174857e25106d39b61a9e6f30d927da8b01
+          key: tauri-node-v4-${{ matrix.target }}-71b8b174857e25106d39b61a9e6f30d927da8b01-lto
 
       - name: Check out the verified Node 24.20.0 release source
         if: steps.runtime-cache.outputs.cache-hit != 'true'
@@ -50,6 +50,7 @@ jobs:
         run: |
           ./configure \
             --disable-single-executable-application \
+            --enable-lto \
             --v8-disable-object-print \
             --without-amaro \
             --without-corepack \
@@ -109,7 +110,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: native/node-runtime/win32-x64
-          key: tauri-node-v4-win32-x64-71b8b174857e25106d39b61a9e6f30d927da8b01-small-icu
+          key: tauri-node-v5-win32-x64-71b8b174857e25106d39b61a9e6f30d927da8b01-small-icu-lto
 
       - name: Check out the verified Node 24.20.0 release source
         if: steps.runtime-cache.outputs.cache-hit != 'true'
@@ -124,7 +125,7 @@ jobs:
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         working-directory: node-source
         shell: cmd
-        run: vcbuild.bat release x64 clang-cl small-icu nonpm no-cctest no-NODE-OPTIONS
+        run: vcbuild.bat release x64 clang-cl small-icu nonpm no-cctest no-NODE-OPTIONS lto
 
       - name: Finalize runtime asset
         if: steps.runtime-cache.outputs.cache-hit != 'true'

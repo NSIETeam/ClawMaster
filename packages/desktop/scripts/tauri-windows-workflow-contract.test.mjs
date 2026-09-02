@@ -16,7 +16,8 @@ describe('Tauri Windows workflow contract', () => {
     expect(runtimeWorkflow).toMatch(/windows:\s*\n\s+name: win32-x64 balanced Node runtime/u);
     expect(runtimeWorkflow).toMatch(/repository: nodejs\/node/u);
     expect(runtimeWorkflow).toMatch(/ref: 71b8b174857e25106d39b61a9e6f30d927da8b01/u);
-    expect(runtimeWorkflow).toMatch(/vcbuild\.bat release x64 clang-cl small-icu nonpm no-cctest no-NODE-OPTIONS/u);
+    expect(runtimeWorkflow).toMatch(/vcbuild\.bat release x64 clang-cl small-icu nonpm no-cctest no-NODE-OPTIONS lto/u);
+    expect(runtimeWorkflow).toContain('tauri-node-v5-win32-x64');
     expect(runtimeWorkflow).toMatch(/--binary node-source\/Release\/node\.exe/u);
     expect(runtimeWorkflow).toMatch(/--target win32-x64/u);
     expect(runtimeWorkflow).toMatch(/name: tauri-node-win32-x64/u);
