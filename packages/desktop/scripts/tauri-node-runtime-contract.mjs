@@ -7,6 +7,7 @@ const NODE_RUNTIME_SCHEMA_VERSION = 1;
 export const NODE_RUNTIME_SOURCE_COMMIT = '71b8b174857e25106d39b61a9e6f30d927da8b01';
 export const NODE_RUNTIME_BUILD_FLAGS = Object.freeze([
   '--disable-single-executable-application',
+  '--enable-lto',
   '--v8-disable-object-print',
   '--without-amaro',
   '--without-corepack',
@@ -23,14 +24,15 @@ export const WINDOWS_NODE_RUNTIME_BUILD_FLAGS = Object.freeze([
   'nonpm',
   'no-cctest',
   'no-NODE-OPTIONS',
+  'lto',
 ]);
 
 export function nodeRuntimeBuildProfile(target) {
   if (target === 'win32-x64') {
-    return { id: 'node24-windows-small-icu-v1', flags: WINDOWS_NODE_RUNTIME_BUILD_FLAGS };
+    return { id: 'node24-windows-small-icu-lto-v2', flags: WINDOWS_NODE_RUNTIME_BUILD_FLAGS };
   }
   if (target === 'darwin-arm64' || target === 'darwin-x64') {
-    return { id: 'node24-darwin-small-icu-v1', flags: NODE_RUNTIME_BUILD_FLAGS };
+    return { id: 'node24-darwin-small-icu-lto-v2', flags: NODE_RUNTIME_BUILD_FLAGS };
   }
   throw new Error(`unsupported minimal Node target: ${target}`);
 }

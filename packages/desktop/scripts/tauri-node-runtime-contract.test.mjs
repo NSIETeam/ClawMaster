@@ -36,9 +36,11 @@ describe('minimal Tauri Node runtime contract', () => {
     expect(NODE_RUNTIME_BUILD_FLAGS).not.toContain('--without-intl');
     expect(NODE_RUNTIME_BUILD_FLAGS).not.toContain('--without-sqlite');
     expect(NODE_RUNTIME_BUILD_FLAGS).not.toContain('--v8-lite-mode');
+    expect(NODE_RUNTIME_BUILD_FLAGS).toContain('--enable-lto');
     expect(WINDOWS_NODE_RUNTIME_BUILD_FLAGS).toContain('small-icu');
     expect(WINDOWS_NODE_RUNTIME_BUILD_FLAGS).toContain('clang-cl');
-    expect(nodeRuntimeBuildProfile('win32-x64').id).toBe('node24-windows-small-icu-v1');
+    expect(WINDOWS_NODE_RUNTIME_BUILD_FLAGS).toContain('lto');
+    expect(nodeRuntimeBuildProfile('win32-x64').id).toBe('node24-windows-small-icu-lto-v2');
   });
 
   it('verifies the executable hash, ABI and required capabilities', () => {
