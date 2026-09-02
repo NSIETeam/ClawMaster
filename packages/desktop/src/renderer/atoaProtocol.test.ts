@@ -61,7 +61,7 @@ describe('企业 A2A 消息协议', () => {
       },
     });
     expect(displayDirectMessageContent(content)).toBe(
-      '双方 Otto 协商结果（已授权：日程）：\n建议先发一个 15:00 的候选时间。',
+      '双方 ClawMaster 协商结果（已授权：日程）：\n建议先发一个 15:00 的候选时间。',
     );
   });
 
@@ -92,7 +92,7 @@ describe('企业 A2A 消息协议', () => {
     expect(new TextEncoder().encode(content).byteLength).toBeLessThanOrEqual(
       ATOA_DIRECT_MESSAGE_MAX_LENGTH,
     );
-    expect(displayDirectMessageContent(content)).toContain('双方 Otto 协商');
+    expect(displayDirectMessageContent(content)).toContain('双方 ClawMaster 协商');
   });
 
   it('按最终序列化结果动态裁剪请求和回复，字符串及 UTF-8 均不超过私聊上限', () => {

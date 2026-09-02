@@ -18,6 +18,7 @@ import { askLocalPeerOtto } from '../peerOttoRunner.js';
 import { IconChevronDown, IconPaperclip, IconPlus } from './icons.js';
 import { AtoaConsultDialog } from './AtoaConsultDialog.js';
 import type { EnterpriseUnreadCounts } from '../enterpriseUnreadNotifications.js';
+import { startNonOverlappingPoll } from '../lib/nonOverlappingPoll.js';
 
 const ORGANIZATION_REFRESH_MS = 10_000;
 const DIRECT_CHAT_CASCADE_PX = 28;
@@ -47,7 +48,7 @@ function enterpriseMemberPositionTitle(member: EnterpriseOrganizationMember): st
     || (member.isAdmin ? '管理员' : member.role?.trim() || '成员');
 }
 
-export function groupEnterpriseMembersForDisplay(
+function groupEnterpriseMembersForDisplay(
   members: EnterpriseOrganizationView['members'],
   structure: NonNullable<EnterpriseOrganizationView['structure']> = [],
 ): OrganizationMemberDepartmentGroup[] {
@@ -265,13 +266,13 @@ export function OrganizationTree({
     };
 
     void loadOrganization(true);
-    const timer = window.setInterval(() => {
-      void loadOrganization(false);
-    }, ORGANIZATION_REFRESH_MS);
+    const stopPolling = startNonOverlappingPoll(
+      () => loadOrganization(false), ORGANIZATION_REFRESH_MS, { runImmediately: false },
+    );
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [
     hasAuthenticatedOrganization,
@@ -459,7 +460,7 @@ function OrganizationPresenceSummary({
     member.ottoOnline !== undefined || member.ottoLastSeenAt !== undefined,
   ).length;
   return (
-    <div className="otto-orgtree__presence-summary" aria-label="Otto 在线状态">
+    <div className="otto-orgtree__presence-summary" aria-label="ClawMaster 在线状态">
       <span>
         {knownPresenceCount > 0
           ? `${onlineCount}/${activeMembers.length} 在线`
@@ -837,10 +838,10 @@ export function DirectMessagePanel({
       }
     };
     void load();
-    const timer = window.setInterval(() => void load(), 2000);
+    const stopPolling = startNonOverlappingPoll(() => load(), 2_000, { runImmediately: false });
     return () => {
       active = false;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [member.id, onMessageRead]);
 
@@ -923,8 +924,8 @@ export function DirectMessagePanel({
       return '- ' + createdAt + ' ' + speaker + ': ' + message.content + fileSummary;
     }).join('\n');
     return [
-      '当前是在企业一对一聊天窗口中询问自己的 Otto；本次回答会发送给聊天对方可见。',
-      '请结合当前聊天记录和我本机 Otto 已获授权的资料回答，不要编造。',
+      '当前是在企业一对一聊天窗口中询问自己的 ClawMaster；本次回答会发送给聊天对方可见。',
+      '请结合当前聊天记录和我本机 ClawMaster 已获授权的资料回答，不要编造。',
       '',
       '当前聊天记录：',
       transcript || '（当前还没有可用聊天记录）',
@@ -943,9 +944,9 @@ export function DirectMessagePanel({
         clientMessageId: 'own-a2a-message-' + crypto.randomUUID(),
       });
       const content = [
-        '我问了自己的 Otto（基于：我的 Otto 可用资料）：' + cleanQuestion,
+        '我问了自己的 ClawMaster（基于：我的 ClawMaster 可用资料）：' + cleanQuestion,
         '',
-        'Otto：',
+        'ClawMaster：',
         answer,
       ].join('\n');
       const message = await window.otto.enterpriseMessageSend(member.id, content);
@@ -1152,7 +1153,7 @@ export function DirectMessagePanel({
         </div>
       </header>
 
-      <div className="otto-direct-chat__actionbar" aria-label="Otto 协作操作">
+      <div className="otto-direct-chat__actionbar" aria-label="ClawMaster 协作操作">
         {usesMls ? (
           <button
             type="button"
@@ -1168,25 +1169,25 @@ export function DirectMessagePanel({
           className="otto-direct-chat__otto"
           disabled={askingOwnOtto || !draft.trim() || attachments.length > 0}
           onClick={() => void askOtto(draft)}
-          title={attachments.length > 0 ? '附件不会自动交给 Otto，请先发送或移除附件' : undefined}
+          title={attachments.length > 0 ? '附件不会自动交给 ClawMaster，请先发送或移除附件' : undefined}
         >
-          {askingOwnOtto ? '询问中' : '问 Otto'}
+          {askingOwnOtto ? '询问中' : '问 ClawMaster'}
         </button>
         <button
           type="button"
           className="otto-direct-chat__otto"
           disabled={askingPeerOtto || attachments.length > 0}
           onClick={() => void askPeerOtto(draft)}
-          title={attachments.length > 0 ? '附件不会自动交给对方 Otto，请先发送或移除附件' : undefined}
+          title={attachments.length > 0 ? '附件不会自动交给对方 ClawMaster，请先发送或移除附件' : undefined}
         >
-          问对方 Otto
+          问对方 ClawMaster
         </button>
         {currentAccount ? (
           <div className="otto-direct-chat__a2a-menu">
             <button
               type="button"
               className="otto-direct-chat__plus"
-              aria-label="更多 Otto 协作"
+              aria-label="更多 ClawMaster 协作"
               aria-expanded={collaborationMenuOpen}
               onClick={() => setCollaborationMenuOpen((value) => !value)}
             >
@@ -1202,7 +1203,7 @@ export function DirectMessagePanel({
                     setConsultOpen(true);
                   }}
                 >
-                  <strong>双方 Otto 协商</strong>
+                  <strong>双方 ClawMaster 协商</strong>
                   <small>会议时间、合作计划与双方日程</small>
                 </button>
               </div>
@@ -1221,7 +1222,7 @@ export function DirectMessagePanel({
         {messages.length === 0 ? (
           <div className="otto-direct-chat__empty">
             <strong>还没有消息，开始聊聊吧。</strong>
-            <span>可直接发送文字、图片、Word、PDF；需要整理上下文时可使用 Otto 协作。</span>
+            <span>可直接发送文字、图片、Word、PDF；需要整理上下文时可使用 ClawMaster 协作。</span>
           </div>
         ) : messages.map((message) => {
           const mine = message.senderAccountId !== member.id;

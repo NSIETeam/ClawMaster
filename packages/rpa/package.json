@@ -13,6 +13,6 @@
     "lint": "eslint src --ext .ts"
   },
   "optionalDependencies": {
-    "playwright": "1.62.1"
+    "playwright-core": "1.62.1"
   }
 }

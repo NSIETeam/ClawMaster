@@ -20,7 +20,7 @@ import type {
   EnterpriseUnreadMessageNotification,
 } from '../../preload/index.js';
 import { isAuthenticatedEnterpriseAccount } from '../internal-test-access.js';
-import { createQrMatrix } from '../lib/qrMatrix.js';
+import { startNonOverlappingPoll } from '../lib/nonOverlappingPoll.js';
 import {
   buildAtoaRequest,
   displayDirectMessageContent,
@@ -32,31 +32,19 @@ import {
   IconPlus,
   IconWarning,
 } from './icons.js';
+import { QrCode } from './QrCode.js';
 
 const INBOX_REFRESH_MS = 8_000;
 
 type InboxFilter = 'all' | 'unread' | 'handled';
 
 function FederationVerificationQr({ payload }: { payload: string }): React.JSX.Element | null {
-  const matrix = createQrMatrix(payload);
-  if (!matrix) return null;
-  const path = matrix
-    .flatMap((row, y) =>
-      row.flatMap((filled, x) => (filled ? [`M${x} ${y}h1v1h-1z`] : [])),
-    )
-    .join('');
-  const size = matrix.length;
   return (
-    <svg
+    <QrCode
+      value={payload}
+      label="联邦联系人安全号码二维码"
       className="otto-inbox-page__security-qr"
-      role="img"
-      aria-label="联邦联系人安全号码二维码"
-      viewBox={`-3 -3 ${size + 6} ${size + 6}`}
-      shapeRendering="crispEdges"
-    >
-      <rect x={-3} y={-3} width={size + 6} height={size + 6} fill="#fff" />
-      <path d={path} fill="#111" />
-    </svg>
+    />
   );
 }
 
@@ -154,11 +142,13 @@ export function InboxPage({
       refreshNotifications(),
       refreshFederationContacts(),
     ]).finally(() => setLoading(false));
-    const timer = window.setInterval(() => {
-      void refreshNotifications();
-      void refreshFederationContacts();
-    }, INBOX_REFRESH_MS);
-    return () => window.clearInterval(timer);
+    return startNonOverlappingPoll(
+      async () => {
+        await Promise.all([refreshNotifications(), refreshFederationContacts()]);
+      },
+      INBOX_REFRESH_MS,
+      { runImmediately: false },
+    );
   }, [hasAuth, refreshFederationContacts, refreshNotifications]);
 
   // —— 构建会话列表 ——
@@ -370,7 +360,7 @@ export function InboxPage({
       !question || sending || federationAttachments.length > 0
     ) return;
     if (selectedFederationContact.trustState !== 'verified') {
-      setFederationError('请先核验联系人安全号码，再向对方 Otto 提问。');
+      setFederationError('请先核验联系人安全号码，再向对方 ClawMaster 提问。');
       return;
     }
     setSending(true);
@@ -590,7 +580,7 @@ export function InboxPage({
               : '请先核验联系人身份'}
             onClick={() => { void askFederationPeerOtto(); }}
           >
-            询问对方 Otto
+            询问对方 ClawMaster
           </button>
         </div>
       ) : null}

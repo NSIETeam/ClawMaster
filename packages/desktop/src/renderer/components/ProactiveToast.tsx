@@ -5,7 +5,7 @@
  * 自动堆叠、倒计时消失、支持优先级着色。
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import * as transport from '../transport.js';
 
 interface Toast {
@@ -21,7 +21,6 @@ const MAX_TOASTS = 4;
 
 export function ProactiveToast(): React.ReactElement | null {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const unsub = transport.onFrame((frame) => {
@@ -44,15 +43,15 @@ export function ProactiveToast(): React.ReactElement | null {
     return () => { unsub(); };
   }, []);
 
-  // 定期清理过期 toast
+  // Wake only when the next toast expires instead of polling twice per second.
   useEffect(() => {
-    timerRef.current = setInterval(() => {
-      setToasts((prev) => prev.filter((t) => t.expiresAt > Date.now()));
-    }, 500);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
+    if (toasts.length === 0) return undefined;
+    const nextExpiry = Math.min(...toasts.map((toast) => toast.expiresAt));
+    const timer = window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.expiresAt > Date.now()));
+    }, Math.max(0, nextExpiry - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [toasts]);
 
   if (toasts.length === 0) return null;
 

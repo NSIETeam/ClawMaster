@@ -43,7 +43,7 @@ export class OttoAuthHandler {
     }
     // 直接构建完整的认证URL，避免重定向问题
     const authUrl = `${this.config.authUrl}?redirect_to=${encodeURIComponent(this.config.redirectUri)}&redirect_mode=same_window`;
-    console.log('🔗 Otto认证URL:', authUrl);
+    console.log('🔗 ClawMaster 认证 URL 已生成');
 
     return authUrl;
   }
@@ -52,11 +52,10 @@ export class OttoAuthHandler {
    * 处理Otto认证回调
    */
   handleCallback(url: URL): OttoAuthResult {
-    console.log('🔄 [Otto Auth] 处理Otto认证回调');
-    console.log('🔄 [Otto Auth] 回调URL:', url.toString());
+    console.log('🔄 [ClawMaster Auth] 处理认证回调');
 
     const allParams = Object.fromEntries(url.searchParams.entries());
-    console.log('🔄 [Otto Auth] 回调参数:', allParams);
+    console.log('🔄 [ClawMaster Auth] 回调参数已接收:', Object.keys(allParams));
 
     // 提取token和user_id参数
     const token = url.searchParams.get('token');
@@ -64,34 +63,31 @@ export class OttoAuthHandler {
     const error = url.searchParams.get('error');
 
     if (error) {
-      console.error('❌ [Otto Auth] 认证错误:', error);
+      console.error('❌ [ClawMaster Auth] 认证错误:', error);
       return {
         success: false,
-        error: `Otto认证失败: ${error}`
+        error: `ClawMaster 认证失败: ${error}`
       };
     }
 
     if (!token) {
-      console.error('❌ [Otto Auth] 缺少token参数');
+      console.error('❌ [ClawMaster Auth] 缺少 token 参数');
       return {
         success: false,
-        error: 'Otto认证回调中缺少token参数'
+        error: 'ClawMaster 认证回调中缺少 token 参数'
       };
     }
 
     if (!user_id) {
-      console.error('❌ [Otto Auth] 缺少user_id参数');
+      console.error('❌ [ClawMaster Auth] 缺少 user_id 参数');
       return {
         success: false,
-        error: 'Otto认证回调中缺少user_id参数'
+        error: 'ClawMaster 认证回调中缺少 user_id 参数'
       };
     }
 
     // 打印token和user_id（按要求）
-    console.log('🎉 [Otto Auth] 获取到JWT Token:', token);
-    console.log('🎉 [Otto Auth] 获取到User ID:', user_id);
-
-    console.log('✅ [Otto Auth] Otto认证成功');
+    console.log('✅ [ClawMaster Auth] 认证成功');
     return {
       success: true,
       token,

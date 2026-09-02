@@ -25,7 +25,7 @@ const request: AtoaPermissionRequest = {
     createdAt: '2026-07-20T00:00:00.000Z',
     mode: 'consult' as const,
     requestedSources: ['current_chat', 'schedules'],
-    initiatorProposal: '发起方 Otto 建议 15:00。',
+    initiatorProposal: '发起方 ClawMaster 建议 15:00。',
   },
   messages: [
     {
@@ -54,7 +54,7 @@ describe('A2A 权限选择弹窗', () => {
     const onDecision = vi.fn();
     render(<AtoaPermissionDialog request={request} onDecision={onDecision} />);
 
-    expect(screen.getByRole('dialog', { name: 'Otto 协作权限' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'ClawMaster 协作权限' })).toBeTruthy();
     expect(screen.getByText('Alice')).toBeTruthy();
     expect(screen.getByText('产品部 · 产品经理')).toBeTruthy();
     expect(screen.getByText(request.payload.question)).toBeTruthy();

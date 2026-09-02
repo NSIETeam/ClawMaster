@@ -14,7 +14,6 @@ import {
 } from '@google/genai';
 import { OttoChat } from './ottoChat.js';
 import { Config } from '../config/config.js';
-import { setSimulate429 } from '../utils/testUtils.js';
 import { SceneType } from './sceneManager.js';
 
 type LooseToolDeclaration = { functionDeclarations?: Array<{ name?: string }> };
@@ -51,8 +50,6 @@ describe('OttoChat', () => {
       flashFallbackHandler: undefined,
     } as unknown as Config;
 
-    // Disable 429 simulation for tests
-    setSimulate429(false);
     // Reset history for each test by creating a new instance
     chat = new OttoChat(mockConfig, mockModelsModule, config, []);
   });

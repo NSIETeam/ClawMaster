@@ -145,11 +145,11 @@ export function AtoaConsultDialog({
         className="otto-a2a-consult"
         role="dialog"
         aria-modal="true"
-        aria-label="双方 Otto 协商"
+        aria-label="双方 ClawMaster 协商"
       >
         <header>
           <div>
-            <span>双方 Otto 协商</span>
+            <span>双方 ClawMaster 协商</span>
             <h2>与 {member.name} 形成协作方案</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="关闭协商">
@@ -172,7 +172,7 @@ export function AtoaConsultDialog({
         </label>
 
         <fieldset>
-          <legend>允许我的 Otto 用于提案的资料（默认不选）</legend>
+          <legend>允许我的 ClawMaster 用于提案的资料（默认不选）</legend>
           <div className="otto-a2a-consult__sources">
             {CONSULT_CONTEXT_SOURCES.map((source) => (
               <label key={source}>
@@ -213,7 +213,7 @@ export function AtoaConsultDialog({
               disabled={!question.trim() || generating}
               onClick={() => void generate()}
             >
-              {generating ? 'Otto 正在生成…' : '让我的 Otto 生成提案'}
+              {generating ? 'ClawMaster 正在生成…' : '让我的 ClawMaster 生成提案'}
             </button>
           ) : (
             <>
@@ -230,7 +230,7 @@ export function AtoaConsultDialog({
                 disabled={sending}
                 onClick={() => void send()}
               >
-                {sending ? '发送中…' : '确认发送给对方 Otto'}
+                {sending ? '发送中…' : '确认发送给对方 ClawMaster'}
               </button>
             </>
           )}

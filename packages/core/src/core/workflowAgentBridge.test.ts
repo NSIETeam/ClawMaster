@@ -19,6 +19,11 @@ import { Config } from '../config/config.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import { OttoClient } from './client.js';
 import { SubAgent } from './subAgent.js';
+import {
+  resetSubAgentResourceCoordinatorForTests,
+  setSubAgentResourceCoordinatorForTests,
+  SubAgentResourceCoordinator,
+} from './subAgentResourceCoordinator.js';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -44,6 +49,10 @@ vi.mock('./workflowRegistry.js', () => ({
     updateAgentPhase: vi.fn(),
   },
 }));
+
+beforeEach(() => {
+  resetSubAgentResourceCoordinatorForTests();
+});
 
 function makeBridge(opts: {
   maxConcurrency?: number;
@@ -277,6 +286,54 @@ describe('WorkflowAgentBridge.runParallel — concurrency', () => {
     const bridge = makeBridge();
     const results = await bridge.runParallel([]);
     expect(results).toEqual([]);
+  });
+
+  it('aborts in-flight agents when one parallel agent throws', async () => {
+    setSubAgentResourceCoordinatorForTests(new SubAgentResourceCoordinator({
+      resolveLimit: () => 2,
+      nativePool: {
+        async register() { return { status: 'fallback', registered: false }; },
+        async updateMemory() { return 'fallback'; },
+        async unregister() { return 'fallback'; },
+      },
+    }));
+    const receivedSignals: AbortSignal[] = [];
+    (SubAgent as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (...constructorArgs: unknown[]) => {
+        const signal = constructorArgs[4] as AbortSignal;
+        receivedSignals.push(signal);
+        const index = receivedSignals.length - 1;
+        return {
+          executeTask: vi.fn().mockImplementation(() => {
+            if (index === 0) return Promise.reject(new Error('agent failed'));
+            return new Promise((_, reject) => {
+              signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+            });
+          }),
+        };
+      },
+    );
+
+    const bridge = new WorkflowAgentBridge(
+      {
+        getProjectRoot: () => '/tmp',
+        getSessionId: () => 'test',
+        getApprovalMode: () => 'auto',
+        getHookSystem: () => ({ getEventHandler: () => undefined }),
+      } as unknown as Config,
+      { getAllTools: () => [], registerTool: vi.fn() } as unknown as ToolRegistry,
+      {} as OttoClient,
+      new AbortController().signal,
+      undefined,
+      2,
+    );
+
+    await expect(bridge.runParallel([
+      { prompt: 'fails' },
+      { prompt: 'must stop' },
+    ])).rejects.toThrow('agent failed');
+    expect(receivedSignals).toHaveLength(2);
+    expect(receivedSignals.every((signal) => signal.aborted)).toBe(true);
   });
 });
 

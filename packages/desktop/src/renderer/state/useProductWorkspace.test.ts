@@ -2,12 +2,37 @@
  * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
-import type { ServerToClient } from 'otto-server';
+import { describe, expect, it, vi } from 'vitest';
+import type { ClientToServer, ServerToClient } from 'otto-server';
 import {
+  createProductWorkspaceConnectionHandler,
   initialProductWorkspaceState,
   productWorkspaceReducer,
 } from './useProductWorkspace.js';
+
+describe('product workspace connection lifecycle', () => {
+  it('waits for the local runtime and reloads once after each reconnect', () => {
+    const send = vi.fn<(frame: ClientToServer) => void>();
+    const onConnectionChange = createProductWorkspaceConnectionHandler(send);
+
+    onConnectionChange(false);
+    expect(send).not.toHaveBeenCalled();
+
+    onConnectionChange(true);
+    expect(send.mock.calls.map(([frame]) => frame.type)).toEqual([
+      'get_product_workspace',
+      'get_schedules',
+      'get_pending_auto_skills',
+    ]);
+
+    onConnectionChange(true);
+    expect(send).toHaveBeenCalledTimes(3);
+
+    onConnectionChange(false);
+    onConnectionChange(true);
+    expect(send).toHaveBeenCalledTimes(6);
+  });
+});
 
 describe('productWorkspaceReducer', () => {
   it('接收服务端脱敏工作区快照并切换模式', () => {

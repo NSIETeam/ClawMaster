@@ -57,7 +57,7 @@ export function parseEnterpriseRegistrationIntent(
     return parseEnterpriseJoinPageIntent(url);
   }
 
-  if (url.protocol !== 'otto:'
+  if (!['clawmaster:', 'otto:'].includes(url.protocol)
     || url.host !== 'enterprise'
     || url.hostname !== 'enterprise'
     || url.port

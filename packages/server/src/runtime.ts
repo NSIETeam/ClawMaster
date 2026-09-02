@@ -558,7 +558,7 @@ export class CoreSessionRuntime implements SessionRuntime {
     // instruction，不把可靠性寄托在模型是否记得调用 use_skill。
     const taskText = messageContentToText(input);
     if (messageNeedsBuiltinPptSkill(taskText)) {
-      const currentRules = this.config.getUserRules();
+      const currentRules = this.config.getBaseUserRules();
       const marker = '<skill_loaded name="ppt-creator" source="otto-builtin">';
       if (!currentRules.includes(marker)) {
         const skill = loadBuiltinSkillInstructions('ppt-creator')?.trim();
@@ -566,8 +566,8 @@ export class CoreSessionRuntime implements SessionRuntime {
           this.config.setUserRules(
             [
               currentRules,
-              '## Otto 内置强制 Skill：ppt-creator',
-              '以下完整 Skill 已由 Otto 在系统层直接加载。不要再次调用 use_skill，也不得跳过、缩写或改用快速模板；必须按其工作流执行。',
+              '## ClawMaster 内置强制 Skill：ppt-creator',
+              '以下完整 Skill 已由 ClawMaster 在系统层直接加载。不要再次调用 use_skill，也不得跳过、缩写或改用快速模板；必须按其工作流执行。',
               marker,
               skill,
               '</skill_loaded>',

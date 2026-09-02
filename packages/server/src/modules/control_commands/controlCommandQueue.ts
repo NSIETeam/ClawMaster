@@ -205,23 +205,60 @@ export function claimPendingControlCommand(
   return { ...row, status: 'running' as const, attempt, locked_until_ms: now + leaseMs };
 }
 
+/**
+ * Fence commands whose worker disappeared after claiming them. Their external
+ * outcome cannot be inferred safely, so they become user-visible
+ * `unknown_outcome` records instead of being replayed from the beginning.
+ */
+export function recoverExpiredControlCommandLeases(
+  store: ControlCommandQueueStore,
+): string[] {
+  const database = store.db();
+  ensureTable(database);
+  const now = store.now();
+  const candidates = database.prepare(
+    `SELECT command_id FROM control_command_queue
+     WHERE status = 'running' AND locked_until_ms IS NOT NULL
+       AND locked_until_ms <= ?
+     ORDER BY command_id ASC`,
+  ).all(now) as Array<{ command_id: string }>;
+  const recover = database.prepare(
+    `UPDATE control_command_queue
+     SET status = 'unknown_outcome',
+         result_summary = 'execution lease expired; reconcile before retry',
+         error_category = 'lease_expired',
+         locked_until_ms = NULL,
+         last_error = 'worker lease expired before completion'
+     WHERE command_id = ? AND status = 'running'
+       AND locked_until_ms IS NOT NULL AND locked_until_ms <= ?`,
+  );
+  const recovered: string[] = [];
+  for (const candidate of candidates) {
+    if (Number(recover.run(candidate.command_id, now).changes) > 0) {
+      recovered.push(candidate.command_id);
+    }
+  }
+  return recovered;
+}
+
 /** 记录执行结果。 */
 export function completeControlCommandInRepository(
   store: ControlCommandQueueStore,
   commandId: string,
   result: ControlCommandRunResult,
-): void {
+): boolean {
   const database = store.db();
   ensureTable(database);
-  database.prepare(
+  const completed = database.prepare(
     `UPDATE control_command_queue
      SET status = ?, result_summary = ?, resource_id = ?, error_category = ?,
          locked_until_ms = NULL
-     WHERE command_id = ?`,
+     WHERE command_id = ? AND status = 'running'`,
   ).run(
     result.status, result.resultSummary, result.resourceId ?? null,
     result.errorCategory ?? null, commandId,
   );
+  return Number(completed.changes) > 0;
 }
 
 /** 判断指令是否已存在（幂等重放检测）。 */

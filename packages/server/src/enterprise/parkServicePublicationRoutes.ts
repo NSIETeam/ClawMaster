@@ -40,7 +40,7 @@ function buildParkServicePushMessage(input: {
     `【${input.brandName}】${input.serviceName}`,
     detail,
     input.note ? `管理员备注：${input.note}` : null,
-    `请在 Otto 右侧“${input.brandName}”入口中继续处理。`,
+    `请在 ClawMaster 右侧“${input.brandName}”入口中继续处理。`,
   ].filter(Boolean).join('\n');
 }
 

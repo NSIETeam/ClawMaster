@@ -72,7 +72,7 @@ export interface HookToolConfig {
 /**
  * Base class for hook translators - handles version-specific translation logic
  */
-export abstract class HookTranslator {
+abstract class HookTranslator {
   abstract toHookLLMRequest(sdkRequest: GenerateContentParameters): LLMRequest;
   abstract fromHookLLMRequest(
     hookRequest: LLMRequest,
@@ -148,7 +148,7 @@ function extractGenerationConfig(request: GenerateContentParameters):
  * Hook translator for GenAI SDK v1.x
  * Handles translation between GenAI SDK types and stable Hook API types
  */
-export class HookTranslatorGenAIv1 extends HookTranslator {
+class HookTranslatorGenAIv1 extends HookTranslator {
   /**
    * Convert genai SDK GenerateContentParameters to stable LLMRequest
    *

@@ -61,6 +61,10 @@ describe('Prose 轻量 Markdown', () => {
     const { getByRole } = render(<Prose text={`已保存到 \`${outputPath}\``} />);
 
     await waitFor(() => expect(getByRole('button', { name: '打开文件' })).toBeTruthy());
+    const editEvent = vi.fn();
+    window.addEventListener('clawmaster:edit-local-file', editEvent, { once: true });
+    fireEvent.click(getByRole('button', { name: '在右侧编辑' }));
+    expect(editEvent).toHaveBeenCalledTimes(1);
     fireEvent.click(getByRole('button', { name: '打开文件' }));
     await waitFor(() => expect(activateLocalPath).toHaveBeenCalledWith(outputPath, 'open'));
     fireEvent.click(getByRole('button', { name: '在文件夹中显示' }));

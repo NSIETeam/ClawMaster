@@ -68,7 +68,7 @@ function spawnCommand(bin: string, args: string[], options: { cwd: string }): Ch
 /**
  * 智能根目录探测：向上递归寻找特征文件
  */
-export const NearestRoot = (includePatterns: string[], projectRoot: string) => async (file: string): Promise<string> => {
+const NearestRoot = (includePatterns: string[], projectRoot: string) => async (file: string): Promise<string> => {
     // 🎯 Windows 兼容性：规范化路径并转为小写进行比较，防止驱动器盘符大小写不一致导致判断失败
     let current = path.normalize(path.dirname(path.resolve(file)));
     const stop = path.normalize(path.resolve(projectRoot));
@@ -95,7 +95,7 @@ export const NearestRoot = (includePatterns: string[], projectRoot: string) => a
 /**
  * 语言服务配置定义
  */
-export const TypeScriptLSP = (projectRoot: string): LSPServerInfo => ({
+const TypeScriptLSP = (projectRoot: string): LSPServerInfo => ({
   id: 'typescript-language-server',
   displayName: 'TypeScript/JavaScript Language Server',
   extensions: ['.ts', '.tsx', '.js', '.jsx'],
@@ -118,7 +118,7 @@ export const TypeScriptLSP = (projectRoot: string): LSPServerInfo => ({
   }
 });
 
-export const Pyright = (projectRoot: string): LSPServerInfo => ({
+const Pyright = (projectRoot: string): LSPServerInfo => ({
   id: 'pyright',
   displayName: 'Python Language Server',
   extensions: ['.py'],
@@ -137,7 +137,7 @@ export const Pyright = (projectRoot: string): LSPServerInfo => ({
   }
 });
 
-export const RustAnalyzer = (projectRoot: string): LSPServerInfo => ({
+const RustAnalyzer = (projectRoot: string): LSPServerInfo => ({
   id: 'rust-analyzer',
   displayName: 'Rust Language Server',
   extensions: ['.rs'],
@@ -210,7 +210,7 @@ export const RustAnalyzer = (projectRoot: string): LSPServerInfo => ({
   }
 });
 
-export const Gopls = (projectRoot: string): LSPServerInfo => ({
+const Gopls = (projectRoot: string): LSPServerInfo => ({
   id: 'gopls',
   displayName: 'Go Language Server',
   extensions: ['.go'],
@@ -240,7 +240,7 @@ export const Gopls = (projectRoot: string): LSPServerInfo => ({
   }
 });
 
-export const Clangd = (projectRoot: string): LSPServerInfo => ({
+const Clangd = (projectRoot: string): LSPServerInfo => ({
   id: 'clangd',
   displayName: 'C/C++ Language Server',
   extensions: ['.c', '.cpp', '.h', '.hpp', '.cc'],
@@ -261,7 +261,7 @@ export const Clangd = (projectRoot: string): LSPServerInfo => ({
   }
 });
 
-export const WebLSP = (projectRoot: string): LSPServerInfo => ({
+const WebLSP = (projectRoot: string): LSPServerInfo => ({
   id: 'vscode-langservers-extracted',
   displayName: 'HTML/CSS/JSON/ESLint Language Server',
   extensions: ['.html', '.css', '.json', '.jsonc'],
@@ -276,7 +276,7 @@ export const WebLSP = (projectRoot: string): LSPServerInfo => ({
   }
 });
 
-export const SqlLSP = (projectRoot: string): LSPServerInfo => ({
+const SqlLSP = (projectRoot: string): LSPServerInfo => ({
   id: 'sql-language-server',
   displayName: 'SQL Language Server',
   extensions: ['.sql'],
@@ -291,7 +291,7 @@ export const SqlLSP = (projectRoot: string): LSPServerInfo => ({
   }
 });
 
-export const DockerLSP = (projectRoot: string): LSPServerInfo => ({
+const DockerLSP = (projectRoot: string): LSPServerInfo => ({
   id: 'dockerfile-language-server-nodejs',
   displayName: 'Dockerfile Language Server',
   extensions: ['Dockerfile', '.dockerfile'],
@@ -306,7 +306,7 @@ export const DockerLSP = (projectRoot: string): LSPServerInfo => ({
   }
 });
 
-export const YamlLSP = (projectRoot: string): LSPServerInfo => ({
+const YamlLSP = (projectRoot: string): LSPServerInfo => ({
   id: 'yaml-language-server',
   displayName: 'YAML Language Server',
   extensions: ['.yaml', '.yml'],

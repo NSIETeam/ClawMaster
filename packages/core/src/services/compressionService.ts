@@ -1112,10 +1112,10 @@ IMPORTANT POST-COMPRESSION RULES:
         return innerResult;
       }, {
         maxAttempts: 3, // 最多重试3次
-        shouldRetry: (error) => {
-          console.warn(`[CompressionService] Compression attempt failed: ${error.message}. Retrying...`);
-          return true;
-        }
+        // Use retryWithBackoff's transient-error predicate. Permanent validation
+        // and model errors must surface immediately; retrying every failure made
+        // local long-running tasks stall for several backoff windows before the
+        // circuit breaker could record the failure.
       });
 
       // 压缩成功，重置熔断器

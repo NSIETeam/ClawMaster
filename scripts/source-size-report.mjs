@@ -24,6 +24,8 @@ const EXCLUDED_DIRS = new Set([
   'node_modules',
   'target',
   'dist',
+  'dist-preview',
+  'gen',
   'coverage',
   'release',
   '.turbo',

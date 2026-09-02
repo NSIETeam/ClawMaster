@@ -118,15 +118,11 @@ describe('desktop packaging contract', () => {
     }
   });
 
-  it('keeps the public browser previews on their current model display names', async () => {
-    const [mockPreview, browserBridge] = await Promise.all([
-      readFile(path.join(packageRoot, 'preview', 'mock.tsx'), 'utf8'),
-      readFile(
-        path.join(packageRoot, 'src', 'renderer', 'browserPreviewBridge.ts'),
-        'utf8',
-      ),
-    ]);
-    expect(mockPreview).toContain("displayName: '高端推理模型'");
+  it('keeps the supported browser preview on its current model display name', async () => {
+    const browserBridge = await readFile(
+      path.join(packageRoot, 'src', 'renderer', 'browserPreviewBridge.ts'),
+      'utf8',
+    );
     expect(browserBridge).toContain("displayName: 'GPT-5.1'");
     expect(browserBridge).not.toContain("displayName: 'gpt-5.1（本地预览）'");
   });
@@ -303,6 +299,51 @@ describe('desktop packaging contract', () => {
     expect(gate).toContain('releaseAssetCandidates.some(existsSync)');
     expect(gate).not.toContain("manifest.assets?.['win-x64']");
     expect(gate).not.toContain('latest.json win-x64 sha256 mismatch');
+  });
+
+  it('builds a pinned CommonCrypto SQLCipher asset for the Tauri Node sidecar', async () => {
+    const workflow = await readFile(
+      path.join(repoRoot, '.github', 'workflows', 'sqlcipher-native.yml'),
+      'utf8',
+    );
+    expect(workflow).toContain('node-version: 24.20.0');
+    expect(workflow).toContain('Build Tauri Node SQLCipher addon with Apple CommonCrypto');
+    expect(workflow).toContain('-DSQLCIPHER_CRYPTO_CC');
+    expect(workflow).toContain('--runtime node');
+    expect(workflow).toContain('--crypto-provider commoncrypto');
+    expect(workflow).toContain('verify-tauri-sqlcipher-asset.mjs');
+    expect(workflow).toContain('name: tauri-sqlcipher-${{ matrix.target }}');
+    expect(workflow).toContain('Build Tauri Node SQLCipher addon with static Windows OpenSSL');
+    expect(workflow).toContain('--crypto-provider openssl-static');
+  });
+
+  it('provides a reproducible macOS arm64 Tauri preview workflow', async () => {
+    const workflow = await readFile(
+      path.join(repoRoot, '.github', 'workflows', 'tauri-preview.yml'),
+      'utf8',
+    );
+    expect(workflow).toContain('runner: macos-15');
+    expect(workflow).toContain('runner: macos-15-intel');
+    expect(workflow).toContain('runs-on: windows-2025');
+    expect(workflow).toContain('node-version: 24.20.0');
+    expect(workflow).toContain('npm run tauri:build --workspace=packages/desktop');
+    expect(workflow).toContain('ClawMaster_0.0.1-preview_aarch64.dmg');
+    expect(workflow).toContain('ClawMaster_0.0.1-preview_x64.dmg');
+    expect(workflow).toContain('name: ClawMaster-Windows-x64-Tauri-Preview');
+    expect(workflow).toContain('name: Install and smoke-test Windows preview');
+    expect(workflow).toContain('scripts/smoke-tauri-windows-install.ps1');
+    expect(workflow).toContain('uses: ./.github/workflows/tauri-node-runtime.yml');
+    expect(workflow).toContain('name: tauri-node-${{ matrix.nativeTarget }}');
+    const nodeWorkflow = await readFile(
+      path.join(repoRoot, '.github', 'workflows', 'tauri-node-runtime.yml'),
+      'utf8',
+    );
+    expect(nodeWorkflow).toContain('ref: 71b8b174857e25106d39b61a9e6f30d927da8b01');
+    expect(nodeWorkflow).not.toContain('--without-inspector');
+    expect(nodeWorkflow).not.toContain('--without-intl');
+    expect(nodeWorkflow).not.toContain('--without-sqlite');
+    expect(nodeWorkflow).not.toContain('--v8-lite-mode');
+    expect(nodeWorkflow).toContain('verify-tauri-node-runtime.mjs');
   });
 
   it('discovers every packaged LibreOffice bundle before signing Otto', async () => {

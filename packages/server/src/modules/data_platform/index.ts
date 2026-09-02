@@ -27,7 +27,6 @@ export * from './enterpriseServiceTopology.js';
 export * from './enterpriseSharedCache.js';
 export * from './nodeRedisSharedCache.js';
 export * from './enterpriseInfrastructureRuntime.js';
-export * from './enterpriseInfrastructureCli.js';
 export * from './postgresDatabaseLifecycle.js';
 export * from './nodePostgresPool.js';
 export * from './enterprisePostgresMigrations.js';

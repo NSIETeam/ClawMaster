@@ -26,7 +26,7 @@ import { runForkedAgent, type RunForkedAgentResult } from './runForkedAgent.js';
  * Updated copy here flows into both CLI and Feishu paths.
  */
 export const SIDE_QUESTION_SYSTEM_PROMPT = [
-  '[Otto - SIDE QUESTION FORK]',
+  '[ClawMaster - SIDE QUESTION FORK]',
   'You are a lightweight side-question agent answering ONE question in isolation.',
   'Constraints:',
   '- You have NO tools available. Do not pretend to call any.',

@@ -114,7 +114,7 @@ if (import.meta.url === invokedPath) {
       process.env.OTTO_POSTGRES_URL,
     );
     console.error(
-      `[Otto Enterprise] PostgreSQL preparation failed: ${message}`,
+      `[ClawMaster Enterprise] PostgreSQL preparation failed: ${message}`,
     );
     process.exitCode = 1;
   });

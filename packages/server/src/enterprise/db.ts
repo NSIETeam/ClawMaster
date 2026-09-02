@@ -7,20 +7,22 @@
  * 存储层通过 data_platform 使用 Node 内置 node:sqlite，无原生依赖。
  */
 
+import { applyDatabaseSchemaContributors } from '../modules/data_platform/databaseSchemaContributor.js';
+import { createDataPlatformComposition } from '../modules/data_platform/dataPlatformComposition.js';
+import { createDataProtectionService } from '../modules/data_platform/dataProtectionService.js';
+import { createEncryptedFieldCipher } from '../modules/data_platform/encryptedFieldCipher.js';
+import { createEncryptedObjectStore } from '../modules/data_platform/encryptedObjectStore.js';
+import { createFileEncryptionKeyProvider } from '../modules/data_platform/fileEncryptionKeyProvider.js';
 import {
-  applyDatabaseSchemaContributors,
-  createDataProtectionService,
-  createEncryptedFieldCipher,
-  createEncryptedObjectStore,
-  createDataPlatformComposition,
-  createFileEncryptionKeyProvider,
   createSqlCipherFileRuntime,
-  describeEnterpriseServiceTopology,
   parseSqlCipherRuntimeMode,
-  requireLocalSqliteTopology,
+} from '../modules/data_platform/sqlCipherRuntime.js';
+import {
+  describeEnterpriseServiceTopology,
   resolveEnterpriseServiceTopology,
-  Database,
-} from '../modules/data_platform/index.js';
+} from '../modules/data_platform/enterpriseServiceTopology.js';
+import { requireLocalSqliteTopology } from '../modules/data_platform/enterpriseDatabaseTopology.js';
+import { Database } from '../modules/data_platform/sqliteCompat.js';
 import { createAuthorizationComposition } from '../modules/authorization/index.js';
 import {
   createDataGovernanceComposition,
@@ -567,7 +569,7 @@ export const {
   displayName: () =>
     process.env.OTTO_FEDERATION_DISPLAY_NAME?.trim() ||
     process.env.OTTO_DEFAULT_ORGANIZATION_NAME?.trim() ||
-    'Otto private deployment',
+    'ClawMaster private deployment',
   signingKeyPath: () =>
     process.env.OTTO_FEDERATION_SIGNING_KEY_FILE?.trim() || null,
   pollIntervalMs: () =>

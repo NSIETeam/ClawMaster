@@ -208,7 +208,7 @@ async function compressImage(
     if (compressedBuffer.length > maxSize) {
       console.log(`⚠️  压缩后文件仍然过大(${Math.round(compressedBuffer.length/1024/1024)}MB)，启动兜底压缩机制...`);
 
-      let currentImage = resizedImage;
+      const currentImage = resizedImage;
       let currentBuffer = compressedBuffer;
       let attempts = 0;
       const maxAttempts = 5;

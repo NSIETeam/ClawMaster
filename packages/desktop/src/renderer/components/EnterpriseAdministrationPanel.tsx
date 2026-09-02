@@ -22,7 +22,7 @@ const FEATURE_LABELS: Array<[keyof EnterpriseOrganizationFeatures, string]> = [
   ['park_service', '园区服务'],
   ['feishu_auto_reply', '飞书自动回答'],
   ['direct_messages', '企业内部消息'],
-  ['atoa', 'Otto 间协作'],
+  ['atoa', 'ClawMaster 间协作'],
   ['knowledge', '企业知识库'],
   ['skill_market', '企业 Skill 市场'],
 ];

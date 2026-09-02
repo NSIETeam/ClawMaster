@@ -25,6 +25,7 @@ import { isAuthenticatedEnterpriseAccount } from '../internal-test-access.js';
 import { DirectMessagePanel } from './OrganizationTree.js';
 import { IconBuilding, IconChevronDown, IconFolder, IconSearch } from './icons.js';
 import type { EnterpriseUnreadCounts } from '../enterpriseUnreadNotifications.js';
+import { startNonOverlappingPoll } from '../lib/nonOverlappingPoll.js';
 
 const ORGANIZATION_PAGE_REFRESH_MS = 15_000;
 const UNASSIGNED_DEPARTMENT = '未分配部门';
@@ -281,8 +282,10 @@ export function OrganizationPage({
       }
     };
     void load(true);
-    const timer = window.setInterval(() => void load(false), ORGANIZATION_PAGE_REFRESH_MS);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    const stopPolling = startNonOverlappingPoll(
+      () => load(false), ORGANIZATION_PAGE_REFRESH_MS, { runImmediately: false },
+    );
+    return () => { cancelled = true; stopPolling(); };
   }, [hasAuth, enterpriseAccount?.organizationId, enterpriseAccount?.updatedAt, organizationRefreshRevision, selectedOrganizationId]);
 
   const openChat = useCallback((member: EnterpriseOrganizationView['members'][number]) => {

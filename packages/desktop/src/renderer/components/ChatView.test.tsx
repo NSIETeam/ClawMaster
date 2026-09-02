@@ -94,7 +94,7 @@ describe('ChatView 重新生成携带消息 id', () => {
     expect(screen.queryByRole('button', { name: '专家面板' })).toBeNull();
   });
 
-  it('空会话与未选择会话时恢复 v1.6 的 Otto 形象', () => {
+  it('空会话与未选择会话时显示尺寸受控的 ClawMaster 皇冠标志', () => {
     const props = {
       models: MODELS,
       currentModel: 'm1',
@@ -110,10 +110,15 @@ describe('ChatView 重新生成携带消息 id', () => {
     const { rerender } = render(
       <ChatView session={null} messages={[]} {...props} />,
     );
-    expect(screen.getByRole('img', { name: 'Otto' })).toBeTruthy();
+    const emptyMark = screen.getByRole('img', { name: 'ClawMaster 皇冠标志' });
+    expect(emptyMark.getAttribute('width')).toBe('56');
+    expect(emptyMark.getAttribute('height')).toBe('56');
+    expect(emptyMark.classList.contains('otto-empty__brand-mark')).toBe(true);
 
     rerender(<ChatView session={SESSION} messages={[]} {...props} />);
-    expect(screen.getByRole('img', { name: 'Otto' })).toBeTruthy();
+    const conversationMark = screen.getByRole('img', { name: 'ClawMaster 皇冠标志' });
+    expect(conversationMark.getAttribute('width')).toBe('48');
+    expect(conversationMark.getAttribute('height')).toBe('48');
   });
 
   it('点旧回复（第一轮 bot）的重新生成 → 传出该条 bot 的 id，而非最新一轮', () => {

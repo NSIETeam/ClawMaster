@@ -15,6 +15,9 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { installTauriHostBridge } from './hostBridge.js';
+import { startRendererThemeSync } from './themeSync.js';
+
+declare const __CLAWMASTER_BROWSER_PREVIEW__: boolean;
 
 class RendererErrorBoundary extends React.Component<
   React.PropsWithChildren,
@@ -47,8 +50,14 @@ if (!container) {
 }
 
 async function bootstrap(): Promise<void> {
+  startRendererThemeSync();
   installTauriHostBridge();
-  if (!window.otto) await import('./browserPreviewBridge.js');
+  if (!window.otto) {
+    if (!__CLAWMASTER_BROWSER_PREVIEW__) {
+      throw new Error('ClawMaster 桌面宿主桥未就绪');
+    }
+    await import('./browserPreviewBridge.js');
+  }
   const { App } = await import('./App.js');
   createRoot(container!).render(
     <React.StrictMode>

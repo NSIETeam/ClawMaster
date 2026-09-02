@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export const PET_WIDGET_PREFERENCE_KEY = 'otto.pet-widget.enabled';
+const PET_WIDGET_PREFERENCE_KEY = 'otto.pet-widget.enabled';
 export const PET_WIDGET_PREFERENCE_EVENT = 'otto:pet-widget-preference-change';
 
 export function readPetWidgetEnabled(): boolean {

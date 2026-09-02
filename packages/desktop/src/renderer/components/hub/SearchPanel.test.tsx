@@ -59,7 +59,7 @@ describe('SearchPanel 联网搜索配置', () => {
     const { value } = searchData('bing');
     render(<SearchPanel data={value} />);
 
-    expect(screen.getByText('Otto 可以随时联网搜索')).toBeTruthy();
+    expect(screen.getByText('ClawMaster 可以随时联网搜索')).toBeTruthy();
     expect(screen.getByText('无需配置')).toBeTruthy();
     expect(screen.queryByRole('button', { name: '火山方舟' })).toBeNull();
     expect(screen.getByText('80%')).toBeTruthy();

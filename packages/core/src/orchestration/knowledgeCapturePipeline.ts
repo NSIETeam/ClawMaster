@@ -226,7 +226,7 @@ function taskTitle(requestText: string): string {
   const currentRequest = requestText.includes('--- Current user request ---')
     ? (requestText.split('--- Current user request ---').at(-1) ?? requestText)
     : requestText;
-  return compact(currentRequest, 120) || '已完成一轮 Otto 工作';
+  return compact(currentRequest, 120) || '已完成一轮 ClawMaster 工作';
 }
 
 function emptyStatus(): KnowledgeCaptureStatus {

@@ -35,15 +35,6 @@ export interface SessionData {
   messages: Message[];
 }
 
-export interface AgentInfo {
-  id: string;
-  memory_mb: number;
-  log_count: number;
-  pending_count: number;
-  created_secs_ago: number;
-  last_accessed_secs_ago: number;
-}
-
 interface JsonRpcRequest {
   id?: number;
   method: string;
@@ -1787,46 +1778,6 @@ export class AgentPool {
       memory_mb: memoryMb,
     });
     return (result as { updated: boolean }).updated;
-  }
-
-  async addLog(id: string, log: string): Promise<boolean> {
-    await this.init();
-    const result = await this.native.call('agent_pool.add_log', { id, log });
-    return (result as { added: boolean }).added;
-  }
-
-  async drainPending(id: string): Promise<string[]> {
-    await this.init();
-    const result = await this.native.call('agent_pool.drain_pending', { id });
-    return (result as { results: string[] }).results;
-  }
-
-  async stats(): Promise<{
-    current_memory_mb: number;
-    max_memory_mb: number;
-    agent_count: number;
-  }> {
-    await this.init();
-    const result = await this.native.call('agent_pool.stats');
-    return result as {
-      current_memory_mb: number;
-      max_memory_mb: number;
-      agent_count: number;
-    };
-  }
-
-  async listAgents(): Promise<AgentInfo[]> {
-    await this.init();
-    const result = await this.native.call('agent_pool.list_agents');
-    return result as AgentInfo[];
-  }
-
-  async cleanupIdle(idleSeconds: number = 300): Promise<number> {
-    await this.init();
-    const result = await this.native.call('agent_pool.cleanup_idle', {
-      idle_seconds: idleSeconds,
-    });
-    return (result as { cleaned: number }).cleaned;
   }
 
   async close(): Promise<void> {

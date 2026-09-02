@@ -160,7 +160,7 @@ export function displayFederationAtoaDecision(
   decision: FederationAtoaDecision,
 ): string {
   if (decision.status === 'denied') {
-    return '\u5bf9\u65b9\u62d2\u7edd\u4e86\u672c\u6b21 Otto \u534f\u4f5c\u8bf7\u6c42\uff0c\u672a\u8bfb\u53d6\u4efb\u4f55\u8d44\u6599\u3002';
+    return '对方拒绝了本次 ClawMaster 协作请求，未读取任何资料。';
   }
-  return '\u5bf9\u65b9\u5df2\u6388\u6743\u672c\u6b21 Otto \u534f\u4f5c\uff0c\u6b63\u5728\u901a\u8fc7\u4e00\u6b21\u6027\u6388\u6743\u5904\u7406\u3002';
+  return '对方已授权本次 ClawMaster 协作，正在通过一次性授权处理。';
 }

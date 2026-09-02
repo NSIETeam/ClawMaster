@@ -10,7 +10,7 @@ import type {
   EnterpriseE2eeKeyTransparencyEvent,
   EnterpriseE2eeKeyTransparencyView,
 } from '../../../preload/index.js';
-import { createQrMatrix } from '../../lib/qrMatrix.js';
+import { QrCode } from '../QrCode.js';
 import { Badge, Card, Empty, Panel } from './HubUI.js';
 
 function DeviceVerificationQr({
@@ -18,25 +18,12 @@ function DeviceVerificationQr({
 }: {
   payload: string;
 }): React.JSX.Element | null {
-  const matrix = createQrMatrix(payload);
-  if (!matrix) return null;
-  const path = matrix
-    .flatMap((row, y) =>
-      row.flatMap((filled, x) => (filled ? [`M${x} ${y}h1v1h-1z`] : [])),
-    )
-    .join('');
-  const size = matrix.length;
   return (
-    <svg
+    <QrCode
+      value={payload}
+      label="设备安全号码二维码"
       className="otto-hub__e2ee-qr"
-      role="img"
-      aria-label="设备安全号码二维码"
-      viewBox={`-3 -3 ${size + 6} ${size + 6}`}
-      shapeRendering="crispEdges"
-    >
-      <rect x={-3} y={-3} width={size + 6} height={size + 6} fill="#fff" />
-      <path d={path} fill="#111" />
-    </svg>
+    />
   );
 }
 
@@ -718,13 +705,13 @@ export function PrivacyDataPanel(): React.JSX.Element {
                     className="otto-hub__input"
                     value={confirmation}
                     onChange={(event) => setConfirmation(event.target.value)}
-                    placeholder="输入：注销我的 Otto 账号"
+                    placeholder="输入：注销我的 ClawMaster 账号"
                   />
                   <button
                     type="button"
                     className="otto-hub__btn otto-hub__btn--danger"
                     disabled={
-                      busy || !password || confirmation !== '注销我的 Otto 账号'
+                      busy || !password || confirmation !== '注销我的 ClawMaster 账号'
                     }
                     onClick={() => void deleteAccount()}
                   >

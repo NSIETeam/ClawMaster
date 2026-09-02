@@ -3,6 +3,7 @@ import {
   DEFAULT_ENTERPRISE_SERVER_URL,
   defaultEnterpriseServerUrl,
   migrateEnterpriseServerUrl,
+  restoreEnterpriseServerTarget,
 } from './enterprise-server-url.js';
 
 describe('enterprise server URL', () => {
@@ -30,5 +31,32 @@ describe('enterprise server URL', () => {
     expect(
       migrateEnterpriseServerUrl('https://otto.example.com/', DEFAULT_ENTERPRISE_SERVER_URL),
     ).toBe('https://otto.example.com/');
+  });
+
+  it('lets an explicit launch target override persisted state and invalidates its token', () => {
+    expect(restoreEnterpriseServerTarget(
+      'https://otto.example.com/',
+      'http://127.0.0.1:7777',
+      true,
+    )).toEqual({
+      serverUrl: 'http://127.0.0.1:7777',
+      endpointChanged: true,
+    });
+    expect(restoreEnterpriseServerTarget(
+      'http://127.0.0.1:7777/',
+      'http://127.0.0.1:7777',
+      true,
+    ).endpointChanged).toBe(false);
+  });
+
+  it('keeps a persisted custom target when launch configuration is not explicit', () => {
+    expect(restoreEnterpriseServerTarget(
+      'https://otto.example.com/',
+      DEFAULT_ENTERPRISE_SERVER_URL,
+      false,
+    )).toEqual({
+      serverUrl: 'https://otto.example.com/',
+      endpointChanged: false,
+    });
   });
 });

@@ -150,7 +150,7 @@ export function createFileSqlCipherKeyProvider(input: {
 
   function writeKeyring(keyring: LoadedKeyring): void {
     if (!writable) {
-      throw new Error('read-only offline key cannot be changed by Otto');
+      throw new Error('read-only offline key cannot be changed by ClawMaster');
     }
     fs.mkdirSync(path.dirname(input.keyPath), { recursive: true, mode: 0o700 });
     const temporaryPath = `${input.keyPath}.${randomUUID()}.tmp`;
@@ -217,7 +217,7 @@ export function createFileSqlCipherKeyProvider(input: {
 
   function beginRotation(): SqlCipherKeyRotation {
     if (!writable)
-      throw new Error('read-only offline key cannot be rotated by Otto');
+      throw new Error('read-only offline key cannot be rotated by ClawMaster');
     const keyring = load();
     const current = findVersion(keyring, keyring.activeVersion);
     if (keyring.pendingVersion !== undefined) {
@@ -265,7 +265,7 @@ export function createFileSqlCipherKeyProvider(input: {
     beginRotation,
     commitRotation(rotation) {
       if (!writable)
-        throw new Error('read-only offline key cannot be changed by Otto');
+        throw new Error('read-only offline key cannot be changed by ClawMaster');
       const keyring = load();
       const { current, next } = validateRotation(keyring, rotation);
       keyring.activeVersion = next.version;
@@ -275,7 +275,7 @@ export function createFileSqlCipherKeyProvider(input: {
     },
     abortRotation(rotation) {
       if (!writable)
-        throw new Error('read-only offline key cannot be changed by Otto');
+        throw new Error('read-only offline key cannot be changed by ClawMaster');
       const keyring = load();
       const { next } = validateRotation(keyring, rotation);
       keyring.pendingVersion = undefined;

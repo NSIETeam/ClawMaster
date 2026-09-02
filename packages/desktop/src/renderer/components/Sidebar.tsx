@@ -6,7 +6,7 @@
 
 /**
  * 左侧栏。以会话列表为主体：
- *   品牌 Otto / 带图标的主导航 / 可按时间或工作目录分组的会话列表（flex:1 主体）/
+ *   带图标的主导航 / 可按时间或工作目录分组的会话列表（flex:1 主体）/
  *   底部账号区（辅助入口与当前账号）。
  *   常用工具（企业专家入口、全部智能体）已迁往右侧 RightPanel。
  *
@@ -22,6 +22,7 @@ import type { SessionSummary } from 'otto-server';
 import { computeNavBadgeCounts } from '../attentionCenter.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import {
+  ClawMasterCrown,
   IconChevronDown,
   IconUserAvatar,
   IconSettings,
@@ -35,6 +36,7 @@ import {
   IconMessageCircle,
   IconBriefcaseBusiness,
   IconBuilding2,
+  IconMoreHorizontal,
 } from './icons.js';
 import { LogoutConfirmDialog } from './LogoutConfirmDialog.js';
 import { JoinEnterpriseDialog } from './JoinEnterpriseDialog.js';
@@ -52,6 +54,10 @@ import {
 const GROUPING_MENU_WIDTH = 218;
 const GROUPING_MENU_VIEWPORT_MARGIN = 12;
 const GROUPING_MENU_TRIGGER_GAP = 4;
+const SESSION_MENU_WIDTH = 132;
+const SESSION_MENU_HEIGHT = 82;
+const SESSION_MENU_VIEWPORT_MARGIN = 8;
+const SESSION_MENU_TRIGGER_GAP = 4;
 
 function getGroupingMenuPosition(rect: DOMRect): { top: number; left: number } {
   const maxLeft = Math.max(
@@ -61,6 +67,27 @@ function getGroupingMenuPosition(rect: DOMRect): { top: number; left: number } {
   return {
     top: rect.bottom + GROUPING_MENU_TRIGGER_GAP,
     left: Math.min(Math.max(GROUPING_MENU_VIEWPORT_MARGIN, rect.left), maxLeft),
+  };
+}
+
+function getSessionMenuPosition(rect: DOMRect): { top: number; left: number } {
+  const maxLeft = Math.max(
+    SESSION_MENU_VIEWPORT_MARGIN,
+    window.innerWidth - SESSION_MENU_WIDTH - SESSION_MENU_VIEWPORT_MARGIN,
+  );
+  const below = rect.bottom + SESSION_MENU_TRIGGER_GAP;
+  const top = below + SESSION_MENU_HEIGHT <= window.innerHeight - SESSION_MENU_VIEWPORT_MARGIN
+    ? below
+    : Math.max(
+      SESSION_MENU_VIEWPORT_MARGIN,
+      rect.top - SESSION_MENU_HEIGHT - SESSION_MENU_TRIGGER_GAP,
+    );
+  return {
+    top,
+    left: Math.min(
+      Math.max(SESSION_MENU_VIEWPORT_MARGIN, rect.right - SESSION_MENU_WIDTH),
+      maxLeft,
+    ),
   };
 }
 
@@ -83,6 +110,8 @@ interface SidebarProps {
   /** 静默检查发现新版 → 设置入口亮一个不打扰的小圆点（无弹窗）。 */
   updateBadge?: boolean;
   enterpriseAccount?: EnterpriseAccount;
+  /** Tauri 个人版：仅展示本机能力，不提供企业连接入口。 */
+  localOnly?: boolean;
   enterpriseUnreadCounts?: EnterpriseUnreadCounts;
   /** 园区工单未读总数（待处理 + 有更新的申请）。 */
   parkTicketUnreadCount?: number;
@@ -109,6 +138,7 @@ export function Sidebar({
   activeView = 'chat',
   accountManagementActive = false,
   enterpriseAccount,
+  localOnly = false,
   enterpriseUnreadCounts = {},
   parkTicketUnreadCount = 0,
   onSelect,
@@ -163,17 +193,6 @@ export function Sidebar({
       (session) => session.sessionId === activeSessionId,
     ))?.key
     : undefined;
-  const enterpriseUnreadTotal = Object.values(enterpriseUnreadCounts)
-    .reduce((total, count) => total + count, 0);
-  const countedEnterpriseSessions = new Set(
-    Object.entries(enterpriseUnreadCounts)
-      .filter(([, count]) => count > 0)
-      .map(([sessionId]) => sessionId),
-  );
-  const unreadSessionRemainder = unreadSessions
-    ?.filter((sessionId) => !countedEnterpriseSessions.has(sessionId)).length ?? 0;
-  const unreadCount = enterpriseUnreadTotal + unreadSessionRemainder;
-
   const revealWorkspaceScrollbar = (): void => {
     setWorkspaceScrollbarActive(true);
     if (workspaceScrollbarHideTimerRef.current !== null) {
@@ -289,19 +308,8 @@ export function Sidebar({
   return (
     <aside className="otto-sidebar">
       <div className="otto-sidebar__traffic" />
-
-      <div className="otto-sidebar__brandrow">
-        <span className="otto-brand">Otto</span>
-        {unreadCount > 0 ? (
-          <span
-            className="otto-brand__unread"
-            role="status"
-            aria-label={`${unreadCount} 条未读消息`}
-            title={`${unreadCount} 条未读消息`}
-          >
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        ) : null}
+      <div className="clawmaster-sidebar-mark" aria-label="ClawMaster">
+        <ClawMasterCrown size={30} />
       </div>
 
       {/* 主导航：企业管理员额外显示企业管理；设置仍位于底部账户区。 */}
@@ -318,6 +326,7 @@ export function Sidebar({
             ? onOpenAccounts
             : undefined
         }
+        enterpriseMode={!localOnly && enterpriseAccount?.accountType !== 'personal'}
       />
 
       <div
@@ -472,7 +481,7 @@ export function Sidebar({
       </div>
 
       <div className="otto-sidebar__footer">
-        {enterpriseAccount?.accountType === 'personal' && onJoinEnterprise ? (
+        {!localOnly && enterpriseAccount?.accountType === 'personal' && onJoinEnterprise ? (
           <button
             type="button"
             className="otto-viewall otto-viewall--upgrade"
@@ -580,6 +589,7 @@ function NavItems({
   onNewChat,
   onNavigate,
   onOpenAccounts,
+  enterpriseMode,
 }: {
   activeView: string;
   accountManagementActive: boolean;
@@ -589,6 +599,7 @@ function NavItems({
   onNewChat: () => void;
   onNavigate?: (view: 'chat' | 'organization' | 'inbox' | 'work' | 'hub') => void;
   onOpenAccounts?: () => void;
+  enterpriseMode: boolean;
 }): React.JSX.Element {
   const { inboxUnread, workUnread } = computeNavBadgeCounts(
     enterpriseUnreadCounts,
@@ -616,8 +627,10 @@ function NavItems({
 
   const navItems = [
     { key: 'chat', label: '工作台', view: 'chat', unread: 0, icon: IconLayoutDashboard },
-    { key: 'organization', label: '组织架构', view: 'organization', unread: 0, icon: IconNetwork },
-    { key: 'inbox', label: '我的消息', view: 'inbox', unread: inboxUnread, icon: IconMessageCircle },
+    ...(enterpriseMode ? [
+      { key: 'organization', label: '组织架构', view: 'organization', unread: 0, icon: IconNetwork },
+      { key: 'inbox', label: '我的消息', view: 'inbox', unread: inboxUnread, icon: IconMessageCircle },
+    ] as const : []),
     { key: 'work', label: '我的工作', view: 'work', unread: workUnread, icon: IconBriefcaseBusiness },
   ] as const;
 
@@ -672,17 +685,6 @@ function NavItems({
   );
 }
 
-/** 溢出菜单三点图标（内联，避免动 icons.tsx）。 */
-function IconMoreDots(): React.JSX.Element {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <circle cx="5" cy="12" r="1.7" />
-      <circle cx="12" cy="12" r="1.7" />
-      <circle cx="19" cy="12" r="1.7" />
-    </svg>
-  );
-}
-
 /** 会话项本地交互态：普通 / 菜单打开 / 重命名中 / 删除确认中。 */
 type ItemMode = 'idle' | 'menu' | 'rename' | 'confirm';
 
@@ -705,6 +707,9 @@ function SessionItem({
   const [draft, setDraft] = useState(session.title);
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
 
   // 进入重命名态即聚焦并全选，让用户直接改写。
   useEffect(() => {
@@ -721,10 +726,31 @@ function SessionItem({
   useEffect(() => {
     if (mode !== 'menu') return;
     const onDoc = (e: MouseEvent): void => {
-      if (!rootRef.current?.contains(e.target as Node)) setMode('idle');
+      const target = e.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setMode('idle');
+      }
     };
+    const updatePosition = (): void => {
+      const rect = moreButtonRef.current?.getBoundingClientRect();
+      if (rect) setMenuPosition(getSessionMenuPosition(rect));
+    };
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return;
+      setMode('idle');
+      moreButtonRef.current?.focus();
+    };
+    updatePosition();
     document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
   }, [mode]);
 
   const startRename = (): void => {
@@ -802,23 +828,28 @@ function SessionItem({
         </span>
         <span className="otto-session__time">{formatTime(session.updatedAt)}</span>
         <button
+          ref={moreButtonRef}
           type="button"
           className="otto-session__more"
           title="更多操作"
           aria-label="更多操作"
           onClick={(e) => {
             e.stopPropagation();
+            setMenuPosition(getSessionMenuPosition(e.currentTarget.getBoundingClientRect()));
             setMode((m) => (m === 'menu' ? 'idle' : 'menu'));
           }}
         >
-          <IconMoreDots />
+          <IconMoreHorizontal size={16} />
         </button>
       </div>
 
-      {mode === 'menu' ? (
+      {mode === 'menu' ? createPortal(
         <div
+          ref={menuRef}
           className="otto-session__menu"
           role="menu"
+          aria-label={`“${session.title || '未命名对话'}”操作`}
+          style={{ top: menuPosition.top, left: menuPosition.left }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -837,7 +868,8 @@ function SessionItem({
           >
             删除
           </button>
-        </div>
+        </div>,
+        document.body,
       ) : null}
 
       <ConfirmDialog

@@ -342,14 +342,16 @@ describe('App UI mode integration', () => {
     expect(document.querySelector('.otto-app')).toBeTruthy();
   });
 
-  it('shows boot and login states without entering the workspace', () => {
+  it('enters the local workspace while enterprise authentication loads or is signed out', () => {
     harness.auth.current = authFor(null, 'loading');
     const view = render(<App />);
-    expect(screen.getByRole('status')).toBeTruthy();
+    expect(screen.getByTestId('chat-view')).toBeTruthy();
+    expect(screen.queryByTestId('login-page')).toBeNull();
 
     harness.auth.current = authFor(null, 'signed-out');
     view.rerender(<App />);
-    expect(screen.getByTestId('login-page')).toBeTruthy();
+    expect(screen.getByTestId('chat-view')).toBeTruthy();
+    expect(screen.queryByTestId('login-page')).toBeNull();
   });
 
   it('starts first-time users in conversational mode and persists their work UI choice', () => {

@@ -53,7 +53,7 @@ export function sanitizeOrganizationInviteCode(value: string): string {
   return compact.length > 4 ? `${compact.slice(0, 4)}-${compact.slice(4)}` : compact;
 }
 
-export function isAcceptableRegistrationPassword(password: string): boolean {
+function isAcceptableRegistrationPassword(password: string): boolean {
   if (password.length < 8 || password.length > 128) return false;
   if (/[^\x20-\x7E]/.test(password)) return false;
   const lower = password.toLocaleLowerCase('en-US');
@@ -231,17 +231,17 @@ export function EnterpriseLoginPage({
 
   useEffect(() => {
     if (countdown <= 0) return undefined;
-    const timer = window.setInterval(() => setCountdown((value) => Math.max(0, value - 1)), 1000);
-    return () => window.clearInterval(timer);
+    const timer = window.setTimeout(() => setCountdown((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearTimeout(timer);
   }, [countdown]);
 
   useEffect(() => {
     if (loginCountdown <= 0) return undefined;
-    const timer = window.setInterval(
+    const timer = window.setTimeout(
       () => setLoginCountdown((value) => Math.max(0, value - 1)),
       1000,
     );
-    return () => window.clearInterval(timer);
+    return () => window.clearTimeout(timer);
   }, [loginCountdown]);
 
   const requestCode = async (): Promise<void> => {
@@ -382,13 +382,13 @@ export function EnterpriseLoginPage({
 
   return (
     <main className="otto-auth-shell">
-      <section className="otto-auth-visual" aria-label="Otto 企业安全空间">
+      <section className="otto-auth-visual" aria-label="ClawMaster 企业安全空间">
         <div className="otto-auth-visual__aurora" aria-hidden />
         <header className="otto-auth-brand">
           <span className="otto-auth-brand__mark" aria-hidden>
             <svg viewBox="0 0 32 32"><path d="m16 2 4 6 7-1-1 7 5 4-6 4v7l-7-3-5 5-2-7-7-1 4-6-4-6 7-1Z" /><circle cx="16" cy="16" r="6" /></svg>
           </span>
-          <span>OTTO</span>
+          <span>CLAWMASTER</span>
           <small>DIGITAL COLLEAGUE</small>
         </header>
 
@@ -399,7 +399,7 @@ export function EnterpriseLoginPage({
 
         <div className="otto-auth-visual__copy">
           <span className="otto-auth-kicker">YOUR AI COLLEAGUE, ONLINE</span>
-          <h1><span>有事交给 Otto。</span><CapabilityTypewriter /></h1>
+          <h1><span>有事交给 ClawMaster。</span><CapabilityTypewriter /></h1>
           <p>能读懂项目、调用工具、操作浏览器，也懂得在企业权限边界内做事。</p>
         </div>
 
@@ -421,19 +421,19 @@ export function EnterpriseLoginPage({
           <span className="otto-auth-card__pixel-corner" aria-hidden />
           <header className="otto-auth-card__masthead">
             <span className="otto-auth-card__pixel-mark" aria-hidden><i /><i /><i /><i /></span>
-            <span><strong>OTTO SECURE ACCESS</strong><small>企业身份门禁</small></span>
+            <span><strong>CLAWMASTER SECURE ACCESS</strong><small>企业身份门禁</small></span>
             <b>{mode === 'login' ? 'AUTHORIZED' : mode === 'join' ? 'JOIN COMPANY' : 'NEW ACCOUNT'}</b>
           </header>
           <div className="otto-auth-card__topline">
             <span className="otto-auth-status-dot" />
             {mode === 'login'
               ? '此设备将安全保持登录'
-              : mode === 'join' ? '企业成员加入' : '创建个人 Otto 账号'}
+              : mode === 'join' ? '企业成员加入' : '创建个人 ClawMaster 账号'}
           </div>
 
           {mode === 'register' || mode === 'join' ? (
             <>
-              <h2>{mode === 'join' ? '加入企业' : '创建 Otto 账号'}</h2>
+              <h2>{mode === 'join' ? '加入企业' : '创建 ClawMaster 账号'}</h2>
               <p className="otto-auth-card__intro">
                 {mode === 'join' ? (
                   <span>企业员工输入管理员提供的邀请码，验证后加入对应组织。</span>
@@ -747,14 +747,14 @@ export function EnterpriseLoginPage({
               {formPending
                 ? '正在验证身份…'
                 : mode === 'login'
-                  ? '进入 Otto'
+                  ? '进入 ClawMaster'
                   : mode === 'join' ? '加入企业并进入' : '创建账号并进入'}
             </span>
             <svg viewBox="0 0 24 24" aria-hidden><path d="M5 12h13m-5-5 5 5-5 5" /></svg>
           </button>
 
           <div className="otto-auth-mode-switch">
-            <span>{mode === 'login' ? '第一次使用 Otto？' : '已经有 Otto 账号？'}</span>
+            <span>{mode === 'login' ? '第一次使用 ClawMaster？' : '已经有 ClawMaster 账号？'}</span>
             {mode === 'login' ? (
               <>
                 <button

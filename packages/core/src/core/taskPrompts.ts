@@ -266,9 +266,9 @@ Do NOT call any tool. Reply with text only. If you call a tool, your work will b
    */
   static readonly EXECUTION_ERRORS = {
     // OttoClient 未初始化，请确保配置正确
-    GEMINI_CLIENT_NOT_INITIALIZED: 'OttoClient not initialized, please ensure configuration is correct',
+    GEMINI_CLIENT_NOT_INITIALIZED: 'ClawMaster client not initialized, please ensure configuration is correct',
     // OttoClient 未正确初始化，请确保认证已完成。错误: ${error}
     GEMINI_CLIENT_NOT_READY: (error: string) =>
-      `OttoClient not properly initialized, please ensure authentication is complete. Error: ${error}`,
+      `ClawMaster client not properly initialized, please ensure authentication is complete. Error: ${error}`,
   } as const;
 }

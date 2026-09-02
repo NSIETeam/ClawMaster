@@ -269,7 +269,7 @@ function parseUnifiedDiff(patchText: string): { hunks: Hunk[] } {
     return { hunks };
 }
 
-export function parsePatch(patchText: string): { hunks: Hunk[] } {
+function parsePatch(patchText: string): { hunks: Hunk[] } {
     const lines = patchText.split("\n")
 
     // Look for custom Opencode markers
@@ -331,7 +331,7 @@ export interface ApplyPatchFileUpdate {
     content: string
 }
 
-export function deriveNewContentsFromChunks(filePath: string, chunks: UpdateFileChunk[]): ApplyPatchFileUpdate {
+function deriveNewContentsFromChunks(filePath: string, chunks: UpdateFileChunk[]): ApplyPatchFileUpdate {
     // Read original file content
     let originalContent: string
     let detectedLineEnding: string | undefined = undefined;

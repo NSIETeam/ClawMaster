@@ -7,7 +7,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { retryWithBackoff } from './retry.js';
-import { setSimulate429 } from './testUtils.js';
 
 // Define an interface for the error with a status property
 interface HttpError extends Error {
@@ -43,8 +42,6 @@ class NonRetryableError extends Error {
 describe('retryWithBackoff', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    // Disable 429 simulation for tests
-    setSimulate429(false);
     // Suppress unhandled promise rejection warnings for tests that expect errors
     console.warn = vi.fn();
   });

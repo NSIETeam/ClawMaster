@@ -28,7 +28,7 @@ function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'));
 }
 
-function assertFile(file, { minBytes = 1 } = {}) {
+function assertFile(file, { minBytes = 1, maxBytes = Number.POSITIVE_INFINITY } = {}) {
   if (!existsSync(file)) {
     fail(`missing required file: ${path.relative(repoRoot, file)}`);
     return;
@@ -37,6 +37,11 @@ function assertFile(file, { minBytes = 1 } = {}) {
   if (size < minBytes) {
     fail(
       `required file is too small: ${path.relative(repoRoot, file)} (${size} bytes)`,
+    );
+  }
+  if (size > maxBytes) {
+    fail(
+      `required file exceeds its product budget: ${path.relative(repoRoot, file)} (${size} bytes)`,
     );
   }
 }
@@ -61,16 +66,10 @@ if (lock.packages?.['packages/desktop']?.version !== desktopPkg.version) {
   );
 }
 
-for (const name of [
-  'otto-avatar-1.png',
-  'otto-avatar-2.png',
-  'otto-avatar-3.png',
-  'otto-avatar-4.png',
-]) {
-  assertFile(path.join(desktopRoot, 'build', 'avatar', name), {
-    minBytes: 512 * 1024,
-  });
-}
+assertFile(
+  path.join(desktopRoot, 'src', 'renderer', 'assets', 'otto-avatar.png'),
+  { minBytes: 32 * 1024, maxBytes: 256 * 1024 },
+);
 assertFile(path.join(desktopRoot, 'build', 'icon.png'), {
   minBytes: 64 * 1024,
 });

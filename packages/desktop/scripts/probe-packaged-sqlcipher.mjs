@@ -3,12 +3,11 @@
  */
 
 import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import BetterSqlite3 from 'better-sqlite3';
 
 function requiredArgument(name) {
   const index = process.argv.indexOf(name);
@@ -17,11 +16,16 @@ function requiredArgument(name) {
   return value;
 }
 
+function optionalArgument(name) {
+  const index = process.argv.indexOf(name);
+  return index === -1 ? null : process.argv[index + 1]?.trim() || null;
+}
+
 function rawKey(key) {
   return `"x'${key.toString('hex')}'"`;
 }
 
-export function probePackagedSqlCipher(bindingPath) {
+export function probePackagedSqlCipher(bindingPath, { moduleRoot } = {}) {
   const resolvedBinding = path.resolve(bindingPath);
   const assetDirectory = path.dirname(resolvedBinding);
   const manifestPath = path.join(assetDirectory, 'manifest.json');
@@ -29,14 +33,25 @@ export function probePackagedSqlCipher(bindingPath) {
     throw new Error('packaged SQLCipher binding or manifest is missing');
   }
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const require = createRequire(
+    moduleRoot ? path.join(path.resolve(moduleRoot), 'package.json') : import.meta.url,
+  );
+  const BetterSqlite3 = require('better-sqlite3');
+  const actualRuntimeVersion = manifest.runtime === 'electron'
+    ? process.versions.electron
+    : manifest.runtime === 'node'
+      ? process.versions.node
+      : null;
+  const expectedModuleAbi = manifest.toolchain?.moduleAbi
+    ?? manifest.toolchain?.electronModuleAbi;
   const bindingSha256 = createHash('sha256')
     .update(fs.readFileSync(resolvedBinding))
     .digest('hex');
   if (
     manifest.format !== 3 ||
     manifest.target !== `${process.platform}-${process.arch}` ||
-    manifest.runtimeVersion !== process.versions.electron ||
-    manifest.toolchain?.electronModuleAbi !== process.versions.modules ||
+    actualRuntimeVersion !== manifest.runtimeVersion ||
+    expectedModuleAbi !== process.versions.modules ||
     (process.env.GITHUB_SHA && manifest.buildCommit !== process.env.GITHUB_SHA) ||
     (process.env.SQLCIPHER_SOURCE_REVISION &&
       manifest.sourceRevision !== process.env.SQLCIPHER_SOURCE_REVISION) ||
@@ -123,7 +138,9 @@ export function probePackagedSqlCipher(bindingPath) {
 }
 
 function main() {
-  probePackagedSqlCipher(requiredArgument('--binding'));
+  probePackagedSqlCipher(requiredArgument('--binding'), {
+    moduleRoot: optionalArgument('--module-root'),
+  });
 }
 
 if (

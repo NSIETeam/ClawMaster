@@ -23,7 +23,7 @@ export async function askWindowCloseChoice(
 ): Promise<WindowCloseChoice> {
   const { response } = await prompt.showMessageBox({
     type: 'question',
-    title: '关闭 Otto',
+    title: '关闭 ClawMaster',
     message: '关闭窗口后如何处理正在运行的任务？',
     detail: '请明确选择“继续后台运行”或“停止任务并退出”。',
     buttons: ['继续后台运行', '停止任务并退出', '取消'],

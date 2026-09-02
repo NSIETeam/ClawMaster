@@ -101,7 +101,7 @@ export function OrganizationPanel({
           <div className="otto-product-choice">
             <button type="button" className={flow === 'owner' ? 'is-active' : ''} onClick={() => setFlow('owner')}>
               <strong>我是企业管理者</strong>
-              <span>填写企业信息，由 Otto 构建初始部门和负责人岗位</span>
+              <span>填写企业信息，由 ClawMaster 构建初始部门和负责人岗位</span>
             </button>
             <button type="button" className={flow === 'join' ? 'is-active' : ''} onClick={() => setFlow('join')}>
               <strong>我要加入一个公司</strong>
@@ -149,7 +149,7 @@ export function OrganizationPanel({
                   <textarea
                     value={joinLink}
                     onChange={(e) => setJoinLink(e.target.value)}
-                    placeholder="粘贴 CEO 发给你的链接（otto://enterprise/join?token=…）"
+                    placeholder="粘贴 CEO 发给你的链接（clawmaster://enterprise/join?token=…）"
                     rows={3}
                   />
                 </label>
@@ -262,7 +262,7 @@ export function OrganizationPanel({
             <Card>
               <div className="otto-hub__field-label">生成职位邀请链接</div>
               <p className="otto-hub__field-hint">
-                这是仅保存在当前设备的签名职位链接，默认 24 小时有效。员工需在 Otto「企业与身份」中手工粘贴；
+                这是仅保存在当前设备的签名职位链接，默认 24 小时有效。员工需在 ClawMaster「企业与身份」中手工粘贴；
                 核销状态不会自动同步回管理者这台设备。
               </p>
               <div className="otto-product-form">
@@ -309,7 +309,7 @@ export function OrganizationPanel({
                   >
                     复制链接
                   </button>
-                  <span>将此链接直接发给员工，对方在 Otto 中粘贴即可加入对应职位。</span>
+                  <span>将此链接直接发给员工，对方在 ClawMaster 中粘贴即可加入对应职位。</span>
                 </div>
               ) : null}
             </Card>
@@ -344,7 +344,7 @@ export function OrganizationPanel({
                   <textarea
                     value={companyLink}
                     onChange={(e) => setCompanyLink(e.target.value)}
-                    placeholder="otto://enterprise/join?token=…"
+                    placeholder="clawmaster://enterprise/join?token=…"
                     aria-label="待接入的总分公司链接"
                     rows={2}
                   />

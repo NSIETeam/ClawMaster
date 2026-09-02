@@ -27,7 +27,6 @@ import {
 } from './skill-types.js';
 import { SettingsManager } from './settings-manager.js';
 import { isDirentDirectoryFollowingSymlinks } from './utils/fs-helpers.js';
-import { MarketplaceManager } from './marketplace-manager.js';
 import { MarketplaceLoader } from './loaders/marketplace-loader.js';
 import { UnifiedComponent, ComponentType } from './models/unified.js';
 import { getProjectSkillsDir } from '../utils/paths.js';
@@ -46,6 +45,11 @@ interface SkillCacheItem {
    * undefined 表示取 mtime 失败（文件不存在等），此时保守地当作"已过期"处理。
    */
   mtimeMs?: number;
+}
+
+interface SkillLoaderOptions {
+  cacheTTL?: number;
+  projectRoot?: string;
 }
 
 /**
@@ -67,12 +71,10 @@ export class SkillLoader {
 
   constructor(
     private settingsManager: SettingsManager,
-    _marketplaceManager: MarketplaceManager,
-    cacheTTL = 3600000, // 默认 1 小时
-    projectRoot?: string,
+    options: SkillLoaderOptions = {},
   ) {
-    this.cacheTTL = cacheTTL;
-    this.projectRoot = projectRoot || process.cwd();
+    this.cacheTTL = options.cacheTTL ?? 3600000; // 默认 1 小时
+    this.projectRoot = options.projectRoot ?? process.cwd();
     this.marketplaceLoader = new MarketplaceLoader(settingsManager);
     this.initializeCustomSkillPaths();
   }
@@ -232,6 +234,13 @@ export class SkillLoader {
 
       return null;
     } catch (error) {
+      const directoryName = path.basename(skillPath);
+      if (directoryName.startsWith('auto-') && !/^[a-z0-9-]+$/.test(directoryName)) {
+        console.warn(
+          `[skills] 已忽略旧版自动 Skill 目录 ${directoryName}；新生成器已使用兼容名称。`,
+        );
+        return null;
+      }
       console.warn(`Failed to parse custom skill ${skillPath}:`, error);
       return null;
     }
@@ -819,11 +828,3 @@ export class SkillLoader {
     };
   }
 }
-
-/**
- * 单例实例（需要在使用时注入依赖）
- */
-export const skillLoader = new SkillLoader(
-  {} as SettingsManager,
-  {} as MarketplaceManager,
-);

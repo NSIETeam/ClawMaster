@@ -62,13 +62,6 @@ export interface ParkTicketUnreadSummary {
   latestPreview: string;
 }
 
-const EMPTY_SUMMARY: AttentionSummary = {
-  totalCount: 0,
-  byKind: { 'direct-message': 0, 'atoa': 0, 'park-ticket': 0, 'system': 0 },
-  bySeverity: { normal: 0, important: 0, urgent: 0 },
-  items: [],
-};
-
 function isEnterpriseInboxSession(sessionId: string): boolean {
   return sessionId.startsWith('enterprise:message:') ||
     sessionId.startsWith('enterprise:federation:');
@@ -155,8 +148,8 @@ export function computeAttentionSummary(params: {
       title: notification?.senderName ?? accountId,
       preview: isAtoa
         ? (preview.startsWith(ATOA_REQUEST_PREFIX)
-          ? '对方正在请求你的 Otto 协作'
-          : '对方 Otto 已回复你的企业协作请求')
+          ? '对方正在请求你的 ClawMaster 协作'
+          : '对方 ClawMaster 已回复你的企业协作请求')
         : preview.slice(0, 140),
       count,
       createdAt: notification?.createdAt ?? new Date().toISOString(),
@@ -195,7 +188,7 @@ export function computeAttentionSummary(params: {
       sessionId,
       kind: 'system',
       severity: 'normal',
-      title: 'Otto 对话',
+      title: 'ClawMaster 对话',
       preview: '有未读的对话消息',
       count: 1,
       createdAt: new Date().toISOString(),
@@ -243,6 +236,3 @@ export function computeNavBadgeCounts(
 
   return { inboxUnread, workUnread, globalUnread };
 }
-
-/** 空摘要常量，避免组件中重复创建。 */
-export { EMPTY_SUMMARY };

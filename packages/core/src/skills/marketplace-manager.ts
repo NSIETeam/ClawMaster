@@ -821,11 +821,3 @@ export class MarketplaceManager {
     }
   }
 }
-
-/**
- * 单例实例
- */
-export const marketplaceManager = new MarketplaceManager(
-  // 需要在实际使用时注入 settingsManager
-  {} as SettingsManager,
-);

@@ -31,7 +31,8 @@ vi.mock('os', async (importOriginal) => {
 });
 vi.mock('glob');
 
-const MEMORY_SECTION_HEADER = '## Otto Added Memories';
+const MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
+const LEGACY_MEMORY_SECTION_HEADER = '## Otto Added Memories';
 
 // Define a type for our fsAdapter to ensure consistency
 interface FsAdapter {
@@ -153,6 +154,17 @@ describe('MemoryTool', () => {
       expect(writeFileCall[1]).toBe(expectedContent);
     });
 
+    it('should append to the legacy Otto section without creating a duplicate section', async () => {
+      const initialContent = `${LEGACY_MEMORY_SECTION_HEADER}\n- Existing fact\n`;
+      mockFsAdapter.readFile.mockResolvedValue(initialContent);
+
+      await MemoryTool.performAddMemoryEntry('New fact', testFilePath, mockFsAdapter);
+
+      const written = String(mockFsAdapter.writeFile.mock.calls[0]?.[1]);
+      expect(written).toBe(`${LEGACY_MEMORY_SECTION_HEADER}\n- Existing fact\n- New fact\n`);
+      expect(written).not.toContain(MEMORY_SECTION_HEADER);
+    });
+
     it('should add a fact to an existing empty section', async () => {
       const initialContent = `Some preamble.\n\n${MEMORY_SECTION_HEADER}\n`; // Empty section
       mockFsAdapter.readFile.mockResolvedValue(initialContent);
@@ -222,13 +234,13 @@ describe('MemoryTool', () => {
       expect(memoryTool.schema.parameters?.properties?.fact).toBeDefined();
     });
 
-    it('should call performAddMemoryEntry with project OTTO.md path and return success', async () => {
+    it('should call performAddMemoryEntry with project CLAWMASTER.md path and return success', async () => {
       const params = { fact: 'The sky is blue' };
       const result = await memoryTool.execute(params, mockAbortSignal);
 
       const expectedFilePath = path.join(
         '/mock/project',
-        'OTTO.md'
+        DEFAULT_CONTEXT_FILENAME
       );
 
       // For this test, we expect the actual fs methods to be passed

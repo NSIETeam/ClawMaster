@@ -980,7 +980,7 @@ Reserve this tool for system commands and terminal operations that have no dedic
         : `moved to the background by the user`;
 
       return {
-        llmContent: `[Otto - SYSTEM NOTIFICATION] Command "${params.command}" has been ${triggerReason} (Task ID: ${backgroundTaskId}).
+        llmContent: `[ClawMaster - SYSTEM NOTIFICATION] Command "${params.command}" has been ${triggerReason} (Task ID: ${backgroundTaskId}).
 
 ⚠️ IMPORTANT RULES FOR BACKGROUND TASKS:
 1. DO NOT report this task as completed.

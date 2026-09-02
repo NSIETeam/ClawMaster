@@ -42,6 +42,8 @@
     "auth": "npm run auth:npm && npm run auth:docker",
     "generate": "node scripts/generate-git-commit-info.js",
     "doctor": "node scripts/doctor.cjs",
+    "code-map": "node scripts/generate-code-map.mjs",
+    "code-map:check": "node scripts/generate-code-map.mjs --check",
     "size:source": "node scripts/source-size-report.mjs",
     "size:source:check": "node scripts/source-size-report.mjs --check",
     "validate:boundaries": "node scripts/validate-boundaries.mjs",
@@ -106,7 +108,6 @@
     "@types/mock-fs": "^4.13.4",
     "@types/node": "^26.1.0",
     "@types/pdf-parse": "^1.1.5",
-    "@types/pidusage": "^2.0.5",
     "@types/shell-quote": "^1.7.5",
     "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "3.2.7",
@@ -136,19 +137,7 @@
     "yargs": "17.7.2"
   },
   "dependencies": {
-    "@langchain/core": "1.2.4",
-    "@langchain/langgraph": "1.4.8",
-    "@larksuiteoapi/node-sdk": "^1.71.1",
-    "@vscode/ripgrep": "1.17.0",
-    "fs-extra": "^11.3.1",
-    "gradient-string": "^2.0.2",
-    "mem0ai": "^3.0.13",
-    "open": "^10.0.0",
-    "pidtree": "^0.6.0",
-    "pidusage": "^4.0.1",
-    "pptxgenjs": "^4.0.1",
-    "qrcode-terminal": "^0.12.0",
-    "undici": "^7.10.0"
+    "@vscode/ripgrep": "1.17.0"
   },
   "overrides": {
     "eslint": {

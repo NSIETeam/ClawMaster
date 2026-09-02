@@ -26,12 +26,12 @@ import { FeishuStatusBadge } from '../components/FeishuStatusBadge.js';
 import { GeneratedIcon } from '../components/GeneratedIcon.js';
 import { VoiceSettings } from '../components/VoiceSettings.js';
 import {
+  ClawMasterCrown,
   IconCheck,
   IconClose,
   IconExternalLink,
   IconEye,
   IconEyeOff,
-  IconSparkle,
   IconWarning,
   IconChevron,
 } from '../components/icons.js';
@@ -325,15 +325,12 @@ export function SetupPanel({
       <div className="otto-setup">
         <header className="otto-setup__head">
           <div className="otto-setup__brand">
-            <span className="otto-setup__wordmark">otto</span>
-            <span className="otto-setup__spark" aria-hidden>
-              <IconSparkle size={10} />
-            </span>
+            <ClawMasterCrown size={28} />
           </div>
           <div className="otto-setup__titles">
             <h2 className="otto-setup__title">配置你的模型</h2>
             <p className="otto-setup__subtitle">
-              Otto 自带密钥（BYO-key）：选供应商、粘贴 API key、填模型即可。
+              ClawMaster 自带密钥（BYO-key）：选供应商、粘贴 API key、填模型即可。
             </p>
           </div>
           <button
@@ -671,7 +668,7 @@ export function SetupPanel({
               type="button"
               disabled={fsBusy}
               className="otto-setup__btn otto-setup__btn--ghost"
-              title="真调本地 server 的运行期启停端点：启动后断线自动重连；停止属有意停止，不会自动重连"
+              title="调用 ClawMaster 本地引擎的运行期启停端点：启动后断线自动重连；停止属有意停止，不会自动重连"
               style={{ flex: 1, padding: '10px', height: '38px', borderRadius: 'var(--otto-radius-sm)', fontWeight: 600, fontSize: '12px', opacity: fsBusy ? 0.6 : 1, cursor: fsBusy ? 'wait' : 'pointer' }}
               onClick={() => void toggleFeishu()}
             >
@@ -714,10 +711,10 @@ export function SetupPanel({
           {localTestOpen ? (
             <div className="otto-setup__persist" style={{ marginTop: '8px' }}>
               <p className="otto-setup__persist-body" style={{ marginBottom: '10px', lineHeight: '1.6' }}>
-                无需连接远程组织服务器，把请求指向本机运行的 otto-server。
+                无需连接远程组织服务器，把请求指向本机运行的 ClawMaster 引擎。
                 <br />
                 <span style={{ color: 'var(--otto-text-secondary)', fontSize: '11px' }}>
-                  先在终端起本地 server：
+                  先在终端启动 ClawMaster 本地引擎：
                   <code style={{ fontFamily: 'var(--otto-font-mono)', fontSize: '10.5px', background: 'var(--otto-surface)', padding: '1px 4px', borderRadius: '3px' }}>
                     OTTO_SERVER_MOCK=1 node packages/server/dist/bin.js start
                   </code>
@@ -736,7 +733,7 @@ export function SetupPanel({
                   className="otto-setup__input"
                   type="text"
                   value={localTestUrl}
-                  placeholder="本地 server 地址，如 http://127.0.0.1:7637"
+                  placeholder="本地引擎地址，如 http://127.0.0.1:7637"
                   spellCheck={false}
                   autoCapitalize="off"
                   autoCorrect="off"
@@ -772,11 +769,11 @@ export function SetupPanel({
               {localTestApplied ? (
                 <p className="otto-setup__hint otto-generated-icon-label" style={{ marginTop: '8px', color: 'var(--otto-accent)' }}>
                   <GeneratedIcon name="status-success" size={15} />
-                  <span>已应用本地测试地址：{localTestUrl}，下次对话请求将走本机 server。</span>
+                  <span>已应用本地测试地址：{localTestUrl}，下次对话请求将走本地引擎。</span>
                 </p>
               ) : (
                 <p className="otto-setup__hint" style={{ marginTop: '6px' }}>
-                  应用后下次对话请求将通过本机 server（而非连接远程组织服务器）。清除即可恢复默认。
+                  应用后下次对话请求将通过本地引擎（而非连接远程组织服务器）。清除即可恢复默认。
                 </p>
               )}
             </div>

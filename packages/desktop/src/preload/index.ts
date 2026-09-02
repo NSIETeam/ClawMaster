@@ -27,9 +27,16 @@ import type {
   ClientToServer,
   FeishuConfigPublic,
   FeishuConfigSaveRequest,
+  ChannelPairingPublic,
+  ChannelProvider,
+  ChannelInstallation,
+  ChannelHealth,
   HealthInfo,
   ServerEndpoint,
   ServerToClient,
+  WorkLogDay,
+  WorkLogReportResult,
+  WorkLogSummary,
 } from 'otto-server';
 import {
   serverEndpointChanged,
@@ -55,18 +62,19 @@ export interface FeishuConfigResult {
   error: string | null;
 }
 export type { FeishuConfigPublic, FeishuConfigSaveRequest };
+export type { ChannelPairingPublic, ChannelProvider };
+export type { ChannelInstallation, ChannelHealth };
 
-/**
- * 园区服务插件的企业定制配置（~/.otto-user/park-services.json）。
- * 仅供旧版 preload 兼容；新版企业账号以服务端园区配置为准。
- */
-export interface ParkServicesConfig {
-  /** 品牌全称：入口悬浮钮 tooltip 与对话框标题（如「XX智慧园区服务」）。 */
-  brandName?: string;
-  /** 园区简称：注入请求模板里的园区称呼（如「XX园区」）。 */
-  parkName?: string;
-  /** 完全覆盖兼容服务清单（图标由内置轮换分配）。 */
-  services?: Array<{ name: string; desc: string; prompt: string }>;
+export interface ChannelPairingResult {
+  ok: boolean;
+  pairing: ChannelPairingPublic | null;
+  error: string | null;
+}
+
+export interface ChannelPairingActionResult<T = unknown> {
+  ok: boolean;
+  data: T | null;
+  error: string | null;
 }
 
 // ── 软件更新的跨进程形状 ──
@@ -1265,15 +1273,21 @@ const IPC = {
   feishuGetConfig: 'otto:feishu-get-config',
   feishuSaveConfig: 'otto:feishu-save-config',
   feishuClearConfig: 'otto:feishu-clear-config',
-  parkConfig: 'otto:park-config',
+  channelPairingBegin: 'otto:channel-pairing-begin',
+  channelPairingStatus: 'otto:channel-pairing-status',
+  channelPairingInstall: 'otto:channel-pairing-install',
+  channelPairingCancel: 'otto:channel-pairing-cancel',
   themeGet: 'otto:theme-get',
   themeSet: 'otto:theme-set',
+  taskRuntimeSetActive: 'clawmaster:task-runtime-set-active',
   skillLeaderboard: 'otto:skill-leaderboard',
   workLogToday: 'otto:worklog-today',
   workLogRecent: 'otto:worklog-recent',
   workLogReport: 'otto:worklog-report',
   skillShareList: 'otto:skill-share-list',
   skillMarketplace: 'otto:skill-marketplace',
+  communitySkillInstall: 'clawmaster:community-skill-install',
+  communitySkillList: 'clawmaster:community-skill-list',
   enterpriseSkillLocalList: 'otto:enterprise-skill-local-list',
   enterpriseSkillList: 'otto:enterprise-skill-list',
   enterpriseSkillSubmit: 'otto:enterprise-skill-submit',
@@ -1433,14 +1447,23 @@ export interface OttoBridge {
   feishuSaveConfig(body: FeishuConfigSaveRequest): Promise<FeishuConfigResult>;
   /** 停守护 + 清除凭证（对应 CLI /feishu logout）。 */
   feishuClearConfig(): Promise<FeishuConfigResult>;
-  /** 园区服务企业定制配置；无配置文件时 null（用内置默认）。 */
-  parkConfig(): Promise<ParkServicesConfig | null>;
+  channelPairingBegin(provider: ChannelProvider): Promise<ChannelPairingResult>;
+  channelPairingStatus(pairingId: string): Promise<ChannelPairingActionResult<ChannelPairingPublic>>;
+  channelPairingInstall(pairingId: string): Promise<ChannelPairingActionResult>;
+  channelPairingCancel(pairingId: string): Promise<ChannelPairingActionResult<ChannelPairingPublic>>;
+  channelInstallations(): Promise<ChannelPairingActionResult<ChannelInstallation[]>>;
+  channelInstallationAction(
+    installationId: string,
+    action: 'health' | 'start' | 'stop' | 'revoke',
+  ): Promise<ChannelPairingActionResult<ChannelHealth | { revoked: true }>>;
   /** 当前外观主题（'system' 跟随系统 / 'light' / 'dark'）。 */
   themeGet(): Promise<'system' | 'light' | 'dark'>;
   /** 设置外观主题并持久化；返回生效值。 */
   themeSet(
     v: 'system' | 'light' | 'dark',
   ): Promise<'system' | 'light' | 'dark'>;
+  /** 长任务运行时阻止系统因空闲休眠；不拦截用户主动关机。 */
+  taskRuntimeSetActive(active: boolean): Promise<boolean>;
   /** Skill 排行榜 + 贡献明星榜（krx 企业面板；数据读 .otto/org/skill-shares.json）。 */
   skillLeaderboard(teamId?: string): Promise<{
     leaderboard: string;
@@ -1448,37 +1471,11 @@ export interface OttoBridge {
     tabs: Array<{ id: string; label: string; icon: string }>;
   }>;
   /** 今日工作日志汇总。 */
-  workLogToday(): Promise<{
-    summary: string;
-    date: string;
-    totalActions: number;
-    workResults: number;
-  }>;
+  workLogToday(): Promise<WorkLogSummary>;
   /** 近 N 天逐日日志明细（日历 hover 视图）。 */
-  workLogRecent(days?: number): Promise<
-    Array<{
-      date: string;
-      entries: Array<{
-        time: string;
-        category: string;
-        action: string;
-        success: boolean;
-        details?: string;
-        entryType: 'tool' | 'work_result';
-        taskTitle?: string;
-      }>;
-    }>
-  >;
+  workLogRecent(days?: number): Promise<WorkLogDay[]>;
   /** 汇总今日成果、保存 Markdown 报告并返回实际路径。 */
-  workLogReport(): Promise<{
-    ok: boolean;
-    date: string;
-    title: string;
-    markdown: string;
-    html?: string;
-    path: string;
-    message: string;
-  }>;
+  workLogReport(): Promise<WorkLogReportResult>;
   /** 一键生成脱敏诊断包并保存到桌面。 */
   createDiagnosticBundle(): Promise<{
     ok: boolean;
@@ -1491,6 +1488,13 @@ export interface OttoBridge {
   skillShareList(teamId?: string): Promise<{ text: string }>;
   /** 公司 Skill 市场。 */
   skillMarketplace(): Promise<{ text: string }>;
+  /** 从经过用户确认的 GitHub 来源导入一个社区 Skill。 */
+  communitySkillInstall(input: {
+    id: string;
+    source: string;
+    slug: string;
+  }): Promise<{ id: string; name: string; source: string; installPath: string }>;
+  communitySkillList(): Promise<Array<{ name: string; installPath: string }>>;
   enterpriseSkillLocalList(): Promise<LocalSkillShareCandidate[]>;
   enterpriseSkillList(input?: {
     scope?: EnterpriseSkillScope;
@@ -2385,10 +2389,26 @@ const bridge: OttoBridge = {
       'otto:feishu-clear-config',
     ) as Promise<FeishuConfigResult>;
   },
-  parkConfig(): Promise<ParkServicesConfig | null> {
-    return ipcRenderer.invoke(
-      'otto:park-config',
-    ) as Promise<ParkServicesConfig | null>;
+  channelPairingBegin(provider: ChannelProvider): Promise<ChannelPairingResult> {
+    return ipcRenderer.invoke('otto:channel-pairing-begin', provider) as Promise<ChannelPairingResult>;
+  },
+  channelPairingStatus(pairingId: string): Promise<ChannelPairingActionResult<ChannelPairingPublic>> {
+    return ipcRenderer.invoke('otto:channel-pairing-status', pairingId) as Promise<ChannelPairingActionResult<ChannelPairingPublic>>;
+  },
+  channelPairingInstall(pairingId: string): Promise<ChannelPairingActionResult> {
+    return ipcRenderer.invoke('otto:channel-pairing-install', pairingId) as Promise<ChannelPairingActionResult>;
+  },
+  channelPairingCancel(pairingId: string): Promise<ChannelPairingActionResult<ChannelPairingPublic>> {
+    return ipcRenderer.invoke('otto:channel-pairing-cancel', pairingId) as Promise<ChannelPairingActionResult<ChannelPairingPublic>>;
+  },
+  channelInstallations(): Promise<ChannelPairingActionResult<ChannelInstallation[]>> {
+    return ipcRenderer.invoke('otto:channel-installations') as Promise<ChannelPairingActionResult<ChannelInstallation[]>>;
+  },
+  channelInstallationAction(
+    installationId: string,
+    action: 'health' | 'start' | 'stop' | 'revoke',
+  ): Promise<ChannelPairingActionResult<ChannelHealth | { revoked: true }>> {
+    return ipcRenderer.invoke('otto:channel-installation-action', installationId, action) as Promise<ChannelPairingActionResult<ChannelHealth | { revoked: true }>>;
   },
   themeGet(): Promise<'system' | 'light' | 'dark'> {
     return ipcRenderer.invoke('otto:theme-get') as Promise<
@@ -2402,6 +2422,9 @@ const bridge: OttoBridge = {
       'system' | 'light' | 'dark'
     >;
   },
+  taskRuntimeSetActive(active: boolean): Promise<boolean> {
+    return ipcRenderer.invoke(IPC.taskRuntimeSetActive, active) as Promise<boolean>;
+  },
   skillLeaderboard(teamId?: string): Promise<{
     leaderboard: string;
     starBoard: string;
@@ -2413,66 +2436,14 @@ const bridge: OttoBridge = {
       tabs: Array<{ id: string; label: string; icon: string }>;
     }>;
   },
-  workLogToday(): Promise<{
-    summary: string;
-    date: string;
-    totalActions: number;
-    workResults: number;
-  }> {
-    return ipcRenderer.invoke('otto:worklog-today') as Promise<{
-      summary: string;
-      date: string;
-      totalActions: number;
-      workResults: number;
-    }>;
+  workLogToday(): Promise<WorkLogSummary> {
+    return ipcRenderer.invoke('otto:worklog-today') as Promise<WorkLogSummary>;
   },
-  workLogRecent(days?: number): Promise<
-    Array<{
-      date: string;
-      entries: Array<{
-        time: string;
-        category: string;
-        action: string;
-        success: boolean;
-        details?: string;
-        entryType: 'tool' | 'work_result';
-        taskTitle?: string;
-      }>;
-    }>
-  > {
-    return ipcRenderer.invoke('otto:worklog-recent', days) as Promise<
-      Array<{
-        date: string;
-        entries: Array<{
-          time: string;
-          category: string;
-          action: string;
-          success: boolean;
-          details?: string;
-          entryType: 'tool' | 'work_result';
-          taskTitle?: string;
-        }>;
-      }>
-    >;
+  workLogRecent(days?: number): Promise<WorkLogDay[]> {
+    return ipcRenderer.invoke('otto:worklog-recent', days) as Promise<WorkLogDay[]>;
   },
-  workLogReport(): Promise<{
-    ok: boolean;
-    date: string;
-    title: string;
-    markdown: string;
-    html?: string;
-    path: string;
-    message: string;
-  }> {
-    return ipcRenderer.invoke('otto:worklog-report') as Promise<{
-      ok: boolean;
-      date: string;
-      title: string;
-      markdown: string;
-      html?: string;
-      path: string;
-      message: string;
-    }>;
+  workLogReport(): Promise<WorkLogReportResult> {
+    return ipcRenderer.invoke('otto:worklog-report') as Promise<WorkLogReportResult>;
   },
   createDiagnosticBundle(): Promise<{
     ok: boolean;
@@ -2501,6 +2472,14 @@ const bridge: OttoBridge = {
     return ipcRenderer.invoke('otto:skill-marketplace') as Promise<{
       text: string;
     }>;
+  },
+  communitySkillInstall(input) {
+    return ipcRenderer.invoke(IPC.communitySkillInstall, input) as Promise<{
+      id: string; name: string; source: string; installPath: string;
+    }>;
+  },
+  communitySkillList() {
+    return ipcRenderer.invoke(IPC.communitySkillList) as Promise<Array<{ name: string; installPath: string }>>;
   },
   enterpriseSkillLocalList() {
     return ipcRenderer.invoke(IPC.enterpriseSkillLocalList) as Promise<

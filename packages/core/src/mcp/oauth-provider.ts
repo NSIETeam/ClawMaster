@@ -107,7 +107,7 @@ export class MCPOAuthProvider {
       `http://localhost:${this.REDIRECT_PORT}${this.REDIRECT_PATH}`;
 
     const registrationRequest: OAuthClientRegistrationRequest = {
-      client_name: 'Otto MCP Client',
+      client_name: 'ClawMaster MCP Client',
       redirect_uris: [redirectUri],
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
@@ -248,7 +248,7 @@ export class MCPOAuthProvider {
                 <div class="container">
                   <div class="success-badge">✓</div>
                   <h1>Authentication Successful</h1>
-                  <p>You can now close this window and return to Otto.</p>
+                  <p>You can now close this window and return to ClawMaster.</p>
                 </div>
               </body>
             </html>

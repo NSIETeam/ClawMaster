@@ -26,7 +26,7 @@ const invokedPath = process.argv[1]
 if (import.meta.url === invokedPath) {
   main().catch((error: unknown) => {
     console.error(
-      `[Otto Enterprise] PostgreSQL preparation failed: ${safePostgresErrorMessage(
+      `[ClawMaster Enterprise] PostgreSQL preparation failed: ${safePostgresErrorMessage(
         error,
         process.env.OTTO_POSTGRES_URL,
       )}`,

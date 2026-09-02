@@ -433,6 +433,7 @@ describe('EnterpriseClient', () => {
       'staff01',
       'password',
     );
+    expect(client.supportsFederationGateway()).toBe(true);
     const contactCode = `OTTO_FEDERATION_CONTACT_V1:${Buffer.from(
       JSON.stringify(remoteCard),
       'utf8',
@@ -1045,7 +1046,7 @@ describe('EnterpriseClient', () => {
     await client.loginWithPassword('https://enterprise.otto.test', 'staff01', 'password');
 
     await expect(client.getDeploymentUpdatePolicy({
-      distributionId: 'otto-green',
+      distributionId: 'customer-managed',
       currentVersion: '1.9.10',
     })).resolves.toEqual(result);
     expect(fetchMock.mock.calls[2]?.[0])
@@ -1053,7 +1054,7 @@ describe('EnterpriseClient', () => {
     const request = fetchMock.mock.calls[2]?.[1] as RequestInit;
     expect(request.headers).toMatchObject({ authorization: 'Bearer session-token' });
     expect(JSON.parse(String(request.body))).toEqual({
-      distributionId: 'otto-green',
+      distributionId: 'customer-managed',
       currentVersion: '1.9.10',
     });
   });

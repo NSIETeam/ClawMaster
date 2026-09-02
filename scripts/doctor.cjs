@@ -29,6 +29,8 @@ const SOURCE_SIZE_EXCLUDES = new Set([
   'node_modules',
   'bundle',
   'dist',
+  'dist-preview',
+  'gen',
   'target',
   'release',
   'coverage',

@@ -191,7 +191,7 @@ export function buildAtoaResponse(input: {
 
   const minimumQuestion = Array.from(question)[0] ?? '（';
   answer = longestFittingPrefix(
-    answer || '对方 Otto 未返回有效内容。',
+    answer || '对方 ClawMaster 未返回有效内容。',
     (candidate) => serialize(minimumQuestion, candidate),
     true,
   );
@@ -325,8 +325,8 @@ export function displayDirectMessageContent(content: string): string {
   if (parsed.kind === 'request') {
     const label =
       parsed.payload.mode === 'consult'
-        ? '发起双方 Otto 协商'
-        : '向对方 Otto 提问';
+        ? '发起双方 ClawMaster 协商'
+        : '向对方 ClawMaster 提问';
     return `${label}：${parsed.payload.question}\n\n等待对方明确选择资料范围或拒绝；未经授权不会读取其聊天、知识、工作日志或日程。`;
   }
   const sourceLabels: Record<AtoaContextSource, string> = {
@@ -342,6 +342,6 @@ export function displayDirectMessageContent(content: string): string {
           .join('、')}）`
       : '';
   const label =
-    parsed.payload.mode === 'consult' ? '双方 Otto 协商结果' : '对方 Otto 回复';
+    parsed.payload.mode === 'consult' ? '双方 ClawMaster 协商结果' : '对方 ClawMaster 回复';
   return `${label}${scope}：\n${parsed.payload.answer}`;
 }

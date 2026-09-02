@@ -89,9 +89,9 @@ export function renderLegalPageHtml(
     ? '<p class="ready">部署主体与安全配置已声明；正式使用前仍应由实际部署方完成法务确认。</p>'
     : `<div class="warning"><strong>法律交付尚未就绪</strong><ul>${data.readiness.warnings.map((warning) => `<li>${escapeLegalHtml(warning)}</li>`).join('')}</ul></div>`;
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1"><title>Otto 用户协议与隐私规则</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"><title>ClawMaster 用户协议与隐私规则</title>
   <style>:root{color-scheme:light}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f3f6f4;color:#17211d;font:15px/1.8 system-ui,"Microsoft YaHei",sans-serif}.wrap{max-width:960px;margin:auto;padding:36px 22px 80px}.hero{padding:26px;background:#173e32;color:#fff;border-radius:14px}.hero h1{font-size:30px;margin:0 0 8px}.hero p{margin:4px 0;color:#dbe9e4}.contact{margin-top:16px;padding:14px 16px;background:#fff;color:#17211d;border-radius:9px}.ready{padding:12px 15px;background:#e7f2ec;border-left:4px solid #176a4b}.warning{padding:14px 16px;background:#fff1e8;border:1px solid #e59662;border-radius:9px;color:#6e2c08}.warning ul{margin-bottom:0}nav{position:sticky;top:0;display:flex;gap:12px;padding:14px 0;background:#f3f6f4;z-index:2}nav a{color:#176a4b;font-weight:700}article{margin-top:18px;padding:26px;background:#fff;border:1px solid #d8e0dc;border-radius:12px}article>header{padding-bottom:16px;border-bottom:1px solid #e1e7e4}h2{font-size:23px;margin:0}h3{font-size:17px;margin:0 0 8px}section{margin-top:22px;scroll-margin-top:70px}section p{margin:8px 0}section.important{padding:16px;border-left:4px solid #b64b32;background:#fff7f4}.meta{color:#66716c;font-size:13px;overflow-wrap:anywhere}code{font-size:12px}li+li{margin-top:6px}.save{margin-top:20px;color:#66716c;font-size:13px}@media print{body{background:#fff}.wrap{max-width:none;padding:0}.hero{color:#000;background:#fff;border:1px solid #aaa}nav,.save{display:none}article{break-before:page;border:0;padding:0}.important{border:1px solid #777!important}}</style>
-  </head><body><main class="wrap"><header class="hero"><h1>Otto 用户协议与隐私规则</h1><p>注册或确认前请完整阅读。与您有重大利害关系的条款以醒目区块显示。</p>
+  </head><body><main class="wrap"><header class="hero"><h1>ClawMaster 用户协议与隐私规则</h1><p>注册或确认前请完整阅读。与您有重大利害关系的条款以醒目区块显示。</p>
   <div class="contact"><strong>个人信息处理者：</strong>${escapeLegalHtml(data.controller.name)}<br><strong>隐私联系人：</strong>${escapeLegalHtml(data.controller.privacyContact)}</div></header>
   ${readiness}<nav aria-label="法律文档目录">${navigation}</nav>${documents}
   <p class="save">本页为静态完整正文，可使用浏览器的“打印”功能保存为 PDF。系统记录的同意凭据包含上方显示的版本与正文 SHA-256。</p>
@@ -155,7 +155,7 @@ export async function handleDataGovernanceRoute(input: {
   if (path === '/enterprise/privacy/account' && method === 'DELETE') {
     const body = await readBody(req);
     const password = typeof body.password === 'string' ? body.password : '';
-    if (body.confirmation !== '注销我的 Otto 账号' || !password) {
+    if (body.confirmation !== '注销我的 ClawMaster 账号' || !password) {
       sendJSON(res, 400, { error: '请输入登录密码，并完整填写注销确认文字' });
       return true;
     }

@@ -12,7 +12,7 @@ import {
   type ToolLocation,
 } from './tools.js';
 import { Type } from '@google/genai';
-import { SkillsCompatAdapter } from '../skills/skills-compat.js';
+import { SkillsCatalogAdapter } from '../skills/skills-catalog-adapter.js';
 import { Config } from '../config/config.js';
 
 interface GetSkillDetailsParams {
@@ -24,7 +24,7 @@ interface GetSkillDetailsParams {
  * GetSkillDetailsTool - Get detailed information about a specific skill
  */
 export class GetSkillDetailsTool extends BaseTool<GetSkillDetailsParams, ToolResult> {
-  private compatAdapter: SkillsCompatAdapter;
+  private catalog: SkillsCatalogAdapter;
 
   constructor(private readonly config: Config) {
     super(
@@ -46,7 +46,7 @@ export class GetSkillDetailsTool extends BaseTool<GetSkillDetailsParams, ToolRes
       false, // canUpdateOutput
     );
 
-    this.compatAdapter = new SkillsCompatAdapter(this.config.getProjectRoot());
+    this.catalog = new SkillsCatalogAdapter(this.config.getProjectRoot());
   }
 
   override validateToolParams(params: GetSkillDetailsParams): string | null {
@@ -90,7 +90,7 @@ export class GetSkillDetailsTool extends BaseTool<GetSkillDetailsParams, ToolRes
     }
 
     try {
-      const skill = await this.compatAdapter.getSkillDetails(params.skillId);
+      const skill = await this.catalog.getSkillDetails(params.skillId);
 
       if (!skill) {
         return {
@@ -115,7 +115,7 @@ Use \`list_available_skills\` to see all available skills.`,
         '',
         '## Locations',
         `- **Skill Directory**: \`${skill.path}\``,
-        `- **Documentation**: \`${skill.skillMdPath}\``,
+        `- **Documentation**: \`${skill.skillFilePath}\``,
         '',
         '## How to Use',
         '1. **Activate the skill**:',

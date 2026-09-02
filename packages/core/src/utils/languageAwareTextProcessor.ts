@@ -80,7 +80,7 @@ const LANGUAGE_CONFIGS: { [key: string]: LanguageProcessingConfig } = {
 /**
  * 从文件路径推断编程语言
  */
-export function inferLanguageFromPath(filePath: string): string {
+function inferLanguageFromPath(filePath: string): string {
   const extension = filePath.split('.').pop()?.toLowerCase() || '';
   const fileName = filePath.split('/').pop()?.toLowerCase() || '';
 
@@ -110,7 +110,7 @@ export function inferLanguageFromPath(filePath: string): string {
 /**
  * 获取语言处理配置
  */
-export function getLanguageProcessingConfig(filePath: string): LanguageProcessingConfig {
+function getLanguageProcessingConfig(filePath: string): LanguageProcessingConfig {
   const language = inferLanguageFromPath(filePath);
   return LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.default;
 }
@@ -118,7 +118,7 @@ export function getLanguageProcessingConfig(filePath: string): LanguageProcessin
 /**
  * 判断文件是否应该使用CRLF换行符（Windows脚本文件）
  */
-export function shouldUseCRLF(filePath: string): boolean {
+function shouldUseCRLF(filePath: string): boolean {
   const extension = filePath.split('.').pop()?.toLowerCase() || '';
   return WINDOWS_SCRIPT_EXTENSIONS.has(extension);
 }
@@ -264,14 +264,6 @@ function postProcessGenericText(content: string, config: LanguageProcessingConfi
   }
 
   return processed;
-}
-
-/**
- * 检查是否为C++系列语言
- */
-export function isCppFamily(filePath: string): boolean {
-  const language = inferLanguageFromPath(filePath);
-  return ['c', 'cpp'].includes(language);
 }
 
 /**

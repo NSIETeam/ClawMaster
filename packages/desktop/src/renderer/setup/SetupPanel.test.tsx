@@ -7,7 +7,7 @@
 /** SetupPanel 交互单测：「复制 custom-models.json」不把明文 key 写进剪贴板。 */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, waitFor } from '@testing-library/react';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { SetupPanel } from './SetupPanel.js';
 
 const writeText = vi.fn(async (_text: string) => {});
@@ -28,6 +28,12 @@ function renderPanel(): ReturnType<typeof render> {
 }
 
 describe('SetupPanel 复制路径', () => {
+  it('uses the compact ClawMaster crown without a legacy wordmark', () => {
+    renderPanel();
+    expect(screen.getByRole('img', { name: 'ClawMaster 皇冠标志' })).toBeTruthy();
+    expect(screen.queryByText(/^otto$/i)).toBeNull();
+  });
+
   it('复制 custom-models.json：剪贴板内容用占位符代替明文 key', async () => {
     const { getByText, getByPlaceholderText } = renderPanel();
     fireEvent.change(getByPlaceholderText('sk-...'), {

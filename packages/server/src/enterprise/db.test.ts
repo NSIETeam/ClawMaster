@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash, scryptSync } from 'node:crypto';
-import { Database } from '../sqlite-compat.js';
+import { Database } from '../modules/data_platform/index.js';
 import {
   ATOA_DIRECT_MESSAGE_MAX_LENGTH,
   ATOA_REQUEST_PREFIX,

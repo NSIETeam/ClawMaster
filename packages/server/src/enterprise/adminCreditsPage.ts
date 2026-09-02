@@ -4,7 +4,7 @@
 
 export function adminCreditsHTML(): string {
   return `<!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Otto 积分管理</title>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ClawMaster 积分管理</title>
 <style>
 :root{--ink:#18221e;--muted:#66716c;--line:#dce3df;--panel:#fff;--subtle:#edf2ef;--accent:#176a4b;--accent-hover:#11563c;--accent-soft:#e5f1eb;--danger:#aa3f35;--danger-soft:#faece9;--radius:10px;--shadow:0 12px 36px rgba(26,42,34,.12)}
 *{box-sizing:border-box}body{margin:0;background:#f4f6f5;color:var(--ink);font-family:Inter,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;font-size:14px;line-height:1.5}
@@ -53,7 +53,7 @@ button,input{font:inherit}button{cursor:pointer}:focus-visible{outline:3px solid
 .nav-back{margin-bottom:20px}
 .nav-back a{color:var(--muted);font-size:12px}
 </style></head><body>
-<div class="header"><h1>💰 Otto 企业积分管理</h1><div><a href="/enterprise/admin">← 返回账号管理</a></div></div>
+<div class="header"><h1>💰 ClawMaster 企业积分管理</h1><div><a href="/enterprise/admin">← 返回账号管理</a></div></div>
 <section id="authNotice" class="auth-notice hidden" aria-labelledby="authTitle">
   <h2 id="authTitle">需要管理员登录</h2>
   <p id="authMessage">请先返回账号管理页完成管理员登录，再进入积分管理。</p>

@@ -241,7 +241,7 @@ export class GitService {
     // We don't want to inherit the user's name, email, or gpg signing
     // preferences for the shadow repository, so we create a dedicated gitconfig.
     const gitConfigContent =
-      '[user]\n  name = Otto\n  email = otto@local\n[commit]\n  gpgsign = false\n';
+      '[user]\n  name = ClawMaster\n  email = clawmaster@local\n[commit]\n  gpgsign = false\n';
 
     try {
       await fs.writeFile(gitConfigPath, gitConfigContent);
@@ -280,7 +280,7 @@ export class GitService {
         });
 
         // 确保在shadow仓库中设置用户信息
-        await repo.addConfig('user.name', 'Otto', false);
+        await repo.addConfig('user.name', 'ClawMaster', false);
         await repo.addConfig('user.email', 'otto@local', false);
         await repo.addConfig('commit.gpgsign', 'false', false);
 

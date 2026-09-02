@@ -31,6 +31,7 @@ beforeEach(() => {
   // loadEndpoint 的动态 import 生效。ESM 下命名空间不可 spy，用 env 隔离。
   vi.stubEnv('HOME', tmpHome);
   vi.stubEnv('USERPROFILE', tmpHome);
+  vi.stubEnv('OTTO_USER_DIR', '');
 });
 
 afterEach(() => {
@@ -75,6 +76,13 @@ describe('endpoint write/read round-trip', () => {
     expect(ep.endpointFilePath()).toBe(
       path.join(tmpHome, '.otto-user', 'server-endpoint.json'),
     );
+  });
+
+  it('显式用户目录隔离产品 endpoint', async () => {
+    const isolatedRoot = path.join(tmpHome, '.clawmaster-user');
+    vi.stubEnv('OTTO_USER_DIR', isolatedRoot);
+    const ep = await loadEndpoint();
+    expect(ep.endpointFilePath()).toBe(path.join(isolatedRoot, 'server-endpoint.json'));
   });
 
   it('read 不存在文件 → undefined（不抛）', async () => {

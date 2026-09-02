@@ -92,7 +92,7 @@ export class FeishuProjectCollabTool extends BaseTool<FeishuProjectCollabParams,
       '## Tables', '1. Project Charter: purpose, scope, owner, success criteria.', '2. Responsibility Matrix: collaborator, role, responsibility, expected output.', '3. Acceptance Milestones: node, due date, standard, owner, reminder time.', '4. Progress Log: owner, update, percent, blocker, next step, updated time.', '5. Risk Register: risk, impact, owner, mitigation, status.', '',
       '## Collaborators', json(params.collaborators), '',
       '## Acceptance nodes', json(params.acceptance_nodes), '',
-      '## Automation', '- Create Feishu Base or Sheet at project start.', '- Append one row for every progress update.', '- Remind owners before each acceptance node.', '- Archive accepted output into Otto Project Memory.',
+      '## Automation', '- Create Feishu Base or Sheet at project start.', '- Append one row for every progress update.', '- Remind owners before each acceptance node.', '- Archive accepted output into ClawMaster Project Memory.',
     ].join('\n');
   }
 
@@ -101,7 +101,7 @@ export class FeishuProjectCollabTool extends BaseTool<FeishuProjectCollabParams,
   }
 
   private progress(params: FeishuProjectCollabParams): string {
-    return ['# Progress Sync Plan', '', '- Project: ' + params.project_name, '- Owner: ' + (params.progress_owner || 'unknown'), '- Progress: ' + (params.progress_percent ?? 0) + '%', '- Update: ' + params.progress_content, '', 'Feishu actions:', '- Append Progress Log row.', '- Notify project chat when chat_id exists.', '- Update Risk Register if blocker appears.', '- Save important decisions into Otto Project Memory.'].join('\n');
+    return ['# Progress Sync Plan', '', '- Project: ' + params.project_name, '- Owner: ' + (params.progress_owner || 'unknown'), '- Progress: ' + (params.progress_percent ?? 0) + '%', '- Update: ' + params.progress_content, '', 'Feishu actions:', '- Append Progress Log row.', '- Notify project chat when chat_id exists.', '- Update Risk Register if blocker appears.', '- Save important decisions into ClawMaster Project Memory.'].join('\n');
   }
 
   private reminders(params: FeishuProjectCollabParams): string {
@@ -115,7 +115,7 @@ export class FeishuProjectCollabTool extends BaseTool<FeishuProjectCollabParams,
 
   private archiveAcceptance(params: FeishuProjectCollabParams): string {
     const target = params.base_token ? 'base ' + params.base_token : 'sheet ' + (params.spreadsheet_token || '<spreadsheet_token>');
-    return ['# Executable Acceptance Archive', '', 'Target: ' + target, 'Content: ' + (params.acceptance_content || params.progress_content || 'Acceptance output archived.'), 'Next: append archive row and promote accepted output into Otto Project Memory.'].join('\n');
+    return ['# Executable Acceptance Archive', '', 'Target: ' + target, 'Content: ' + (params.acceptance_content || params.progress_content || 'Acceptance output archived.'), 'Next: append archive row and promote accepted output into ClawMaster Project Memory.'].join('\n');
   }
 
 }

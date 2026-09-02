@@ -590,7 +590,7 @@ export function acquireFeishuGatewayLock(
         throw new FeishuGatewayLockError(
           `另一进程 (pid ${holder.pid}) 已持有该飞书应用 (${appId}) 的连接锁，拒绝重复连接` +
             `（两个进程同时连同一 appId 会导致每条消息被处理/回复两遍）。` +
-            `若确认该进程已不再服务飞书，请先停掉它（如 otto feishu daemon stop）后重试。`,
+            '若确认该进程已不再服务飞书，请先在 ClawMaster 或旧版 CLI 中停止对应守护进程后重试。',
           holder.pid,
         );
       }
@@ -3227,7 +3227,7 @@ export class FeishuGateway {
 
       const body = {
         name,
-        description: 'Otto 自动创建的项目专属协作群',
+        description: 'ClawMaster 自动创建的项目专属协作群',
         user_id_list: [userOpenId],
       };
 

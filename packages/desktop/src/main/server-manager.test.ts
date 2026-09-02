@@ -306,7 +306,7 @@ describe('ServerManager trusted enterprise identity bridge', () => {
 
     await manager.ensure();
     await expect(manager.setAuthenticatedEnterpriseAccount(ENTERPRISE_ACCOUNT))
-      .rejects.toThrow('旧版本本机 OttoServer');
+      .rejects.toThrow('旧版本本机 ClawMaster 引擎');
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 

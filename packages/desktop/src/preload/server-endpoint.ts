@@ -12,7 +12,7 @@ type ClientServerEndpoint = Pick<
 >;
 
 /**
- * 为本机 OttoServer 构造受 client token 保护的 WS 地址。
+ * 为本机 ClawMaster 引擎构造受 client token 保护的 WS 地址。
  *
  * clientToken 仅允许建立 WS；权限更高的 controlToken 永远不会进入 renderer。
  * 对旧端点 fail closed，避免静默退回未鉴权的 `/ws`。
@@ -21,7 +21,7 @@ export function serverWebSocketUrl(
   endpoint: ClientServerEndpoint,
 ): string {
   if (!endpoint.clientToken?.trim()) {
-    throw new Error('本机 OttoServer 端点缺少 client token，请重启 Otto');
+    throw new Error('本机 ClawMaster 引擎端点缺少 client token，请重启 ClawMaster');
   }
   const host = formatWebSocketHost(endpoint.host);
   return `ws://${host}:${endpoint.port}/ws?clientToken=${

@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import type {
   EnterpriseUpdateManifestReference,
@@ -11,11 +11,10 @@ const DISTRIBUTION_ID_PATTERN = /^[a-z0-9][a-z0-9_.-]{1,63}$/u;
 
 export function resolveDesktopDistribution(
   configured: string | undefined,
-  applicationName: string,
 ): string {
   const explicit = configured?.trim().toLowerCase();
   if (explicit && DISTRIBUTION_ID_PATTERN.test(explicit)) return explicit;
-  return /green/iu.test(applicationName) ? 'otto-green' : 'otto';
+  return 'clawmaster';
 }
 
 export interface UpdatePolicyAdapterOptions {
@@ -37,7 +36,7 @@ function failed(currentVersion: string, message: string): UpdateCheckResult {
 export async function checkForUpdateUsingPolicy(
   options: UpdatePolicyAdapterOptions,
 ): Promise<UpdateCheckResult> {
-  const legacyAllowed = options.distributionId === 'otto';
+  const legacyAllowed = options.distributionId === 'clawmaster';
   if (!options.hasEnterpriseSession) {
     return legacyAllowed
       ? options.checkLegacy()

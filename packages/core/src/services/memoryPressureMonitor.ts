@@ -89,7 +89,7 @@ export class MemoryPressureMonitor {
   private readonly readMemory: () => Omit<MemoryPressureSnapshot, 'level' | 'timestamp' | 'reason'>;
   private readonly now: () => number;
   private listeners: MemoryPressureListener[] = [];
-  private timer: ReturnType<typeof setInterval> | undefined;
+  private timer: ReturnType<typeof setTimeout> | undefined;
   private latest: MemoryPressureSnapshot;
 
   constructor(options: MemoryPressureMonitorOptions = {}) {
@@ -113,15 +113,12 @@ export class MemoryPressureMonitor {
 
   start(): void {
     if (this.timer) return;
-    this.timer = setInterval(() => {
-      this.check();
-    }, this.intervalMs);
-    this.timer.unref?.();
+    this.schedule();
   }
 
   stop(): void {
     if (!this.timer) return;
-    clearInterval(this.timer);
+    clearTimeout(this.timer);
     this.timer = undefined;
   }
 
@@ -129,6 +126,7 @@ export class MemoryPressureMonitor {
     this.listeners.push(listener);
     return () => {
       this.listeners = this.listeners.filter((item) => item !== listener);
+      if (this.listeners.length === 0) this.stop();
     };
   }
 
@@ -170,6 +168,15 @@ export class MemoryPressureMonitor {
       ...classified,
       timestamp: this.now(),
     };
+  }
+
+  private schedule(): void {
+    this.timer = setTimeout(() => {
+      this.timer = undefined;
+      this.check();
+      if (this.listeners.length > 0) this.schedule();
+    }, this.intervalMs);
+    this.timer.unref?.();
   }
 }
 

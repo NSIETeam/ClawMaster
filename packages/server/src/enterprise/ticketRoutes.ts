@@ -313,7 +313,7 @@ export async function handleTicketRoute({
       ticket,
       recipients: db.getTicketNotificationRecipients(ticket.id),
       event: 'ticket_created',
-      title: serviceId === 'repair' ? `Otto 新报修 · ${ticket.title}` : `Otto 新园区申请 · ${ticket.title}`,
+      title: serviceId === 'repair' ? `ClawMaster 新报修 · ${ticket.title}` : `ClawMaster 新园区申请 · ${ticket.title}`,
       body: serviceId === 'repair'
         ? `${ticket.location || '位置未填写'} · ${ticket.description} · ${ticket.urgency || '普通'}`
         : ticket.description,
@@ -426,7 +426,7 @@ export async function handleTicketRoute({
           ticket,
           recipients: creatorRecipients,
           event: 'ticket_respond',
-          title: `Otto 办理回复 · ${ticket.title}`,
+          title: `ClawMaster 办理回复 · ${ticket.title}`,
           body: `${ticket.responseType || '处理回复'}：${ticket.responseText || ''}`,
           smsSender: repairSmsSender,
           feishuSender: repairFeishuSender,
@@ -436,7 +436,7 @@ export async function handleTicketRoute({
           ticket,
           recipients: db.getTicketNotificationRecipients(ticket.id),
           event: 'ticket_transfer',
-          title: `Otto 转交任务 · ${ticket.title}`,
+          title: `ClawMaster 转交任务 · ${ticket.title}`,
           body: transferEvent?.responseText
             || '请工程部接手处理该物业报修，并在完成后记录工作结果。',
           smsSender: repairSmsSender,
@@ -456,14 +456,14 @@ export async function handleTicketRoute({
         ...new Map(recipientCandidates.map((item) => [item.id, item])).values(),
       ];
        const title = action === 'respond'
-         ? `Otto 办理回复 · ${ticket.title}`
+         ? `ClawMaster 办理回复 · ${ticket.title}`
          : action === 'accept'
-           ? `Otto 申请已受理 · ${ticket.title}`
+           ? `ClawMaster 申请已受理 · ${ticket.title}`
            : action === 'complete'
              ? currentTicket.status === '已转交'
-               ? `Otto 工作已完成 · ${ticket.title}`
-               : `Otto 待确认 · ${ticket.title}`
-             : `Otto 办理已确认 · ${ticket.title}`;
+               ? `ClawMaster 工作已完成 · ${ticket.title}`
+               : `ClawMaster 待确认 · ${ticket.title}`
+             : `ClawMaster 办理已确认 · ${ticket.title}`;
        const detail = action === 'respond'
          ? `${ticket.responseType || '处理回复'}：${ticket.responseText || ''}`
          : `工单 ${ticket.id} 当前状态：${ticket.status}`;

@@ -19,7 +19,7 @@ export function OttoSecondaryMark({
     <span
       className={`otto-response-mark${active ? ' is-active' : ''}`}
       role={active ? 'status' : 'img'}
-      aria-label={active ? 'Otto 正在回答' : 'Otto 回复'}
+      aria-label={active ? 'ClawMaster 正在回答' : 'ClawMaster 回复'}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <g className="otto-response-mark__ball">

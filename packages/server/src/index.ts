@@ -11,6 +11,7 @@
  */
 
 export * from './protocol.js';
+export * from './workLogService.js';
 export * from './sessions.js';
 export * from './sessions-persistent.js';
 export { OttoServer } from './server.js';
@@ -44,6 +45,10 @@ export * from './modules/data_platform/index.js';
 export * from './modules/authorization/index.js';
 export * from './modules/identity_organization/index.js';
 export * from './modules/data_governance/index.js';
+export type {
+  ChannelInstallation,
+  ChannelHealth,
+} from './modules/integration_adapters/channelConnector.js';
 export * from './productModules.js';
 export * from './productWorkspace.js';
 export * from './productWorkspaceStore.js';

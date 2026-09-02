@@ -2,8 +2,8 @@
  * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
  */
 
-export const MODULE_WORKSPACE_SCHEMA_VERSION = 1 as const;
-export const MODULE_GROUP_NAME_MAX_LENGTH = 40;
+const MODULE_WORKSPACE_SCHEMA_VERSION = 2 as const;
+const MODULE_GROUP_NAME_MAX_LENGTH = 40;
 
 export type ModuleWorkspaceEdition = 'personal' | 'enterprise';
 
@@ -20,7 +20,8 @@ export interface ModuleGroupLayout {
 }
 
 export interface ModuleWorkspaceLayout {
-  version: typeof MODULE_WORKSPACE_SCHEMA_VERSION;
+  /** v1 is accepted only as a legacy in-memory/input shape; persistence upgrades it to v2. */
+  version: 1 | typeof MODULE_WORKSPACE_SCHEMA_VERSION;
   groups: ModuleGroupLayout[];
 }
 
@@ -33,9 +34,12 @@ export interface ModuleWorkspaceStorageScope {
 
 export function resolveModuleGridColumns(
   presentation: 'panel' | 'page',
-  containerWidth: number,
+  _containerWidth: number,
 ): 2 | 3 {
-  return presentation === 'panel' && containerWidth > 0 && containerWidth <= 250 ? 2 : 3;
+  // The right rail is intentionally a two-column surface. Letting the state
+  // model switch to three columns while CSS stayed at two made row capacity
+  // calculations wrong and allowed the next group to cover the add tile.
+  return presentation === 'panel' ? 2 : 3;
 }
 
 const ENTERPRISE_DEFAULT_GROUPS: readonly ModuleGroupLayout[] = [
@@ -65,14 +69,47 @@ const ENTERPRISE_DEFAULT_GROUPS: readonly ModuleGroupLayout[] = [
       'enterprise-memory',
     ],
   },
+  {
+    id: 'business-platforms',
+    name: '业务平台',
+    rows: 3,
+    moduleIds: [
+      'platform-maotouying',
+      'platform-trace-code',
+      'platform-zhifang',
+      'platform-zhiliaohou',
+      'platform-zhixin-pigeon',
+    ],
+  },
 ] as const;
 
-const PERSONAL_DEFAULT_GROUP: ModuleGroupLayout = {
-  id: 'daily-office',
-  name: '日常办公',
-  rows: 2,
-  moduleIds: [],
-};
+const PERSONAL_DEFAULT_GROUPS: readonly ModuleGroupLayout[] = [
+  {
+    id: 'daily-office',
+    name: '日常办公',
+    rows: 3,
+    moduleIds: [
+      'agent-word',
+      'agent-excel',
+      'agent-ppt',
+      'agent-pdf',
+      'mind-map',
+      'agent-meeting',
+    ],
+  },
+  {
+    id: 'business-platforms',
+    name: '业务平台',
+    rows: 3,
+    moduleIds: [
+      'platform-maotouying',
+      'platform-trace-code',
+      'platform-zhifang',
+      'platform-zhiliaohou',
+      'platform-zhixin-pigeon',
+    ],
+  },
+] as const;
 
 function cloneGroup(group: ModuleGroupLayout): ModuleGroupLayout {
   return { ...group, moduleIds: [...group.moduleIds] };
@@ -119,10 +156,10 @@ export function createDefaultModuleWorkspace(
   if (capabilities.edition === 'personal') {
     return {
       version: MODULE_WORKSPACE_SCHEMA_VERSION,
-      groups: [{
-        ...PERSONAL_DEFAULT_GROUP,
-        moduleIds: capabilities.availableModuleIds.filter((moduleId) => available.has(moduleId)),
-      }],
+      groups: PERSONAL_DEFAULT_GROUPS.map((group) => ({
+        ...cloneGroup(group),
+        moduleIds: group.moduleIds.filter((moduleId) => available.has(moduleId)),
+      })),
     };
   }
 
@@ -172,7 +209,32 @@ export function parseModuleWorkspace(
   if (!serialized) return createDefaultModuleWorkspace(capabilities);
   try {
     const parsed = JSON.parse(serialized) as { version?: unknown; groups?: unknown };
-    if (parsed?.version !== MODULE_WORKSPACE_SCHEMA_VERSION || !Array.isArray(parsed.groups)) {
+    if (!Array.isArray(parsed.groups)) {
+      return createDefaultModuleWorkspace(capabilities);
+    }
+    if (parsed.version === 1) {
+      const legacy = normalizeModuleWorkspace(parsed);
+      const defaults = createDefaultModuleWorkspace(capabilities);
+      const legacyPersonalIds = new Set(['agent-personal-otto', 'auto-skill']);
+      const groups = legacy.groups.map(cloneGroup);
+      for (const expected of defaults.groups) {
+        const current = groups.find((group) => group.id === expected.id);
+        if (!current) {
+          groups.push(cloneGroup(expected));
+          continue;
+        }
+        if (
+          capabilities.edition === 'personal'
+          && current.id === 'daily-office'
+          && current.moduleIds.every((moduleId) => legacyPersonalIds.has(moduleId))
+        ) {
+          current.rows = expected.rows;
+          current.moduleIds = [...expected.moduleIds];
+        }
+      }
+      return { version: MODULE_WORKSPACE_SCHEMA_VERSION, groups };
+    }
+    if (parsed.version !== MODULE_WORKSPACE_SCHEMA_VERSION) {
       return createDefaultModuleWorkspace(capabilities);
     }
     const normalized = normalizeModuleWorkspace(parsed);

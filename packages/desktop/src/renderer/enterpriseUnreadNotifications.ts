@@ -56,9 +56,9 @@ function toPayload(
     source: atoaRequest || atoaResponse ? 'atoa' : 'enterprise',
     sender: notification.senderName,
     preview: atoaRequest
-      ? '对方正在请求你的 Otto 协作'
+      ? '对方正在请求你的 ClawMaster 协作'
       : atoaResponse
-        ? '对方 Otto 已回复你的企业协作请求'
+        ? '对方 ClawMaster 已回复你的企业协作请求'
         : notification.preview,
   };
 }

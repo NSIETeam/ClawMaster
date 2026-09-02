@@ -87,7 +87,7 @@ export class AudioReaderTool extends BaseTool<AudioReaderToolParams, ToolResult>
       AudioReaderTool.Name,
       'AudioReader',
       'Fallback tool for text-only models that cannot natively process audio. ' +
-        'It first tries the current model when it supports audio, then Otto local transcription ' +
+        'It first tries the current model when it supports audio, then ClawMaster local transcription ' +
         '(local Whisper / user cloud ASR env). ' +
         'Do NOT call this tool proactively: ' +
         'only use it when you need to transcribe or understand audio content that ' +
@@ -252,8 +252,8 @@ export class AudioReaderTool extends BaseTool<AudioReaderToolParams, ToolResult>
     }
 
     const currentModelNote = currentModelPlan
-      ? `Otto first tried the current audio-capable model, but it failed: ${modelError || 'unknown error'}.\n`
-      : `Otto checked the current model, but it is not marked as audio-capable.\n`;
+      ? `ClawMaster first tried the current audio-capable model, but it failed: ${modelError || 'unknown error'}.\n`
+      : `ClawMaster checked the current model, but it is not marked as audio-capable.\n`;
     return {
       llmContent:
         `Audio transcription setup is needed.\n\n` +
@@ -261,16 +261,16 @@ export class AudioReaderTool extends BaseTool<AudioReaderToolParams, ToolResult>
         `- Current model audio support: ${currentModelPlan ? 'available but failed' : 'not available'}\n` +
         `- Local speech-to-text: unavailable or returned no text\n\n` +
         currentModelNote +
-        `Otto also tried local ASR, but no local/user-owned transcriber returned text. ` +
-        `This audio file cannot be transcribed automatically until Otto's local transcription fallback is repaired or an audio-capable current model is selected.\n\n` +
+        `ClawMaster also tried local ASR, but no local/user-owned transcriber returned text. ` +
+        `This audio file cannot be transcribed automatically until ClawMaster's local transcription fallback is repaired or an audio-capable current model is selected.\n\n` +
         `Recommended next steps:\n` +
-        `1. Open Otto's voice/transcription diagnostics and repair the missing local transcription dependency.\n` +
-        `2. Make sure ffmpeg is available so Otto can decode common audio formats.\n` +
+        `1. Open ClawMaster's voice/transcription diagnostics and repair the missing local transcription dependency.\n` +
+        `2. Make sure ffmpeg is available so ClawMaster can decode common audio formats.\n` +
         `   - Windows: winget install --id Gyan.FFmpeg\n` +
         `   - macOS: brew install ffmpeg\n` +
         `   - Linux: sudo apt-get install -y ffmpeg\n` +
         `3. For better accuracy, use OTTO_WHISPER_MODEL=medium or large-v3; use small on low-spec computers.\n` +
-        `4. Restart Otto, then retry the audio. If you already have a transcript, paste it and Otto can summarize the meeting notes immediately.`,
+        `4. Restart ClawMaster, then retry the audio. If you already have a transcript, paste it and ClawMaster can summarize the meeting notes immediately.`,
       returnDisplay: `Audio transcription setup needed`,
     };
   }

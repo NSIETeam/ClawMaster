@@ -118,7 +118,7 @@ HOW IT WORKS:
 
 REQUIREMENTS:
   Recording/audio decode: ffmpeg
-  Local transcription: Otto local ASR fallback (faster-whisper/openai-whisper backend)
+  Local transcription: ClawMaster local ASR fallback (faster-whisper/openai-whisper backend)
   Optional quality: OTTO_WHISPER_MODEL=small|medium|large-v3`;
 
     super(VoiceBridgeTool.Name, 'VoiceBridge', desc, Icon.Terminal,
@@ -179,14 +179,14 @@ REQUIREMENTS:
     const missing: string[] = [];
     if (ffmpeg && !ffmpeg.present) {
       missing.push(
-        `- ffmpeg is missing, so Otto may not be able to record or decode audio.\n` +
+        `- ffmpeg is missing, so ClawMaster may not be able to record or decode audio.\n` +
         `  Install: ${ffmpeg.installHint}`,
       );
     }
     if (whisper && !whisper.present && !hasUserAsrKey) {
       missing.push(
-        `- Otto local transcription is not ready on this computer.\n` +
-        `  Open Otto voice/transcription diagnostics to repair the local ASR backend.\n` +
+        `- ClawMaster local transcription is not ready on this computer.\n` +
+        `  Open ClawMaster voice/transcription diagnostics to repair the local ASR backend.\n` +
         `  Accuracy setting: set OTTO_WHISPER_MODEL=medium, small, or large-v3\n` +
         `  Alternative: configure a user-owned ASR key with OPENAI_API_KEY or ARK_API_KEY`,
       );
@@ -199,12 +199,12 @@ REQUIREMENTS:
       `Capability check:\n` +
       `- Microphone recording/audio decode: ${ffmpeg?.present ? 'ready' : 'blocked'}\n` +
       `- Local speech-to-text: ${whisper?.present ? 'ready' : hasUserAsrKey ? 'ready via user-owned ASR key' : 'blocked'}\n\n` +
-      `What Otto can do now:\n` +
-      `- If you paste an existing transcript, Otto can summarize it immediately.\n` +
-      `- If the current chat model supports audio, Otto can still try that model first.\n` +
+      `What ClawMaster can do now:\n` +
+      `- If you paste an existing transcript, ClawMaster can summarize it immediately.\n` +
+      `- If the current chat model supports audio, ClawMaster can still try that model first.\n` +
       `- For local recording/transcription, install the missing dependency below.\n\n` +
       `Fix steps:\n${missing.join('\n')}\n\n` +
-      `After installing, restart Otto or the terminal, then retry the voice action.`
+      `After installing, restart ClawMaster or the terminal, then retry the voice action.`
     );
   }
 
@@ -238,9 +238,9 @@ REQUIREMENTS:
     if (asrBackendValid && !localAsrReady && !hasUserAsrKey) {
       const selectedBackendHint = requiresFasterWhisper
         ? `- The selected faster-whisper local ASR backend is missing.\n` +
-          `  Open Otto voice/transcription diagnostics to repair the local ASR backend.`
-        : `- Otto local transcription is not ready on this computer.\n` +
-          `  Open Otto voice/transcription diagnostics to repair the local ASR backend.\n` +
+          `  Open ClawMaster voice/transcription diagnostics to repair the local ASR backend.`
+        : `- ClawMaster local transcription is not ready on this computer.\n` +
+          `  Open ClawMaster voice/transcription diagnostics to repair the local ASR backend.\n` +
           `  Recommended backend: faster-whisper for speed, medium/large-v3 model for better accuracy.\n` +
           `  Low-spec computer: set OTTO_WHISPER_MODEL=small`;
       missing.push(
@@ -249,7 +249,7 @@ REQUIREMENTS:
     }
     if (!status.sounddevice_module && !status.ffmpeg) {
       missing.push(
-        `- sounddevice is also missing, so Otto has no fallback microphone recorder.\n` +
+        `- sounddevice is also missing, so ClawMaster has no fallback microphone recorder.\n` +
         `  Install with: "${status.python || 'python'}" -m pip install sounddevice`,
       );
     }
@@ -268,12 +268,12 @@ REQUIREMENTS:
       `- ASR backend: ${status.asr_backend || 'auto'}\n` +
       `- Whisper model plan: ${(status.model_candidates || ['auto']).join(' -> ')}\n\n` +
       `- Decode quality: beam_size=${status.beam_size || 5}, temperatures=${status.temperature_schedule || '0,0.2'}, faster_device=${status.faster_whisper_device || 'auto'}/${status.faster_whisper_compute_type || 'default'}\n\n` +
-      `What Otto can do now:\n` +
-      `- If you paste an existing transcript, Otto can summarize it immediately.\n` +
-      `- If the current chat model supports audio, Otto can still try that model first.\n` +
+      `What ClawMaster can do now:\n` +
+      `- If you paste an existing transcript, ClawMaster can summarize it immediately.\n` +
+      `- If the current chat model supports audio, ClawMaster can still try that model first.\n` +
       `- For reliable local recording/transcription, complete the fix steps below.\n\n` +
       `Fix steps:\n${missing.join('\n')}\n\n` +
-      `After installing, restart Otto or the terminal, then retry the voice action.`
+      `After installing, restart ClawMaster or the terminal, then retry the voice action.`
     );
   }
 
@@ -313,7 +313,7 @@ REQUIREMENTS:
           return {
             llmContent:
               `voice_bridge NO SPEECH DETECTED\n\n` +
-              `Otto recorded audio but did not receive usable speech text.\n` +
+              `ClawMaster recorded audio but did not receive usable speech text.\n` +
               `Try again closer to the microphone, increase duration, or check microphone permissions.`,
             returnDisplay: 'voice_bridge NO SPEECH DETECTED',
           };
@@ -334,9 +334,9 @@ REQUIREMENTS:
         `Reason: ${lastError || 'No Python command could run the voice bridge.'}\n\n` +
         `How to fix:\n` +
         `- Install Python 3 and make sure python, py -3, or python3 works in the terminal.\n` +
-        `- Check microphone permission for Otto or the terminal.\n` +
+        `- Check microphone permission for ClawMaster or the terminal.\n` +
         `- Install ffmpeg for recording and audio decoding.\n` +
-        `- Open Otto voice/transcription diagnostics to repair the local ASR backend.\n` +
+        `- Open ClawMaster voice/transcription diagnostics to repair the local ASR backend.\n` +
         `- If the computer is slow, set OTTO_WHISPER_MODEL=small and retry.`,
       returnDisplay: 'voice_bridge FAILED: ' + (lastError || 'Python unavailable'),
     };

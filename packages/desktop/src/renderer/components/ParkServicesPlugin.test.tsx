@@ -7,7 +7,7 @@
 /**
  * ParkServicesPlugin 单测（v1.6.0 起无悬浮小钮，入口=openParkServices 事件）：
  * 默认不渲染、事件打开、9 项服务 3×3、内置流程可本地演示、三种关闭、
- * 无障碍属性、企业定制覆盖。
+ * 无障碍属性、服务端企业定制覆盖。
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
@@ -16,6 +16,7 @@ import {
   ParkServicesPlugin,
   effectiveMeetingSlotStatus,
   isActionableStaffTicket,
+  isCommercialModuleNotEntitled,
   isMeetingSlotPast,
   isStaffHistoryTicket,
   PARK_STATE_EVENT,
@@ -40,6 +41,13 @@ afterEach(() => {
       'enterpriseOrganizationView', 'parkConfig',
     ]) delete (window.otto as unknown as Record<string, unknown>)[key];
   }
+});
+
+it('只把明确的商业模块未授权视为终止轮询错误', () => {
+  expect(isCommercialModuleNotEntitled(new Error(
+    'Error invoking remote method: commercial module is not entitled',
+  ))).toBe(true);
+  expect(isCommercialModuleNotEntitled(new Error('request timed out'))).toBe(false);
 });
 
 /** 经右侧面板同款事件通路打开弹窗。 */
@@ -856,7 +864,7 @@ describe('ParkServicesPlugin', () => {
     expect(window.otto.notificationShow).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: 'park:service',
       source: 'park',
-      title: 'Otto 待处理提醒 · 园区服务',
+      title: 'ClawMaster 待处理提醒 · 园区服务',
     }));
     expect(window.otto.notificationMarkRead).toHaveBeenCalledWith('park:service');
     await waitFor(() => expect(bridge.read).toHaveBeenCalledTimes(2));
@@ -1177,48 +1185,17 @@ describe('ParkServicesPlugin', () => {
     expect(document.getElementById(labelledBy)?.textContent).toBe('宏创园区服务');
   });
 
-  it('企业定制：parkConfig 的 brandName/services 覆盖内置默认', async () => {
-    const otto = {
-      parkConfig: () =>
-        Promise.resolve({
-          brandName: '星火智慧园区服务',
-          services: [{ name: '自定义服务A', desc: '描述A', prompt: '模板A' }],
-        }),
-      enterpriseSession: () => Promise.resolve({ serverUrl: 'https://enterprise.test', account: null }),
-      enterpriseTicketList: () => Promise.resolve([]),
-    };
-    (window as unknown as { otto: typeof otto }).otto = otto;
-    try {
-      render(<ParkServicesPlugin />);
-      openDialog();
-      expect(await screen.findByText('星火智慧园区服务')).toBeTruthy();
-      expect(screen.getByText('自定义服务A')).toBeTruthy();
-      expect(screen.queryByText('装修管理')).toBeNull();
-      fireEvent.click(screen.getByRole('button', { name: /自定义服务A/ }));
-      expect(await screen.findByText('请先登录企业账号。')).toBeTruthy();
-      expect(screen.queryByText('模板A')).toBeNull();
-    } finally {
-      delete (window as unknown as { otto?: typeof otto }).otto;
-    }
-  });
+  it('缺少中心园区 API 时只使用内置默认，不调用旧本机配置入口', async () => {
+    const parkConfig = vi.fn(async () => ({ brandName: '陈旧本机园区' }));
+    delete (window.otto as unknown as Record<string, unknown>).enterpriseParkView;
+    (window.otto as unknown as Record<string, unknown>).parkConfig = parkConfig;
 
-  it('企业定制：只给 parkName 时默认服务换园区称呼', async () => {
-    const otto = {
-      parkConfig: () => Promise.resolve({ parkName: '星火园区' }),
-      enterpriseSession: () => Promise.resolve({ serverUrl: 'https://enterprise.test', account: null }),
-      enterpriseTicketList: () => Promise.resolve([]),
-      enterpriseParkPublications: () => Promise.resolve([]),
-    };
-    (window as unknown as { otto: typeof otto }).otto = otto;
-    try {
-      render(<ParkServicesPlugin />);
-      openDialog();
-      await screen.findByText('会议室预约');
-      fireEvent.click(screen.getByText('会议室预约'));
-      expect(await screen.findByText('请先登录企业账号。')).toBeTruthy();
-      expect(screen.queryByText(/本地演示|改用 Otto 填写/)).toBeNull();
-    } finally {
-      delete (window as unknown as { otto?: typeof otto }).otto;
-    }
+    render(<ParkServicesPlugin />);
+    openDialog();
+
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.getByText('宏创园区服务')).toBeTruthy();
+    expect(parkConfig).not.toHaveBeenCalled();
+    expect(screen.queryByText('陈旧本机园区')).toBeNull();
   });
 });

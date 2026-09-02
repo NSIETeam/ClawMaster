@@ -28,6 +28,7 @@ import {
 } from './server.js';
 import { InMemorySessionStore } from './sessions.js';
 import { ProductWorkspaceStore } from './productWorkspaceStore.js';
+import { WorkLogService } from './workLogService.js';
 import type { AuthenticatedEnterpriseAccount } from './productWorkspaceStore.js';
 import type { SessionRuntime } from './sessions.js';
 import type {
@@ -536,7 +537,7 @@ describe('OttoServer WS（v1.7 产品工作区）', () => {
     );
     if (personal.type !== 'session_upsert') throw new Error('unreachable');
     expect(personal.payload.session).toMatchObject({
-      agentProfileName: 'Otto',
+      agentProfileName: 'ClawMaster',
       productEdition: 'personal',
     });
     client.send({
@@ -1148,7 +1149,11 @@ describe('OttoServer HTTP', () => {
   let baseUrl: string;
 
   beforeEach(async () => {
-    server = new OttoServer({ port: 0, mock: true, store: new InMemorySessionStore() });
+    server = new OttoServer({
+      port: 0,
+      mock: true,
+      store: new InMemorySessionStore(),
+    });
     baseUrl = await startServer(server);
   });
   afterEach(async () => {
@@ -1162,6 +1167,11 @@ describe('OttoServer HTTP', () => {
     expect(body.data!.status).toBe('ok');
     expect(body.data!.protocolVersion).toBe('1');
     expect(body.data!.sessionCount).toBe(0);
+    expect(body.data!.backgroundTasks).toEqual({
+      enabled: false,
+      active: false,
+      paidCallsAllowed: false,
+    });
   });
 
   it('内置浏览器页只注入 WS clientToken，不回显 controlToken', async () => {
@@ -1214,7 +1224,15 @@ describe('OttoServer WS（mock 模式）', () => {
   let baseUrl: string;
 
   beforeEach(async () => {
-    server = new OttoServer({ port: 0, mock: true, store: new InMemorySessionStore() });
+    server = new OttoServer({
+      port: 0,
+      mock: true,
+      store: new InMemorySessionStore(),
+      workLogService: new WorkLogService(
+        path.join(tmpHome, 'worklog'),
+        () => new Date(2026, 8, 2, 12),
+      ),
+    });
     baseUrl = await startServer(server);
   });
   afterEach(async () => {
@@ -1386,6 +1404,48 @@ describe('OttoServer WS（mock 模式）', () => {
       expect(list.payload.sessions).toHaveLength(1);
     }
     c.close();
+  });
+
+  it('工作日志帧复用 Server 共享服务并按 requestId 对账', async () => {
+    const daily = path.join(tmpHome, 'worklog', 'daily');
+    fs.mkdirSync(daily, { recursive: true });
+    fs.writeFileSync(
+      path.join(daily, '2026-09-02.jsonl'),
+      `${JSON.stringify({
+        timestamp: '2026-09-02T01:00:00.000Z',
+        toolName: 'write_file',
+        action: '完成产品说明',
+        category: 'document',
+        success: true,
+        entryType: 'work_result',
+        taskTitle: '产品说明',
+      })}\n`,
+      'utf8',
+    );
+    const client = await connectWs(baseUrl);
+    await client.waitFor((frame) => frame.type === 'welcome');
+
+    client.send({ type: 'work_log_today', payload: { requestId: 'today-1' } });
+    const today = await client.waitFor((frame) => frame.type === 'work_log_today_result');
+    expect(today).toMatchObject({
+      payload: {
+        requestId: 'today-1',
+        summary: { date: '2026-09-02', workResults: 1, totalActions: 1 },
+      },
+    });
+
+    client.send({
+      type: 'work_log_recent',
+      payload: { requestId: 'recent-1', days: 7 },
+    });
+    const recent = await client.waitFor((frame) => frame.type === 'work_log_recent_result');
+    expect(recent).toMatchObject({
+      payload: {
+        requestId: 'recent-1',
+        days: [{ date: '2026-09-02' }],
+      },
+    });
+    client.close();
   });
 
   it('subscribe 回灌 history', async () => {
@@ -2255,8 +2315,12 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
       type: 'get_memory',
       payload: { sessionId: session.sessionId },
     });
-    const snapshot = await client.waitFor((frame) => frame.type === 'memory_snapshot');
-    expect(snapshot.type).toBe('memory_snapshot');
+    const snapshot = await client.waitFor((frame) =>
+      frame.type === 'memory_snapshot' || frame.type === 'error');
+    if (snapshot.type === 'error') {
+      throw new Error(`get_memory failed: ${snapshot.payload.code}: ${snapshot.payload.message}`);
+    }
+    expect(snapshot).toMatchObject({ type: 'memory_snapshot' });
     if (snapshot.type === 'memory_snapshot') {
       expect(snapshot.payload.files[0]).toMatchObject({
         path: path.join(workspace, 'OTTO.md'),
@@ -2265,11 +2329,16 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
     }
 
     client.send({ type: 'get_memory', payload: {} });
-    const legacySnapshot = await client.waitFor((frame) => frame.type === 'memory_snapshot'
-      && frame.payload.files[0]?.content === '# legacy default memory');
+    const legacySnapshot = await client.waitFor((frame) =>
+      (frame.type === 'memory_snapshot'
+        && frame.payload.files[0]?.content === '# legacy default memory')
+      || frame.type === 'error');
     expect(legacySnapshot.type).toBe('memory_snapshot');
     if (legacySnapshot.type === 'memory_snapshot') {
-      expect(legacySnapshot.payload.files[0]?.path).toBe(path.join(tmpHome, 'OTTO.md'));
+      expect(legacySnapshot.payload.files[0]).toMatchObject({
+        path: path.join(tmpHome, 'OTTO.md'),
+        content: '# legacy default memory',
+      });
     }
     client.close();
   });
@@ -3130,6 +3199,53 @@ describe('OttoServer set_setting 实时提示词刷新', () => {
     expect(setAgentStyle).toHaveBeenCalledWith('antigravity');
     expect(refreshSystemPrompt).toHaveBeenCalledTimes(1);
   });
+
+  it('后台智能默认关闭，只有用户开关开启时登记，关闭后立即释放', async () => {
+    const server = new OttoServer({
+      port: 0,
+      mock: true,
+      store: new InMemorySessionStore(),
+    });
+    await server.start();
+    const setBackground = (value: boolean) => (
+      server as unknown as {
+        handleSetSetting: (
+          conn: never,
+          msg: {
+            type: 'set_setting';
+            payload: { key: 'backgroundModelTasksEnabled'; value: boolean };
+          },
+        ) => Promise<void>;
+      }
+    ).handleSetSetting(undefined as never, {
+      type: 'set_setting',
+      payload: { key: 'backgroundModelTasksEnabled', value },
+    });
+
+    try {
+      expect(server.health().backgroundTasks).toEqual({
+        enabled: false,
+        active: false,
+        paidCallsAllowed: false,
+      });
+
+      await setBackground(true);
+      expect(server.health().backgroundTasks).toEqual({
+        enabled: true,
+        active: true,
+        paidCallsAllowed: true,
+      });
+
+      await setBackground(false);
+      expect(server.health().backgroundTasks).toEqual({
+        enabled: false,
+        active: false,
+        paidCallsAllowed: false,
+      });
+    } finally {
+      await server.stop();
+    }
+  });
 });
 
 describe('OttoServer 搜索 API 配置接口', () => {
@@ -3240,7 +3356,7 @@ describe('OttoServer 斜杠命令帧（P3）', () => {
     if (frame.type !== 'slash_command_result') throw new Error('unreachable');
     expect(frame.payload.ok).toBe(true);
     expect(frame.payload.name).toBe('about');
-    expect(frame.payload.markdown).toContain('关于 Otto');
+    expect(frame.payload.markdown).toContain('关于 ClawMaster');
     client.close();
   });
 

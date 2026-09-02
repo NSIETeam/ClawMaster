@@ -94,7 +94,7 @@ describe('PPT 内置 Skill 自动路由', () => {
         updateSystemPromptWithMcpPrompts: refreshSystem,
         getChat: async () => ({ sendMessageStream: async () => stream() }),
       }),
-      getUserRules: () => rules,
+      getBaseUserRules: () => rules,
       setUserRules: (next: string) => { rules = next; },
       getModel: () => 'test-model',
       getMaxSessionTurns: () => 10,

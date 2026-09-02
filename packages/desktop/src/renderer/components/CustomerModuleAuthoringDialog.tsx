@@ -124,7 +124,7 @@ export function CustomerModuleAuthoringDialog({
               <label>允许的 HTTPS 域名<input aria-label="允许的 HTTPS 域名" value={httpHosts} placeholder="api.company.com, files.company.com" onChange={(event) => updateHttpPermission(event.target.value, httpWrites)} /></label>
               <label><input type="checkbox" checked={httpWrites} onChange={(event) => updateHttpPermission(httpHosts, event.target.checked)} />允许 POST/PUT/PATCH/DELETE 外部写操作（必须携带幂等键）</label>
             </div> : null}
-            <p>后台授权默认关闭；即使声明，安装后也必须由用户另行开启，任务仍需通过 Otto 后台任务登记。</p>
+            <p>后台授权默认关闭；即使声明，安装后也必须由用户另行开启，任务仍需通过 ClawMaster 后台任务登记。</p>
           </fieldset> : null}
           {step === 4 ? <div><p>本地测试使用空白隔离数据；网络、模型、文件和正式存储调用会被拦截并记录。</p>
             <button type="button" disabled={busy || !wasm} onClick={() => {

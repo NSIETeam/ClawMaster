@@ -54,6 +54,28 @@ function renderDialog(overrides: Partial<React.ComponentProps<typeof ModuleMarke
 }
 
 describe('ModuleMarketplaceDialog', () => {
+  it('offers a curated community catalog and imports only after confirmation', async () => {
+    const install = vi.fn().mockResolvedValue({
+      id: 'anthropics/skills/pdf', name: 'pdf', source: 'anthropics/skills', installPath: '/tmp/pdf',
+    });
+    Object.defineProperty(window, 'otto', { configurable: true, value: {
+      communitySkillInstall: install, communitySkillList: vi.fn().mockResolvedValue([]),
+    } });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderDialog();
+    fireEvent.click(screen.getByRole('button', { name: /社区插件/ }));
+    expect(screen.getAllByRole('article').length).toBeGreaterThanOrEqual(40);
+    expect(screen.getByText('Find Skills')).toBeTruthy();
+    expect(screen.getAllByRole('img', { name: /插件/ }).length).toBeGreaterThanOrEqual(40);
+    expect(screen.queryByText('◇')).toBeNull();
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索模块' }), { target: { value: 'pdf' } });
+    fireEvent.click(screen.getByRole('button', { name: '一键导入' }));
+    expect(install).toHaveBeenCalledWith({
+      id: 'anthropics/skills/pdf', source: 'https://github.com/anthropics/skills', slug: 'pdf',
+    });
+    expect(await screen.findByText(/pdf 已导入本机/)).toBeTruthy();
+  });
+
   it('searches categories and applies a multi-select draft only on confirmation', () => {
     const { onConfirm } = renderDialog();
     expect(screen.getByRole('heading', { name: '常用' })).toBeTruthy();
@@ -116,7 +138,7 @@ describe('ModuleMarketplaceDialog', () => {
 
   it('closes from backdrop and Escape', () => {
     const { onClose } = renderDialog();
-    const dialog = screen.getByRole('dialog', { name: '添加模块' });
+    const dialog = screen.getByRole('dialog', { name: '插件广场' });
     const backdrop = dialog.parentElement!;
 
     fireEvent.mouseDown(backdrop);
@@ -131,7 +153,7 @@ describe('ModuleMarketplaceDialog', () => {
     document.body.append(trigger);
     trigger.focus();
     const { rerender } = renderDialog();
-    const dialog = screen.getByRole('dialog', { name: '添加模块' });
+    const dialog = screen.getByRole('dialog', { name: '插件广场' });
     const close = within(dialog).getByRole('button', { name: '关闭添加模块' });
     expect(document.activeElement).toBe(close);
 

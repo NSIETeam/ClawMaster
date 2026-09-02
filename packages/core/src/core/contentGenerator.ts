@@ -93,18 +93,18 @@ export async function createContentGenerator(
 
     if (customProxyUrl) {
       proxyServerUrl = customProxyUrl;
-      console.log(`[Otto] Using custom proxy server: ${proxyServerUrl}`);
+      console.log(`[ClawMaster] Using custom model proxy: ${proxyServerUrl}`);
     } else {
       // 确保有可用的代理服务器
       if (!hasAvailableProxyServer()) {
         throw new Error(
-          'Otto server is required for all models but is not available. ' +
-          'Please start the Otto server or use proxy authentication.'
+          'The ClawMaster local engine is required for all models but is not available. ' +
+          'Please restart ClawMaster or check the configured model provider.'
         );
       }
 
       proxyServerUrl = getActiveProxyServerUrl();
-      console.log(`[Otto] Connecting to Otto server: ${proxyServerUrl}`);
+      console.log(`[ClawMaster] Connecting to local runtime: ${proxyServerUrl}`);
     }
 
     // 🔧 Linus式修复：统一使用OttoServerAdapter，内部会根据模型类型自动路由

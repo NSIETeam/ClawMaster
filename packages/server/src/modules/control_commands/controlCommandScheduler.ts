@@ -15,6 +15,7 @@ import type { ControlCommandRunResult } from './controlCommandQueue.js';
 import {
   claimPendingControlCommand,
   completeControlCommandInRepository,
+  recoverExpiredControlCommandLeases,
   type ControlCommandQueueStore,
   type QueuedControlCommandRow,
 } from './controlCommandQueue.js';
@@ -91,26 +92,33 @@ export function createControlCommandScheduler(
   const deliver = deps.deliver ?? (() => true);
 
   function drainOnce(): { executed: boolean } {
+    for (const commandId of recoverExpiredControlCommandLeases(deps.queue)) {
+      enqueueOutboxInRepository(deps.outbox, commandId, now());
+    }
     const row = claimPendingControlCommand(deps.queue, leaseMs);
     if (!row) return { executed: false };
 
     try {
       const envelope = rowToEnvelope(row);
       const result = deps.execute(envelope);
-      completeControlCommandInRepository(deps.queue, row.command_id, result);
+      const completed = completeControlCommandInRepository(
+        deps.queue,
+        row.command_id,
+        result,
+      );
 
       // 执行结果已持久化；outbox 投递时从队列表重建签名回执。
-      enqueueOutboxInRepository(deps.outbox, row.command_id, now());
+      if (completed) enqueueOutboxInRepository(deps.outbox, row.command_id, now());
       return { executed: true };
     } catch (e) {
       // 执行抛错 → failed 终态，也投递回执（带错误分类）。
       const summary = e instanceof Error ? e.message : 'execution error';
-      completeControlCommandInRepository(deps.queue, row.command_id, {
+      const completed = completeControlCommandInRepository(deps.queue, row.command_id, {
         status: 'failed',
         resultSummary: summary,
         errorCategory: 'execution_error',
       });
-      enqueueOutboxInRepository(deps.outbox, row.command_id, now());
+      if (completed) enqueueOutboxInRepository(deps.outbox, row.command_id, now());
       return { executed: true };
     } finally {
       void deps;

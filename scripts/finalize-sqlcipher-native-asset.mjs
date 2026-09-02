@@ -18,6 +18,11 @@ function requiredArgument(name) {
   return value;
 }
 
+function optionalArgument(name) {
+  const index = process.argv.indexOf(name);
+  return index === -1 ? null : process.argv[index + 1]?.trim() || null;
+}
+
 function requiredRevision(name) {
   const value = process.env[name]?.trim();
   if (!/^[0-9a-f]{40}$/.test(value ?? '')) {
@@ -125,10 +130,32 @@ function smokeTest(bindingPath) {
   }
 }
 
+export function resolveFinalizerRuntime({ runtime, desktopPackage, versions }) {
+  const expectedRuntimeVersion = runtime === 'electron'
+    ? desktopPackage.build.electronVersion
+    : runtime === 'node'
+      ? desktopPackage.tauriRuntime?.nodeVersion
+      : null;
+  if (!expectedRuntimeVersion) {
+    throw new Error(`unsupported SQLCipher runtime: ${runtime}`);
+  }
+  const actualRuntimeVersion = runtime === 'electron'
+    ? versions.electron
+    : versions.node;
+  if (actualRuntimeVersion !== expectedRuntimeVersion) {
+    throw new Error(
+      `asset must be finalized by ${runtime} ${expectedRuntimeVersion}; got ${actualRuntimeVersion ?? 'unknown'}`,
+    );
+  }
+  return { runtime, expectedRuntimeVersion };
+}
+
 function main() {
   const bindingPath = path.resolve(requiredArgument('--binding'));
   const outputRoot = path.resolve(requiredArgument('--output-root'));
   const target = requiredArgument('--target');
+  const runtime = optionalArgument('--runtime') ?? 'electron';
+  const cryptoProvider = optionalArgument('--crypto-provider') ?? 'openssl';
   const targetMatch = /^(win32|darwin|linux)-(x64|arm64)$/.exec(target);
   if (!targetMatch) throw new Error(`unsupported target ${target}`);
   if (!fs.existsSync(bindingPath))
@@ -151,12 +178,11 @@ function main() {
       'utf8',
     ),
   );
-  const expectedElectronVersion = desktopPackage.build.electronVersion;
-  if (process.versions.electron !== expectedElectronVersion) {
-    throw new Error(
-      `asset must be finalized by Electron ${expectedElectronVersion}; got ${process.versions.electron ?? 'plain Node.js'}`,
-    );
-  }
+  const { expectedRuntimeVersion } = resolveFinalizerRuntime({
+    runtime,
+    desktopPackage,
+    versions: process.versions,
+  });
   const bindingSha256 = createHash('sha256')
     .update(fs.readFileSync(outputBinding))
     .digest('hex');
@@ -189,8 +215,16 @@ function main() {
         { name: 'otto:target', value: target },
         { name: 'otto:buildCommit', value: buildCommit },
         { name: 'otto:sourceRevision', value: sourceRevision },
-        { name: 'otto:electronVersion', value: expectedElectronVersion },
-        { name: 'otto:electronModuleAbi', value: process.versions.modules },
+        { name: 'otto:runtime', value: runtime },
+        { name: 'otto:runtimeVersion', value: expectedRuntimeVersion },
+        { name: 'otto:moduleAbi', value: process.versions.modules },
+        { name: 'otto:cryptoProvider', value: cryptoProvider },
+        ...(runtime === 'electron'
+          ? [
+              { name: 'otto:electronVersion', value: expectedRuntimeVersion },
+              { name: 'otto:electronModuleAbi', value: process.versions.modules },
+            ]
+          : []),
       ],
       component: {
         type: 'file',
@@ -229,8 +263,8 @@ function main() {
     target,
     platform: targetMatch[1],
     arch: targetMatch[2],
-    runtime: 'electron',
-    runtimeVersion: expectedElectronVersion,
+    runtime,
+    runtimeVersion: expectedRuntimeVersion,
     sqlcipherVersion: cipherVersion,
     betterSqlite3Version: serverPackage.dependencies['better-sqlite3'],
     cipherSelfTest: true,
@@ -241,9 +275,17 @@ function main() {
     buildCommit,
     toolchain: {
       nodeVersion: process.versions.node,
-      electronVersion: process.versions.electron,
-      electronModuleAbi: process.versions.modules,
-      opensslVersion: process.versions.openssl,
+      moduleAbi: process.versions.modules,
+      cryptoProvider,
+      ...(runtime === 'electron'
+        ? {
+            electronVersion: process.versions.electron,
+            electronModuleAbi: process.versions.modules,
+          }
+        : {}),
+      ...(cryptoProvider === 'openssl'
+        ? { opensslVersion: process.versions.openssl }
+        : {}),
     },
     sha256: bindingSha256,
     notices: {

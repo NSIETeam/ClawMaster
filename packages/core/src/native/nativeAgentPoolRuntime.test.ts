@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { NativeAgentPoolRuntime, type NativeAgentPoolRuntimeBridge } from './nativeAgentPoolRuntime.js';
+import { getAgentResourceBudget } from '../core/agentResourceBudget.js';
 
 function createBridge(params: {
   enabled: boolean;
@@ -70,5 +71,15 @@ describe('NativeAgentPoolRuntime', () => {
 
     await expect(runtime.register('agent-1')).rejects.toThrow('native unavailable');
   });
-});
 
+  it('sizes the shared native pool for workflow and task agents together', async () => {
+    const bridge = createBridge({ enabled: true });
+    const runtime = new NativeAgentPoolRuntime({ bridge });
+
+    await runtime.register('workflow-agent');
+
+    expect(bridge.calls[0].params).toMatchObject({
+      max_agents: getAgentResourceBudget().workflowMaxConcurrencyCeiling,
+    });
+  });
+});

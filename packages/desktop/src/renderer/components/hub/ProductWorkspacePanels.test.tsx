@@ -163,7 +163,7 @@ describe('OrganizationPanel', () => {
 
     expect(screen.queryByRole('button', { name: '生成公司加入链接' })).toBeNull();
     expect(screen.getByText(/默认 24 小时/)).toBeTruthy();
-    expect(screen.getByText(/在 Otto「企业与身份」中手工粘贴/)).toBeTruthy();
+    expect(screen.getByText(/在 ClawMaster「企业与身份」中手工粘贴/)).toBeTruthy();
     expect(screen.getByText(/不会自动同步回管理者这台设备/)).toBeTruthy();
     expect(screen.getByRole('button', { name: '引入子公司关系' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '接入总公司关系' })).toBeTruthy();

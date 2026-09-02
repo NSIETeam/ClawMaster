@@ -110,7 +110,7 @@ describe('服务端 Agent profile 白名单', () => {
 
     expect(personal).toMatchObject({
       id: 'otto-personal',
-      name: 'Otto',
+      name: 'ClawMaster',
       scope: 'base',
       edition: 'personal',
     });
@@ -286,7 +286,7 @@ describe('服务端 Agent profile 白名单', () => {
     expect(doc?.systemPrompt).toContain('视觉母题');
     expect(doc?.systemPrompt).toContain('create_docx.py');
     expect(doc?.systemPrompt).toContain('generate_document');
-    expect(doc?.systemPrompt).toContain('Otto 运行时注入');
+    expect(doc?.systemPrompt).toContain('ClawMaster 运行时注入');
     expect(doc?.systemPrompt).toContain('禁止直接运行脚本');
     expect(doc?.systemPrompt).toContain('禁止传入或猜测作者');
     expect(doc?.systemPrompt).toContain('禁止');

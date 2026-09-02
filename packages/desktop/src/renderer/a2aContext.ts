@@ -5,7 +5,7 @@
  * tool-free Agent 前做数量、字段和总长度裁剪。
  */
 
-import type { ScheduleItemInfo } from 'otto-server';
+import type { ScheduleItemInfo, WorkLogDay } from 'otto-server';
 import type {
   EnterpriseDirectMessage,
   EnterpriseKnowledgeItem,
@@ -15,20 +15,6 @@ import {
   type AtoaContextSource,
   displayDirectMessageContent,
 } from './atoaProtocol.js';
-
-interface WorkLogEntry {
-  time: string;
-  category: string;
-  action: string;
-  success: boolean;
-  details?: string;
-  entryType: 'tool' | 'work_result';
-  taskTitle?: string;
-}
-interface WorkLogDay {
-  date: string;
-  entries: WorkLogEntry[];
-}
 
 export interface CollectAuthorizedAtoaContextInput {
   sources: readonly AtoaContextSource[];

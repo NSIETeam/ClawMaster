@@ -24,10 +24,10 @@ const translations = {
     'websearch.results.returned': 'Search results for "{query}" returned.{truncated}',
     'websearch.results.truncated': ' (Content truncated)',
     'websearch.error.performing': 'Error performing web search.',
-    'websearch.error.not.logged.in': 'Not logged in to Otto',
+    'websearch.error.not.logged.in': 'Not logged in to ClawMaster',
     'websearch.error.quota.exceeded': 'Insufficient credits',
     'tool.ppt_generate': 'PPT Generate',
-    'tool.ppt_generate.description': 'Fast local PPTX fallback for a confirmed outline. High-aesthetic decks must use the ppt-creator custom HTML/CSS/SVG workflow instead. No Python, Otto server, login, upload, or web editor is used.',
+    'tool.ppt_generate.description': 'Fast local PPTX fallback for a confirmed outline. High-aesthetic decks must use the ppt-creator custom HTML/CSS/SVG workflow instead. No Python, external server, login, upload, or web editor is used.',
     'ppt_generate.param.confirm': 'Confirm local generation (default true)',
   },
   zh: {
@@ -42,10 +42,10 @@ const translations = {
     'websearch.results.returned': '"{query}"的搜索结果已返回。{truncated}',
     'websearch.results.truncated': '（内容已截断）',
     'websearch.error.performing': '执行网络搜索时出错。',
-    'websearch.error.not.logged.in': '未登录 Otto',
+    'websearch.error.not.logged.in': '未登录 ClawMaster',
     'websearch.error.quota.exceeded': '积分不足',
     'tool.ppt_generate': 'PPT生成',
-    'tool.ppt_generate.description': '已确认大纲的本地快速兜底生成器；高审美演示必须改用 ppt-creator 的自定义 HTML/CSS/SVG 工作流。全程不调用 Python，也不经过 Otto 服务端、登录、上传或网页编辑器。',
+    'tool.ppt_generate.description': '已确认大纲的本地快速兜底生成器；高审美演示必须改用 ppt-creator 的自定义 HTML/CSS/SVG 工作流。全程不调用 Python，也不经过外部服务端、登录、上传或网页编辑器。',
     'ppt_generate.param.confirm': '确认本地生成（默认 true）',
   }
 } as const;

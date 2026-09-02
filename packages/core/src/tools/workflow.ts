@@ -261,8 +261,8 @@ IMPORTANT — sub-agent output discipline:
     const geminiClient = this.config.getOttoClient();
     if (!geminiClient) {
       return {
-        llmContent: 'Workflow failed: OttoClient not initialized.',
-        returnDisplay: '**Workflow Error:** OttoClient not initialized.',
+        llmContent: 'Workflow failed: ClawMaster client not initialized.',
+        returnDisplay: '**Workflow Error:** ClawMaster client not initialized.',
       };
     }
 

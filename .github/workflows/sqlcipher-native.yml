@@ -10,6 +10,7 @@ on:
       - 'packages/desktop/package.json'
       - 'packages/desktop/scripts/after-pack.cjs'
       - 'packages/desktop/scripts/probe-packaged-sqlcipher.mjs'
+      - 'packages/desktop/scripts/verify-tauri-sqlcipher-asset.mjs'
       - 'packages/desktop/scripts/verify-packaged-runtime.mjs'
       - 'packages/server/package.json'
       - 'scripts/finalize-sqlcipher-native-asset.mjs'
@@ -23,6 +24,7 @@ on:
       - 'packages/desktop/package.json'
       - 'packages/desktop/scripts/after-pack.cjs'
       - 'packages/desktop/scripts/probe-packaged-sqlcipher.mjs'
+      - 'packages/desktop/scripts/verify-tauri-sqlcipher-asset.mjs'
       - 'packages/desktop/scripts/verify-packaged-runtime.mjs'
       - 'packages/server/package.json'
       - 'scripts/finalize-sqlcipher-native-asset.mjs'
@@ -67,7 +69,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.20.0
           package-manager-cache: false
 
       - uses: actions/setup-python@v5
@@ -199,6 +201,32 @@ jobs:
             --expected-source-revision "$SQLCIPHER_SOURCE_REVISION" \
             --expected-runtime-version "$ELECTRON_VERSION"
 
+      - name: Build Tauri Node SQLCipher addon with Apple CommonCrypto
+        if: startsWith(matrix.target, 'darwin-')
+        shell: bash
+        run: |
+          export CFLAGS="-DSQLITE_HAS_CODEC -DSQLITE_TEMP_STORE=2 -DSQLITE_EXTRA_INIT=sqlcipher_extra_init -DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown -DSQLCIPHER_CRYPTO_CC"
+          export LDFLAGS="-framework Security -framework CoreFoundation"
+          export npm_config_build_from_source=true
+          export npm_config_sqlite3="$GITHUB_WORKSPACE/.sqlcipher-source"
+          npm rebuild better-sqlite3 --build-from-source
+
+      - name: Finalize and verify Tauri Node SQLCipher asset
+        if: startsWith(matrix.target, 'darwin-')
+        shell: bash
+        run: |
+          node scripts/finalize-sqlcipher-native-asset.mjs \
+            --binding node_modules/better-sqlite3/build/Release/better_sqlite3.node \
+            --output-root native/sqlcipher-tauri \
+            --target "${{ matrix.target }}" \
+            --runtime node \
+            --crypto-provider commoncrypto
+          node packages/desktop/scripts/verify-tauri-sqlcipher-asset.mjs \
+            --asset-directory "native/sqlcipher-tauri/${{ matrix.target }}" \
+            --target "${{ matrix.target }}" \
+            --node-version 24.20.0 \
+            --module-abi "$(node -p 'process.versions.modules')"
+
       - name: Run SQLCipher behavior tests and finalize Windows asset
         if: runner.os == 'Windows'
         shell: pwsh
@@ -214,10 +242,46 @@ jobs:
             --expected-source-revision $env:SQLCIPHER_SOURCE_REVISION `
             --expected-runtime-version $env:ELECTRON_VERSION
 
+      - name: Build Tauri Node SQLCipher addon with static Windows OpenSSL
+        if: matrix.target == 'win32-x64'
+        shell: pwsh
+        run: |
+          $openssl = Join-Path $env:VCPKG_INSTALLATION_ROOT 'installed\x64-windows-static'
+          $env:CL = "/I`"$openssl\include`" /DSQLITE_HAS_CODEC /DSQLITE_TEMP_STORE=2 /DSQLITE_EXTRA_INIT=sqlcipher_extra_init /DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown /DSQLCIPHER_CRYPTO_OPENSSL"
+          $env:LINK = "/LIBPATH:`"$openssl\lib`" libcrypto.lib Crypt32.lib Ws2_32.lib Advapi32.lib User32.lib"
+          $env:npm_config_build_from_source = 'true'
+          $env:npm_config_sqlite3 = Join-Path $env:GITHUB_WORKSPACE '.sqlcipher-source'
+          npm rebuild better-sqlite3 --build-from-source
+
+      - name: Finalize and verify Tauri Node SQLCipher Windows asset
+        if: matrix.target == 'win32-x64'
+        shell: pwsh
+        run: |
+          node scripts/finalize-sqlcipher-native-asset.mjs `
+            --binding node_modules\better-sqlite3\build\Release\better_sqlite3.node `
+            --output-root native\sqlcipher-tauri `
+            --target win32-x64 `
+            --runtime node `
+            --crypto-provider openssl-static
+          $moduleAbi = node -p 'process.versions.modules'
+          node packages\desktop\scripts\verify-tauri-sqlcipher-asset.mjs `
+            --asset-directory native\sqlcipher-tauri\win32-x64 `
+            --target win32-x64 `
+            --node-version 24.20.0 `
+            --module-abi $moduleAbi
+
       - uses: actions/upload-artifact@v7
         with:
           name: sqlcipher-${{ matrix.target }}
           path: native/sqlcipher
+          if-no-files-found: error
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v7
+        if: startsWith(matrix.target, 'darwin-') || matrix.target == 'win32-x64'
+        with:
+          name: tauri-sqlcipher-${{ matrix.target }}
+          path: native/sqlcipher-tauri
           if-no-files-found: error
           retention-days: 14
 
@@ -233,7 +297,7 @@ jobs:
           merge-multiple: true
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.20.0
           package-manager-cache: false
       - name: Verify and lock the complete native matrix
         shell: bash

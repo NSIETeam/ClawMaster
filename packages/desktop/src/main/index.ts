@@ -38,6 +38,7 @@ import {
   nativeImage,
   nativeTheme,
   powerMonitor,
+  powerSaveBlocker,
   safeStorage,
   screen,
   session,
@@ -48,12 +49,19 @@ import {
 import { fileURLToPath } from 'node:url';
 import * as fs from 'node:fs';
 import * as http from 'node:http';
+import { generateKeyPairSync } from 'node:crypto';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { HealthInfo, ServerEndpoint } from 'otto-server';
+import type {
+  ChannelPairingPublic,
+  ChannelProvider,
+  HealthInfo,
+  ServerEndpoint,
+} from 'otto-server';
 import {
   CustomerModuleHostBroker,
   CustomerModuleRunner,
+  RecurringTaskRegistry,
   parseCustomerModuleManifest,
   scanCustomerModuleWasm,
   validateCustomerModuleArchiveEntries,
@@ -62,6 +70,7 @@ import {
 import { WorkspaceDirectoryStore } from './workspace-directory-store.js';
 import { MainWindowPresentationController } from './main-window-presentation.js';
 import { askWindowCloseChoice } from './window-close-policy.js';
+import { installCommunitySkill } from './community-skill-installer.js';
 
 function ignoreBrokenPipe(stream: NodeJS.WriteStream): void {
   stream.on('error', (error: NodeJS.ErrnoException) => {
@@ -87,6 +96,12 @@ interface FeishuConfigSaveRequest {
   appSecret: string;
   verificationToken?: string | null;
   encryptKey?: string | null;
+}
+
+interface ChannelPairingResult {
+  ok: boolean;
+  pairing: ChannelPairingPublic | null;
+  error: string | null;
 }
 
 /** 根据文件扩展名返回 MIME 类型（用于 readFilePath IPC）。 */
@@ -135,13 +150,6 @@ import {
   type NotificationPayload,
 } from './notification-service.js';
 import { FileAccessGrantStore } from './file-access-grants.js';
-import {
-  generateAndSaveWorkReport,
-  localDateKey,
-  readRecentWorkLogs,
-  readWorkLogEntries,
-  summarizeWorkLog,
-} from './workLogData.js';
 import {
   loadVoiceConfig,
   saveVoiceConfig,
@@ -316,7 +324,7 @@ import {
 } from './enterprise-auth-sync.js';
 import {
   defaultEnterpriseServerUrl,
-  migrateEnterpriseServerUrl,
+  restoreEnterpriseServerTarget,
 } from './enterprise-server-url.js';
 import {
   decodeEnterpriseSession,
@@ -349,6 +357,14 @@ function worklogRootDir(): string {
   const userDir = process.env['OTTO_USER_DIR']?.trim();
   if (userDir) return path.join(userDir, 'memory', 'worklog');
   return path.join(os.homedir(), '.otto-user', 'memory', 'worklog');
+}
+
+let workLogServicePromise: Promise<import('otto-server').WorkLogService> | undefined;
+function workLogService(): Promise<import('otto-server').WorkLogService> {
+  workLogServicePromise ??= import('otto-server').then(
+    ({ WorkLogService }) => new WorkLogService(worklogRootDir()),
+  );
+  return workLogServicePromise;
 }
 
 function userSkillsRootDir(): string {
@@ -481,7 +497,7 @@ const enterpriseNotificationIdentityBoundary =
     () => fileAccessGrants.clear(),
   );
 /** 当前 server 端点（发现的或拉起的）。renderer 经 IPC 取它建 WS。 */
-let endpoint: ServerEndpoint | undefined;
+let endpoint: (ServerEndpoint & { controlToken?: string }) | undefined;
 let endpointEnsurePromise: Promise<void> | undefined;
 let endpointRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let endpointRetryAttempt = 0;
@@ -505,6 +521,9 @@ let enterpriseTrayPopoverWindow: BrowserWindow | undefined;
 let enterpriseTrayContacts: EnterpriseTrayContact[] = [];
 /** 用户主动退出标记；关闭窗口时不退出，只有菜单/托盘退出才真正结束进程。 */
 let isQuitting = false;
+let taskRuntimeBlockerId: number | undefined;
+/** Ephemeral private keys for in-progress provider pairings; never exposed to renderer. */
+const channelPairingPrivateKeys = new Map<string, string>();
 /** 视频编辑器窗口（OpenReel）。 */
 let videoEditorWindow: BrowserWindow | undefined;
 
@@ -536,9 +555,15 @@ const IPC = {
   feishuGetConfig: 'otto:feishu-get-config',
   feishuSaveConfig: 'otto:feishu-save-config',
   feishuClearConfig: 'otto:feishu-clear-config',
-  parkConfig: 'otto:park-config',
+  channelPairingBegin: 'otto:channel-pairing-begin',
+  channelPairingStatus: 'otto:channel-pairing-status',
+  channelPairingInstall: 'otto:channel-pairing-install',
+  channelPairingCancel: 'otto:channel-pairing-cancel',
+  channelInstallations: 'otto:channel-installations',
+  channelInstallationAction: 'otto:channel-installation-action',
   themeGet: 'otto:theme-get',
   themeSet: 'otto:theme-set',
+  taskRuntimeSetActive: 'clawmaster:task-runtime-set-active',
   skillLeaderboard: 'otto:skill-leaderboard',
   workLogToday: 'otto:worklog-today',
   workLogRecent: 'otto:worklog-recent',
@@ -546,6 +571,8 @@ const IPC = {
   createDiagnosticBundle: 'otto:create-diagnostic-bundle',
   skillShareList: 'otto:skill-share-list',
   skillMarketplace: 'otto:skill-marketplace',
+  communitySkillInstall: 'clawmaster:community-skill-install',
+  communitySkillList: 'clawmaster:community-skill-list',
   enterpriseSkillLocalList: 'otto:enterprise-skill-local-list',
   enterpriseSkillList: 'otto:enterprise-skill-list',
   enterpriseSkillSubmit: 'otto:enterprise-skill-submit',
@@ -974,7 +1001,7 @@ const enterpriseMlsInboundPoll = new EnterpriseMlsInboundPollScheduler(
 );
 const enterpriseSkillUsageReporter = new EnterpriseSkillUsageReporter({
   skillsRoot: userSkillsRootDir,
-  usageFile: () => path.join(worklogRootDir(), 'skill_usage.jsonl'),
+  usageFile: enterpriseSkillUsageFile,
   stateFile: () =>
     path.join(app.getPath('userData'), 'enterprise-skill-usage-state.json'),
   identity: () => {
@@ -995,28 +1022,60 @@ const enterpriseSkillUsageReporter = new EnterpriseSkillUsageReporter({
 const enterpriseRegistrationIntents = new EnterpriseRegistrationIntentStore();
 let enterpriseSessionLoaded = false;
 let enterpriseIntentRendererReady = false;
-let enterpriseIdentityRefreshTimer: ReturnType<typeof setInterval> | undefined;
+const desktopRecurringTasks = new RecurringTaskRegistry({
+  onError: (taskName, error) => {
+    console.warn(
+      `[clawmaster-desktop] recurring task failed: ${taskName}`,
+      error instanceof Error ? error.message : error,
+    );
+  },
+});
+let stopEnterpriseIdentityRefreshTask: (() => void) | undefined;
 const ENTERPRISE_IDENTITY_REFRESH_INTERVAL_MS = 2 * 60_000;
-let enterpriseModuleUpdateTimer: ReturnType<typeof setInterval> | undefined;
+let stopEnterpriseModuleUpdateTask: (() => void) | undefined;
 let enterpriseModuleUpdateFingerprint = '';
 let enterpriseModuleUpdatePolling = false;
 const ENTERPRISE_MODULE_UPDATE_POLL_INTERVAL_MS = 2 * 60_000;
-let enterpriseSkillUsageTimer: ReturnType<typeof setInterval> | undefined;
+let stopEnterpriseSkillUsageTask: (() => void) | undefined;
 const ENTERPRISE_SKILL_USAGE_POLL_INTERVAL_MS = 30_000;
 
-function startEnterpriseSkillUsageReporting(): void {
-  if (enterpriseSkillUsageTimer) return;
-  enterpriseSkillUsageTimer = setInterval(() => {
-    if (!isQuitting) void enterpriseSkillUsageReporter.poll();
-  }, ENTERPRISE_SKILL_USAGE_POLL_INTERVAL_MS);
-  enterpriseSkillUsageTimer.unref?.();
-  void enterpriseSkillUsageReporter.poll();
+function enterpriseSkillUsageFile(): string {
+  return path.join(worklogRootDir(), 'skill_usage.jsonl');
 }
 
-function stopEnterpriseSkillUsageReporting(): void {
-  if (!enterpriseSkillUsageTimer) return;
-  clearInterval(enterpriseSkillUsageTimer);
-  enterpriseSkillUsageTimer = undefined;
+function recurringTimeBucket(intervalMs: number): string {
+  return String(Math.floor(Date.now() / intervalMs));
+}
+
+function enterpriseRecurringInputVersion(intervalMs: number): string | undefined {
+  const session = enterpriseClient.snapshot();
+  if (!session.token) return undefined;
+  const accountId = enterpriseClient.authenticatedAccountSnapshot()?.id ?? 'unknown';
+  return `${session.serverUrl}:${accountId}:${recurringTimeBucket(intervalMs)}`;
+}
+
+function enterpriseSkillUsageInputVersion(): string | undefined {
+  try {
+    const stat = fs.statSync(enterpriseSkillUsageFile());
+    return `${stat.size}:${stat.mtimeMs}`;
+  } catch {
+    return undefined;
+  }
+}
+
+function startEnterpriseSkillUsageReporting(): void {
+  if (stopEnterpriseSkillUsageTask) return;
+  stopEnterpriseSkillUsageTask = desktopRecurringTasks.register({
+    name: 'desktop.enterprise-skill-usage',
+    source: 'packages/desktop/src/main/index.ts',
+    intervalMs: ENTERPRISE_SKILL_USAGE_POLL_INTERVAL_MS,
+    initialDelayMs: 0,
+    estimatedCostUsdPerRun: 0,
+    getInputVersion: enterpriseSkillUsageInputVersion,
+    run: async () => {
+      if (!isQuitting) await enterpriseSkillUsageReporter.poll();
+    },
+  });
 }
 
 function acceptEnterpriseRegistrationUrl(input: string): boolean {
@@ -1071,9 +1130,17 @@ function loadEnterpriseSession(): void {
           throw new Error('系统安全存储不可用');
         return safeStorage.decryptString(Buffer.from(encryptedToken, 'base64'));
       },
-      (serverUrl) =>
-        migrateEnterpriseServerUrl(serverUrl, DEFAULT_ENTERPRISE_SERVER_URL),
+      (serverUrl) => serverUrl,
     );
+    const target = restoreEnterpriseServerTarget(
+      restored.serverUrl,
+      DEFAULT_ENTERPRISE_SERVER_URL,
+      Boolean(process.env.OTTO_ENTERPRISE_SERVER_URL?.trim()),
+    );
+    restored = {
+      serverUrl: target.serverUrl,
+      token: target.endpointChanged ? null : restored.token,
+    };
   } catch {
     // 首次启动、存储损坏或系统密钥链不可用时安全地保持未登录。
   }
@@ -1107,13 +1174,20 @@ function saveEnterpriseSession(): void {
 }
 
 function startEnterpriseIdentityRefresh(): void {
-  if (enterpriseIdentityRefreshTimer) return;
-  enterpriseIdentityRefreshTimer = setInterval(() => {
-    if (isQuitting) return;
-    loadEnterpriseSession();
-    if (!enterpriseClient.snapshot().token) return;
-    void enterpriseAuthOperations
-      .run(async () => {
+  if (stopEnterpriseIdentityRefreshTask) return;
+  stopEnterpriseIdentityRefreshTask = desktopRecurringTasks.register({
+    name: 'desktop.enterprise-identity-refresh',
+    source: 'packages/desktop/src/main/index.ts',
+    intervalMs: ENTERPRISE_IDENTITY_REFRESH_INTERVAL_MS,
+    estimatedCostUsdPerRun: 0,
+    getInputVersion: () => enterpriseRecurringInputVersion(
+      ENTERPRISE_IDENTITY_REFRESH_INTERVAL_MS,
+    ),
+    run: async () => {
+      if (isQuitting) return;
+      loadEnterpriseSession();
+      if (!enterpriseClient.snapshot().token) return;
+      await enterpriseAuthOperations.run(async () => {
         if (!enterpriseClient.snapshot().token) return;
         const session = await enterpriseClient.getSession();
         const outcome = await refreshEnterpriseIdentityLease(
@@ -1127,12 +1201,9 @@ function startEnterpriseIdentityRefresh(): void {
           enterpriseMlsOutboxRetry.wake();
           enterpriseMlsInboundPoll.wake();
         }
-      })
-      .catch((error) => {
-        console.warn('[otto-desktop] 刷新企业身份短租约失败:', error);
       });
-  }, ENTERPRISE_IDENTITY_REFRESH_INTERVAL_MS);
-  enterpriseIdentityRefreshTimer.unref?.();
+    },
+  });
 }
 
 function notifyEnterpriseAccountUpdated(account: EnterpriseAccount): void {
@@ -1140,12 +1211,6 @@ function notifyEnterpriseAccountUpdated(account: EnterpriseAccount): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(IPC.enterpriseAccountUpdated, account);
   }
-}
-
-function stopEnterpriseIdentityRefresh(): void {
-  if (!enterpriseIdentityRefreshTimer) return;
-  clearInterval(enterpriseIdentityRefreshTimer);
-  enterpriseIdentityRefreshTimer = undefined;
 }
 
 /**
@@ -1160,8 +1225,7 @@ const incrementalUpdateService = new IncrementalUpdateService(
   () => mainWindow?.webContents,
 );
 const desktopDistributionId = resolveDesktopDistribution(
-  process.env.OTTO_DISTRIBUTION_ID,
-  app.getName(),
+  process.env.CLAWMASTER_DISTRIBUTION_ID,
 );
 
 async function checkDesktopUpdate() {
@@ -1253,19 +1317,20 @@ async function checkEnterpriseModuleUpdates(
 }
 
 function startEnterpriseModuleUpdatePolling(): void {
-  if (enterpriseModuleUpdateTimer) return;
-  enterpriseModuleUpdateTimer = setInterval(() => {
-    if (isQuitting) return;
-    void checkEnterpriseModuleUpdates('interval');
-  }, ENTERPRISE_MODULE_UPDATE_POLL_INTERVAL_MS);
-  enterpriseModuleUpdateTimer.unref?.();
-  void checkEnterpriseModuleUpdates('startup');
-}
-
-function stopEnterpriseModuleUpdatePolling(): void {
-  if (!enterpriseModuleUpdateTimer) return;
-  clearInterval(enterpriseModuleUpdateTimer);
-  enterpriseModuleUpdateTimer = undefined;
+  if (stopEnterpriseModuleUpdateTask) return;
+  stopEnterpriseModuleUpdateTask = desktopRecurringTasks.register({
+    name: 'desktop.enterprise-module-update',
+    source: 'packages/desktop/src/main/index.ts',
+    intervalMs: ENTERPRISE_MODULE_UPDATE_POLL_INTERVAL_MS,
+    initialDelayMs: 0,
+    estimatedCostUsdPerRun: 0,
+    getInputVersion: () => enterpriseRecurringInputVersion(
+      ENTERPRISE_MODULE_UPDATE_POLL_INTERVAL_MS,
+    ),
+    run: async () => {
+      if (!isQuitting) await checkEnterpriseModuleUpdates('interval');
+    },
+  });
 }
 
 function resetEnterpriseModuleUpdateState(): void {
@@ -1407,6 +1472,55 @@ function requestFeishuConfig(
   });
 }
 
+function requestChannelPairing(
+  method: 'GET' | 'POST' | 'DELETE',
+  requestPath: string,
+  body?: unknown,
+): Promise<{ ok: boolean; data: unknown; error: string | null } | null> {
+  const ep = endpoint;
+  if (!ep?.controlToken) return Promise.resolve(null);
+  const payload = body === undefined ? undefined : JSON.stringify(body);
+  return new Promise((resolve) => {
+    const req = http.request(
+      {
+        host: ep.host,
+        port: ep.port,
+        path: requestPath,
+        method,
+        timeout: FEISHU_OP_TIMEOUT_MS,
+        headers: {
+          authorization: `Bearer ${ep.controlToken}`,
+          ...(payload === undefined
+            ? {}
+            : {
+                'content-type': 'application/json',
+                'content-length': Buffer.byteLength(payload),
+              }),
+        },
+      },
+      (res) => {
+        let text = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk: string) => { text += chunk; });
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(text) as { ok: boolean; data: unknown; error: string | null });
+          } catch {
+            resolve(null);
+          }
+        });
+        res.on('error', () => resolve(null));
+      },
+    );
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+    req.on('error', () => resolve(null));
+    req.end(payload);
+  });
+}
+
 /** 查询当前 server 的 /health（信封 {ok,data,error}），失败/未就绪返回 null。 */
 function fetchServerHealth(): Promise<HealthInfo | null> {
   const ep = endpoint;
@@ -1464,7 +1578,7 @@ function renderFeishuStatusText(feishu: HealthInfo['feishu']): string {
   }
   if (st.lockHeldByOtherPid != null) {
     return (
-      `飞书连接被另一进程持有（pid ${st.lockHeldByOtherPid}，可能是 otto feishu daemon）。\n` +
+      `飞书连接被另一进程持有（pid ${st.lockHeldByOtherPid}，可能是旧版 CLI 守护进程）。\n` +
       '本进程未连接（避免同一消息被处理两遍），对方退出后将自动接管。'
     );
   }
@@ -1540,8 +1654,8 @@ function loadTrayIcon(): NativeImage {
 }
 
 function trayTooltip(unreadCount: number): string {
-  if (unreadCount <= 0) return 'Otto';
-  const lines: string[] = [`Otto · ${unreadCount} 条未读消息`];
+  if (unreadCount <= 0) return 'ClawMaster';
+  const lines: string[] = [`ClawMaster · ${unreadCount} 条未读消息`];
   if (enterpriseTrayContacts.length > 0) {
     const contacts = enterpriseTrayContacts.slice(0, 4).map((item) => (
       `${item.name} ${item.count} 条：${item.preview}`
@@ -1688,7 +1802,7 @@ function showFallbackNotification(payload: NotificationPayload): void {
   if (process.platform !== 'win32' || !tray || tray.isDestroyed()) return;
   try {
     tray.displayBalloon({
-      title: payload.title || 'Otto 新消息',
+      title: payload.title || 'ClawMaster 新消息',
       content: payload.preview,
       icon: loadIcon(),
       iconType: 'custom',
@@ -1924,7 +2038,7 @@ function createTray(): void {
   tracer.state.status = '正在启动…';
 
   tray = new Tray(loadTrayIcon());
-  tray.setToolTip('Otto');
+  tray.setToolTip('ClawMaster');
   updateUnreadIndicators(notificationService.getUnreadSessions());
 
   const updateMenu = (): void => {
@@ -1950,7 +2064,7 @@ function createTray(): void {
 
     const template: Electron.MenuItemConstructorOptions[] = [
       {
-        label: '打开 Otto',
+        label: '打开 ClawMaster',
         click: showMainWindow,
       },
       { type: 'separator' },
@@ -1960,7 +2074,7 @@ function createTray(): void {
       },
       ...enterpriseContactItems,
       {
-        label: restarting ? '正在重启…' : '重启 Otto 服务',
+        label: restarting ? '正在重启…' : '重启 ClawMaster 本地引擎',
         enabled: !restarting,
         click: async () => {
           trayRestarting = true;
@@ -1983,7 +2097,7 @@ function createTray(): void {
       },
       { type: 'separator' },
       {
-        label: '退出 Otto',
+        label: '退出 ClawMaster',
         click: () => {
           isQuitting = true;
           app.quit();
@@ -1994,19 +2108,44 @@ function createTray(): void {
   };
 
   updateMenu();
-  setInterval(() => {
-    if (tray && !tray.isDestroyed()) updateMenu();
-  }, 2000);
+  desktopRecurringTasks.register({
+    name: 'desktop.tray-menu-refresh',
+    source: 'packages/desktop/src/main/index.ts',
+    intervalMs: 2_000,
+    estimatedCostUsdPerRun: 0,
+    getInputVersion: () => [
+      tracer.getSummary(),
+      trayRestarting ? 'restarting' : 'ready',
+      ...enterpriseTrayContacts.map((contact) => (
+        `${contact.accountId}:${contact.count}:${contact.preview}`
+      )),
+    ].join('|'),
+    run: () => {
+      if (tray && !tray.isDestroyed()) updateMenu();
+    },
+  });
   void refreshEnterpriseTrayContacts();
-  setInterval(() => {
-    void refreshEnterpriseTrayContacts();
-  }, 8000);
+  desktopRecurringTasks.register({
+    name: 'desktop.tray-contact-refresh',
+    source: 'packages/desktop/src/main/index.ts',
+    intervalMs: 8_000,
+    estimatedCostUsdPerRun: 0,
+    getInputVersion: () => enterpriseRecurringInputVersion(8_000),
+    run: refreshEnterpriseTrayContacts,
+  });
 
   tray.on('click', () => {
     void toggleEnterpriseTrayPopover();
   });
   tray.on('double-click', showMainWindow);
   tray.on('balloon-click', showMainWindow);
+}
+
+function stopDesktopRecurringTasks(): void {
+  desktopRecurringTasks.stopAll();
+  stopEnterpriseIdentityRefreshTask = undefined;
+  stopEnterpriseModuleUpdateTask = undefined;
+  stopEnterpriseSkillUsageTask = undefined;
 }
 
 // ── 托盘状态追踪器 ──
@@ -2032,7 +2171,7 @@ function createWindow(): BrowserWindow {
     height: 800,
     minWidth: 720,
     minHeight: 480,
-    title: 'Otto',
+    title: 'ClawMaster',
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hiddenInset' as const }
       : {}),
@@ -2129,7 +2268,7 @@ function createVideoEditorWindow(): { ok: boolean; error?: string } {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    title: 'Otto - Video Editor',
+    title: 'ClawMaster - Video Editor',
     icon: loadIcon(),
     backgroundColor: '#0a0a0a',
     autoHideMenuBar: process.platform !== 'darwin',
@@ -2221,14 +2360,14 @@ function isLocalAppUrl(url: string): boolean {
 function crashPageDataUrl(): string {
   const html =
     '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">' +
-    '<title>Otto - 界面已停止响应</title></head>' +
+    '<title>ClawMaster - 界面已停止响应</title></head>' +
     '<body style="margin:0;display:flex;align-items:center;justify-content:center;' +
     'min-height:100vh;background:#181818;color:#ddd;' +
     'font-family:system-ui,-apple-system,sans-serif">' +
     '<div style="max-width:32em;padding:2em;line-height:1.8">' +
-    '<h1 style="font-size:1.3em;color:#fff">Otto 界面多次崩溃</h1>' +
+    '<h1 style="font-size:1.3em;color:#fff">ClawMaster 界面多次崩溃</h1>' +
     '<p>渲染进程在短时间内反复异常退出，已停止自动恢复以避免闪烁。</p>' +
-    '<p>请退出并重新启动 Otto；若问题持续出现，请附终端日志反馈。</p>' +
+    '<p>请退出并重新启动 ClawMaster；若问题持续出现，请附终端日志反馈。</p>' +
     '</div></body></html>';
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 }
@@ -2388,6 +2527,35 @@ function registerIpc(): void {
   const enterpriseSkillLibrary = new EnterpriseSkillLibrary(
     path.join(process.cwd(), '.otto', 'org', 'skill-shares.json'),
   );
+  ipcMain.handle(IPC.communitySkillInstall, async (_event, input: unknown) => {
+    if (!input || typeof input !== 'object') throw new Error('社区插件导入参数不完整');
+    const value = input as Record<string, unknown>;
+    if (typeof value.id !== 'string' || typeof value.source !== 'string' || typeof value.slug !== 'string') {
+      throw new Error('社区插件导入参数不完整');
+    }
+    return installCommunitySkill({ id: value.id, source: value.source, slug: value.slug });
+  });
+  ipcMain.handle(IPC.communitySkillList, async () => {
+    const root = path.join(os.homedir(), '.clawmaster-user', 'skills');
+    let entries: fs.Dirent[];
+    try { entries = await fs.promises.readdir(root, { withFileTypes: true }); } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw error;
+    }
+    const installed = await Promise.all(entries
+      .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink())
+      .map(async (entry) => {
+        const installPath = path.join(root, entry.name);
+        try {
+          return (await fs.promises.stat(path.join(installPath, 'SKILL.md'))).isFile()
+            ? { name: entry.name, installPath }
+            : null;
+        } catch { return null; }
+      }));
+    return installed.filter((item): item is { name: string; installPath: string } => item !== null)
+      .sort((left, right) => left.name.localeCompare(right.name));
+  });
+
   ipcMain.handle(IPC.writeClipboard, (_e, text: unknown) => {
     if (typeof text !== 'string') return false;
     clipboard.writeText(text);
@@ -2698,12 +2866,12 @@ function registerIpc(): void {
     const win = BrowserWindow.getFocusedWindow() ?? mainWindow;
     const result = win
       ? await dialog.showSaveDialog(win, {
-          title: '导出我的 Otto 数据',
+          title: '导出我的 ClawMaster 数据',
           defaultPath: path.join(app.getPath('documents'), suggested),
           filters: [{ name: 'JSON 数据文件', extensions: ['json'] }],
         })
       : await dialog.showSaveDialog({
-          title: '导出我的 Otto 数据',
+          title: '导出我的 ClawMaster 数据',
           defaultPath: path.join(app.getPath('documents'), suggested),
           filters: [{ name: 'JSON 数据文件', extensions: ['json'] }],
         });
@@ -3159,6 +3327,7 @@ function registerIpc(): void {
   );
   ipcMain.handle(IPC.enterpriseFederationContacts, async () => {
     loadEnterpriseSession();
+    if (!enterpriseClient.supportsFederationGateway()) return [];
     return enterpriseClient.listFederationContacts();
   });
   ipcMain.handle(
@@ -3251,6 +3420,7 @@ function registerIpc(): void {
   );
   ipcMain.handle(IPC.enterpriseFederationAtoaTasks, async () => {
     loadEnterpriseSession();
+    if (!enterpriseClient.supportsFederationGateway()) return [];
     return enterpriseClient.listFederationAtoaTasks();
   });
   ipcMain.handle(
@@ -3927,7 +4097,7 @@ function registerIpc(): void {
     return {
       text:
         '飞书守护已停止（有意停止：不会自动重连，再次启动即恢复守护）。\n' +
-        '注：若另有 CLI 守护进程（otto feishu daemon）在跑，请在终端单独停止。',
+        '注：若另有旧版 CLI 守护进程在跑，请在终端单独停止。',
     };
   });
   // 飞书凭证配置（「飞书接入」面板）：转发 server /feishu/config。
@@ -3959,12 +4129,89 @@ function registerIpc(): void {
     if (!r) return { ok: false, config: null, error: '本地 server 未就绪。' };
     return { ok: r.ok, config: r.data, error: r.error };
   });
+  const channelScopes: Record<ChannelProvider, readonly string[]> = {
+    feishu: ['im:message', 'contact:user.base:readonly'],
+    lark: ['im:message', 'contact:user.base:readonly'],
+    wecom: ['message.send', 'contacts.read.basic'],
+  };
+  ipcMain.handle(IPC.channelPairingBegin, async (_event, provider: unknown): Promise<ChannelPairingResult> => {
+    if (provider !== 'feishu' && provider !== 'lark' && provider !== 'wecom') {
+      return { ok: false, pairing: null, error: '不支持的连接类型。' };
+    }
+    const keys = generateKeyPairSync('x25519');
+    const installationPublicKey = keys.publicKey.export({ type: 'spki', format: 'pem' }).toString();
+    const privateKey = keys.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+    const response = await requestChannelPairing('POST', '/channels/pairings', {
+      provider,
+      installationPublicKey,
+      requestedScopes: channelScopes[provider],
+    });
+    const pairing = response?.ok ? response.data as ChannelPairingPublic : null;
+    if (pairing) channelPairingPrivateKeys.set(pairing.pairingId, privateKey);
+    return {
+      ok: response?.ok === true,
+      pairing,
+      error: response?.error ?? (response ? null : '本地 server 未就绪。'),
+    };
+  });
+  const pairingAction = async (
+    pairingId: unknown,
+    method: 'GET' | 'POST' | 'DELETE',
+    suffix = '',
+  ): Promise<{ ok: boolean; data: unknown; error: string | null }> => {
+    if (typeof pairingId !== 'string' || !/^pair_[a-f0-9]{24}$/.test(pairingId)) {
+      return { ok: false, data: null, error: '配对编号不合法。' };
+    }
+    const response = await requestChannelPairing(
+      method,
+      `/channels/pairings/${pairingId}${suffix}`,
+    );
+    const status = response?.ok && response.data && typeof response.data === 'object'
+      && 'status' in response.data
+      ? String((response.data as { status: unknown }).status)
+      : undefined;
+    if (
+      method === 'DELETE'
+      || suffix === '/install'
+      || (status !== undefined && ['connected', 'expired', 'denied', 'failed', 'revoked'].includes(status))
+    ) {
+      channelPairingPrivateKeys.delete(pairingId);
+    }
+    return response ?? { ok: false, data: null, error: '本地 server 未就绪。' };
+  };
+  ipcMain.handle(IPC.channelPairingStatus, (_event, pairingId: unknown) =>
+    pairingAction(pairingId, 'GET'));
+  ipcMain.handle(IPC.channelPairingInstall, (_event, pairingId: unknown) =>
+    pairingAction(pairingId, 'POST', '/install'));
+  ipcMain.handle(IPC.channelPairingCancel, (_event, pairingId: unknown) =>
+    pairingAction(pairingId, 'DELETE'));
+  ipcMain.handle(IPC.channelInstallations, async () => {
+    const response = await requestChannelPairing('GET', '/channels/installations');
+    return response ?? { ok: false, data: null, error: '本地引擎未就绪。' };
+  });
+  ipcMain.handle(
+    IPC.channelInstallationAction,
+    async (_event, installationId: unknown, action: unknown) => {
+      if (
+        typeof installationId !== 'string' ||
+        !/^channel_(feishu|lark|wecom)_[a-f0-9]{24}$/.test(installationId)
+      ) {
+        return { ok: false, data: null, error: '安装编号不合法。' };
+      }
+      if (!['health', 'start', 'stop', 'revoke'].includes(String(action))) {
+        return { ok: false, data: null, error: '安装操作不合法。' };
+      }
+      const response = await requestChannelPairing(
+        action === 'revoke' ? 'DELETE' : action === 'health' ? 'GET' : 'POST',
+        `/channels/installations/${installationId}${action === 'revoke' ? '' : `/${String(action)}`}`,
+      );
+      return response ?? { ok: false, data: null, error: '本地引擎未就绪。' };
+    },
+  );
   // ── 内置视频编辑器 ──────────────────────────────────────────
   ipcMain.handle(IPC.openVideoEditor, () =>
     Promise.resolve(createVideoEditorWindow()),
   );
-  // 旧版园区服务定制兼容：新版企业账号以服务端园区配置为准。
-  // 文件不存在或解析失败时返回 null，由 renderer fail closed。
   // ── 外观主题（跟随系统/浅色/深色）：nativeTheme.themeSource + userData 持久化 ──
   ipcMain.handle(IPC.themeGet, () => nativeTheme.themeSource);
   ipcMain.handle(IPC.themeSet, (_e, v: unknown) => {
@@ -3982,6 +4229,17 @@ function registerIpc(): void {
     }
     return nativeTheme.themeSource;
   });
+  ipcMain.handle(IPC.taskRuntimeSetActive, (_event, active: unknown) => {
+    if (active === true && taskRuntimeBlockerId === undefined) {
+      taskRuntimeBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+    } else if (active !== true && taskRuntimeBlockerId !== undefined) {
+      if (powerSaveBlocker.isStarted(taskRuntimeBlockerId)) {
+        powerSaveBlocker.stop(taskRuntimeBlockerId);
+      }
+      taskRuntimeBlockerId = undefined;
+    }
+    return taskRuntimeBlockerId !== undefined;
+  });
 
   ipcMain.handle(
     IPC.skillLeaderboard,
@@ -3990,24 +4248,16 @@ function registerIpc(): void {
   );
 
   // 工作日志：读取本地日历的今天，展示业务成果 + 支撑操作。
-  ipcMain.handle(IPC.workLogToday, async () => {
-    const worklogRoot = worklogRootDir();
-    const today = localDateKey(new Date());
-    const entries = await readWorkLogEntries(worklogRoot, today);
-    return summarizeWorkLog(today, entries);
-  });
+  ipcMain.handle(IPC.workLogToday, async () =>
+    (await workLogService()).today());
 
   // 工作日志·近 N 天逐日明细（日历视图数据源：hover 某天列出当天条目）。
-  ipcMain.handle(IPC.workLogRecent, async (_e, days?: number) => {
-    const worklogRoot = worklogRootDir();
-    return readRecentWorkLogs(worklogRoot, days, new Date());
-  });
+  ipcMain.handle(IPC.workLogRecent, async (_e, days?: number) =>
+    (await workLogService()).recent(days));
 
   // 一键生成真正的 Markdown 工作报告并保存到 summaries，返回完整路径供界面打开。
-  ipcMain.handle(IPC.workLogReport, async () => {
-    const worklogRoot = worklogRootDir();
-    return generateAndSaveWorkReport(worklogRoot, localDateKey(new Date()));
-  });
+  ipcMain.handle(IPC.workLogReport, async () =>
+    (await workLogService()).report());
 
   ipcMain.handle(IPC.createDiagnosticBundle, async () => {
     const core = await import('otto-core');
@@ -4402,37 +4652,6 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseSkillLeaderboard, async () => {
     loadEnterpriseSession();
     return enterpriseClient.getEnterpriseSkillLeaderboard();
-  });
-
-  ipcMain.handle(IPC.parkConfig, async () => {
-    try {
-      const p = path.join(os.homedir(), '.otto-user', 'park-services.json');
-      const raw = await fs.promises.readFile(p, 'utf8');
-      const cfg = JSON.parse(raw) as Record<string, unknown>;
-      if (typeof cfg !== 'object' || cfg === null) return null;
-      // 宽松形状校验：只透传认识的字段，坏字段丢弃不炸。
-      const services = Array.isArray(cfg.services)
-        ? cfg.services
-            .filter(
-              (s): s is Record<string, unknown> =>
-                typeof s === 'object' && s !== null,
-            )
-            .map((s) => ({
-              name: typeof s.name === 'string' ? s.name : '',
-              desc: typeof s.desc === 'string' ? s.desc : '',
-              prompt: typeof s.prompt === 'string' ? s.prompt : '',
-            }))
-            .filter((s) => s.name && s.prompt)
-        : undefined;
-      return {
-        brandName:
-          typeof cfg.brandName === 'string' ? cfg.brandName : undefined,
-        parkName: typeof cfg.parkName === 'string' ? cfg.parkName : undefined,
-        ...(services && services.length > 0 ? { services } : {}),
-      };
-    } catch {
-      return null;
-    }
   });
 
   // 本地测试模式：应用/清除 customProxyServerUrl。
@@ -4927,10 +5146,14 @@ if (!gotLock) {
 
   app.whenReady().then(async () => {
     if (process.defaultApp && process.argv[1]) {
+      app.setAsDefaultProtocolClient('clawmaster', process.execPath, [
+        path.resolve(process.argv[1]),
+      ]);
       app.setAsDefaultProtocolClient('otto', process.execPath, [
         path.resolve(process.argv[1]),
       ]);
     } else {
+      app.setAsDefaultProtocolClient('clawmaster');
       app.setAsDefaultProtocolClient('otto');
     }
     // 外观主题：默认跟随系统（'system' 让 renderer 的 prefers-color-scheme 生效）；
@@ -4978,13 +5201,17 @@ if (!gotLock) {
 
   app.on('before-quit', (event) => {
     isQuitting = true;
+    if (taskRuntimeBlockerId !== undefined) {
+      if (powerSaveBlocker.isStarted(taskRuntimeBlockerId)) {
+        powerSaveBlocker.stop(taskRuntimeBlockerId);
+      }
+      taskRuntimeBlockerId = undefined;
+    }
     if (endpointRetryTimer) {
       clearTimeout(endpointRetryTimer);
       endpointRetryTimer = undefined;
     }
-    stopEnterpriseIdentityRefresh();
-    stopEnterpriseModuleUpdatePolling();
-    stopEnterpriseSkillUsageReporting();
+    stopDesktopRecurringTasks();
     if (quitCleanupFinished) return;
     event.preventDefault();
     if (quitCleanupStarted) return;

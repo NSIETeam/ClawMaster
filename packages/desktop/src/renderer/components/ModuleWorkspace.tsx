@@ -28,7 +28,6 @@ import {
 } from '../moduleWorkspace.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { ModuleIcon } from './ModuleIcon.js';
-import '../styles/module-workspace.css';
 
 interface DraggableItemProps {
   value: string;
@@ -437,7 +436,7 @@ export function ModuleWorkspace({
           .map((moduleId) => modulesById.get(moduleId))
           .filter((module): module is ModuleDefinition => Boolean(module));
         const displayRows = Math.min(
-          3,
+          presentation === 'panel' ? 4 : 3,
           Math.max(group.rows, Math.ceil((groupModules.length + 1) / gridColumns)),
         );
         const capacity = displayRows * gridColumns;

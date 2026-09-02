@@ -12,7 +12,7 @@ import {
   type ToolLocation,
 } from './tools.js';
 import { Type } from '@google/genai';
-import { SkillsCompatAdapter } from '../skills/skills-compat.js';
+import { SkillsCatalogAdapter } from '../skills/skills-catalog-adapter.js';
 import { Config } from '../config/config.js';
 
 interface ListSkillsParams {
@@ -26,7 +26,7 @@ interface ListSkillsParams {
  * ListSkillsTool - List all available skills
  */
 export class ListSkillsTool extends BaseTool<ListSkillsParams, ToolResult> {
-  private compatAdapter: SkillsCompatAdapter;
+  private catalog: SkillsCatalogAdapter;
 
   constructor(private readonly config: Config) {
     super(
@@ -52,7 +52,7 @@ export class ListSkillsTool extends BaseTool<ListSkillsParams, ToolResult> {
       false, // canUpdateOutput
     );
 
-    this.compatAdapter = new SkillsCompatAdapter(this.config.getProjectRoot());
+    this.catalog = new SkillsCatalogAdapter(this.config.getProjectRoot());
   }
 
   override validateToolParams(_params: ListSkillsParams): string | null {
@@ -81,7 +81,7 @@ export class ListSkillsTool extends BaseTool<ListSkillsParams, ToolResult> {
     _signal: AbortSignal,
   ): Promise<ToolResult> {
     try {
-      let skills = await this.compatAdapter.listSkills();
+      let skills = await this.catalog.listSkills();
 
       // Apply filters if provided
       if (params.marketplaceId) {
@@ -131,7 +131,7 @@ export class ListSkillsTool extends BaseTool<ListSkillsParams, ToolResult> {
           lines.push(`- **ID**: \`${skill.id}\``);
           lines.push(`- **Description**: ${skill.description}`);
           lines.push(`- **Path**: \`${skill.path}\``);
-          lines.push(`- **Documentation**: \`${skill.skillMdPath}\``);
+          lines.push(`- **Documentation**: \`${skill.skillFilePath}\``);
           lines.push('');
           lines.push('**Usage**:');
           lines.push(`1. Use \`use_skill(skillName="${skill.name}")\` to load the skill`);

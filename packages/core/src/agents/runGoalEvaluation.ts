@@ -25,7 +25,7 @@ export interface GoalEvaluationVerdict {
 }
 
 export const GOAL_EVALUATION_SYSTEM_PROMPT = [
-  '[Otto - GOAL EVALUATION JUDGE]',
+  '[ClawMaster - GOAL EVALUATION JUDGE]',
   'You are a highly critical, meticulous, and objective quality assurance judge.',
   'Your sole purpose is to evaluate whether the AI agent\'s /goal task is TRULY and OBJECTIVELY complete based on the conversation history and the agent\'s justification.',
   '',

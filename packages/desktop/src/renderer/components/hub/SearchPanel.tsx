@@ -16,7 +16,7 @@ const PROVIDERS: Array<{
   label: string;
   hint: string;
 }> = [
-  { id: 'bing', label: '自动（推荐）', hint: 'Otto 内置免密钥搜索，并自动切换可用线路' },
+  { id: 'bing', label: '自动（推荐）', hint: 'ClawMaster 内置免密钥搜索，并自动切换可用线路' },
   { id: 'volcengine', label: '火山方舟', hint: '豆包 + Responses Web Search' },
   { id: 'bocha', label: '博查', hint: '结构化 Web Search API' },
   { id: 'gemini', label: 'Gemini', hint: 'Google Search Grounding' },
@@ -156,7 +156,7 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
             </div>
             <div className="otto-search-ready__copy">
               <div className="otto-search-ready__eyebrow">已自动开启</div>
-              <strong>Otto 可以随时联网搜索</strong>
+              <strong>ClawMaster 可以随时联网搜索</strong>
               <p>
                 默认使用内置免密钥线路；一条线路不可用时会自动换下一条。
                 {provider !== 'bing' ? ' 你的自定义线路失败时也会自动回到内置搜索。' : ''}
@@ -339,7 +339,7 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
                   <div className="otto-hub__setting-text">
                     <div className="otto-hub__field-label">{provider === 'bing' ? '无需 API Key' : '使用已有模型'}</div>
                     <div className="otto-hub__field-hint">
-                      {provider === 'bing' ? '保存后恢复 Otto 自动搜索。' : 'Gemini 会使用你已经配置的 Gemini 模型。'}
+                      {provider === 'bing' ? '保存后恢复 ClawMaster 自动搜索。' : 'Gemini 会使用你已经配置的 Gemini 模型。'}
                     </div>
                   </div>
                 </div>
@@ -370,7 +370,7 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
                 <div className="otto-hub__setting-text">
                   <div className="otto-hub__field-label">企业月度额度</div>
                   <div className="otto-hub__field-hint">
-                    可选。达到请求次数或预算任一上限后，Otto 会停止对应供应商请求。
+                    可选。达到请求次数或预算任一上限后，ClawMaster 会停止对应供应商请求。
                   </div>
                 </div>
                 <div className="otto-hub__inputrow">

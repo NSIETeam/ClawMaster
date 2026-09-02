@@ -6,8 +6,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import * as authorization from './modules/authorization/index.js';
-import * as legacyToolPolicy from './authorizationPolicy.js';
-import * as legacyEnterpriseGuards from './enterprise/enterpriseRouteGuards.js';
 
 const sourceRoot = path.resolve(import.meta.dirname);
 
@@ -114,30 +112,15 @@ describe('authorization module boundary', () => {
     expect(authorization.isMemberRoute('/enterprise/federation/admin/status')).toBe(false);
   });
 
-  it('keeps legacy paths as aliases of the module implementation', () => {
-    expect(legacyToolPolicy.shouldRequestConfirmation)
-      .toBe(authorization.shouldRequestConfirmation);
-    expect(legacyEnterpriseGuards.isAdminRoute).toBe(authorization.isAdminRoute);
-
-    const toolPolicySource = fs.readFileSync(
-      path.join(sourceRoot, 'authorizationPolicy.ts'),
-      'utf8',
-    );
-    const routeGuardsSource = fs.readFileSync(
+  it('does not keep legacy authorization aliases', () => {
+    expect(fs.existsSync(path.join(sourceRoot, 'authorizationPolicy.ts'))).toBe(false);
+    expect(fs.existsSync(
       path.join(sourceRoot, 'enterprise', 'enterpriseRouteGuards.ts'),
-      'utf8',
-    );
-    expect(toolPolicySource).toMatch(/^export \* from ['"]\.\/modules\/authorization\/index\.js['"];$/m);
-    expect(routeGuardsSource).toMatch(/^export \* from ['"]\.\.\/modules\/authorization\/index\.js['"];$/m);
+    )).toBe(false);
   });
 
   it('routes production imports through the authorization public entrypoint', () => {
-    const legacyFiles = new Set([
-      path.join(sourceRoot, 'authorizationPolicy.ts'),
-      path.join(sourceRoot, 'enterprise', 'enterpriseRouteGuards.ts'),
-    ]);
     const offenders = productionTypeScriptFiles(sourceRoot)
-      .filter((file) => !legacyFiles.has(file))
       .filter((file) => /from ['"][^'"]*(?:authorizationPolicy|enterpriseRouteGuards)\.js['"]/.test(
         fs.readFileSync(file, 'utf8'),
       ))

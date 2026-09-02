@@ -1285,6 +1285,14 @@ export class EnterpriseClient {
     );
   }
 
+  supportsFederationGateway(): boolean {
+    return (
+      this.token !== null &&
+      this.compatibleServerUrl === this.serverUrl &&
+      this.compatibleCapabilities.has('federation_chat_v1')
+    );
+  }
+
   private refuseMlsProtocolDowngrade(): void {
     if (this.supportsMlsPrivateMessages()) {
       throw new Error(

@@ -28,7 +28,7 @@ export function TodosPanel({ data }: { data: UseSettingsData }): React.JSX.Eleme
   return (
     <Panel
       title="任务清单"
-      desc="Otto 正在跟进的任务及其进度。"
+      desc="ClawMaster 正在跟进的任务及其进度。"
       actions={
         <button type="button" className="otto-hub__btn" onClick={actions.refreshTodos}>
           刷新
@@ -70,7 +70,7 @@ export function MemoryPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
   return (
     <Panel
       title="记忆"
-      desc="Otto 长期记住的事实，写入项目级 OTTO.md，之后的对话都会生效。"
+      desc="ClawMaster 长期记住的事实，写入项目级记忆文件，之后的对话都会生效。"
       actions={
         <button type="button" className="otto-hub__btn" onClick={actions.refreshMemory}>
           刷新
@@ -122,7 +122,7 @@ export function SkillsPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
   return (
     <Panel
       title="技能库"
-      desc="已安装的技能，Otto 会按任务需要自动调用。"
+      desc="已安装的技能，ClawMaster 会按任务需要自动调用。"
       actions={
         <button type="button" className="otto-hub__btn" onClick={actions.refreshSkills}>
           刷新

@@ -104,7 +104,7 @@ export function DayAgenda({
         <div>
           <div className="otto-agenda__eyebrow">工作日志 · 日期视图</div>
           <h1>{date} 日程安排</h1>
-          <p>当天工作和安排集中在这里；标有“Otto”的项目由 Agent 自主创建。</p>
+          <p>当天工作和安排集中在这里；标有“ClawMaster”的项目由 Agent 自主创建。</p>
         </div>
         <div className="otto-agenda__actions">
           <button type="button" className="otto-hub__btn otto-hub__btn--primary" onClick={() => setAdding((value) => !value)}>
@@ -150,7 +150,7 @@ export function DayAgenda({
         {sorted.length === 0 ? (
           <div className="otto-agenda__empty">
             <strong>这一天还没有日程</strong>
-            <span>你可以手动新增，也可以直接告诉 Otto“帮我安排一个复盘”。</span>
+            <span>你可以手动新增，也可以直接告诉 ClawMaster“帮我安排一个复盘”。</span>
           </div>
         ) : (
           sorted.map((item) => (
@@ -163,7 +163,7 @@ export function DayAgenda({
                 <div className="otto-agenda__card-title">
                   <strong>{item.title}</strong>
                   <span className={'otto-agenda__source ' + (item.source === 'otto' ? 'is-otto' : '')}>
-                    {item.source === 'otto' ? 'Otto 自主创建' : '手动创建'}
+                    {item.source === 'otto' ? 'ClawMaster 自主创建' : '手动创建'}
                   </span>
                 </div>
                 {item.notes ? <p>{item.notes}</p> : null}

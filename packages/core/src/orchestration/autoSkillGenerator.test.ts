@@ -22,6 +22,7 @@ vi.mock('./workLog.js', () => ({
 import {
   confirmAndSaveSkill,
   confirmPendingSkill,
+  generateLegacySkillContent,
   generateSkillCandidates,
   listPendingSkillCandidates,
   rejectPendingSkill,
@@ -95,6 +96,18 @@ afterEach(async () => {
 });
 
 describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
+  it('中文工作步骤生成可被 SkillLoader 接受的稳定 ASCII 名称', () => {
+    const content = generateLegacySkillContent(
+      '检测到 → 整理资料 → 输出报告',
+      [],
+      3,
+    );
+    const name = content.match(/^name:\s*(.+)$/mu)?.[1];
+
+    expect(name).toMatch(/^auto-[a-z0-9-]+$/u);
+    expect(name).not.toContain('自动');
+  });
+
   it('候选默认指向用户级 ~/.otto-user/skills，而不是当前项目', async () => {
     const candidates = await generateSkillCandidates(fakeConfig);
 
@@ -192,7 +205,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
     const savedPath = await confirmPendingSkill(staged[0].id);
     expect(savedPath).toBe(staged[0].filePath);
     await expect(fs.readFile(savedPath, 'utf8')).resolves.toContain(
-      '此 Skill 由 Otto 从你的工作日志中自动发现并生成',
+      '此 Skill 由 ClawMaster 从你的工作日志中自动发现并生成',
     );
     expect(await listPendingSkillCandidates()).toEqual([]);
   });
@@ -265,6 +278,8 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
     startAutoSkillScanner(fakeConfig, () => 'user-1', {
       initialDelayMs: 1,
       intervalMs: 60_000,
+      allowPaidBackground: true,
+      getInputVersion: () => 'work-log-v1',
       onCandidatesStaged,
     });
 
@@ -272,5 +287,15 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
     expect(onCandidatesStaged).toHaveBeenCalledTimes(1);
     expect(candidates).toHaveLength(1);
     await expect(fs.access(candidates[0].filePath)).rejects.toThrow();
+  });
+
+  it('后台付费能力未获用户明确授权时不登记扫描任务', () => {
+    const started = startAutoSkillScanner(fakeConfig, () => 'user-1', {
+      initialDelayMs: 1,
+      intervalMs: 60_000,
+      getInputVersion: () => 'work-log-v1',
+    });
+
+    expect(started).toBe(false);
   });
 });

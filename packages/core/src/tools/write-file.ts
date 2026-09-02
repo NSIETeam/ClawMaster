@@ -22,10 +22,6 @@ import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { getErrorMessage, isNodeError } from '../utils/errors.js';
-import {
-  ensureCorrectEdit,
-  ensureCorrectFileContent,
-} from '../utils/editCorrector.js';
 import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
 import { ModifiableTool, ModifyContext } from './modifiable-tool.js';
 import { getSpecificMimeType, isWithinRoot } from '../utils/fileUtils.js';
@@ -147,7 +143,7 @@ export class WriteFileTool
    */
   async shouldConfirmExecute(
     params: WriteFileToolParams,
-    abortSignal: AbortSignal,
+    _abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
     if (this.config.getApprovalMode() === ApprovalMode.AUTO_EDIT) {
       return false;
@@ -161,7 +157,6 @@ export class WriteFileTool
     const correctedContentResult = await this._getCorrectedFileContent(
       params.file_path,
       params.content,
-      abortSignal,
     );
 
     if (correctedContentResult.error) {
@@ -207,7 +202,7 @@ export class WriteFileTool
 
   async execute(
     params: WriteFileToolParams,
-    abortSignal: AbortSignal,
+    _abortSignal: AbortSignal,
   ): Promise<ToolResult> {
     const validationError = this.validateToolParams(params);
     if (validationError) {
@@ -220,7 +215,6 @@ export class WriteFileTool
     const correctedContentResult = await this._getCorrectedFileContent(
       params.file_path,
       params.content,
-      abortSignal,
     );
 
     if (correctedContentResult.error) {
@@ -366,11 +360,10 @@ export class WriteFileTool
   private async _getCorrectedFileContent(
     filePath: string,
     proposedContent: string,
-    abortSignal: AbortSignal,
   ): Promise<GetCorrectedFileContentResult> {
     let originalContent = '';
     let fileExists = false;
-    let correctedContent = proposedContent;
+    const correctedContent = proposedContent;
 
     try {
       originalContent = fs.readFileSync(filePath, 'utf8');
@@ -392,37 +385,11 @@ export class WriteFileTool
       }
     }
 
-    // If readError is set, we have returned.
-    // So, file was either read successfully (fileExists=true, originalContent set)
-    // or it was ENOENT (fileExists=false, originalContent='').
-
-    if (fileExists) {
-      // This implies originalContent is available
-      const { params: correctedParams } = await ensureCorrectEdit(
-        filePath,
-        originalContent,
-        {
-          old_string: originalContent, // Treat entire current content as old_string
-          new_string: proposedContent,
-          file_path: filePath,
-        },
-        this.config.getOttoClient(),
-        abortSignal,
-      );
-      correctedContent = correctedParams.new_string;
-    } else {
-      // This implies new file (ENOENT)
-      correctedContent = await ensureCorrectFileContent(
-        proposedContent,
-        this.config.getOttoClient(),
-        abortSignal,
-      );
-    }
     return { originalContent, correctedContent, fileExists };
   }
 
   getModifyContext(
-    abortSignal: AbortSignal,
+    _abortSignal: AbortSignal,
   ): ModifyContext<WriteFileToolParams> {
     return {
       getFilePath: (params: WriteFileToolParams) => params.file_path,
@@ -430,7 +397,6 @@ export class WriteFileTool
         const correctedContentResult = await this._getCorrectedFileContent(
           params.file_path,
           params.content,
-          abortSignal,
         );
         return correctedContentResult.originalContent;
       },
@@ -438,7 +404,6 @@ export class WriteFileTool
         const correctedContentResult = await this._getCorrectedFileContent(
           params.file_path,
           params.content,
-          abortSignal,
         );
         return correctedContentResult.correctedContent;
       },

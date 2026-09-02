@@ -27,8 +27,8 @@ import {
   resolveAgentTools,
 } from '../agents/agentDefinition.js';
 import { getAgentResourceBudget } from '../core/agentResourceBudget.js';
-import { getNativeAgentPoolRuntime } from '../native/nativeAgentPoolRuntime.js';
-import { getMemoryPressureMonitor } from '../services/memoryPressureMonitor.js';
+import { estimateAgentOwnedMemoryBytes } from '../core/agentMemoryStats.js';
+import { getSubAgentResourceCoordinator } from '../core/subAgentResourceCoordinator.js';
 
 // Type alias for easier usage within this module
 type SubAgentDisplayData = SubAgentDisplay;
@@ -105,8 +105,6 @@ export interface TaskToolParams {
  */
 export class TaskTool extends BaseTool<TaskToolParams, ToolResult> {
   static readonly Name: string = 'task';
-  private static activeSubAgents = 0;
-  private static readonly waitQueue: Array<() => void> = [];
 
 
 
@@ -179,66 +177,11 @@ export class TaskTool extends BaseTool<TaskToolParams, ToolResult> {
 
   private async acquireSubAgentSlot(agentId: string, signal: AbortSignal): Promise<(memoryBytes?: number) => Promise<void>> {
     const budget = getAgentResourceBudget();
-    const monitor = getMemoryPressureMonitor();
-    const pressure = monitor.check();
-    const limit = monitor.getTaskConcurrencyLimit(budget.taskMaxConcurrency);
-
-    if (TaskTool.activeSubAgents < limit) {
-      TaskTool.activeSubAgents++;
-      return await TaskTool.registerSubAgentSlotWithNativeCore(agentId);
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      const start = () => {
-        signal.removeEventListener('abort', onAbort);
-        TaskTool.activeSubAgents++;
-        resolve();
-      };
-      const onAbort = () => {
-        const index = TaskTool.waitQueue.indexOf(start);
-        if (index >= 0) TaskTool.waitQueue.splice(index, 1);
-        reject(new Error(`SubAgent start cancelled while waiting for a resource slot (max ${limit} concurrent task agents, memory pressure: ${pressure.level}).`));
-      };
-
-      if (signal.aborted) {
-        onAbort();
-        return;
-      }
-
-      TaskTool.waitQueue.push(start);
-      signal.addEventListener('abort', onAbort, { once: true });
-    });
-
-    return await TaskTool.registerSubAgentSlotWithNativeCore(agentId);
-  }
-
-  private static async registerSubAgentSlotWithNativeCore(agentId: string): Promise<(memoryBytes?: number) => Promise<void>> {
-    try {
-      const registration = await getNativeAgentPoolRuntime().register(agentId);
-      if (registration.status === 'native' && !registration.registered) {
-        throw new Error('Rust native agent_pool rejected the sub-agent registration.');
-      }
-    } catch (error) {
-      TaskTool.releaseLocalSubAgentSlot();
-      throw error;
-    }
-
-    return async (memoryBytes?: number) => {
-      try {
-        if (memoryBytes !== undefined) {
-          await getNativeAgentPoolRuntime().updateMemory(agentId, memoryBytes);
-        }
-        await getNativeAgentPoolRuntime().unregister(agentId);
-      } finally {
-        TaskTool.releaseLocalSubAgentSlot();
-      }
-    };
-  }
-
-  private static releaseLocalSubAgentSlot(): void {
-    TaskTool.activeSubAgents = Math.max(TaskTool.activeSubAgents - 1, 0);
-    const next = TaskTool.waitQueue.shift();
-    if (next) next();
+    return getSubAgentResourceCoordinator().acquire(
+      agentId,
+      budget.taskMaxConcurrency,
+      signal,
+    );
   }
 
   async shouldConfirmExecute(
@@ -337,14 +280,14 @@ export class TaskTool extends BaseTool<TaskToolParams, ToolResult> {
     let finalNativeMemoryBytes: number | undefined;
     try {
       const budget = getAgentResourceBudget();
-      const monitor = getMemoryPressureMonitor();
-      const pressure = monitor.check();
-      const concurrencyLimit = monitor.getTaskConcurrencyLimit(budget.taskMaxConcurrency);
-      if (TaskTool.activeSubAgents >= concurrencyLimit) {
+      const resourceStatus = getSubAgentResourceCoordinator().getStatus(
+        budget.taskMaxConcurrency,
+      );
+      if (resourceStatus.active >= resourceStatus.limit) {
         currentDisplayData = {
           ...currentDisplayData,
           status: 'starting',
-          summary: `Waiting for an agent resource slot (max ${concurrencyLimit} concurrent task agent${concurrencyLimit === 1 ? '' : 's'} on the ${budget.deviceClass} profile${pressure.level === 'normal' ? '' : `, memory pressure: ${pressure.level}`}).`,
+          summary: `Waiting for a shared agent resource slot (max ${resourceStatus.limit} active agent${resourceStatus.limit === 1 ? '' : 's'} on the ${budget.deviceClass} profile).`,
         };
         wrappedUpdateOutput(createSubAgentUpdateMessage(currentDisplayData));
       }
@@ -443,7 +386,9 @@ export class TaskTool extends BaseTool<TaskToolParams, ToolResult> {
         tokenUsage: result.tokenUsage || currentDisplayData.stats.tokenUsage,
         memoryUsage: result.memoryUsage,
       };
-      finalNativeMemoryBytes = result.memoryUsage?.end.rssBytes;
+      finalNativeMemoryBytes = result.memoryUsage
+        ? estimateAgentOwnedMemoryBytes(result.memoryUsage)
+        : undefined;
 
       currentDisplayData = {
         ...currentDisplayData,

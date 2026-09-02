@@ -30,7 +30,6 @@ const KERNEL_FILES = [
   'toolSchedulerAdapter.ts',
   'mainAgentAdapter.ts',
   'subAgentAdapter.ts',
-  'confirmationBridge.ts',
   'logger.ts',
   'contentGenerator.ts',
   'sceneManager.ts',

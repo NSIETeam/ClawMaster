@@ -428,7 +428,7 @@ export class UpdateService {
         });
         child.unref();
         setTimeout(() => app.quit(), 400);
-        return { ok: true, message: '正在后台自动安装，安装完成后 Otto 将自动重新启动。' };
+        return { ok: true, message: '正在后台自动安装，安装完成后 ClawMaster 将自动重新启动。' };
       } catch {
         /* 静默安装拉起失败 → 走下方手动兜底 */
       }
@@ -444,7 +444,7 @@ export class UpdateService {
           app.relaunch();
           app.exit(0);
         }, 600);
-        return { ok: true, message: '更新已安装，Otto 正在自动重启…' };
+        return { ok: true, message: '更新已安装，ClawMaster 正在自动重启…' };
       }
       // 自动失败不终止：如实告知并降级手动路径。
     }
@@ -455,8 +455,8 @@ export class UpdateService {
     }
     const message =
       process.platform === 'win32'
-        ? '安装器已打开：请按向导完成安装，安装完成后手动重新启动 Otto。'
-        : '自动安装未成功，已打开安装包：请把 Otto 拖入「应用程序」替换旧版本后重新启动。';
+        ? '安装器已打开：请按向导完成安装，安装完成后手动重新启动 ClawMaster。'
+        : '自动安装未成功，已打开安装包：请把 ClawMaster 拖入「应用程序」替换旧版本后重新启动。';
     return { ok: true, message };
   }
 

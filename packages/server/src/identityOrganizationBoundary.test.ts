@@ -6,13 +6,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import * as identityOrganization from './modules/identity_organization/index.js';
-import * as legacyDepartmentInvite from './enterprise/inviteCodeRepository.js';
-import * as legacyFacade from './enterprise/organizationInviteFacade.js';
-import * as legacyRepository from './enterprise/organizationInviteRepository.js';
-import * as legacyPublicInvite from './enterprise/publicInvite.js';
-import * as legacyOrganizationRoutes from './enterprise/organizationRoutes.js';
-import * as legacyEmployeeRepository from './enterprise/employeeRepository.js';
-import * as enterpriseDb from './enterprise/db.js';
 
 const sourceRoot = path.resolve(import.meta.dirname);
 const enterpriseDir = path.join(sourceRoot, 'enterprise');
@@ -87,25 +80,7 @@ describe('identity_organization invitation kernel', () => {
     ).toBeTypeOf('function');
   });
 
-  it('keeps legacy enterprise paths as aliases of the module implementation', () => {
-    expect(legacyFacade.createOrganizationInviteFacade).toBe(
-      identityOrganization.createOrganizationInviteFacade,
-    );
-    expect(legacyDepartmentInvite.createDepartmentInviteFacade).toBe(
-      identityOrganization.createDepartmentInviteFacade,
-    );
-    expect(legacyRepository.issueOrganizationInvite).toBe(
-      identityOrganization.issueOrganizationInvite,
-    );
-    expect(legacyPublicInvite.buildOrganizationInviteLink).toBe(
-      identityOrganization.buildOrganizationInviteLink,
-    );
-    expect(legacyOrganizationRoutes.handleOrganizationRoute).toBe(
-      identityOrganization.handleOrganizationRoute,
-    );
-    expect(legacyEmployeeRepository.createEmployee).toBe(
-      enterpriseDb.createEmployee,
-    );
+  it('publishes the canonical organization boundary without enterprise aliases', () => {
     expect(identityOrganization.createMemberDirectoryFacade).toBeTypeOf(
       'function',
     );
@@ -193,11 +168,7 @@ describe('identity_organization invitation kernel', () => {
       'organizationRoutes.ts',
       'employeeRepository.ts',
     ]) {
-      const source = fs.readFileSync(path.join(enterpriseDir, file), 'utf8');
-      expect(source).toMatch(
-        /^export (?:\*|type \*) from ['"]\.\.\/modules\/identity_organization\/index\.js['"];$/m,
-      );
-      expect(source).not.toMatch(/\b(?:function|interface|class)\s+\w+/);
+      expect(fs.existsSync(path.join(enterpriseDir, file)), file).toBe(false);
     }
   });
 
@@ -213,17 +184,7 @@ describe('identity_organization invitation kernel', () => {
   });
 
   it('routes production imports through the identity_organization public entrypoint', () => {
-    const legacyFiles = new Set([
-      path.join(enterpriseDir, 'organizationInviteFacade.ts'),
-      path.join(enterpriseDir, 'organizationInviteRepository.ts'),
-      path.join(enterpriseDir, 'organizationInviteTypes.ts'),
-      path.join(enterpriseDir, 'inviteCodeRepository.ts'),
-      path.join(enterpriseDir, 'publicInvite.ts'),
-      path.join(enterpriseDir, 'organizationRoutes.ts'),
-      path.join(enterpriseDir, 'employeeRepository.ts'),
-    ]);
     const offenders = productionTypeScriptFiles(sourceRoot)
-      .filter((file) => !legacyFiles.has(file))
       .filter((file) => !file.startsWith(`${moduleDir}${path.sep}`))
       .filter((file) =>
         /from ['"][^'"]*(?:organizationInvite(?:Facade|Repository|Types)|inviteCodeRepository|publicInvite|organizationRoutes|employeeRepository)\.js['"]/.test(

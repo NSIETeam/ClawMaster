@@ -186,7 +186,7 @@ export function buildCheckpointRecoveryHistory(
       role: 'model',
       parts: [
         {
-          text: 'The local Otto runtime checkpoint has been restored. I will use it as continuity context and verify current state before continuing.',
+          text: 'The local ClawMaster runtime checkpoint has been restored. I will use it as continuity context and verify current state before continuing.',
         },
       ],
     },

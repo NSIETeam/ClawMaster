@@ -348,6 +348,7 @@ export class Config {
   private memoryTokenCount: number = 0; // 新增
   private geminiMdFileCount: number;
   private userRules: string;
+  private customSystemPrompt = '';
   private readonly documentIdentity: DocumentIdentity | undefined;
   private geminiMdFilePaths: string[] = [];
   private approvalMode: ApprovalMode;
@@ -898,11 +899,28 @@ export class Config {
 
   // 🎯 用户规则相关
   getUserRules(): string {
+    return [
+      this.userRules.trim(),
+      this.customSystemPrompt.trim()
+        ? `## 用户自定义系统提示词\n${this.customSystemPrompt.trim()}`
+        : '',
+    ].filter(Boolean).join('\n\n');
+  }
+
+  getBaseUserRules(): string {
     return this.userRules;
   }
 
   setUserRules(rules: string): void {
     this.userRules = rules;
+  }
+
+  getCustomSystemPrompt(): string {
+    return this.customSystemPrompt;
+  }
+
+  setCustomSystemPrompt(prompt: string): void {
+    this.customSystemPrompt = prompt.trim();
   }
 
   getDocumentIdentity(): DocumentIdentity | undefined {

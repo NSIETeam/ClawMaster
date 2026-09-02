@@ -54,14 +54,14 @@ const ACTIONS: readonly EnterpriseCollaborationAction[] = [
 const RECIPIENT_ACCOUNT_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const MAX_TEXT_LENGTH = 4000;
 
-const DESCRIPTION = `Communicate with coworkers under the authenticated enterprise tree through the Otto desktop client.
+const DESCRIPTION = `Communicate with coworkers under the authenticated enterprise tree through the ClawMaster desktop client.
 
 Required workflow:
 1. Call list_members first and use the returned account ID. Never invent, guess, or reuse an ID from another organization.
 2. Private-chat history is not readable by this tool. Only plaintext segments explicitly selected and decrypted by the user on their device may enter a one-time A2A context.
 3. Call send_message with recipientAccountId and content for an ordinary employee-to-employee message.
-4. Call ask_peer_otto with recipientAccountId and question only when the user asks another employee's Otto. The recipient controls permission and may allow explicitly selected current-chat segments, enterprise knowledge, work logs, and schedules, allow only selected categories, or deny the request. This scope does not include files, API keys, other chats, or unselected direct messages. Respect the returned scope; never bypass it.
-5. Call consult_peer_otto with recipientAccountId and question only for the lower-frequency two-Otto negotiation flow, such as comparing schedules, agreeing on a meeting time, or producing a cooperation plan. The client performs the real negotiation.
+4. Call ask_peer_otto with recipientAccountId and question only when the user asks another employee's ClawMaster. The recipient controls permission and may allow explicitly selected current-chat segments, enterprise knowledge, work logs, and schedules, allow only selected categories, or deny the request. This scope does not include files, API keys, other chats, or unselected direct messages. Respect the returned scope; never bypass it.
+5. Call consult_peer_otto with recipientAccountId and question only for the lower-frequency two-ClawMaster negotiation flow, such as comparing schedules, agreeing on a meeting time, or producing a cooperation plan. The client performs the real negotiation.
 6. If and only if the authenticated user is an enterprise administrator, call assign_member_position with a list_members recipientAccountId, department, positionTitle, and optional role to make a real organization assignment. The client rechecks the administrator identity and same-organization member immediately before updating the account. Never claim success unless the client returns the updated member.
 
 When answering about the current user's own information, answer normally instead of calling ask_peer_otto. This tool is a structured confirmation relay: it does not access the network or filesystem and does not invent or hand-build A2A protocol messages. Every action must be executed by the client confirmation UI, and only the client's real JSON result may be treated as the outcome.`;
@@ -215,7 +215,7 @@ export class EnterpriseCollaborationTool extends BaseTool<
     const recipient = params.recipientAccountId
       ? ` for ${params.recipientAccountId}`
       : '';
-    return `Run enterprise collaboration action ${params.action}${recipient} through the Otto client`;
+    return `Run enterprise collaboration action ${params.action}${recipient} through the ClawMaster client`;
   }
 
   override async shouldConfirmExecute(
@@ -237,7 +237,7 @@ export class EnterpriseCollaborationTool extends BaseTool<
       command: `enterprise_collaboration ${JSON.stringify(params)}`,
       rootCommand: EnterpriseCollaborationTool.Name,
       warning:
-        '此操作必须由 Otto 客户端在当前企业身份下执行；Core 不会访问网络，也不会伪造企业成员、消息或 A2A 结果。',
+        '此操作必须由 ClawMaster 客户端在当前企业身份下执行；Core 不会访问网络，也不会伪造企业成员、消息或 A2A 结果。',
       onConfirm: async (
         outcome: ToolConfirmationOutcome,
         payload?: ToolConfirmationPayload,

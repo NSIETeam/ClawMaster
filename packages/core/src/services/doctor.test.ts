@@ -11,6 +11,7 @@ import {
   formatDoctorReport,
   type CommandRunner,
   type ModuleResolver,
+  type BrowserExecutableResolver,
   type PathChecker,
   type DoctorReport,
 } from './doctor.js';
@@ -62,6 +63,7 @@ const NO_MODULES: ModuleResolver = () => {
 
 /** 默认：任何 .app 路径都不存在。 */
 const NO_APP: PathChecker = () => false;
+const MANAGED_BROWSER: BrowserExecutableResolver = () => '/managed/chrome';
 /** 指定路径集合存在。 */
 const appExists = (paths: string[]): PathChecker => (p) => paths.includes(p);
 
@@ -145,20 +147,50 @@ describe('DoctorService', () => {
     const resolver = makeResolver({
       playwright: '/repo/node_modules/playwright/index.js',
     });
-    const report = await new DoctorService(makeRunner({}), resolver, 'darwin', NO_APP).check();
+    const report = await new DoctorService(
+      makeRunner({}),
+      resolver,
+      'darwin',
+      () => true,
+      MANAGED_BROWSER,
+    ).check();
     const pw = report.checks.find((c) => c.name === 'playwright')!;
     expect(pw.present).toBe(true);
-    expect(pw.path).toBe('/repo/node_modules/playwright/index.js');
+    expect(pw.path).toBe('/managed/chrome');
+    expect(pw.note).toContain('/repo/node_modules/playwright/index.js');
   });
 
   it('playwright falls back to playwright-core module', async () => {
     const resolver = makeResolver({
       'playwright-core': '/repo/node_modules/playwright-core/index.js',
     });
-    const report = await new DoctorService(makeRunner({}), resolver, 'darwin', NO_APP).check();
+    const report = await new DoctorService(
+      makeRunner({}),
+      resolver,
+      'darwin',
+      () => true,
+      MANAGED_BROWSER,
+    ).check();
     const pw = report.checks.find((c) => c.name === 'playwright')!;
     expect(pw.present).toBe(true);
-    expect(pw.path).toContain('playwright-core');
+    expect(pw.path).toBe('/managed/chrome');
+    expect(pw.note).toContain('playwright-core');
+  });
+
+  it('playwright is not ready when the module exists but no browser executable is available', async () => {
+    const resolver = makeResolver({
+      'playwright-core': '/repo/node_modules/playwright-core/index.js',
+    });
+    const report = await new DoctorService(
+      makeRunner({}),
+      resolver,
+      'darwin',
+      NO_APP,
+      () => undefined,
+    ).check();
+    const pw = report.checks.find((c) => c.name === 'playwright')!;
+    expect(pw.present).toBe(false);
+    expect(pw.installHint).toContain('Chrome');
   });
 
   it('playwright absent when node_modules has neither (global binary must NOT count)', async () => {

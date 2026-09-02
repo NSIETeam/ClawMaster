@@ -119,3 +119,11 @@ Dead code is harmful to agents because it creates false paths. If production
 code no longer imports a helper, remove it or mark it deprecated with a pointer
 to the replacement. Do not leave duplicate implementations for later models to
 guess between.
+
+## Code map discipline
+
+Use `docs/code-map.md` as the first index for cross-package work. Run
+`npm run code-map` after changing workspace dependencies, runtime boundaries,
+resident/background execution, channel integrations, customer modules, Tauri
+runtime packaging, or release topology. Run `npm run code-map:check` before
+committing so the checked-in map cannot silently drift from the repository.

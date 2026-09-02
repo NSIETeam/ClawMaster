@@ -9,6 +9,12 @@ import {
 } from './enterprise-registration-intent.js';
 
 describe('enterprise registration link parsing', () => {
+  it('accepts the branded clawmaster:// enterprise link', () => {
+    expect(parseEnterpriseRegistrationIntent(
+      'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY',
+    )).toEqual({ inviteCode: 'Ab3D-k9Pq-Z7xY' });
+  });
+
   it('accepts exact otto://enterprise/join links and normalizes invite codes', () => {
     expect(parseEnterpriseRegistrationIntent(
       'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY',

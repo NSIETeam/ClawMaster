@@ -11,7 +11,8 @@ import { SubAgent } from './subAgent.js';
 import { getBuiltInAgentDefinition, resolveAgentTools } from '../agents/agentDefinition.js';
 import { WorkflowRegistry } from './workflowRegistry.js';
 import { getAgentResourceBudget } from './agentResourceBudget.js';
-import type { AgentMemoryReport } from './agentMemoryStats.js';
+import { estimateAgentOwnedMemoryBytes, type AgentMemoryReport } from './agentMemoryStats.js';
+import { getSubAgentResourceCoordinator } from './subAgentResourceCoordinator.js';
 
 /**
  * Options passed to agent.run() inside a workflow script.
@@ -132,6 +133,13 @@ export class WorkflowAgentBridge implements WorkflowAgentAPI {
   }
 
   async run(options: WorkflowAgentRunOptions): Promise<WorkflowAgentRunResult> {
+    return this.runWithSignal(options, this.abortSignal);
+  }
+
+  private async runWithSignal(
+    options: WorkflowAgentRunOptions,
+    executionSignal: AbortSignal,
+  ): Promise<WorkflowAgentRunResult> {
     // Hard limit: prevent runaway workflows from spinning up unlimited agents
     // This is a cumulative lifetime limit — once exceeded, no more agents can spawn
     // in this workflow, even if earlier agents have finished.
@@ -158,47 +166,61 @@ export class WorkflowAgentBridge implements WorkflowAgentAPI {
       WorkflowRegistry.startAgent(this.workflowId, agentId, label, options.prompt, options.model, this.currentPhaseIndex);
     }
 
-    const subAgent = new SubAgent(
-      this.config,
-      filteredRegistry,
-      this.geminiClient,
-      (output: string) => this.onUpdate?.(agentId, output),
-      this.abortSignal,
-      // Track tool calls in real-time for the /workflow panel
-      this.workflowId
-        ? ({ tool, args }) => {
-            const summary = `${tool.name}(${JSON.stringify(args).slice(0, 60)})`;
-            WorkflowRegistry.updateAgentToolCall(this.workflowId!, agentId, summary);
-          }
-        : undefined,
-      agentDefinition,
-      options.model,
-      // Real-time token update for the /workflow panel
-      this.workflowId
-        ? (tok) => {
-            WorkflowRegistry.updateAgentTokens(this.workflowId!, agentId, tok);
-            // Token update means AI just finished a turn → now thinking/deciding next step
-            WorkflowRegistry.updateAgentPhase(this.workflowId!, agentId, 'thinking');
-          }
-        : undefined,
+    let result: Awaited<ReturnType<SubAgent['executeTask']>> | undefined;
+    const releaseResource = await getSubAgentResourceCoordinator().acquire(
+      agentId,
+      this.maxConcurrency,
+      executionSignal,
     );
-
-    // Soft deadline: log a warning after 30min but do NOT abort the agent.
-    // Complex tasks (large codebase analysis, long migrations) legitimately take longer.
-    // Hard abort is left to the user via the global AbortSignal.
-    const warningTimer = setTimeout(() => {
-      console.warn(
-        `[WorkflowAgentBridge] Agent "${label}" has been running for ${Math.round(this.agentTimeoutMs / 60000)}min. ` +
-        `It is still alive — this is a warning only. Use Ctrl+C to abort if needed.`
-      );
-    }, this.agentTimeoutMs);
-
-    let result: Awaited<ReturnType<typeof subAgent.executeTask>>;
     try {
-      result = await subAgent.executeTask(prompt, maxTurns);
+      if (executionSignal.aborted) {
+        throw new Error('Workflow sub-agent cancelled before execution.');
+      }
+      const subAgent = new SubAgent(
+        this.config,
+        filteredRegistry,
+        this.geminiClient,
+        (output: string) => this.onUpdate?.(agentId, output),
+        executionSignal,
+        // Track tool calls in real-time for the /workflow panel
+        this.workflowId
+          ? ({ tool, args }) => {
+              const summary = `${tool.name}(${JSON.stringify(args).slice(0, 60)})`;
+              WorkflowRegistry.updateAgentToolCall(this.workflowId!, agentId, summary);
+            }
+          : undefined,
+        agentDefinition,
+        options.model,
+        // Real-time token update for the /workflow panel
+        this.workflowId
+          ? (tok) => {
+              WorkflowRegistry.updateAgentTokens(this.workflowId!, agentId, tok);
+              // Token update means AI just finished a turn → now thinking/deciding next step
+              WorkflowRegistry.updateAgentPhase(this.workflowId!, agentId, 'thinking');
+            }
+          : undefined,
+      );
+
+      // Soft deadline: log a warning after 30min but do NOT abort the agent.
+      // Complex tasks (large codebase analysis, long migrations) legitimately take longer.
+      // Hard abort is left to the user via the global AbortSignal.
+      const warningTimer = setTimeout(() => {
+        console.warn(
+          `[WorkflowAgentBridge] Agent "${label}" has been running for ${Math.round(this.agentTimeoutMs / 60000)}min. ` +
+          `It is still alive — this is a warning only. Use Ctrl+C to abort if needed.`
+        );
+      }, this.agentTimeoutMs);
+      try {
+        result = await subAgent.executeTask(prompt, maxTurns);
+      } finally {
+        clearTimeout(warningTimer);
+      }
     } finally {
-      clearTimeout(warningTimer);
+      await releaseResource(
+        result?.memoryUsage ? estimateAgentOwnedMemoryBytes(result.memoryUsage) : undefined,
+      );
     }
+    if (!result) throw new Error('Workflow sub-agent ended without a result.');
 
     // Parse structured data from the summary.
     // When schema was provided, attempt strict JSON parse of the entire summary first;
@@ -247,54 +269,62 @@ export class WorkflowAgentBridge implements WorkflowAgentAPI {
     // Local AbortController so we can cancel remaining tasks on first failure
     const localAbort = new AbortController();
     // Propagate parent abort to local
+    const propagateParentAbort = () => localAbort.abort();
     if (this.abortSignal.aborted) { localAbort.abort(); }
-    else { this.abortSignal.addEventListener('abort', () => localAbort.abort(), { once: true }); }
+    else { this.abortSignal.addEventListener('abort', propagateParentAbort, { once: true }); }
 
     const results: WorkflowAgentRunResult[] = new Array(tasks.length);
     const queue = tasks.map((task, index) => ({ task, index }));
     let active = 0;
     let queueIndex = 0;
     let failed = false;
+    let failureError: unknown;
 
     // Use a wrapped run() that respects localAbort. When localAbort fires,
     // we skip spawning new tasks but allow in-flight tasks to finish naturally
     // (they are bound to the parent abortSignal and will stop when it fires).
     const runWithLocalAbort = (task: WorkflowAgentRunOptions): Promise<WorkflowAgentRunResult> => {
       if (localAbort.signal.aborted) return Promise.reject(new Error('AbortError'));
-      return this.run(task);
+      return this.runWithSignal(task, localAbort.signal);
     };
 
-    await new Promise<void>((resolve, reject) => {
-      const tryNext = () => {
-        // Skip scheduling new tasks if we've been aborted
-        while (!failed && !localAbort.signal.aborted && active < this.maxConcurrency && queueIndex < queue.length) {
-          const { task, index } = queue[queueIndex++]!;
-          active++;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tryNext = () => {
+          // Skip scheduling new tasks if we've been aborted
+          while (!failed && !localAbort.signal.aborted && active < this.maxConcurrency && queueIndex < queue.length) {
+            const { task, index } = queue[queueIndex++]!;
+            active++;
 
-          runWithLocalAbort(task)
-            .then(result => {
-              if (!failed) results[index] = result;
-            })
-            .catch(err => {
-              if (!failed) {
-                failed = true;
-                localAbort.abort();  // cancel remaining in-flight tasks
-                reject(err);
-              }
-            })
-            .finally(() => {
-              active--;
-              if (active === 0 && (queueIndex >= queue.length || failed)) {
-                if (!failed) resolve();
-              } else if (!failed && !localAbort.signal.aborted) {
-                tryNext();
-              }
-            });
-        }
-        if (queue.length === 0) resolve();
-      };
-      tryNext();
-    });
+            runWithLocalAbort(task)
+              .then(result => {
+                if (!failed) results[index] = result;
+              })
+              .catch(err => {
+                if (!failed) {
+                  failed = true;
+                  failureError = err;
+                  localAbort.abort();  // cancel remaining in-flight tasks
+                }
+              })
+              .finally(() => {
+                active--;
+                if (active === 0 && failed) {
+                  reject(failureError);
+                } else if (active === 0 && queueIndex >= queue.length) {
+                  resolve();
+                } else if (!failed && !localAbort.signal.aborted) {
+                  tryNext();
+                }
+              });
+          }
+          if (queue.length === 0) resolve();
+        };
+        tryNext();
+      });
+    } finally {
+      this.abortSignal.removeEventListener('abort', propagateParentAbort);
+    }
 
     // Fill any never-started slots with error placeholders so callers don't hit undefined
     for (let i = 0; i < results.length; i++) {

@@ -124,6 +124,90 @@ class MockModifiableTool
 }
 
 describe('CoreToolScheduler', () => {
+  it('hard-blocks mutating tools while plan mode is active', async () => {
+    const mockTool = new MockTool('write_file');
+    const toolRegistry = {
+      getTool: () => mockTool,
+      getFunctionDeclarations: () => [],
+      tools: new Map(),
+      discovery: {} as any,
+      registerTool: () => {},
+      getToolByName: () => mockTool,
+      getToolByDisplayName: () => mockTool,
+      getTools: () => [],
+      discoverTools: async () => {},
+      getAllTools: () => [mockTool],
+      getToolsByServer: () => [],
+    };
+    const onAllToolCallsComplete = vi.fn();
+    const scheduler = new CoreToolScheduler({
+      config: {
+        getSessionId: () => 'plan-session',
+        getUsageStatisticsEnabled: () => true,
+        getDebugMode: () => false,
+        getApprovalMode: () => 'default',
+        getPlanModeActive: () => true,
+      } as unknown as Config,
+      toolRegistry: Promise.resolve(toolRegistry as any),
+      onAllToolCallsComplete,
+      onToolCallsUpdate: vi.fn(),
+      getPreferredEditor: () => 'vscode',
+    });
+
+    await scheduler.schedule({
+      callId: 'plan-write',
+      name: 'write_file',
+      args: { path: 'plan.md', content: 'must not be written' },
+      isClientInitiated: false,
+      prompt_id: 'plan-prompt',
+    }, new AbortController().signal);
+
+    const completed = onAllToolCallsComplete.mock.calls[0]?.[0] as ToolCall[];
+    expect(completed[0]?.status).toBe('error');
+    expect(completed[0]?.response?.error?.message).toContain('计划模式');
+    expect(mockTool.executeFn).not.toHaveBeenCalled();
+  });
+
+  it('allows read-only investigation tools while plan mode is active', async () => {
+    const mockTool = new MockTool('read_file');
+    const toolRegistry = {
+      getTool: () => mockTool,
+      getFunctionDeclarations: () => [],
+      tools: new Map(),
+      discovery: {} as any,
+      registerTool: () => {},
+      getToolByName: () => mockTool,
+      getToolByDisplayName: () => mockTool,
+      getTools: () => [],
+      discoverTools: async () => {},
+      getAllTools: () => [mockTool],
+      getToolsByServer: () => [],
+    };
+    const scheduler = new CoreToolScheduler({
+      config: {
+        getSessionId: () => 'plan-session',
+        getUsageStatisticsEnabled: () => true,
+        getDebugMode: () => false,
+        getApprovalMode: () => 'default',
+        getPlanModeActive: () => true,
+      } as unknown as Config,
+      toolRegistry: Promise.resolve(toolRegistry as any),
+      onAllToolCallsComplete: vi.fn(),
+      onToolCallsUpdate: vi.fn(),
+      getPreferredEditor: () => 'vscode',
+    });
+
+    await scheduler.schedule({
+      callId: 'plan-read',
+      name: 'read_file',
+      args: { path: 'README.md' },
+      isClientInitiated: false,
+      prompt_id: 'plan-prompt',
+    }, new AbortController().signal);
+
+    expect(mockTool.executeFn).toHaveBeenCalledOnce();
+  });
+
   it('writes an audit record when a confirmation is denied', async () => {
     const auditRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-audit-confirm-'));
     tempRoots.push(auditRoot);

@@ -113,7 +113,7 @@ export function createPostgresDatabaseLifecycle(options: {
     if (!row) throw new Error('PostgreSQL readiness probe returned no rows');
     if (row.in_recovery) {
       throw new Error(
-        'PostgreSQL connection points to a read-only standby; Otto Server requires the writable primary',
+        'PostgreSQL connection points to a read-only standby; ClawMaster Server requires the writable primary',
       );
     }
     const schemaVersion = Number(row.schema_version);

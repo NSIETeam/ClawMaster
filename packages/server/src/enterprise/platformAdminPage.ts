@@ -8,7 +8,7 @@ export function platformAdminHTML(): string {
   }
   return `<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Otto 平台企业工作台</title>
+<title>ClawMaster 平台企业工作台</title>
 <style>
 :root{--ink:#17211d;--muted:#69736e;--line:#d9e1dd;--line-strong:#c6d1cb;--paper:#f3f6f4;--panel:#fff;--subtle:#edf2ef;--accent:#176a4b;--accent-dark:#10553b;--accent-soft:#e5f1eb;--danger:#a53e35;--danger-soft:#faece9;--nav:#13241d;--nav-soft:#1d352b;--nav-line:#31483e;--shadow:0 18px 48px rgba(19,36,29,.13);--radius:11px}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font:14px/1.55 Inter,-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif}button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!important}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:3px solid #2b8f68;outline-offset:2px}
@@ -20,7 +20,7 @@ export function platformAdminHTML(): string {
 </style></head><body>
 <main class="platform-shell">
   <aside class="rail">
-    <div class="brand">otto<b>✦</b></div>
+    <div class="brand">ClawMaster<b>✦</b></div>
     <div class="rail-intro"><div class="eyebrow">PLATFORM CONTROL</div><h1>平台企业管理</h1><p>选择企业，再处理该企业的成员、邀请码和用量。</p></div>
     <div id="organizationControls" class="organization-controls hidden">
       <div class="organization-head"><strong>全部企业</strong><span id="organizationCount" class="organization-count">0 个</span></div>
@@ -277,14 +277,14 @@ if(token){loadOrganizations(selectedOrganizationId).then(()=>sessionStorage.setI
 function legacyPlatformAdminHTML(): string {
   return `<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Otto 平台企业管理</title>
+<title>ClawMaster 平台企业管理</title>
 <style>
 :root{--ink:#17211d;--muted:#66716c;--line:#d8e0dc;--paper:#f3f6f4;--panel:#fff;--accent:#176a4b;--accent-dark:#10553b;--accent-soft:#e7f2ec;--danger:#a53e35;--danger-soft:#faece9;--nav:#14231d;--shadow:0 22px 60px rgba(18,35,27,.14)}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.55 Inter,-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif}button,input{font:inherit}button{cursor:pointer}.hidden{display:none!important}a{color:inherit}.shell{min-height:100vh;display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr)}.rail{background:var(--nav);color:#eef6f2;padding:36px 30px;display:flex;flex-direction:column}.brand{font-size:26px;font-weight:850;letter-spacing:-.05em}.brand b{color:#69d5ab}.rail-copy{margin:auto 0}.eyebrow{font-size:11px;letter-spacing:.13em;font-weight:800;color:#60cda3}.rail h1{font-size:36px;line-height:1.08;letter-spacing:-.045em;margin:13px 0}.rail p{color:#a5b7ae}.rail a{color:#d6e5de;text-decoration:none;border:1px solid #40564d;border-radius:8px;padding:9px 12px;text-align:center}.workspace{padding:38px clamp(24px,5vw,70px) 64px;min-width:0}.topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:24px}.topbar h2{font-size:31px;letter-spacing:-.04em;margin:4px 0}.topbar p{color:var(--muted);margin:0}.status{display:inline-flex;align-items:center;gap:7px;background:var(--accent-soft);color:#245f49;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:750}.status:before{content:'';width:7px;height:7px;border-radius:50%;background:#2c9369}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 2px rgba(18,35,27,.04);padding:22px;margin-bottom:16px}.card h3{font-size:18px;margin:0 0 5px}.card>p{color:var(--muted);margin:0 0 18px}.token-row{display:grid;grid-template-columns:minmax(220px,1fr) auto auto;gap:10px}.field{display:grid;gap:6px}.field label{font-size:12px;font-weight:750;color:#46534d}.field input{height:44px;border:1px solid #c8d3cd;border-radius:8px;padding:0 12px;outline:none}.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(23,106,75,.11)}.primary,.secondary{height:44px;border-radius:8px;padding:0 15px;font-weight:750}.primary{border:1px solid var(--accent);background:var(--accent);color:#fff}.primary:hover{background:var(--accent-dark)}.secondary{border:1px solid #c8d3cd;background:#fff;color:var(--ink)}.primary:disabled,.secondary:disabled{opacity:.5;cursor:default}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.wide{grid-column:1/-1}.form-actions{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:18px}.error,.notice{padding:10px 12px;border-radius:8px;margin-top:13px}.error{color:var(--danger);background:var(--danger-soft);border:1px solid #ecc8c2}.notice{color:#245f49;background:var(--accent-soft);border:1px solid #cfe3d8}.organization-list{display:grid;gap:10px}.organization{border:1px solid var(--line);border-radius:10px;padding:15px 17px;display:flex;align-items:center;justify-content:space-between;gap:18px}.organization strong{display:block;font-size:15px}.organization small{display:block;color:var(--muted);margin-top:3px}.badge{background:var(--accent-soft);color:#245f49;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:750}.empty{color:var(--muted);padding:22px 0;text-align:center}.count{color:var(--muted);font-size:12px}
 @media(max-width:820px){.shell{display:block}.rail{min-height:auto;padding:22px 24px;gap:24px}.rail-copy{margin:20px 0}.rail h1{font-size:30px}.workspace{padding:25px 16px 44px}.topbar{align-items:flex-start;flex-direction:column}.token-row{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}.organization{align-items:flex-start;flex-direction:column}}
 </style></head><body>
 <main class="shell">
-  <aside class="rail"><div class="brand">otto<b>✦</b></div><div class="rail-copy"><div class="eyebrow">PLATFORM CONTROL</div><h1>平台企业管理</h1><p>创建多个相互隔离的企业，为每个企业设置首位管理员，并随时查看组织清单。</p></div><a href="/enterprise/admin">返回企业管理员登录</a></aside>
+  <aside class="rail"><div class="brand">ClawMaster<b>✦</b></div><div class="rail-copy"><div class="eyebrow">PLATFORM CONTROL</div><h1>平台企业管理</h1><p>创建多个相互隔离的企业，为每个企业设置首位管理员，并随时查看组织清单。</p></div><a href="/enterprise/admin">返回企业管理员登录</a></aside>
   <section class="workspace">
     <header class="topbar"><div><div class="eyebrow">MULTI-ORGANIZATION</div><h2>企业总览</h2><p>平台令牌只保存在当前标签页，关闭标签页后自动清除。</p></div><span id="authStatus" class="status hidden">平台身份已验证</span></header>
     <section class="card"><h3>验证平台身份</h3><p>输入服务器部署时配置的管理令牌。企业管理员账号不能访问此页面。</p><form id="tokenForm" class="token-row"><div class="field"><label for="platformToken">平台管理令牌</label><input id="platformToken" type="password" autocomplete="off" required></div><button id="openPlatform" class="primary" type="submit">打开企业总览</button><button id="clearToken" class="secondary" type="button">清除令牌</button></form><div id="tokenError" class="error hidden" role="alert"></div></section>
@@ -317,4 +317,3 @@ $('organizationForm').addEventListener('submit',async event=>{event.preventDefau
 if(token){loadOrganizations().catch(()=>clearPlatformSession('平台令牌已失效，请重新验证'))}else setAuthenticated(false);
 </script></body></html>`;
 }
-

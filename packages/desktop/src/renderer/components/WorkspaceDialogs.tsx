@@ -178,7 +178,7 @@ export function EnterpriseMemoryDialog({ open, role, onClose }: {
       const result = await window.otto.enterpriseKnowledgeRecord({
         sourceId, title, category: entry.category || 'work_result',
         content: [title, entry.details].filter(Boolean).join('\n'), confidence: 0.82,
-        sourceType: 'work_result', sourceLabel: `${date} ${entry.time} Otto 工作成果`,
+        sourceType: 'work_result', sourceLabel: `${date} ${entry.time} ClawMaster 工作成果`,
       });
       if (epoch !== epochRef.current) return;
       setNotice(result.reviewStatus === 'active' ? '已沉淀为企业知识。'

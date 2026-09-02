@@ -607,11 +607,11 @@ export const DEFAULT_INSTALLED_PLUGINS: InstalledPluginsRecord = {
 };
 
 // ============================================================================
-// Legacy Types (for backward compatibility with SkillsContextBuilder)
+// Compact catalog projection shared by model tools and the local server.
 // ============================================================================
 
 /**
- * Simplified SkillInfo for context builder
+ * Simplified skill information for catalog queries.
  */
 export interface SkillInfo {
   id: string;
@@ -620,31 +620,10 @@ export interface SkillInfo {
   marketplaceId: string;
   description: string;
   path: string;
-  /** @deprecated 使用 skillFilePath 替代，保留此字段以保持向后兼容性 */
-  skillMdPath: string;
-  /** SKILL.md 文件的完整路径（推荐使用此字段） */
-  skillFilePath?: string;
+  /** Absolute path to the skill instructions. */
+  skillFilePath: string;
   enabled: boolean;
 }
-
-/**
- * Skills context for AI
- */
-export interface SkillsContext {
-  available: boolean;
-  skills: SkillInfo[];
-  summary: string;
-}
-
-/**
- * Installed plugins record (legacy alias)
- */
-export type InstalledPlugins = InstalledPluginsRecord;
-
-/**
- * Plugin info (legacy alias)
- */
-export type PluginInfo = InstalledPluginInfo;
 
 /**
  * Marketplace manifest definition

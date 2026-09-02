@@ -476,14 +476,6 @@ export function generateCustomModelId(config: CustomModelConfig): string {
 }
 
 /**
- * @deprecated 使用 generateCustomModelId(config) 代替
- * 仅用于向后兼容旧格式 custom:{displayName}
- */
-export function generateLegacyCustomModelId(displayName: string): string {
-  return `custom:${displayName}`;
-}
-
-/**
  * 从内部ID提取provider
  * 支持新格式 custom:{provider}:{modelId}@{hash} 和旧格式 custom:{displayName}
  */

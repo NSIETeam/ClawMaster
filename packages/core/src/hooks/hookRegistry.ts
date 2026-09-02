@@ -12,7 +12,7 @@ import { debugLogger } from '../utils/debugLogger.js';
 /**
  * Error thrown when attempting to use HookRegistry before initialization
  */
-export class HookRegistryNotInitializedError extends Error {
+class HookRegistryNotInitializedError extends Error {
   constructor(message = 'Hook registry not initialized') {
     super(message);
     this.name = 'HookRegistryNotInitializedError';

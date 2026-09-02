@@ -56,7 +56,7 @@ describe('SkillLoader', () => {
     marketplaceManager = new MarketplaceManager(settingsManager);
     pluginInstaller = new PluginInstaller(settingsManager, marketplaceManager);
     // Pass testRoot as projectRoot to isolate tests from actual project directory
-    loader = new SkillLoader(settingsManager, marketplaceManager, undefined, testRoot);
+    loader = new SkillLoader(settingsManager, { projectRoot: testRoot });
   });
 
   afterEach(async () => {
@@ -139,6 +139,23 @@ description: Test Skill 2
   }
 
   describe('loadEnabledSkills', () => {
+    it('安静跳过旧版自动生成的非 ASCII Skill 目录', async () => {
+      const legacyDirectory = path.join(
+        testRoot,
+        '.otto-user',
+        'skills',
+        'auto-自动skill-检测到-1',
+      );
+      await fs.ensureDir(legacyDirectory);
+      await fs.writeFile(path.join(legacyDirectory, 'SKILL.md'), `---\nname: auto-自动skill-检测到-1\ndescription: legacy\n---\n`);
+      const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      await expect(loader.loadEnabledSkills(SkillLoadLevel.METADATA)).resolves.toEqual([]);
+
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining('已忽略旧版自动 Skill 目录'));
+      expect(warning.mock.calls.flat().join(' ')).not.toContain('SkillError');
+    });
+
     it('should load all enabled skills with metadata level', async () => {
       await createTestMarketplace();
 

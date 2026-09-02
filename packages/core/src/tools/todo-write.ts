@@ -21,14 +21,6 @@ import {
 // Re-export the shared todo types so existing importers keep working.
 export type { TodoItem, TodoStatus, TodoPriority } from './todo-store.js';
 
-/**
- * 获取内存中的todos列表
- * @deprecated Prefer subscribing to `todoStore` for reactive updates.
- */
-export function getMemoryTodos(): TodoItem[] {
-  return todoStore.getTodos();
-}
-
 // TodoWrite工具参数接口
 export interface TodoWriteParams {
   todos: Array<{

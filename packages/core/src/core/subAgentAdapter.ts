@@ -18,6 +18,16 @@ import {
 } from './toolSchedulerAdapter.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 
+const MAX_TRACKED_FILES = 200;
+const MAX_TRACKED_COMMANDS = 100;
+
+function trackRecentUnique(items: string[], value: string, limit: number): void {
+  const existingIndex = items.indexOf(value);
+  if (existingIndex >= 0) items.splice(existingIndex, 1);
+  items.push(value);
+  if (items.length > limit) items.splice(0, items.length - limit);
+}
+
 /**
  * SubAgent UI适配器 - 为子Agent提供专门的UI交互
  * 
@@ -28,7 +38,6 @@ import { ToolRegistry } from '../tools/tool-registry.js';
  * - 执行结果汇总
  */
 export class SubAgentAdapter implements ToolSchedulerAdapter {
-  private executionLog: string[] = [];
   private filesCreated: string[] = [];
   private commandsRun: string[] = [];
   private statusUpdateCallback?: (toolCalls: ToolCall[], context: ToolExecutionContext) => void;
@@ -83,12 +92,12 @@ export class SubAgentAdapter implements ToolSchedulerAdapter {
       if (toolCall.request.name === 'write_file' || toolCall.request.name === 'edit_file') {
         const fileName = toolCall.request.args?.file_path || toolCall.request.args?.path;
         if (fileName && typeof fileName === 'string') {
-          this.filesCreated.push(fileName);
+          trackRecentUnique(this.filesCreated, fileName, MAX_TRACKED_FILES);
         }
       } else if (toolCall.request.name === 'shell') {
         const command = toolCall.request.args?.command;
         if (command && typeof command === 'string') {
-          this.commandsRun.push(command);
+          trackRecentUnique(this.commandsRun, command, MAX_TRACKED_COMMANDS);
         }
       }
     }
@@ -397,15 +406,7 @@ export class SubAgentAdapter implements ToolSchedulerAdapter {
    * 记录日志的私有方法
    */
   private log(message: string): void {
-    this.executionLog.push(message);
     this.logCallback?.(message);
-  }
-
-  /**
-   * 获取执行日志
-   */
-  getExecutionLog(): string[] {
-    return [...this.executionLog];
   }
 
   /**
@@ -425,24 +426,8 @@ export class SubAgentAdapter implements ToolSchedulerAdapter {
   /**
    * 清理资源
    */
-  cleanup(): void {
-    this.executionLog = [];
+  releaseRetainedData(): void {
     this.filesCreated = [];
     this.commandsRun = [];
   }
-}
-
-/**
- * 工厂函数 - 创建SubAgentAdapter
- */
-export function createSubAgentAdapter(
-  updateOutput?: (output: string) => void,
-  logCallback?: (message: string) => void,
-  toolCompletionHandler?: (completedCalls: CompletedToolCall[]) => void,
-): SubAgentAdapter {
-  return new SubAgentAdapter(
-    updateOutput,
-    logCallback,
-    toolCompletionHandler,
-  );
 }

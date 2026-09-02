@@ -1,3 +1,4 @@
+/* global console, process */
 /** Control-side USB license issuer. Requires a built otto-server package. */
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';

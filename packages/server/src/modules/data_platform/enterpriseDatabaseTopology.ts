@@ -120,7 +120,7 @@ export function resolveEnterpriseDatabaseTopology(input: {
   if (configuredBackend === 'sqlite') {
     if (replicas !== 1) {
       throw new Error(
-        'SQLite supports exactly one Otto Server writer; use PostgreSQL for multiple replicas',
+        'SQLite supports exactly one ClawMaster Server writer; use PostgreSQL for multiple replicas',
       );
     }
     assertLocalSqliteDatabasePath(input.sqliteDatabasePath);

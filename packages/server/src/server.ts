@@ -60,6 +60,7 @@ import {
   type ExtensionSummary,
   type AutoSkillCandidateInfo,
   type LocalAgentPingResponse,
+  type ChannelPairingBeginRequest,
 } from './protocol.js';
 import {
   TRUSTED_ORIGINS,
@@ -107,6 +108,15 @@ import {
   savePreferredModel,
 } from './customModels.js';
 import { externalInboundNotificationFromFrame } from './externalInboundNotification.js';
+import { WorkLogService } from './workLogService.js';
+import type {
+  ChannelConnectorV1,
+  ChannelProvider,
+} from './modules/integration_adapters/channelConnector.js';
+import {
+  FileChannelInstallationRegistry,
+  type ChannelInstallationRegistry,
+} from './modules/integration_adapters/channelInstallationRegistry.js';
 import {
   loadUserSettingsSubset,
   patchUserSettings,
@@ -133,7 +143,8 @@ import {
   MemoryTool,
   OTTO_CONFIG_DIR,
   DEFAULT_CONTEXT_FILENAME,
-  SkillsCompatAdapter,
+  resolveProjectMemoryFilePath,
+  SkillsCatalogAdapter,
   WorkflowRegistry,
   createLocalSchedule,
   updateLocalSchedule,
@@ -161,6 +172,7 @@ import {
   type SimpleMessage,
   getSessionManager,
   getAutoMemoryEngine,
+  RecurringTaskRegistry,
   loadBuiltinSkillInstructions,
   getWebSearchDiagnostics,
 } from 'otto-core';
@@ -364,6 +376,12 @@ export interface OttoServerOptions {
   chatFileCacheDir?: string;
   /** 后台标题生成超时；测试可缩短，生产默认 15 秒。 */
   sessionTitleTimeoutMs?: number;
+  /** 真实供应商适配器；未安装的供应商必须明确显示不可用。 */
+  channelConnectors?: Partial<Record<ChannelProvider, ChannelConnectorV1>>;
+  /** 频道安装公开元数据注册表；生产默认原子落盘，测试可注入。 */
+  channelInstallationRegistry?: ChannelInstallationRegistry;
+  /** 工作日志共享服务；测试可注入临时目录实例。 */
+  workLogService?: WorkLogService;
 }
 
 /** 飞书凭证存取接口（可注入；默认实现走 feishu/vendor/credentials.ts）。 */
@@ -464,9 +482,18 @@ export class OttoServer {
   private externalInboundUnsub?: () => void;
   /** 进程级自动 Skill 扫描器由当前 server 实例启动时，停机时负责释放。 */
   private autoSkillScannerStarted = false;
+  private backgroundScannerConfig?: CoreConfig;
+  private backgroundRealtimeWatcher?: AutoSkillRealtimeWatcher;
+  private backgroundTaskRegistry?: RecurringTaskRegistry;
+  private backgroundServicesActive = false;
+  private backgroundServicesEnabled: boolean;
   private readonly productWorkspace: ProductWorkspaceStore;
   private readonly chatFileCacheDir?: string;
   private readonly sessionTitleTimeoutMs: number;
+  private readonly channelConnectors: Partial<Record<ChannelProvider, ChannelConnectorV1>>;
+  private readonly channelPairingProviders = new Map<string, ChannelProvider>();
+  private readonly channelInstallationRegistry: ChannelInstallationRegistry;
+  private readonly workLogService: WorkLogService;
 
   constructor(opts: OttoServerOptions = {}) {
     this.host = opts.host ?? DEFAULT_HOST;
@@ -493,8 +520,14 @@ export class OttoServer {
     this.chatFileCacheDir = opts.chatFileCacheDir;
     this.sessionTitleTimeoutMs =
       opts.sessionTitleTimeoutMs ?? DEFAULT_SESSION_TITLE_TIMEOUT_MS;
-    this.globalAuthorizationMode =
-      loadUserSettingsSubset().authorizationMode ?? 'manual';
+    this.channelConnectors = { ...opts.channelConnectors };
+    this.channelInstallationRegistry = opts.channelInstallationRegistry
+      ?? new FileChannelInstallationRegistry();
+    this.workLogService = opts.workLogService ?? new WorkLogService();
+    const userSettings = loadUserSettingsSubset();
+    this.globalAuthorizationMode = userSettings.authorizationMode ?? 'manual';
+    this.backgroundServicesEnabled =
+      userSettings.backgroundModelTasksEnabled === true;
   }
 
   /** mock 只允许测试显式开启；真实用户没有个人 API 时必须明确报错。 */
@@ -562,34 +595,6 @@ export class OttoServer {
       console.warn('[Server] OttoSessionManager init failed (non-fatal):', e);
     }
 
-    // 启动后台自动维护（每 10 分钟运行一次）
-    //   - 记忆自动合并/压缩/清理 (AutoMemoryEngine)
-    //   - 上下文自动压缩 (idle 会话的 LLM 上下文摘要)
-    const maintenanceTimer = setInterval(() => {
-      // 记忆引擎维护
-      try {
-        const engine = getAutoMemoryEngine();
-        engine
-          .runMaintenanceCycle()
-          .catch((e: unknown) =>
-            console.warn('[Server] AutoMemory maintenance failed:', e),
-          );
-      } catch {
-        // engine 未初始化则跳过
-      }
-      // 上下文自动压缩
-      this.runAutoCompressionCycle().catch((e: unknown) =>
-        console.warn('[Server] Auto compression cycle failed:', e),
-      );
-    }, MAINTENANCE_INTERVAL_MS);
-
-    // 确保 stop() 时清理定时器
-    const origStop = this.stop.bind(this);
-    this.stop = async () => {
-      clearInterval(maintenanceTimer);
-      await origStop();
-    };
-
     // 自动 Skill 只分析本地工作日志并暂存“待确认候选”，不会直接写 SKILL.md。
     // 延迟首扫 15 秒，避免与桌面首屏初始化争抢磁盘；定时器 unref，不阻塞进程退出。
     try {
@@ -597,6 +602,7 @@ export class OttoServer {
         sessionId: 'auto-skill-scanner',
       });
       setAutoSkillConfigForProfile(scannerConfig);
+      this.backgroundScannerConfig = scannerConfig;
 
       // 实时触发监视器：每完成一个操作就检查是否达到重复阈值
       const realtimeWatcher = new AutoSkillRealtimeWatcher({ threshold: 3 });
@@ -612,13 +618,9 @@ export class OttoServer {
           },
         });
       });
-      setRealtimeWatcher(realtimeWatcher);
-
-      // 习惯分析引擎：后台积累操作日志，定期调LLM做深度分析
+      this.backgroundRealtimeWatcher = realtimeWatcher;
+      // 习惯分析引擎只有在用户明确开启后台付费分析后才登记任务。
       const habitAnalyzer = getHabitAnalyzer();
-      habitAnalyzer.setBackgroundModelCallsEnabled(
-        loadUserSettingsSubset().backgroundModelTasksEnabled === true,
-      );
       habitAnalyzer.setConfig(scannerConfig);
       habitAnalyzer.setCallback((insights) => {
         this.broadcastAll({
@@ -626,21 +628,13 @@ export class OttoServer {
           payload: { insights },
         });
       });
-      habitAnalyzer.start();
-
-
-      this.autoSkillScannerStarted = startAutoSkillScanner(
-        scannerConfig,
-        () => this.productWorkspace.snapshot().context.userId,
-        {
-          onCandidatesStaged: (candidates) => {
-            this.broadcastAll({
-              type: 'pending_auto_skills',
-              payload: { candidates: candidates.map(publicAutoSkillCandidate) },
-            });
-          },
-        },
-      );
+      if (this.backgroundServicesEnabled) {
+        this.startBackgroundServices();
+      } else {
+        setRealtimeWatcher(null);
+        habitAnalyzer.setBackgroundModelCallsEnabled(false);
+        console.log('[Server] Background intelligence disabled (default)');
+      }
     } catch (error) {
       console.warn(
         `[AutoSkill] Scanner startup skipped: ${error instanceof Error ? error.message : String(error)}`,
@@ -678,33 +672,93 @@ export class OttoServer {
       });
     });
 
-    // 主动服务引擎：定时检查 cron 规则（晨间简报、明早日程提醒等），
-    // 通过 WS 广播给所有桌面客户端，无须飞书在线。
-    try {
-      const proactive = getProactiveService();
-      proactive.setLocalNotifier({
-        notify: async (message, priority, ruleId) => {
-          const ruleName =
-            { morning_briefing: '晨间简报', tomorrow_early_schedule: '明早日程提醒', daily_work_summary: '每日汇总' }[ruleId] ?? ruleId;
+  }
+
+  private backgroundInputVersion(): string | undefined {
+    const sessions = this.store.listSessions();
+    if (sessions.length === 0) return undefined;
+    return sessions
+      .map((session) => `${session.sessionId}:${session.messageCount}:${session.status}`)
+      .sort()
+      .join('|');
+  }
+
+  private startBackgroundServices(): void {
+    if (
+      this.backgroundServicesActive
+      || !this.backgroundScannerConfig
+      || !this.backgroundRealtimeWatcher
+    ) return;
+    this.backgroundTaskRegistry = new RecurringTaskRegistry({
+      allowPaidBackground: true,
+      onError: (name, error) => console.warn(
+        `[Server] Background task ${name} failed:`,
+        error instanceof Error ? error.message : error,
+      ),
+    });
+    this.backgroundTaskRegistry.register({
+      name: 'server-memory-and-context-maintenance',
+      source: 'packages/server/src/server.ts',
+      intervalMs: MAINTENANCE_INTERVAL_MS,
+      initialDelayMs: MAINTENANCE_INTERVAL_MS,
+      estimatedCostUsdPerRun: 0.01,
+      getInputVersion: () => this.backgroundInputVersion(),
+      run: async () => {
+        await getAutoMemoryEngine().runMaintenanceCycle();
+        await this.runAutoCompressionCycle();
+      },
+    });
+    setRealtimeWatcher(this.backgroundRealtimeWatcher);
+    getHabitAnalyzer().setBackgroundModelCallsEnabled(true);
+    this.autoSkillScannerStarted = startAutoSkillScanner(
+      this.backgroundScannerConfig,
+      () => this.productWorkspace.snapshot().context.userId,
+      {
+        allowPaidBackground: true,
+        getInputVersion: () => this.backgroundInputVersion(),
+        onCandidatesStaged: (candidates) => {
           this.broadcastAll({
-            type: 'proactive_alert',
-            payload: { ruleId, ruleName, message, priority, timestamp: new Date().toISOString() },
+            type: 'pending_auto_skills',
+            payload: { candidates: candidates.map(publicAutoSkillCandidate) },
           });
         },
-      } as ProactiveLocalNotifier);
-      proactive.startScheduler(() => ({
-        userId: 'local',
-        userName: 'Otto User',
-        currentDay: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date().getDay()],
-        currentTime: `${new Date().getHours()}:${new Date().getMinutes()}`,
-        recentActions: [],
-        pendingTasks: 0,
-        hasUpcomingMeeting: false,
-      }));
-      console.log('[Server] ProactiveService started (local mode)');
-    } catch (err) {
-      console.warn('[Server] ProactiveService init failed (non-fatal):', err);
+      },
+    );
+    const proactive = getProactiveService();
+    proactive.setLocalNotifier({
+      notify: async (message, priority, ruleId) => {
+        const ruleName =
+          { morning_briefing: '晨间简报', tomorrow_early_schedule: '明早日程提醒', daily_work_summary: '每日汇总' }[ruleId] ?? ruleId;
+        this.broadcastAll({
+          type: 'proactive_alert',
+          payload: { ruleId, ruleName, message, priority, timestamp: new Date().toISOString() },
+        });
+      },
+    } as ProactiveLocalNotifier);
+    proactive.startScheduler(() => ({
+      userId: 'local',
+      userName: 'ClawMaster User',
+      currentDay: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date().getDay()],
+      currentTime: `${new Date().getHours()}:${new Date().getMinutes()}`,
+      recentActions: [],
+      pendingTasks: 0,
+      hasUpcomingMeeting: false,
+    }));
+    this.backgroundServicesActive = true;
+    console.log('[Server] Background intelligence enabled by user');
+  }
+
+  private stopBackgroundServices(): void {
+    this.backgroundTaskRegistry?.stopAll();
+    this.backgroundTaskRegistry = undefined;
+    if (this.autoSkillScannerStarted) {
+      stopAutoSkillScanner();
+      this.autoSkillScannerStarted = false;
     }
+    getHabitAnalyzer().setBackgroundModelCallsEnabled(false);
+    setRealtimeWatcher(null);
+    try { getProactiveService().stopScheduler(); } catch { /* ignore */ }
+    this.backgroundServicesActive = false;
   }
 
   /** 停止服务（取消并释放所有活跃 runtime，再关 WS、HTTP、飞书）。 */
@@ -720,13 +774,9 @@ export class OttoServer {
       clearTimeout(this.enterpriseLeaseTimer);
       this.enterpriseLeaseTimer = undefined;
     }
-    if (this.autoSkillScannerStarted) {
-      stopAutoSkillScanner();
-      this.autoSkillScannerStarted = false;
-    }
+    this.stopBackgroundServices();
     this.workflowUnsub?.();
     this.workflowUnsub = undefined;
-    try { getProactiveService().stopScheduler(); } catch { /* ignore */ }
     this.scheduleUnsub?.();
     this.scheduleUnsub = undefined;
     for (const timer of this.ephemeralSessionTimers.values()) clearTimeout(timer);
@@ -769,6 +819,12 @@ export class OttoServer {
       protocolVersion: PROTOCOL_VERSION,
       uptimeMs: Date.now() - this.startedAt,
       sessionCount: this.visibleSessions().length,
+      backgroundTasks: {
+        enabled: this.backgroundServicesEnabled,
+        active: this.backgroundServicesActive,
+        paidCallsAllowed:
+          this.backgroundServicesEnabled && this.backgroundServicesActive,
+      },
       feishu: {
         enabled: this.enableFeishu,
         connected: this.feishu?.isConnected() ?? false,
@@ -921,8 +977,8 @@ export class OttoServer {
       profile.edition !== workspace.context.edition
     ) {
       return workspace.context.edition === 'personal'
-        ? '个人版只能使用 Otto、会议助手与通用专家。'
-        : '企业版不能使用个人版 Otto profile。';
+        ? '个人版只能使用 ClawMaster、会议助手与通用专家。'
+        : '企业版不能使用个人版 ClawMaster profile。';
     }
     if (
       profile.roles &&
@@ -1120,6 +1176,8 @@ export class OttoServer {
         ?? this.defaultWorkspacePath,
       getConfig: (sid) =>
         this.store.getRuntime(sid)?.getConfig?.() as CoreConfig | undefined,
+      ensureConfig: async (sid) =>
+        (await this.ensureRuntime(sid))?.getConfig?.() as CoreConfig | undefined,
       currentModel: () => this.currentModel(),
       modelInfos: () => this.modelInfos(),
       mcpServerInfos: () => this.mcpServerInfos(),
@@ -1525,7 +1583,9 @@ export class OttoServer {
           throw new Error('backgroundModelTasksEnabled 的值必须是布尔');
         }
         patchUserSettings({ backgroundModelTasksEnabled: value });
-        getHabitAnalyzer().setBackgroundModelCallsEnabled(value);
+        this.backgroundServicesEnabled = value;
+        if (value) this.startBackgroundServices();
+        else this.stopBackgroundServices();
       } else if (key === 'preferredLanguage') {
         if (typeof value !== 'string') {
           throw new Error('preferredLanguage 的值必须是字符串');
@@ -1854,7 +1914,7 @@ export class OttoServer {
   ): Promise<void> {
     try {
       const cwd = this.workspaceForSession(msg.payload.sessionId);
-      const projectPath = path.join(cwd, 'OTTO.md');
+      const projectPath = await resolveProjectMemoryFilePath(cwd);
       const globalPath = path.join(
         homedir(),
         OTTO_CONFIG_DIR,
@@ -1894,9 +1954,8 @@ export class OttoServer {
   ): Promise<void> {
     const { fact } = msg.payload;
     try {
-      const memoryFilePath = path.join(
+      const memoryFilePath = await resolveProjectMemoryFilePath(
         this.workspaceForSession(msg.payload.sessionId),
-        'OTTO.md',
       );
       await MemoryTool.performAddMemoryEntry(fact, memoryFilePath, {
         readFile: fs.readFile,
@@ -1932,7 +1991,7 @@ export class OttoServer {
 
   private async sendSkillsList(conn: ClientConn, workspacePath: string): Promise<void> {
     try {
-      const adapter = new SkillsCompatAdapter(workspacePath);
+      const adapter = new SkillsCatalogAdapter(workspacePath);
       const skills = await adapter.listSkills();
       const payload: SkillSummary[] = skills.map((s) => ({
         id: s.id,
@@ -2163,7 +2222,7 @@ export class OttoServer {
     const messages = this.store.getHistory(sessionId);
     const lines: string[] = [`# ${session.title || '未命名对话'}`, ''];
     for (const m of messages) {
-      const speaker = m.role === 'user' ? '用户' : 'Otto';
+      const speaker = m.role === 'user' ? '用户' : 'ClawMaster';
       const text = m.content
         .map((p) => (p.type === 'text' ? p.value : ''))
         .join('')
@@ -2410,6 +2469,101 @@ export class OttoServer {
         instanceId: this.instanceId,
       };
       return sendJsonWithCors(res, 200, ok(pingResponse), req.headers.origin);
+    }
+    if (path === HTTP_ROUTES.channelPairings && req.method === 'POST') {
+      if (!matchesBearerToken(req.headers.authorization, this.localControlToken)) {
+        return sendJson(res, 401, err('unauthorized'));
+      }
+      void readJsonBody(req)
+        .then((body) => parseChannelPairingBeginRequest(body))
+        .then(async (input) => {
+          const connector = this.channelConnectors[input.provider];
+          if (!connector) {
+            sendJson(res, 503, err(`channel_connector_unavailable:${input.provider}`));
+            return;
+          }
+          const pairing = await connector.beginPairing(input);
+          this.channelPairingProviders.set(pairing.pairingId, input.provider);
+          sendJson(res, 201, ok(pairing));
+        })
+        .catch((error) => {
+          sendJson(res, 400, err(error instanceof Error ? error.message : String(error)));
+        });
+      return;
+    }
+    const channelPairingMatch = path.match(
+      /^\/channels\/pairings\/(pair_[a-f0-9]{24})(?:\/(install))?$/,
+    );
+    if (channelPairingMatch) {
+      if (!matchesBearerToken(req.headers.authorization, this.localControlToken)) {
+        return sendJson(res, 401, err('unauthorized'));
+      }
+      const pairingId = channelPairingMatch[1];
+      const action = channelPairingMatch[2];
+      const provider = this.channelPairingProviders.get(pairingId);
+      const connector = provider ? this.channelConnectors[provider] : undefined;
+      if (!connector) return sendJson(res, 404, err('channel_pairing_not_found'));
+      let operation: Promise<unknown>;
+      if (req.method === 'GET' && !action) {
+        operation = connector.getPairingStatus(pairingId);
+      } else if (req.method === 'POST' && action === 'install') {
+        operation = connector.completeInstallation(pairingId).then((installation) => {
+          this.channelInstallationRegistry.upsert(installation);
+          return installation;
+        });
+      } else if (req.method === 'DELETE' && !action) {
+        operation = connector.denyPairing(pairingId, 'cancelled by local user');
+      } else {
+        return sendJson(res, 405, err('method_not_allowed'));
+      }
+      void operation
+        .then((result) => sendJson(res, 200, ok(result)))
+        .catch((error) => {
+          sendJson(res, 409, err(error instanceof Error ? error.message : String(error)));
+        });
+      return;
+    }
+    if (path === '/channels/installations' && req.method === 'GET') {
+      if (!matchesBearerToken(req.headers.authorization, this.localControlToken)) {
+        return sendJson(res, 401, err('unauthorized'));
+      }
+      return sendJson(res, 200, ok(this.channelInstallationRegistry.list()));
+    }
+    const channelInstallationMatch = path.match(
+      /^\/channels\/installations\/(channel_(?:feishu|lark|wecom)_[a-f0-9]{24})(?:\/(health|start|stop))?$/,
+    );
+    if (channelInstallationMatch) {
+      if (!matchesBearerToken(req.headers.authorization, this.localControlToken)) {
+        return sendJson(res, 401, err('unauthorized'));
+      }
+      const installationId = channelInstallationMatch[1];
+      const action = channelInstallationMatch[2];
+      const installation = this.channelInstallationRegistry.get(installationId);
+      const connector = installation
+        ? this.channelConnectors[installation.provider]
+        : undefined;
+      if (!connector) return sendJson(res, 404, err('channel_installation_not_found'));
+      let operation: Promise<unknown>;
+      if (req.method === 'GET' && action === 'health') {
+        operation = connector.health(installationId);
+      } else if (req.method === 'POST' && action === 'start') {
+        operation = connector.start(installationId);
+      } else if (req.method === 'POST' && action === 'stop') {
+        operation = connector.stop(installationId);
+      } else if (req.method === 'DELETE' && !action) {
+        operation = connector.revoke(installationId).then(() => {
+          this.channelInstallationRegistry.remove(installationId);
+          return { revoked: true };
+        });
+      } else {
+        return sendJson(res, 405, err('method_not_allowed'));
+      }
+      void operation
+        .then((result) => sendJson(res, 200, ok(result)))
+        .catch((error) => {
+          sendJson(res, 409, err(error instanceof Error ? error.message : String(error)));
+        });
+      return;
     }
     if (path === HTTP_ROUTES.sessions && req.method === 'GET') {
       return sendJson(res, 200, ok(this.visibleSessions()));
@@ -3238,6 +3392,60 @@ export class OttoServer {
           type: 'schedules_list',
           payload: { schedules: listLocalSchedules() },
         });
+      }
+      case 'work_log_today': {
+        try {
+          const summary = await this.workLogService.today();
+          return this.send(conn.socket, {
+            type: 'work_log_today_result',
+            payload: { requestId: msg.payload.requestId, summary },
+          });
+        } catch (error) {
+          return this.send(conn.socket, {
+            type: 'error',
+            payload: {
+              requestId: msg.payload.requestId,
+              code: 'work_log_failed',
+              message: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
+      }
+      case 'work_log_recent': {
+        try {
+          const days = await this.workLogService.recent(msg.payload.days);
+          return this.send(conn.socket, {
+            type: 'work_log_recent_result',
+            payload: { requestId: msg.payload.requestId, days },
+          });
+        } catch (error) {
+          return this.send(conn.socket, {
+            type: 'error',
+            payload: {
+              requestId: msg.payload.requestId,
+              code: 'work_log_failed',
+              message: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
+      }
+      case 'work_log_report': {
+        try {
+          const report = await this.workLogService.report();
+          return this.send(conn.socket, {
+            type: 'work_log_report_result',
+            payload: { requestId: msg.payload.requestId, report },
+          });
+        } catch (error) {
+          return this.send(conn.socket, {
+            type: 'error',
+            payload: {
+              requestId: msg.payload.requestId,
+              code: 'work_log_failed',
+              message: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
       }
       case 'get_models':
         return this.send(conn.socket, {
@@ -4479,7 +4687,6 @@ function browserBridgeScript(clientToken: string): string {
       body: JSON.stringify(body),
     }).then((r) => ({ ok: !!r.ok, config: r.data || null, error: r.error || null })),
     feishuClearConfig: () => api('/feishu/config', { method: 'DELETE' }).then((r) => ({ ok: !!r.ok, config: r.data || null, error: r.error || null })),
-    parkConfig: () => Promise.resolve(null),
     themeGet: () => Promise.resolve(localStorage.getItem('otto-theme') || 'system'),
     themeSet: (value) => {
       localStorage.setItem('otto-theme', value);
@@ -4853,6 +5060,37 @@ function parseFeishuConfigSaveRequest(
     ...(appSecret ? { appSecret } : {}),
     ...(ownerOpenId ? { ownerOpenId } : {}),
   };
+}
+
+function parseChannelPairingBeginRequest(body: unknown): ChannelPairingBeginRequest {
+  if (typeof body !== 'object' || body === null) {
+    throw new Error('channel pairing body must be a JSON object');
+  }
+  const input = body as Record<string, unknown>;
+  const provider = input.provider;
+  if (provider !== 'feishu' && provider !== 'lark' && provider !== 'wecom') {
+    throw new Error('unsupported channel provider');
+  }
+  const installationPublicKey =
+    typeof input.installationPublicKey === 'string'
+      ? input.installationPublicKey.trim()
+      : '';
+  if (!installationPublicKey || installationPublicKey.length > 16_384) {
+    throw new Error('installation public key is required');
+  }
+  if (!Array.isArray(input.requestedScopes)) {
+    throw new Error('requestedScopes must be an array');
+  }
+  const requestedScopes = input.requestedScopes.map((scope) => {
+    if (typeof scope !== 'string' || !scope.trim() || scope.length > 100) {
+      throw new Error('invalid channel scope');
+    }
+    return scope.trim();
+  });
+  if (requestedScopes.length === 0 || requestedScopes.length > 50) {
+    throw new Error('channel scope request is empty or too large');
+  }
+  return { provider, installationPublicKey, requestedScopes };
 }
 /** core WorkflowAgentRecord → 协议 WorkflowAgentSummary（裁掉 prompt/recentToolCalls 等大字段）。 */
 function toWorkflowAgentSummary(a: WorkflowAgentRecord): WorkflowAgentSummary {

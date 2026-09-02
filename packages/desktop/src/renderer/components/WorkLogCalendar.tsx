@@ -3,16 +3,13 @@
  */
 
 import React, { useState } from 'react';
+import type { WorkLogDisplayEntry } from 'otto-server';
 import { localDateKey } from '../localDateKey.js';
 
-export interface CalendarWorkLogEntry {
-  time: string;
-  action: string;
-  entryType: string;
-  category?: string;
-  success?: boolean;
-  details?: string;
-}
+export type CalendarWorkLogEntry = Pick<
+  WorkLogDisplayEntry,
+  'time' | 'action' | 'entryType'
+> & Partial<Omit<WorkLogDisplayEntry, 'time' | 'action' | 'entryType'>>;
 
 function dateKey(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;

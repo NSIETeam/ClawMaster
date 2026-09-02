@@ -181,7 +181,7 @@ async function main(): Promise<void> {
     });
   } catch (error) {
     console.error(
-      `[Otto Enterprise] PostgreSQL promotion failed: ${safePostgresErrorMessage(
+      `[ClawMaster Enterprise] PostgreSQL promotion failed: ${safePostgresErrorMessage(
         error,
         process.env.OTTO_POSTGRES_URL,
       )}`,

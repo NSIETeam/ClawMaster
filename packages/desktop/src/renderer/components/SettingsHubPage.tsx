@@ -75,13 +75,24 @@ export type TabId =
  */
 const ENTERPRISE_LOCAL_AGENT_PAIRING_ENABLED = false;
 
-export function isSettingsTabVisible(tab: TabId): boolean {
+export function isSettingsTabVisible(
+  tab: TabId,
+  enterpriseEdition = true,
+): boolean {
+  if (!enterpriseEdition && (tab === 'organization' || tab === 'models')) {
+    return false;
+  }
   return tab !== 'local-agent' || ENTERPRISE_LOCAL_AGENT_PAIRING_ENABLED;
 }
 
 /** 防止斜杠命令或旧的导航状态绕过隐藏入口。 */
-export function resolveInitialSettingsTab(initialTab?: TabId): TabId {
-  return initialTab && isSettingsTabVisible(initialTab) ? initialTab : 'prefs';
+export function resolveInitialSettingsTab(
+  initialTab?: TabId,
+  enterpriseEdition = true,
+): TabId {
+  return initialTab && isSettingsTabVisible(initialTab, enterpriseEdition)
+    ? initialTab
+    : 'prefs';
 }
 
 const TAB_LABEL: Record<TabId, string> = {
@@ -156,7 +167,10 @@ export function SettingsHubPage({
   onUiModeChange = () => undefined,
   onManageAccounts,
 }: SettingsHubPageProps): React.JSX.Element {
-  const [tab, setTab] = useState<TabId>(() => resolveInitialSettingsTab(initialTab));
+  // 旧账号可能没有 accountType；只有明确 personal 才隐藏企业专属入口。
+  const enterpriseEdition = enterpriseAccount.accountType !== 'personal';
+  const [tab, setTab] = useState<TabId>(() =>
+    resolveInitialSettingsTab(initialTab, enterpriseEdition));
   const [showAdvanced, setShowAdvanced] = useState(
     () => Boolean(initialTab && ADVANCED_TABS.has(initialTab)),
   );
@@ -199,7 +213,7 @@ export function SettingsHubPage({
       <header className="otto-hub__head">
         <IconSettings size={20} className="otto-hub__headicon" />
         <div className="otto-hub__headtext">
-          <div className="otto-hub__title">Otto 设置</div>
+          <div className="otto-hub__title">ClawMaster 设置</div>
         </div>
         <button
           type="button"
@@ -218,7 +232,7 @@ export function SettingsHubPage({
           {SIMPLE_NAV_GROUPS.map((group) => (
             <div key={group.label} className="otto-hub__nav-group">
               <div className="otto-hub__nav-grouplabel">{group.label}</div>
-              {group.tabs.filter(isSettingsTabVisible).map((t) => (
+              {group.tabs.filter((t) => isSettingsTabVisible(t, enterpriseEdition)).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -246,7 +260,7 @@ export function SettingsHubPage({
           {showAdvanced ? ADVANCED_NAV_GROUPS.map((group) => (
             <div key={group.label} className="otto-hub__nav-group otto-hub__nav-group--advanced">
               <div className="otto-hub__nav-grouplabel">{group.label}</div>
-              {group.tabs.map((t) => (
+              {group.tabs.filter((t) => isSettingsTabVisible(t, enterpriseEdition)).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -275,7 +289,7 @@ export function SettingsHubPage({
             {tab === 'prefs' ? (
               <PrefsPanel data={data} uiMode={uiMode} onUiModeChange={onUiModeChange} />
             ) : null}
-            {tab === 'organization' ? (
+            {tab === 'organization' && enterpriseEdition ? (
               <OrganizationPanel
                 product={product}
                 enterpriseAccount={enterpriseAccount}
@@ -284,7 +298,7 @@ export function SettingsHubPage({
             ) : null}
             {tab === 'usage' ? <PersonalTokenUsagePanel /> : null}
             {tab === 'privacy' ? <PrivacyDataPanel /> : null}
-            {tab === 'models' ? <EnterpriseModelsPanel product={product} models={models} /> : null}
+            {tab === 'models' && enterpriseEdition ? <EnterpriseModelsPanel product={product} models={models} /> : null}
             {tab === 'search' ? <SearchPanel data={data} /> : null}
             {tab === 'feishu' ? <FeishuPanel /> : null}
             {tab === 'wecom' ? <WeComPanel /> : null}
@@ -295,7 +309,7 @@ export function SettingsHubPage({
             ) : null}
             {tab === 'doctor' ? <DoctorPanel data={data} /> : null}
             {tab === 'update' ? (
-              <Panel title="软件更新" desc="检查并下载 Otto 桌面版新版本。">
+              <Panel title="软件更新" desc="检查并下载 ClawMaster 桌面版新版本。">
                 <SoftwareUpdatePanel update={update} />
               </Panel>
             ) : null}

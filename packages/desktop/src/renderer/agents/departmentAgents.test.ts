@@ -58,7 +58,7 @@ describe('fixed Agent profile catalog', () => {
   it('keeps the three server-whitelisted foundational profiles as independent objects', () => {
     expect(PERSONAL_OTTO_PROFILE).toMatchObject({
       id: 'otto-personal',
-      name: 'Otto',
+      name: 'ClawMaster',
       department: null,
     });
     expect(ENTERPRISE_CEO_PROFILE).toMatchObject({

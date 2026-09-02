@@ -18,7 +18,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { SessionSummary } from 'otto-server';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { SourceBadge } from './SourceBadge.js';
-import { IconClose, IconList } from './icons.js';
+import { IconClose, IconList, IconTrash } from './icons.js';
 
 function formatWhen(ts: number): string {
   const d = new Date(ts);
@@ -33,26 +33,6 @@ function formatWhen(ts: number): string {
   const MM = String(d.getMonth() + 1).padStart(2, '0');
   const DD = String(d.getDate()).padStart(2, '0');
   return `${MM}-${DD} ${hh}:${mm}`;
-}
-
-/** 垃圾桶图标（内联，避免动 icons.tsx）。 */
-function IconTrash(): React.JSX.Element {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M10 11v6M14 11v6" />
-    </svg>
-  );
 }
 
 interface AllConversationsProps {

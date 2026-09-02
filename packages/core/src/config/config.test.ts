@@ -132,6 +132,22 @@ describe('Server Config (config.ts)', () => {
     });
   });
 
+  it('在基础身份规则之后追加会话系统提示词，并可独立清除', () => {
+    const config = new Config({
+      ...baseParams,
+      userRules: '基础身份规则不可覆盖',
+    });
+
+    config.setCustomSystemPrompt('回答必须附带验证证据');
+    expect(config.getBaseUserRules()).toBe('基础身份规则不可覆盖');
+    expect(config.getUserRules()).toContain('基础身份规则不可覆盖');
+    expect(config.getUserRules()).toContain('## 用户自定义系统提示词');
+    expect(config.getUserRules()).toContain('回答必须附带验证证据');
+
+    config.setCustomSystemPrompt('');
+    expect(config.getUserRules()).toBe('基础身份规则不可覆盖');
+  });
+
   describe('initialize', () => {
     it('should not throw an error if checkpointing is enabled and GitService fails', async () => {
       const gitError = new Error('Git is not installed');

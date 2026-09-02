@@ -333,7 +333,7 @@ export class AuthTemplates {
 
             <button class="auth-button" onclick="startOttoAuth()" data-i18n="auth.otto.button">
               <span style="font-size: 18px; margin-right: 8px; vertical-align: middle;">🔐</span>
-              Otto Login
+              ClawMaster Login
             </button>
           </div>
         </div>
@@ -346,20 +346,20 @@ export class AuthTemplates {
               'auth.page.description': 'Select your preferred login method to continue',
               'auth.loading.text': 'Checking access permissions...',
               'auth.feishu.button': 'Feishu Login',
-              'auth.otto.button': 'Otto Login',
+              'auth.otto.button': 'ClawMaster Login',
               'auth.china.restriction.title': 'Access Restricted',
               'auth.feishu.start.error': 'Failed to start Feishu authentication',
-              'auth.otto.start.error': 'Failed to start Otto authentication'
+              'auth.otto.start.error': 'Failed to start ClawMaster authentication'
             },
             zh: {
               'auth.page.title': '选择认证方式',
               'auth.page.description': '选择您偏好的登录方式以继续',
               'auth.loading.text': '正在检查访问权限...',
               'auth.feishu.button': '飞书登录',
-              'auth.otto.button': 'Otto 登录',
+              'auth.otto.button': 'ClawMaster 登录',
               'auth.china.restriction.title': '访问受限',
               'auth.feishu.start.error': '飞书认证启动失败',
-              'auth.otto.start.error': 'Otto 认证启动失败'
+              'auth.otto.start.error': 'ClawMaster 认证启动失败'
             }
           };
 
@@ -433,8 +433,8 @@ export class AuthTemplates {
                     authButtonsContainer.classList.remove('hidden');
                   }
 
-                  // Otto登录始终可用（没有hidden类）
-                  console.log('✅ Otto登录始终可用');
+                  // ClawMaster 登录始终可用（没有 hidden 类）
+                  console.log('✅ ClawMaster 登录始终可用');
 
                   // 根据权限显示飞书登录按钮（动态获取租户列表）
                   if (data.feishuLoginAllowed) {
@@ -662,8 +662,8 @@ export class AuthTemplates {
         <div class="container">
           <div class="success">✓</div>
           <h1 class="title" data-i18n="auth.feishu.success.title">Feishu Login Successful</h1>
-          <p class="message" data-i18n="auth.success.message">You have successfully logged in with Feishu. You can now close this page and return to Otto to continue your work.</p>
-          <div class="instruction" data-i18n="auth.success.instruction">Close this page and return to your terminal or IDE to continue using Otto.</div>
+          <p class="message" data-i18n="auth.success.message">You have successfully logged in with Feishu. You can now close this page and return to ClawMaster to continue your work.</p>
+          <div class="instruction" data-i18n="auth.success.instruction">Close this page and return to ClawMaster to continue.</div>
         </div>
         ${this.getI18nScript()}
       </body>
@@ -679,7 +679,7 @@ export class AuthTemplates {
       <!DOCTYPE html>
       <html>
       <head>
-        <title data-i18n="auth.otto.success.title">Otto Authentication Successful</title>
+        <title data-i18n="auth.otto.success.title">ClawMaster Authentication Successful</title>
         <meta charset="utf-8">
         <style>
           * {
@@ -787,9 +787,9 @@ export class AuthTemplates {
       <body>
         <div class="container">
           <div class="success">✓</div>
-          <h1 class="title" data-i18n="auth.otto.success.title">Otto Login Successful</h1>
-          <p class="message" data-i18n="auth.success.message">You have successfully logged in. You can now close this page and return to Otto to continue your work.</p>
-          <div class="instruction" data-i18n="auth.success.instruction">Close this page and return to your terminal or IDE to continue using Otto.</div>
+          <h1 class="title" data-i18n="auth.otto.success.title">ClawMaster Login Successful</h1>
+          <p class="message" data-i18n="auth.success.message">You have successfully logged in. You can now close this page and return to ClawMaster to continue your work.</p>
+          <div class="instruction" data-i18n="auth.success.instruction">Close this page and return to ClawMaster to continue.</div>
         </div>
         ${this.getI18nScript()}
       </body>
@@ -938,17 +938,17 @@ export class AuthTemplates {
         const translations = {
           en: {
             'auth.feishu.success.title': 'Feishu Login Successful',
-            'auth.otto.success.title': 'Otto Login Successful',
-            'auth.success.message': 'You have successfully logged in. You can now close this page and return to Otto to continue your work.',
-            'auth.success.instruction': 'Close this page and return to your terminal or IDE to continue using Otto.',
+            'auth.otto.success.title': 'ClawMaster Login Successful',
+            'auth.success.message': 'You have successfully logged in. You can now close this page and return to ClawMaster to continue your work.',
+            'auth.success.instruction': 'Close this page and return to ClawMaster to continue.',
             'auth.error.title': 'Authentication Failed',
             'auth.error.instruction': '❌ Please close this page and try again in your terminal or IDE.'
           },
           zh: {
             'auth.feishu.success.title': '飞书登录成功',
-            'auth.otto.success.title': 'Otto 登录成功',
-            'auth.success.message': '您已成功登录。现在可以关闭此页面并返回 Otto 继续您的工作。',
-            'auth.success.instruction': '关闭此页面并返回终端或IDE以继续使用 Otto。',
+            'auth.otto.success.title': 'ClawMaster 登录成功',
+            'auth.success.message': '您已成功登录。现在可以关闭此页面并返回 ClawMaster 继续您的工作。',
+            'auth.success.instruction': '关闭此页面并返回 ClawMaster 继续使用。',
             'auth.error.title': '认证失败',
             'auth.error.instruction': '❌ 请关闭此页面并在终端或IDE中重试。'
           }

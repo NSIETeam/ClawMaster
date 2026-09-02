@@ -49,8 +49,21 @@ Do NOT use this tool:
 `;
 
 export const OTTO_CONFIG_DIR = '.otto-user';
-export const DEFAULT_CONTEXT_FILENAME = 'OTTO.md';
-export const MEMORY_SECTION_HEADER = '## Otto Added Memories';
+export const DEFAULT_CONTEXT_FILENAME = 'CLAWMASTER.md';
+export const LEGACY_CONTEXT_FILENAME = 'OTTO.md';
+export const MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
+export const LEGACY_MEMORY_SECTION_HEADER = '## Otto Added Memories';
+
+export function findMemorySectionHeader(content: string): {
+  header: string;
+  index: number;
+} | null {
+  for (const header of [MEMORY_SECTION_HEADER, LEGACY_MEMORY_SECTION_HEADER]) {
+    const index = content.indexOf(header);
+    if (index >= 0) return { header, index };
+  }
+  return null;
+}
 
 /**
  * 单个记忆文件的写入上限(字节)。超过则不再追加新事实并 warn,
@@ -66,7 +79,8 @@ export const MAX_MEMORY_FILE_SIZE = 256 * 1024; // 256KB
  * 需要兼容 AGENTS.md 的项目可通过 settings 的 contextFileName 显式配置。
  */
 export const DEFAULT_CONTEXT_FILENAMES = [
-  'OTTO.md',
+  DEFAULT_CONTEXT_FILENAME,
+  LEGACY_CONTEXT_FILENAME,
 ];
 
 // This variable will hold the currently configured filename for context files.
@@ -231,9 +245,24 @@ interface SaveMemoryParams {
   fact: string;
 }
 
+export async function resolveProjectMemoryFilePath(projectRoot: string): Promise<string> {
+  const currentPath = path.join(projectRoot, DEFAULT_CONTEXT_FILENAME);
+  const legacyPath = path.join(projectRoot, LEGACY_CONTEXT_FILENAME);
+  try {
+    await fs.access(currentPath);
+    return currentPath;
+  } catch {
+    try {
+      await fs.access(legacyPath);
+      return legacyPath;
+    } catch {
+      return currentPath;
+    }
+  }
+}
+
 async function getProjectMemoryFilePath(config: Config): Promise<string> {
-  // Always use project root directory OTTO.md for memory storage
-  return path.join(config.getProjectRoot(), 'OTTO.md');
+  return resolveProjectMemoryFilePath(config.getProjectRoot());
 }
 
 /** 记忆根目录(~/.otto-user/memory),三层记忆(global/session)共用根。 */
@@ -373,16 +402,16 @@ export class MemoryTool extends BaseTool<SaveMemoryParams, ToolResult> {
         return;
       }
 
-      const headerIndex = content.indexOf(MEMORY_SECTION_HEADER);
+      const memorySection = findMemorySectionHeader(content);
 
-      if (headerIndex === -1) {
+      if (!memorySection) {
         // Header not found, append header and then the entry
         const separator = ensureNewlineSeparation(content);
         content += `${separator}${MEMORY_SECTION_HEADER}\n${newMemoryItem}\n`;
       } else {
         // Header found, find where to insert the new memory entry
         const startOfSectionContent =
-          headerIndex + MEMORY_SECTION_HEADER.length;
+          memorySection.index + memorySection.header.length;
         let endOfSectionIndex = content.indexOf('\n## ', startOfSectionContent);
         if (endOfSectionIndex === -1) {
           endOfSectionIndex = content.length; // End of file

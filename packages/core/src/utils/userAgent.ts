@@ -22,7 +22,7 @@
  *      by the VS Code extension as `VSCode-<extensionVersion>`);
  *   3. the literal `unknown`.
  */
-export const USER_AGENT_BRAND = 'Otto';
+export const USER_AGENT_BRAND = 'ClawMaster';
 
 export function getUserAgent(version?: string): string {
   const resolved = version ?? process.env.CLI_VERSION ?? 'unknown';

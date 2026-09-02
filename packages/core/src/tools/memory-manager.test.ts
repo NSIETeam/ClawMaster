@@ -121,7 +121,13 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
     delete process.env.OTTO_ENTERPRISE_ADMIN_TOKEN;
     delete process.env.OTTO_ENTERPRISE_RECALL_TIMEOUT_MS;
     if (server) {
-      await new Promise<void>((resolve) => server!.close(() => resolve()));
+      // Node's fetch keeps the real HTTP test connection alive. Force-close
+      // those idle sockets so Vitest does not spend its entire 5 s budget in
+      // afterEach waiting for server.close().
+      await new Promise<void>((resolve) => {
+        server!.close(() => resolve());
+        server!.closeAllConnections();
+      });
       server = undefined;
     }
   });

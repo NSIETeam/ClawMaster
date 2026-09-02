@@ -718,11 +718,3 @@ export class PluginInstaller {
     }
   }
 }
-
-/**
- * 单例实例（需要在使用时注入依赖）
- */
-export const pluginInstaller = new PluginInstaller(
-  {} as SettingsManager,
-  {} as MarketplaceManager,
-);

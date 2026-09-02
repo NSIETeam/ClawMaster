@@ -218,7 +218,7 @@ function BotMessage({
       <OttoSecondaryMark active={responding} />
       <div className="otto-msg-bot__body">
         <div className="otto-msg-bot__head">
-          <span className="otto-msg-bot__name">Otto</span>
+          <span className="otto-msg-bot__name">ClawMaster</span>
           <span className="otto-msg-bot__time">
             {formatTime(message.timestamp)}
           </span>
@@ -254,7 +254,7 @@ function BotMessage({
 /** 首个 chunk 未到时只显示克制文案；动效由左侧回答标记承担。 */
 function TypingIndicator(): React.JSX.Element {
   return (
-    <div className="otto-typing" role="status" aria-label="Otto 正在输入">
+    <div className="otto-typing" role="status" aria-label="ClawMaster 正在输入">
       正在组织回答…
     </div>
   );

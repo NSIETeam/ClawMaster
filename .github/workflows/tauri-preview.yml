@@ -1,0 +1,180 @@
+name: Tauri Preview Build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/tauri-preview.yml'
+      - '.github/workflows/tauri-node-runtime.yml'
+      - 'native/node-runtime/**'
+      - 'native/sqlcipher-tauri/**'
+      - 'packages/core/**'
+      - 'packages/server/**'
+      - 'packages/desktop/**'
+      - 'otto-native/**'
+      - 'package-lock.json'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tauri-preview.yml'
+      - '.github/workflows/tauri-node-runtime.yml'
+      - 'native/node-runtime/**'
+      - 'native/sqlcipher-tauri/**'
+      - 'packages/core/**'
+      - 'packages/server/**'
+      - 'packages/desktop/**'
+      - 'otto-native/**'
+      - 'package-lock.json'
+      - 'package.json'
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  native-assets:
+    uses: ./.github/workflows/sqlcipher-native.yml
+
+  node-runtime:
+    uses: ./.github/workflows/tauri-node-runtime.yml
+
+  macos:
+    name: macOS ${{ matrix.arch }} preview
+    needs: [native-assets, node-runtime]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            rustTarget: aarch64-apple-darwin
+            nativeTarget: darwin-arm64
+            dmg: ClawMaster_0.0.1-preview_aarch64.dmg
+          - runner: macos-15-intel
+            arch: x64
+            rustTarget: x86_64-apple-darwin
+            nativeTarget: darwin-x64
+            dmg: ClawMaster_0.0.1-preview_x64.dmg
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.20.0
+          package-manager-cache: false
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rustTarget }}
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: tauri-sqlcipher-${{ matrix.nativeTarget }}
+          path: native/sqlcipher-tauri
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: tauri-node-${{ matrix.nativeTarget }}
+          path: native/node-runtime/${{ matrix.nativeTarget }}
+
+      - name: Verify repository and Tauri release contracts
+        run: |
+          npm run doctor
+          npm run code-map:check
+          npm run typecheck --workspace=packages/desktop
+          npx vitest run \
+            packages/desktop/scripts/tauri-runtime-policy.test.mjs \
+            packages/desktop/scripts/tauri-node-runtime-contract.test.mjs \
+            packages/desktop/scripts/tauri-runtime-compression.test.mjs \
+            packages/desktop/scripts/verify-tauri-sqlcipher-asset.test.mjs \
+            packages/desktop/scripts/verify-tauri-dmg.test.mjs
+
+      - name: Build and verify Tauri preview DMG
+        run: npm run tauri:build --workspace=packages/desktop
+
+      - name: Record download checksum
+        working-directory: packages/desktop/src-tauri/target/release/bundle/dmg
+        run: shasum -a 256 "${{ matrix.dmg }}" > SHA256SUMS
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ClawMaster-macOS-${{ matrix.arch }}-Tauri-Preview
+          path: |
+            packages/desktop/src-tauri/target/release/bundle/dmg/${{ matrix.dmg }}
+            packages/desktop/src-tauri/target/release/bundle/dmg/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-x64:
+    name: Windows x64 preview
+    needs: [native-assets, node-runtime]
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.20.0
+          package-manager-cache: false
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: tauri-sqlcipher-win32-x64
+          path: native/sqlcipher-tauri
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: tauri-node-win32-x64
+          path: native/node-runtime/win32-x64
+
+      - name: Verify repository and Tauri release contracts
+        shell: pwsh
+        run: |
+          npm run doctor
+          npm run code-map:check
+          npm run typecheck --workspace=packages/desktop
+          npx vitest run `
+            packages/desktop/scripts/tauri-runtime-policy.test.mjs `
+            packages/desktop/scripts/tauri-node-runtime-contract.test.mjs `
+            packages/desktop/scripts/tauri-runtime-compression.test.mjs `
+            packages/desktop/scripts/verify-tauri-sqlcipher-asset.test.mjs `
+            packages/desktop/scripts/verify-tauri-windows-installer.test.mjs
+
+      - name: Build and verify Tauri preview installer
+        run: npm run tauri:build --workspace=packages/desktop
+
+      - name: Install and smoke-test Windows preview
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem packages/desktop/src-tauri/target/release/bundle/nsis/*.exe
+          packages/desktop/scripts/smoke-tauri-windows-install.ps1 -Installer $installer.FullName
+
+      - name: Record download checksum
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem packages/desktop/src-tauri/target/release/bundle/nsis/*.exe
+          Get-FileHash $installer.FullName -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $($installer.Name)" } |
+            Set-Content packages/desktop/src-tauri/target/release/bundle/nsis/SHA256SUMS
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ClawMaster-Windows-x64-Tauri-Preview
+          path: |
+            packages/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            packages/desktop/src-tauri/target/release/bundle/nsis/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14

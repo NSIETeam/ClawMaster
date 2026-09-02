@@ -30,7 +30,7 @@ describe('renderer federation A2A protocol', () => {
       grantedSources: ['current_chat', 'work_logs'],
     });
     expect(decision && displayFederationAtoaDecision(decision)).toContain(
-      'Otto',
+      'ClawMaster',
     );
   });
 
@@ -51,7 +51,7 @@ describe('renderer federation A2A protocol', () => {
       createdAt: '2026-08-13T00:00:00.000Z',
     });
     expect(decision && displayFederationAtoaDecision(decision)).toContain(
-      'Otto',
+      'ClawMaster',
     );
   });
 

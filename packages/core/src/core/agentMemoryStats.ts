@@ -31,6 +31,11 @@ export interface AgentMemoryReport {
   pendingToolResultParts: number;
 }
 
+const AGENT_BASE_OWNED_BYTES = 1024 * 1024;
+const HISTORY_BYTES_PER_CHAR = 4;
+const HISTORY_MESSAGE_OVERHEAD_BYTES = 1024;
+const PENDING_RESULT_PART_OVERHEAD_BYTES = 64 * 1024;
+
 export function readProcessMemorySnapshot(now: number = Date.now()): AgentMemorySnapshot {
   const usage = process.memoryUsage();
   return {
@@ -69,6 +74,19 @@ export function buildAgentMemoryReport(params: {
 
 export function estimateHistoryChars(history: Content[]): number {
   return history.reduce((total, message) => total + estimateUnknownChars(message), 0);
+}
+
+/**
+ * Estimate memory owned by one SubAgent from data that can actually be
+ * attributed to it. RSS and heap deltas describe the shared Node process, so
+ * charging those values to every agent makes N agents look like N complete
+ * ClawMaster processes and causes false pool exhaustion.
+ */
+export function estimateAgentOwnedMemoryBytes(report: AgentMemoryReport): number {
+  return AGENT_BASE_OWNED_BYTES
+    + report.historyChars * HISTORY_BYTES_PER_CHAR
+    + report.historyMessages * HISTORY_MESSAGE_OVERHEAD_BYTES
+    + report.pendingToolResultParts * PENDING_RESULT_PART_OVERHEAD_BYTES;
 }
 
 export function estimateUnknownChars(value: unknown): number {

@@ -47,7 +47,13 @@ async function startIsolated(adminToken?: string): Promise<{ base: string; serve
     adminToken,
     smsSender: null,
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      server.off('error', reject);
+      resolve();
+    });
+  });
   servers.push(server);
   const port = (server.address() as AddressInfo).port;
   return { base: `http://127.0.0.1:${port}`, server };

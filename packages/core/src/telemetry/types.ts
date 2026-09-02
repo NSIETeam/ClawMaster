@@ -21,7 +21,7 @@ export enum ToolCallDecision {
   MODIFY = 'modify',
 }
 
-export function getDecisionFromOutcome(
+function getDecisionFromOutcome(
   outcome: ToolConfirmationOutcome,
 ): ToolCallDecision {
   switch (outcome) {
@@ -124,7 +124,7 @@ export class UserPromptEvent {
 /**
  * 计算响应内容的字符长度
  */
-export function calculateResponseLength(responseParts: unknown): number {
+function calculateResponseLength(responseParts: unknown): number {
   if (!responseParts) return 0;
 
   let totalLength = 0;

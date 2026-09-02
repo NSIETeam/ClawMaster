@@ -702,7 +702,7 @@ export class WebSearchTool extends BaseTool<
         : undefined;
     if (!apiKey) {
       return this.errorResult(
-        `searchProvider is set to 'volcengine' but no API key is configured. Configure the Ark API Key in Otto settings or export ARK_API_KEY.`,
+        `searchProvider is set to 'volcengine' but no API key is configured. Configure the Ark API Key in ClawMaster settings or export ARK_API_KEY.`,
       );
     }
 
@@ -712,7 +712,7 @@ export class WebSearchTool extends BaseTool<
         : undefined;
     if (!model) {
       return this.errorResult(
-        `searchProvider is set to 'volcengine' but no search model or endpoint ID is configured. Configure a Doubao model ID in Otto settings.`,
+        `searchProvider is set to 'volcengine' but no search model or endpoint ID is configured. Configure a Doubao model ID in ClawMaster settings.`,
       );
     }
 
@@ -992,8 +992,8 @@ export class WebSearchTool extends BaseTool<
       const is401Error = this.is401Error(error);
       if (is401Error) {
         const notLoggedInMessage = isUsingCustomModel
-          ? `This tool (${WebSearchTool.Name}) is currently unavailable because you are not logged in to Otto. ` +
-            `Web search with the 'gemini' provider requires a Otto account. ` +
+          ? `This tool (${WebSearchTool.Name}) is currently unavailable because you are not logged in to ClawMaster. ` +
+            `Web search with the 'gemini' provider requires a ClawMaster account. ` +
             `Do NOT retry this tool until the user logs in. ` +
             `You can continue to assist the user using other tools and your own knowledge.`
           : `This tool (${WebSearchTool.Name}) is currently unavailable due to authentication failure. ` +
@@ -1010,11 +1010,11 @@ export class WebSearchTool extends BaseTool<
       // 检测积分不足错误（402 配额错误）
       if (isOttoQuotaError(error)) {
         const quotaExceededMessage = isUsingCustomModel
-          ? `This tool (${WebSearchTool.Name}) is currently unavailable because your Otto account has insufficient credits. ` +
+          ? `This tool (${WebSearchTool.Name}) is currently unavailable because your ClawMaster account has insufficient credits. ` +
             `Web search with the 'gemini' provider requires available credits in your account. ` +
             `Do NOT retry this tool until the user's credit balance is restored. ` +
             `You can continue to assist the user using other tools and your own knowledge.`
-          : `This tool (${WebSearchTool.Name}) is currently unavailable due to insufficient credits in your Otto account. ` +
+          : `This tool (${WebSearchTool.Name}) is currently unavailable due to insufficient credits in your ClawMaster account. ` +
             `Please ask the user to check their account balance or upgrade their plan. ` +
             `Do NOT retry this tool until credits are available.`;
 

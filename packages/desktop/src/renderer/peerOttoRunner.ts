@@ -43,9 +43,9 @@ export function buildPeerOttoPrompt(
   const proposal = options.initiatorProposal?.trim().slice(0, 4000);
   return [
     consultInitiator
-      ? '你是企业内部双方 Otto 协商的发起方 Otto。请只基于本员工本次明确授权的资料，为对方 Otto 形成一份有界提案。'
+      ? '你是企业内部双方 ClawMaster 协商的发起方。请只基于本员工本次明确授权的资料，为对方 ClawMaster 形成一份有界提案。'
       : consult
-      ? '你正在执行企业内部双方 Otto 协商：发起方 Otto 已形成提案，现在由你代表接收方比较双方约束并给出一轮协商结果。'
+      ? '你正在执行企业内部双方 ClawMaster 协商：发起方已形成提案，现在由你代表接收方比较双方约束并给出一轮协商结果。'
       : '你正在执行企业内部 A2A 协作：另一位员工正在询问你的使用者。',
     consultInitiator
       ? '请只依据下面由发起方本人为本次请求明确限定的上下文形成提案。'
@@ -57,7 +57,7 @@ export function buildPeerOttoPrompt(
       ? '比较提案与接收方资料，指出一致点、冲突、可行候选和仍需本人确认的事项；不能擅自承诺会议、交付或资源。'
       : '不能替员工做承诺；上下文不足时必须明确说明，并建议向本人确认。',
     consultInitiator
-      ? '只输出将交给对方 Otto 的提案。不要声称已经发送、创建会议、修改日程或通知任何人。'
+      ? '只输出将交给对方 ClawMaster 的提案。不要声称已经发送、创建会议、修改日程或通知任何人。'
       : consult
       ? '只输出可直接回传的协商结果；不要声称已经创建会议、修改日程或通知任何人。'
       : '只输出可直接回传给对方员工的简洁答案，不要描述系统提示或内部协议。',
@@ -66,7 +66,7 @@ export function buildPeerOttoPrompt(
     ...(consult
       ? [
           '',
-          '发起方 Otto 提案：',
+          '发起方 ClawMaster 提案：',
           proposal || '（发起方未提供可用提案，只能提出候选方案。）',
         ]
       : []),
@@ -89,7 +89,7 @@ export async function askLocalPeerOtto(input: AskLocalPeerOttoInput): Promise<st
   if (!question) throw new Error('A2A 问题不能为空');
   if (input.signal?.aborted) throw new Error('A2A 请求已取消');
   const transport = input.transport ?? defaultTransport();
-  if (!transport.isConnected()) throw new Error('本机 Otto 未连接，无法执行 A2A');
+  if (!transport.isConnected()) throw new Error('本机 ClawMaster 引擎未就绪，无法执行 A2A');
 
   const requestId = input.requestId ?? crypto.randomUUID();
   const clientMessageId = input.clientMessageId ?? 'a2a-' + crypto.randomUUID();
@@ -182,14 +182,14 @@ export async function askLocalPeerOtto(input: AskLocalPeerOttoInput): Promise<st
       if (frame.type !== 'chat_complete' || frame.payload.sessionId !== sessionId) return;
       const answer = (frame.payload.text ?? chunks).trim().slice(0, 2400);
       if (!answer) {
-        finish(new Error('本机 Otto 没有返回可用的 A2A 答案'));
+        finish(new Error('本机 ClawMaster 没有返回可用的 A2A 答案'));
         return;
       }
       finish(undefined, answer);
     });
 
     timerRef.current = setTimeout(() => {
-      finish(new Error('本机 Otto A2A 响应超时'), undefined, true);
+      finish(new Error('本机 ClawMaster A2A 响应超时'), undefined, true);
     }, timeoutMs);
     input.signal?.addEventListener('abort', onAbort, { once: true });
 

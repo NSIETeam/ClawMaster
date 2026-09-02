@@ -86,13 +86,13 @@ describe('EnterpriseUnreadNotificationTracker', () => {
       sessionId: 'enterprise:message:alice',
       source: 'atoa',
       sender: 'Alice',
-      preview: '对方正在请求你的 Otto 协作',
+      preview: '对方正在请求你的 ClawMaster 协作',
     });
     expect(show).toHaveBeenNthCalledWith(2, {
       sessionId: 'enterprise:message:bob',
       source: 'atoa',
       sender: 'Bob',
-      preview: '对方 Otto 已回复你的企业协作请求',
+      preview: '对方 ClawMaster 已回复你的企业协作请求',
     });
   });
 

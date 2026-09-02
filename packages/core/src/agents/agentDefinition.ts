@@ -121,7 +121,7 @@ Final report:
 - Minimal verification commands to run.`;
 }
 
-export function createDefaultCodeAnalysisAgent(
+function createDefaultCodeAnalysisAgent(
   availableTools: string[],
   maxTurns?: number,
 ): AgentDefinition {

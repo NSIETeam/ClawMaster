@@ -819,7 +819,7 @@ function launchGuidance(rawMessage: string, command: string, label: string): str
       `${rawMessage}\n\n` +
       `Could not launch ${label}. Make sure ${label} is installed and logged in ` +
       `on this machine, and that "${command}" is available on PATH. ` +
-      `Otto drives ${label} via the @agentclientprotocol/claude-agent-acp bridge ` +
+      `ClawMaster drives ${label} via the @agentclientprotocol/claude-agent-acp bridge ` +
       `(run on demand with npx); override the command with the ` +
       `OTTO_CLAUDE_CODE_ACP_CMD environment variable if needed.`
     );

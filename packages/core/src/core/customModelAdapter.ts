@@ -30,7 +30,6 @@ import {
   callOpenAIResponsesModel,
   callOpenAIResponsesModelStream,
 } from './customModelOpenAIClient.js';
-export { CODEX_OAUTH_SENTINEL } from './customModelProviderContract.js';
 export { shouldDumpGeminiRequest } from './customModelGeminiNative.js';
 export {
   callAnthropicModel,

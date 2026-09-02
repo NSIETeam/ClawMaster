@@ -104,7 +104,7 @@ export class NativeAgentPoolRuntime {
       const budget = getAgentResourceBudget();
       await bridge.call('agent_pool.create', {
         max_memory_mb: this.options.maxMemoryMb ?? DEFAULT_MAX_MEMORY_MB,
-        max_agents: this.options.maxAgents ?? budget.taskMaxConcurrency,
+        max_agents: this.options.maxAgents ?? budget.workflowMaxConcurrencyCeiling,
       });
       this.initialized = true;
       return true;

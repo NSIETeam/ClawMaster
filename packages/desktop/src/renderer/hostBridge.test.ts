@@ -40,6 +40,38 @@ describe('Tauri host bridge', () => {
       command: 'select_files',
       args: undefined,
     });
+    await expect(bridge.inspectLocalPath('/Users/test/report.md')).resolves.toEqual({
+      command: 'inspect_local_path',
+      args: { path: '/Users/test/report.md' },
+    });
+    await expect(bridge.readFilePath('/Users/test/photo.png')).resolves.toEqual({
+      command: 'read_file_path',
+      args: { filePath: '/Users/test/photo.png' },
+    });
+    await expect(bridge.saveTextFile('report.md', '# Report')).resolves.toEqual({
+      command: 'save_text_file',
+      args: { suggestedFileName: 'report.md', content: '# Report' },
+    });
+    await expect(bridge.runtimeDiagnostic()).resolves.toEqual({
+      command: 'runtime_diagnostic',
+      args: undefined,
+    });
+    await expect(bridge.notificationShow({
+      sessionId: 'session-1',
+      source: 'park',
+      sender: '园区服务台',
+      preview: '您的报修已有新回复',
+    })).resolves.toEqual({
+      command: 'notification_show',
+      args: {
+        payload: {
+          sessionId: 'session-1',
+          source: 'park',
+          sender: '园区服务台',
+          preview: '您的报修已有新回复',
+        },
+      },
+    });
   });
 
   it('fails explicitly for capabilities that have not migrated', async () => {
@@ -75,6 +107,7 @@ describe('Tauri host bridge', () => {
       defaultPath: '/Users/test', recentPaths: [],
     });
     expect(bridge.onEnterpriseSessionInvalidated(vi.fn())).toEqual(expect.any(Function));
+    expect(bridge.onUpdateProgress(vi.fn())).toEqual(expect.any(Function));
     expect(bridge.onMenu(vi.fn())).toEqual(expect.any(Function));
   });
 
@@ -106,6 +139,83 @@ describe('Tauri host bridge', () => {
     expect(frames).toHaveBeenCalledWith({
       type: 'sessions', payload: { sessions: [] },
     });
+  });
+
+  it('serves work logs through the shared local Server instead of a Tauri copy', async () => {
+    const eventHandlers = new Map<string, (event: { payload: unknown }) => void>();
+    const listen = vi.fn(async (event: string, handler: (event: { payload: unknown }) => void) => {
+      eventHandlers.set(event, handler);
+      return vi.fn();
+    });
+    const invoke = vi.fn(async (command: string, args?: Record<string, unknown>) => {
+      if (command === 'desktop_connect') return true;
+      if (command === 'desktop_send') {
+        const frame = args?.frame as { type: string; payload: { requestId: string } };
+        const payload = frame.type === 'work_log_today'
+          ? {
+              type: 'work_log_today_result',
+              payload: {
+                requestId: frame.payload.requestId,
+                summary: {
+                  summary: '今天完成 1 项工作。',
+                  date: '2026-09-02',
+                  totalActions: 1,
+                  workResults: 1,
+                },
+              },
+            }
+          : {
+              type: 'work_log_recent_result',
+              payload: { requestId: frame.payload.requestId, days: [] },
+            };
+        queueMicrotask(() => eventHandlers.get('desktop://server-frame')?.({ payload }));
+      }
+      return undefined;
+    });
+    const bridge = createTauriHostBridge(
+      invoke as unknown as TauriInvoke,
+      listen as never,
+    );
+
+    await expect(bridge.workLogToday()).resolves.toMatchObject({
+      date: '2026-09-02',
+      workResults: 1,
+    });
+    await expect(bridge.workLogRecent(7)).resolves.toEqual([]);
+    expect(invoke).toHaveBeenCalledWith('desktop_send', {
+      frame: expect.objectContaining({
+        type: 'work_log_recent',
+        payload: expect.objectContaining({ days: 7 }),
+      }),
+    });
+  });
+
+  it('subscribes to Tauri events before connecting and publishes the resolved state', async () => {
+    let releaseListeners!: () => void;
+    const listenersReady = new Promise<void>((resolve) => {
+      releaseListeners = resolve;
+    });
+    const listen = vi.fn(async () => {
+      await listenersReady;
+      return vi.fn();
+    });
+    const invoke = vi.fn(async () => true);
+    const bridge = createTauriHostBridge(
+      invoke as unknown as TauriInvoke,
+      listen as never,
+    );
+    const connections = vi.fn();
+    bridge.onConnectionChange(connections);
+
+    const connecting = bridge.connect();
+    await Promise.resolve();
+    expect(invoke).not.toHaveBeenCalled();
+
+    releaseListeners();
+    await expect(connecting).resolves.toBe(true);
+    expect(invoke).toHaveBeenCalledWith('desktop_connect');
+    expect(connections).toHaveBeenNthCalledWith(1, false);
+    expect(connections).toHaveBeenLastCalledWith(true);
   });
 
   it('turns a failed asynchronous send into a visible transport error frame', async () => {
@@ -165,6 +275,21 @@ describe('Tauri host bridge', () => {
 
     expect(installTauriHostBridge()).toBe(true);
     await expect(window.otto.themeGet()).resolves.toBe('system');
+    expect(installTauriHostBridge()).toBe(false);
+  });
+
+  it('does not hide a broken Tauri runtime behind browser preview data', () => {
+    Reflect.deleteProperty(window, 'otto');
+    Object.defineProperty(window, '__TAURI_INTERNALS__', {
+      configurable: true,
+      value: {},
+    });
+
+    expect(() => installTauriHostBridge()).toThrow(HostBridgeUnavailableError);
+  });
+
+  it('allows the explicit browser preview when no desktop runtime exists', () => {
+    Reflect.deleteProperty(window, 'otto');
     expect(installTauriHostBridge()).toBe(false);
   });
 

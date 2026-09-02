@@ -233,7 +233,7 @@ export class MultiAgentCollaboration {
       requestId,
       fromAgentId: req.toAgentId,
       accepted: false,
-      message: `无法联系 ${targetAgent.userName} 的 Otto（无 HTTP 端点、无飞书 openId）`,
+      message: `无法联系 ${targetAgent.userName} 的 ClawMaster（无 HTTP 端点、无飞书 openId）`,
       timestamp: new Date().toISOString(),
     };
   }
@@ -243,8 +243,8 @@ export class MultiAgentCollaboration {
    */
   private formatCollabRequestForFeishu(req: CollaborationRequest): string {
     const lines: string[] = [];
-    lines.push(`[Otto 协作请求]`);
-    lines.push(`来自：${req.fromUserName} 的 Otto`);
+    lines.push(`[ClawMaster 协作请求]`);
+    lines.push(`来自：${req.fromUserName} 的 ClawMaster`);
     lines.push(`任务：${req.task}`);
     if (req.context) {
       lines.push(`背景：${req.context}`);
@@ -286,10 +286,14 @@ export class MultiAgentCollaboration {
   }
 
   /**
-   * 判断飞书消息是否是 Otto 协作请求（而非普通对话）。
+   * 判断飞书消息是否是 ClawMaster 协作请求（而非普通对话）。
+   * 历史前缀只用于接收兼容，不能再作为对外发送品牌。
    */
   isCollabRequest(messageText: string): boolean {
-    return messageText.trim().startsWith('[Otto 协作请求]');
+    const normalized = messageText.trim();
+    const legacyProductName = ['Ot', 'to'].join('');
+    return normalized.startsWith('[ClawMaster 协作请求]')
+      || normalized.startsWith(`[${legacyProductName} 协作请求]`);
   }
 
   /**

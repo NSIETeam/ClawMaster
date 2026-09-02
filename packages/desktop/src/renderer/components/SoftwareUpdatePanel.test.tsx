@@ -206,6 +206,6 @@ describe('installHintForFile：按安装包类型给平台指引', () => {
   it('.exe → NSIS 向导指引；.dmg → 拖入应用程序指引；未知 → 通用指引', () => {
     expect(installHintForFile('C:\\Users\\f\\Downloads\\Otto-Setup.exe')).toContain('静默安装');
     expect(installHintForFile('/Users/f/Downloads/Otto.dmg')).toContain('自动完成安装');
-    expect(installHintForFile(null)).toContain('重新启动 Otto');
+    expect(installHintForFile(null)).toContain('重新启动 ClawMaster');
   });
 });

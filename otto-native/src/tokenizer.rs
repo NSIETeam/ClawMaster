@@ -2,14 +2,13 @@ use tiktoken_rs::{CoreBPE, get_bpe_from_model};
 
 pub struct Tokenizer {
     bpe: CoreBPE,
-    model: String,
 }
 
 impl Tokenizer {
     pub fn new(model: String) -> Result<Self, String> {
         let bpe = get_bpe_from_model(&model)
             .map_err(|e| format!("Failed to load tokenizer for {}: {}", model, e))?;
-        Ok(Self { bpe, model })
+        Ok(Self { bpe })
     }
 
     pub fn count(&self, text: &str) -> u32 {

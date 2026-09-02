@@ -65,6 +65,13 @@ describe('SettingsHubPage internal-test navigation', () => {
     expect(resolveInitialSettingsTab('organization')).toBe('organization');
   });
 
+  it('hides enterprise identity and enterprise models for an explicit personal account', () => {
+    expect(isSettingsTabVisible('organization', false)).toBe(false);
+    expect(isSettingsTabVisible('models', false)).toBe(false);
+    expect(resolveInitialSettingsTab('organization', false)).toBe('prefs');
+    expect(isSettingsTabVisible('usage', false)).toBe(true);
+  });
+
   it('omits the pairing button and renders the safe fallback for a direct request', () => {
     render(
       React.createElement(SettingsHubPage, {

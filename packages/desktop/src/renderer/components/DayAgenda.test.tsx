@@ -41,7 +41,7 @@ describe('DayAgenda', () => {
     await act(settleWorkLogs);
 
     expect(screen.getByText('整理竞品调研')).toBeTruthy();
-    expect(screen.getByText('Otto 自主创建')).toBeTruthy();
+    expect(screen.getByText('ClawMaster 自主创建')).toBeTruthy();
     expect(screen.getByText('创建原因：调研报告已完成，需要安排复盘')).toBeTruthy();
   });
 

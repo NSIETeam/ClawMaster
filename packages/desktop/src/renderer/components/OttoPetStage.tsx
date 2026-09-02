@@ -216,7 +216,7 @@ export function OttoPetStage({
     return (
       <aside
         className="otto-pet-widget"
-        aria-label="Otto 小宠物工作状态"
+        aria-label="ClawMaster 小宠物工作状态"
         data-testid="otto-pet-stage"
         data-current-state={animation.id}
         data-running={running ? 'true' : 'false'}
@@ -233,7 +233,7 @@ export function OttoPetStage({
           </div>
         </div>
         <div className="otto-pet-widget__copy">
-          <span className="otto-pet-widget__name">Otto</span>
+          <span className="otto-pet-widget__name">ClawMaster</span>
           <strong>{workLabel ?? (running ? '正在处理当前对话' : '等待下一项工作')}</strong>
         </div>
         <span
@@ -252,7 +252,7 @@ export function OttoPetStage({
   return (
     <section
       className="otto-pet-stage otto-pet-stage--login"
-      aria-label="Otto 像素吉祥物动画"
+      aria-label="ClawMaster 像素吉祥物动画"
       data-testid="otto-pet-stage"
       data-current-state={animation.id}
       data-running={running ? 'true' : 'false'}

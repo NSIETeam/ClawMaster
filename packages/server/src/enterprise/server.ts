@@ -228,15 +228,19 @@ function readBody(
   maxLength = 1_000_000,
 ): Promise<RouteBody> {
   return new Promise((resolve) => {
-    let body = '';
+    const chunks: Buffer[] = [];
+    let bodyLength = 0;
     let tooLarge = false;
     req.on('data', (chunk) => {
       if (tooLarge) return;
-      body += chunk;
-      if (body.length > maxLength) {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      bodyLength += bytes.length;
+      if (bodyLength > maxLength) {
         tooLarge = true;
-        body = '';
+        chunks.length = 0;
+        return;
       }
+      chunks.push(bytes);
     });
     req.on('end', () => {
       if (tooLarge) {
@@ -244,6 +248,7 @@ function readBody(
         return;
       }
       try {
+        const body = Buffer.concat(chunks, bodyLength).toString('utf8');
         resolve(body ? (JSON.parse(body) as RouteBody) : {});
       } catch {
         resolve({});
@@ -430,7 +435,7 @@ function makeHandler(
             commercialOrganizationId ?? db.DEFAULT_ORGANIZATION_ID,
           );
         } catch (error) {
-          console.error('[Otto Enterprise] commercial decision audit failed', {
+          console.error('[ClawMaster Enterprise] commercial decision audit failed', {
             event,
             message: error instanceof Error ? error.message : String(error),
           });
@@ -540,7 +545,7 @@ function makeHandler(
                 outcome,
                 billingFetch,
               ).catch((error: unknown) => {
-                console.error('[Otto Enterprise] billing finalization failed', {
+                console.error('[ClawMaster Enterprise] billing finalization failed', {
                   code: outcome,
                   message: error instanceof Error ? error.message : String(error),
                 });
@@ -596,7 +601,7 @@ function makeHandler(
 
       sendJSON(res, 404, { error: `Not found: ${method} ${path}` });
     } catch (err: unknown) {
-      console.error('[Otto Enterprise] 请求处理失败', err);
+      console.error('[ClawMaster Enterprise] 请求处理失败', err);
       if (res.headersSent) {
         res.destroy();
         return;
@@ -804,7 +809,7 @@ function validatedStartOptions(
   }
   if (errors.length > 0) {
     throw new Error(
-      `[Otto Enterprise] 拒绝非 loopback 启动：${errors.join('；')}`,
+      `[ClawMaster Enterprise] 拒绝非 loopback 启动：${errors.join('；')}`,
     );
   }
   return {
@@ -837,43 +842,43 @@ export function startEnterpriseServer(
     ? persistGeneratedAdminToken(adminToken)
     : null;
   server.listen(port, host, () => {
-    console.log(`[Otto Enterprise] 服务端运行于 http://${host}:${port}`);
+    console.log(`[ClawMaster Enterprise] 服务端运行于 http://${host}:${port}`);
     console.log(
-      `[Otto Enterprise] 账号管理: http://localhost:${port}/enterprise/admin`,
+      `[ClawMaster Enterprise] 账号管理: http://localhost:${port}/enterprise/admin`,
     );
     console.log(
-      `[Otto Enterprise] 企业引入: ${publicBaseUrl}/enterprise/join/{邀请码}`,
+      `[ClawMaster Enterprise] 企业引入: ${publicBaseUrl}/enterprise/join/{邀请码}`,
     );
     console.log(
-      `[Otto Enterprise] 老板看板: http://localhost:${port}/enterprise/dashboard`,
+      `[ClawMaster Enterprise] 老板看板: http://localhost:${port}/enterprise/dashboard`,
     );
     console.log(
-      `[Otto Enterprise] 数据: ~/.otto-enterprise/data.db（本地，零云端）`,
+      `[ClawMaster Enterprise] 数据: ~/.otto-enterprise/data.db（本地，零云端）`,
     );
     if (generatedTokenPath) {
       console.log(
-        `[Otto Enterprise] 自动生成的管理令牌已安全保存: ${generatedTokenPath}`,
+        `[ClawMaster Enterprise] 自动生成的管理令牌已安全保存: ${generatedTokenPath}`,
       );
     } else if (adminToken) {
       console.log(
-        '[Otto Enterprise] 已使用环境中配置的平台管理令牌（不会输出令牌内容）',
+        '[ClawMaster Enterprise] 已使用环境中配置的平台管理令牌（不会输出令牌内容）',
       );
     } else {
       console.log(
-        '[Otto Enterprise] 未配置平台令牌；管理页面仍要求管理员账号登录',
+        '[ClawMaster Enterprise] 未配置平台令牌；管理页面仍要求管理员账号登录',
       );
     }
     console.log(
-      '[Otto Enterprise] 积分管理: http://localhost:' +
+      '[ClawMaster Enterprise] 积分管理: http://localhost:' +
         port +
         '/enterprise/admin/credits',
     );
-    console.log('[Otto Enterprise] Ctrl+C 停止');
+    console.log('[ClawMaster Enterprise] Ctrl+C 停止');
   });
   const stopPrivateDeploymentRuntime = startPrivateDeploymentRuntime(db, {
     onError: (error) =>
       console.error(
-        '[Otto Enterprise] private deployment runtime failed',
+        '[ClawMaster Enterprise] private deployment runtime failed',
         error,
       ),
   });
@@ -901,7 +906,7 @@ export function startEnterpriseServer(
     try {
       db.cleanupExpiredMlsResources({ limit: 500 });
     } catch (error) {
-      console.error('[Otto Enterprise] MLS resource cleanup failed', error);
+      console.error('[ClawMaster Enterprise] MLS resource cleanup failed', error);
     } finally {
       mlsCleanupRunning = false;
     }
@@ -916,7 +921,7 @@ export function startEnterpriseServer(
       smsSender: repairSmsSender,
       feishuSender: repairFeishuSender,
       onError: (error) =>
-        console.error('[Otto Enterprise] 工单通知升级任务失败', error),
+        console.error('[ClawMaster Enterprise] 工单通知升级任务失败', error),
     });
   } catch (error) {
     clearImmediate(initialMlsCleanup);

@@ -21,9 +21,7 @@ export type DepartmentId =
   | 'sales-customer-success'
   | 'finance'
   | 'hr-admin';
-export type AgentProfileScope = 'base' | 'department' | 'personal';
-
-export const DEPARTMENT_LABELS: Readonly<Partial<Record<DepartmentId, string>>> = {};
+type AgentProfileScope = 'base' | 'department' | 'personal';
 
 export interface AgentProfile {
   /** Stable id used by session metadata, React keys, and telemetry. */
@@ -41,13 +39,13 @@ export interface AgentProfile {
 
 export const PERSONAL_OTTO_PROFILE: AgentProfile = {
   id: 'otto-personal',
-  name: 'Otto',
+  name: 'ClawMaster',
   tagline: '基础 Agent · 会做事，也会把重复工作沉淀成 Skill',
   scope: 'personal',
   department: null,
   skills: [],
   systemPrompt:
-    '你是个人版 Otto，是用户唯一的基础工作 Agent。根据任务按需发现并加载本机 Skill，直接完成真实工作；当同一流程反复出现且证据充分时，按当前安全与确认策略把它沉淀为可复用 Skill。个人版不得展示企业成员、组织架构或多 Agent 协作能力，也不得编造已执行结果。',
+    '你是个人版 ClawMaster，是用户唯一的基础工作 Agent。根据任务按需发现并加载本机 Skill，直接完成真实工作；当同一流程反复出现且证据充分时，按当前安全与确认策略把它沉淀为可复用 Skill。个人版不得展示企业成员、组织架构或多 Agent 协作能力，也不得编造已执行结果。',
 };
 
 export const ENTERPRISE_CEO_PROFILE: AgentProfile = {
@@ -70,7 +68,7 @@ export const ENTERPRISE_WORK_PROFILE: AgentProfile = {
   department: null,
   skills: [],
   systemPrompt:
-    '你是企业员工的基础工作 Agent。围绕当前部门和职位完成文档、调研、分析、会议与日程工作，按需加载企业允许的 Skill；只读取当前身份获授权的数据，不展示无权访问的成员或部门信息。需要与企业树中的同事通讯时，必须使用 enterprise_collaboration：先查询企业成员目录取得真实账号 ID，再发送消息、询问对方 Otto，或在低频场景发起双方 Otto 协商；不得猜测成员 ID，也不得用普通回复假装已通讯。你无权直接读取私聊历史；仅能在用户本机明确选择并解密消息片段后，将该片段用于一次性 A2A 上下文。企业知识、工作日志和日程也必须逐次授权；文件、API 密钥、其他聊天和未选择的私聊不在授权范围。涉及外发、修改企业数据或影响他人的操作必须先确认，只有工具返回真实结果后才能报告成功。',
+    '你是企业员工的基础工作 Agent。围绕当前部门和职位完成文档、调研、分析、会议与日程工作，按需加载企业允许的 Skill；只读取当前身份获授权的数据，不展示无权访问的成员或部门信息。需要与企业树中的同事通讯时，必须使用 enterprise_collaboration：先查询企业成员目录取得真实账号 ID，再发送消息、询问对方 ClawMaster，或在低频场景发起双方 ClawMaster 协商；不得猜测成员 ID，也不得用普通回复假装已通讯。你无权直接读取私聊历史；仅能在用户本机明确选择并解密消息片段后，将该片段用于一次性 A2A 上下文。企业知识、工作日志和日程也必须逐次授权；文件、API 密钥、其他聊天和未选择的私聊不在授权范围。涉及外发、修改企业数据或影响他人的操作必须先确认，只有工具返回真实结果后才能报告成功。',
 };
 
 /** 9 张固定身份卡之外的独立开发入口，保持队友版本的产品位置。 */

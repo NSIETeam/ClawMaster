@@ -346,26 +346,3 @@ export function getDangerousCommandInfo(
     warning: `[${rule.id}] ${rule.description}: ${rule.warningMessage}`,
   };
 }
-
-/**
- * 添加自定义规则
- * 注意：这应该谨慎使用，通常在应用启动时调用
- */
-export function addCustomDangerousCommandRule(rule: DangerousCommandRule): void {
-  // 检查是否已存在相同ID的规则
-  const existingIndex = DANGEROUS_COMMAND_RULES.findIndex(
-    (r) => r.id === rule.id,
-  );
-  if (existingIndex >= 0) {
-    DANGEROUS_COMMAND_RULES[existingIndex] = rule;
-  } else {
-    DANGEROUS_COMMAND_RULES.push(rule);
-  }
-}
-
-/**
- * 获取所有规则（用于调试、测试、UI展示）
- */
-export function getAllDangerousCommandRules(): DangerousCommandRule[] {
-  return [...DANGEROUS_COMMAND_RULES];
-}

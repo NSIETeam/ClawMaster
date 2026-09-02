@@ -5,6 +5,8 @@
 import React, { useState } from 'react';
 import { IconExternalLink } from '../icons.js';
 import { Card, Panel } from './HubUI.js';
+import { ChannelPairingCard } from './ChannelPairingCard.js';
+import { ChannelInstallationList } from './ChannelInstallationList.js';
 
 export const WECOM_ADMIN_URL = 'https://work.weixin.qq.com/wework_admin/frame#apps';
 export const WECOM_API_GUIDE_URL = 'https://developer.work.weixin.qq.com/document/path/90665';
@@ -17,7 +19,7 @@ const DESTINATIONS: Record<WeComDestination, string> = {
 };
 
 /** Keep external navigation closed over an allowlist; callers cannot inject a URL. */
-export async function openWeComDestination(destination: WeComDestination): Promise<void> {
+async function openWeComDestination(destination: WeComDestination): Promise<void> {
   if (!window.otto?.openExternal) throw new Error('桌面外部链接服务未就绪');
   await window.otto.openExternal(DESTINATIONS[destination]);
 }
@@ -42,8 +44,12 @@ export function WeComPanel(): React.JSX.Element {
   return (
     <Panel
       title="企业微信接入"
-      desc="从 Otto 直接进入企业微信管理后台，创建自建应用并准备 Corp ID、AgentId 和 Secret。"
+      desc="从 ClawMaster 直接进入企业微信管理后台，创建自建应用并准备 Corp ID、AgentId 和 Secret。"
     >
+      <ChannelPairingCard provider="wecom" />
+      <ChannelInstallationList provider="wecom" />
+
+      <div className="otto-hub__section-title">高级配置与兼容模式</div>
       <Card className="otto-hub__card--pad">
         <div className="otto-hub__row-name">连接准备</div>
         <p className="otto-hub__field-hint">
@@ -75,7 +81,7 @@ export function WeComPanel(): React.JSX.Element {
       <Card className="otto-hub__card--pad">
         <div className="otto-hub__row-name">当前能力边界</div>
         <p className="otto-hub__field-hint">
-          Otto 已有受确认保护的企业微信消息发送能力；凭证绑定仍应走专用安全配置通路。此页面不会把 Secret 交给模型，也不会在后台自动发送消息。
+          ClawMaster 已有受确认保护的企业微信消息发送能力；凭证绑定仍应走专用安全配置通路。此页面不会把 Secret 交给模型，也不会在后台自动发送消息。
         </p>
       </Card>
     </Panel>

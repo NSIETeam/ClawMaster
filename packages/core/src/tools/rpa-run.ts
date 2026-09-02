@@ -262,7 +262,7 @@ export class RpaRunTool extends BaseTool<RpaRunToolParams, ToolResult> {
       module = (await import('otto-rpa')) as unknown as RpaRuntimeModule;
     } catch (caught) {
       const detail = caught instanceof Error ? caught.message : String(caught);
-      throw new Error(`RPA runtime is unavailable (${detail}). Build/install the optional otto-rpa package before running RPA.`);
+      throw new Error(`ClawMaster RPA runtime is unavailable (${detail}). Repair the local runtime before running RPA.`);
     }
     const directory = runDirectory();
     return {

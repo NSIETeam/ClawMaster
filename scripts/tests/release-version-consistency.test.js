@@ -13,13 +13,6 @@ const version = packageJson.version;
 
 const versionDisplays = [
   {
-    path: 'packages/desktop/preview/live-bridge.ts',
-    expected: [
-      `Promise.resolve('${version}-browser')`,
-      `currentVersion: '${version}'`,
-    ],
-  },
-  {
     path: 'packages/desktop/src/renderer/browserPreviewBridge.ts',
     expected: [
       `Promise.resolve('${version}-browser-preview')`,

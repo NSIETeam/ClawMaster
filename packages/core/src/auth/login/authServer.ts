@@ -465,7 +465,7 @@ export class AuthServer {
    */
   private async handleStartOttoAuth(res: http.ServerResponse): Promise<void> {
     try {
-      console.log('🚀 [Auth Server] 启动Otto认证流程');
+      console.log('🚀 [Auth Server] 启动 ClawMaster 认证流程');
 
       const ottoHandler = createOttoAuthHandler(this.actualCallbackPort);
       const authUrl = ottoHandler.buildAuthUrl();
@@ -482,10 +482,10 @@ export class AuthServer {
       res.end(JSON.stringify(response));
 
     } catch (error) {
-      console.error('❌ [Auth Server] Otto认证启动失败:', error);
+      console.error('❌ [Auth Server] ClawMaster 认证启动失败:', error);
       const response = {
         success: false,
-        error: error instanceof Error ? error.message : 'Otto认证启动失败'
+        error: error instanceof Error ? error.message : 'ClawMaster 认证启动失败'
       };
 
       res.writeHead(500, {
@@ -832,19 +832,19 @@ export class AuthServer {
    */
   private async handleOttoCallback(url: URL, res: http.ServerResponse): Promise<void> {
     try {
-      console.log('🔄 [Auth Server] 处理Otto认证回调');
+      console.log('🔄 [Auth Server] 处理 ClawMaster 认证回调');
       const ottoHandler = createOttoAuthHandler(this.actualCallbackPort);
       const result = ottoHandler.handleCallback(url);
 
       if (!result.success) {
-        console.error('❌ [Auth Server] Otto认证失败:', result.error);
-        this.sendErrorResponse(res, result.error || 'Otto authentication failed');
+        console.error('❌ [Auth Server] ClawMaster 认证失败:', result.error);
+        this.sendErrorResponse(res, result.error || 'ClawMaster authentication failed');
         return;
       }
 
       if (!result.token || !result.user_id) {
-        console.error('❌ [Auth Server] Otto认证回调缺少必要参数');
-        this.sendErrorResponse(res, 'Missing token or user_id in Otto authentication callback');
+        console.error('❌ [Auth Server] ClawMaster 认证回调缺少必要参数');
+        this.sendErrorResponse(res, 'Missing token or user_id in ClawMaster authentication callback');
         return;
       }
 
@@ -866,7 +866,7 @@ export class AuthServer {
       if (!proxyServerUrl) {
         throw new Error('未配置 OTTO_SERVER_URL，登录令牌交换不可用');
       }
-      console.log ('Otto交换JWT，proxyServerUrl:', `${proxyServerUrl}/auth/jwt/otto-login`);
+      console.log('ClawMaster 正在交换认证令牌');
 
       let jwtResponse;
       try {
@@ -949,8 +949,8 @@ export class AuthServer {
       this.sendOttoSuccessResponse(res);
 
     } catch (error) {
-      console.error('❌ [Auth Server] Otto认证处理失败:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Otto认证处理失败';
+      console.error('❌ [Auth Server] ClawMaster 认证处理失败:', error);
+      const errorMsg = error instanceof Error ? error.message : 'ClawMaster 认证处理失败';
       this.sendErrorResponse(res, errorMsg);
     }
   }

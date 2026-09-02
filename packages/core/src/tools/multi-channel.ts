@@ -161,7 +161,7 @@ export class MultiChannelTool extends BaseTool<MultiChannelToolParams, ToolResul
           const channels: ChannelType[] = ['wechat', 'wecom', 'dingtalk', 'feishu'];
           const lines = channels.map((c) => {
             if (c === 'feishu') {
-              return 'Feishu (飞书): 未在本工具内接通，请走独立飞书网关 (otto feishu daemon)';
+              return 'Feishu (飞书): 未在本工具内接通，请在 ClawMaster 的飞书连接面板完成配置';
             }
             return this.gateway.isChannelReady(c)
               ? `${c}: Connected`

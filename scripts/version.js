@@ -94,13 +94,6 @@ writeJson(packageLockPath, packageLock);
 // read the root package.json at runtime.
 const versionMarkers = [
   {
-    file: 'packages/desktop/preview/live-bridge.ts',
-    replacements: [
-      [/Promise\.resolve\('\d+\.\d+\.\d+-browser'\)/, `Promise.resolve('${newVersion}-browser')`],
-      [/currentVersion: '\d+\.\d+\.\d+'/, `currentVersion: '${newVersion}'`],
-    ],
-  },
-  {
     file: 'packages/desktop/src/renderer/browserPreviewBridge.ts',
     replacements: [
       [/Promise\.resolve\('\d+\.\d+\.\d+-browser-preview'\)/, `Promise.resolve('${newVersion}-browser-preview')`],

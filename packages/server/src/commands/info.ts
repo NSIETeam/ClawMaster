@@ -26,10 +26,10 @@ export const aboutCommand: ServerSlashCommand = {
     const about = await AcpCommands.getAboutInfo();
     const uptimeMin = Math.floor(host.uptimeMs() / 60_000);
     const lines = [
-      '### 关于 Otto',
+      '### 关于 ClawMaster',
       '',
       ...about.content.split('\n').map((l) => `- ${l}`),
-      `- Otto Server: ${host.serverVersion}（协议 v${host.protocolVersion}）`,
+      `- ClawMaster 本地引擎: ${host.serverVersion}（协议 v${host.protocolVersion}）`,
       `- 运行时长: ${uptimeMin} 分钟 · 会话数: ${host.store.listSessions().length}`,
     ];
     return md(lines.join('\n'));

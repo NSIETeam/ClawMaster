@@ -3,8 +3,8 @@
  *
  * 可逆的内部测试通道。
  *
- * 这里只能在显式启用时绕过客户端登录页，不创建服务端会话，也不伪造管理员
- * 权限。交付版本默认关闭，使用真实账号密码 / 邀请码注册流程。
+ * ClawMaster 的本地工作区不依赖企业会话。真实企业账号仍通过邀请码或设置内
+ * 的连接入口建立；本地身份不创建服务端会话，也不伪造管理员权限。
  */
 
 import type { EnterpriseAccount } from '../preload/index.js';
@@ -50,18 +50,16 @@ export const INTERNAL_TEST_ADMIN_ACCOUNT: EnterpriseAccount = Object.freeze({
 });
 
 export type EnterpriseAccessMode =
-  | 'booting'
-  | 'internal-workspace'
+  | 'local-workspace'
   | 'registration'
-  | 'login'
   | 'authenticated-workspace';
 
 /**
- * “屏蔽登录”是一项可逆的内测入口策略，不是删除认证能力：
- * - 显式启用的内测包无真实会话时直接进入本地工作区；
+ * ClawMaster 采用本地优先入口，不把企业认证作为启动门禁：
+ * - 无真实会话时直接进入本地工作区；
  * - 邀请链接到达时进入注册；
  * - 已注册账号恢复真实会话并连接企业服务；
- * - 正式交付包保持原有强制登录门禁。
+ * - 旧的内测开关仅保留构建兼容性，不再改变入口行为。
  */
 export function resolveEnterpriseAccessMode(input: {
   internalTestAccessEnabled: boolean;
@@ -73,9 +71,7 @@ export function resolveEnterpriseAccessMode(input: {
     return 'authenticated-workspace';
   }
   if (input.hasRegistrationIntent) return 'registration';
-  if (input.internalTestAccessEnabled) return 'internal-workspace';
-  if (input.authStatus === 'loading') return 'booting';
-  return 'login';
+  return 'local-workspace';
 }
 
 export function isAuthenticatedEnterpriseAccount(

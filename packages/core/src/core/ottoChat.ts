@@ -1361,7 +1361,7 @@ export class OttoChat {
     } catch (snapshotErr) {
       // Snapshot is an optimization, not load-bearing. Swallow.
       logger.warn(
-        `[OttoChat] cacheSafeParams snapshot failed (non-fatal): ${snapshotErr}`,
+        `[ClawMasterChat] cacheSafeParams snapshot failed (non-fatal): ${snapshotErr}`,
       );
     }
   }

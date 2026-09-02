@@ -26,11 +26,11 @@ describe('真实企业 A2A 本机 Agent 执行器', () => {
       '日程：16:00 后有空。',
       {
         mode: 'consult',
-        initiatorProposal: '发起方 Otto 建议 15:00 开会并先审接口。',
+        initiatorProposal: '发起方 ClawMaster 建议 15:00 开会并先审接口。',
       },
     );
-    expect(prompt).toContain('双方 Otto 协商');
-    expect(prompt).toContain('发起方 Otto 提案');
+    expect(prompt).toContain('双方 ClawMaster 协商');
+    expect(prompt).toContain('发起方 ClawMaster 提案');
     expect(prompt).toContain('15:00 开会');
     expect(prompt).toContain('16:00 后有空');
     expect(prompt).toContain('不能擅自承诺');
@@ -42,7 +42,7 @@ describe('真实企业 A2A 本机 Agent 执行器', () => {
       '我的日程：15:00 有复盘，16:00 后可用。',
       { mode: 'consult_initiator' },
     );
-    expect(prompt).toContain('协商的发起方 Otto');
+    expect(prompt).toContain('ClawMaster 协商的发起方');
     expect(prompt).toContain('形成一份有界提案');
     expect(prompt).toContain('16:00 后可用');
     expect(prompt).toContain('不要声称已经发送');
@@ -136,7 +136,7 @@ describe('真实企业 A2A 本机 Agent 执行器', () => {
     };
     await expect(askLocalPeerOtto({
       question: '可以帮忙吗？', workContext: '无', transport,
-    })).rejects.toThrow('本机 Otto 未连接');
+    })).rejects.toThrow('本机 ClawMaster 引擎未就绪');
     expect(transport.send).not.toHaveBeenCalled();
   });
 

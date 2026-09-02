@@ -12,8 +12,8 @@ import {
 } from './internal-test-access.js';
 import { resolveCentralEnterpriseIdentity } from './state/centralEnterpriseIdentity.js';
 
-describe('v1.9.2 企业认证访问模式', () => {
-  it('交付版默认恢复真实登录，同时保留可逆的本地测试身份', () => {
+describe('ClawMaster 本地优先访问模式', () => {
+  it('交付版保留本地身份，不要求先登录企业账号', () => {
     expect(INTERNAL_TEST_ACCESS_ENABLED).toBe(false);
     expect(INTERNAL_TEST_ACCOUNT).toMatchObject({
       id: 'local_internal_test',
@@ -40,19 +40,19 @@ describe('v1.9.2 企业认证访问模式', () => {
     expect(isAuthenticatedEnterpriseAccount(INTERNAL_TEST_ADMIN_ACCOUNT)).toBe(false);
   });
 
-  it('关闭内测开关后按加载、登录、邀请注册和真实会话完整分流', () => {
+  it('未连接企业账号时直接进入本地工作区，邀请注册和真实会话仍单独分流', () => {
     expect(resolveEnterpriseAccessMode({
       internalTestAccessEnabled: false,
       authStatus: 'loading',
       hasAccount: false,
       hasRegistrationIntent: false,
-    })).toBe('booting');
+    })).toBe('local-workspace');
     expect(resolveEnterpriseAccessMode({
       internalTestAccessEnabled: false,
       authStatus: 'signed-out',
       hasAccount: false,
       hasRegistrationIntent: false,
-    })).toBe('login');
+    })).toBe('local-workspace');
     expect(resolveEnterpriseAccessMode({
       internalTestAccessEnabled: false,
       authStatus: 'signed-out',
@@ -67,13 +67,13 @@ describe('v1.9.2 企业认证访问模式', () => {
     })).toBe('authenticated-workspace');
   });
 
-  it('需要时仍可显式启用免登录内测通道', () => {
+  it('旧内测开关不改变本地优先入口', () => {
     expect(resolveEnterpriseAccessMode({
       internalTestAccessEnabled: true,
       authStatus: 'loading',
       hasAccount: false,
       hasRegistrationIntent: false,
-    })).toBe('internal-workspace');
+    })).toBe('local-workspace');
   });
 
   it('合成本地身份永远不能冒充真实企业账号', () => {

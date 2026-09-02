@@ -1416,7 +1416,7 @@ export async function createTransport(
     mcpServerConfig.authProviderType === AuthProviderType.GOOGLE_CREDENTIALS
   ) {
     // Google credentials provider removed - only Otto custom-model auth supported
-    throw new Error('Google credentials authentication is not supported in Otto. Configure a custom model instead.');
+    throw new Error('Google credentials authentication is not supported in ClawMaster. Configure a custom model instead.');
   }
 
   // Check if we have OAuth configuration or stored tokens

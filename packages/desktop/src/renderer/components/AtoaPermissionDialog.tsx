@@ -39,7 +39,7 @@ const SOURCE_DETAILS: Record<
   },
   schedules: {
     label: '日程',
-    detail: '当前 Otto 中已加载的日程安排',
+    detail: '当前 ClawMaster 中已加载的日程安排',
   },
 };
 
@@ -81,14 +81,14 @@ export function AtoaPermissionDialog({
         className="otto-a2a-permission"
         role="dialog"
         aria-modal="true"
-        aria-label="Otto 协作权限"
+        aria-label="ClawMaster 协作权限"
       >
         <header>
           <div>
             <span className="otto-a2a-permission__eyebrow">
               {request.payload.mode === 'consult'
-                ? '双方 Otto 协商请求'
-                : '对方 Otto 提问'}
+                ? '双方 ClawMaster 协商请求'
+                : '对方 ClawMaster 提问'}
             </span>
             <h2>{request.peer.name}</h2>
             {peerMeta ? <p>{peerMeta}</p> : null}
@@ -101,13 +101,13 @@ export function AtoaPermissionDialog({
         {request.payload.mode === 'consult' &&
         request.payload.initiatorProposal ? (
           <div className="otto-a2a-permission__proposal">
-            <strong>发起方 Otto 的提案</strong>
+            <strong>发起方 ClawMaster 的提案</strong>
             <p>{request.payload.initiatorProposal}</p>
           </div>
         ) : null}
 
         <p className="otto-a2a-permission__notice">
-          默认不授权。请选择本次允许 Otto 查阅的资料；“全部”只包括下列四类，
+          默认不授权。请选择本次允许 ClawMaster 查阅的资料；“全部”只包括下列四类，
           不包括本机文件、模型密钥、其他聊天或未列出的数据。
         </p>
 

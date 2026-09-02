@@ -1,0 +1,151 @@
+name: Tauri Minimal Node Runtime
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: ${{ matrix.target }} balanced Node runtime
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: darwin-arm64
+          - runner: macos-15-intel
+            target: darwin-x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.20.0
+          package-manager-cache: false
+
+      - name: Restore verified minimal runtime cache
+        id: runtime-cache
+        uses: actions/cache@v5
+        with:
+          path: native/node-runtime/${{ matrix.target }}
+          key: tauri-node-v3-${{ matrix.target }}-71b8b174857e25106d39b61a9e6f30d927da8b01
+
+      - name: Check out the verified Node 24.20.0 release source
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: nodejs/node
+          ref: 71b8b174857e25106d39b61a9e6f30d927da8b01
+          path: node-source
+          fetch-depth: 1
+
+      - name: Configure balanced ClawMaster Node runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        working-directory: node-source
+        run: |
+          ./configure \
+            --disable-single-executable-application \
+            --v8-disable-object-print \
+            --without-amaro \
+            --without-corepack \
+            --without-node-options \
+            --without-npm \
+            --with-intl=small-icu \
+            --with-icu-locales=en,zh-CN
+
+      - name: Build and strip Node runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        working-directory: node-source
+        run: |
+          make -j3
+          strip -x out/Release/node
+          codesign --force --sign - out/Release/node
+
+      - name: Finalize runtime asset
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: |
+          node packages/desktop/scripts/finalize-tauri-node-runtime.mjs \
+            --binary node-source/out/Release/node \
+            --output-directory native/node-runtime/${{ matrix.target }} \
+            --target ${{ matrix.target }}
+
+      - name: Verify runtime asset
+        run: |
+          node packages/desktop/scripts/verify-tauri-node-runtime.mjs \
+            --asset-directory native/node-runtime/${{ matrix.target }} \
+            --target ${{ matrix.target }} \
+            --node-version 24.20.0
+          if otool -L native/node-runtime/${{ matrix.target }}/node | grep -E '/(opt|usr/local)/'; then
+            echo 'minimal Node runtime contains a machine-local dynamic dependency' >&2
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tauri-node-${{ matrix.target }}
+          path: native/node-runtime/${{ matrix.target }}/
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    name: win32-x64 balanced Node runtime
+    runs-on: windows-2025
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.20.0
+          package-manager-cache: false
+
+      - name: Restore verified Windows runtime cache
+        id: runtime-cache
+        uses: actions/cache@v5
+        with:
+          path: native/node-runtime/win32-x64
+          key: tauri-node-v4-win32-x64-71b8b174857e25106d39b61a9e6f30d927da8b01-small-icu
+
+      - name: Check out the verified Node 24.20.0 release source
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: nodejs/node
+          ref: 71b8b174857e25106d39b61a9e6f30d927da8b01
+          path: node-source
+          fetch-depth: 1
+
+      - name: Build balanced ClawMaster Node runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        working-directory: node-source
+        shell: cmd
+        run: vcbuild.bat release x64 clang-cl small-icu nonpm no-cctest no-NODE-OPTIONS
+
+      - name: Finalize runtime asset
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          node packages/desktop/scripts/finalize-tauri-node-runtime.mjs `
+            --binary node-source/Release/node.exe `
+            --output-directory native/node-runtime/win32-x64 `
+            --target win32-x64
+
+      - name: Verify runtime asset
+        shell: pwsh
+        run: |
+          node packages/desktop/scripts/verify-tauri-node-runtime.mjs `
+            --asset-directory native/node-runtime/win32-x64 `
+            --target win32-x64 `
+            --node-version 24.20.0
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tauri-node-win32-x64
+          path: native/node-runtime/win32-x64/
+          if-no-files-found: error
+          retention-days: 14

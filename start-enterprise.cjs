@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Otto Enterprise - Production Launcher
+ * ClawMaster Enterprise - Production Launcher
  *
  * Usage:
  *   node start-enterprise.cjs
@@ -25,7 +25,7 @@ const port = Number(
 const openDashboard = args.includes('--dashboard');
 if (!host || !Number.isInteger(port) || port < 1 || port > 65535) {
   console.error(
-    '[Otto Enterprise] --host 不能为空，--port 必须是 1-65535 的整数。',
+    '[ClawMaster Enterprise] --host 不能为空，--port 必须是 1-65535 的整数。',
   );
   process.exit(2);
 }
@@ -49,7 +49,7 @@ if (!/^[0-9a-f]{40}$/i.test(buildCommit)) {
 if (!/^[0-9a-f]{40}$/i.test(buildCommit)) {
   if (host !== '127.0.0.1' && host !== 'localhost' && host !== '::1') {
     console.error(
-      '[Otto Enterprise] 对外部署必须设置 OTTO_BUILD_COMMIT 为完整 40 位提交 SHA。',
+      '[ClawMaster Enterprise] 对外部署必须设置 OTTO_BUILD_COMMIT 为完整 40 位提交 SHA。',
     );
     process.exit(2);
   }
@@ -58,7 +58,7 @@ if (!/^[0-9a-f]{40}$/i.test(buildCommit)) {
 
 console.log('');
 console.log('=============================================');
-console.log('  Otto Enterprise - Production Launch');
+console.log('  ClawMaster Enterprise - Production Launch');
 console.log('=============================================');
 console.log(`  Server:    http://${host}:${port}`);
 console.log(`  Dashboard: http://localhost:${port}/enterprise/dashboard`);
@@ -82,15 +82,15 @@ if (openDashboard) {
   server.once('listening', () => {
     execFile('open', [url], (error) => {
       if (error) {
-        console.error(`[Otto Enterprise] 无法打开浏览器: ${error.message}`);
+        console.error(`[ClawMaster Enterprise] 无法打开浏览器: ${error.message}`);
       }
     });
-    console.log(`[Otto Enterprise] 正在浏览器打开: ${url}`);
+    console.log(`[ClawMaster Enterprise] 正在浏览器打开: ${url}`);
   });
 }
 
 function shutdown() {
-  console.log('\n[Otto Enterprise] Shutting down...');
+  console.log('\n[ClawMaster Enterprise] Shutting down...');
   server.close(() => process.exit(0));
 }
 process.once('SIGINT', shutdown);

@@ -285,9 +285,13 @@ async function listen(
     ...options,
   });
   servers.push(created.server);
-  await new Promise<void>((resolve) =>
-    created.server.listen(0, '127.0.0.1', resolve),
-  );
+  await new Promise<void>((resolve, reject) => {
+    created.server.once('error', reject);
+    created.server.listen(0, '127.0.0.1', () => {
+      created.server.off('error', reject);
+      resolve();
+    });
+  });
   const address = created.server.address() as AddressInfo;
   return {
     repo,
@@ -960,7 +964,7 @@ describe('clustered PostgreSQL enterprise server', () => {
       headers: { authorization, 'content-type': 'application/json' },
       body: JSON.stringify({
         password: 'correct-password',
-        confirmation: '注销我的 Otto 账号',
+        confirmation: '注销我的 ClawMaster 账号',
       }),
     });
     expect(deleted.status).toBe(200);
@@ -1180,9 +1184,13 @@ describe('clustered PostgreSQL enterprise server', () => {
       adminToken: '',
     });
     servers.push(created.server);
-    await new Promise<void>((resolve) =>
-      created.server.listen(0, '127.0.0.1', resolve),
-    );
+    await new Promise<void>((resolve, reject) => {
+      created.server.once('error', reject);
+      created.server.listen(0, '127.0.0.1', () => {
+        created.server.off('error', reject);
+        resolve();
+      });
+    });
     const address = created.server.address() as AddressInfo;
     const response = await fetch(
       `http://127.0.0.1:${address.port}/enterprise/accounts`,

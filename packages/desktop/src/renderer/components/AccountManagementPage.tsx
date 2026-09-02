@@ -303,9 +303,10 @@ export function AccountManagementPage({
 
   useEffect(() => {
     if (!invite) return undefined;
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [invite]);
+    const delay = Math.max(1, 1_000 - (Date.now() - now));
+    const timer = window.setTimeout(() => setNow(Date.now()), delay);
+    return () => window.clearTimeout(timer);
+  }, [invite, now]);
 
   useEffect(() => {
     if (invite) {
@@ -907,7 +908,7 @@ export function AccountManagementPage({
               <div className="otto-account-invite__link">
                 <span>公网引入链接</span>
                 <code>{inviteContext.invite.link}</code>
-                <small>员工在浏览器打开后可一键唤起 Otto，首次注册时自动填入该企业邀请码。</small>
+                <small>员工在浏览器打开后可一键唤起 ClawMaster，首次注册时自动填入该企业邀请码。</small>
               </div>
               <div className="otto-account-invite__actions">
                 <button type="button" aria-label="复制完整引入链接" onClick={() => void copyInviteValue('link', inviteContext.invite!.link)}>{copied === 'link' ? '链接已复制' : '复制链接'}</button>
@@ -1099,7 +1100,7 @@ export function AccountManagementPage({
             tabIndex={-1}
             onKeyDown={handleEditorKeyDown}
           >
-            <header><div><span>{editorMode === 'assignment' ? 'POSITION ASSIGNMENT' : editing === 'new' ? 'NEW IDENTITY' : 'IDENTITY DETAIL'}</span><h2>{editorMode === 'assignment' ? `安排 ${editing === 'new' ? '' : editing.name} 的职位` : editing === 'new' ? '添加企业成员' : '编辑成员身份'}</h2><p>{editorMode === 'assignment' ? '任命会同步到企业组织树、员工档案和该员工下一次身份读取。' : '账号、手机和角色决定成员如何进入 Otto 及能访问的空间。'}</p></div><button type="button" onClick={closeEditor} disabled={saving} aria-label="关闭">×</button></header>
+            <header><div><span>{editorMode === 'assignment' ? 'POSITION ASSIGNMENT' : editing === 'new' ? 'NEW IDENTITY' : 'IDENTITY DETAIL'}</span><h2>{editorMode === 'assignment' ? `安排 ${editing === 'new' ? '' : editing.name} 的职位` : editing === 'new' ? '添加企业成员' : '编辑成员身份'}</h2><p>{editorMode === 'assignment' ? '任命会同步到企业组织树、员工档案和该员工下一次身份读取。' : '账号、手机和角色决定成员如何进入 ClawMaster 及能访问的空间。'}</p></div><button type="button" onClick={closeEditor} disabled={saving} aria-label="关闭">×</button></header>
             {editorMode === 'identity' ? <section className="otto-account-templates" aria-label="账户模板">
               <div><strong>账户模板</strong><small>先选一个最接近的岗位，再按需调整</small></div>
               <div>

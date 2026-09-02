@@ -19,10 +19,10 @@ function escapeHTML(value: string): string {
 function renderPublicInvitePage(state: PublicInvitePageState, code?: string, serverUrl?: string): string {
   const isActive = state === 'active' && Boolean(code);
   const title = isActive
-    ? '加入企业，打开 Otto'
+    ? '加入企业，打开 ClawMaster'
     : state === 'unavailable' ? '引入链接已失效' : '引入链接不存在';
   const description = isActive
-    ? '点击下方按钮打开 Otto。企业邀请码已经随链接准备好，你仍需完成姓名、手机号与短信验证。'
+    ? '点击下方按钮打开 ClawMaster。企业邀请码已经随链接准备好，你仍需完成姓名、手机号与短信验证。'
     : state === 'unavailable'
       ? '企业引入链接仅在生成后的 7 天内有效，换新后旧链接也会立即停止使用。'
       : '请检查地址是否完整，或联系企业管理员重新发送一条引入链接。';
@@ -38,7 +38,7 @@ function renderPublicInvitePage(state: PublicInvitePageState, code?: string, ser
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>${escapeHTML(title)} · Otto</title>
+  <title>${escapeHTML(title)} · ClawMaster</title>
   <style>
     :root{color-scheme:light;font-family:Inter,"SF Pro Display","PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#f3f1e9;color:#162b27}
     *{box-sizing:border-box}
@@ -72,7 +72,7 @@ function renderPublicInvitePage(state: PublicInvitePageState, code?: string, ser
 <body>
   <main class="page">
     <div class="shell">
-      <div class="brand"><span class="mark" aria-hidden="true">O</span> OTTO ENTERPRISE</div>
+      <div class="brand"><span class="mark" aria-hidden="true">C</span> CLAWMASTER ENTERPRISE</div>
       <section class="card">
         <header class="hero">
           <div class="eyebrow"><span class="dot"></span>${isActive ? '企业成员引入 · 7 天有效' : '企业成员引入'}</div>
@@ -83,17 +83,17 @@ function renderPublicInvitePage(state: PublicInvitePageState, code?: string, ser
           ${isActive ? `
           <div class="code-label">企业邀请码</div>
           <div class="code" aria-label="企业邀请码">${safeCode}</div>
-          <a class="primary" href="${deepLink}">打开 Otto</a>
+          <a class="primary" href="${deepLink}">打开 ClawMaster</a>
           <div class="help">
             <strong>如果按钮没有反应</strong>
             <ol>
-              <li>确认这台设备已安装最新版 Otto。</li>
+              <li>确认这台设备已安装最新版 ClawMaster。</li>
               <li>仍未安装时，请向企业管理员获取官方安装包。</li>
-              <li>打开 Otto 的首次注册页，输入上方邀请码即可继续。</li>
+              <li>打开 ClawMaster 的首次注册页，输入上方邀请码即可继续。</li>
             </ol>
           </div>` : `
           <div class="status" aria-hidden="true">!</div>
-          <a class="secondary" href="/enterprise/health">检查 Otto 服务状态</a>`}
+          <a class="secondary" href="/enterprise/health">检查 ClawMaster 服务状态</a>`}
         </div>
       </section>
       <p class="fine">邀请码只用于加入企业，不会在此页面展示企业内部信息。</p>

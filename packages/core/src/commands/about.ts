@@ -13,7 +13,7 @@ import type { MessageActionReturn } from './types.js';
 export async function getAboutInfo(): Promise<MessageActionReturn> {
   const version = await getVersion().catch(() => 'unknown');
   const lines = [
-    `Otto CLI: ${version}`,
+    `ClawMaster CLI: ${version}`,
     `Platform: ${process.platform}`,
     `Node: ${process.version}`,
     `Architecture: ${process.arch}`,

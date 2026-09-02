@@ -34,7 +34,7 @@ describe('OttoPetStage', () => {
   it('小宠物作为右下角挂件显示真实工作状态和红绿灯', () => {
     const { rerender } = render(<OttoPetStage running={false} variant="widget" />);
 
-    expect(screen.getByRole('complementary', { name: 'Otto 小宠物工作状态' })).toBeTruthy();
+    expect(screen.getByRole('complementary', { name: 'ClawMaster 小宠物工作状态' })).toBeTruthy();
     expect(screen.getByText('等待下一项工作')).toBeTruthy();
     expect(screen.getByLabelText('空闲待命')).toBeTruthy();
 

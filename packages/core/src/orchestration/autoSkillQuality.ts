@@ -195,7 +195,7 @@ export function assessAutoSkillCandidate(
   };
 }
 
-export function autoSkillCandidateSimilarity(
+function autoSkillCandidateSimilarity(
   left: AutoSkillQualityInput,
   right: AutoSkillQualityInput | ExistingSkillSummary,
 ): number {

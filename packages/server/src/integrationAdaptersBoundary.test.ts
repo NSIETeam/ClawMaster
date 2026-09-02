@@ -81,19 +81,14 @@ describe('integration_adapters module boundary', () => {
 
   it('keeps notification implementations out of the enterprise shell', () => {
     const server = source('enterprise/server.ts');
-    const compatibilityExport = source('enterprise/repairNotifications.ts');
     const notificationSenders = source(
       'modules/integration_adapters/repairNotificationSenders.ts',
     );
     expect(server).toContain('../modules/integration_adapters/index.js');
     expect(server).not.toContain('./repairNotifications.js');
-    expect(compatibilityExport).toContain(
-      "from '../modules/integration_adapters/index.js'",
-    );
-    expect(compatibilityExport).not.toContain('export *');
-    expect(compatibilityExport).toContain('createRepairSmsSenderFromEnv');
-    expect(compatibilityExport).toContain('createRepairFeishuSenderFromEnv');
-    expect(compatibilityExport).toContain('type RepairNotificationSender');
+    expect(fs.existsSync(
+      path.join(sourceRoot, 'enterprise', 'repairNotifications.ts'),
+    )).toBe(false);
     expect(notificationSenders).not.toMatch(
       /^import .* from ['"]otto-core['"];$/m,
     );

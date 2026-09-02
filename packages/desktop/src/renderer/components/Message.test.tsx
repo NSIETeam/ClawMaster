@@ -60,10 +60,10 @@ describe('Message 动作行', () => {
     const { container } = render(
       <Message message={botMessage()} onCopy={vi.fn()} onRegenerate={vi.fn()} />,
     );
-    const mark = screen.getByLabelText('Otto 回复');
+    const mark = screen.getByLabelText('ClawMaster 回复');
     expect(mark.querySelector('.otto-response-mark__ball')).toBeTruthy();
     expect(mark.querySelector('.otto-response-mark__spines')).toBeTruthy();
-    expect(container.querySelector('img[alt="Otto"]')).toBeNull();
+    expect(container.querySelector('img[alt="ClawMaster"]')).toBeNull();
   });
 
   it('流式、推理或工具处理中，刺球进入弹性跳跃活动态', () => {
@@ -75,7 +75,7 @@ describe('Message 动作行', () => {
       />,
     );
     expect(
-      screen.getByRole('status', { name: 'Otto 正在回答' }).classList.contains('is-active'),
+      screen.getByRole('status', { name: 'ClawMaster 正在回答' }).classList.contains('is-active'),
     ).toBe(true);
 
     rerender(
@@ -86,7 +86,7 @@ describe('Message 动作行', () => {
       />,
     );
     expect(
-      screen.getByRole('status', { name: 'Otto 正在回答' }).classList.contains('is-active'),
+      screen.getByRole('status', { name: 'ClawMaster 正在回答' }).classList.contains('is-active'),
     ).toBe(true);
   });
 

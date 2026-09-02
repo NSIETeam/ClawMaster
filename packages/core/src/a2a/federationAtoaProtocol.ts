@@ -150,7 +150,7 @@ export function displayFederationAtoaDecision(
   decision: FederationAtoaDecision,
 ): string {
   if (decision.status === 'denied') {
-    return '对方拒绝了本次 Otto 协作请求，未读取任何资料。';
+    return '对方拒绝了本次 ClawMaster 协作请求，未读取任何资料。';
   }
-  return '对方已授权本次 Otto 协作，正在通过一次性授权处理。';
+  return '对方已授权本次 ClawMaster 协作，正在通过一次性授权处理。';
 }

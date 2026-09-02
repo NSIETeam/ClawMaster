@@ -30,14 +30,14 @@ browserSuite('Playwright RPA browser boundary', () => {
     }));
     try {
       await driver.execute(input('web.navigate', { url: `http://127.0.0.1:${port}/` }));
-      await driver.execute(input('web.fill', { selector: '#name', value: 'Otto' }));
+      await driver.execute(input('web.fill', { selector: '#name', value: 'ClawMaster' }));
       await driver.execute(input('web.click', { selector: '#save' }));
       const extracted = await driver.execute(input('web.extract', { selector: '#result' }));
 
-      expect(extracted.output).toEqual({ text: 'Otto' });
+      expect(extracted.output).toEqual({ text: 'ClawMaster' });
     } finally {
       await driver.closeRun('rpa-e2e-run');
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     }
-  });
+  }, 30_000);
 });

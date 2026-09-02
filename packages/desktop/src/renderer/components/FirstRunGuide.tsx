@@ -55,8 +55,8 @@ const STEPS: Record<UiMode, readonly GuideStep[]> = {
   conversational: [
     {
       title: '对话就是主工作区',
-      description: '把目标、背景和期望结果告诉 Otto，后续资料与修改都在同一段对话中继续。',
-      tip: '先说清楚要完成什么，Otto 会主动拆解任务并反馈进度。',
+      description: '把目标、背景和期望结果告诉 ClawMaster，后续资料与修改都在同一段对话中继续。',
+      tip: '先说清楚要完成什么，ClawMaster 会主动拆解任务并反馈进度。',
       selector: '.otto-main',
       placement: 'center',
       icon: IconSparkle,
@@ -97,7 +97,7 @@ const STEPS: Record<UiMode, readonly GuideStep[]> = {
     },
     {
       title: '从这里下达任务',
-      description: '输入目标或直接加入文件，Otto 会结合右侧工作区中的资料继续处理。',
+      description: '输入目标或直接加入文件，ClawMaster 会结合右侧工作区中的资料继续处理。',
       tip: '拖入多个文件后可以一次说明它们之间的关系和最终产物。',
       selector: '.otto-composer',
       placement: 'top',

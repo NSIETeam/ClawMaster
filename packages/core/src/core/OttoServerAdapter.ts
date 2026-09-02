@@ -201,7 +201,7 @@ function dumpOutboundRequest(kind: 'stream' | 'unified', body: unknown): void {
       }
     } catch (err) {
       // 落盘失败不影响主流程，记一条 warn 即可
-      logger.warn?.('[Otto Server] request dump failed', {
+      logger.warn?.('[ClawMaster Runtime] request dump failed', {
         error: err instanceof Error ? err.message : String(err),
       });
     }
@@ -428,13 +428,13 @@ export class OttoServerAdapter implements ContentGenerator {
 
     // 初始化认证处理器 - 直接抛出UnauthorizedError触发/auth对话框
     this.authHandler = async () => {
-      console.log('🔄 [Otto Server] Authentication required, opening auth dialog...');
+      console.log('🔄 [ClawMaster Runtime] Authentication required, opening auth dialog...');
       throw new UnauthorizedError('Authentication required - please re-authenticate');
     };
 
     // 只在调试模式下显示详细日志
     if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-      console.log(`[Otto Server] Initialized with proxy server: ${finalProxyUrl}`);
+      console.log(`[ClawMaster Runtime] Initialized with proxy server: ${finalProxyUrl}`);
     }
   }
 
@@ -445,7 +445,7 @@ export class OttoServerAdapter implements ContentGenerator {
     proxyAuthManager.setUserInfo(userInfo);
     // 只在调试模式下显示详细日志
     if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-      console.log(`[Otto Server] User info configured: ${userInfo.name}`);
+      console.log(`[ClawMaster Runtime] User info configured: ${userInfo.name}`);
     }
   }
 
@@ -458,15 +458,15 @@ export class OttoServerAdapter implements ContentGenerator {
       if (userInfo) {
         // 只在调试模式下显示详细日志
         if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-          console.log(`[Otto Server] User info found: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
+          console.log(`[ClawMaster Runtime] User info found: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
         }
         return true;
       } else {
-        console.warn(`[Otto Server] No user info found, please login first`);
+        console.warn(`[ClawMaster Runtime] No user info found, please login first`);
         return false;
       }
     } catch (error) {
-      console.error(`[Otto Server] Authentication check failed:`, error);
+      console.error(`[ClawMaster Runtime] Authentication check failed:`, error);
       return false;
     }
   }
@@ -714,7 +714,7 @@ export class OttoServerAdapter implements ContentGenerator {
         } else {
           modelToUse = userModel;
         }
-        console.log(`[Otto Server] User is using custom model, overriding scene model for ${scene}: ${modelToUse}`);
+        console.log(`[ClawMaster Runtime] User is using custom model, overriding scene model for ${scene}: ${modelToUse}`);
       } else {
         // 模型解析优先级：request.model > sceneModel > userModel > 'auto'
         // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
@@ -725,7 +725,7 @@ export class OttoServerAdapter implements ContentGenerator {
       if (isCustomModel(modelToUse) && this.config) {
         const customModelConfig = this.config.getCustomModelConfig(modelToUse);
         if (customModelConfig) {
-          console.log(`[Otto Server] Using custom model: ${customModelConfig.displayName}`);
+          console.log(`[ClawMaster Runtime] Using custom model: ${customModelConfig.displayName}`);
           // 🆕 注入会话级/项目级 thinking 配置
           const thinkingOverride = this.config.getThinkingConfig();
           const resolvedConfig = {
@@ -772,7 +772,7 @@ export class OttoServerAdapter implements ContentGenerator {
         }
       };
 
-      logger.info(`[Otto Server] Calling unified chat API with model: ${modelToUse}`);
+      logger.info(`[ClawMaster Runtime] Calling unified chat API with model: ${modelToUse}`);
 
       // 2. 统一API调用 - 服务端处理所有模型差异
       // scene 是 SceneType 枚举，转为字符串后做合法性守卫，防止 "undefined" 流入服务端
@@ -781,10 +781,10 @@ export class OttoServerAdapter implements ContentGenerator {
 
       // 3. 日志记录工具调用
       if (response.functionCalls && response.functionCalls.length > 0 && (process.env.DEBUG || process.env.NODE_ENV === 'development')) {
-        console.log(`[Otto Server] Model called ${response.functionCalls.length} tool(s): ${response.functionCalls.map(fc => fc.name).join(', ')}`);
+        console.log(`[ClawMaster Runtime] Model called ${response.functionCalls.length} tool(s): ${response.functionCalls.map(fc => fc.name).join(', ')}`);
       }
 
-      console.log('[Otto Server] Response received successfully', { model: modelToUse });
+      console.log('[ClawMaster Runtime] Response received successfully', { model: modelToUse });
       return response;
 
     } catch (error) {
@@ -887,7 +887,7 @@ export class OttoServerAdapter implements ContentGenerator {
         controller.abort();
       } else {
         const handleAbort = () => {
-          console.log('[Otto Server] Request cancelled by user');
+          console.log('[ClawMaster Runtime] Request cancelled by user');
           controller.abort();
         };
         abortSignal.addEventListener('abort', handleAbort);
@@ -903,7 +903,7 @@ export class OttoServerAdapter implements ContentGenerator {
     //   - 保护完整响应体的接收和 JSON 反序列化
     //   - 总请求时间 = 连接等待 + 数据接收 + 解析，均有保护
     const fetchTimeoutId = setTimeout(() => {
-      console.warn('[Otto Server] API fetch timeout - aborting connection layer after 300s. Try: check your network, or say "continue" to retry.');
+      console.warn('[ClawMaster Runtime] API fetch timeout - aborting connection layer after 300s. Try: check your network, or say "continue" to retry.');
       controller.abort();
     }, 300000);
 
@@ -916,7 +916,7 @@ export class OttoServerAdapter implements ContentGenerator {
     const startTime = Date.now();
 
     try {
-      console.log('[Otto Server] Making unified API call', {
+      console.log('[ClawMaster Runtime] Making unified API call', {
         endpoint,
         url: proxyUrl,
         model: requestBody.model
@@ -964,7 +964,7 @@ export class OttoServerAdapter implements ContentGenerator {
       // 响应头已收到说明连接正常，现在保护响应体接收和解析阶段
       clearTimeout(fetchTimeoutId);
       dataTimeoutId = setTimeout(() => {
-        console.warn('[Otto Server] API data timeout - response.json() taking too long (>300s) in data layer. Try: check your network, say "continue" to retry, or try a different model.');
+        console.warn('[ClawMaster Runtime] API data timeout - response.json() taking too long (>300s) in data layer. Try: check your network, say "continue" to retry, or try a different model.');
         controller.abort();
       }, 300000);
 
@@ -974,7 +974,7 @@ export class OttoServerAdapter implements ContentGenerator {
 
         // 401错误特殊处理
         if (response.status === 401 && isOurAuthError(errorText)) {
-          console.error('[Otto Server] 401 Unauthorized - triggering auth dialog');
+          console.error('[ClawMaster Runtime] 401 Unauthorized - triggering auth dialog');
           if (this.authHandler) {
             await this.authHandler();
           }
@@ -983,7 +983,7 @@ export class OttoServerAdapter implements ContentGenerator {
 
         // 451错误特殊处理 - 立即中断
         if (response.status === 451) {
-          console.error('[Otto Server] 451 Region Blocked - IMMEDIATE ABORT');
+          console.error('[ClawMaster Runtime] 451 Region Blocked - IMMEDIATE ABORT');
           // 立即中断当前请求
           controller.abort();
           // 抛出特殊异常立即中断事件循环
@@ -1010,7 +1010,7 @@ export class OttoServerAdapter implements ContentGenerator {
       const responseData = await this.withTimeout(
         response.json() as Promise<GenerateContentResponse>,
         300000,
-        '[Otto Server] API response parsing timeout after 300s - JSON.parse() or streaming took too long. Try: check your network, say "continue" to retry, or try a different model.'
+        '[ClawMaster Runtime] API response parsing timeout after 300s - JSON.parse() or streaming took too long. Try: check your network, say "continue" to retry, or try a different model.'
       );
       clearTimeout(dataTimeoutId);
 
@@ -1038,7 +1038,7 @@ export class OttoServerAdapter implements ContentGenerator {
       }
 
       const duration = Date.now() - startTime;
-      console.log('[Otto Server] API call completed', {
+      console.log('[ClawMaster Runtime] API call completed', {
         endpoint,
         duration: `${duration}ms`,
         status: response.status
@@ -1065,19 +1065,19 @@ export class OttoServerAdapter implements ContentGenerator {
 
       // 超时错误处理
       if (error instanceof Error && error.message.includes('timeout')) {
-        logger.warn('[Otto Server] Request timeout', {
+        logger.warn('[ClawMaster Runtime] Request timeout', {
           endpoint,
           duration: `${duration}ms`,
           reason: error.message
         });
       } else if (error instanceof Error && error.message.includes('abort')) {
-        logger.warn('[Otto Server] Request aborted', {
+        logger.warn('[ClawMaster Runtime] Request aborted', {
           endpoint,
           duration: `${duration}ms`,
           reason: error.message
         });
       } else {
-        logger.error('[Otto Server] API call failed', {
+        logger.error('[ClawMaster Runtime] API call failed', {
           endpoint,
           duration: `${duration}ms`,
           error: error instanceof Error ? error.message : error
@@ -1116,7 +1116,7 @@ export class OttoServerAdapter implements ContentGenerator {
     if (isConnectionError) {
       console.error(`❌ 无法连接到服务器，请检查网络连接或服务器状态`);
     } else {
-      console.error('[Otto Server] Error in generateContent:', error);
+      console.error('[ClawMaster Runtime] Error in generateContent:', error);
     }
 
     // 🚨 特殊处理401错误 - 提供更友好的错误信息
@@ -1150,7 +1150,7 @@ export class OttoServerAdapter implements ContentGenerator {
       } else {
         modelToUse = userModel;
       }
-      console.log(`[Otto Server] (Stream) User is using custom model, overriding scene model for ${scene}: ${modelToUse}`);
+      console.log(`[ClawMaster Runtime] (Stream) User is using custom model, overriding scene model for ${scene}: ${modelToUse}`);
     } else {
       modelToUse = request.model || sceneModel || userModel || 'auto';
     }
@@ -1158,7 +1158,7 @@ export class OttoServerAdapter implements ContentGenerator {
     if (isCustomModel(modelToUse) && this.config) {
       const customModelConfig = this.config.getCustomModelConfig(modelToUse);
       if (customModelConfig) {
-        console.log(`[Otto Server] Custom model detected, using streaming mode`);
+        console.log(`[ClawMaster Runtime] Custom model detected, using streaming mode`);
         // 🆕 注入会话级/项目级 thinking 配置
         const thinkingOverride = this.config.getThinkingConfig();
         const resolvedConfig = {
@@ -1211,7 +1211,7 @@ export class OttoServerAdapter implements ContentGenerator {
         } else {
           modelToUse = userModel;
         }
-        console.log(`[Otto Server] (_Stream) User is using custom model, overriding scene model for ${scene}: ${modelToUse}`);
+        console.log(`[ClawMaster Runtime] (_Stream) User is using custom model, overriding scene model for ${scene}: ${modelToUse}`);
       } else {
         // 模型解析优先级：request.model > sceneModel > userModel > 'auto'
         // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
@@ -1248,7 +1248,7 @@ export class OttoServerAdapter implements ContentGenerator {
         }
       };
 
-      logger.info(`[Otto Server] Starting stream with model: ${modelToUse}`);
+      logger.info(`[ClawMaster Runtime] Starting stream with model: ${modelToUse}`);
 
       // 调用流式API（错误处理已在callStreamAPI中统一处理）
       // scene 是 SceneType 枚举，转为字符串后做合法性守卫，防止 "undefined" 流入服务端
@@ -1259,7 +1259,7 @@ export class OttoServerAdapter implements ContentGenerator {
       return this.createStreamGenerator(response, request.config?.abortSignal);
 
     } catch (error) {
-      logger.error('[Otto Server] Stream request failed', { error });
+      logger.error('[ClawMaster Runtime] Stream request failed', { error });
       return this.handleStreamError(error);
     }
   }
@@ -1350,7 +1350,7 @@ export class OttoServerAdapter implements ContentGenerator {
 
     // 🔍 调试：打印代理相关信息（流式调用）- 仅在调试模式下显示
     if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-      console.log('🔍 [Otto Debug Stream] Proxy environment variables:');
+      console.log('🔍 [ClawMaster Debug Stream] Proxy environment variables:');
       console.log('  HTTP_PROXY:', process.env.HTTP_PROXY);
       console.log('  HTTPS_PROXY:', process.env.HTTPS_PROXY);
       console.log('  http_proxy:', process.env.http_proxy);
@@ -1359,7 +1359,7 @@ export class OttoServerAdapter implements ContentGenerator {
 
       // 🔍 检查 undici 全局调度器（流式）
       const globalDispatcher = getGlobalDispatcher();
-      console.log('🔍 [Otto Debug Stream] Global dispatcher:', globalDispatcher?.constructor?.name || 'undefined');
+      console.log('🔍 [ClawMaster Debug Stream] Global dispatcher:', globalDispatcher?.constructor?.name || 'undefined');
       const dispatcherWithUri = globalDispatcher as typeof globalDispatcher & { uri?: unknown };
       if (typeof dispatcherWithUri?.uri === 'string') {
         console.log('  Dispatcher URI:', dispatcherWithUri.uri);
@@ -1376,7 +1376,7 @@ export class OttoServerAdapter implements ContentGenerator {
       } else {
         const handleAbort = () => {
           if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-            console.log('[Otto Server] Stream request cancelled by user');
+            console.log('[ClawMaster Runtime] Stream request cancelled by user');
           }
           controller.abort();
         };
@@ -1395,7 +1395,7 @@ export class OttoServerAdapter implements ContentGenerator {
     const startTime = Date.now();
 
     try {
-      console.log('[Otto Server] Making stream API call', {
+      console.log('[ClawMaster Runtime] Making stream API call', {
         endpoint,
         url: proxyUrl,
         model: requestBody.model
@@ -1432,7 +1432,7 @@ export class OttoServerAdapter implements ContentGenerator {
 
         // 401错误特殊处理 - 与非流式API保持一致
         if (response.status === 401 && isOurAuthError(errorText)) {
-          console.error('[Otto Server] Stream 401 Unauthorized - triggering auth dialog');
+          console.error('[ClawMaster Runtime] Stream 401 Unauthorized - triggering auth dialog');
           if (this.authHandler) {
             await this.authHandler();
           }
@@ -1441,7 +1441,7 @@ export class OttoServerAdapter implements ContentGenerator {
 
         // 451错误特殊处理 - 立即中断
         if (response.status === 451) {
-          console.error('[Otto Server] Stream 451 Region Blocked - IMMEDIATE ABORT');
+          console.error('[ClawMaster Runtime] Stream 451 Region Blocked - IMMEDIATE ABORT');
           // 立即中断当前请求
           controller.abort();
           // 抛出特殊异常立即中断事件循环
@@ -1455,7 +1455,7 @@ export class OttoServerAdapter implements ContentGenerator {
       }
 
       const duration = Date.now() - startTime;
-      console.log('[Otto Server] Stream API call initiated', {
+      console.log('[ClawMaster Runtime] Stream API call initiated', {
         endpoint,
         duration: `${duration}ms`,
         status: response.status
@@ -1480,13 +1480,13 @@ export class OttoServerAdapter implements ContentGenerator {
 
       // 超时错误处理
       if (error instanceof Error && error.message.includes('abort')) {
-        logger.warn('[Otto Server] Stream API aborted', {
+        logger.warn('[ClawMaster Runtime] Stream API aborted', {
           endpoint,
           duration: `${duration}ms`,
           reason: error.message
         });
       } else {
-        logger.error('[Otto Server] Stream API call failed', {
+        logger.error('[ClawMaster Runtime] Stream API call failed', {
           endpoint,
           duration: `${duration}ms`,
           error: error instanceof Error ? error.message : error
@@ -1541,7 +1541,7 @@ export class OttoServerAdapter implements ContentGenerator {
     // 🎯 关键保护机制：监听客户端取消信号
     // 当用户中断时，立即释放流读取器并停止消费数据
     const handleAbort = () => {
-      console.log('[Otto Server] Stream cancelled by user - releasing reader and stopping consumption');
+      console.log('[ClawMaster Runtime] Stream cancelled by user - releasing reader and stopping consumption');
       try {
         reader.cancel();  // 立即取消流读取
       } catch {
@@ -1560,11 +1560,11 @@ export class OttoServerAdapter implements ContentGenerator {
       while (true) {
         // 检查是否被用户中止（二次检查 + 快速退出）
         if (abortSignal?.aborted) {
-          console.log('[Otto Server] Stream generation cancelled by user - exiting loop');
+          console.log('[ClawMaster Runtime] Stream generation cancelled by user - exiting loop');
 
           // 📊 记录部分消费的tokens（如果有）
           if (lastUsageMetadata) {
-            console.log('[Otto Server] Partial token consumption recorded:', {
+            console.log('[ClawMaster Runtime] Partial token consumption recorded:', {
               inputTokens: getUsageCount(lastUsageMetadata, 'promptTokenCount'),
               outputTokens: getUsageCount(lastUsageMetadata, 'candidatesTokenCount'),
               totalTokens: getUsageCount(lastUsageMetadata, 'totalTokenCount'),
@@ -1583,13 +1583,13 @@ export class OttoServerAdapter implements ContentGenerator {
           readResult = await this.withTimeout(
             reader.read(),
             300000,
-            '[Otto Server] Stream read timeout after 300s (no data received in this chunk)'
+            '[ClawMaster Runtime] Stream read timeout after 300s (no data received in this chunk)'
           );
         } catch (readError) {
           // 如果是 AbortError（由 reader.cancel() 引发），则优雅退出
           if (readError instanceof Error &&
               (readError.name === 'AbortError' || readError.message.includes('cancelled'))) {
-            console.log('[Otto Server] Stream read cancelled - exiting');
+            console.log('[ClawMaster Runtime] Stream read cancelled - exiting');
             break;
           }
 
@@ -1627,7 +1627,7 @@ export class OttoServerAdapter implements ContentGenerator {
               annotatedError.isStreamInterrupt = true;
               annotatedError.isRetryable = true;
               annotatedError.bytesReceived = totalBytesRead;
-              console.warn(`⚠️  [Otto Server] Stream connection interrupted after ${totalBytesRead} bytes. Cause: ${readError.message}`);
+              console.warn(`⚠️  [ClawMaster Runtime] Stream connection interrupted after ${totalBytesRead} bytes. Cause: ${readError.message}`);
               throw streamInterruptError;
             }
           }
@@ -1856,7 +1856,7 @@ export class OttoServerAdapter implements ContentGenerator {
       for (const part of response.candidates[0].content.parts) {
         if (part.functionCall && !part.functionCall.id) {
           const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-          console.log(`[Otto Server] 补全缺失的工具 ID (Chunk): ${part.functionCall.name} -> ${generatedId}`);
+          console.log(`[ClawMaster Runtime] 补全缺失的工具 ID (Chunk): ${part.functionCall.name} -> ${generatedId}`);
           part.functionCall.id = generatedId;
         }
       }
@@ -1915,7 +1915,7 @@ export class OttoServerAdapter implements ContentGenerator {
           }
         } catch {
           console.warn(
-            `[Otto Server] Failed to parse accumulated functionCall.args as JSON for tool "${fc.name}". Keeping raw string for downstream error reporting. Raw: ${trimmed.substring(0, 200)}`,
+            `[ClawMaster Runtime] Failed to parse accumulated functionCall.args as JSON for tool "${fc.name}". Keeping raw string for downstream error reporting. Raw: ${trimmed.substring(0, 200)}`,
           );
         }
       } else if (fc.args === undefined || fc.args === null) {
@@ -1971,7 +1971,7 @@ export class OttoServerAdapter implements ContentGenerator {
       for (const p of firstParts) {
         if (p.functionCall && !p.functionCall.id) {
           const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-          console.log(`[Otto Server] 补全缺失的工具 ID (Merge init): ${p.functionCall.name} -> ${generatedId}`);
+          console.log(`[ClawMaster Runtime] 补全缺失的工具 ID (Merge init): ${p.functionCall.name} -> ${generatedId}`);
           p.functionCall.id = generatedId;
         }
       }
@@ -2033,7 +2033,7 @@ export class OttoServerAdapter implements ContentGenerator {
             const partToPush = { ...newPart, functionCall: { ...newFc } };
             if (!partToPush.functionCall.id) {
               const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-              console.log(`[Otto Server] 补全缺失的工具 ID (Merge parallel): ${partToPush.functionCall.name} -> ${generatedId}`);
+              console.log(`[ClawMaster Runtime] 补全缺失的工具 ID (Merge parallel): ${partToPush.functionCall.name} -> ${generatedId}`);
               partToPush.functionCall.id = generatedId;
             }
             accumulatedParts.push(partToPush as unknown as (typeof accumulatedParts)[number]);
@@ -2043,7 +2043,7 @@ export class OttoServerAdapter implements ContentGenerator {
           const partToPush = { ...newPart, functionCall: { ...newPart.functionCall } };
           if (!partToPush.functionCall.id) {
             const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-            console.log(`[Otto Server] 补全缺失的工具 ID (Merge): ${partToPush.functionCall.name} -> ${generatedId}`);
+            console.log(`[ClawMaster Runtime] 补全缺失的工具 ID (Merge): ${partToPush.functionCall.name} -> ${generatedId}`);
             partToPush.functionCall.id = generatedId;
           }
           accumulatedParts.push(partToPush);
@@ -2090,7 +2090,7 @@ export class OttoServerAdapter implements ContentGenerator {
       // 这样可以清楚地看到自定义模型不支持 token 计数
       const modelToUse = request.model || this.config?.getModel() || 'auto';
       if (isCustomModel(modelToUse)) {
-        console.log('[Otto Server] Custom model detected, token counting not supported');
+        console.log('[ClawMaster Runtime] Custom model detected, token counting not supported');
         return { totalTokens: 0 };
       }
 
@@ -2132,9 +2132,9 @@ export class OttoServerAdapter implements ContentGenerator {
       // 对于自定义模型，token count 失败是预期行为，使用 debug 级别
       const modelToUse = request.model || this.config?.getModel() || 'auto';
       if (isCustomModel(modelToUse)) {
-        console.log('[Otto Server] Token count not available for custom model, using fallback');
+        console.log('[ClawMaster Runtime] Token count not available for custom model, using fallback');
       } else {
-        logger.error('[Otto Server] Token count failed:', error);
+        logger.error('[ClawMaster Runtime] Token count failed:', error);
       }
 
       // 回退到估算方法
@@ -2168,7 +2168,7 @@ export class OttoServerAdapter implements ContentGenerator {
 
         // 401错误特殊处理
         if (response.status === 401 && isOurAuthError(errorText)) {
-          console.error('[Otto Server] Token count 401 Unauthorized');
+          console.error('[ClawMaster Runtime] Token count 401 Unauthorized');
           if (this.authHandler) {
             await this.authHandler();
           }
@@ -2180,7 +2180,7 @@ export class OttoServerAdapter implements ContentGenerator {
 
       const responseData = await response.json();
 
-      console.log('[Otto Server] Token count response', {
+      console.log('[ClawMaster Runtime] Token count response', {
         totalTokens: responseData.totalTokens
       });
 
@@ -2189,7 +2189,7 @@ export class OttoServerAdapter implements ContentGenerator {
       };
 
     } catch (error) {
-      logger.error('[Otto Server] Token count API call failed:', error);
+      logger.error('[ClawMaster Runtime] Token count API call failed:', error);
       throw error;
     }
   }
@@ -2247,7 +2247,7 @@ export class OttoServerAdapter implements ContentGenerator {
         totalTokens: estimatedTokens,
       };
     } catch (error) {
-      console.error('[Otto Server] Fallback estimation error:', error);
+      console.error('[ClawMaster Runtime] Fallback estimation error:', error);
       return {
         totalTokens: 1000, // Default fallback
       };

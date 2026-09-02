@@ -8,9 +8,8 @@ import type { CommandActionReturn } from './types.js';
 
 /**
  * `/init` — ask the agent to analyze the current directory and generate a
- * project memory file. In gemini-cli this file is called `GEMINI.md`; in
- * DeepCode it is `OTTO.md`. The prompt text is deliberately the same
- * instructional content, only the filename changes.
+ * project memory file. ClawMaster uses `CLAWMASTER.md`; callers may still
+ * report an existing legacy context file to avoid creating duplicates.
  */
 export function performInit(doesMemoryFileExist: boolean): CommandActionReturn {
   if (doesMemoryFileExist) {
@@ -18,13 +17,13 @@ export function performInit(doesMemoryFileExist: boolean): CommandActionReturn {
       type: 'message',
       messageType: 'info',
       content:
-        'A OTTO.md file already exists in this directory. No changes were made.',
+        'A ClawMaster project memory file already exists in this directory. No changes were made.',
     };
   }
   return {
     type: 'submit_prompt',
     content: `
-You are an AI agent that brings the power of Otto directly into the terminal. Your task is to analyze the current directory and generate a comprehensive OTTO.md file to be used as instructional context for future interactions.
+You are an AI agent that brings the power of ClawMaster directly into the terminal. Your task is to analyze the current directory and generate a comprehensive CLAWMASTER.md file to be used as instructional context for future interactions.
 
 **Analysis Process:**
 
@@ -40,7 +39,7 @@ You are an AI agent that brings the power of Otto directly into the terminal. Yo
     *   **Code Project:** Look for \`package.json\`, \`requirements.txt\`, \`pom.xml\`, \`go.mod\`, \`Cargo.toml\`, a \`src\` directory, etc.
     *   **Non-Code Project:** Documentation, research, notes, etc.
 
-**OTTO.md Content Generation:**
+**CLAWMASTER.md Content Generation:**
 
 **For a Code Project:**
 *   **Project Overview:** Purpose, main technologies, architecture.
@@ -54,7 +53,7 @@ You are an AI agent that brings the power of Otto directly into the terminal. Yo
 
 **Final Output:**
 
-Write the complete content to the \`OTTO.md\` file. The output must be well-formatted Markdown.
+Write the complete content to the \`CLAWMASTER.md\` file. The output must be well-formatted Markdown.
 `,
   };
 }

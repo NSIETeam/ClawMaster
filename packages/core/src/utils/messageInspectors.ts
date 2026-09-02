@@ -14,19 +14,3 @@ export function isFunctionResponse(content: Content): boolean {
     content.parts.every((part) => !!part.functionResponse)
   );
 }
-
-export function isFunctionCall(content: Content): boolean {
-  return (
-    content.role === MESSAGE_ROLES.MODEL &&
-    !!content.parts &&
-    content.parts.every((part) => !!part.functionCall)
-  );
-}
-
-export function hasFunctionCall(content: Content): boolean {
-  return (
-    content.role === MESSAGE_ROLES.MODEL &&
-    !!content.parts &&
-    content.parts.some((part) => !!part.functionCall)
-  );
-}

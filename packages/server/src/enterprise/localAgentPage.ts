@@ -14,7 +14,7 @@ function renderLocalAgentPage(): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>接入本地 Otto · Otto Enterprise</title>
+  <title>接入本地 ClawMaster · ClawMaster Enterprise</title>
   <style>
     :root{color-scheme:light;font-family:Inter,"SF Pro Display","PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#f3f1e9;color:#162b27}
     *{box-sizing:border-box}
@@ -53,12 +53,12 @@ function renderLocalAgentPage(): string {
 <body>
   <main class="page">
     <div class="shell">
-      <div class="brand"><span class="mark" aria-hidden="true">O</span> OTTO ENTERPRISE</div>
+      <div class="brand"><span class="mark" aria-hidden="true">C</span> CLAWMASTER ENTERPRISE</div>
       <section class="card">
         <header class="hero">
-          <div class="eyebrow"><span class="dot" id="indicator-dot"></span>接入本地 Otto</div>
+          <div class="eyebrow"><span class="dot" id="indicator-dot"></span>接入本地 ClawMaster</div>
           <h1 id="main-title">正在检测…</h1>
-          <p class="description" id="main-desc">确认你的本地 Otto 是否在运行，然后一键接入企业服务。</p>
+          <p class="description" id="main-desc">确认你的本地 ClawMaster 是否在运行，然后一键接入企业服务。</p>
         </header>
         <div class="content">
           <!-- 检测中 -->
@@ -67,7 +67,7 @@ function renderLocalAgentPage(): string {
               <div class="status-icon pulse">🔍</div>
               <div class="status-text">
                 <div class="status-label">状态</div>
-                <div class="status-value">正在探测本地 Otto…</div>
+                <div class="status-value">正在探测本地 ClawMaster…</div>
               </div>
             </div>
           </div>
@@ -77,12 +77,12 @@ function renderLocalAgentPage(): string {
             <div class="status-row">
               <div class="status-icon">❌</div>
               <div class="status-text">
-                <div class="status-label">未检测到本地 Otto</div>
-                <div class="status-value">请确认 Otto 桌面端已启动</div>
+                <div class="status-label">未检测到本地 ClawMaster</div>
+                <div class="status-value">请确认 ClawMaster 桌面端已启动</div>
               </div>
             </div>
             <button class="primary" onclick="retryDetection()">重新检测</button>
-            <div class="fine">Otto 桌面端需在运行且监听 7637 端口</div>
+            <div class="fine">ClawMaster 桌面端需保持运行</div>
           </div>
 
           <!-- 已检测到 -->
@@ -90,14 +90,14 @@ function renderLocalAgentPage(): string {
             <div class="status-row">
               <div class="status-icon">✅</div>
               <div class="status-text">
-                <div class="status-label">已检测到本地 Otto</div>
+                <div class="status-label">已检测到本地 ClawMaster</div>
                 <div class="status-value">版本 <span id="otto-version">—</span> · 实例 <span id="otto-id">—</span></div>
               </div>
             </div>
-            <div class="code-label">配对令牌（复制此令牌到 Otto 桌面端以完成接入）</div>
+            <div class="code-label">配对令牌（复制此令牌到 ClawMaster 桌面端以完成接入）</div>
             <div class="code" id="pairing-token">—</div>
             <button class="primary" onclick="requestPairing()" id="pair-btn">生成配对令牌</button>
-            <div class="fine">令牌有效期 5 分钟，请在 Otto 桌面端中输入此令牌完成接入</div>
+            <div class="fine">令牌有效期 5 分钟，请在 ClawMaster 桌面端中输入此令牌完成接入</div>
           </div>
 
           <!-- 错误 -->
@@ -142,15 +142,15 @@ function renderLocalAgentPage(): string {
       if (result.found) {
         detectedInstance = result;
         showState('state-found');
-        document.getElementById('main-title').textContent = '已找到本地 Otto';
-        document.getElementById('main-desc').textContent = '你的本地 Otto 已就绪，生成配对令牌后即可接入企业服务。';
+        document.getElementById('main-title').textContent = '已找到本地 ClawMaster';
+        document.getElementById('main-desc').textContent = '你的本地 ClawMaster 已就绪，生成配对令牌后即可接入企业服务。';
         document.getElementById('indicator-dot').className = 'dot green';
         document.getElementById('otto-version').textContent = result.version || '—';
         document.getElementById('otto-id').textContent = (result.instanceId || '').slice(0, 12) + '…';
       } else {
         showState('state-not-found');
-        document.getElementById('main-title').textContent = '未检测到本地 Otto';
-        document.getElementById('main-desc').textContent = '请确认 Otto 桌面端已在运行中。';
+        document.getElementById('main-title').textContent = '未检测到本地 ClawMaster';
+        document.getElementById('main-desc').textContent = '请确认 ClawMaster 桌面端已在运行中。';
         document.getElementById('indicator-dot').className = 'dot red';
       }
     }
@@ -175,7 +175,7 @@ function renderLocalAgentPage(): string {
           if (data.ok && data.data && data.data.token) {
             pairingToken = data.data.token;
             document.getElementById('pairing-token').textContent = data.data.token;
-            document.getElementById('main-desc').textContent = '请在 Otto 桌面端中输入以下配对令牌完成接入。';
+            document.getElementById('main-desc').textContent = '请在 ClawMaster 桌面端中输入以下配对令牌完成接入。';
           } else {
             showState('state-error');
             document.getElementById('error-msg').textContent = data.error || '生成令牌失败';

@@ -199,7 +199,7 @@ export class FeishuInboundQueue {
       record.status = 'queued';
       record.updatedAtMs = now;
       record.nextAttemptAtMs = null;
-      record.lastError = 'Otto restarted before this Feishu task completed';
+      record.lastError = 'ClawMaster restarted before this Feishu task completed';
       changed = true;
     }
     if (changed) this.persist();

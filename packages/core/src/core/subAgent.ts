@@ -22,7 +22,7 @@ import { SessionManager } from '../services/sessionManager.js';
 import { CompressionService } from '../services/compressionService.js';
 import { SceneManager, SceneType } from './sceneManager.js';
 import { t } from '../utils/simpleI18n.js';
-import { AgentDefinition, resolveAgentTools } from '../agents/agentDefinition.js';
+import { AgentDefinition } from '../agents/agentDefinition.js';
 import { getAgentResourceBudget } from './agentResourceBudget.js';
 import {
   AgentMemorySnapshot,
@@ -119,6 +119,7 @@ export class SubAgent {
 
   // 🎯 AbortSignal监听器清理函数
   private abortListener: (() => void) | null = null;
+  private executionAbortController = new AbortController();
   private memoryStart?: AgentMemorySnapshot;
   private readonly historyMaxChars = getAgentResourceBudget().subAgentHistoryMaxChars;
 
@@ -126,7 +127,7 @@ export class SubAgent {
    * 检查AbortSignal状态，如果已被触发则抛出错误
    */
   private checkAbortSignal(): void {
-    if (this.abortSignal?.aborted) {
+    if (this.abortSignal?.aborted || this.executionAbortController.signal.aborted) {
       throw new Error(`Task cancelled by AbortSignal`);
     }
   }
@@ -186,7 +187,7 @@ export class SubAgent {
 
     // 创建独立的工具执行引擎
     this.executionEngine = new ToolExecutionEngine({
-      toolRegistry: Promise.resolve(this.createSubAgentToolRegistry()),
+      toolRegistry: Promise.resolve(this.toolRegistry),
       adapter: this.adapter,
       config: this.config,
       hookEventHandler: this.config.getHookSystem().getEventHandler(),
@@ -202,6 +203,7 @@ export class SubAgent {
     taskDescription: string,
     maxTurns: number = 10
   ): Promise<SubAgentResult> {
+    this.executionAbortController = new AbortController();
     this.context = {
       ...this.context,
       taskDescription,
@@ -222,7 +224,7 @@ export class SubAgent {
     if (this.abortSignal) {
       const handleAbort = () => {
         console.debug(`[SubAgent] Received AbortSignal, starting cleanup: ${this.context.agentId}`);
-        this.context.isRunning = false;
+        this.cancel();
 
         // 简化：无需清理中央状态
 
@@ -279,7 +281,8 @@ export class SubAgent {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.log(t('task.execution.failed', { error: errorMessage }));
       // 区分主动取消与异常退出，便于主 Agent / UI 显示
-      const isCancelled = this.abortSignal?.aborted === true;
+      const isCancelled = this.abortSignal?.aborted === true
+        || this.executionAbortController.signal.aborted;
       this.sendStatusChange('failed', {
         reason: isCancelled ? 'abort_signal' : 'execution_error',
         error: errorMessage,
@@ -304,6 +307,14 @@ export class SubAgent {
       // 清理待处理的工具结果
       this.pendingToolResults = [];
 
+      this.releaseToolWait();
+
+      // A completed agent behaves like a discarded browser tab: retain only
+      // its compact result, never the full model history or chat transport.
+      this.subAgentChat?.clearHistory();
+      this.subAgentChat = undefined;
+      this.adapter.releaseRetainedData();
+
       this.log(`SubAgent execution ended (final turn: ${this.context.currentTurn})`);
     }
   }
@@ -326,8 +337,19 @@ export class SubAgent {
    */
   cancel(): void {
     this.context.isRunning = false;
+    this.executionAbortController.abort();
+    this.releaseToolWait();
     console.debug(`[SubAgent] cancel()被调用: ${this.context.agentId}`);
-    // 注意：清理逻辑现在由AbortSignal监听器处理
+  }
+
+  private releaseToolWait(results: CompletedEngineToolCall[] = []): void {
+    if (this.toolCompletionTimeoutId !== undefined) {
+      clearTimeout(this.toolCompletionTimeoutId);
+      this.toolCompletionTimeoutId = undefined;
+    }
+    const resolver = this.toolCompletionResolver;
+    this.toolCompletionResolver = undefined;
+    resolver?.(results);
   }
 
   /**
@@ -518,7 +540,7 @@ export class SubAgent {
       this.executionEngine.executeTools(
         toolCallRequests,
         this.toolExecutionContext,
-        this.abortSignal!,
+        this.executionAbortController.signal,
       ).catch(error => {
         this.log(`Tool execution engine error: ${error instanceof Error ? error.message : String(error)}`);
       });
@@ -596,22 +618,20 @@ export class SubAgent {
       });
     }
 
-    // 📝 保存请求日志
-    const timestamp = new Date().toISOString();
-    const currentHistory = this.subAgentChat.getHistory();
-    const logData = {
-      timestamp,
-      turn: this.context.currentTurn,
-      request: {
-        history: currentHistory,
-        messageParts
-      }
-    };
-
-    // 保存请求部分到日志
-    await this.sessionManager.saveRequestLog(this.sessionId, logData).catch(error => {
-      console.warn('[SubAgent] Failed to save request log:', error);
-    });
+    // Full prompt history is sensitive and expensive to serialize. Retain one
+    // completed request/response snapshot only when the user explicitly runs
+    // ClawMaster in debug mode; normal long-running agents perform no request
+    // dump IO and keep no extra history reference during the model stream.
+    const requestLog = this.config.getDebugMode()
+      ? {
+          timestamp: new Date().toISOString(),
+          turn: this.context.currentTurn,
+          request: {
+            history: this.subAgentChat.getHistory(),
+            messageParts,
+          },
+        }
+      : undefined;
 
     // 使用流式接口发送消息，避免非流式 response.json() 在服务端长时间处理时永久挂起
     const streamRequestStart = Date.now();
@@ -627,11 +647,18 @@ export class SubAgent {
 
     // 组合外部 signal 和轮次超时 signal：任一触发都中断流
     const combinedSignal = this.abortSignal
-      ? AbortSignal.any([this.abortSignal, turnAbortController.signal])
-      : turnAbortController.signal;
+      ? AbortSignal.any([
+          this.abortSignal,
+          this.executionAbortController.signal,
+          turnAbortController.signal,
+        ])
+      : AbortSignal.any([
+          this.executionAbortController.signal,
+          turnAbortController.signal,
+        ]);
 
     // 如果外部 signal 已经 abort，直接抛出
-    if (this.abortSignal?.aborted) {
+    if (this.abortSignal?.aborted || this.executionAbortController.signal.aborted) {
       clearTimeout(turnTimeoutId);
       throw new Error('Task cancelled by AbortSignal');
     }
@@ -657,16 +684,23 @@ export class SubAgent {
     let firstChunkMs: number | undefined;
     let turnTimedOut = false;
 
-    // 心跳定时器：每30秒打印一次，区分"AI慢慢推理"和"真的卡住"
-    const heartbeatId = setInterval(() => {
-      const elapsed = Math.round((Date.now() - streamRequestStart) / 1000);
-      this.log(`[turn ${this.context.currentTurn}] Still receiving stream... ${elapsed}s elapsed, ${chunkCount} chunks so far`);
-    }, 30000);
+    // Self-rescheduling heartbeat avoids overlapping recurring work and is
+    // always cancelled with the stream lifecycle.
+    let heartbeatId: ReturnType<typeof setTimeout> | undefined;
+    const scheduleHeartbeat = () => {
+      heartbeatId = setTimeout(() => {
+        const elapsed = Math.round((Date.now() - streamRequestStart) / 1000);
+        this.log(`[turn ${this.context.currentTurn}] Still receiving stream... ${elapsed}s elapsed, ${chunkCount} chunks so far`);
+        scheduleHeartbeat();
+      }, 30_000);
+      heartbeatId.unref?.();
+    };
+    scheduleHeartbeat();
 
     try {
       for await (const chunk of streamGenerator) {
         // 跳过取消信号已触发的情况
-        if (this.abortSignal?.aborted) break;
+        if (this.abortSignal?.aborted || this.executionAbortController.signal.aborted) break;
 
         // 🛡️ 检查轮次超时
         if (turnAbortController.signal.aborted) {
@@ -697,7 +731,7 @@ export class SubAgent {
         }
       }
     } finally {
-      clearInterval(heartbeatId);
+      if (heartbeatId !== undefined) clearTimeout(heartbeatId);
       clearTimeout(turnTimeoutId);
       const totalMs = Date.now() - streamRequestStart;
       this.log(`[turn ${this.context.currentTurn}] Stream done: ${chunkCount} chunks, first=${firstChunkMs ?? 'n/a'}ms, total=${totalMs}ms${turnTimedOut ? ' (TIMED OUT)' : ''}`);
@@ -722,19 +756,17 @@ export class SubAgent {
       parts: allParts
     };
 
-    // 📝 保存完整日志（包含响应）
-    const fullLogData = {
-      ...logData,
-      response: {
-        content: aiContent,
-        tokenUsage
-      }
-    };
-
-    // 覆盖保存完整日志
-    await this.sessionManager.saveRequestLog(this.sessionId, fullLogData).catch(error => {
-      console.warn('[SubAgent] Failed to save response log:', error);
-    });
+    if (requestLog) {
+      await this.sessionManager.saveRequestLog(this.sessionId, {
+        ...requestLog,
+        response: {
+          content: aiContent,
+          tokenUsage,
+        },
+      }).catch(error => {
+        console.warn('[SubAgent] Failed to save debug request log:', error);
+      });
+    }
 
     return aiContent;
   }
@@ -750,10 +782,7 @@ export class SubAgent {
    * 处理工具完成回调
    */
   private handleToolsComplete(completedCalls: CompletedEngineToolCall[]): void {
-    if (this.toolCompletionResolver) {
-      this.toolCompletionResolver(completedCalls);
-      this.toolCompletionResolver = undefined;
-    }
+    this.releaseToolWait(completedCalls);
   }
 
   /**
@@ -782,28 +811,10 @@ export class SubAgent {
   }
 
   /**
-   * 创建子agent专用的工具注册表
-   */
-  private createSubAgentToolRegistry(): ToolRegistry {
-    const subAgentRegistry = new ToolRegistry(this.config);
-
-    const allTools = this.toolRegistry.getAllTools();
-    const resolvedTools = this.agentDefinition
-      ? resolveAgentTools(this.agentDefinition, allTools).resolvedTools
-      : allTools.filter(tool => tool.allowSubAgentUse);
-
-    resolvedTools.forEach(tool => {
-      subAgentRegistry.registerTool(tool);
-    });
-
-    return subAgentRegistry;
-  }
-
-  /**
    * 获取子agent可用的工具名称
    */
   private getAvailableToolNames(): string[] {
-    return this.createSubAgentToolRegistry()
+    return this.toolRegistry
       .getAllTools()
       .map(tool => tool.name);
   }
@@ -812,7 +823,7 @@ export class SubAgent {
    * 获取子agent的工具声明
    */
   private getSubAgentToolDeclarations() {
-    return this.createSubAgentToolRegistry().getFunctionDeclarations();
+    return this.toolRegistry.getFunctionDeclarations();
   }
 
   /**
@@ -983,7 +994,7 @@ export class SubAgent {
         compressionModel!,
         this.geminiClient, // 传递 OttoClient 实例而不是 ContentGenerator
         this.context.agentId,
-        this.abortSignal!
+        this.executionAbortController.signal,
       );
 
       if (compressionResult && compressionResult.success && compressionResult.newHistory) {

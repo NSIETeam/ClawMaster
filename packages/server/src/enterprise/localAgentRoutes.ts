@@ -75,7 +75,7 @@ export async function handleLocalAgentRoute({
       data: {
         token,
         expiresIn: 300,
-        instructions: '请在 Otto 桌面端中输入此令牌完成接入',
+        instructions: '请在 ClawMaster 桌面端中输入此令牌完成接入',
       },
     });
     return true;

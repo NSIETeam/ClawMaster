@@ -175,7 +175,7 @@ const invokedPath = process.argv[1]
 if (import.meta.url === invokedPath) {
   main().catch((error: unknown) => {
     console.error(
-      `[Otto Enterprise] infrastructure preflight failed: ${safeInfrastructureErrorMessage(
+      `[ClawMaster Enterprise] infrastructure preflight failed: ${safeInfrastructureErrorMessage(
         error,
         process.env,
       )}`,

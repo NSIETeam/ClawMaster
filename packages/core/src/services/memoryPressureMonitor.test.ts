@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MemoryPressureMonitor } from './memoryPressureMonitor.js';
 
 const GB = 1024 * 1024 * 1024;
@@ -60,5 +60,37 @@ describe('MemoryPressureMonitor', () => {
 
     expect(monitor.getSnapshot().level).toBe('critical');
     expect(monitor.getTaskConcurrencyLimit(4)).toBe(1);
+  });
+
+  it('stops background sampling when the final subscriber leaves', async () => {
+    vi.useFakeTimers();
+    try {
+      let reads = 0;
+      const monitor = new MemoryPressureMonitor({
+        intervalMs: 100,
+        readMemory: () => {
+          reads++;
+          return {
+            rssBytes: 200 * MB,
+            heapUsedBytes: 80 * MB,
+            freeSystemBytes: 8 * GB,
+            totalSystemBytes: 16 * GB,
+            freeSystemRatio: 0.5,
+          };
+        },
+      });
+      const unsubscribe = monitor.subscribe(() => undefined);
+      monitor.start();
+
+      await vi.advanceTimersByTimeAsync(100);
+      expect(reads).toBe(2);
+
+      unsubscribe();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(reads).toBe(2);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

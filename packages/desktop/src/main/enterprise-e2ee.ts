@@ -380,7 +380,7 @@ function newDeviceKeySet(deviceName: string, now: Date): DeviceKeySet {
   const exchange = generateKeyPairSync('x25519');
   return {
     deviceId: randomUUID(),
-    deviceName: deviceName.trim().slice(0, 120) || 'Otto device',
+    deviceName: deviceName.trim().slice(0, 120) || 'ClawMaster device',
     identitySigningPublicKey: publicPem(identity.publicKey),
     identitySigningPrivateKey: privatePem(identity.privateKey),
     deviceExchangePublicKey: publicPem(exchange.publicKey),
@@ -551,7 +551,7 @@ export class EnterpriseE2eeKeyVault {
 
   constructor(private readonly options: EnterpriseE2eeVaultOptions) {
     this.now = options.now ?? (() => new Date());
-    this.deviceName = options.deviceName ?? (() => 'Otto desktop');
+    this.deviceName = options.deviceName ?? (() => 'ClawMaster desktop');
   }
 
   private keyringPath(serverScope: string, accountId: string): string {

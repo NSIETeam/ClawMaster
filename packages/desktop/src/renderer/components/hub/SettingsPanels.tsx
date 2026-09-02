@@ -17,6 +17,7 @@ import { GeneratedIcon, type GeneratedIconName } from '../GeneratedIcon.js';
 import { IconClose } from '../icons.js';
 import { Panel, Card, Dot, Badge, Empty, type DotTone } from './HubUI.js';
 import { readPetWidgetEnabled, writePetWidgetEnabled } from '../../petWidgetPreference.js';
+import { announceRendererTheme } from '../../themeSync.js';
 
 // ── 偏好设置 ──────────────────────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ export function PrefsPanel({
 
   const pickTheme = (v: 'system' | 'light' | 'dark'): void => {
     setTheme(v);
+    announceRendererTheme(v);
     void window.otto?.themeSet?.(v);
   };
 
@@ -148,6 +150,7 @@ export function PrefsPanel({
       let themeReset: Promise<unknown> | undefined;
       if (needsThemeReset) {
         setTheme('system');
+        announceRendererTheme('system');
         themeReset = window.otto?.themeSet?.('system');
       }
       if (s.agentStyle !== 'default') actions.setSetting('agentStyle', 'default');
@@ -165,6 +168,7 @@ export function PrefsPanel({
     } catch {
       // 主题 IPC 失败时恢复原来的视觉状态，并保留可重试入口。
       setTheme(previousTheme);
+      announceRendererTheme(previousTheme);
       setThemeResetSettled(false);
       setResetStatus('error');
     }
@@ -257,7 +261,7 @@ export function PrefsPanel({
 
           <div className="otto-hub__setting otto-hub__setting--stack">
             <div className="otto-hub__setting-text">
-              <div className="otto-hub__field-label">希望 Otto 怎么帮你</div>
+              <div className="otto-hub__field-label">希望 ClawMaster 怎么帮你</div>
               <div className="otto-hub__field-hint">
                 不需要理解模型参数，只选最接近你的习惯。
               </div>
@@ -306,7 +310,7 @@ export function PrefsPanel({
           <div className="otto-hub__setting">
             <div className="otto-hub__setting-text">
               <div className="otto-hub__field-label">小宠物挂件</div>
-              <div className="otto-hub__field-hint">在右下角显示 Otto 的实时工作状态。</div>
+              <div className="otto-hub__field-hint">在右下角显示 ClawMaster 的实时工作状态。</div>
             </div>
             <button
               type="button"
@@ -343,7 +347,7 @@ export function PrefsPanel({
             <div className="otto-hub__setting-text">
               <div className="otto-hub__field-label">偏好语言</div>
               <div className="otto-hub__field-hint">
-                影响 Otto 回复所用的语言（留空 = 跟随对话自动判断）。
+                影响 ClawMaster 回复所用的语言（留空 = 跟随对话自动判断）。
               </div>
             </div>
             <div className="otto-hub__inputrow otto-hub__inputrow--compact">
@@ -368,7 +372,7 @@ export function PrefsPanel({
             <div className="otto-hub__setting-text">
               <div className="otto-hub__field-label">后台付费分析</div>
               <div className="otto-hub__field-hint">
-                允许 Otto 在后台使用当前模型分析工作内容，可能产生 API 费用。新安装默认关闭，只有用户明确开启后才允许运行。
+                允许 ClawMaster 在后台使用当前模型分析工作内容，可能产生 API 费用。新安装默认关闭，只有用户明确开启后才允许运行。
               </div>
             </div>
             <button
@@ -432,7 +436,7 @@ export function McpPanel({ data }: { data: UseSettingsData }): React.JSX.Element
   return (
     <Panel
       title="MCP 服务器"
-      desc="管理 Model Context Protocol 服务器，为 Otto 接入外部工具。"
+      desc="管理 Model Context Protocol 服务器，为 ClawMaster 接入外部工具。"
       actions={
         <>
           <button type="button" className="otto-hub__btn" onClick={actions.refreshMcpServers}>

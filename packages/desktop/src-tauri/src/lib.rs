@@ -1,16 +1,20 @@
 use futures_util::{SinkExt, StreamExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, State};
+use tauri::plugin::PermissionState;
+use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_notification::NotificationExt;
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::{sleep, Duration};
 use tokio_tungstenite::tungstenite::Message;
 
 mod agent_sidecar;
+mod community_skills;
 mod system_commands;
+mod task_runtime_guard;
 
 const FRAME_EVENT: &str = "desktop://server-frame";
 const CONNECTION_EVENT: &str = "desktop://connection-change";
@@ -30,11 +34,179 @@ struct DesktopConnection {
     connected: AtomicBool,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DesktopRuntimeDiagnostic {
+    contract_version: u8,
+    server: RuntimeServerDiagnostic,
+    native_core: RuntimeNativeCoreDiagnostic,
+}
+
+#[derive(Debug, Serialize)]
+struct RuntimeServerDiagnostic {
+    status: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ownership: Option<&'static str>,
+    message: &'static str,
+}
+
+#[derive(Debug, Serialize)]
+struct RuntimeNativeCoreDiagnostic {
+    mode: &'static str,
+    status: &'static str,
+    message: &'static str,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NotificationRequest {
+    session_id: String,
+    source: String,
+    sender: Option<String>,
+    title: Option<String>,
+    preview: String,
+}
+
+fn compact_notification_text(value: &str, max_chars: usize) -> String {
+    let compact = value
+        .chars()
+        .map(|character| {
+            if character.is_control() || character.is_whitespace() {
+                ' '
+            } else {
+                character
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let characters = compact.chars().collect::<Vec<_>>();
+    if characters.len() <= max_chars {
+        return compact;
+    }
+    characters
+        .into_iter()
+        .take(max_chars.saturating_sub(1))
+        .chain(std::iter::once('…'))
+        .collect()
+}
+
+fn notification_title(source: &str, sender: Option<&str>, title: Option<&str>) -> String {
+    let explicit = compact_notification_text(title.unwrap_or_default(), 80);
+    if !explicit.is_empty() {
+        return explicit;
+    }
+    let label = match source {
+        "feishu" => "飞书消息",
+        "atoa" => "企业内部协作",
+        "enterprise" => "企业通知",
+        "park" => "园区服务",
+        _ => "新消息",
+    };
+    let sender = compact_notification_text(sender.unwrap_or_default(), 40);
+    if sender.is_empty() {
+        label.to_string()
+    } else {
+        format!("{label} · {sender}")
+    }
+}
+
+#[tauri::command]
+fn notification_show(app: AppHandle, payload: NotificationRequest) -> Result<(), String> {
+    if compact_notification_text(&payload.session_id, 160).is_empty() {
+        return Err("notification sessionId is required".to_string());
+    }
+    let source = compact_notification_text(&payload.source, 40);
+    let title = notification_title(
+        if source.is_empty() {
+            "unknown"
+        } else {
+            &source
+        },
+        payload.sender.as_deref(),
+        payload.title.as_deref(),
+    );
+    let preview = compact_notification_text(&payload.preview, 180);
+    let body = if preview.is_empty() {
+        "你收到了一条新消息。".to_string()
+    } else {
+        preview
+    };
+    let notification = app.notification();
+    let mut permission = notification
+        .permission_state()
+        .map_err(|error| format!("无法读取系统通知权限：{error}"))?;
+    if permission != PermissionState::Granted {
+        permission = notification
+            .request_permission()
+            .map_err(|error| format!("无法请求系统通知权限：{error}"))?;
+    }
+    if permission != PermissionState::Granted {
+        return Err("系统通知权限未授权".to_string());
+    }
+    notification
+        .builder()
+        .title(title)
+        .body(body)
+        .show()
+        .map_err(|error| format!("系统通知发送失败：{error}"))
+}
+
+fn runtime_diagnostic_payload(
+    sidecar_running: bool,
+    transport_connected: bool,
+) -> DesktopRuntimeDiagnostic {
+    let server = if sidecar_running {
+        RuntimeServerDiagnostic {
+            status: "ready",
+            ownership: Some("detached"),
+            message: if transport_connected {
+                "Tauri Agent sidecar 已就绪，桌面连接正常"
+            } else {
+                "Tauri Agent sidecar 已就绪，桌面正在连接"
+            },
+        }
+    } else if transport_connected {
+        RuntimeServerDiagnostic {
+            status: "ready",
+            ownership: Some("discovered"),
+            message: "已连接到现有本地 Agent 服务",
+        }
+    } else {
+        RuntimeServerDiagnostic {
+            status: "unavailable",
+            ownership: None,
+            message: "Tauri Agent sidecar 未运行",
+        }
+    };
+    DesktopRuntimeDiagnostic {
+        contract_version: 1,
+        server,
+        native_core: RuntimeNativeCoreDiagnostic {
+            mode: "off",
+            status: "disabled",
+            message: "Tauri 使用精简 Agent sidecar，原生加速核心未启用",
+        },
+    }
+}
+
+#[tauri::command]
+fn runtime_diagnostic(
+    app: AppHandle,
+    state: State<'_, Arc<DesktopConnection>>,
+) -> DesktopRuntimeDiagnostic {
+    let sidecar_running = app
+        .try_state::<agent_sidecar::AgentSidecar>()
+        .is_some_and(|sidecar| sidecar.is_running());
+    runtime_diagnostic_payload(sidecar_running, state.connected.load(Ordering::Acquire))
+}
+
 fn endpoint_file_path() -> Result<PathBuf, String> {
     let home = std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
         .ok_or_else(|| "desktop server endpoint: user home is unavailable".to_string())?;
-    Ok(PathBuf::from(home).join(".otto-user/server-endpoint.json"))
+    Ok(PathBuf::from(home).join(".clawmaster-user/server-endpoint.json"))
 }
 
 fn read_endpoint(path: &Path) -> Result<ServerEndpoint, String> {
@@ -92,7 +264,11 @@ async fn desktop_connect(
     let mut last_error = "desktop Agent service did not become ready".to_string();
     let (socket, endpoint) = {
         let mut connected = None;
-        for _ in 0..80 {
+        // Match the bounded sidecar startup window. A populated local
+        // workspace may need more than 20 seconds to open SQLCipher and restore
+        // indexes; the renderer must not show a false "server not connected"
+        // failure while that same healthy startup is still in progress.
+        for _ in 0..240 {
             match read_endpoint(&endpoint_path) {
                 Ok(endpoint) => {
                     match tokio_tungstenite::connect_async(websocket_url(&endpoint)).await {
@@ -191,25 +367,48 @@ fn desktop_is_connected(state: State<'_, Arc<DesktopConnection>>) -> bool {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_clipboard_manager::init())
+        // Keep this first: a second launch must focus the existing window
+        // before it can initialize another Agent sidecar.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(agent_sidecar::spawn)
         .manage(Arc::new(DesktopConnection::default()))
+        .manage(system_commands::DesktopFileState::default())
         .manage(system_commands::ThemePreference::default())
+        .manage(task_runtime_guard::TaskRuntimeGuard::default())
         .invoke_handler(tauri::generate_handler![
             desktop_connect,
             desktop_disconnect,
             desktop_send,
             desktop_is_connected,
+            runtime_diagnostic,
+            notification_show,
             system_commands::open_external,
             system_commands::open_path,
             system_commands::select_files,
             system_commands::select_folders,
             system_commands::get_workspace_directories,
+            system_commands::read_file_path,
+            system_commands::extract_editable_document,
+            system_commands::export_edited_document,
+            system_commands::inspect_local_path,
+            system_commands::activate_local_path,
+            system_commands::save_text_file,
+            system_commands::app_version,
             system_commands::theme_get,
             system_commands::theme_set,
-            system_commands::write_clipboard
+            system_commands::write_clipboard,
+            community_skills::community_skill_install,
+            community_skills::community_skill_list,
+            task_runtime_guard::task_runtime_set_active
         ])
         .build(tauri::generate_context!())
         .expect("failed to build ClawMaster desktop shell");
@@ -218,6 +417,9 @@ pub fn run() {
             event,
             tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
         ) {
+            if let Some(state) = app_handle.try_state::<task_runtime_guard::TaskRuntimeGuard>() {
+                task_runtime_guard::stop(state.inner());
+            }
             agent_sidecar::stop(app_handle);
         }
     });
@@ -228,6 +430,15 @@ mod tests {
     use super::*;
     fn temp_endpoint() -> PathBuf {
         std::env::temp_dir().join(format!("clawmaster-endpoint-{}.json", std::process::id()))
+    }
+
+    #[test]
+    fn desktop_transport_reads_the_clawmaster_local_runtime_endpoint() {
+        let home = std::env::var_os("HOME").expect("test requires HOME");
+        assert_eq!(
+            endpoint_file_path().unwrap(),
+            PathBuf::from(home).join(".clawmaster-user/server-endpoint.json")
+        );
     }
 
     #[test]
@@ -260,5 +471,38 @@ mod tests {
             websocket_url(&endpoint),
             "ws://127.0.0.1:7637/ws?clientToken=a%20token%2F%2B"
         );
+    }
+
+    #[test]
+    fn runtime_diagnostic_reports_the_real_tauri_sidecar_state() {
+        let ready = runtime_diagnostic_payload(true, true);
+        assert_eq!(ready.server.status, "ready");
+        assert_eq!(ready.server.ownership, Some("detached"));
+        assert_eq!(ready.native_core.mode, "off");
+        assert_eq!(ready.native_core.status, "disabled");
+        let serialized = serde_json::to_value(&ready).unwrap();
+        assert_eq!(serialized["contractVersion"], 1);
+        assert_eq!(serialized["nativeCore"]["status"], "disabled");
+
+        let unavailable = runtime_diagnostic_payload(false, false);
+        assert_eq!(unavailable.server.status, "unavailable");
+        assert_eq!(unavailable.server.ownership, None);
+    }
+
+    #[test]
+    fn notification_text_is_bounded_and_uses_product_source_labels() {
+        assert_eq!(
+            compact_notification_text("  园区\n服务\u{0000}台  ", 40),
+            "园区 服务 台"
+        );
+        assert_eq!(
+            notification_title("park", Some("园区服务台"), None),
+            "园区服务 · 园区服务台"
+        );
+        assert_eq!(
+            notification_title("local", None, Some("  后台任务完成  ")),
+            "后台任务完成"
+        );
+        assert!(compact_notification_text(&"长".repeat(200), 80).ends_with('…'));
     }
 }

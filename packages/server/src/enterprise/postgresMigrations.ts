@@ -354,7 +354,7 @@ CREATE INDEX direct_messages_unread
   WHERE read_at IS NULL;
 
 INSERT INTO organizations (id, name, slug, type, status)
-VALUES ('org_default', 'Otto', 'otto-default', 'enterprise', 'active')
+VALUES ('org_default', 'ClawMaster', 'otto-default', 'enterprise', 'active')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO organization_features (organization_id)

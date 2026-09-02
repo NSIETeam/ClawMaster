@@ -92,7 +92,7 @@ export class MemoryManagerTool extends BaseTool<MemoryManagerToolParams, ToolRes
   static readonly Name: string = 'memory_manager';
 
   constructor(private readonly config: Config) {
-    const desc = `Otto Memory Manager v2 - Knowledge base + HR lifecycle.
+    const desc = `ClawMaster Memory Manager v2 - Knowledge base + HR lifecycle.
 
 ACTIONS:
   learn:     Auto-extract knowledge after task execution.
@@ -434,10 +434,10 @@ FILES CREATED:
 - Status: ACTIVE
 
 ## Task History
-(No tasks yet - Otto will learn as you work)
+(No tasks yet - ClawMaster will learn as you work)
 
 ## Efficiency Trends
-(No data yet - Otto will track your improvement)
+(No data yet - ClawMaster will track your improvement)
 
 ## Inherited Knowledge
 `;
@@ -528,7 +528,7 @@ ${efficiencyLines.join('\n')}
 
     const empFile = path.join(MEMORY_DIR, 'employee.markdown');
     if (!fs.existsSync(empFile)) {
-      return 'No employee profile found. Use Otto more to generate data.';
+      return 'No employee profile found. Use ClawMaster more to generate data.';
     }
 
     const emp = fs.readFileSync(empFile, 'utf8');
@@ -577,10 +577,10 @@ ${efficiencyLines.join('\n')}
 
     if (viewer === 'employee') {
       // Employee sees: how much time THEY saved
-      let report = `## Your Otto Report (${period})\n\n`;
+      let report = `## Your ClawMaster Report (${period})\n\n`;
       report += `Tasks completed: ${totalTasks}\n`;
-      report += `Time spent with Otto: ${totalMinutes.toFixed(0)} min\n`;
-      report += `Estimated time without Otto: ${estimatedManualMin.toFixed(0)} min\n`;
+      report += `Time spent with ClawMaster: ${totalMinutes.toFixed(0)} min\n`;
+      report += `Estimated time without ClawMaster: ${estimatedManualMin.toFixed(0)} min\n`;
       report += `Time saved: ${timeSavedHours} hours (${timeSavedMin.toFixed(0)} min)\n`;
       report += `That's ${(parseFloat(timeSavedHours) / 8).toFixed(1)} extra work days freed up.\n\n`;
       report += `### By Task Type\n`;
@@ -679,7 +679,7 @@ ${efficiencyLines.join('\n')}
   // ============================================================
   private export(p: MemoryManagerToolParams): string {
     const outPath = p.output_path || path.join(os.homedir(), 'Desktop', 'otto_knowledge_export.md');
-    const parts: string[] = ['# Otto Knowledge Export', `Generated: ${new Date().toISOString()}`, ''];
+    const parts: string[] = ['# ClawMaster Knowledge Export', `Generated: ${new Date().toISOString()}`, ''];
     const collect = (dir: string, prefix: string) => {
       if (!fs.existsSync(dir)) return;
       for (const item of fs.readdirSync(dir)) {
@@ -702,7 +702,7 @@ ${efficiencyLines.join('\n')}
   // LIST: show all knowledge files
   // ============================================================
   private list(): string {
-    const parts: string[] = ['## Otto Memory Files\n'];
+    const parts: string[] = ['## ClawMaster Memory Files\n'];
     const show = (name: string, fpath: string) => {
       if (fs.existsSync(fpath)) {
         const stat = fs.statSync(fpath);

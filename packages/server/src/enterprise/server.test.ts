@@ -210,7 +210,13 @@ async function startIsolated(
     repairFeishuSender: null,
     ...serverOptions,
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      server.off('error', reject);
+      resolve();
+    });
+  });
   servers.push(server);
   const port = (server.address() as AddressInfo).port;
   return { base: `http://127.0.0.1:${port}`, server };
@@ -245,7 +251,7 @@ describe('数据治理自助闭环', { timeout: 30_000 }, () => {
     expect(publicLegal.status).toBe(200);
     expect(publicLegal.headers.get('content-type')).toContain('text/html');
     const legalHtml = await publicLegal.text();
-    expect(legalHtml).toContain('Otto 用户协议与隐私规则');
+    expect(legalHtml).toContain('ClawMaster 用户协议与隐私规则');
     expect(legalHtml).toContain('正文 SHA-256');
 
     const profile = await fetch(`${base}/enterprise/privacy`, {
@@ -284,7 +290,7 @@ describe('数据治理自助闭环', { timeout: 30_000 }, () => {
       headers: { ...auth, 'content-type': 'application/json' },
       body: JSON.stringify({
         password: 'privacy-password-1',
-        confirmation: '注销我的 Otto 账号',
+        confirmation: '注销我的 ClawMaster 账号',
       }),
     });
     expect(deleted.status).toBe(200);
@@ -1200,6 +1206,41 @@ describe('受保护 vs 公开路由边界', () => {
       },
     });
 
+    const chunkedContent = '中文账号同步内容\n';
+    const chunkedBody = Buffer.from(JSON.stringify({
+      scope: 'worklog',
+      expectedVersion: 0,
+      payload: {
+        schemaVersion: 1,
+        generatedAt: '2026-07-26T10:31:00.000Z',
+        files: [{
+          path: 'daily.md',
+          content: chunkedContent,
+          modifiedAtMs: Date.parse('2026-07-26T10:31:00.000Z'),
+          sha256: createHash('sha256').update(chunkedContent).digest('hex'),
+        }],
+      },
+    }));
+    const chineseByte = Buffer.from('中').at(0)!;
+    const splitAt = chunkedBody.indexOf(chineseByte) + 1;
+    const chunkedStatus = await new Promise<number>((resolve, reject) => {
+      const request = httpRequest(base + '/enterprise/account-sync', {
+        method: 'PUT',
+        headers: {
+          authorization: 'Bearer ' + firstToken,
+          'content-type': 'application/json',
+          'content-length': String(chunkedBody.length),
+        },
+      }, (response) => {
+        response.resume();
+        response.on('end', () => resolve(response.statusCode ?? 0));
+      });
+      request.on('error', reject);
+      request.write(chunkedBody.subarray(0, splitAt));
+      setImmediate(() => request.end(chunkedBody.subarray(splitAt)));
+    });
+    expect(chunkedStatus).toBe(200);
+
     const restored = await fetch(base + '/enterprise/account-sync', {
       headers: { authorization: 'Bearer ' + firstToken },
     });
@@ -1211,6 +1252,13 @@ describe('受保护 vs 公开路由边界', () => {
           scope: 'personal_memory',
           version: 1,
           payload,
+        }),
+        expect.objectContaining({
+          scope: 'worklog',
+          version: 1,
+          payload: expect.objectContaining({
+            files: [expect.objectContaining({ content: chunkedContent })],
+          }),
         }),
       ],
     });
@@ -1565,7 +1613,7 @@ describe('公网企业引入链接与公开落地页', () => {
     expect(response.headers.get('x-frame-options')).toBe('DENY');
 
     const html = await response.text();
-    expect(html).toContain('打开 Otto');
+    expect(html).toContain('打开 ClawMaster');
     expect(html).toContain('如果按钮没有反应');
     expect(html).toContain(invite.code);
     expect(html).toContain(`otto://enterprise/join?invite=${invite.code}`);
@@ -1822,7 +1870,7 @@ describe('report/dashboard 路由基本可达', () => {
     expect(res.headers.get('referrer-policy')).toBe('no-referrer');
     expect(res.headers.get('x-frame-options')).toBe('DENY');
     const html = await res.text();
-    expect(html).toContain('Otto Enterprise');
+    expect(html).toContain('ClawMaster Enterprise');
     expect(html).toContain('估算');
     expect(html).toContain('sessionStorage.getItem(KEY)');
     expect(html).toContain('id="dashboardToken"');

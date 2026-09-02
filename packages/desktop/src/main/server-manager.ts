@@ -14,10 +14,8 @@
  *      关窗不杀 server（飞书继续活），仅托盘「退出 Otto」才 SIGTERM。
  *   3. 开发/非打包形态无法走 detached 时，回退同进程内嵌（embedded）。
  *
- * 历史：曾尝试以 detached 子进程跑 server bin 实现「app 关了 server 仍活」，但打包形态下
- * 该路径必失败（process.execPath 是 Electron 二进制，缺 ELECTRON_RUN_AS_NODE 不会当 node
- * 脚本跑，且 single-instance lock 让第二实例立即 quit；bin.js 又在 asar 内），结果永远 15s
- * 超时后静默回退内嵌。既然内嵌才是实际生产路径，这里直接走内嵌，消掉那段必然超时的卡顿。
+ * 打包形态通过 ELECTRON_RUN_AS_NODE 启动 detached server；无法解析或启动 server bin 时，
+ * 才明确回退到同进程内嵌模式。两条路径均由下面的健康检查和停止策略管理。
  *
  * 注意：模块加载方式（打包崩溃根因修复）：otto-server 是纯 ESM 包（package.json
  * "type":"module"），而本文件编译目标是 CJS（tsconfig.main.json 无 "type":"module"，
@@ -838,7 +836,7 @@ export class ServerManager {
     }
   }
 
-  /** 同进程内嵌 OttoServer（embedded-only 的唯一拉起路径）。 */
+  /** detached 不可用时，在当前进程内启动 OttoServer。 */
   private async startEmbedded(
     port: number,
     mod: typeof import('otto-server'),
@@ -934,7 +932,7 @@ export class ServerManager {
 
     if (this.ownership === 'embedded') {
       if (!this.embedded) {
-        throw new Error('本机 OttoServer 状态不完整，请重启 Otto 后重试');
+        throw new Error('本机 ClawMaster 引擎状态不完整，请重启 ClawMaster 后重试');
       }
       this.embedded.setAuthenticatedEnterpriseAccount(account);
       return;
@@ -942,15 +940,15 @@ export class ServerManager {
 
     const record = this.currentEndpointRecord;
     if (!record)
-      throw new Error('本机 OttoServer 尚未就绪，请重启 Otto 后重试');
+      throw new Error('本机 ClawMaster 引擎尚未就绪，请重启 ClawMaster 后重试');
     if (!record.controlToken?.trim()) {
       throw new Error(
-        '检测到旧版本本机 OttoServer，无法安全同步企业身份。' +
-          '请退出所有 Otto/CLI 进程后重新启动 Otto。',
+        '检测到旧版本本机 ClawMaster 引擎，无法安全同步企业身份。' +
+          '请退出所有 ClawMaster/CLI 进程后重新启动 ClawMaster。',
       );
     }
     if (!isLoopbackHost(record.host)) {
-      throw new Error('本机 OttoServer 端点不是 loopback，已拒绝发送企业身份');
+      throw new Error('本机 ClawMaster 引擎端点不是 loopback，已拒绝发送企业身份');
     }
 
     const mod = await this.dependencies.loadOttoServer();
@@ -961,8 +959,8 @@ export class ServerManager {
     ).enterpriseIdentity;
     if (!identityRoute) {
       throw new Error(
-        '检测到旧版本本机 OttoServer，缺少企业身份控制接口。' +
-          '请退出所有 Otto/CLI 进程后重新启动 Otto。',
+        '检测到旧版本本机 ClawMaster 引擎，缺少企业身份控制接口。' +
+          '请退出所有 ClawMaster/CLI 进程后重新启动 ClawMaster。',
       );
     }
     const controller = new AbortController();
@@ -990,14 +988,14 @@ export class ServerManager {
             ? `：${body.error.trim()}`
             : `（HTTP ${response.status}）`;
         throw new Error(
-          `本机 OttoServer 拒绝身份同步${detail}。` +
-            '请退出所有 Otto/CLI 进程后重新启动 Otto。',
+          `本机 ClawMaster 引擎拒绝身份同步${detail}。` +
+            '请退出所有 ClawMaster/CLI 进程后重新启动 ClawMaster。',
         );
       }
     } catch (error) {
       if (
         error instanceof Error &&
-        error.message.includes('请退出所有 Otto/CLI')
+        error.message.includes('请退出所有 ClawMaster/CLI')
       ) {
         throw error;
       }
@@ -1008,8 +1006,8 @@ export class ServerManager {
             ? error.message
             : String(error);
       throw new Error(
-        `本机 OttoServer 身份同步失败：${detail}。` +
-          '请退出所有 Otto/CLI 进程后重新启动 Otto。',
+        `本机 ClawMaster 引擎身份同步失败：${detail}。` +
+          '请退出所有 ClawMaster/CLI 进程后重新启动 ClawMaster。',
       );
     } finally {
       clearTimeout(timer);

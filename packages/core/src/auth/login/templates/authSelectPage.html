@@ -506,18 +506,18 @@
 
     <button class="auth-button otto-btn" onclick="startOttoAuth()">
       <span class="icon" style="font-size: 20px;">🔐</span>
-      <span data-i18n="auth.otto.button">Otto Login</span>
+      <span data-i18n="auth.otto.button">ClawMaster Login</span>
     </button>
 
     <!-- Upstream-only login option (VIP Card) is intentionally hidden for the Otto product. -->
     <button id="vipcard-btn" class="auth-button vipcard-btn hidden" onclick="startVipCardAuth()" style="display: none !important;">
       <span class="icon" style="font-size: 20px;">🎫</span>
-      <span data-i18n="auth.vipcard.button">Otto Card Login</span>
+      <span data-i18n="auth.vipcard.button">ClawMaster Card Login</span>
     </button>
 
       <!-- Otto 卡登录表单 -->
       <div id="vipcard-form" class="auth-form vipcard-form hidden">
-        <h3 data-i18n="auth.vipcard.form.title">Otto Card Activation & Login</h3>
+        <h3 data-i18n="auth.vipcard.form.title">ClawMaster Card Activation & Login</h3>
         <form id="vipcard-login-form" onsubmit="submitVipCardAuth(event)">
           <div class="form-group">
             <label for="vipcard-code" data-i18n="auth.vipcard.form.code">Redemption Code:</label>
@@ -544,14 +544,14 @@
         'auth.page.title': 'Choose Authentication',
         'auth.page.description': 'Select your preferred login method to continue',
         'auth.feishu.button': 'Feishu Login',
-        'auth.otto.button': 'Otto Login',
+        'auth.otto.button': 'ClawMaster Login',
         'auth.page.instruction': 'Choose your authentication method and we will guide you through the secure login process',
         'auth.loading.text': 'Checking access permissions...',
         'auth.china.restriction.title': 'Access Restricted',
         'auth.feishu.start.error': 'Failed to start Feishu authentication, please try again',
-        'auth.otto.start.error': 'Failed to start Otto authentication, please try again',
+        'auth.otto.start.error': 'Failed to start ClawMaster authentication, please try again',
         'auth.message.success.title': 'Login Successful!',
-        'auth.message.success.content': 'You have successfully logged in. You can now close this window and continue using Otto.',
+        'auth.message.success.content': 'You have successfully logged in. You can now close this window and continue using ClawMaster.',
         'auth.message.success.button': 'Close',
         'auth.message.error.login.title': 'Login Failed',
         'auth.message.error.login.content': 'Authentication failed. Please check your credentials and try again.',
@@ -563,16 +563,16 @@
         'auth.message.error.connection.content': 'Unable to connect to authentication server. Please check your network connection and try again.',
         'auth.message.error.connection.button': 'Retry',
         'auth.message.error.feishu.content': 'Unable to start Feishu authentication. Please check your network connection and try again.',
-        'auth.message.error.otto.content': 'Unable to start Otto authentication. Please check your network connection and try again.',
-        'auth.vipcard.button': 'Otto Card Login',
-        'auth.vipcard.form.title': 'Otto Card Activation & Login',
+        'auth.message.error.otto.content': 'Unable to start ClawMaster authentication. Please check your network connection and try again.',
+        'auth.vipcard.button': 'ClawMaster Card Login',
+        'auth.vipcard.form.title': 'ClawMaster Card Activation & Login',
         'auth.vipcard.form.code': 'Redemption Code',
         'auth.vipcard.form.hint': 'Enter the code from your card',
         'auth.vipcard.form.cancel': 'Cancel',
         'auth.vipcard.form.submit': 'Activate & Login',
         'auth.vipcard.form.submitting': 'Processing...',
         'auth.vipcard.success.title': 'Activation Successful!',
-        'auth.vipcard.success.content': 'Your card has been activated and you are now logged in. You can close this window and continue using Otto.',
+        'auth.vipcard.success.content': 'Your card has been activated and you are now logged in. You can close this window and continue using ClawMaster.',
         'auth.vipcard.error.empty': 'Please enter the redemption code.',
         'auth.vipcard.error.invalid': 'Invalid or expired redemption code. Please check and try again.'
       },
@@ -580,14 +580,14 @@
         'auth.page.title': '选择认证方式',
         'auth.page.description': '选择您偏好的登录方式以继续',
         'auth.feishu.button': '飞书登录',
-        'auth.otto.button': 'Otto 登录',
+        'auth.otto.button': 'ClawMaster 登录',
         'auth.page.instruction': '选择您的认证方式，我们将引导您完成安全的登录流程',
         'auth.loading.text': '正在检查访问权限...',
         'auth.china.restriction.title': '访问受限',
         'auth.feishu.start.error': '飞书认证启动失败，请重试',
-        'auth.otto.start.error': 'Otto 认证启动失败，请重试',
+        'auth.otto.start.error': 'ClawMaster 认证启动失败，请重试',
         'auth.message.success.title': '登录成功！',
-        'auth.message.success.content': '您已成功登录。现在可以关闭此窗口并继续使用 Otto。',
+        'auth.message.success.content': '您已成功登录。现在可以关闭此窗口并继续使用 ClawMaster。',
         'auth.message.success.button': '关闭',
         'auth.message.error.login.title': '登录失败',
         'auth.message.error.login.content': '认证失败。请检查您的凭据并重试。',
@@ -599,16 +599,16 @@
         'auth.message.error.connection.content': '无法连接到认证服务器。请检查您的网络连接并重试。',
         'auth.message.error.connection.button': '重试',
         'auth.message.error.feishu.content': '无法启动飞书认证。请检查您的网络连接并重试。',
-        'auth.message.error.otto.content': '无法启动 Otto 认证。请检查您的网络连接并重试。',
-        'auth.vipcard.button': 'Otto 卡登录',
-        'auth.vipcard.form.title': 'Otto 卡激活与登录',
+        'auth.message.error.otto.content': '无法启动 ClawMaster 认证。请检查您的网络连接并重试。',
+        'auth.vipcard.button': 'ClawMaster 卡登录',
+        'auth.vipcard.form.title': 'ClawMaster 卡激活与登录',
         'auth.vipcard.form.code': '兑换码',
         'auth.vipcard.form.hint': '请输入卡上的兑换码',
         'auth.vipcard.form.cancel': '取消',
         'auth.vipcard.form.submit': '激活并登录',
         'auth.vipcard.form.submitting': '处理中...',
         'auth.vipcard.success.title': '激活成功！',
-        'auth.vipcard.success.content': '您的卡已激活并完成登录。现在可以关闭此窗口并继续使用 Otto。',
+        'auth.vipcard.success.content': '您的卡已激活并完成登录。现在可以关闭此窗口并继续使用 ClawMaster。',
         'auth.vipcard.error.empty': '请输入兑换码。',
         'auth.vipcard.error.invalid': '兑换码无效或已过期，请检查后重试。'
       }
@@ -762,7 +762,7 @@
             }
 
             // Otto登录始终可用（没有hidden类，会自动显示）
-            console.log('✅ Otto登录始终可用');
+            console.log('✅ ClawMaster 登录始终可用');
 
             // 根据权限显示飞书登录按钮（动态获取租户列表）
             if (data.feishuLoginAllowed) {
@@ -851,7 +851,7 @@
     }
 
     function startOttoAuth() {
-      console.log('启动Otto认证...');
+      console.log('启动 ClawMaster 认证...');
       // 这里会调用Otto认证逻辑
       fetch('/start-otto-auth', { method: 'POST' })
         .then(response => response.json())
@@ -863,7 +863,7 @@
           }
         })
         .catch(error => {
-          console.error('Otto认证启动失败:', error);
+          console.error('ClawMaster 认证启动失败:', error);
           showMessage('error', t('auth.message.error.connection.title'), t('auth.message.error.otto.content'), t('auth.message.error.connection.button'));
         });
     }

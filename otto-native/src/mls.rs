@@ -2052,36 +2052,6 @@ impl MlsKernel {
         Ok(exported)
     }
 
-    /// Store a verified application in the encrypted inbox without returning
-    /// its plaintext across the native RPC boundary.
-    pub fn stage_transport_application(
-        &mut self,
-        raw_scope: &str,
-        raw_conversation_id: &str,
-        raw_peer_account_id: &str,
-        raw_event_id: &str,
-        encoded_ciphertext: &str,
-        sequence: u64,
-        raw_expected_group_id: &str,
-        expected_epoch: u64,
-        raw_sender_device_id: &str,
-        raw_created_at: &str,
-    ) -> Result<ExportedStagedReceivedApplication, String> {
-        self.receive_transport_application(
-            raw_scope,
-            raw_conversation_id,
-            raw_peer_account_id,
-            raw_event_id,
-            encoded_ciphertext,
-            sequence,
-            raw_expected_group_id,
-            expected_epoch,
-            raw_sender_device_id,
-            raw_created_at,
-        )
-        .map(ExportedPendingReceivedApplication::into_staged)
-    }
-
     pub fn stage_transport_application_from_account(
         &mut self,
         raw_scope: &str,

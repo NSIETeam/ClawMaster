@@ -108,12 +108,25 @@ describe('capability-driven availability', () => {
 
     expect(availableIds).toContain('agent-personal-otto');
     expect(availableIds).toContain('auto-skill');
+    expect(availableIds).toEqual(expect.arrayContaining([
+      'agent-word',
+      'agent-excel',
+      'agent-ppt',
+      'agent-pdf',
+      'agent-meeting',
+      'mind-map',
+      'platform-maotouying',
+      'platform-trace-code',
+      'platform-zhifang',
+      'platform-zhiliaohou',
+      'platform-zhixin-pigeon',
+    ]));
     expect(availableIds.some((id) => id.startsWith('park-'))).toBe(false);
     expect(availableIds).not.toContain('enterprise-memory');
     expect(availableIds).not.toContain('skill-zone');
   });
 
-  it('does not let caller-supplied personal profiles widen enterprise capabilities', () => {
+  it('allows personal office experts without leaking the enterprise foundation Agent', () => {
     const catalog = buildModuleCatalog({
       edition: 'personal',
       profiles: [ENTERPRISE_WORK_PROFILE, ...COMMON_EXPERT_PROFILES],
@@ -126,7 +139,7 @@ describe('capability-driven availability', () => {
       customAgents: [],
     });
 
-    expect(catalog.find((module) => module.id === 'agent-ppt')?.availability).not.toBe('available');
+    expect(catalog.find((module) => module.id === 'agent-ppt')?.availability).toBe('available');
     expect(catalog.find((module) => module.id === 'agent-enterprise-work')?.availability).not.toBe('available');
   });
 });
@@ -151,7 +164,7 @@ describe('custom expert modules', () => {
         profileId: 'otto-enterprise-work',
         customAgentId: 'custom-bid-helper',
       },
-      icon: 'generated:agent-customer-success',
+      icon: 'agent',
       availability: 'available',
     });
     expect(customAgent).toEqual(before);
@@ -171,5 +184,18 @@ describe('installed customer modules', () => {
       disabledReason: '市场已暂停此版本',
       activation: { kind: 'customer-module', moduleId: 'com.acme.report', version: '1.2.0' },
     });
+  });
+
+  it('uses the shared semantic icon even when the package contains custom artwork', () => {
+    const catalog = buildModuleCatalog(enterpriseContext({
+      customerModules: [{
+        id: 'com.acme.report', version: '1.2.0', name: '月报模块',
+        description: '生成月报', enabled: true,
+        iconSrc: 'data:image/png;base64,not-rendered-in-the-right-rail',
+      }],
+    }));
+
+    expect(catalog.find((module) => module.id === 'customer-module:com.acme.report')?.icon)
+      .toBe('customer-module');
   });
 });

@@ -29,7 +29,7 @@ import {
   type PendingAgentSelection,
 } from './Composer.js';
 import type { SlashCommand } from './SlashCommands.js';
-import { IconArrowDown, IconPanelRight, OttoAvatar } from './icons.js';
+import { ClawMasterCrown, IconArrowDown, IconPanelRight } from './icons.js';
 
 import { OttoPetStage } from './OttoPetStage.js';
 import {
@@ -243,7 +243,7 @@ export function ChatView({
         }`}
       >
         <span className="otto-main__title">
-          {session?.title ?? 'Otto'}
+          {session?.title ?? 'ClawMaster'}
         </span>
 
         {session?.source === 'feishu' ? (
@@ -352,9 +352,9 @@ export function ChatView({
 function EmptyState(): React.JSX.Element {
   return (
     <div className="otto-empty">
-      <OttoAvatar size={56} />
+      <ClawMasterCrown size={56} className="otto-empty__brand-mark" />
       <div className="otto-empty__title">选择左侧对话，或新建一个</div>
-      <div>飞书与本地会话都会实时出现在这里</div>
+      <div>所有任务和对话都保存在这台电脑上</div>
     </div>
   );
 }
@@ -366,8 +366,8 @@ function EmptyConversation({
 }): React.JSX.Element {
   return (
     <div className="otto-empty">
-      <OttoAvatar size={48} />
-      <div className="otto-empty__title">给 Otto 发送第一条消息</div>
+      <ClawMasterCrown size={48} className="otto-empty__brand-mark" />
+      <div className="otto-empty__title">给 ClawMaster 发送第一条消息</div>
       <div>试试这些开头，或直接输入你的问题</div>
       <div className="otto-empty__prompts">
         {EXAMPLE_PROMPTS.map((p) => (

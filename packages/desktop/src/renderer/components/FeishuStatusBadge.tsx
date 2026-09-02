@@ -25,7 +25,7 @@
 
 import React, { useEffect, useState } from 'react';
 import type { FeishuStatusDetail } from '../../preload/index.js';
-import { GeneratedIcon, type GeneratedIconName } from './GeneratedIcon.js';
+import { IconCheck, IconClose, IconRegenerate, IconWarning } from './icons.js';
 
 /** 轮询周期：状态展示不追求实时，5s 足够跟上重连节奏且不扰动 server。 */
 const POLL_INTERVAL_MS = 5_000;
@@ -41,10 +41,7 @@ export interface FeishuBadgeView {
   kind: 'connected' | 'reconnecting' | 'lock' | 'offline' | 'unconfigured' | 'unknown';
   /** 徽标短文案。 */
   label: string;
-  /** imagegen 生成的状态图标；未知/未配置只保留中性圆点。 */
-  icon: GeneratedIconName | null;
-  /** 状态点颜色（语义色，独立于主题弱化灰）。 */
-  dotColor: string;
+  icon: 'check' | 'warning' | 'sync' | 'error' | null;
 }
 
 /** 把守护状态映射为徽标视图（纯函数，可单测）。now 注入便于测试。 */
@@ -53,22 +50,21 @@ export function deriveFeishuBadgeState(
   now: number = Date.now(),
 ): FeishuBadgeView {
   if (!res) {
-    return { kind: 'unknown', label: '状态未知', icon: null, dotColor: '#9ca3af' };
+    return { kind: 'unknown', label: '状态未知', icon: null };
   }
   const feishu = res.feishu;
   const st = feishu?.status;
   if (!feishu || !feishu.enabled || !st || !st.configured) {
-    return { kind: 'unconfigured', label: '未配置', icon: null, dotColor: '#9ca3af' };
+    return { kind: 'unconfigured', label: '未配置', icon: null };
   }
   if (st.connected) {
-    return { kind: 'connected', label: '已连接', icon: 'status-success', dotColor: '#34d399' };
+    return { kind: 'connected', label: '已连接', icon: 'check' };
   }
   if (st.lockHeldByOtherPid != null) {
     return {
       kind: 'lock',
       label: `另一进程持有（pid ${st.lockHeldByOtherPid}）`,
-      icon: 'status-warning',
-      dotColor: '#fbbf24',
+      icon: 'warning',
     };
   }
   if (st.reconnecting) {
@@ -79,11 +75,24 @@ export function deriveFeishuBadgeState(
     return {
       kind: 'reconnecting',
       label: `重连中（第 ${st.reconnectAttempts} 次${eta !== null ? `，${eta}s 后重试` : ''}）`,
-      icon: 'status-sync',
-      dotColor: '#fbbf24',
+      icon: 'sync',
     };
   }
-  return { kind: 'offline', label: '离线', icon: 'status-error', dotColor: '#f87171' };
+  return { kind: 'offline', label: '离线', icon: 'error' };
+}
+
+export function FeishuStatusIcon({ view, size = 16 }: {
+  view: FeishuBadgeView;
+  size?: number;
+}): React.JSX.Element {
+  const className = view.kind === 'reconnecting'
+    ? 'otto-channel-status-icon otto-channel-status-icon--spin'
+    : 'otto-channel-status-icon';
+  if (view.icon === 'check') return <IconCheck size={size} className={className} />;
+  if (view.icon === 'warning') return <IconWarning size={size} className={className} />;
+  if (view.icon === 'sync') return <IconRegenerate size={size} className={className} />;
+  if (view.icon === 'error') return <IconClose size={size} className={className} />;
+  return <span className="otto-channel-status-dot" aria-hidden />;
 }
 
 export interface FeishuStatusBadgeProps {
@@ -99,6 +108,7 @@ export function FeishuStatusBadge({
 
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async (): Promise<void> => {
       try {
         const res = await window.otto?.feishuStatus();
@@ -108,13 +118,14 @@ export function FeishuStatusBadge({
         }
       } catch {
         // 查询失败保留上一帧状态（title 里仍是最近一次真话），下轮再试。
+      } finally {
+        if (!cancelled) timer = setTimeout(() => void poll(), POLL_INTERVAL_MS);
       }
     };
     void poll();
-    const timer = setInterval(() => void poll(), POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      if (timer) clearTimeout(timer);
     };
     // onStatus 由父组件以稳定引用传入（useCallback/一次性函数）；不进依赖数组，
     // 避免父组件每次渲染重建轮询循环。
@@ -129,24 +140,7 @@ export function FeishuStatusBadge({
       title={result?.text ?? '正在查询飞书连接状态…'}
       data-feishu-state={view.kind}
     >
-      {view.icon ? (
-        <GeneratedIcon
-          name={view.icon}
-          size={16}
-          className={view.kind === 'reconnecting' ? 'otto-generated-icon--spin' : undefined}
-        />
-      ) : (
-        <span
-          aria-hidden
-          style={{
-            width: '7px',
-            height: '7px',
-            borderRadius: '50%',
-            background: view.dotColor,
-            display: 'inline-block',
-          }}
-        />
-      )}
+      <FeishuStatusIcon view={view} />
       {view.label}
     </span>
   );

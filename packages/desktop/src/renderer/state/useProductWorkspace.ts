@@ -8,11 +8,29 @@
 import { useEffect, useMemo, useReducer } from 'react';
 import type {
   AutoSkillCandidateInfo,
+  ClientToServer,
   ProductWorkspaceSnapshot,
   ScheduleItemInfo,
   ServerToClient,
 } from 'otto-server';
 import * as transport from '../transport.js';
+
+export function createProductWorkspaceConnectionHandler(
+  send: (frame: ClientToServer) => void = transport.send,
+): (connected: boolean) => void {
+  let loadedForCurrentConnection = false;
+  return (connected) => {
+    if (!connected) {
+      loadedForCurrentConnection = false;
+      return;
+    }
+    if (loadedForCurrentConnection) return;
+    loadedForCurrentConnection = true;
+    send({ type: 'get_product_workspace', payload: {} });
+    send({ type: 'get_schedules', payload: {} });
+    send({ type: 'get_pending_auto_skills', payload: {} });
+  };
+}
 
 export interface ProductWorkspaceState {
   workspace: ProductWorkspaceSnapshot | null;
@@ -152,11 +170,14 @@ export function useProductWorkspace(activeSessionId?: string | null): UseProduct
   );
 
   useEffect(() => {
-    const off = transport.onFrame((frame) => dispatch({ kind: 'frame', frame }));
-    transport.send({ type: 'get_product_workspace', payload: {} });
-    transport.send({ type: 'get_schedules', payload: {} });
-    transport.send({ type: 'get_pending_auto_skills', payload: {} });
-    return off;
+    const offFrame = transport.onFrame((frame) => dispatch({ kind: 'frame', frame }));
+    const offConnection = transport.onConnectionChange(
+      createProductWorkspaceConnectionHandler(),
+    );
+    return () => {
+      offFrame();
+      offConnection();
+    };
   }, []);
 
   const actions = useMemo<ProductWorkspaceActions>(() => ({

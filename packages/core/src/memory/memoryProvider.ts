@@ -17,11 +17,14 @@
  */
 
 import * as fs from 'fs/promises';
+import { existsSync } from 'node:fs';
 import {
+  DEFAULT_CONTEXT_FILENAME,
+  LEGACY_CONTEXT_FILENAME,
   MemoryTool,
   getGlobalMemoryPath,
   getFeishuSessionMemoryPath,
-  MEMORY_SECTION_HEADER,
+  findMemorySectionHeader,
 } from '../tools/memoryTool.js';
 
 /**
@@ -83,8 +86,12 @@ function resolveScopePath(
     case 'global':
       return getGlobalMemoryPath();
     case 'project':
-      // 保持现状:项目根 OTTO.md。与既有 getProjectMemoryFilePath 行为一致。
-      return `${ctx.projectRoot.replace(/[/\\]+$/, '')}/OTTO.md`;
+      {
+        const root = ctx.projectRoot.replace(/[/\\]+$/, '');
+        const currentPath = `${root}/${DEFAULT_CONTEXT_FILENAME}`;
+        const legacyPath = `${root}/${LEGACY_CONTEXT_FILENAME}`;
+        return existsSync(currentPath) || !existsSync(legacyPath) ? currentPath : legacyPath;
+      }
     case 'session':
       return ctx.sessionId ? getFeishuSessionMemoryPath(ctx.sessionId) : null;
     default:
@@ -168,11 +175,11 @@ function extractMemorySection(raw: string): string {
   if (content.length === 0) {
     return '';
   }
-  const headerIndex = content.indexOf(MEMORY_SECTION_HEADER);
-  if (headerIndex === -1) {
+  const memorySection = findMemorySectionHeader(content);
+  if (!memorySection) {
     return content;
   }
-  const start = headerIndex + MEMORY_SECTION_HEADER.length;
+  const start = memorySection.index + memorySection.header.length;
   let end = content.indexOf('\n## ', start);
   if (end === -1) {
     end = content.length;

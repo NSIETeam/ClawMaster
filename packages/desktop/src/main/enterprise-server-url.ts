@@ -18,3 +18,19 @@ export function migrateEnterpriseServerUrl(
   const normalizedValue = value.replace(/\/+$/, '');
   return LEGACY_ENTERPRISE_SERVER_URLS.has(normalizedValue) ? fallbackUrl : value;
 }
+
+export function restoreEnterpriseServerTarget(
+  persistedValue: string | undefined,
+  configuredValue: string,
+  explicitlyConfigured: boolean,
+): { serverUrl: string; endpointChanged: boolean } {
+  const migrated = migrateEnterpriseServerUrl(persistedValue, configuredValue);
+  if (!explicitlyConfigured) {
+    return { serverUrl: migrated, endpointChanged: false };
+  }
+  const normalize = (value: string): string => value.trim().replace(/\/+$/, '');
+  return {
+    serverUrl: configuredValue,
+    endpointChanged: normalize(migrated) !== normalize(configuredValue),
+  };
+}

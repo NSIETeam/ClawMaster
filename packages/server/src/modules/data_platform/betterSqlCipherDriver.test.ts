@@ -9,10 +9,21 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   createBetterSqlCipherDriver,
+  sqlCipherModuleRequireBase,
   type BetterSqlCipherDatabaseConstructor,
 } from './betterSqlCipherDriver.js';
 
 const temporaryDirectories: string[] = [];
+
+it('anchors packaged native dependencies to the signed Tauri runtime', () => {
+  expect(sqlCipherModuleRequireBase(
+    'file:///tmp/cache/agent.mjs',
+    '/Applications/ClawMaster.app/Contents/Resources/runtime',
+  )).toBe('/Applications/ClawMaster.app/Contents/Resources/runtime/agent/server.mjs');
+  expect(sqlCipherModuleRequireBase('file:///workspace/server.js', '')).toBe(
+    'file:///workspace/server.js',
+  );
+});
 
 interface Command {
   kind: 'exec' | 'pragma' | 'prepare';

@@ -181,7 +181,7 @@ async function main(): Promise<void> {
     });
   } catch (error) {
     console.error(
-      `[Otto Enterprise] attachment import failed: ${safeAttachmentImportErrorMessage(error)}`,
+      `[ClawMaster Enterprise] attachment import failed: ${safeAttachmentImportErrorMessage(error)}`,
     );
     process.exitCode = 1;
   }

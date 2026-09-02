@@ -140,6 +140,6 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`[Otto Enterprise] 启动失败：${message}`);
+  console.error(`[ClawMaster Enterprise] 启动失败：${message}`);
   process.exitCode = 1;
 });

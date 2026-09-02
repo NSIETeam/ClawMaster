@@ -5,9 +5,26 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   ExternalCallBlockedError,
   ExternalCallBoundary,
-  InMemoryExternalWriteJournal,
   type ExternalCallAuditEvent,
+  type ExternalWriteJournal,
+  type ExternalWriteRecord,
 } from './externalCallBoundary.js';
+
+class TestExternalWriteJournal implements ExternalWriteJournal {
+  private readonly records = new Map<string, ExternalWriteRecord>();
+
+  get(idempotencyKey: string): ExternalWriteRecord | undefined {
+    const record = this.records.get(idempotencyKey);
+    return record ? { ...record, metadata: { ...record.metadata } } : undefined;
+  }
+
+  put(record: ExternalWriteRecord): void {
+    this.records.set(record.idempotencyKey, {
+      ...record,
+      metadata: { ...record.metadata },
+    });
+  }
+}
 
 const metadata = {
   kind: 'http' as const,
@@ -44,7 +61,7 @@ describe('ExternalCallBoundary', () => {
   });
 
   it('requires an idempotency key and persists commit state for writes', async () => {
-    const journal = new InMemoryExternalWriteJournal();
+    const journal = new TestExternalWriteJournal();
     const boundary = new ExternalCallBoundary({
       journal,
       audit: () => undefined,
@@ -73,7 +90,7 @@ describe('ExternalCallBoundary', () => {
 
   it('recovers only the failed write with the same idempotency key', async () => {
     const events: ExternalCallAuditEvent[] = [];
-    const journal = new InMemoryExternalWriteJournal();
+    const journal = new TestExternalWriteJournal();
     const boundary = new ExternalCallBoundary({
       journal,
       audit: (event) => events.push(event),
@@ -106,7 +123,7 @@ describe('ExternalCallBoundary', () => {
   });
 
   it('rejects reuse of an idempotency key for a different operation', async () => {
-    const journal = new InMemoryExternalWriteJournal();
+    const journal = new TestExternalWriteJournal();
     const boundary = new ExternalCallBoundary({
       journal,
       audit: () => undefined,

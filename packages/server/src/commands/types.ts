@@ -41,6 +41,11 @@ export interface CommandHost {
   cwd(sessionId: string): string;
   /** 取某会话已构建的 core Config；懒构建尚未发生时返回 undefined（不强制初始化）。 */
   getConfig(sessionId: string): CoreConfig | undefined;
+  /**
+   * 需要会话内核状态的命令可显式请求懒初始化。普通只读命令不要调用，避免
+   * `/about` 等无模型操作无故拉起完整 runtime。
+   */
+  ensureConfig?(sessionId: string): Promise<CoreConfig | undefined>;
   /** 当前生效模型 id（preferredModel → 首个 enabled），无模型时 undefined。 */
   currentModel(): string | undefined;
   /** 可用模型列表（BYO-key）。 */

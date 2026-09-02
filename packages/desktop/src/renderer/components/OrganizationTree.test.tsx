@@ -14,13 +14,14 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ProductWorkspaceSnapshot } from 'otto-server';
 import type { EnterpriseAccount, EnterpriseDirectMessage } from '../../preload/index.js';
+import * as nonOverlappingPoll from '../lib/nonOverlappingPoll.js';
 import {
   DirectMessagePanel,
   OrganizationTree,
   parseDirectMessageTimestamp,
 } from './OrganizationTree.js';
 
-const askLocalPeerOttoMock = vi.hoisted(() => vi.fn(async () => '本机 Otto 给出的建议。'));
+const askLocalPeerOttoMock = vi.hoisted(() => vi.fn(async () => '本机 ClawMaster 给出的建议。'));
 const originalScrollIntoView = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
   'scrollIntoView',
@@ -741,7 +742,7 @@ describe('OrganizationTree', () => {
       target: { value: 'Please help review the proposal today.' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: '问 Otto' }));
+    fireEvent.click(screen.getByRole('button', { name: '问 ClawMaster' }));
 
     await waitFor(() => expect(askLocalPeerOttoMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -750,11 +751,11 @@ describe('OrganizationTree', () => {
     ));
     expect(enterpriseMessageSend).toHaveBeenCalledWith(
       'acc_2',
-      expect.stringContaining('我问了自己的 Otto（基于：我的 Otto 可用资料）'),
+      expect.stringContaining('我问了自己的 ClawMaster（基于：我的 ClawMaster 可用资料）'),
     );
     expect(enterpriseMessageSend).toHaveBeenCalledWith(
       'acc_2',
-      expect.stringContaining('本机 Otto 给出的建议。'),
+      expect.stringContaining('本机 ClawMaster 给出的建议。'),
     );
   });
 
@@ -958,14 +959,12 @@ describe('OrganizationTree', () => {
       .mockResolvedValue([oldMessage, newMessage]);
     const onMessageRead = vi.fn();
     const scrollIntoView = vi.fn();
-    const intervals: Array<{ callback: () => void; delay: number }> = [];
-    vi.spyOn(window, 'setInterval').mockImplementation((handler, delay) => {
-      intervals.push({
-        callback: handler as () => void,
-        delay: Number(delay),
+    let messagePoll: (() => void | Promise<void>) | undefined;
+    vi.spyOn(nonOverlappingPoll, 'startNonOverlappingPoll')
+      .mockImplementation((task, delay) => {
+        if (delay === 2_000) messagePoll = task;
+        return () => undefined;
       });
-      return intervals.length as unknown as ReturnType<typeof window.setInterval>;
-    });
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
       value: scrollIntoView,
@@ -993,10 +992,9 @@ describe('OrganizationTree', () => {
     }, { timeout: 3_000 });
 
     scrollIntoView.mockClear();
-    const messagePoll = intervals.find((interval) => interval.delay === 2_000);
     expect(messagePoll).toBeTruthy();
     await act(async () => {
-      messagePoll!.callback();
+      await messagePoll!();
     });
 
     expect(await screen.findByText('轮询到的新消息')).toBeTruthy();
@@ -1008,7 +1006,7 @@ describe('OrganizationTree', () => {
 
     scrollIntoView.mockClear();
     await act(async () => {
-      messagePoll!.callback();
+      await messagePoll!();
     });
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
@@ -1260,7 +1258,7 @@ describe('OrganizationTree', () => {
     ));
     expect(enterpriseMessageSend).toHaveBeenCalledWith(
       'acc_2',
-      expect.stringContaining('我问了自己的 Otto'),
+      expect.stringContaining('我问了自己的 ClawMaster'),
     );
   });
 
@@ -1311,12 +1309,12 @@ describe('OrganizationTree', () => {
     fireEvent.click(await screen.findByText('Bob'));
     await waitFor(() => expect(enterpriseMessagesList).toHaveBeenCalledWith('acc_2'));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Are you free now?' } });
-    fireEvent.click(screen.getByRole('button', { name: '问对方 Otto' }));
+    fireEvent.click(screen.getByRole('button', { name: '问对方 ClawMaster' }));
 
     await waitFor(() => expect(enterpriseMessageSend).toHaveBeenCalledOnce());
     expect(enterpriseMessageSend.mock.calls[0][0]).toBe('acc_2');
     expect(enterpriseMessageSend.mock.calls[0][1]).toContain('OTTO_ATOA_REQUEST ');
-    expect(await screen.findByText(/向对方 Otto 提问：Are you free now\?/)).toBeTruthy();
+    expect(await screen.findByText(/向对方 ClawMaster 提问：Are you free now\?/)).toBeTruthy();
   });
 
   it('把低频双方 Otto 协商折叠在加号里，并在发送前打开资料选择与提案预览流程', async () => {
@@ -1357,14 +1355,14 @@ describe('OrganizationTree', () => {
     fireEvent.click(await screen.findByText('Bob'));
     await screen.findByText('还没有消息，开始聊聊吧。');
 
-    expect(screen.queryByRole('menuitem', { name: /双方 Otto 协商/ })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '更多 Otto 协作' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: /双方 Otto 协商/ }));
+    expect(screen.queryByRole('menuitem', { name: /双方 ClawMaster 协商/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '更多 ClawMaster 协作' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /双方 ClawMaster 协商/ }));
 
     expect(
-      screen.getByRole('dialog', { name: '双方 Otto 协商' }),
+      screen.getByRole('dialog', { name: '双方 ClawMaster 协商' }),
     ).toBeTruthy();
     expect(screen.getByText(/默认不选/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: '让我的 Otto 生成提案' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '让我的 ClawMaster 生成提案' })).toBeTruthy();
   });
 });

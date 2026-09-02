@@ -44,7 +44,7 @@ export const HIGH_RISK_TOOLS: ReadonlySet<string> = new Set([
  * Tools that modify the environment or create new resources.
  * These need approval in DEFAULT mode but may be auto-allowed in AUTO_EDIT.
  */
-export const MEDIUM_RISK_TOOLS: ReadonlySet<string> = new Set([
+const MEDIUM_RISK_TOOLS: ReadonlySet<string> = new Set([
   'create_file',
   'replace',
   'edit',

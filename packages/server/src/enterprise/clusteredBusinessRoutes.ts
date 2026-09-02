@@ -961,7 +961,7 @@ async function handlePark(
         ownerAccountId: input.member.id,
         payload: {
           name: text(
-            body.name ?? `${organization?.name ?? 'Otto'} Park`,
+            body.name ?? `${organization?.name ?? 'ClawMaster'} Park`,
             'park name',
             160,
           )!,

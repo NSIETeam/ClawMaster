@@ -17,7 +17,7 @@ export interface NativeHotPathContract {
 export const NATIVE_HOT_PATH_CONTRACTS: readonly NativeHotPathContract[] = [
   {
     id: 'agent_pool',
-    purpose: 'Sub-agent concurrency, memory accounting, idle cleanup, and pending-log buffering.',
+    purpose: 'Sub-agent concurrency admission and memory accounting.',
     rustModule: 'otto-native/src/agent_pool.rs',
     legacyOwner: 'packages/core/src/core/subAgent.ts and packages/core/src/core/agentResourceBudget.ts',
     methods: [
@@ -25,11 +25,6 @@ export const NATIVE_HOT_PATH_CONTRACTS: readonly NativeHotPathContract[] = [
       'agent_pool.register',
       'agent_pool.unregister',
       'agent_pool.update_memory',
-      'agent_pool.add_log',
-      'agent_pool.drain_pending',
-      'agent_pool.stats',
-      'agent_pool.list_agents',
-      'agent_pool.cleanup_idle',
     ],
   },
   {

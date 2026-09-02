@@ -9,6 +9,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import { Database } from '../data_platform/index.js';
 import {
   acceptControlCommandInRepository,
+  claimPendingControlCommand,
   completeControlCommandInRepository,
   enqueueOutboxInRepository,
   claimReadyOutboxRows,
@@ -132,6 +133,7 @@ describe('control command receipt query (CONTROL-12)', () => {
   it('终态（succeeded）返回无秘密签名回执', () => {
     const { queue } = makeStores();
     enqueueCommand(queue);
+    expect(claimPendingControlCommand(queue, 30_000)).not.toBeNull();
     completeControlCommandInRepository(queue, 'cmd-1', {
       status: 'succeeded',
       resultSummary: 'enterprise created',
@@ -152,6 +154,7 @@ describe('control command receipt query (CONTROL-12)', () => {
   it('failed 终态同样可查（带错误分类）', () => {
     const { queue } = makeStores();
     enqueueCommand(queue);
+    expect(claimPendingControlCommand(queue, 30_000)).not.toBeNull();
     completeControlCommandInRepository(queue, 'cmd-1', {
       status: 'failed',
       resultSummary: 'boom',
@@ -266,5 +269,33 @@ describe('control command scheduler (CONTROL-12)', () => {
     // 已终态，再次 drain 应无动作
     scheduler.drainOnce();
     expect(runs).toBe(1);
+  });
+
+  it('drain 把崩溃租约安全收敛为 unknown_outcome，并投递恢复回执', () => {
+    const db = new Database(':memory:');
+    let now = NOW_MS;
+    const queue: ControlCommandQueueStore = { db: () => db, now: () => now };
+    const outbox: ControlCommandOutboxStore = { db: () => db };
+    enqueueCommand(queue);
+    expect(claimPendingControlCommand(queue, 1_000)).not.toBeNull();
+    now += 1_001;
+    let runs = 0;
+    const scheduler = createControlCommandScheduler({
+      queue,
+      outbox,
+      now: () => now,
+      execute: () => {
+        runs += 1;
+        return { status: 'succeeded', resultSummary: 'must not run' };
+      },
+    });
+
+    expect(scheduler.drainOnce().executed).toBe(false);
+    expect(runs).toBe(0);
+    expect(queryControlCommandReceipt(queue, 'cmd-1')).toMatchObject({
+      status: 'unknown_outcome',
+      errorCategory: 'lease_expired',
+    });
+    expect(summarizeOutboxInRepository(outbox).pending).toBe(1);
   });
 });

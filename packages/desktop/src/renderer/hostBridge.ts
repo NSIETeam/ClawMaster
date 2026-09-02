@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { OttoBridge } from '../preload/index.js';
+import type { DesktopRuntimeDiagnostic, OttoBridge } from '../preload/index.js';
 import type { ClientToServer, ServerToClient } from 'otto-server';
 
 export type TauriInvoke = <T>(
@@ -59,33 +59,96 @@ export function createTauriHostBridge(
   listen: TauriListen | undefined = window.__TAURI__?.event?.listen,
 ): OttoBridge {
   let connected = false;
+  let requestSequence = 0;
   const frameHandlers = new Set<(frame: ServerToClient) => void>();
   const connectionHandlers = new Set<(value: boolean) => void>();
+  const pendingRequests = new Map<string, {
+    expectedType: ServerToClient['type'];
+    resolve: (frame: ServerToClient) => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }>();
 
   const dispatchFrame = (frame: ServerToClient): void => {
+    const requestId = 'payload' in frame
+      && frame.payload
+      && 'requestId' in frame.payload
+      && typeof frame.payload.requestId === 'string'
+      ? frame.payload.requestId
+      : undefined;
+    const pending = requestId ? pendingRequests.get(requestId) : undefined;
+    if (requestId && pending && (frame.type === pending.expectedType || frame.type === 'error')) {
+      clearTimeout(pending.timer);
+      pendingRequests.delete(requestId);
+      if (frame.type === 'error') pending.reject(new Error(frame.payload.message));
+      else pending.resolve(frame);
+    }
     for (const handler of frameHandlers) handler(frame);
   };
   const dispatchConnection = (value: boolean): void => {
     connected = value;
+    if (!value && pendingRequests.size > 0) {
+      for (const pending of pendingRequests.values()) {
+        clearTimeout(pending.timer);
+        pending.reject(new Error('ClawMaster 本地 Server 连接已断开。'));
+      }
+      pendingRequests.clear();
+    }
     for (const handler of connectionHandlers) handler(value);
   };
   const noopSubscription = (): (() => void) => () => undefined;
   const localAccountTimestamp = new Date(0).toISOString();
-  if (listen) {
-    void listen<ServerToClient>('desktop://server-frame', ({ payload }) =>
-      dispatchFrame(payload),
-    );
-    void listen<boolean>('desktop://connection-change', ({ payload }) =>
-      dispatchConnection(payload),
-    );
-  }
+  const listenersReady = listen
+    ? Promise.all([
+        listen<ServerToClient>('desktop://server-frame', ({ payload }) =>
+          dispatchFrame(payload),
+        ),
+        listen<boolean>('desktop://connection-change', ({ payload }) =>
+          dispatchConnection(payload),
+        ),
+      ]).then(() => undefined)
+    : Promise.resolve();
+
+  const connectDesktop = async (): Promise<boolean> => {
+    if (!listen) throw new TauriBridgeUnsupportedError('onFrame');
+    await listenersReady;
+    const nextConnected = await invoke<boolean>('desktop_connect');
+    if (connected !== nextConnected) dispatchConnection(nextConnected);
+    return nextConnected;
+  };
+
+  const requestServerFrame = async (
+    frame: ClientToServer,
+    expectedType: ServerToClient['type'],
+  ): Promise<ServerToClient> => {
+    if (!connected && !await connectDesktop()) {
+      throw new Error('ClawMaster 本地 Server 尚未就绪。');
+    }
+    const requestId = 'requestId' in frame.payload
+      ? String(frame.payload.requestId)
+      : '';
+    if (!requestId) throw new Error('本地 Server 请求缺少 requestId。');
+    return new Promise<ServerToClient>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pendingRequests.delete(requestId);
+        reject(new Error('ClawMaster 本地 Server 请求超时。'));
+      }, 10_000);
+      pendingRequests.set(requestId, { expectedType, resolve, reject, timer });
+      void invoke<void>('desktop_send', { frame }).catch((error: unknown) => {
+        const pending = pendingRequests.get(requestId);
+        if (!pending) return;
+        clearTimeout(pending.timer);
+        pendingRequests.delete(requestId);
+        pending.reject(error instanceof Error ? error : new Error(String(error)));
+      });
+    });
+  };
+
+  const nextRequestId = (): string =>
+    `work-log-${Date.now().toString(36)}-${++requestSequence}`;
 
   const migrated: Partial<Record<keyof OttoBridge, (...args: never[]) => unknown>> = {
-    connect: (async () => {
-      if (!listen) throw new TauriBridgeUnsupportedError('onFrame');
-      connected = await invoke<boolean>('desktop_connect');
-      return connected;
-    }) as never,
+    connect: connectDesktop as never,
     disconnect: (() => {
       connected = false;
       void invoke<void>('desktop_disconnect').catch(() => undefined);
@@ -119,6 +182,12 @@ export function createTauriHostBridge(
       invoke<void>('open_external', { url })) as never,
     openPath: ((path: string) =>
       invoke<void>('open_path', { path })) as never,
+    inspectLocalPath: ((path: string) =>
+      invoke<{ exists: boolean; kind: 'file' | 'directory' | 'missing'; canOpen: boolean }>(
+        'inspect_local_path', { path },
+      )) as never,
+    activateLocalPath: ((path: string, action: 'open' | 'reveal') =>
+      invoke<{ ok: boolean; error?: string }>('activate_local_path', { path, action })) as never,
     selectFiles: (() => invoke<string[]>('select_files')) as never,
     selectFolders: (() => invoke<string[]>('select_folders')) as never,
     themeGet: (() =>
@@ -135,6 +204,30 @@ export function createTauriHostBridge(
       const selected = await invoke<string[]>('select_folders');
       return selected[0] ?? null;
     }) as never,
+    getPathForFile: (() => '') as never,
+    authorizeFileForAttachment: (() => Promise.reject(
+      new Error('Tauri 拖拽附件无法取得可信路径，请使用“添加附件”原生选择器。'),
+    )) as never,
+    readFilePath: ((filePath: string) => invoke<{
+      filePath: string;
+      fileName: string;
+      size: number;
+      mimeType: string;
+      data: string;
+    }>('read_file_path', { filePath })) as never,
+    extractEditableDocument: ((filePath: string) => invoke(
+      'extract_editable_document', { filePath },
+    )) as never,
+    exportEditedDocument: ((sourcePath: string, suggestedFileName: string, content: string) => invoke(
+      'export_edited_document', { sourcePath, suggestedFileName, content },
+    )) as never,
+    saveTextFile: ((suggestedFileName: string, content: string) =>
+      invoke<string | null>('save_text_file', { suggestedFileName, content })) as never,
+    appVersion: (() => invoke<string>('app_version')) as never,
+    runtimeDiagnostic: (() =>
+      invoke<DesktopRuntimeDiagnostic>('runtime_diagnostic')) as never,
+    notificationShow: ((payload: Parameters<OttoBridge['notificationShow']>[0]) =>
+      invoke<void>('notification_show', { payload })) as never,
     enterpriseSession: (() => Promise.resolve({
       serverUrl: 'tauri://local',
       account: {
@@ -163,8 +256,51 @@ export function createTauriHostBridge(
     onEnterpriseAccountUpdated: noopSubscription as never,
     onNotificationSessionOpen: noopSubscription as never,
     onNotificationUnreadChanged: noopSubscription as never,
+    // Subscription APIs must stay synchronous even while the capability is
+    // unavailable in Tauri. Returning the Proxy's rejected Promise here makes
+    // React treat that Promise as an effect cleanup function and crashes the UI.
+    onUpdateProgress: noopSubscription as never,
     onMenu: noopSubscription as never,
     customerModuleInstalledList: (() => Promise.resolve([])) as never,
+    communitySkillInstall: ((input: { id: string; source: string; slug: string }) =>
+      invoke<{ id: string; name: string; source: string; installPath: string }>(
+        'community_skill_install',
+        input,
+      )) as never,
+    communitySkillList: (() => invoke<Array<{ name: string; installPath: string }>>(
+      'community_skill_list',
+    )) as never,
+    taskRuntimeSetActive: ((active: boolean) => invoke<boolean>(
+      'task_runtime_set_active',
+      { active },
+    )) as never,
+    workLogToday: (async () => {
+      const requestId = nextRequestId();
+      const response = await requestServerFrame(
+        { type: 'work_log_today', payload: { requestId } },
+        'work_log_today_result',
+      );
+      if (response.type !== 'work_log_today_result') throw new Error('工作日志响应类型错误。');
+      return response.payload.summary;
+    }) as never,
+    workLogRecent: (async (days?: number) => {
+      const requestId = nextRequestId();
+      const response = await requestServerFrame(
+        { type: 'work_log_recent', payload: { requestId, days } },
+        'work_log_recent_result',
+      );
+      if (response.type !== 'work_log_recent_result') throw new Error('工作日志响应类型错误。');
+      return response.payload.days;
+    }) as never,
+    workLogReport: (async () => {
+      const requestId = nextRequestId();
+      const response = await requestServerFrame(
+        { type: 'work_log_report', payload: { requestId } },
+        'work_log_report_result',
+      );
+      if (response.type !== 'work_log_report_result') throw new Error('工作日志响应类型错误。');
+      return response.payload.report;
+    }) as never,
     autoGeneratedAgentProfiles: (() => Promise.resolve([])) as never,
     enterpriseMessagesUnread: (() => Promise.resolve([])) as never,
     enterpriseFederationContacts: (() => Promise.resolve([])) as never,
@@ -193,7 +329,12 @@ export function getHostBridge(): OttoBridge {
 export function installTauriHostBridge(): boolean {
   if (window.otto) return false;
   const invoke = window.__TAURI_INTERNALS__?.invoke;
-  if (!invoke) return false;
+  if (!invoke) {
+    if (window.__TAURI_INTERNALS__ || window.__TAURI__) {
+      throw new HostBridgeUnavailableError();
+    }
+    return false;
+  }
   Object.defineProperty(window, 'otto', {
     configurable: true,
     value: createTauriHostBridge(invoke),

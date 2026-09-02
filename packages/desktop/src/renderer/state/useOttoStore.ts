@@ -287,12 +287,12 @@ function maybeShowChatNotification(
     const session = sessions[sessionId];
     const preview = text?.trim()
       ? text.trim().slice(0, 180)
-      : 'Otto 已完成后台对话。';
+      : 'ClawMaster 已完成后台对话。';
     void window.otto.notificationShow?.({
       messageId: `chat-complete:${messageId}`,
       sessionId,
       source: 'local',
-      title: session?.title || 'Otto 对话已完成',
+      title: session?.title || 'ClawMaster 对话已完成',
       preview,
     }).catch(() => undefined);
     return;
@@ -306,7 +306,7 @@ function maybeShowChatNotification(
       messageId: `chat-error:${code}:${message}`,
       sessionId,
       source: 'local',
-      title: session?.title || 'Otto 对话需要注意',
+      title: session?.title || 'ClawMaster 对话需要注意',
       preview: message,
     }).catch(() => undefined);
   }
@@ -970,7 +970,7 @@ export function useOttoStore(
                   content: entry.content,
                   confidence: entry.confidence ?? 0.8,
                   sourceType: 'auto_capture',
-                  sourceLabel: 'Otto 对话知识观察',
+                  sourceLabel: 'ClawMaster 对话知识观察',
                   tags: entry.tags,
                   verified: entry.verified,
                   impactScore: entry.impactScore,
@@ -1218,7 +1218,7 @@ export function useOttoStore(
     const content = buildUserMessageContent(cleanPrompt, attachments);
     if (!cleanAgentProfileId || content.length === 0) return { accepted: false };
     if (connectionRef.current !== 'connected') {
-      dispatch({ kind: 'local_error', message: '未连接，无法调用 Otto' });
+      dispatch({ kind: 'local_error', message: '本地引擎尚未就绪，无法调用 ClawMaster' });
       return { accepted: false };
     }
     const clientRequestId = crypto.randomUUID();

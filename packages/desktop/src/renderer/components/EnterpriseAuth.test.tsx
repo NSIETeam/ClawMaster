@@ -77,7 +77,7 @@ describe('专业登录入口', () => {
 
     expect(screen.queryByLabelText('企业服务器地址')).toBeNull();
     expect(screen.queryByText('59.110.154.44:7777')).toBeNull();
-    expect(screen.getByRole('button', { name: '进入 Otto' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '进入 ClawMaster' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '普通注册' }));
     expect(screen.queryByLabelText('企业服务器地址')).toBeNull();
@@ -115,7 +115,7 @@ describe('专业登录入口', () => {
     expect(screen.getByRole('button', { name: '使用邀请码加入企业' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '普通注册' }));
-    expect(screen.getByRole('heading', { name: '创建 Otto 账号' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '创建 ClawMaster 账号' })).toBeTruthy();
     expect(screen.queryByLabelText('企业邀请码')).toBeNull();
     expect(screen.getByLabelText('姓名')).toBeTruthy();
     expect(screen.getByLabelText('手机号')).toBeTruthy();
@@ -151,7 +151,7 @@ describe('专业登录入口', () => {
     fireEvent.change(screen.getByLabelText('密码'), {
       target: { value: 'strong-password' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '进入 Otto' }));
+    fireEvent.click(screen.getByRole('button', { name: '进入 ClawMaster' }));
 
     await waitFor(() => expect(onPasswordLogin).toHaveBeenCalledWith({
       serverUrl: 'https://old.enterprise.test',
@@ -228,7 +228,7 @@ describe('专业登录入口', () => {
       phone: '13800138000',
     }));
     fireEvent.change(screen.getByLabelText('登录验证码'), { target: { value: '042731' } });
-    fireEvent.click(screen.getByRole('button', { name: '进入 Otto' }));
+    fireEvent.click(screen.getByRole('button', { name: '进入 ClawMaster' }));
     await waitFor(() => expect(onSmsLogin).toHaveBeenCalledWith({
       challengeId: 'sms_login_1',
       code: '042731',
@@ -356,7 +356,7 @@ describe('专业登录入口', () => {
     });
     expect(onClearError).toHaveBeenCalledTimes(2);
 
-    const form = screen.getByRole('button', { name: '进入 Otto' }).closest('form');
+    const form = screen.getByRole('button', { name: '进入 ClawMaster' }).closest('form');
     expect(form).not.toBeNull();
     fireEvent.submit(form!);
     fireEvent.submit(form!);
@@ -369,7 +369,7 @@ describe('专业登录入口', () => {
 
     finishLogin();
     await waitFor(() => {
-      expect((screen.getByRole('button', { name: '进入 Otto' }) as HTMLButtonElement).disabled)
+      expect((screen.getByRole('button', { name: '进入 ClawMaster' }) as HTMLButtonElement).disabled)
         .toBe(false);
     });
   });

@@ -409,7 +409,7 @@ describe('applyFrame 各帧分支', () => {
       content: '合同审查先核对违约条款。',
       confidence: 0.9,
       sourceType: 'auto_capture',
-      sourceLabel: 'Otto 对话知识观察',
+      sourceLabel: 'ClawMaster 对话知识观察',
       tags: ['contract'],
       verified: false,
       impactScore: 0.5,

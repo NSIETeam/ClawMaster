@@ -575,8 +575,3 @@ export class SettingsManager {
     await this.readInstalledPlugins();
   }
 }
-
-/**
- * 单例实例
- */
-export const settingsManager = new SettingsManager();

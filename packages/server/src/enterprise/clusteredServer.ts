@@ -511,7 +511,7 @@ async function requireClusteredLicense(input: {
       },
     );
   } catch (error) {
-    console.error('[Otto Enterprise] clustered license audit failed', {
+    console.error('[ClawMaster Enterprise] clustered license audit failed', {
       message: error instanceof Error ? error.message : String(error),
     });
   }
@@ -1425,7 +1425,7 @@ export function createClusteredEnterpriseServer(
       if (path === '/enterprise/privacy/account' && method === 'DELETE') {
         const body = await readJsonBody(req);
         const password = typeof body.password === 'string' ? body.password : '';
-        if (body.confirmation !== '注销我的 Otto 账号' || !password) {
+        if (body.confirmation !== '注销我的 ClawMaster 账号' || !password) {
           sendJson(res, 400, {
             error:
               'password and exact account deletion confirmation are required',
@@ -2425,7 +2425,7 @@ export async function startClusteredEnterpriseServer(
       purgeMigratedLegacy: infrastructure.legacyAttachmentReadEnabled,
       onError(error) {
         console.error(
-          `[Otto Enterprise] attachment maintenance failed: ${safeRouteError(error)}`,
+          `[ClawMaster Enterprise] attachment maintenance failed: ${safeRouteError(error)}`,
         );
       },
     });
@@ -2434,7 +2434,7 @@ export async function startClusteredEnterpriseServer(
       authority: infrastructure.repository,
       onError(error) {
         console.error(
-          `[Otto Enterprise] MLS resource maintenance failed: ${safeRouteError(error)}`,
+          `[ClawMaster Enterprise] MLS resource maintenance failed: ${safeRouteError(error)}`,
         );
       },
     });
@@ -2454,10 +2454,10 @@ export async function startClusteredEnterpriseServer(
     maintenance.start();
     mlsMaintenance.start();
     console.log(
-      `[Otto Enterprise] PostgreSQL authority ready at http://${created.host}:${created.port}`,
+      `[ClawMaster Enterprise] PostgreSQL authority ready at http://${created.host}:${created.port}`,
     );
     console.log(
-      `[Otto Enterprise] shared infrastructure ${JSON.stringify(
+      `[ClawMaster Enterprise] shared infrastructure ${JSON.stringify(
         infrastructure.topologyDescription,
       )}`,
     );

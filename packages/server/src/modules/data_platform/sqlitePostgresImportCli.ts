@@ -289,7 +289,7 @@ async function main(): Promise<void> {
       process.env,
       sourcePath,
     );
-    console.error(`[Otto Enterprise] SQLite import failed: ${message}`);
+    console.error(`[ClawMaster Enterprise] SQLite import failed: ${message}`);
     process.exitCode = 1;
   }
 }

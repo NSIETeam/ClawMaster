@@ -80,19 +80,19 @@ export function LocalAgentPanel(): React.JSX.Element {
       </Card>
 
       {/* 令牌输入 */}
-      <div style={{ marginTop: 20 }}>
+      <div className="otto-local-agent__pairing">
         <Card>
-          <div style={{ padding: '8px 0' }}>
-            <div className="otto-hub__field-label" style={{ marginBottom: 10 }}>
+          <div className="otto-local-agent__card-body">
+            <div className="otto-hub__field-label otto-local-agent__label">
               配对令牌
             </div>
-            <div className="otto-hub__field-hint" style={{ marginBottom: 14 }}>
+            <div className="otto-hub__field-hint otto-local-agent__hint">
               在企业服务器网页 <code>/enterprise/local-agent</code> 生成配对令牌后粘贴到这里。
             </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div className="otto-local-agent__controls">
               <input
                 type="text"
-                className="otto-hub__input"
+                className="otto-hub__input otto-local-agent__token"
                 value={token}
                 onChange={(e) => {
                   setToken(e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 6));
@@ -104,38 +104,12 @@ export function LocalAgentPanel(): React.JSX.Element {
                 disabled={busy}
                 autoComplete="off"
                 spellCheck={false}
-                style={{
-                  flex: 1,
-                  minHeight: 44,
-                  padding: '0 16px',
-                  border: '1px solid #d9d6ca',
-                  borderRadius: 12,
-                  fontSize: 20,
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                  fontWeight: 800,
-                  letterSpacing: '.15em',
-                  textAlign: 'center',
-                  textTransform: 'uppercase',
-                  background: '#f7f5ef',
-                  color: '#173f37',
-                }}
               />
               <button
                 type="button"
-                className="otto-hub__btn-primary"
+                className="otto-hub__btn otto-hub__btn--primary otto-local-agent__submit"
                 onClick={() => void handlePair()}
                 disabled={busy || token.trim().length < 6}
-                style={{
-                  minHeight: 44,
-                  padding: '0 22px',
-                  borderRadius: 12,
-                  border: 'none',
-                  background: token.trim().length >= 6 ? '#f1bd55' : '#e8e4d8',
-                  color: token.trim().length >= 6 ? '#17352f' : '#a0a597',
-                  fontSize: 15,
-                  fontWeight: 800,
-                  cursor: token.trim().length >= 6 && !busy ? 'pointer' : 'not-allowed',
-                }}
               >
                 {busy ? '接入中…' : '接入'}
               </button>
@@ -146,11 +120,11 @@ export function LocalAgentPanel(): React.JSX.Element {
 
       {/* 成功提示 */}
       {result?.ok ? (
-        <div style={{ marginTop: 20 }}>
+        <div className="otto-local-agent__success">
           <Card className="otto-prefs-simple">
             <div className="otto-prefs-simple__intro">
               <span className="otto-prefs-simple__check">✓</span>
-              企业服务器接入成功！你的 Otto 现在可以与团队成员协作。
+              企业服务器接入成功！你的 ClawMaster 现在可以与团队成员协作。
             </div>
           </Card>
         </div>

@@ -85,7 +85,7 @@ export function buildRelaunchScript(opts: BuildRelaunchScriptOptions): string {
   }
 
   return `'use strict';
-// Otto relaunch helper (auto-generated, cross-platform)
+// ClawMaster relaunch helper (auto-generated, cross-platform)
 const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 
@@ -332,8 +332,8 @@ export class SelfUpdateTool extends BaseTool<SelfUpdateParams, ToolResult> {
     super(
       SelfUpdateTool.Name,
       'SelfUpdate',
-      'Updates and/or restarts Otto (Feishu/Lark gateway mode only). Use ONLY when the user ' +
-        'explicitly asks to update/upgrade or restart Otto.\n' +
+      'Updates and/or restarts ClawMaster (Feishu/Lark gateway mode only). Use ONLY when the user ' +
+        'explicitly asks to update/upgrade or restart ClawMaster.\n' +
         'Parameters:\n' +
         '- action: "update_and_restart" (default) installs a new version then restarts; ' +
         '"restart_only" just restarts the current process WITHOUT installing (use to recover a stuck ' +
@@ -402,11 +402,11 @@ export class SelfUpdateTool extends BaseTool<SelfUpdateParams, ToolResult> {
   }
 
   getDescription(params: SelfUpdateParams): string {
-    if (params.action === 'restart_only') return 'Restart Otto (Feishu mode)';
+    if (params.action === 'restart_only') return 'Restart ClawMaster (Feishu mode)';
     if (params.source === 'local') {
       return `Install local package and restart: ${params.sourcePath ?? '(missing path)'}`;
     }
-    return 'Update Otto to latest and restart (Feishu mode)';
+    return 'Update ClawMaster to latest and restart (Feishu mode)';
   }
 
   /** 把参数解析为底层安装模式。 */

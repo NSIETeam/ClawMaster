@@ -31,6 +31,17 @@
  */
 
 import type { ProductWorkspaceSnapshot } from './productWorkspaceStore.js';
+import type {
+  WorkLogDay,
+  WorkLogReportResult,
+  WorkLogSummary,
+} from './workLogService.js';
+export type {
+  WorkLogDay,
+  WorkLogDisplayEntry,
+  WorkLogReportResult,
+  WorkLogSummary,
+} from './workLogService.js';
 
 // ============================================================================
 // 0. 版本 / 信封
@@ -692,6 +703,18 @@ export type UpdateScheduleMsg = Envelope<
   }
 >;
 export type DeleteScheduleMsg = Envelope<'delete_schedule', { id: string }>;
+export type WorkLogTodayMsg = Envelope<
+  'work_log_today',
+  { requestId: string }
+>;
+export type WorkLogRecentMsg = Envelope<
+  'work_log_recent',
+  { requestId: string; days?: number }
+>;
+export type WorkLogReportMsg = Envelope<
+  'work_log_report',
+  { requestId: string }
+>;
 
 export type ClientToServer =
   | HelloMsg
@@ -751,7 +774,10 @@ export type ClientToServer =
   | GetSchedulesMsg
   | CreateScheduleMsg
   | UpdateScheduleMsg
-  | DeleteScheduleMsg;
+  | DeleteScheduleMsg
+  | WorkLogTodayMsg
+  | WorkLogRecentMsg
+  | WorkLogReportMsg;
 
 export type ClientToServerType = ClientToServer['type'];
 
@@ -1006,7 +1032,7 @@ export type RuntimeActivityMsg = Envelope<
 /** 错误帧。 */
 export type ErrorMsg = Envelope<
   'error',
-  { sessionId?: string; code: string; message: string }
+  { sessionId?: string; requestId?: string; code: string; message: string }
 >;
 
 /** 企业服务器通知桌面端检查补丁 / 内核 / 组件增量更新。 */
@@ -1365,6 +1391,18 @@ export type SchedulesListMsg = Envelope<
   'schedules_list',
   { date?: string; timezone?: string; schedules: ScheduleItemInfo[] }
 >;
+export type WorkLogTodayResultMsg = Envelope<
+  'work_log_today_result',
+  { requestId: string; summary: WorkLogSummary }
+>;
+export type WorkLogRecentResultMsg = Envelope<
+  'work_log_recent_result',
+  { requestId: string; days: WorkLogDay[] }
+>;
+export type WorkLogReportResultMsg = Envelope<
+  'work_log_report_result',
+  { requestId: string; report: WorkLogReportResult }
+>;
 
 /** 主动服务推送（晨间简报/明早日程提醒/空闲提醒等） */
 export type ProactiveAlertMsg = Envelope<
@@ -1462,6 +1500,9 @@ export type ServerToClient =
   | ProductWorkspaceMsg
   | EnterpriseInviteCreatedMsg
   | SchedulesListMsg
+  | WorkLogTodayResultMsg
+  | WorkLogRecentResultMsg
+  | WorkLogReportResultMsg
   | ProactiveAlertMsg
   | RealtimePatternMsg
   | HabitInsightMsg
@@ -1490,6 +1531,14 @@ export interface HealthInfo {
   protocolVersion: string;
   uptimeMs: number;
   sessionCount: number;
+  backgroundTasks: {
+    /** 用户是否明确授权后台智能任务。 */
+    enabled: boolean;
+    /** 任务是否已经完成运行期登记；关闭时必须为 false。 */
+    active: boolean;
+    /** 当前是否允许后台付费调用。 */
+    paidCallsAllowed: boolean;
+  };
   feishu: { enabled: boolean; connected: boolean; status?: FeishuHealthStatus };
 }
 
@@ -1558,6 +1607,36 @@ export interface FeishuConfigSaveRequest {
   ownerOpenId?: string;
 }
 
+export type ChannelProvider = 'feishu' | 'lark' | 'wecom';
+export type ChannelPairingStatus =
+  | 'waiting_scan'
+  | 'user_authorized'
+  | 'waiting_admin'
+  | 'installing'
+  | 'verifying'
+  | 'connected'
+  | 'expired'
+  | 'denied'
+  | 'failed'
+  | 'revoked';
+
+export interface ChannelPairingPublic {
+  pairingId: string;
+  provider: ChannelProvider;
+  status: ChannelPairingStatus;
+  qrPayload: string;
+  expiresAtMs: number;
+  requestedScopes: readonly string[];
+  tenantName?: string;
+  failureReason?: string;
+}
+
+export interface ChannelPairingBeginRequest {
+  provider: ChannelProvider;
+  installationPublicKey: string;
+  requestedScopes: readonly string[];
+}
+
 /**
  * REST 路由约定（server.ts 实现）：
  *   GET  /health                      → ApiResponse<HealthInfo>
@@ -1583,6 +1662,8 @@ export const HTTP_ROUTES = {
   feishuStart: '/feishu/start',
   feishuStop: '/feishu/stop',
   feishuConfig: '/feishu/config',
+  channelPairings: '/channels/pairings',
+  channelPairing: (id: string) => `/channels/pairings/${id}`,
   incrementalUpdatePush: '/internal/incremental-update/push',
   ws: '/ws',
 } as const;
@@ -2014,6 +2095,24 @@ export function validateClientPayload(msg: {
     case 'delete_schedule': {
       if (!isPlainObject(p)) return 'delete_schedule payload 必须是对象';
       return isNonEmptyString(p['id']) ? null : 'id 必须是非空字符串';
+    }
+    case 'work_log_today':
+    case 'work_log_report': {
+      if (!isPlainObject(p)) return `${msg.type} payload 必须是对象`;
+      return isNonEmptyString(p['requestId'])
+        ? null
+        : 'requestId 必须是非空字符串';
+    }
+    case 'work_log_recent': {
+      if (!isPlainObject(p)) return 'work_log_recent payload 必须是对象';
+      if (!isNonEmptyString(p['requestId'])) return 'requestId 必须是非空字符串';
+      if (
+        p['days'] !== undefined
+        && (!Number.isSafeInteger(p['days']) || (p['days'] as number) < 1)
+      ) {
+        return 'days 必须是正整数';
+      }
+      return null;
     }
     case 'run_slash_command': {
       if (!isPlainObject(p)) return 'run_slash_command payload 必须是对象';

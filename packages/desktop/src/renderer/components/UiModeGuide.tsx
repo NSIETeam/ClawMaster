@@ -73,7 +73,7 @@ export function UiModeGuide({ onSelect }: UiModeGuideProps): React.JSX.Element {
     <div className="otto-ui-guide__backdrop">
       <section className="otto-ui-guide" role="dialog" aria-modal="true" aria-labelledby="otto-ui-guide-title">
         <header className="otto-ui-guide__head">
-          <span>WELCOME TO OTTO</span>
+          <span>WELCOME TO CLAWMASTER</span>
           <h1 id="otto-ui-guide-title">选择你习惯的工作界面</h1>
           <p>功能和数据完全相同，以后也可以在“设置与诊断”中随时切换。</p>
         </header>

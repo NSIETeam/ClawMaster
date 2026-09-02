@@ -35,16 +35,26 @@ const enterpriseCapabilities: ModuleWorkspaceCapabilities = {
     'agent-word',
     'agent-excel',
     'enterprise-memory',
+    'platform-maotouying',
+    'platform-trace-code',
+    'platform-zhifang',
+    'platform-zhiliaohou',
+    'platform-zhixin-pigeon',
   ],
 };
 
 const personalCapabilities: ModuleWorkspaceCapabilities = {
   edition: 'personal',
-  availableModuleIds: ['agent-personal-otto', 'auto-skill'],
+  availableModuleIds: [
+    'agent-personal-otto', 'auto-skill',
+    'agent-word', 'agent-excel', 'agent-ppt', 'agent-pdf', 'agent-meeting', 'mind-map',
+    'platform-maotouying', 'platform-trace-code', 'platform-zhifang',
+    'platform-zhiliaohou', 'platform-zhixin-pigeon',
+  ],
 };
 
 const sampleLayout = (): ModuleWorkspaceLayout => ({
-  version: 1,
+  version: 2,
   groups: [
     {
       id: 'park-services',
@@ -62,9 +72,9 @@ const sampleLayout = (): ModuleWorkspaceLayout => ({
 });
 
 describe('module workspace defaults', () => {
-  it('creates the enterprise two-group 2x3 defaults', () => {
+  it('creates the enterprise service, office, and business-platform defaults', () => {
     expect(createDefaultModuleWorkspace(enterpriseCapabilities)).toEqual({
-      version: 1,
+      version: 2,
       groups: [
         {
           id: 'park-services',
@@ -92,16 +102,43 @@ describe('module workspace defaults', () => {
             'enterprise-memory',
           ],
         },
+        {
+          id: 'business-platforms',
+          name: '业务平台',
+          rows: 3,
+          moduleIds: [
+            'platform-maotouying',
+            'platform-trace-code',
+            'platform-zhifang',
+            'platform-zhiliaohou',
+            'platform-zhixin-pigeon',
+          ],
+        },
       ],
     });
   });
 
-  it('does not synthesize enterprise or park modules for personal edition', () => {
+  it('seeds personal office work and authenticated business-platform control groups', () => {
     const layout = createDefaultModuleWorkspace(personalCapabilities);
     const moduleIds = layout.groups.flatMap((group) => group.moduleIds);
 
-    expect(layout.groups).toHaveLength(1);
-    expect(moduleIds).toEqual(['agent-personal-otto', 'auto-skill']);
+    expect(layout.groups).toEqual([
+      {
+        id: 'daily-office',
+        name: '日常办公',
+        rows: 3,
+        moduleIds: ['agent-word', 'agent-excel', 'agent-ppt', 'agent-pdf', 'mind-map', 'agent-meeting'],
+      },
+      {
+        id: 'business-platforms',
+        name: '业务平台',
+        rows: 3,
+        moduleIds: [
+          'platform-maotouying', 'platform-trace-code', 'platform-zhifang',
+          'platform-zhiliaohou', 'platform-zhixin-pigeon',
+        ],
+      },
+    ]);
     expect(moduleIds.some((id) => id.startsWith('park-'))).toBe(false);
     expect(moduleIds).not.toContain('enterprise-memory');
     expect(moduleIds).not.toContain('agent-enterprise-work');
@@ -172,8 +209,8 @@ describe('module workspace layout operations', () => {
   it('resolves two columns only for a genuinely narrow side panel', () => {
     expect(resolveModuleGridColumns('panel', 240)).toBe(2);
     expect(resolveModuleGridColumns('panel', 250)).toBe(2);
-    expect(resolveModuleGridColumns('panel', 251)).toBe(3);
-    expect(resolveModuleGridColumns('panel', 0)).toBe(3);
+    expect(resolveModuleGridColumns('panel', 251)).toBe(2);
+    expect(resolveModuleGridColumns('panel', 0)).toBe(2);
     expect(resolveModuleGridColumns('page', 220)).toBe(3);
   });
 
@@ -214,7 +251,7 @@ describe('module workspace layout operations', () => {
   });
 
   it('protects the last group and migrates deleted group modules to the nearest group', () => {
-    const oneGroup = { version: 1 as const, groups: [sampleLayout().groups[0]] };
+    const oneGroup = { version: 2 as const, groups: [sampleLayout().groups[0]] };
     expect(deleteModuleGroup(oneGroup, 'park-services')).toEqual(oneGroup);
 
     const next = deleteModuleGroup(sampleLayout(), 'park-services');

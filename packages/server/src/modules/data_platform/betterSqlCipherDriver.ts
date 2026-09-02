@@ -167,8 +167,17 @@ function exportDatabase(input: {
   }
 }
 
+export function sqlCipherModuleRequireBase(
+  moduleUrl: string,
+  resourcesPath = process.env.CLAWMASTER_RESOURCES_PATH,
+): string {
+  return resourcesPath?.trim()
+    ? path.join(resourcesPath, 'agent', 'server.mjs')
+    : moduleUrl;
+}
+
 function loadConstructor(): BetterSqlCipherDatabaseConstructor {
-  const require = createRequire(import.meta.url);
+  const require = createRequire(sqlCipherModuleRequireBase(import.meta.url));
   // eslint-disable-next-line no-restricted-syntax -- native addon loading must remain runtime-selected
   const loaded = require('better-sqlite3') as
     | BetterSqlCipherDatabaseConstructor

@@ -26,8 +26,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import './styles/tokens.css';
-import './styles/app.css';
 import type {
   MessageSource,
   ToolCall,
@@ -37,6 +35,7 @@ import {
   useOttoStore,
   selectSortedSessions,
 } from './state/useOttoStore.js';
+import { hasActiveRuntimeSession } from './runtimeActivity.js';
 import type { Attachment } from './state/useOttoStore.js';
 import { Sidebar } from './components/Sidebar.js';
 import { ChatView } from './components/ChatView.js';
@@ -86,6 +85,7 @@ import { AccountManagementPage } from './components/AccountManagementPage.js';
 import { OrganizationPage } from './components/OrganizationPage.js';
 import { InboxPage } from './components/InboxPage.js';
 import { WorkPage } from './components/WorkPage.js';
+import { IconClose } from './components/icons.js';
 import { useEnterpriseAuth } from './state/useEnterpriseAuth.js';
 import { localDateKey } from './localDateKey.js';
 import type {
@@ -117,7 +117,6 @@ import {
 } from './enterpriseUnreadNotifications.js';
 import { resolveCentralEnterpriseIdentity } from './state/centralEnterpriseIdentity.js';
 import {
-  INTERNAL_TEST_ACCESS_ENABLED,
   INTERNAL_TEST_ACCOUNT,
   INTERNAL_TEST_ADMIN_ACCOUNT,
   INTERNAL_TEST_ADMIN_ENABLED,
@@ -177,31 +176,23 @@ type PendingToolConsult = {
 export function App(): React.JSX.Element {
   const auth = useEnterpriseAuth();
   const accessMode = resolveEnterpriseAccessMode({
-    internalTestAccessEnabled: INTERNAL_TEST_ACCESS_ENABLED,
+    internalTestAccessEnabled: false,
     authStatus: auth.state.status,
     hasAccount: Boolean(auth.state.account),
     hasRegistrationIntent: Boolean(auth.state.registrationIntent),
   });
 
-  if (accessMode === 'internal-workspace') {
+  if (accessMode === 'local-workspace') {
     return (
       <OttoWorkspaceApp
         account={INTERNAL_TEST_ADMIN_ENABLED ? INTERNAL_TEST_ADMIN_ACCOUNT : INTERNAL_TEST_ACCOUNT}
-        serverUrl={INTERNAL_TEST_ADMIN_ENABLED ? 'internal://admin-preview' : 'internal://test'}
+        serverUrl={INTERNAL_TEST_ADMIN_ENABLED ? 'internal://admin-preview' : 'tauri://local'}
         onLogout={auth.actions.logout}
         internalAdminPreview={INTERNAL_TEST_ADMIN_ENABLED}
       />
     );
   }
-  if (accessMode === 'booting') {
-    return (
-      <div className="otto-auth-boot" role="status">
-        <span>O</span>
-        <div><strong>OTTO</strong><small>正在验证企业身份…</small></div>
-      </div>
-    );
-  }
-  if (accessMode === 'registration' || accessMode === 'login' || !auth.state.account) {
+  if (accessMode === 'registration') {
     return (
       <EnterpriseLoginPage
         initialServerUrl={auth.state.serverUrl}
@@ -217,12 +208,17 @@ export function App(): React.JSX.Element {
       />
     );
   }
+  if (!auth.state.account) {
+    return <OttoWorkspaceApp account={INTERNAL_TEST_ACCOUNT} serverUrl="tauri://local" />;
+  }
   return (
     <OttoWorkspaceApp
       key={`${auth.state.serverUrl}:${auth.state.account.id}:${auth.state.account.organizationId}`}
       account={auth.state.account}
       serverUrl={auth.state.serverUrl}
-      onJoinEnterprise={auth.actions.joinEnterprise}
+      onJoinEnterprise={auth.state.serverUrl === 'tauri://local'
+        ? undefined
+        : auth.actions.joinEnterprise}
       onLogout={auth.actions.logout}
     />
   );
@@ -241,6 +237,7 @@ function OttoWorkspaceApp({
   onLogout?: () => Promise<void>;
   internalAdminPreview?: boolean;
 }): React.JSX.Element {
+  const localOnly = serverUrl === 'tauri://local';
   const { state, actions } = useOttoStore({
     enterpriseOrganizationId: account.accountType === 'personal'
       ? null
@@ -391,7 +388,7 @@ function OttoWorkspaceApp({
       question: string,
     ): Promise<EnterpriseDirectMessage> =>
       new Promise((resolve, reject) => {
-        toolConsultResolver.current?.reject(new Error('已有一项双方 Otto 协商等待处理'));
+        toolConsultResolver.current?.reject(new Error('已有一项双方 ClawMaster 协商等待处理'));
         toolConsultResolver.current = { resolve, reject };
         setPendingToolConsult({ member, question });
       }),
@@ -406,13 +403,13 @@ function OttoWorkspaceApp({
     [],
   );
   const cancelToolConsult = useCallback((): void => {
-    toolConsultResolver.current?.reject(new Error('用户取消了双方 Otto 协商'));
+    toolConsultResolver.current?.reject(new Error('用户取消了双方 ClawMaster 协商'));
     toolConsultResolver.current = null;
     setPendingToolConsult(null);
   }, []);
   useEffect(
     () => () => {
-      toolConsultResolver.current?.reject(new Error('账号已切换，双方 Otto 协商已取消'));
+      toolConsultResolver.current?.reject(new Error('账号已切换，双方 ClawMaster 协商已取消'));
       toolConsultResolver.current = null;
     },
     [account.id],
@@ -547,7 +544,7 @@ function OttoWorkspaceApp({
         sessionId: notificationId,
         source: 'atoa',
         sender: request.peer?.name ?? '企业同事',
-        preview: '你的 Otto 收到一条企业协作请求，等待授权处理',
+        preview: '你的 ClawMaster 收到一条企业协作请求，等待授权处理',
       }).catch(() => undefined);
       try {
         await processEnterpriseAtoaRequest({
@@ -679,7 +676,7 @@ function OttoWorkspaceApp({
           source: 'atoa',
           sender: task.contact.displayName,
           preview: task.kind === 'proposal'
-            ? '对方 Otto 请求一次性读取你明确选择的资料'
+            ? '对方 ClawMaster 请求一次性读取你明确选择的资料'
             : '已核验的一次性 A2A 请求正在等待本机处理',
         }).catch(() => undefined);
 
@@ -740,7 +737,7 @@ function OttoWorkspaceApp({
               await window.otto.enterpriseFederationAtoaRespond({
                 contactId: task.contact.id,
                 requestMessageId: task.message.id,
-                answer: '对方取消了本次授权，Otto 未读取任何资料。',
+                answer: '对方取消了本次授权，ClawMaster 未读取任何资料。',
                 grantedSources: [],
               });
               await window.otto.notificationMarkRead(notificationId);
@@ -770,7 +767,7 @@ function OttoWorkspaceApp({
           });
         } catch {
           if (abortController.signal.aborted) return;
-          answer = '本机 Otto 本次未能完成回答，请稍后重试或直接联系本人。';
+          answer = '本机 ClawMaster 本次未能完成回答，请稍后重试或直接联系本人。';
         }
         await window.otto.enterpriseFederationAtoaRespond({
           contactId: task.contact.id,
@@ -1049,6 +1046,14 @@ function OttoWorkspaceApp({
     : [];
 
   const busy = activeSession?.status === 'thinking' || activeSession?.status === 'streaming';
+  const runtimeActive = hasActiveRuntimeSession(sessions);
+
+  useEffect(() => {
+    void window.otto.taskRuntimeSetActive(runtimeActive).catch(() => undefined);
+    return () => {
+      void window.otto.taskRuntimeSetActive(false).catch(() => undefined);
+    };
+  }, [runtimeActive]);
 
   const handleRegenerate = (messageId?: string): void => {
     let target: (typeof activeMessages)[number] | undefined;
@@ -1105,7 +1110,9 @@ function OttoWorkspaceApp({
               department: account.department,
               positionTitle: account.positionTitle,
             })}\n\n用户当前任务：${text.trim() || '请处理附件中的任务。'}`
-          : text;
+          : pendingAgent.instructions
+            ? `${pendingAgent.instructions}\n\n用户当前任务：${text.trim() || '请处理附件中的任务。'}`
+            : text;
         const result = actions.launchAgentProfileWithPrompt(
           pendingAgent.title,
           pendingAgent.profileId,
@@ -1228,6 +1235,31 @@ function OttoWorkspaceApp({
       });
       return;
     }
+    if (activation.kind === 'platform') {
+      setMainView('chat');
+      window.dispatchEvent(new CustomEvent('clawmaster:open-platform', {
+        detail: { id: activation.platformId, label: module.label, url: activation.url },
+      }));
+      setPendingAgent({
+        moduleId: module.id,
+        title: module.label,
+        profileId: edition === 'enterprise' ? 'otto-enterprise-work' : 'otto-personal',
+        icon: module.icon,
+        instructions: activation.instructions,
+      });
+      return;
+    }
+    if (activation.kind === 'guided-task') {
+      setMainView('chat');
+      setPendingAgent({
+        moduleId: module.id,
+        title: module.label,
+        profileId: edition === 'enterprise' ? 'otto-enterprise-work' : 'otto-personal',
+        icon: module.icon,
+        instructions: activation.instructions,
+      });
+      return;
+    }
     setMainView('chat');
     setPendingAgent({
       moduleId: module.id,
@@ -1236,7 +1268,7 @@ function OttoWorkspaceApp({
       customAgentId: activation.customAgentId,
       icon: module.icon,
     });
-  }, [openModuleModal]);
+  }, [edition, openModuleModal]);
 
   const handleToolConfirmation = useCallback(
     (
@@ -1325,6 +1357,7 @@ function OttoWorkspaceApp({
         onRename={actions.renameSession}
         onDelete={actions.deleteSession}
         enterpriseAccount={account}
+        localOnly={localOnly}
         enterpriseUnreadCounts={enterpriseUnreadCounts}
         onJoinEnterprise={onJoinEnterprise}
         onLogout={onLogout}
@@ -1574,9 +1607,13 @@ function OttoWorkspaceApp({
       {state.connection !== 'connected' ? (
         <div className="otto-conn-banner" role="status" aria-live="polite">
           <span className="otto-conn-banner__dot" aria-hidden />
-          {state.connection === 'connecting'
-            ? '连接中…'
-            : '已断开，正在重连…'}
+          {localOnly
+            ? state.connection === 'connecting'
+              ? '正在启动本地引擎…'
+              : '本地引擎暂不可用，正在恢复…'
+            : state.connection === 'connecting'
+              ? '连接中…'
+              : '已断开，正在重连…'}
         </div>
       ) : null}
 
@@ -1695,14 +1732,7 @@ function ErrorToast({
         aria-label="关闭提示"
         title="关闭"
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path
-            d="M6 6l12 12M18 6L6 18"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </svg>
+        <IconClose size={13} />
       </button>
     </div>
   );

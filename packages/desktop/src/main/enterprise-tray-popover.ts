@@ -52,8 +52,8 @@ export function parseEnterpriseMessageTimestamp(value: string): number {
 }
 
 function normalizePreview(value: string): string {
-  if (value.startsWith(ATOA_REQUEST_PREFIX)) return '对方正在请求你的 Otto 协作';
-  if (value.startsWith(ATOA_RESPONSE_PREFIX)) return '对方 Otto 已回复你的企业协作请求';
+  if (value.startsWith(ATOA_REQUEST_PREFIX)) return '对方正在请求你的 ClawMaster 协作';
+  if (value.startsWith(ATOA_RESPONSE_PREFIX)) return '对方 ClawMaster 已回复你的企业协作请求';
   const compact = value.replace(/\s+/g, ' ').trim();
   if (!compact) return '发来一条新消息';
   return compact.length > 140 ? `${compact.slice(0, 137)}…` : compact;
@@ -240,7 +240,7 @@ export function renderEnterpriseTrayPopoverHtml(
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">
   <meta name="color-scheme" content="light dark">
-  <title>Otto 未读提醒</title>
+  <title>ClawMaster 未读提醒</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -451,16 +451,16 @@ export function renderEnterpriseTrayPopoverHtml(
   </style>
 </head>
 <body>
-  <section class="shell" aria-label="Otto 未读企业消息">
+  <section class="shell" aria-label="ClawMaster 未读企业消息">
     <header>
       <div class="title">
-        <span class="logo">O</span>
+        <span class="logo">C</span>
         <span class="title-copy">
-          <span class="eyebrow">OTTO NOTIFICATIONS</span>
+          <span class="eyebrow">CLAWMASTER NOTIFICATIONS</span>
           <h1>未读提醒 <span>${totalUnread} 条</span></h1>
         </span>
       </div>
-      <a class="open-all" href="otto-tray://open">打开 Otto</a>
+      <a class="open-all" href="otto-tray://open">打开 ClawMaster</a>
     </header>
     <main>${rows}
     </main>

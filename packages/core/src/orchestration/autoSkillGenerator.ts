@@ -27,6 +27,7 @@ import {
   type ExistingSkillSummary,
 } from './autoSkillQuality.js';
 import { textSimilarity } from '../utils/topicSimilarity.js';
+import { RecurringTaskRegistry } from '../services/recurringTaskRegistry.js';
 import {
   LocalKnowledgeStore,
   personalKnowledgeFreshness,
@@ -109,11 +110,11 @@ export function resolveAutoSkillSkillsDir(): string {
 }
 
 function isPortableAutoSkillName(value: string): boolean {
-  return /^auto-[^/\\]{1,160}$/u.test(value);
+  return /^auto-[a-z0-9](?:[a-z0-9-]{0,154}[a-z0-9])?$/u.test(value);
 }
 
 function isSafeSkillDirectoryName(value: string): boolean {
-  return /^(?!\.{1,2}$)[^/\\]{1,160}$/u.test(value);
+  return /^[a-z0-9](?:[a-z0-9-]{0,158}[a-z0-9])?$/u.test(value);
 }
 
 function resolvePendingCandidateFilePath(candidate: SkillCandidate): string {
@@ -274,7 +275,7 @@ export function generateLegacySkillContent(
 
   let content = `---\nname: ${skillName}\ndescription: ${description}\n---\n\n`;
   content += `# ${formatTitle(steps)}\n\n`;
-  content += `> 此 Skill 由 Otto 从你的工作日志中自动发现并生成。\n`;
+  content += `> 此 Skill 由 ClawMaster 从你的工作日志中自动发现并生成。\n`;
   content += `> 检测到你在过去 ${count} 天中重复执行以下操作序列，已整理为标准流程。\n\n`;
 
   content += `## 触发场景\n`;
@@ -410,7 +411,7 @@ export async function generateSkillCandidates(
       occurrenceCount: count,
       sampleEntries: entries,
       skillContent,
-      reason: `检测到你在过去 ${count} 天中重复执行"${pattern}"，出现 ${count} 次。生成此 Skill 后，Otto 会在你说"${steps[0]}"时自动按此流程执行。`,
+      reason: `检测到你在过去 ${count} 天中重复执行"${pattern}"，出现 ${count} 次。生成此 Skill 后，ClawMaster 会在你说"${steps[0]}"时自动按此流程执行。`,
       filePath,
       knowledgeEvidence,
     });
@@ -541,7 +542,7 @@ async function generateWorkResultSkillCandidates(
       occurrenceCount: samples.length,
       sampleEntries: relatedSamples.slice(-8).map((sample) => sample.entry),
       skillContent,
-      reason: `检测到你最近多次让 Otto 完成「${title}」类成果，跨 ${dates.size} 天出现 ${samples.length} 次。生成 Skill 后，Otto 会复用你的常见输入、交付格式和验收步骤。`,
+      reason: `检测到你最近多次让 ClawMaster 完成「${title}」类成果，跨 ${dates.size} 天出现 ${samples.length} 次。生成 Skill 后，ClawMaster 会复用你的常见输入、交付格式和验收步骤。`,
       filePath,
       knowledgeEvidence: selectRelevantKnowledgeEvidence(
         `${title} ${sortedSamples.map((sample) => sample.entry.userInput || '').join(' ')}`,
@@ -597,12 +598,12 @@ function generateWorkResultSkillContent(
   return [
     '---',
     `name: ${skillName}`,
-    `description: Otto 从用户反复完成的「${title}」类业务成果中自动沉淀的工作流。`,
+    `description: ClawMaster 从用户反复完成的「${title}」类业务成果中自动沉淀的工作流。`,
     '---',
     '',
     `# ${title}`,
     '',
-    '> 这个 Skill 来自 Otto 对工作成果日志的自动分析。它不是单个工具步骤，而是用户反复需要的业务交付流程。',
+    '> 这个 Skill 来自 ClawMaster 对工作成果日志的自动分析。它不是单个工具步骤，而是用户反复需要的业务交付流程。',
     '',
     '## 触发场景',
     `当用户提出与「${title}」相近的需求，或需要同类 ${categories} 交付物时，优先使用本 Skill。`,
@@ -734,13 +735,15 @@ function analyzePattern(
   };
 }
 
-/** 读取项目 OTTO.md（如果存在）。 */
+/** 读取项目 ClawMaster 记忆（优先新文件，兼容旧文件）。 */
 function readProjectContext(cwd?: string): string {
   try {
     const dir = cwd ?? process.cwd();
-    const p = path.join(dir, 'OTTO.md');
-    if (fsSync.existsSync(p)) {
-      return fsSync.readFileSync(p, 'utf8').slice(0, 2000);
+    for (const filename of ['CLAWMASTER.md', 'OTTO.md']) {
+      const p = path.join(dir, filename);
+      if (fsSync.existsSync(p)) {
+        return fsSync.readFileSync(p, 'utf8').slice(0, 2000);
+      }
     }
   } catch { /* not found, ok */ }
   return '';
@@ -851,7 +854,7 @@ async function callLLMForSkillCandidates(
     .filter((a) => a.daysSeen >= 2)
     .sort((a, b) => b.qualityScore - a.qualityScore);
 
-  // OTTO.md 项目上下文
+  // ClawMaster 项目上下文
   const projectContext = readProjectContext(config.getTargetDir?.() ?? undefined);
 
   // 构建日志摘要（限制总 token）
@@ -884,7 +887,7 @@ async function callLLMForSkillCandidates(
     : '';
 
   const projectSection = projectContext
-    ? ['', '# 项目上下文（来自 OTTO.md）', '```', projectContext, '```'].join('\n')
+    ? ['', '# 项目上下文（来自 CLAWMASTER.md）', '```', projectContext, '```'].join('\n')
     : '';
 
   const existingSection = existingSkills.length > 0
@@ -903,7 +906,7 @@ async function callLLMForSkillCandidates(
     : '';
 
   const prompt = [
-    '你是 Otto 的工作习惯分析师。以下是用户的深度分析报告，请做语义建模：',
+    '你是 ClawMaster 的工作习惯分析师。以下是用户的深度分析报告，请做语义建模：',
     '',
     '# 任务',
     '1. 重点看**质量分 > 40 且趋势为上升或稳定**的模式',
@@ -1032,7 +1035,7 @@ async function callLLMForSkillCandidates(
       occurrenceCount: evidence.occurrenceCount,
       sampleEntries: evidence.entries,
       skillContent: fullSkillContent,
-      reason: s.occurrenceNote || `Otto 从你的工作习惯中发现了模式"${s.title || skillName}"`,
+      reason: s.occurrenceNote || `ClawMaster 从你的工作习惯中发现了模式"${s.title || skillName}"`,
       filePath,
       knowledgeEvidence,
     });
@@ -1277,19 +1280,22 @@ function isSkillCandidate(value: unknown): value is SkillCandidate {
 }
 
 function generateSkillName(steps: string[]): string {
-  // 从操作步骤生成 kebab-case 名称
   const firstStep = steps[0] || 'workflow';
-  // 提取关键词
-  const keywords = firstStep
+  const asciiSlug = firstStep
     .replace(/[：:（）()【】[\]""'']/g, '')
     .replace(/^(创建|操作|执行|发送|读取|写入|编辑|搜索|查看|查找|操作)\s*/, '')
-    .split(/[\s,，、/]+/)
-    .filter((s) => s.length > 0)
-    .slice(0, 3)
-    .map((s) => s.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '-'));
-
-  const name = keywords.join('-') || 'auto-workflow';
-  return `auto-${name}`;
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, '-')
+    .replace(/-+/gu, '-')
+    .replace(/^-|-$/gu, '')
+    .slice(0, 72)
+    .replace(/-$/u, '');
+  if (asciiSlug) return `auto-${asciiSlug}`;
+  const signature = createHash('sha256')
+    .update(steps.join('\n'))
+    .digest('hex')
+    .slice(0, 10);
+  return `auto-workflow-${signature}`;
 }
 
 function generateDescription(steps: string[], count: number): string {
@@ -1307,8 +1313,8 @@ function formatTitle(steps: string[]): string {
 // ============================================================
 
 let globalFeishuNotifier: AutoSkillFeishuNotifier | null = null;
-let scanTimer: ReturnType<typeof setInterval> | null = null;
-let initialScanTimer: ReturnType<typeof setTimeout> | null = null;
+let scanRegistry: RecurringTaskRegistry | null = null;
+let stopScheduledScan: (() => void) | undefined;
 let scanInFlight = false;
 
 // ── 实时触发监视器 ──
@@ -1328,6 +1334,10 @@ export interface AutoSkillScannerOptions {
   initialDelayMs?: number;
   /** 周期，生产默认 24 小时；测试可缩短。 */
   intervalMs?: number;
+  /** 后台模型扫描必须由用户明确开启。 */
+  allowPaidBackground?: boolean;
+  /** 工作日志/会话输入版本；未变化时不得重复扫描。 */
+  getInputVersion?: () => string | undefined;
   /** 每轮候选原子落盘后通知桌面/飞书刷新；不代表安装。 */
   onCandidatesStaged?: (candidates: SkillCandidate[]) => void | Promise<void>;
 }
@@ -1379,7 +1389,7 @@ export function startAutoSkillScanner(
   getUserId: () => string,
   options: AutoSkillScannerOptions = {},
 ): boolean {
-  if (scanTimer || initialScanTimer) return false;
+  if (stopScheduledScan) return false;
   const intervalMs = options.intervalMs ?? 24 * 60 * 60 * 1000;
   const initialDelayMs = options.initialDelayMs ?? 15_000;
 
@@ -1397,28 +1407,36 @@ export function startAutoSkillScanner(
     }
   };
 
-  initialScanTimer = setTimeout(async () => {
-    initialScanTimer = null;
-    await scan();
-  }, initialDelayMs);
-  initialScanTimer.unref?.();
-
-  scanTimer = setInterval(() => void scan(), intervalMs);
-  scanTimer.unref?.();
+  scanRegistry = new RecurringTaskRegistry({
+    allowPaidBackground: options.allowPaidBackground === true,
+    onError: (_name, error) => console.warn(
+      `[AutoSkill] Scanner error: ${error instanceof Error ? error.message : String(error)}`,
+    ),
+  });
+  stopScheduledScan = scanRegistry.register({
+    name: 'auto-skill-candidate-scan',
+    source: 'packages/core/src/orchestration/autoSkillGenerator.ts',
+    intervalMs,
+    initialDelayMs,
+    estimatedCostUsdPerRun: 0.01,
+    getInputVersion: options.getInputVersion ?? (() => undefined),
+    run: scan,
+  });
+  if (!stopScheduledScan) {
+    scanRegistry = null;
+    return false;
+  }
   console.log('[AutoSkill] Scanner started (24h interval)');
   return true;
 }
 
 /** 停止定时扫描 */
 export function stopAutoSkillScanner(): void {
-  if (initialScanTimer) {
-    clearTimeout(initialScanTimer);
-    initialScanTimer = null;
-  }
-  if (scanTimer) {
-    clearInterval(scanTimer);
-    scanTimer = null;
-  }
+  const wasRunning = Boolean(stopScheduledScan);
+  stopScheduledScan?.();
+  stopScheduledScan = undefined;
+  scanRegistry?.stopAll();
+  scanRegistry = null;
   scanInFlight = false;
-  console.log('[AutoSkill] Scanner stopped');
+  if (wasRunning) console.log('[AutoSkill] Scanner stopped');
 }

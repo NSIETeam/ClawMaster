@@ -57,8 +57,8 @@ describe('SkillContextInjector', () => {
     marketplaceManager = new MarketplaceManager(settingsManager);
     pluginInstaller = new PluginInstaller(settingsManager, marketplaceManager);
     // Pass testRoot as projectRoot to isolate tests from actual project directory
-    loader = new SkillLoader(settingsManager, marketplaceManager, undefined, testRoot);
-    injector = new SkillContextInjector(loader, settingsManager);
+    loader = new SkillLoader(settingsManager, { projectRoot: testRoot });
+    injector = new SkillContextInjector(loader);
   });
 
   afterEach(async () => {

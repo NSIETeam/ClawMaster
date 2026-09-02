@@ -137,8 +137,6 @@ export class MCPResponseGuard {
       }
     }
 
-    // 启动清理任务
-    this.startCleanupTask();
   }
 
   /**
@@ -197,6 +195,7 @@ export class MCPResponseGuard {
     currentContextUsage: number = 50,
     contentGenerator?: ContentGenerator
   ): Promise<MCPResponseGuardResult> {
+    this.cleanupExpiredTempFiles();
     // 简化后的参数处理
     const actualToolName = toolName || 'unknown';
     const actualContextUsage = currentContextUsage ?? 50;
@@ -979,16 +978,6 @@ read_file(
   }
 
   /**
-   * 启动定期清理任务
-   */
-  private startCleanupTask(): void {
-    // 每5分钟检查一次并清理过期的临时文件
-    setInterval(() => {
-      this.cleanupExpiredTempFiles();
-    }, 5 * 60 * 1000);
-  }
-
-  /**
    * 清理过期的临时文件
    */
   private cleanupExpiredTempFiles(): void {
@@ -1037,6 +1026,3 @@ read_file(
     return Array.from(this.tempFiles.keys());
   }
 }
-
-// 导出单例
-export const globalMCPResponseGuard = new MCPResponseGuard();

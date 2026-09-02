@@ -11,6 +11,7 @@ import {
   acceptControlCommandInRepository,
   claimPendingControlCommand,
   completeControlCommandInRepository,
+  recoverExpiredControlCommandLeases,
   assertMonotonicSequence,
   controlCommandExists,
   type ControlCommandQueueStore,
@@ -20,6 +21,7 @@ import {
   buildControlCommandReceipt,
   type ControlCommandReceipt,
 } from './controlCommandReceipt.js';
+import { queryControlCommandReceipt } from './controlCommandReceiptQuery.js';
 
 export interface ControlCommandExecutionDependencies {
   /** 本 Server 的部署 ID（绑定校验）。 */
@@ -124,6 +126,7 @@ export function createControlCommandProcessor(input: {
     },
 
     drainOne() {
+      recoverExpiredControlCommandLeases(store);
       const row = claimPendingControlCommand(store, 60_000);
       if (!row) return null;
       // 由于入队时已完整保存信封字段，从队列行重建信封以执行业务。
@@ -150,7 +153,13 @@ export function createControlCommandProcessor(input: {
           errorCategory: 'execution_error',
         };
       }
-      completeControlCommandInRepository(store, row.command_id, run);
+      if (!completeControlCommandInRepository(store, row.command_id, run)) {
+        return queryControlCommandReceipt(
+          store,
+          row.command_id,
+          input.signingPrivateKey,
+        );
+      }
       return buildControlCommandReceipt({
         commandId: row.command_id,
         deploymentId: row.deployment_id,

@@ -55,6 +55,13 @@ export type CommandRunner = (
 /** 模块解析器：能解析返回绝对路径，否则抛错。可注入以便测试。 */
 export type ModuleResolver = (moduleName: string) => string;
 
+/** 解析 Playwright 最终会启动的真实浏览器，而不只检查 Node 模块。 */
+export type BrowserExecutableResolver = (
+  moduleName: string,
+  platform: NodeJS.Platform,
+  pathExists: PathChecker,
+) => string | undefined;
+
 /** 路径存在性判断（用于 mac .app 兜底）。可注入以便测试。 */
 export type PathChecker = (absPath: string) => boolean;
 
@@ -114,6 +121,34 @@ const defaultRunner: CommandRunner = (command, timeoutMs) =>
 const defaultResolver: ModuleResolver = (moduleName) => {
   const req = createRequire(__filename);
   return req.resolve(moduleName);
+};
+
+const defaultBrowserExecutableResolver: BrowserExecutableResolver = (
+  moduleName,
+  platform,
+  pathExists,
+) => {
+  const req = createRequire(__filename);
+  const playwright = req(moduleName) as {
+    chromium?: { executablePath?: () => string };
+  };
+  const managed = playwright.chromium?.executablePath?.();
+  const candidates = platform === 'darwin'
+    ? [
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+        '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      ]
+    : platform === 'win32'
+      ? [
+          `${process.env['PROGRAMFILES'] ?? ''}\\Google\\Chrome\\Application\\chrome.exe`,
+          `${process.env['PROGRAMFILES'] ?? ''}\\Microsoft\\Edge\\Application\\msedge.exe`,
+          `${process.env['PROGRAMFILES(X86)'] ?? ''}\\Google\\Chrome\\Application\\chrome.exe`,
+          `${process.env['LOCALAPPDATA'] ?? ''}\\Google\\Chrome\\Application\\chrome.exe`,
+        ]
+      : ['/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'];
+  return candidates.find((candidate) => candidate && pathExists(candidate))
+    ?? (managed && pathExists(managed) ? managed : undefined);
 };
 
 /** 被探测的二进制依赖清单。顺序即报告展示顺序（按能力聚类）。 */
@@ -255,6 +290,8 @@ export class DoctorService {
     private readonly resolver: ModuleResolver = defaultResolver,
     private readonly platform: NodeJS.Platform = process.platform,
     private readonly pathExists: PathChecker = existsSync,
+    private readonly browserExecutableResolver: BrowserExecutableResolver =
+      defaultBrowserExecutableResolver,
   ) {}
 
   /** 跑一次全量体检。 */
@@ -330,11 +367,26 @@ export class DoctorService {
     for (const mod of PLAYWRIGHT_MODULE_CANDIDATES) {
       try {
         const modulePath = this.resolver(mod);
+        const browserPath = this.browserExecutableResolver(
+          mod,
+          this.platform,
+          this.pathExists,
+        );
+        if (!browserPath || !this.pathExists(browserPath)) {
+          return {
+            name: 'playwright',
+            category: '浏览器自动化',
+            present: false,
+            note: `Playwright 模块已就绪：${modulePath}；浏览器运行环境缺失`,
+            installHint: '安装 Chrome、Edge 或 Chromium，或运行 npx playwright install chromium',
+          };
+        }
         return {
           name: 'playwright',
           category: '浏览器自动化',
           present: true,
-          path: modulePath,
+          path: browserPath,
+          note: `Playwright 模块：${modulePath}`,
         };
       } catch {
         // 尝试下一个候选。
@@ -422,7 +474,7 @@ export class DoctorService {
 export function formatDoctorReport(report: DoctorReport): string {
   const lines: string[] = [];
   lines.push(
-    `Otto 依赖体检（平台：${report.platform}）  就绪 ${report.presentCount} / 缺失 ${report.missingCount}`,
+    `ClawMaster 依赖体检（平台：${report.platform}）  就绪 ${report.presentCount} / 缺失 ${report.missingCount}`,
   );
   lines.push('');
 

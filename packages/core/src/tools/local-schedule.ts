@@ -239,7 +239,7 @@ export class LocalScheduleTool extends BaseTool<LocalScheduleToolParams, ToolRes
     super(
       LocalScheduleTool.Name,
       'LocalSchedule',
-      'Manage Otto local schedules. Use create after the user asks for a schedule, or when a completed work result has an explicit follow-up time. Include a concise reason when Otto creates one autonomously. Use list before moving or deleting an existing event. Dates must be ISO 8601. This is the same local calendar shown in the desktop work-log date view.',
+      'Manage ClawMaster local schedules. Use create after the user asks for a schedule, or when a completed work result has an explicit follow-up time. Include a concise reason when ClawMaster creates one autonomously. Use list before moving or deleting an existing event. Dates must be ISO 8601. This is the same local calendar shown in the desktop work-log date view.',
       Icon.Tasks,
       {
         type: Type.OBJECT,

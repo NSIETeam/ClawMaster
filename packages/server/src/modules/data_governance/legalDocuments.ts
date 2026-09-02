@@ -32,13 +32,13 @@ export interface LegalDocumentReference {
 export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
   {
     id: 'terms',
-    title: 'Otto 用户服务协议',
+    title: 'ClawMaster 用户服务协议',
     version: '2026-08-03',
     effectiveAt: '2026-08-03',
     required: true,
     summary: [
-      'Otto 仅在企业授权、账号权限和模块许可范围内提供服务。',
-      '用户应对提交内容具有合法使用权，不得利用 Otto 实施违法或侵权行为。',
+      'ClawMaster 仅在企业授权、账号权限和模块许可范围内提供服务。',
+      '用户应对提交内容具有合法使用权，不得利用 ClawMaster 实施违法或侵权行为。',
       '私有化部署由客户管理运行环境、账号权限、备份与外部模型供应商配置。',
       '服务中断、数据导出、账号注销和争议处理按本协议及适用法律执行。',
     ],
@@ -51,15 +51,15 @@ export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
         id: 'scope',
         title: '一、协议主体与适用范围',
         paragraphs: [
-          '本协议由使用 Otto 的自然人用户与本页面列明的服务提供方或私有化部署方共同订立，适用于 Otto 桌面端、企业服务端及部署方明确启用的配套模块。',
-          '私有化部署场景中，部署方负责其运行环境、成员账号、组织权限、模型供应商及业务配置；Otto 软件提供方与部署方的责任边界还应以双方商业合同为准。',
+          '本协议由使用 ClawMaster 的自然人用户与本页面列明的服务提供方或私有化部署方共同订立，适用于 ClawMaster 桌面端、企业服务端及部署方明确启用的配套模块。',
+          '私有化部署场景中，部署方负责其运行环境、成员账号、组织权限、模型供应商及业务配置；ClawMaster 软件提供方与部署方的责任边界还应以双方商业合同为准。',
         ],
       },
       {
         id: 'service',
         title: '二、服务内容与 AI 能力边界',
         paragraphs: [
-          'Otto 提供对话、Agent 工具调用、文件处理、企业协作、知识与工作流等能力，实际可用功能以部署版本、License、管理员授权和界面显示为准。',
+          'ClawMaster 提供对话、Agent 工具调用、文件处理、企业协作、知识与工作流等能力，实际可用功能以部署版本、License、管理员授权和界面显示为准。',
           'AI 输出基于模型推断，可能不完整、不准确或不适用于特定目的。医疗、法律、财务、安全生产及其他高风险决策不得仅依赖 AI 输出，用户应进行适当的人工复核。',
         ],
       },
@@ -79,10 +79,10 @@ export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
         id: 'content',
         title: '四、用户内容与合法使用',
         paragraphs: [
-          '用户应确保其输入、上传、授权访问及要求 Otto 处理的内容具有合法来源和相应权利，不侵犯国家安全、商业秘密、知识产权、个人信息及其他合法权益。',
+          '用户应确保其输入、上传、授权访问及要求 ClawMaster 处理的内容具有合法来源和相应权利，不侵犯国家安全、商业秘密、知识产权、个人信息及其他合法权益。',
         ],
         items: [
-          '不得利用 Otto 生成、传播或协助实施违法、有害、欺诈、侵权或绕过安全控制的内容。',
+          '不得利用 ClawMaster 生成、传播或协助实施违法、有害、欺诈、侵权或绕过安全控制的内容。',
           '不得上传无权处理的个人信息、密钥、凭据、受管制数据或第三方机密。',
           '不得通过自动化调用干扰服务、消耗他人配额、探测其他租户或破坏系统稳定性。',
         ],
@@ -91,8 +91,8 @@ export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
         id: 'tools',
         title: '五、工具调用与高风险操作',
         paragraphs: [
-          'Otto 可在用户授权范围内读取文件、执行命令、访问外部服务或调用企业系统。涉及删除、覆盖、外发、付款、审批、权限变更等高风险行为时，应经过产品提供的确认、策略和审计路径。',
-          '用户仍应核对操作目标、范围和结果；不得要求 Otto 绕过系统权限、审批或安全限制。',
+          'ClawMaster 可在用户授权范围内读取文件、执行命令、访问外部服务或调用企业系统。涉及删除、覆盖、外发、付款、审批、权限变更等高风险行为时，应经过产品提供的确认、策略和审计路径。',
+          '用户仍应核对操作目标、范围和结果；不得要求 ClawMaster 绕过系统权限、审批或安全限制。',
         ],
         important: true,
       },
@@ -101,7 +101,7 @@ export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
         title: '六、模型供应商与第三方服务',
         paragraphs: [
           '部署方或用户配置外部模型、短信、飞书、对象存储及其他第三方服务时，相关数据会按完成请求所必需的范围发送给对应服务商。第三方的可用性、地域、留存和计费规则由其自身协议决定。',
-          '部署方应在启用第三方服务前完成供应商评估、数据流确认和必要告知，不得把第三方服务的承诺表述为 Otto 自身承诺。',
+          '部署方应在启用第三方服务前完成供应商评估、数据流确认和必要告知，不得把第三方服务的承诺表述为 ClawMaster 自身承诺。',
         ],
         important: true,
       },
@@ -109,7 +109,7 @@ export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
         id: 'security',
         title: '七、私聊加密与安全边界',
         paragraphs: [
-          '标记为端到端加密的私聊消息和附件由客户端加密，企业服务器保存密文及必要路由元数据。用户明确授权给 Otto 的内容，或在本机解密后交给 Otto 的内容，不再处于“Otto 无法读取”的边界内。',
+          '标记为端到端加密的私聊消息和附件由客户端加密，企业服务器保存密文及必要路由元数据。用户明确授权给 ClawMaster 的内容，或在本机解密后交给 ClawMaster 的内容，不再处于“ClawMaster 无法读取”的边界内。',
           '当前安全能力以部署健康状态和发布门禁为准。在经过审计的会话协议正式启用前，不应宣称具备 Signal Double Ratchet、完整前向保密或入侵后恢复能力。',
         ],
         important: true,
@@ -134,7 +134,7 @@ export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
         id: 'intellectual-property',
         title: '十、知识产权',
         paragraphs: [
-          'Otto 软件、商标、界面和文档的权利归相应权利人所有。用户保留其依法享有的输入和业务内容权利；AI 输出能否获得或不侵犯第三方权利，应结合具体内容和适用法律判断。',
+          'ClawMaster 软件、商标、界面和文档的权利归相应权利人所有。用户保留其依法享有的输入和业务内容权利；AI 输出能否获得或不侵犯第三方权利，应结合具体内容和适用法律判断。',
           '开源组件依各自许可证使用，商业交付不改变第三方开源许可证赋予或限制的权利。',
         ],
       },
@@ -176,7 +176,7 @@ export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
   },
   {
     id: 'privacy',
-    title: 'Otto 隐私与数据处理规则',
+    title: 'ClawMaster 隐私与数据处理规则',
     version: '2026-08-03',
     effectiveAt: '2026-08-03',
     required: true,
@@ -195,7 +195,7 @@ export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
         id: 'scope-controller',
         title: '一、适用范围与个人信息处理者',
         paragraphs: [
-          '本规则适用于 Otto 桌面端、企业服务端及部署方启用的企业协作、园区、知识、工作流和支持诊断能力。页面顶部列明的主体为当前部署声明的个人信息处理者，隐私联系人负责受理个人信息权利请求。',
+          '本规则适用于 ClawMaster 桌面端、企业服务端及部署方启用的企业协作、园区、知识、工作流和支持诊断能力。页面顶部列明的主体为当前部署声明的个人信息处理者，隐私联系人负责受理个人信息权利请求。',
           '若主体名称或隐私联系方式显示“待配置”，说明部署尚未完成法律交付准备；用户应联系部署管理员，不应把本规则视为已由实际处理者确认的最终版本。',
         ],
       },
@@ -226,7 +226,7 @@ export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
         title: '四、处理目的与方式',
         paragraphs: [
           '个人信息用于身份验证、组织权限、提供 Agent 和协作能力、完成用户请求、同步与恢复、安全审计、计量结算、客户支持及履行法律义务。',
-          '处理方式包括收集、存储、使用、传输、检索、加密、备份、导出、删除和匿名化。Otto 不应将私聊、文件、会议或个人记忆原文用于未明确告知的运营遥测或模型训练。',
+          '处理方式包括收集、存储、使用、传输、检索、加密、备份、导出、删除和匿名化。ClawMaster 不应将私聊、文件、会议或个人记忆原文用于未明确告知的运营遥测或模型训练。',
         ],
       },
       {
@@ -250,7 +250,7 @@ export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
         title: '七、私聊与附件端到端加密',
         paragraphs: [
           'E2EE 私聊的正文、附件内容和必要附件元数据在客户端加密，服务器仅保存密文、设备信封和路由元数据。对象存储无法获得客户端文件密钥或附件明文。',
-          '用户明确授权某段消息给 Otto，或在本机解密后交给 Otto 处理时，对应明文会在该处理范围内可见。当前设备信封协议不等同于 Signal Double Ratchet；完整前向保密和入侵后恢复仅在经审计协议通过发布门禁后成立。',
+          '用户明确授权某段消息给 ClawMaster，或在本机解密后交给 ClawMaster 处理时，对应明文会在该处理范围内可见。当前设备信封协议不等同于 Signal Double Ratchet；完整前向保密和入侵后恢复仅在经审计协议通过发布门禁后成立。',
         ],
         important: true,
       },
@@ -276,7 +276,7 @@ export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
         id: 'security',
         title: '十、安全保护与事件处置',
         paragraphs: [
-          'Otto 采用身份认证、租户隔离、最小权限、TLS、客户端 E2EE、数据库或字段加密、对象存储保护、审计、备份、密钥轮换和安全发布门禁等措施。具体启用状态以运维安全状态页和部署检查结果为准。',
+          'ClawMaster 采用身份认证、租户隔离、最小权限、TLS、客户端 E2EE、数据库或字段加密、对象存储保护、审计、备份、密钥轮换和安全发布门禁等措施。具体启用状态以运维安全状态页和部署检查结果为准。',
           '发生或可能发生泄露、篡改、丢失时，处理者应依法采取补救、记录、报告和通知措施。任何安全能力在未完成实际配置、构建和验证前不得仅凭源代码存在宣称正式交付。',
         ],
       },
@@ -300,7 +300,7 @@ export const CURRENT_LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
         id: 'minors',
         title: '十三、未成年人信息',
         paragraphs: [
-          'Otto 企业服务原则上面向具备相应工作授权的用户。处理不满十四周岁未成年人个人信息时，部署方应取得监护人同意，制定专门规则并采取严格保护措施；无法满足时不应开通相关账号或处理。',
+          'ClawMaster 企业服务原则上面向具备相应工作授权的用户。处理不满十四周岁未成年人个人信息时，部署方应取得监护人同意，制定专门规则并采取严格保护措施；无法满足时不应开通相关账号或处理。',
         ],
         important: true,
       },
@@ -416,7 +416,7 @@ export function dataProcessingInventory(): DataProcessingActivity[] {
       transport: '公网仅允许 HTTPS；会话令牌通过 Authorization 请求头传输',
       retention: '账号存续期间',
       deletion: '注销时删除标识并将账号和员工记录匿名化',
-      recipients: ['企业管理员', 'Otto 企业服务器'],
+      recipients: ['企业管理员', 'ClawMaster 企业服务器'],
       crossBorder: false,
     },
     {
@@ -470,7 +470,7 @@ export function dataProcessingInventory(): DataProcessingActivity[] {
       atRest: '由客户选择的模型供应商规则决定',
       transport: '供应商 HTTPS API',
       retention: '由客户配置和供应商条款决定',
-      deletion: 'Otto 仅能删除本地和企业服务器副本；供应商副本按其协议处理',
+      deletion: 'ClawMaster 仅能删除本地和企业服务器副本；供应商副本按其协议处理',
       recipients: ['客户配置的模型供应商'],
       crossBorder,
     },
@@ -484,7 +484,7 @@ export function dataProcessingInventory(): DataProcessingActivity[] {
       transport: 'HTTPS + HMAC-SHA256 请求签名、时间戳与一次性随机数',
       retention: '默认 90 天，可由部署方缩短或关闭',
       deletion: '到期清理；关闭后停止产生和上传新遥测',
-      recipients: ['客户管理员', '明确配置的 Otto 运营端点'],
+      recipients: ['客户管理员', '明确配置的 ClawMaster 运营端点'],
       crossBorder: false,
     },
     {

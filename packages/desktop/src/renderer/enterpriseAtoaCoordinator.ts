@@ -79,7 +79,7 @@ export async function processEnterpriseAtoaRequest(
         requestId: input.request.id,
         question: parsed.payload.question,
         answer:
-          '对方暂未授权其 Otto 读取资料或回答本次请求，请直接在员工私聊中联系本人。',
+          '对方暂未授权其 ClawMaster 读取资料或回答本次请求，请直接在员工私聊中联系本人。',
         mode: parsed.payload.mode,
         grantedSources: [],
       }),
@@ -107,7 +107,7 @@ export async function processEnterpriseAtoaRequest(
   } catch {
     if (input.signal?.aborted) return 'aborted';
     answer =
-      '对方 Otto 本次未能完成回答，请直接在员工私聊中联系本人或稍后重新发起。';
+      '对方 ClawMaster 本次未能完成回答，请直接在员工私聊中联系本人或稍后重新发起。';
     status = 'failed';
   }
 

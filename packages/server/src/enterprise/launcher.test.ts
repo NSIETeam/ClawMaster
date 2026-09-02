@@ -81,7 +81,7 @@ Module._load = function (request, parent, isMain) {
       options: {
         host: '127.0.0.1',
         port: 8123,
-        appVersion: expect.stringMatching(/^\d+\.\d+\.\d+$/),
+        appVersion: expect.stringMatching(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/),
         buildCommit: EXPECTED_BUILD_COMMIT,
       },
     });

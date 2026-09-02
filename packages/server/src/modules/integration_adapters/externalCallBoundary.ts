@@ -52,24 +52,9 @@ export interface ExternalWriteRecord {
 }
 
 export interface ExternalWriteJournal {
+  /** Implementations must persist records across process restarts. */
   get(idempotencyKey: string): ExternalWriteRecord | undefined;
   put(record: ExternalWriteRecord): void;
-}
-
-export class InMemoryExternalWriteJournal implements ExternalWriteJournal {
-  private readonly records = new Map<string, ExternalWriteRecord>();
-
-  get(idempotencyKey: string): ExternalWriteRecord | undefined {
-    const record = this.records.get(idempotencyKey);
-    return record ? { ...record, metadata: { ...record.metadata } } : undefined;
-  }
-
-  put(record: ExternalWriteRecord): void {
-    this.records.set(record.idempotencyKey, {
-      ...record,
-      metadata: { ...record.metadata },
-    });
-  }
 }
 
 export class ExternalCallBlockedError extends Error {

@@ -22,7 +22,7 @@ import type {
   ToolConfirmationResponsePayload,
 } from 'otto-server';
 import { parseDiff, type DiffLine } from './diff.js';
-import { createQrMatrix } from '../lib/qrMatrix.js';
+import { QrCode } from './QrCode.js';
 import {
   IconFile,
   IconTerminal,
@@ -242,7 +242,7 @@ function automationAction(action: string | undefined): string {
 function automationSafetyNotice(tool: ToolCall, output?: string): string | undefined {
   if (!output || !['rpa_run', 'durable_workflow'].includes(normalizeToolName(tool.toolName))) return undefined;
   if (/unknown_outcome|browser context is unavailable/iu.test(output)) {
-    return '执行结果未知，Otto 不会自动重试。请核对外部系统，再让 Otto 记录人工接管或从导航检查点重新开始。';
+    return '执行结果未知，ClawMaster 不会自动重试。请核对外部系统，再让 ClawMaster 记录人工接管或从导航检查点重新开始。';
   }
   if (/awaiting_approval|"approvalId"/u.test(output)) {
     return '此流程在等待独立批准；批准记录写入后才会继续执行。';
@@ -844,7 +844,7 @@ function ConfirmationCard({
           {highRisk ? '高风险操作' : '需要你确认'}
         </span>
         <span className="otto-ask__title">
-          {details.title ?? '允许 Otto 执行此操作？'}
+          {details.title ?? '允许 ClawMaster 执行此操作？'}
         </span>
       </div>
       <div className="otto-confirm__target">{target}</div>
@@ -1014,28 +1014,13 @@ function FeishuAuthorizationCard({
 }: {
   authorization: FeishuAuthorization;
 }): React.JSX.Element {
-  const matrix = createQrMatrix(authorization.url);
-  const size = matrix?.length ?? 0;
-  const pathParts: string[] = [];
-  matrix?.forEach((row, y) => {
-    let start = -1;
-    for (let x = 0; x <= row.length; x += 1) {
-      if (row[x] && start < 0) start = x;
-      if ((!row[x] || x === row.length) && start >= 0) {
-        const width = x - start;
-        pathParts.push(`M${start} ${y}h${width}v1H${start}z`);
-        start = -1;
-      }
-    }
-  });
-
   return (
     <div className="otto-feishu-auth">
       <div className="otto-feishu-auth__copy">
         <span className="otto-feishu-auth__eyebrow">飞书授权</span>
         <strong className="otto-feishu-auth__title">用飞书扫码继续</strong>
         <span className="otto-feishu-auth__hint">
-          扫码并确认后，Otto 会自动继续当前工作。
+          扫码并确认后，ClawMaster 会自动继续当前工作。
         </span>
         {authorization.userCode ? (
           <code className="otto-feishu-auth__code">
@@ -1054,18 +1039,11 @@ function FeishuAuthorizationCard({
           在浏览器中打开授权页面
         </button>
       </div>
-      {matrix ? (
-        <svg
-          className="otto-feishu-auth__qr"
-          role="img"
-          aria-label="飞书授权二维码"
-          viewBox={`-3 -3 ${size + 6} ${size + 6}`}
-          shapeRendering="crispEdges"
-        >
-          <rect x={-3} y={-3} width={size + 6} height={size + 6} fill="#fff" />
-          <path d={pathParts.join('')} fill="#111" />
-        </svg>
-      ) : null}
+      <QrCode
+        value={authorization.url}
+        label="飞书授权二维码"
+        className="otto-feishu-auth__qr"
+      />
     </div>
   );
 }

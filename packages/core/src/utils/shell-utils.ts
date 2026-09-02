@@ -12,7 +12,7 @@ import { Config } from '../config/config.js';
  * @param command The shell command string to parse
  * @returns An array of individual command strings
  */
-export function splitCommands(command: string): string[] {
+function splitCommands(command: string): string[] {
   const commands: string[] = [];
   let currentCommand = '';
   let inSingleQuotes = false;
@@ -70,7 +70,7 @@ export function splitCommands(command: string): string[] {
  * @example getCommandRoot("ls -la /tmp") returns "ls"
  * @example getCommandRoot("git status && npm test") returns "git"
  */
-export function getCommandRoot(command: string): string | undefined {
+function getCommandRoot(command: string): string | undefined {
   const trimmedCommand = command.trim();
   if (!trimmedCommand) {
     return undefined;
@@ -127,7 +127,7 @@ export function stripShellWrapper(command: string): string {
  * @param command The shell command string to check
  * @returns true if command substitution would be executed by bash
  */
-export function detectCommandSubstitution(command: string): boolean {
+function detectCommandSubstitution(command: string): boolean {
   let inSingleQuotes = false;
   let inDoubleQuotes = false;
   let inBackticks = false;

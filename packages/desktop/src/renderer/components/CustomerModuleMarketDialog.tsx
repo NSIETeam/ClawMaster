@@ -45,7 +45,7 @@ export function CustomerModuleMarketDialog({
               <button type="button" onClick={() => void window.otto.customerModuleSetEnabled(module.id, !module.enabled).then((record) => onInstalledChanged(installed.map((item) => item.id === record.id ? record : item))).catch((error) => setStatus(error instanceof Error ? error.message : String(error)))}>{module.enabled ? '禁用' : '启用'}</button>
               {module.permissions.some((permission) => permission.kind === 'background') ? <button type="button" onClick={() => {
                 const next = !module.backgroundEnabled;
-                if (next && !window.confirm(`开启 ${module.name} 的后台授权？后台任务仍须由 Otto 统一登记，可能产生的费用会单独记录。`)) return;
+                if (next && !window.confirm(`开启 ${module.name} 的后台授权？后台任务仍须由 ClawMaster 统一登记，可能产生的费用会单独记录。`)) return;
                 void window.otto.customerModuleSetBackgroundEnabled(module.id, next).then((record) => onInstalledChanged(installed.map((item) => item.id === record.id ? record : item))).catch((error) => setStatus(error instanceof Error ? error.message : String(error)));
               }}>{module.backgroundEnabled ? '关闭后台授权' : '开启后台授权'}</button> : null}
               <button type="button" onClick={() => {

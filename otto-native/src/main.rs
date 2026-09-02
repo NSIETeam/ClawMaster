@@ -389,20 +389,6 @@ fn handle_request(
             Ok(serde_json::json!({"models": tokenizer::supported_models()}))
         }
 
-        "agent_pool.stats" => {
-            let p = pool.as_ref().ok_or("Pool not created")?;
-            Ok(serde_json::json!({
-                "current_memory_mb": p.current_memory_mb(),
-                "max_memory_mb": p.max_memory_mb(),
-                "agent_count": p.agent_count(),
-            }))
-        }
-        "agent_pool.list_agents" => {
-            let p = pool.as_ref().ok_or("Pool not created")?;
-            let agents = p.list_agents();
-            Ok(serde_json::to_value(agents).unwrap())
-        }
-
         // === Session Store ===
         "session_store.open" => {
             let p = params.ok_or("Missing params")?;
@@ -526,29 +512,6 @@ fn handle_request(
             let ok = pool_ref.update_memory(id, mem)?;
             Ok(serde_json::json!({"updated": ok}))
         }
-        "agent_pool.add_log" => {
-            let p = params.ok_or("Missing params")?;
-            let pool_ref = pool.as_ref().ok_or("Pool not created")?;
-            let id = p["id"].as_str().ok_or("Missing id")?;
-            let log = p["log"].as_str().ok_or("Missing log")?;
-            let ok = pool_ref.add_log(id, log.to_string());
-            Ok(serde_json::json!({"added": ok}))
-        }
-        "agent_pool.drain_pending" => {
-            let p = params.ok_or("Missing params")?;
-            let pool_ref = pool.as_ref().ok_or("Pool not created")?;
-            let id = p["id"].as_str().ok_or("Missing id")?;
-            let results = pool_ref.drain_pending_results(id);
-            Ok(serde_json::json!({"results": results}))
-        }
-        "agent_pool.cleanup_idle" => {
-            let p = params.ok_or("Missing params")?;
-            let pool_ref = pool.as_ref().ok_or("Pool not created")?;
-            let secs = p["idle_seconds"].as_u64().unwrap_or(300) as u32;
-            let count = pool_ref.cleanup_idle(secs);
-            Ok(serde_json::json!({"cleaned": count}))
-        }
-
         // === OpenMLS ===
         "mls.initialize" => {
             let p = params.ok_or("Missing params")?;

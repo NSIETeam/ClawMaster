@@ -22,7 +22,16 @@ const ACCOUNT_SYNC_SCOPES: readonly EnterpriseAccountSyncScope[] = [
 const MAX_FILES = 1_000;
 const MAX_FILE_BYTES = 1024 * 1024;
 const MAX_PAYLOAD_BYTES = 8 * 1024 * 1024;
-const MEMORY_SECTION_HEADER = '## Otto Added Memories';
+const MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
+const LEGACY_MEMORY_SECTION_HEADER = '## Otto Added Memories';
+
+function findMemorySectionHeader(content: string): { header: string; index: number } | null {
+  for (const header of [MEMORY_SECTION_HEADER, LEGACY_MEMORY_SECTION_HEADER]) {
+    const index = content.indexOf(header);
+    if (index >= 0) return { header, index };
+  }
+  return null;
+}
 
 export interface AccountDataSyncIdentity {
   serverUrl: string;
@@ -341,10 +350,10 @@ function payloadContentEqual(
 function extractMemoryFacts(content: string): string[] {
   const trimmed = content.trim();
   if (!trimmed) return [];
-  const headerIndex = trimmed.indexOf(MEMORY_SECTION_HEADER);
-  const source = headerIndex >= 0
+  const memorySection = findMemorySectionHeader(trimmed);
+  const source = memorySection
     ? (() => {
-        const afterHeader = trimmed.slice(headerIndex + MEMORY_SECTION_HEADER.length);
+        const afterHeader = trimmed.slice(memorySection.index + memorySection.header.length);
         const nextSection = afterHeader.indexOf('\n## ');
         return nextSection >= 0 ? afterHeader.slice(0, nextSection) : afterHeader;
       })()

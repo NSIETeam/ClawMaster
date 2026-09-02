@@ -8,7 +8,7 @@ import {
   resolveAttachmentObjectStoreConfig,
   type AttachmentObjectStoreConfig,
   type AttachmentObjectStoreEnvironment,
-} from './attachmentObjectStoreRuntime.js';
+} from './attachmentObjectStoreConfig.js';
 import {
   describeEnterpriseDatabaseTopology,
   resolveEnterpriseDatabaseTopology,

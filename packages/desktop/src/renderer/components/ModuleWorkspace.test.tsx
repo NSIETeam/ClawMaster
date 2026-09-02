@@ -241,7 +241,7 @@ describe('ModuleWorkspace', () => {
     expect(grid?.getAttribute('tabindex')).toBe('0');
   });
 
-  it('places add module in the seventh slot and expands a full two-row group to three rows', () => {
+  it('places add module in the seventh slot and expands a full panel group to four rows', () => {
     const sixModules = Array.from({ length: 6 }, (_, index): ModuleDefinition => ({
       id: `six-${index}`,
       label: `模块 ${index + 1}`,
@@ -272,7 +272,7 @@ describe('ModuleWorkspace', () => {
     const grid = container.querySelector('.otto-module-group__grid');
     expect(grid?.children).toHaveLength(7);
     expect(grid?.children[6]).toBe(screen.getByRole('button', { name: '向六个模块添加模块' }));
-    expect(grid?.classList.contains('otto-module-group__grid--rows-3')).toBe(true);
+    expect(grid?.classList.contains('otto-module-group__grid--rows-4')).toBe(true);
     expect(grid?.classList.contains('is-overflowing')).toBe(false);
   });
 

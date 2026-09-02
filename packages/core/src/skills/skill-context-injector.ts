@@ -20,7 +20,6 @@ import {
   SkillErrorCode,
 } from './skill-types.js';
 import { SkillLoader } from './skill-loader.js';
-import { SettingsManager } from './settings-manager.js';
 
 /**
  * Context 注入选项
@@ -47,10 +46,7 @@ interface ContextInjectionOptions {
  * 5. 脚本执行和输出注入
  */
 export class SkillContextInjector {
-  constructor(
-    private skillLoader: SkillLoader,
-    _settingsManager: SettingsManager,
-  ) {}
+  constructor(private skillLoader: SkillLoader) {}
 
   // ============================================================================
   // Level 1: 启动时注入元数据
@@ -427,10 +423,8 @@ export class SkillContextInjector {
         // 完整内容或资源
         const sections: string[] = [];
         for (const skill of skills) {
-          if (loadLevel === SkillLoadLevel.FULL) {
-            sections.push(this.formatFullContent(skill));
-          } else {
-            sections.push(this.formatFullContent(skill));
+          sections.push(this.formatFullContent(skill));
+          if (loadLevel === SkillLoadLevel.RESOURCES) {
             sections.push(this.formatResourcesInfo(skill));
           }
         }
@@ -489,18 +483,4 @@ export class SkillContextInjector {
     return Math.ceil(text.length / 4);
   }
 
-  /**
-   * 格式化 Context 字符串
-   */
-  async formatContextString(skills: Skill[]): Promise<string> {
-    return this.formatMetadataContext(skills);
-  }
 }
-
-/**
- * 单例实例（需要在使用时注入依赖）
- */
-export const skillContextInjector = new SkillContextInjector(
-  {} as SkillLoader,
-  {} as SettingsManager,
-);

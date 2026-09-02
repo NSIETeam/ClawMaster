@@ -13,6 +13,7 @@ import {
   acceptControlCommandInRepository,
   claimPendingControlCommand,
   completeControlCommandInRepository,
+  recoverExpiredControlCommandLeases,
   cancelControlCommandInRepository,
   assertMonotonicSequence,
   buildControlCommandReceipt,
@@ -223,6 +224,36 @@ describe('control command queue (CONTROL-12)', () => {
     expect(row.attempt).toBe(1);
   });
 
+  it('崩溃后的过期运行租约转为 unknown_outcome，且迟到 worker 不能覆盖', () => {
+    const db = new Database(':memory:');
+    let now = NOW_MS;
+    const store: ControlCommandQueueStore = { db: () => db, now: () => now };
+    acceptControlCommandInRepository(store, {
+      commandId: 'c1', type: 'enterprise.initiate', schemaVersion: 1,
+      sequence: 1, deploymentId: 'deploy-1', issuedAt: 'now', expiresAt: 'later',
+      idempotencyKey: 'k1', payloadDigest: 'd', payloadJson: '{}', signature: 'sig',
+    });
+    expect(claimPendingControlCommand(store, 1_000)?.attempt).toBe(1);
+
+    now += 999;
+    expect(recoverExpiredControlCommandLeases(store)).toEqual([]);
+    now += 2;
+    expect(recoverExpiredControlCommandLeases(store)).toEqual(['c1']);
+    expect(completeControlCommandInRepository(store, 'c1', {
+      status: 'succeeded', resultSummary: 'late worker result',
+    })).toBe(false);
+
+    const row = db.prepare(
+      'SELECT status, attempt, locked_until_ms, error_category FROM control_command_queue WHERE command_id = ?',
+    ).get('c1') as {
+      status: string; attempt: number; locked_until_ms: number | null; error_category: string;
+    };
+    expect(row).toEqual({
+      status: 'unknown_outcome', attempt: 1, locked_until_ms: null,
+      error_category: 'lease_expired',
+    });
+  });
+
   it('重复 accept 同 commandId 幂等返回既有状态', () => {
     const { store } = makeStore();
     const input = {
@@ -339,6 +370,30 @@ describe('control command processor pipeline (CONTROL-12)', () => {
     expect(receipt.status).toBe('failed');
     expect(receipt.errorCategory).toBe('execution_error');
     expect(receipt.resultSummary).toBe('enterprise already exists');
+  });
+
+  it('迟到执行结果返回已持久化的 unknown_outcome，而不是伪成功回执', () => {
+    const db = new Database(':memory:');
+    let now = NOW_MS;
+    const store: ControlCommandQueueStore = { db: () => db, now: () => now };
+    const processor = createControlCommandProcessor({
+      db: () => db,
+      now: () => now,
+      deploymentId: 'deploy-1',
+      verifyControlSignature: (env) => verifyControlCommandSignature(env, [publicKey]),
+      execute: () => {
+        now += 60_001;
+        recoverExpiredControlCommandLeases(store);
+        return { status: 'succeeded', resultSummary: 'late result' };
+      },
+      signingPrivateKey: privateKey,
+    });
+    processor.ingest(validEnvelope());
+
+    expect(processor.drainOne()).toMatchObject({
+      status: 'unknown_outcome',
+      errorCategory: 'lease_expired',
+    });
   });
 });
 

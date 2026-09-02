@@ -16,6 +16,6 @@ export async function createCodeAssistContentGenerator(
   // Code Assist Content Generator is no longer supported
   // Only Otto Server authentication is supported
   throw new Error(
-    'Code Assist Content Generator has been deprecated. Use Otto Server authentication instead.'
+    'Code Assist Content Generator has been deprecated. Use the ClawMaster local engine instead.'
   );
 }

@@ -110,8 +110,10 @@ export class Mem0Adapter implements MemoryProvider {
     this.initialized = true;
 
     try {
-      // 动态 import，避免 mem0ai 未安装时整个模块崩溃
-      const mem0Module = await import(/* @vite-ignore */ 'mem0ai').catch(() => null);
+      // 保持真正的运行期可选依赖：不能把字面量 import 留给 Vite 静态解析，
+      // 否则未启用 Mem0 的桌面安装包也会被迫携带整个 SDK。
+      const optionalPackageName = ['mem0', 'ai'].join('');
+      const mem0Module = await import(/* @vite-ignore */ optionalPackageName).catch(() => null);
       if (!mem0Module) {
         throw new Error('mem0ai module not installed');
       }

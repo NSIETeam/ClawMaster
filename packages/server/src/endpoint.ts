@@ -15,7 +15,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { PROTOCOL_VERSION, type ServerEndpoint } from './protocol.js';
 
-const CONFIG_DIR = path.join(os.homedir(), '.otto-user');
+const CONFIG_DIR = process.env.OTTO_USER_DIR?.trim()
+  || path.join(os.homedir(), '.otto-user');
 const ENDPOINT_FILE = path.join(CONFIG_DIR, 'server-endpoint.json');
 
 /**

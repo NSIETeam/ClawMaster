@@ -13,6 +13,7 @@ import { WebAutomationTool } from './web-automation.js';
 import { createMockConfig } from '../utils/test-helpers.js';
 import {
   DoctorService,
+  type BrowserExecutableResolver,
   type CommandRunner,
   type ModuleResolver,
 } from '../services/doctor.js';
@@ -38,9 +39,20 @@ const RESOLVER_HAS_PLAYWRIGHT: ModuleResolver = (name: string) => {
   throw new Error(`Cannot find module '${name}'`);
 };
 
+const RESOLVER_HAS_BROWSER: BrowserExecutableResolver = () =>
+  '/proj/browser/chromium';
+const PATH_CHECKER_HAS_BROWSER = (absPath: string): boolean =>
+  absPath === '/proj/browser/chromium';
+
 function toolWith(resolver: ModuleResolver): WebAutomationTool {
   // 平台固定 darwin，pathExists 恒 false（.app 兜底对 playwright 无关）。
-  const doctor = new DoctorService(RUNNER_BIN_PRESENT, resolver, 'darwin', () => false);
+  const doctor = new DoctorService(
+    RUNNER_BIN_PRESENT,
+    resolver,
+    'darwin',
+    () => false,
+    RESOLVER_HAS_BROWSER,
+  );
   return new WebAutomationTool(createMockConfig(), doctor);
 }
 
@@ -115,7 +127,8 @@ describe('WebAutomationTool', () => {
       RUNNER_BIN_PRESENT,
       RESOLVER_HAS_PLAYWRIGHT,
       'darwin',
-      () => false,
+      PATH_CHECKER_HAS_BROWSER,
+      RESOLVER_HAS_BROWSER,
     );
     const report = await doctor.check();
     const pw = report.checks.find((c) => c.name === 'playwright')!;

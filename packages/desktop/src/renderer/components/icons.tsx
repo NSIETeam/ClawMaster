@@ -327,24 +327,6 @@ export function IconRegenerate({ size, className }: IconProps): React.JSX.Elemen
   );
 }
 
-export function IconThumbUp({ size, className }: IconProps): React.JSX.Element {
-  return (
-    <svg {...base(size)} className={className}>
-      <path d="M7 10v11" />
-      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
-    </svg>
-  );
-}
-
-export function IconThumbDown({ size, className }: IconProps): React.JSX.Element {
-  return (
-    <svg {...base(size)} className={className}>
-      <path d="M17 14V3" />
-      <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" />
-    </svg>
-  );
-}
-
 export function IconPaperclip({ size, className }: IconProps): React.JSX.Element {
   return (
     <svg {...base(size)} className={className}>
@@ -433,21 +415,30 @@ export function IconLogOut({ size, className }: IconProps): React.JSX.Element {
   );
 }
 
-/** 视频编辑器（摄像机图标）。 */
-export function IconVideo({ size, className }: IconProps): React.JSX.Element {
-  return (
-    <svg {...base(size)} className={className}>
-      <rect x="2" y="6" width="14" height="12" rx="2" />
-      <path d="M22 8l-6 4 6 4V8z" />
-    </svg>
-  );
-}
-
 /** 关闭图标（toast 关闭等）。 */
 export function IconClose({ size, className }: IconProps): React.JSX.Element {
   return (
     <svg {...base(size)} className={className} strokeWidth={2}>
       <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+export function IconTrash({ size, className }: IconProps): React.JSX.Element {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
+export function IconMoreHorizontal({ size, className }: IconProps): React.JSX.Element {
+  return (
+    <svg {...base(size)} className={className} fill="currentColor" stroke="none">
+      <circle cx="5" cy="12" r="1.7" />
+      <circle cx="12" cy="12" r="1.7" />
+      <circle cx="19" cy="12" r="1.7" />
     </svg>
   );
 }
@@ -520,11 +511,49 @@ export function OttoAvatar({ size = 30, className }: IconProps): React.JSX.Eleme
       src={ottoAvatarUrl}
       width={size}
       height={size}
-      alt="Otto"
+      alt="ClawMaster"
       className={className}
       draggable={false}
       style={{ borderRadius: '50%', display: 'block', objectFit: 'cover' }}
     />
+  );
+}
+
+/** ClawMaster 品牌皇冠，仅用于产品级品牌位，不作为 Agent 或模块头像。 */
+export function ClawMasterCrown({ size = 56, className }: IconProps): React.JSX.Element {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="-3 -3 70 70"
+      role="img"
+      aria-label="ClawMaster 皇冠标志"
+      className={className}
+      style={{
+        display: 'block',
+        width: size,
+        height: size,
+        maxWidth: size,
+        maxHeight: size,
+      }}
+    >
+      <path
+        d="M18 43c0-3.5-1.7-5.8-4.7-7.2A12.6 12.6 0 1 1 24.2 13.1 12.2 12.2 0 0 1 47.7 16a12.6 12.6 0 1 1 10.9 19.8c-3 1.4-4.7 3.7-4.7 7.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="4.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M26 23.5c-2 6.8-1.7 13.2.7 19M42 23.5c2 6.8 1.7 13.2-.7 19"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3.2"
+        strokeLinecap="round"
+      />
+      <rect x="17" y="41" width="38" height="13" rx="4" fill="currentColor" />
+    </svg>
   );
 }
 
@@ -585,19 +614,6 @@ export function IconPackage({ size, className }: IconProps): React.JSX.Element {
   );
 }
 
-/** 班车通勤：巴士。 */
-export function IconBus({ size, className }: IconProps): React.JSX.Element {
-  return (
-    <svg {...base(size)} className={className}>
-      <path d="M19 17h1a1 1 0 0 0 1-1V7a5 5 0 0 0-5-5H8a5 5 0 0 0-5 5v9a1 1 0 0 0 1 1h1" />
-      <path d="M3 11h18" />
-      <circle cx="7.5" cy="17.5" r="1.8" />
-      <circle cx="16.5" cy="17.5" r="1.8" />
-      <path d="M9.3 17.5h5.4" />
-    </svg>
-  );
-}
-
 /** 餐饮服务：刀叉。 */
 export function IconUtensils({ size, className }: IconProps): React.JSX.Element {
   return (
@@ -606,25 +622,6 @@ export function IconUtensils({ size, className }: IconProps): React.JSX.Element 
       <path d="M7 2v20" />
       <path d="M19 15V2a4 4 0 0 0-4 5v6a2 2 0 0 0 2 2h2Z" />
       <path d="M19 15v7" />
-    </svg>
-  );
-}
-
-/** 太阳（浅色模式指示，顶栏主题切换钮）。 */
-export function IconSun({ size, className }: IconProps): React.JSX.Element {
-  return (
-    <svg {...base(size)} className={className}>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-    </svg>
-  );
-}
-
-/** 月亮（深色模式指示，顶栏主题切换钮）。 */
-export function IconMoon({ size, className }: IconProps): React.JSX.Element {
-  return (
-    <svg {...base(size)} className={className}>
-      <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
     </svg>
   );
 }

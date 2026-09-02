@@ -183,7 +183,7 @@ describe('InboxPage response hardening', () => {
     );
 
     fireEvent.click(await screen.findByRole('listitem', { name: /远程同事/ }));
-    const askButton = await screen.findByRole('button', { name: '询问对方 Otto' });
+    const askButton = await screen.findByRole('button', { name: '询问对方 ClawMaster' });
     expect((askButton as HTMLButtonElement).disabled).toBe(true);
 
     fireEvent.change(screen.getByRole('textbox', { name: '回复消息' }), {

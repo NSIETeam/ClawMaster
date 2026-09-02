@@ -24,16 +24,11 @@ import { SkillLoader as SkillLoaderImpl } from './skill-loader.js';
 import { SkillContextInjector as SkillContextInjectorImpl } from './skill-context-injector.js';
 
 // Core Services
-export { SettingsManager, SkillsPaths, settingsManager } from './settings-manager.js';
-export { MarketplaceManager, marketplaceManager } from './marketplace-manager.js';
-export { PluginInstaller, pluginInstaller } from './plugin-installer.js';
-export { SkillLoader, skillLoader } from './skill-loader.js';
-export { SkillContextInjector, skillContextInjector } from './skill-context-injector.js';
-export { ScriptExecutor, scriptExecutor } from './script-executor.js';
-export type {
-  ScriptExecutionOptions,
-  ScriptExecutionResult,
-} from './script-executor.js';
+export { SettingsManager, SkillsPaths } from './settings-manager.js';
+export { MarketplaceManager } from './marketplace-manager.js';
+export { PluginInstaller } from './plugin-installer.js';
+export { SkillLoader } from './skill-loader.js';
+export { SkillContextInjector } from './skill-context-injector.js';
 
 // Integration
 export {
@@ -47,9 +42,8 @@ export {
   shouldRefreshBuiltinSkill,
 } from './seed-skills.js';
 
-// Context Builder (legacy)
-export { SkillsContextBuilder } from './skills-context-builder.js';
-export { SkillsCompatAdapter } from './skills-compat.js';
+// Query facade used by tools and the local server.
+export { SkillsCatalogAdapter } from './skills-catalog-adapter.js';
 
 /**
  * Initialize Skills System
@@ -68,8 +62,8 @@ export function createSkillsSystem() {
   const settings = new SettingsManagerImpl();
   const marketplace = new MarketplaceManagerImpl(settings);
   const installer = new PluginInstallerImpl(settings, marketplace);
-  const loader = new SkillLoaderImpl(settings, marketplace);
-  const injector = new SkillContextInjectorImpl(loader, settings);
+  const loader = new SkillLoaderImpl(settings);
+  const injector = new SkillContextInjectorImpl(loader);
 
   return {
     settings,

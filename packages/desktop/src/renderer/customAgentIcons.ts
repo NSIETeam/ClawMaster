@@ -14,7 +14,7 @@ export type CustomAgentIcon =
   | { kind: 'preset'; name: GeneratedIconName }
   | { kind: 'upload'; dataUrl: string };
 
-export const CUSTOM_AGENT_ICON_MAX_DATA_URL_LENGTH = 96_000;
+const CUSTOM_AGENT_ICON_MAX_DATA_URL_LENGTH = 96_000;
 const CUSTOM_AGENT_ICON_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const CUSTOM_AGENT_ICON_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 

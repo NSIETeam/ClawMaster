@@ -20,6 +20,13 @@ if (!previewWindow.otto) {
   let currentModel: string | null = 'preview-model';
   let sessions = [makeSession('preview-session', '园区服务本地演示')];
   let models = readModels();
+  let previewTheme: 'system' | 'light' | 'dark' = 'dark';
+  let previewSettings = {
+    agentStyle: 'default',
+    healthyUse: true,
+    backgroundModelTasksEnabled: false,
+    preferredLanguage: '',
+  };
   const previewAccount = {
     id: 'browser-dev',
     organizationId: 'preview-park-admin',
@@ -266,6 +273,14 @@ if (!previewWindow.otto) {
         emitModels();
       if (frame.type === 'get_history')
         emit('history', { sessionId: payload.sessionId, messages: [] });
+      if (frame.type === 'get_settings') emit('settings', { ...previewSettings });
+      if (frame.type === 'set_setting') {
+        const key = String(payload.key) as keyof typeof previewSettings;
+        if (key in previewSettings) {
+          previewSettings = { ...previewSettings, [key]: payload.value };
+          emit('settings', { ...previewSettings });
+        }
+      }
       if (frame.type === 'create_session') {
         const session = makeSession(
           id('preview-session'),
@@ -338,7 +353,6 @@ if (!previewWindow.otto) {
         }, 160);
       }
     },
-    parkConfig: () => Promise.resolve(null),
     onMenu: () => () => {},
     onUpdateProgress: () => () => {},
     onNotificationUnreadChanged: () => () => {},
@@ -380,8 +394,11 @@ if (!previewWindow.otto) {
     updateCancel: () => Promise.resolve(),
     updateInstall: () =>
       Promise.resolve({ ok: false, message: '浏览器预览不支持安装' }),
-    themeGet: () => Promise.resolve('dark'),
-    themeSet: () => Promise.resolve('dark'),
+    themeGet: () => Promise.resolve(previewTheme),
+    themeSet: (theme: 'system' | 'light' | 'dark') => {
+      previewTheme = theme;
+      return Promise.resolve(previewTheme);
+    },
     enterpriseSession: () =>
       Promise.resolve({
         serverUrl: 'browser-preview://local',

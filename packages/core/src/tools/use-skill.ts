@@ -25,7 +25,6 @@ import {
   SkillContextInjector,
   SkillLoader,
   SettingsManager,
-  MarketplaceManager,
   SkillLoadLevel,
   SkillsPaths,
   type Skill,
@@ -132,9 +131,8 @@ Important:
       const settings = new SettingsManager();
       await settings.initialize();
 
-      const marketplace = new MarketplaceManager(settings);
-      const loader = new SkillLoader(settings, marketplace);
-      const injector = new SkillContextInjector(loader, settings);
+      const loader = new SkillLoader(settings);
+      const injector = new SkillContextInjector(loader);
 
       // Find the skill by name
       const skills = await loader.loadEnabledSkills(SkillLoadLevel.RESOURCES);

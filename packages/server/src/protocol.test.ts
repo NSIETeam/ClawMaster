@@ -569,4 +569,23 @@ describe('validateClientPayload：v1.7 产品工作区', () => {
       payload: { id: '' },
     })).toContain('id');
   });
+
+  it('工作日志请求要求可对账 requestId，并限制最近天数', () => {
+    expect(validateClientPayload({
+      type: 'work_log_today',
+      payload: { requestId: 'today-1' },
+    })).toBeNull();
+    expect(validateClientPayload({
+      type: 'work_log_report',
+      payload: { requestId: '' },
+    })).toContain('requestId');
+    expect(validateClientPayload({
+      type: 'work_log_recent',
+      payload: { requestId: 'recent-1', days: 7 },
+    })).toBeNull();
+    expect(validateClientPayload({
+      type: 'work_log_recent',
+      payload: { requestId: 'recent-1', days: 0 },
+    })).toContain('days');
+  });
 });

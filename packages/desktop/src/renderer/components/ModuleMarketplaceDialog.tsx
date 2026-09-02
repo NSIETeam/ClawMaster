@@ -8,11 +8,18 @@ import { createPortal } from 'react-dom';
 import type { ModuleCategory, ModuleDefinition } from '../moduleCatalog.js';
 import { addOrMoveModules, type ModuleWorkspaceLayout } from '../moduleWorkspace.js';
 import { ModuleIcon } from './ModuleIcon.js';
+import { IconCommunitySkill } from './CommunitySkillIcon.js';
+import {
+  FEATURED_COMMUNITY_SKILLS,
+  filterCommunitySkills,
+  type CommunitySkillCategory,
+} from '../communitySkillCatalog.js';
 
 const CATEGORY_LABELS: Readonly<Record<ModuleCategory, string>> = {
   common: '常用',
   park: '园区服务',
   capability: '企业能力',
+  platform: '业务平台',
   'custom-agent': '我的专家',
   'customer-module': '客户模块',
 };
@@ -24,6 +31,17 @@ const CATEGORY_ORDER: readonly ModuleCategory[] = [
   'custom-agent',
   'customer-module',
 ];
+
+const SKILL_NAME_ACRONYMS: Readonly<Record<string, string>> = {
+  ai: 'AI', api: 'API', cli: 'CLI', css: 'CSS', docx: 'DOCX', html: 'HTML',
+  pdf: 'PDF', pptx: 'PPTX', seo: 'SEO', sql: 'SQL', tdd: 'TDD', ui: 'UI',
+  ux: 'UX', xlsx: 'XLSX',
+};
+
+function formatCommunitySkillName(name: string): string {
+  return name.split('-').map((part) => SKILL_NAME_ACRONYMS[part]
+    ?? `${part.charAt(0).toLocaleUpperCase()}${part.slice(1)}`).join(' ');
+}
 
 export interface ModuleMarketplaceDialogProps {
   open: boolean;
@@ -55,6 +73,11 @@ export function ModuleMarketplaceDialog({
   onBrowseCustomerModules,
 }: ModuleMarketplaceDialogProps): React.JSX.Element | null {
   const [query, setQuery] = useState('');
+  const [catalogView, setCatalogView] = useState<'builtin' | 'community'>('builtin');
+  const [communityCategory, setCommunityCategory] = useState<CommunitySkillCategory | 'all'>('all');
+  const [installingSkillId, setInstallingSkillId] = useState<string | null>(null);
+  const [installedSkillNames, setInstalledSkillNames] = useState<Set<string>>(() => new Set());
+  const [communityStatus, setCommunityStatus] = useState<string | null>(null);
   const [selection, setSelection] = useState<Set<string>>(() => new Set());
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -68,6 +91,12 @@ export function ModuleMarketplaceDialog({
       ? document.activeElement
       : null;
     setQuery('');
+    setCatalogView('builtin');
+    setCommunityCategory('all');
+    setCommunityStatus(null);
+    void window.otto.communitySkillList()
+      .then((items) => setInstalledSkillNames(new Set(items.map((item) => item.name))))
+      .catch(() => setInstalledSkillNames(new Set()));
     setSelection(new Set());
     closeRef.current?.focus();
     return () => {
@@ -96,6 +125,10 @@ export function ModuleMarketplaceDialog({
         .includes(normalizedQuery);
     });
   }, [modules, query]);
+  const visibleCommunitySkills = useMemo(
+    () => filterCommunitySkills(FEATURED_COMMUNITY_SKILLS, query, communityCategory),
+    [query, communityCategory],
+  );
 
   if (!open || !targetGroup) return null;
 
@@ -147,22 +180,43 @@ export function ModuleMarketplaceDialog({
       >
         <header className="otto-module-marketplace__header">
           <div>
-            <h2 id={titleId}>添加模块</h2>
-            <p>添加到“{targetGroup.name}”</p>
+            <h2 id={titleId}>插件广场</h2>
+            <p>{catalogView === 'builtin' ? `添加到“${targetGroup.name}”` : '热门 GitHub Skill · 安装量快照'}</p>
           </div>
           <button ref={closeRef} type="button" aria-label="关闭添加模块" onClick={onClose}>×</button>
         </header>
+        <div className="otto-module-marketplace__body">
+        <nav className="otto-module-marketplace__tabs" aria-label="插件来源">
+          <button type="button" className={catalogView === 'builtin' ? 'is-active' : ''} onClick={() => { setCatalogView('builtin'); setQuery(''); }}>
+            本机模块
+          </button>
+          <button type="button" className={catalogView === 'community' ? 'is-active' : ''} onClick={() => { setCatalogView('community'); setQuery(''); }}>
+            社区插件 <span>{FEATURED_COMMUNITY_SKILLS.length}</span>
+          </button>
+        </nav>
         <label className="otto-module-marketplace__search">
           <span className="sr-only">搜索模块</span>
           <input
             type="search"
             aria-label="搜索模块"
-            placeholder="搜索模块……"
+            placeholder={catalogView === 'builtin' ? '搜索本机模块……' : '搜索名称、作者或能力……'}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
+        {catalogView === 'community' ? <div className="otto-module-marketplace__filters" aria-label="社区插件分类">
+          {([
+            ['all', '全部'], ['coding', '开发'], ['design', '设计'], ['office', '办公'],
+            ['research', '研究'], ['automation', '自动化'],
+          ] as const).map(([value, label]) => <button
+            key={value}
+            type="button"
+            className={communityCategory === value ? 'is-active' : ''}
+            onClick={() => setCommunityCategory(value)}
+          >{label}</button>)}
+        </div> : null}
         <div className="otto-module-marketplace__catalog">
+          {catalogView === 'builtin' ? <>
           {CATEGORY_ORDER.map((category) => {
             const categoryModules = visibleModules.filter((module) => module.category === category);
             if (categoryModules.length === 0) return null;
@@ -210,8 +264,44 @@ export function ModuleMarketplaceDialog({
           {visibleModules.length === 0 ? (
             <p className="otto-module-marketplace__empty">没有找到匹配的模块</p>
           ) : null}
+          </> : <section className="otto-community-skill-grid" aria-label="社区插件目录">
+            {visibleCommunitySkills.map((item) => {
+              const installed = installedSkillNames.has(item.name);
+              const busy = installingSkillId === item.id;
+              return <article key={item.id} className="otto-community-skill-card">
+                <div className="otto-community-skill-card__head">
+                  <IconCommunitySkill category={item.category} />
+                  <span>
+                    <strong title={item.name}>{formatCommunitySkillName(item.name)}</strong>
+                    <small title={item.source}>{item.source}</small>
+                  </span>
+                </div>
+                <p>{item.description}</p>
+                <div className="otto-community-skill-card__meta">
+                  <span>{Intl.NumberFormat('zh-CN', { notation: 'compact', maximumFractionDigits: 1 }).format(item.installs)} 次安装</span>
+                  <span>GitHub</span>
+                </div>
+                <button type="button" disabled={installed || busy || installingSkillId !== null} onClick={() => {
+                  if (!window.confirm(`从 ${item.installUrl} 导入 ${item.name}？\n\nClawMaster 会下载并检查文件数量、体积、路径和符号链接。社区热度不代表安全背书，请只安装你信任的来源。`)) return;
+                  setInstallingSkillId(item.id); setCommunityStatus(null);
+                  void window.otto.communitySkillInstall({ id: item.id, source: item.installUrl, slug: item.name })
+                    .then((result) => {
+                      setInstalledSkillNames((current) => new Set(current).add(item.name));
+                      setCommunityStatus(`${result.name} 已导入本机；新会话将自动发现该插件。`);
+                    })
+                    .catch((error) => setCommunityStatus(error instanceof Error ? error.message : String(error)))
+                    .finally(() => setInstallingSkillId(null));
+                }}>{installed ? '已导入' : busy ? '正在校验…' : '一键导入'}</button>
+              </article>;
+            })}
+            {visibleCommunitySkills.length === 0 ? <p className="otto-module-marketplace__empty">没有找到匹配的社区插件</p> : null}
+          </section>}
+          {communityStatus ? <p className="otto-community-skill-status" role="status">{communityStatus}</p> : null}
+        </div>
         </div>
         <footer className="otto-module-marketplace__footer">
+          {catalogView === 'community' ? <span className="otto-module-marketplace__source-note">来源：skills.sh 公开安装量排行快照</span> : null}
+          {catalogView === 'builtin' ? <>
           <button type="button" className="otto-module-marketplace__manage" onClick={onManageExperts}>
             创建专家模块
           </button>
@@ -232,6 +322,7 @@ export function ModuleMarketplaceDialog({
           >
             添加（{selection.size}）
           </button>
+          </> : null}
         </footer>
       </div>
     </div>,

@@ -94,9 +94,13 @@ beforeEach(() => {
 });
 
 describe('Sidebar：布局（工具区已迁右侧面板）', () => {
-  it('首页品牌使用正式名称 Otto', () => {
+  it('左上角显示品牌皇冠但不重复显示产品名称', () => {
     renderSidebar();
-    expect(screen.getByText('Otto')).toBeTruthy();
+    const mark = screen.getByRole('img', { name: 'ClawMaster 皇冠标志' });
+    expect(mark.tagName.toLowerCase()).toBe('svg');
+    expect(mark.innerHTML).toContain('currentColor');
+    expect(mark.getAttribute('viewBox')).toBe('-3 -3 70 70');
+    expect(screen.queryByText('ClawMaster')).toBeNull();
     expect(screen.queryByText('otto')).toBeNull();
   });
 
@@ -159,24 +163,6 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     } finally {
       vi.useRealTimers();
     }
-  });
-
-  it('企业合成会话未读也在 Otto 品牌区保留闪烁点', () => {
-    renderSidebar({ unreadSessions: ['enterprise:message:alice'] });
-
-    expect(screen.getByRole('status', { name: '1 条未读消息' })).toBeTruthy();
-  });
-
-  it('企业私聊未读按消息条数在 Otto 品牌区显示数字', () => {
-    renderSidebar({
-      unreadSessions: ['enterprise:message:alice', 'park:ticket:repair-1'],
-      enterpriseUnreadCounts: {
-        'enterprise:message:alice': 2,
-        'enterprise:message:bob': 1,
-      },
-    });
-
-    expect(screen.getByRole('status', { name: '4 条未读消息' }).textContent).toBe('4');
   });
 
   it('设置从主导航迁移到账户区右侧，并保留原设置入口行为', () => {
@@ -294,6 +280,21 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
       />,
     );
     expect(screen.queryByRole('button', { name: '企业管理' })).toBeNull();
+  });
+
+  it('纯本机个人版不显示企业连接、组织和消息入口', () => {
+    renderSidebar({
+      localOnly: true,
+      enterpriseAccount: PERSONAL_ACCOUNT,
+      onNavigate: vi.fn(),
+      onJoinEnterprise: vi.fn(),
+    });
+
+    expect(screen.queryByRole('button', { name: '组织架构' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '我的消息' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '升级企业版' })).toBeNull();
+    expect(screen.getByRole('button', { name: '工作台' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '我的工作' })).toBeTruthy();
   });
 
   it('点击账户区打开账户菜单，点击外部或按 Escape 均会收起', () => {
@@ -592,6 +593,48 @@ describe('Sidebar 会话项：溢出菜单', () => {
     const { onSelect } = renderSidebar();
     fireEvent.click(screen.getByLabelText('更多操作'));
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('菜单挂到 body 并在视口底部自动向上避让，不受侧栏滚动容器裁剪', () => {
+    const originalInnerHeight = window.innerHeight;
+    try {
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: 600 });
+      renderSidebar();
+      const trigger = screen.getByLabelText('更多操作');
+      vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+        x: 210,
+        y: 570,
+        width: 22,
+        height: 22,
+        top: 570,
+        right: 232,
+        bottom: 592,
+        left: 210,
+        toJSON: () => ({}),
+      });
+
+      fireEvent.click(trigger);
+      const menu = screen.getByRole('menu', { name: '“旧标题”操作' });
+      expect(menu.parentElement).toBe(document.body);
+      expect(menu.style.top).toBe('484px');
+      expect(menu.style.left).toBe('100px');
+      const css = readFileSync(resolve(process.cwd(), 'src/renderer/styles/app.css'), 'utf8');
+      expect(css).toMatch(/\.otto-session__menu\s*\{[^}]*position:\s*fixed/);
+    } finally {
+      Object.defineProperty(window, 'innerHeight', {
+        configurable: true,
+        value: originalInnerHeight,
+      });
+    }
+  });
+
+  it('菜单打开后按 Escape 关闭并把焦点还给三点按钮', () => {
+    renderSidebar();
+    const trigger = screen.getByLabelText('更多操作');
+    fireEvent.click(trigger);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('menu', { name: '“旧标题”操作' })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 });
 

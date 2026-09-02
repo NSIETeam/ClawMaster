@@ -4,10 +4,14 @@
  * Provides Skills context to the AI system prompt
  */
 
-import { SkillContextInjector } from './index.js';
+import path from 'node:path';
+import { SkillContextInjector } from './skill-context-injector.js';
+import { SkillLoader } from './skill-loader.js';
 import { seedDefaultSkills } from './seed-skills.js';
+import { SettingsManager } from './settings-manager.js';
 
 let cachedSkillsContext: string | null = null;
+let cachedProjectRoot: string | null = null;
 let lastCacheTime = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -30,10 +34,14 @@ export function getSkillsContext(): string {
  * @param projectRoot - 项目根目录路径（可选，默认为 process.cwd()）
  */
 export async function initializeSkillsContext(projectRoot?: string): Promise<void> {
-  // Check cache
   const now = Date.now();
-  if (cachedSkillsContext && now - lastCacheTime < CACHE_TTL) {
-    return; // Cache still valid
+  const resolvedProjectRoot = path.resolve(projectRoot ?? process.cwd());
+  if (
+    cachedSkillsContext !== null
+    && cachedProjectRoot === resolvedProjectRoot
+    && now - lastCacheTime < CACHE_TTL
+  ) {
+    return;
   }
 
   try {
@@ -44,22 +52,19 @@ export async function initializeSkillsContext(projectRoot?: string): Promise<voi
       // 预置失败不影响后续（skills 系统本就可选）
     }
 
-    // Create dependencies
-    const { SettingsManager, MarketplaceManager, SkillLoader } = await import('./index.js');
-
     const settings = new SettingsManager();
     await settings.initialize();
 
-    const marketplace = new MarketplaceManager(settings);
     // 传入 projectRoot 参数，确保 SkillLoader 使用正确的项目根目录
-    const loader = new SkillLoader(settings, marketplace, undefined, projectRoot);
-    const injector = new SkillContextInjector(loader, settings);
+    const loader = new SkillLoader(settings, { projectRoot: resolvedProjectRoot });
+    const injector = new SkillContextInjector(loader);
 
     const result = await injector.injectStartupContext();
 
     if (!result.context || result.context.trim().length === 0) {
       // No skills available
       cachedSkillsContext = '';
+      cachedProjectRoot = resolvedProjectRoot;
       lastCacheTime = now;
       return;
     }
@@ -84,11 +89,13 @@ See the \`use_skill\` tool description for complete usage instructions.
 `;
 
     cachedSkillsContext = formattedContext.trim();
+    cachedProjectRoot = resolvedProjectRoot;
     lastCacheTime = now;
   } catch (error) {
     // Silently fail - Skills system is optional
     console.warn('[Skills] Failed to load context:', error);
     cachedSkillsContext = '';
+    cachedProjectRoot = resolvedProjectRoot;
     lastCacheTime = now;
   }
 }
@@ -100,5 +107,6 @@ See the \`use_skill\` tool description for complete usage instructions.
  */
 export function clearSkillsContextCache(): void {
   cachedSkillsContext = null;
+  cachedProjectRoot = null;
   lastCacheTime = 0;
 }

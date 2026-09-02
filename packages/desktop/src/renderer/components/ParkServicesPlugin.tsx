@@ -20,9 +20,10 @@ import type {
   EnterpriseRepairTicket,
   EnterpriseRepairTicketHistoryEntry,
 } from '../../preload/index.js';
-import defaultMeetingRoomImage from '../assets/meeting-room-default.png';
+import defaultMeetingRoomImage from '../assets/meeting-room-default.jpg';
 import type { ParkModuleTarget } from '../moduleCatalog.js';
 import { parkISODate, parkMinuteOfDay } from '../parkBusinessTime.js';
+import { startNonOverlappingPoll } from '../lib/nonOverlappingPoll.js';
 import {
   IconBuilding,
   IconCalendarCheck,
@@ -145,15 +146,6 @@ function showParkNotification(
     void window.otto.parkNativeNotify?.(fallbackTitle, fallbackBody);
   }
 }
-
-const ICON_POOL: IconComponent[] = [
-  IconBuilding,
-  IconIdBadge,
-  IconCalendarCheck,
-  IconWrench,
-  IconPackage,
-  IconUtensils,
-];
 
 interface ServiceInteraction {
   intro: string;
@@ -472,9 +464,7 @@ export function useParkBrand(): string {
         }
         return;
       }
-      // 只有旧 preload 根本没有中心园区 API 时，才保留本机配置兼容。
-      const cfg = await window.otto?.parkConfig?.().catch(() => null);
-      if (!cancelled) setBrand(cfg?.brandName || DEFAULT_BRAND);
+      if (!cancelled) setBrand(DEFAULT_BRAND);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -484,6 +474,12 @@ export function useParkBrand(): string {
 function errorMessage(cause: unknown): string {
   const value = cause instanceof Error ? cause.message : String(cause);
   return value.replace(/^Error invoking remote method '[^']+':\s*/, '').replace(/^Error:\s*/, '');
+}
+
+export function isCommercialModuleNotEntitled(cause: unknown): boolean {
+  return /commercial module is not entitled/iu.test(
+    cause instanceof Error ? cause.message : String(cause),
+  );
 }
 
 function AnnouncementView({ onBack }: { onBack: () => void }): React.JSX.Element {
@@ -498,7 +494,7 @@ function AnnouncementView({ onBack }: { onBack: () => void }): React.JSX.Element
       setError(null);
     } catch (cause) { setError(errorMessage(cause)); } finally { setLoading(false); }
   }, []);
-  useEffect(() => { void refresh(); const timer = window.setInterval(() => { void refresh(); }, 5000); return () => window.clearInterval(timer); }, [refresh]);
+  useEffect(() => startNonOverlappingPoll(refresh, 5_000), [refresh]);
   const openItem = async (item: EnterpriseParkPublication): Promise<void> => {
     setSelectedId(item.id);
     if (!item.readAt) {
@@ -579,7 +575,7 @@ function futureLocalDate(offsetDays = 0): string {
   return parkISODate(new Date(), offsetDays);
 }
 
-export function meetingTimeToMinutes(value: string): number {
+function meetingTimeToMinutes(value: string): number {
   const match = /^(\d{2}):(\d{2})$/.exec(value);
   return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
 }
@@ -709,16 +705,10 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
     }
   }, [service.id]);
 
+  useEffect(() => startNonOverlappingPoll(refresh, 5_000), [refresh]);
   useEffect(() => {
-    void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, 5000);
-    return () => window.clearInterval(timer);
-  }, [refresh]);
-  useEffect(() => {
-    void refreshResources();
     if (service.id !== 'meeting-room') return undefined;
-    const timer = window.setInterval(() => { void refreshResources(); }, 5000);
-    return () => window.clearInterval(timer);
+    return startNonOverlappingPoll(refreshResources, 5_000);
   }, [refreshResources, service.id]);
 
   const selectedRoom = resources?.meetingRooms.find((room) => room.id === form.roomId) ?? null;
@@ -1535,23 +1525,11 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
         }
         return;
       }
-      // 旧 preload 兼容：没有 enterpriseParkView 时才允许本机园区配置。
-      const cfg = await window.otto?.parkConfig?.().catch(() => null);
-      if (cancelled) return;
-      setParkEnabled(true);
-      setParkAdminOrganization(false);
-      if (!cfg) return;
-      if (cfg.brandName) setBrand(cfg.brandName);
-      if (cfg.services && cfg.services.length > 0) {
-        setServices(cfg.services.map((service, index) => ({
-          id: `custom-${index}`,
-          icon: ICON_POOL[index % ICON_POOL.length],
-          name: service.name,
-          desc: service.desc,
-          prompt: service.prompt,
-        })));
-      } else if (cfg.parkName) {
-        setServices(defaultServices(cfg.parkName));
+      if (!cancelled) {
+        setParkEnabled(true);
+        setParkAdminOrganization(false);
+        setBrand(DEFAULT_BRAND);
+        setServices(defaultServices(DEFAULT_PARK));
       }
     })();
     return () => { cancelled = true; };
@@ -1591,7 +1569,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     const refreshStatistics = async (): Promise<void> => {
       try {
         if (typeof window.otto?.enterpriseParkStatistics !== 'function') {
-          throw new Error('当前 Otto 版本尚未提供园区统计，请更新客户端。');
+          throw new Error('当前 ClawMaster 版本尚未提供园区统计，请更新客户端。');
         }
         const statistics = await window.otto.enterpriseParkStatistics();
         if (!cancelled) {
@@ -1605,11 +1583,10 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       }
     };
 
-    void refreshStatistics();
-    const timer = window.setInterval(() => { void refreshStatistics(); }, 30_000);
+    const stopPolling = startNonOverlappingPoll(refreshStatistics, 30_000);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [internalAdminPreview, open, parkAdminOrganization]);
 
@@ -1618,7 +1595,9 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     if (parkEnabled !== true) return undefined;
     if (!window.otto?.enterpriseParkPublications) return undefined;
     let cancelled = false;
+    let unavailable = false;
     const poll = async (): Promise<void> => {
+      if (unavailable) return;
       try {
         const publications = await window.otto.enterpriseParkPublications();
         if (cancelled) return;
@@ -1629,16 +1608,16 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
         notifiedPublicationKeys.current.add(candidate.id);
         setBackgroundPublication(candidate);
         void window.otto.parkNativeNotify?.(
-          candidate.kind === 'announcement' ? 'Otto 园区公告' : 'Otto 满意度调查',
+          candidate.kind === 'announcement' ? 'ClawMaster 园区公告' : 'ClawMaster 满意度调查',
           `${candidate.title} · 点击查看`,
         );
-      } catch {
+      } catch (error) {
+        if (isCommercialModuleNotEntitled(error)) unavailable = true;
         // 未登录或服务器暂不可达时等待下一次轮询。
       }
     };
-    void poll();
-    const timer = window.setInterval(() => { void poll(); }, 5000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    const stopPolling = startNonOverlappingPoll(poll, 5_000);
+    return () => { cancelled = true; stopPolling(); };
   }, [internalAdminPreview, parkEnabled]);
 
   useEffect(() => {
@@ -1748,7 +1727,9 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     if (parkEnabled !== true) return undefined;
     if (!window.otto?.enterpriseSession || !window.otto?.enterpriseTicketList) return undefined;
     let cancelled = false;
+    let unavailable = false;
     const poll = async (): Promise<void> => {
+      if (unavailable) return;
       try {
         const session = await window.otto.enterpriseSession();
         if (cancelled) return;
@@ -1815,7 +1796,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
           ticketPollInitialized.current = true;
           for (const ticket of assignedCandidates) notifiedTicketKeys.current.add(assignedNotificationKey(ticket));
           if (assignedCandidates.length > 1) {
-            const title = 'Otto 待处理提醒 · 园区服务';
+            const title = 'ClawMaster 待处理提醒 · 园区服务';
             const body = `你有 ${assignedCandidates.length} 项尚未处理的园区任务，已为你汇总到待办列表。`;
             setBackgroundTicketSummaryCount(actionableTasks.length);
             showParkNotification({
@@ -1832,7 +1813,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
 
         if (assignedCandidates.length > 1) {
           for (const ticket of assignedCandidates) notifiedTicketKeys.current.add(assignedNotificationKey(ticket));
-          const title = 'Otto 新任务提醒 · 园区服务';
+          const title = 'ClawMaster 新任务提醒 · 园区服务';
           const body = `新收到 ${assignedCandidates.length} 项园区任务，当前共 ${actionableTasks.length} 项待处理。`;
           setBackgroundTicketSummaryCount(actionableTasks.length);
           showParkNotification({
@@ -1846,7 +1827,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
         } else if (assignedCandidates.length === 1) {
           const candidate = assignedCandidates[0];
           notifiedTicketKeys.current.add(assignedNotificationKey(candidate));
-          const title = 'Otto 待处理提醒 · 园区服务';
+          const title = 'ClawMaster 待处理提醒 · 园区服务';
           const body = `申请单 ${ticketApplicationNumber(candidate)} · ${candidate.title}`;
           showParkNotification({
             messageId: `park-ticket:${candidate.id}:${candidate.updatedAt}`,
@@ -1870,8 +1851,8 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
           if (notifiedTicketKeys.current.has(key)) continue;
           notifiedTicketKeys.current.add(key);
           const title = candidate.isCreator
-            ? 'Otto 园区服务进度提醒'
-            : 'Otto 园区任务状态提醒';
+            ? 'ClawMaster 园区服务进度提醒'
+            : 'ClawMaster 园区任务状态提醒';
           const body = `申请单 ${ticketApplicationNumber(candidate)} · ${candidate.title} · ${candidate.responseType || candidate.status}`;
           showParkNotification({
             messageId: `park-ticket:${candidate.id}:${candidate.updatedAt}`,
@@ -1886,13 +1867,13 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
             ...current.filter((ticket) => ticket.id !== candidate.id),
           ]);
         }
-      } catch {
+      } catch (error) {
+        if (isCommercialModuleNotEntitled(error)) unavailable = true;
         // 未登录、服务器暂不可达时安静重试；报修页打开后会显示具体错误。
       }
     };
-    void poll();
-    const timer = window.setInterval(() => { void poll(); }, 5000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    const stopPolling = startNonOverlappingPoll(poll, 5_000);
+    return () => { cancelled = true; stopPolling(); };
   }, [internalAdminPreview, parkEnabled]);
 
   const close = (): void => {
@@ -2326,14 +2307,14 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
   {(backgroundTicketSummaryCount || backgroundTickets.length || backgroundPublication) ? <div className="otto-park-toast-stack" aria-live="polite">
     {backgroundTicketSummaryCount ? (
       <button type="button" className="otto-park-toast otto-park-toast--result" onClick={openBackgroundTicketSummary} aria-label="打开园区待办汇总">
-        <span>Otto 园区服务</span>
+        <span>ClawMaster 园区服务</span>
         <strong>{backgroundTicketSummaryCount} 项任务待处理</strong>
         <em>已合并历史提醒 · 点击查看待办列表</em>
       </button>
     ) : null}
     {backgroundTickets.map((ticket) => (
       <button key={ticket.id} type="button" className="otto-park-toast otto-park-toast--result" onClick={() => openBackgroundTicket(ticket)} aria-label={`打开园区服务通知：${ticket.title}`}>
-        <span>Otto 园区服务</span>
+        <span>ClawMaster 园区服务</span>
         <strong>{ticket.isRecipient && !ticket.readAt ? '收到新的待处理申请' : '你的园区服务申请有新进展'}</strong>
         <em>{ticket.title} · {ticket.status} · 点击查看</em>
       </button>

@@ -105,7 +105,7 @@ function renderComposer(overrides: Partial<React.ComponentProps<typeof Composer>
       {...overrides}
     />,
   );
-  const textarea = screen.getByPlaceholderText('给 Otto 发送消息...');
+  const textarea = screen.getByPlaceholderText('给 ClawMaster 发送消息...');
   return { textarea, onSend, onNewChat, onClearContext, onOpenSettings };
 }
 
@@ -324,6 +324,17 @@ describe('Composer server 命令分派', () => {
     expect(options[0].textContent).toContain('/kb');
     fireEvent.keyDown(ta, { key: 'Enter' });
     expect(onRunServerCommand).toHaveBeenCalledWith('kb', '');
+  });
+
+  it('点击发送按钮也会执行精确匹配的 server 命令，不把命令发给模型', () => {
+    const { onRunServerCommand, onSend } = renderComposer();
+    const ta = screen.getByRole('textbox');
+    fireEvent.change(ta, { target: { value: '/kb search 报销' } });
+
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
+
+    expect(onRunServerCommand).toHaveBeenCalledWith('kb', 'search 报销');
+    expect(onSend).not.toHaveBeenCalled();
   });
 
   it('bareLocal：`/memory` 裸调走本地面板，`/memory add x` 走 server', () => {

@@ -3710,7 +3710,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
       accountSyncSnapshots: syncSnapshots,
       businessRecords: businessRecords.rows,
       securityNotice:
-        'E2EE message bodies remain ciphertext; client private keys are not held by Otto Server.',
+        'E2EE message bodies remain ciphertext; client private keys are not held by ClawMaster Server.',
     };
     await business.createBusinessRecord({
       organizationId: account.organizationId,

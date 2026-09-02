@@ -25,7 +25,7 @@ export class DoctorTool extends BaseTool<DoctorToolParams, ToolResult> {
   static readonly Name: string = 'doctor';
 
   constructor(_config: Config) {
-    const desc = `Health-check all external dependencies that Otto's capabilities rely on.
+    const desc = `Health-check all external dependencies that ClawMaster's capabilities rely on.
 
 EXAMPLES:
   Run full check: {action:"check"}
@@ -33,7 +33,7 @@ EXAMPLES:
 Probes: pandoc, libreoffice, typst, marp, duckdb, gnuplot, cliclick (mac),
 ffmpeg, whisper, ghostscript, pdfunite, and playwright (node module).
 Reports which are ready, which are missing, the per-platform install command,
-and which Otto capability each one powers.
+and which ClawMaster capability each one powers.
 
 Read-only and auto-approved. No prerequisites -- uses which/where + --version.`;
     super(DoctorTool.Name, 'Doctor', desc, Icon.Wrench, {

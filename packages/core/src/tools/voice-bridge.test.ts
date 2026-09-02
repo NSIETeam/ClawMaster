@@ -168,7 +168,7 @@ describe('VoiceBridgeTool', () => {
     expect(content).toContain('Capability check');
     expect(content).toContain('ffmpeg');
     expect(content).toContain('brew install ffmpeg');
-    expect(content).toContain('What Otto can do now');
+    expect(content).toContain('What ClawMaster can do now');
   });
 
   it('explains local transcription setup when whisper is missing and no user ASR key exists', async () => {
@@ -177,7 +177,7 @@ describe('VoiceBridgeTool', () => {
     const content = String(r.llmContent);
     expect(content).toContain('voice_bridge SETUP NEEDED');
     expect(content).toContain('Local speech-to-text: blocked');
-    expect(content).toContain('Otto local transcription');
+    expect(content).toContain('ClawMaster local transcription');
     expect(content).toContain('voice/transcription diagnostics');
     expect(content).toContain('OTTO_WHISPER_MODEL');
     expect(content).toContain('OPENAI_API_KEY');

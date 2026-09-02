@@ -13,8 +13,37 @@
  */
 
 const path = require('path');
+const fs = require('fs');
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+
+const rendererStyles = [
+  'src/renderer/styles/tokens.css',
+  'src/renderer/styles/app.css',
+  'src/renderer/styles/module-workspace.css',
+];
+
+class StaticRendererCssPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('StaticRendererCssPlugin', (compilation) => {
+      // Inject before HtmlWebpackPlugin's production post-processing so its
+      // built-in HTML/CSS minifier can compact this static stylesheet too.
+      HtmlWebpackPlugin.getHooks(compilation).afterTemplateExecution.tap(
+        'StaticRendererCssPlugin',
+        (data) => {
+          const css = rendererStyles
+            .map((relativePath) => fs.readFileSync(path.resolve(__dirname, relativePath), 'utf8'))
+            .join('\n');
+          data.html = data.html.replace(
+            '</head>',
+            `<style data-clawmaster-renderer>${css}</style></head>`,
+          );
+          return data;
+        },
+      );
+    });
+  }
+}
 
 module.exports = (_env, argv) => {
   const isProd = (argv && argv.mode) === 'production';
@@ -23,7 +52,12 @@ module.exports = (_env, argv) => {
     entry: path.resolve(__dirname, 'src/renderer/index.tsx'),
     output: {
       path: path.resolve(__dirname, 'dist/renderer'),
-      filename: 'main.js',
+      filename: isProd ? 'assets/[name].[contenthash:8].js' : 'main.js',
+      chunkFilename: isProd ? 'assets/[name].[contenthash:8].js' : '[name].main.js',
+      assetModuleFilename: 'assets/[name].[contenthash:8][ext]',
+      // Both file:// (Electron compatibility) and tauri:// resolve these paths
+      // from index.html without runtime-specific URL rewriting.
+      publicPath: '',
       // contextIsolation + sandbox 下没有 Node 的 `global`。electron-renderer
       // target 默认会让 chunk runtime 引用它，生产包因此在 React 挂载前白屏。
       globalObject: 'globalThis',
@@ -60,13 +94,10 @@ module.exports = (_env, argv) => {
           exclude: /node_modules/,
         },
         {
-          test: /\.css$/,
-          use: ['style-loader', 'css-loader'],
-        },
-        {
-          // 图片内联为 base64，避免 Electron file:// 下的外链资源解析。
+          // Keep images as offline, content-hashed files. Base64 inflates the
+          // renderer JavaScript and forces WebKit to parse every image at boot.
           test: /\.(png|jpe?g|gif|svg)$/i,
-          type: 'asset/inline',
+          type: 'asset/resource',
         },
       ],
     },
@@ -74,6 +105,9 @@ module.exports = (_env, argv) => {
       // Renderer 在 sandbox 中不能读取任意运行时环境变量。只在构建命令明确
       // 设置 OTTO_INTERNAL_TEST_ACCESS=1 时烘焙本地免登录入口；普通构建恒为关闭。
       new webpack.DefinePlugin({
+        // The large in-memory preview bridge contains demo data and exists only
+        // for browser UI inspection. Never ship it in a desktop renderer.
+        __CLAWMASTER_BROWSER_PREVIEW__: JSON.stringify(false),
         __OTTO_INTERNAL_TEST_ACCESS__: JSON.stringify(
           process.env.OTTO_INTERNAL_TEST_ACCESS === '1',
         ),
@@ -85,7 +119,25 @@ module.exports = (_env, argv) => {
         template: path.resolve(__dirname, 'src/renderer/index.html'),
         filename: 'index.html',
         inject: 'body',
+        // HtmlWebpackPlugin only compacts HTML by default. Because Tauri keeps
+        // the complete renderer stylesheet inline for reliable custom-protocol
+        // loading, explicitly compact inline CSS in production as well.
+        minify: isProd
+          ? {
+              collapseWhitespace: true,
+              keepClosingSlash: true,
+              minifyCSS: true,
+              removeComments: true,
+              removeRedundantAttributes: true,
+              removeScriptTypeAttributes: true,
+              removeStyleLinkTypeAttributes: true,
+              useShortDoctype: true,
+            }
+          : false,
       }),
+      // Tauri/WebKit production builds must not depend on runtime <style>
+      // injection or custom-protocol stylesheet loading. Embed at build time.
+      new StaticRendererCssPlugin(),
     ],
     performance: { hints: false },
   };

@@ -36,7 +36,7 @@ function emit(win: BrowserWindow | undefined, action: string): void {
 }
 
 export function buildAppMenu(getWindow: () => BrowserWindow | undefined): Menu {
-  const appName = app.name || 'Otto';
+  const appName = app.name || 'ClawMaster';
 
   const template: MenuItemConstructorOptions[] = [
     // ── macOS App 菜单 ──
@@ -147,9 +147,9 @@ export function buildAppMenu(getWindow: () => BrowserWindow | undefined): Menu {
           },
         },
         {
-          label: 'Otto on GitHub',
+          label: 'ClawMaster on GitHub',
           click: () => {
-            void shell.openExternal('https://github.com/NSIETeam/otto-new');
+            void shell.openExternal('https://github.com/NSIETeam/ClawMaster');
           },
         },
       ],

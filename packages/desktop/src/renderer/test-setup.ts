@@ -57,6 +57,8 @@ beforeEach(() => {
       enterpriseFederationAtoaDispatch: vi.fn(),
       enterpriseFederationAtoaRespond: vi.fn(),
       customerModuleInstalledList: vi.fn(async () => []),
+      communitySkillList: vi.fn(async () => []),
+      taskRuntimeSetActive: vi.fn(async (active: boolean) => active),
       workLogToday: vi.fn(async () => ({
         summary: '',
         date: new Date(0).toISOString().slice(0, 10),

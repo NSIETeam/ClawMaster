@@ -309,12 +309,28 @@ function LocalOutputPath({ value }: { value: string }): React.JSX.Element {
     }
   };
 
+  const editInWorkspace = (): void => {
+    window.dispatchEvent(new CustomEvent('clawmaster:edit-local-file', { detail: { path: value } }));
+  };
+
   if (!info?.exists) return <code>{value}</code>;
   const targetName = info.kind === 'directory' ? '文件夹' : '文件';
   return (
     <span className="otto-local-path">
       <code title={value}>{value}</code>
       <span className="otto-local-path__actions">
+        {info.kind === 'file' && info.canOpen ? (
+          <button
+            type="button"
+            className="otto-local-path__button"
+            title="在右侧编辑"
+            aria-label="在右侧编辑"
+            disabled={busy !== null}
+            onClick={editInWorkspace}
+          >
+            编辑
+          </button>
+        ) : null}
         {info.canOpen ? (
           <button
             type="button"

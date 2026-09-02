@@ -11,32 +11,14 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ScheduleItemInfo } from 'otto-server';
+import type {
+  ScheduleItemInfo,
+  WorkLogDay,
+  WorkLogSummary,
+} from 'otto-server';
 import { DayAgenda } from './DayAgenda.js';
 import { WorkLogCalendar } from './WorkLogCalendar.js';
 import { localDateKey } from '../localDateKey.js';
-
-interface WorkLogEntry {
-  time: string;
-  action: string;
-  taskTitle?: string;
-  entryType: string;
-  category?: string;
-  success?: boolean;
-  details?: string;
-}
-
-interface WorkLogDay {
-  date: string;
-  entries: WorkLogEntry[];
-}
-
-interface WorkSummary {
-  summary: string;
-  date: string;
-  totalActions: number;
-  workResults: number;
-}
 
 export interface WorkPageProps {
   schedules: readonly ScheduleItemInfo[];
@@ -55,7 +37,7 @@ export function WorkPage({
   onDeleteSchedule,
   onBack,
 }: WorkPageProps): React.JSX.Element {
-  const [workSummary, setWorkSummary] = useState<WorkSummary | null>(null);
+  const [workSummary, setWorkSummary] = useState<WorkLogSummary | null>(null);
   const [worklogDays, setWorklogDays] = useState<WorkLogDay[]>([]);
   const [worklogLoading, setWorklogLoading] = useState(false);
   const [workReportMessage, setWorkReportMessage] = useState('');

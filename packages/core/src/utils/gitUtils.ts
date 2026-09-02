@@ -47,7 +47,7 @@ export function isGitRepository(directory: string): boolean {
  * @param directory Starting directory to search from
  * @returns The git repository root path, or null if not in a git repository
  */
-export function findGitRoot(directory: string): string | null {
+function findGitRoot(directory: string): string | null {
   try {
     let currentDir = path.resolve(directory);
 
@@ -81,7 +81,7 @@ export function findGitRoot(directory: string): string | null {
  *   3. not found in cwd, walk up until repo root → return that `.git`
  * @returns Absolute path to the real .git directory, or null if not in a repo.
  */
-export function resolveGitDir(directory: string): string | null {
+function resolveGitDir(directory: string): string | null {
   try {
     const root = findGitRoot(directory);
     if (!root) return null;
@@ -149,26 +149,6 @@ function parseGitConfigRemotes(configPath: string): Record<string, string> | nul
 }
 
 /**
- * Reads HEAD and resolves it to a branch name or short hash.
- * Works without invoking `git` — reads `.git/HEAD` directly.
- */
-function readGitHeadBranch(gitDir: string): string | null {
-  try {
-    const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf-8').trim();
-    // Symbolic ref: "ref: refs/heads/main"
-    const refMatch = head.match(/^ref:\s*refs\/heads\/(.+)$/);
-    if (refMatch) return refMatch[1].trim();
-    // Detached HEAD — full hash; return short form
-    if (/^[0-9a-f]{40}$/i.test(head) || /^[0-9a-f]{64}$/i.test(head)) {
-      return head.slice(0, 7);
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Wrapper around execSync that is more forgiving on Windows:
  *   - `windowsHide: true` prevents any console window from flashing (critical for
  *     packaged/Electron-hosted CLIs where a CMD black box would otherwise blink)
@@ -220,7 +200,7 @@ function safeExecGit(cmd: string, cwd: string): string | null {
  * @param directory The directory within the git repository
  * @returns A record of remote name → sanitized URL, or null if unavailable
  */
-export function getGitRemotes(directory: string): Record<string, string> | null {
+function getGitRemotes(directory: string): Record<string, string> | null {
   // --- Strategy 1 & 2: invoke git ---
   const output = safeExecGit('git remote -v', directory);
   if (output) {
@@ -254,73 +234,6 @@ export function getGitRemotes(directory: string): Record<string, string> | null 
   const gitDir = resolveGitDir(directory);
   if (!gitDir) return null;
   return parseGitConfigRemotes(path.join(gitDir, 'config'));
-}
-
-/**
- * Gets the current branch name of the git repository.
- * Returns the short commit hash if in detached HEAD state.
- *
- * Strategy (with fallbacks):
- *   1. `git rev-parse --abbrev-ref HEAD`
- *   2. Read `.git/HEAD` directly (no git binary required)
- *
- * @param directory The directory within the git repository
- * @returns The branch name or short hash, or null if unavailable
- */
-export function getGitBranch(directory: string): string | null {
-  // --- Strategy 1: invoke git ---
-  const branch = safeExecGit('git rev-parse --abbrev-ref HEAD', directory);
-  if (branch && branch !== 'HEAD') return branch;
-  if (branch === 'HEAD') {
-    // Detached — try short hash via git
-    const short = safeExecGit('git rev-parse --short HEAD', directory);
-    if (short) return short;
-  }
-
-  // --- Strategy 2: read .git/HEAD directly ---
-  const gitDir = resolveGitDir(directory);
-  if (!gitDir) return null;
-  return readGitHeadBranch(gitDir);
-}
-
-/**
- * Scans immediate subdirectories for git repositories and collects their remote & branch info.
- * Used as a fallback when the current working directory itself is not a git repository,
- * but contains multiple project subdirectories that are.
- * @param directory The parent directory to scan
- * @returns Array of { name, remotes, branch } for each git-enabled subdirectory, or empty array
- */
-export function getSubdirectoryGitInfos(directory: string): Array<{
-  name: string;
-  remotes: Record<string, string>;
-  branch: string | null;
-}> {
-  try {
-    const resolvedDir = path.resolve(directory);
-    const entries = fs.readdirSync(resolvedDir, { withFileTypes: true });
-    const results: Array<{ name: string; remotes: Record<string, string>; branch: string | null }> = [];
-
-    for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
-      // 跳过含非 ASCII 字符的目录名（如中文），避免 HTTP header 中出现非 Latin-1 字符导致 ByteString 错误
-      if (!/^[\x20-\x7E]+$/.test(entry.name)) continue;
-      const subDir = path.join(resolvedDir, entry.name);
-      const gitMarker = path.join(subDir, '.git');
-      if (!fs.existsSync(gitMarker)) continue;
-
-      const remotes = getGitRemotes(subDir);
-      if (!remotes) continue;
-
-      results.push({
-        name: entry.name,
-        remotes,
-        branch: getGitBranch(subDir),
-      });
-    }
-    return results;
-  } catch (_error) {
-    return [];
-  }
 }
 
 /**

@@ -197,7 +197,7 @@ export async function installCustomerModule(input: {
   const bundle = decodeCustomerModulePackageV1(Uint8Array.from(Buffer.from(downloaded.archive, 'base64')));
   const manifest = parseCustomerModuleManifest(bundle.manifest);
   if (manifest.id !== input.moduleId || manifest.version !== input.version) throw new Error('客户模块包身份不匹配');
-  if (!isVersionCompatible(input.ottoVersion, manifest.minimumOttoVersion)) throw new Error(`客户模块要求 Otto ${manifest.minimumOttoVersion} 或更高版本`);
+  if (!isVersionCompatible(input.ottoVersion, manifest.minimumOttoVersion)) throw new Error(`客户模块要求 ClawMaster ${manifest.minimumOttoVersion} 或更高版本`);
   if (!verifyCustomerModuleSignature(manifest, trustedKeys())) throw new Error('客户模块市场签名不可信');
   const declared = new Set(manifest.permissions.map(permissionKey));
   const approved = new Set(input.approvedPermissions.map(permissionKey));

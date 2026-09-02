@@ -13,6 +13,7 @@
 
 import type { WorkLogEntry } from './workLog.js';
 import { formatLocalDate, getWorkLogger } from './workLog.js';
+import { RecurringTaskRegistry } from '../services/recurringTaskRegistry.js';
 
 /** 智能洞察：一条从工作日志分析出的可执行提醒 */
 export interface WisdomNudge {
@@ -406,7 +407,8 @@ export class ProactiveService {
   private triggeredDate = formatLocalDate(new Date());
   private feishuSender: ProactiveFeishuSender | null = null;
   private localNotifier: ProactiveLocalNotifier | null = null;
-  private timer: ReturnType<typeof setInterval> | null = null;
+  private schedulerRegistry: RecurringTaskRegistry | null = null;
+  private stopSchedulerTask: (() => void) | undefined;
   private calendarChecker: CalendarCheckerFn | null = null;
   private processedMeetings: Set<string> = new Set();
   /** 已提醒过的日程ID集合（防重复） */
@@ -428,8 +430,16 @@ export class ProactiveService {
   }
 
   startScheduler(getContext: () => ProactiveContext): void {
-    if (this.timer) return;
-    this.timer = setInterval(async () => {
+    if (this.stopSchedulerTask) return;
+    this.schedulerRegistry = new RecurringTaskRegistry();
+    this.stopSchedulerTask = this.schedulerRegistry.register({
+      name: 'proactive-service-scheduler',
+      source: 'packages/core/src/orchestration/proactiveService.ts',
+      intervalMs: 60 * 1000,
+      initialDelayMs: 60 * 1000,
+      estimatedCostUsdPerRun: 0,
+      getInputVersion: () => String(Math.floor(Date.now() / 60_000)),
+      run: async () => {
       try {
         const ctx = getContext();
 
@@ -503,14 +513,17 @@ export class ProactiveService {
       } catch (err) {
         console.warn(`[ProactiveService] Scheduler error: ${err instanceof Error ? err.message : String(err)}`);
       }
-    }, 60 * 1000);
+      },
+    });
     console.log('[ProactiveService] Scheduler started (1min interval)');
   }
 
   stopScheduler(): void {
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
+    if (this.stopSchedulerTask) {
+      this.stopSchedulerTask();
+      this.stopSchedulerTask = undefined;
+      this.schedulerRegistry?.stopAll();
+      this.schedulerRegistry = null;
       console.log('[ProactiveService] Scheduler stopped');
     }
   }

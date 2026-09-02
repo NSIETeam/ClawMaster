@@ -4,7 +4,7 @@
 
 export function adminDashboardHTML(): string {
   return `<!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Otto Enterprise Dashboard</title>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ClawMaster Enterprise Dashboard</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,'PingFang SC',Helvetica,Arial,sans-serif}
 body{background:#0f172a;color:#e2e8f0;padding:24px}
@@ -40,7 +40,7 @@ td{padding:10px 12px;border-top:1px solid #334155;font-size:13px}
 .auth-notice p{margin:0 0 10px;line-height:1.6}.auth-notice form{display:flex;gap:8px;flex-wrap:wrap}.auth-notice input{min-width:260px;flex:1;padding:9px 11px;border:1px solid #475569;border-radius:7px;background:#0f172a;color:#f8fafc}.auth-notice button,.auth-notice a{display:inline-block;padding:9px 12px;border:1px solid #60a5fa;border-radius:7px;background:#2563eb;color:#fff;text-decoration:none;cursor:pointer}.auth-notice a{background:transparent}.hidden{display:none!important}
 </style>
 </head><body>
-<div class="header"><h1>Otto Enterprise</h1><span id="updateTime"></span></div>
+<div class="header"><h1>ClawMaster Enterprise</h1><span id="updateTime"></span></div>
 <div class="note" id="discloseNote">数据全部存在本机 <b>~/.otto-enterprise/data.db</b>，零云端。标 <b>估算</b> 的指标基于假设，非实测。</div>
 <section id="authNotice" class="auth-notice hidden" aria-labelledby="authTitle">
   <p id="authTitle">看板需要管理员会话。可先前往账号管理登录，或粘贴服务器生成的平台管理令牌；令牌只保存在当前标签页。</p>
@@ -129,7 +129,7 @@ async function load(){
     const est='<span class="est">估算</span>';
     const a=report.assumptions||{manualTimeMultiplier:2,cnyPerHour:50};
     // 披露文案直接引用后端返回的假设常量，不再手写数字，杜绝文案与代码打架。
-    document.getElementById('discloseNote').innerHTML='数据全部存在本机 <b>~/.otto-enterprise/data.db</b>，零云端。标 '+est+' 的指标基于假设（纯人工耗时按 <b>'+a.manualTimeMultiplier+'×</b> Otto 折算、人力 <b>¥'+a.cnyPerHour+'/时</b>），非实测。省时 = Otto 耗时 ×（倍率−1），只算净节省、不双算。';
+    document.getElementById('discloseNote').innerHTML='数据全部存在本机 <b>~/.otto-enterprise/data.db</b>，零云端。标 '+est+' 的指标基于假设（纯人工耗时按 <b>'+a.manualTimeMultiplier+'×</b> ClawMaster 折算、人力 <b>¥'+a.cnyPerHour+'/时</b>），非实测。省时 = ClawMaster 耗时 ×（倍率−1），只算净节省、不双算。';
     const cards=[
       {l:'总任务数',v:report.totalTasks,c:'blue',s:'近 30 天',e:0},
       {l:'省下时间',v:report.timeSavedHours+'h',c:'green',s:'约 '+(report.timeSavedHours/8).toFixed(1)+' 个工作日（净节省）',e:1},
@@ -137,7 +137,7 @@ async function load(){
       {l:'Token 成本',v:'¥'+report.tokenCostCNY,c:'orange',s:(report.totalTokens||0)+' tokens',e:0},
       {l:'净收益',v:'¥'+report.netBenefitCNY,c:(report.netBenefitCNY>=0?'green':'orange'),s:'省下人力 − Token 成本',e:1},
       {l:'每 ¥1 Token 产出',v:'¥'+report.laborPerTokenCNY,c:'blue',s:report.laborPerTokenCapped?('已封顶 ¥'+(a.laborPerTokenCap||50)+'（估算，防极端值）'):'估算省下的人力（非纯倍率）',e:1},
-      {l:'活跃员工',v:report.activeEmployees,c:'blue',s:'正在使用 Otto',e:0},
+      {l:'活跃员工',v:report.activeEmployees,c:'blue',s:'正在使用 ClawMaster',e:0},
     ];
     document.getElementById('cards').innerHTML=cards.map(c=>'<div class="card"><div class="label">'+c.l+(c.e?est:'')+'</div><div class="value '+c.c+'">'+c.v+'</div><div class="sub">'+c.s+'</div></div>').join('');
     document.getElementById('barChart').innerHTML=barChartSVG(report.byType);

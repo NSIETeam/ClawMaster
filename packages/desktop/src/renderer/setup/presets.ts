@@ -10,8 +10,8 @@
  * 设计取舍（Issue #7）：
  *   - 渲染层 **只能** import type otto-server / otto-core（纯类型），不得引运行时值，
  *     否则会把 core 运行时打进 renderer bundle（nodeIntegration:false 下崩）。
- *     因此这里 **复刻** core 的 `CustomModelConfig` 形状与 `generateCustomModelId`
- *     算法（与 packages/core/src/types/customModel.ts 完全同算法），不 import 它们。
+ *     因此这里仅复刻向导需要的 `CustomModelConfig` 形状，不 import 运行时实现；
+ *     模型 ID 由 Server 使用 core 的统一算法生成，Renderer 不保留第二份实现。
  *   - provider 与落盘格式必须与 CLI/server 完全一致：
  *     文件 `~/.otto-user/custom-models.json`，结构 `{ models: CustomModelConfig[], _metadata }`。
  *     校验逻辑也复刻 core 的 `validateCustomModelConfig`（保持错误等价）。
@@ -206,29 +206,6 @@ export function effectiveModelIds(form: SetupFormState): string[] {
     s.trim(),
   );
   return Array.from(new Set(all.filter(Boolean)));
-}
-
-/**
- * 复刻 core `generateCustomModelId`：`custom:{provider}:{modelId}@{baseUrlHash}`。
- * 算法逐字符与 packages/core/src/types/customModel.ts 对齐，保证 desktop 生成的 id
- * 与 server `listModelInfos()` 出来的 id 一致（选中后 set_model 能命中）。
- */
-export function generateCustomModelId(cfg: {
-  provider: string;
-  baseUrl: string;
-  modelId: string;
-}): string {
-  const hashString = (str: string): string => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(36).substring(0, 6);
-  };
-  const baseUrlHash = hashString(cfg.baseUrl);
-  return `custom:${cfg.provider}:${cfg.modelId}@${baseUrlHash}`;
 }
 
 /** 把表单构造成落盘 CustomModelConfig（去掉末尾斜杠，与 CLI 行为一致）。 */

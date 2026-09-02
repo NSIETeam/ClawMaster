@@ -14,7 +14,6 @@ import {
   Database,
 } from './modules/data_platform/index.js';
 import { PRODUCT_MODULES } from './productModules.js';
-import { Database as LegacyDatabase } from './sqlite-compat.js';
 
 const sourceRoot = path.resolve(import.meta.dirname);
 const moduleDirectory = path.join(sourceRoot, 'modules', 'data_platform');
@@ -43,16 +42,8 @@ describe('data_platform storage kernel', () => {
     expect(createEnterpriseBackupFacade).toBeTypeOf('function');
   });
 
-  it('keeps the legacy sqlite path as an alias of the module implementation', () => {
-    expect(LegacyDatabase).toBe(Database);
-    const legacySource = fs.readFileSync(
-      path.join(sourceRoot, 'sqlite-compat.ts'),
-      'utf8',
-    );
-    expect(legacySource).toMatch(
-      /^export \* from ['"]\.\/modules\/data_platform\/index\.js['"];$/m,
-    );
-    expect(legacySource).not.toMatch(/\bclass\s+Database\b/);
+  it('does not keep the legacy sqlite compatibility entrypoint', () => {
+    expect(fs.existsSync(path.join(sourceRoot, 'sqlite-compat.ts'))).toBe(false);
   });
 
   it('supports named and positional parameters while normalizing undefined to SQL null', () => {
@@ -79,7 +70,6 @@ describe('data_platform storage kernel', () => {
 
   it('routes production database imports through the data_platform public entrypoint', () => {
     const offenders = productionTypeScriptFiles(sourceRoot)
-      .filter((file) => file !== path.join(sourceRoot, 'sqlite-compat.ts'))
       .filter((file) =>
         /from ['"][^'"]*sqlite-compat\.js['"]/.test(
           fs.readFileSync(file, 'utf8'),
@@ -122,7 +112,9 @@ describe('data_platform storage kernel', () => {
     );
     expect(databaseFacade).toContain('createDataPlatformComposition');
     expect(databaseFacade).not.toContain('createEnterpriseDatabaseLifecycle');
-    expect(databaseFacade).toContain("from '../modules/data_platform/index.js'");
+    expect(databaseFacade).toContain(
+      "from '../modules/data_platform/dataPlatformComposition.js'",
+    );
     expect(databaseFacade).toContain('initializeSchema: initSchema');
     expect(databaseFacade).not.toMatch(/\blet db:\s*Database/);
     expect(databaseFacade).not.toContain('new Database(DB_PATH)');

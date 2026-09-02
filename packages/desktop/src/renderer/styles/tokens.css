@@ -23,11 +23,22 @@
   --otto-border: #e5e5ea;
   --otto-border-strong: #d1d1d6;
 
+  /* Compatibility aliases used by shared subpages. They resolve through the
+   * active palette instead of silently invalidating an entire CSS property. */
+  --otto-text-primary: var(--otto-text);
+  --otto-bg-secondary: var(--otto-surface-raised);
+  --otto-surface-hover: color-mix(in srgb, var(--otto-text) 7%, var(--otto-surface));
+  --otto-surface-subtle: var(--otto-surface-raised);
+  --otto-border-subtle: var(--otto-border);
+  --otto-shadow-soft: var(--otto-shadow-card);
+
   /* —— amber 强调 —— */
   --otto-accent: #007aff;
   --otto-accent-hover: #0066d6;
   --otto-accent-soft: rgba(0, 122, 255, 0.1);
   --otto-accent-gradient: var(--otto-accent);
+  --otto-accent-contrast: #ffffff;
+  --otto-amber: var(--otto-accent);
 
   /* —— 语义来源徽章 —— */
   --otto-feishu-fg: #0284c7;
@@ -56,6 +67,12 @@
   --otto-success: #4b5563;
   --otto-danger: #4b5563;
   --otto-running: #0284c7;
+  --otto-warning: #9a6700;
+  --otto-warning-soft: color-mix(in srgb, var(--otto-warning) 11%, var(--otto-surface));
+  --otto-data-system: #0284c7;
+  --otto-data-tools: #7c5ac7;
+  --otto-data-memory: #2f8f68;
+  --otto-data-messages: #9a6700;
 
   /* —— 行内代码 —— */
   --otto-code-bg: #f1f1f3;
@@ -76,6 +93,7 @@
   --otto-shadow-focus: 0 0 0 3px rgba(232, 137, 58, 0.2);
   /* 顶栏滚动分隔 hairline */
   --otto-hairline: rgba(28, 25, 23, 0.08);
+  --otto-overlay-scrim: rgba(16, 19, 25, 0.42);
 
   /* —— 字体 —— */
   --otto-font:
@@ -151,6 +169,11 @@
     --otto-success: #a3a29d;
     --otto-danger: #a3a29d;
     --otto-running: #7dd3fc;
+    --otto-warning: #e6b450;
+    --otto-data-system: #7dd3fc;
+    --otto-data-tools: #c4b5fd;
+    --otto-data-memory: #6ee7b7;
+    --otto-data-messages: #fcd34d;
 
     /* —— 行内代码（暗底 + 提亮暖橙文字，保对比）—— */
     --otto-code-bg: #2a2825;
@@ -167,6 +190,7 @@
     --otto-shadow-focus: 0 0 0 3px rgba(163, 162, 157, 0.32);
     /* 顶栏滚动分隔 hairline：暗底用浅色低透明 */
     --otto-hairline: rgba(255, 255, 255, 0.1);
+    --otto-overlay-scrim: rgba(0, 0, 0, 0.58);
   }
 }
 
@@ -196,6 +220,21 @@ button {
   font-family: inherit;
 }
 
+/* Accessible labels remain available to assistive technology without becoming
+ * visible when a feature surface is moved into a portal. Keep this primitive
+ * global because dialogs and full-page views both use it. */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 /* 细滚动条，贴桌面观感 */
 ::-webkit-scrollbar {
   width: 9px;
@@ -213,6 +252,121 @@ button {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* Mirror Electron's resolved theme onto the renderer. This explicit override
+ * keeps detached right-rail surfaces correct even if Chromium delays a media
+ * query repaint after nativeTheme.themeSource changes. */
+:root[data-otto-theme='light'] {
+  --otto-bg: #ffffff;
+  --otto-sidebar-bg: #f5f5f7;
+  --otto-surface: #ffffff;
+  --otto-surface-raised: #fbfbfc;
+  --otto-text: #1d1d1f;
+  --otto-text-secondary: #8a8a8e;
+  --otto-text-tertiary: #aeaeb2;
+  --otto-border: #e5e5ea;
+  --otto-border-strong: #d1d1d6;
+  --otto-accent: #007aff;
+  --otto-accent-hover: #0066d6;
+  --otto-accent-soft: rgba(0, 122, 255, 0.1);
+  --otto-accent-gradient: var(--otto-accent);
+  --otto-accent-contrast: #ffffff;
+  --otto-success: #4b5563;
+  --otto-danger: #4b5563;
+  --otto-running: #0284c7;
+  --otto-warning: #9a6700;
+  --otto-data-system: #0284c7;
+  --otto-data-tools: #7c5ac7;
+  --otto-data-memory: #2f8f68;
+  --otto-data-messages: #9a6700;
+  --otto-user-bubble: #f2f2f3;
+  --otto-user-bubble-border: #dedee0;
+  --otto-user-bubble-text: #1d1d1f;
+  --otto-code-bg: #f1f1f3;
+  --otto-code-text: #4b4b4f;
+  --otto-shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04), 0 2px 8px rgba(28, 25, 23, 0.05);
+  --otto-shadow: 0 4px 16px rgba(28, 25, 23, 0.08);
+  --otto-shadow-pop: 0 8px 28px rgba(28, 25, 23, 0.13), 0 2px 6px rgba(28, 25, 23, 0.06);
+  --otto-hairline: rgba(28, 25, 23, 0.08);
+  --otto-overlay-scrim: rgba(16, 19, 25, 0.42);
+}
+
+:root[data-otto-theme='dark'] {
+  --otto-bg: #1c1c1e;
+  --otto-sidebar-bg: #242426;
+  --otto-surface: #2c2c2e;
+  --otto-surface-raised: #363638;
+  --otto-text: #f5f5f7;
+  --otto-text-secondary: #b8b8bd;
+  --otto-text-tertiary: #8e8e93;
+  --otto-border: #3a3a3c;
+  --otto-border-strong: #636366;
+  --otto-accent: #0a84ff;
+  --otto-accent-hover: #409cff;
+  --otto-accent-soft: rgba(10, 132, 255, 0.18);
+  --otto-accent-gradient: var(--otto-accent);
+  --otto-accent-contrast: #ffffff;
+  --otto-success: #a3a29d;
+  --otto-danger: #a3a29d;
+  --otto-running: #7dd3fc;
+  --otto-warning: #e6b450;
+  --otto-data-system: #7dd3fc;
+  --otto-data-tools: #c4b5fd;
+  --otto-data-memory: #6ee7b7;
+  --otto-data-messages: #fcd34d;
+  --otto-user-bubble: #3a2c20;
+  --otto-user-bubble-border: #55402e;
+  --otto-user-bubble-text: #f2dcc7;
+  --otto-code-bg: #2a2825;
+  --otto-code-text: #d0d0cc;
+  --otto-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.36);
+  --otto-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --otto-shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --otto-hairline: rgba(255, 255, 255, 0.1);
+  --otto-overlay-scrim: rgba(0, 0, 0, 0.58);
+}
+
+/* macOS “Increase contrast” and equivalent browser settings must strengthen
+ * the same shared palette instead of creating a second component theme. */
+@media (prefers-contrast: more) {
+  :root {
+    --otto-text-secondary: var(--otto-text);
+    --otto-text-tertiary: var(--otto-text-secondary);
+    --otto-border: color-mix(in srgb, var(--otto-text) 55%, transparent);
+    --otto-border-strong: var(--otto-text);
+    --otto-hairline: color-mix(in srgb, var(--otto-text) 65%, transparent);
+    --otto-shadow-focus: 0 0 0 3px var(--otto-text);
+  }
+
+  .otto-right-panel {
+    border-left: 1px solid var(--otto-border-strong);
+  }
+}
+
+/* Windows forced-colour mode also appears in Electron. System colours keep
+ * module cards, controls and SVG currentColor legible without per-page hacks. */
+@media (forced-colors: active) {
+  :root {
+    --otto-bg: Canvas;
+    --otto-sidebar-bg: Canvas;
+    --otto-surface: Canvas;
+    --otto-surface-raised: Canvas;
+    --otto-text: CanvasText;
+    --otto-text-secondary: CanvasText;
+    --otto-text-tertiary: GrayText;
+    --otto-border: ButtonBorder;
+    --otto-border-strong: CanvasText;
+    --otto-accent: Highlight;
+    --otto-accent-hover: Highlight;
+    --otto-accent-soft: Canvas;
+    --otto-accent-contrast: HighlightText;
+    --otto-shadow-focus: 0 0 0 3px Highlight;
+  }
+
+  .otto-right-panel {
+    border-left: 1px solid var(--otto-border-strong);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

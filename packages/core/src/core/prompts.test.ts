@@ -70,7 +70,7 @@ describe('prompts', () => {
 
     it('should use CLI instructions when isVSCode is false', () => {
       const prompt = getCoreSystemPrompt(undefined, false);
-      expect(prompt).toContain('runs in their terminal and inside Feishu');
+      expect(prompt).toContain('runs locally on their computer');
     });
 
     it('should include Feishu-specific instructions when isFeishu is true', () => {
@@ -121,11 +121,11 @@ describe('prompts', () => {
       ['claude-code', 'DIRECT DEVELOPMENT MODE'],
       ['antigravity', 'ENTERPRISE OFFICE MODE'],
       ['windsurf', 'COLLABORATIVE PROGRESS MODE'],
-    ] as const)('keeps legacy style id %s while presenting an Otto work mode', (style, heading) => {
+    ] as const)('keeps legacy style id %s while presenting a ClawMaster work mode', (style, heading) => {
       const prompt = getCoreSystemPrompt(undefined, false, undefined, style);
 
       expect(prompt).toContain(heading);
-      expect(prompt).toContain('Otto');
+      expect(prompt).toContain('ClawMaster');
       expect(prompt).not.toMatch(
         /CODEX MODE|CURSOR MODE|AUGMENT MODE|ANTIGRAVITY MODE|WINDSURF MODE|powered by GPT-5|You are Augment Agent|You are Antigravity|You are Cascade|augment_code_snippet|AI Flow/i,
       );

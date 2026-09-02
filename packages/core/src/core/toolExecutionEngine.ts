@@ -219,6 +219,28 @@ function resolveUserId(config: Config): string {
   return provider.getFeishuUser?.() || userInfo().username;
 }
 
+const PLAN_MODE_READ_ONLY_TOOLS = new Set([
+  'analyze_video',
+  'ask_user_question',
+  'audio_reader',
+  'diagnose_system',
+  'doctor',
+  'glob',
+  'image_reader',
+  'list_directory',
+  'lsp',
+  'read_file',
+  'read_lints',
+  'read_many_files',
+  'search_file_content',
+  'web_fetch',
+  'web_search',
+]);
+
+export function isPlanModeReadOnlyTool(toolName: string): boolean {
+  return PLAN_MODE_READ_ONLY_TOOLS.has(toolName.trim().toLowerCase());
+}
+
 /**
  * 工具执行引擎配置选项
  */
@@ -716,6 +738,24 @@ export class ToolExecutionEngine {
             response: createErrorResponse(
               reqInfo,
               new Error(errorMessage),
+            ),
+            durationMs: 0,
+            agentContext,
+          };
+        }
+
+        if (
+          this.config.getPlanModeActive?.() === true
+          && !isPlanModeReadOnlyTool(reqInfo.name)
+        ) {
+          return {
+            status: 'error',
+            request: reqInfo,
+            response: createErrorResponse(
+              reqInfo,
+              new Error(
+                `计划模式只允许只读调研工具，已阻止 ${reqInfo.name}。使用 /plan off 退出计划模式后再执行修改。`,
+              ),
             ),
             durationMs: 0,
             agentContext,

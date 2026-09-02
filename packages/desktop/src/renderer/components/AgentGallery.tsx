@@ -66,12 +66,12 @@ export function AgentGallery({
         <IconAgent size={20} className="otto-agents__headicon" />
         <div className="otto-agents__headtext">
           <div className="otto-agents__title">
-            {enterpriseMode ? '企业工作 Agent 目录' : '个人 Otto'}
+            {enterpriseMode ? '企业工作 Agent 目录' : '个人 ClawMaster'}
           </div>
           <div className="otto-agents__subtitle">
             {enterpriseMode
               ? '选择一位企业工作 Agent，在独立会话中完成对应工作'
-              : '使用个人 Otto 开始独立工作会话'}
+              : '使用个人 ClawMaster 开始独立工作会话'}
           </div>
         </div>
         <button

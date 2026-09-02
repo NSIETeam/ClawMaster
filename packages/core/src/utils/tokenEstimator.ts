@@ -127,17 +127,9 @@ export function estimateHistoryTokens(
 }
 
 /**
- * 快速估算单个 Content 的 token 数
- */
-export function estimateContentTokens(content: Content): number {
-  const text = contentToText(content);
-  return estimateTextTokens(text);
-}
-
-/**
  * 计算内容哈希（用于缓存判断）
  */
-export function computeContentHash(content: Content): string {
+function computeContentHash(content: Content): string {
   const text = contentToText(content);
   let hash = 0;
   for (let i = 0; i < text.length; i++) {

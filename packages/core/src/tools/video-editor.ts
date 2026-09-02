@@ -45,7 +45,7 @@ export class VideoEditorTool extends BaseTool<VideoEditorToolParams, ToolResult>
   private readonly managedChildren = new Set<ChildProcess>();
 
   constructor(private readonly config: Config) {
-    const desc = `Built-in Video Editor (OpenReel) - Professional browser-based video editing, bundled with Otto.
+    const desc = `Built-in Video Editor (OpenReel) - Professional browser-based video editing, bundled with ClawMaster.
 
 ACTIONS:
   open:        Launch the video editor in a new window.

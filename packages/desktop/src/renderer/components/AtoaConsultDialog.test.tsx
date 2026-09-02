@@ -76,7 +76,7 @@ describe('双方 Otto 协商发起弹窗', () => {
       target: { value: '协商明天的接口评审时间和分工' },
     });
     fireEvent.click(screen.getByRole('checkbox', { name: /日程/ }));
-    fireEvent.click(screen.getByRole('button', { name: '让我的 Otto 生成提案' }));
+    fireEvent.click(screen.getByRole('button', { name: '让我的 ClawMaster 生成提案' }));
 
     await screen.findByText('建议 16:30 评审，先审接口，仍需双方确认。');
     expect(collectContext).toHaveBeenCalledWith(['schedules']);
@@ -87,7 +87,7 @@ describe('双方 Otto 协商发起弹窗', () => {
     });
     expect(sendMessage).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: '确认发送给对方 Otto' }));
+    fireEvent.click(screen.getByRole('button', { name: '确认发送给对方 ClawMaster' }));
     await waitFor(() => expect(sendMessage).toHaveBeenCalledOnce());
     const parsed = parseAtoaMessage(sendMessage.mock.calls[0][1]);
     expect(parsed).toMatchObject({
@@ -123,7 +123,7 @@ describe('双方 Otto 协商发起弹窗', () => {
     fireEvent.change(screen.getByLabelText('协商目标'), {
       target: { value: '协商会议' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '让我的 Otto 生成提案' }));
+    fireEvent.click(screen.getByRole('button', { name: '让我的 ClawMaster 生成提案' }));
     await screen.findByText('可先询问双方候选时间。');
     expect(collectContext).toHaveBeenCalledWith([]);
   });

@@ -14,7 +14,7 @@
  * 数据源（v2 — 方案 B）：
  *   本引擎不再依赖独立的 memory-index.json 作为唯一输入，而是直接扫描用户
  *   已有的记忆存储文件：
- *     - ~/.otto-user/memory/global.md   (save_memory 写入，## Otto Added Memories)
+ *     - ~/.otto-user/memory/global.md   (save_memory 写入 ClawMaster 记忆段落)
  *     - ~/.otto-user/knowledge/entries.jsonl (knowledge_base 写入，JSONL)
  *
  *   每个维护周期重新扫描这些源文件，构建内存索引，检测跨源重复和相似条目，
@@ -166,7 +166,16 @@ const DEFAULT_TOKEN_ESTIMATOR: TokenEstimator = {
   },
 };
 
-const MEMORY_SECTION_HEADER = '## Otto Added Memories';
+const MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
+const LEGACY_MEMORY_SECTION_HEADER = '## Otto Added Memories';
+
+function findMemorySectionHeader(raw: string): { header: string; index: number } | null {
+  for (const header of [MEMORY_SECTION_HEADER, LEGACY_MEMORY_SECTION_HEADER]) {
+    const index = raw.indexOf(header);
+    if (index >= 0) return { header, index };
+  }
+  return null;
+}
 
 // ============================================================
 // 自动记忆合并/分割引擎
@@ -189,7 +198,7 @@ export class AutoMemoryEngine {
 
   /**
    * 扫描所有源文件，构建内存条目索引。
-   * 数据源：global.md (## Otto Added Memories) + entries.jsonl (JSONL)
+   * 数据源：global.md (ClawMaster 记忆段落，兼容旧 Otto 标题) + entries.jsonl (JSONL)
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -238,7 +247,7 @@ export class AutoMemoryEngine {
   /**
    * 解析 global.md 中的记忆条目。
    * 格式：
-   *   ## Otto Added Memories
+   *   ## ClawMaster Added Memories
    *   - fact 1
    *   - fact 2
    */
@@ -251,11 +260,11 @@ export class AutoMemoryEngine {
     }
 
     const entries: MemoryEntry[] = [];
-    const headerIdx = raw.indexOf(MEMORY_SECTION_HEADER);
-    if (headerIdx < 0) return entries;
+    const memorySection = findMemorySectionHeader(raw);
+    if (!memorySection) return entries;
 
     // 取出 header 之后、下一个 ## section 之前的所有内容
-    const afterHeader = raw.substring(headerIdx + MEMORY_SECTION_HEADER.length);
+    const afterHeader = raw.substring(memorySection.index + memorySection.header.length);
     const nextSection = afterHeader.indexOf('\n## ');
     const sectionBody =
       nextSection >= 0 ? afterHeader.substring(0, nextSection) : afterHeader;
@@ -370,11 +379,11 @@ export class AutoMemoryEngine {
       return { before: 0, after: 0, removed: 0 };
     }
 
-    const headerIdx = raw.indexOf(MEMORY_SECTION_HEADER);
-    if (headerIdx < 0) return { before: 0, after: 0, removed: 0 };
+    const memorySection = findMemorySectionHeader(raw);
+    if (!memorySection) return { before: 0, after: 0, removed: 0 };
 
-    const before = raw.substring(0, headerIdx + MEMORY_SECTION_HEADER.length);
-    const afterHeader = raw.substring(headerIdx + MEMORY_SECTION_HEADER.length);
+    const before = raw.substring(0, memorySection.index + memorySection.header.length);
+    const afterHeader = raw.substring(memorySection.index + memorySection.header.length);
     const nextSection = afterHeader.indexOf('\n## ');
     const after = nextSection >= 0 ? afterHeader.substring(nextSection) : '';
 

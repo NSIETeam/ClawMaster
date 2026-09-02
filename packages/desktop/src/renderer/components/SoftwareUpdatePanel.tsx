@@ -39,12 +39,12 @@ function formatCheckedAt(ts: number | null): string | null {
 /** 按安装包扩展名给对应平台的安装指引（renderer 不直接感知 process.platform）。 */
 export function installHintForFile(filePath: string | null): string {
   if (filePath?.toLowerCase().endsWith('.exe')) {
-    return '点击后将后台静默安装并自动重启 Otto（若未自动完成，请按安装向导手动装完）。';
+    return '点击后将后台静默安装并自动重启 ClawMaster（若未自动完成，请按安装向导手动装完）。';
   }
   if (filePath?.toLowerCase().endsWith('.dmg')) {
-    return '点击后将自动完成安装并重启 Otto（若自动安装失败，会打开安装包供手动替换）。';
+    return '点击后将自动完成安装并重启 ClawMaster（若自动安装失败，会打开安装包供手动替换）。';
   }
-  return '打开安装包完成安装后，请重新启动 Otto。';
+  return '打开安装包完成安装后，请重新启动 ClawMaster。';
 }
 
 export function SoftwareUpdatePanel({
@@ -61,7 +61,7 @@ export function SoftwareUpdatePanel({
       <div className="otto-hub__field">
         <div className="otto-hub__field-label">当前版本</div>
         <div className="otto-hub__field-hint">
-          Otto 桌面版 v{state.currentVersion ?? '…'}
+          ClawMaster 桌面版 v{state.currentVersion ?? '…'}
           {checkedAt ? ` · 上次检查 ${checkedAt}` : ''}
         </div>
         {state.phase !== 'downloading' && state.phase !== 'downloaded' ? (

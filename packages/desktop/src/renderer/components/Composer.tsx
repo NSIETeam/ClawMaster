@@ -59,6 +59,7 @@ export interface PendingAgentSelection {
   profileId: string;
   icon: ModuleIconSource;
   customAgentId?: string;
+  instructions?: string;
 }
 
 export interface ComposerAuthorizationContext {
@@ -186,18 +187,18 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   },
   { id: 'skills', description: '浏览已装技能库', action: 'local' },
   { id: 'export', description: '导出当前会话为 Markdown', action: 'local' },
-  { id: 'copy', description: '复制最近一条 Otto 回复', action: 'local' },
+  { id: 'copy', description: '复制最近一条 ClawMaster 回复', action: 'local' },
   { id: 'session', description: '浏览/检索全部会话', action: 'local' },
   { id: 'theme', description: '界面与偏好设置（对齐 CLI /theme）', action: 'local' },
   { id: 'config', description: '偏好设置（agent 风格 / 语言等）', action: 'local' },
   { id: 'hooks', description: '打开 hooks 文档', action: 'local' },
-  { id: 'desktop', description: '启动/修复桌面端 Otto', action: 'prompt', prompt: '请检查并修复 Otto 桌面端：构建 renderer/main/preload，重新打包 Electron，覆盖 /Applications/Otto.app，并验证界面是否为最新。' },
+  { id: 'desktop', description: '启动/修复桌面端 ClawMaster', action: 'prompt', prompt: '请检查并修复 ClawMaster 桌面端：构建 renderer 和本地运行时，重新打包应用，并验证界面是否为最新。' },
   // 飞书全家桶：真实动作（配置面板 / REST 启停），不再发提示词让 AI 代办。
   { id: 'feishu', description: '飞书接入：配置凭证 / 查看状态', action: 'local' },
   { id: 'feishu-start', description: '启动飞书网关（立即执行）', action: 'local' },
   { id: 'feishu-stop', description: '停止飞书网关（立即执行）', action: 'local' },
   { id: 'feishu-status', description: '查看飞书连接状态', action: 'local' },
-  { id: 'multi-channel', description: '检查微信/企微/钉钉多渠道', action: 'prompt', prompt: '请检查 Otto 的多渠道能力：微信、企业微信、钉钉、飞书适配器和 multi_channel 工具是否可用。' },
+  { id: 'multi-channel', description: '检查微信/企微/钉钉多渠道', action: 'prompt', prompt: '请检查 ClawMaster 的多渠道能力：微信、企业微信、钉钉、飞书适配器和 multi_channel 工具是否可用。' },
   { id: 'ppt', description: 'PPT 创作专家', action: 'agent', agentProfileId: 'ppt' },
   { id: 'doc', description: '文档写作专家', action: 'agent', agentProfileId: 'doc' },
   { id: 'pdf', description: 'PDF 处理专家', action: 'agent', agentProfileId: 'pdf' },
@@ -400,7 +401,7 @@ export function Composer({
   }, [openPopover]);
 
   const stopVoiceMeter = (): void => {
-    if (voiceTimerRef.current !== null) window.clearInterval(voiceTimerRef.current);
+    if (voiceTimerRef.current !== null) window.clearTimeout(voiceTimerRef.current);
     voiceTimerRef.current = null;
     if (voiceMeterFrameRef.current !== null) cancelAnimationFrame(voiceMeterFrameRef.current);
     voiceMeterFrameRef.current = null;
@@ -412,7 +413,11 @@ export function Composer({
 
   const startVoiceMeter = (stream: MediaStream): void => {
     setVoiceSeconds(0);
-    voiceTimerRef.current = window.setInterval(() => setVoiceSeconds((v) => v + 1), 1000);
+    const tickVoiceSeconds = (): void => {
+      setVoiceSeconds((value) => value + 1);
+      voiceTimerRef.current = window.setTimeout(tickVoiceSeconds, 1_000);
+    };
+    voiceTimerRef.current = window.setTimeout(tickVoiceSeconds, 1_000);
     const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
     try {
@@ -846,6 +851,24 @@ export function Composer({
 
   const submit = (): void => {
     if (!canSend) return;
+
+    // 点击发送按钮与在命令面板里按 Enter 必须走同一条斜杠命令路径。
+    // 过去只有键盘 Enter 会调用 runSlashCommand；鼠标点击“发送”会把 `/plan`
+    // 之类的 server 命令当普通消息交给模型，真实桌面端因此出现“没有这个命令”
+    // 的错误回答。仅拦截精确命中的首行命令；Esc 主动收起命令面板或带附件时，
+    // 仍按用户显式选择作为普通消息发送。
+    const submittedSlashCommand =
+      slashInput != null && !slashDismissed && attachments.length === 0
+        ? commands.find(
+            (command) =>
+              command.id.toLowerCase() === slashInput.head.toLowerCase(),
+          )
+        : undefined;
+    if (submittedSlashCommand) {
+      runSlashCommand(submittedSlashCommand);
+      return;
+    }
+
     setSubmitting(true);
     const authorization: ComposerAuthorizationContext = authorizationKind === 'global'
       ? { mode: 'auto', scope: 'all' }
@@ -961,7 +984,7 @@ export function Composer({
         break;
       case 'hooks':
         // 对齐 CLI /hooks：用系统浏览器打开 hooks 文档（preload openExternal）。
-        void transport.openExternal('https://www.otto.bot/hooks-help');
+        void transport.openExternal('https://github.com/NSIETeam/ClawMaster');
         break;
       default:
         break;
@@ -1093,7 +1116,7 @@ export function Composer({
         });
       }
     } catch {
-      setAttachError('无法访问系统剪贴板，请检查 Otto 的剪贴板权限');
+      setAttachError('无法访问系统剪贴板，请检查 ClawMaster 的剪贴板权限');
     }
   }, [text]);
 
@@ -1389,7 +1412,7 @@ export function Composer({
         <textarea
           ref={taRef}
           className="otto-composer__textarea"
-          placeholder={disabledReason ?? '给 Otto 发送消息...'}
+          placeholder={disabledReason ?? '给 ClawMaster 发送消息...'}
           rows={1}
           value={text}
           onChange={autoGrow}
@@ -1507,7 +1530,7 @@ function AuthorizationMenu({
   onPick: (kind: 'manual' | 'session' | 'global') => void;
 }): React.JSX.Element {
   const options = [
-    { id: 'manual' as const, title: '手动授权', desc: 'Otto 执行操作前，需要你在弹窗中确认' },
+    { id: 'manual' as const, title: '手动授权', desc: 'ClawMaster 执行操作前，需要你在弹窗中确认' },
     { id: 'session' as const, title: '自动授权（仅当前会话）', desc: '非高危操作无需确认，高危操作仍会询问' },
     { id: 'global' as const, title: '自动授权（所有会话）', desc: '所有会话放行非高危操作，高危操作仍会询问' },
   ];

@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -16,7 +16,7 @@ function resolved(overrides: Record<string, unknown> = {}) {
     policy: {
       version: 1 as const,
       deploymentId: 'dep_1',
-      distributionId: 'otto-green',
+      distributionId: 'customer-managed',
       currentVersion: '1.9.10',
       decision: 'update' as const,
       reason: 'update_available' as const,
@@ -41,7 +41,7 @@ function resolved(overrides: Record<string, unknown> = {}) {
 
 function options(): UpdatePolicyAdapterOptions {
   return {
-    distributionId: 'otto-green',
+    distributionId: 'customer-managed',
     currentVersion: '1.9.10',
     hasEnterpriseSession: true,
     resolvePolicy: vi.fn(async () => resolved()),
@@ -67,11 +67,10 @@ function options(): UpdatePolicyAdapterOptions {
 }
 
 describe('desktop signed update policy adapter', () => {
-  it('derives stable Otto and Otto Green distribution ids', () => {
-    expect(resolveDesktopDistribution(undefined, 'Otto')).toBe('otto');
-    expect(resolveDesktopDistribution(undefined, 'otto.green')).toBe('otto-green');
-    expect(resolveDesktopDistribution('customer-a', 'Otto')).toBe('customer-a');
-    expect(resolveDesktopDistribution('../bad', 'Otto Green')).toBe('otto-green');
+  it('defaults every unconfigured build to the ClawMaster update channel', () => {
+    expect(resolveDesktopDistribution(undefined)).toBe('clawmaster');
+    expect(resolveDesktopDistribution('customer-a')).toBe('customer-a');
+    expect(resolveDesktopDistribution('../bad')).toBe('clawmaster');
   });
 
   it('uses only the managed manifest for an approved release', async () => {
@@ -84,7 +83,7 @@ describe('desktop signed update policy adapter', () => {
     expect(input.checkLegacy).not.toHaveBeenCalled();
   });
 
-  it('does not cross-fallback Otto Green to the public Otto channel', async () => {
+  it('does not cross-fallback a managed distribution to the public ClawMaster channel', async () => {
     const input = options();
     input.hasEnterpriseSession = false;
     await expect(checkForUpdateUsingPolicy(input)).resolves.toMatchObject({
@@ -93,9 +92,9 @@ describe('desktop signed update policy adapter', () => {
     expect(input.checkLegacy).not.toHaveBeenCalled();
   });
 
-  it('keeps legacy Otto updates compatible when control is not configured', async () => {
+  it('keeps public ClawMaster updates available when control is not configured', async () => {
     const input = options();
-    input.distributionId = 'otto';
+    input.distributionId = 'clawmaster';
     input.resolvePolicy = vi.fn(async () => ({
       status: 'not_configured' as const,
       reason: 'online_license_required' as const,
@@ -106,7 +105,7 @@ describe('desktop signed update policy adapter', () => {
 
   it('fails closed when an authoritative control service is unavailable', async () => {
     const input = options();
-    input.distributionId = 'otto';
+    input.distributionId = 'clawmaster';
     input.resolvePolicy = vi.fn(async () => ({
       status: 'unavailable' as const,
       error: 'signature invalid',

@@ -3,13 +3,15 @@
  */
 
 import type { EnterpriseOrganizationFeatures } from '../preload/index.js';
-import type { AgentProfile } from './agents/departmentAgents.js';
+import {
+  COMMON_EXPERT_PROFILES,
+  type AgentProfile,
+} from './agents/departmentAgents.js';
 import type { CustomAgentDefinition } from './customAgents.js';
-import { customAgentIconToModuleIcon } from './customAgentIcons.js';
 import type { ModuleIconKey, ModuleIconSource } from './components/ModuleIcon.js';
 
 export type ModuleAvailability = 'available' | 'disabled' | 'hidden';
-export type ModuleCategory = 'common' | 'park' | 'capability' | 'custom-agent' | 'customer-module';
+export type ModuleCategory = 'common' | 'park' | 'capability' | 'platform' | 'custom-agent' | 'customer-module';
 
 export interface InstalledCustomerModuleSummary {
   id: string;
@@ -40,6 +42,8 @@ export type ModuleActivation =
   | { kind: 'dialog'; dialog: 'enterprise-memory' | 'auto-skill' }
   | { kind: 'route'; route: 'skill-zone' }
   | { kind: 'agent'; profileId: string; customAgentId?: string }
+  | { kind: 'guided-task'; taskId: string; instructions: string }
+  | { kind: 'platform'; platformId: string; url: string; instructions: string }
   | { kind: 'customer-module'; moduleId: string; version: string };
 
 export interface ParkModuleAuthorization {
@@ -74,6 +78,7 @@ type StaticAvailabilityRule =
   | 'park-staff'
   | 'enterprise-memory'
   | 'auto-skill'
+  | 'always'
   | 'skill-zone';
 
 interface StaticModuleSpec extends Omit<ModuleDefinition, 'availability' | 'disabledReason'> {
@@ -156,6 +161,34 @@ export const STATIC_MODULE_SPECS: readonly StaticModuleSpec[] = [
     activation: { kind: 'route', route: 'skill-zone' },
     availabilityRule: 'skill-zone',
   },
+  {
+    id: 'mind-map', label: '思维导图', category: 'common', icon: 'office-dataviz',
+    activation: {
+      kind: 'guided-task', taskId: 'mind-map',
+      instructions: '你正在思维导图工作区。先确认中心主题、层级和交付格式，再生成可编辑的 Mermaid mindmap 或 Markdown 大纲；保留源文本，不得只交付不可编辑的截图。',
+    },
+    availabilityRule: 'always',
+  },
+  ...([
+    ['platform-maotouying', '猫头鹰', 'platform-observe', 'http://8.141.8.31/'],
+    ['platform-trace-code', '溯源码', 'platform-trace', 'https://8.140.52.117/'],
+    ['platform-zhifang', '知访', 'platform-visit', 'https://47.116.30.60/'],
+    ['platform-zhiliaohou', '知了猴', 'platform-insight', 'http://47.116.30.60:18787/'],
+    ['platform-zhixin-pigeon', '智信鸽', 'platform-message', 'http://47.116.30.60:18788/'],
+  ] as const).map(([id, label, icon, url]) => ({
+    id,
+    label,
+    description: `在 ClawMaster 内授权并操作${label}平台`,
+    category: 'platform' as const,
+    icon,
+    activation: {
+      kind: 'platform' as const,
+      platformId: id,
+      url,
+      instructions: `你正在${label}平台控制工作区。优先复用用户已授权的安全连接器或本机浏览器登录态；如尚未绑定，引导用户在专用授权界面完成，不得让用户把密码、Cookie 或 Token 发进对话。读操作使用当前身份最小权限；发布、删除、修改或对外发送前必须展示最终动作并取得确认，所有外部写入都必须记录幂等键、结果和审计信息。`,
+    },
+    availabilityRule: 'always' as const,
+  })),
 ] as const;
 
 const PROFILE_MODULE_IDS: Readonly<Record<string, string>> = {
@@ -176,6 +209,7 @@ function staticAvailability(
   rule: StaticAvailabilityRule,
   context: ModuleCatalogContext,
 ): ModuleAvailability {
+  if (rule === 'always') return 'available';
   if (rule === 'auto-skill') return 'available';
   if (context.edition !== 'enterprise') return 'hidden';
 
@@ -197,20 +231,49 @@ function staticAvailability(
   return 'available';
 }
 
-function profileIcon(profile: AgentProfile): ModuleIconKey {
-  if (profile.icon) return `generated:${profile.icon}`;
+const PROFILE_LINE_ICONS: Readonly<Record<string, ModuleIconKey>> = {
+  'otto-enterprise-work': 'office-work',
+  ppt: 'office-presentation',
+  meeting: 'office-meeting',
+  doc: 'office-document',
+  sheet: 'office-spreadsheet',
+  pdf: 'office-pdf',
+  dataviz: 'office-dataviz',
+  research: 'office-research',
+  copy: 'office-copywriting',
+};
+
+/**
+ * Workspace modules deliberately use one theme-aware line-icon family.
+ * Rich generated artwork remains available in galleries and custom-agent
+ * pickers, but mixing it into the compact right rail causes inconsistent
+ * optical weight and cannot follow system appearance reliably.
+ */
+function profileModuleIcon(profile: AgentProfile): ModuleIconKey {
   if (profile.id === 'otto-personal') return 'otto-avatar';
   if (profile.id === 'self-development') return 'self-development';
-  return 'agent';
+  return PROFILE_LINE_ICONS[profile.id] ?? 'agent';
 }
 
 function profileIsAllowed(profile: AgentProfile, edition: ModuleCatalogContext['edition']): boolean {
-  if (edition === 'personal') return profile.id === 'otto-personal';
+  if (edition === 'personal') {
+    return profile.id === 'otto-personal' || Object.prototype.hasOwnProperty.call(PROFILE_MODULE_IDS, profile.id)
+      && profile.id !== 'otto-enterprise-work';
+  }
   return profile.id !== 'otto-personal' && Boolean(PROFILE_MODULE_IDS[profile.id]);
 }
 
 function agentModules(context: ModuleCatalogContext): ModuleDefinition[] {
-  return context.profiles
+  const profiles = context.edition === 'personal'
+    ? [...context.profiles, ...COMMON_EXPERT_PROFILES]
+    : context.profiles;
+  const seenProfiles = new Set<string>();
+  return profiles
+    .filter((profile) => {
+      if (seenProfiles.has(profile.id)) return false;
+      seenProfiles.add(profile.id);
+      return true;
+    })
     .filter((profile) => profileIsAllowed(profile, context.edition))
     .flatMap((profile) => {
       const moduleId = PROFILE_MODULE_IDS[profile.id];
@@ -220,7 +283,7 @@ function agentModules(context: ModuleCatalogContext): ModuleDefinition[] {
         label: profile.name,
         description: profile.tagline,
         category: 'common' as const,
-        icon: profileIcon(profile),
+        icon: profileModuleIcon(profile),
         activation: { kind: 'agent' as const, profileId: profile.id },
         availability: 'available' as const,
       }];
@@ -236,7 +299,9 @@ function customAgentModules(context: ModuleCatalogContext): ModuleDefinition[] {
     label: agent.name,
     description: agent.instructions,
     category: 'custom-agent',
-    icon: customAgentIconToModuleIcon(agent.icon),
+    // Rich custom artwork stays in the editor/gallery. Compact workspace tiles
+    // deliberately use the shared theme-aware semantic icon family.
+    icon: 'agent',
     activation: {
       kind: 'agent',
       profileId: baseProfileId,
@@ -252,7 +317,7 @@ function customerModules(context: ModuleCatalogContext): ModuleDefinition[] {
     label: module.name,
     description: module.description,
     category: 'customer-module',
-    icon: module.iconSrc ? { kind: 'image', src: module.iconSrc } : 'custom-agent',
+    icon: 'customer-module',
     activation: { kind: 'customer-module', moduleId: module.id, version: module.version },
     availability: module.enabled ? 'available' : 'disabled',
     ...(module.suspendedReason ? { disabledReason: module.suspendedReason } : {}),

@@ -91,6 +91,14 @@ remote-client/build
 *.tgz
 otto-native/target/
 
+# Tauri native assets are built or downloaded by the release workflows.
+# Keep only their reproducible build/verification contracts in Git; committing
+# platform binaries here would duplicate release artifacts and inflate clones.
+native/node-runtime/
+native/sqlcipher-tauri/
+native/sqlcipher/*/
+native/sqlcipher/matrix-manifest.json
+
 packages/cli/clipboard/
 
 # Debug exports (local diagnostics)

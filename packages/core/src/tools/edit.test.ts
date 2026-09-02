@@ -6,24 +6,6 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const mockEnsureCorrectEdit = vi.hoisted(() => vi.fn());
-const mockGenerateJson = vi.hoisted(() => vi.fn());
-const mockOpenDiff = vi.hoisted(() => vi.fn());
-
-vi.mock('../utils/editCorrector.js', () => ({
-  ensureCorrectEdit: mockEnsureCorrectEdit,
-}));
-
-vi.mock('../core/client.js', () => ({
-  OttoClient: vi.fn().mockImplementation(() => ({
-    generateJson: mockGenerateJson,
-  })),
-}));
-
-vi.mock('../utils/editor.js', () => ({
-  openDiff: mockOpenDiff,
-}));
-
 import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
 import { EditTool, EditToolParams } from './edit.js';
 import { FileDiff } from './tools.js';
@@ -31,27 +13,19 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { ApprovalMode, Config } from '../config/config.js';
-import { Part, SchemaUnion } from '@google/genai';
-import { Content } from '../types/extendedContent.js';
 
 describe('EditTool', () => {
   let tool: EditTool;
   let tempDir: string;
   let rootDir: string;
   let mockConfig: Config;
-  let geminiClient: any;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'edit-tool-test-'));
     rootDir = path.join(tempDir, 'root');
     fs.mkdirSync(rootDir);
 
-    geminiClient = {
-      generateJson: mockGenerateJson, // mockGenerateJson is already defined and hoisted
-    };
-
     mockConfig = {
-      getOttoClient: vi.fn().mockReturnValue(geminiClient),
       getTargetDir: () => rootDir,
       getApprovalMode: vi.fn(),
       setApprovalMode: vi.fn(),
@@ -85,65 +59,6 @@ describe('EditTool', () => {
     (mockConfig.getApprovalMode as Mock).mockClear();
     // Default to not skipping confirmation
     (mockConfig.getApprovalMode as Mock).mockReturnValue(ApprovalMode.DEFAULT);
-
-    // Reset mocks and set default implementation for ensureCorrectEdit
-    mockEnsureCorrectEdit.mockReset();
-    mockEnsureCorrectEdit.mockImplementation(
-      async (_, currentContent, params) => {
-        let occurrences = 0;
-        if (params.old_string && currentContent) {
-          // Simple string counting for the mock
-          let index = currentContent.indexOf(params.old_string);
-          while (index !== -1) {
-            occurrences++;
-            index = currentContent.indexOf(params.old_string, index + 1);
-          }
-        } else if (params.old_string === '') {
-          occurrences = 0; // Creating a new file
-        }
-        return Promise.resolve({ params, occurrences });
-      },
-    );
-
-    // Default mock for generateJson to return the snippet unchanged
-    mockGenerateJson.mockReset();
-    mockGenerateJson.mockImplementation(
-      async (contents: Content[], schema: SchemaUnion) => {
-        // The problematic_snippet is the last part of the user's content
-        const userContent = contents.find((c: Content) => c.role === 'user');
-        let promptText = '';
-        if (userContent && userContent.parts) {
-          promptText = userContent.parts
-            .filter((p: Part) => typeof (p as any).text === 'string')
-            .map((p: Part) => (p as any).text)
-            .join('\n');
-        }
-        const snippetMatch = promptText.match(
-          /Problematic target snippet:\n```\n([\s\S]*?)\n```/,
-        );
-        const problematicSnippet =
-          snippetMatch && snippetMatch[1] ? snippetMatch[1] : '';
-
-        if (((schema as any).properties as any)?.corrected_target_snippet) {
-          return Promise.resolve({
-            corrected_target_snippet: problematicSnippet,
-          });
-        }
-        if (((schema as any).properties as any)?.corrected_new_string) {
-          // For new_string correction, we might need more sophisticated logic,
-          // but for now, returning original is a safe default if not specified by a test.
-          const originalNewStringMatch = promptText.match(
-            /original_new_string \(what was intended to replace original_old_string\):\n```\n([\s\S]*?)\n```/,
-          );
-          const originalNewString =
-            originalNewStringMatch && originalNewStringMatch[1]
-              ? originalNewStringMatch[1]
-              : '';
-          return Promise.resolve({ corrected_new_string: originalNewString });
-        }
-        return Promise.resolve({}); // Default empty object if schema doesn't match
-      },
-    );
 
     tool = new EditTool(mockConfig);
   });
@@ -253,8 +168,6 @@ describe('EditTool', () => {
         old_string: 'old',
         new_string: 'new',
       };
-      // ensureCorrectEdit will be called by shouldConfirmExecute
-      mockEnsureCorrectEdit.mockResolvedValueOnce({ params, occurrences: 1 });
       const confirmation = await tool.shouldConfirmExecute(
         params,
         new AbortController().signal,
@@ -268,27 +181,25 @@ describe('EditTool', () => {
       );
     });
 
-    it('should return false if old_string is not found (ensureCorrectEdit returns 0)', async () => {
+    it('should return false if old_string is not found', async () => {
       fs.writeFileSync(filePath, 'some content here');
       const params: EditToolParams = {
         file_path: filePath,
         old_string: 'not_found',
         new_string: 'new',
       };
-      mockEnsureCorrectEdit.mockResolvedValueOnce({ params, occurrences: 0 });
       expect(
         await tool.shouldConfirmExecute(params, new AbortController().signal),
       ).toBe(false);
     });
 
-    it('should return false if multiple occurrences of old_string are found (ensureCorrectEdit returns > 1)', async () => {
+    it('should return false if multiple occurrences of old_string are found', async () => {
       fs.writeFileSync(filePath, 'old old content here');
       const params: EditToolParams = {
         file_path: filePath,
         old_string: 'old',
         new_string: 'new',
       };
-      mockEnsureCorrectEdit.mockResolvedValueOnce({ params, occurrences: 2 });
       expect(
         await tool.shouldConfirmExecute(params, new AbortController().signal),
       ).toBe(false);
@@ -302,10 +213,6 @@ describe('EditTool', () => {
         old_string: '',
         new_string: 'new file content',
       };
-      // ensureCorrectEdit might not be called if old_string is empty,
-      // as shouldConfirmExecute handles this for diff generation.
-      // If it is called, it should return 0 occurrences for a new file.
-      mockEnsureCorrectEdit.mockResolvedValueOnce({ params, occurrences: 0 });
       const confirmation = await tool.shouldConfirmExecute(
         params,
         new AbortController().signal,
@@ -319,67 +226,6 @@ describe('EditTool', () => {
       );
     });
 
-    it('should use corrected params from ensureCorrectEdit for diff generation', async () => {
-      const originalContent = 'This is the original string to be replaced.';
-      const originalOldString = 'original string';
-      const originalNewString = 'new string';
-
-      const correctedOldString = 'original string to be replaced'; // More specific
-      const correctedNewString = 'completely new string'; // Different replacement
-      const expectedFinalContent = 'This is the completely new string.';
-
-      fs.writeFileSync(filePath, originalContent);
-      const params: EditToolParams = {
-        file_path: filePath,
-        old_string: originalOldString,
-        new_string: originalNewString,
-      };
-
-      // The main beforeEach already calls mockEnsureCorrectEdit.mockReset()
-      // Set a specific mock for this test case
-      let mockCalled = false;
-      mockEnsureCorrectEdit.mockImplementationOnce(
-        async (_, content, p, client) => {
-          mockCalled = true;
-          expect(content).toBe(originalContent);
-          expect(p).toBe(params);
-          expect(client).toBe(geminiClient);
-          return {
-            params: {
-              file_path: filePath,
-              old_string: correctedOldString,
-              new_string: correctedNewString,
-            },
-            occurrences: 1,
-          };
-        },
-      );
-
-      const confirmation = (await tool.shouldConfirmExecute(
-        params,
-        new AbortController().signal,
-      )) as FileDiff;
-
-      expect(mockCalled).toBe(true); // Check if the mock implementation was run
-      // expect(mockEnsureCorrectEdit).toHaveBeenCalledWith(originalContent, params, expect.anything()); // Keep this commented for now
-      expect(confirmation).toEqual(
-        expect.objectContaining({
-          title: `Confirm Edit: ${testFile}`,
-          fileName: testFile,
-        }),
-      );
-      // Check that the diff is based on the corrected strings leading to the new state
-      expect(confirmation.fileDiff).toContain(`-${originalContent}`);
-      expect(confirmation.fileDiff).toContain(`+${expectedFinalContent}`);
-
-      // Verify that applying the correctedOldString and correctedNewString to originalContent
-      // indeed produces the expectedFinalContent, which is what the diff should reflect.
-      const patchedContent = originalContent.replace(
-        correctedOldString, // This was the string identified by ensureCorrectEdit for replacement
-        correctedNewString, // This was the string identified by ensureCorrectEdit as the replacement
-      );
-      expect(patchedContent).toBe(expectedFinalContent);
-    });
   });
 
   describe('execute', () => {
@@ -388,20 +234,6 @@ describe('EditTool', () => {
 
     beforeEach(() => {
       filePath = path.join(rootDir, testFile);
-      // Default for execute tests, can be overridden
-      mockEnsureCorrectEdit.mockImplementation(async (_, content, params) => {
-        let occurrences = 0;
-        if (params.old_string && content) {
-          let index = content.indexOf(params.old_string);
-          while (index !== -1) {
-            occurrences++;
-            index = content.indexOf(params.old_string, index + 1);
-          }
-        } else if (params.old_string === '') {
-          occurrences = 0;
-        }
-        return { params, occurrences };
-      });
     });
 
     it('should return error if params are invalid', async () => {
@@ -424,10 +256,6 @@ describe('EditTool', () => {
         old_string: 'old',
         new_string: 'new',
       };
-
-      // Specific mock for this test's execution path in calculateEdit
-      // ensureCorrectEdit is NOT called by calculateEdit, only by shouldConfirmExecute
-      // So, the default mockEnsureCorrectEdit should correctly return 1 occurrence for 'old' in initialContent
 
       // Simulate confirmation by setting shouldAlwaysEdit
       (tool as any).shouldAlwaysEdit = true;
@@ -472,7 +300,6 @@ describe('EditTool', () => {
         old_string: 'nonexistent',
         new_string: 'replacement',
       };
-      // The default mockEnsureCorrectEdit will return 0 occurrences for 'nonexistent'
       const result = await tool.execute(params, new AbortController().signal);
       expect(result.llmContent).toMatch(
         /0 occurrences found for old_string in/,
@@ -489,7 +316,6 @@ describe('EditTool', () => {
         old_string: 'old',
         new_string: 'new',
       };
-      // The default mockEnsureCorrectEdit will return 2 occurrences for 'old'
       const result = await tool.execute(params, new AbortController().signal);
       expect(result.llmContent).toMatch(
         /Expected 1 occurrence but found 2 for old_string in file/,
