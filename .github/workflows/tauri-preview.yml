@@ -15,7 +15,7 @@ on:
       - 'package-lock.json'
       - 'package.json'
   push:
-    branches: [main]
+    branches: [main, 'codex/windows-*']
     paths:
       - '.github/workflows/tauri-preview.yml'
       - '.github/workflows/tauri-node-runtime.yml'

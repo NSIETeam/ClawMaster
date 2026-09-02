@@ -16,6 +16,10 @@ const installSmoke = readFileSync(
 );
 
 describe('Tauri Windows workflow contract', () => {
+  it('allows isolated Windows candidate branches to trigger preview validation', () => {
+    expect(previewWorkflow).toContain("branches: [main, 'codex/windows-*']");
+  });
+
   it('produces a verified Windows x64 Node capsule', () => {
     expect(runtimeWorkflow).toMatch(/windows:\s*\n\s+name: win32-x64 balanced Node runtime/u);
     expect(runtimeWorkflow).toMatch(/repository: nodejs\/node/u);
