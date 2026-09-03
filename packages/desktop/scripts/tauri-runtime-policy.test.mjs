@@ -83,9 +83,9 @@ describe('Tauri runtime release policy', () => {
     });
   });
 
-  it('reserves installer headroom with an 18 MiB runtime target and 32 MiB hard stop', () => {
-    expect(evaluateRuntimeSize(18 * 1024 * 1024).withinTarget).toBe(true);
-    expect(evaluateRuntimeSize(19 * 1024 * 1024).withinTarget).toBe(false);
+  it('reserves installer headroom with a 28 MiB runtime target and 32 MiB hard stop', () => {
+    expect(evaluateRuntimeSize(28 * 1024 * 1024).withinTarget).toBe(true);
+    expect(evaluateRuntimeSize(29 * 1024 * 1024).withinTarget).toBe(false);
     expect(() => evaluateRuntimeSize(33 * 1024 * 1024)).toThrow('hard limit');
   });
 
@@ -94,24 +94,22 @@ describe('Tauri runtime release policy', () => {
       agent: 3 * 1024 * 1024,
       node: 12 * 1024 * 1024,
       sqlcipher: 1024 * 1024,
-      ripgrep: 2 * 1024 * 1024,
     })).toMatchObject({
-      totalBytes: 18 * 1024 * 1024,
+      totalBytes: 16 * 1024 * 1024,
       withinTarget: true,
       components: [
         { name: 'node', bytes: 12 * 1024 * 1024 },
         { name: 'agent', bytes: 3 * 1024 * 1024 },
-        { name: 'ripgrep', bytes: 2 * 1024 * 1024 },
         { name: 'sqlcipher', bytes: 1024 * 1024 },
       ],
     });
   });
 
-  it('targets a 20 MiB installer and rejects downloads above 40 MiB', () => {
-    expect(evaluateDownloadPackageSize(20 * 1024 * 1024).withinTarget).toBe(true);
-    expect(evaluateDownloadPackageSize(21 * 1024 * 1024).withinTarget).toBe(false);
+  it('targets a 30 MiB installer and rejects downloads above 40 MiB', () => {
+    expect(evaluateDownloadPackageSize(30 * 1024 * 1024).withinTarget).toBe(true);
+    expect(evaluateDownloadPackageSize(31 * 1024 * 1024).withinTarget).toBe(false);
     expect(() => evaluateDownloadPackageSize(41 * 1024 * 1024)).toThrow('hard limit');
-    const oversized = evaluateDownloadPackageSize(21 * 1024 * 1024);
+    const oversized = evaluateDownloadPackageSize(31 * 1024 * 1024);
     expect(() => assertDownloadPackageTarget(oversized)).toThrow('product target');
     expect(assertDownloadPackageTarget(oversized, { allowOverTarget: true })).toBe(oversized);
   });

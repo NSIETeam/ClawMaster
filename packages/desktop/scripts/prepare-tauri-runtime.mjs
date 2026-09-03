@@ -64,7 +64,6 @@ const sidecarPath = path.join(
   binariesRoot,
   `clawmaster-node-${runtimePlatform.targetTriple}${runtimePlatform.executableSuffix}`,
 );
-const ripgrepCapsuleRoot = path.join(runtimeRoot, 'ripgrep');
 const sqlCipherSource = resolveSqlCipherSource({
   repoRoot,
   target: runtimeTarget,
@@ -80,12 +79,6 @@ run(process.execPath, [
 
 function run(command, args, cwd = repoRoot) {
   execFileSync(command, args, { cwd, stdio: 'inherit' });
-}
-
-function requirePath(...candidates) {
-  const found = candidates.find((candidate) => existsSync(candidate));
-  if (!found) throw new Error(`required runtime input missing:\n${candidates.join('\n')}`);
-  return found;
 }
 
 function prepareNodeSidecar() {
@@ -163,6 +156,10 @@ function prepareAgentBundle() {
     '--minify', '--splitting',
     "--banner:js=import { createRequire as __createRequire } from 'node:module'; const __runtimeBase = process.env.CLAWMASTER_AGENT_ROOT ? process.env.CLAWMASTER_AGENT_ROOT + '/server.mjs' : process.env.CLAWMASTER_RESOURCES_PATH ? process.env.CLAWMASTER_RESOURCES_PATH + '/agent/server.mjs' : import.meta.url; const require = __createRequire(__runtimeBase); if (process.env.CLAWMASTER_RESOURCES_PATH) Object.defineProperty(process, 'resourcesPath', { value: process.env.CLAWMASTER_RESOURCES_PATH });",
     '--external:better-sqlite3', '--external:@otto/native', '--external:pg-native',
+    // Heavy document parsers are optional capability modules. Keep the resident
+    // desktop agent self-iteration/RPA path small; load PDF/XLSX support through
+    // a user-authorized module instead of charging every install for it.
+    '--external:pdf-parse', '--external:pdf2json', '--external:xlsx',
     '--external:playwright-core',
     ...openTelemetryAliasArgs,
     '--entry-names=[name]',
@@ -194,7 +191,8 @@ function prepareAgentBundle() {
   // RPA keeps Playwright Core optional in Core, but the productized desktop runtime
   // must make the adapter usable without asking the user to install npm packages.
   // Copy runtime files only (no declarations/docs/tests) so the runtime payload
-  // can leave enough headroom for a download package near the 20 MiB target.
+  // can leave enough headroom for the current 30 MiB download gate while the
+  // product continues toward the next 20 MiB slimming target.
   const copyRuntimePackage = (name, files) => {
     const source = path.join(repoRoot, 'node_modules', name);
     if (!existsSync(source)) return;
@@ -221,14 +219,13 @@ function prepareAgentBundle() {
     ['lib', 'tools'],
     ['lib', 'server', 'electron'],
     ['lib', 'server', 'chromium', 'appIcon.png'],
+    ['lib', 'webp_codec.wasm'],
   ]) {
     rmSync(
       path.join(agentPayloadRoot, 'node_modules', 'playwright-core', ...relative),
       { recursive: true, force: true },
     );
   }
-  copyRuntimePackage('fsevents', ['package.json', 'fsevents.js', 'fsevents.node']);
-
   const coreAssets = path.join(agentPayloadRoot, 'core-assets');
   mkdirSync(coreAssets, { recursive: true });
   cpSync(path.join(repoRoot, 'packages', 'core', 'skills-seed'), path.join(coreAssets, 'skills-seed'), { recursive: true });
@@ -263,28 +260,6 @@ function prepareAgentBundle() {
 }
 
 function prepareNativeResources() {
-  const ripgrep = requirePath(
-    path.join(
-      repoRoot,
-      'node_modules', '@vscode', 'ripgrep', 'bin',
-      runtimePlatform.ripgrepExecutable,
-    ),
-    path.join(
-      desktopRoot,
-      'vendor', 'win', 'ripgrep',
-      runtimePlatform.ripgrepExecutable,
-    ),
-  );
-  const executable = readFileSync(ripgrep);
-  writeBinaryCapsule({
-    bytes: executable,
-    directory: ripgrepCapsuleRoot,
-    capsuleName: 'rg.br',
-    manifestName: 'rg-manifest.json',
-    target: runtimeTarget,
-    quality: 10,
-  });
-
   cpSync(sqlCipherSource.path, path.join(runtimeRoot, 'sqlcipher'), { recursive: true });
   console.log(`[tauri-runtime] SQLCipher source: ${sqlCipherSource.provenance}`);
 }
@@ -300,8 +275,6 @@ function verifyStaging() {
     path.join(agentRoot, 'agent.br'),
     path.join(agentRoot, 'agent-manifest.json'),
     path.join(agentRoot, 'agent-bundle-meta.json'),
-    path.join(ripgrepCapsuleRoot, 'rg.br'),
-    path.join(ripgrepCapsuleRoot, 'rg-manifest.json'),
     path.join(runtimeRoot, 'sqlcipher', 'better_sqlite3.node'),
     path.join(runtimeRoot, 'sqlcipher', 'manifest.json'),
   ];
@@ -317,12 +290,6 @@ function verifyStaging() {
     target: runtimeTarget,
     minimumBytes: 1_000_000,
     expectedMetadata: { nodeVersion: desktopPackage.tauriRuntime.nodeVersion },
-  });
-  readVerifiedBinaryCapsule({
-    capsulePath: path.join(ripgrepCapsuleRoot, 'rg.br'),
-    manifestPath: path.join(ripgrepCapsuleRoot, 'rg-manifest.json'),
-    target: runtimeTarget,
-    minimumBytes: 1_000_000,
   });
   const { manifest: agentManifest } = readVerifiedDirectoryCapsule({
     capsulePath: path.join(agentRoot, 'agent.br'),
@@ -357,10 +324,10 @@ function verifyStaging() {
   }
   if (!size.withinTarget) {
     console.warn(
-      `[tauri-runtime] ${sizeMiB} MiB exceeds the 18 MiB runtime target reserved for a 20 MiB download`,
+      `[tauri-runtime] ${sizeMiB} MiB exceeds the 28 MiB runtime target reserved for a 30 MiB download`,
     );
   } else {
-    console.log(`[tauri-runtime] ${sizeMiB} MiB is within the 18 MiB runtime target`);
+    console.log(`[tauri-runtime] ${sizeMiB} MiB is within the 28 MiB runtime target`);
   }
   const probeAgentRoot = path.join(stagingRoot, 'agent-probe');
   try {

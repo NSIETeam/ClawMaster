@@ -6,8 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { OttoPetStage, PET_ANIMATIONS } from './OttoPetStage.js';
 
-vi.mock('../assets/otto-pet-atlas.png', () => ({ default: 'otto-pet-atlas.png' }));
-
 const matchMedia = (matches: boolean): typeof window.matchMedia =>
   vi.fn().mockReturnValue({
     matches,
@@ -43,13 +41,13 @@ describe('OttoPetStage', () => {
     expect(screen.getByLabelText('工作中')).toBeTruthy();
   });
 
-  it('声明完整 9 行动画协议，行号与 hatch-pet atlas 一一对应', () => {
+  it('声明完整 9 行状态协议，行号驱动轻量 ClawMaster 标识动效', () => {
     expect(Object.values(PET_ANIMATIONS).map((animation) => animation.row)).toEqual([
       0, 1, 2, 3, 4, 5, 6, 7, 8,
     ]);
   });
 
-  it('按 idle 行的逐帧时长推进 spritesheet 帧', () => {
+  it('按 idle 行的逐帧时长推进状态动效帧', () => {
     const { container } = render(<OttoPetStage running={false} variant="widget" />);
     const motion = container.querySelector<HTMLElement>('[data-state="idle"]');
     expect(motion?.dataset.frame).toBe('0');
@@ -75,7 +73,7 @@ describe('OttoPetStage', () => {
     ).toBeTruthy();
   });
 
-  it('登录页模式放大官方图集，并移除右栏标题和地面装饰', () => {
+  it('登录页模式放大轻量 ClawMaster 标识，并移除右栏标题和地面装饰', () => {
     const { container } = render(<OttoPetStage running={false} variant="login" />);
     const stage = container.querySelector<HTMLElement>('[data-testid="otto-pet-stage"]');
     const sprite = container.querySelector<HTMLElement>('.otto-pet-stage__sprite');
@@ -83,6 +81,7 @@ describe('OttoPetStage', () => {
     expect(stage?.classList.contains('otto-pet-stage--login')).toBe(true);
     expect(container.querySelector('.otto-pet-stage__head')).toBeNull();
     expect(container.querySelector('.otto-pet-stage__floor')).toBeNull();
+    expect(sprite?.textContent).toContain('♛');
     expect(sprite?.style.width).toBe('316.8px');
     expect(sprite?.style.height).toBe('343.2px');
   });

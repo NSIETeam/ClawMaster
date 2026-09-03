@@ -20,7 +20,6 @@ import type {
   EnterpriseRepairTicket,
   EnterpriseRepairTicketHistoryEntry,
 } from '../../preload/index.js';
-import defaultMeetingRoomImage from '../assets/meeting-room-default.jpg';
 import type { ParkModuleTarget } from '../moduleCatalog.js';
 import { parkISODate, parkMinuteOfDay } from '../parkBusinessTime.js';
 import { startNonOverlappingPoll } from '../lib/nonOverlappingPoll.js';
@@ -995,7 +994,13 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
             </select>
           </label>
           {selectedRoom ? <div className="otto-park-meeting-room-detail">
-            <img src={selectedRoom.imageUrl || defaultMeetingRoomImage} alt={`${selectedRoom.name}照片`} />
+            {selectedRoom.imageUrl ? (
+              <img src={selectedRoom.imageUrl} alt={`${selectedRoom.name}照片`} />
+            ) : (
+              <div className="otto-park-meeting-room-detail__placeholder" aria-hidden>
+                <IconCalendarCheck size={26} />
+              </div>
+            )}
             <div>
               <strong>{selectedRoom.name}</strong>
               <span>{selectedRoom.location} · 最多 {selectedRoom.capacity} 人</span>

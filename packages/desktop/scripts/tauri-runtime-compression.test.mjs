@@ -45,13 +45,15 @@ describe('Tauri Agent runtime compression contract', () => {
     expect(prepare).toContain("node.br");
     expect(prepare).toContain("node-manifest.json");
     expect(prepare).toMatch(/capsuleName: 'node\.br',[\s\S]*?quality: 11,/u);
-    expect(prepare).toContain("rg.br");
-    expect(prepare).toContain("rg-manifest.json");
-    expect(prepare).toMatch(/capsuleName: 'rg\.br',[\s\S]*?quality: 10,/u);
+    expect(prepare).not.toContain("rg.br");
+    expect(prepare).not.toContain("rg-manifest.json");
     expect(verify).toContain("node.br");
+    expect(verify).not.toContain("rg.br");
+    expect(tauriConfig).not.toContain("runtime/ripgrep");
     expect(agentSmoke).toContain("node.br");
     expect(agentSmoke).toContain('readVerifiedBinaryCapsule');
     expect(agentSmoke).toContain("agent.br");
+    expect(agentSmoke).not.toContain("OTTO_RIPGREP_BINARY");
     expect(agentSmoke).not.toContain("'binaries'");
     expect(rpaSmoke).toContain('materializeDirectoryCapsule');
     expect(agentBootstrap).toContain('materializeDirectoryCapsule');
@@ -61,7 +63,8 @@ describe('Tauri Agent runtime compression contract', () => {
     expect(prepare).toContain('sidecar-parent-lifetime.mjs');
     expect(rustSidecar).toContain("node-manifest.json");
     expect(rustSidecar).toContain("brotli::Decompressor");
-    expect(rustSidecar).toContain("materialize_ripgrep_capsule");
+    expect(rustSidecar).toContain("try_materialize_ripgrep_capsule");
+    expect(rustSidecar).toContain("OTTO_RIPGREP_BINARY");
     expect(rustSidecar).toContain('.stdin(Stdio::piped())');
     expect(binaryCapsule).toContain('brotliCompressSync');
     expect(binaryCapsule).toContain('brotliDecompressSync');
@@ -83,6 +86,7 @@ describe('Tauri Agent runtime compression contract', () => {
     expect(prepare).not.toContain("'otto-native', 'dist'), path.join(nativeDestination, 'dist'), { recursive: true }");
     expect(prepare).toContain("['lib', 'tools']");
     expect(prepare).toContain("['lib', 'entry']");
+    expect(prepare).toContain("['lib', 'webp_codec.wasm']");
   });
 
   it('keeps optional Agent capabilities out of the resident entry module', async () => {
@@ -97,6 +101,10 @@ describe('Tauri Agent runtime compression contract', () => {
     expect(prepare).toContain("'--chunk-names=chunks/[name]-[hash]'");
     expect(prepare).toContain("'--out-extension:.js=.mjs'");
     expect(prepare).toContain('`--outdir=${agentPayloadRoot}`');
+    expect(prepare).toContain("'--external:pdf-parse'");
+    expect(prepare).toContain("'--external:pdf2json'");
+    expect(prepare).toContain("'--external:xlsx'");
+    expect(prepare).not.toContain("copyRuntimePackage('fsevents'");
     expect(prepare).not.toContain('`--outfile=${path.join(agentPayloadRoot, \'server.mjs\')}`');
   });
 

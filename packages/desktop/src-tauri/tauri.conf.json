@@ -33,7 +33,6 @@
     "resources": {
       "target/sidecar-staging/runtime/agent/": "runtime/agent/",
       "target/sidecar-staging/runtime/node/": "runtime/node/",
-      "target/sidecar-staging/runtime/ripgrep/": "runtime/ripgrep/",
       "target/sidecar-staging/runtime/sqlcipher/": "runtime/sqlcipher/"
     },
     "category": "DeveloperTool",

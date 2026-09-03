@@ -5260,8 +5260,34 @@ h6.otto-prose__h {
   position: relative;
 }
 .otto-pet-stage__sprite {
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+  position: relative;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+}
+.otto-pet-stage__sprite::before {
+  content: '';
+  position: absolute;
+  inset: 18% 14% 10%;
+  border: 1px solid color-mix(in srgb, var(--otto-accent) 35%, transparent);
+  border-radius: 38% 42% 48% 44%;
+  background:
+    radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.68), transparent 0 18%, transparent 19%),
+    linear-gradient(145deg, color-mix(in srgb, var(--otto-accent) 28%, #fff8ea), color-mix(in srgb, var(--otto-surface-raised) 82%, var(--otto-accent)));
+  box-shadow: inset 0 -10px 20px rgba(126, 74, 20, 0.16), 0 10px 24px rgba(102, 71, 35, 0.18);
+  transform:
+    translateY(calc((var(--clawmaster-pet-frame, 0) % 2) * -2px))
+    rotate(calc((var(--clawmaster-pet-row, 0) - 4) * .7deg));
+  transition: transform 180ms ease;
+}
+.otto-pet-stage__mark {
+  position: relative;
+  z-index: 1;
+  color: color-mix(in srgb, var(--otto-accent) 78%, #5c3712);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: min(42px, 42%);
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(255,255,255,.62), 0 8px 18px rgba(83, 54, 25, .2);
 }
 .otto-pet-widget__copy {
   display: grid;
@@ -5302,7 +5328,7 @@ h6.otto-prose__h {
 .otto-pet-widget__light.is-yellow { color: #d89d2b; background: #d89d2b; }
 .otto-pet-widget__light.is-green { color: #4fa877; background: #4fa877; }
 
-/* 登录页复用同一套 hatch-pet 图集：只放大 sprite，不带右栏标题、地面和位移动画。 */
+/* 登录页复用同一套轻量 ClawMaster 状态件：只放大标识，不带右栏标题、地面和位移动画。 */
 .otto-pet-stage.otto-pet-stage--login {
   width: 100%;
   height: 100%;
@@ -7604,7 +7630,21 @@ h6.otto-prose__h {
   border-radius: var(--otto-radius-sm);
   background: var(--otto-bg);
 }
-.otto-park-meeting-room-detail img { width: 116px; height: 100%; min-height: 84px; object-fit: cover; }
+.otto-park-meeting-room-detail img,
+.otto-park-meeting-room-detail__placeholder {
+  width: 116px;
+  height: 100%;
+  min-height: 84px;
+}
+.otto-park-meeting-room-detail img { object-fit: cover; }
+.otto-park-meeting-room-detail__placeholder {
+  display: grid;
+  place-items: center;
+  color: color-mix(in srgb, var(--otto-accent) 68%, var(--otto-text-secondary));
+  background:
+    radial-gradient(circle at 30% 24%, color-mix(in srgb, var(--otto-accent) 24%, transparent), transparent 28%),
+    linear-gradient(135deg, color-mix(in srgb, var(--otto-accent-soft) 70%, var(--otto-surface)), var(--otto-bg));
+}
 .otto-park-meeting-room-detail div { display: grid; align-content: center; gap: 4px; padding: 10px; }
 .otto-park-meeting-room-detail strong { color: var(--otto-text); font-size: 12.5px; }
 .otto-park-meeting-room-detail span { color: var(--otto-text-secondary); font-size: 10.5px; }

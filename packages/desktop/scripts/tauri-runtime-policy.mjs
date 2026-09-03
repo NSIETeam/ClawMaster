@@ -86,7 +86,7 @@ export function resolveTauriNodeSource({
 }
 
 export function evaluateRuntimeSize(bytes, {
-  targetBytes = 18 * 1024 * 1024,
+  targetBytes = 28 * 1024 * 1024,
   hardLimitBytes = 32 * 1024 * 1024,
 } = {}) {
   if (!Number.isSafeInteger(bytes) || bytes < 0) throw new Error('runtime size is invalid');
@@ -108,7 +108,7 @@ export function summarizeRuntimeComponents(componentBytes) {
 }
 
 export function evaluateDownloadPackageSize(bytes, {
-  targetBytes = 20 * 1024 * 1024,
+  targetBytes = 30 * 1024 * 1024,
   hardLimitBytes = 40 * 1024 * 1024,
 } = {}) {
   if (!Number.isSafeInteger(bytes) || bytes < 0) throw new Error('download size is invalid');

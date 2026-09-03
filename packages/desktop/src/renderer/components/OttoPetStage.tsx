@@ -5,12 +5,9 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import ottoPetAtlasUrl from '../assets/otto-pet-atlas.png';
 
 const CELL_WIDTH = 192;
 const CELL_HEIGHT = 208;
-const ATLAS_COLUMNS = 8;
-const ATLAS_ROWS = 9;
 const LOGIN_DISPLAY_SCALE = 1.65;
 const WIDGET_DISPLAY_SCALE = 0.37;
 
@@ -93,6 +90,11 @@ interface AmbientStep {
   state: PetStateId;
   loops: number;
 }
+
+type PetSpriteStyle = React.CSSProperties & {
+  '--clawmaster-pet-frame': number;
+  '--clawmaster-pet-row': number;
+};
 
 // 非运行态有自己的陪伴节奏；回答状态本身仍由消息侧橘色标记负责。
 const AMBIENT_SEQUENCE: readonly AmbientStep[] = [
@@ -192,17 +194,11 @@ export function OttoPetStage({
   const displayWidth = Number((CELL_WIDTH * displayScale).toFixed(2));
   const displayHeight = Number((CELL_HEIGHT * displayScale).toFixed(2));
 
-  const spriteStyle: React.CSSProperties = {
+  const spriteStyle: PetSpriteStyle = {
     width: displayWidth,
     height: displayHeight,
-    backgroundImage: `url(${ottoPetAtlasUrl})`,
-    backgroundRepeat: 'no-repeat',
-    backgroundSize: `${CELL_WIDTH * ATLAS_COLUMNS * displayScale}px ${
-      CELL_HEIGHT * ATLAS_ROWS * displayScale
-    }px`,
-    backgroundPosition: `${-frameIndex * CELL_WIDTH * displayScale}px ${
-      -animation.row * CELL_HEIGHT * displayScale
-    }px`,
+    '--clawmaster-pet-frame': frameIndex,
+    '--clawmaster-pet-row': animation.row,
   };
 
   const motionStyle = {
@@ -229,7 +225,9 @@ export function OttoPetStage({
             data-frame={frameIndex}
             data-reduced-motion={reducedMotion ? 'true' : 'false'}
           >
-            <div className="otto-pet-stage__sprite" style={spriteStyle} />
+            <div className="otto-pet-stage__sprite" style={spriteStyle}>
+              <span className="otto-pet-stage__mark">♛</span>
+            </div>
           </div>
         </div>
         <div className="otto-pet-widget__copy">
@@ -268,7 +266,9 @@ export function OttoPetStage({
           data-frame={frameIndex}
           data-reduced-motion={reducedMotion ? 'true' : 'false'}
         >
-          <div className="otto-pet-stage__sprite" style={spriteStyle} aria-hidden="true" />
+          <div className="otto-pet-stage__sprite" style={spriteStyle} aria-hidden="true">
+            <span className="otto-pet-stage__mark">♛</span>
+          </div>
         </div>
       </div>
     </section>

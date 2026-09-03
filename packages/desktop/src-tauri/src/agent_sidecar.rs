@@ -194,6 +194,17 @@ fn materialize_ripgrep_capsule(
     )
 }
 
+fn try_materialize_ripgrep_capsule(
+    resources: &Path,
+    user_directory: &Path,
+) -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
+    let capsule_root = resources.join("ripgrep");
+    if !capsule_root.join("rg.br").is_file() && !capsule_root.join("rg-manifest.json").is_file() {
+        return Ok(None);
+    }
+    Ok(Some(materialize_ripgrep_capsule(resources, user_directory)?))
+}
+
 fn endpoint_belongs_to_pid(raw: &str, pid: u32) -> bool {
     serde_json::from_str::<serde_json::Value>(raw)
         .ok()
@@ -311,7 +322,7 @@ pub fn spawn(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let user_directory = product_user_directory(&home);
     let sidecar = materialize_node_capsule(&resources, &user_directory)?;
     let document_runtime = sidecar.clone();
-    let ripgrep = materialize_ripgrep_capsule(&resources, &user_directory)?;
+    let ripgrep = try_materialize_ripgrep_capsule(&resources, &user_directory)?;
     let custody_key = ensure_custody_key(&user_directory)?;
     let logs_directory = user_directory.join("logs");
     fs::create_dir_all(&logs_directory)?;
@@ -339,7 +350,6 @@ pub fn spawn(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             std::env::var_os("LANG").unwrap_or_else(|| "C.UTF-8".into()),
         )
         .env("CLAWMASTER_RESOURCES_PATH", &resources)
-        .env("OTTO_RIPGREP_BINARY", ripgrep)
         .env("OTTO_SQLCIPHER_NATIVE_BINDING", &sqlcipher)
         .env("OTTO_DATABASE_ENCRYPTION_KEY_FILE", custody_key)
         .env("OTTO_DATABASE_ENCRYPTION_KEY_ID", "desktop-local-custody")
@@ -353,6 +363,9 @@ pub fn spawn(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .stdin(Stdio::piped())
         .stdout(Stdio::from(log))
         .stderr(Stdio::from(error_log));
+    if let Some(ripgrep) = ripgrep {
+        command.env("OTTO_RIPGREP_BINARY", ripgrep);
+    }
     for name in ["SystemRoot", "WINDIR", "PATHEXT", "COMSPEC", "TEMP", "TMP"] {
         if let Some(value) = std::env::var_os(name) {
             command.env(name, value);
@@ -579,6 +592,24 @@ mod tests {
             fs::metadata(&materialized).unwrap().permissions().mode() & 0o100,
             0
         );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn missing_ripgrep_capsule_is_skipped_for_minimal_runtime() {
+        let root = std::env::temp_dir().join(format!(
+            "clawmaster-ripgrep-optional-{}",
+            std::process::id(),
+        ));
+        let resources = root.join("resources");
+        let user = root.join("user");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&resources).unwrap();
+
+        assert!(try_materialize_ripgrep_capsule(&resources, &user)
+            .unwrap()
+            .is_none());
+        assert!(!user.join("ripgrep").exists());
         let _ = fs::remove_dir_all(&root);
     }
 }

@@ -26,8 +26,6 @@ const nodeCapsule = path.join(runtime, 'node', 'node.br');
 const nodeManifestPath = path.join(runtime, 'node', 'node-manifest.json');
 const bootstrap = path.join(runtime, 'agent', 'bootstrap.mjs');
 const sqlcipher = path.join(runtime, 'sqlcipher', 'better_sqlite3.node');
-const ripgrepCapsule = path.join(runtime, 'ripgrep', 'rg.br');
-const ripgrepManifestPath = path.join(runtime, 'ripgrep', 'rg-manifest.json');
 
 for (const required of [
   nodeCapsule,
@@ -37,8 +35,6 @@ for (const required of [
   path.join(runtime, 'agent', 'agent.br'),
   path.join(runtime, 'agent', 'agent-manifest.json'),
   sqlcipher,
-  ripgrepCapsule,
-  ripgrepManifestPath,
 ]) {
   if (!existsSync(required)) throw new Error(`staged runtime is missing ${required}`);
 }
@@ -53,15 +49,6 @@ const nodeRoot = mkdtempSync(path.join(os.tmpdir(), 'clawmaster-tauri-node-'));
 const sidecar = path.join(nodeRoot, `node${runtimePlatform.executableSuffix}`);
 writeFileSync(sidecar, nodeBytes);
 chmodSync(sidecar, 0o700);
-const { bytes: ripgrepBytes } = readVerifiedBinaryCapsule({
-  capsulePath: ripgrepCapsule,
-  manifestPath: ripgrepManifestPath,
-  target: runtimePlatform.target,
-  minimumBytes: 1_000_000,
-});
-const ripgrep = path.join(nodeRoot, runtimePlatform.ripgrepExecutable);
-writeFileSync(ripgrep, ripgrepBytes);
-chmodSync(ripgrep, 0o700);
 
 const port = await new Promise((resolve, reject) => {
   const server = net.createServer();
@@ -90,7 +77,6 @@ const child = spawn(sidecar, [bootstrap, 'start'], {
     TMP: os.tmpdir(),
     LANG: process.env.LANG ?? 'C.UTF-8',
     CLAWMASTER_RESOURCES_PATH: runtime,
-    OTTO_RIPGREP_BINARY: ripgrep,
     OTTO_SQLCIPHER_NATIVE_BINDING: sqlcipher,
     OTTO_DATABASE_ENCRYPTION_KEY_FILE: keyPath,
     OTTO_DATABASE_ENCRYPTION_KEY_ID: 'tauri-runtime-smoke',

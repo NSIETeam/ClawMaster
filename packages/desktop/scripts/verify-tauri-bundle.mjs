@@ -32,8 +32,6 @@ const resources = process.platform === 'win32'
   : path.join(contents, 'Resources', 'runtime');
 const nodeCapsule = path.join(resources, 'node', 'node.br');
 const nodeManifestPath = path.join(resources, 'node', 'node-manifest.json');
-const ripgrepCapsule = path.join(resources, 'ripgrep', 'rg.br');
-const ripgrepManifestPath = path.join(resources, 'ripgrep', 'rg-manifest.json');
 const required = [
   nodeCapsule,
   nodeManifestPath,
@@ -42,8 +40,6 @@ const required = [
   path.join(resources, 'agent', 'agent.br'),
   path.join(resources, 'agent', 'agent-manifest.json'),
   path.join(resources, 'agent', 'agent-bundle-meta.json'),
-  ripgrepCapsule,
-  ripgrepManifestPath,
   path.join(resources, 'sqlcipher', 'better_sqlite3.node'),
   path.join(resources, 'sqlcipher', 'manifest.json'),
 ];
@@ -67,12 +63,6 @@ evaluateAgentBundleLayout(
 const { bytes: nodeExecutable } = readVerifiedBinaryCapsule({
   capsulePath: nodeCapsule,
   manifestPath: nodeManifestPath,
-  target: runtimePlatform.target,
-  minimumBytes: 1_000_000,
-});
-const { bytes: ripgrepExecutable } = readVerifiedBinaryCapsule({
-  capsulePath: ripgrepCapsule,
-  manifestPath: ripgrepManifestPath,
   target: runtimePlatform.target,
   minimumBytes: 1_000_000,
 });
@@ -125,10 +115,6 @@ try {
   if (!readFileSync(documentOutput, 'utf8').includes('smoke passed')) {
     throw new Error('document worker export smoke did not persist the edit');
   }
-  const ripgrep = path.join(probeRoot, runtimePlatform.ripgrepExecutable);
-  writeFileSync(ripgrep, ripgrepExecutable);
-  chmodSync(ripgrep, 0o700);
-  execFileSync(ripgrep, ['--version'], { stdio: 'inherit' });
 } finally {
   rmSync(probeRoot, { recursive: true, force: true });
 }

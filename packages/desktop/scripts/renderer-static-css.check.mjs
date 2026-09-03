@@ -54,16 +54,16 @@ test('production renderer emits images instead of parsing base64 inside JavaScri
     `production renderer JavaScript is too large: ${totalScriptBytes} bytes`,
   );
   assert.ok(
-    assetNames.some((name) => /^otto-pet-atlas\.[a-f0-9]{8}\.png$/u.test(name)),
-    'pet atlas must be emitted as a content-hashed resource',
+    assetNames.every((name) => !/^otto-pet-atlas\.[a-f0-9]{8}\.png$/u.test(name)),
+    'legacy Otto pet atlas must not ship in the lean ClawMaster renderer',
   );
   assert.ok(
     assetNames.some((name) => /^agent-ceo\.[a-f0-9]{8}\.png$/u.test(name)),
     'generated icons must be emitted as content-hashed resources',
   );
   assert.ok(
-    assetNames.some((name) => /^meeting-room-default\.[a-f0-9]{8}\.jpg$/u.test(name)),
-    'meeting-room image must be emitted as a content-hashed resource',
+    assetNames.every((name) => !/^meeting-room-default\.[a-f0-9]{8}\.jpg$/u.test(name)),
+    'legacy meeting-room fallback photo must not ship in the lean renderer',
   );
 });
 
