@@ -57,16 +57,22 @@ describe('desktop packaging contract', () => {
       'utf8',
     );
     const coreBuild = prepare.indexOf(
-      "run('npm', ['run', 'build', '--workspace=otto-core'])",
+      "run(process.execPath, [npmCli, 'run', 'build', '--workspace=otto-core'])",
     );
     const serverBuild = prepare.indexOf(
-      "run('npm', ['run', 'build', '--workspace=otto-server'])",
+      "run(process.execPath, [npmCli, 'run', 'build', '--workspace=otto-server'])",
+    );
+    const nativeBuild = prepare.indexOf(
+      "run(process.execPath, [npmCli, 'run', 'build', '--workspace=@otto/native'])",
     );
     const agentBundle = prepare.indexOf('prepareAgentBundle();');
 
+    expect(prepare).toContain('process.env.npm_execpath');
+    expect(prepare).not.toContain("run('npm'");
     expect(coreBuild).toBeGreaterThanOrEqual(0);
     expect(serverBuild).toBeGreaterThan(coreBuild);
-    expect(agentBundle).toBeGreaterThan(serverBuild);
+    expect(nativeBuild).toBeGreaterThan(serverBuild);
+    expect(agentBundle).toBeGreaterThan(nativeBuild);
     const worker = await readFile(
       path.join(packageRoot, 'scripts', 'document-worker-entry.mjs'),
       'utf8',

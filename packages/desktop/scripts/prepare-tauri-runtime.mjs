@@ -37,6 +37,8 @@ import {
 
 const desktopRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = path.resolve(desktopRoot, '../..');
+const npmCli = process.env.npm_execpath
+  ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
 const tauriRoot = path.join(desktopRoot, 'src-tauri');
 const stagingRoot = path.join(tauriRoot, 'target', 'sidecar-staging');
 const runtimeRoot = path.join(stagingRoot, 'runtime');
@@ -348,9 +350,9 @@ function verifyStaging() {
   console.log(`[tauri-runtime] minimal Agent runtime staged at ${runtimeRoot}`);
 }
 
-run('npm', ['run', 'build', '--workspace=otto-core']);
-run('npm', ['run', 'build', '--workspace=otto-server']);
-run('npm', ['run', 'build', '--workspace=@otto/native']);
+run(process.execPath, [npmCli, 'run', 'build', '--workspace=otto-core']);
+run(process.execPath, [npmCli, 'run', 'build', '--workspace=otto-server']);
+run(process.execPath, [npmCli, 'run', 'build', '--workspace=@otto/native']);
 prepareNodeSidecar();
 prepareAgentBundle();
 prepareNodeCapsule();
