@@ -79,6 +79,7 @@ describe('Tauri Windows workflow contract', () => {
   it('installs into isolated storage and proves the packaged runtime can start', () => {
     expect(previewWorkflow).toContain('smoke-tauri-windows-install.ps1');
     expect(installSmoke).toContain("@('/S', \"/D=$installRoot\")");
+    expect(installSmoke).toContain("-Filter 'clawmaster-desktop.exe'");
     expect(installSmoke).toContain('verify-tauri-bundle.mjs');
     expect(installSmoke).toContain('$env:OTTO_USER_DIR = $userRoot');
     expect(installSmoke).toContain('if ($appProcess.HasExited)');

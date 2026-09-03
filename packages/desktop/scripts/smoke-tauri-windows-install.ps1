@@ -21,10 +21,10 @@ try {
     throw "NSIS silent install failed with exit code $($install.ExitCode)"
   }
 
-  $app = Get-ChildItem -Path $installRoot -Filter 'ClawMaster.exe' -Recurse |
+  $app = Get-ChildItem -Path $installRoot -Filter 'clawmaster-desktop.exe' -Recurse |
     Select-Object -First 1
   if (-not $app) {
-    throw "ClawMaster.exe was not installed below $installRoot"
+    throw "clawmaster-desktop.exe was not installed below $installRoot"
   }
 
   node (Join-Path $repoRoot 'packages/desktop/scripts/verify-tauri-bundle.mjs') $installRoot
