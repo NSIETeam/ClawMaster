@@ -131,7 +131,7 @@ const ALLOWED_TRANSITIONS: Record<SelfModificationState, readonly SelfModificati
   draft: ['editing', 'cancelled'], editing: ['verifying', 'cancelled'],
   verifying: ['review_required', 'verification_failed', 'cancelled'], verification_failed: [],
   review_required: ['approved', 'rejected', 'cancelled'], approved: ['building', 'cancelled'],
-  building: ['candidate_running', 'build_failed'], build_failed: [],
+  building: ['candidate_running', 'build_failed', 'candidate_failed'], build_failed: [],
   candidate_running: ['draining', 'candidate_failed'], candidate_failed: [],
   draining: ['activating', 'activation_failed'], activating: ['observing', 'activation_failed'],
   observing: ['active', 'rolled_back'], active: [], activation_failed: ['rolled_back'],

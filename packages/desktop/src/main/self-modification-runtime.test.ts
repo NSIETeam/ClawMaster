@@ -1,16 +1,31 @@
-import { mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { createSelfModificationRuntime } from './self-modification-runtime.js';
 
+function createWorkspaceCommandStub(baseTemplatePath: string) {
+  return async (command: string, args: string[]) => {
+    if (command === 'git' && args.includes('rev-parse') && args.includes('HEAD')) return 'a'.repeat(40);
+    if (command === 'git' && args.includes('worktree') && args.includes('add')) {
+      const destination = args[args.length - 2] ?? baseTemplatePath;
+      await mkdir(destination, { recursive: true, mode: 0o700 });
+      await mkdir(path.join(destination, 'packages/desktop/src/main'), { recursive: true, mode: 0o700 });
+      await writeFile(
+        path.join(destination, 'packages/desktop/src/main/example.ts'),
+        `import { describe } from 'vitest';\n`,
+      );
+      return 'ok';
+    }
+    if (command === 'npm' || command === 'git') return 'ok';
+    return baseTemplatePath;
+  };
+}
+
 describe('createSelfModificationRuntime', () => {
   it('wires persistent storage, isolated worktrees and command-based gates', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-selfmod-runtime-'));
-    const runCommand = vi.fn(async (command: string, args: string[]) => {
-      if (command === 'git' && args.includes('rev-parse')) return 'a'.repeat(40);
-      return 'ok';
-    });
+    const runCommand = vi.fn(createWorkspaceCommandStub('/repo'));
     const controller = createSelfModificationRuntime({
       repositoryRoot: '/repo',
       userDataRoot: root,
@@ -35,17 +50,16 @@ describe('createSelfModificationRuntime', () => {
     expect(runCommand).toHaveBeenCalledWith('npm', ['run', 'doctor'], expect.stringContaining('worktrees'));
   });
 
-  it('reports an explicit build failure until the artifact builder is connected', async () => {
+  it('builds, activates and starts the candidate pipeline', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-selfmod-runtime-'));
+    const runCommand = vi.fn(createWorkspaceCommandStub('/repo'));
     const controller = createSelfModificationRuntime({
       repositoryRoot: '/repo',
       userDataRoot: root,
       productionRoot: '/Applications/ClawMaster.app/Contents/Resources',
       ownerId: 'runtime-1',
       now: () => '2026-09-03T00:00:00.000Z',
-      runCommand: vi.fn(async (command: string, args: string[]) => (
-        command === 'git' && args.includes('rev-parse') ? 'a'.repeat(40) : 'ok'
-      )),
+      runCommand,
     });
     const created = await controller.create({
       goal: 'safe change',
@@ -58,8 +72,7 @@ describe('createSelfModificationRuntime', () => {
     await controller.approve(created.id, { actorId: 'user-1', kind: 'human' });
 
     await expect(controller.buildAndActivate(created.id)).resolves.toMatchObject({
-      state: 'build_failed',
-      failure: 'self-modification artifact builder is not connected yet',
+      state: 'active',
     });
   });
 });
