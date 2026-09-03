@@ -125,7 +125,9 @@ jobs:
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         working-directory: node-source
         shell: cmd
-        run: vcbuild.bat release x64 clang-cl small-icu nonpm no-cctest no-NODE-OPTIONS lto
+        # vcbuild defaults to Release. Passing the explicit `release` token also
+        # enables its scoped LTCG mode, which conflicts with the full `lto` flag.
+        run: vcbuild.bat x64 clang-cl small-icu nonpm no-cctest no-NODE-OPTIONS lto
 
       - name: Finalize runtime asset
         if: steps.runtime-cache.outputs.cache-hit != 'true'

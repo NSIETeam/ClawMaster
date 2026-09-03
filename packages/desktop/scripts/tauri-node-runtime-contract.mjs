@@ -17,7 +17,6 @@ export const NODE_RUNTIME_BUILD_FLAGS = Object.freeze([
   '--with-icu-locales=en,zh-CN',
 ]);
 export const WINDOWS_NODE_RUNTIME_BUILD_FLAGS = Object.freeze([
-  'release',
   'x64',
   'clang-cl',
   'small-icu',

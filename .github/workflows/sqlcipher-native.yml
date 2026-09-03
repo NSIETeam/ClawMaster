@@ -77,7 +77,11 @@ jobs:
           python-version: '3.12'
 
       - name: Install locked JavaScript dependencies without registry native prebuilds
-        run: npm ci --ignore-scripts
+        run: >-
+          npm ci --ignore-scripts
+          --fetch-retries=5
+          --fetch-retry-mintimeout=10000
+          --fetch-retry-maxtimeout=120000
 
       - name: Checkout immutable official SQLCipher source
         shell: bash

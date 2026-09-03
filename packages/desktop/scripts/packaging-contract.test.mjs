@@ -315,6 +315,8 @@ describe('desktop packaging contract', () => {
     expect(workflow).toContain('name: tauri-sqlcipher-${{ matrix.target }}');
     expect(workflow).toContain('Build Tauri Node SQLCipher addon with static Windows OpenSSL');
     expect(workflow).toContain('--crypto-provider openssl-static');
+    expect(workflow).toContain('--fetch-retries=5');
+    expect(workflow).toContain('--fetch-retry-maxtimeout=120000');
   });
 
   it('provides a reproducible macOS arm64 Tauri preview workflow', async () => {
