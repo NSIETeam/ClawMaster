@@ -52,8 +52,15 @@ describe('Tauri Windows workflow contract', () => {
   });
 
   it('waits for and downloads the matching Node capsule before packaging', () => {
+    expect(previewWorkflow).toContain('windows_only: true');
     expect(previewWorkflow).toMatch(/windows-x64:[\s\S]*?needs: \[native-assets, node-runtime\]/u);
     expect(previewWorkflow).toMatch(/name: tauri-node-win32-x64[\s\S]*?path: native\/node-runtime\/win32-x64/u);
+  });
+
+  it('does not gate the Windows release on macOS packages', () => {
+    expect(previewWorkflow).not.toMatch(/\n  macos:\n/u);
+    expect(previewWorkflow).toMatch(/publish:[\s\S]*?needs: windows-x64/u);
+    expect(previewWorkflow).not.toContain('ClawMaster_*.dmg');
   });
 
   it('installs into isolated storage and proves the packaged runtime can start', () => {

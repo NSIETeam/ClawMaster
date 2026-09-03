@@ -333,14 +333,15 @@ describe('desktop packaging contract', () => {
     expect(workflow).not.toContain('npm rebuild better-sqlite3');
   });
 
-  it('provides a reproducible macOS arm64 Tauri release workflow', async () => {
+  it('provides a reproducible Windows x64 Tauri release workflow', async () => {
     const workflow = await readFile(
       path.join(repoRoot, '.github', 'workflows', 'tauri-preview.yml'),
       'utf8',
     );
-    expect(workflow).toContain('runner: macos-15');
-    expect(workflow).toContain('runner: macos-15-intel');
+    expect(workflow).not.toContain('runner: macos-15');
+    expect(workflow).not.toContain('runner: macos-15-intel');
     expect(workflow).toContain('runs-on: windows-2022');
+    expect(workflow).toContain('windows_only: true');
     expect(workflow).toContain('node-version: 24.20.0');
     expect(workflow).toContain(
       'npm run tauri:build --workspace=packages/desktop',
@@ -349,7 +350,7 @@ describe('desktop packaging contract', () => {
       workflow.match(
         /npm run release:formal:gate --workspace=packages\/desktop/g,
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(workflow).toContain('name: Tauri Release Build');
     expect(workflow).toContain(
       'packages/desktop/src/main/self-modification-runtime.test.ts',
@@ -371,9 +372,6 @@ describe('desktop packaging contract', () => {
     );
     expect(workflow).toContain(
       'packages/desktop/src/main/self-modification-infrastructure.test.ts',
-    );
-    expect(workflow).toContain(
-      "find . -maxdepth 1 -type f -name 'ClawMaster_*.dmg'",
     );
     expect(workflow).toContain('name: ClawMaster-Windows-x64-Tauri-Release');
     expect(workflow).toContain("tags:\n      - 'v*.*.*'");
@@ -399,7 +397,7 @@ describe('desktop packaging contract', () => {
     expect(workflow).toContain(
       'uses: ./.github/workflows/tauri-node-runtime.yml',
     );
-    expect(workflow).toContain('name: tauri-node-${{ matrix.nativeTarget }}');
+    expect(workflow).toContain('name: tauri-node-win32-x64');
     const nodeWorkflow = await readFile(
       path.join(repoRoot, '.github', 'workflows', 'tauri-node-runtime.yml'),
       'utf8',

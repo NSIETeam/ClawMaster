@@ -96,90 +96,8 @@ jobs:
   node-runtime:
     needs: source-policy
     uses: ./.github/workflows/tauri-node-runtime.yml
-
-  macos:
-    name: macOS ${{ matrix.arch }} release
-    needs: [native-assets, node-runtime]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15
-            arch: arm64
-            rustTarget: aarch64-apple-darwin
-            nativeTarget: darwin-arm64
-          - runner: macos-15-intel
-            arch: x64
-            rustTarget: x86_64-apple-darwin
-            nativeTarget: darwin-x64
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24.20.0
-          package-manager-cache: false
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rustTarget }}
-
-      - name: Install locked dependencies
-        run: npm ci
-
-      - uses: actions/download-artifact@v7
-        with:
-          name: tauri-sqlcipher-${{ matrix.nativeTarget }}
-          path: native/sqlcipher-tauri
-
-      - uses: actions/download-artifact@v7
-        with:
-          name: tauri-node-${{ matrix.nativeTarget }}
-          path: native/node-runtime/${{ matrix.nativeTarget }}
-
-      - name: Verify repository and Tauri release contracts
-        run: |
-          npm run doctor
-          npm run code-map:check
-          npm run typecheck --workspace=packages/desktop
-          npx vitest run \
-            packages/desktop/src/main/self-modification-runtime.test.ts \
-            packages/desktop/src/main/self-modification-candidate-supervisor.test.ts \
-            packages/desktop/src/main/self-modification-task-coordinator.test.ts \
-            packages/desktop/src/main/self-modification-version-registry.test.ts \
-            packages/desktop/src/main/self-modification-ipc.test.ts \
-            packages/desktop/src/main/self-modification-controller.test.ts \
-            packages/desktop/src/main/self-modification-infrastructure.test.ts \
-            packages/desktop/scripts/tauri-runtime-policy.test.mjs \
-            packages/desktop/scripts/tauri-node-runtime-contract.test.mjs \
-            packages/desktop/scripts/tauri-runtime-compression.test.mjs \
-            packages/desktop/scripts/verify-tauri-sqlcipher-asset.test.mjs \
-            packages/desktop/scripts/verify-tauri-dmg.test.mjs
-
-      - name: Build and verify Tauri release DMG
-        run: npm run tauri:build --workspace=packages/desktop
-
-      - name: Gate formal ClawMaster release artifact
-        run: npm run release:formal:gate --workspace=packages/desktop
-
-      - name: Record download checksum
-        working-directory: packages/desktop/src-tauri/target/release/bundle/dmg
-        run: |
-          set -euo pipefail
-          dmg="$(find . -maxdepth 1 -type f -name 'ClawMaster_*.dmg' ! -name '*.optimized.dmg' -print -quit)"
-          test -n "$dmg"
-          shasum -a 256 "$dmg" > SHA256SUMS
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: ClawMaster-macOS-${{ matrix.arch }}-Tauri-Release
-          path: |
-            packages/desktop/src-tauri/target/release/bundle/dmg/ClawMaster_*.dmg
-            packages/desktop/src-tauri/target/release/bundle/dmg/SHA256SUMS
-          if-no-files-found: error
-          retention-days: 14
+    with:
+      windows_only: true
 
   windows-x64:
     name: Windows x64 release
@@ -260,7 +178,7 @@ jobs:
 
   publish:
     name: Publish ClawMaster Tauri release
-    needs: [macos, windows-x64]
+    needs: windows-x64
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
     permissions:
@@ -305,11 +223,8 @@ jobs:
         run: |
           set -euo pipefail
           version="${{ steps.release.outputs.version }}"
-          test -f "release-assets/ClawMaster_${version}_aarch64.dmg"
-          test -f "release-assets/ClawMaster_${version}_x64.dmg"
           test -n "$(find release-assets -maxdepth 1 -type f -name '*.exe' -print -quit)"
-          find release-assets -maxdepth 1 -type f \
-            \( -name 'ClawMaster_*.dmg' -o -name '*.exe' \) \
+          find release-assets -maxdepth 1 -type f -name '*.exe' \
             -print0 | sort -z | xargs -0 sha256sum > release-assets/ClawMaster-${version}-SHA256SUMS
 
       - name: Publish GitHub Release
@@ -321,6 +236,5 @@ jobs:
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease == true }}
           generate_release_notes: true
           files: |
-            release-assets/ClawMaster_*.dmg
             release-assets/*.exe
             release-assets/ClawMaster-*-SHA256SUMS

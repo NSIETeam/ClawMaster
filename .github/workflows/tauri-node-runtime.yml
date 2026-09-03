@@ -2,7 +2,19 @@ name: Tauri Minimal Node Runtime
 
 on:
   workflow_call:
+    inputs:
+      windows_only:
+        description: 'Build only the Windows runtime required by the formal Windows release.'
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
+    inputs:
+      windows_only:
+        description: 'Build only the Windows runtime.'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -10,6 +22,7 @@ permissions:
 jobs:
   macos:
     name: ${{ matrix.target }} balanced Node runtime
+    if: inputs.windows_only != true
     strategy:
       fail-fast: false
       matrix:

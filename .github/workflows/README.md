@@ -39,13 +39,12 @@ The source-policy job requires the candidate to contain the latest
 Formal artifacts are published only after all of these jobs pass:
 
 - the reusable SQLCipher native matrix;
-- the pinned Node runtime matrix;
-- macOS arm64 and x64 Tauri builds and formal artifact gates;
+- the pinned Windows x64 Node runtime;
 - the Windows x64 Tauri build, install, isolated GUI smoke, and formal gate.
 
-A successful `v*.*.*` tag run creates the GitHub Release and uploads both DMGs,
-the Windows NSIS installer, and a combined SHA-256 manifest. Manual runs do not
-publish unless `publish_release` is explicitly enabled.
+A successful `v*.*.*` tag run creates the GitHub Release and uploads the
+Windows NSIS installer with its SHA-256 manifest. Manual runs do not publish
+unless `publish_release` is explicitly enabled.
 
 ## Reusable native workflows
 
@@ -53,6 +52,7 @@ publish unless `publish_release` is explicitly enabled.
 records provenance for Linux, macOS, and Windows. The Tauri workflow consumes
 the Node sidecar assets from this matrix.
 
-`.github/workflows/tauri-node-runtime.yml` builds the pinned Node `24.20.0`
-sidecars for macOS arm64, macOS x64, and Windows x64. The workflow verifies the
-official Windows archive checksum before packaging it.
+`.github/workflows/tauri-node-runtime.yml` can build pinned Node `24.20.0`
+sidecars for macOS arm64, macOS x64, and Windows x64. Formal releases invoke it
+in Windows-only mode and verify the official Windows archive checksum before
+packaging it.
