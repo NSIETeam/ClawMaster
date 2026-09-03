@@ -55,6 +55,14 @@ describe('Tauri Windows workflow contract', () => {
     expect(previewWorkflow).toContain('windows_only: true');
     expect(previewWorkflow).toMatch(/windows-x64:[\s\S]*?needs: \[native-assets, node-runtime\]/u);
     expect(previewWorkflow).toMatch(/name: tauri-node-win32-x64[\s\S]*?path: native\/node-runtime\/win32-x64/u);
+    expect(previewWorkflow).toContain('verify-tauri-node-runtime.mjs');
+    expect(previewWorkflow).toContain(
+      '--asset-directory native/node-runtime/win32-x64',
+    );
+    expect(previewWorkflow).toContain('verify-tauri-sqlcipher-asset.mjs');
+    expect(previewWorkflow).toContain(
+      '--asset-directory native/sqlcipher-tauri/win32-x64',
+    );
   });
 
   it('does not gate the Windows release on macOS packages', () => {

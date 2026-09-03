@@ -127,25 +127,19 @@ jobs:
           name: tauri-node-win32-x64
           path: native/node-runtime/win32-x64
 
-      - name: Verify repository and Tauri release contracts
+      - name: Verify downloaded Windows runtime assets
         shell: pwsh
         run: |
-          npm run doctor
-          npm run code-map:check
-          npm run typecheck --workspace=packages/desktop
-          npx vitest run `
-            packages/desktop/src/main/self-modification-runtime.test.ts `
-            packages/desktop/src/main/self-modification-candidate-supervisor.test.ts `
-            packages/desktop/src/main/self-modification-task-coordinator.test.ts `
-            packages/desktop/src/main/self-modification-version-registry.test.ts `
-            packages/desktop/src/main/self-modification-ipc.test.ts `
-            packages/desktop/src/main/self-modification-controller.test.ts `
-            packages/desktop/src/main/self-modification-infrastructure.test.ts `
-            packages/desktop/scripts/tauri-runtime-policy.test.mjs `
-            packages/desktop/scripts/tauri-node-runtime-contract.test.mjs `
-            packages/desktop/scripts/tauri-runtime-compression.test.mjs `
-            packages/desktop/scripts/verify-tauri-sqlcipher-asset.test.mjs `
-            packages/desktop/scripts/verify-tauri-windows-installer.test.mjs
+          node packages/desktop/scripts/verify-tauri-node-runtime.mjs `
+            --asset-directory native/node-runtime/win32-x64 `
+            --target win32-x64 `
+            --node-version 24.20.0
+          $moduleAbi = node -p 'process.versions.modules'
+          node packages/desktop/scripts/verify-tauri-sqlcipher-asset.mjs `
+            --asset-directory native/sqlcipher-tauri/win32-x64 `
+            --target win32-x64 `
+            --node-version 24.20.0 `
+            --module-abi $moduleAbi
 
       - name: Build and verify Tauri release installer
         run: npm run tauri:build --workspace=packages/desktop

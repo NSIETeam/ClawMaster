@@ -266,7 +266,7 @@ describe('SQLCipher native asset gate', () => {
       'uses: ./.github/workflows/sqlcipher-native.yml',
     );
     expect(tauriWorkflow).toContain(
-      'name: tauri-sqlcipher-${{ matrix.nativeTarget }}',
+      'name: tauri-sqlcipher-win32-x64',
     );
   });
 });
