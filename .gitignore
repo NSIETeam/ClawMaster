@@ -43,6 +43,7 @@ dist
 # 注意：只忽略与.ts/.tsx文件同名的编译产物
 packages/*/src/**/*.js
 packages/*/src/**/*.d.ts
+!packages/desktop/src/renderer/css.d.ts
 packages/*/src/**/*.js.map
 
 # TypeScript编译产物（包根目录下的配置文件编译产物）

@@ -117,6 +117,18 @@ describe('source tree hygiene', () => {
     expect(runner).not.toContain("'otto-desktop'");
   });
 
+  it('tracks renderer asset types in clean checkouts', () => {
+    const ignoreRules = readFileSync(path.join(rootDir, '.gitignore'), 'utf8');
+    const assetTypes = readFileSync(
+      path.join(rootDir, 'packages/desktop/src/renderer/css.d.ts'),
+      'utf8',
+    );
+
+    expect(ignoreRules).toContain('!packages/desktop/src/renderer/css.d.ts');
+    expect(assetTypes).toContain("declare module '*.png'");
+    expect(assetTypes).toContain("declare module '*.svg'");
+  });
+
   it('pins patched production transitive dependencies', () => {
     const manifest = JSON.parse(
       readFileSync(path.join(rootDir, 'package.json'), 'utf8'),
