@@ -71,6 +71,8 @@ import { WorkspaceDirectoryStore } from './workspace-directory-store.js';
 import { MainWindowPresentationController } from './main-window-presentation.js';
 import { askWindowCloseChoice } from './window-close-policy.js';
 import { installCommunitySkill } from './community-skill-installer.js';
+import { registerSelfModificationIpc } from './self-modification-ipc.js';
+import { createSelfModificationRuntime } from './self-modification-runtime.js';
 
 function ignoreBrokenPipe(stream: NodeJS.WriteStream): void {
   stream.on('error', (error: NodeJS.ErrnoException) => {
@@ -2527,6 +2529,12 @@ function registerIpc(): void {
   const enterpriseSkillLibrary = new EnterpriseSkillLibrary(
     path.join(process.cwd(), '.otto', 'org', 'skill-shares.json'),
   );
+  registerSelfModificationIpc(ipcMain, createSelfModificationRuntime({
+    repositoryRoot: process.env.CLAWMASTER_REPOSITORY_ROOT ?? app.getAppPath(),
+    userDataRoot: app.getPath('userData'),
+    productionRoot: process.resourcesPath ?? app.getAppPath(),
+    ownerId: `${os.hostname()}:${process.pid}`,
+  }));
   ipcMain.handle(IPC.communitySkillInstall, async (_event, input: unknown) => {
     if (!input || typeof input !== 'object') throw new Error('社区插件导入参数不完整');
     const value = input as Record<string, unknown>;
