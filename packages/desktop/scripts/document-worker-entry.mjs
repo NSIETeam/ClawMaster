@@ -6,6 +6,8 @@ process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => { input += chunk; });
 await once(process.stdin, 'end');
 
+let exitCode = 0;
+let response;
 try {
   const request = JSON.parse(input);
   const result = request.operation === 'extract'
@@ -13,11 +15,21 @@ try {
     : request.operation === 'export'
       ? await exportEditedDocument(request.sourcePath, request.content, request.outPath)
       : (() => { throw new Error('unsupported document worker operation'); })();
-  process.stdout.write(JSON.stringify({ ok: true, result }));
+  response = { ok: true, result };
 } catch (error) {
-  process.stdout.write(JSON.stringify({
+  exitCode = 1;
+  response = {
     ok: false,
     error: error instanceof Error ? error.message : String(error),
-  }));
-  process.exitCode = 1;
+  };
 }
+
+await new Promise((resolve, reject) => {
+  process.stdout.write(JSON.stringify(response), (error) => {
+    if (error) reject(error);
+    else resolve();
+  });
+});
+// This worker serves exactly one request. Exit even if imported dependencies
+// retain background handles, otherwise synchronous desktop callers can hang.
+process.exit(exitCode);

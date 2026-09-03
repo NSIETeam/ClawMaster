@@ -14,6 +14,7 @@ $appProcess = $null
 New-Item -ItemType Directory -Force -Path $installRoot, $userRoot | Out-Null
 
 try {
+  Write-Host "[tauri-windows] installing $installerPath into $installRoot"
   $install = Start-Process -FilePath $installerPath `
     -ArgumentList @('/S', "/D=$installRoot") `
     -Wait -PassThru
@@ -27,6 +28,7 @@ try {
     throw "clawmaster-desktop.exe was not installed below $installRoot"
   }
 
+  Write-Host "[tauri-windows] verifying installed runtime"
   node (Join-Path $repoRoot 'packages/desktop/scripts/verify-tauri-bundle.mjs') $installRoot
   if ($LASTEXITCODE -ne 0) {
     throw "Installed runtime verification failed with exit code $LASTEXITCODE"
@@ -34,6 +36,7 @@ try {
 
   $previousUserRoot = $env:OTTO_USER_DIR
   $env:OTTO_USER_DIR = $userRoot
+  Write-Host "[tauri-windows] starting installed GUI from $($app.FullName)"
   $appProcess = Start-Process -FilePath $app.FullName -PassThru
   Start-Sleep -Seconds 8
   if ($appProcess.HasExited) {

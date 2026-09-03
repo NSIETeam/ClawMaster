@@ -3,7 +3,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
@@ -81,6 +82,29 @@ describe('desktop packaging contract', () => {
     );
     expect(worker).toContain("from 'otto-core'");
     expect(worker).not.toContain('../../core/src/');
+    expect(worker).toContain('process.exit(exitCode)');
+  });
+
+  it('terminates the one-shot document worker after writing its response', async () => {
+    const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-document-worker-'));
+    const source = path.join(temporaryRoot, 'source.md');
+    await writeFile(source, '# ClawMaster document worker\n');
+
+    try {
+      const output = execFileSync(process.execPath, [
+        path.join(packageRoot, 'scripts', 'document-worker-entry.mjs'),
+      ], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        input: JSON.stringify({ operation: 'extract', filePath: source }),
+        timeout: 15_000,
+      });
+      const response = JSON.parse(output);
+      expect(response.ok).toBe(true);
+      expect(response.result.content).toContain('ClawMaster document worker');
+    } finally {
+      await rm(temporaryRoot, { recursive: true, force: true });
+    }
   });
 
   it('uses a real multi-resolution ICO for Windows packaging', async () => {

@@ -90,6 +90,7 @@ const { bytes: nodeExecutable } = readVerifiedBinaryCapsule({
 const probeRoot = mkdtempSync(path.join(tmpdir(), 'clawmaster-node-probe-'));
 const sidecar = path.join(probeRoot, `node${runtimePlatform.executableSuffix}`);
 try {
+  console.log('[tauri-bundle] probing packaged SQLCipher');
   const agentRoot = materializeDirectoryCapsule({
     capsulePath: path.join(resources, 'agent', 'agent.br'),
     manifestPath: path.join(resources, 'agent', 'agent-manifest.json'),
@@ -105,11 +106,13 @@ try {
   ], {
     cwd: repoRoot,
     stdio: 'inherit',
+    timeout: 60_000,
   });
   const documentSource = path.join(probeRoot, 'document-smoke.md');
   const documentOutput = path.join(probeRoot, 'document-smoke-edited.md');
   writeFileSync(documentSource, '# ClawMaster document smoke\n');
   const runDocumentWorker = (request) => {
+    console.log(`[tauri-bundle] probing document worker: ${request.operation}`);
     const output = execFileSync(sidecar, [
       path.join(resources, 'agent', 'bootstrap.mjs'),
       'document',
@@ -118,6 +121,7 @@ try {
       encoding: 'utf8',
       input: JSON.stringify(request),
       env: { ...process.env, OTTO_USER_DIR: path.join(probeRoot, 'document-user') },
+      timeout: 120_000,
     });
     const response = JSON.parse(output);
     if (response.ok !== true) throw new Error(response.error ?? 'document worker smoke failed');
