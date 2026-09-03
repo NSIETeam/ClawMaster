@@ -17,18 +17,32 @@ function requireArgument(name) {
   return value;
 }
 
+export function resolveWindowsDependencyInspector({
+  environment = process.env,
+  fileExists = existsSync,
+} = {}) {
+  const candidates = [
+    environment.RUNNER_TEMP
+      ? path.join(environment.RUNNER_TEMP, 'msys64', 'ucrt64', 'bin', 'objdump.exe')
+      : null,
+    path.join(environment.SystemDrive ?? 'C:', 'msys64', 'ucrt64', 'bin', 'objdump.exe'),
+  ].filter(Boolean);
+  const objdump = candidates.find((candidate) => fileExists(candidate));
+  return objdump
+    ? { command: objdump, arguments: ['-p'] }
+    : { command: 'dumpbin', arguments: ['/dependents'] };
+}
+
 function inspectLinkedLibraries(binding, target) {
   if (target.startsWith('darwin-')) {
     return execFileSync('otool', ['-L', binding], { encoding: 'utf8' });
   }
-  const objdump = path.join(
-    process.env.SystemDrive ?? 'C:',
-    'msys64', 'ucrt64', 'bin', 'objdump.exe',
+  const inspector = resolveWindowsDependencyInspector();
+  return execFileSync(
+    inspector.command,
+    [...inspector.arguments, binding],
+    { encoding: 'utf8' },
   );
-  if (existsSync(objdump)) {
-    return execFileSync(objdump, ['-p', binding], { encoding: 'utf8' });
-  }
-  return execFileSync('dumpbin', ['/dependents', binding], { encoding: 'utf8' });
 }
 
 export function verifyTauriSqlCipherAsset({

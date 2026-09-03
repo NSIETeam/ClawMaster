@@ -3,7 +3,10 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { verifyTauriSqlCipherAsset } from './verify-tauri-sqlcipher-asset.mjs';
+import {
+  resolveWindowsDependencyInspector,
+  verifyTauriSqlCipherAsset,
+} from './verify-tauri-sqlcipher-asset.mjs';
 
 const temporaryDirectories = [];
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -52,6 +55,18 @@ afterEach(() => {
 });
 
 describe('Tauri SQLCipher asset verifier', () => {
+  it('finds the MSYS2 objdump installed below the GitHub runner temp directory', () => {
+    const runnerTemp = path.join('D:', 'a', '_temp');
+    const expected = path.join(
+      runnerTemp,
+      'msys64', 'ucrt64', 'bin', 'objdump.exe',
+    );
+    expect(resolveWindowsDependencyInspector({
+      environment: { RUNNER_TEMP: runnerTemp, SystemDrive: 'C:' },
+      fileExists: (candidate) => candidate === expected,
+    })).toEqual({ command: expected, arguments: ['-p'] });
+  });
+
   it('accepts a pinned CommonCrypto Node binding with complete evidence', () => {
     expect(verifyTauriSqlCipherAsset({
       assetDirectory: fixture(),
