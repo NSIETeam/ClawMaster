@@ -69,6 +69,8 @@ describe('desktop packaging contract', () => {
 
     expect(prepare).toContain('process.env.npm_execpath');
     expect(prepare).not.toContain("run('npm'");
+    expect(prepare).toContain("run(process.execPath, [\n    esbuildCli,");
+    expect(prepare).not.toContain("path.join(repoRoot, 'node_modules', '.bin', 'esbuild')");
     expect(coreBuild).toBeGreaterThanOrEqual(0);
     expect(serverBuild).toBeGreaterThan(coreBuild);
     expect(nativeBuild).toBeGreaterThan(serverBuild);

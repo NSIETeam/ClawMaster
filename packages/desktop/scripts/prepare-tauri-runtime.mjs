@@ -39,6 +39,7 @@ const desktopRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const repoRoot = path.resolve(desktopRoot, '../..');
 const npmCli = process.env.npm_execpath
   ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+const esbuildCli = path.join(repoRoot, 'node_modules', 'esbuild', 'bin', 'esbuild');
 const tauriRoot = path.join(desktopRoot, 'src-tauri');
 const stagingRoot = path.join(tauriRoot, 'target', 'sidecar-staging');
 const runtimeRoot = path.join(stagingRoot, 'runtime');
@@ -151,7 +152,8 @@ function prepareAgentBundle() {
         path.join(repoRoot, 'packages', 'core', 'package.json'),
       ),
   });
-  run(path.join(repoRoot, 'node_modules', '.bin', 'esbuild'), [
+  run(process.execPath, [
+    esbuildCli,
     `server=${path.join(repoRoot, 'packages', 'server', 'dist', 'bin.js')}`,
     `document=${path.join(desktopRoot, 'scripts', 'document-worker-entry.mjs')}`,
     '--bundle', '--platform=node', '--format=esm', '--target=node22',
