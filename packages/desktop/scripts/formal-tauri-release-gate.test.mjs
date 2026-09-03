@@ -69,4 +69,20 @@ describe('formal Tauri release gate', () => {
     });
     expect(result.failures.join('\n')).toContain('formal release version must not be a preview');
   });
+
+  it('rejects stale or wrongly branded Windows installers', () => {
+    const root = makeFixture();
+    const nsis = path.join(
+      root,
+      'packages', 'desktop', 'src-tauri', 'target', 'release', 'bundle', 'nsis',
+    );
+    mkdirSync(nsis, { recursive: true });
+    writeFileSync(path.join(nsis, 'Otto-Setup-0.0.1-win-x64.exe'), 'legacy');
+    const result = evaluateFormalTauriReleaseGate({
+      root,
+      platform: 'win32',
+      arch: 'x64',
+    });
+    expect(result.failures).toEqual(['expected exactly one local Windows installer, found 0']);
+  });
 });

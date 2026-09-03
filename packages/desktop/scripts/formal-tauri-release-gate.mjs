@@ -32,7 +32,10 @@ function collectReleaseAsset({ root, version, platform = process.platform, arch 
       'packages', 'desktop', 'src-tauri', 'target', 'release', 'bundle', 'nsis',
     );
     const installers = existsSync(nsisDirectory)
-      ? readdirSync(nsisDirectory).filter((name) => name.endsWith('.exe')).sort()
+      ? readdirSync(nsisDirectory)
+        .filter((name) => name.endsWith('.exe'))
+        .filter((name) => name.includes('ClawMaster') && name.includes(version))
+        .sort()
       : [];
     return {
       kind: 'windows-installer',
