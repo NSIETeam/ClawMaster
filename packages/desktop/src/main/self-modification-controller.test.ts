@@ -60,6 +60,35 @@ describe('SelfModificationController', () => {
     expect(classifySelfModificationRisk(['skills/report/SKILL.md'])).toBe('policy-auto');
   });
 
+  it('emits origin, input version and cost attribution with every visible state', async () => {
+    const { controller, dependencies } = harness();
+    await controller.create({
+      goal: 'track provenance',
+      tenantId: 'tenant-1',
+      actorId: 'user-1',
+      origin: 'wecom',
+      inputVersion: 'message:42',
+      codeVersion: 'stable-1',
+      capabilityVersion: 'self-modification-v1',
+      usage: { tokenCount: 120, provider: 'deepseek', retryCount: 2, estimatedCostUsd: 0.03 },
+      idempotencyKey: 'change-1-create',
+      changedPaths: ['packages/desktop/src/main/self-modification-controller.ts'],
+    });
+
+    expect(dependencies.audit.emit).toHaveBeenCalledWith(expect.objectContaining({
+      actorId: 'user-1',
+      origin: 'wecom',
+      inputVersion: 'message:42',
+      codeVersion: 'stable-1',
+      capabilityVersion: 'self-modification-v1',
+      idempotencyKey: 'change-1-create',
+      tokenCount: 120,
+      provider: 'deepseek',
+      retryCount: 2,
+      estimatedCostUsd: 0.03,
+    }));
+  });
+
   it('rejects a workspace located inside the production installation', async () => {
     const { controller } = harness({
       workspaces: { create: vi.fn(async () => ({

@@ -12,6 +12,7 @@ import type { SelfModificationRequest } from './self-modification-controller.js'
 
 const request = (): SelfModificationRequest => ({
   id: 'change-1', goal: 'safe change', tenantId: 'tenant-1', actorId: 'user-1',
+  origin: 'desktop', inputVersion: 'manual:1', codeVersion: 'stable-1', capabilityVersion: 'self-modification-v1',
   changedPaths: ['skills/report/SKILL.md'], risk: 'policy-auto', state: 'draft',
   createdAt: '2026-09-03T00:00:00.000Z', updatedAt: '2026-09-03T00:00:00.000Z',
 });
@@ -61,9 +62,20 @@ describe('self-modification infrastructure', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-self-change-'));
     const file = path.join(root, 'audit.jsonl');
     const audit = new JsonlSelfModificationAudit(file);
-    await audit.emit({ requestId: 'change-1', state: 'draft', at: '2026-09-03T00:00:00.000Z', detail: 'token=secret' });
+    await audit.emit({
+      requestId: 'change-1',
+      state: 'draft',
+      at: '2026-09-03T00:00:00.000Z',
+      actorId: 'user-1',
+      origin: 'desktop',
+      inputVersion: 'manual:1',
+      codeVersion: 'stable-1',
+      capabilityVersion: 'self-modification-v1',
+      detail: 'token=secret',
+    });
     const record = JSON.parse((await readFile(file, 'utf8')).trim());
     expect(record.detail).toBe('[REDACTED]');
+    expect(record).toMatchObject({ origin: 'desktop', inputVersion: 'manual:1' });
   });
 
   it('runs every required release gate and preserves failure evidence', async () => {

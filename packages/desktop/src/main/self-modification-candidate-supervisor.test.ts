@@ -10,7 +10,9 @@ function fakeProcess() {
 }
 
 const request: SelfModificationRequest = {
-  id: 'change-1', goal: 'safe', tenantId: 'tenant-1', actorId: 'user-1', changedPaths: [], risk: 'human-confirmation',
+  id: 'change-1', goal: 'safe', tenantId: 'tenant-1', actorId: 'user-1', origin: 'desktop',
+  inputVersion: 'manual:1', codeVersion: 'stable-1', capabilityVersion: 'self-modification-v1',
+  changedPaths: [], risk: 'human-confirmation',
   state: 'approved', createdAt: '2026-09-03T00:00:00Z', updatedAt: '2026-09-03T00:00:00Z',
   workspace: { path: '/private/tmp/worktree', branch: 'self-change/change-1', baselineCommit: 'a'.repeat(40) },
 };

@@ -19,6 +19,10 @@ export interface SelfModificationRequest {
   goal: string;
   tenantId: string;
   actorId: string;
+  origin: string;
+  inputVersion: string;
+  codeVersion: string;
+  capabilityVersion: string;
   changedPaths: string[];
   risk: SelfModificationRisk;
   state: SelfModificationState;
@@ -31,6 +35,25 @@ export interface SelfModificationRequest {
   checkpointId?: string;
   previousVersion?: string;
   failure?: string;
+  usage?: { tokenCount: number; provider?: string; retryCount: number; estimatedCostUsd: number };
+  idempotencyKey?: string;
+}
+
+export interface SelfModificationAuditEvent {
+  requestId: string;
+  state: SelfModificationState;
+  at: string;
+  actorId: string;
+  origin: string;
+  inputVersion: string;
+  codeVersion: string;
+  capabilityVersion: string;
+  idempotencyKey?: string;
+  tokenCount?: number;
+  provider?: string;
+  retryCount?: number;
+  estimatedCostUsd?: number;
+  detail?: string;
 }
 
 export interface ApprovalActor {
@@ -81,7 +104,7 @@ export interface SelfModificationDependencies {
     >;
     rollback(previousVersion: string): Promise<void>;
   };
-  audit: { emit(event: { requestId: string; state: SelfModificationState; at: string; detail?: string }): Promise<void> };
+  audit: { emit(event: SelfModificationAuditEvent): Promise<void> };
 }
 
 const SECURITY_PATHS = [
@@ -118,10 +141,18 @@ const ALLOWED_TRANSITIONS: Record<SelfModificationState, readonly SelfModificati
 export class SelfModificationController {
   constructor(private readonly dependencies: SelfModificationDependencies) {}
 
-  async create(input: Pick<SelfModificationRequest, 'goal' | 'tenantId' | 'actorId' | 'changedPaths'>) {
+  async create(input: Pick<SelfModificationRequest, 'goal' | 'tenantId' | 'actorId' | 'changedPaths'> & Partial<Pick<
+    SelfModificationRequest,
+    'origin' | 'inputVersion' | 'codeVersion' | 'capabilityVersion' | 'usage' | 'idempotencyKey'
+  >>) {
     const at = this.dependencies.now();
     const request: SelfModificationRequest = {
       ...input, changedPaths: [...input.changedPaths], id: this.dependencies.createId(),
+      origin: input.origin ?? 'desktop',
+      inputVersion: input.inputVersion ?? `manual:${at}`,
+      codeVersion: input.codeVersion ?? 'current',
+      capabilityVersion: input.capabilityVersion ?? 'self-modification-v1',
+      usage: input.usage ?? { tokenCount: 0, retryCount: 0, estimatedCostUsd: 0 },
       risk: classifySelfModificationRisk(input.changedPaths), state: 'draft', createdAt: at, updatedAt: at,
     };
     await this.persist(request);
@@ -229,6 +260,21 @@ export class SelfModificationController {
 
   private async persist(request: SelfModificationRequest, detail?: string) {
     await this.dependencies.repository.save(request);
-    await this.dependencies.audit.emit({ requestId: request.id, state: request.state, at: request.updatedAt, detail });
+    await this.dependencies.audit.emit({
+      requestId: request.id,
+      state: request.state,
+      at: request.updatedAt,
+      actorId: request.actorId,
+      origin: request.origin,
+      inputVersion: request.inputVersion,
+      codeVersion: request.codeVersion,
+      capabilityVersion: request.capabilityVersion,
+      idempotencyKey: request.idempotencyKey,
+      tokenCount: request.usage?.tokenCount,
+      provider: request.usage?.provider,
+      retryCount: request.usage?.retryCount,
+      estimatedCostUsd: request.usage?.estimatedCostUsd,
+      detail,
+    });
   }
 }
