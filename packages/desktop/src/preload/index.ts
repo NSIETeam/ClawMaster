@@ -162,6 +162,42 @@ export interface DesktopRuntimeDiagnostic {
     message: string;
   };
 }
+
+export type SelfModificationState =
+  | 'draft' | 'editing' | 'verifying' | 'verification_failed' | 'review_required'
+  | 'approved' | 'building' | 'build_failed' | 'candidate_running' | 'candidate_failed'
+  | 'draining' | 'activating' | 'observing' | 'active' | 'activation_failed'
+  | 'rolled_back' | 'rejected' | 'cancelled';
+
+export type SelfModificationRisk = 'policy-auto' | 'human-confirmation' | 'security-review';
+
+export interface SelfModificationRequestView {
+  id: string;
+  goal: string;
+  tenantId: string;
+  actorId: string;
+  origin: string;
+  inputVersion: string;
+  codeVersion: string;
+  capabilityVersion: string;
+  changedPaths: string[];
+  risk: SelfModificationRisk;
+  state: SelfModificationState;
+  createdAt: string;
+  updatedAt: string;
+  workspace?: { path: string; branch: string; baselineCommit: string };
+  verification?: {
+    ok: boolean;
+    checks: Array<{ name: string; status: 'passed' | 'failed' | 'skipped'; detail?: string }>;
+  };
+  approval?: { actorId: string; kind: 'policy' | 'human' | 'security-reviewer'; at: string };
+  candidate?: { id: string; version: string; artifactPath: string };
+  checkpointId?: string;
+  previousVersion?: string;
+  failure?: string;
+  usage?: { tokenCount: number; provider?: string; retryCount: number; estimatedCostUsd: number };
+  idempotencyKey?: string;
+}
 export type IncrementalUpdateApplyResult =
   | {
       ok: true;
@@ -1280,6 +1316,14 @@ const IPC = {
   themeGet: 'otto:theme-get',
   themeSet: 'otto:theme-set',
   taskRuntimeSetActive: 'clawmaster:task-runtime-set-active',
+  selfModificationList: 'clawmaster:self-modification-list',
+  selfModificationCreate: 'clawmaster:self-modification-create',
+  selfModificationPrepare: 'clawmaster:self-modification-prepare',
+  selfModificationVerify: 'clawmaster:self-modification-verify',
+  selfModificationApprove: 'clawmaster:self-modification-approve',
+  selfModificationReject: 'clawmaster:self-modification-reject',
+  selfModificationCancel: 'clawmaster:self-modification-cancel',
+  selfModificationBuildAndActivate: 'clawmaster:self-modification-build-activate',
   skillLeaderboard: 'otto:skill-leaderboard',
   workLogToday: 'otto:worklog-today',
   workLogRecent: 'otto:worklog-recent',
@@ -1464,6 +1508,33 @@ export interface OttoBridge {
   ): Promise<'system' | 'light' | 'dark'>;
   /** 长任务运行时阻止系统因空闲休眠；不拦截用户主动关机。 */
   taskRuntimeSetActive(active: boolean): Promise<boolean>;
+  selfModificationList(): Promise<SelfModificationRequestView[]>;
+  selfModificationCreate(input: {
+    goal: string;
+    tenantId: string;
+    actorId: string;
+    origin?: string;
+    inputVersion?: string;
+    codeVersion?: string;
+    capabilityVersion?: string;
+    changedPaths: string[];
+    usage?: { tokenCount: number; provider?: string; retryCount: number; estimatedCostUsd: number };
+    idempotencyKey?: string;
+  }): Promise<SelfModificationRequestView>;
+  selfModificationPrepare(id: string): Promise<SelfModificationRequestView>;
+  selfModificationVerify(id: string): Promise<SelfModificationRequestView>;
+  selfModificationApprove(
+    id: string,
+    actorId: string,
+    kind: 'policy' | 'human' | 'security-reviewer',
+  ): Promise<SelfModificationRequestView>;
+  selfModificationReject(
+    id: string,
+    actorId: string,
+    kind: 'policy' | 'human' | 'security-reviewer',
+  ): Promise<SelfModificationRequestView>;
+  selfModificationCancel(id: string): Promise<SelfModificationRequestView>;
+  selfModificationBuildAndActivate(id: string): Promise<SelfModificationRequestView>;
   /** Skill 排行榜 + 贡献明星榜（krx 企业面板；数据读 .otto/org/skill-shares.json）。 */
   skillLeaderboard(teamId?: string): Promise<{
     leaderboard: string;
@@ -2424,6 +2495,38 @@ const bridge: OttoBridge = {
   },
   taskRuntimeSetActive(active: boolean): Promise<boolean> {
     return ipcRenderer.invoke(IPC.taskRuntimeSetActive, active) as Promise<boolean>;
+  },
+  selfModificationList(): Promise<SelfModificationRequestView[]> {
+    return ipcRenderer.invoke(IPC.selfModificationList) as Promise<SelfModificationRequestView[]>;
+  },
+  selfModificationCreate(input): Promise<SelfModificationRequestView> {
+    return ipcRenderer.invoke(IPC.selfModificationCreate, input) as Promise<SelfModificationRequestView>;
+  },
+  selfModificationPrepare(id: string): Promise<SelfModificationRequestView> {
+    return ipcRenderer.invoke(IPC.selfModificationPrepare, id) as Promise<SelfModificationRequestView>;
+  },
+  selfModificationVerify(id: string): Promise<SelfModificationRequestView> {
+    return ipcRenderer.invoke(IPC.selfModificationVerify, id) as Promise<SelfModificationRequestView>;
+  },
+  selfModificationApprove(
+    id: string,
+    actorId: string,
+    kind: 'policy' | 'human' | 'security-reviewer',
+  ): Promise<SelfModificationRequestView> {
+    return ipcRenderer.invoke(IPC.selfModificationApprove, { id, actorId, kind }) as Promise<SelfModificationRequestView>;
+  },
+  selfModificationReject(
+    id: string,
+    actorId: string,
+    kind: 'policy' | 'human' | 'security-reviewer',
+  ): Promise<SelfModificationRequestView> {
+    return ipcRenderer.invoke(IPC.selfModificationReject, { id, actorId, kind }) as Promise<SelfModificationRequestView>;
+  },
+  selfModificationCancel(id: string): Promise<SelfModificationRequestView> {
+    return ipcRenderer.invoke(IPC.selfModificationCancel, id) as Promise<SelfModificationRequestView>;
+  },
+  selfModificationBuildAndActivate(id: string): Promise<SelfModificationRequestView> {
+    return ipcRenderer.invoke(IPC.selfModificationBuildAndActivate, id) as Promise<SelfModificationRequestView>;
   },
   skillLeaderboard(teamId?: string): Promise<{
     leaderboard: string;
