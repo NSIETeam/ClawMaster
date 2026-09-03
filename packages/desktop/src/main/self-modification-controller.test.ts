@@ -107,6 +107,23 @@ describe('SelfModificationController', () => {
     expect(dependencies.tasks.resume).toHaveBeenCalledWith('checkpoint-1', 'stable-1');
   });
 
+  it('always resumes drained tasks when activation fails', async () => {
+    const { controller, dependencies } = harness({
+      updater: {
+        activate: vi.fn(async () => ({
+          ok: false as const, error: 'atomic switch failed', previousVersion: 'stable-1', requiresRollback: true,
+        })),
+        rollback: vi.fn(async () => undefined),
+      },
+    });
+    const request = await verifiedRequest(controller);
+    await controller.approve(request.id, { actorId: 'user-1', kind: 'human' });
+    const result = await controller.buildAndActivate(request.id);
+    expect(result.state).toBe('rolled_back');
+    expect(dependencies.updater.rollback).toHaveBeenCalledWith('stable-1');
+    expect(dependencies.tasks.resume).toHaveBeenCalledWith('checkpoint-1', 'stable-1');
+  });
+
   it('does not build when verification fails', async () => {
     const { controller, dependencies } = harness({
       verifier: { verify: vi.fn(async () => ({ ok: false, checks: [{ name: 'doctor', status: 'failed' as const, detail: 'bad' }] })) },

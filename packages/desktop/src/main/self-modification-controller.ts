@@ -76,7 +76,7 @@ export interface SelfModificationDependencies {
   updater: {
     activate(artifactPath: string): Promise<
       | { ok: true; previousVersion: string }
-      | { ok: false; error: string }
+      | { ok: false; error: string; previousVersion: string; requiresRollback: boolean }
     >;
     rollback(previousVersion: string): Promise<void>;
   };
@@ -173,7 +173,10 @@ export class SelfModificationController {
     const activated = await this.dependencies.updater.activate(build.artifactPath);
     if (!activated.ok) {
       await this.dependencies.candidate.stop(started.candidateId);
-      return this.fail(request, 'activation_failed', activated.error);
+      request = await this.fail(request, 'activation_failed', activated.error);
+      if (activated.requiresRollback) await this.dependencies.updater.rollback(activated.previousVersion);
+      await this.dependencies.tasks.resume(drained.checkpointId, activated.previousVersion);
+      return this.transition(request, 'rolled_back');
     }
     request.previousVersion = activated.previousVersion;
     request = await this.transition(request, 'observing');
