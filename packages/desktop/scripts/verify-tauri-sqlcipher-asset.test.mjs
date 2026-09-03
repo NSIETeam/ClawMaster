@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  DEPENDENCY_INSPECTION_MAX_BUFFER_BYTES,
   resolveWindowsDependencyInspector,
   verifyTauriSqlCipherAsset,
 } from './verify-tauri-sqlcipher-asset.mjs';
@@ -55,6 +56,11 @@ afterEach(() => {
 });
 
 describe('Tauri SQLCipher asset verifier', () => {
+  it('allows dependency inspection output larger than the Node default buffer', () => {
+    expect(DEPENDENCY_INSPECTION_MAX_BUFFER_BYTES).toBeGreaterThan(1024 * 1024);
+    expect(DEPENDENCY_INSPECTION_MAX_BUFFER_BYTES).toBeLessThanOrEqual(8 * 1024 * 1024);
+  });
+
   it('finds the MSYS2 objdump installed below the GitHub runner temp directory', () => {
     const runnerTemp = path.join('D:', 'a', '_temp');
     const expected = path.join(

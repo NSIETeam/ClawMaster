@@ -6,6 +6,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+export const DEPENDENCY_INSPECTION_MAX_BUFFER_BYTES = 8 * 1024 * 1024;
+
 function sha256(file) {
   return createHash('sha256').update(readFileSync(file)).digest('hex');
 }
@@ -41,7 +43,10 @@ function inspectLinkedLibraries(binding, target) {
   return execFileSync(
     inspector.command,
     [...inspector.arguments, binding],
-    { encoding: 'utf8' },
+    {
+      encoding: 'utf8',
+      maxBuffer: DEPENDENCY_INSPECTION_MAX_BUFFER_BYTES,
+    },
   );
 }
 
