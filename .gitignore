@@ -42,7 +42,6 @@ dist
 # TypeScript编译产物（在源码目录中的）
 # 注意：只忽略与.ts/.tsx文件同名的编译产物
 packages/*/src/**/*.js
-!packages/server/src/enterprise/public/otto-discovery.js
 packages/*/src/**/*.d.ts
 !packages/desktop/src/renderer/css.d.ts
 packages/*/src/**/*.js.map

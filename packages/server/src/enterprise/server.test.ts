@@ -353,42 +353,6 @@ describe('本地 Agent 配对路由默认关闭', { timeout: 30_000 }, () => {
     }
   });
 
-  it('只有显式启用时才保留 SDK、检测页与一次性令牌验证链路', async () => {
-    const { base } = await startIsolated(ADMIN_TOKEN, null, {
-      localAgentPairingEnabled: true,
-    });
-
-    const sdk = await fetch(`${base}/enterprise/sdk/otto-discovery.js`);
-    expect(sdk.status).toBe(200);
-    expect(sdk.headers.get('content-type')).toContain('application/javascript');
-
-    const page = await fetch(`${base}/enterprise/local-agent`);
-    expect(page.status).toBe(200);
-
-    const pair = await fetch(`${base}/enterprise/local-agent/pair`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ instanceId: 'test-instance' }),
-    });
-    expect(pair.status).toBe(200);
-    const pairBody = (await pair.json()) as {
-      data: { token: string };
-    };
-
-    const verify = await fetch(`${base}/enterprise/local-agent/pair/verify`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ token: pairBody.data.token }),
-    });
-    expect(verify.status).toBe(200);
-    await expect(verify.json()).resolves.toMatchObject({
-      ok: true,
-      data: {
-        verified: true,
-        instanceId: 'test-instance',
-      },
-    });
-  });
 });
 
 // 首个用例会动态加载完整企业服务模块；并行全量回归时冷启动可能超过 Vitest

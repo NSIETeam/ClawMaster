@@ -129,22 +129,6 @@ describe('source tree hygiene', () => {
     expect(assetTypes).toContain("declare module '*.svg'");
   });
 
-  it('tracks the enterprise local-agent SDK in clean checkouts', () => {
-    const ignoreRules = readFileSync(path.join(rootDir, '.gitignore'), 'utf8');
-    const discoverySdk = readFileSync(
-      path.join(
-        rootDir,
-        'packages/server/src/enterprise/public/otto-discovery.js',
-      ),
-      'utf8',
-    );
-
-    expect(ignoreRules).toContain(
-      '!packages/server/src/enterprise/public/otto-discovery.js',
-    );
-    expect(discoverySdk).toContain('global.OttoDiscovery = OttoDiscovery');
-  });
-
   it('pins patched production transitive dependencies', () => {
     const manifest = JSON.parse(
       readFileSync(path.join(rootDir, 'package.json'), 'utf8'),
