@@ -27,7 +27,7 @@ describe('Tauri Windows workflow contract', () => {
     expect(runtimeWorkflow).toContain(
       `vcbuild.bat ${WINDOWS_NODE_RUNTIME_BUILD_FLAGS.join(' ')}`,
     );
-    expect(runtimeWorkflow).toContain('tauri-node-v5-win32-x64');
+    expect(runtimeWorkflow).toContain('tauri-node-v6-win32-x64');
     expect(runtimeWorkflow).toMatch(/--binary node-source\/Release\/node\.exe/u);
     expect(runtimeWorkflow).toMatch(/--target win32-x64/u);
     expect(runtimeWorkflow).toMatch(/name: tauri-node-win32-x64/u);

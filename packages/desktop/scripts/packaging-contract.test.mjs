@@ -318,6 +318,9 @@ describe('desktop packaging contract', () => {
     expect(workflow).toContain('--crypto-provider openssl-static');
     expect(workflow).toContain('--fetch-retries=5');
     expect(workflow).toContain('--fetch-retry-maxtimeout=120000');
+    expect(workflow).toContain('name: Restore static Windows OpenSSL toolchain cache');
+    expect(workflow).toContain('path: C:/vcpkg/installed/x64-windows-static');
+    expect(workflow).toContain('steps.windows-openssl-cache.outputs.cache-hit');
   });
 
   it('provides a reproducible macOS arm64 Tauri preview workflow', async () => {
@@ -347,7 +350,7 @@ describe('desktop packaging contract', () => {
     expect(nodeWorkflow).not.toContain('--without-sqlite');
     expect(nodeWorkflow).not.toContain('--v8-lite-mode');
     expect(nodeWorkflow).toContain('--enable-lto');
-    expect(nodeWorkflow).toMatch(/vcbuild\.bat[^\n]*\blto\b/u);
+    expect(nodeWorkflow).toMatch(/vcbuild\.bat[^\n]*\bltcg\b/u);
     expect(nodeWorkflow).toContain('verify-tauri-node-runtime.mjs');
   });
 

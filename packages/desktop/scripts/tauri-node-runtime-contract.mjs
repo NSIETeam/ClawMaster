@@ -18,17 +18,16 @@ export const NODE_RUNTIME_BUILD_FLAGS = Object.freeze([
 ]);
 export const WINDOWS_NODE_RUNTIME_BUILD_FLAGS = Object.freeze([
   'x64',
-  'clang-cl',
   'small-icu',
   'nonpm',
   'no-cctest',
   'no-NODE-OPTIONS',
-  'lto',
+  'ltcg',
 ]);
 
 export function nodeRuntimeBuildProfile(target) {
   if (target === 'win32-x64') {
-    return { id: 'node24-windows-small-icu-lto-v2', flags: WINDOWS_NODE_RUNTIME_BUILD_FLAGS };
+    return { id: 'node24-windows-small-icu-msvc-ltcg-v3', flags: WINDOWS_NODE_RUNTIME_BUILD_FLAGS };
   }
   if (target === 'darwin-arm64' || target === 'darwin-x64') {
     return { id: 'node24-darwin-small-icu-lto-v2', flags: NODE_RUNTIME_BUILD_FLAGS };
