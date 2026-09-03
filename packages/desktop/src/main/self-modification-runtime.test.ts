@@ -71,8 +71,80 @@ describe('createSelfModificationRuntime', () => {
     await controller.verify(created.id);
     await controller.approve(created.id, { actorId: 'user-1', kind: 'human' });
 
-    await expect(controller.buildAndActivate(created.id)).resolves.toMatchObject({
+    expect(await controller.buildAndActivate(created.id)).toMatchObject({
       state: 'active',
+    });
+  });
+
+  it('rejects local default signing secret outside local-safe modes', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-selfmod-runtime-'));
+    const runCommand = vi.fn(createWorkspaceCommandStub('/repo'));
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('CM_SELF_MODIFICATION_ALLOW_LOCAL_SIGNING', '0');
+    try {
+      expect(() => createSelfModificationRuntime({
+        repositoryRoot: '/repo',
+        userDataRoot: root,
+        productionRoot: '/Applications/ClawMaster.app/Contents/Resources',
+        ownerId: 'runtime-1',
+        runCommand,
+      })).toThrow('missing CM_SELF_MODIFICATION_SIGNING_SECRET');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('rejects unsafe traversal paths before building candidate', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-selfmod-runtime-'));
+    const runCommand = vi.fn(createWorkspaceCommandStub('/repo'));
+    const controller = createSelfModificationRuntime({
+      repositoryRoot: '/repo',
+      userDataRoot: root,
+      productionRoot: '/Applications/ClawMaster.app/Contents/Resources',
+      ownerId: 'runtime-1',
+      now: () => '2026-09-03T00:00:00.000Z',
+      runCommand,
+    });
+    const created = await controller.create({
+      goal: 'safe change',
+      tenantId: 'tenant-1',
+      actorId: 'user-1',
+      changedPaths: ['../packages/desktop/src/main/example.ts'],
+    });
+    await controller.prepare(created.id);
+    await controller.verify(created.id);
+    await controller.approve(created.id, { actorId: 'user-1', kind: 'human' });
+
+    await expect(controller.buildAndActivate(created.id)).resolves.toMatchObject({
+      state: 'build_failed',
+      failure: 'invalid changed path for candidate build: ../packages/desktop/src/main/example.ts',
+    });
+  });
+
+  it('rejects duplicate changed files before build activation', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-selfmod-runtime-'));
+    const runCommand = vi.fn(createWorkspaceCommandStub('/repo'));
+    const controller = createSelfModificationRuntime({
+      repositoryRoot: '/repo',
+      userDataRoot: root,
+      productionRoot: '/Applications/ClawMaster.app/Contents/Resources',
+      ownerId: 'runtime-1',
+      now: () => '2026-09-03T00:00:00.000Z',
+      runCommand,
+    });
+    const created = await controller.create({
+      goal: 'safe change',
+      tenantId: 'tenant-1',
+      actorId: 'user-1',
+      changedPaths: ['packages/desktop/src/main/example.ts', 'packages/desktop/src/main/example.ts'],
+    });
+    await controller.prepare(created.id);
+    await controller.verify(created.id);
+    await controller.approve(created.id, { actorId: 'user-1', kind: 'human' });
+
+    await expect(controller.buildAndActivate(created.id)).resolves.toMatchObject({
+      state: 'build_failed',
+      failure: 'duplicate changed path for candidate build: packages/desktop/src/main/example.ts',
     });
   });
 });

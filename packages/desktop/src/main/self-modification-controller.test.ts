@@ -136,6 +136,21 @@ describe('SelfModificationController', () => {
     expect(result.checkpointId).toBe('checkpoint-1');
   });
 
+  it('stops activation flow on build failures and does not start candidates', async () => {
+    const { controller, dependencies } = harness({
+      builder: {
+        build: vi.fn(async () => ({ ok: false as const, error: 'build script failed' })),
+      },
+    });
+    const request = await verifiedRequest(controller);
+    await controller.approve(request.id, { actorId: 'user-1', kind: 'human' });
+    const result = await controller.buildAndActivate(request.id);
+
+    expect(result.state).toBe('build_failed');
+    expect(dependencies.candidate.start).not.toHaveBeenCalled();
+    expect(dependencies.tasks.drainAndCheckpoint).not.toHaveBeenCalled();
+  });
+
   it('rolls back and resumes tasks when observation fails', async () => {
     const candidate = {
       start: vi.fn(async () => ({ ok: true as const, candidateId: 'candidate-1' })),
@@ -147,6 +162,7 @@ describe('SelfModificationController', () => {
     await controller.approve(request.id, { actorId: 'user-1', kind: 'human' });
     const result = await controller.buildAndActivate(request.id);
     expect(result.state).toBe('rolled_back');
+    expect(candidate.stop).toHaveBeenCalledWith('candidate-1');
     expect(dependencies.updater.rollback).toHaveBeenCalledWith('stable-1');
     expect(dependencies.tasks.resume).toHaveBeenCalledWith('checkpoint-1', 'stable-1');
   });
@@ -165,6 +181,30 @@ describe('SelfModificationController', () => {
     const result = await controller.buildAndActivate(request.id);
     expect(result.state).toBe('rolled_back');
     expect(dependencies.updater.rollback).toHaveBeenCalledWith('stable-1');
+    expect(dependencies.tasks.resume).toHaveBeenCalledWith('checkpoint-1', 'stable-1');
+  });
+
+  it('does not rollback when activation fails without rollback request', async () => {
+    const { controller, dependencies } = harness({
+      candidate: {
+        start: vi.fn(async () => ({ ok: true as const, candidateId: 'candidate-1' })),
+        observe: vi.fn(async () => ({ ok: true as const })),
+        stop: vi.fn(async () => undefined),
+      },
+      updater: {
+        activate: vi.fn(async () => ({
+          ok: false as const, error: 'atomic switch refused', previousVersion: 'stable-1', requiresRollback: false,
+        })),
+        rollback: vi.fn(async () => undefined),
+      },
+    });
+    const request = await verifiedRequest(controller);
+    await controller.approve(request.id, { actorId: 'user-1', kind: 'human' });
+    const result = await controller.buildAndActivate(request.id);
+
+    expect(result.state).toBe('rolled_back');
+    expect(dependencies.candidate.stop).toHaveBeenCalledWith('candidate-1');
+    expect(dependencies.updater.rollback).not.toHaveBeenCalled();
     expect(dependencies.tasks.resume).toHaveBeenCalledWith('checkpoint-1', 'stable-1');
   });
 

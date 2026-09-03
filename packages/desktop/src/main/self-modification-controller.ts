@@ -231,6 +231,7 @@ export class SelfModificationController {
       await this.dependencies.tasks.resume(drained.checkpointId, build.version);
       return this.transition(request, 'active');
     }
+    await this.dependencies.candidate.stop(started.candidateId);
     await this.dependencies.updater.rollback(activated.previousVersion);
     await this.dependencies.tasks.resume(drained.checkpointId, activated.previousVersion);
     request.failure = observed.error;

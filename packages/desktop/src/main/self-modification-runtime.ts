@@ -46,9 +46,12 @@ const FOCUSED_SELF_MODIFICATION_TESTS = [
 ] as const;
 
 function createSelfModificationSigningSecret(): string {
-  return process.env.CM_SELF_MODIFICATION_SIGNING_SECRET
-    ? process.env.CM_SELF_MODIFICATION_SIGNING_SECRET
-    : 'clawmaster-local-self-modification-secret';
+  const configured = process.env.CM_SELF_MODIFICATION_SIGNING_SECRET;
+  if (configured?.trim()) return configured;
+  if (process.env.CM_SELF_MODIFICATION_ALLOW_LOCAL_SIGNING === '1' || process.env.NODE_ENV === 'test') {
+    return 'clawmaster-local-self-modification-secret';
+  }
+  throw new Error('missing CM_SELF_MODIFICATION_SIGNING_SECRET');
 }
 
 const SELF_MOD_SIGNING_KEY_ID = 'clawmaster-local';
@@ -75,11 +78,13 @@ function verifyCandidateSignature(
 
 function safeRelativeFile(file: string): boolean {
   if (!file || path.isAbsolute(file)) return false;
-  if (file.includes('..')) {
-    const normalized = path.normalize(file);
-    return !normalized.startsWith(`..${path.sep}`) && normalized !== '..';
-  }
-  return true;
+  if (file.includes('\0')) return false;
+  const normalized = path.normalize(file).replaceAll('\\', '/');
+  return (
+    normalized !== '..'
+    && !normalized.startsWith('../')
+    && !normalized.startsWith(`..${path.sep}`)
+  );
 }
 
 async function fileHash(file: string): Promise<{ bytes: number; sha256: string }> {
@@ -91,10 +96,15 @@ async function fileHash(file: string): Promise<{ bytes: number; sha256: string }
 }
 
 function ensureWorkspaceFileList(workspacePath: string, files: readonly string[]) {
+  const unique = new Set<string>();
   return Promise.all(files.map(async (candidate) => {
     if (!safeRelativeFile(candidate)) {
       throw new Error(`invalid changed path for candidate build: ${candidate}`);
     }
+    if (unique.has(candidate)) {
+      throw new Error(`duplicate changed path for candidate build: ${candidate}`);
+    }
+    unique.add(candidate);
     const sourcePath = path.join(workspacePath, candidate);
     const metadata = await stat(sourcePath);
     if (!metadata.isFile()) {
@@ -282,7 +292,7 @@ export function createSelfModificationRuntime(options: SelfModificationRuntimeOp
       },
       sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
       observation: {
-        attempts: 2,
+        attempts: 4,
         intervalMs: 200,
         maxMemoryBytes: 128 * 1024 * 1024,
         maxCpuPercent: 90,
