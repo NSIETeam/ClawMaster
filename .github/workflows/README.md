@@ -1,126 +1,95 @@
 # GitHub Actions Workflows
 
-Otto 的发布链路分成三段：先检查异常，再构建双仓 GitHub Release 草稿，最后在正式发布前同步企业服务器和桌面更新镜像。
+ClawMaster 当前正式桌面交付链路走 Tauri v2。仓库仍保留从 Otto 继承的
+Electron/企业发布工作流作为兼容基线，但它已被仓库条件限制到
+`NSIETeam/otto-new`，不得作为 ClawMaster 正式发布路径。
 
-发布前必须先完成 `docs/release-preflight.md`；本文件只说明 Actions 如何执行，不替代发布门禁。
+发布前必须先完成本地门禁：
 
-## 当前正式发布门禁
+```bash
+npm run doctor
+git diff --check
+npm run code-map:check
+npm --workspace packages/desktop run release:gate
+```
 
-- 发布源必须包含远端 `origin/internal` 最新提交；额外提交只允许来自经审查的 `release/*` 分支或 `v*` 版本标签，旧 tag、落后分支和未合并功能分支不能生成正式版本。
-- 根目录与桌面端版本号必须一致，企业运行时 schema、清单、构建信息均从同一提交生成。
-- macOS 必须通过 Developer ID 签名、公证和 stapler 验证；Windows 必须通过 Authenticode 验证。
-- 企业一键部署包必须带外置可信公钥可验证的 Ed25519 `.sig`，只有 SHA-256 不允许发布。
-- 正式发布顺序是：构建并验签草稿 -> 部署企业服务 -> 原子更新国内镜像 -> 公开 Release。任一步失败都不会公开新版本。
+## Tauri Release Build
 
-## CI
-
-文件：`.github/workflows/ci.yml`
-
-触发：
-
-- PR 到 `internal` / `main`
-- push 到 `internal`
-
-主要检查：
-
-- `npm run doctor`
-- `git diff --check`
-- 主链路 build
-- workspace typecheck
-- core/server/cli/desktop tests
-- release 关键回归测试：桌面企业客户端、packaging contract、server、enterprise server
-
-## Release Build
-
-文件：`.github/workflows/release.yml`
+文件：`.github/workflows/tauri-preview.yml`
 
 触发：
 
+- push 到 `main`
+- push 到 `codex/windows-*`
 - push tag：`v*.*.*`
 - 手动 `workflow_dispatch`
 
-输出：
+主要产物：
 
-- `Otto-<version>-arm64.dmg`
-- `Otto-<version>-x64.dmg`
-- `Otto-Setup-<version>-win-x64.exe`
-- blockmap
-- `latest.json`
-- `otto-enterprise-oneclick-v<version>-<build>.tar.gz`
-- `.sha256`
-- `.sig`
+- `ClawMaster_<version>_aarch64.dmg`
+- `ClawMaster_<version>_x64.dmg`
+- Windows x64 NSIS 安装器
+- 每个平台的 `SHA256SUMS`
 
-规则：
+核心门禁：
 
-- 根 `package.json` 与 `packages/desktop/package.json` 必须等于目标版本。
-- 桌面安装包必须存在，并随 `latest.json` 一起发布用于校验和更新。
-- `NSIETeam/otto-new` 是正式 Release；`Felix201209/otto-releases` 同步同一份资产，作为 V1.9.13 及更早客户端的兼容入口。
-- Release 默认创建为 draft；只有企业部署、Windows 验签和更新镜像全部通过后，工作流才依次公开兼容 Release 与正式 Release。
+- 使用 Node `24.20.0` 和 Tauri v2 构建。
+- 下载并验证 Tauri Node runtime 与 SQLCipher native assets。
+- 运行 self-modification 聚焦测试，覆盖 build、activate、observe、rollback、IPC、
+  candidate supervisor、task coordinator、version registry 与 infrastructure。
+- 构建后运行 `npm --workspace packages/desktop run release:formal:gate`，确认正式版本号、
+  ClawMaster 品牌、旧 Otto/Electron release 隔离，以及当前平台下载包不超过 30 MiB。
+- macOS DMG 会被创建、优化、挂载，并验证完整 Agent runtime、SQLCipher、文档 worker、
+  不携带 npm/package manager/build cache。
+- Windows 安装器会被静默安装到临时目录，使用隔离 `OTTO_USER_DIR` 启动 GUI smoke，
+  不覆盖现有用户数据。
 
-## Deploy Server
+tag `v*.*.*` 触发时，成功的 Tauri workflow 会发布正式 GitHub Release；手动触发时可
+选择 draft / prerelease。
 
-文件：`.github/workflows/deploy-server.yml`
+## SQLCipher native assets
 
-触发：
+文件：`.github/workflows/sqlcipher-native.yml`
 
-- 手动 `workflow_dispatch`
+这个 workflow 也会独立触发，用于生成和验证多平台 native matrix。Tauri Release Build
+通过 reusable workflow 引用同一套资产，避免打包时混用旧安装包中的 native binding。
 
-行为：
+## Tauri Node runtime
 
-- 下载对应版本的 `otto-enterprise-oneclick` 包和 sha256。
-- 上传到目标服务器 `/var/tmp/otto-enterprise-github/...`。
-- 如果目标机已有 `/opt/otto-enterprise/current`，执行 `upgrade.sh`。
-- 如果是新服务器，执行 `install.sh`。
-- 支持手动 dry-run。
+文件：`.github/workflows/tauri-node-runtime.yml`
 
-目标服务器要求：
+生成 macOS arm64、macOS x64、Windows x64 的最小 Node runtime。最终下载包不允许携带
+npm、npx、corepack、Electron builder、webpack、eslint、vitest 或构建缓存。
 
-- Ubuntu 22.04/24.04
-- systemd
-- 部署用户可免密 `sudo`
-- 已有部署应由 one-click current symlink 管理
+## Legacy Otto/Electron Release Build
 
-## Required Secrets
+文件：`.github/workflows/release.yml`
 
-发行签名：
+该 workflow 来自 Otto 发布链路，仍包含 `Otto-*` 产物、企业部署、更新镜像和旧客户端
+兼容逻辑。ClawMaster 仓库中它必须被 `github.repository == 'NSIETeam/otto-new'` 护栏
+拦住；如果在 ClawMaster 中运行，说明发布边界回退了，应立即修复。
 
-- `MAC_CSC_LINK`、`MAC_CSC_KEY_PASSWORD`
-- `WIN_CSC_LINK`、`WIN_CSC_KEY_PASSWORD`
-- `APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`
-- `OTTO_ENTERPRISE_SIGNING_PRIVATE_KEY`、`OTTO_ENTERPRISE_SIGNING_PUBLIC_KEY`
-- `OTTO_LICENSE_PUBLIC_KEYS`（JSON 数组或单个 Ed25519 SPKI 公钥；私钥不得进入仓库或客户服务器）
-- `OTTO_LEGACY_RELEASES_TOKEN`（仅需对 `Felix201209/otto-releases` 的 Contents 写权限；用于迁移期兼容旧客户端）
-
-部署服务器：
-
-- `DEPLOY_HOST`
-- `DEPLOY_USER`
-- `DEPLOY_SSH_KEY`
-- `DEPLOY_KNOWN_HOSTS`（目标服务器的固定 OpenSSH known_hosts 条目；不得使用运行时 ssh-keyscan）
-- `DEPLOY_SUDO_PASSWORD`（仅供发布工作流通过 `sudo -S` 完成远端部署；不得写入仓库或日志）
-
-可选：
-
-- `DEPLOY_PORT`，默认 `22`
-- `DEPLOY_CONFIG_PATH`，默认 `/etc/otto-enterprise/enterprise.env`
-
-正式 Release 使用 `NSIETeam/otto-new` 当前工作流的 `GITHUB_TOKEN`。旧客户端兼容副本使用权限最小化的 `OTTO_LEGACY_RELEASES_TOKEN`；在兼容期结束前不得删除该 Secret 或停止同步旧发布仓。
-
-## Manual Release
+ClawMaster 桌面默认命令已经切到 Tauri：
 
 ```bash
-VERSION="$(node -p "require('./package.json').version")"
-git tag "v${VERSION}"
-git push origin "v${VERSION}"
+npm --workspace packages/desktop run release
+npm --workspace packages/desktop run release:gate
 ```
 
-等待 `Release Build` 完成签名、部署和镜像核验，并自动公开新旧两个 Release。不要在工作流完成前手动公开草稿。
+旧 Electron 聚合路径只能显式调用：
 
-## Manual Server Dry Run
+```bash
+npm --workspace packages/desktop run release:legacy:electron
+npm --workspace packages/desktop run release:legacy:gate
+```
 
-Actions -> Deploy Enterprise Server -> Run workflow：
+## Known infrastructure blocker
 
-- `version`: 必须与根目录及桌面端 `package.json` 的版本完全一致
-- `dry_run`: true
+如果 GitHub Actions run 在 3-8 秒内失败，所有 job 都显示 `steps: []`，并且 check-run
+annotation 是：
 
-dry-run 只会在目标机解包、校验、迁移 canary 和 health，不切换生产 `current`。
+> The job was not started because recent account payments have failed or your spending limit needs to be increased.
+
+这不是代码、workflow YAML、Tauri 或 SQLCipher 编译失败，而是 GitHub Billing / Actions
+spending limit 阻止 runner 启动。处理 Billing 后可以 rerun 对应 workflow；不要在没有
+新日志的情况下盲目修改构建代码。
