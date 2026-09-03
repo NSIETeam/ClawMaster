@@ -312,6 +312,7 @@ describe('desktop packaging contract', () => {
     expect(workflow).toContain('--runtime node');
     expect(workflow).toContain('--crypto-provider commoncrypto');
     expect(workflow).toContain('verify-tauri-sqlcipher-asset.mjs');
+    expect(workflow.match(/if: github\.event\.repository\.visibility == 'public'/g)).toHaveLength(2);
     expect(workflow).toContain('name: tauri-sqlcipher-${{ matrix.target }}');
     expect(workflow).toContain('Build Tauri Node SQLCipher addon with static Windows OpenSSL');
     expect(workflow).toContain('--crypto-provider openssl-static');

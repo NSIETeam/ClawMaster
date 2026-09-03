@@ -317,10 +317,12 @@ jobs:
             --expected-runtime-version "$ELECTRON_VERSION" \
             --require-matrix-manifest
       - name: Attest verified native bindings
+        if: github.event.repository.visibility == 'public'
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: native/sqlcipher/*/better_sqlite3.node
       - name: Attest the matrix manifest that binds metadata and SBOMs
+        if: github.event.repository.visibility == 'public'
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: native/sqlcipher/matrix-manifest.json
