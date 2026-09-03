@@ -95,12 +95,8 @@ jobs:
 
   windows:
     name: win32-x64 balanced Node runtime
-    # Pin Node-from-source builds to the mature VS2022 image. The windows-2025
-    # image currently ships the VS2026/v180 clang-cl toolchain, where Node 24's
-    # ICU genccode step can fail with "CPU architecture must be set for
-    # Clang-CL" before the runtime asset is produced.
     runs-on: windows-2022
-    timeout-minutes: 120
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
 
@@ -114,31 +110,33 @@ jobs:
         uses: actions/cache@v5
         with:
           path: native/node-runtime/win32-x64
-          key: tauri-node-v6-win32-x64-71b8b174857e25106d39b61a9e6f30d927da8b01-small-icu-msvc-ltcg
+          key: tauri-node-v7-win32-x64-6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba-official
 
-      - name: Check out the verified Node 24.20.0 release source
+      - name: Download and verify official Node 24.20.0 Windows runtime
         if: steps.runtime-cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v6
-        with:
-          repository: nodejs/node
-          ref: 71b8b174857e25106d39b61a9e6f30d927da8b01
-          path: node-source
-          fetch-depth: 1
-
-      - name: Build balanced ClawMaster Node runtime
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
-        working-directory: node-source
-        shell: cmd
-        # vcbuild defaults to Release. MSVC LTCG retains whole-program
-        # optimization while avoiding clang-cl's ICU data generator target bug.
-        run: vcbuild.bat x64 small-icu nonpm no-cctest no-NODE-OPTIONS ltcg
+        shell: pwsh
+        run: |
+          $archiveName = 'node-v24.20.0-win-x64.zip'
+          $archivePath = Join-Path $env:RUNNER_TEMP $archiveName
+          $downloadUrl = 'https://nodejs.org/download/release/v24.20.0/node-v24.20.0-win-x64.zip'
+          curl.exe --fail --location --retry 5 --retry-all-errors `
+            --connect-timeout 15 --output $archivePath $downloadUrl
+          if ($LASTEXITCODE -ne 0) {
+            throw "Node runtime download failed with exit code $LASTEXITCODE"
+          }
+          $expectedHash = '6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba'
+          $actualHash = (Get-FileHash $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $expectedHash) {
+            throw "Node runtime SHA-256 mismatch: expected $expectedHash, got $actualHash"
+          }
+          Expand-Archive -Path $archivePath -DestinationPath $env:RUNNER_TEMP -Force
 
       - name: Finalize runtime asset
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           node packages/desktop/scripts/finalize-tauri-node-runtime.mjs `
-            --binary node-source/Release/node.exe `
+            --binary "$env:RUNNER_TEMP/node-v24.20.0-win-x64/node.exe" `
             --output-directory native/node-runtime/win32-x64 `
             --target win32-x64
 

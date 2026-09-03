@@ -59,6 +59,26 @@ describe('desktop packaging contract', () => {
     expect(rootPackageJson.devDependencies.ora).toBe('^9.0.0');
   });
 
+  it('builds public runtime dependencies before preparing a fresh Tauri checkout', async () => {
+    const prepare = await readFile(
+      path.join(packageRoot, 'scripts', 'prepare-tauri-runtime.mjs'),
+      'utf8',
+    );
+    const coreBuild = prepare.indexOf("run('npm', ['run', 'build', '--workspace=otto-core'])");
+    const serverBuild = prepare.indexOf("run('npm', ['run', 'build', '--workspace=otto-server'])");
+    const agentBundle = prepare.indexOf('prepareAgentBundle();');
+
+    expect(coreBuild).toBeGreaterThanOrEqual(0);
+    expect(serverBuild).toBeGreaterThan(coreBuild);
+    expect(agentBundle).toBeGreaterThan(serverBuild);
+    const worker = await readFile(
+      path.join(packageRoot, 'scripts', 'document-worker-entry.mjs'),
+      'utf8',
+    );
+    expect(worker).toContain("from 'otto-core'");
+    expect(worker).not.toContain('../../core/src/');
+  });
+
   it('uses a real multi-resolution ICO for Windows packaging', async () => {
     const packageJson = JSON.parse(
       await readFile(path.join(packageRoot, 'package.json'), 'utf8'),
@@ -380,7 +400,7 @@ describe('desktop packaging contract', () => {
     );
     expect(workflow).toContain('runner: macos-15');
     expect(workflow).toContain('runner: macos-15-intel');
-    expect(workflow).toContain('runs-on: windows-2025');
+    expect(workflow).toContain('runs-on: windows-2022');
     expect(workflow).toContain('node-version: 24.20.0');
     expect(workflow).toContain('npm run tauri:build --workspace=packages/desktop');
     expect(workflow.match(/npm run release:formal:gate --workspace=packages\/desktop/g)).toHaveLength(2);
@@ -409,13 +429,14 @@ describe('desktop packaging contract', () => {
       path.join(repoRoot, '.github', 'workflows', 'tauri-node-runtime.yml'),
       'utf8',
     );
-    expect(nodeWorkflow).toContain('ref: 71b8b174857e25106d39b61a9e6f30d927da8b01');
+    expect(nodeWorkflow).toContain('node-v24.20.0-win-x64.zip');
+    expect(nodeWorkflow).toContain('6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba');
     expect(nodeWorkflow).not.toContain('--without-inspector');
     expect(nodeWorkflow).not.toContain('--without-intl');
     expect(nodeWorkflow).not.toContain('--without-sqlite');
     expect(nodeWorkflow).not.toContain('--v8-lite-mode');
     expect(nodeWorkflow).toContain('--enable-lto');
-    expect(nodeWorkflow).toMatch(/vcbuild\.bat[^\n]*\bltcg\b/u);
+    expect(nodeWorkflow).not.toContain('vcbuild.bat');
     expect(nodeWorkflow).toContain('verify-tauri-node-runtime.mjs');
   });
 

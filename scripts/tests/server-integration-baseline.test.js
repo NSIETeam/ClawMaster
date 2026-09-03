@@ -16,11 +16,24 @@ const ledger = JSON.parse(
     'utf8',
   ),
 );
-const fetchedInternalTip = execFileSync(
-  'git',
-  ['rev-parse', '--verify', 'origin/internal'],
-  { cwd: rootDir, encoding: 'utf8' },
-).trim();
+const detectedAuthorityRef = ['origin/internal', 'upstream/internal'].find((ref) => {
+  try {
+    execFileSync('git', ['rev-parse', '--verify', ref], {
+      cwd: rootDir,
+      stdio: 'ignore',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+});
+const authorityRef = detectedAuthorityRef ?? ledger.authority.baselineCommit;
+const fetchedInternalTip = detectedAuthorityRef
+  ? execFileSync('git', ['rev-parse', '--verify', detectedAuthorityRef], {
+      cwd: rootDir,
+      encoding: 'utf8',
+    }).trim()
+  : ledger.authority.baselineCommit;
 const remoteBranchTips = new Map([['origin/internal', fetchedInternalTip]]);
 
 describe('server integration baseline', () => {
@@ -39,7 +52,7 @@ describe('server integration baseline', () => {
     expect(
       validateServerIntegrationBaseline({ rootDir, ledger: changed }),
     ).toContain(
-      'release.clientVersion=99.0.0 does not match packages/desktop/package.json=0.0.1-preview',
+      `release.clientVersion=99.0.0 does not match packages/desktop/package.json=${ledger.release.clientVersion}`,
     );
   });
 
@@ -71,7 +84,7 @@ describe('server integration baseline', () => {
     );
   });
 
-  it('allows the catalogued integration point to remain an ancestor as internal advances', () => {
+  it.runIf(Boolean(detectedAuthorityRef))('allows the catalogued integration point to remain an ancestor as internal advances', () => {
     const changed = structuredClone(ledger);
     changed.authority.baselineCommit =
       'f5ba898a60166bfde9c2cd74d8f3c8ec5f86a65e';
@@ -82,6 +95,8 @@ describe('server integration baseline', () => {
         ledger: changed,
         verifyGitRefs: true,
         remoteBranchTips,
+        candidateHead: detectedAuthorityRef,
+        authorityRef,
       }),
     ).toEqual([]);
   });
@@ -99,6 +114,7 @@ describe('server integration baseline', () => {
         verifyGitRefs: true,
         remoteBranchTips,
         candidateHead: 'HEAD',
+        authorityRef,
       }),
     ).toContain(
       `integration commit ${'f'.repeat(40)} for ${changed.authority.integratedSources[0].name} is not an ancestor of candidate HEAD`,
@@ -114,6 +130,7 @@ describe('server integration baseline', () => {
         verifyGitRefs: true,
         remoteBranchTips,
         candidateHead: candidate,
+        authorityRef,
       }),
     ).toContain(
       `candidate ${candidate} does not contain authority baseline ${ledger.authority.baselineCommit}`,
@@ -124,6 +141,7 @@ describe('server integration baseline', () => {
         verifyGitRefs: true,
         remoteBranchTips,
         candidateHead: candidate,
+        authorityRef,
       }),
     ).toContain(
       `candidate ${candidate} does not contain latest origin/internal ${fetchedInternalTip}`,

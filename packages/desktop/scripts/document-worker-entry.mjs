@@ -1,5 +1,5 @@
 import { once } from 'node:events';
-import { exportEditedDocument, extractEditableDocument } from '../../core/src/utils/editableDocument.ts';
+import { exportEditedDocument, extractEditableDocument } from 'otto-core';
 
 let input = '';
 process.stdin.setEncoding('utf8');

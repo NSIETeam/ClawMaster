@@ -47,7 +47,7 @@ on:
       - 'package.json'
 
 permissions:
-  contents: write
+  contents: read
   id-token: write
   attestations: write
 
@@ -145,7 +145,7 @@ jobs:
   windows-x64:
     name: Windows x64 release
     needs: [native-assets, node-runtime]
-    runs-on: windows-2025
+    runs-on: windows-2022
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
@@ -224,6 +224,8 @@ jobs:
     needs: [macos, windows-x64]
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
 

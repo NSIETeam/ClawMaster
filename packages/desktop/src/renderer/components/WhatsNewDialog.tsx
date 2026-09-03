@@ -32,7 +32,7 @@ const CHANGELOG: ChangelogEntry[] = [
       'ClawMaster 正式切换到轻量 Tauri 桌面壳，macOS Apple Silicon 安装包压到 30MB 以下，启动后仍会加载完整本地 Agent runtime',
       '自我迭代运行时完成 build、候选启动、健康观察和失败回滚闭环，避免把不可用候选静默激活',
       'RPA 能力随默认 runtime 保留并通过本地浏览器交互 smoke；PDF、XLSX、ripgrep 等重型能力改为按需模块路径，不再拖累每个安装包',
-      '清除旧 Otto 雪碧图和会议室 fallback 图片，右下角状态件改为轻量 ClawMaster 皇冠标识，并继续使用主题变量适配明暗模式',
+      '清除旧版动画雪碧图和会议室 fallback 图片，右下角状态件改为轻量 ClawMaster 皇冠标识，并继续使用主题变量适配明暗模式',
     ],
   },
   {

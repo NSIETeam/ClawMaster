@@ -5,6 +5,11 @@ import path from 'node:path';
 
 const NODE_RUNTIME_SCHEMA_VERSION = 1;
 export const NODE_RUNTIME_SOURCE_COMMIT = '71b8b174857e25106d39b61a9e6f30d927da8b01';
+export const WINDOWS_NODE_RUNTIME_DISTRIBUTION = Object.freeze({
+  archive: 'node-v24.20.0-win-x64.zip',
+  url: 'https://nodejs.org/download/release/v24.20.0/node-v24.20.0-win-x64.zip',
+  sha256: '6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba',
+});
 export const NODE_RUNTIME_BUILD_FLAGS = Object.freeze([
   '--disable-single-executable-application',
   '--enable-lto',
@@ -16,18 +21,15 @@ export const NODE_RUNTIME_BUILD_FLAGS = Object.freeze([
   '--with-intl=small-icu',
   '--with-icu-locales=en,zh-CN',
 ]);
-export const WINDOWS_NODE_RUNTIME_BUILD_FLAGS = Object.freeze([
-  'x64',
-  'small-icu',
-  'nonpm',
-  'no-cctest',
-  'no-NODE-OPTIONS',
-  'ltcg',
+export const WINDOWS_NODE_RUNTIME_RELEASE_MARKERS = Object.freeze([
+  'official-nodejs-release',
+  WINDOWS_NODE_RUNTIME_DISTRIBUTION.archive,
+  `sha256:${WINDOWS_NODE_RUNTIME_DISTRIBUTION.sha256}`,
 ]);
 
 export function nodeRuntimeBuildProfile(target) {
   if (target === 'win32-x64') {
-    return { id: 'node24-windows-small-icu-msvc-ltcg-v3', flags: WINDOWS_NODE_RUNTIME_BUILD_FLAGS };
+    return { id: 'node24-windows-official-release-v1', flags: WINDOWS_NODE_RUNTIME_RELEASE_MARKERS };
   }
   if (target === 'darwin-arm64' || target === 'darwin-x64') {
     return { id: 'node24-darwin-small-icu-lto-v2', flags: NODE_RUNTIME_BUILD_FLAGS };
@@ -106,14 +108,18 @@ export function buildNodeRuntimeManifest({
       + `got ${probe.platform}-${probe.arch}`,
     );
   }
+  const source = {
+    repository: 'https://github.com/nodejs/node',
+    commit: sourceCommit,
+    version: probe.nodeVersion,
+  };
+  if (target === 'win32-x64') {
+    source.distribution = WINDOWS_NODE_RUNTIME_DISTRIBUTION;
+  }
   return {
     schemaVersion: NODE_RUNTIME_SCHEMA_VERSION,
     target,
-    source: {
-      repository: 'https://github.com/nodejs/node',
-      commit: sourceCommit,
-      version: probe.nodeVersion,
-    },
+    source,
     moduleAbi: probe.moduleAbi,
     arch: probe.arch,
     platform: probe.platform,
@@ -181,6 +187,10 @@ export function verifyNodeRuntimeAsset({
   }
   if (manifest.source?.version !== nodeVersion) {
     throw new Error(`minimal Node version mismatch: expected ${nodeVersion}, got ${manifest.source?.version}`);
+  }
+  if (target === 'win32-x64'
+      && JSON.stringify(manifest.source?.distribution) !== JSON.stringify(WINDOWS_NODE_RUNTIME_DISTRIBUTION)) {
+    throw new Error('minimal Node distribution does not match the pinned official Windows release');
   }
   const profile = nodeRuntimeBuildProfile(target);
   if (manifest.buildProfile !== profile.id

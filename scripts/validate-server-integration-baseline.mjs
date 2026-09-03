@@ -103,6 +103,7 @@ export function validateServerIntegrationBaseline({
   verifyGitRefs = false,
   remoteBranchTips,
   candidateHead: candidateHeadOverride,
+  authorityRef = 'origin/internal',
 } = {}) {
   const errors = [];
   const actualLedger =
@@ -373,7 +374,7 @@ export function validateServerIntegrationBaseline({
     try {
       fetchedInternalTip = execFileSync(
         'git',
-        ['rev-parse', '--verify', 'origin/internal'],
+        ['rev-parse', '--verify', authorityRef],
         {
           cwd: rootDir,
           encoding: 'utf8',
@@ -399,7 +400,7 @@ export function validateServerIntegrationBaseline({
           'merge-base',
           '--is-ancestor',
           actualLedger.authority.baselineCommit,
-          'origin/internal',
+          authorityRef,
         ],
         { cwd: rootDir, stdio: 'ignore' },
       );

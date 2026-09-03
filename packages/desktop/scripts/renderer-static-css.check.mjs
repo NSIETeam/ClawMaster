@@ -75,7 +75,7 @@ test('production renderer excludes the browser-only preview bridge', async () =>
   );
 
   assert.equal(
-    scriptContents.some((source) => source.includes('0.0.1-preview-browser-preview')),
+    scriptContents.some((source) => source.includes('0.0.1-browser-preview')),
     false,
     'production renderer must not package browser preview fixtures or its mock host bridge',
   );

@@ -4,12 +4,14 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   NODE_RUNTIME_BUILD_FLAGS,
-  WINDOWS_NODE_RUNTIME_BUILD_FLAGS,
+  WINDOWS_NODE_RUNTIME_DISTRIBUTION,
 } from './tauri-node-runtime-contract.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const runtimeWorkflow = readFileSync(path.join(root, '.github/workflows/tauri-node-runtime.yml'), 'utf8');
+const windowsRuntimeJob = runtimeWorkflow.slice(runtimeWorkflow.indexOf('\n  windows:'));
 const previewWorkflow = readFileSync(path.join(root, '.github/workflows/tauri-preview.yml'), 'utf8');
+const sqlcipherWorkflow = readFileSync(path.join(root, '.github/workflows/sqlcipher-native.yml'), 'utf8');
 const installSmoke = readFileSync(
   path.join(root, 'packages/desktop/scripts/smoke-tauri-windows-install.ps1'),
   'utf8',
@@ -23,25 +25,30 @@ describe('Tauri Windows workflow contract', () => {
   it('produces a verified Windows x64 Node capsule', () => {
     expect(runtimeWorkflow).toMatch(/windows:\s*\n\s+name: win32-x64 balanced Node runtime/u);
     expect(runtimeWorkflow).toMatch(/windows:\s*[\s\S]*?runs-on: windows-2022/u);
-    expect(runtimeWorkflow).toContain('CPU architecture must be set for');
-    expect(runtimeWorkflow).toMatch(/repository: nodejs\/node/u);
-    expect(runtimeWorkflow).toMatch(/ref: 71b8b174857e25106d39b61a9e6f30d927da8b01/u);
-    expect(runtimeWorkflow).toContain(
-      `vcbuild.bat ${WINDOWS_NODE_RUNTIME_BUILD_FLAGS.join(' ')}`,
-    );
-    expect(runtimeWorkflow).toContain('tauri-node-v6-win32-x64');
-    expect(runtimeWorkflow).toMatch(/--binary node-source\/Release\/node\.exe/u);
+    expect(runtimeWorkflow).toContain(WINDOWS_NODE_RUNTIME_DISTRIBUTION.url);
+    expect(runtimeWorkflow).toContain(WINDOWS_NODE_RUNTIME_DISTRIBUTION.sha256);
+    expect(runtimeWorkflow).toContain('Get-FileHash $archivePath -Algorithm SHA256');
+    expect(runtimeWorkflow).toContain('tauri-node-v7-win32-x64');
+    expect(runtimeWorkflow).toMatch(/--binary .*node-v24\.20\.0-win-x64\/node\.exe/u);
     expect(runtimeWorkflow).toMatch(/--target win32-x64/u);
     expect(runtimeWorkflow).toMatch(/name: tauri-node-win32-x64/u);
+    expect(windowsRuntimeJob).not.toContain('vcbuild.bat');
+    expect(windowsRuntimeJob).not.toContain('repository: nodejs/node');
   });
 
   it('keeps workflow build commands synchronized with the verified runtime profile', () => {
     for (const flag of NODE_RUNTIME_BUILD_FLAGS) {
       expect(runtimeWorkflow).toContain(`            ${flag}`);
     }
-    expect(runtimeWorkflow).toContain(
-      `run: vcbuild.bat ${WINDOWS_NODE_RUNTIME_BUILD_FLAGS.join(' ')}`,
-    );
+    expect(runtimeWorkflow).toContain(WINDOWS_NODE_RUNTIME_DISTRIBUTION.archive);
+  });
+
+  it('pins every active Windows release stage to the stable Windows 2022 image', () => {
+    expect(runtimeWorkflow).not.toContain('windows-2025');
+    expect(sqlcipherWorkflow).toContain('runner: windows-2022');
+    expect(sqlcipherWorkflow).not.toContain('windows-2025');
+    expect(previewWorkflow).toContain('runs-on: windows-2022');
+    expect(previewWorkflow).not.toContain('windows-2025');
   });
 
   it('waits for and downloads the matching Node capsule before packaging', () => {

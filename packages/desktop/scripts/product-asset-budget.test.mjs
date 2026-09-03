@@ -18,16 +18,16 @@ function readPngMetadata(file) {
 }
 
 describe('product asset budget', () => {
-  it('keeps the animated pet atlas as a compact indexed PNG', () => {
+  it('keeps the retired animated pet atlas out of the lean renderer', () => {
     const atlas = path.join(assetsRoot, 'otto-pet-atlas.png');
+    const component = readFileSync(
+      path.join(desktopRoot, 'src', 'renderer', 'components', 'OttoPetStage.tsx'),
+      'utf8',
+    );
 
-    expect(statSync(atlas).size).toBeLessThan(300 * 1024);
-    expect(readPngMetadata(atlas)).toEqual({
-      width: 768,
-      height: 936,
-      bitDepth: 8,
-      colorType: 3,
-    });
+    expect(existsSync(atlas)).toBe(false);
+    expect(component).not.toContain("../assets/otto-pet-atlas.png");
+    expect(component).toContain('otto-pet-stage__mark');
   });
 
   it('keeps the generated icon catalog compact without duplicate source assets', () => {
@@ -74,18 +74,18 @@ describe('product asset budget', () => {
     });
   });
 
-  it('keeps the meeting-room thumbnail optimized for its card-sized rendering', () => {
-    const optimized = path.join(assetsRoot, 'meeting-room-default.jpg');
+  it('keeps retired meeting-room fallback images out of the lean renderer', () => {
+    const retired = path.join(assetsRoot, 'meeting-room-default.jpg');
     const legacy = path.join(assetsRoot, 'meeting-room-default.png');
     const component = readFileSync(
       path.join(desktopRoot, 'src', 'renderer', 'components', 'ParkServicesPlugin.tsx'),
       'utf8',
     );
 
-    expect(existsSync(optimized)).toBe(true);
+    expect(existsSync(retired)).toBe(false);
     expect(existsSync(legacy)).toBe(false);
-    expect(statSync(optimized).size).toBeLessThan(80 * 1024);
-    expect(component).toContain("../assets/meeting-room-default.jpg");
+    expect(component).not.toContain("../assets/meeting-room-default.jpg");
+    expect(component).toContain('otto-park-meeting-room-detail__placeholder');
   });
 
   it('does not retain the unreferenced legacy avatar source set', () => {

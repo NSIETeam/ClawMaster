@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest';
 import {
   NODE_RUNTIME_BUILD_FLAGS,
   NODE_RUNTIME_SOURCE_COMMIT,
-  WINDOWS_NODE_RUNTIME_BUILD_FLAGS,
+  WINDOWS_NODE_RUNTIME_DISTRIBUTION,
+  WINDOWS_NODE_RUNTIME_RELEASE_MARKERS,
   buildNodeRuntimeManifest,
   nodeRuntimeBuildProfile,
   verifyNodeRuntimeAsset,
@@ -37,11 +38,13 @@ describe('minimal Tauri Node runtime contract', () => {
     expect(NODE_RUNTIME_BUILD_FLAGS).not.toContain('--without-sqlite');
     expect(NODE_RUNTIME_BUILD_FLAGS).not.toContain('--v8-lite-mode');
     expect(NODE_RUNTIME_BUILD_FLAGS).toContain('--enable-lto');
-    expect(WINDOWS_NODE_RUNTIME_BUILD_FLAGS).toContain('small-icu');
-    expect(WINDOWS_NODE_RUNTIME_BUILD_FLAGS).not.toContain('clang-cl');
-    expect(WINDOWS_NODE_RUNTIME_BUILD_FLAGS).toContain('ltcg');
-    expect(WINDOWS_NODE_RUNTIME_BUILD_FLAGS).not.toContain('release');
-    expect(nodeRuntimeBuildProfile('win32-x64').id).toBe('node24-windows-small-icu-msvc-ltcg-v3');
+    expect(WINDOWS_NODE_RUNTIME_DISTRIBUTION).toEqual({
+      archive: 'node-v24.20.0-win-x64.zip',
+      url: 'https://nodejs.org/download/release/v24.20.0/node-v24.20.0-win-x64.zip',
+      sha256: '6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba',
+    });
+    expect(WINDOWS_NODE_RUNTIME_RELEASE_MARKERS).toContain('official-nodejs-release');
+    expect(nodeRuntimeBuildProfile('win32-x64').id).toBe('node24-windows-official-release-v1');
   });
 
   it('verifies the executable hash, ABI and required capabilities', () => {
