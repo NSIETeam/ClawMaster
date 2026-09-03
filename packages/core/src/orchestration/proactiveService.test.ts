@@ -165,8 +165,9 @@ describe('ProactiveService 调度与日程提醒', () => {
 
     // 创建日程本身是一条今日工作记录，因此收盘卡片可以存在；但正常结束的
     // 日程不能被智慧提醒误判成“昨天未跟进”的待办。
-    expect(insight?.action.message).not.toContain('没有跟进记录');
-    expect(insight?.action.message).not.toContain('已结束的评审会');
+    const message = insight?.action.message ?? '';
+    expect(message).not.toContain('没有跟进记录');
+    expect(message).not.toContain('已结束的评审会');
   });
 
   it('只在会议进入 10 分钟窗口后提醒，并按本地时区显示时间', async () => {

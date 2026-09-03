@@ -51,6 +51,11 @@ describe('Tauri Windows workflow contract', () => {
     expect(previewWorkflow).not.toContain('windows-2025');
   });
 
+  it('installs the PE dependency inspector used by the SQLCipher verifier', () => {
+    expect(previewWorkflow).toContain('uses: msys2/setup-msys2@v2');
+    expect(previewWorkflow).toContain('mingw-w64-ucrt-x86_64-binutils');
+  });
+
   it('waits for and downloads the matching Node capsule before packaging', () => {
     expect(previewWorkflow).toContain('windows_only: true');
     expect(previewWorkflow).toMatch(/windows-x64:[\s\S]*?needs: \[native-assets, node-runtime\]/u);

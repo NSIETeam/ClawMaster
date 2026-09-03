@@ -114,6 +114,12 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-binutils
+
       - name: Install locked dependencies
         run: npm ci
 
