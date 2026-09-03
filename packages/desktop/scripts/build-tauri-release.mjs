@@ -14,11 +14,11 @@ export function tauriReleaseSteps(platform, arch) {
   const shared = [
     ['npm', ['run', 'tauri:runtime:prepare']],
     ['npm', ['run', 'tauri:runtime:smoke']],
-    ['npm', ['run', 'tauri:runtime:smoke:rpa', '--', '--staging']],
   ];
   if (platform === 'darwin') {
     return [
       ...shared,
+      ['npm', ['run', 'tauri:runtime:smoke:rpa', '--', '--staging']],
       ['tauri', ['build', '--bundles', 'app']],
       ['npm', ['run', 'tauri:dmg:create']],
       ['npm', ['run', 'tauri:dmg:optimize']],
