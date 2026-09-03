@@ -5,6 +5,7 @@ import {
   existsSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -19,6 +20,7 @@ import {
   materializeDirectoryCapsule,
   readVerifiedDirectoryCapsule,
 } from './directory-capsule.mjs';
+import { assertNoTauriRuntimePackageManagers } from './tauri-runtime-forbidden.mjs';
 
 const desktopRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = path.resolve(desktopRoot, '../..');
@@ -46,6 +48,19 @@ const required = [
 const missing = required.filter((candidate) => !existsSync(candidate));
 if (missing.length) throw new Error(`Tauri bundle is an incomplete shell; missing:\n${missing.join('\n')}`);
 
+function listPackagedRuntimePaths(root) {
+  const paths = [];
+  const visit = (directory, prefix = '') => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      paths.push(relative);
+      if (entry.isDirectory()) visit(path.join(directory, entry.name), relative);
+    }
+  };
+  visit(root);
+  return paths;
+}
+
 const manifest = JSON.parse(readFileSync(required.at(-1), 'utf8'));
 if (manifest.target !== runtimePlatform.target) {
   throw new Error(`wrong SQLCipher target: ${manifest.target}`);
@@ -55,6 +70,12 @@ const { manifest: agentManifest } = readVerifiedDirectoryCapsule({
   capsulePath: path.join(resources, 'agent', 'agent.br'),
   manifestPath: path.join(resources, 'agent', 'agent-manifest.json'),
   target: runtimePlatform.target,
+});
+assertNoTauriRuntimePackageManagers(listPackagedRuntimePaths(resources), {
+  label: 'Tauri runtime resources',
+});
+assertNoTauriRuntimePackageManagers(agentManifest.files.map((entry) => entry.path), {
+  label: 'Tauri Agent capsule',
 });
 evaluateAgentBundleLayout(
   agentManifest,

@@ -288,6 +288,7 @@ describe('desktop packaging contract', () => {
       workflow.indexOf('name: Create draft GitHub release'),
     );
     expect(workflow).toContain("if: github.repository == 'NSIETeam/otto-new'");
+    expect(workflow.match(/github\.repository == 'NSIETeam\/otto-new'/g)?.length).toBeGreaterThanOrEqual(6);
     expect(workflow).toContain('RELEASES_REPO: NSIETeam/otto-new');
     expect(workflow).toContain(
       'LEGACY_RELEASES_REPO: Felix201209/otto-releases',
@@ -374,6 +375,13 @@ describe('desktop packaging contract', () => {
     expect(workflow).toContain('name: Tauri Release Build');
     expect(workflow).toContain("find . -maxdepth 1 -type f -name 'ClawMaster_*.dmg'");
     expect(workflow).toContain('name: ClawMaster-Windows-x64-Tauri-Release');
+    expect(workflow).toContain("tags:\n      - 'v*.*.*'");
+    expect(workflow).toContain('name: Publish ClawMaster Tauri release');
+    expect(workflow).toContain("if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)");
+    expect(workflow).toContain('pattern: ClawMaster-*-Tauri-Release');
+    expect(workflow).toContain('name: ClawMaster v${{ steps.release.outputs.version }}');
+    expect(workflow).toContain("draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft != false }}");
+    expect(workflow).toContain("prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease == true }}");
     expect(workflow).toContain('name: Install and smoke-test Windows release');
     expect(workflow).toContain('scripts/smoke-tauri-windows-install.ps1');
     expect(workflow).toContain('uses: ./.github/workflows/tauri-node-runtime.yml');

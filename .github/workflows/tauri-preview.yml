@@ -2,6 +2,22 @@ name: Tauri Release Build
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Create or update the GitHub Release for the current package version.'
+        required: false
+        type: boolean
+        default: false
+      draft:
+        description: 'Create or update the release as a draft.'
+        required: false
+        type: boolean
+        default: true
+      prerelease:
+        description: 'Mark the release as a prerelease.'
+        required: false
+        type: boolean
+        default: false
   pull_request:
     paths:
       - '.github/workflows/tauri-preview.yml'
@@ -16,6 +32,8 @@ on:
       - 'package.json'
   push:
     branches: [main, 'codex/windows-*']
+    tags:
+      - 'v*.*.*'
     paths:
       - '.github/workflows/tauri-preview.yml'
       - '.github/workflows/tauri-node-runtime.yml'
@@ -29,7 +47,7 @@ on:
       - 'package.json'
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
   attestations: write
 
@@ -180,3 +198,65 @@ jobs:
             packages/desktop/src-tauri/target/release/bundle/nsis/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
+
+  publish:
+    name: Publish ClawMaster Tauri release
+    needs: [macos, windows-x64]
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.20.0
+          package-manager-cache: false
+
+      - name: Resolve release metadata
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          desktop_version="$(node -p "require('./packages/desktop/package.json').version")"
+          if [ "$version" != "$desktop_version" ]; then
+            echo "Version mismatch: root=$version desktop=$desktop_version" >&2
+            exit 1
+          fi
+          tag="${GITHUB_REF_NAME}"
+          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then
+            tag="v${version}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: ClawMaster-*-Tauri-Release
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.release.outputs.version }}"
+          test -f "release-assets/ClawMaster_${version}_aarch64.dmg"
+          test -f "release-assets/ClawMaster_${version}_x64.dmg"
+          test -n "$(find release-assets -maxdepth 1 -type f -name '*.exe' -print -quit)"
+          find release-assets -maxdepth 1 -type f \
+            \( -name 'ClawMaster_*.dmg' -o -name '*.exe' \) \
+            -print0 | sort -z | xargs -0 sha256sum > release-assets/ClawMaster-${version}-SHA256SUMS
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: ClawMaster v${{ steps.release.outputs.version }}
+          draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft != false }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease == true }}
+          generate_release_notes: true
+          files: |
+            release-assets/ClawMaster_*.dmg
+            release-assets/*.exe
+            release-assets/ClawMaster-*-SHA256SUMS
