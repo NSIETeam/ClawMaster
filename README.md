@@ -4,7 +4,7 @@ ClawMaster 是基于 Otto 成熟运行时演进的桌面优先 AI coworker / cod
 
 > 当前代码基线来自 `NSIETeam/otto-new` 的 `internal` 分支提交 `6a7c23d`，以源码快照导入，不包含上游 Git 历史。
 
-当前开发分支：`main` · 当前包版本：`0.0.1-preview`
+当前稳定开发分支：`main` · 当前 Tauri 正式候选分支：`codex/windows-20m-candidate` · 当前包版本：`0.0.1`
 
 ## 现在能做什么
 
@@ -47,7 +47,7 @@ Otto 不是 Rust-only 产品。`agent_pool` 已接入 Task 子 agent 生命周�
 
 ```bash
 git clone <your-fork-or-remote>
-cd otto
+cd ClawMaster
 npm install
 npm run build
 npm run start
@@ -76,6 +76,10 @@ npm run test --workspace=packages/desktop
 # 发行前检查
 npm run doctor
 git diff --check
+npm --workspace packages/desktop run release:gate
+
+# 构建当前 Tauri 正式桌面包
+npm --workspace packages/desktop run release
 ```
 
 构建或发布流程以 [build workflow](docs/build-workflow.md) 和 [release preflight](docs/release-preflight.md) 为准；README 不替代发行门禁。
