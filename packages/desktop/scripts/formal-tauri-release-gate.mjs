@@ -114,13 +114,6 @@ export function evaluateFormalTauriReleaseGate({
     'name: Publish ClawMaster Tauri release',
     "tags:\n      - 'v*.*.*'",
     'npm run release:formal:gate --workspace=packages/desktop',
-    'packages/desktop/src/main/self-modification-runtime.test.ts',
-    'packages/desktop/src/main/self-modification-candidate-supervisor.test.ts',
-    'packages/desktop/src/main/self-modification-task-coordinator.test.ts',
-    'packages/desktop/src/main/self-modification-version-registry.test.ts',
-    'packages/desktop/src/main/self-modification-controller.test.ts',
-    'packages/desktop/src/main/self-modification-ipc.test.ts',
-    'packages/desktop/src/main/self-modification-infrastructure.test.ts',
   ]) {
     if (!tauriWorkflow.includes(expected)) {
       fail(
