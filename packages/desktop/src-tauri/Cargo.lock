@@ -485,7 +485,7 @@ dependencies = [
 
 [[package]]
 name = "clawmaster-desktop"
-version = "0.0.1-preview"
+version = "0.0.1"
 dependencies = [
  "arboard",
  "base64 0.22.1",

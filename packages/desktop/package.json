@@ -1,6 +1,6 @@
 {
   "name": "clawmaster-desktop",
-  "version": "0.0.1-preview",
+  "version": "0.0.1",
   "description": "ClawMaster Desktop app shell for the ClawMaster agent runtime",
   "author": "NSIETeam",
   "license": "Apache-2.0",

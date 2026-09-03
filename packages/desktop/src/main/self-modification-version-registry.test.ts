@@ -15,7 +15,7 @@ async function candidate(root: string, version: string, contents = Buffer.from('
     schemaVersion: 1,
     version,
     sourceCommit: 'a'.repeat(40),
-    minimumVersion: '0.0.1-preview',
+    minimumVersion: '0.0.1',
     signingKeyId: 'release-key-1',
     signature: 'signed-payload',
     files: [{ path: 'runtime/clawmaster.bin', bytes: contents.length, sha256: sha256(contents) }],

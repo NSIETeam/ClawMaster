@@ -46,7 +46,7 @@ async function fetchBytes(url: string, maxBytes: number, context: string): Promi
   const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
   try {
     const response = await fetch(url, {
-      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'ClawMaster/0.0.1-preview' },
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'ClawMaster/0.0.1' },
       signal: controller.signal,
     });
     if (!response.ok) throw new Error(`${context}：HTTP ${response.status}`);

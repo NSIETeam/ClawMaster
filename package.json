@@ -1,6 +1,6 @@
 {
   "name": "clawmaster",
-  "version": "0.0.1-preview",
+  "version": "0.0.1",
   "engines": {
     "node": ">=22.16.0"
   },

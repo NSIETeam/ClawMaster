@@ -2,17 +2,32 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   createTauriDmg,
+  cleanTauriDmgDirectory,
   tauriDmgArtifactName,
 } from './create-tauri-dmg.mjs';
 
 describe('non-interactive Tauri DMG creation', () => {
   it('uses the release architecture in the artifact name', () => {
-    expect(tauriDmgArtifactName('0.0.1-preview', 'arm64')).toBe(
-      'ClawMaster_0.0.1-preview_aarch64.dmg',
+    expect(tauriDmgArtifactName('0.0.1', 'arm64')).toBe(
+      'ClawMaster_0.0.1_aarch64.dmg',
     );
-    expect(tauriDmgArtifactName('0.0.1-preview', 'x64')).toBe(
-      'ClawMaster_0.0.1-preview_x64.dmg',
+    expect(tauriDmgArtifactName('0.0.1', 'x64')).toBe(
+      'ClawMaster_0.0.1_x64.dmg',
     );
+  });
+
+  it('cleans stale ClawMaster DMGs before creating the formal artifact', () => {
+    const removed = [];
+    const entries = ['ClawMaster_0.0.1-preview_aarch64.dmg', 'notes.txt', 'Other.dmg'];
+    cleanTauriDmgDirectory('/release', {
+      pathExists: () => true,
+      readDirectory: () => entries,
+      remove: (candidate) => {
+        removed.push(candidate);
+      },
+    });
+
+    expect(removed).toEqual(['/release/ClawMaster_0.0.1-preview_aarch64.dmg']);
   });
 
   it('creates and verifies a DMG without Finder or AppleScript', () => {

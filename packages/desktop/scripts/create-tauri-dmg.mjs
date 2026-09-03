@@ -6,6 +6,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -25,6 +26,19 @@ export function tauriDmgArtifactName(version, arch) {
     throw new Error(`unsupported macOS DMG architecture: ${arch}`);
   }
   return `ClawMaster_${version}_${artifactArch}.dmg`;
+}
+
+export function cleanTauriDmgDirectory(directory, {
+  pathExists = existsSync,
+  readDirectory = readdirSync,
+  remove = rmSync,
+} = {}) {
+  if (!pathExists(directory)) return;
+  for (const entry of readDirectory(directory)) {
+    if (/^ClawMaster_.*\.dmg$/u.test(entry)) {
+      remove(path.join(directory, entry), { force: true });
+    }
+  }
 }
 
 export function createTauriDmg({
@@ -95,12 +109,10 @@ if (path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
     'release',
     'bundle',
   );
+  const dmgDirectory = path.join(bundleRoot, 'dmg');
+  cleanTauriDmgDirectory(dmgDirectory);
   createTauriDmg({
     sourceApp: path.join(bundleRoot, 'macos', 'ClawMaster.app'),
-    output: path.join(
-      bundleRoot,
-      'dmg',
-      tauriDmgArtifactName(desktopPackage.version, process.arch),
-    ),
+    output: path.join(dmgDirectory, tauriDmgArtifactName(desktopPackage.version, process.arch)),
   });
 }

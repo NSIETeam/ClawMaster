@@ -361,7 +361,7 @@ describe('desktop packaging contract', () => {
     expect(workflow).toContain('steps.windows-openssl-cache.outputs.cache-hit');
   });
 
-  it('provides a reproducible macOS arm64 Tauri preview workflow', async () => {
+  it('provides a reproducible macOS arm64 Tauri release workflow', async () => {
     const workflow = await readFile(
       path.join(repoRoot, '.github', 'workflows', 'tauri-preview.yml'),
       'utf8',
@@ -371,10 +371,10 @@ describe('desktop packaging contract', () => {
     expect(workflow).toContain('runs-on: windows-2025');
     expect(workflow).toContain('node-version: 24.20.0');
     expect(workflow).toContain('npm run tauri:build --workspace=packages/desktop');
-    expect(workflow).toContain('ClawMaster_0.0.1-preview_aarch64.dmg');
-    expect(workflow).toContain('ClawMaster_0.0.1-preview_x64.dmg');
-    expect(workflow).toContain('name: ClawMaster-Windows-x64-Tauri-Preview');
-    expect(workflow).toContain('name: Install and smoke-test Windows preview');
+    expect(workflow).toContain('name: Tauri Release Build');
+    expect(workflow).toContain("find . -maxdepth 1 -type f -name 'ClawMaster_*.dmg'");
+    expect(workflow).toContain('name: ClawMaster-Windows-x64-Tauri-Release');
+    expect(workflow).toContain('name: Install and smoke-test Windows release');
     expect(workflow).toContain('scripts/smoke-tauri-windows-install.ps1');
     expect(workflow).toContain('uses: ./.github/workflows/tauri-node-runtime.yml');
     expect(workflow).toContain('name: tauri-node-${{ matrix.nativeTarget }}');

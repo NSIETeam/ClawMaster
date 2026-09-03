@@ -163,7 +163,7 @@ fn curl_bytes(url: &str, max_bytes: usize, context: &str) -> Result<Vec<u8>, Str
             "--header",
             "Accept: application/vnd.github+json",
             "--header",
-            "User-Agent: ClawMaster/0.0.1-preview",
+            "User-Agent: ClawMaster/0.0.1",
             url,
         ])
         .output()
