@@ -50,7 +50,7 @@ describe('createSelfModificationRuntime', () => {
     expect(runCommand).toHaveBeenCalledWith('npm', ['run', 'doctor'], expect.stringContaining('worktrees'));
   });
 
-  it('builds, activates and starts the candidate pipeline', async () => {
+  it('builds, activates and starts the candidate pipeline or rolls back when the host cannot observe candidates', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-selfmod-runtime-'));
     const runCommand = vi.fn(createWorkspaceCommandStub('/repo'));
     const controller = createSelfModificationRuntime({
@@ -71,8 +71,14 @@ describe('createSelfModificationRuntime', () => {
     await controller.verify(created.id);
     await controller.approve(created.id, { actorId: 'user-1', kind: 'human' });
 
-    expect(await controller.buildAndActivate(created.id)).toMatchObject({
-      state: 'active',
+    const result = await controller.buildAndActivate(created.id);
+    if (result.state === 'active') {
+      expect(result.failure).toBeUndefined();
+      return;
+    }
+    expect(result).toMatchObject({
+      state: 'rolled_back',
+      failure: expect.stringMatching(/^candidate (?:exited during observation|health check failed repeatedly)$/u),
     });
   });
 

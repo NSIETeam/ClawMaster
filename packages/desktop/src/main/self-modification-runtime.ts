@@ -3,6 +3,7 @@ import { execFile, spawn } from 'node:child_process';
 import { ChildProcess } from 'node:child_process';
 import { cp, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { request } from 'node:http';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import {
@@ -27,6 +28,7 @@ import {
 } from './self-modification-candidate-supervisor.js';
 
 const execFileAsync = promisify(execFile);
+const candidateSocketPaths = new Map<number, string>();
 
 export interface SelfModificationRuntimeOptions {
   repositoryRoot: string;
@@ -186,9 +188,55 @@ function createSelfModificationBuilder(candidatesRoot: string): SelfModification
 }
 
 function startKeepAliveProcess(artifactPath: string, port: number, userDataPath: string, databasePath: string): Promise<ChildProcess> {
+  const socketPath = path.join(userDataPath, 'health.sock');
+  candidateSocketPaths.set(port, socketPath);
   return new Promise((resolve, reject) => {
     const keepAliveCode = `
-      setInterval(() => {}, 60_000);
+      const { createServer } = require('node:http');
+      const { rmSync } = require('node:fs');
+      const { memoryUsage } = process;
+      const socketPath = process.env.CLAWMASTER_HEALTH_SOCKET;
+      let lastUsage = process.cpuUsage();
+      let lastCheck = Date.now();
+      const toRate = (deltaCpuMicros, elapsedMs) => {
+        if (elapsedMs <= 0) return 0;
+        return Math.min(100, (deltaCpuMicros / 1000 / elapsedMs) * 100);
+      };
+      const server = createServer((req, res) => {
+        if (req.url !== '/health' || req.method !== 'GET') {
+          res.statusCode = 404;
+          res.end('not found');
+          return;
+        }
+        const now = Date.now();
+        const nowUsage = process.cpuUsage();
+        const elapsed = now - lastCheck;
+        const cpuDelta = nowUsage.user - lastUsage.user + (nowUsage.system - lastUsage.system);
+        lastUsage = nowUsage;
+        lastCheck = now;
+        const payload = JSON.stringify({
+          healthy: true,
+          memoryBytes: memoryUsage().heapUsed,
+          cpuPercent: toRate(cpuDelta, elapsed),
+        });
+        res.setHeader('Content-Type', 'application/json');
+        res.end(payload);
+      });
+      const keepAliveTimer = setInterval(() => {}, 60_000);
+      if (!socketPath) process.exit(1);
+      try { rmSync(socketPath, { force: true }); } catch {}
+      server.on('error', () => {
+        process.exit(1);
+      });
+      server.listen(socketPath);
+      process.on('SIGTERM', () => {
+        clearInterval(keepAliveTimer);
+        server.close(() => process.exit(0));
+      });
+      process.on('SIGINT', () => {
+        clearInterval(keepAliveTimer);
+        server.close(() => process.exit(0));
+      });
     `;
     const child = spawn(process.execPath, ['-e', keepAliveCode], {
       env: {
@@ -200,17 +248,75 @@ function startKeepAliveProcess(artifactPath: string, port: number, userDataPath:
         CLAWMASTER_USER_DATA: userDataPath,
         CLAWMASTER_DATABASE: databasePath,
         CLAWMASTER_ARTIFACT_PATH: artifactPath,
+        CLAWMASTER_HEALTH_SOCKET: socketPath,
       },
       cwd: artifactPath,
       stdio: ['ignore', 'ignore', 'ignore'],
     });
     child.once('spawn', () => resolve(child));
     child.once('error', reject);
+    child.once('exit', () => {
+      candidateSocketPaths.delete(port);
+    });
   });
 }
 
-async function probeCandidate(_port: number) {
-  return { healthy: true, memoryBytes: 8 * 1024 * 1024, cpuPercent: 0 };
+async function probeCandidate(port: number) {
+  const failuresAsUnhealthy = {
+    healthy: false as const,
+    memoryBytes: 8 * 1024 * 1024,
+    cpuPercent: 0,
+  };
+  const attempt = async (target: { hostname: string; port: number } | { socketPath: string }) => new Promise<{ healthy: boolean; memoryBytes: number; cpuPercent: number }>((resolve) => {
+    const req = request({
+      ...target,
+      path: '/health',
+      method: 'GET',
+      timeout: 500,
+    }, (response) => {
+      let body = '';
+      response.on('data', (chunk) => {
+        body += chunk.toString();
+      });
+      response.on('end', () => {
+        try {
+          const health = JSON.parse(body);
+          if (
+            response.statusCode !== 200
+            || typeof health?.healthy !== 'boolean'
+            || typeof health?.memoryBytes !== 'number'
+            || typeof health?.cpuPercent !== 'number'
+          ) {
+            resolve({ healthy: false, memoryBytes: 8 * 1024 * 1024, cpuPercent: 0 });
+            return;
+          }
+          resolve({
+            healthy: health.healthy,
+            memoryBytes: Number.isFinite(health.memoryBytes) ? health.memoryBytes : 8 * 1024 * 1024,
+            cpuPercent: Number.isFinite(health.cpuPercent) ? health.cpuPercent : 0,
+          });
+        } catch {
+          resolve({ healthy: false, memoryBytes: 8 * 1024 * 1024, cpuPercent: 0 });
+        }
+      });
+      response.on('error', () => resolve(failuresAsUnhealthy));
+    });
+    req.on('error', () => resolve(failuresAsUnhealthy));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(failuresAsUnhealthy);
+    });
+    req.end();
+  });
+  for (let i = 0; i < 3; i += 1) {
+    const result = await attempt({ hostname: '127.0.0.1', port });
+    if (result.healthy) return result;
+    const socketPath = candidateSocketPaths.get(port);
+    const socketResult = socketPath ? await attempt({ socketPath }) : failuresAsUnhealthy;
+    if (socketResult.healthy) return socketResult;
+    if (i < 2) await new Promise((resolve) => setTimeout(resolve, 80));
+  }
+  return failuresAsUnhealthy;
 }
 
 async function defaultRunCommand(command: string, args: string[], cwd: string): Promise<string> {
