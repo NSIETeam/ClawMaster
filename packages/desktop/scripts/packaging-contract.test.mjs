@@ -373,6 +373,13 @@ describe('desktop packaging contract', () => {
     expect(workflow).toContain('node-version: 24.20.0');
     expect(workflow).toContain('npm run tauri:build --workspace=packages/desktop');
     expect(workflow).toContain('name: Tauri Release Build');
+    expect(workflow).toContain('packages/desktop/src/main/self-modification-runtime.test.ts');
+    expect(workflow).toContain('packages/desktop/src/main/self-modification-candidate-supervisor.test.ts');
+    expect(workflow).toContain('packages/desktop/src/main/self-modification-task-coordinator.test.ts');
+    expect(workflow).toContain('packages/desktop/src/main/self-modification-version-registry.test.ts');
+    expect(workflow).toContain('packages/desktop/src/main/self-modification-controller.test.ts');
+    expect(workflow).toContain('packages/desktop/src/main/self-modification-ipc.test.ts');
+    expect(workflow).toContain('packages/desktop/src/main/self-modification-infrastructure.test.ts');
     expect(workflow).toContain("find . -maxdepth 1 -type f -name 'ClawMaster_*.dmg'");
     expect(workflow).toContain('name: ClawMaster-Windows-x64-Tauri-Release');
     expect(workflow).toContain("tags:\n      - 'v*.*.*'");

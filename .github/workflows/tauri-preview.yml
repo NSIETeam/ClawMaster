@@ -106,6 +106,13 @@ jobs:
           npm run code-map:check
           npm run typecheck --workspace=packages/desktop
           npx vitest run \
+            packages/desktop/src/main/self-modification-runtime.test.ts \
+            packages/desktop/src/main/self-modification-candidate-supervisor.test.ts \
+            packages/desktop/src/main/self-modification-task-coordinator.test.ts \
+            packages/desktop/src/main/self-modification-version-registry.test.ts \
+            packages/desktop/src/main/self-modification-ipc.test.ts \
+            packages/desktop/src/main/self-modification-controller.test.ts \
+            packages/desktop/src/main/self-modification-infrastructure.test.ts \
             packages/desktop/scripts/tauri-runtime-policy.test.mjs \
             packages/desktop/scripts/tauri-node-runtime-contract.test.mjs \
             packages/desktop/scripts/tauri-runtime-compression.test.mjs \
@@ -167,6 +174,13 @@ jobs:
           npm run code-map:check
           npm run typecheck --workspace=packages/desktop
           npx vitest run `
+            packages/desktop/src/main/self-modification-runtime.test.ts `
+            packages/desktop/src/main/self-modification-candidate-supervisor.test.ts `
+            packages/desktop/src/main/self-modification-task-coordinator.test.ts `
+            packages/desktop/src/main/self-modification-version-registry.test.ts `
+            packages/desktop/src/main/self-modification-ipc.test.ts `
+            packages/desktop/src/main/self-modification-controller.test.ts `
+            packages/desktop/src/main/self-modification-infrastructure.test.ts `
             packages/desktop/scripts/tauri-runtime-policy.test.mjs `
             packages/desktop/scripts/tauri-node-runtime-contract.test.mjs `
             packages/desktop/scripts/tauri-runtime-compression.test.mjs `

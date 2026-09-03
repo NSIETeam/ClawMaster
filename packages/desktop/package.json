@@ -42,7 +42,8 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.preload.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "release": "node scripts/make-delivery-zip.mjs --build",
-    "release:gate": "node scripts/release-recovery-gate.mjs"
+    "release:gate": "node scripts/release-recovery-gate.mjs",
+    "release:formal:gate": "node scripts/formal-tauri-release-gate.mjs"
   },
   "dependencies": {
     "@otto/native": "0.1.0",
