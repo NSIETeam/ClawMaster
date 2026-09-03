@@ -195,7 +195,7 @@ function prepareAgentBundle() {
   // RPA keeps Playwright Core optional in Core, but the productized desktop runtime
   // must make the adapter usable without asking the user to install npm packages.
   // Copy runtime files only (no declarations/docs/tests) so the runtime payload
-  // can leave enough headroom for the current 30 MiB download gate while the
+  // can leave enough headroom for the current 31 MiB download gate while the
   // product continues toward the next 20 MiB slimming target.
   const copyRuntimePackage = (name, files) => {
     const source = path.join(repoRoot, 'node_modules', name);
@@ -328,7 +328,7 @@ function verifyStaging() {
   }
   if (!size.withinTarget) {
     console.warn(
-      `[tauri-runtime] ${sizeMiB} MiB exceeds the 28 MiB runtime target reserved for a 30 MiB download`,
+      `[tauri-runtime] ${sizeMiB} MiB exceeds the 28 MiB runtime target reserved for a 31 MiB download`,
     );
   } else {
     console.log(`[tauri-runtime] ${sizeMiB} MiB is within the 28 MiB runtime target`);

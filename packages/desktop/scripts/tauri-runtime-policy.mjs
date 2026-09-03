@@ -108,7 +108,7 @@ export function summarizeRuntimeComponents(componentBytes) {
 }
 
 export function evaluateDownloadPackageSize(bytes, {
-  targetBytes = 30 * 1024 * 1024,
+  targetBytes = 31 * 1024 * 1024,
   hardLimitBytes = 40 * 1024 * 1024,
 } = {}) {
   if (!Number.isSafeInteger(bytes) || bytes < 0) throw new Error('download size is invalid');

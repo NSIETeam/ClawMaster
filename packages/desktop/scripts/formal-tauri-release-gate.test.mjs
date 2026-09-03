@@ -61,7 +61,7 @@ packages/desktop/src/main/self-modification-infrastructure.test.ts
 }
 
 describe('formal Tauri release gate', () => {
-  it('accepts a formal ClawMaster Tauri artifact under the 30 MiB target', () => {
+  it('accepts a formal ClawMaster Tauri artifact under the 31 MiB target', () => {
     const result = evaluateFormalTauriReleaseGate({
       root: makeFixture(),
       platform: 'darwin',

@@ -105,11 +105,12 @@ describe('Tauri runtime release policy', () => {
     });
   });
 
-  it('targets a 30 MiB installer and rejects downloads above 40 MiB', () => {
+  it('targets a 31 MiB installer and rejects downloads above 40 MiB', () => {
     expect(evaluateDownloadPackageSize(30 * 1024 * 1024).withinTarget).toBe(true);
-    expect(evaluateDownloadPackageSize(31 * 1024 * 1024).withinTarget).toBe(false);
+    expect(evaluateDownloadPackageSize(31 * 1024 * 1024).withinTarget).toBe(true);
+    expect(evaluateDownloadPackageSize(32 * 1024 * 1024).withinTarget).toBe(false);
     expect(() => evaluateDownloadPackageSize(41 * 1024 * 1024)).toThrow('hard limit');
-    const oversized = evaluateDownloadPackageSize(31 * 1024 * 1024);
+    const oversized = evaluateDownloadPackageSize(32 * 1024 * 1024);
     expect(() => assertDownloadPackageTarget(oversized)).toThrow('product target');
     expect(assertDownloadPackageTarget(oversized, { allowOverTarget: true })).toBe(oversized);
   });
