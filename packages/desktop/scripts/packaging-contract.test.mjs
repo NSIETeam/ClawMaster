@@ -202,6 +202,17 @@ describe('desktop packaging contract', () => {
     expect(packageJson.scripts['dist:win']).toContain('--publish never');
   });
 
+  it('keeps default ClawMaster release commands on the Tauri formal path', async () => {
+    const packageJson = JSON.parse(
+      await readFile(path.join(packageRoot, 'package.json'), 'utf8'),
+    );
+    expect(packageJson.scripts.package).toBe('npm run tauri:build');
+    expect(packageJson.scripts.release).toBe('npm run tauri:build');
+    expect(packageJson.scripts['release:gate']).toBe('node scripts/formal-tauri-release-gate.mjs');
+    expect(packageJson.scripts['release:legacy:electron']).toBe('node scripts/make-delivery-zip.mjs --build');
+    expect(packageJson.scripts['release:legacy:gate']).toBe('node scripts/release-recovery-gate.mjs');
+  });
+
   it('keeps update manifest download URLs bound to the no-proxy update mirror', async () => {
     const script = await readFile(
       path.join(packageRoot, 'scripts', 'make-delivery-zip.mjs'),

@@ -34,16 +34,19 @@
     "dist:dmg:x64": "npm run build && electron-builder --mac dmg --x64",
     "dist:win": "node scripts/fetch-win-ripgrep.mjs && npm run build && electron-builder --win --x64 --publish never && node scripts/verify-packaged-runtime.mjs release/win-unpacked/resources/app.asar --platform win32 --arch x64",
     "dist:portable:win": "npm run dist:win && node scripts/portable-usb.mjs",
-    "package": "node scripts/make-delivery-zip.mjs",
+    "package": "npm run tauri:build",
+    "package:legacy:electron": "node scripts/make-delivery-zip.mjs",
     "lint": "eslint . --ext .ts,.tsx",
     "pretest": "npm run build:native",
     "test": "vitest run",
     "pretypecheck": "npm run build:native",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.preload.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
-    "release": "node scripts/make-delivery-zip.mjs --build",
-    "release:gate": "node scripts/release-recovery-gate.mjs",
-    "release:formal:gate": "node scripts/formal-tauri-release-gate.mjs"
+    "release": "npm run tauri:build",
+    "release:gate": "node scripts/formal-tauri-release-gate.mjs",
+    "release:formal:gate": "node scripts/formal-tauri-release-gate.mjs",
+    "release:legacy:electron": "node scripts/make-delivery-zip.mjs --build",
+    "release:legacy:gate": "node scripts/release-recovery-gate.mjs"
   },
   "dependencies": {
     "@otto/native": "0.1.0",
