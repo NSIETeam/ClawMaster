@@ -2,13 +2,13 @@
 # verify-pr.sh — Run typecheck + tests for packages changed in this branch.
 #
 # Usage: ./scripts/verify-pr.sh [--base <branch>]
-#   --base    Branch to diff against (default: origin/internal)
+#   --base    Branch to diff against (default: origin/main)
 #
 # Exit code: 0 if all checks pass, 1 if any fails.
 
 set -euo pipefail
 
-BASE="${BASE:-origin/internal}"
+BASE="${BASE:-origin/main}"
 VERBOSE=false
 if [[ "${1:-}" == "--base" ]]; then
   BASE="$2"

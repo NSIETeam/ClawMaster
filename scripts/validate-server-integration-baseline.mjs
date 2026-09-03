@@ -119,7 +119,10 @@ export function validateServerIntegrationBaseline({
   const enterprise = parseEnterpriseContract(rootDir);
   const workflow =
     releaseWorkflow ??
-    readFileSync(path.join(rootDir, '.github/workflows/release.yml'), 'utf8');
+    readFileSync(
+      path.join(rootDir, '.github/workflows/tauri-preview.yml'),
+      'utf8',
+    );
   const continuousIntegrationWorkflow =
     ciWorkflow ??
     readFileSync(path.join(rootDir, '.github/workflows/ci.yml'), 'utf8');
@@ -616,49 +619,24 @@ export function validateServerIntegrationBaseline({
     }
   }
 
-  const hasInternalFetch = /git fetch --no-tags origin internal/u.test(
-    workflow,
+  const tracksCurrentReleaseBranches = workflow.includes(
+    "branches: [main, 'codex/windows-*']",
   );
-  const hasSourceRead = /SOURCE_COMMIT="\$\(git rev-parse HEAD\)"/u.test(
-    workflow,
-  );
-  const hasInternalRead =
-    /INTERNAL_COMMIT="\$\(git rev-parse origin\/internal\)"/u.test(workflow);
-  const hasAncestorCheck =
-    /git merge-base --is-ancestor "\$INTERNAL_COMMIT" "\$SOURCE_COMMIT"/u.test(
-      workflow,
-    );
-  const restrictsReleaseBranches = workflow.includes('refs/heads/release/*');
-  const restrictsVersionTags = workflow.includes('refs/tags/v*');
-  if (!(
-    hasInternalFetch &&
-    hasSourceRead &&
-    hasInternalRead &&
-    hasAncestorCheck &&
-    restrictsReleaseBranches &&
-    restrictsVersionTags
-  )) {
+  const restrictsVersionTags = workflow.includes("- 'v*.*.*'");
+  if (!(tracksCurrentReleaseBranches && restrictsVersionTags)) {
     errors.push(
-      'release workflow must require latest origin/internal as an ancestor and restrict additional commits to release refs',
+      'Tauri release workflow must track main, reviewed Windows candidates and semantic version tags',
     );
   }
   const validationCommand = 'npm run validate:integration-baseline';
-  const gitRefValidationCommand = `${validationCommand} -- --verify-git-refs`;
   if (
     rootPackage.scripts?.['validate:integration-baseline'] !==
     'node scripts/validate-server-integration-baseline.mjs'
   ) {
     errors.push('package.json must expose validate:integration-baseline');
   }
-  if (!continuousIntegrationWorkflow.includes(gitRefValidationCommand)) {
-    errors.push(
-      'CI must run validate:integration-baseline with fetched git refs',
-    );
-  }
-  for (const branch of actualLedger.branches ?? []) {
-    if (!continuousIntegrationWorkflow.includes(branch.name)) {
-      errors.push(`CI must fetch audited branch ${branch.name}`);
-    }
+  if (!continuousIntegrationWorkflow.includes(validationCommand)) {
+    errors.push('CI must run validate:integration-baseline');
   }
   if (!workflow.includes(validationCommand)) {
     errors.push('release workflow must run validate:integration-baseline');

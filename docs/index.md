@@ -24,10 +24,7 @@
 - [构建工作流](./build-workflow.md)
 - [测试矩阵](./test-matrix.md)
 - [集成测试](./integration-tests.md)
-- [发布前检查](./release-preflight.md)
-- [发布手册](./RELEASE.md)
-- [GitHub Actions 发布](./github-actions-release.md)
-- [仓库迁移说明](./repository-migration.md)
+- [GitHub Actions 与正式发布](../.github/workflows/README.md)
 
 ## 产品与集成
 

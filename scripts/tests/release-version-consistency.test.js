@@ -46,36 +46,24 @@ describe('release version displays', () => {
     },
   );
 
-  it('builds package references before release type checking', () => {
+  it('uses locked installs and validates the current Tauri release source', () => {
     const workflow = readFileSync(
-      path.resolve('.github/workflows/release.yml'),
+      path.resolve('.github/workflows/tauri-preview.yml'),
       'utf8',
     );
-    const qualityGateStart = workflow.indexOf(
-      '      - name: Release quality gates',
-    );
-    const focusedTestsStart = workflow.indexOf(
-      '      - name: Focused regression tests',
-      qualityGateStart,
-    );
-    const qualityGate = workflow.slice(qualityGateStart, focusedTestsStart);
 
-    expect(qualityGateStart).toBeGreaterThanOrEqual(0);
-    expect(focusedTestsStart).toBeGreaterThan(qualityGateStart);
-    expect(qualityGate.indexOf('npm run build')).toBeGreaterThanOrEqual(0);
-    expect(qualityGate.indexOf('npm run build')).toBeLessThan(
-      qualityGate.indexOf('npm run typecheck'),
-    );
-    expect(workflow).toContain('      - name: Install dependencies\n        run: npm ci');
-    expect(workflow).not.toContain(
-      '      - name: Install dependencies\n        run: npm install',
-    );
+    expect(workflow).toContain('git merge-base --is-ancestor origin/main HEAD');
+    expect(workflow).toContain('refs/heads/codex/windows-*');
+    expect(workflow).toContain('test "$GITHUB_REF_NAME" = "v${version}"');
+    expect(workflow).toContain('npm run validate:integration-baseline');
+    expect(workflow).toMatch(/Install locked dependencies\n\s+run: npm ci/g);
+    expect(workflow).not.toMatch(/run: npm install(?:\s|$)/g);
 
     const ciWorkflow = readFileSync(
       path.resolve('.github/workflows/ci.yml'),
       'utf8',
     );
-    expect(ciWorkflow).toMatch(/Install dependencies\n\s+run: npm ci/);
-    expect(ciWorkflow).not.toMatch(/Install dependencies\n\s+run: npm install/);
+    expect(ciWorkflow).toMatch(/Install locked dependencies\n\s+run: npm ci/);
+    expect(ciWorkflow).not.toMatch(/run: npm install(?:\s|$)/g);
   });
 });

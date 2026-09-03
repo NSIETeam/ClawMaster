@@ -16,17 +16,19 @@ const ledger = JSON.parse(
     'utf8',
   ),
 );
-const detectedAuthorityRef = ['origin/internal', 'upstream/internal'].find((ref) => {
-  try {
-    execFileSync('git', ['rev-parse', '--verify', ref], {
-      cwd: rootDir,
-      stdio: 'ignore',
-    });
-    return true;
-  } catch {
-    return false;
-  }
-});
+const detectedAuthorityRef = ['origin/internal', 'upstream/internal'].find(
+  (ref) => {
+    try {
+      execFileSync('git', ['rev-parse', '--verify', ref], {
+        cwd: rootDir,
+        stdio: 'ignore',
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+);
 const authorityRef = detectedAuthorityRef ?? ledger.authority.baselineCommit;
 const fetchedInternalTip = detectedAuthorityRef
   ? execFileSync('git', ['rev-parse', '--verify', detectedAuthorityRef], {
@@ -84,22 +86,25 @@ describe('server integration baseline', () => {
     );
   });
 
-  it.runIf(Boolean(detectedAuthorityRef))('allows the catalogued integration point to remain an ancestor as internal advances', () => {
-    const changed = structuredClone(ledger);
-    changed.authority.baselineCommit =
-      'f5ba898a60166bfde9c2cd74d8f3c8ec5f86a65e';
+  it.runIf(Boolean(detectedAuthorityRef))(
+    'allows the catalogued integration point to remain an ancestor as internal advances',
+    () => {
+      const changed = structuredClone(ledger);
+      changed.authority.baselineCommit =
+        'f5ba898a60166bfde9c2cd74d8f3c8ec5f86a65e';
 
-    expect(
-      validateServerIntegrationBaseline({
-        rootDir,
-        ledger: changed,
-        verifyGitRefs: true,
-        remoteBranchTips,
-        candidateHead: detectedAuthorityRef,
-        authorityRef,
-      }),
-    ).toEqual([]);
-  });
+      expect(
+        validateServerIntegrationBaseline({
+          rootDir,
+          ledger: changed,
+          verifyGitRefs: true,
+          remoteBranchTips,
+          candidateHead: detectedAuthorityRef,
+          authorityRef,
+        }),
+      ).toEqual([]);
+    },
+  );
 
   it('fails when an integration commit is absent from the release candidate', () => {
     const changed = structuredClone(ledger);
@@ -148,14 +153,14 @@ describe('server integration baseline', () => {
     );
   });
 
-  it('fails when the release workflow no longer enforces reviewed descendants of internal', () => {
+  it('fails when the Tauri workflow accepts unsupported release sources', () => {
     expect(
       validateServerIntegrationBaseline({
         rootDir,
         releaseWorkflow: 'name: unsafe release',
       }),
     ).toContain(
-      'release workflow must require latest origin/internal as an ancestor and restrict additional commits to release refs',
+      'Tauri release workflow must track main, reviewed Windows candidates and semantic version tags',
     );
   });
 });

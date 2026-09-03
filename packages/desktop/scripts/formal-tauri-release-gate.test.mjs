@@ -10,15 +10,25 @@ function writeJson(file, value) {
 }
 
 function makeFixture({ version = '0.0.1', dmgBytes = 1024 } = {}) {
-  const root = path.join(os.tmpdir(), `clawmaster-formal-gate-${process.pid}-${Math.random()}`);
+  const root = path.join(
+    os.tmpdir(),
+    `clawmaster-formal-gate-${process.pid}-${Math.random()}`,
+  );
   writeJson(path.join(root, 'package.json'), { version });
-  writeJson(path.join(root, 'packages', 'desktop', 'package.json'), { version });
-  writeJson(path.join(root, 'packages', 'desktop', 'src-tauri', 'tauri.conf.json'), {
+  writeJson(path.join(root, 'packages', 'desktop', 'package.json'), {
     version,
-    productName: 'ClawMaster',
   });
+  writeJson(
+    path.join(root, 'packages', 'desktop', 'src-tauri', 'tauri.conf.json'),
+    {
+      version,
+      productName: 'ClawMaster',
+    },
+  );
   mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
-  writeFileSync(path.join(root, '.github', 'workflows', 'tauri-preview.yml'), `
+  writeFileSync(
+    path.join(root, '.github', 'workflows', 'tauri-preview.yml'),
+    `
 name: Tauri Release Build
 tags:
       - 'v*.*.*'
@@ -31,18 +41,18 @@ packages/desktop/src/main/self-modification-version-registry.test.ts
 packages/desktop/src/main/self-modification-controller.test.ts
 packages/desktop/src/main/self-modification-ipc.test.ts
 packages/desktop/src/main/self-modification-infrastructure.test.ts
-`, 'utf8');
-  writeFileSync(path.join(root, '.github', 'workflows', 'release.yml'), `
-if: github.repository == 'NSIETeam/otto-new'
-if: github.repository == 'NSIETeam/otto-new'
-if: github.repository == 'NSIETeam/otto-new'
-if: github.repository == 'NSIETeam/otto-new'
-if: github.repository == 'NSIETeam/otto-new'
-if: github.repository == 'NSIETeam/otto-new'
-`, 'utf8');
+`,
+    'utf8',
+  );
   const dmg = path.join(
     root,
-    'packages', 'desktop', 'src-tauri', 'target', 'release', 'bundle', 'dmg',
+    'packages',
+    'desktop',
+    'src-tauri',
+    'target',
+    'release',
+    'bundle',
+    'dmg',
     `ClawMaster_${version}_aarch64.dmg`,
   );
   mkdirSync(path.dirname(dmg), { recursive: true });
@@ -67,14 +77,22 @@ describe('formal Tauri release gate', () => {
       platform: 'darwin',
       arch: 'arm64',
     });
-    expect(result.failures.join('\n')).toContain('formal release version must not be a preview');
+    expect(result.failures.join('\n')).toContain(
+      'formal release version must not be a preview',
+    );
   });
 
   it('rejects stale or wrongly branded Windows installers', () => {
     const root = makeFixture();
     const nsis = path.join(
       root,
-      'packages', 'desktop', 'src-tauri', 'target', 'release', 'bundle', 'nsis',
+      'packages',
+      'desktop',
+      'src-tauri',
+      'target',
+      'release',
+      'bundle',
+      'nsis',
     );
     mkdirSync(nsis, { recursive: true });
     writeFileSync(path.join(nsis, 'Otto-Setup-0.0.1-win-x64.exe'), 'legacy');
@@ -83,6 +101,8 @@ describe('formal Tauri release gate', () => {
       platform: 'win32',
       arch: 'x64',
     });
-    expect(result.failures).toEqual(['expected exactly one local Windows installer, found 0']);
+    expect(result.failures).toEqual([
+      'expected exactly one local Windows installer, found 0',
+    ]);
   });
 });

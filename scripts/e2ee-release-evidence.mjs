@@ -12,7 +12,9 @@ export const E2EE_PRODUCTION_CAPABILITY = 'e2ee_mls_v1';
 
 const EXPLICIT_SECURITY_FILES = new Set([
   '.github/workflows/ci.yml',
-  '.github/workflows/release.yml',
+  '.github/workflows/sqlcipher-native.yml',
+  '.github/workflows/tauri-node-runtime.yml',
+  '.github/workflows/tauri-preview.yml',
   'package-lock.json',
   'package.json',
   'otto-native/Cargo.lock',

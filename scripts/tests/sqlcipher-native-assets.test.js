@@ -251,8 +251,8 @@ describe('SQLCipher native asset gate', () => {
       path.join(process.cwd(), '.github', 'workflows', 'sqlcipher-native.yml'),
       'utf8',
     );
-    const releaseWorkflow = fs.readFileSync(
-      path.join(process.cwd(), '.github', 'workflows', 'release.yml'),
+    const tauriWorkflow = fs.readFileSync(
+      path.join(process.cwd(), '.github', 'workflows', 'tauri-preview.yml'),
       'utf8',
     );
     expect(nativeWorkflow).toContain(
@@ -262,9 +262,11 @@ describe('SQLCipher native asset gate', () => {
     expect(nativeWorkflow).toContain(
       'subject-path: native/sqlcipher/matrix-manifest.json',
     );
-    expect(releaseWorkflow).toContain('--require-matrix-manifest');
-    expect(releaseWorkflow).toContain(
-      'gh attestation verify native/sqlcipher/matrix-manifest.json',
+    expect(tauriWorkflow).toContain(
+      'uses: ./.github/workflows/sqlcipher-native.yml',
+    );
+    expect(tauriWorkflow).toContain(
+      'name: tauri-sqlcipher-${{ matrix.nativeTarget }}',
     );
   });
 });

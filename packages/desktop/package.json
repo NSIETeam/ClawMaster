@@ -123,6 +123,7 @@
       "!**/node_modules/@otto/native/Cargo.*",
       "!**/node_modules/@otto/native/tsconfig.json",
       "!**/node_modules/better-sqlite3/deps/**",
+      "!**/node_modules/better-sqlite3/prebuilds/**",
       "!**/node_modules/better-sqlite3/src/**",
       "!**/node_modules/better-sqlite3/build/deps/**",
       "!**/node_modules/better-sqlite3/build/Release/obj/**",

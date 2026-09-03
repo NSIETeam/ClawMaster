@@ -192,7 +192,7 @@ function main() {
   const commands = [
     npmCommand([
       '--workspace',
-      'otto-desktop',
+      'packages/desktop',
       'run',
       'test',
       '--',

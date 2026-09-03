@@ -1,147 +1,73 @@
 name: CI
 
-# 在每个 PR 和推送到 internal 分支时跑起，作为合并前的强制质量门槛。
-# 之前仓库只有 release.yml（打 tag 才跑，且不含任何测试步骤），PR 阶段没有任何
-# 自动化检查——这正是像本次 desktop/main/index.ts 的 CJS/ESM 编译错误、
-# core/doctor.ts 的 ESM 运行时崩溃这类回归能一直躺到有人手动发现才修的原因。
-
 on:
   pull_request:
-    branches: [internal, main]
+    branches: [main]
   push:
-    branches: [internal]
+    branches: [main, 'codex/windows-*']
 
 permissions:
   contents: read
 
 jobs:
   build-and-test:
-    runs-on: macos-latest
-    # desktop 走 electron-builder，用 macOS runner 更贴近实际交付平台
-    # （项目目前只交付 mac .app）。
+    name: Build and test
+    runs-on: macos-15
+    timeout-minutes: 60
 
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      # packages/server/src/sqlite-compat.ts 用 Node 内置 `node:sqlite`（企业服务端
-      # 存储层，零原生依赖）。该模块 v22.5 引入且需要 --experimental-sqlite flag，
-      # v22.13.0 / v23.4.0 起才不需要 flag 即可用。在线备份 API 还要求 v22.16.0+。
-      # 内置模块，会在 packages/server 测试阶段炸 "No such built-in module:
-      # node:sqlite"（真实复现过）。顺带发现 packages/server/package.json 的
-      # engines 字段（原 >=20）与 README 承诺的 Node 20+ 也是错的、已一并修正为
-      # >=22.16.0，否则企业在线备份会在运行时缺少 node:sqlite.backup。
-      - name: 🔧 Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
         with:
-          node-version: '22.23.1'
-          cache: 'npm'
+          node-version: 24.20.0
+          package-manager-cache: false
 
-      # macOS runner 默认 Python 已升到 3.12+，标准库移除了 distutils，
-      # 而 node-gyp（编译 better-sqlite3 等原生模块的必经路径）的 gyp 脚本
-      # 仍 `from distutils.version import StrictVersion`，导致 npm install
-      # 在无预编译二进制可用时必然失败。钉住 3.11（最后一个自带 distutils
-      # 的版本）并让 node-gyp 用它，而非 runner 默认的新版 python3。
-      - name: 🐍 Setup Python 3.11 (node-gyp 需要 distutils)
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      # @vscode/ripgrep 的 postinstall 会拉取 GitHub Releases 上的预编译二进制，
-      # 不带鉴权的 CI runner IP 请求量大，常被限流成 403。它的下载脚本
-      # （lib/postinstall.js）会读取 GITHUB_TOKEN 环境变量做鉴权请求，传入
-      # workflow 自带的 token 即可避免限流。
-      - name: 📦 Install dependencies
+      - name: Install locked dependencies
         run: npm ci
         env:
-          PYTHON: python3.11
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: E2EE hostile-server and signed release gate
+      - name: Validate source and architecture contracts
+        run: |
+          npm run doctor
+          git diff --check
+          npm run validate:integration-baseline
+          npm run validate:boundaries
+          npm run code-map:check
+          npm run size:source:check
+
+      - name: Build
+        run: |
+          npm run build
+          npm run build --workspace=packages/desktop
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint:ci
+
+      - name: Test
+        run: npm run test:ci
+
+      - name: Verify E2EE release policy
         run: |
           npm run security:e2ee:adversarial
           npm run security:e2ee:release:verify
           npm run security:e2ee:policy:check
 
-      - name: Preserve E2EE adversarial evidence
+      - name: Preserve security evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: e2ee-adversarial-ci-evidence
-          path: artifacts/security/e2ee-adversarial-report.json
-          if-no-files-found: error
-
-      - name: 🩺 Cheap anomaly checks
-        run: |
-          npm run doctor
-          git diff --check
-          git fetch --no-tags origin \
-            '+refs/heads/internal:refs/remotes/origin/internal'
-          npm run validate:integration-baseline -- --verify-git-refs
-          npm run validate:boundaries
-          npm run size:source:check
-
-      # 先 build 再 typecheck：packages/server 的 tsconfig 用
-      # TS project references 指向 packages/core（"references": [{ "path":
-      # "../core" }]），tsc --noEmit 需要 core/dist/index.d.ts 已存在，否则
-      # 报 TS6305 "has not been built from source file"。核心包尚无预构建产物
-      # 提交进仓库，必须先跑一次 build 产出 core/dist 才能让下游 typecheck 通过。
-      - name: 🏗️ Build main chain (core/server)
-        run: npm run build
-
-      - name: 🏗️ Build desktop (independent electron/webpack chain)
-        run: npm run build --workspace=packages/desktop
-
-      - name: 🔍 Typecheck (all workspaces, including desktop)
-        run: npm run typecheck --workspaces --if-present
-
-      - name: 🧹 Lint all production packages
-        run: npm run lint:ci
-
-      - name: 🎯 Deterministic agent safety evaluations
-        run: npm run eval:deterministic
-
-      - name: 📎 Preserve deterministic evaluation evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: deterministic-agent-safety-evidence
+          name: security-ci-evidence
           path: |
+            artifacts/security/e2ee-adversarial-report.json
             packages/evals/artifacts/latest.json
             packages/evals/artifacts/junit.xml
-          if-no-files-found: error
-
-      - name: 🧪 Focused release regressions
-        run: |
-          node scripts/check-recurring-task-policy.cjs
-          # Each workspace owns its Vitest configuration and mocks. Running all
-          # packages through the root runner leaks mocks between suites.
-          npm --workspace otto-core run test -- \
-            src/config/lazy-heavy-tools.registration.test.ts \
-            src/core/customModelAdapter.test.ts
-          npm --workspace otto-desktop run test -- \
-            src/main/idle-safety-simulation.test.ts \
-            src/main/window-close-policy.test.ts \
-            src/main/enterprise-client.test.ts \
-            scripts/packaging-contract.test.mjs \
-            src/main/video-editor-resource.test.ts
-          # Server suites share SQLite fixtures and module mocks, so run each
-          # focused regression in a fresh worker process.
-          npm --workspace otto-server run test -- src/enterprise/db.test.ts
-          npm --workspace otto-server run test -- src/enterprise/parkEndpoints.test.ts
-          npm --workspace otto-server run test -- src/server.test.ts
-          npm --workspace otto-server run test -- src/enterprise/server.test.ts
-
-      - name: 🧪 Test core
-        run: npm run test --workspace=packages/core
-
-      - name: 🧪 Test server
-        run: npm run test --workspace=packages/server
-
-      - name: 🧪 Test desktop
-        run: npm run test:coverage --workspace=packages/desktop
-
-      - name: 🧪 Test durable workflow and RPA runtime
-        run: npm run test --workspace=packages/workflow && npm run test --workspace=packages/rpa
+          if-no-files-found: warn

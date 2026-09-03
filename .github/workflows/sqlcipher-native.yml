@@ -174,7 +174,7 @@ jobs:
           export npm_config_disturl=https://electronjs.org/headers
           export npm_config_build_from_source=true
           export npm_config_sqlite3="$GITHUB_WORKSPACE/.sqlcipher-source"
-          npm rebuild better-sqlite3 --build-from-source
+          npm run build-release --prefix node_modules/better-sqlite3
 
       - name: Verify Linux addon resolves OpenSSL at runtime
         if: runner.os == 'Linux'
@@ -196,7 +196,7 @@ jobs:
           $env:npm_config_disturl = 'https://electronjs.org/headers'
           $env:npm_config_build_from_source = 'true'
           $env:npm_config_sqlite3 = Join-Path $env:GITHUB_WORKSPACE '.sqlcipher-source'
-          npm rebuild better-sqlite3 --build-from-source
+          npm run build-release --prefix node_modules/better-sqlite3
 
       - name: Run SQLCipher behavior tests and finalize Unix asset
         if: runner.os != 'Windows'
@@ -221,7 +221,7 @@ jobs:
           export LDFLAGS="-framework Security -framework CoreFoundation"
           export npm_config_build_from_source=true
           export npm_config_sqlite3="$GITHUB_WORKSPACE/.sqlcipher-source"
-          npm rebuild better-sqlite3 --build-from-source
+          npm run build-release --prefix node_modules/better-sqlite3
 
       - name: Finalize and verify Tauri Node SQLCipher asset
         if: startsWith(matrix.target, 'darwin-')
@@ -263,7 +263,7 @@ jobs:
           $env:LINK = "/LIBPATH:`"$openssl\lib`" libcrypto.lib Crypt32.lib Ws2_32.lib Advapi32.lib User32.lib"
           $env:npm_config_build_from_source = 'true'
           $env:npm_config_sqlite3 = Join-Path $env:GITHUB_WORKSPACE '.sqlcipher-source'
-          npm rebuild better-sqlite3 --build-from-source
+          npm run build-release --prefix node_modules/better-sqlite3
 
       - name: Finalize and verify Tauri Node SQLCipher Windows asset
         if: matrix.target == 'win32-x64'

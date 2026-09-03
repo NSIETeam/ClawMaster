@@ -25,7 +25,7 @@ Otto Agent Runtime 的工程导航页。具体规则只在对应权威契约中�
 - [构建工作流](./build-workflow.md)
 - [测试矩阵](./test-matrix.md)
 - [集成测试](./integration-tests.md)
-- [发布前检查](./release-preflight.md)
+- [GitHub Actions 与正式发布](../.github/workflows/README.md)
 
 ## 成熟度基线
 

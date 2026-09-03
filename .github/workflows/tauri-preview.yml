@@ -28,6 +28,8 @@ on:
       - 'packages/server/**'
       - 'packages/desktop/**'
       - 'otto-native/**'
+      - 'scripts/**'
+      - 'docs/server-integration-baseline.json'
       - 'package-lock.json'
       - 'package.json'
   push:
@@ -43,6 +45,8 @@ on:
       - 'packages/server/**'
       - 'packages/desktop/**'
       - 'otto-native/**'
+      - 'scripts/**'
+      - 'docs/server-integration-baseline.json'
       - 'package-lock.json'
       - 'package.json'
 
@@ -52,10 +56,45 @@ permissions:
   attestations: write
 
 jobs:
+  source-policy:
+    name: Validate ClawMaster release source
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.20.0
+          package-manager-cache: false
+
+      - name: Validate release metadata and source policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+          git merge-base --is-ancestor origin/main HEAD
+          case "$GITHUB_REF" in
+            refs/heads/main|refs/heads/codex/windows-*|refs/pull/*/merge)
+              ;;
+            refs/tags/v*)
+              version="$(node -p "require('./package.json').version")"
+              test "$GITHUB_REF_NAME" = "v${version}"
+              ;;
+            *)
+              echo "Unsupported release source: $GITHUB_REF" >&2
+              exit 1
+              ;;
+          esac
+          npm run validate:integration-baseline
+
   native-assets:
+    needs: source-policy
     uses: ./.github/workflows/sqlcipher-native.yml
 
   node-runtime:
+    needs: source-policy
     uses: ./.github/workflows/tauri-node-runtime.yml
 
   macos:
@@ -246,7 +285,10 @@ jobs:
             exit 1
           fi
           tag="${GITHUB_REF_NAME}"
-          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/v* ]] && [[ "$tag" != "v${version}" ]]; then
+            echo "Tag mismatch: tag=$tag package=v${version}" >&2
+            exit 1
+          elif [[ "$GITHUB_REF" != refs/tags/v* ]]; then
             tag="v${version}"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"

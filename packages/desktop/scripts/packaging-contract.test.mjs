@@ -19,27 +19,20 @@ const afterPack = require('./after-pack.cjs');
 
 describe('desktop packaging contract', () => {
   it('pins one Electron version across packaging and native build workflows', async () => {
-    const [
-      rootPackageJson,
-      desktopPackageJson,
-      packageLock,
-      releaseWorkflow,
-      nativeWorkflow,
-    ] = await Promise.all([
-      readFile(path.join(repoRoot, 'package.json'), 'utf8').then(JSON.parse),
-      readFile(path.join(packageRoot, 'package.json'), 'utf8').then(JSON.parse),
-      readFile(path.join(repoRoot, 'package-lock.json'), 'utf8').then(
-        JSON.parse,
-      ),
-      readFile(
-        path.join(repoRoot, '.github', 'workflows', 'release.yml'),
-        'utf8',
-      ),
-      readFile(
-        path.join(repoRoot, '.github', 'workflows', 'sqlcipher-native.yml'),
-        'utf8',
-      ),
-    ]);
+    const [rootPackageJson, desktopPackageJson, packageLock, nativeWorkflow] =
+      await Promise.all([
+        readFile(path.join(repoRoot, 'package.json'), 'utf8').then(JSON.parse),
+        readFile(path.join(packageRoot, 'package.json'), 'utf8').then(
+          JSON.parse,
+        ),
+        readFile(path.join(repoRoot, 'package-lock.json'), 'utf8').then(
+          JSON.parse,
+        ),
+        readFile(
+          path.join(repoRoot, '.github', 'workflows', 'sqlcipher-native.yml'),
+          'utf8',
+        ),
+      ]);
     const electronVersion = rootPackageJson.devDependencies.electron;
 
     expect(electronVersion).toMatch(/^\d+\.\d+\.\d+$/u);
@@ -48,7 +41,6 @@ describe('desktop packaging contract', () => {
     expect(packageLock.packages['node_modules/electron'].version).toBe(
       electronVersion,
     );
-    expect(releaseWorkflow).toContain(`ELECTRON_VERSION: '${electronVersion}'`);
     expect(nativeWorkflow).toContain(`ELECTRON_VERSION: ${electronVersion}`);
   });
 
@@ -64,8 +56,12 @@ describe('desktop packaging contract', () => {
       path.join(packageRoot, 'scripts', 'prepare-tauri-runtime.mjs'),
       'utf8',
     );
-    const coreBuild = prepare.indexOf("run('npm', ['run', 'build', '--workspace=otto-core'])");
-    const serverBuild = prepare.indexOf("run('npm', ['run', 'build', '--workspace=otto-server'])");
+    const coreBuild = prepare.indexOf(
+      "run('npm', ['run', 'build', '--workspace=otto-core'])",
+    );
+    const serverBuild = prepare.indexOf(
+      "run('npm', ['run', 'build', '--workspace=otto-server'])",
+    );
     const agentBundle = prepare.indexOf('prepareAgentBundle();');
 
     expect(coreBuild).toBeGreaterThanOrEqual(0);
@@ -171,6 +167,7 @@ describe('desktop packaging contract', () => {
       '!**/node_modules/@otto/native/Cargo.*',
       '!**/node_modules/@otto/native/tsconfig.json',
       '!**/node_modules/better-sqlite3/deps/**',
+      '!**/node_modules/better-sqlite3/prebuilds/**',
       '!**/node_modules/better-sqlite3/src/**',
       '!**/node_modules/better-sqlite3/build/deps/**',
       '!**/node_modules/better-sqlite3/build/Release/obj/**',
@@ -193,7 +190,9 @@ describe('desktop packaging contract', () => {
       'utf8',
     );
     expect(verifier).toContain('assertNoPackageManagerRuntime(');
-    expect(verifier).toContain('packaged runtime must not include npm, development tools, or build caches');
+    expect(verifier).toContain(
+      'packaged runtime must not include npm, development tools, or build caches',
+    );
     expect(verifier).toContain('@otto\\/native\\/target');
     expect(verifier).toContain('better-sqlite3\\/deps');
   });
@@ -228,9 +227,15 @@ describe('desktop packaging contract', () => {
     );
     expect(packageJson.scripts.package).toBe('npm run tauri:build');
     expect(packageJson.scripts.release).toBe('npm run tauri:build');
-    expect(packageJson.scripts['release:gate']).toBe('node scripts/formal-tauri-release-gate.mjs');
-    expect(packageJson.scripts['release:legacy:electron']).toBe('node scripts/make-delivery-zip.mjs --build');
-    expect(packageJson.scripts['release:legacy:gate']).toBe('node scripts/release-recovery-gate.mjs');
+    expect(packageJson.scripts['release:gate']).toBe(
+      'node scripts/formal-tauri-release-gate.mjs',
+    );
+    expect(packageJson.scripts['release:legacy:electron']).toBe(
+      'node scripts/make-delivery-zip.mjs --build',
+    );
+    expect(packageJson.scripts['release:legacy:gate']).toBe(
+      'node scripts/release-recovery-gate.mjs',
+    );
   });
 
   it('keeps update manifest download URLs bound to the no-proxy update mirror', async () => {
@@ -263,98 +268,12 @@ describe('desktop packaging contract', () => {
       path.join(packageRoot, 'scripts', 'make-delivery-zip.mjs'),
       'utf8',
     );
-    const workflow = await readFile(
-      path.join(repoRoot, '.github', 'workflows', 'release.yml'),
-      'utf8',
-    );
     expect(script).toContain("process.env.OTTO_ALLOW_UNSIGNED_MAC === '1'");
     expect(script).toContain("'--config.mac.identity=null'");
     expect(script).toContain("'--config.mac.hardenedRuntime=false'");
     expect(script).toContain("'--config.mac.notarize=false'");
     expect(script).toContain("'--config.dmg.sign=false'");
     expect(script).toContain("CSC_IDENTITY_AUTO_DISCOVERY: 'false'");
-    expect(workflow).toContain('unsigned_mac_transition:');
-    expect(workflow).toContain(
-      "OTTO_ALLOW_UNSIGNED_MAC: ${{ inputs.unsigned_mac_transition && '1' || '0' }}",
-    );
-  });
-
-  it('publishes releases only after the update mirror and enterprise deploy pass', async () => {
-    const workflow = await readFile(
-      path.join(repoRoot, '.github', 'workflows', 'release.yml'),
-      'utf8',
-    );
-    const deliveryScript = await readFile(
-      path.join(packageRoot, 'scripts', 'make-delivery-zip.mjs'),
-      'utf8',
-    );
-    expect(workflow).toContain('deploy-update-mirror:');
-    expect(workflow).toContain('name: Deploy Desktop Update Mirror');
-    expect(workflow).toContain('draft: true');
-    expect(workflow).toContain(
-      "needs.deploy-update-mirror.result == 'success'",
-    );
-    expect(workflow).toContain("needs.deploy-enterprise.result == 'success'");
-    expect(workflow).toContain(
-      'node packages/desktop/scripts/verify-update-manifest.mjs "$DESKTOP_RELEASE" "$VERSION"',
-    );
-    expect(workflow).toContain(
-      'node packages/desktop/scripts/verify-update-manifest.mjs "mirror-upload" "$VERSION"',
-    );
-    expect(
-      workflow.match(
-        /node packages\/desktop\/scripts\/verify-update-manifest\.mjs/g,
-      )?.length,
-    ).toBe(2);
-    expect(workflow).not.toContain("['macArm64', 'macX64', 'winX64']");
-    expect(workflow).not.toContain("const crypto = require('node:crypto');");
-    expect(workflow).toContain('sha256sum -c SHA256SUMS');
-    expect(workflow).toContain('latest.json.next');
-    expect(workflow).toContain('Windows no-proxy download');
-    expect(workflow).toContain(
-      'git merge-base --is-ancestor "$INTERNAL_COMMIT" "$SOURCE_COMMIT"',
-    );
-    expect(workflow).toContain('refs/heads/release/*');
-    expect(workflow.indexOf('name: Upload workflow artifacts')).toBeLessThan(
-      workflow.indexOf('name: Create draft GitHub release'),
-    );
-    expect(workflow).toContain("if: github.repository == 'NSIETeam/otto-new'");
-    expect(workflow.match(/github\.repository == 'NSIETeam\/otto-new'/g)?.length).toBeGreaterThanOrEqual(6);
-    expect(workflow).toContain('RELEASES_REPO: NSIETeam/otto-new');
-    expect(workflow).toContain(
-      'LEGACY_RELEASES_REPO: Felix201209/otto-releases',
-    );
-    expect(workflow).toContain('token: ${{ github.token }}');
-    expect(workflow).toContain(
-      'token: ${{ secrets.OTTO_LEGACY_RELEASES_TOKEN }}',
-    );
-    expect(workflow).toContain(
-      'name: Create legacy compatibility draft release',
-    );
-    expect(workflow).toContain('name: Publish legacy compatibility release');
-    expect(workflow).toContain('name: Publish canonical release');
-    expect(workflow).not.toContain(
-      'secrets.OTTO_RELEASES_TOKEN || secrets.GITHUB_TOKEN',
-    );
-    expect(workflow).toContain(
-      'Require desktop signing and notarization custody',
-    );
-    expect(workflow).toContain(
-      'Verify Windows Authenticode and packaged runtime',
-    );
-    expect(workflow).toContain(
-      "needs.verify-windows-signature.result == 'success'",
-    );
-    expect(deliveryScript).toContain("['stapler', 'validate', appPath]");
-    expect(workflow).not.toContain('This release is unsigned');
-    expect(workflow).not.toContain('OTTO_ALLOW_UNSIGNED_ENTERPRISE_PACKAGE');
-    expect(workflow).toContain(
-      'node scripts/verify-enterprise-package-signature.mjs',
-    );
-    expect(workflow).toContain(
-      'deliverables/otto-enterprise-oneclick-v${{ steps.version.outputs.version }}-*.tar.gz.sig',
-    );
-    expect(workflow).toContain('probe-packaged-sqlcipher.mjs');
   });
 
   it('uses the shared update manifest verifier in the local release gate', async () => {
@@ -376,21 +295,42 @@ describe('desktop packaging contract', () => {
       path.join(repoRoot, '.github', 'workflows', 'sqlcipher-native.yml'),
       'utf8',
     );
+    const serverPackage = JSON.parse(
+      await readFile(
+        path.join(repoRoot, 'packages', 'server', 'package.json'),
+        'utf8',
+      ),
+    );
+    expect(serverPackage.dependencies['better-sqlite3']).toBe('13.0.3');
     expect(workflow).toContain('node-version: 24.20.0');
-    expect(workflow).toContain('Build Tauri Node SQLCipher addon with Apple CommonCrypto');
+    expect(workflow).toContain(
+      'Build Tauri Node SQLCipher addon with Apple CommonCrypto',
+    );
     expect(workflow).toContain('-DSQLCIPHER_CRYPTO_CC');
     expect(workflow).toContain('--runtime node');
     expect(workflow).toContain('--crypto-provider commoncrypto');
     expect(workflow).toContain('verify-tauri-sqlcipher-asset.mjs');
-    expect(workflow.match(/if: github\.event\.repository\.visibility == 'public'/g)).toHaveLength(2);
+    expect(
+      workflow.match(/if: github\.event\.repository\.visibility == 'public'/g),
+    ).toHaveLength(2);
     expect(workflow).toContain('name: tauri-sqlcipher-${{ matrix.target }}');
-    expect(workflow).toContain('Build Tauri Node SQLCipher addon with static Windows OpenSSL');
+    expect(workflow).toContain(
+      'Build Tauri Node SQLCipher addon with static Windows OpenSSL',
+    );
     expect(workflow).toContain('--crypto-provider openssl-static');
     expect(workflow).toContain('--fetch-retries=5');
     expect(workflow).toContain('--fetch-retry-maxtimeout=120000');
-    expect(workflow).toContain('name: Restore static Windows OpenSSL toolchain cache');
+    expect(workflow).toContain(
+      'name: Restore static Windows OpenSSL toolchain cache',
+    );
     expect(workflow).toContain('path: C:/vcpkg/installed/x64-windows-static');
     expect(workflow).toContain('steps.windows-openssl-cache.outputs.cache-hit');
+    expect(
+      workflow.match(
+        /npm run build-release --prefix node_modules\/better-sqlite3/g,
+      ),
+    ).toHaveLength(4);
+    expect(workflow).not.toContain('npm rebuild better-sqlite3');
   });
 
   it('provides a reproducible macOS arm64 Tauri release workflow', async () => {
@@ -402,35 +342,72 @@ describe('desktop packaging contract', () => {
     expect(workflow).toContain('runner: macos-15-intel');
     expect(workflow).toContain('runs-on: windows-2022');
     expect(workflow).toContain('node-version: 24.20.0');
-    expect(workflow).toContain('npm run tauri:build --workspace=packages/desktop');
-    expect(workflow.match(/npm run release:formal:gate --workspace=packages\/desktop/g)).toHaveLength(2);
+    expect(workflow).toContain(
+      'npm run tauri:build --workspace=packages/desktop',
+    );
+    expect(
+      workflow.match(
+        /npm run release:formal:gate --workspace=packages\/desktop/g,
+      ),
+    ).toHaveLength(2);
     expect(workflow).toContain('name: Tauri Release Build');
-    expect(workflow).toContain('packages/desktop/src/main/self-modification-runtime.test.ts');
-    expect(workflow).toContain('packages/desktop/src/main/self-modification-candidate-supervisor.test.ts');
-    expect(workflow).toContain('packages/desktop/src/main/self-modification-task-coordinator.test.ts');
-    expect(workflow).toContain('packages/desktop/src/main/self-modification-version-registry.test.ts');
-    expect(workflow).toContain('packages/desktop/src/main/self-modification-controller.test.ts');
-    expect(workflow).toContain('packages/desktop/src/main/self-modification-ipc.test.ts');
-    expect(workflow).toContain('packages/desktop/src/main/self-modification-infrastructure.test.ts');
-    expect(workflow).toContain("find . -maxdepth 1 -type f -name 'ClawMaster_*.dmg'");
+    expect(workflow).toContain(
+      'packages/desktop/src/main/self-modification-runtime.test.ts',
+    );
+    expect(workflow).toContain(
+      'packages/desktop/src/main/self-modification-candidate-supervisor.test.ts',
+    );
+    expect(workflow).toContain(
+      'packages/desktop/src/main/self-modification-task-coordinator.test.ts',
+    );
+    expect(workflow).toContain(
+      'packages/desktop/src/main/self-modification-version-registry.test.ts',
+    );
+    expect(workflow).toContain(
+      'packages/desktop/src/main/self-modification-controller.test.ts',
+    );
+    expect(workflow).toContain(
+      'packages/desktop/src/main/self-modification-ipc.test.ts',
+    );
+    expect(workflow).toContain(
+      'packages/desktop/src/main/self-modification-infrastructure.test.ts',
+    );
+    expect(workflow).toContain(
+      "find . -maxdepth 1 -type f -name 'ClawMaster_*.dmg'",
+    );
     expect(workflow).toContain('name: ClawMaster-Windows-x64-Tauri-Release');
     expect(workflow).toContain("tags:\n      - 'v*.*.*'");
     expect(workflow).toContain('name: Publish ClawMaster Tauri release');
-    expect(workflow).toContain("if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)");
+    expect(workflow).toContain('git merge-base --is-ancestor origin/main HEAD');
+    expect(workflow).toContain('test "$GITHUB_REF_NAME" = "v${version}"');
+    expect(workflow).toContain('Tag mismatch: tag=$tag package=v${version}');
+    expect(workflow).toContain(
+      "if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)",
+    );
     expect(workflow).toContain('pattern: ClawMaster-*-Tauri-Release');
-    expect(workflow).toContain('name: ClawMaster v${{ steps.release.outputs.version }}');
-    expect(workflow).toContain("draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft != false }}");
-    expect(workflow).toContain("prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease == true }}");
+    expect(workflow).toContain(
+      'name: ClawMaster v${{ steps.release.outputs.version }}',
+    );
+    expect(workflow).toContain(
+      "draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft != false }}",
+    );
+    expect(workflow).toContain(
+      "prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease == true }}",
+    );
     expect(workflow).toContain('name: Install and smoke-test Windows release');
     expect(workflow).toContain('scripts/smoke-tauri-windows-install.ps1');
-    expect(workflow).toContain('uses: ./.github/workflows/tauri-node-runtime.yml');
+    expect(workflow).toContain(
+      'uses: ./.github/workflows/tauri-node-runtime.yml',
+    );
     expect(workflow).toContain('name: tauri-node-${{ matrix.nativeTarget }}');
     const nodeWorkflow = await readFile(
       path.join(repoRoot, '.github', 'workflows', 'tauri-node-runtime.yml'),
       'utf8',
     );
     expect(nodeWorkflow).toContain('node-v24.20.0-win-x64.zip');
-    expect(nodeWorkflow).toContain('6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba');
+    expect(nodeWorkflow).toContain(
+      '6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba',
+    );
     expect(nodeWorkflow).not.toContain('--without-inspector');
     expect(nodeWorkflow).not.toContain('--without-intl');
     expect(nodeWorkflow).not.toContain('--without-sqlite');

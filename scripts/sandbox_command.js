@@ -24,7 +24,6 @@ import stripJsonComments from 'strip-json-comments';
 import os from 'os';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import dotenv from 'dotenv';
 
 const argv = yargs(hideBin(process.argv)).option('q', {
   alias: 'quiet',
@@ -52,10 +51,10 @@ if (!geminiSandbox) {
     const geminiEnv = join(currentDir, '.deepv', '.env');
     const regularEnv = join(currentDir, '.env');
     if (existsSync(geminiEnv)) {
-      dotenv.config({ path: geminiEnv, quiet: true });
+      process.loadEnvFile(geminiEnv);
       break;
     } else if (existsSync(regularEnv)) {
-      dotenv.config({ path: regularEnv, quiet: true });
+      process.loadEnvFile(regularEnv);
       break;
     }
     const parentDir = dirname(currentDir);

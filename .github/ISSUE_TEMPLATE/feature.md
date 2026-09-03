@@ -1,6 +1,6 @@
 ---
 name: Feature / Bugfix
-about: Structured issue template for Otto
+about: Structured issue template for ClawMaster
 title: ''
 labels: ''
 assignees: ''

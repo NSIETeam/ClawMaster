@@ -26,7 +26,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
 // Add support for --no-rebuild flag or DEEPV_SKIP_BUILD env var
-const skipRebuild = process.argv.includes('--no-rebuild') || process.env.DEEPV_SKIP_BUILD === '1';
+const skipRebuild =
+  process.argv.includes('--no-rebuild') || process.env.DEEPV_SKIP_BUILD === '1';
 
 // --- UI Utilities (ANSI Colors) ---
 const COLORS = {
@@ -42,33 +43,37 @@ const COLORS = {
 };
 
 const LOGO = `
-${COLORS.cyan}${COLORS.bright}Otto Build System${COLORS.reset}
+${COLORS.cyan}${COLORS.bright}ClawMaster Build System${COLORS.reset}
 `;
 
 function printHeader(title) {
-  console.log(`\n${COLORS.bright}${COLORS.blue}>>${COLORS.reset} ${COLORS.bright}${title}${COLORS.reset}`);
+  console.log(
+    `\n${COLORS.bright}${COLORS.blue}>>${COLORS.reset} ${COLORS.bright}${title}${COLORS.reset}`,
+  );
 }
 
 function printItem(status, name, info = '') {
-  const icon = status === 'success' ? `${COLORS.green}✅${COLORS.reset}` : status === 'failed' ? `${COLORS.red}❌${COLORS.reset}` : `${COLORS.yellow}⚠${COLORS.reset}`;
+  const icon =
+    status === 'success'
+      ? `${COLORS.green}✅${COLORS.reset}`
+      : status === 'failed'
+        ? `${COLORS.red}❌${COLORS.reset}`
+        : `${COLORS.yellow}⚠${COLORS.reset}`;
   const label = info ? `${COLORS.dim}[${info}]${COLORS.reset}` : '';
-  console.log(`  ${icon} ${COLORS.cyan}${name.padEnd(25)}${COLORS.reset} ${label}`);
+  console.log(
+    `  ${icon} ${COLORS.cyan}${name.padEnd(25)}${COLORS.reset} ${label}`,
+  );
 }
 
 const startTime = Date.now();
 console.log(LOGO);
 console.log(`${COLORS.dim}Root directory: ${root}${COLORS.reset}`);
 
-// Check and install dependencies if needed
+// Builds must not mutate dependency state or bypass the lockfile.
 if (!existsSync(join(root, 'node_modules'))) {
-  printHeader('Initializing dependencies');
-  try {
-    execSync('npm install', { stdio: 'inherit', cwd: root });
-    printItem('success', 'NPM packages', 'Installed');
-  } catch {
-    printItem('failed', 'NPM packages', 'Failed to install');
-    process.exit(1);
-  }
+  printHeader('Environment check');
+  printItem('failed', 'Node modules', 'Run npm ci first');
+  process.exit(1);
 } else {
   printHeader('Environment check');
   printItem('success', 'Node modules', 'Verified');
@@ -79,16 +84,20 @@ const allWorkspaces = [
   { path: 'packages/workflow', name: 'workflow' },
   { path: 'packages/rpa', name: 'rpa' },
   { path: 'packages/core', name: 'core' },
-  { path: 'packages/server', name: 'server' }
+  { path: 'packages/server', name: 'server' },
   // 注意: packages/desktop 刻意不进主链 (独立 electron/webpack 构建)。
   // 用 `npm run build --workspace=packages/desktop` 单独构建, 避免 electron native 拖垮 core/server/CI 主链。
 ];
 
 // Filter workspaces based on NPM_PUBLISH_MODE
 // When publishing to npm, only build core and server to speed up CI
-const workspaces = process.env.NPM_PUBLISH_MODE === '1'
-  ? allWorkspaces.filter(ws => ws.name === 'workflow' || ws.name === 'rpa' || ws.name === 'core')
-  : allWorkspaces;
+const workspaces =
+  process.env.NPM_PUBLISH_MODE === '1'
+    ? allWorkspaces.filter(
+        (ws) =>
+          ws.name === 'workflow' || ws.name === 'rpa' || ws.name === 'core',
+      )
+    : allWorkspaces;
 
 const results = [];
 
@@ -98,17 +107,24 @@ const criticalPackages = new Set(['workflow', 'rpa', 'core', 'server']);
 printHeader('Building workspaces');
 
 if (skipRebuild) {
-  console.log(`${COLORS.yellow}⏭️  Skipping build steps due to --no-rebuild flag${COLORS.reset}`);
-  workspaces.forEach(workspace => {
+  console.log(
+    `${COLORS.yellow}⏭️  Skipping build steps due to --no-rebuild flag${COLORS.reset}`,
+  );
+  workspaces.forEach((workspace) => {
     results.push({ ...workspace, status: 'SUCCESS' });
   });
 } else {
   try {
     for (const workspace of workspaces) {
-      console.log(`\n${COLORS.dim}─ Workspace: ${workspace.name} ─${COLORS.reset}`);
+      console.log(
+        `\n${COLORS.dim}─ Workspace: ${workspace.name} ─${COLORS.reset}`,
+      );
       const isCritical = criticalPackages.has(workspace.name);
       try {
-        execSync(`npm run build --workspace=${workspace.path}`, { stdio: 'inherit', cwd: root });
+        execSync(`npm run build --workspace=${workspace.path}`, {
+          stdio: 'inherit',
+          cwd: root,
+        });
         results.push({ ...workspace, status: 'SUCCESS' });
       } catch (error) {
         results.push({ ...workspace, status: 'FAILED' });
@@ -121,7 +137,9 @@ if (skipRebuild) {
     }
   } catch {
     printSummary(results);
-    console.error(`\n${COLORS.red}${COLORS.bright}[!] Build process interrupted due to critical workspace failure.${COLORS.reset}`);
+    console.error(
+      `\n${COLORS.red}${COLORS.bright}[!] Build process interrupted due to critical workspace failure.${COLORS.reset}`,
+    );
     process.exit(1);
   }
 }
@@ -133,7 +151,10 @@ try {
     cwd: root,
   });
 
-  if (process.env.BUILD_SANDBOX === '1' || process.env.BUILD_SANDBOX === 'true') {
+  if (
+    process.env.BUILD_SANDBOX === '1' ||
+    process.env.BUILD_SANDBOX === 'true'
+  ) {
     printHeader('Building sandbox container');
     execSync('node scripts/build_sandbox.js -s', {
       stdio: 'inherit',
@@ -151,17 +172,28 @@ function printSummary(workspaceResults) {
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
   const criticalPackages = new Set(['workflow', 'rpa', 'core', 'server']);
 
-  console.log(`\n${COLORS.bright}${COLORS.blue}----------------------- Build Summary -----------------------${COLORS.reset}`);
+  console.log(
+    `\n${COLORS.bright}${COLORS.blue}----------------------- Build Summary -----------------------${COLORS.reset}`,
+  );
 
-  workspaceResults.forEach(res => {
+  workspaceResults.forEach((res) => {
     const isCritical = criticalPackages.has(res.name);
     const statusColor = res.status === 'SUCCESS' ? COLORS.green : COLORS.red;
     const icon = res.status === 'SUCCESS' ? '✅' : '❌';
     const statusText = res.status === 'SUCCESS' ? 'SUCCESS' : 'FAILED';
-    const criticalLabel = !isCritical && res.status === 'FAILED' ? ` ${COLORS.yellow}(non-critical, skipped)${COLORS.reset}` : '';
-    console.log(`${icon} ${COLORS.cyan}${res.name.padEnd(35)}${COLORS.reset} [${statusColor}${statusText}${COLORS.reset}]${criticalLabel}`);
+    const criticalLabel =
+      !isCritical && res.status === 'FAILED'
+        ? ` ${COLORS.yellow}(non-critical, skipped)${COLORS.reset}`
+        : '';
+    console.log(
+      `${icon} ${COLORS.cyan}${res.name.padEnd(35)}${COLORS.reset} [${statusColor}${statusText}${COLORS.reset}]${criticalLabel}`,
+    );
   });
 
-  console.log(`${COLORS.bright}${COLORS.blue}-------------------------------------------------------------${COLORS.reset}`);
-  console.log(`\n${COLORS.green}${COLORS.bright}Build process completed in ${duration}s.${COLORS.reset}\n`);
+  console.log(
+    `${COLORS.bright}${COLORS.blue}-------------------------------------------------------------${COLORS.reset}`,
+  );
+  console.log(
+    `\n${COLORS.green}${COLORS.bright}Build process completed in ${duration}s.${COLORS.reset}\n`,
+  );
 }

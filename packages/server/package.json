@@ -39,7 +39,7 @@
     "@aws-sdk/s3-request-presigner": "3.1100.0",
     "@google/genai": "1.35.0",
     "@larksuiteoapi/node-sdk": "^1.71.1",
-    "better-sqlite3": "12.11.1",
+    "better-sqlite3": "13.0.3",
     "otto-core": "file:../core",
     "pg": "8.22.0",
     "redis": "4.7.1",
