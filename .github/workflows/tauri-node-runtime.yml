@@ -95,7 +95,11 @@ jobs:
 
   windows:
     name: win32-x64 balanced Node runtime
-    runs-on: windows-2025
+    # Pin Node-from-source builds to the mature VS2022 image. The windows-2025
+    # image currently ships the VS2026/v180 clang-cl toolchain, where Node 24's
+    # ICU genccode step can fail with "CPU architecture must be set for
+    # Clang-CL" before the runtime asset is produced.
+    runs-on: windows-2022
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v6

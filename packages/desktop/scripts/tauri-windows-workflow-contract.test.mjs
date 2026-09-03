@@ -22,6 +22,8 @@ describe('Tauri Windows workflow contract', () => {
 
   it('produces a verified Windows x64 Node capsule', () => {
     expect(runtimeWorkflow).toMatch(/windows:\s*\n\s+name: win32-x64 balanced Node runtime/u);
+    expect(runtimeWorkflow).toMatch(/windows:\s*[\s\S]*?runs-on: windows-2022/u);
+    expect(runtimeWorkflow).toContain('CPU architecture must be set for');
     expect(runtimeWorkflow).toMatch(/repository: nodejs\/node/u);
     expect(runtimeWorkflow).toMatch(/ref: 71b8b174857e25106d39b61a9e6f30d927da8b01/u);
     expect(runtimeWorkflow).toContain(
