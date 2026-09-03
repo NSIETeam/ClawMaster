@@ -2,7 +2,7 @@
  * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import process from 'node:process';
@@ -12,6 +12,37 @@ import asar from '@electron/asar';
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const desktopRoot = path.resolve(scriptDir, '..');
 const repoRoot = path.resolve(desktopRoot, '../..');
+const FORBIDDEN_RUNTIME_PACKAGES = [
+  'npm',
+  'corepack',
+  'electron',
+  'electron-builder',
+  'typescript',
+  'webpack',
+  'webpack-cli',
+  'eslint',
+  'vitest',
+];
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+const FORBIDDEN_RUNTIME_ENTRY_PATTERNS = [
+  /^\/node_modules\/\.bin(?:\/|$)/u,
+  /^\/node_modules\/@otto\/native\/target(?:\/|$)/u,
+  /^\/node_modules\/@otto\/native\/src(?:\/|$)/u,
+  /^\/node_modules\/@otto\/native\/Cargo\.(?:toml|lock)$/u,
+  /^\/node_modules\/@otto\/native\/tsconfig\.json$/u,
+  /^\/node_modules\/better-sqlite3\/deps(?:\/|$)/u,
+  /^\/node_modules\/better-sqlite3\/src(?:\/|$)/u,
+  /^\/node_modules\/better-sqlite3\/build\/deps(?:\/|$)/u,
+  /^\/node_modules\/better-sqlite3\/build\/Release\/obj(?:\/|$)/u,
+  /^\/node_modules\/better-sqlite3\/build\/Release\/test_extension\.node$/u,
+  ...FORBIDDEN_RUNTIME_PACKAGES.map(
+    (name) => new RegExp(`^/node_modules/${escapeRegExp(name)}(?:/|$)`, 'u'),
+  ),
+];
 
 function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
@@ -28,6 +59,40 @@ function requireAsarEntry(entries, archiveEntry) {
   const normalized = `/${archiveEntry.replaceAll('\\', '/')}`;
   if (!entries.has(normalized)) {
     throw new Error(`packaged runtime is missing ${archiveEntry}`);
+  }
+}
+
+function collectFiles(rootPath, relativePrefix = '') {
+  const files = [];
+  if (!existsSync(rootPath)) return files;
+  for (const entry of readdirSync(rootPath, { withFileTypes: true })) {
+    const relativePath = relativePrefix
+      ? `${relativePrefix}/${entry.name}`
+      : entry.name;
+    const fullPath = path.join(rootPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...collectFiles(fullPath, relativePath));
+    } else if (entry.isFile()) {
+      files.push(`/${relativePath.replaceAll('\\', '/')}`);
+    }
+  }
+  return files;
+}
+
+function assertNoPackageManagerRuntime(entries, unpackedRoot) {
+  const archiveViolations = [...entries].filter((entry) =>
+    FORBIDDEN_RUNTIME_ENTRY_PATTERNS.some((pattern) => pattern.test(entry)),
+  );
+  const unpackedViolations = collectFiles(unpackedRoot).filter((entry) =>
+    FORBIDDEN_RUNTIME_ENTRY_PATTERNS.some((pattern) => pattern.test(entry)),
+  );
+  const violations = [...new Set([...archiveViolations, ...unpackedViolations])]
+    .sort()
+    .slice(0, 12);
+  if (violations.length > 0) {
+    throw new Error(
+      `packaged runtime must not include npm, development tools, or build caches: ${violations.join(', ')}`,
+    );
   }
 }
 
@@ -58,6 +123,10 @@ export function verifyPackagedRuntime(
   );
   const entries = new Set(
     asar.listPackage(archivePath).map((entry) => entry.replaceAll('\\', '/')),
+  );
+  assertNoPackageManagerRuntime(
+    entries,
+    path.join(path.dirname(archivePath), 'app.asar.unpacked'),
   );
 
   for (const entry of [

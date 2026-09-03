@@ -140,6 +140,44 @@ describe('desktop packaging contract', () => {
     expect(bundledInputs).not.toContain('resources/video-editor');
   });
 
+  it('keeps package managers and development tools out of user installers', async () => {
+    const packageJson = JSON.parse(
+      await readFile(path.join(packageRoot, 'package.json'), 'utf8'),
+    );
+    const buildFiles = packageJson.build.files.join('\n');
+    for (const excludedPattern of [
+      '!**/node_modules/@otto/native/target/**',
+      '!**/node_modules/@otto/native/src/**',
+      '!**/node_modules/@otto/native/Cargo.*',
+      '!**/node_modules/@otto/native/tsconfig.json',
+      '!**/node_modules/better-sqlite3/deps/**',
+      '!**/node_modules/better-sqlite3/src/**',
+      '!**/node_modules/better-sqlite3/build/deps/**',
+      '!**/node_modules/better-sqlite3/build/Release/obj/**',
+      '!**/node_modules/better-sqlite3/build/Release/test_extension.node',
+      '!**/node_modules/npm/**',
+      '!**/node_modules/corepack/**',
+      '!**/node_modules/electron/**',
+      '!**/node_modules/electron-builder/**',
+      '!**/node_modules/typescript/**',
+      '!**/node_modules/webpack/**',
+      '!**/node_modules/webpack-cli/**',
+      '!**/node_modules/eslint/**',
+      '!**/node_modules/vitest/**',
+    ]) {
+      expect(buildFiles).toContain(excludedPattern);
+    }
+
+    const verifier = await readFile(
+      path.join(packageRoot, 'scripts', 'verify-packaged-runtime.mjs'),
+      'utf8',
+    );
+    expect(verifier).toContain('assertNoPackageManagerRuntime(');
+    expect(verifier).toContain('packaged runtime must not include npm, development tools, or build caches');
+    expect(verifier).toContain('@otto\\/native\\/target');
+    expect(verifier).toContain('better-sqlite3\\/deps');
+  });
+
   it('does not exclude runtime build/src modules required by ESM dependencies', async () => {
     const packageJson = JSON.parse(
       await readFile(path.join(packageRoot, 'package.json'), 'utf8'),
