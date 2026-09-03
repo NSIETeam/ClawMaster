@@ -15,6 +15,7 @@ function harness(overrides: Partial<SelfModificationDependencies> = {}) {
     repository: {
       save: vi.fn(async (request) => { records.set(request.id, structuredClone(request)); }),
       load: vi.fn(async (id) => records.get(id) ?? null),
+      list: vi.fn(async () => [...records.values()]),
     },
     workspaces: {
       create: vi.fn(async () => ({
@@ -78,6 +79,20 @@ describe('SelfModificationController', () => {
       .rejects.toThrow('human security review');
     expect((await controller.approve(request.id, { actorId: 'security-1', kind: 'security-reviewer' })).state)
       .toBe('approved');
+  });
+
+  it('persists explicit rejection and cancellation as terminal outcomes', async () => {
+    let sequence = 0;
+    const { controller } = harness({ createId: () => `change-${++sequence}` });
+    const review = await verifiedRequest(controller);
+    const rejected = await controller.reject(review.id, { actorId: 'user-1', kind: 'human' });
+    expect(rejected).toMatchObject({ state: 'rejected', approval: { actorId: 'user-1', kind: 'human' } });
+
+    const second = await controller.create({
+      goal: 'cancel me', tenantId: 'tenant-1', actorId: 'user-1', changedPaths: [],
+    });
+    expect((await controller.cancel(second.id)).state).toBe('cancelled');
+    expect(await controller.list()).toHaveLength(2);
   });
 
   it('drains and checkpoints long-running work before atomic activation', async () => {

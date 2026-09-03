@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type {
@@ -41,6 +41,22 @@ export class FileSelfModificationRepository implements RequestRepository {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw error;
     }
+  }
+
+  async list(): Promise<SelfModificationRequest[]> {
+    let names: string[];
+    try {
+      names = await readdir(this.root);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw error;
+    }
+    const requests = await Promise.all(
+      names.filter((name) => name.endsWith('.json')).map((name) => this.load(name.slice(0, -5))),
+    );
+    return requests
+      .filter((request): request is SelfModificationRequest => request !== null)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   }
 }
 

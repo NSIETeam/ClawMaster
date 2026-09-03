@@ -45,6 +45,7 @@ export interface SelfModificationDependencies {
   repository: {
     save(request: SelfModificationRequest): Promise<void>;
     load(id: string): Promise<SelfModificationRequest | null>;
+    list(): Promise<SelfModificationRequest[]>;
   };
   workspaces: {
     create(id: string): Promise<{ path: string; branch: string; baselineCommit: string }>;
@@ -155,6 +156,20 @@ export class SelfModificationController {
     }
     request.approval = { ...actor, at: this.dependencies.now() };
     return this.transition(request, 'approved');
+  }
+
+  async reject(id: string, actor: ApprovalActor) {
+    const request = await this.require(id);
+    request.approval = { ...actor, at: this.dependencies.now() };
+    return this.transition(request, 'rejected');
+  }
+
+  async cancel(id: string) {
+    return this.transition(await this.require(id), 'cancelled');
+  }
+
+  async list() {
+    return this.dependencies.repository.list();
   }
 
   async buildAndActivate(id: string) {

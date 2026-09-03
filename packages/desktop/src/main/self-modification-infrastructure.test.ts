@@ -32,6 +32,15 @@ describe('self-modification infrastructure', () => {
     await expect(repository.load('change-1')).rejects.toThrow('identity mismatch');
   });
 
+  it('lists persisted requests newest first and ignores unrelated files', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-self-change-'));
+    const repository = new FileSelfModificationRepository(root);
+    await repository.save(request());
+    await repository.save({ ...request(), id: 'change-2', updatedAt: '2026-09-03T01:00:00.000Z' });
+    await writeFile(path.join(root, 'notes.txt'), 'not a request');
+    expect((await repository.list()).map((entry) => entry.id)).toEqual(['change-2', 'change-1']);
+  });
+
   it('creates a worktree from the exact baseline without a shell', async () => {
     const workspaceRoot = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-worktrees-'));
     const run = vi.fn(async () => 'b'.repeat(40));
