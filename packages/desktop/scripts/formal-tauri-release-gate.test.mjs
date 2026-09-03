@@ -23,6 +23,7 @@ name: Tauri Release Build
 tags:
       - 'v*.*.*'
 name: Publish ClawMaster Tauri release
+npm run release:formal:gate --workspace=packages/desktop
 packages/desktop/src/main/self-modification-runtime.test.ts
 packages/desktop/src/main/self-modification-candidate-supervisor.test.ts
 packages/desktop/src/main/self-modification-task-coordinator.test.ts

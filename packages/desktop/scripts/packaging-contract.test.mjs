@@ -372,6 +372,7 @@ describe('desktop packaging contract', () => {
     expect(workflow).toContain('runs-on: windows-2025');
     expect(workflow).toContain('node-version: 24.20.0');
     expect(workflow).toContain('npm run tauri:build --workspace=packages/desktop');
+    expect(workflow.match(/npm run release:formal:gate --workspace=packages\/desktop/g)).toHaveLength(2);
     expect(workflow).toContain('name: Tauri Release Build');
     expect(workflow).toContain('packages/desktop/src/main/self-modification-runtime.test.ts');
     expect(workflow).toContain('packages/desktop/src/main/self-modification-candidate-supervisor.test.ts');

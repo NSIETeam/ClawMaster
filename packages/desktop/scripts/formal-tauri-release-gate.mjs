@@ -74,6 +74,7 @@ export function evaluateFormalTauriReleaseGate({
     'name: Tauri Release Build',
     'name: Publish ClawMaster Tauri release',
     "tags:\n      - 'v*.*.*'",
+    'npm run release:formal:gate --workspace=packages/desktop',
     'packages/desktop/src/main/self-modification-runtime.test.ts',
     'packages/desktop/src/main/self-modification-candidate-supervisor.test.ts',
     'packages/desktop/src/main/self-modification-task-coordinator.test.ts',

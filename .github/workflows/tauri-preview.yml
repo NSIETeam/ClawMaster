@@ -122,6 +122,9 @@ jobs:
       - name: Build and verify Tauri release DMG
         run: npm run tauri:build --workspace=packages/desktop
 
+      - name: Gate formal ClawMaster release artifact
+        run: npm run release:formal:gate --workspace=packages/desktop
+
       - name: Record download checksum
         working-directory: packages/desktop/src-tauri/target/release/bundle/dmg
         run: |
@@ -189,6 +192,9 @@ jobs:
 
       - name: Build and verify Tauri release installer
         run: npm run tauri:build --workspace=packages/desktop
+
+      - name: Gate formal ClawMaster release artifact
+        run: npm run release:formal:gate --workspace=packages/desktop
 
       - name: Install and smoke-test Windows release
         shell: pwsh
