@@ -20,8 +20,9 @@ on:
       - 'package-lock.json'
       - 'package.json'
   push:
-    branches: [main, 'codex/**']
-    tags: ['v0.0.2-beta.1']
+    branches: [main, 'codex/windows-*']
+    tags:
+      - 'v*.*.*'
 
 permissions:
   contents: read
@@ -36,6 +37,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22.16.0', cache: npm }
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run validate:integration-baseline
       - run: npm run build --workspace=packages/core
       - run: npx playwright install --with-deps chromium
       - run: npm run release:preflight
@@ -58,11 +60,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml native_runtime --lib
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run build:renderer --workspace=packages/desktop
+      - run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml native_runtime --lib
       - run: npm run tauri:build --workspace=packages/desktop
       - run: npm run release:beta:gate --workspace=packages/desktop
       - uses: actions/upload-artifact@v4
