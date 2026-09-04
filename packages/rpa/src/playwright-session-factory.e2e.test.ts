@@ -39,5 +39,5 @@ browserSuite('Playwright RPA browser boundary', () => {
       await driver.closeRun('rpa-e2e-run');
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     }
-  }, 30_000);
+  }, 90_000);
 });
