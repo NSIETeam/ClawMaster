@@ -67,16 +67,20 @@ describe('useModuleWorkspaceCapabilities', () => {
     expect(view.result.current.modules.some((module) => module.id === 'enterprise-memory')).toBe(true);
   });
 
-  it('个人版立即就绪且不会请求企业能力', () => {
+  it('个人版立即获得本地企业服务且不会伪造园区授权', () => {
     const getFeatures = vi.mocked(window.clawmaster.enterpriseOrganizationFeaturesGet);
     const view = renderHook(() => useModuleWorkspaceCapabilities({
       edition: 'personal', serverUrl: 'local', accountId: 'account-a',
       profiles: BASE_AGENT_PROFILES, customAgents: [],
     }));
     expect(view.result.current.status).toBe('ready');
+    expect(view.result.current.modules.find((module) => module.id === 'enterprise-memory')?.availability)
+      .toBe('available');
+    expect(view.result.current.modules.find((module) => module.id === 'skill-zone')?.availability)
+      .toBe('available');
     expect(view.result.current.modules
-      .filter((module) => module.availability === 'available')
-      .every((module) => !module.id.startsWith('park-'))).toBe(true);
+      .filter((module) => module.id.startsWith('park-'))
+      .every((module) => module.availability === 'disabled')).toBe(true);
     expect(getFeatures).not.toHaveBeenCalled();
   });
 

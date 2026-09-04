@@ -31,6 +31,16 @@ const INTERNAL_ADMIN_PREVIEW_FEATURES: EnterpriseOrganizationFeatures = {
   skill_market: true,
 };
 
+const PERSONAL_ENTITLED_FEATURES: EnterpriseOrganizationFeatures = {
+  enterprise_tree: true,
+  park_service: true,
+  feishu_auto_reply: true,
+  direct_messages: true,
+  atoa: true,
+  knowledge: true,
+  skill_market: true,
+};
+
 const INTERNAL_ADMIN_PREVIEW_PARK: ParkModuleAuthorization = {
   hasParkContext: true,
   canViewStatistics: true,
@@ -65,7 +75,9 @@ export function useModuleWorkspaceCapabilities(input: {
   const [state, setState] = useState<CapabilityState>(() => ({
     key,
     status: input.edition === 'personal' || input.internalAdminPreview ? 'ready' : 'loading',
-    features: input.internalAdminPreview ? INTERNAL_ADMIN_PREVIEW_FEATURES : null,
+    features: input.internalAdminPreview
+      ? INTERNAL_ADMIN_PREVIEW_FEATURES
+      : input.edition === 'personal' ? PERSONAL_ENTITLED_FEATURES : null,
     park: input.internalAdminPreview ? INTERNAL_ADMIN_PREVIEW_PARK : NO_PARK,
   }));
   useEffect(() => {
@@ -80,7 +92,7 @@ export function useModuleWorkspaceCapabilities(input: {
       return () => { cancelled = true; };
     }
     if (input.edition === 'personal') {
-      setState({ key, status: 'ready', features: null, park: NO_PARK });
+      setState({ key, status: 'ready', features: PERSONAL_ENTITLED_FEATURES, park: NO_PARK });
       return () => { cancelled = true; };
     }
     const organizationId = input.organizationId?.trim();

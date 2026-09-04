@@ -7,6 +7,10 @@
 import type {
   DesktopRuntimeDiagnostic,
   ClawMasterBridge,
+  EnterpriseKnowledgeItem,
+  EnterpriseSkillLeaderboard,
+  EnterpriseSkillMarketItem,
+  LocalSkillShareCandidate,
   PlatformWebviewBounds,
   UpdateProgressInfo,
 } from '../preload/index.js';
@@ -162,6 +166,52 @@ export function createTauriHostBridge(
 
   const nextRequestId = (): string =>
     `work-log-${Date.now().toString(36)}-${++requestSequence}`;
+
+  const requestNativeFrame = async (
+    frame: ClientToServer,
+    expectedType: ServerToClient['type'],
+  ): Promise<ServerToClient> => {
+    const responses = await invoke<ServerToClient[]>('desktop_request', { frame });
+    const error = responses.find((response) => response.type === 'error');
+    if (error?.type === 'error') throw new Error(error.payload.message);
+    const response = responses.find((candidate) => candidate.type === expectedType);
+    if (!response) throw new Error(`Rust 运行时没有返回 ${expectedType}`);
+    return response;
+  };
+
+  const localSkillMarket = async (): Promise<EnterpriseSkillMarketItem[]> => {
+    const response = await requestNativeFrame(
+      { type: 'get_skills', payload: {} },
+      'skills_list',
+    );
+    if (response.type !== 'skills_list') return [];
+    const timestamp = new Date(0).toISOString();
+    return response.payload.skills.filter((skill) => skill.enabled).map((skill) => ({
+      id: skill.id,
+      organizationId: 'tauri-local',
+      slug: skill.id,
+      name: skill.name,
+      description: skill.description,
+      department: null,
+      visibility: 'company',
+      status: 'active',
+      authorAccountId: 'tauri-local-user',
+      authorName: '本机 Skill',
+      contentHash: skill.id,
+      version: 1,
+      installCount: 1,
+      usageCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      rating: 0,
+      ratingCount: 0,
+      installedVersion: 1,
+      reviewedBy: null,
+      reviewedAt: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }));
+  };
 
   const migrated: Partial<Record<keyof ClawMasterBridge, (...args: never[]) => unknown>> = {
     connect: connectDesktop as never,
@@ -347,6 +397,56 @@ export function createTauriHostBridge(
       headHash: '',
       entries: [],
     })) as never,
+    enterpriseKnowledgeList: (async (input?: { query?: string; department?: string }) => {
+      const query = input?.query?.trim();
+      const response = await requestNativeFrame(
+        query
+          ? { type: 'search_knowledge', payload: { query, ...(input?.department ? { category: input.department } : {}) } }
+          : { type: 'get_knowledge', payload: { limit: 100 } },
+        'knowledge_data',
+      );
+      if (response.type !== 'knowledge_data') return [];
+      return response.payload.entries.map((entry): EnterpriseKnowledgeItem => ({
+        id: entry.id,
+        organizationId: 'tauri-local',
+        sourceId: null,
+        title: entry.category,
+        department: null,
+        category: entry.category,
+        content: entry.content,
+        contributor: '本机知识库',
+        confidence: entry.confidence ?? 1,
+        sourceType: 'manual',
+        sourceLabel: 'ClawMaster Rust 本地知识库',
+        status: 'active',
+        version: 1,
+        reviewedBy: null,
+        reviewedAt: null,
+        createdAt: entry.createdAt,
+        updatedAt: entry.createdAt,
+      }));
+    }) as never,
+    enterpriseSkillLocalList: (async (): Promise<LocalSkillShareCandidate[]> => (
+      (await localSkillMarket()).map((skill) => ({
+        name: skill.name,
+        description: skill.description,
+        kind: 'personal',
+      }))
+    )) as never,
+    enterpriseSkillList: (async (): Promise<EnterpriseSkillMarketItem[]> => localSkillMarket()) as never,
+    enterpriseSkillLeaderboard: (async (): Promise<EnterpriseSkillLeaderboard> => {
+      const skills = await localSkillMarket();
+      return {
+        skills: skills.map((skill, index) => ({
+          ...skill,
+          rank: index + 1,
+          score: 0,
+          successRate: 0,
+        })),
+        contributors: [],
+        generatedAt: new Date().toISOString(),
+      };
+    }) as never,
     feishuStatus: (() => Promise.resolve({
       text: '当前 Rust 本地版尚未配置企业消息连接器。请使用高级配置，或等待管理员部署连接服务。',
       running: false,

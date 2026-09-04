@@ -242,6 +242,19 @@ async fn desktop_send(
 }
 
 #[tauri::command]
+async fn desktop_request(
+    frame: Value,
+    runtime: State<'_, native_runtime::NativeRuntime>,
+) -> Result<Vec<Value>, String> {
+    match frame.get("type").and_then(Value::as_str) {
+        Some("send_user_message" | "run_slash_command") => {
+            Err("流式任务必须通过 desktop_send 执行".into())
+        }
+        _ => runtime.handle_async(&frame).await,
+    }
+}
+
+#[tauri::command]
 fn desktop_is_connected(state: State<'_, DesktopConnection>) -> bool {
     state.connected.load(Ordering::Acquire)
 }
@@ -277,6 +290,7 @@ pub fn run() {
             desktop_connect,
             desktop_disconnect,
             desktop_send,
+            desktop_request,
             desktop_is_connected,
             agent_state_pool::agent_state_replace,
             agent_state_pool::agent_state_bytes,

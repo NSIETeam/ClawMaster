@@ -122,7 +122,7 @@ describe('capability-driven availability', () => {
     expect(catalog.find((module) => module.id === 'park-announcement')?.availability).toBe('available');
   });
 
-  it('keeps personal edition free of enterprise and park capabilities', () => {
+  it('unlocks enterprise services for personal users without fabricating park authorization', () => {
     const catalog = buildModuleCatalog({
       edition: 'personal',
       profiles: BASE_AGENT_PROFILES,
@@ -153,9 +153,12 @@ describe('capability-driven availability', () => {
       'platform-zhiliaohou',
       'platform-zhixin-pigeon',
     ]));
-    expect(availableIds.some((id) => id.startsWith('park-'))).toBe(false);
-    expect(availableIds).not.toContain('enterprise-memory');
-    expect(availableIds).not.toContain('skill-zone');
+    expect(availableIds).toContain('enterprise-memory');
+    expect(availableIds).toContain('skill-zone');
+    expect(catalog.filter((module) => module.id.startsWith('park-')).every((module) => (
+      module.availability === 'disabled'
+      && module.disabledReason === '请先在“企业与身份”中建立真实企业及园区上下文'
+    ))).toBe(true);
   });
 
   it('allows personal office experts without leaking the enterprise foundation Agent', () => {

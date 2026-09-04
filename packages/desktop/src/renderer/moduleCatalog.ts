@@ -236,7 +236,10 @@ function staticAvailability(
 ): ModuleAvailability {
   if (rule === 'always') return 'available';
   if (rule === 'auto-skill') return 'available';
-  if (context.edition !== 'enterprise') return 'hidden';
+  if (context.edition !== 'enterprise') {
+    if (rule === 'enterprise-memory' || rule === 'skill-zone') return 'available';
+    return 'disabled';
+  }
 
   if (rule === 'enterprise-memory') {
     return context.organizationFeatures?.knowledge ? 'available' : 'hidden';
@@ -353,6 +356,13 @@ export function buildModuleCatalog(context: ModuleCatalogContext): ModuleDefinit
   const staticModules = STATIC_MODULE_SPECS.map(({ availabilityRule, ...module }) => ({
     ...module,
     availability: staticAvailability(availabilityRule, context),
+    ...(context.edition === 'personal'
+      && availabilityRule !== 'always'
+      && availabilityRule !== 'auto-skill'
+      && availabilityRule !== 'enterprise-memory'
+      && availabilityRule !== 'skill-zone'
+      ? { disabledReason: '请先在“企业与身份”中建立真实企业及园区上下文' }
+      : {}),
   }));
   const result = [...staticModules, ...agentModules(context), ...customAgentModules(context), ...customerModules(context)];
   const seen = new Set<string>();

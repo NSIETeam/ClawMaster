@@ -1093,7 +1093,7 @@ function ClawMasterWorkspaceApp({
     authorization?: ComposerAuthorizationContext,
   ): Promise<boolean> => {
       let authorizedContext = '';
-      if (edition === 'enterprise' && text.trim()) {
+      if (text.trim()) {
         try {
           const knowledge = await Promise.race([
             window.clawmaster.enterpriseKnowledgeList({ query: text.trim() }),
@@ -1471,7 +1471,7 @@ function ClawMasterWorkspaceApp({
               onDelete={product.actions.deleteSchedule}
               onBack={() => setMainView('chat')}
             />
-          ) : mainView === 'skillzone' && edition === 'enterprise' ? (
+          ) : mainView === 'skillzone' ? (
             <SkillZonePage
               accountId={account.id}
               isAdmin={account.isAdmin}

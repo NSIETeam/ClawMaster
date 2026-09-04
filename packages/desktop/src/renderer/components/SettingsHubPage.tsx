@@ -77,11 +77,8 @@ const ENTERPRISE_LOCAL_AGENT_PAIRING_ENABLED = false;
 
 export function isSettingsTabVisible(
   tab: TabId,
-  enterpriseEdition = true,
+  _enterpriseEdition = true,
 ): boolean {
-  if (!enterpriseEdition && (tab === 'organization' || tab === 'models')) {
-    return false;
-  }
   return tab !== 'local-agent' || ENTERPRISE_LOCAL_AGENT_PAIRING_ENABLED;
 }
 
@@ -289,7 +286,7 @@ export function SettingsHubPage({
             {tab === 'prefs' ? (
               <PrefsPanel data={data} uiMode={uiMode} onUiModeChange={onUiModeChange} />
             ) : null}
-            {tab === 'organization' && enterpriseEdition ? (
+            {tab === 'organization' ? (
               <OrganizationPanel
                 product={product}
                 enterpriseAccount={enterpriseAccount}
@@ -298,7 +295,7 @@ export function SettingsHubPage({
             ) : null}
             {tab === 'usage' ? <PersonalTokenUsagePanel /> : null}
             {tab === 'privacy' ? <PrivacyDataPanel /> : null}
-            {tab === 'models' && enterpriseEdition ? <EnterpriseModelsPanel product={product} models={models} /> : null}
+            {tab === 'models' ? <EnterpriseModelsPanel product={product} models={models} /> : null}
             {tab === 'search' ? <SearchPanel data={data} /> : null}
             {tab === 'feishu' ? <FeishuPanel /> : null}
             {tab === 'wecom' ? <WeComPanel /> : null}

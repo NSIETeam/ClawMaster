@@ -182,6 +182,40 @@ describe('Tauri host bridge', () => {
     });
   });
 
+  it('backs personal enterprise knowledge and Skill views with Rust runtime data', async () => {
+    const invoke = vi.fn(async (command: string, args?: Record<string, unknown>) => {
+      if (command !== 'desktop_request') return undefined;
+      const frame = args?.frame as { type: string };
+      if (frame.type === 'search_knowledge') {
+        return [{
+          type: 'knowledge_data',
+          payload: { action: 'search', query: 'Rust', entries: [{
+            id: 'knowledge-1', category: 'runtime', content: 'Rust 原生知识',
+            tags: ['rust'], createdAt: '2026-09-05T00:00:00Z', confidence: 0.9,
+          }] },
+        }];
+      }
+      return [{
+        type: 'skills_list',
+        payload: { skills: [{
+          id: 'ppt-creator', name: 'PPT 创作', description: 'Rust 原生 PPTX',
+          marketplaceId: 'builtin', pluginId: 'core', enabled: true,
+        }] },
+      }];
+    });
+    const bridge = createTauriHostBridge(invoke as unknown as TauriInvoke);
+
+    await expect(bridge.enterpriseKnowledgeList({ query: 'Rust' })).resolves.toEqual([
+      expect.objectContaining({ id: 'knowledge-1', content: 'Rust 原生知识', status: 'active' }),
+    ]);
+    await expect(bridge.enterpriseSkillList()).resolves.toEqual([
+      expect.objectContaining({ id: 'ppt-creator', installedVersion: 1, status: 'active' }),
+    ]);
+    await expect(bridge.enterpriseSkillLocalList()).resolves.toEqual([
+      { name: 'PPT 创作', description: 'Rust 原生 PPTX', kind: 'personal' },
+    ]);
+  });
+
   it('bridges connection state and server frames through Tauri events', async () => {
     const eventHandlers = new Map<string, (event: { payload: unknown }) => void>();
     const listen = vi.fn(async (event: string, handler: (event: { payload: unknown }) => void) => {
