@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -58,13 +58,13 @@ describe('desktop packaging contract', () => {
       'utf8',
     );
     const coreBuild = prepare.indexOf(
-      "run(process.execPath, [npmCli, 'run', 'build', '--workspace=otto-core'])",
+      "run(process.execPath, [npmCli, 'run', 'build', '--workspace=clawmaster-core'])",
     );
     const serverBuild = prepare.indexOf(
-      "run(process.execPath, [npmCli, 'run', 'build', '--workspace=otto-server'])",
+      "run(process.execPath, [npmCli, 'run', 'build', '--workspace=clawmaster-server'])",
     );
     const nativeBuild = prepare.indexOf(
-      "run(process.execPath, [npmCli, 'run', 'build', '--workspace=@otto/native'])",
+      "run(process.execPath, [npmCli, 'run', 'build', '--workspace=@clawmaster/native'])",
     );
     const agentBundle = prepare.indexOf('prepareAgentBundle();');
 
@@ -80,7 +80,7 @@ describe('desktop packaging contract', () => {
       path.join(packageRoot, 'scripts', 'document-worker-entry.mjs'),
       'utf8',
     );
-    expect(worker).toContain("from 'otto-core'");
+    expect(worker).toContain("from 'clawmaster-core'");
     expect(worker).not.toContain('../../core/src/');
     expect(worker).toContain('process.exit(exitCode)');
   });
@@ -130,7 +130,7 @@ describe('desktop packaging contract', () => {
         widthByte === 0 ? 256 : widthByte,
       );
       // rcedit writes this size through a 16-bit Windows resource field. A
-      // larger PNG is truncated in the final Otto.exe even though the source
+      // larger PNG is truncated in the final ClawMaster.exe even though the source
       // ICO itself still opens correctly.
       expect(imageSize).toBeLessThanOrEqual(0xffff);
       expect(imageOffset + imageSize).toBeLessThanOrEqual(icon.length);
@@ -194,10 +194,10 @@ describe('desktop packaging contract', () => {
     );
     const buildFiles = packageJson.build.files.join('\n');
     for (const excludedPattern of [
-      '!**/node_modules/@otto/native/target/**',
-      '!**/node_modules/@otto/native/src/**',
-      '!**/node_modules/@otto/native/Cargo.*',
-      '!**/node_modules/@otto/native/tsconfig.json',
+      '!**/node_modules/@clawmaster/native/target/**',
+      '!**/node_modules/@clawmaster/native/src/**',
+      '!**/node_modules/@clawmaster/native/Cargo.*',
+      '!**/node_modules/@clawmaster/native/tsconfig.json',
       '!**/node_modules/better-sqlite3/deps/**',
       '!**/node_modules/better-sqlite3/prebuilds/**',
       '!**/node_modules/better-sqlite3/src/**',
@@ -280,7 +280,7 @@ describe('desktop packaging contract', () => {
       'utf8',
     );
     expect(script).toContain('resolveUpdateAssetBaseUrl()');
-    expect(mirrorConfig).toContain('process.env.OTTO_UPDATE_ASSET_BASE_URL');
+    expect(mirrorConfig).toContain('process.env.CLAWMASTER_UPDATE_ASSET_BASE_URL');
     expect(mirrorConfig).toContain('https://59.110.154.44:7777/downloads');
     expect(script).not.toContain(
       'github.com/Felix201209/otto-releases/releases/download',
@@ -300,7 +300,7 @@ describe('desktop packaging contract', () => {
       path.join(packageRoot, 'scripts', 'make-delivery-zip.mjs'),
       'utf8',
     );
-    expect(script).toContain("process.env.OTTO_ALLOW_UNSIGNED_MAC === '1'");
+    expect(script).toContain("process.env.CLAWMASTER_ALLOW_UNSIGNED_MAC === '1'");
     expect(script).toContain("'--config.mac.identity=null'");
     expect(script).toContain("'--config.mac.hardenedRuntime=false'");
     expect(script).toContain("'--config.mac.notarize=false'");
@@ -429,7 +429,7 @@ describe('desktop packaging contract', () => {
     expect(nodeWorkflow).toContain('verify-tauri-node-runtime.mjs');
   });
 
-  it('discovers every packaged LibreOffice bundle before signing Otto', async () => {
+  it('discovers every packaged LibreOffice bundle before signing ClawMaster', async () => {
     const appPath = await mkdtemp(path.join(os.tmpdir(), 'otto-after-pack-'));
     try {
       const arm64Bundle = path.join(

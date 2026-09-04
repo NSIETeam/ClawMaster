@@ -51,7 +51,7 @@ export interface GoalAchievedParams {
  *   criteria are met, it shouldn't be calling this tool.
  *
  * Behavior:
- *   - Side effect: clears `OttoClient.activeGoalContext`. Subsequent
+ *   - Side effect: clears `ClawMasterClient.activeGoalContext`. Subsequent
  *     compressions will not re-inject the original goal prompt.
  *     The bottom-bar goal indicator (CLI) flips off within ~1s
  *     (useGoalActive heartbeat).
@@ -147,7 +147,7 @@ export class GoalAchievedTool extends BaseTool<GoalAchievedParams, ToolResult> {
 
     let client = null;
     try {
-      client = this.config.getOttoClient();
+      client = this.config.getClawMasterClient();
     } catch {
       // Swallow
     }

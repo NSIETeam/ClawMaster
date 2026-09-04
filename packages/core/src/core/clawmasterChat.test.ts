@@ -12,7 +12,7 @@ import {
   Part,
   GenerateContentResponse,
 } from '@google/genai';
-import { OttoChat } from './ottoChat.js';
+import { ClawMasterChat } from './clawmasterChat.js';
 import { Config } from '../config/config.js';
 import { SceneType } from './sceneManager.js';
 
@@ -27,8 +27,8 @@ const mockModelsModule = {
   batchEmbedContents: vi.fn(),
 } as unknown as Models;
 
-describe('OttoChat', () => {
-  let chat: OttoChat;
+describe('ClawMasterChat', () => {
+  let chat: ClawMasterChat;
   let mockConfig: Config;
   const config: GenerateContentConfig = {};
 
@@ -51,7 +51,7 @@ describe('OttoChat', () => {
     } as unknown as Config;
 
     // Reset history for each test by creating a new instance
-    chat = new OttoChat(mockConfig, mockModelsModule, config, []);
+    chat = new ClawMasterChat(mockConfig, mockModelsModule, config, []);
   });
 
   afterEach(() => {
@@ -262,7 +262,7 @@ describe('OttoChat', () => {
       chat.recordHistory(userInput, newModelOutput); // userInput here is for the *next* turn, but history is already primed
 
       // Reset and set up a more realistic scenario for merging with existing history
-      chat = new OttoChat(mockConfig, mockModelsModule, config, []);
+      chat = new ClawMasterChat(mockConfig, mockModelsModule, config, []);
       const firstUserInput: Content = {
         role: 'user',
         parts: [{ text: 'First user input' }],
@@ -305,7 +305,7 @@ describe('OttoChat', () => {
         role: 'model',
         parts: [{ text: 'Initial model answer.' }],
       };
-      chat = new OttoChat(mockConfig, mockModelsModule, config, [
+      chat = new ClawMasterChat(mockConfig, mockModelsModule, config, [
         initialUser,
         initialModel,
       ]);
@@ -739,7 +739,7 @@ describe('filterToolsByMessage (workflow gate)', () => {
   const otherDecl = { name: 'shell', description: 'shell tool' };
   const toolsWithWorkflow = [{ functionDeclarations: [workflowDecl, otherDecl] }];
 
-  let chatWithTools: OttoChat;
+  let chatWithTools: ClawMasterChat;
   let mockConfig: Config;
 
   function makeStreamResponse() {
@@ -769,7 +769,7 @@ describe('filterToolsByMessage (workflow gate)', () => {
       setQuotaErrorOccurred: vi.fn(),
       flashFallbackHandler: undefined,
     } as unknown as Config;
-    chatWithTools = new OttoChat(
+    chatWithTools = new ClawMasterChat(
       mockConfig,
       mockModelsModule,
       { tools: toolsWithWorkflow } as GenerateContentConfig,
@@ -818,7 +818,7 @@ describe('filterToolsByMessage (workflow gate)', () => {
   });
 
   it('does not crash when tools is undefined', async () => {
-    const chatNoTools = new OttoChat(mockConfig, mockModelsModule, {}, []);
+    const chatNoTools = new ClawMasterChat(mockConfig, mockModelsModule, {}, []);
     vi.mocked(mockModelsModule.generateContentStream).mockResolvedValue(makeStreamResponse());
     await expect(
       chatNoTools.sendMessageStream({ message: 'hello' }, 'p4', SceneType.CHAT_CONVERSATION),

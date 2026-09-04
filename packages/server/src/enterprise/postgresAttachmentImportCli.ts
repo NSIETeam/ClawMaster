@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import path from 'node:path';
@@ -26,9 +26,9 @@ type AttachmentImportEnvironment = NodeJS.ProcessEnv &
   EnterpriseDatabaseTopologyEnvironment &
   NodePostgresEnvironment &
   AttachmentObjectStoreEnvironment & {
-    OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED?: string;
-    OTTO_SQLITE_ATTACHMENT_STORAGE_DIR?: string;
-    OTTO_SQLITE_ATTACHMENT_ENCRYPTION_KEY_FILE?: string;
+    CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED?: string;
+    CLAWMASTER_SQLITE_ATTACHMENT_STORAGE_DIR?: string;
+    CLAWMASTER_SQLITE_ATTACHMENT_ENCRYPTION_KEY_FILE?: string;
   };
 
 export interface PostgresAttachmentImportArguments {
@@ -91,11 +91,11 @@ export async function prepareEnterprisePostgresAttachments(input: {
   const options = parsePostgresAttachmentImportArguments(input.arguments);
   if (
     !options.dryRun &&
-    input.environment.OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED?.trim().toLowerCase() !==
+    input.environment.CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED?.trim().toLowerCase() !==
       'true'
   ) {
     throw new Error(
-      'execute requires OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED=true after stopping all SQLite writers',
+      'execute requires CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED=true after stopping all SQLite writers',
     );
   }
   const topology = resolveEnterpriseDatabaseTopology({
@@ -134,12 +134,12 @@ export async function prepareEnterprisePostgresAttachments(input: {
       dryRun: options.dryRun,
       readLegacyCiphertext: async (key) => {
         const sourceDirectory =
-          input.environment.OTTO_SQLITE_ATTACHMENT_STORAGE_DIR?.trim();
+          input.environment.CLAWMASTER_SQLITE_ATTACHMENT_STORAGE_DIR?.trim();
         const sourceKeyPath =
-          input.environment.OTTO_SQLITE_ATTACHMENT_ENCRYPTION_KEY_FILE?.trim();
+          input.environment.CLAWMASTER_SQLITE_ATTACHMENT_ENCRYPTION_KEY_FILE?.trim();
         if (!sourceDirectory || !sourceKeyPath) {
           throw new Error(
-            'legacy filesystem attachments require OTTO_SQLITE_ATTACHMENT_STORAGE_DIR and OTTO_SQLITE_ATTACHMENT_ENCRYPTION_KEY_FILE',
+            'legacy filesystem attachments require CLAWMASTER_SQLITE_ATTACHMENT_STORAGE_DIR and CLAWMASTER_SQLITE_ATTACHMENT_ENCRYPTION_KEY_FILE',
           );
         }
         sourceKeyProvider.current ??= createFileEncryptionKeyProvider({

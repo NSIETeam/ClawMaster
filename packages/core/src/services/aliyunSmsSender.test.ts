@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -23,7 +23,7 @@ describe('AliyunSmsSender', () => {
     const sender = new AliyunSmsSender({
       accessKeyId: 'id',
       accessKeySecret: 'secret',
-      signName: 'Otto',
+      signName: 'ClawMaster',
       templateId: 'SMS_1',
       endpoint: 'https://sms.example.test',
     });
@@ -41,7 +41,7 @@ describe('AliyunSmsSender', () => {
     const sender = new AliyunSmsSender({
       accessKeyId: 'id',
       accessKeySecret: 'secret',
-      signName: 'Otto',
+      signName: 'ClawMaster',
       templateId: 'SMS_336505228',
       endpoint: 'https://sms.example.test',
     });

@@ -1,11 +1,11 @@
-import { AuthType, SceneType, type CustomerModuleHostAdapterResult } from 'otto-core';
+import { AuthType, SceneType, type CustomerModuleHostAdapterResult } from 'clawmaster-core';
 
 interface ModelRuntimeConfig {
   initialize(): Promise<void>;
   refreshAuth(authType: AuthType): Promise<void>;
   getModel(): string;
   getCustomModelConfig(model: string): { provider?: string } | undefined;
-  getOttoClient(): {
+  getClawMasterClient(): {
     createTemporaryChat(
       scene: SceneType,
       model: string | undefined,
@@ -25,7 +25,7 @@ export function createCustomerModuleModelInvoke(options: {
 } = {}) {
   let configPromise: Promise<ModelRuntimeConfig> | null = null;
   const loadConfig = options.loadConfig ?? (async () => {
-    const { createCoreConfig } = await import('otto-server');
+    const { createCoreConfig } = await import('clawmaster-server');
     const config = createCoreConfig({
       sessionId: 'customer-module-foreground-model',
       disableMcpDiscovery: true,
@@ -48,7 +48,7 @@ export function createCustomerModuleModelInvoke(options: {
     configPromise ??= loadConfig().catch((error) => { configPromise = null; throw error; });
     const config = await configPromise;
     const model = config.getModel();
-    const chat = await config.getOttoClient().createTemporaryChat(
+    const chat = await config.getClawMasterClient().createTemporaryChat(
       SceneType.CHAT_CONVERSATION,
       model,
       { type: 'sub', agentId: 'CustomerModuleForegroundModel' },

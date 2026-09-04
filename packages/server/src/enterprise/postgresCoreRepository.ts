@@ -1,7 +1,7 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Asynchronous PostgreSQL authority for the routes every clustered Otto
+ * Asynchronous PostgreSQL authority for the routes every clustered ClawMaster
  * replica needs before optional product modules are mounted. This repository
  * never opens SQLite and never falls back to process-local state.
  */

@@ -1,22 +1,22 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * otto-server CLI 入口：`otto-server start|stop|status`。
+ * clawmaster-server CLI 入口：`clawmaster-server start|stop|status`。
  *
  * 风格对齐现有飞书 daemon（pid/health 文件落 ~/.otto-user/）。
- * - start：前台拉起 OttoServer，写端点文件；Ctrl-C / SIGTERM 优雅退出。
+ * - start：前台拉起 ClawMasterServer，写端点文件；Ctrl-C / SIGTERM 优雅退出。
  *   （后台化由 Issue #9 的 daemon 壳负责：detached spawn 本入口，与 feishuDaemon.ts 同款。）
  * - status：读端点文件 + 探活，打印连接信息。
  * - stop：读端点文件，按 pid 发 SIGTERM。
  *
- * Electron 主进程也可不经本入口，直接 `new OttoServer().start()` 内嵌。
+ * Electron 主进程也可不经本入口，直接 `new ClawMasterServer().start()` 内嵌。
  */
 
-import { OttoServer } from './server.js';
+import { ClawMasterServer } from './server.js';
 import {
   clearEndpoint,
   readEndpoint,
@@ -37,16 +37,16 @@ function feishuCredentialsExist(): boolean {
 }
 
 async function cmdStart(): Promise<void> {
-  const port = Number(process.env.OTTO_SERVER_PORT ?? DEFAULT_PORT);
+  const port = Number(process.env.CLAWMASTER_SERVER_PORT ?? DEFAULT_PORT);
   const enableFeishu = feishuCredentialsExist();
-  console.log(`[otto-server] feishu gateway: ${enableFeishu ? 'enabled' : 'disabled (no credentials)'}`);
-  const server = new OttoServer({ host: DEFAULT_HOST, port, enableFeishu });
+  console.log(`[clawmaster-server] feishu gateway: ${enableFeishu ? 'enabled' : 'disabled (no credentials)'}`);
+  const server = new ClawMasterServer({ host: DEFAULT_HOST, port, enableFeishu });
   await server.start();
   const { host, port: boundPort, clientToken } = server.endpoint;
   writeEndpoint(host, boundPort, clientToken, server.controlToken);
 
   console.log(
-    `[otto-server] listening on http://${host}:${boundPort} ` +
+    `[clawmaster-server] listening on http://${host}:${boundPort} ` +
       `(ws ${host}:${boundPort}/ws，受 clientToken 保护)`,
   );
 
@@ -57,7 +57,7 @@ async function cmdStart(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
 
-    console.log('\n[otto-server] shutting down…');
+    console.log('\n[clawmaster-server] shutting down…');
     await server.stop();
     clearEndpoint();
     process.exit(0);
@@ -70,7 +70,7 @@ function cmdStatus(): void {
   const ep = readEndpoint();
   if (!ep) {
 
-    console.log('[otto-server] 未发现运行中的 server（无端点文件）。');
+    console.log('[clawmaster-server] 未发现运行中的 server（无端点文件）。');
     process.exitCode = 1;
     return;
   }
@@ -78,8 +78,8 @@ function cmdStatus(): void {
 
   console.log(
     alive
-      ? `[otto-server] 运行中 PID ${ep.pid} @ http://${ep.host}:${ep.port}（协议 v${ep.protocolVersion}）`
-      : `[otto-server] 端点文件存在但进程 ${ep.pid} 已退出（陈旧端点）。`,
+      ? `[clawmaster-server] 运行中 PID ${ep.pid} @ http://${ep.host}:${ep.port}（协议 v${ep.protocolVersion}）`
+      : `[clawmaster-server] 端点文件存在但进程 ${ep.pid} 已退出（陈旧端点）。`,
   );
   if (!alive) process.exitCode = 1;
 }
@@ -88,7 +88,7 @@ function cmdStop(): void {
   const ep = readEndpoint();
   if (!ep || !isAlive(ep.pid)) {
 
-    console.log('[otto-server] 没有运行中的 server 可停止。');
+    console.log('[clawmaster-server] 没有运行中的 server 可停止。');
     clearEndpoint();
     return;
   }
@@ -96,10 +96,10 @@ function cmdStop(): void {
     process.kill(ep.pid, 'SIGTERM');
     clearEndpoint();
 
-    console.log(`[otto-server] 已向 PID ${ep.pid} 发送 SIGTERM。`);
+    console.log(`[clawmaster-server] 已向 PID ${ep.pid} 发送 SIGTERM。`);
   } catch (e) {
 
-    console.error(`[otto-server] 停止失败: ${(e as Error).message}`);
+    console.error(`[clawmaster-server] 停止失败: ${(e as Error).message}`);
     process.exitCode = 1;
   }
 }

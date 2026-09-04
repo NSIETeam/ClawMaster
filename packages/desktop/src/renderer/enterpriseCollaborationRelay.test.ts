@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -9,7 +9,7 @@ import { executeEnterpriseCollaborationRelay } from './enterpriseCollaborationRe
 const account = {
   id: 'me',
   organizationId: 'org-1',
-  organizationName: 'Otto 企业',
+  organizationName: 'ClawMaster 企业',
   accountType: 'enterprise' as const,
   employeeId: 'OTTO-001',
   username: 'bob',
@@ -29,7 +29,7 @@ const account = {
 const organization = {
   organization: {
     id: 'org-1',
-    name: 'Otto 企业',
+    name: 'ClawMaster 企业',
     status: 'active' as const,
     createdAt: '2026-07-20T00:00:00.000Z',
   },
@@ -83,7 +83,7 @@ const dependencies = () => ({
   }) => ({
     ...organization.members.find((member) => member.id === id)!,
     organizationId: 'org-1',
-    organizationName: 'Otto 企业',
+    organizationName: 'ClawMaster 企业',
     accountType: 'enterprise' as const,
     employeeId: null,
     phone: null,
@@ -96,7 +96,7 @@ const dependencies = () => ({
 });
 
 describe('enterprise_collaboration renderer 真实中继', () => {
-  it('does not expose decrypted private-chat history to Otto tools', async () => {
+  it('does not expose decrypted private-chat history to ClawMaster tools', async () => {
     await expect(executeEnterpriseCollaborationRelay(
       { action: 'list_messages', recipientAccountId: 'peer-1' },
       account,
@@ -112,7 +112,7 @@ describe('enterprise_collaboration renderer 真实中继', () => {
     );
     expect(result).toEqual({
       ok: true,
-      organization: { id: 'org-1', name: 'Otto 企业' },
+      organization: { id: 'org-1', name: 'ClawMaster 企业' },
       members: [
         expect.objectContaining({ id: 'me', name: 'Bob' }),
         expect.objectContaining({ id: 'peer-1', name: 'Alice' }),
@@ -154,11 +154,11 @@ describe('enterprise_collaboration renderer 真实中继', () => {
     ).rejects.toThrow('不在当前企业组织树');
   });
 
-  it('ask_peer_otto 发送严格协议请求，不能伪造即时回答', async () => {
+  it('ask_peer_clawmaster 发送严格协议请求，不能伪造即时回答', async () => {
     const deps = dependencies();
     const result = await executeEnterpriseCollaborationRelay(
       {
-        action: 'ask_peer_otto',
+        action: 'ask_peer_clawmaster',
         recipientAccountId: 'peer-1',
         question: '今天可以评审吗？',
       },
@@ -172,16 +172,16 @@ describe('enterprise_collaboration renderer 真实中继', () => {
     });
     expect(result).toMatchObject({
       ok: true,
-      action: 'ask_peer_otto',
+      action: 'ask_peer_clawmaster',
       status: 'waiting_for_peer_permission',
     });
   });
 
-  it('consult_peer_otto 打开真实双方协商流程，而不是只改消息标签', async () => {
+  it('consult_peer_clawmaster 打开真实双方协商流程，而不是只改消息标签', async () => {
     const deps = dependencies();
     const result = await executeEnterpriseCollaborationRelay(
       {
-        action: 'consult_peer_otto',
+        action: 'consult_peer_clawmaster',
         recipientAccountId: 'peer-1',
         question: '比较双方日程并协商评审时间',
       },
@@ -194,7 +194,7 @@ describe('enterprise_collaboration renderer 真实中继', () => {
     );
     expect(result).toMatchObject({
       ok: true,
-      action: 'consult_peer_otto',
+      action: 'consult_peer_clawmaster',
       status: 'waiting_for_peer_permission',
       message: { id: 'consult-1' },
     });
@@ -268,7 +268,7 @@ describe('enterprise_collaboration renderer 真实中继', () => {
     ).rejects.toThrow('仅企业账号');
     await expect(
       executeEnterpriseCollaborationRelay(
-        { action: 'ask_peer_otto', recipientAccountId: 'peer-1' },
+        { action: 'ask_peer_clawmaster', recipientAccountId: 'peer-1' },
         account,
         deps,
       ),

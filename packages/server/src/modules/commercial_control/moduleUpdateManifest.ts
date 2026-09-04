@@ -25,7 +25,7 @@ export interface ModuleUpdateDescriptor {
 }
 
 export interface ModuleUpdateManifest {
-  format: 'otto-module-updates-v1';
+  format: 'clawmaster.module-updates-v1';
   deploymentId: string;
   generatedAt: string;
   modules: ModuleUpdateDescriptor[];

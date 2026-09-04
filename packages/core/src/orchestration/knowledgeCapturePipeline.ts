@@ -1,7 +1,7 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Durable, privacy-bounded lifecycle capture for Otto. The pipeline is called
+ * Durable, privacy-bounded lifecycle capture for ClawMaster. The pipeline is called
  * from real tool/agent/session entry points; it does not depend on a model
  * deciding to call a memory tool.
  */
@@ -201,7 +201,7 @@ export interface KnowledgeSearchResult {
 }
 
 function resolveDefaultRoot(): string {
-  const userDir = process.env['OTTO_USER_DIR']?.trim();
+  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim();
   if (userDir) return path.join(userDir, 'memory', 'knowledge-capture');
   if (process.env['NODE_ENV'] === 'test' || process.env['VITEST']) {
     return path.join(

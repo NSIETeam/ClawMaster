@@ -239,7 +239,7 @@ GPU: Uses WebGPU/WebCodecs for hardware acceleration.`;
         }
 
         case 'ai_edit': {
-          const client = this.config.getOttoClient();
+          const client = this.config.getClawMasterClient();
           if (client?.createTemporaryChat) {
             try {
               const chat = await client.createTemporaryChat(SceneType.IMAGE_READER);

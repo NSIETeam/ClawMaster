@@ -167,11 +167,11 @@ async function main() {
   //    Windows: cmd.exe /c <command>（有 conpty，用户可见输出）
   //    Linux/macOS: login shell -l -c <command>（加载 .bashrc/.profile，
   //      使 nvm/homebrew 等 PATH 生效，确保 otto 命令可找到）
-  // 同时设置新旧两个环境变量名：新进程优先读 OTTO_STARTUP_DELAY_MS，
-  // 旧版本二进制（升级过渡期）仍能读到 OTTO_STARTUP_DELAY_MS，向后兼容。
+  // 同时设置新旧两个环境变量名：新进程优先读 CLAWMASTER_STARTUP_DELAY_MS，
+  // 旧版本二进制（升级过渡期）仍能读到 CLAWMASTER_STARTUP_DELAY_MS，向后兼容。
   const env = Object.assign({}, process.env, {
-    OTTO_STARTUP_DELAY_MS: '2000',
-    OTTO_STARTUP_DELAY_MS: '2000',
+    CLAWMASTER_STARTUP_DELAY_MS: '2000',
+    CLAWMASTER_STARTUP_DELAY_MS: '2000',
   });
   let child;
 

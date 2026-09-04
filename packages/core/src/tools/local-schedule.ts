@@ -1,7 +1,7 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Otto 的本地日程单一事实源。桌面端与 Agent 都通过这份仓库读写
+ * ClawMaster 的本地日程单一事实源。桌面端与 Agent 都通过这份仓库读写
  * `~/.otto-user/schedules.json`，避免 UI 日历和 Agent 自主创建各存一套。
  */
 
@@ -55,7 +55,7 @@ const scheduleEvents = new EventEmitter();
 scheduleEvents.setMaxListeners(50);
 
 export function localScheduleFilePath(): string {
-  const configured = process.env['OTTO_SCHEDULE_FILE']?.trim();
+  const configured = process.env['CLAWMASTER_SCHEDULE_FILE']?.trim();
   return configured || path.join(os.homedir(), '.otto-user', 'schedules.json');
 }
 
@@ -230,7 +230,7 @@ export type LocalScheduleToolParams =
     }
   | { action: 'delete'; id: string };
 
-/** Otto 可主动调用的本地日程工具。所有创建项都标记 source=otto。 */
+/** ClawMaster 可主动调用的本地日程工具。所有创建项都标记 source=otto。 */
 export class LocalScheduleTool extends BaseTool<LocalScheduleToolParams, ToolResult> {
   static readonly Name = 'local_schedule';
 

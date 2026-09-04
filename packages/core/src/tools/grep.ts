@@ -66,11 +66,11 @@ async function getRipgrepPath(): Promise<string> {
 export function resolveExplicitRipgrepPath(
   environment: NodeJS.ProcessEnv = process.env,
 ): string | null {
-  const explicitPath = environment['OTTO_RIPGREP_BINARY']?.trim();
+  const explicitPath = environment['CLAWMASTER_RIPGREP_BINARY']?.trim();
   if (!explicitPath) return null;
   if (fs.existsSync(explicitPath)) return explicitPath;
   throw new Error(
-    `Failed to execute ripgrep: OTTO_RIPGREP_BINARY does not exist at ${explicitPath}`,
+    `Failed to execute ripgrep: CLAWMASTER_RIPGREP_BINARY does not exist at ${explicitPath}`,
   );
 }
 

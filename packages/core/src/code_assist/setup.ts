@@ -6,7 +6,7 @@
 
 import {
   ClientMetadata,
-  OttoUserTier,
+  ClawMasterUserTier,
   LoadCodeAssistResponse,
   OnboardUserRequest,
   UserTierId,
@@ -75,7 +75,7 @@ export async function setupUser(client: OAuth2Client): Promise<UserData> {
   };
 }
 
-function getOnboardTier(res: LoadCodeAssistResponse): OttoUserTier {
+function getOnboardTier(res: LoadCodeAssistResponse): ClawMasterUserTier {
   if (res.currentTier) {
     return res.currentTier;
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CustomerModuleManifestV1 } from 'otto-core';
+import type { CustomerModuleManifestV1 } from 'clawmaster-core';
 import { CustomerModuleMarketplace } from './customerModuleMarketplace.js';
 
 function manifest(): CustomerModuleManifestV1 {
@@ -8,7 +8,7 @@ function manifest(): CustomerModuleManifestV1 {
     schemaVersion: 1, id: 'com.acme.report', name: 'Report', version: '1.0.0',
     publisher: { id: 'publisher-1', name: 'Acme' }, description: 'Report module',
     icon: 'icon.svg', entrypoint: 'module.wasm', hostApi: 'otto.customer-module.v1',
-    minimumOttoVersion: '1.15.3', inputSchema: { type: 'object', properties: {} },
+    minimumClawMasterVersion: '1.15.3', inputSchema: { type: 'object', properties: {} },
     outputs: ['text'], permissions: [],
     files: { 'module.wasm': 'a'.repeat(64), 'icon.svg': 'b'.repeat(64) },
     signature: { algorithm: 'ed25519', keyId: 'pending', value: 'ed25519:pending' },

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -13,15 +13,15 @@ import {
 } from './enterpriseInfrastructureCli.js';
 
 const environment = {
-  OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
-  OTTO_POSTGRES_URL: 'postgresql://otto:db-secret@db.internal:5432/otto',
-  OTTO_ENTERPRISE_REPLICA_COUNT: '2',
-  OTTO_ENTERPRISE_CACHE_BACKEND: 'redis',
-  OTTO_REDIS_URL: 'rediss://default:cache-secret@cache.internal:6379/1',
-  OTTO_ATTACHMENT_OBJECT_STORE: 's3',
-  OTTO_S3_BUCKET: 'otto-private',
-  OTTO_S3_REGION: 'cn-east-1',
-  OTTO_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
+  CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+  CLAWMASTER_POSTGRES_URL: 'postgresql://otto:db-secret@db.internal:5432/otto',
+  CLAWMASTER_ENTERPRISE_REPLICA_COUNT: '2',
+  CLAWMASTER_ENTERPRISE_CACHE_BACKEND: 'redis',
+  CLAWMASTER_REDIS_URL: 'rediss://default:cache-secret@cache.internal:6379/1',
+  CLAWMASTER_ATTACHMENT_OBJECT_STORE: 's3',
+  CLAWMASTER_S3_BUCKET: 'otto-private',
+  CLAWMASTER_S3_REGION: 'cn-east-1',
+  CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
 };
 
 describe('enterprise infrastructure preflight', () => {
@@ -74,7 +74,7 @@ describe('enterprise infrastructure preflight', () => {
     expect(
       safeInfrastructureErrorMessage(
         new Error(
-          `failed ${environment.OTTO_POSTGRES_URL} and ${environment.OTTO_REDIS_URL}`,
+          `failed ${environment.CLAWMASTER_POSTGRES_URL} and ${environment.CLAWMASTER_REDIS_URL}`,
         ),
         environment,
       ),

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * [MESH-05] 数据库 Schema 贡献器：根服务器本地元数据表。
  *

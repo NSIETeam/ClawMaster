@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Authenticated chat-to-task control boundary. Messages produce versioned task
  * intents; they never become shell commands, scripts, or raw RPA actions.

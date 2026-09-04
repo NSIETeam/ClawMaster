@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * SessionCheckpointService — 会话检查点与恢复服务。
  *
@@ -74,7 +74,7 @@ export interface ResumeResult {
 export class SessionCheckpointService {
   private readonly checkpointsDir: string;
   constructor(baseDir?: string) {
-    const dir = baseDir || process.env.OTTO_USER_DIR || path.join(homedir(), '.otto-user');
+    const dir = baseDir || process.env.CLAWMASTER_USER_DIR || path.join(homedir(), '.otto-user');
     this.checkpointsDir = path.join(dir, 'checkpoints');
   }
 

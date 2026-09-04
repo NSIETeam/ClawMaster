@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -314,7 +314,7 @@ const CHANGELOG: ChangelogEntry[] = [
   },
 ];
 
-const SEEN_KEY = 'otto:whats-new-seen';
+const SEEN_KEY = 'clawmaster:whats-new-seen';
 
 export function WhatsNewDialog(): React.JSX.Element | null {
   const [entry, setEntry] = useState<ChangelogEntry | null>(null);
@@ -323,7 +323,7 @@ export function WhatsNewDialog(): React.JSX.Element | null {
 
   useEffect(() => {
     let cancelled = false;
-    void window.otto
+    void window.clawmaster
       ?.appVersion()
       .then((ver) => {
         if (cancelled || !ver) return;
@@ -364,7 +364,7 @@ export function WhatsNewDialog(): React.JSX.Element | null {
 
   return (
     <div
-      className="otto-park-overlay"
+      className="claw-park-overlay"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) dismiss();
       }}
@@ -377,42 +377,42 @@ export function WhatsNewDialog(): React.JSX.Element | null {
       }}
     >
       <div
-        className="otto-park-dialog"
+        className="claw-park-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="otto-park-dialog__head">
-          <span className="otto-park-dialog__headicon" aria-hidden>
+        <div className="claw-park-dialog__head">
+          <span className="claw-park-dialog__headicon" aria-hidden>
             <IconSparkle size={18} />
           </span>
-          <div className="otto-park-dialog__headtext">
-            <h2 className="otto-park-dialog__title" id={titleId}>
+          <div className="claw-park-dialog__headtext">
+            <h2 className="claw-park-dialog__title" id={titleId}>
               ClawMaster 更新到 v{entry.version}
             </h2>
-            <div className="otto-park-dialog__subtitle">{entry.date} · 本次更新内容</div>
+            <div className="claw-park-dialog__subtitle">{entry.date} · 本次更新内容</div>
           </div>
           <button
             type="button"
-            className="otto-park-dialog__close"
+            className="claw-park-dialog__close"
             onClick={dismiss}
             aria-label="关闭"
           >
             <IconClose size={14} />
           </button>
         </div>
-        <ul className="otto-whatsnew__list">
+        <ul className="claw-whatsnew__list">
           {entry.items.map((item, i) => (
-            <li key={i} className="otto-whatsnew__item">
+            <li key={i} className="claw-whatsnew__item">
               {item}
             </li>
           ))}
         </ul>
-        <div className="otto-whatsnew__actions">
+        <div className="claw-whatsnew__actions">
           <button
             type="button"
-            className="otto-hub__btn otto-hub__btn--primary"
+            className="claw-hub__btn claw-hub__btn--primary"
             onClick={dismiss}
             autoFocus
           >

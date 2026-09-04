@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { canonicalCustomerModuleManifest, encodeCustomerModulePackageV1, type CustomerModulePermission } from 'otto-core';
+import { canonicalCustomerModuleManifest, encodeCustomerModulePackageV1, type CustomerModulePermission } from 'clawmaster-core';
 import {
   installCustomerModule,
   clearCustomerModuleData,
@@ -18,7 +18,7 @@ import {
 
 const roots: string[] = [];
 afterEach(async () => {
-  delete process.env.OTTO_CUSTOMER_MODULE_TRUSTED_PUBLIC_KEYS;
+  delete process.env.CLAWMASTER_CUSTOMER_MODULE_TRUSTED_PUBLIC_KEYS;
   await Promise.all(roots.splice(0).map((root) => fs.promises.rm(root, { recursive: true, force: true })));
 });
 
@@ -33,13 +33,13 @@ function packageFixture(permissions: CustomerModulePermission[] = [{ kind: 'mode
     schemaVersion: 1 as const, id: 'com.acme.install', name: 'Install', version: '1.0.0',
     publisher: { id: 'publisher', name: 'Publisher' }, description: 'Install module',
     icon: 'icon.svg', entrypoint: 'module.wasm', hostApi: 'otto.customer-module.v1' as const,
-    minimumOttoVersion: '1.15.3', inputSchema: { type: 'object' as const, properties: {} },
+    minimumClawMasterVersion: '1.15.3', inputSchema: { type: 'object' as const, properties: {} },
     outputs: ['text' as const], permissions,
     files: { 'module.wasm': digest(wasm), 'icon.svg': digest(icon) },
   };
   const keys = generateKeyPairSync('ed25519');
   const signature = sign(null, Buffer.from(canonicalCustomerModuleManifest(unsigned)), keys.privateKey).toString('base64url');
-  process.env.OTTO_CUSTOMER_MODULE_TRUSTED_PUBLIC_KEYS = JSON.stringify({
+  process.env.CLAWMASTER_CUSTOMER_MODULE_TRUSTED_PUBLIC_KEYS = JSON.stringify({
     market: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
   });
   const manifest = { ...unsigned, signature: { algorithm: 'ed25519' as const, keyId: 'market', value: `ed25519:${signature}` } };
@@ -50,7 +50,7 @@ function packageFixture(permissions: CustomerModulePermission[] = [{ kind: 'mode
 describe('customer module installer', () => {
   const ottoVersion = '1.15.3';
   it('verifies, installs atomically and records an idempotent receipt', async () => {
-    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'otto-module-install-')); roots.push(root);
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-install-')); roots.push(root);
     const bundle = packageFixture();
     const client = {
       downloadCustomerModulePackage: vi.fn().mockResolvedValue(bundle),
@@ -66,7 +66,7 @@ describe('customer module installer', () => {
   });
 
   it('keeps a pending receipt after network failure and recovers without reinstalling', async () => {
-    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'otto-module-recover-')); roots.push(root);
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-recover-')); roots.push(root);
     const bundle = packageFixture();
     const client = {
       downloadCustomerModulePackage: vi.fn().mockResolvedValue(bundle),
@@ -83,8 +83,8 @@ describe('customer module installer', () => {
   });
 
   it('rejects untrusted signatures before writing artifacts', async () => {
-    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'otto-module-untrusted-')); roots.push(root);
-    const bundle = packageFixture(); delete process.env.OTTO_CUSTOMER_MODULE_TRUSTED_PUBLIC_KEYS;
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-untrusted-')); roots.push(root);
+    const bundle = packageFixture(); delete process.env.CLAWMASTER_CUSTOMER_MODULE_TRUSTED_PUBLIC_KEYS;
     await expect(installCustomerModule({
       root,
       client: { downloadCustomerModulePackage: vi.fn().mockResolvedValue(bundle) } as never,
@@ -94,8 +94,8 @@ describe('customer module installer', () => {
     expect(await listInstalledCustomerModules(root)).toEqual([]);
   });
 
-  it('rejects a package that requires a newer Otto version', async () => {
-    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'otto-module-version-')); roots.push(root);
+  it('rejects a package that requires a newer ClawMaster version', async () => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-version-')); roots.push(root);
     const bundle = packageFixture();
     await expect(installCustomerModule({
       root, client: { downloadCustomerModulePackage: vi.fn().mockResolvedValue(bundle) } as never,
@@ -105,7 +105,7 @@ describe('customer module installer', () => {
   });
 
   it('refuses to reuse a tampered version directory', async () => {
-    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'otto-module-tamper-')); roots.push(root);
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-tamper-')); roots.push(root);
     const bundle = packageFixture();
     const client = { downloadCustomerModulePackage: vi.fn().mockResolvedValue(bundle), recordCustomerModuleInstall: vi.fn() };
     const record = await installCustomerModule({ root, client: client as never, moduleId: bundle.manifest.id, version: bundle.manifest.version, approvedPermissions: bundle.manifest.permissions, ottoVersion });
@@ -114,7 +114,7 @@ describe('customer module installer', () => {
   });
 
   it('separates disable, uninstall, and scoped-data clearing', async () => {
-    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'otto-module-lifecycle-')); roots.push(root);
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-lifecycle-')); roots.push(root);
     const bundle = packageFixture();
     const record = await installCustomerModule({
       root,
@@ -135,7 +135,7 @@ describe('customer module installer', () => {
   });
 
   it('fail-closes an installed version after marketplace suspension', async () => {
-    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'otto-module-suspend-')); roots.push(root);
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-suspend-')); roots.push(root);
     const bundle = packageFixture();
     const client = { downloadCustomerModulePackage: vi.fn().mockResolvedValue(bundle), recordCustomerModuleInstall: vi.fn() };
     await installCustomerModule({ root, client: client as never, moduleId: bundle.manifest.id, version: bundle.manifest.version, approvedPermissions: bundle.manifest.permissions, ottoVersion });
@@ -147,7 +147,7 @@ describe('customer module installer', () => {
   });
 
   it('preserves the committed registry when an atomic switch fails with disk full', async () => {
-    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'otto-module-disk-full-')); roots.push(root);
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-disk-full-')); roots.push(root);
     const bundle = packageFixture();
     const client = { downloadCustomerModulePackage: vi.fn().mockResolvedValue(bundle), recordCustomerModuleInstall: vi.fn() };
     await installCustomerModule({ root, client: client as never, moduleId: bundle.manifest.id, version: bundle.manifest.version, approvedPermissions: bundle.manifest.permissions, ottoVersion });
@@ -158,7 +158,7 @@ describe('customer module installer', () => {
   });
 
   it('keeps declared background capability off until a separate explicit authorization', async () => {
-    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'otto-module-background-')); roots.push(root);
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-background-')); roots.push(root);
     const bundle = packageFixture([{ kind: 'background', defaultEnabled: false }]);
     const client = { downloadCustomerModulePackage: vi.fn().mockResolvedValue(bundle), recordCustomerModuleInstall: vi.fn() };
     const installed = await installCustomerModule({ root, client: client as never, moduleId: bundle.manifest.id, version: bundle.manifest.version, approvedPermissions: bundle.manifest.permissions, ottoVersion });

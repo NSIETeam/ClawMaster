@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * 统一提醒中心状态模型。
  *
@@ -123,8 +123,8 @@ export function computeAttentionSummary(params: {
   const coveredSessionIds = new Set<string>();
 
   // —— 企业私信 + A2A ——
-  const ATOA_REQUEST_PREFIX = 'OTTO_ATOA_REQUEST ';
-  const ATOA_RESPONSE_PREFIX = 'OTTO_ATOA_RESPONSE ';
+  const ATOA_REQUEST_PREFIX = 'CLAWMASTER_ATOA_REQUEST ';
+  const ATOA_RESPONSE_PREFIX = 'CLAWMASTER_ATOA_RESPONSE ';
 
   for (const [sessionId, count] of Object.entries(enterpriseUnreadCounts)) {
     if (count <= 0) continue;

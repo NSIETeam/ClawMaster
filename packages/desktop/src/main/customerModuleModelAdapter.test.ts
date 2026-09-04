@@ -11,7 +11,7 @@ describe('customer module foreground model adapter', () => {
     const loadConfig = vi.fn().mockResolvedValue({
       initialize: vi.fn(), refreshAuth: vi.fn(), getModel: () => 'custom:test',
       getCustomModelConfig: () => ({ provider: 'openai' }),
-      getOttoClient: () => ({ createTemporaryChat }),
+      getClawMasterClient: () => ({ createTemporaryChat }),
     });
     const invoke = createCustomerModuleModelInvoke({ loadConfig });
     await expect(invoke({ prompt: 'hello', maxOutputTokens: 99999 })).resolves.toMatchObject({

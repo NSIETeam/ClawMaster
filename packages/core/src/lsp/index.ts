@@ -156,9 +156,9 @@ export class LSPManager {
     options?: { timeoutMs?: number; operationName?: string },
   ): Promise<T[]> {
     const debug =
-      process.env.OTTO_LSP_DEBUG === '1' ||
-      process.env.OTTO_LSP_DEBUG === 'true';
-    const timeoutMsFromEnv = Number(process.env.OTTO_LSP_REQUEST_TIMEOUT_MS);
+      process.env.CLAWMASTER_LSP_DEBUG === '1' ||
+      process.env.CLAWMASTER_LSP_DEBUG === 'true';
+    const timeoutMsFromEnv = Number(process.env.CLAWMASTER_LSP_REQUEST_TIMEOUT_MS);
     const timeoutMs =
       options?.timeoutMs ??
       (Number.isFinite(timeoutMsFromEnv) && timeoutMsFromEnv > 0

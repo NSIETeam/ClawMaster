@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createHash } from 'node:crypto';
@@ -217,7 +217,7 @@ export async function authorizeBillingOperation(
       headers: {
         authorization: `Bearer ${bound.credentials.leaseToken}`,
         'content-type': 'application/json',
-        'user-agent': 'Otto-Private-Deployment/1',
+        'user-agent': 'ClawMaster-Private-Deployment/1',
       },
       body: JSON.stringify({
         ...bound.body,
@@ -306,7 +306,7 @@ async function deliverBillingAdmission(
       headers: {
         authorization: `Bearer ${bound.credentials.leaseToken}`,
         'content-type': 'application/json',
-        'user-agent': 'Otto-Private-Deployment/1',
+        'user-agent': 'ClawMaster-Private-Deployment/1',
       },
       body: JSON.stringify({
         ...bound.body,

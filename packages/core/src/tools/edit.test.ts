@@ -29,7 +29,7 @@ describe('EditTool', () => {
       getTargetDir: () => rootDir,
       getApprovalMode: vi.fn(),
       setApprovalMode: vi.fn(),
-      // getOttoConfig: () => ({ apiKey: 'test-api-key' }), // This was not a real Config method
+      // getClawMasterConfig: () => ({ apiKey: 'test-api-key' }), // This was not a real Config method
       // Add other properties/methods of Config if EditTool uses them
       // Minimal other methods to satisfy Config type if needed by EditTool constructor or other direct uses:
       getApiKey: () => 'test-key',
@@ -45,8 +45,8 @@ describe('EditTool', () => {
       getUserAgent: () => 'test-agent',
       getUserMemory: () => '',
       setUserMemory: vi.fn(),
-      getOttoMdFileCount: () => 0,
-      setOttoMdFileCount: vi.fn(),
+      getClawMasterMdFileCount: () => 0,
+      setClawMasterMdFileCount: vi.fn(),
       getToolRegistry: () => ({}) as any, // Minimal mock for ToolRegistry
       getProjectSettingsManager: vi.fn().mockReturnValue({
         getSettings: vi.fn().mockReturnValue({ autoTrimTrailingSpaces: true })

@@ -7,7 +7,7 @@ import { MultiChannelGateway } from '../a2a/multi-channels.js';
 
 export interface ActionItem { id?: string; task: string; assignee: string; assignee_openid?: string; due: string; status?: 'open'|'doing'|'done'; source_meeting?: string }
 interface Store { version: number; processedMeetings: unknown[]; actionItems: Array<Required<Pick<ActionItem,'id'|'task'|'assignee'|'due'|'status'|'source_meeting'>> & ActionItem> }
-export function meetingActionStorePath() { return process.env.OTTO_MEETING_ACTIONS_FILE?.trim() || path.join(process.env.OTTO_USER_DIR?.trim() || path.join(os.homedir(), '.otto-user'), 'meeting-actions.json'); }
+export function meetingActionStorePath() { return process.env.CLAWMASTER_MEETING_ACTIONS_FILE?.trim() || path.join(process.env.CLAWMASTER_USER_DIR?.trim() || path.join(os.homedir(), '.otto-user'), 'meeting-actions.json'); }
 async function load(file: string): Promise<Store> { try { const value = JSON.parse(await readFile(file, 'utf8')); return { version: 1, processedMeetings: Array.isArray(value.processedMeetings) ? value.processedMeetings : [], actionItems: Array.isArray(value.actionItems) ? value.actionItems : [] }; } catch { return { version: 1, processedMeetings: [], actionItems: [] }; } }
 export async function registerMeetingActions(file: string, source: string, items: ActionItem[]) {
   if (!source.trim() || items.length === 0) throw new Error('会议来源和行动项不能为空');

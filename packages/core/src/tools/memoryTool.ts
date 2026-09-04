@@ -48,11 +48,11 @@ Do NOT use this tool:
 - \`fact\` (string, required): The specific fact or piece of information to remember. This should be a clear, self-contained statement. For example, if the user says "My favorite color is blue", the fact would be "My favorite color is blue".
 `;
 
-export const OTTO_CONFIG_DIR = '.otto-user';
+export const CLAWMASTER_CONFIG_DIR = '.otto-user';
 export const DEFAULT_CONTEXT_FILENAME = 'CLAWMASTER.md';
 export const LEGACY_CONTEXT_FILENAME = 'OTTO.md';
 export const MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
-export const LEGACY_MEMORY_SECTION_HEADER = '## Otto Added Memories';
+export const LEGACY_MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
 
 export function findMemorySectionHeader(content: string): {
   header: string;
@@ -72,9 +72,9 @@ export function findMemorySectionHeader(content: string): {
 export const MAX_MEMORY_FILE_SIZE = 256 * 1024; // 256KB
 
 /**
- * Otto 只认自己的上下文文件 OTTO.md。
+ * ClawMaster 只认自己的上下文文件 OTTO.md。
  * 早期版本还认 AGENTS.md / .cursor / .augement——但 AGENTS.md 是 clawd、codex
- * 等其它工具的通用约定文件,会被向上/全局扫描当成"Otto 的记忆"加载进来,
+ * 等其它工具的通用约定文件,会被向上/全局扫描当成"ClawMaster 的记忆"加载进来,
  * 造成跨工具串味(读到 ~/clawd 、~/.codex 下别人的记忆)。这里收紧为单一来源。
  * 需要兼容 AGENTS.md 的项目可通过 settings 的 contextFileName 显式配置。
  */
@@ -84,10 +84,10 @@ export const DEFAULT_CONTEXT_FILENAMES = [
 ];
 
 // This variable will hold the currently configured filename for context files.
-// It defaults to DEFAULT_CONTEXT_FILENAME but can be overridden by setOttoMdFilename.
+// It defaults to DEFAULT_CONTEXT_FILENAME but can be overridden by setClawMasterMdFilename.
 let currentGeminiMdFilename: string | string[] = DEFAULT_CONTEXT_FILENAME;
 
-export function setOttoMdFilename(newFilename: string | string[]): void {
+export function setClawMasterMdFilename(newFilename: string | string[]): void {
   if (Array.isArray(newFilename)) {
     if (newFilename.length > 0) {
       currentGeminiMdFilename = newFilename.map((name) => name.trim());
@@ -116,7 +116,7 @@ export function getAllGeminiMdFilenames(): string[] {
  * This is used when the filename is not explicitly set and we want to find
  * the highest priority existing configuration file.
  */
-export async function discoverContextFilenames(baseDir: string = path.join(homedir(), OTTO_CONFIG_DIR)): Promise<string[]> {
+export async function discoverContextFilenames(baseDir: string = path.join(homedir(), CLAWMASTER_CONFIG_DIR)): Promise<string[]> {
   const foundFiles = await findContextFilesInDirectory(baseDir, DEFAULT_CONTEXT_FILENAMES);
 
   if (foundFiles.length > 0) {
@@ -266,7 +266,7 @@ async function getProjectMemoryFilePath(config: Config): Promise<string> {
 }
 
 /** 记忆根目录(~/.otto-user/memory),三层记忆(global/session)共用根。 */
-export const MEMORY_ROOT_DIR = path.join(homedir(), OTTO_CONFIG_DIR, 'memory');
+export const MEMORY_ROOT_DIR = path.join(homedir(), CLAWMASTER_CONFIG_DIR, 'memory');
 
 /** 飞书按会话隔离的个人记忆目录(每个 chat 一个文件,避免跨会话/跨用户串味)。 */
 export const FEISHU_SESSION_MEMORY_DIR = path.join(MEMORY_ROOT_DIR, 'sessions');

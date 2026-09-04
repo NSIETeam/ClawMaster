@@ -1,17 +1,17 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildInitialChatTools,
   buildRuntimeSystemInstruction,
-  OttoClient,
+  ClawMasterClient,
 } from './client.js';
 
-describe('OttoClient A2A 隔离上下文', () => {
+describe('ClawMasterClient A2A 隔离上下文', () => {
   it('禁用环境上下文时不读取或发送 cwd、系统信息和目录树', async () => {
-    const client = Object.create(OttoClient.prototype) as OttoClient;
+    const client = Object.create(ClawMasterClient.prototype) as ClawMasterClient;
     (client as unknown as { config: { getEnvironmentContextDisabled(): boolean } }).config = {
       getEnvironmentContextDisabled: () => true,
     };
@@ -26,7 +26,7 @@ describe('OttoClient A2A 隔离上下文', () => {
     expect(parts[0]?.text).not.toContain('PROJECT STRUCTURE');
   });
 
-  it('禁用工具时连 OttoChat 初始生成配置也保持空工具集', () => {
+  it('禁用工具时连 ClawMasterChat 初始生成配置也保持空工具集', () => {
     const getFunctionDeclarations = vi.fn(() => [{ name: 'read_file' }]);
 
     expect(buildInitialChatTools(true, { getFunctionDeclarations })).toEqual([]);
@@ -37,7 +37,7 @@ describe('OttoClient A2A 隔离上下文', () => {
 
   it('隔离模式只使用 A2A 最小规则，不构建含本机文件与 Skills 的完整系统提示', () => {
     const buildFullSystemInstruction = vi.fn(() => [
-      'OTTO_SYSTEM_MD_SECRET',
+      'CLAWMASTER_SYSTEM_MD_SECRET',
       '/Users/felix/private-project',
       '.llm-wiki',
       'GLOBAL_SKILLS_METADATA',
@@ -53,7 +53,7 @@ describe('OttoClient A2A 隔离上下文', () => {
     expect(buildFullSystemInstruction).not.toHaveBeenCalled();
     expect(prompt).toContain('A2A 安全协作 Agent');
     expect(prompt).toContain('简体中文');
-    expect(prompt).not.toContain('OTTO_SYSTEM_MD_SECRET');
+    expect(prompt).not.toContain('CLAWMASTER_SYSTEM_MD_SECRET');
     expect(prompt).not.toContain('/Users/felix/private-project');
     expect(prompt).not.toContain('.llm-wiki');
     expect(prompt).not.toContain('GLOBAL_SKILLS_METADATA');
@@ -62,7 +62,7 @@ describe('OttoClient A2A 隔离上下文', () => {
   it('puts initialized Skills and relevant layered memory in the final model instruction', async () => {
     const skills = await import('../skills/skills-integration.js');
     vi.spyOn(skills, 'getSkillsContext').mockReturnValue('# Available Skills\n- data-viz');
-    const client = Object.create(OttoClient.prototype) as OttoClient;
+    const client = Object.create(ClawMasterClient.prototype) as ClawMasterClient;
     (client as unknown as { config: Record<string, unknown> }).config = {
       getUserRules: () => '', getEnvironmentContextDisabled: () => false,
       getToolsDisabled: () => false, getPreferredLanguage: () => undefined,

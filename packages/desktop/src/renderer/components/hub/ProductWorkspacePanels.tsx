@@ -1,9 +1,9 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useMemo, useState } from 'react';
-import type { ModelInfo } from 'otto-server';
+import type { ModelInfo } from 'clawmaster-server';
 import type { UseProductWorkspace } from '../../state/useProductWorkspace.js';
 import type { EnterpriseAccount } from '../../../preload/index.js';
 import { Card, Empty, Panel } from './HubUI.js';
@@ -55,13 +55,13 @@ export function OrganizationPanel({
         title="企业与身份"
         desc="身份信息来自当前已登录的中心企业账号。"
         actions={enterpriseAccount.isAdmin && onManageAccounts ? (
-          <button type="button" className="otto-hub__btn otto-hub__btn--primary" onClick={onManageAccounts}>
+          <button type="button" className="claw-hub__btn claw-hub__btn--primary" onClick={onManageAccounts}>
             管理员工职位
           </button>
         ) : undefined}
       >
         <Card>
-          <div className="otto-product-identity">
+          <div className="claw-product-identity">
             <div><span>企业</span><strong>{enterpriseAccount.organizationName}</strong></div>
             <div><span>姓名</span><strong>{enterpriseAccount.name}</strong></div>
             <div><span>部门</span><strong>{enterpriseAccount.department || '未设置'}</strong></div>
@@ -90,7 +90,7 @@ export function OrganizationPanel({
       desc="中心账号与本机职位编排彼此独立；内部测试阶段不把本机状态冒充服务端成员数据。"
       actions={
         isEnterprise ? (
-          <button type="button" className="otto-hub__btn" onClick={actions.switchToPersonal}>
+          <button type="button" className="claw-hub__btn" onClick={actions.switchToPersonal}>
             切回个人版
           </button>
         ) : undefined
@@ -98,7 +98,7 @@ export function OrganizationPanel({
     >
       {!isEnterprise ? (
         <>
-          <div className="otto-product-choice">
+          <div className="claw-product-choice">
             <button type="button" className={flow === 'owner' ? 'is-active' : ''} onClick={() => setFlow('owner')}>
               <strong>我是企业管理者</strong>
               <span>填写企业信息，由 ClawMaster 构建初始部门和负责人岗位</span>
@@ -111,7 +111,7 @@ export function OrganizationPanel({
 
           {flow === 'owner' ? (
             <Card>
-              <div className="otto-product-form">
+              <div className="claw-product-form">
                 <label>管理者姓名<input value={managerName} onChange={(e) => setManagerName(e.target.value)} placeholder="例如：陈晨" /></label>
                 <label>企业名称<input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="例如：北辰科技" /></label>
                 <label>所属行业<input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="例如：企业软件" /></label>
@@ -125,7 +125,7 @@ export function OrganizationPanel({
                 </label>
                 <button
                   type="button"
-                  className="otto-hub__btn otto-hub__btn--primary"
+                  className="claw-hub__btn claw-hub__btn--primary"
                   disabled={!managerName.trim() || !companyName.trim()}
                   onClick={() => actions.configureEnterprise({
                     managerName: managerName.trim(),
@@ -142,7 +142,7 @@ export function OrganizationPanel({
 
           {flow === 'join' ? (
             <Card>
-              <div className="otto-product-form">
+              <div className="claw-product-form">
                 <label>你的姓名<input value={joinName} onChange={(e) => setJoinName(e.target.value)} placeholder="例如：李明" /></label>
                 <label>
                   职位邀请链接
@@ -155,7 +155,7 @@ export function OrganizationPanel({
                 </label>
                 <button
                   type="button"
-                  className="otto-hub__btn otto-hub__btn--primary"
+                  className="claw-hub__btn claw-hub__btn--primary"
                   disabled={!joinName.trim() || !joinLink.trim()}
                   onClick={() => actions.joinEnterprise(
                     joinLink.trim(),
@@ -173,7 +173,7 @@ export function OrganizationPanel({
         <>
           {/* 当前身份卡片 */}
           <Card>
-            <div className="otto-product-identity">
+            <div className="claw-product-identity">
               <div><span>当前身份</span><strong>{isOwner ? 'CEO · 企业管理者' : '企业成员'}</strong></div>
               <div><span>企业</span><strong>{workspace.managerWorkspace?.profile.companyName ?? workspace.context.companyId}</strong></div>
               {/* 员工：展示自己的部门和职位 */}
@@ -196,8 +196,8 @@ export function OrganizationPanel({
           {/* CEO：部门框架概览 */}
           {isOwner && organization ? (
             <Card>
-              <div className="otto-hub__field-label">部门框架</div>
-              <div className="otto-product-framework">
+              <div className="claw-hub__field-label">部门框架</div>
+              <div className="claw-product-framework">
                 {departments.map((dept) => {
                   const lead = positions.find((p) => p.departmentId === dept.id);
                   const leadMember = lead?.incumbentUserId
@@ -220,17 +220,17 @@ export function OrganizationPanel({
           {/* CEO：成员总览 */}
           {isOwner ? (
             <Card>
-              <div className="otto-hub__field-label">本机成员总览（{members.length} 人）</div>
+              <div className="claw-hub__field-label">本机成员总览（{members.length} 人）</div>
               {members.length === 0 ? (
-                <p className="otto-hub__field-hint">暂无本机成员记录；跨设备成员同步尚未启用。</p>
+                <p className="claw-hub__field-hint">暂无本机成员记录；跨设备成员同步尚未启用。</p>
               ) : (
-                <div className="otto-product-members">
+                <div className="claw-product-members">
                   {members.map((member) => {
                     const pos = member.positionId ? positionById.get(member.positionId) : null;
                     const deptName = member.departmentId ? departmentById.get(member.departmentId) : null;
                     return (
-                      <div key={member.userId} className="otto-product-member-row">
-                        <div className="otto-product-member-info">
+                      <div key={member.userId} className="claw-product-member-row">
+                        <div className="claw-product-member-info">
                           <strong>{member.displayName}</strong>
                           <span>
                             {deptName ?? '未分配部门'}
@@ -242,7 +242,7 @@ export function OrganizationPanel({
                         {member.role !== 'company_owner' ? (
                           <button
                             type="button"
-                            className="otto-hub__btn otto-hub__btn--sm"
+                            className="claw-hub__btn claw-hub__btn--sm"
                             onClick={() => setSelectedPosition(member.positionId ?? '')}
                             title="在下方复用该成员的当前职位"
                           >
@@ -260,12 +260,12 @@ export function OrganizationPanel({
           {/* CEO：生成职位邀请链接 */}
           {isOwner ? (
             <Card>
-              <div className="otto-hub__field-label">生成职位邀请链接</div>
-              <p className="otto-hub__field-hint">
+              <div className="claw-hub__field-label">生成职位邀请链接</div>
+              <p className="claw-hub__field-hint">
                 这是仅保存在当前设备的签名职位链接，默认 24 小时有效。员工需在 ClawMaster「企业与身份」中手工粘贴；
                 核销状态不会自动同步回管理者这台设备。
               </p>
-              <div className="otto-product-form">
+              <div className="claw-product-form">
                 <label>
                   职位
                   <select value={selectedPosition} onChange={(e) => setSelectedPosition(e.target.value)}>
@@ -282,7 +282,7 @@ export function OrganizationPanel({
                 </label>
                 <button
                   type="button"
-                  className="otto-hub__btn otto-hub__btn--primary"
+                  className="claw-hub__btn claw-hub__btn--primary"
                   disabled={!selectedPosition}
                   onClick={() => {
                     const pos = positions.find((p) => p.id === selectedPosition);
@@ -299,13 +299,13 @@ export function OrganizationPanel({
 
               {/* 生成结果 */}
               {state.lastInvite ? (
-                <div className="otto-product-invite-result">
+                <div className="claw-product-invite-result">
                   <strong>链接已生成 · {new Date(state.lastInvite.expiresAt).toLocaleString('zh-CN')} 失效</strong>
                   <textarea readOnly value={state.lastInvite.link} aria-label="生成的职位邀请链接" rows={3} />
                   <button
                     type="button"
-                    className="otto-hub__btn"
-                    onClick={() => { window.otto.writeClipboard(state.lastInvite!.link); }}
+                    className="claw-hub__btn"
+                    onClick={() => { window.clawmaster.writeClipboard(state.lastInvite!.link); }}
                   >
                     复制链接
                   </button>
@@ -318,29 +318,29 @@ export function OrganizationPanel({
           {/* CEO：总分公司关系（折叠区，不影响主流程） */}
           {isOwner ? (
             <Card>
-              <div className="otto-hub__field-label">总分公司关系（高级）</div>
-              <p className="otto-hub__field-hint">
+              <div className="claw-hub__field-label">总分公司关系（高级）</div>
+              <p className="claw-hub__field-hint">
                 用于多法人主体的企业关联。普通员工邀请无需使用此功能。
               </p>
-              <div className="otto-product-form">
+              <div className="claw-product-form">
                 <label>
                   目标企业 ID（可选，填写后链接只能由该企业接收）
                   <input value={targetCompanyId} onChange={(e) => setTargetCompanyId(e.target.value)} placeholder="company_…" />
                 </label>
-                <div className="otto-product-link-actions">
-                  <button type="button" className="otto-hub__btn" onClick={() => actions.createInvite({
+                <div className="claw-product-link-actions">
+                  <button type="button" className="claw-hub__btn" onClick={() => actions.createInvite({
                     kind: 'company_link',
                     direction: 'parent_invites_child',
                     ...(targetCompanyId.trim() ? { targetCompanyId: targetCompanyId.trim() } : {}),
                   })}>引入子公司关系</button>
-                  <button type="button" className="otto-hub__btn" onClick={() => actions.createInvite({
+                  <button type="button" className="claw-hub__btn" onClick={() => actions.createInvite({
                     kind: 'company_link',
                     direction: 'child_requests_parent',
                     ...(targetCompanyId.trim() ? { targetCompanyId: targetCompanyId.trim() } : {}),
                   })}>接入总公司关系</button>
                 </div>
-                <div className="otto-product-company-accept">
-                  <div className="otto-hub__field-label" style={{ marginTop: '12px' }}>输入总公司 / 子公司签名链接</div>
+                <div className="claw-product-company-accept">
+                  <div className="claw-hub__field-label" style={{ marginTop: '12px' }}>输入总公司 / 子公司签名链接</div>
                   <textarea
                     value={companyLink}
                     onChange={(e) => setCompanyLink(e.target.value)}
@@ -350,7 +350,7 @@ export function OrganizationPanel({
                   />
                   <button
                     type="button"
-                    className="otto-hub__btn otto-hub__btn--primary"
+                    className="claw-hub__btn claw-hub__btn--primary"
                     disabled={!companyLink.trim()}
                     onClick={() => { actions.acceptCompanyLink(companyLink); setCompanyLink(''); }}
                   >验证并接入企业框架</button>
@@ -361,7 +361,7 @@ export function OrganizationPanel({
         </>
       )}
 
-      {state.error ? <div className="otto-hub__errbar">{state.error}</div> : null}
+      {state.error ? <div className="claw-hub__errbar">{state.error}</div> : null}
     </Panel>
   );
 }

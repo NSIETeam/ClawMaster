@@ -21,9 +21,9 @@ async function fixtureDir() {
   tempDirs.push(dir);
   const version = '9.8.7';
   const files = [
-    `Otto-Setup-${version}-win-x64.exe`,
-    `Otto-${version}-arm64.dmg`,
-    `Otto-${version}-x64.dmg`,
+    `ClawMaster-Setup-${version}-win-x64.exe`,
+    `ClawMaster-${version}-arm64.dmg`,
+    `ClawMaster-${version}-x64.dmg`,
   ];
   for (const [index, name] of files.entries()) {
     await writeFile(path.join(dir, name), `fixture-${index}-${name}`);
@@ -37,7 +37,7 @@ describe('make-latest-json', () => {
   it('emits verifiable no-proxy asset URLs by default', async () => {
     const { dir, files, notes, version } = await fixtureDir();
     execFileSync(process.execPath, [scriptPath, version, notes, dir], {
-      env: { ...process.env, OTTO_UPDATE_ASSET_BASE_URL: '' },
+      env: { ...process.env, CLAWMASTER_UPDATE_ASSET_BASE_URL: '' },
       stdio: 'pipe',
     });
 
@@ -63,7 +63,7 @@ describe('make-latest-json', () => {
     execFileSync(process.execPath, [scriptPath, version, notes, dir], {
       env: {
         ...process.env,
-        OTTO_UPDATE_ASSET_BASE_URL: 'https://updates.example.com/otto/',
+        CLAWMASTER_UPDATE_ASSET_BASE_URL: 'https://updates.example.com/otto/',
       },
       stdio: 'pipe',
     });
@@ -80,7 +80,7 @@ describe('make-latest-json', () => {
     execFileSync(process.execPath, [scriptPath, version, notes, dir], {
       env: {
         ...process.env,
-        OTTO_UPDATE_REQUIRED_ASSETS: 'win-x64',
+        CLAWMASTER_UPDATE_REQUIRED_ASSETS: 'win-x64',
       },
       stdio: 'pipe',
     });
@@ -89,7 +89,7 @@ describe('make-latest-json', () => {
     );
     expect(Object.keys(manifest.assets)).toEqual(['win-x64']);
     expect(manifest.assets['win-x64'].name).toBe(
-      `Otto-Setup-${version}-win-x64.exe`,
+      `ClawMaster-Setup-${version}-win-x64.exe`,
     );
   });
 });

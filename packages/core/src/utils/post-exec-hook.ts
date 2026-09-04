@@ -38,7 +38,7 @@ async function autoLearn(config: Config, ctx: PostExecutionContext): Promise<voi
       task_type: taskType,
       context: ctx.description,
       task_result: `${ctx.success ? 'success' : 'fail'} ${durationMin.toFixed(2)}min`,
-      employee_id: ctx.employeeId || process.env.OTTO_EMPLOYEE_ID || 'unknown',
+      employee_id: ctx.employeeId || process.env.CLAWMASTER_EMPLOYEE_ID || 'unknown',
     }, new AbortController().signal);
   } catch (err: unknown) {
     // Learning should never break the main flow
@@ -83,7 +83,7 @@ export function enableAutoLearning(registry: ToolRegistry, config: Config): void
           durationMs,
           success,
           resultSummary: summary,
-          employeeId: typeof input?.employee_id === 'string' ? input.employee_id : process.env.OTTO_EMPLOYEE_ID,
+          employeeId: typeof input?.employee_id === 'string' ? input.employee_id : process.env.CLAWMASTER_EMPLOYEE_ID,
         }).catch(() => {});
       }).catch(() => {});
 

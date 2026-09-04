@@ -12,7 +12,7 @@ import { parseIncrementalUpdateManifest } from './incremental-update-manifest.js
 import { parseVerifiedManifestJson } from './update-manifest-integrity.js';
 
 const CHECK_TIMEOUT_MS = 15_000;
-const ENV_MANIFEST_URL = 'OTTO_INCREMENTAL_UPDATE_MANIFEST_URL';
+const ENV_MANIFEST_URL = 'CLAWMASTER_INCREMENTAL_UPDATE_MANIFEST_URL';
 
 type FetchJsonResult =
   | { ok: true; json: unknown }

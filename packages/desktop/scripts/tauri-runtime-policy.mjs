@@ -1,5 +1,31 @@
 import path from 'node:path';
 
+export const TAURI_PACKAGING_MODES = Object.freeze({
+  'micro-bootstrap': Object.freeze({
+    targetBytes: 10 * 1024 * 1024,
+    hardLimitBytes: 12 * 1024 * 1024,
+    embedsLocalExecution: false,
+  }),
+  'micro-online': Object.freeze({
+    targetBytes: 20 * 1024 * 1024,
+    hardLimitBytes: 24 * 1024 * 1024,
+    embedsLocalExecution: false,
+  }),
+  'embedded-legacy': Object.freeze({
+    targetBytes: 28 * 1024 * 1024,
+    hardLimitBytes: 32 * 1024 * 1024,
+    embedsLocalExecution: true,
+  }),
+});
+
+export function resolveTauriPackagingMode(mode = 'micro-online') {
+  const policy = TAURI_PACKAGING_MODES[mode];
+  if (!policy) {
+    throw new Error(`unsupported Tauri packaging mode: ${mode}`);
+  }
+  return { mode, ...policy };
+}
+
 const RUNTIME_PLATFORMS = new Map([
   ['darwin-arm64', {
     target: 'darwin-arm64',
@@ -86,14 +112,18 @@ export function resolveTauriNodeSource({
 }
 
 export function evaluateRuntimeSize(bytes, {
-  targetBytes = 28 * 1024 * 1024,
-  hardLimitBytes = 32 * 1024 * 1024,
+  mode = 'micro-online',
+  targetBytes,
+  hardLimitBytes,
 } = {}) {
   if (!Number.isSafeInteger(bytes) || bytes < 0) throw new Error('runtime size is invalid');
+  const policy = resolveTauriPackagingMode(mode);
+  targetBytes ??= policy.targetBytes;
+  hardLimitBytes ??= policy.hardLimitBytes;
   if (bytes > hardLimitBytes) {
     throw new Error(`Tauri runtime exceeds the ${hardLimitBytes} byte hard limit: ${bytes}`);
   }
-  return { bytes, withinTarget: bytes <= targetBytes, targetBytes, hardLimitBytes };
+  return { bytes, mode, withinTarget: bytes <= targetBytes, targetBytes, hardLimitBytes };
 }
 
 export function summarizeRuntimeComponents(componentBytes) {

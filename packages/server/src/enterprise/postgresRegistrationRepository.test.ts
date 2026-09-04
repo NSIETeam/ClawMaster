@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createHash } from 'node:crypto';
@@ -83,7 +83,7 @@ describe('PostgreSQL registration authority', () => {
         return result([
           {
             id: 'org_default',
-            name: 'Otto',
+            name: 'ClawMaster',
             slug: 'otto-default',
             type: 'enterprise',
             status: 'active',
@@ -212,7 +212,7 @@ describe('PostgreSQL registration authority', () => {
             default_role: null,
             max_uses: 3,
             used_count: 0,
-            organization_name: 'Otto',
+            organization_name: 'ClawMaster',
             organization_status: 'active',
           },
         ]);
@@ -282,7 +282,7 @@ describe('PostgreSQL registration authority', () => {
             default_role: null,
             max_uses: 3,
             used_count: 0,
-            organization_name: 'Otto',
+            organization_name: 'ClawMaster',
             organization_status: 'active',
           },
         ]);

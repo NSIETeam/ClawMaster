@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Black-box acceptance for two Otto private deployments connected through a
- * staging Otto Control federation gateway. This must never run against a
+ * Black-box acceptance for two ClawMaster private deployments connected through a
+ * staging ClawMaster Control federation gateway. This must never run against a
  * production deployment because it temporarily disables one test deployment.
  */
 
@@ -42,37 +42,37 @@ function positiveInteger(value, name, fallback) {
 }
 
 export function parseFederationStagingSmokeConfig(env = process.env) {
-  if (env.OTTO_FEDERATION_SMOKE_CONFIRM !== 'STAGING_ONLY') {
-    throw new Error('OTTO_FEDERATION_SMOKE_CONFIRM must be STAGING_ONLY');
+  if (env.CLAWMASTER_FEDERATION_SMOKE_CONFIRM !== 'STAGING_ONLY') {
+    throw new Error('CLAWMASTER_FEDERATION_SMOKE_CONFIRM must be STAGING_ONLY');
   }
-  const allowInsecureLoopback = env.OTTO_FEDERATION_SMOKE_ALLOW_HTTP === 'true';
+  const allowInsecureLoopback = env.CLAWMASTER_FEDERATION_SMOKE_ALLOW_HTTP === 'true';
   return {
     gatewayUrl: origin(
-      required(env, 'OTTO_FEDERATION_SMOKE_GATEWAY_URL'),
-      'OTTO_FEDERATION_SMOKE_GATEWAY_URL',
+      required(env, 'CLAWMASTER_FEDERATION_SMOKE_GATEWAY_URL'),
+      'CLAWMASTER_FEDERATION_SMOKE_GATEWAY_URL',
       allowInsecureLoopback,
     ),
-    gatewayAdminToken: required(env, 'OTTO_FEDERATION_SMOKE_GATEWAY_ADMIN_TOKEN'),
+    gatewayAdminToken: required(env, 'CLAWMASTER_FEDERATION_SMOKE_GATEWAY_ADMIN_TOKEN'),
     serverAUrl: origin(
-      required(env, 'OTTO_FEDERATION_SMOKE_SERVER_A_URL'),
-      'OTTO_FEDERATION_SMOKE_SERVER_A_URL',
+      required(env, 'CLAWMASTER_FEDERATION_SMOKE_SERVER_A_URL'),
+      'CLAWMASTER_FEDERATION_SMOKE_SERVER_A_URL',
       allowInsecureLoopback,
     ),
-    serverAAdminToken: required(env, 'OTTO_FEDERATION_SMOKE_SERVER_A_ADMIN_TOKEN'),
-    serverAMemberToken: required(env, 'OTTO_FEDERATION_SMOKE_SERVER_A_MEMBER_TOKEN'),
+    serverAAdminToken: required(env, 'CLAWMASTER_FEDERATION_SMOKE_SERVER_A_ADMIN_TOKEN'),
+    serverAMemberToken: required(env, 'CLAWMASTER_FEDERATION_SMOKE_SERVER_A_MEMBER_TOKEN'),
     serverBUrl: origin(
-      required(env, 'OTTO_FEDERATION_SMOKE_SERVER_B_URL'),
-      'OTTO_FEDERATION_SMOKE_SERVER_B_URL',
+      required(env, 'CLAWMASTER_FEDERATION_SMOKE_SERVER_B_URL'),
+      'CLAWMASTER_FEDERATION_SMOKE_SERVER_B_URL',
       allowInsecureLoopback,
     ),
-    serverBAdminToken: required(env, 'OTTO_FEDERATION_SMOKE_SERVER_B_ADMIN_TOKEN'),
-    serverBMemberToken: required(env, 'OTTO_FEDERATION_SMOKE_SERVER_B_MEMBER_TOKEN'),
+    serverBAdminToken: required(env, 'CLAWMASTER_FEDERATION_SMOKE_SERVER_B_ADMIN_TOKEN'),
+    serverBMemberToken: required(env, 'CLAWMASTER_FEDERATION_SMOKE_SERVER_B_MEMBER_TOKEN'),
     attachmentBytes: positiveInteger(
-      env.OTTO_FEDERATION_SMOKE_ATTACHMENT_BYTES,
-      'OTTO_FEDERATION_SMOKE_ATTACHMENT_BYTES',
+      env.CLAWMASTER_FEDERATION_SMOKE_ATTACHMENT_BYTES,
+      'CLAWMASTER_FEDERATION_SMOKE_ATTACHMENT_BYTES',
       DEFAULT_ATTACHMENT_BYTES,
     ),
-    sourceCommit: env.OTTO_FEDERATION_SMOKE_SOURCE_COMMIT?.trim() || null,
+    sourceCommit: env.CLAWMASTER_FEDERATION_SMOKE_SOURCE_COMMIT?.trim() || null,
   };
 }
 

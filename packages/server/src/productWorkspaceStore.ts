@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * v1.7 产品工作区的服务端权威存储。renderer 只拿脱敏快照；Ed25519 私钥
  * 单独存进 0600 secrets 文件，不进入 product-workspace.json 或线协议。
@@ -271,7 +271,7 @@ function normalizeAuthenticatedOrganizationMembers(
 }
 
 function defaultRoot(): string {
-  const configured = process.env['OTTO_USER_DIR']?.trim();
+  const configured = process.env['CLAWMASTER_USER_DIR']?.trim();
   return configured || path.join(os.homedir(), '.otto-user');
 }
 

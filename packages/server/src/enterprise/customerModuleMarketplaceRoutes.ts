@@ -1,6 +1,6 @@
 import { createPrivateKey, sign } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { canonicalCustomerModuleManifest, encodeCustomerModulePackageV1 } from 'otto-core';
+import { canonicalCustomerModuleManifest, encodeCustomerModulePackageV1 } from 'clawmaster-core';
 import {
   CustomerModuleMarketplace,
   handleCustomerModuleMarketplaceRequest,
@@ -11,8 +11,8 @@ import type { AccountView } from './db.js';
 import type { AdminPrincipal } from './enterpriseRouteDispatcher.js';
 
 function platformSigner(market: CustomerModuleMarketplace) {
-  const encodedKey = process.env.OTTO_CUSTOMER_MODULE_SIGNING_PRIVATE_KEY?.trim();
-  const keyId = process.env.OTTO_CUSTOMER_MODULE_SIGNING_KEY_ID?.trim();
+  const encodedKey = process.env.CLAWMASTER_CUSTOMER_MODULE_SIGNING_PRIVATE_KEY?.trim();
+  const keyId = process.env.CLAWMASTER_CUSTOMER_MODULE_SIGNING_KEY_ID?.trim();
   if (!encodedKey || !keyId) return undefined;
   return (moduleId: string, version: string) => {
     const record = market.get(moduleId, version);
@@ -27,10 +27,10 @@ function platformSigner(market: CustomerModuleMarketplace) {
 }
 
 function publisherAccess(account: AccountView): boolean {
-  const mode = process.env.OTTO_CUSTOMER_MODULE_MARKET_MODE?.trim() || 'internal';
+  const mode = process.env.CLAWMASTER_CUSTOMER_MODULE_MARKET_MODE?.trim() || 'internal';
   if (mode === 'public') return true;
   if (mode === 'disabled') return false;
-  const allowed = new Set((process.env.OTTO_CUSTOMER_MODULE_PUBLISHER_IDS ?? '').split(',').map((id) => id.trim()).filter(Boolean));
+  const allowed = new Set((process.env.CLAWMASTER_CUSTOMER_MODULE_PUBLISHER_IDS ?? '').split(',').map((id) => id.trim()).filter(Boolean));
   if (allowed.has(account.id)) return true;
   return mode === 'internal' && account.isAdmin;
 }

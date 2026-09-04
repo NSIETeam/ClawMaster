@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,7 +9,7 @@
  *
  * server 每个会话 = 一个 core Config 实例。CLI 的 loadCliConfig 牵入大量
  * 终端/设置依赖（yargs/Ink 邻近），不适合 server 直接复用。这里只用
- * otto-core 顶层导出的 Config + ConfigParameters，构造一个最小可跑对话的
+ * clawmaster-core 顶层导出的 Config + ConfigParameters，构造一个最小可跑对话的
  * headless Config：注入 BYO-key 自定义模型。服务端默认使用安全审批模式，
  * 高风险工具通过 tool_confirmation_request 交给客户端确认。
  *
@@ -24,7 +24,7 @@ import {
   isCustomModel,
   type CustomModelConfig,
   type DocumentIdentity,
-} from 'otto-core';
+} from 'clawmaster-core';
 import os from 'node:os';
 import { loadCustomModels, loadPreferredModel } from './customModels.js';
 import {
@@ -56,7 +56,7 @@ export interface CreateCoreConfigOptions {
   disableMcpDiscovery?: boolean;
   /** 安全隔离会话不向模型发送系统环境、cwd 或目录树。 */
   disableEnvironmentContext?: boolean;
-  /** 安全隔离会话让 OttoChat 的基础生成配置也保持 tools=[]。 */
+  /** 安全隔离会话让 ClawMasterChat 的基础生成配置也保持 tools=[]。 */
   disableTools?: boolean;
   /** 覆盖搜索 API 配置（测试用）；缺省从 ~/.otto-user 读取脱敏配置与 secret。 */
   searchConfig?: SearchRuntimeConfig;
@@ -88,9 +88,9 @@ export function createCoreConfig(opts: CreateCoreConfigOptions): Config {
   const searchConfig = opts.searchConfig ?? loadSearchRuntimeConfig();
 
   // ── LLM-URL 崩溃根因兜底（BYO-key 化后必备）──
-  // OttoServerAdapter.generateContent 只有在 getModel() 返回 `custom:...` 时才走
+  // ClawMasterServerAdapter.generateContent 只有在 getModel() 返回 `custom:...` 时才走
   // callCustomModel（用模型自身的绝对 baseUrl）；否则落入已废弃的 easycode 代理分支，
-  // 用空的 OTTO_SERVER_URL 拼出相对路径 `/v1/chat/messages` → fetch 抛
+  // 用空的 CLAWMASTER_SERVER_URL 拼出相对路径 `/v1/chat/messages` → fetch 抛
   // `Failed to parse URL from /v1/...`。
   // 这里在 server 侧做兜底：当 opts.model 不是 custom id（含 undefined / 'auto'）时，
   // 解析成第一个「已启用」自定义模型的 id，让 getModel() 返回 custom，彻底绕开空代理。

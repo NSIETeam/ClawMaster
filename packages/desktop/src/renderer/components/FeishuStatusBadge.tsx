@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,7 @@
  * 飞书连接状态徽标（设置页飞书区域挂载）。
  *
  * 数据通路（全真实，无一处假报）：
- *   renderer 定时调 window.otto.feishuStatus()
+ *   renderer 定时调 window.clawmaster.feishuStatus()
  *     → main 进程真查当前 server 的 GET /health
  *     → server 侧 FeishuAdapter.getStatus()（断线守护的第一手状态）。
  *
@@ -86,13 +86,13 @@ export function FeishuStatusIcon({ view, size = 16 }: {
   size?: number;
 }): React.JSX.Element {
   const className = view.kind === 'reconnecting'
-    ? 'otto-channel-status-icon otto-channel-status-icon--spin'
-    : 'otto-channel-status-icon';
+    ? 'claw-channel-status-icon claw-channel-status-icon--spin'
+    : 'claw-channel-status-icon';
   if (view.icon === 'check') return <IconCheck size={size} className={className} />;
   if (view.icon === 'warning') return <IconWarning size={size} className={className} />;
   if (view.icon === 'sync') return <IconRegenerate size={size} className={className} />;
   if (view.icon === 'error') return <IconClose size={size} className={className} />;
-  return <span className="otto-channel-status-dot" aria-hidden />;
+  return <span className="claw-channel-status-dot" aria-hidden />;
 }
 
 export interface FeishuStatusBadgeProps {
@@ -111,7 +111,7 @@ export function FeishuStatusBadge({
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async (): Promise<void> => {
       try {
-        const res = await window.otto?.feishuStatus();
+        const res = await window.clawmaster?.feishuStatus();
         if (!cancelled && res) {
           setResult(res);
           onStatus?.(res);
@@ -135,7 +135,7 @@ export function FeishuStatusBadge({
   const view = deriveFeishuBadgeState(result);
   return (
     <span
-      className="otto-badge otto-badge--feishu"
+      className="claw-badge claw-badge--feishu"
       style={{ fontSize: '11px' }}
       title={result?.text ?? '正在查询飞书连接状态…'}
       data-feishu-state={view.kind}

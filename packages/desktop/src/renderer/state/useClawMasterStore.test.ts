@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,7 @@
  * applyFrame reducer 单测（renderer 状态心脏）。
  *
  * applyFrame / reducer / mergeTextDelta 是文件私有（不改源码 export），故通过
- * renderHook(useOttoStore) + mock transport 打帧的方式间接覆盖每个帧分支：
+ * renderHook(useClawMasterStore) + mock transport 打帧的方式间接覆盖每个帧分支：
  *   mock 的 transport.onFrame 捕获 hook 注册的 frame handler，用 act() 调它推帧，
  *   再断言 result.current.state。
  */
@@ -18,8 +18,8 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import type {
   ServerToClient,
   SessionSummary,
-  OttoMessage,
-} from 'otto-server';
+  ClawMasterMessage,
+} from 'clawmaster-server';
 
 // ── mock transport：捕获 frame / connection handler，connect 立即 resolve(true) ──
 let capturedHandler: ((f: ServerToClient) => void) | null = null;
@@ -56,12 +56,12 @@ vi.mock('../transport.js', () => ({
   isConnected: () => true,
 }));
 
-import { useOttoStore } from './useOttoStore.js';
+import { useClawMasterStore } from './useClawMasterStore.js';
 import { clearEnterpriseOrganizationFeaturesCache } from './enterpriseOrganizationFeatures.js';
 
 /** 渲染 hook 并返回推帧函数 + result。 */
 function setup(enterpriseOrganizationId?: string) {
-  const view = renderHook(() => useOttoStore({ enterpriseOrganizationId }));
+  const view = renderHook(() => useClawMasterStore({ enterpriseOrganizationId }));
   const push = (frame: ServerToClient) => {
     act(() => {
       capturedHandler?.(frame);
@@ -83,7 +83,7 @@ function makeSession(over: Partial<SessionSummary> = {}): SessionSummary {
   };
 }
 
-function makeMsg(over: Partial<OttoMessage> = {}): OttoMessage {
+function makeMsg(over: Partial<ClawMasterMessage> = {}): ClawMasterMessage {
   return {
     id: 'm1',
     sessionId: 's1',
@@ -112,7 +112,7 @@ beforeEach(() => {
     knowledge: true,
   });
   clearEnterpriseOrganizationFeaturesCache();
-  Object.defineProperty(window, 'otto', {
+  Object.defineProperty(window, 'clawmaster', {
     configurable: true,
     value: {
       enterpriseUsageRecord: usageSpy,
@@ -216,7 +216,7 @@ describe('applyFrame 各帧分支', () => {
         clientRequestId: 'a2a-internal-request',
         session: makeSession({
           sessionId: 'a2a-internal-session',
-          agentProfileId: 'otto-enterprise-a2a',
+          agentProfileId: 'claw-enterprise-a2a',
         }),
       },
     });
@@ -1078,8 +1078,8 @@ describe('Agent profile 启动动作', () => {
 
     act(() => {
       view.result.current.actions.launchAgentProfileWithPrompt(
-        'Otto 协助：同事',
-        'otto-enterprise-work',
+        'ClawMaster 协助：同事',
+        'claw-enterprise-work',
         '请总结这段企业聊天。',
       );
     });
@@ -1089,8 +1089,8 @@ describe('Agent profile 启动动作', () => {
     expect(sendSpy).toHaveBeenCalledWith({
       type: 'create_session',
       payload: {
-        title: 'Otto 协助：同事',
-        agentProfileId: 'otto-enterprise-work',
+        title: 'ClawMaster 协助：同事',
+        agentProfileId: 'claw-enterprise-work',
         clientRequestId: createFrame.payload.clientRequestId,
       },
     });
@@ -1100,8 +1100,8 @@ describe('Agent profile 启动动作', () => {
       payload: {
         session: makeSession({
           sessionId: 'a2a-session',
-          title: 'Otto 协助：同事',
-          agentProfileId: 'otto-enterprise-work',
+          title: 'ClawMaster 协助：同事',
+          agentProfileId: 'claw-enterprise-work',
         }),
         clientRequestId: createFrame.payload.clientRequestId,
       },

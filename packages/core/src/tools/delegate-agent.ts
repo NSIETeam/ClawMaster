@@ -74,7 +74,7 @@ export interface DelegateToAgentResult extends ToolResult {
 }
 
 /**
- * Delegates a coding task to the user's local Claude Code, with Otto acting
+ * Delegates a coding task to the user's local Claude Code, with ClawMaster acting
  * as the ACP orchestrator. Claude Code runs asynchronously in the bound project —
  * the main agent is free to continue other work while the delegated task runs.
  * Completion is reported through the BackgroundTaskManager event system.
@@ -348,12 +348,12 @@ export class DelegateToAgentTool extends BaseTool<
    * Default timeout for delegated tasks. Claude Code coding tasks can
    * legitimately run for many minutes (large refactors, running test suites,
    * etc.), so we default to 60 minutes. Override with the environment
-   * variable OTTO_CC_TIMEOUT_MINUTES (legacy: OTTO_CC_TIMEOUT_MINUTES).
+   * variable CLAWMASTER_CC_TIMEOUT_MINUTES (legacy: CLAWMASTER_CC_TIMEOUT_MINUTES).
    */
   static readonly DEFAULT_TIMEOUT_MS = (() => {
     const env =
-      process.env.OTTO_CC_TIMEOUT_MINUTES ??
-      process.env.OTTO_CC_TIMEOUT_MINUTES;
+      process.env.CLAWMASTER_CC_TIMEOUT_MINUTES ??
+      process.env.CLAWMASTER_CC_TIMEOUT_MINUTES;
     if (env) {
       const mins = parseInt(env, 10);
       if (mins > 0) return mins * 60 * 1000;

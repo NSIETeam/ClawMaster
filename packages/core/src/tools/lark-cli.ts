@@ -563,7 +563,7 @@ export class LarkCliTool extends BaseTool<LarkCliParams, LarkCliResult> {
   }
 
   /**
-   * Keeps Otto compatible with older prompts and broken lark-cli routes that
+   * Keeps ClawMaster compatible with older prompts and broken lark-cli routes that
    * have safe shortcut equivalents.
    */
   private normalizeCommand(command: string): string {

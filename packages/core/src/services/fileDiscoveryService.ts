@@ -105,7 +105,7 @@ export class FileDiscoveryService {
   /**
    * Returns loaded patterns from .ottoignore
    */
-  getOttoIgnorePatterns(): string[] {
+  getClawMasterIgnorePatterns(): string[] {
     return this.ottoIgnoreFilter?.getPatterns() ?? [];
   }
 }

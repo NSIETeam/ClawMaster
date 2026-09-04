@@ -1,6 +1,6 @@
 import type { UiModePreferenceScope } from './uiModePreference.js';
 
-const STORAGE_PREFIX = 'otto.right-panel.v1';
+const STORAGE_PREFIX = 'clawmaster.right-panel.v1';
 
 function normalizeServerUrl(value: string | null | undefined): string {
   const normalized = value?.trim().replace(/\/+$/, '').toLowerCase();

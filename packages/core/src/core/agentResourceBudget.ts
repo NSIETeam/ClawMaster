@@ -54,7 +54,7 @@ export function getAgentResourceBudget(
   totalMemoryBytes: number = os.totalmem(),
   cpuCount: number = os.cpus().length,
 ): AgentResourceBudget {
-  const deviceClass = detectDeviceClass(totalMemoryBytes, cpuCount, env.OTTO_AGENT_PROFILE);
+  const deviceClass = detectDeviceClass(totalMemoryBytes, cpuCount, env.CLAWMASTER_AGENT_PROFILE);
 
   const defaultsByClass: Record<AgentDeviceClass, Omit<AgentResourceBudget, 'deviceClass'>> = {
     low: {
@@ -90,42 +90,42 @@ export function getAgentResourceBudget(
   };
 
   const defaults = defaultsByClass[deviceClass];
-  const workflowMaxConcurrencyCeiling = parsePositiveInt(env.OTTO_WORKFLOW_MAX_CONCURRENCY_CEILING)
+  const workflowMaxConcurrencyCeiling = parsePositiveInt(env.CLAWMASTER_WORKFLOW_MAX_CONCURRENCY_CEILING)
     ?? defaults.workflowMaxConcurrencyCeiling;
-  const workflowMaxAgentsCeiling = parsePositiveInt(env.OTTO_WORKFLOW_MAX_AGENTS_CEILING)
+  const workflowMaxAgentsCeiling = parsePositiveInt(env.CLAWMASTER_WORKFLOW_MAX_AGENTS_CEILING)
     ?? defaults.workflowMaxAgentsCeiling;
 
   return {
     deviceClass,
     taskMaxConcurrency: clamp(
-      parsePositiveInt(env.OTTO_TASK_MAX_CONCURRENCY) ?? defaults.taskMaxConcurrency,
+      parsePositiveInt(env.CLAWMASTER_TASK_MAX_CONCURRENCY) ?? defaults.taskMaxConcurrency,
       1,
       workflowMaxConcurrencyCeiling,
     ),
     workflowDefaultMaxConcurrency: clamp(
-      parsePositiveInt(env.OTTO_WORKFLOW_MAX_CONCURRENCY) ?? defaults.workflowDefaultMaxConcurrency,
+      parsePositiveInt(env.CLAWMASTER_WORKFLOW_MAX_CONCURRENCY) ?? defaults.workflowDefaultMaxConcurrency,
       1,
       workflowMaxConcurrencyCeiling,
     ),
     workflowMaxConcurrencyCeiling,
     workflowDefaultMaxAgents: clamp(
-      parsePositiveInt(env.OTTO_WORKFLOW_MAX_AGENTS) ?? defaults.workflowDefaultMaxAgents,
+      parsePositiveInt(env.CLAWMASTER_WORKFLOW_MAX_AGENTS) ?? defaults.workflowDefaultMaxAgents,
       1,
       workflowMaxAgentsCeiling,
     ),
     workflowMaxAgentsCeiling,
     workflowContextMaxChars: clamp(
-      parsePositiveInt(env.OTTO_WORKFLOW_CONTEXT_MAX_CHARS) ?? defaults.workflowContextMaxChars,
+      parsePositiveInt(env.CLAWMASTER_WORKFLOW_CONTEXT_MAX_CHARS) ?? defaults.workflowContextMaxChars,
       4000,
       40000,
     ),
     subAgentHistoryMaxChars: clamp(
-      parsePositiveInt(env.OTTO_SUBAGENT_HISTORY_MAX_CHARS) ?? defaults.subAgentHistoryMaxChars,
+      parsePositiveInt(env.CLAWMASTER_SUBAGENT_HISTORY_MAX_CHARS) ?? defaults.subAgentHistoryMaxChars,
       20000,
       240000,
     ),
     subAgentOverallTimeoutMs: clamp(
-      parsePositiveInt(env.OTTO_SUBAGENT_TIMEOUT_MS) ?? defaults.subAgentOverallTimeoutMs,
+      parsePositiveInt(env.CLAWMASTER_SUBAGENT_TIMEOUT_MS) ?? defaults.subAgentOverallTimeoutMs,
       5 * MINUTE_MS,
       60 * MINUTE_MS,
     ),

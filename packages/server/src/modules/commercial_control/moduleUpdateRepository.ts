@@ -42,7 +42,7 @@ export function getModuleUpdateManifestFromStore(
   store: ModuleUpdateRepositoryStore,
 ): ModuleUpdateManifest {
   return {
-    format: 'otto-module-updates-v1',
+    format: 'clawmaster.module-updates-v1',
     deploymentId: store.deploymentId(),
     generatedAt: new Date().toISOString(),
     modules: parseModuleUpdateDescriptors(store.readSetting(MODULE_UPDATE_MANIFEST_SETTING)),

@@ -1,5 +1,5 @@
 {
-  "name": "otto-evals",
+  "name": "clawmaster-evals",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,6 +8,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "otto-core": "file:../core"
+    "clawmaster-core": "file:../core"
   }
 }

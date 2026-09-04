@@ -20,7 +20,7 @@ const save = vi.fn(async () => config);
 
 beforeEach(() => {
   save.mockClear();
-  (window as unknown as { otto: unknown }).otto = {
+  (window as unknown as { clawmaster: unknown }).clawmaster = {
     voiceGetConfig: async () => config,
     voiceSaveConfig: save,
   };

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 /**
@@ -10,7 +10,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { SearchProviderRuntimeConfig, WebSearchProvider } from 'otto-core';
+import type { SearchProviderRuntimeConfig, WebSearchProvider } from 'clawmaster-core';
 import { loadUserSettingsSubset, patchUserSettings } from './userSettings.js';
 
 export const DEFAULT_VOLCENGINE_SEARCH_API_URL =
@@ -89,14 +89,14 @@ export function loadSearchRuntimeConfig(
   const settings = loadUserSettingsSubset(homeDir);
   const provider = settings.searchProvider ?? 'bing';
   const bochaApiKey =
-    readSecret('bocha', homeDir) ?? process.env.OTTO_BOCHA_API_KEY;
+    readSecret('bocha', homeDir) ?? process.env.CLAWMASTER_BOCHA_API_KEY;
   const volcengineApiKey =
     readSecret('volcengine', homeDir) ?? process.env.ARK_API_KEY;
   const volcengineApiUrl =
     settings.searchApiUrl ?? DEFAULT_VOLCENGINE_SEARCH_API_URL;
   const volcengineModel =
     settings.searchModel ??
-    process.env.OTTO_SEARCH_MODEL ??
+    process.env.CLAWMASTER_SEARCH_MODEL ??
     DEFAULT_VOLCENGINE_SEARCH_MODEL;
   const providerConfigs: SearchRuntimeConfig['providerConfigs'] = {
     bing: {

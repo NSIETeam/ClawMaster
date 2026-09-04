@@ -31,11 +31,11 @@ describe('getAgentResourceBudget', () => {
   it('clamps environment overrides to profile ceilings', () => {
     const budget = getAgentResourceBudget(
       {
-        OTTO_AGENT_PROFILE: 'standard',
-        OTTO_TASK_MAX_CONCURRENCY: '99',
-        OTTO_WORKFLOW_MAX_CONCURRENCY: '99',
-        OTTO_WORKFLOW_MAX_AGENTS: '9999',
-        OTTO_SUBAGENT_HISTORY_MAX_CHARS: '999999',
+        CLAWMASTER_AGENT_PROFILE: 'standard',
+        CLAWMASTER_TASK_MAX_CONCURRENCY: '99',
+        CLAWMASTER_WORKFLOW_MAX_CONCURRENCY: '99',
+        CLAWMASTER_WORKFLOW_MAX_AGENTS: '9999',
+        CLAWMASTER_SUBAGENT_HISTORY_MAX_CHARS: '999999',
       },
       16 * 1024 * 1024 * 1024,
       8,

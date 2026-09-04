@@ -82,7 +82,7 @@ export class ProxyAuthManager {
   /**
    * 🎯 生成规范的 User-Agent 字符串
    * 委托给 core 统一的单一事实来源 utils/userAgent.ts。
-   * 格式: Otto/<client>/<version> (<platform>; <arch>)
+   * 格式: ClawMaster/<client>/<version> (<platform>; <arch>)
    */
   private getUserAgent(): string {
     return getUserAgent(this.cliVersion);
@@ -129,7 +129,7 @@ export class ProxyAuthManager {
   private constructor() {
     // 用户信息存储路径
 
-    if ((process.env.OTTO_SERVER_URL ?? process.env.OTTO_SERVER_URL)?.includes('localhost')) {
+    if ((process.env.CLAWMASTER_SERVER_URL ?? process.env.CLAWMASTER_SERVER_URL)?.includes('localhost')) {
       this.userInfoFilePath = path.join(os.homedir(), '.otto-user', 'user-info-dev.json');
       this.jwtTokenFilePath = path.join(os.homedir(), '.otto-user', 'jwt-token-dev.json');
       this.usageStatsFilePath = path.join(os.homedir(), '.otto-user', 'usage-stats-dev.json');
@@ -172,9 +172,9 @@ export class ProxyAuthManager {
 
         if (timeRemaining > 0) {
           const nextRefreshFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt - TOKEN_REFRESH_THRESHOLD_SECONDS * 1000);
-          if (process.env.OTTO_CODE_DEBUG === "1") console.log(`[Login Check] 📊 Periodic status check - Credential remaining: ${timeRemainingFormatted} (until ${expiresAtFormatted}), next renewal: ${nextRefreshFormatted}`);
+          if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] 📊 Periodic status check - Credential remaining: ${timeRemainingFormatted} (until ${expiresAtFormatted}), next renewal: ${nextRefreshFormatted}`);
         } else {
-          if (process.env.OTTO_CODE_DEBUG === "1") console.log(`[Login Check] ⚠️  Periodic status check - Credential expired at: ${expiresAtFormatted}`);
+          if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] ⚠️  Periodic status check - Credential expired at: ${expiresAtFormatted}`);
         }
       }
     }, 10 * 60 * 1000); // 每10分钟检查一次
@@ -201,7 +201,7 @@ export class ProxyAuthManager {
         // 用户信息已加载，不再打印欢迎信息（由 WelcomeScreen 组件显示）
       }
     } catch (error) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.warn('[Login Check] Failed to load user info from local file:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.warn('[Login Check] Failed to load user info from local file:', error);
       this.userInfo = null;
     }
   }
@@ -218,9 +218,9 @@ export class ProxyAuthManager {
       }
 
       fs.writeFileSync(this.userInfoFilePath, JSON.stringify(this.userInfo, null, 2));
-      if (process.env.OTTO_CODE_DEBUG === "1") console.log('[Login Check] User info saved to local file');
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] User info saved to local file');
     } catch (error) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.error('[Login Check] Failed to save user info:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.error('[Login Check] Failed to save user info:', error);
     }
   }
 
@@ -243,10 +243,10 @@ export class ProxyAuthManager {
           }
         }
       } else {
-        if (process.env.OTTO_CODE_DEBUG === "1") console.log('[Login Check] No stored access credential found, authentication required');
+        if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] No stored access credential found, authentication required');
       }
     } catch (error) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.warn('[Login Check] Failed to load access credential from local file:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.warn('[Login Check] Failed to load access credential from local file:', error);
       this.jwtTokenData = null;
     }
   }
@@ -267,9 +267,9 @@ export class ProxyAuthManager {
       }
 
       fs.writeFileSync(this.jwtTokenFilePath, JSON.stringify(this.jwtTokenData, null, 2));
-      if (process.env.OTTO_CODE_DEBUG === "1") console.log('[Login Check] Access credential data saved to local file');
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] Access credential data saved to local file');
     } catch (error) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.error('[Login Check] Failed to save access credential:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.error('[Login Check] Failed to save access credential:', error);
     }
   }
 
@@ -283,7 +283,7 @@ export class ProxyAuthManager {
         this.usageStats = JSON.parse(data);
       }
     } catch (error) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.warn('[Login Check] Failed to load usage stats from local file:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.warn('[Login Check] Failed to load usage stats from local file:', error);
       this.usageStats = { totalCreditsConsumed: 0, lastUpdated: new Date().toISOString() };
     }
   }
@@ -300,9 +300,9 @@ export class ProxyAuthManager {
       }
 
       fs.writeFileSync(this.usageStatsFilePath, JSON.stringify(this.usageStats, null, 2));
-      if (process.env.OTTO_CODE_DEBUG === "1") console.log('[Login Check] Usage stats saved to local file');
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] Usage stats saved to local file');
     } catch (error) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.error('[Login Check] Failed to save usage stats:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.error('[Login Check] Failed to save usage stats:', error);
     }
   }
 
@@ -366,16 +366,16 @@ export class ProxyAuthManager {
     if (config.userInfo) {
       this.userInfo = config.userInfo;
       this.saveUserInfo();
-      if (process.env.OTTO_CODE_DEBUG === "1") console.log(`[Login Check] User info configured: ${config.userInfo.name}`);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] User info configured: ${config.userInfo.name}`);
     }
 
     if (config.proxyServerUrl) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.log(`[Login Check] Proxy server URL: ${config.proxyServerUrl}`);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] Proxy server URL: ${config.proxyServerUrl}`);
     }
 
     if (config.cliVersion) {
       this.cliVersion = config.cliVersion;
-      if (process.env.OTTO_CODE_DEBUG === "1") console.log(`[Login Check] CLI version set: ${config.cliVersion}`);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] CLI version set: ${config.cliVersion}`);
     }
   }
 
@@ -385,7 +385,7 @@ export class ProxyAuthManager {
   setUserInfo(userInfo: FeishuUserInfo): void {
     this.userInfo = userInfo;
     this.saveUserInfo();
-    if (process.env.OTTO_CODE_DEBUG === "1") console.log(`[Login Check] User info updated: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
+    if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] User info updated: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
 
     // 触发登录成功回调（例如刷新云端模型列表）
     this.triggerLoginSuccessCallbacks();
@@ -416,7 +416,7 @@ export class ProxyAuthManager {
    */
   setCliVersion(version: string): void {
     this.cliVersion = version;
-    if (process.env.OTTO_CODE_DEBUG === "1") console.log(`[Login Check] CLI version updated: ${version}`);
+    if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] CLI version updated: ${version}`);
   }
 
   /**
@@ -431,7 +431,7 @@ export class ProxyAuthManager {
       savedAt: new Date().toISOString()
     };
     this.saveJwtToken();
-    if (process.env.OTTO_CODE_DEBUG === "1") console.log('[Login Check] Access credential updated');
+    if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] Access credential updated');
   }
 
   /**
@@ -459,7 +459,7 @@ export class ProxyAuthManager {
     const hasRefreshToken = !!tokenData.refreshToken;
     const autoRenewal = hasRefreshToken ? ', will auto-renew' : ', manual login required';
 
-    if (process.env.OTTO_CODE_DEBUG === "1") console.log(`[Login Check] Access credential updated - valid for: ${timeRemainingFormatted} (until ${expiresAtFormatted}), next renewal: ${nextRefreshFormatted}${autoRenewal}`);
+    if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] Access credential updated - valid for: ${timeRemainingFormatted} (until ${expiresAtFormatted}), next renewal: ${nextRefreshFormatted}${autoRenewal}`);
   }
 
   /**
@@ -467,7 +467,7 @@ export class ProxyAuthManager {
    */
   async getAccessToken(): Promise<string | null> {
     if (!this.jwtTokenData) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.log('[Login Check] No access credential available, authentication required');
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] No access credential available, authentication required');
       return null;
     }
 
@@ -477,12 +477,12 @@ export class ProxyAuthManager {
 
     // 检查token是否即将过期（提前3天刷新的主要检查）
     if (this.isTokenNearExpiry()) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.log(`[Login Check] Access credential expiring soon (remaining: ${timeRemainingFormatted}), starting auto-renewal...`);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] Access credential expiring soon (remaining: ${timeRemainingFormatted}), starting auto-renewal...`);
       try {
         const newToken = await this.refreshAccessToken();
         return newToken;
       } catch (error) {
-        if (process.env.OTTO_CODE_DEBUG === "1") console.error('[Login Check] Credential renewal failed:', error);
+        if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.error('[Login Check] Credential renewal failed:', error);
         return null;
       }
     }
@@ -515,7 +515,7 @@ export class ProxyAuthManager {
     // 调试日志：显示详细的时间计算
     if (isNearExpiry) {
       const timeRemainingFormatted = this.formatTimeRemaining(timeToExpiry);
-      if (process.env.OTTO_CODE_DEBUG === "1") console.log(`[Login Check] Credential expiry check: ${timeRemainingFormatted} remaining <= ${thresholdSeconds}s threshold, renewal needed: ${isNearExpiry}`);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] Credential expiry check: ${timeRemainingFormatted} remaining <= ${thresholdSeconds}s threshold, renewal needed: ${isNearExpiry}`);
     }
 
     return isNearExpiry;
@@ -549,7 +549,7 @@ export class ProxyAuthManager {
     }
 
     try {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.log('[Login Check] Refreshing access credential...');
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] Refreshing access credential...');
 
       const response = await fetch(`${this.config.proxyServerUrl}/auth/jwt/refresh`, {
         method: 'POST',
@@ -596,10 +596,10 @@ export class ProxyAuthManager {
       const newExpiresAtFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt);
       const newNextRefreshFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt - TOKEN_REFRESH_THRESHOLD_SECONDS * 1000);
 
-      if (process.env.OTTO_CODE_DEBUG === "1") console.log(`[Login Check] ✅ Credential renewed successfully - valid for: ${newTimeRemainingFormatted} (until ${newExpiresAtFormatted}), next renewal: ${newNextRefreshFormatted}${hasNewRefreshToken ? ' (refresh credential updated)' : ' (reusing existing refresh credential)'}`);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log(`[Login Check] ✅ Credential renewed successfully - valid for: ${newTimeRemainingFormatted} (until ${newExpiresAtFormatted}), next renewal: ${newNextRefreshFormatted}${hasNewRefreshToken ? ' (refresh credential updated)' : ' (reusing existing refresh credential)'}`);
       return this.jwtTokenData.accessToken;
     } catch (error) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.error('[Login Check] Credential refresh error:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.error('[Login Check] Credential refresh error:', error);
       throw error;
     }
   }
@@ -614,7 +614,7 @@ export class ProxyAuthManager {
         fs.unlinkSync(this.jwtTokenFilePath);
       }
     } catch (error) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.warn('[Login Check] Failed to delete access credential file:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.warn('[Login Check] Failed to delete access credential file:', error);
     }
   }
 
@@ -629,7 +629,7 @@ export class ProxyAuthManager {
    * 获取用户请求头信息（用于API调用）
    * 使用JWT token认证
    *
-   * @param sceneType 可选，调用方场景标识，注入到 X-Otto-Scene header
+   * @param sceneType 可选，调用方场景标识，注入到 X-ClawMaster-Scene header
    */
   async getUserHeaders(sceneType?: string): Promise<Record<string, string>> {
     const token = await this.getAccessToken();
@@ -650,7 +650,7 @@ export class ProxyAuthManager {
 
     // 协议 v1.4.2：调用场景（inline_complete 不走此路径，由其链路自行设置）
     if (sceneType) {
-      headers['X-Otto-Scene'] = sceneType;
+      headers['X-ClawMaster-Scene'] = sceneType;
     }
 
     return headers;
@@ -732,7 +732,7 @@ export class ProxyAuthManager {
         fs.unlinkSync(this.userInfoFilePath);
       }
     } catch (error) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.warn('[Login Check] Failed to delete user info file:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.warn('[Login Check] Failed to delete user info file:', error);
     }
 
     // 删除JWT token文件
@@ -741,10 +741,10 @@ export class ProxyAuthManager {
         fs.unlinkSync(this.jwtTokenFilePath);
       }
     } catch (error) {
-      if (process.env.OTTO_CODE_DEBUG === "1") console.warn('[Login Check] Failed to delete access credential file:', error);
+      if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.warn('[Login Check] Failed to delete access credential file:', error);
     }
 
-    if (process.env.OTTO_CODE_DEBUG === "1") console.log('[Login Check] Authentication cleared');
+    if (process.env.CLAWMASTER_CODE_DEBUG === "1") console.log('[Login Check] Authentication cleared');
   }
 }
 

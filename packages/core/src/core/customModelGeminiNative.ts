@@ -20,7 +20,7 @@ type NativeChunk = Record<string, unknown> & {
 // ============================================================================
 // Gemini native (GenAI v1beta) — POST /v1beta/models/{id}:streamGenerateContent
 // ----------------------------------------------------------------------------
-// Mirrors what OttoServerAdapter sends for Gemini through its proxy: the
+// Mirrors what ClawMasterServerAdapter sends for Gemini through its proxy: the
 // request body is a real Google GenAI payload (not OpenAI-shimmed), so we
 // keep `thinkingConfig`, `thoughts`, `parts.functionCall`, and other native
 // features instead of round-tripping through OpenAI's reduced schema.
@@ -34,7 +34,7 @@ type NativeChunk = Record<string, unknown> & {
 
 /**
  * Apply user's resolved {@link ThinkingConfig} to a Gemini GenAI request body.
- * Branches on Gemini family the same way OttoServerAdapter does:
+ * Branches on Gemini family the same way ClawMasterServerAdapter does:
  *   - Gemini 3 / 3.5  →  thinkingConfig.thinkingLevel ('minimal'|'low'|'medium'|'high')
  *   - Gemini 2.5 (default) →  thinkingConfig.thinkingBudget (number; -1=dynamic, 0=disable)
  * Always sets `includeThoughts: true` when thinking is on so the model emits
@@ -327,7 +327,7 @@ export function buildGeminiNativeRequestBody(
    *   - `{ text: '...' }` (intermediate form some adapters used)
    * EasyRouter / Google's actual `/v1beta` endpoint only accepts the canonical
    * form — passing a string yields HTTP 500 "json: cannot unmarshal string
-   * into Go struct field .systemInstruction of type OttoChatContent".
+   * into Go struct field .systemInstruction of type ClawMasterChatContent".
    */
   const normaliseSystemInstruction = (raw: unknown): unknown => {
     if (raw == null) return undefined;
@@ -354,7 +354,7 @@ export function buildGeminiNativeRequestBody(
     // Strip JSON-Schema-only keys (e.g. `$schema` from MCP tools) and
     // normalise types/combinators down to Gemini's accepted Schema subset.
     // Without this, MCP-supplied tool schemas trigger HTTP 400 from the
-    // upstream — the OttoServerAdapter path is shielded by the proxy doing
+    // upstream — the ClawMasterServerAdapter path is shielded by the proxy doing
     // the same cleaning, but here we're talking to EasyRouter / Google
     // directly. See sanitiseGeminiToolSchema for the full rationale.
     body.tools = sanitiseGeminiTools(reqConfig.tools);
@@ -509,7 +509,7 @@ export function* mapGeminiChunkToResponses(
  * contents we sent at byte level. Cheap (≤20KB usually), fire-and-forget,
  * never blocks the request.
  *
- * Mirrors OttoServerAdapter.dumpOutboundRequest():
+ * Mirrors ClawMasterServerAdapter.dumpOutboundRequest():
  *   - Same dir: `~/.otto/last-requests/`
  *   - Same ring buffer: keep the latest N entries
  *
@@ -580,7 +580,7 @@ export function dumpGeminiRequest(kind: 'unary' | 'stream', modelId: string, bod
       await fs.promises.rename(tmp, ringFile);
 
       // Trim ring to the last GEMINI_DUMP_RING_SIZE Gemini entries
-      // (OttoServerAdapter writes its own kinds in the same dir; we only
+      // (ClawMasterServerAdapter writes its own kinds in the same dir; we only
       // touch our own files identified by the `_gemini-` infix).
       try {
         const entries = await fs.promises.readdir(dumpDir);

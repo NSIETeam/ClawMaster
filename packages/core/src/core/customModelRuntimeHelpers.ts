@@ -16,7 +16,7 @@ import {
  * 「响应头已到、流中途卡死」（half-open TCP / provider 挂起 / 代理握住 socket
  * 不发 RST）——这种情况 reader.read() 既不 resolve 也不 reject，整个 agent turn
  * 会无限挂起到用户手动 abort。这里给每个 read() 包一层空闲超时，镜像
- * OttoServerAdapter.withTimeout 的代理路径模式，保持两条路径行为一致：
+ * ClawMasterServerAdapter.withTimeout 的代理路径模式，保持两条路径行为一致：
  * 超时即 cancel reader 并抛出可重试的 stream-interrupt 错误，让 turn 快速失败带指引。
  *
  * 每来一个数据块计时器就重置（下一次 read() 新建定时器），所以只防单块卡顿，

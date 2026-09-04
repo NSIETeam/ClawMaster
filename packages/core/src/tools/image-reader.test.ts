@@ -53,7 +53,7 @@ describe('ImageReaderTool', () => {
       getFileService: () => new FileDiscoveryService(tempRootDir),
       getTargetDir: () => tempRootDir,
       getUsageStatisticsEnabled: () => false,
-      getOttoClient: () => ({
+      getClawMasterClient: () => ({
         createTemporaryChat: createTemporaryChatMock,
       }),
     } as unknown as Config;

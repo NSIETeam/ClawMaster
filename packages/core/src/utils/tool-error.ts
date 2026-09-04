@@ -1,7 +1,7 @@
 /**
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
- * Structured error system for Otto tools.
+ * Structured error system for ClawMaster tools.
  * Replaces bare string errors with typed codes the AI can programmatically react to.
  */
 

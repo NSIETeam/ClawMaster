@@ -1,12 +1,12 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
- *  otto-server 线协议（FROZEN CONTRACT — Issue #2）
+ *  clawmaster-server 线协议（FROZEN CONTRACT — Issue #2）
  * ════════════════════════════════════════════════════════════════════════════
  *
  * 这是 server ↔ desktop renderer 之间的唯一契约源。
@@ -22,7 +22,7 @@
  *    平移过来的「孪生定义」，名字与结构刻意保持一致，让 webview 组件零改可用。
  *
  * 实装 agent 对齐点：
- *   - server 端（NaturalScience）：把 core 的 ServerOttoStreamEvent 序列化成
+ *   - server 端（NaturalScience）：把 core 的 ServerClawMasterStreamEvent 序列化成
  *     下面的 ServerToClient 帧；HTTP 端实现 sessions/history。
  *   - desktop renderer（Felix）：preload 暴露的 client 收发的就是这些帧；
  *     webview 的 multiSessionMessageService 传输底换成订阅这些帧。
@@ -212,7 +212,7 @@ export interface TokenUsage {
  * 一条会话消息（server 持久化的会话条目，渲染层直接映射成 ChatMessage）。
  * 与 webview ChatMessage 兼容，但加了 `source` 与 `sessionId` 归属。
  */
-export interface OttoMessage {
+export interface ClawMasterMessage {
   id: string;
   sessionId: string;
   role: 'user' | 'assistant' | 'system' | 'tool' | 'notification';
@@ -938,7 +938,7 @@ export type QueueDrainedMsg = Envelope<
 /** 历史回包（恢复 UI）。 */
 export type HistoryMsg = Envelope<
   'history',
-  { sessionId: string; messages: OttoMessage[] }
+  { sessionId: string; messages: ClawMasterMessage[] }
 >;
 
 /**
@@ -948,7 +948,7 @@ export type HistoryMsg = Envelope<
  */
 export type MessageStartMsg = Envelope<
   'message_start',
-  { message: OttoMessage }
+  { message: ClawMasterMessage }
 >;
 
 /**
@@ -1063,7 +1063,7 @@ export interface ModelInfo {
   /** 上下文窗口大小（非敏感，用于编辑表单预填）。 */
   maxTokens?: number;
   enabled?: boolean;
-  /** personal=用户 BYOK；enterprise=Otto 托管。旧客户端可忽略。 */
+  /** personal=用户 BYOK；enterprise=ClawMaster 托管。旧客户端可忽略。 */
   source?: 'byok' | 'otto';
   /** true 表示企业托管模型，不允许客户端编辑或删除。 */
   managed?: boolean;
@@ -1641,7 +1641,7 @@ export interface ChannelPairingBeginRequest {
  * REST 路由约定（server.ts 实现）：
  *   GET  /health                      → ApiResponse<HealthInfo>
  *   GET  /sessions                    → ApiResponse<SessionSummary[]>
- *   GET  /sessions/:id/history        → ApiResponse<OttoMessage[]>
+ *   GET  /sessions/:id/history        → ApiResponse<ClawMasterMessage[]>
  *   POST /sessions                    → ApiResponse<SessionSummary>
  *   GET  /models                      → ApiResponse<ModelInfo[]>
  *   POST /feishu/start                → ApiResponse<FeishuHealthStatus>（运行期启动飞书守护）
@@ -1695,7 +1695,7 @@ export const PNA_HEADERS = {
 
 /** 默认绑定回环地址；端口可配/可发现。 */
 export const DEFAULT_HOST = '127.0.0.1';
-export const DEFAULT_PORT = 7637; // 'OTTO' on a phone keypad-ish; 可被 env OTTO_SERVER_PORT 覆盖
+export const DEFAULT_PORT = 7637; // 'OTTO' on a phone keypad-ish; 可被 env CLAWMASTER_SERVER_PORT 覆盖
 
 /** 运行期可发现的连接信息（写盘供 desktop/daemon 读取）。 */
 export interface ServerEndpoint {

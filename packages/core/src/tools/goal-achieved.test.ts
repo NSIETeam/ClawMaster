@@ -15,7 +15,7 @@ vi.mock('../agents/runGoalEvaluation.js', () => ({
 }));
 
 /**
- * Lightweight mock OttoClient surface — only the bits goal-achieved
+ * Lightweight mock ClawMasterClient surface — only the bits goal-achieved
  * touches. Letting tests assert against `getGoalContext`/`clearGoalContext`
  * call counts is the most direct way to verify the side effect.
  */
@@ -55,7 +55,7 @@ describe('GoalAchievedTool', () => {
   beforeEach(() => {
     mockClient = makeMockClient(baseCtx);
     const mockConfig = {
-      getOttoClient: () => mockClient,
+      getClawMasterClient: () => mockClient,
       getUsageStatisticsEnabled: () => false,
     } as unknown as Config;
     tool = new GoalAchievedTool(mockConfig);
@@ -97,7 +97,7 @@ describe('GoalAchievedTool', () => {
   // ─── execute: happy path (active goal) ──────────────────────────────
 
   describe('execute (active goal)', () => {
-    it('calls clearGoalContext on the OttoClient', async () => {
+    it('calls clearGoalContext on the ClawMasterClient', async () => {
       await tool.execute(
         { reason: 'criteria 1, 2, 3 all met (cited evidence)' },
         abortSignal,
@@ -186,7 +186,7 @@ describe('GoalAchievedTool', () => {
     beforeEach(() => {
       mockClient = makeMockClient(baseCtx);
       mockConfigWithCloudModels = {
-        getOttoClient: () => mockClient,
+        getClawMasterClient: () => mockClient,
         getUsageStatisticsEnabled: () => false,
         getCloudModels: () => [{ name: 'deepseek-v4-flash', available: true }],
         getCustomModels: () => [],
@@ -260,7 +260,7 @@ describe('GoalAchievedTool', () => {
     beforeEach(() => {
       mockClient = makeMockClient(null); // no active context
       const mockConfig = {
-        getOttoClient: () => mockClient,
+        getClawMasterClient: () => mockClient,
         getUsageStatisticsEnabled: () => false,
       } as unknown as Config;
       tool = new GoalAchievedTool(mockConfig);
@@ -296,12 +296,12 @@ describe('GoalAchievedTool', () => {
 
   // ─── execute: defensive — client unavailable ────────────────────────
 
-  describe('execute (defensive — getOttoClient throws)', () => {
+  describe('execute (defensive — getClawMasterClient throws)', () => {
     beforeEach(() => {
       const mockConfig = {
-        // Simulate the client init race: getOttoClient throws if called
+        // Simulate the client init race: getClawMasterClient throws if called
         // too early. Should not crash the tool loop.
-        getOttoClient: () => {
+        getClawMasterClient: () => {
           throw new Error('client not yet initialized');
         },
         getUsageStatisticsEnabled: () => false,

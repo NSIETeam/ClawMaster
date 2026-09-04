@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -54,7 +54,7 @@ export interface SoftwareUpdateState {
   lastCheckedAt: number | null;
   /** 静默检查发现新版 → 设置入口小圆点；用户进过「软件更新」tab 后熄灭。 */
   badgeVisible: boolean;
-  /** installUpdate 返回的下一步指引（如「装完请重启 Otto」）。 */
+  /** installUpdate 返回的下一步指引（如「装完请重启 ClawMaster」）。 */
   installMessage: string | null;
 }
 
@@ -192,13 +192,13 @@ export function useSoftwareUpdate(): UseSoftwareUpdate {
     let cancelled = false;
     void (async () => {
       try {
-        const version = await window.otto?.appVersion?.();
+        const version = await window.clawmaster?.appVersion?.();
         if (!cancelled && version) dispatch({ kind: 'version', version });
       } catch {
         // 拿不到版本号不致命，UI 显示占位。
       }
     })();
-    const off = window.otto?.onUpdateProgress?.((progress) =>
+    const off = window.clawmaster?.onUpdateProgress?.((progress) =>
       dispatch({ kind: 'download_progress', progress }),
     );
     return () => {
@@ -213,7 +213,7 @@ export function useSoftwareUpdate(): UseSoftwareUpdate {
       if (!silent) dispatch({ kind: 'check_start' });
       let result: UpdateCheckResult;
       try {
-        result = await window.otto.updateCheck();
+        result = await window.clawmaster.updateCheck();
       } catch (e) {
         // IPC 本身挂了也算「检查失败」，同样不许冒充最新。
         result = {
@@ -234,7 +234,7 @@ export function useSoftwareUpdate(): UseSoftwareUpdate {
         void (async () => {
           let result: UpdateDownloadResult;
           try {
-            result = await window.otto.updateDownload();
+            result = await window.clawmaster.updateDownload();
           } catch (e) {
             result = {
               ok: false,
@@ -244,11 +244,11 @@ export function useSoftwareUpdate(): UseSoftwareUpdate {
           dispatch({ kind: 'download_result', result });
         })();
       },
-      cancelDownload: () => void window.otto.updateCancel(),
+      cancelDownload: () => void window.clawmaster.updateCancel(),
       install: () => {
         void (async () => {
           try {
-            const result = await window.otto.updateInstall();
+            const result = await window.clawmaster.updateInstall();
             dispatch({ kind: 'install_result', result });
           } catch (e) {
             dispatch({
@@ -263,8 +263,8 @@ export function useSoftwareUpdate(): UseSoftwareUpdate {
       },
       openReleasePage: (url?: string) => {
         // releasePageUrl 由 main 下发（面板传入），这里兜底官方发布页地址。
-        void window.otto.openExternal(
-          url ?? 'https://github.com/NSIETeam/otto-new/releases/latest',
+        void window.clawmaster.openExternal(
+          url ?? 'https://github.com/NSIETeam/claw-new/releases/latest',
         );
       },
       markBadgeSeen: () => dispatch({ kind: 'badge_seen' }),

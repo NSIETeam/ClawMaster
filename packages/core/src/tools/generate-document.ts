@@ -80,7 +80,7 @@ function detectWindowsConsoleEncoding(): string {
             ? `cp${codePage}`
             : 'gb18030';
   } catch {
-    // Otto 国内 Windows 用户以 CP936 为主；无法探测时优先避免中文错误乱码。
+    // ClawMaster 国内 Windows 用户以 CP936 为主；无法探测时优先避免中文错误乱码。
     cachedWindowsConsoleEncoding = 'gb18030';
   }
   return cachedWindowsConsoleEncoding;
@@ -334,7 +334,7 @@ export function findLocalBrowserExecutable(
   platform: NodeJS.Platform = process.platform,
   env: NodeJS.ProcessEnv = process.env,
 ): string | null {
-  for (const configured of [env.OTTO_BROWSER_PATH, env.CHROME_PATH]) {
+  for (const configured of [env.CLAWMASTER_BROWSER_PATH, env.CHROME_PATH]) {
     if (configured && fs.existsSync(configured)) return configured;
   }
 
@@ -2046,8 +2046,8 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
     const python = this.runtimeResolver('python');
     progress.step('export', '导出 DOCX 文件');
     const pythonEnvironment = buildBundledPythonEnvironment(python);
-    if (author) pythonEnvironment.OTTO_DOCUMENT_AUTHOR = author;
-    if (department) pythonEnvironment.OTTO_DOCUMENT_DEPARTMENT = department;
+    if (author) pythonEnvironment.CLAWMASTER_DOCUMENT_AUTHOR = author;
+    if (department) pythonEnvironment.CLAWMASTER_DOCUMENT_DEPARTMENT = department;
     await this.commandRunner(
       python.executable,
       [script, mdFile, outPath],

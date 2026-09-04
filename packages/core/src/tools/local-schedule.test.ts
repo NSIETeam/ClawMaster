@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,7 +18,7 @@ let tempDir: string;
 
 beforeEach(() => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'otto-schedule-'));
-  vi.stubEnv('OTTO_SCHEDULE_FILE', path.join(tempDir, 'schedules.json'));
+  vi.stubEnv('CLAWMASTER_SCHEDULE_FILE', path.join(tempDir, 'schedules.json'));
 });
 
 afterEach(() => {
@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 describe('本地日程数据层', () => {
-  it('创建后可按指定时区的日期查询，并保留 Otto 自动创建原因', () => {
+  it('创建后可按指定时区的日期查询，并保留 ClawMaster 自动创建原因', () => {
     const created = createLocalSchedule({
       title: '竞品调研复盘',
       startAt: '2026-07-12T01:30:00.000Z',
@@ -75,7 +75,7 @@ describe('本地日程数据层', () => {
 describe('local_schedule 工具', () => {
   const config = {} as ConstructorParameters<typeof LocalScheduleTool>[0];
 
-  it('Otto 可自主创建日程，并返回结构化结果', async () => {
+  it('ClawMaster 可自主创建日程，并返回结构化结果', async () => {
     const tool = new LocalScheduleTool(config);
     const result = await tool.execute(
       {

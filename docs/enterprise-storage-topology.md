@@ -25,38 +25,38 @@ replication, automatic failover, backups and point-in-time recovery (PITR).
 Otto Server does not implement database failover itself: every replica uses the
 provider or cluster proxy connection endpoint. PostgreSQL TLS certificate
 verification is enabled by default. Local development may opt out explicitly
-with `sslmode=disable` or `OTTO_POSTGRES_SSL_MODE=disable`.
+with `sslmode=disable` or `CLAWMASTER_POSTGRES_SSL_MODE=disable`.
 
 Clustered mode has no local fallback. It requires PostgreSQL, a private
 S3-compatible attachment bucket, and a Redis-compatible shared cache even when
 temporarily running only one replica:
 
 ```powershell
-$env:OTTO_ENTERPRISE_DATABASE_BACKEND = 'postgresql'
-$env:OTTO_POSTGRES_URL = 'postgresql://otto:<password>@postgres-rw.internal/otto'
-$env:OTTO_ENTERPRISE_REPLICA_COUNT = '3'
-$env:OTTO_ATTACHMENT_OBJECT_STORE = 's3'
-$env:OTTO_S3_BUCKET = 'otto-private'
-$env:OTTO_S3_REGION = 'us-east-1'
-$env:OTTO_S3_BUCKET_PRIVATE_CONFIRMED = 'true'
-$env:OTTO_ATTACHMENT_MAX_BYTES = '10485776'
-$env:OTTO_ATTACHMENT_TENANT_QUOTA_BYTES = '107374182400'
-$env:OTTO_ATTACHMENT_MIGRATION_GRACE_DAYS = '30'
-$env:OTTO_ENTERPRISE_CACHE_BACKEND = 'redis'
-$env:OTTO_REDIS_URL = 'rediss://default:<password>@redis.internal:6379/0'
-$env:OTTO_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE = 'D:\otto-secrets\account-sync.key'
+$env:CLAWMASTER_ENTERPRISE_DATABASE_BACKEND = 'postgresql'
+$env:CLAWMASTER_POSTGRES_URL = 'postgresql://otto:<password>@postgres-rw.internal/otto'
+$env:CLAWMASTER_ENTERPRISE_REPLICA_COUNT = '3'
+$env:CLAWMASTER_ATTACHMENT_OBJECT_STORE = 's3'
+$env:CLAWMASTER_S3_BUCKET = 'otto-private'
+$env:CLAWMASTER_S3_REGION = 'us-east-1'
+$env:CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED = 'true'
+$env:CLAWMASTER_ATTACHMENT_MAX_BYTES = '10485776'
+$env:CLAWMASTER_ATTACHMENT_TENANT_QUOTA_BYTES = '107374182400'
+$env:CLAWMASTER_ATTACHMENT_MIGRATION_GRACE_DAYS = '30'
+$env:CLAWMASTER_ENTERPRISE_CACHE_BACKEND = 'redis'
+$env:CLAWMASTER_REDIS_URL = 'rediss://default:<password>@redis.internal:6379/0'
+$env:CLAWMASTER_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE = 'D:\otto-secrets\account-sync.key'
 ```
 
 Plaintext Redis is rejected unless
-`OTTO_REDIS_ALLOW_INSECURE=true` is explicitly set for an isolated development
+`CLAWMASTER_REDIS_ALLOW_INSECURE=true` is explicitly set for an isolated development
 network. PostgreSQL or Redis URLs are never returned by topology diagnostics;
 only credential-free host/database targets are exposed.
 
 Prepare the PostgreSQL migration control plane after building the server:
 
 ```powershell
-$env:OTTO_ENTERPRISE_DATABASE_BACKEND = 'postgresql'
-$env:OTTO_POSTGRES_URL = 'postgresql://otto:password@db.internal/otto'
+$env:CLAWMASTER_ENTERPRISE_DATABASE_BACKEND = 'postgresql'
+$env:CLAWMASTER_POSTGRES_URL = 'postgresql://otto:password@db.internal/otto'
 npm run enterprise:postgres:prepare --workspace=packages/server
 ```
 
@@ -86,7 +86,7 @@ downgrades to SQLite, process memory, or local attachment storage.
 
 ## High-availability responsibilities
 
-- Point `OTTO_POSTGRES_URL` at a managed writer endpoint or HA proxy, never a
+- Point `CLAWMASTER_POSTGRES_URL` at a managed writer endpoint or HA proxy, never a
   fixed standby address. The readiness probe refuses a server in recovery.
 - Enable synchronous or provider-recommended replication, automatic failover,
   encrypted backups and PITR. Regularly restore into an isolated environment.
@@ -133,7 +133,7 @@ SQLite, but none of the business domains listed above use that fallback.
 
 Account-sync content remains AES-256-GCM ciphertext in PostgreSQL. Every
 replica must mount the same externally provisioned 32-byte key at
-`OTTO_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE`; startup is fail-closed if the file is
+`CLAWMASTER_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE`; startup is fail-closed if the file is
 missing or invalid. The key is not generated independently by a replica and is
 not stored in PostgreSQL, configuration output or logs.
 
@@ -145,9 +145,9 @@ complete S3 object before recording a preparation receipt:
 
 ```powershell
 npm run enterprise:postgres:attachments --workspace=packages/server -- --run <run-id> --dry-run
-$env:OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED = 'true'
-$env:OTTO_SQLITE_ATTACHMENT_STORAGE_DIR = 'D:\otto-data\attachments'
-$env:OTTO_SQLITE_ATTACHMENT_ENCRYPTION_KEY_FILE = 'D:\otto-keys\attachment-storage.key'
+$env:CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED = 'true'
+$env:CLAWMASTER_SQLITE_ATTACHMENT_STORAGE_DIR = 'D:\otto-data\attachments'
+$env:CLAWMASTER_SQLITE_ATTACHMENT_ENCRYPTION_KEY_FILE = 'D:\otto-keys\attachment-storage.key'
 npm run enterprise:postgres:attachments --workspace=packages/server -- --run <run-id> --execute
 ```
 
@@ -161,7 +161,7 @@ core-domain promotion with the same import run ID:
 
 ```powershell
 npm run enterprise:postgres:promote --workspace=packages/server -- --run <run-id> --dry-run
-$env:OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED = 'true'
+$env:CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED = 'true'
 npm run enterprise:postgres:promote --workspace=packages/server -- --run <run-id> --execute
 ```
 
@@ -173,12 +173,12 @@ S3 metadata, participant ACL, quota and attachment-reference rows plus an
 idempotent promotion receipt in one transaction. It refuses cutover if even one
 staged attachment lacks an exact verified S3 preparation. If the snapshot has
 legacy encrypted Skill content, promotion additionally requires
-`OTTO_ENTERPRISE_FIELD_KEY_FILE`; the key is used only to transform verified
+`CLAWMASTER_ENTERPRISE_FIELD_KEY_FILE`; the key is used only to transform verified
 legacy rows and is never emitted.
 
 For a controlled single-replica migration window, optional
-`OTTO_ATTACHMENT_LEGACY_READ_DIR` and
-`OTTO_ATTACHMENT_LEGACY_READ_KEY_FILE` enable fallback reads from retained
+`CLAWMASTER_ATTACHMENT_LEGACY_READ_DIR` and
+`CLAWMASTER_ATTACHMENT_LEGACY_READ_KEY_FILE` enable fallback reads from retained
 local encrypted copies. Otto rejects this compatibility mount when more than
 one replica is configured. Normal multi-replica operation remains S3-only.
 

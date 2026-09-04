@@ -62,8 +62,8 @@ export function buildProxyRequestUrl(
 export function getProxyServers(): ProxyServerConfig[] {
   return [
     {
-      // BYO-key: 未配置 OTTO_SERVER_URL 时为空字符串，调用方需自行跳过网络请求。
-      url: process.env.OTTO_SERVER_URL || '',
+      // BYO-key: 未配置 CLAWMASTER_SERVER_URL 时为空字符串，调用方需自行跳过网络请求。
+      url: process.env.CLAWMASTER_SERVER_URL || '',
       name: 'Primary Development Server',
       region: 'default',
       status: 'active',

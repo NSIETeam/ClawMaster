@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,7 @@
  * 会话 + 事件存储（唯一会话源）。
  *
  * 一个 Session = 一份会话元数据 + 有序消息列表 + 一组订阅者（WS 客户端）。
- * 底层「跑一轮对话」的 core Config/OttoClient 由实装 agent（Issue #1）在
+ * 底层「跑一轮对话」的 core Config/ClawMasterClient 由实装 agent（Issue #1）在
  * SessionRuntime 里接上；本文件只立「存储 + 订阅广播」的接口与内存实现骨架，
  * 让 server.ts / feishu / desktop 可以先按接口对接。
  *
@@ -24,7 +24,7 @@ import {
   SESSION_TITLE_MAX_LEN,
   type MessageContent,
   type MessageSource,
-  type OttoMessage,
+  type ClawMasterMessage,
   type ServerToClient,
   type SessionStatus,
   type SessionSummary,
@@ -38,7 +38,7 @@ export type Subscriber = (frame: ServerToClient) => void;
 export type Unsubscribe = () => void;
 
 /**
- * 会话运行时挂钩。Issue #1 实装时把 core Config/OttoClient 塞进来；
+ * 会话运行时挂钩。Issue #1 实装时把 core Config/ClawMasterClient 塞进来；
  * 骨架阶段是可选的 stub，store 不依赖它即可工作。
  */
 export interface SessionRuntime {
@@ -63,9 +63,9 @@ export interface SessionRuntime {
   /** 释放（关闭 core 资源）。 */
   dispose(): Promise<void>;
   /**
-   * 取出底层 otto-core Config 实例（用于 GUI 面板只读查询/即时应用设置，
+   * 取出底层 clawmaster-core Config 实例（用于 GUI 面板只读查询/即时应用设置，
    * 如 context 用量分解、mcpServers 热更新、healthyUse/preferredLanguage 切换）。
-   * 返回 unknown 避免 sessions.ts 反向依赖 otto-core 的具体 Config 类型；
+   * 返回 unknown 避免 sessions.ts 反向依赖 clawmaster-core 的具体 Config 类型；
    * 调用方（server.ts）按需 cast。
    */
   getConfig(): unknown;
@@ -76,7 +76,7 @@ export interface SessionRuntime {
 /** 单个会话的内部状态。 */
 interface SessionState {
   summary: SessionSummary;
-  messages: OttoMessage[];
+  messages: ClawMasterMessage[];
   subscribers: Set<Subscriber>;
   runtime?: SessionRuntime;
 }
@@ -93,18 +93,18 @@ export interface SessionStore {
   getOrCreateFeishuSession(chatId: string, title?: string): SessionSummary;
   getSession(sessionId: string): SessionSummary | undefined;
   listSessions(): SessionSummary[];
-  getHistory(sessionId: string, limit?: number, before?: number): OttoMessage[];
+  getHistory(sessionId: string, limit?: number, before?: number): ClawMasterMessage[];
 
   appendMessage(
     sessionId: string,
-    msg: Omit<OttoMessage, 'id' | 'sessionId' | 'timestamp'> &
-      Partial<Pick<OttoMessage, 'id' | 'timestamp'>>,
-  ): OttoMessage;
+    msg: Omit<ClawMasterMessage, 'id' | 'sessionId' | 'timestamp'> &
+      Partial<Pick<ClawMasterMessage, 'id' | 'timestamp'>>,
+  ): ClawMasterMessage;
   patchMessage(
     sessionId: string,
     messageId: string,
-    patch: Partial<OttoMessage>,
-  ): OttoMessage | undefined;
+    patch: Partial<ClawMasterMessage>,
+  ): ClawMasterMessage | undefined;
 
   setStatus(sessionId: string, status: SessionStatus): void;
   /** 更新会话选定模型（懒构建 runtime 时按此取模型）。 */
@@ -310,7 +310,7 @@ export class InMemorySessionStore implements SessionStore {
       .sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
-  getHistory(sessionId: string, limit?: number, before?: number): OttoMessage[] {
+  getHistory(sessionId: string, limit?: number, before?: number): ClawMasterMessage[] {
     const s = this.sessions.get(sessionId);
     if (!s) return [];
     let msgs = s.messages;
@@ -326,11 +326,11 @@ export class InMemorySessionStore implements SessionStore {
 
   appendMessage(
     sessionId: string,
-    msg: Omit<OttoMessage, 'id' | 'sessionId' | 'timestamp'> &
-      Partial<Pick<OttoMessage, 'id' | 'timestamp'>>,
-  ): OttoMessage {
+    msg: Omit<ClawMasterMessage, 'id' | 'sessionId' | 'timestamp'> &
+      Partial<Pick<ClawMasterMessage, 'id' | 'timestamp'>>,
+  ): ClawMasterMessage {
     const s = this.requireSession(sessionId);
-    const full: OttoMessage = {
+    const full: ClawMasterMessage = {
       ...msg,
       id: msg.id ?? randomUUID(),
       sessionId,
@@ -359,13 +359,13 @@ export class InMemorySessionStore implements SessionStore {
   patchMessage(
     sessionId: string,
     messageId: string,
-    patch: Partial<OttoMessage>,
-  ): OttoMessage | undefined {
+    patch: Partial<ClawMasterMessage>,
+  ): ClawMasterMessage | undefined {
     const s = this.sessions.get(sessionId);
     if (!s) return undefined;
     const idx = s.messages.findIndex((m) => m.id === messageId);
     if (idx === -1) return undefined;
-    const updated: OttoMessage = { ...s.messages[idx], ...patch };
+    const updated: ClawMasterMessage = { ...s.messages[idx], ...patch };
     const next = [...s.messages];
     next[idx] = updated;
     s.messages = next;
@@ -500,7 +500,7 @@ export class InMemorySessionStore implements SessionStore {
    * 供落盘子类（PersistentSessionStore）启动时把持久化的会话 + 消息灌回内存。
    * 不广播、不再触发持久化——纯粹重建内部状态。status 由调用方归一为 idle。
    */
-  protected hydrate(summary: SessionSummary, messages: OttoMessage[]): void {
+  protected hydrate(summary: SessionSummary, messages: ClawMasterMessage[]): void {
     summary.workspacePath ??= this.defaultWorkspacePath;
     this.sessions.set(summary.sessionId, {
       summary,
@@ -514,7 +514,7 @@ export class InMemorySessionStore implements SessionStore {
 }
 
 /** 从消息内容里取一段预览文本（用于会话列表 lastMessagePreview）。 */
-function previewOf(msg: OttoMessage): string {
+function previewOf(msg: ClawMasterMessage): string {
   const text = msg.content
     .map((p) => (p.type === 'text' ? p.value : `[${p.type}]`))
     .join(' ')

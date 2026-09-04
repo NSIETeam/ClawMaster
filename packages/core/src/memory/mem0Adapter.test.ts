@@ -21,13 +21,13 @@ function createAdapter(fileMemory: string, results: unknown[]) {
 
 describe('Mem0Adapter portable recovery', () => {
   it('keeps restored file memory when the local Mem0 database is empty', async () => {
-    const { adapter } = createAdapter('## Otto Added Memories\n- Prefers concise replies', []);
+    const { adapter } = createAdapter('## ClawMaster Added Memories\n- Prefers concise replies', []);
 
     await expect(adapter.load('global')).resolves.toContain('Prefers concise replies');
   });
 
   it('merges unique Mem0 facts without duplicating restored file facts', async () => {
-    const { adapter } = createAdapter('## Otto Added Memories\n- Prefers concise replies', [
+    const { adapter } = createAdapter('## ClawMaster Added Memories\n- Prefers concise replies', [
       {
         id: 'duplicate',
         memory: 'Prefers concise replies',

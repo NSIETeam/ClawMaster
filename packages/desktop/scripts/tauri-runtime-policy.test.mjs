@@ -9,6 +9,7 @@ import {
   resolveTauriNodeSource,
   resolveTauriRuntimePlatform,
   resolveTauriRuntimeTarget,
+  resolveTauriPackagingMode,
 } from './tauri-runtime-policy.mjs';
 
 describe('Tauri runtime release policy', () => {
@@ -83,10 +84,17 @@ describe('Tauri runtime release policy', () => {
     });
   });
 
-  it('reserves installer headroom with a 28 MiB runtime target and 32 MiB hard stop', () => {
-    expect(evaluateRuntimeSize(28 * 1024 * 1024).withinTarget).toBe(true);
-    expect(evaluateRuntimeSize(29 * 1024 * 1024).withinTarget).toBe(false);
-    expect(() => evaluateRuntimeSize(33 * 1024 * 1024)).toThrow('hard limit');
+  it('uses explicit size gates for the micro and legacy packaging modes', () => {
+    expect(resolveTauriPackagingMode('micro-bootstrap')).toMatchObject({
+      targetBytes: 10 * 1024 * 1024,
+      hardLimitBytes: 12 * 1024 * 1024,
+      embedsLocalExecution: false,
+    });
+    expect(evaluateRuntimeSize(20 * 1024 * 1024).withinTarget).toBe(true);
+    expect(evaluateRuntimeSize(21 * 1024 * 1024).withinTarget).toBe(false);
+    expect(() => evaluateRuntimeSize(25 * 1024 * 1024)).toThrow('hard limit');
+    expect(evaluateRuntimeSize(28 * 1024 * 1024, { mode: 'embedded-legacy' }).withinTarget).toBe(true);
+    expect(() => resolveTauriPackagingMode('unknown')).toThrow('unsupported');
   });
 
   it('reports runtime components in descending order for actionable CI output', () => {

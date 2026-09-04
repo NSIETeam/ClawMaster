@@ -5,7 +5,7 @@ import {
   CustomerModuleHostBroker,
   type CustomerModuleHostAdapterResult,
   type CustomerModuleHostAuditEvent,
-} from 'otto-core';
+} from 'clawmaster-core';
 import type { InstalledCustomerModuleRecord } from './customerModuleInstaller.js';
 
 const STORAGE_KEY = /^[A-Za-z0-9_.-]{1,120}$/u;
@@ -97,7 +97,7 @@ export function createDesktopCustomerModuleHost(input: {
             ...(typeof payload.body === 'string' ? { body: payload.body } : {}),
             headers: {
               'content-type': 'application/json',
-              'x-otto-module': input.record.id,
+              'x-clawmaster.module': input.record.id,
               ...(request.idempotencyKey ? { 'idempotency-key': request.idempotencyKey } : {}),
             },
           });

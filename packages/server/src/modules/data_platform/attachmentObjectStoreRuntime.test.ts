@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -36,9 +36,9 @@ describe('attachment object-store runtime', () => {
   it('fails closed when an S3 bucket has not been confirmed private', () => {
     expect(() =>
       resolveAttachmentObjectStoreConfig({
-        OTTO_ATTACHMENT_OBJECT_STORE: 's3',
-        OTTO_S3_BUCKET: 'otto-private',
-        OTTO_S3_REGION: 'us-east-1',
+        CLAWMASTER_ATTACHMENT_OBJECT_STORE: 's3',
+        CLAWMASTER_S3_BUCKET: 'otto-private',
+        CLAWMASTER_S3_REGION: 'us-east-1',
       }),
     ).toThrow(/private.*confirmed/i);
   });
@@ -46,8 +46,8 @@ describe('attachment object-store runtime', () => {
   it('refuses local attachment storage for multiple server replicas', () => {
     expect(() =>
       resolveAttachmentObjectStoreConfig({
-        OTTO_ATTACHMENT_OBJECT_STORE: 'local',
-        OTTO_ENTERPRISE_REPLICA_COUNT: '2',
+        CLAWMASTER_ATTACHMENT_OBJECT_STORE: 'local',
+        CLAWMASTER_ENTERPRISE_REPLICA_COUNT: '2',
       }),
     ).toThrow(/local.*one.*replica/i);
   });
@@ -58,14 +58,14 @@ describe('attachment object-store runtime', () => {
     }));
     const runtime = createAttachmentObjectStoreRuntime({
       environment: {
-        OTTO_ATTACHMENT_OBJECT_STORE: 's3',
-        OTTO_S3_BUCKET: 'otto-private',
-        OTTO_S3_REGION: 'us-east-1',
-        OTTO_S3_ENDPOINT: 'https://minio.internal:9000',
-        OTTO_S3_FORCE_PATH_STYLE: 'true',
-        OTTO_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
-        OTTO_S3_KMS_KEY_ID: 'minio-kms-key',
-        OTTO_S3_PRESIGN_TTL_SECONDS: '90',
+        CLAWMASTER_ATTACHMENT_OBJECT_STORE: 's3',
+        CLAWMASTER_S3_BUCKET: 'otto-private',
+        CLAWMASTER_S3_REGION: 'us-east-1',
+        CLAWMASTER_S3_ENDPOINT: 'https://minio.internal:9000',
+        CLAWMASTER_S3_FORCE_PATH_STYLE: 'true',
+        CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
+        CLAWMASTER_S3_KMS_KEY_ID: 'minio-kms-key',
+        CLAWMASTER_S3_PRESIGN_TTL_SECONDS: '90',
       },
       encryptedStore,
       s3ClientFactory: clientFactory,
@@ -91,11 +91,11 @@ describe('attachment object-store runtime', () => {
   it('rejects insecure object-store endpoints unless explicitly enabled', () => {
     expect(() =>
       resolveAttachmentObjectStoreConfig({
-        OTTO_ATTACHMENT_OBJECT_STORE: 's3',
-        OTTO_S3_BUCKET: 'otto-private',
-        OTTO_S3_REGION: 'us-east-1',
-        OTTO_S3_ENDPOINT: 'http://minio.internal:9000',
-        OTTO_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
+        CLAWMASTER_ATTACHMENT_OBJECT_STORE: 's3',
+        CLAWMASTER_S3_BUCKET: 'otto-private',
+        CLAWMASTER_S3_REGION: 'us-east-1',
+        CLAWMASTER_S3_ENDPOINT: 'http://minio.internal:9000',
+        CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
       }),
     ).toThrow(/insecure.*explicitly enabled/i);
   });

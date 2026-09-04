@@ -8,7 +8,7 @@ import type {
   MlsKeyPackage,
   MlsPendingApplication,
   MlsPendingReceivedApplication,
-} from '@otto/native';
+} from '@clawmaster/native';
 
 import {
   EnterpriseMlsInboundPollScheduler,
@@ -795,7 +795,7 @@ describe('parseEnterpriseMlsTransportEvent', () => {
   it('unwraps a server-verified member-add Commit without changing delivery fields', () => {
     const commit = 'bWVtYmVyc2hpcC1jb21taXQ=';
     const payload = Buffer.from(
-      'otto:mls:member-add:v1:' +
+      'clawmaster:mls:member-add:v1:' +
         JSON.stringify({
           commit,
           recipientDeviceId: 'device-a-2',

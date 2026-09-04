@@ -24,7 +24,7 @@ Windows 多套大型运行时同时塞进一个安装包。
 运行时解析顺序固定为：
 
 1. `process.resourcesPath/runtime/<platform>-<arch>`（或测试/调试用
-   `OTTO_RESOURCES_PATH`）；
+   `CLAWMASTER_RESOURCES_PATH`）；
 2. 开发版/CLI 的系统 `PATH` 作为兼容回退。
 
 内置 Python 会设置自己的 `PYTHONPATH` 和 `PYTHONNOUSERSITE=1`，避免依赖用户机器

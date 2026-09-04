@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Credential-free black-box security probe for an isolated Otto Enterprise
+ * Credential-free black-box security probe for an isolated ClawMaster Enterprise
  * Server. This script never accepts a remote URL and deletes its temporary
  * database when it finishes.
  */
@@ -27,10 +27,10 @@ const adminToken = randomBytes(32).toString('base64url');
 const checks = [];
 
 process.env.NODE_ENV = 'test';
-process.env.OTTO_ENTERPRISE_DIR = dataDirectory;
-process.env.OTTO_ENTERPRISE_DATABASE_BACKEND = 'sqlite';
-process.env.OTTO_DATABASE_ENCRYPTION = 'disabled';
-process.env.OTTO_LICENSE_ENFORCE = 'false';
+process.env.CLAWMASTER_ENTERPRISE_DIR = dataDirectory;
+process.env.CLAWMASTER_ENTERPRISE_DATABASE_BACKEND = 'sqlite';
+process.env.CLAWMASTER_DATABASE_ENCRYPTION = 'disabled';
+process.env.CLAWMASTER_LICENSE_ENFORCE = 'false';
 
 function record(name, passed, detail = '') {
   checks.push({ name, passed, detail });
@@ -159,7 +159,7 @@ try {
     assert.equal(result.response.status, 200);
     assert.doesNotMatch(
       result.text,
-      /adminToken|machineFingerprint|licenseSignature|privateKey|OTTO_[A-Z_]+/i,
+      /adminToken|machineFingerprint|licenseSignature|privateKey|CLAWMASTER_[A-Z_]+/i,
     );
   });
 
@@ -340,7 +340,7 @@ try {
 const failed = checks.filter((check) => !check.passed);
 const report = {
   generatedAt: new Date().toISOString(),
-  target: 'isolated Otto Enterprise Server',
+  target: 'isolated ClawMaster Enterprise Server',
   checks: checks.length,
   passed: checks.length - failed.length,
   failed: failed.length,

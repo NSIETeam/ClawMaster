@@ -45,7 +45,7 @@ export class PluginStructureAnalyzer {
       // 隐式 Claude Code 格式 (如 plugin-dev)
       detectedFormat = 'claude-code';
     } else if (hasPluginJson && hasSkills && !hasAgents && !hasCommands) {
-      // 传统 Otto 格式
+      // 传统 ClawMaster 格式
       detectedFormat = 'otto-code';
     } else if (hasPluginJson && (hasAgents || hasCommands) && hasSkills) {
       // 混合格式

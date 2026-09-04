@@ -1,7 +1,7 @@
 /**
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
- * LocalKnowledgeStore 单测。全部走临时目录（OTTO_USER_DIR 环境变量重定向，
+ * LocalKnowledgeStore 单测。全部走临时目录（CLAWMASTER_USER_DIR 环境变量重定向，
  * 与 customModelsStorage 的测试隔离惯例一致），绝不污染真实 ~/.otto-user。
  */
 
@@ -17,24 +17,24 @@ import {
 
 describe('LocalKnowledgeStore', () => {
   let tmpDir: string;
-  let savedOttoUserDir: string | undefined;
+  let savedClawMasterUserDir: string | undefined;
 
   beforeEach(async () => {
-    savedOttoUserDir = process.env.OTTO_USER_DIR;
+    savedClawMasterUserDir = process.env.CLAWMASTER_USER_DIR;
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-kb-store-test-'));
-    process.env.OTTO_USER_DIR = tmpDir;
+    process.env.CLAWMASTER_USER_DIR = tmpDir;
   });
 
   afterEach(async () => {
-    if (savedOttoUserDir === undefined) {
-      delete process.env.OTTO_USER_DIR;
+    if (savedClawMasterUserDir === undefined) {
+      delete process.env.CLAWMASTER_USER_DIR;
     } else {
-      process.env.OTTO_USER_DIR = savedOttoUserDir;
+      process.env.CLAWMASTER_USER_DIR = savedClawMasterUserDir;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('getKnowledgeDir 尊重 OTTO_USER_DIR，落在临时目录内', () => {
+  it('getKnowledgeDir 尊重 CLAWMASTER_USER_DIR，落在临时目录内', () => {
     expect(getKnowledgeDir()).toBe(path.join(tmpDir, 'knowledge'));
   });
 

@@ -19,16 +19,16 @@ import {
 describe('nativeCoreBridge', () => {
   it('defaults the Rust hot-path runtime to auto mode', () => {
     expect(resolveNativeCoreMode({})).toBe('auto');
-    expect(resolveNativeCoreMode({ OTTO_NATIVE_CORE: 'required' })).toBe('required');
-    expect(resolveNativeCoreMode({ OTTO_NATIVE_CORE: 'off' })).toBe('off');
-    expect(resolveNativeCoreMode({ OTTO_NATIVE_CORE: 'surprise' })).toBe('auto');
+    expect(resolveNativeCoreMode({ CLAWMASTER_NATIVE_CORE: 'required' })).toBe('required');
+    expect(resolveNativeCoreMode({ CLAWMASTER_NATIVE_CORE: 'off' })).toBe('off');
+    expect(resolveNativeCoreMode({ CLAWMASTER_NATIVE_CORE: 'surprise' })).toBe('auto');
   });
 
   it('prefers explicit native core binary paths', () => {
     const candidates = getNativeCoreBinaryCandidates({
       cwd: '/repo',
       platform: 'linux',
-      env: { OTTO_NATIVE_CORE_BINARY: '/secure/otto-native' },
+      env: { CLAWMASTER_NATIVE_CORE_BINARY: '/secure/otto-native' },
     });
 
     expect(candidates[0]).toBe('/secure/otto-native');
@@ -50,7 +50,7 @@ describe('nativeCoreBridge', () => {
         cwd: '/definitely/not/the/repo',
         env: {},
       }),
-    ).toThrow('OTTO_NATIVE_CORE=required');
+    ).toThrow('CLAWMASTER_NATIVE_CORE=required');
   });
 
   it('allows JS fallback when native core is unavailable in auto mode', () => {

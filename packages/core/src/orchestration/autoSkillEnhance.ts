@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * AutoSkill 增强模块：实时触发、效果追踪、自动优化、多项目迁移。
  *
@@ -150,7 +150,7 @@ let loadedUsagePath = '';
 let usagePersistQueue: Promise<void> = Promise.resolve();
 
 function resolveSkillUsagePath(): string {
-  const configured = process.env['OTTO_USER_DIR']?.trim();
+  const configured = process.env['CLAWMASTER_USER_DIR']?.trim();
   const userDir = configured
     || (process.env['NODE_ENV'] === 'test' || process.env['VITEST']
       ? path.join(tmpdir(), 'otto-auto-skill-tests', String(process.pid))
@@ -319,7 +319,7 @@ export async function optimizeExistingSkill(
   skillContent: string,
   usageRecords: SkillUsageRecord[],
 ): Promise<{ improvedContent: string | null; suggestions: string[] }> {
-  const client = config.getOttoClient();
+  const client = config.getClawMasterClient();
   if (!client || usageRecords.length === 0) {
     return { improvedContent: null, suggestions: [] };
   }
@@ -443,7 +443,7 @@ export async function adaptSkillForProject(
     fileMap?: Record<string, string>;
   },
 ): Promise<string> {
-  const client = config.getOttoClient();
+  const client = config.getClawMasterClient();
   if (!client) return skillContent; // 无 LLM 就直接返回原文
 
   const fileMapSection = newProjectContext.fileMap

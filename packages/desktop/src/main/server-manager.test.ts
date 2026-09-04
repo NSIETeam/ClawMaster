@@ -11,7 +11,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { Server as HttpServer } from 'node:http';
 import { describe, expect, it, vi } from 'vitest';
-import type { ServerEndpoint } from 'otto-server';
+import type { ServerEndpoint } from 'clawmaster-server';
 import {
   prepareDesktopSqlCipherRuntime,
   ServerManager,
@@ -31,7 +31,7 @@ const MAIN_ENDPOINT = {
 const ENTERPRISE_ACCOUNT = {
   id: 'acc_member',
   organizationId: 'org_otto',
-  organizationName: 'Otto 企业',
+  organizationName: 'ClawMaster 企业',
   name: '成员一号',
   isAdmin: false,
   role: 'member',
@@ -46,9 +46,9 @@ describe('desktop SQLCipher runtime custody', () => {
   it('creates one permission-restricted key and configures the packaged native binding', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-desktop-custody-'));
     const userDir = path.join(root, 'otto-user');
-    const resourcesPath = path.join(root, 'Otto.app', 'Contents', 'Resources');
+    const resourcesPath = path.join(root, 'ClawMaster.app', 'Contents', 'Resources');
     const packagedBinding = path.join(resourcesPath, 'sqlcipher', 'better_sqlite3.node');
-    const environment: NodeJS.ProcessEnv = { OTTO_USER_DIR: userDir };
+    const environment: NodeJS.ProcessEnv = { CLAWMASTER_USER_DIR: userDir };
     try {
       await fs.mkdir(path.dirname(packagedBinding), { recursive: true });
       await fs.writeFile(packagedBinding, 'native-binding-probe');
@@ -59,8 +59,8 @@ describe('desktop SQLCipher runtime custody', () => {
       const firstKey = fsSync.readFileSync(first.keyPath!);
 
       expect(firstKey).toHaveLength(32);
-      expect(environment.OTTO_DATABASE_ENCRYPTION_KEY_FILE).toBe(first.keyPath);
-      expect(environment.OTTO_SQLCIPHER_NATIVE_BINDING).toBe(
+      expect(environment.CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE).toBe(first.keyPath);
+      expect(environment.CLAWMASTER_SQLCIPHER_NATIVE_BINDING).toBe(
         packagedBinding,
       );
       if (process.platform !== 'win32') {
@@ -83,21 +83,21 @@ describe('desktop SQLCipher runtime custody', () => {
     try {
       const operatorKey = path.join(root, 'operator.key');
       const explicit: NodeJS.ProcessEnv = {
-        OTTO_USER_DIR: path.join(root, 'explicit-user'),
-        OTTO_DATABASE_ENCRYPTION_KEY_FILE: operatorKey,
-        OTTO_SQLCIPHER_NATIVE_BINDING: '/operator/better_sqlite3.node',
+        CLAWMASTER_USER_DIR: path.join(root, 'explicit-user'),
+        CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE: operatorKey,
+        CLAWMASTER_SQLCIPHER_NATIVE_BINDING: '/operator/better_sqlite3.node',
       };
       expect(prepareDesktopSqlCipherRuntime(explicit, { homeDirectory: root }))
         .toEqual({ keyPath: operatorKey, nativeBindingPath: '/operator/better_sqlite3.node' });
-      expect(fsSync.existsSync(path.join(explicit.OTTO_USER_DIR!, 'custody'))).toBe(false);
+      expect(fsSync.existsSync(path.join(explicit.CLAWMASTER_USER_DIR!, 'custody'))).toBe(false);
 
       const disabled: NodeJS.ProcessEnv = {
-        OTTO_USER_DIR: path.join(root, 'disabled-user'),
-        OTTO_DATABASE_ENCRYPTION: 'disabled',
+        CLAWMASTER_USER_DIR: path.join(root, 'disabled-user'),
+        CLAWMASTER_DATABASE_ENCRYPTION: 'disabled',
       };
       expect(prepareDesktopSqlCipherRuntime(disabled, { homeDirectory: root }))
         .toEqual({ keyPath: null, nativeBindingPath: null });
-      expect(fsSync.existsSync(path.join(disabled.OTTO_USER_DIR!, 'custody'))).toBe(false);
+      expect(fsSync.existsSync(path.join(disabled.CLAWMASTER_USER_DIR!, 'custody'))).toBe(false);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -110,7 +110,7 @@ function discoveredMainModule() {
     clearEndpoint: vi.fn(),
     DEFAULT_PORT: 3_700,
     HTTP_ROUTES: { health: '/health' },
-  } as unknown as Awaited<ReturnType<ServerManagerDependencies['loadOttoServer']>>;
+  } as unknown as Awaited<ReturnType<ServerManagerDependencies['loadClawMasterServer']>>;
 }
 
 function fakeHttpServer(
@@ -147,7 +147,7 @@ function dependencies(
     kill: vi.fn(),
   });
   return {
-    loadOttoServer: async () => discoveredMainModule(),
+    loadClawMasterServer: async () => discoveredMainModule(),
     loadEnterpriseServer: async () => {
       throw new Error('enterprise factory was not configured');
     },
@@ -162,7 +162,7 @@ function dependencies(
 
 function embeddedMainModule(setAuthenticatedEnterpriseAccount: ReturnType<typeof vi.fn>) {
   class FakePersistentSessionStore {}
-  class FakeOttoServer {
+  class FakeClawMasterServer {
     readonly endpoint = {
       host: '127.0.0.1',
       port: 7_637,
@@ -198,8 +198,8 @@ function embeddedMainModule(setAuthenticatedEnterpriseAccount: ReturnType<typeof
       enterpriseIdentity: '/internal/enterprise-identity',
     },
     PersistentSessionStore: FakePersistentSessionStore,
-    OttoServer: FakeOttoServer,
-  } as unknown as Awaited<ReturnType<ServerManagerDependencies['loadOttoServer']>>;
+    ClawMasterServer: FakeClawMasterServer,
+  } as unknown as Awaited<ReturnType<ServerManagerDependencies['loadClawMasterServer']>>;
 }
 
 describe('ServerManager desktop runtime diagnostics', () => {
@@ -224,7 +224,7 @@ describe('ServerManager trusted enterprise identity bridge', () => {
     const mod = embeddedMainModule(setAuthenticatedEnterpriseAccount);
     const manager = new ServerManager({
       dependencies: dependencies({
-        loadOttoServer: async () => mod,
+        loadClawMasterServer: async () => mod,
         pidAlive: () => false,
         probeHealth: async () => false,
       }),
@@ -268,10 +268,10 @@ describe('ServerManager trusted enterprise identity bridge', () => {
         health: '/health',
         enterpriseIdentity: '/internal/enterprise-identity',
       },
-    } as unknown as Awaited<ReturnType<ServerManagerDependencies['loadOttoServer']>>;
+    } as unknown as Awaited<ReturnType<ServerManagerDependencies['loadClawMasterServer']>>;
     const manager = new ServerManager({
       dependencies: dependencies({
-        loadOttoServer: async () => mod,
+        loadClawMasterServer: async () => mod,
         fetchImpl: fetchImpl as typeof fetch,
       }),
     });
@@ -315,7 +315,7 @@ describe('ServerManager trusted enterprise identity bridge', () => {
     const probeHealth = vi.fn(async () => true);
     const manager = new ServerManager({
       dependencies: dependencies({
-        loadOttoServer: async () => mod,
+        loadClawMasterServer: async () => mod,
         probeHealth,
       }),
     });
@@ -513,7 +513,7 @@ describe('ServerManager enterprise lifecycle', () => {
 
 describe('ServerManager kernel overlay loading', () => {
   async function installOverlayKernel(): Promise<{ root: string; modulePath: string; binPath: string }> {
-    const userData = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-server-manager-kernel-'));
+    const userData = await fs.mkdtemp(path.join(os.tmpdir(), 'clawmaster-server-manager-kernel-'));
     const root = resolveKernelUpdateRoot(userData);
     const body = JSON.stringify({
       schemaVersion: 1,
@@ -528,7 +528,7 @@ export const readEndpoint = () => undefined;
 export const clearEndpoint = () => undefined;
 export const writeEndpoint = (host, port, clientToken, controlToken) => ({ host, port, protocolVersion: '1', pid: 4321, startedAt: 3, clientToken, controlToken });
 export class PersistentSessionStore { constructor(_dir) {} }
-export class OttoServer {
+export class ClawMasterServer {
   endpoint = { host: '127.0.0.1', port: 7637, clientToken: 'overlay-client-token' };
   controlToken = 'overlay-control-token';
   start = async () => undefined;
@@ -574,7 +574,7 @@ export class OttoServer {
     const manager = new ServerManager({
       kernelUpdateRoot: overlay.root,
       dependencies: dependencies({
-        loadOttoServer: async () => overlayModule,
+        loadClawMasterServer: async () => overlayModule,
         pidAlive: () => false,
         probeHealth: async () => false,
       }),
@@ -603,11 +603,11 @@ export class OttoServer {
       readEndpoint: vi.fn(() => (spawned ? MAIN_ENDPOINT : undefined)),
       readEndpointRecord: vi.fn(() => (spawned ? MAIN_ENDPOINT : undefined)),
       DEFAULT_PORT: MAIN_ENDPOINT.port,
-    } as unknown as Awaited<ReturnType<ServerManagerDependencies['loadOttoServer']>>;
+    } as unknown as Awaited<ReturnType<ServerManagerDependencies['loadClawMasterServer']>>;
     const manager = new ServerManager({
       kernelUpdateRoot: overlay.root,
       dependencies: dependencies({
-        loadOttoServer: async () => mod,
+        loadClawMasterServer: async () => mod,
         pidAlive: () => true,
         probeHealth: async () => true,
         spawnDetached: vi.fn((_cmd, args) => {

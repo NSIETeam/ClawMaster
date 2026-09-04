@@ -1,5 +1,5 @@
 ﻿/**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * [MESH-05] HTTP 路由测试：验证 handleMeshRoute 在真实端点形状下工作。
  * 使用内存 Database + 真实 composition 作为 services，覆盖：

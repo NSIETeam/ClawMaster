@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -115,7 +115,7 @@ describe('loadCustomModels', () => {
 
   it('已经使用 key 引用的旧松散权限配置，读取时也收紧到 0600', () => {
     writeModelsFile(JSON.stringify({
-      models: [{ ...VALID_MODEL, apiKey: '{env:OTTO_API_KEY}' }],
+      models: [{ ...VALID_MODEL, apiKey: '{env:CLAWMASTER_API_KEY}' }],
     }));
     fs.chmodSync(customModelsFilePath(), 0o666);
 
@@ -191,9 +191,9 @@ describe('saveCustomModel Codex OAuth', () => {
   });
 
   it('旧式 $VAR 引用原样保留，不被当成明文写入 secret 文件', () => {
-    saveCustomModel({ ...VALID_MODEL, displayName: 'Legacy env', apiKey: '$OTTO_API_KEY' });
+    saveCustomModel({ ...VALID_MODEL, displayName: 'Legacy env', apiKey: '$CLAWMASTER_API_KEY' });
 
-    expect(loadCustomModels()[0].apiKey).toBe('$OTTO_API_KEY');
+    expect(loadCustomModels()[0].apiKey).toBe('$CLAWMASTER_API_KEY');
     expect(fs.existsSync(path.join(tmpHome, '.otto-user', 'secrets'))).toBe(false);
   });
 

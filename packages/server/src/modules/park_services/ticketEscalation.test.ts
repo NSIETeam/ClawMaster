@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * NSI-11: park ticket unread-notification escalation queue — tests.
  *
@@ -95,7 +95,7 @@ const baseInput = {
 };
 
 describe('ticket escalation queue (NSI-11)', () => {
-  it('submits a job and delivers Otto + Feishu immediately', async () => {
+  it('submits a job and delivers ClawMaster + Feishu immediately', async () => {
     const h = createHarness();
     const result = await h.facade.submit({ ...baseInput, id: 'job-1', now: h.now() });
     expect(result.accepted).toBe(true);

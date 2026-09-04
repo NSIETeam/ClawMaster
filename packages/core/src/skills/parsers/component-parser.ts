@@ -48,7 +48,7 @@ export class ComponentParser {
         return component;
       }
 
-      // 2. 处理 Skill 目录 (Otto Skills)
+      // 2. 处理 Skill 目录 (ClawMaster Skills)
       if (stat.isDirectory() && type === ComponentType.SKILL) {
         const skillFile = path.join(itemPath, 'SKILL.md');
         if (await fs.pathExists(skillFile)) {

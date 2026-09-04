@@ -467,13 +467,13 @@ let globalTaskManager: BackgroundTaskManager | null = null;
 export function getBackgroundTaskManager(): BackgroundTaskManager {
   if (!globalTaskManager) {
     // Persistence dir resolution for the process-wide singleton:
-    //   - OTTO_DELEGATE_TASKS_DIR overrides the location (legacy:
-    //     OTTO_DELEGATE_TASKS_DIR) (any deployment).
+    //   - CLAWMASTER_DELEGATE_TASKS_DIR overrides the location (legacy:
+    //     CLAWMASTER_DELEGATE_TASKS_DIR) (any deployment).
     //   - Under vitest, disable persistence so tests never touch the real home.
     //   - Otherwise default to ~/.otto-user/delegate-tasks.
     const override = (
-      process.env.OTTO_DELEGATE_TASKS_DIR ??
-      process.env.OTTO_DELEGATE_TASKS_DIR
+      process.env.CLAWMASTER_DELEGATE_TASKS_DIR ??
+      process.env.CLAWMASTER_DELEGATE_TASKS_DIR
     )?.trim();
     const storageDir = override
       ? override

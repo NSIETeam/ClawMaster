@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * NSI-13: unified model Token/cost estimation for custom and built-in models.
  *
@@ -52,8 +52,8 @@ function modelKey(model: string | null | undefined): string {
 /**
  * Built-in price catalogue. Values are disclosed default estimates and can be
  * overridden via environment variables for a given model:
- *   OTTO_MODEL_PRICE_<UPPER_SNAKE>_IN1K
- *   OTTO_MODEL_PRICE_<UPPER_SNAKE>_OUT1K
+ *   CLAWMASTER_MODEL_PRICE_<UPPER_SNAKE>_IN1K
+ *   CLAWMASTER_MODEL_PRICE_<UPPER_SNAKE>_OUT1K
  * Custom (unrecognized) models fall back to a configurable default.
  */
 export const MODEL_PRICE_CATALOGUE: ReadonlyMap<string, ModelPrice> = new Map<
@@ -81,15 +81,15 @@ export const MODEL_PRICE_CATALOGUE: ReadonlyMap<string, ModelPrice> = new Map<
 
 /** Configurable default price for unrecognized (custom) models, in CNY/1k. */
 export const CUSTOM_MODEL_DEFAULT_PRICE_IN1K = envNum(
-  'OTTO_CUSTOM_MODEL_PRICE_IN1K',
+  'CLAWMASTER_CUSTOM_MODEL_PRICE_IN1K',
 ) ?? 0.0005;
 export const CUSTOM_MODEL_DEFAULT_PRICE_OUT1K = envNum(
-  'OTTO_CUSTOM_MODEL_PRICE_OUT1K',
+  'CLAWMASTER_CUSTOM_MODEL_PRICE_OUT1K',
 ) ?? 0.002;
 
 function envKeyFor(model: string, suffix: 'IN1K' | 'OUT1K'): string {
   const snake = modelKey(model).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  return `OTTO_MODEL_PRICE_${snake.toUpperCase()}_${suffix}`;
+  return `CLAWMASTER_MODEL_PRICE_${snake.toUpperCase()}_${suffix}`;
 }
 
 /**

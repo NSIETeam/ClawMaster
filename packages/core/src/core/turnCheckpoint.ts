@@ -1,11 +1,11 @@
 /**
  * @license
- * Copyright 2026 Otto
+ * Copyright 2026 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  *
  * TurnCheckpoint — crash-safe turn recovery.
  *
- * If Otto crashes mid-turn (power loss, OOM, process kill), the next session
+ * If ClawMaster crashes mid-turn (power loss, OOM, process kill), the next session
  * can resume without repeating irreversible side-effects (tool calls that
  * already executed).
  *
@@ -116,7 +116,7 @@ export class TurnCheckpointManager {
   private lastSavedAtMs = 0;
 
   constructor(baseDir?: string) {
-    const dir = baseDir || process.env.OTTO_USER_DIR || path.join(homedir(), '.otto-user');
+    const dir = baseDir || process.env.CLAWMASTER_USER_DIR || path.join(homedir(), '.otto-user');
     this.checkpointsDir = path.join(dir, 'checkpoints');
   }
 

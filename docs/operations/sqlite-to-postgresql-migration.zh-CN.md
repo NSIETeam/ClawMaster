@@ -14,7 +14,7 @@ SQLite/SQLCipher，不参与企业集群切换。
 - E2EE 消息和附件在导入前已经是客户端密文。导入器只复制密文及元数据，
   不接触客户端身份私钥、设备私钥、恢复材料或附件文件密钥。
 - 执行导入前必须停止全部 SQLite 写入进程。命令只有在显式设置
-  `OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED=true` 后才允许写入 PostgreSQL。
+  `CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED=true` 后才允许写入 PostgreSQL。
 - 导入只写 PostgreSQL 暂存表，不会自动切换权威源。只有对 verified run
   完成独立的领域提升后，PostgreSQL 核心路由才允许使用这些数据；未迁移路由
   返回 `POSTGRES_ROUTE_NOT_MIGRATED`，绝不回落 SQLite。
@@ -27,15 +27,15 @@ SQLite/SQLCipher，不参与企业集群切换。
 3. 已创建并验证 SQLite/SQLCipher 快照，快照与密钥恢复材料分开保管。
 4. 已冻结企业变更窗口，并确认所有 Otto Server/旧企业服务端进程停止。
 5. 所有无状态实例挂载同一个外部下发的 32 字节账号同步密钥文件，并设置
-   `OTTO_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE`。缺少或无法读取时集群服务拒绝启动，
+   `CLAWMASTER_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE`。缺少或无法读取时集群服务拒绝启动，
    不会生成每实例密钥或回落明文。
 
 先构建并准备 PostgreSQL 控制面：
 
 ```powershell
 npm run build --workspace=packages/server
-$env:OTTO_ENTERPRISE_DATABASE_BACKEND = 'postgresql'
-$env:OTTO_POSTGRES_URL = 'postgresql://otto:<password>@postgres-rw.internal/otto'
+$env:CLAWMASTER_ENTERPRISE_DATABASE_BACKEND = 'postgresql'
+$env:CLAWMASTER_POSTGRES_URL = 'postgresql://otto:<password>@postgres-rw.internal/otto'
 npm run enterprise:postgres:prepare --workspace=packages/server
 npm run enterprise:infrastructure:check --workspace=packages/server
 ```
@@ -48,22 +48,22 @@ npm run enterprise:infrastructure:check --workspace=packages/server
 页布局、WAL checkpoint 或 SQLCipher 随机页密文影响。
 
 ```powershell
-$env:OTTO_SQLITE_IMPORT_PATH = 'D:\migration\enterprise-snapshot.db'
+$env:CLAWMASTER_SQLITE_IMPORT_PATH = 'D:\migration\enterprise-snapshot.db'
 npm run enterprise:postgres:import --workspace=packages/server -- --dry-run --batch-size 500
 ```
 
 SQLCipher 快照还必须配置只读密钥文件和对应平台的原生资产：
 
 ```powershell
-$env:OTTO_SQLITE_IMPORT_ENCRYPTION = 'required'
-$env:OTTO_DATABASE_ENCRYPTION_KEY_FILE = 'D:\keys\database.keyring.json'
-$env:OTTO_DATABASE_ENCRYPTION_KEY_READONLY = 'true'
-$env:OTTO_SQLCIPHER_NATIVE_BINDING = 'D:\otto\native\sqlcipher\win32-x64\better_sqlite3.node'
+$env:CLAWMASTER_SQLITE_IMPORT_ENCRYPTION = 'required'
+$env:CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE = 'D:\keys\database.keyring.json'
+$env:CLAWMASTER_DATABASE_ENCRYPTION_KEY_READONLY = 'true'
+$env:CLAWMASTER_SQLCIPHER_NATIVE_BINDING = 'D:\otto\native\sqlcipher\win32-x64\better_sqlite3.node'
 ```
 
 只有确认源快照本身是普通 SQLite 时，才显式设置
-`OTTO_SQLITE_IMPORT_ENCRYPTION=disabled`。该导入源开关与 PostgreSQL 目标配置
-隔离；不得为 PostgreSQL 设置 `OTTO_DATABASE_ENCRYPTION=required`。
+`CLAWMASTER_SQLITE_IMPORT_ENCRYPTION=disabled`。该导入源开关与 PostgreSQL 目标配置
+隔离；不得为 PostgreSQL 设置 `CLAWMASTER_DATABASE_ENCRYPTION=required`。
 
 演练输出只包含源文件名、无凭据的 PostgreSQL 目标、Schema 版本、行数和哈希；
 不会输出连接密码、完整本地路径或密钥材料。保存这份 JSON 作为切换审批证据。
@@ -73,7 +73,7 @@ $env:OTTO_SQLCIPHER_NATIVE_BINDING = 'D:\otto\native\sqlcipher\win32-x64\better_
 确认演练哈希后执行：
 
 ```powershell
-$env:OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED = 'true'
+$env:CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED = 'true'
 npm run enterprise:postgres:import --workspace=packages/server -- --execute --batch-size 500
 ```
 
@@ -100,7 +100,7 @@ npm run enterprise:postgres:promote --workspace=packages/server -- --run <run-id
 转换，但最终回滚事务。确认结果后执行：
 
 ```powershell
-$env:OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED = 'true'
+$env:CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED = 'true'
 npm run enterprise:postgres:promote --workspace=packages/server -- --run <run-id> --execute
 ```
 
@@ -124,7 +124,7 @@ MLS 提升还会按 `mls_conversations`、`mls_group_sessions`、
 
 账号同步快照沿用经过校验的 AES-256-GCM 密文字段，切换前后必须使用同一份
 外部密钥。若旧库含有加密的 Skill 正文，提升命令还必须设置
-`OTTO_ENTERPRISE_FIELD_KEY_FILE` 指向旧企业字段密钥；工具只在内存中解密并
+`CLAWMASTER_ENTERPRISE_FIELD_KEY_FILE` 指向旧企业字段密钥；工具只在内存中解密并
 转换已验证记录，不在输出、审计或 PostgreSQL 中写入密钥材料。缺少该密钥时
 包含此类记录的提升会失败关闭。
 

@@ -30,7 +30,7 @@ import {
  * 统一的 VSCode 环境检测
  *
  * 检测优先级（从高到低）：
- * 1. VSCODE_PLUGIN=1    (最可信，由 Otto 插件主动设置)
+ * 1. VSCODE_PLUGIN=1    (最可信，由 ClawMaster 插件主动设置)
  * 2. VSCODE_PID        (可信，由 VSCode 设置)
  * 3. TERM_PROGRAM=vscode (较低，可能有误报)
  *

@@ -2,7 +2,7 @@
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
  * 企业服务端 HTTP 层单测：管理端鉴权 + 路由边界。
- * 数据安全：独立临时 OTTO_ENTERPRISE_DIR + resetModules，绝不碰真实企业库。
+ * 数据安全：独立临时 CLAWMASTER_ENTERPRISE_DIR + resetModules，绝不碰真实企业库。
  * 端口用 listen(0) 让系统分配临时端口，跑完关服，不占固定 7777。
  */
 
@@ -143,32 +143,32 @@ let servers: Server[] = [];
 let closeDatabases: Array<() => void> = [];
 const prevEnv: Record<string, string | undefined> = {};
 const ENV_KEYS = [
-  'OTTO_ENTERPRISE_DIR',
-  'OTTO_ENTERPRISE_ADMIN_TOKEN',
-  'OTTO_ENTERPRISE_PUBLIC_URL',
-  'OTTO_ENTERPRISE_HOST',
-  'OTTO_ENTERPRISE_PORT',
-  'OTTO_APP_VERSION',
-  'OTTO_BUILD_COMMIT',
+  'CLAWMASTER_ENTERPRISE_DIR',
+  'CLAWMASTER_ENTERPRISE_ADMIN_TOKEN',
+  'CLAWMASTER_ENTERPRISE_PUBLIC_URL',
+  'CLAWMASTER_ENTERPRISE_HOST',
+  'CLAWMASTER_ENTERPRISE_PORT',
+  'CLAWMASTER_APP_VERSION',
+  'CLAWMASTER_BUILD_COMMIT',
   'GITHUB_SHA',
-  'OTTO_ENTERPRISE_TRUST_PROXY_HOPS',
-  'OTTO_ENTERPRISE_TRUSTED_PROXIES',
+  'CLAWMASTER_ENTERPRISE_TRUST_PROXY_HOPS',
+  'CLAWMASTER_ENTERPRISE_TRUSTED_PROXIES',
   'ALIYUN_SMS_NOTIFICATION_TEMPLATE_ID',
-  'OTTO_ENTERPRISE_FEISHU_APP_ID',
-  'OTTO_ENTERPRISE_FEISHU_APP_SECRET',
-  'OTTO_ENTERPRISE_FEISHU_DOMAIN',
-  'OTTO_LICENSE_ENFORCE',
-  'OTTO_LICENSE_PUBLIC_KEY',
-  'OTTO_LICENSE_PUBLIC_KEYS',
-  'OTTO_LICENSE_REVOKED_KEY_IDS',
-  'OTTO_TELEMETRY_ENDPOINT',
-  'OTTO_DATA_CONTROLLER_NAME',
-  'OTTO_PRIVACY_CONTACT',
-  'OTTO_LEGAL_DOCUMENTS_APPROVED',
-  'OTTO_DATA_REGION',
-  'OTTO_DATA_RESIDENCY',
-  'OTTO_CROSS_BORDER_DATA_ENABLED',
-  'OTTO_TELEMETRY_RETENTION_DAYS',
+  'CLAWMASTER_ENTERPRISE_FEISHU_APP_ID',
+  'CLAWMASTER_ENTERPRISE_FEISHU_APP_SECRET',
+  'CLAWMASTER_ENTERPRISE_FEISHU_DOMAIN',
+  'CLAWMASTER_LICENSE_ENFORCE',
+  'CLAWMASTER_LICENSE_PUBLIC_KEY',
+  'CLAWMASTER_LICENSE_PUBLIC_KEYS',
+  'CLAWMASTER_LICENSE_REVOKED_KEY_IDS',
+  'CLAWMASTER_TELEMETRY_ENDPOINT',
+  'CLAWMASTER_DATA_CONTROLLER_NAME',
+  'CLAWMASTER_PRIVACY_CONTACT',
+  'CLAWMASTER_LEGAL_DOCUMENTS_APPROVED',
+  'CLAWMASTER_DATA_REGION',
+  'CLAWMASTER_DATA_RESIDENCY',
+  'CLAWMASTER_CROSS_BORDER_DATA_ENABLED',
+  'CLAWMASTER_TELEMETRY_RETENTION_DAYS',
 ] as const;
 
 const ADMIN_TOKEN = 'test-admin-token-abc123';
@@ -196,8 +196,8 @@ async function startIsolated(
   } | null,
   serverOptions: Record<string, unknown> = {},
 ): Promise<{ base: string; server: Server }> {
-  process.env.OTTO_ENTERPRISE_DIR = tmpDir;
-  process.env.OTTO_ENTERPRISE_PUBLIC_URL = 'https://join.otto.example';
+  process.env.CLAWMASTER_ENTERPRISE_DIR = tmpDir;
+  process.env.CLAWMASTER_ENTERPRISE_PUBLIC_URL = 'https://join.otto.example';
   vi.resetModules();
   const mod: ServerModule = await import('./server.js');
   const database: DatabaseModule = await import('./db.js');
@@ -225,16 +225,16 @@ async function startIsolated(
 beforeEach(() => {
   for (const k of ENV_KEYS) prevEnv[k] = process.env[k];
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'otto-ent-srv-'));
-  process.env.OTTO_ENTERPRISE_DIR = tmpDir;
+  process.env.CLAWMASTER_ENTERPRISE_DIR = tmpDir;
   servers = [];
   closeDatabases = [];
 });
 
 describe('数据治理自助闭环', { timeout: 30_000 }, () => {
   it('License 受限时仍允许查看规则、导出和注销本人数据', async () => {
-    process.env.OTTO_LICENSE_ENFORCE = 'true';
-    process.env.OTTO_DATA_CONTROLLER_NAME = '星河科技有限公司';
-    process.env.OTTO_PRIVACY_CONTACT = 'privacy@example.test';
+    process.env.CLAWMASTER_LICENSE_ENFORCE = 'true';
+    process.env.CLAWMASTER_DATA_CONTROLLER_NAME = '星河科技有限公司';
+    process.env.CLAWMASTER_PRIVACY_CONTACT = 'privacy@example.test';
     const { base } = await startIsolated(ADMIN_TOKEN);
     const database: DatabaseModule = await import('./db.js');
     const account = database.createPersonalRegisteredAccount({
@@ -497,10 +497,10 @@ describe('tokensMatch 长度不等短路（不抛，稳定返回 401）', () => 
 });
 
 describe('正式公网启动的部署身份安全门', () => {
-  it('非 loopback 监听缺少 OTTO_APP_VERSION / 完整 OTTO_BUILD_COMMIT 时同步拒绝启动', async () => {
-    process.env.OTTO_ENTERPRISE_PORT = '0';
-    delete process.env.OTTO_APP_VERSION;
-    delete process.env.OTTO_BUILD_COMMIT;
+  it('非 loopback 监听缺少 CLAWMASTER_APP_VERSION / 完整 CLAWMASTER_BUILD_COMMIT 时同步拒绝启动', async () => {
+    process.env.CLAWMASTER_ENTERPRISE_PORT = '0';
+    delete process.env.CLAWMASTER_APP_VERSION;
+    delete process.env.CLAWMASTER_BUILD_COMMIT;
     delete process.env.GITHUB_SHA;
     vi.resetModules();
     const mod: ServerModule = await import('./server.js');
@@ -518,14 +518,14 @@ describe('正式公网启动的部署身份安全门', () => {
     }
     if (started) servers.push(started);
 
-    expect(String(error)).toContain('OTTO_APP_VERSION');
-    expect(String(error)).toContain('OTTO_BUILD_COMMIT');
+    expect(String(error)).toContain('CLAWMASTER_APP_VERSION');
+    expect(String(error)).toContain('CLAWMASTER_BUILD_COMMIT');
   });
 
   it('非 loopback 监听拒绝短 SHA；loopback 开发在无构建标识时仍可启动', async () => {
-    process.env.OTTO_ENTERPRISE_PORT = '0';
-    process.env.OTTO_APP_VERSION = '1.8.4';
-    process.env.OTTO_BUILD_COMMIT = 'abc123';
+    process.env.CLAWMASTER_ENTERPRISE_PORT = '0';
+    process.env.CLAWMASTER_APP_VERSION = '1.8.4';
+    process.env.CLAWMASTER_BUILD_COMMIT = 'abc123';
     vi.resetModules();
     const publicModule: ServerModule = await import('./server.js');
     let publicStarted: Server | null = null;
@@ -540,10 +540,10 @@ describe('正式公网启动的部署身份安全门', () => {
       publicError = caught;
     }
     if (publicStarted) servers.push(publicStarted);
-    expect(String(publicError)).toMatch(/OTTO_BUILD_COMMIT.*40/i);
+    expect(String(publicError)).toMatch(/CLAWMASTER_BUILD_COMMIT.*40/i);
 
-    delete process.env.OTTO_APP_VERSION;
-    delete process.env.OTTO_BUILD_COMMIT;
+    delete process.env.CLAWMASTER_APP_VERSION;
+    delete process.env.CLAWMASTER_BUILD_COMMIT;
     vi.resetModules();
     const localModule: ServerModule = await import('./server.js');
     const local = localModule.startEnterpriseServer({
@@ -556,9 +556,9 @@ describe('正式公网启动的部署身份安全门', () => {
   }, 60_000);
 
   it('非 loopback 监听在版本和完整 40 位 SHA 齐备时可启动', async () => {
-    process.env.OTTO_ENTERPRISE_PORT = '0';
-    process.env.OTTO_APP_VERSION = '1.8.4';
-    process.env.OTTO_BUILD_COMMIT = '0123456789abcdef0123456789abcdef01234567';
+    process.env.CLAWMASTER_ENTERPRISE_PORT = '0';
+    process.env.CLAWMASTER_APP_VERSION = '1.8.4';
+    process.env.CLAWMASTER_BUILD_COMMIT = '0123456789abcdef0123456789abcdef01234567';
     vi.resetModules();
     const mod: ServerModule = await import('./server.js');
     const server = mod.startEnterpriseServer({
@@ -572,9 +572,9 @@ describe('正式公网启动的部署身份安全门', () => {
   });
 
   it('非 loopback 监听接受调用方显式传入的版本和完整提交，不强制依赖进程环境', async () => {
-    process.env.OTTO_ENTERPRISE_PORT = '7777';
-    delete process.env.OTTO_APP_VERSION;
-    delete process.env.OTTO_BUILD_COMMIT;
+    process.env.CLAWMASTER_ENTERPRISE_PORT = '7777';
+    delete process.env.CLAWMASTER_APP_VERSION;
+    delete process.env.CLAWMASTER_BUILD_COMMIT;
     delete process.env.GITHUB_SHA;
     vi.resetModules();
     const mod: ServerModule = await import('./server.js');
@@ -642,8 +642,8 @@ describe('可信反向代理客户端地址解析', () => {
 
 describe('受保护 vs 公开路由边界', () => {
   it('公开路由 /enterprise/health 无 token 也可达 200', async () => {
-    process.env.OTTO_APP_VERSION = '1.8.4-test';
-    process.env.OTTO_BUILD_COMMIT = 'abc123def456';
+    process.env.CLAWMASTER_APP_VERSION = '1.8.4-test';
+    process.env.CLAWMASTER_BUILD_COMMIT = 'abc123def456';
     const { base } = await startIsolated(ADMIN_TOKEN);
     const res = await fetch(`${base}/enterprise/health`);
     expect(res.status).toBe(200);
@@ -712,8 +712,8 @@ describe('受保护 vs 公开路由边界', () => {
   }, 15_000);
 
   it('private deployment license enforcement keeps only maintenance routes open', async () => {
-    process.env.OTTO_LICENSE_ENFORCE = 'true';
-    process.env.OTTO_LICENSE_PUBLIC_KEY = LICENSE_PUBLIC_KEY;
+    process.env.CLAWMASTER_LICENSE_ENFORCE = 'true';
+    process.env.CLAWMASTER_LICENSE_PUBLIC_KEY = LICENSE_PUBLIC_KEY;
     const { base } = await startIsolated(ADMIN_TOKEN);
     const headers = { 'x-otto-admin-token': ADMIN_TOKEN };
 
@@ -777,8 +777,8 @@ describe('受保护 vs 公开路由边界', () => {
   }, 60_000);
 
   it('signed private deployment license reopens business routes and limits server-side modules', async () => {
-    process.env.OTTO_LICENSE_ENFORCE = 'true';
-    process.env.OTTO_LICENSE_PUBLIC_KEY = LICENSE_PUBLIC_KEY;
+    process.env.CLAWMASTER_LICENSE_ENFORCE = 'true';
+    process.env.CLAWMASTER_LICENSE_PUBLIC_KEY = LICENSE_PUBLIC_KEY;
     const { base } = await startIsolated(ADMIN_TOKEN);
     const headers = { 'x-otto-admin-token': ADMIN_TOKEN };
 
@@ -900,8 +900,8 @@ describe('受保护 vs 公开路由边界', () => {
   }, 60_000);
 
   it('enforces Control credit admission before a paid mutation and finalizes it once', async () => {
-    process.env.OTTO_LICENSE_ENFORCE = 'true';
-    process.env.OTTO_LICENSE_PUBLIC_KEY = LICENSE_PUBLIC_KEY;
+    process.env.CLAWMASTER_LICENSE_ENFORCE = 'true';
+    process.env.CLAWMASTER_LICENSE_PUBLIC_KEY = LICENSE_PUBLIC_KEY;
     let availableCredits = false;
     const billingCalls: string[] = [];
     const billingFetch = vi.fn(async (url: string | URL | Request) => {
@@ -1060,7 +1060,7 @@ describe('受保护 vs 公开路由边界', () => {
         sha256: 'a'.repeat(64),
       },
       manifest: {
-        format: 'otto-module-updates-v1',
+        format: 'clawmaster.module-updates-v1',
         modules: [
           expect.objectContaining({
             module: 'park_service',
@@ -1534,8 +1534,8 @@ describe('公网企业引入链接与公开落地页', () => {
   });
 
   it('进程选项可覆盖环境公网基址，便于不同部署使用自己的 HTTPS 地址', async () => {
-    process.env.OTTO_ENTERPRISE_DIR = tmpDir;
-    process.env.OTTO_ENTERPRISE_PUBLIC_URL = 'https://from-env.otto.example';
+    process.env.CLAWMASTER_ENTERPRISE_DIR = tmpDir;
+    process.env.CLAWMASTER_ENTERPRISE_PUBLIC_URL = 'https://from-env.otto.example';
     vi.resetModules();
     const mod: ServerModule = await import('./server.js');
     const created = mod.createEnterpriseServer({
@@ -3047,7 +3047,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
           id: registered.account.id,
           name: '王小明',
           department: null,
-          ottoOnline: false,
+          clawmasterOnline: false,
         }),
       ]),
     });
@@ -3083,7 +3083,7 @@ describe('预设账号登录、管理与标签工单投递 API', () => {
       members: expect.arrayContaining([
         expect.objectContaining({
           id: registered.account.id,
-          ottoOnline: true,
+          clawmasterOnline: true,
           ottoLastSeenAt: expect.any(String),
         }),
       ]),

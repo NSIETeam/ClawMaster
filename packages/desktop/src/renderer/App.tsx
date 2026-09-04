@@ -1,16 +1,16 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * 顶层 App。单窗布局（docs/otto-desktop-ui-spec.md 为唯一基准）：
+ * 顶层 App。单窗布局（docs/claw-desktop-ui-spec.md 为唯一基准）：
  *   左 Sidebar（会话列表 + 来源徽章） + 主 ChatView（顶栏/消息流/工具卡/输入区）。
  *
  * 飞书与本地会话共用同一聊天面（Issue #6 在 Sidebar/ChatView 内联实现：
  * 源徽章 + 顶栏「飞书·实时同步」指示），不再有独立 tab。
- * 状态/传输走 useOttoStore（preload WS ↔ otto-server，协议见 packages/server/src/protocol.ts）。
+ * 状态/传输走 useClawMasterStore（preload WS ↔ claw-server，协议见 packages/server/src/protocol.ts）。
  *
  * 已接：会话分组列表（今天/昨天）、选择/新建会话、发消息（乐观渲染）、模型选择、
  *       流式回复、工具调用卡（含 diff）、错误 toast、setup/BYO-key 图形引导（Issue #7，
@@ -30,13 +30,13 @@ import type {
   MessageSource,
   ToolCall,
   ToolConfirmationResponsePayload,
-} from 'otto-server';
+} from 'clawmaster-server';
 import {
-  useOttoStore,
+  useClawMasterStore,
   selectSortedSessions,
-} from './state/useOttoStore.js';
+} from './state/useClawMasterStore.js';
 import { hasActiveRuntimeSession } from './runtimeActivity.js';
-import type { Attachment } from './state/useOttoStore.js';
+import type { Attachment } from './state/useClawMasterStore.js';
 import { Sidebar } from './components/Sidebar.js';
 import { ChatView } from './components/ChatView.js';
 import {
@@ -97,7 +97,7 @@ import type {
   EnterpriseOrganizationView,
   InstalledCustomerModuleRecord,
 } from '../preload/index.js';
-import { askLocalPeerOtto } from './peerOttoRunner.js';
+import { askLocalPeerClawMaster } from './peerClawMasterRunner.js';
 import {
   AtoaPermissionDialog,
   type AtoaPermissionRequest,
@@ -184,7 +184,7 @@ export function App(): React.JSX.Element {
 
   if (accessMode === 'local-workspace') {
     return (
-      <OttoWorkspaceApp
+      <ClawMasterWorkspaceApp
         account={INTERNAL_TEST_ADMIN_ENABLED ? INTERNAL_TEST_ADMIN_ACCOUNT : INTERNAL_TEST_ACCOUNT}
         serverUrl={INTERNAL_TEST_ADMIN_ENABLED ? 'internal://admin-preview' : 'tauri://local'}
         onLogout={auth.actions.logout}
@@ -209,10 +209,10 @@ export function App(): React.JSX.Element {
     );
   }
   if (!auth.state.account) {
-    return <OttoWorkspaceApp account={INTERNAL_TEST_ACCOUNT} serverUrl="tauri://local" />;
+    return <ClawMasterWorkspaceApp account={INTERNAL_TEST_ACCOUNT} serverUrl="tauri://local" />;
   }
   return (
-    <OttoWorkspaceApp
+    <ClawMasterWorkspaceApp
       key={`${auth.state.serverUrl}:${auth.state.account.id}:${auth.state.account.organizationId}`}
       account={auth.state.account}
       serverUrl={auth.state.serverUrl}
@@ -224,7 +224,7 @@ export function App(): React.JSX.Element {
   );
 }
 
-function OttoWorkspaceApp({
+function ClawMasterWorkspaceApp({
   account,
   serverUrl,
   onJoinEnterprise,
@@ -238,7 +238,7 @@ function OttoWorkspaceApp({
   internalAdminPreview?: boolean;
 }): React.JSX.Element {
   const localOnly = serverUrl === 'tauri://local';
-  const { state, actions } = useOttoStore({
+  const { state, actions } = useClawMasterStore({
     enterpriseOrganizationId: account.accountType === 'personal'
       ? null
       : account.organizationId,
@@ -266,7 +266,7 @@ function OttoWorkspaceApp({
   const [installedCustomerModules, setInstalledCustomerModules] = useState<InstalledCustomerModuleRecord[]>([]);
   useEffect(() => {
     let cancelled = false;
-    void window.otto.customerModuleInstalledList()
+    void window.clawmaster.customerModuleInstalledList()
       .then((records) => {
         if (!cancelled) setInstalledCustomerModules(Array.isArray(records) ? records : []);
       })
@@ -358,7 +358,7 @@ function OttoWorkspaceApp({
       authorizedMessages?: EnterpriseDirectMessage[],
     ): Promise<AtoaPermissionDecision> => {
       const messages = authorizedMessages ??
-        await window.otto.enterpriseMessagesList(request.peer.id);
+        await window.clawmaster.enterpriseMessagesList(request.peer.id);
       return new Promise((resolve) => {
         // 服务器一次只 claim 一条；若界面状态异常叠加，旧请求按拒绝收口。
         permissionResolver.current?.({ kind: 'deny' });
@@ -422,8 +422,8 @@ function OttoWorkspaceApp({
     let localUnreadCounts: EnterpriseUnreadCounts = {};
     const federationMarkers = new Map<string, string>();
     const tracker = new EnterpriseUnreadNotificationTracker({
-      show: (payload) => window.otto.notificationShow(payload),
-      markRead: (sessionId) => window.otto.notificationMarkRead(sessionId),
+      show: (payload) => window.clawmaster.notificationShow(payload),
+      markRead: (sessionId) => window.clawmaster.notificationMarkRead(sessionId),
       onUnreadCountsChange: (counts) => { localUnreadCounts = counts; },
     });
 
@@ -432,8 +432,8 @@ function OttoWorkspaceApp({
       polling = true;
       try {
         const [response, federationContacts] = await Promise.all([
-          window.otto.enterpriseMessagesUnread(),
-          window.otto.enterpriseFederationContacts().catch(
+          window.clawmaster.enterpriseMessagesUnread(),
+          window.clawmaster.enterpriseFederationContacts().catch(
             () => [] as EnterpriseFederationContact[],
           ),
         ]);
@@ -449,7 +449,7 @@ function OttoWorkspaceApp({
           federationCounts[sessionId] = contact.unreadCount;
           const marker = `${contact.lastMessageAt ?? ''}:${contact.unreadCount}`;
           if (federationMarkers.get(sessionId) === marker) continue;
-          await window.otto.notificationShow({
+          await window.clawmaster.notificationShow({
             sessionId,
             source: 'enterprise',
             sender: contact.displayName,
@@ -460,7 +460,7 @@ function OttoWorkspaceApp({
         for (const sessionId of [...federationMarkers.keys()]) {
           if (activeFederationSessions.has(sessionId)) continue;
           federationMarkers.delete(sessionId);
-          await window.otto.notificationMarkRead(sessionId);
+          await window.clawmaster.notificationMarkRead(sessionId);
         }
         if (!cancelled) {
           setEnterpriseUnreadCounts({ ...localUnreadCounts, ...federationCounts });
@@ -478,7 +478,7 @@ function OttoWorkspaceApp({
       window.clearInterval(timer);
       setEnterpriseUnreadCounts({});
       for (const sessionId of federationMarkers.keys()) {
-        void window.otto.notificationMarkRead(sessionId).catch(() => undefined);
+        void window.clawmaster.notificationMarkRead(sessionId).catch(() => undefined);
       }
       federationMarkers.clear();
       void tracker.clear();
@@ -490,7 +490,7 @@ function OttoWorkspaceApp({
     let cancelled = false;
     const beat = async (): Promise<void> => {
       try {
-        await window.otto.enterprisePresenceHeartbeat?.();
+        await window.clawmaster.enterprisePresenceHeartbeat?.();
       } catch {
       }
     };
@@ -513,7 +513,7 @@ function OttoWorkspaceApp({
       delete next[sessionId];
       return next;
     });
-    void window.otto.notificationMarkRead(sessionId).catch(() => undefined);
+    void window.clawmaster.notificationMarkRead(sessionId).catch(() => undefined);
   }, []);
 
   const markEnterpriseFederationMessageRead = useCallback((contactId: string): void => {
@@ -524,7 +524,7 @@ function OttoWorkspaceApp({
       delete next[sessionId];
       return next;
     });
-    void window.otto.notificationMarkRead(sessionId).catch(() => undefined);
+    void window.clawmaster.notificationMarkRead(sessionId).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -540,7 +540,7 @@ function OttoWorkspaceApp({
       if (processing.has(request.id)) return;
       processing.add(request.id);
       const notificationId = `enterprise:atoa:${request.id}`;
-      void window.otto.notificationShow({
+      void window.clawmaster.notificationShow({
         sessionId: notificationId,
         source: 'atoa',
         sender: request.peer?.name ?? '企业同事',
@@ -558,22 +558,22 @@ function OttoWorkspaceApp({
               currentAccountId: account.id,
               currentAccountName: account.name,
               peerName: request.peer?.name ?? '企业同事',
-              listMessages: window.otto.enterpriseMessagesList,
-              listKnowledge: () => window.otto.enterpriseKnowledgeList(),
-              workLogRecent: window.otto.workLogRecent,
+              listMessages: window.clawmaster.enterpriseMessagesList,
+              listKnowledge: () => window.clawmaster.enterpriseKnowledgeList(),
+              workLogRecent: window.clawmaster.workLogRecent,
               schedules: product.state.schedules,
             }),
-          askOtto: (input) =>
-            askLocalPeerOtto({
+          askClawMaster: (input) =>
+            askLocalPeerClawMaster({
               ...input,
               requestId: `a2a-${request.id}`,
               clientMessageId: `a2a-reply-${request.id}`,
               signal: abortController.signal,
             }),
-          sendMessage: window.otto.enterpriseMessageSend,
+          sendMessage: window.clawmaster.enterpriseMessageSend,
           signal: abortController.signal,
         });
-        void window.otto.notificationMarkRead(notificationId).catch(() => undefined);
+        void window.clawmaster.notificationMarkRead(notificationId).catch(() => undefined);
       } catch {
         processing.delete(request.id);
         throw new Error('A2A 回复发送失败');
@@ -584,7 +584,7 @@ function OttoWorkspaceApp({
       if (polling || cancelled) return;
       polling = true;
       try {
-        const requests = await window.otto.enterpriseAtoaInbox();
+        const requests = await window.clawmaster.enterpriseAtoaInbox();
         for (const request of requests) {
           if (cancelled) break;
           try {
@@ -650,8 +650,8 @@ function OttoWorkspaceApp({
       currentAccountName: account.name,
       peerName: task.contact.displayName,
       listMessages: async () => messages,
-      listKnowledge: () => window.otto.enterpriseKnowledgeList(),
-      workLogRecent: window.otto.workLogRecent,
+      listKnowledge: () => window.clawmaster.enterpriseKnowledgeList(),
+      workLogRecent: window.clawmaster.workLogRecent,
       schedules: product.state.schedules,
     });
 
@@ -663,7 +663,7 @@ function OttoWorkspaceApp({
       processing.add(key);
       try {
         if (task.kind === 'grant') {
-          await window.otto.enterpriseFederationAtoaDispatch({
+          await window.clawmaster.enterpriseFederationAtoaDispatch({
             contactId: task.contact.id,
             decisionMessageId: task.message.id,
           });
@@ -671,7 +671,7 @@ function OttoWorkspaceApp({
         }
 
         const notificationId = `enterprise:federation-atoa:${task.message.id}`;
-        await window.otto.notificationShow({
+        await window.clawmaster.notificationShow({
           sessionId: notificationId,
           source: 'atoa',
           sender: task.contact.displayName,
@@ -680,7 +680,7 @@ function OttoWorkspaceApp({
             : '已核验的一次性 A2A 请求正在等待本机处理',
         }).catch(() => undefined);
 
-        const messages = await window.otto.enterpriseFederationMessagesList(
+        const messages = await window.clawmaster.enterpriseFederationMessagesList(
           task.contact.id,
           { markRead: false },
         );
@@ -690,11 +690,11 @@ function OttoWorkspaceApp({
             payload: task.request,
           }, messages);
           if (decision.kind === 'deny') {
-            await window.otto.enterpriseFederationAtoaDeny({
+            await window.clawmaster.enterpriseFederationAtoaDeny({
               contactId: task.contact.id,
               messageId: task.message.id,
             });
-            await window.otto.notificationMarkRead(notificationId);
+            await window.clawmaster.notificationMarkRead(notificationId);
             return;
           }
           const allowedSources = task.request.requestedSources.length > 0
@@ -702,11 +702,11 @@ function OttoWorkspaceApp({
                 task.request.requestedSources.includes(source))
             : decision.sources;
           if (allowedSources.length === 0) {
-            await window.otto.enterpriseFederationAtoaDeny({
+            await window.clawmaster.enterpriseFederationAtoaDeny({
               contactId: task.contact.id,
               messageId: task.message.id,
             });
-            await window.otto.notificationMarkRead(notificationId);
+            await window.clawmaster.notificationMarkRead(notificationId);
             return;
           }
           const allowedDecision: AtoaPermissionDecision & { kind: 'allow' } = {
@@ -714,13 +714,13 @@ function OttoWorkspaceApp({
             sources: allowedSources,
           };
           const context = await collectContext(task, allowedDecision, messages);
-          await window.otto.enterpriseFederationAtoaApprove({
+          await window.clawmaster.enterpriseFederationAtoaApprove({
             contactId: task.contact.id,
             messageId: task.message.id,
             grantedSources: allowedSources,
           });
           contextCache.set(contextKey(task), context);
-          await window.otto.notificationMarkRead(notificationId);
+          await window.clawmaster.notificationMarkRead(notificationId);
           return;
         }
 
@@ -734,13 +734,13 @@ function OttoWorkspaceApp({
               payload: task.request,
             }, messages);
             if (repeatedDecision.kind === 'deny') {
-              await window.otto.enterpriseFederationAtoaRespond({
+              await window.clawmaster.enterpriseFederationAtoaRespond({
                 contactId: task.contact.id,
                 requestMessageId: task.message.id,
                 answer: '对方取消了本次授权，ClawMaster 未读取任何资料。',
                 grantedSources: [],
               });
-              await window.otto.notificationMarkRead(notificationId);
+              await window.clawmaster.notificationMarkRead(notificationId);
               return;
             }
             sources = repeatedDecision.sources.filter((source) =>
@@ -756,7 +756,7 @@ function OttoWorkspaceApp({
 
         let answer: string;
         try {
-          answer = await askLocalPeerOtto({
+          answer = await askLocalPeerClawMaster({
             question: task.request.question,
             workContext: context.context,
             mode: task.request.mode,
@@ -769,14 +769,14 @@ function OttoWorkspaceApp({
           if (abortController.signal.aborted) return;
           answer = '本机 ClawMaster 本次未能完成回答，请稍后重试或直接联系本人。';
         }
-        await window.otto.enterpriseFederationAtoaRespond({
+        await window.clawmaster.enterpriseFederationAtoaRespond({
           contactId: task.contact.id,
           requestMessageId: task.message.id,
           answer,
           grantedSources: context.loadedSources,
         });
         contextCache.delete(contextKey(task));
-        await window.otto.notificationMarkRead(notificationId);
+        await window.clawmaster.notificationMarkRead(notificationId);
       } catch {
         processing.delete(key);
       }
@@ -786,7 +786,7 @@ function OttoWorkspaceApp({
       if (polling || cancelled) return;
       polling = true;
       try {
-        const tasks = await window.otto.enterpriseFederationAtoaTasks();
+        const tasks = await window.clawmaster.enterpriseFederationAtoaTasks();
         for (const task of tasks) {
           if (cancelled) break;
           await processTask(task);
@@ -816,7 +816,7 @@ function OttoWorkspaceApp({
 
   useEffect(() => {
     let cancelled = false;
-    void window.otto.autoGeneratedAgentProfiles()
+    void window.clawmaster.autoGeneratedAgentProfiles()
       .then((profiles) => {
         if (cancelled) return;
         setAutoGeneratedAgentProfiles(profiles);
@@ -912,7 +912,7 @@ function OttoWorkspaceApp({
     }));
   }, []);
   useEffect(
-    () => window.otto.onNotificationSessionOpen(openNotificationSession),
+    () => window.clawmaster.onNotificationSessionOpen(openNotificationSession),
     [openNotificationSession],
   );
   // 打开「设置与诊断中心」时默认停在哪个 tab（斜杠命令 /doctor /memory /skills 直达用）。
@@ -940,8 +940,8 @@ function OttoWorkspaceApp({
   const [exemptActive, setExemptActive] = useState(false);
   useEffect(() => {
     try {
-      const exempt = localStorage.getItem('otto_exempt_code');
-      if (exempt === 'OTTO-DEV-2026') {
+      const exempt = localStorage.getItem('clawmaster_exempt_code');
+      if (exempt === 'CLAWMASTER-DEV-2026') {
         setExemptActive(true);
       }
     } catch {
@@ -1049,9 +1049,9 @@ function OttoWorkspaceApp({
   const runtimeActive = hasActiveRuntimeSession(sessions);
 
   useEffect(() => {
-    void window.otto.taskRuntimeSetActive(runtimeActive).catch(() => undefined);
+    void window.clawmaster.taskRuntimeSetActive(runtimeActive).catch(() => undefined);
     return () => {
-      void window.otto.taskRuntimeSetActive(false).catch(() => undefined);
+      void window.clawmaster.taskRuntimeSetActive(false).catch(() => undefined);
     };
   }, [runtimeActive]);
 
@@ -1089,7 +1089,7 @@ function OttoWorkspaceApp({
       if (edition === 'enterprise' && text.trim()) {
         try {
           const knowledge = await Promise.race([
-            window.otto.enterpriseKnowledgeList({ query: text.trim() }),
+            window.clawmaster.enterpriseKnowledgeList({ query: text.trim() }),
             new Promise<never>((_, reject) => {
               window.setTimeout(() => reject(new Error('enterprise knowledge lookup timeout')), 1_200);
             }),
@@ -1243,7 +1243,7 @@ function OttoWorkspaceApp({
       setPendingAgent({
         moduleId: module.id,
         title: module.label,
-        profileId: edition === 'enterprise' ? 'otto-enterprise-work' : 'otto-personal',
+        profileId: edition === 'enterprise' ? 'claw-enterprise-work' : 'claw-personal',
         icon: module.icon,
         instructions: activation.instructions,
       });
@@ -1254,7 +1254,7 @@ function OttoWorkspaceApp({
       setPendingAgent({
         moduleId: module.id,
         title: module.label,
-        profileId: edition === 'enterprise' ? 'otto-enterprise-work' : 'otto-personal',
+        profileId: edition === 'enterprise' ? 'claw-enterprise-work' : 'claw-personal',
         icon: module.icon,
         instructions: activation.instructions,
       });
@@ -1286,10 +1286,10 @@ function OttoWorkspaceApp({
       }
 
       void executeEnterpriseCollaborationRelay(tool.parameters, account, {
-        getOrganizationView: window.otto.enterpriseOrganizationView,
-        sendMessage: window.otto.enterpriseMessageSend,
+        getOrganizationView: window.clawmaster.enterpriseOrganizationView,
+        sendMessage: window.clawmaster.enterpriseMessageSend,
         requestConsult: requestToolConsult,
-        updateAccount: window.otto.enterpriseAccountUpdate,
+        updateAccount: window.clawmaster.enterpriseAccountUpdate,
       })
         .then((result) => {
           actions.respondToolConfirmation(callId, 'approved', {
@@ -1333,7 +1333,7 @@ function OttoWorkspaceApp({
   };
 
   return (
-    <div className="otto-app" data-connection={state.connection} data-ui-mode={uiMode}>
+    <div className="claw-app" data-connection={state.connection} data-ui-mode={uiMode}>
       <Sidebar
         sessions={sessions}
         preferenceScope={uiModeScope}
@@ -1425,13 +1425,13 @@ function OttoWorkspaceApp({
           onBack={() => setMainView('chat')}
         />
       ) : mainView === 'workspace' ? (
-        <section className="otto-workspace-page" aria-label="工作台">
-          <header className="otto-workspace-page__head">
+        <section className="claw-workspace-page" aria-label="工作台">
+          <header className="claw-workspace-page__head">
             <div>
-              <div className="otto-workspace-page__title">专家与工作区</div>
-              <div className="otto-workspace-page__subtitle">专家与企业记忆</div>
+              <div className="claw-workspace-page__title">专家与工作区</div>
+              <div className="claw-workspace-page__subtitle">专家与企业记忆</div>
             </div>
-            <button type="button" className="otto-workspace-page__back" onClick={() => setMainView('chat')}>
+            <button type="button" className="claw-workspace-page__back" onClick={() => setMainView('chat')}>
               返回对话
             </button>
           </header>
@@ -1450,7 +1450,7 @@ function OttoWorkspaceApp({
           />
         </section>
       ) : (
-        <div className="otto-content-layout">
+        <div className="claw-content-layout">
           {mainView === 'agenda' ? (
             <DayAgenda
               date={selectedDate}
@@ -1556,7 +1556,7 @@ function OttoWorkspaceApp({
         open={moduleModal?.kind === 'customer-module-authoring'}
         publisher={{ id: account.id, name: account.name }}
         onSubmit={async (submission) => {
-          await window.otto.customerModuleSubmit(submission);
+          await window.clawmaster.customerModuleSubmit(submission);
         }}
         onClose={() => setModuleModal(null)}
       />
@@ -1605,8 +1605,8 @@ function OttoWorkspaceApp({
       />
 
       {state.connection !== 'connected' ? (
-        <div className="otto-conn-banner" role="status" aria-live="polite">
-          <span className="otto-conn-banner__dot" aria-hidden />
+        <div className="claw-conn-banner" role="status" aria-live="polite">
+          <span className="claw-conn-banner__dot" aria-hidden />
           {localOnly
             ? state.connection === 'connecting'
               ? '正在启动本地引擎…'
@@ -1653,7 +1653,7 @@ function OttoWorkspaceApp({
 
       {mainView === 'hub' ? (
         <div
-          className="otto-hubfloat-overlay"
+          className="claw-hubfloat-overlay"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setMainView('chat');
           }}
@@ -1661,7 +1661,7 @@ function OttoWorkspaceApp({
             if (e.key === 'Escape') setMainView('chat');
           }}
         >
-          <div className="otto-hubfloat" role="dialog" aria-modal="true" aria-label="设置与诊断中心">
+          <div className="claw-hubfloat" role="dialog" aria-modal="true" aria-label="设置与诊断中心">
             <SettingsHubPage
               data={settingsData}
               update={softwareUpdate}
@@ -1723,11 +1723,11 @@ function ErrorToast({
   }, [message, onClose]);
 
   return (
-    <div className="otto-toast" role="alert">
-      <span className="otto-toast__msg">{message}</span>
+    <div className="claw-toast" role="alert">
+      <span className="claw-toast__msg">{message}</span>
       <button
         type="button"
-        className="otto-toast__close"
+        className="claw-toast__close"
         onClick={onClose}
         aria-label="关闭提示"
         title="关闭"

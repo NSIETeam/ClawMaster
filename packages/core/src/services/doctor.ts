@@ -1,9 +1,9 @@
 /**
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
- * DoctorService — 一次性体检 Otto 七大能力所依赖的全部外部二进制/模块 + （可选）系统权限。
+ * DoctorService — 一次性体检 ClawMaster 七大能力所依赖的全部外部二进制/模块 + （可选）系统权限。
  *
- * 背景：Otto 的文档转换/生成、幻灯片、数据分析、桌面键鼠、语音、PDF 处理等能力，
+ * 背景：ClawMaster 的文档转换/生成、幻灯片、数据分析、桌面键鼠、语音、PDF 处理等能力，
  * 依赖约 10 个外部 CLI（pandoc / libreoffice / typst / marp / duckdb / gnuplot /
  * cliclick / ffmpeg / whisper / ghostscript / pdfunite）以及 playwright（node 模块）。
  * 缺依赖时这些能力只能「跑到一半才 fail」。DoctorService 把体检提前到一次调用里：
@@ -22,7 +22,7 @@ import { createRequire } from 'module';
 export interface DoctorCheck {
   /** 依赖名（面向用户，如 "pandoc"、"playwright"）。 */
   name: string;
-  /** 它服务哪个 Otto 能力（面向用户，如 "文档转换"）。 */
+  /** 它服务哪个 ClawMaster 能力（面向用户，如 "文档转换"）。 */
   category: string;
   /** 是否可用。 */
   present: boolean;

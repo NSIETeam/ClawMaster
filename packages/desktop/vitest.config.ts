@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,7 @@
  * Renderer 单测配置（jsdom）。
  *
  * 依赖（vitest / jsdom / @testing-library/react）已 hoist 到 root node_modules，
- * 无需在本包新增依赖即可解析。renderer 从 'otto-server' 一律 import type，
+ * 无需在本包新增依赖即可解析。renderer 从 'clawmaster-server' 一律 import type，
  * 类型在编译期被擦除，运行时不加载该模块，故无需其 dist 产物。
  */
 

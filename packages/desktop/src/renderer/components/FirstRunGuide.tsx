@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useEffect, useId, useLayoutEffect, useMemo, useState } from 'react';
@@ -57,7 +57,7 @@ const STEPS: Record<UiMode, readonly GuideStep[]> = {
       title: '对话就是主工作区',
       description: '把目标、背景和期望结果告诉 ClawMaster，后续资料与修改都在同一段对话中继续。',
       tip: '先说清楚要完成什么，ClawMaster 会主动拆解任务并反馈进度。',
-      selector: '.otto-main',
+      selector: '.claw-main',
       placement: 'center',
       icon: IconSparkle,
     },
@@ -65,7 +65,7 @@ const STEPS: Record<UiMode, readonly GuideStep[]> = {
       title: '从这里发起任务',
       description: '输入文字，也可以点击、拖拽或粘贴 Word、PDF、表格和图片。',
       tip: '复杂任务可以直接附上原始文件，不必先手工整理内容。',
-      selector: '.otto-composer',
+      selector: '.claw-composer',
       placement: 'top',
       icon: IconPaperclip,
     },
@@ -73,7 +73,7 @@ const STEPS: Record<UiMode, readonly GuideStep[]> = {
       title: '历史与企业入口都在左侧',
       description: '新建对话、查找历史、查看消息、进入组织架构和设置都集中在这里。',
       tip: '未读消息会保留红点，点击对应入口即可直达。',
-      selector: '.otto-sidebar',
+      selector: '.claw-sidebar',
       placement: 'right',
       icon: IconList,
     },
@@ -83,7 +83,7 @@ const STEPS: Record<UiMode, readonly GuideStep[]> = {
       title: '对话与工作区并排协作',
       description: '中间处理当前任务，右侧持续展示专家和企业记忆，不必来回切页。',
       tip: '适合需要边沟通、边查看资料和工作状态的连续任务。',
-      selector: '.otto-content-layout',
+      selector: '.claw-content-layout',
       placement: 'center',
       icon: IconSparkle,
     },
@@ -91,7 +91,7 @@ const STEPS: Record<UiMode, readonly GuideStep[]> = {
       title: '右侧工作区会一直陪着你',
       description: '切换专家或查看企业记忆时，当前对话仍保留在中间。',
       tip: '点击右侧标签即可切换内容，工作区会保持展开。',
-      selector: '.otto-right-panel',
+      selector: '.claw-right-panel',
       placement: 'left',
       icon: IconAgent,
     },
@@ -99,7 +99,7 @@ const STEPS: Record<UiMode, readonly GuideStep[]> = {
       title: '从这里下达任务',
       description: '输入目标或直接加入文件，ClawMaster 会结合右侧工作区中的资料继续处理。',
       tip: '拖入多个文件后可以一次说明它们之间的关系和最终产物。',
-      selector: '.otto-composer',
+      selector: '.claw-composer',
       placement: 'top',
       icon: IconPaperclip,
     },
@@ -107,7 +107,7 @@ const STEPS: Record<UiMode, readonly GuideStep[]> = {
       title: '左侧统一管理工作入口',
       description: '会话、消息、组织架构、设置与诊断都在左侧，不会挤占右侧工作区。',
       tip: '以后可在设置中切换界面，功能和数据不会改变。',
-      selector: '.otto-sidebar',
+      selector: '.claw-sidebar',
       placement: 'right',
       icon: IconSettings,
     },
@@ -115,7 +115,7 @@ const STEPS: Record<UiMode, readonly GuideStep[]> = {
 };
 
 function guideStorageKey(mode: UiMode): string {
-  return `otto:first-run-guide:${GUIDE_VERSION}:${mode}`;
+  return `clawmaster:first-run-guide:${GUIDE_VERSION}:${mode}`;
 }
 
 function hasCompletedGuide(mode: UiMode): boolean {
@@ -255,34 +255,34 @@ export function FirstRunGuide({ mode }: { mode: UiMode }): React.JSX.Element | n
 
   return (
     <div
-      className={`otto-first-run${targetRect ? '' : ' is-fallback'}`}
+      className={`claw-first-run${targetRect ? '' : ' is-fallback'}`}
       onKeyDown={(event) => {
         if (event.key === 'Escape') dismiss();
       }}
     >
       {targetRect ? (
-        <div className="otto-first-run__spotlight" style={spotlightStyle} aria-hidden />
+        <div className="claw-first-run__spotlight" style={spotlightStyle} aria-hidden />
       ) : (
-        <div className="otto-first-run__scrim" aria-hidden />
+        <div className="claw-first-run__scrim" aria-hidden />
       )}
       <div
-        className="otto-first-run__card"
+        className="claw-first-run__card"
         data-placement={cardPosition.placement}
         style={{ top: cardPosition.top, left: cardPosition.left }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
       >
-        <div className="otto-first-run__head">
-          <div className="otto-first-run__mode">
-            <span className="otto-first-run__mode-icon" aria-hidden>
+        <div className="claw-first-run__head">
+          <div className="claw-first-run__mode">
+            <span className="claw-first-run__mode-icon" aria-hidden>
               <StepIcon size={16} />
             </span>
             <span>{MODE_LABEL[mode]} 导览</span>
           </div>
           <button
             type="button"
-            className="otto-first-run__close"
+            className="claw-first-run__close"
             onClick={dismiss}
             aria-label="跳过导览"
             title="跳过导览"
@@ -291,21 +291,21 @@ export function FirstRunGuide({ mode }: { mode: UiMode }): React.JSX.Element | n
           </button>
         </div>
 
-        <div className="otto-first-run__copy">
-          <span className="otto-first-run__count">{String(step + 1).padStart(2, '0')}</span>
+        <div className="claw-first-run__copy">
+          <span className="claw-first-run__count">{String(step + 1).padStart(2, '0')}</span>
           <div>
             <h2 id={titleId}>{current.title}</h2>
             <p>{current.description}</p>
           </div>
         </div>
 
-        <div className="otto-first-run__tip">
+        <div className="claw-first-run__tip">
           <strong>使用建议</strong>
           <span>{current.tip}</span>
         </div>
 
-        <div className="otto-first-run__footer">
-          <div className="otto-first-run__progress" aria-label="导览进度">
+        <div className="claw-first-run__footer">
+          <div className="claw-first-run__progress" aria-label="导览进度">
             {steps.map((item, index) => (
               <button
                 type="button"
@@ -317,19 +317,19 @@ export function FirstRunGuide({ mode }: { mode: UiMode }): React.JSX.Element | n
               />
             ))}
           </div>
-          <div className="otto-first-run__actions">
+          <div className="claw-first-run__actions">
             {step > 0 ? (
-              <button type="button" className="otto-first-run__back" onClick={() => setStep(step - 1)}>
+              <button type="button" className="claw-first-run__back" onClick={() => setStep(step - 1)}>
                 上一步
               </button>
             ) : (
-              <button type="button" className="otto-first-run__back" onClick={dismiss}>
+              <button type="button" className="claw-first-run__back" onClick={dismiss}>
                 稍后了解
               </button>
             )}
             <button
               type="button"
-              className="otto-first-run__next"
+              className="claw-first-run__next"
               onClick={() => {
                 if (step === steps.length - 1) dismiss();
                 else setStep(step + 1);

@@ -1,5 +1,5 @@
 /**
- * @otto/native - Rust native bindings for Otto
+ * @clawmaster/native - Rust native bindings for ClawMaster
  *
  * Provides high-performance implementations of:
  * - Session Store (sled-based KV with LRU cache)

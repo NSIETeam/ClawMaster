@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -133,9 +133,9 @@ export function verifyPackagedRuntime(
     'dist/main/index.js',
     'dist/preload/index.js',
     'dist/renderer/index.html',
-    'node_modules/otto-server/dist/index.js',
-    'node_modules/otto-server/package.json',
-    'node_modules/otto-core/package.json',
+    'node_modules/clawmaster-server/dist/index.js',
+    'node_modules/clawmaster-server/package.json',
+    'node_modules/clawmaster-core/package.json',
     'node_modules/xlsx/package.json',
     'node_modules/@modelcontextprotocol/sdk/package.json',
   ]) {
@@ -145,11 +145,11 @@ export function verifyPackagedRuntime(
   const packagedDesktop = readAsarJson(archivePath, 'package.json');
   const packagedServer = readAsarJson(
     archivePath,
-    'node_modules/otto-server/package.json',
+    'node_modules/clawmaster-server/package.json',
   );
   const packagedCore = readAsarJson(
     archivePath,
-    'node_modules/otto-core/package.json',
+    'node_modules/clawmaster-core/package.json',
   );
   const packagedXlsx = readAsarJson(
     archivePath,

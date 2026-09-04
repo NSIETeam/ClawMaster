@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useState } from 'react';
@@ -20,8 +20,8 @@ const DESTINATIONS: Record<WeComDestination, string> = {
 
 /** Keep external navigation closed over an allowlist; callers cannot inject a URL. */
 async function openWeComDestination(destination: WeComDestination): Promise<void> {
-  if (!window.otto?.openExternal) throw new Error('桌面外部链接服务未就绪');
-  await window.otto.openExternal(DESTINATIONS[destination]);
+  if (!window.clawmaster?.openExternal) throw new Error('桌面外部链接服务未就绪');
+  await window.clawmaster.openExternal(DESTINATIONS[destination]);
 }
 
 export function WeComPanel(): React.JSX.Element {
@@ -49,16 +49,16 @@ export function WeComPanel(): React.JSX.Element {
       <ChannelPairingCard provider="wecom" />
       <ChannelInstallationList provider="wecom" />
 
-      <div className="otto-hub__section-title">高级配置与兼容模式</div>
-      <Card className="otto-hub__card--pad">
-        <div className="otto-hub__row-name">连接准备</div>
-        <p className="otto-hub__field-hint">
+      <div className="claw-hub__section-title">高级配置与兼容模式</div>
+      <Card className="claw-hub__card--pad">
+        <div className="claw-hub__row-name">连接准备</div>
+        <p className="claw-hub__field-hint">
           企业微信只支持企业自建应用。请在管理后台创建应用并配置可见范围；Secret 不会通过链接传递，也不要粘贴到普通对话中。
         </p>
-        <div className="otto-hub__feishu-actions">
+        <div className="claw-hub__feishu-actions">
           <button
             type="button"
-            className="otto-hub__btn otto-hub__btn--primary"
+            className="claw-hub__btn claw-hub__btn--primary"
             disabled={opening !== null}
             onClick={() => void open('admin')}
           >
@@ -67,7 +67,7 @@ export function WeComPanel(): React.JSX.Element {
           </button>
           <button
             type="button"
-            className="otto-hub__btn"
+            className="claw-hub__btn"
             disabled={opening !== null}
             onClick={() => void open('guide')}
           >
@@ -75,12 +75,12 @@ export function WeComPanel(): React.JSX.Element {
             <IconExternalLink size={12} />
           </button>
         </div>
-        {message ? <div className="otto-hub__feishu-message" role="alert">{message}</div> : null}
+        {message ? <div className="claw-hub__feishu-message" role="alert">{message}</div> : null}
       </Card>
 
-      <Card className="otto-hub__card--pad">
-        <div className="otto-hub__row-name">当前能力边界</div>
-        <p className="otto-hub__field-hint">
+      <Card className="claw-hub__card--pad">
+        <div className="claw-hub__row-name">当前能力边界</div>
+        <p className="claw-hub__field-hint">
           ClawMaster 已有受确认保护的企业微信消息发送能力；凭证绑定仍应走专用安全配置通路。此页面不会把 Secret 交给模型，也不会在后台自动发送消息。
         </p>
       </Card>

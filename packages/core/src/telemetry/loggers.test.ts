@@ -11,7 +11,7 @@ import {
 } from '../index.js';
 import { logs } from '@opentelemetry/api-logs';
 import { Config, ApprovalMode } from '../config/config.js';
-import type { OttoClient } from '../core/client.js';
+import type { ClawMasterClient } from '../core/client.js';
 import type { Tool } from '../tools/tools.js';
 import {
   EVENT_API_REQUEST,
@@ -361,7 +361,7 @@ describe('loggers', () => {
     const mockConfig = {
       getSessionId: () => 'test-session-id',
       getTargetDir: () => 'target-dir',
-      getOttoClient: () => ({}) as unknown as OttoClient,
+      getClawMasterClient: () => ({}) as unknown as ClawMasterClient,
       getUsageStatisticsEnabled: () => true,
       getTelemetryEnabled: () => true,
       getTelemetryLogPromptsEnabled: () => true,

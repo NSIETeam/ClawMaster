@@ -39,10 +39,10 @@ Module._load = function (request, parent, isMain) {
   if (String(request).endsWith('packages/server/dist/src/enterprise/server.js')) {
     return {
       startEnterpriseServer(options) {
-        fs.writeFileSync(process.env.OTTO_LAUNCHER_TEST_OUTPUT, JSON.stringify({
+        fs.writeFileSync(process.env.CLAWMASTER_LAUNCHER_TEST_OUTPUT, JSON.stringify({
           options,
-          host: process.env.OTTO_ENTERPRISE_HOST,
-          port: process.env.OTTO_ENTERPRISE_PORT,
+          host: process.env.CLAWMASTER_ENTERPRISE_HOST,
+          port: process.env.CLAWMASTER_ENTERPRISE_PORT,
         }));
         return { close(callback) { if (callback) callback(); } };
       },
@@ -65,10 +65,10 @@ Module._load = function (request, parent, isMain) {
           ...process.env,
           NODE_OPTIONS:
             `${process.env.NODE_OPTIONS || ''} --require ${preloadPath}`.trim(),
-          OTTO_ENTERPRISE_HOST: '127.0.0.1',
-          OTTO_BUILD_COMMIT: EXPECTED_BUILD_COMMIT,
+          CLAWMASTER_ENTERPRISE_HOST: '127.0.0.1',
+          CLAWMASTER_BUILD_COMMIT: EXPECTED_BUILD_COMMIT,
           GITHUB_SHA: '',
-          OTTO_LAUNCHER_TEST_OUTPUT: capturePath,
+          CLAWMASTER_LAUNCHER_TEST_OUTPUT: capturePath,
         },
       },
     );

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,8 +10,8 @@
  * 为什么单独立一层而不直接塞进 server.ts：
  *   - server.ts 已有 1600+ 行，且其消息帧 handler 是「一帧一能力」的形态；
  *     斜杠命令是「一个入口路由 N 个能力」，需要自己的注册表与解析器。
- *   - 命令实现只依赖 CommandHost 这个窄接口（由 OttoServer 用闭包拼装），
- *     不反向 import OttoServer——单测时用假 host 即可全链路覆盖。
+ *   - 命令实现只依赖 CommandHost 这个窄接口（由 ClawMasterServer 用闭包拼装），
+ *     不反向 import ClawMasterServer——单测时用假 host 即可全链路覆盖。
  *
  * 与历史交互命令层不同，
  * 这里刻意收敛为两种结果：markdown（渲染成聊天区系统气泡）与 submit_prompt
@@ -19,7 +19,7 @@
  * renderer 的本地面板命令承担，不进 server。
  */
 
-import type { Config as CoreConfig } from 'otto-core';
+import type { Config as CoreConfig } from 'clawmaster-core';
 import type { SessionStore } from '../sessions.js';
 import type {
   ExtensionSummary,
@@ -28,7 +28,7 @@ import type {
 } from '../protocol.js';
 
 /**
- * 命令执行所需的宿主能力（OttoServer 在 handleRunSlashCommand 里用闭包拼装）。
+ * 命令执行所需的宿主能力（ClawMasterServer 在 handleRunSlashCommand 里用闭包拼装）。
  * 保持窄接口：命令只拿得到它声明需要的东西，便于测试与防止随手耦合 server 内部。
  */
 export interface CommandHost {

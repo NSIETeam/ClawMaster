@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -72,12 +72,12 @@ describe('EnterpriseUnreadNotificationTracker', () => {
     });
 
     await tracker.reconcile([
-      message({ id: 'request', preview: 'OTTO_ATOA_REQUEST {"v":1}' }),
+      message({ id: 'request', preview: 'CLAWMASTER_ATOA_REQUEST {"v":1}' }),
       message({
         id: 'response',
         senderAccountId: 'bob',
         senderName: 'Bob',
-        preview: 'OTTO_ATOA_RESPONSE {"v":1,"answer":"已完成"}',
+        preview: 'CLAWMASTER_ATOA_RESPONSE {"v":1,"answer":"已完成"}',
       }),
     ]);
 

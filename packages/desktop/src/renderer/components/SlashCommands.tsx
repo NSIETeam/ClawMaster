@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -33,7 +33,7 @@ export interface SlashCommand {
    *     slash_command_result 的 markdown 回来，渲染成聊天区系统气泡）。
    */
   action?: 'local' | 'prompt' | 'server' | 'agent';
-  /** action=prompt 时发送给 Otto 的完整指令。 */
+  /** action=prompt 时发送给 ClawMaster 的完整指令。 */
   prompt?: string;
   /** action=agent 时绑定的服务端白名单 profile id。 */
   agentProfileId?: string;
@@ -169,7 +169,7 @@ export function SlashCommands({
   // scrollIntoView 在部分测试环境（jsdom）未实现，存在才调用，避免抛错。
   useEffect(() => {
     const el = listRef.current?.querySelector<HTMLElement>(
-      '.otto-slashmenu__item--active',
+      '.claw-slashmenu__item--active',
     );
     el?.scrollIntoView?.({ block: 'nearest' });
   }, [activeIndex]);
@@ -177,8 +177,8 @@ export function SlashCommands({
   return (
     <div
       ref={listRef}
-      id="otto-slashmenu"
-      className="otto-slashmenu"
+      id="claw-slashmenu"
+      className="claw-slashmenu"
       role="listbox"
       aria-label="斜杠命令"
       // 阻止冒泡，避免点击面板本身触发上面的「点击面板外关闭」。
@@ -196,14 +196,14 @@ export function SlashCommands({
             type="button"
             role="option"
             aria-selected={active}
-            className={`otto-slashmenu__item${
-              active ? ' otto-slashmenu__item--active' : ''
+            className={`claw-slashmenu__item${
+              active ? ' claw-slashmenu__item--active' : ''
             }`}
             onMouseEnter={() => onHover(i)}
             onClick={() => onExecute(c)}
           >
-            <span className="otto-slashmenu__name">/{c.id}</span>
-            <span className="otto-slashmenu__desc">
+            <span className="claw-slashmenu__name">/{c.id}</span>
+            <span className="claw-slashmenu__desc">
               {c.description}
               {c.usage ? ` · /${c.usage}` : ''}
             </span>

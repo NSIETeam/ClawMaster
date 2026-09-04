@@ -9,8 +9,8 @@
 
 ## 2. 信任模型与安全边界
 
-- **信任根**：Server 通过部署时配置的公钥列表（`OTTO_ENTERPRISE_CONTROL_PUBLIC_KEYS`）验证 Control 指令签名；未配置信任根时端点 **fail closed**（不挂载、不执行、绝不静默降级）。
-- **部署绑定**：每条指令携带 `deploymentId`，与 Server 自身部署 ID（`OTTO_ENTERPRISE_DEPLOYMENT_ID` 或 `publicBaseUrl`）不一致即拒收。
+- **信任根**：Server 通过部署时配置的公钥列表（`CLAWMASTER_ENTERPRISE_CONTROL_PUBLIC_KEYS`）验证 Control 指令签名；未配置信任根时端点 **fail closed**（不挂载、不执行、绝不静默降级）。
+- **部署绑定**：每条指令携带 `deploymentId`，与 Server 自身部署 ID（`CLAWMASTER_ENTERPRISE_DEPLOYMENT_ID` 或 `publicBaseUrl`）不一致即拒收。
 - **无秘密原则**：Payload 只含组织显示信息、管理员身份声明、套餐与模块配置；**禁止**明文密码、License 私钥、数据库凭据、客户端 E2EE 私钥。回执同样不含任何账号秘密。
 - **幂等**：`(commandId)` 唯一；重复投递同一条返回既有结果，不重复执行。
 

@@ -5,7 +5,7 @@
  */
 
 import { ToolResult } from '../tools/tools.js';
-import { OttoClient } from '../core/client.js';
+import { ClawMasterClient } from '../core/client.js';
 import { SceneType, SceneManager } from '../core/sceneManager.js';
 import { getResponseText, partToString } from './partUtils.js';
 
@@ -17,7 +17,7 @@ import { getResponseText, partToString } from './partUtils.js';
  */
 export type Summarizer = (
   result: ToolResult,
-  geminiClient: OttoClient,
+  geminiClient: ClawMasterClient,
   abortSignal: AbortSignal,
 ) => Promise<string>;
 
@@ -31,7 +31,7 @@ export type Summarizer = (
  */
 export const defaultSummarizer: Summarizer = (
   result: ToolResult,
-  _geminiClient: OttoClient,
+  _geminiClient: ClawMasterClient,
   _abortSignal: AbortSignal,
 ) => Promise.resolve(JSON.stringify(result.llmContent));
 
@@ -60,7 +60,7 @@ export const llmSummarizer: Summarizer = (result, geminiClient, abortSignal) =>
 
 export async function summarizeToolOutput(
   textToSummarize: string,
-  geminiClient: OttoClient,
+  geminiClient: ClawMasterClient,
   abortSignal: AbortSignal,
   maxOutputTokens: number = 2000,
 ): Promise<string> {

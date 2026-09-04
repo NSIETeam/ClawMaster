@@ -1,7 +1,7 @@
 /**
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
- * Otto Web Automation - Browser automation for OA/ERP/web scraping.
+ * ClawMaster Web Automation - Browser automation for OA/ERP/web scraping.
  * Uses Playwright (cross-platform, Chromium/Firefox/WebKit).
  *
  * Handles: login, navigate, fill forms, click, scrape tables/text, screenshot.

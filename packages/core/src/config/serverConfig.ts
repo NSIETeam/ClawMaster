@@ -7,7 +7,7 @@
 
 /**
  * 服务端配置获取模块
- * 从Otto服务端获取客户端所需的配置信息
+ * 从ClawMaster服务端获取客户端所需的配置信息
  */
 
 import { getUserAgent } from '../utils/userAgent.js';
@@ -46,9 +46,9 @@ export class ServerConfigFetcher {
   private cacheExpiry: Date | null = null;
 
   // 默认服务器地址，可以通过环境变量覆盖。
-  // BYO-key: 未配置 OTTO_SERVER_URL 时返回空字符串，调用方需自行跳过网络请求。
+  // BYO-key: 未配置 CLAWMASTER_SERVER_URL 时返回空字符串，调用方需自行跳过网络请求。
   private getServerBaseUrl(): string {
-    return process.env.OTTO_SERVER_URL || '';
+    return process.env.CLAWMASTER_SERVER_URL || '';
   }
 
   private constructor() {
@@ -82,7 +82,7 @@ export class ServerConfigFetcher {
       // BYO-key: 未配置服务端地址时不发起请求，抛出可被上层捕获的错误而非访问空 URL。
       const baseUrl = this.getServerBaseUrl();
       if (!baseUrl) {
-        throw new Error('未配置 OTTO_SERVER_URL，已跳过服务端配置获取');
+        throw new Error('未配置 CLAWMASTER_SERVER_URL，已跳过服务端配置获取');
       }
 
       const response = await fetch(`${baseUrl}/api/config/client`, {

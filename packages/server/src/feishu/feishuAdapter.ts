@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -126,7 +126,7 @@ export interface FeishuAdapterDeps {
    * 为飞书会话取得或懒创建真实 core runtime。
    *
    * 官方 EasyCode 会在每个 chat 首条消息到达时先初始化隔离 Config/LLM client；
-   * Otto 对应的单一入口是 server.ensureRuntime，必须由生产 registerFeishu 注入。
+   * ClawMaster 对应的单一入口是 server.ensureRuntime，必须由生产 registerFeishu 注入。
    */
   ensureRuntime?: (
     sessionId: string,

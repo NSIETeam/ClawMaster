@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import os from 'node:os';
 import path from 'node:path';
@@ -74,7 +74,7 @@ interface WorkflowPersistence {
 }
 
 function workflowDirectory(): string {
-  return path.join(process.env['OTTO_USER_DIR']?.trim() || path.join(os.homedir(), '.otto-user'), 'durable-workflows');
+  return path.join(process.env['CLAWMASTER_USER_DIR']?.trim() || path.join(os.homedir(), '.otto-user'), 'durable-workflows');
 }
 
 function summarize(run: RunSummarySource | null): Record<string, unknown> {
@@ -228,10 +228,10 @@ export class DurableWorkflowTool extends BaseTool<DurableWorkflowToolParams, Too
   private async loadPersistence(): Promise<WorkflowPersistence> {
     let module: WorkflowModule;
     try {
-      module = (await import('otto-workflow')) as unknown as WorkflowModule;
+      module = (await import('clawmaster-workflow')) as unknown as WorkflowModule;
     } catch (caught) {
       const detail = caught instanceof Error ? caught.message : String(caught);
-      throw new Error(`Durable workflow runtime is unavailable (${detail}). Build/install otto-workflow first.`);
+      throw new Error(`Durable workflow runtime is unavailable (${detail}). Build/install clawmaster-workflow first.`);
     }
     const directory = workflowDirectory();
     return {

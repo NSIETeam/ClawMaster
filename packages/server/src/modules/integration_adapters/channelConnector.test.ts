@@ -42,7 +42,7 @@ describe('ChannelPairingCoordinator', () => {
       pairing.pairingId,
       'single-use-pairing-nonce-with-enough-entropy',
       {
-        tenantId: 'tenant-1', tenantName: 'Acme', botName: 'Otto',
+        tenantId: 'tenant-1', tenantName: 'Acme', botName: 'ClawMaster',
         grantedScopes: ['im:message'],
       },
     );
@@ -51,7 +51,7 @@ describe('ChannelPairingCoordinator', () => {
 
     const installation = await coordinator.complete(pairing.pairingId);
     expect(installation).toMatchObject({
-      provider: 'lark', tenantId: 'tenant-1', tenantName: 'Acme', botName: 'Otto',
+      provider: 'lark', tenantId: 'tenant-1', tenantName: 'Acme', botName: 'ClawMaster',
       grantedScopes: ['im:message'],
     });
     expect((await coordinator.get(pairing.pairingId)).status).toBe('connected');
@@ -76,7 +76,7 @@ describe('ChannelPairingCoordinator', () => {
       pairing.pairingId,
       'single-use-pairing-nonce-with-enough-entropy',
       {
-        tenantId: 'corp-1', tenantName: '企业', botName: 'Otto',
+        tenantId: 'corp-1', tenantName: '企业', botName: 'ClawMaster',
         grantedScopes: ['message:send'], requiresAdminApproval: true,
       },
     );

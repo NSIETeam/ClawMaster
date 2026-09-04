@@ -1,7 +1,7 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Otto Proactive Service v2 — 智能主动提醒引擎。
+ * ClawMaster Proactive Service v2 — 智能主动提醒引擎。
  *
  * 基于工作日志分析 + 行为模式识别：
  * - 昨天提过的任务今天没跟进 → 提醒补漏
@@ -30,7 +30,7 @@ export interface ProactiveFeishuSender {
   sendMessage(userId: string, message: string): Promise<void>;
 }
 
-/** 本地通知接口（由 otto-server 注入，无飞书时也能推送） */
+/** 本地通知接口（由 clawmaster-server 注入，无飞书时也能推送） */
 export interface ProactiveLocalNotifier {
   notify(message: string, priority: 'low' | 'medium' | 'high', ruleId: string): Promise<void>;
 }

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -31,7 +31,7 @@ const account: EnterpriseAccount = {
 };
 
 beforeEach(() => {
-  (window as unknown as { otto: unknown }).otto = {
+  (window as unknown as { clawmaster: unknown }).clawmaster = {
     enterpriseMessagesUnread: vi.fn(async () => (
       undefined as unknown as EnterpriseUnreadMessageNotification[]
     )),
@@ -54,7 +54,7 @@ beforeEach(() => {
     })),
     enterpriseFederationContactVerification: vi.fn(async () => ({
       safetyNumber: '1234567890123456',
-      qrPayload: 'OTTO_E2EE_VERIFY_V1:test',
+      qrPayload: 'CLAWMASTER_E2EE_VERIFY_V1:test',
       deviceFingerprints: ['a'.repeat(64), 'b'.repeat(64)],
       verifiedAt: null,
     })),
@@ -103,7 +103,7 @@ describe('InboxPage response hardening', () => {
       trustState: 'unverified',
       keyFingerprint: 'b'.repeat(64),
     };
-    const bridge = window.otto as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    const bridge = window.clawmaster as unknown as Record<string, ReturnType<typeof vi.fn>>;
     bridge.enterpriseFederationContacts.mockResolvedValue([contact]);
     bridge.enterpriseFederationMessagesList.mockResolvedValue([{
       id: 'federation-message-1',
@@ -172,7 +172,7 @@ describe('InboxPage response hardening', () => {
       trustState: 'verified',
       keyFingerprint: 'b'.repeat(64),
     };
-    const bridge = window.otto as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    const bridge = window.clawmaster as unknown as Record<string, ReturnType<typeof vi.fn>>;
     bridge.enterpriseFederationContacts.mockResolvedValue([contact]);
 
     render(
@@ -197,7 +197,7 @@ describe('InboxPage response hardening', () => {
     });
     const [contactId, content] = bridge.enterpriseFederationMessageSend.mock.calls[0]!;
     expect(contactId).toBe(contact.id);
-    expect(content).toMatch(/^OTTO_ATOA_REQUEST /u);
+    expect(content).toMatch(/^CLAWMASTER_ATOA_REQUEST /u);
     expect(content).toContain('你明天下午是否方便开会？');
   });
 });

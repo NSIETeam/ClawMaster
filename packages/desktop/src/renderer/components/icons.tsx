@@ -1,17 +1,16 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
  * 自带 SVG 图标集 —— 故意不引 lucide-react，让渲染层零额外依赖、独立可编译。
  * 全部用 currentColor，跟随父级文字色，hover 态由 CSS 控制。
- * Otto 头像是简洁吉祥物占位（spec：先用 SVG，Felix 后续替换）。
+ * ClawMaster 头像使用轻量 SVG，占位资源不进入发布包。
  */
 
 import React from 'react';
-import ottoAvatarUrl from '../assets/otto-avatar.png';
 
 type IconProps = { size?: number; className?: string; strokeWidth?: number };
 
@@ -502,20 +501,23 @@ export function IconSparkle({ size = 12, className }: IconProps): React.JSX.Elem
 }
 
 /**
- * Otto 吉祥物头像（Codex 原生 imagegen 生成，1 号：白屏笑脸 + <> 代码括号耳）。
- * 源图 build/avatar/otto-avatar-1.png → 缩至 256² 落 assets/，webpack 内联为 data URI。
- */
-export function OttoAvatar({ size = 30, className }: IconProps): React.JSX.Element {
+ * Lightweight product avatar. Keep it vector-only so the renderer does not
+ * carry a branded raster asset into the installer.
+*/
+export function ClawMasterAvatar({ size = 30, className }: IconProps): React.JSX.Element {
   return (
-    <img
-      src={ottoAvatarUrl}
-      width={size}
-      height={size}
-      alt="ClawMaster"
+    <svg
+      {...base(size)}
+      fill="currentColor"
+      stroke="none"
       className={className}
-      draggable={false}
-      style={{ borderRadius: '50%', display: 'block', objectFit: 'cover' }}
-    />
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path d="M12 2.5 14.1 7l4.9.7-3.55 3.45.84 4.85L12 13.7l-4.29 2.3.84-4.85L5 7.7l4.9-.7L12 2.5Z" />
+      <circle cx="9.2" cy="10.5" r=".8" fill="currentColor" />
+      <circle cx="14.8" cy="10.5" r=".8" fill="currentColor" />
+    </svg>
   );
 }
 

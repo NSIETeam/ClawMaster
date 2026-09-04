@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   assertDownloadPackageTarget,
   evaluateDownloadPackageSize,
+  resolveTauriPackagingMode,
 } from './tauri-runtime-policy.mjs';
 
 const desktopRoot = path.resolve(
@@ -78,6 +79,8 @@ export function evaluateFormalTauriReleaseGate({
   root = repoRoot,
   platform = process.platform,
   arch = process.arch,
+  allowPrerelease = false,
+  packagingMode = 'embedded-legacy',
 } = {}) {
   const failures = [];
   const notes = [];
@@ -97,7 +100,10 @@ export function evaluateFormalTauriReleaseGate({
       `version mismatch: root=${version}, desktop=${desktopPackage.version}, tauri=${tauriConfig.version}`,
     );
   }
-  if (!/^\d+\.\d+\.\d+$/u.test(version)) {
+  const versionPattern = allowPrerelease
+    ? /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u
+    : /^\d+\.\d+\.\d+$/u;
+  if (!versionPattern.test(version)) {
     fail(
       `formal release version must not be a preview/beta/prerelease: ${version}`,
     );
@@ -137,8 +143,9 @@ export function evaluateFormalTauriReleaseGate({
     fail(`missing local ${asset.kind}: ${asset.path ?? '(not resolved)'}`);
   } else {
     try {
+      const sizePolicy = resolveTauriPackagingMode(packagingMode);
       const size = assertDownloadPackageTarget(
-        evaluateDownloadPackageSize(statSync(asset.path).size),
+        evaluateDownloadPackageSize(statSync(asset.path).size, sizePolicy),
       );
       note(`${asset.kind} size ${(size.bytes / 1024 / 1024).toFixed(2)} MiB`);
     } catch (error) {

@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,7 +14,7 @@ const account: EnterpriseAccount = {
 };
 
 beforeEach(() => {
-  Object.assign(window.otto, {
+  Object.assign(window.clawmaster, {
     enterpriseOrganizationView: vi.fn(async () => ({
       organization: {
         id: 'org-a', name: '测试企业', status: 'active' as const,

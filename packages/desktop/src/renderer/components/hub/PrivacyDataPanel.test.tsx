@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import {
@@ -120,7 +120,7 @@ const listE2eeDevices = vi.fn(async () => [
 const approveE2eeDevice = vi.fn(async () => undefined);
 const verifyE2eeDevice = vi.fn(async () => ({
   safetyNumber: Array.from({ length: 12 }, () => '12345').join(' '),
-  qrPayload: `otto-e2ee-verify:v1:${Buffer.from('{}').toString('base64url')}`,
+  qrPayload: `claw-e2ee-verify:v1:${Buffer.from('{}').toString('base64url')}`,
   deviceFingerprints: ['a'.repeat(64), 'c'.repeat(64)] as [string, string],
 }));
 const revokeE2eeDevice = vi.fn(async () => undefined);
@@ -166,10 +166,10 @@ const getE2eeKeyTransparency = vi.fn(async () => ({
 }));
 const exportE2eeRecovery = vi.fn(async () => '{"v":1,"ciphertext":"sealed"}');
 const importE2eeRecovery = vi.fn(async () => undefined);
-const saveTextFile = vi.fn(async () => 'D:\\Backups\\otto-e2ee-recovery.json');
+const saveTextFile = vi.fn(async () => 'D:\\Backups\\claw-e2ee-recovery.json');
 
 beforeEach(() => {
-  Object.defineProperty(window, 'otto', {
+  Object.defineProperty(window, 'clawmaster', {
     configurable: true,
     value: {
       enterpriseDataGovernanceGet: getProfile,
@@ -188,7 +188,7 @@ beforeEach(() => {
         serverUrl: 'https://enterprise.example.test',
       })),
       openExternal: vi.fn(),
-    } as unknown as Window['otto'],
+    } as unknown as Window['clawmaster'],
   });
 });
 
@@ -282,7 +282,7 @@ describe('PrivacyDataPanel', () => {
       expect(exportE2eeRecovery).toHaveBeenCalledWith('correct horse battery'),
     );
     expect(saveTextFile).toHaveBeenCalledWith(
-      expect.stringMatching(/^otto-e2ee-recovery-\d{4}-\d{2}-\d{2}\.json$/u),
+      expect.stringMatching(/^claw-e2ee-recovery-\d{4}-\d{2}-\d{2}\.json$/u),
       '{"v":1,"ciphertext":"sealed"}',
     );
     expect(await screen.findByText(/恢复包已保存到/u)).toBeTruthy();

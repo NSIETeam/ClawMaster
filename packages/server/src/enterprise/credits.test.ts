@@ -19,7 +19,7 @@ let previousTokenRate: string | undefined;
 let openDbModule: DbModule | undefined;
 
 async function freshModules(): Promise<{ db: DbModule; credits: CreditsModule }> {
-  process.env.OTTO_ENTERPRISE_DIR = tmpDir;
+  process.env.CLAWMASTER_ENTERPRISE_DIR = tmpDir;
   vi.resetModules();
   const db = await import('./db.js');
   const credits = db;
@@ -43,18 +43,18 @@ function createAccount(
 }
 
 beforeEach(() => {
-  previousEnterpriseDir = process.env.OTTO_ENTERPRISE_DIR;
-  previousTokenRate = process.env.OTTO_CREDIT_TOKEN_RATE;
+  previousEnterpriseDir = process.env.CLAWMASTER_ENTERPRISE_DIR;
+  previousTokenRate = process.env.CLAWMASTER_CREDIT_TOKEN_RATE;
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'otto-credits-'));
 });
 
 afterEach(() => {
   openDbModule?.closeEnterpriseDatabase();
   openDbModule = undefined;
-  if (previousEnterpriseDir === undefined) delete process.env.OTTO_ENTERPRISE_DIR;
-  else process.env.OTTO_ENTERPRISE_DIR = previousEnterpriseDir;
-  if (previousTokenRate === undefined) delete process.env.OTTO_CREDIT_TOKEN_RATE;
-  else process.env.OTTO_CREDIT_TOKEN_RATE = previousTokenRate;
+  if (previousEnterpriseDir === undefined) delete process.env.CLAWMASTER_ENTERPRISE_DIR;
+  else process.env.CLAWMASTER_ENTERPRISE_DIR = previousEnterpriseDir;
+  if (previousTokenRate === undefined) delete process.env.CLAWMASTER_CREDIT_TOKEN_RATE;
+  else process.env.CLAWMASTER_CREDIT_TOKEN_RATE = previousTokenRate;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -160,12 +160,12 @@ describe('积分整数边界', () => {
       Number.NaN,
     )).toThrow(/token/i);
 
-    process.env.OTTO_CREDIT_TOKEN_RATE = 'not-a-number';
+    process.env.CLAWMASTER_CREDIT_TOKEN_RATE = 'not-a-number';
     expect(() => credits.checkAndReserveCredits(
       db.DEFAULT_ORGANIZATION_ID,
       account.id,
       1_000,
-    )).toThrow(/OTTO_CREDIT_TOKEN_RATE/);
+    )).toThrow(/CLAWMASTER_CREDIT_TOKEN_RATE/);
   });
 });
 

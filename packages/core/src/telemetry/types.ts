@@ -59,11 +59,11 @@ export class StartSessionEvent {
     const generatorConfig = config.getContentGeneratorConfig();
     const mcpServers = config.getMcpServers();
 
-    let useOtto = false;
+    let useClawMaster = false;
     let useVertex = false;
-    // Only Otto custom-model authentication supported now
+    // Only ClawMaster custom-model authentication supported now
     if (generatorConfig && generatorConfig.authType) {
-      useOtto = false; // No longer supported
+      useClawMaster = false; // No longer supported
       useVertex = false; // No longer supported
     }
 
@@ -74,7 +74,7 @@ export class StartSessionEvent {
       typeof config.getSandbox() === 'string' || !!config.getSandbox();
     this.core_tools_enabled = (config.getCoreTools() ?? []).join(',');
     this.approval_mode = config.getApprovalMode();
-    this.api_key_enabled = useOtto || useVertex;
+    this.api_key_enabled = useClawMaster || useVertex;
     this.vertex_ai_enabled = useVertex;
     this.debug_enabled = config.getDebugMode();
     this.mcp_servers = mcpServers ? Object.keys(mcpServers).join(',') : '';

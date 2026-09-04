@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { OttoClient } from '../core/client.js';
-import { OttoChat } from '../core/ottoChat.js';
+import { ClawMasterClient } from '../core/client.js';
+import { ClawMasterChat } from '../core/clawmasterChat.js';
 
 
 export interface NextSpeakerResponse {
@@ -14,8 +14,8 @@ export interface NextSpeakerResponse {
 }
 
 export async function checkNextSpeaker(
-  _chat: OttoChat,
-  _geminiClient: OttoClient,
+  _chat: ClawMasterChat,
+  _geminiClient: ClawMasterClient,
   _abortSignal: AbortSignal,
 ): Promise<NextSpeakerResponse | null> {
   // 不在调用模型判断是否该谁说话，节省token

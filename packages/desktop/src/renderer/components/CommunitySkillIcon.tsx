@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import React from 'react';
 import type { CommunitySkillCategory } from '../communitySkillCatalog.js';
@@ -14,7 +14,7 @@ export function IconCommunitySkill({ category }: { category: CommunitySkillCateg
     strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
   };
   return <svg
-    className={`otto-community-skill-card__icon is-${category}`}
+    className={`claw-community-skill-card__icon is-${category}`}
     viewBox="0 0 24 24"
     role="img"
     aria-label={`${CATEGORY_LABELS[category]}插件`}

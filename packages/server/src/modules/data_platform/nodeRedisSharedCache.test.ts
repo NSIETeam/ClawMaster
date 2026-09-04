@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -15,7 +15,7 @@ describe('node Redis shared cache', () => {
       buildNodeRedisClientOptions({
         connectionString: 'rediss://default:secret@cache.internal:6379/1',
         environment: {
-          OTTO_REDIS_CONNECT_TIMEOUT_MS: '5000',
+          CLAWMASTER_REDIS_CONNECT_TIMEOUT_MS: '5000',
         },
       }),
     ).toEqual({

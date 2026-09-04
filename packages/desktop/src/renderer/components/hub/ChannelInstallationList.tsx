@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import React, { useCallback, useEffect, useState } from 'react';
 import type {
@@ -24,11 +24,11 @@ export function ChannelInstallationList({
 
   const load = useCallback(async (): Promise<void> => {
     try {
-      if (typeof window.otto?.channelInstallations !== 'function') {
+      if (typeof window.clawmaster?.channelInstallations !== 'function') {
         setUnsupported(true);
         return;
       }
-      const listed = await window.otto.channelInstallations();
+      const listed = await window.clawmaster.channelInstallations();
       if (!listed?.ok || !listed.data) {
         if (listed?.error) setError(listed.error);
         return;
@@ -36,8 +36,8 @@ export function ChannelInstallationList({
       const matching = listed.data.filter((item) => item.provider === provider);
       setInstallations(matching);
       const states = await Promise.all(matching.map(async (installation) => {
-        if (typeof window.otto?.channelInstallationAction !== 'function') return null;
-        const response = await window.otto.channelInstallationAction(
+        if (typeof window.clawmaster?.channelInstallationAction !== 'function') return null;
+        const response = await window.clawmaster.channelInstallationAction(
           installation.installationId,
           'health',
         );
@@ -79,11 +79,11 @@ export function ChannelInstallationList({
     setBusy(installation.installationId);
     setError(null);
     try {
-      if (typeof window.otto?.channelInstallationAction !== 'function') {
+      if (typeof window.clawmaster?.channelInstallationAction !== 'function') {
         setError('当前 Desktop 版本不支持渠道安装管理。');
         return;
       }
-      const response = await window.otto.channelInstallationAction(
+      const response = await window.clawmaster.channelInstallationAction(
         installation.installationId,
         action,
       );
@@ -96,34 +96,34 @@ export function ChannelInstallationList({
   };
 
   return (
-    <div className="otto-channel-installations">
-      <div className="otto-hub__section-title">已安装机器人</div>
+    <div className="claw-channel-installations">
+      <div className="claw-hub__section-title">已安装机器人</div>
       {installations.length === 0 ? (
         <Empty>尚未安装此渠道的机器人。</Empty>
       ) : installations.map((installation) => {
         const state = health[installation.installationId];
         const working = busy === installation.installationId;
         return (
-          <Card className="otto-hub__card--pad" key={installation.installationId}>
-            <div className="otto-channel-pairing__header">
+          <Card className="claw-hub__card--pad" key={installation.installationId}>
+            <div className="claw-channel-pairing__header">
               <div>
-                <div className="otto-hub__row-name">{installation.botName}</div>
-                <div className="otto-hub__field-hint">{installation.tenantName}</div>
+                <div className="claw-hub__row-name">{installation.botName}</div>
+                <div className="claw-hub__field-hint">{installation.tenantName}</div>
               </div>
               <Badge>{state?.state ?? '状态未知'}</Badge>
             </div>
-            <div className="otto-hub__field-hint">
+            <div className="claw-hub__field-hint">
               权限：{installation.grantedScopes.join('、') || '无'} · 重连 {state?.reconnectCount ?? 0} 次
             </div>
-            <div className="otto-hub__feishu-actions">
+            <div className="claw-hub__feishu-actions">
               {state?.running ? (
-                <button type="button" className="otto-hub__btn" disabled={working} onClick={() => void act(installation, 'stop')}>停止</button>
+                <button type="button" className="claw-hub__btn" disabled={working} onClick={() => void act(installation, 'stop')}>停止</button>
               ) : (
-                <button type="button" className="otto-hub__btn otto-hub__btn--primary" disabled={working} onClick={() => void act(installation, 'start')}>启动</button>
+                <button type="button" className="claw-hub__btn claw-hub__btn--primary" disabled={working} onClick={() => void act(installation, 'start')}>启动</button>
               )}
               <button
                 type="button"
-                className="otto-hub__btn otto-hub__btn--danger"
+                className="claw-hub__btn claw-hub__btn--danger"
                 disabled={working}
                 onClick={() => void act(installation, 'revoke')}
               >
@@ -133,9 +133,9 @@ export function ChannelInstallationList({
           </Card>
         );
       })}
-      {error ? <div role="alert" className="otto-hub__feishu-message">{error}</div> : null}
+      {error ? <div role="alert" className="claw-hub__feishu-message">{error}</div> : null}
       {unsupported ? (
-        <div className="otto-hub__field-hint">当前 Desktop 版本不支持渠道安装管理。</div>
+        <div className="claw-hub__field-hint">当前 Desktop 版本不支持渠道安装管理。</div>
       ) : null}
     </div>
   );

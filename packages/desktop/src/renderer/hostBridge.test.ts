@@ -15,7 +15,7 @@ import {
 } from './hostBridge.js';
 
 afterEach(() => {
-  Reflect.deleteProperty(window, 'otto');
+  Reflect.deleteProperty(window, 'clawmaster');
   delete (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
   delete (window as Window & { __TAURI__?: unknown }).__TAURI__;
 });
@@ -237,7 +237,7 @@ describe('Tauri host bridge', () => {
 
   it('keeps the Electron preload bridge as the compatibility path', () => {
     const electronBridge = { connect: vi.fn() };
-    Object.defineProperty(window, 'otto', {
+    Object.defineProperty(window, 'clawmaster', {
       configurable: true,
       value: electronBridge,
     });
@@ -250,7 +250,7 @@ describe('Tauri host bridge', () => {
   });
 
   it('discovers Tauri invoke without requiring the Electron preload', async () => {
-    Reflect.deleteProperty(window, 'otto');
+    Reflect.deleteProperty(window, 'clawmaster');
     const invoke = vi.fn(async () => 'system');
     Object.defineProperty(window, '__TAURI_INTERNALS__', {
       configurable: true,
@@ -261,8 +261,8 @@ describe('Tauri host bridge', () => {
     expect(invoke).toHaveBeenCalledWith('theme_get');
   });
 
-  it('installs the Tauri bridge before direct window.otto consumers render', async () => {
-    Reflect.deleteProperty(window, 'otto');
+  it('installs the Tauri bridge before direct window.clawmaster consumers render', async () => {
+    Reflect.deleteProperty(window, 'clawmaster');
     const invoke = vi.fn(async () => 'system');
     Object.defineProperty(window, '__TAURI_INTERNALS__', {
       configurable: true,
@@ -274,12 +274,12 @@ describe('Tauri host bridge', () => {
     });
 
     expect(installTauriHostBridge()).toBe(true);
-    await expect(window.otto.themeGet()).resolves.toBe('system');
+    await expect(window.clawmaster.themeGet()).resolves.toBe('system');
     expect(installTauriHostBridge()).toBe(false);
   });
 
   it('does not hide a broken Tauri runtime behind browser preview data', () => {
-    Reflect.deleteProperty(window, 'otto');
+    Reflect.deleteProperty(window, 'clawmaster');
     Object.defineProperty(window, '__TAURI_INTERNALS__', {
       configurable: true,
       value: {},
@@ -289,12 +289,12 @@ describe('Tauri host bridge', () => {
   });
 
   it('allows the explicit browser preview when no desktop runtime exists', () => {
-    Reflect.deleteProperty(window, 'otto');
+    Reflect.deleteProperty(window, 'clawmaster');
     expect(installTauriHostBridge()).toBe(false);
   });
 
-  it('reports a missing desktop host instead of crashing on window.otto', () => {
-    Reflect.deleteProperty(window, 'otto');
+  it('reports a missing desktop host instead of crashing on window.clawmaster', () => {
+    Reflect.deleteProperty(window, 'clawmaster');
     expect(() => getHostBridge()).toThrow(HostBridgeUnavailableError);
   });
 });

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -13,8 +13,8 @@ import {
   type EncryptedFieldCipher,
 } from './modules/data_platform/index.js';
 
-const REQUEST_PREFIX = 'OTTO_ATOA_REQUEST ';
-const RESPONSE_PREFIX = 'OTTO_ATOA_RESPONSE ';
+const REQUEST_PREFIX = 'CLAWMASTER_ATOA_REQUEST ';
+const RESPONSE_PREFIX = 'CLAWMASTER_ATOA_RESPONSE ';
 
 function createDatabase(): Database {
   const database = new Database(':memory:');

@@ -33,13 +33,13 @@ ClawMaster 是一个 npm workspaces monorepo，桌面壳正在从 Electron 迁�
 
 Otto 不是 Rust-only 产品。`agent_pool` 已接入 Task 子 agent 生命周期；`tokenizer` 与 `session_store` 有原生 wrapper，但仍保留经过测试的 TypeScript 兼容路径。不要把存在 Rust 目录误读成所有运行路径已经迁移完成。
 
-`OTTO_NATIVE_CORE` 控制运行方式：
+`CLAWMASTER_NATIVE_CORE` 控制运行方式：
 
 - `auto`（默认）：发现可用原生二进制时优先使用，否则安全回退。
 - `required`：找不到原生二进制或调用失败即报错，适合锁定的企业发行环境。
 - `off`：禁用原生 bridge，用于开发对照。
 
-可通过 `OTTO_NATIVE_CORE_BINARY=/path/to/otto-native` 指定签名后的二进制。
+可通过 `CLAWMASTER_NATIVE_CORE_BINARY=/path/to/otto-native` 指定签名后的二进制。
 
 ## 快速开始（源码开发）
 

@@ -42,7 +42,7 @@ async function sendRepairNotifications(input: {
   };
 
   // 通知升级顺序：
-  //  1) Otto 站内提醒立即投递（收件箱已读回执作为短信升级的取消依据）。
+  //  1) ClawMaster 站内提醒立即投递（收件箱已读回执作为短信升级的取消依据）。
   //  2) 飞书立即发送；失败进入持久化重试队列。
   //  3) 短信不立即发送：调度 5 分钟后的升级任务，若期间已读则取消，未读才发送。
   await Promise.all(input.recipients.map(async (recipient) => {

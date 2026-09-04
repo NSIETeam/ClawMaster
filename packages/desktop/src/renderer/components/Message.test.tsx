@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,18 +13,17 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import type { OttoMessage } from 'otto-server';
+import type { ClawMasterMessage } from 'clawmaster-server';
 import { Message } from './Message.js';
 
 // mock 图片资源导入（webpack 里是 data URI，vitest 下给个占位）。
-vi.mock('../assets/otto-avatar.png', () => ({ default: 'avatar.png' }));
 
-function botMessage(overrides: Partial<OttoMessage> = {}): OttoMessage {
+function botMessage(overrides: Partial<ClawMasterMessage> = {}): ClawMasterMessage {
   return {
     id: 'bot-1',
     sessionId: 's1',
     role: 'assistant',
-    content: [{ type: 'text', value: 'Otto 的回复' }],
+    content: [{ type: 'text', value: 'ClawMaster 的回复' }],
     timestamp: 1_700_000_000_000,
     source: 'local',
     isStreaming: false,
@@ -32,7 +31,7 @@ function botMessage(overrides: Partial<OttoMessage> = {}): OttoMessage {
   };
 }
 
-function userMessageWithImage(): OttoMessage {
+function userMessageWithImage(): ClawMasterMessage {
   return {
     id: 'user-1',
     sessionId: 's1',
@@ -61,8 +60,8 @@ describe('Message 动作行', () => {
       <Message message={botMessage()} onCopy={vi.fn()} onRegenerate={vi.fn()} />,
     );
     const mark = screen.getByLabelText('ClawMaster 回复');
-    expect(mark.querySelector('.otto-response-mark__ball')).toBeTruthy();
-    expect(mark.querySelector('.otto-response-mark__spines')).toBeTruthy();
+    expect(mark.querySelector('.claw-response-mark__ball')).toBeTruthy();
+    expect(mark.querySelector('.claw-response-mark__spines')).toBeTruthy();
     expect(container.querySelector('img[alt="ClawMaster"]')).toBeNull();
   });
 
@@ -137,7 +136,7 @@ describe('Message 动作行', () => {
             displayName: 'find-skills',
             description: '搜索 PPT 美化 Skill',
             parameters: {},
-            status: 'success' as NonNullable<OttoMessage['associatedToolCalls']>[number]['status'],
+            status: 'success' as NonNullable<ClawMasterMessage['associatedToolCalls']>[number]['status'],
           }],
         })}
         onCopy={vi.fn()}
@@ -164,13 +163,13 @@ describe('Message 动作行', () => {
               id: 'read-1',
               toolName: 'read_file',
               parameters: { absolute_path: '/tmp/report.pdf' },
-              status: 'success' as NonNullable<OttoMessage['associatedToolCalls']>[number]['status'],
+              status: 'success' as NonNullable<ClawMasterMessage['associatedToolCalls']>[number]['status'],
             },
             {
               id: 'exec-1',
               toolName: 'run_shell_command',
               parameters: { command: 'npm run build' },
-              status: 'error' as NonNullable<OttoMessage['associatedToolCalls']>[number]['status'],
+              status: 'error' as NonNullable<ClawMasterMessage['associatedToolCalls']>[number]['status'],
               result: {
                 success: false,
                 error: '构建脚本失败',
@@ -201,7 +200,7 @@ describe('Message 动作行', () => {
             id: 'read-1',
             toolName: 'read_file',
             parameters: { absolute_path: '/tmp/report.pdf' },
-            status: 'success' as NonNullable<OttoMessage['associatedToolCalls']>[number]['status'],
+            status: 'success' as NonNullable<ClawMasterMessage['associatedToolCalls']>[number]['status'],
           }],
         })}
         onCopy={vi.fn()}
@@ -220,7 +219,7 @@ describe('Message 动作行', () => {
       displayName: 'find-skills',
       description: '搜索 PPT 美化 Skill',
       parameters: {},
-      status: 'executing' as NonNullable<OttoMessage['associatedToolCalls']>[number]['status'],
+      status: 'executing' as NonNullable<ClawMasterMessage['associatedToolCalls']>[number]['status'],
     };
     const { rerender } = render(
       <Message
@@ -243,7 +242,7 @@ describe('Message 动作行', () => {
           isProcessingTools: false,
           associatedToolCalls: [{
             ...tool,
-            status: 'success' as NonNullable<OttoMessage['associatedToolCalls']>[number]['status'],
+            status: 'success' as NonNullable<ClawMasterMessage['associatedToolCalls']>[number]['status'],
           }],
         })}
         onCopy={vi.fn()}
@@ -265,7 +264,7 @@ describe('Message 动作行', () => {
             id: 'approval-1',
             toolName: 'run_shell_command',
             parameters: {},
-            status: 'awaiting_approval' as NonNullable<OttoMessage['associatedToolCalls']>[number]['status'],
+            status: 'awaiting_approval' as NonNullable<ClawMasterMessage['associatedToolCalls']>[number]['status'],
             confirmationDetails: {
               type: 'exec',
               title: '允许执行？',
@@ -338,7 +337,7 @@ describe('User 图片 lightbox', () => {
       />,
     );
     fireEvent.click(screen.getByLabelText('查看大图：截图.png'));
-    const img = screen.getByRole('dialog').querySelector('.otto-lightbox__img');
+    const img = screen.getByRole('dialog').querySelector('.claw-lightbox__img');
     fireEvent.click(img as Element);
     expect(screen.getByRole('dialog')).toBeTruthy();
   });

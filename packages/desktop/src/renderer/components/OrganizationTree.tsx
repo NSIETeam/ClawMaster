@@ -1,9 +1,9 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ProductWorkspaceSnapshot, ScheduleItemInfo } from 'otto-server';
+import type { ProductWorkspaceSnapshot, ScheduleItemInfo } from 'clawmaster-server';
 import type {
   EnterpriseAccount,
   EnterpriseDirectMessage,
@@ -14,7 +14,7 @@ import type {
 } from '../../preload/index.js';
 import { buildAtoaRequest, displayDirectMessageContent } from '../atoaProtocol.js';
 import { isAuthenticatedEnterpriseAccount } from '../internal-test-access.js';
-import { askLocalPeerOtto } from '../peerOttoRunner.js';
+import { askLocalPeerClawMaster } from '../peerClawMasterRunner.js';
 import { IconChevronDown, IconPaperclip, IconPlus } from './icons.js';
 import { AtoaConsultDialog } from './AtoaConsultDialog.js';
 import type { EnterpriseUnreadCounts } from '../enterpriseUnreadNotifications.js';
@@ -251,7 +251,7 @@ export function OrganizationTree({
         setOrgView(null);
       }
       try {
-        const view = await window.otto.enterpriseOrganizationView();
+        const view = await window.clawmaster.enterpriseOrganizationView();
         if (cancelled) return;
         setOrgView(view);
         setOrgSyncedAt(new Date());
@@ -299,28 +299,28 @@ export function OrganizationTree({
   if (!hasLocalEnterpriseWorkspace && !hasAuthenticatedOrganization) return null;
 
   return (
-    <section className="otto-orgtree" aria-label="企业组织架构">
+    <section className="claw-orgtree" aria-label="企业组织架构">
       <button
         type="button"
         className={
-          'otto-orgtree__toggle'
+          'claw-orgtree__toggle'
           + (orgToggleAttention ? ' is-attention' : '')
         }
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
       >
-        <span className="otto-orgtree__company">企业组织</span>
+        <span className="claw-orgtree__company">企业组织</span>
         {!open && totalOrgUnread > 0 ? (
           <UnreadBadge count={totalOrgUnread} />
         ) : null}
         <IconChevronDown
           size={13}
-          className={'otto-orgtree__chevron' + (open ? '' : ' is-collapsed')}
+          className={'claw-orgtree__chevron' + (open ? '' : ' is-collapsed')}
         />
       </button>
 
       {open ? (
-        <div className="otto-orgtree__body">
+        <div className="claw-orgtree__body">
           {organization && workspace ? (
             <CompanyBranch
               companyId={organization.rootCompanyId}
@@ -333,9 +333,9 @@ export function OrganizationTree({
               onOpenChat={openDirectChat}
             />
           ) : orgView ? (
-            <div className="otto-orgtree__member-list">
+            <div className="claw-orgtree__member-list">
               {orgView.organization ? (
-                <div className="otto-orgtree__company-node">{orgView.organization.name}</div>
+                <div className="claw-orgtree__company-node">{orgView.organization.name}</div>
               ) : null}
               <OrganizationPresenceSummary
                 members={orgView.members}
@@ -373,17 +373,17 @@ export function OrganizationTree({
                           member.id === enterpriseAccount?.id ? (
                             <div
                               key={member.id}
-                              className="otto-orgtree__member is-self"
+                              className="claw-orgtree__member is-self"
                               aria-label={`${member.name}（我）`}
                             >
                               <MemberIdentity member={member} />
-                              <span className="otto-orgtree__self-badge">我</span>
+                              <span className="claw-orgtree__self-badge">我</span>
                             </div>
                           ) : (
                             <button
                               key={member.id}
                               type="button"
-                              className="otto-orgtree__member otto-orgtree__member-button"
+                              className="claw-orgtree__member claw-orgtree__member-button"
                               aria-label={`与${member.name}对话，${position.title}`}
                               onClick={() => {
                                 openDirectChat(member);
@@ -391,7 +391,7 @@ export function OrganizationTree({
                             >
                               <MemberIdentity member={member} />
                               <PresenceBadge
-                                online={member.ottoOnline}
+                                online={member.clawmasterOnline}
                                 lastSeenAt={member.ottoLastSeenAt}
                               />
                               <UnreadBadge count={unreadCounts[`enterprise:message:${member.id}`] ?? 0} />
@@ -405,11 +405,11 @@ export function OrganizationTree({
                 })}
             </div>
           ) : orgLoading ? (
-            <div className="otto-orgtree__vacant">正在加载组织信息…</div>
+            <div className="claw-orgtree__vacant">正在加载组织信息…</div>
           ) : orgError ? (
-            <div className="otto-orgtree__vacant">{orgError}</div>
+            <div className="claw-orgtree__vacant">{orgError}</div>
           ) : (
-            <div className="otto-orgtree__vacant">
+            <div className="claw-orgtree__vacant">
               已通过链接加入；组织详情将在企业服务同步后显示。
             </div>
           )}
@@ -455,12 +455,12 @@ function OrganizationPresenceSummary({
   onRefresh: () => void;
 }): React.JSX.Element {
   const activeMembers = members.filter((member) => member.status === 'active');
-  const onlineCount = activeMembers.filter((member) => member.ottoOnline).length;
+  const onlineCount = activeMembers.filter((member) => member.clawmasterOnline).length;
   const knownPresenceCount = activeMembers.filter((member) =>
-    member.ottoOnline !== undefined || member.ottoLastSeenAt !== undefined,
+    member.clawmasterOnline !== undefined || member.ottoLastSeenAt !== undefined,
   ).length;
   return (
-    <div className="otto-orgtree__presence-summary" aria-label="ClawMaster 在线状态">
+    <div className="claw-orgtree__presence-summary" aria-label="ClawMaster 在线状态">
       <span>
         {knownPresenceCount > 0
           ? `${onlineCount}/${activeMembers.length} 在线`
@@ -492,7 +492,7 @@ function compareEnterpriseMembers(
   const adminRank = Number(Boolean(b.isAdmin)) - Number(Boolean(a.isAdmin));
   if (adminRank !== 0) return adminRank;
   // 在线成员优先
-  const onlineRank = Number(Boolean(b.ottoOnline)) - Number(Boolean(a.ottoOnline));
+  const onlineRank = Number(Boolean(b.clawmasterOnline)) - Number(Boolean(a.clawmasterOnline));
   if (onlineRank !== 0) return onlineRank;
   // 最近活跃成员优先
   const unreadRank = Number(Boolean(b.ottoLastSeenAt)) - Number(Boolean(a.ottoLastSeenAt));
@@ -629,7 +629,7 @@ async function browserFileToDirectAttachment(
   if (file.size > DIRECT_MESSAGE_MAX_FILE_BYTES) {
     throw new Error(file.name + ' 超过 10 MB');
   }
-  const sourcePath = await window.otto.authorizeFileForAttachment(file);
+  const sourcePath = await window.clawmaster.authorizeFileForAttachment(file);
   const attachment = normalizeDirectAttachment({
     fileName: file.name,
     mimeType: file.type,
@@ -664,7 +664,7 @@ function DirectMessageAttachmentCard({
     setLoading(true);
     setAttachmentError('');
     try {
-      const next = await window.otto.enterpriseMessageAttachmentRead(attachment.id);
+      const next = await window.clawmaster.enterpriseMessageAttachmentRead(attachment.id);
       setDownload(next);
       return next;
     } catch (reason) {
@@ -690,26 +690,26 @@ function DirectMessageAttachmentCard({
   };
 
   return (
-    <div className="otto-direct-chat__attachment-card">
+    <div className="claw-direct-chat__attachment-card">
       {image && download ? (
         <img
           src={`data:${download.mimeType};base64,${download.data}`}
           alt={attachment.fileName}
-          className="otto-direct-chat__attachment-preview"
+          className="claw-direct-chat__attachment-preview"
         />
       ) : (
-        <span className="otto-direct-chat__attachment-icon" aria-hidden="true">
+        <span className="claw-direct-chat__attachment-icon" aria-hidden="true">
           {directAttachmentTypeLabel(attachment.fileName, attachment.mimeType)}
         </span>
       )}
-      <span className="otto-direct-chat__attachment-copy">
+      <span className="claw-direct-chat__attachment-copy">
         <strong title={attachment.fileName}>{attachment.fileName}</strong>
         <small>{formatDirectAttachmentSize(attachment.size)}</small>
         {attachmentError ? (
           <em role="alert">{attachmentError}</em>
         ) : null}
       </span>
-      <span className="otto-direct-chat__attachment-actions">
+      <span className="claw-direct-chat__attachment-actions">
         {image && !download ? (
           <button type="button" onClick={() => void readAttachment()} disabled={loading}>
             {loading ? '读取中' : '预览'}
@@ -756,8 +756,8 @@ export function DirectMessagePanel({
   const [error, setError] = useState('');
   const [securityNotice, setSecurityNotice] = useState('');
   const [resettingSecurity, setResettingSecurity] = useState(false);
-  const [askingOwnOtto, setAskingOwnOtto] = useState(false);
-  const [askingPeerOtto, setAskingPeerOtto] = useState(false);
+  const [askingOwnClawMaster, setAskingOwnClawMaster] = useState(false);
+  const [askingPeerClawMaster, setAskingPeerClawMaster] = useState(false);
   const [collaborationMenuOpen, setCollaborationMenuOpen] = useState(false);
   const [consultOpen, setConsultOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -791,7 +791,7 @@ export function DirectMessagePanel({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent): void => {
       if (!(event.target instanceof Element)) return;
-      if (!event.target.closest('.otto-direct-chat__a2a-menu')) {
+      if (!event.target.closest('.claw-direct-chat__a2a-menu')) {
         setCollaborationMenuOpen(false);
       }
     };
@@ -803,7 +803,7 @@ export function DirectMessagePanel({
     let active = true;
     const load = async (): Promise<void> => {
       try {
-        const next = await window.otto.enterpriseMessagesList(member.id);
+        const next = await window.clawmaster.enterpriseMessagesList(member.id);
         if (active) {
           const previousIds = knownMessageIds.current;
           const hasNewMessage = previousIds === null
@@ -903,9 +903,9 @@ export function DirectMessagePanel({
   const pickAttachments = async (): Promise<void> => {
     setAttaching(true);
     try {
-      const paths = await window.otto.selectFiles();
+      const paths = await window.clawmaster.selectFiles();
       if (paths.length === 0) return;
-      const picked = await Promise.all(paths.map((filePath) => window.otto.readFilePath(filePath)));
+      const picked = await Promise.all(paths.map((filePath) => window.clawmaster.readFilePath(filePath)));
       appendAttachments(picked);
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : String(reason);
@@ -932,12 +932,12 @@ export function DirectMessagePanel({
     ].join('\n');
   };
 
-  const askOtto = async (question?: string) => {
+  const askClawMaster = async (question?: string) => {
     const cleanQuestion = (question?.trim() || draft.trim()).slice(0, 1200);
-    if (!cleanQuestion || askingOwnOtto || attachments.length > 0) return;
-    setAskingOwnOtto(true);
+    if (!cleanQuestion || askingOwnClawMaster || attachments.length > 0) return;
+    setAskingOwnClawMaster(true);
     try {
-      const answer = await askLocalPeerOtto({
+      const answer = await askLocalPeerClawMaster({
         question: cleanQuestion,
         workContext: buildTranscriptContext(),
         requestId: 'own-a2a-' + crypto.randomUUID(),
@@ -949,7 +949,7 @@ export function DirectMessagePanel({
         'ClawMaster：',
         answer,
       ].join('\n');
-      const message = await window.otto.enterpriseMessageSend(member.id, content);
+      const message = await window.clawmaster.enterpriseMessageSend(member.id, content);
       scrollPending.current = true;
       setMessages((current) => [...current, message]);
       setDraft('');
@@ -957,16 +957,16 @@ export function DirectMessagePanel({
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
-      setAskingOwnOtto(false);
+      setAskingOwnClawMaster(false);
     }
   };
 
-  const askPeerOtto = async (question?: string) => {
+  const askPeerClawMaster = async (question?: string) => {
     if (attachments.length > 0) return;
     const content = buildAtoaRequest(question?.trim() || draft.trim());
-    setAskingPeerOtto(true);
+    setAskingPeerClawMaster(true);
     try {
-      const message = await window.otto.enterpriseMessageSend(member.id, content);
+      const message = await window.clawmaster.enterpriseMessageSend(member.id, content);
       scrollPending.current = true;
       setMessages((current) => [...current, message]);
       setDraft('');
@@ -974,7 +974,7 @@ export function DirectMessagePanel({
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
-      setAskingPeerOtto(false);
+      setAskingPeerClawMaster(false);
     }
   };
 
@@ -985,20 +985,20 @@ export function DirectMessagePanel({
     if (attachments.length === 0) {
       const ottoShortcut = content.match(/^@otto(?:\s+|$)([\s\S]*)$/i);
       if (ottoShortcut) {
-        await askOtto(ottoShortcut[1] || undefined);
+        await askClawMaster(ottoShortcut[1] || undefined);
         return;
       }
-      const peerOttoShortcut = content.match(/^@peer-otto(?:\s+|$)([\s\S]*)$/i);
-      if (peerOttoShortcut) {
-        await askPeerOtto(peerOttoShortcut[1] || undefined);
+      const peerClawMasterShortcut = content.match(/^@peer-otto(?:\s+|$)([\s\S]*)$/i);
+      if (peerClawMasterShortcut) {
+        await askPeerClawMaster(peerClawMasterShortcut[1] || undefined);
         return;
       }
     }
     setSending(true);
     try {
       const message = attachments.length > 0
-        ? await window.otto.enterpriseMessageSend(member.id, content, attachments)
-        : await window.otto.enterpriseMessageSend(member.id, content);
+        ? await window.clawmaster.enterpriseMessageSend(member.id, content, attachments)
+        : await window.clawmaster.enterpriseMessageSend(member.id, content);
       scrollPending.current = true;
       setMessages((current) => [...current, message]);
       setDraft('');
@@ -1024,7 +1024,7 @@ export function DirectMessagePanel({
     }
     setResettingSecurity(true);
     try {
-      await window.otto.enterpriseMessageSecurityReset(member.id);
+      await window.clawmaster.enterpriseMessageSecurityReset(member.id);
       setSecurityNotice('加密会话已重置，后续消息将使用新的安全状态。');
       setError('');
     } catch (reason) {
@@ -1036,7 +1036,7 @@ export function DirectMessagePanel({
   };
 
   const subtitle = [member.department, member.role].filter(Boolean).join(' · ') || member.username;
-  const presenceLabel = member.ottoOnline ? '在线' : member.ottoLastSeenAt ? '最近在线' : '离线';
+  const presenceLabel = member.clawmasterOnline ? '在线' : member.ottoLastSeenAt ? '最近在线' : '离线';
   const canSend = (draft.trim().length > 0 || attachments.length > 0)
     && !sending
     && !attaching;
@@ -1044,7 +1044,7 @@ export function DirectMessagePanel({
     (message) => message.e2eeProtocol === 'mls10-openmls-0.8',
   );
   const panelClassName = [
-    'otto-direct-chat',
+    'claw-direct-chat',
     minimized ? 'is-minimized' : '',
     maximized ? 'is-maximized' : '',
   ].filter(Boolean).join(' ');
@@ -1097,7 +1097,7 @@ export function DirectMessagePanel({
       onPointerDownCapture={onActivate}
     >
       <header
-        className="otto-direct-chat__header"
+        className="claw-direct-chat__header"
         onPointerDown={beginDrag}
         onPointerMove={continueDrag}
         onPointerUp={endDrag}
@@ -1108,18 +1108,18 @@ export function DirectMessagePanel({
           setMaximized((value) => !value);
         }}
       >
-        <div className="otto-direct-chat__identity">
-          <div className="otto-direct-chat__avatar" aria-hidden="true">{memberInitials(member.name)}</div>
-          <div className="otto-direct-chat__titleblock">
+        <div className="claw-direct-chat__identity">
+          <div className="claw-direct-chat__avatar" aria-hidden="true">{memberInitials(member.name)}</div>
+          <div className="claw-direct-chat__titleblock">
             <strong>{member.name}</strong>
             <span>{subtitle}</span>
           </div>
         </div>
-        <div className="otto-direct-chat__header-actions">
-          <span className={'otto-direct-chat__presence' + (member.ottoOnline ? ' is-online' : '')}>{presenceLabel}</span>
+        <div className="claw-direct-chat__header-actions">
+          <span className={'claw-direct-chat__presence' + (member.clawmasterOnline ? ' is-online' : '')}>{presenceLabel}</span>
           <button
             type="button"
-            className="otto-direct-chat__icon"
+            className="claw-direct-chat__icon"
             onClick={() => {
               setMaximized(false);
               setMinimized((value) => !value);
@@ -1131,7 +1131,7 @@ export function DirectMessagePanel({
           </button>
           <button
             type="button"
-            className="otto-direct-chat__icon"
+            className="claw-direct-chat__icon"
             onClick={() => {
               setMinimized(false);
               setMaximized((value) => !value);
@@ -1143,7 +1143,7 @@ export function DirectMessagePanel({
           </button>
           <button
             type="button"
-            className="otto-direct-chat__icon"
+            className="claw-direct-chat__icon"
             onClick={onClose}
             aria-label="关闭聊天"
             title="关闭聊天"
@@ -1153,11 +1153,11 @@ export function DirectMessagePanel({
         </div>
       </header>
 
-      <div className="otto-direct-chat__actionbar" aria-label="ClawMaster 协作操作">
+      <div className="claw-direct-chat__actionbar" aria-label="ClawMaster 协作操作">
         {usesMls ? (
           <button
             type="button"
-            className="otto-direct-chat__otto"
+            className="claw-direct-chat__otto"
             disabled={resettingSecurity}
             onClick={() => void resetMessageSecurity()}
           >
@@ -1166,27 +1166,27 @@ export function DirectMessagePanel({
         ) : null}
         <button
           type="button"
-          className="otto-direct-chat__otto"
-          disabled={askingOwnOtto || !draft.trim() || attachments.length > 0}
-          onClick={() => void askOtto(draft)}
+          className="claw-direct-chat__otto"
+          disabled={askingOwnClawMaster || !draft.trim() || attachments.length > 0}
+          onClick={() => void askClawMaster(draft)}
           title={attachments.length > 0 ? '附件不会自动交给 ClawMaster，请先发送或移除附件' : undefined}
         >
-          {askingOwnOtto ? '询问中' : '问 ClawMaster'}
+          {askingOwnClawMaster ? '询问中' : '问 ClawMaster'}
         </button>
         <button
           type="button"
-          className="otto-direct-chat__otto"
-          disabled={askingPeerOtto || attachments.length > 0}
-          onClick={() => void askPeerOtto(draft)}
+          className="claw-direct-chat__otto"
+          disabled={askingPeerClawMaster || attachments.length > 0}
+          onClick={() => void askPeerClawMaster(draft)}
           title={attachments.length > 0 ? '附件不会自动交给对方 ClawMaster，请先发送或移除附件' : undefined}
         >
           问对方 ClawMaster
         </button>
         {currentAccount ? (
-          <div className="otto-direct-chat__a2a-menu">
+          <div className="claw-direct-chat__a2a-menu">
             <button
               type="button"
-              className="otto-direct-chat__plus"
+              className="claw-direct-chat__plus"
               aria-label="更多 ClawMaster 协作"
               aria-expanded={collaborationMenuOpen}
               onClick={() => setCollaborationMenuOpen((value) => !value)}
@@ -1194,7 +1194,7 @@ export function DirectMessagePanel({
               <IconPlus size={15} />
             </button>
             {collaborationMenuOpen ? (
-              <div className="otto-direct-chat__a2a-popover" role="menu">
+              <div className="claw-direct-chat__a2a-popover" role="menu">
                 <button
                   type="button"
                   role="menuitem"
@@ -1213,14 +1213,14 @@ export function DirectMessagePanel({
       </div>
 
       {securityNotice ? (
-        <div className="otto-direct-chat__security-notice" role="status">
+        <div className="claw-direct-chat__security-notice" role="status">
           {securityNotice}
         </div>
       ) : null}
 
-      <div className="otto-direct-chat__messages">
+      <div className="claw-direct-chat__messages">
         {messages.length === 0 ? (
-          <div className="otto-direct-chat__empty">
+          <div className="claw-direct-chat__empty">
             <strong>还没有消息，开始聊聊吧。</strong>
             <span>可直接发送文字、图片、Word、PDF；需要整理上下文时可使用 ClawMaster 协作。</span>
           </div>
@@ -1231,17 +1231,17 @@ export function DirectMessagePanel({
           return (
             <article
               key={message.id}
-              className={'otto-direct-chat__message' + (mine ? ' is-me' : ' is-peer')}
+              className={'claw-direct-chat__message' + (mine ? ' is-me' : ' is-peer')}
             >
-              <div className="otto-direct-chat__message-meta">
+              <div className="claw-direct-chat__message-meta">
                 <span>{mine ? '我' : member.name}</span>
                 {message.createdAt ? (
                   <time dateTime={message.createdAt}>{formatDirectMessageTime(message.createdAt)}</time>
                 ) : null}
               </div>
-              {content ? <div className="otto-direct-chat__bubble">{content}</div> : null}
+              {content ? <div className="claw-direct-chat__bubble">{content}</div> : null}
               {messageAttachments.length > 0 ? (
-                <div className="otto-direct-chat__message-attachments">
+                <div className="claw-direct-chat__message-attachments">
                   {messageAttachments.map((attachment) => (
                     <DirectMessageAttachmentCard key={attachment.id} attachment={attachment} />
                   ))}
@@ -1250,11 +1250,11 @@ export function DirectMessagePanel({
             </article>
           );
         })}
-        <div ref={messagesEnd} className="otto-direct-chat__messages-end" aria-hidden="true" />
+        <div ref={messagesEnd} className="claw-direct-chat__messages-end" aria-hidden="true" />
       </div>
-      {error ? <div className="otto-direct-chat__error" role="alert">{error}</div> : null}
+      {error ? <div className="claw-direct-chat__error" role="alert">{error}</div> : null}
       <form
-        className={'otto-direct-chat__composer' + (dragOver ? ' is-drag-over' : '')}
+        className={'claw-direct-chat__composer' + (dragOver ? ' is-drag-over' : '')}
         onSubmit={send}
         onDragOver={(event) => {
           event.preventDefault();
@@ -1272,7 +1272,7 @@ export function DirectMessagePanel({
         }}
       >
         {attachments.length > 0 || attaching || attachmentError ? (
-          <div className="otto-direct-chat__pending-attachments">
+          <div className="claw-direct-chat__pending-attachments">
             {attachments.map((attachment) => {
               const key = attachment.fileName + ':' + attachment.size;
               const preview = attachment.previewUrl ??
@@ -1281,7 +1281,7 @@ export function DirectMessagePanel({
                   : '');
               const image = attachment.mimeType.startsWith('image/') && preview;
               return (
-                <div className="otto-direct-chat__pending-attachment" key={key}>
+                <div className="claw-direct-chat__pending-attachment" key={key}>
                   {image ? (
                     <img
                       src={preview}
@@ -1312,9 +1312,9 @@ export function DirectMessagePanel({
                 </div>
               );
             })}
-            {attaching ? <span className="otto-direct-chat__attachment-status">正在读取附件…</span> : null}
+            {attaching ? <span className="claw-direct-chat__attachment-status">正在读取附件…</span> : null}
             {attachmentError ? (
-              <span className="otto-direct-chat__attachment-error" role="alert">
+              <span className="claw-direct-chat__attachment-error" role="alert">
                 {attachmentError}
               </span>
             ) : null}
@@ -1345,11 +1345,11 @@ export function DirectMessagePanel({
           placeholder={dragOver ? '松开发送这些文件' : '输入消息，或拖入 Word、PDF、图片'}
           aria-label="消息内容"
         />
-        <div className="otto-direct-chat__composer-footer">
-          <div className="otto-direct-chat__composer-tools">
+        <div className="claw-direct-chat__composer-footer">
+          <div className="claw-direct-chat__composer-tools">
             <button
               type="button"
-              className="otto-direct-chat__attach"
+              className="claw-direct-chat__attach"
               onClick={() => void pickAttachments()}
               disabled={attaching || attachments.length >= DIRECT_MESSAGE_MAX_ATTACHMENTS}
               aria-label="添加文件或图片"
@@ -1412,23 +1412,23 @@ function OrganizationPositionGroup({
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <div className="otto-orgtree__position-group">
-      <div className="otto-orgtree__position-head">
+    <div className="claw-orgtree__position-group">
+      <div className="claw-orgtree__position-head">
         <span>{title}</span>
         <small>{memberCount} 人</small>
       </div>
-      <div className="otto-orgtree__position-members">{children}</div>
+      <div className="claw-orgtree__position-members">{children}</div>
     </div>
   );
 }
 
 function MemberIdentity({ member }: { member: EnterpriseOrganizationMember }): React.JSX.Element {
   return (
-    <span className="otto-orgtree__member-identity">
-      <span className="otto-orgtree__member-avatar" aria-hidden="true">
+    <span className="claw-orgtree__member-identity">
+      <span className="claw-orgtree__member-avatar" aria-hidden="true">
         {memberInitials(member.name)}
       </span>
-      <span className="otto-orgtree__member-copy">
+      <span className="claw-orgtree__member-copy">
         <strong>{member.name}</strong>
         <small>@{member.username}</small>
       </span>
@@ -1465,11 +1465,11 @@ function DepartmentSection({
   }, [unreadCount, expanded]);
 
   return (
-    <div className="otto-orgtree__department">
+    <div className="claw-orgtree__department">
       <button
         type="button"
         className={
-          'otto-orgtree__department-name otto-orgtree__department-toggle'
+          'claw-orgtree__department-name claw-orgtree__department-toggle'
           + (attention ? ' is-attention' : '')
         }
         aria-label={name + (unreadCount > 0 ? `，${unreadCount} 条未读` : '')}
@@ -1478,7 +1478,7 @@ function DepartmentSection({
       >
         <IconChevronDown
           size={11}
-          className={'otto-orgtree__chevron' + (expanded ? '' : ' is-collapsed')}
+          className={'claw-orgtree__chevron' + (expanded ? '' : ' is-collapsed')}
         />
         <span>{name}</span>
         {!expanded && unreadCount > 0 ? (
@@ -1500,7 +1500,7 @@ function UnreadBadge({ count }: { count: number }): React.JSX.Element | null {
   const label = count > 99 ? '99+' : String(count);
   return (
     <span
-      className="otto-orgtree__unread"
+      className="claw-orgtree__unread"
       aria-label={`${label} 条未读消息`}
       title={`${label} 条未读消息`}
     >
@@ -1525,7 +1525,7 @@ function PresenceBadge({
   return (
     <span
       className={
-        'otto-orgtree__presence'
+        'claw-orgtree__presence'
         + (online ? ' is-online' : recentlySeen ? ' is-recent' : '')
       }
       title={lastSeenAt ? `${label} · ${new Date(lastSeenAt).toLocaleString('zh-CN')}` : label}
@@ -1560,9 +1560,9 @@ function CompanyBranch({
   const childIds = childrenByParent.get(company.id) ?? [];
 
   return (
-    <div className="otto-orgtree__company-branch">
-      <div className="otto-orgtree__company-node">{company.name}</div>
-      <div className="otto-orgtree__company-content">
+    <div className="claw-orgtree__company-branch">
+      <div className="claw-orgtree__company-node">{company.name}</div>
+      <div className="claw-orgtree__company-content">
         {departments.map((department) => {
           const members = workspace.members.filter(
             (member) => member.companyId === company.id && member.departmentId === department.id,
@@ -1590,25 +1590,25 @@ function CompanyBranch({
                   <button
                     key={member.userId}
                     type="button"
-                    className="otto-orgtree__member otto-orgtree__member-button"
+                    className="claw-orgtree__member claw-orgtree__member-button"
                     onClick={() => onOpenChat(chatMember)}
                   >
                     {content}
                     <PresenceBadge
-                      online={chatMember.ottoOnline}
+                      online={chatMember.clawmasterOnline}
                       lastSeenAt={chatMember.ottoLastSeenAt}
                     />
                     <UnreadBadge count={unreadCounts[`enterprise:message:${chatMember.id}`] ?? 0} />
                   </button>
                 ) : (
-                  <div key={member.userId} className="otto-orgtree__member">
+                  <div key={member.userId} className="claw-orgtree__member">
                     {content}
                   </div>
                 );
               })}
               {members.length === 0
                 ? positions.map((position) => (
-                    <div key={position.id} className="otto-orgtree__vacant">
+                    <div key={position.id} className="claw-orgtree__vacant">
                       {position.title} · 待加入
                     </div>
                   ))
@@ -1617,7 +1617,7 @@ function CompanyBranch({
           );
         })}
         {departments.length === 0 ? (
-          <div className="otto-orgtree__vacant">组织详情等待企业服务同步</div>
+          <div className="claw-orgtree__vacant">组织详情等待企业服务同步</div>
         ) : null}
         {childIds.map((childId) => (
           <CompanyBranch

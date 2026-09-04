@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -10,7 +10,7 @@ import {
 
 afterEach(() => vi.unstubAllEnvs());
 
-describe('企业版 Otto 托管模型目录', () => {
+describe('企业版 ClawMaster 托管模型目录', () => {
   it('覆盖国内主流模型家族，并明确展示积分倍率', () => {
     const providers = new Set(ENTERPRISE_MODEL_CATALOG.map((model) => model.vendor));
     expect(providers).toEqual(
@@ -24,7 +24,7 @@ describe('企业版 Otto 托管模型目录', () => {
     ).toBe(true);
   });
 
-  it('目录只下发 Otto 模型 id，不向客户端暴露上游 baseUrl 或密钥', () => {
+  it('目录只下发 ClawMaster 模型 id，不向客户端暴露上游 baseUrl 或密钥', () => {
     for (const model of ENTERPRISE_MODEL_CATALOG) {
       expect(model.id.startsWith('otto:')).toBe(true);
       expect(model).not.toHaveProperty('baseUrl');
@@ -34,12 +34,12 @@ describe('企业版 Otto 托管模型目录', () => {
 
   it('支持后台用 JSON 环境变量原子替换目录，非法配置回退内置目录', () => {
     vi.stubEnv(
-      'OTTO_ENTERPRISE_MODEL_CATALOG',
+      'CLAWMASTER_ENTERPRISE_MODEL_CATALOG',
       JSON.stringify([
         {
           id: 'otto:company-fast',
           displayName: '企业极速模型',
-          vendor: 'Otto',
+          vendor: 'ClawMaster',
           modelId: 'company-fast',
           tier: 'standard',
           creditMultiplier: 1.2,
@@ -52,7 +52,7 @@ describe('企业版 Otto 托管模型目录', () => {
       expect.objectContaining({ id: 'otto:company-fast', managed: true, source: 'otto' }),
     ]);
 
-    vi.stubEnv('OTTO_ENTERPRISE_MODEL_CATALOG', '{bad json');
+    vi.stubEnv('CLAWMASTER_ENTERPRISE_MODEL_CATALOG', '{bad json');
     expect(loadEnterpriseModelCatalog()).toEqual(ENTERPRISE_MODEL_CATALOG);
   });
 });

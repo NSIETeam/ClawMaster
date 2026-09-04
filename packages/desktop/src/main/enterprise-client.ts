@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import type { MlsKeyPackage } from '@otto/native';
+import type { MlsKeyPackage } from '@clawmaster/native';
 
 import {
   buildAtoaResponse,
@@ -512,7 +512,7 @@ export interface EnterpriseModuleUpdateDescriptor {
 }
 
 export interface EnterpriseModuleUpdateManifest {
-  format: 'otto-module-updates-v1';
+  format: 'clawmaster.module-updates-v1';
   deploymentId: string;
   generatedAt: string;
   modules: EnterpriseModuleUpdateDescriptor[];
@@ -709,7 +709,7 @@ export interface EnterpriseOrganizationView {
     avatarUrl?: string | null;
     isAdmin: boolean;
     status: 'active' | 'disabled';
-    ottoOnline?: boolean;
+    clawmasterOnline?: boolean;
     ottoLastSeenAt?: string | null;
   }>;
   employeeCount: number;
@@ -1147,7 +1147,7 @@ function normalizeServerUrl(input: string): string {
   return `${url.origin}${pathPrefix}`;
 }
 
-const FEDERATION_CONTACT_CODE_PREFIX = 'OTTO_FEDERATION_CONTACT_V1:';
+const FEDERATION_CONTACT_CODE_PREFIX = 'CLAWMASTER_FEDERATION_CONTACT_V1:';
 
 function federationConversationId(input: {
   localDeploymentId: string;
@@ -1160,7 +1160,7 @@ function federationConversationId(input: {
     `${input.remoteDeploymentId}:${input.remotePrincipalId}`,
   ].sort();
   return `fconversation_${createHash('sha256')
-    .update('otto:federation-conversation:v1\0')
+    .update('clawmaster:federation-conversation:v1\0')
     .update(participants.join('\0'))
     .digest('hex')
     .slice(0, 40)}`;
@@ -1207,13 +1207,13 @@ function e2eeProtocolMetadata(content: string): {
   contentType: 'message' | 'atoa_request' | 'atoa_response';
   inReplyToMessageId: string | null;
 } {
-  if (content.startsWith('OTTO_ATOA_REQUEST ')) {
+  if (content.startsWith('CLAWMASTER_ATOA_REQUEST ')) {
     return { contentType: 'atoa_request', inReplyToMessageId: null };
   }
-  if (content.startsWith('OTTO_ATOA_RESPONSE ')) {
+  if (content.startsWith('CLAWMASTER_ATOA_RESPONSE ')) {
     try {
       const parsed = JSON.parse(
-        content.slice('OTTO_ATOA_RESPONSE '.length),
+        content.slice('CLAWMASTER_ATOA_RESPONSE '.length),
       ) as unknown;
       if (
         parsed &&

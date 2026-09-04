@@ -20,7 +20,7 @@ function draft() {
     schemaVersion: 1, id: 'com.acme.upload', name: 'Upload', version: '1.0.0',
     publisher: { id: 'publisher', name: 'Publisher' }, description: 'Uploaded module',
     icon: 'icon.svg', entrypoint: 'module.wasm', hostApi: 'otto.customer-module.v1',
-    minimumOttoVersion: '1.15.3', inputSchema: { type: 'object', properties: {} },
+    minimumClawMasterVersion: '1.15.3', inputSchema: { type: 'object', properties: {} },
     outputs: ['text'], permissions: [],
     files: { 'module.wasm': hash(WASM), 'icon.svg': hash(ICON) },
   };

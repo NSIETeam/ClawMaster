@@ -101,8 +101,8 @@ export function useEnterpriseAuth(): {
       setBusy(false);
       setStatus('signed-out');
     };
-    const unsubscribeIntent = window.otto.onEnterpriseRegistrationIntent(applyIntent);
-    const unsubscribeInvalidated = window.otto.onEnterpriseSessionInvalidated(() => {
+    const unsubscribeIntent = window.clawmaster.onEnterpriseRegistrationIntent(applyIntent);
+    const unsubscribeInvalidated = window.clawmaster.onEnterpriseSessionInvalidated(() => {
       authEpochRef.current += 1;
       registrationRequestEpochRef.current += 1;
       initializedRef.current = true;
@@ -112,7 +112,7 @@ export function useEnterpriseAuth(): {
       setBusy(false);
       setStatus('signed-out');
     });
-    const unsubscribeAccountUpdated = window.otto.onEnterpriseAccountUpdated((updatedAccount) => {
+    const unsubscribeAccountUpdated = window.clawmaster.onEnterpriseAccountUpdated((updatedAccount) => {
       if (!initializedRef.current || !signedInRef.current) return;
       setAccount((current) => {
         if (!current
@@ -132,8 +132,8 @@ export function useEnterpriseAuth(): {
     });
 
     void Promise.all([
-      window.otto.enterpriseSession(),
-      window.otto.enterpriseRegistrationIntent(),
+      window.clawmaster.enterpriseSession(),
+      window.clawmaster.enterpriseRegistrationIntent(),
     ])
       .then(([session, coldIntent]) => {
         if (cancelled || initialEpoch !== authEpochRef.current) return;
@@ -181,7 +181,7 @@ export function useEnterpriseAuth(): {
     setBusy(true);
     setError(null);
     try {
-      const result = await window.otto.enterprisePasswordLogin(input);
+      const result = await window.clawmaster.enterprisePasswordLogin(input);
       if (epoch !== authEpochRef.current) return;
       setServerUrl(result.serverUrl);
       setAccount(result.account);
@@ -207,7 +207,7 @@ export function useEnterpriseAuth(): {
     registrationRequestEpochRef.current = epoch;
     setError(null);
     try {
-      const result = await window.otto.enterpriseRegistrationRequest(input);
+      const result = await window.clawmaster.enterpriseRegistrationRequest(input);
       if (epoch === registrationRequestEpochRef.current) setServerUrl(result.serverUrl);
       return result;
     } catch (cause) {
@@ -224,7 +224,7 @@ export function useEnterpriseAuth(): {
     registrationRequestEpochRef.current = epoch;
     setError(null);
     try {
-      const result = await window.otto.enterpriseSmsLoginRequest(input);
+      const result = await window.clawmaster.enterpriseSmsLoginRequest(input);
       if (epoch === registrationRequestEpochRef.current) setServerUrl(result.serverUrl);
       return result;
     } catch (cause) {
@@ -243,7 +243,7 @@ export function useEnterpriseAuth(): {
     setBusy(true);
     setError(null);
     try {
-      const result = await window.otto.enterpriseSmsLoginVerify(input);
+      const result = await window.clawmaster.enterpriseSmsLoginVerify(input);
       if (epoch !== authEpochRef.current) return;
       setServerUrl(result.serverUrl);
       setAccount(result.account);
@@ -274,7 +274,7 @@ export function useEnterpriseAuth(): {
     setBusy(true);
     setError(null);
     try {
-      const result = await window.otto.enterpriseRegister(input);
+      const result = await window.clawmaster.enterpriseRegister(input);
       if (epoch !== authEpochRef.current) return;
       setServerUrl(result.serverUrl);
       setAccount(result.account);
@@ -300,7 +300,7 @@ export function useEnterpriseAuth(): {
     setBusy(true);
     setError(null);
     try {
-      const result = await window.otto.enterpriseJoinOrganization(input);
+      const result = await window.clawmaster.enterpriseJoinOrganization(input);
       if (epoch !== authEpochRef.current) return;
       setServerUrl(result.serverUrl);
       setAccount(result.account);
@@ -331,7 +331,7 @@ export function useEnterpriseAuth(): {
     setBusy(true);
     setError(null);
     try {
-      await window.otto.enterpriseLogout();
+      await window.clawmaster.enterpriseLogout();
     } catch (cause) {
       if (epoch === authEpochRef.current) setError(friendlyAuthError(cause));
     } finally {

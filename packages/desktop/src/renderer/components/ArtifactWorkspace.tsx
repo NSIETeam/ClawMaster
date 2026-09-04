@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import React, { useCallback, useEffect, useState } from 'react';
 
@@ -32,14 +32,14 @@ export function ArtifactWorkspace({ initialPath }: ArtifactWorkspaceProps): Reac
   const loadPath = useCallback(async (filePath: string): Promise<void> => {
     setBusy(true);
     try {
-      if (typeof window.otto.extractEditableDocument === 'function') {
-        const result = await window.otto.extractEditableDocument(filePath);
+      if (typeof window.clawmaster.extractEditableDocument === 'function') {
+        const result = await window.clawmaster.extractEditableDocument(filePath);
         setArtifact(result);
         setContent(result.content);
         setStatus(result.message);
         return;
       }
-      const result = await window.otto.readFilePath(filePath);
+      const result = await window.clawmaster.readFilePath(filePath);
       if (!isEditableText(result.fileName, result.mimeType)) {
         throw new Error('这个桌面运行时暂时只能直接编辑文本、Markdown、Mermaid、CSV 与 JSON。');
       }
@@ -65,7 +65,7 @@ export function ArtifactWorkspace({ initialPath }: ArtifactWorkspaceProps): Reac
   }, [initialPath, loadPath]);
 
   const chooseFile = async (): Promise<void> => {
-    const paths = await window.otto.selectFiles();
+    const paths = await window.clawmaster.selectFiles();
     if (paths[0]) await loadPath(paths[0]);
   };
 
@@ -73,12 +73,12 @@ export function ArtifactWorkspace({ initialPath }: ArtifactWorkspaceProps): Reac
     if (!artifact) return;
     setBusy(true);
     try {
-      if (typeof window.otto.exportEditedDocument === 'function') {
-        const result = await window.otto.exportEditedDocument(artifact.filePath, artifact.fileName, content);
+      if (typeof window.clawmaster.exportEditedDocument === 'function') {
+        const result = await window.clawmaster.exportEditedDocument(artifact.filePath, artifact.fileName, content);
         setStatus(result?.message ?? '已取消保存。');
       } else {
         const suggested = artifact.fileName.replace(/\.[^.]+$/u, '') + '-已编辑.md';
-        const saved = await window.otto.saveTextFile(suggested, content);
+        const saved = await window.clawmaster.saveTextFile(suggested, content);
         setStatus(saved ? `已保存编辑稿：${saved}` : '已取消保存。');
       }
     } catch (error) {
@@ -89,8 +89,8 @@ export function ArtifactWorkspace({ initialPath }: ArtifactWorkspaceProps): Reac
   };
 
   return (
-    <section className="otto-artifact-workspace" aria-label="文件编辑器">
-      <header className="otto-artifact-workspace__header">
+    <section className="claw-artifact-workspace" aria-label="文件编辑器">
+      <header className="claw-artifact-workspace__header">
         <div>
           <strong>{artifact?.fileName ?? '文件编辑器'}</strong>
           <small>{artifact ? `${artifact.sourceFormat.toUpperCase()} → 可编辑 Markdown` : '本地处理，不上传测试数据'}</small>
@@ -106,14 +106,14 @@ export function ArtifactWorkspace({ initialPath }: ArtifactWorkspaceProps): Reac
             spellCheck={false}
             onChange={(event) => setContent(event.target.value)}
           />
-          <button className="otto-artifact-workspace__save" type="button" onClick={() => void save()} disabled={busy}>
+          <button className="claw-artifact-workspace__save" type="button" onClick={() => void save()} disabled={busy}>
             保存为新文件
           </button>
         </>
       ) : (
-        <div className="otto-artifact-workspace__empty">支持 Markdown、Mermaid、文本；完整桌面桥可转换 Word 与 PDF。</div>
+        <div className="claw-artifact-workspace__empty">支持 Markdown、Mermaid、文本；完整桌面桥可转换 Word 与 PDF。</div>
       )}
-      <div className="otto-artifact-workspace__status" role="status">{busy ? '正在处理…' : status}</div>
+      <div className="claw-artifact-workspace__status" role="status">{busy ? '正在处理…' : status}</div>
     </section>
   );
 }

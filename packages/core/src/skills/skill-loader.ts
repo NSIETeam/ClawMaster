@@ -1,5 +1,5 @@
 /**
- * Otto Skills System - Skill Loader
+ * ClawMaster Skills System - Skill Loader
  *
  * Manages Skill discovery and parsing:
  * - Scan enabled plugins and discover skills

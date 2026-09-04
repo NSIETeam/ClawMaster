@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useEffect, useState } from 'react';
@@ -22,7 +22,7 @@ function DeviceVerificationQr({
     <QrCode
       value={payload}
       label="设备安全号码二维码"
-      className="otto-hub__e2ee-qr"
+      className="claw-hub__e2ee-qr"
     />
   );
 }
@@ -84,13 +84,13 @@ export function PrivacyDataPanel(): React.JSX.Element {
     setError('');
     setE2eeError('');
     try {
-      setProfile(await window.otto.enterpriseDataGovernanceGet());
+      setProfile(await window.clawmaster.enterpriseDataGovernanceGet());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
     try {
-      setDevices(await window.otto.enterpriseE2eeDevicesList());
-      setTransparency(await window.otto.enterpriseE2eeKeyTransparency());
+      setDevices(await window.clawmaster.enterpriseE2eeDevicesList());
+      setTransparency(await window.clawmaster.enterpriseE2eeKeyTransparency());
     } catch (cause) {
       setE2eeError(cause instanceof Error ? cause.message : String(cause));
     }
@@ -106,7 +106,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
     setError('');
     try {
       if (!profile) throw new Error('协议版本尚未加载，请稍后重试');
-      setProfile(await window.otto.enterpriseLegalAccept(
+      setProfile(await window.clawmaster.enterpriseLegalAccept(
         profile.documents.map((document) => ({
           id: document.id,
           version: document.version,
@@ -125,7 +125,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
     setBusy(true);
     setError('');
     try {
-      const result = await window.otto.enterprisePrivacyExport();
+      const result = await window.clawmaster.enterprisePrivacyExport();
       if (result) setNotice(`个人数据已导出到 ${result.path}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -138,7 +138,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
     setBusy(true);
     setError('');
     try {
-      await window.otto.enterprisePrivacyDelete({ password, confirmation });
+      await window.clawmaster.enterprisePrivacyDelete({ password, confirmation });
       setNotice(
         '账号已注销，本机托管的个人记忆、工作日志和自动 Skill 已清理。',
       );
@@ -150,9 +150,9 @@ export function PrivacyDataPanel(): React.JSX.Element {
 
   const openLegal = (): void => {
     const base = window.location.origin;
-    void window.otto.enterpriseSession().then((session) => {
+    void window.clawmaster.enterpriseSession().then((session) => {
       if (session.serverUrl)
-        void window.otto.openExternal(
+        void window.clawmaster.openExternal(
           `${session.serverUrl.replace(/\/+$/u, '')}/enterprise/legal`,
         );
       else setError(`无法确定企业服务器地址（当前页面 ${base}）`);
@@ -163,9 +163,9 @@ export function PrivacyDataPanel(): React.JSX.Element {
     setE2eeBusy(true);
     setE2eeError('');
     try {
-      await window.otto.enterpriseE2eeDeviceRevoke(device.deviceId);
-      setDevices(await window.otto.enterpriseE2eeDevicesList());
-      setTransparency(await window.otto.enterpriseE2eeKeyTransparency());
+      await window.clawmaster.enterpriseE2eeDeviceRevoke(device.deviceId);
+      setDevices(await window.clawmaster.enterpriseE2eeDevicesList());
+      setTransparency(await window.clawmaster.enterpriseE2eeKeyTransparency());
       setPendingDeviceRevocation(null);
       setNotice(`已撤销设备“${device.deviceName}”；它不能再接收新消息密钥。`);
     } catch (cause) {
@@ -179,7 +179,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
     setE2eeBusy(true);
     setE2eeError('');
     try {
-      const value = await window.otto.enterpriseE2eeDeviceVerification(
+      const value = await window.clawmaster.enterpriseE2eeDeviceVerification(
         device.deviceId,
       );
       setDeviceVerification({ deviceId: device.deviceId, value });
@@ -194,9 +194,9 @@ export function PrivacyDataPanel(): React.JSX.Element {
     setE2eeBusy(true);
     setE2eeError('');
     try {
-      await window.otto.enterpriseE2eeDeviceApprove(device.deviceId);
-      setDevices(await window.otto.enterpriseE2eeDevicesList());
-      setTransparency(await window.otto.enterpriseE2eeKeyTransparency());
+      await window.clawmaster.enterpriseE2eeDeviceApprove(device.deviceId);
+      setDevices(await window.clawmaster.enterpriseE2eeDevicesList());
+      setTransparency(await window.clawmaster.enterpriseE2eeKeyTransparency());
       setDeviceVerification(null);
       setNotice(
         `已批准设备“${device.deviceName}”；后续消息会包含该设备的密钥信封。`,
@@ -221,10 +221,10 @@ export function PrivacyDataPanel(): React.JSX.Element {
     setE2eeError('');
     try {
       const bundle =
-        await window.otto.enterpriseE2eeRecoveryExport(recoveryPassphrase);
+        await window.clawmaster.enterpriseE2eeRecoveryExport(recoveryPassphrase);
       const date = new Date().toISOString().slice(0, 10);
-      const savedPath = await window.otto.saveTextFile(
-        `otto-e2ee-recovery-${date}.json`,
+      const savedPath = await window.clawmaster.saveTextFile(
+        `claw-e2ee-recovery-${date}.json`,
         bundle,
       );
       if (savedPath) {
@@ -247,7 +247,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
     setE2eeBusy(true);
     setE2eeError('');
     try {
-      await window.otto.enterpriseE2eeRecoveryImport(
+      await window.clawmaster.enterpriseE2eeRecoveryImport(
         recoveryBundle.trim(),
         recoveryImportPassphrase,
       );
@@ -271,7 +271,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
       actions={
         <button
           type="button"
-          className="otto-hub__btn"
+          className="claw-hub__btn"
           disabled={busy}
           onClick={() => void load()}
         >
@@ -280,12 +280,12 @@ export function PrivacyDataPanel(): React.JSX.Element {
       }
     >
       {error ? (
-        <div className="otto-hub__privacy-error" role="alert">
+        <div className="claw-hub__privacy-error" role="alert">
           {error}
         </div>
       ) : null}
       {notice ? (
-        <div className="otto-hub__privacy-notice" role="status">
+        <div className="claw-hub__privacy-notice" role="status">
           {notice}
         </div>
       ) : null}
@@ -293,7 +293,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
         <Empty>{busy ? '正在读取企业数据规则…' : '暂时无法读取数据规则'}</Empty>
       ) : (
         <>
-          <Card className="otto-hub__privacy-summary">
+          <Card className="claw-hub__privacy-summary">
             <div>
               <span>许可证</span>
               <strong>{license?.text}</strong>
@@ -328,19 +328,19 @@ export function PrivacyDataPanel(): React.JSX.Element {
             </div>
           </Card>
 
-          <div className="otto-hub__privacy-section-head">
+          <div className="claw-hub__privacy-section-head">
             <div>
               <strong>端到端加密私聊</strong>
               <span>消息与附件只在已登记设备上解密；服务器只保存密文。</span>
             </div>
           </div>
           {e2eeError ? (
-            <div className="otto-hub__privacy-error" role="alert">
+            <div className="claw-hub__privacy-error" role="alert">
               {e2eeError}
             </div>
           ) : null}
-          <Card className="otto-hub__e2ee-card">
-            <div className="otto-hub__e2ee-device-list">
+          <Card className="claw-hub__e2ee-card">
+            <div className="claw-hub__e2ee-device-list">
               {!devices ? (
                 <Empty>
                   {busy ? '正在读取加密设备…' : '暂时无法读取加密设备'}
@@ -350,7 +350,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
                 <Empty>还没有登记的加密设备</Empty>
               ) : null}
               {devices?.map((device) => (
-                <div className="otto-hub__e2ee-device" key={device.deviceId}>
+                <div className="claw-hub__e2ee-device" key={device.deviceId}>
                   <div>
                     <strong>{device.deviceName}</strong>
                     <span>
@@ -377,7 +377,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
                   !device.isCurrentDevice ? (
                     <button
                       type="button"
-                      className="otto-hub__btn"
+                      className="claw-hub__btn"
                       disabled={e2eeBusy}
                       onClick={() => void inspectDevice(device)}
                     >
@@ -386,10 +386,10 @@ export function PrivacyDataPanel(): React.JSX.Element {
                   ) : null}
                   {!device.revokedAt ? (
                     pendingDeviceRevocation === device.deviceId ? (
-                      <div className="otto-hub__e2ee-confirm">
+                      <div className="claw-hub__e2ee-confirm">
                         <button
                           type="button"
-                          className="otto-hub__btn otto-hub__btn--danger"
+                          className="claw-hub__btn claw-hub__btn--danger"
                           aria-label={`确认撤销 ${device.deviceName}`}
                           disabled={e2eeBusy}
                           onClick={() => void revokeDevice(device)}
@@ -398,7 +398,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
                         </button>
                         <button
                           type="button"
-                          className="otto-hub__btn"
+                          className="claw-hub__btn"
                           disabled={e2eeBusy}
                           onClick={() => setPendingDeviceRevocation(null)}
                         >
@@ -408,7 +408,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
                     ) : (
                       <button
                         type="button"
-                        className="otto-hub__btn"
+                        className="claw-hub__btn"
                         aria-label={`撤销设备 ${device.deviceName}`}
                         disabled={e2eeBusy}
                         onClick={() =>
@@ -420,7 +420,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
                     )
                   ) : null}
                   {deviceVerification?.deviceId === device.deviceId ? (
-                    <div className="otto-hub__e2ee-verification">
+                    <div className="claw-hub__e2ee-verification">
                       <DeviceVerificationQr
                         payload={deviceVerification.value.qrPayload}
                       />
@@ -432,7 +432,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
                         </span>
                         <button
                           type="button"
-                          className="otto-hub__btn"
+                          className="claw-hub__btn"
                           disabled={e2eeBusy}
                           onClick={() => void approveDevice(device)}
                         >
@@ -444,16 +444,16 @@ export function PrivacyDataPanel(): React.JSX.Element {
                 </div>
               ))}
             </div>
-            <div className="otto-hub__e2ee-recovery">
-              <div className="otto-hub__setting-text">
+            <div className="claw-hub__e2ee-recovery">
+              <div className="claw-hub__setting-text">
                 <strong>加密密钥恢复包</strong>
-                <span className="otto-hub__field-hint">
+                <span className="claw-hub__field-hint">
                   恢复包由口令加密，但仍应保存在离线或受保护的位置。导入只补回历史解密密钥，不替换当前设备身份。
                 </span>
               </div>
-              <div className="otto-hub__e2ee-recovery-grid">
+              <div className="claw-hub__e2ee-recovery-grid">
                 <input
-                  className="otto-hub__input"
+                  className="claw-hub__input"
                   type="password"
                   autoComplete="new-password"
                   aria-label="恢复包口令"
@@ -464,7 +464,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
                   placeholder="设置至少 12 个字符的口令"
                 />
                 <input
-                  className="otto-hub__input"
+                  className="claw-hub__input"
                   type="password"
                   autoComplete="new-password"
                   aria-label="确认恢复包口令"
@@ -476,23 +476,23 @@ export function PrivacyDataPanel(): React.JSX.Element {
                 />
                 <button
                   type="button"
-                  className="otto-hub__btn otto-hub__btn--primary"
+                  className="claw-hub__btn claw-hub__btn--primary"
                   disabled={e2eeBusy}
                   onClick={() => void exportRecoveryBundle()}
                 >
                   导出恢复包
                 </button>
               </div>
-              <div className="otto-hub__e2ee-recovery-grid otto-hub__e2ee-recovery-grid--import">
+              <div className="claw-hub__e2ee-recovery-grid claw-hub__e2ee-recovery-grid--import">
                 <textarea
-                  className="otto-hub__input"
+                  className="claw-hub__input"
                   aria-label="恢复包内容"
                   value={recoveryBundle}
                   onChange={(event) => setRecoveryBundle(event.target.value)}
                   placeholder="粘贴恢复包 JSON"
                 />
                 <input
-                  className="otto-hub__input"
+                  className="claw-hub__input"
                   type="password"
                   autoComplete="current-password"
                   aria-label="导入恢复包口令"
@@ -504,7 +504,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
                 />
                 <button
                   type="button"
-                  className="otto-hub__btn"
+                  className="claw-hub__btn"
                   disabled={e2eeBusy}
                   onClick={() => void importRecoveryBundle()}
                 >
@@ -512,26 +512,26 @@ export function PrivacyDataPanel(): React.JSX.Element {
                 </button>
               </div>
             </div>
-            <div className="otto-hub__e2ee-transparency">
-              <div className="otto-hub__setting-text">
+            <div className="claw-hub__e2ee-transparency">
+              <div className="claw-hub__setting-text">
                 <strong>密钥透明日志</strong>
-                <span className="otto-hub__field-hint">
+                <span className="claw-hub__field-hint">
                   追加式记录设备登记、批准与撤销。本机会加密钉扎已见链头并拒绝回滚或分叉；不同设备仍应对比链头以发现持续分流。
                 </span>
               </div>
               {transparency ? (
                 <>
-                  <div className="otto-hub__e2ee-chain-head">
+                  <div className="claw-hub__e2ee-chain-head">
                     <Badge tone="accent">链头序号 {transparency.headSequence}</Badge>
                     <Badge tone="accent">本机检查点已钉扎</Badge>
                     <code title={transparency.headHash}>
                       {transparency.headHash.slice(0, 24)}
                     </code>
                   </div>
-                  <div className="otto-hub__e2ee-log" role="list">
+                  <div className="claw-hub__e2ee-log" role="list">
                     {transparency.entries.map((entry) => (
                       <div
-                        className="otto-hub__e2ee-log-entry"
+                        className="claw-hub__e2ee-log-entry"
                         key={`${entry.sequence}:${entry.entryHash}`}
                         role="listitem"
                       >
@@ -558,29 +558,29 @@ export function PrivacyDataPanel(): React.JSX.Element {
           </Card>
 
           {!profile.readiness.configured ? (
-            <div className="otto-hub__privacy-warning">
+            <div className="claw-hub__privacy-warning">
               部署管理员尚未完整配置个人信息处理者名称或隐私联系方式：
               {profile.readiness.warnings.join('；')}
             </div>
           ) : null}
 
-          <div className="otto-hub__privacy-section-head">
+          <div className="claw-hub__privacy-section-head">
             <div>
               <strong>协议与处理者</strong>
               <span>
                 {profile.controller.name} · {profile.controller.privacyContact}
               </span>
             </div>
-            <button type="button" className="otto-hub__btn" onClick={openLegal}>
+            <button type="button" className="claw-hub__btn" onClick={openLegal}>
               查看完整规则
             </button>
           </div>
           <Card>
             {profile.documents.map((document) => (
-              <div className="otto-hub__setting" key={document.id}>
-                <div className="otto-hub__setting-text">
+              <div className="claw-hub__setting" key={document.id}>
+                <div className="claw-hub__setting-text">
                   <strong>{document.title}</strong>
-                  <span className="otto-hub__field-hint">
+                  <span className="claw-hub__field-hint">
                     版本 {document.version} ·{' '}
                     {document.accepted ? '已同意' : '待同意'}
                   </span>
@@ -591,16 +591,16 @@ export function PrivacyDataPanel(): React.JSX.Element {
               </div>
             ))}
             {!profile.currentConsentComplete ? (
-              <div className="otto-hub__setting">
-                <div className="otto-hub__setting-text">
+              <div className="claw-hub__setting">
+                <div className="claw-hub__setting-text">
                   <strong>需要确认当前协议版本</strong>
-                  <span className="otto-hub__field-hint">
+                  <span className="claw-hub__field-hint">
                     同意记录包含版本、哈希和时间，不记录额外内容。
                   </span>
                 </div>
                 <button
                   type="button"
-                  className="otto-hub__btn otto-hub__btn--primary"
+                  className="claw-hub__btn claw-hub__btn--primary"
                   disabled={busy}
                   onClick={() => void accept()}
                 >
@@ -610,13 +610,13 @@ export function PrivacyDataPanel(): React.JSX.Element {
             ) : null}
           </Card>
 
-          <div className="otto-hub__privacy-section-head">
+          <div className="claw-hub__privacy-section-head">
             <div>
               <strong>数据处理目录</strong>
               <span>每类数据的用途、位置、加密、留存和删除方式</span>
             </div>
           </div>
-          <div className="otto-hub__privacy-activities">
+          <div className="claw-hub__privacy-activities">
             {profile.processingActivities.map((activity) => (
               <details key={activity.id}>
                 <summary>
@@ -652,49 +652,49 @@ export function PrivacyDataPanel(): React.JSX.Element {
             ))}
           </div>
 
-          <div className="otto-hub__privacy-section-head">
+          <div className="claw-hub__privacy-section-head">
             <div>
               <strong>我的数据权利</strong>
               <span>导出不会修改数据，注销不可撤销。</span>
             </div>
           </div>
           <Card>
-            <div className="otto-hub__setting">
-              <div className="otto-hub__setting-text">
+            <div className="claw-hub__setting">
+              <div className="claw-hub__setting-text">
                 <strong>导出我的数据</strong>
-                <span className="otto-hub__field-hint">
+                <span className="claw-hub__field-hint">
                   生成 JSON
                   文件，包含账号资料、记忆同步元数据、工作日志、私聊、用量和园区申请。
                 </span>
               </div>
               <button
                 type="button"
-                className="otto-hub__btn"
+                className="claw-hub__btn"
                 disabled={busy}
                 onClick={() => void exportData()}
               >
                 导出
               </button>
             </div>
-            <div className="otto-hub__setting otto-hub__setting--stack">
-              <div className="otto-hub__setting-text">
+            <div className="claw-hub__setting claw-hub__setting--stack">
+              <div className="claw-hub__setting-text">
                 <strong>注销账号</strong>
-                <span className="otto-hub__field-hint">
+                <span className="claw-hub__field-hint">
                   清除可删除的个人数据；财务、匿名园区统计和安全日志按法定义务最小保留。企业最后一名管理员需先移交权限。
                 </span>
               </div>
               {!showDelete ? (
                 <button
                   type="button"
-                  className="otto-hub__btn otto-hub__btn--danger"
+                  className="claw-hub__btn claw-hub__btn--danger"
                   onClick={() => setShowDelete(true)}
                 >
                   开始注销
                 </button>
               ) : (
-                <div className="otto-hub__privacy-delete">
+                <div className="claw-hub__privacy-delete">
                   <input
-                    className="otto-hub__input"
+                    className="claw-hub__input"
                     type="password"
                     autoComplete="current-password"
                     value={password}
@@ -702,14 +702,14 @@ export function PrivacyDataPanel(): React.JSX.Element {
                     placeholder="输入当前登录密码"
                   />
                   <input
-                    className="otto-hub__input"
+                    className="claw-hub__input"
                     value={confirmation}
                     onChange={(event) => setConfirmation(event.target.value)}
                     placeholder="输入：注销我的 ClawMaster 账号"
                   />
                   <button
                     type="button"
-                    className="otto-hub__btn otto-hub__btn--danger"
+                    className="claw-hub__btn claw-hub__btn--danger"
                     disabled={
                       busy || !password || confirmation !== '注销我的 ClawMaster 账号'
                     }
@@ -719,7 +719,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
                   </button>
                   <button
                     type="button"
-                    className="otto-hub__btn"
+                    className="claw-hub__btn"
                     disabled={busy}
                     onClick={() => {
                       setShowDelete(false);

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 const MODULE_WORKSPACE_SCHEMA_VERSION = 2 as const;
@@ -252,7 +252,7 @@ export function normalizeServerUrlForStorage(value: string): string {
 
 export function getModuleWorkspaceStorageKey(scope: ModuleWorkspaceStorageScope): string {
   return [
-    'otto.module-workspace.v1',
+    'clawmaster.module-workspace.v1',
     normalizeServerUrlForStorage(scope.serverUrl),
     scope.edition,
     scope.organizationId?.trim() || 'personal',

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import fs from 'node:fs';
@@ -55,7 +55,7 @@ describe('identity_organization invitation kernel', () => {
       identityOrganization.resolveEnterprisePublicBaseUrl({
         configuredUrl: 'https://user:pass@join.otto.example',
       }),
-    ).toThrow(/OTTO_ENTERPRISE_PUBLIC_URL/);
+    ).toThrow(/CLAWMASTER_ENTERPRISE_PUBLIC_URL/);
   });
 
   it('publishes repository and facade capabilities from one public entrypoint', () => {

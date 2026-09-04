@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SessionSummary } from 'otto-server';
+import type { SessionSummary } from 'clawmaster-server';
 
 import {
   DEFAULT_SESSION_LIST_PREFERENCE,

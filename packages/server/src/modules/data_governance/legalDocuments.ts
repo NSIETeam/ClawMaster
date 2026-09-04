@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createHash } from 'node:crypto';
@@ -404,7 +404,7 @@ export interface DataProcessingActivity {
 }
 
 export function dataProcessingInventory(): DataProcessingActivity[] {
-  const crossBorder = process.env.OTTO_CROSS_BORDER_DATA_ENABLED === 'true';
+  const crossBorder = process.env.CLAWMASTER_CROSS_BORDER_DATA_ENABLED === 'true';
   return [
     {
       id: 'identity',
@@ -505,16 +505,16 @@ export function dataProcessingInventory(): DataProcessingActivity[] {
 }
 
 export function dataGovernanceConfiguration() {
-  const controllerName = process.env.OTTO_DATA_CONTROLLER_NAME?.trim() || '';
-  const privacyContact = process.env.OTTO_PRIVACY_CONTACT?.trim() || '';
-  const region = process.env.OTTO_DATA_REGION?.trim() || 'CN';
-  const crossBorder = process.env.OTTO_CROSS_BORDER_DATA_ENABLED === 'true';
+  const controllerName = process.env.CLAWMASTER_DATA_CONTROLLER_NAME?.trim() || '';
+  const privacyContact = process.env.CLAWMASTER_PRIVACY_CONTACT?.trim() || '';
+  const region = process.env.CLAWMASTER_DATA_REGION?.trim() || 'CN';
+  const crossBorder = process.env.CLAWMASTER_CROSS_BORDER_DATA_ENABLED === 'true';
   const storageVolumeEncrypted =
-    process.env.OTTO_STORAGE_VOLUME_ENCRYPTED === 'true';
+    process.env.CLAWMASTER_STORAGE_VOLUME_ENCRYPTED === 'true';
   const legalDocumentsApproved =
-    process.env.OTTO_LEGAL_DOCUMENTS_APPROVED === 'true';
+    process.env.CLAWMASTER_LEGAL_DOCUMENTS_APPROVED === 'true';
   const configuredTelemetryRetention = Number(
-    process.env.OTTO_TELEMETRY_RETENTION_DAYS || 90,
+    process.env.CLAWMASTER_TELEMETRY_RETENTION_DAYS || 90,
   );
   const telemetryRetentionDays = Number.isFinite(configuredTelemetryRetention)
     ? Math.max(1, Math.min(3650, Math.floor(configuredTelemetryRetention)))
@@ -526,7 +526,7 @@ export function dataGovernanceConfiguration() {
       configured: Boolean(controllerName && privacyContact),
     },
     residency: {
-      mode: process.env.OTTO_DATA_RESIDENCY?.trim() || 'customer_server',
+      mode: process.env.CLAWMASTER_DATA_RESIDENCY?.trim() || 'customer_server',
       region,
       crossBorderEnabled: crossBorder,
       localizationReady: region === 'CN' && !crossBorder,
@@ -562,16 +562,16 @@ export function dataGovernanceConfiguration() {
       ),
       legalDocumentsApproved,
       warnings: [
-        ...(!controllerName ? ['OTTO_DATA_CONTROLLER_NAME 未配置'] : []),
-        ...(!privacyContact ? ['OTTO_PRIVACY_CONTACT 未配置'] : []),
+        ...(!controllerName ? ['CLAWMASTER_DATA_CONTROLLER_NAME 未配置'] : []),
+        ...(!privacyContact ? ['CLAWMASTER_PRIVACY_CONTACT 未配置'] : []),
         ...(!storageVolumeEncrypted
           ? [
-              'OTTO_STORAGE_VOLUME_ENCRYPTED 未确认，结构化业务字段缺少磁盘级静态保护',
+              'CLAWMASTER_STORAGE_VOLUME_ENCRYPTED 未确认，结构化业务字段缺少磁盘级静态保护',
             ]
           : []),
         ...(!legalDocumentsApproved
           ? [
-              'OTTO_LEGAL_DOCUMENTS_APPROVED 未确认，正式文本尚未通过部署方法务审核',
+              'CLAWMASTER_LEGAL_DOCUMENTS_APPROVED 未确认，正式文本尚未通过部署方法务审核',
             ]
           : []),
         ...(crossBorder

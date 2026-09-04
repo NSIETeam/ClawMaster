@@ -1,7 +1,7 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Otto Desktop 更新入口的单一事实源。默认走企业镜像，避开部分网络环境下
+ * ClawMaster Desktop 更新入口的单一事实源。默认走企业镜像，避开部分网络环境下
  * GitHub release 资产直链 fetch failed；GitHub 仍作为兜底。
  */
 
@@ -25,7 +25,7 @@ export const RELEASE_PAGE_URL =
   'https://github.com/NSIETeam/otto-new/releases/latest';
 
 /**
- * 企业可通过 OTTO_UPDATE_MANIFEST_URL 提供就近 HTTPS 镜像。地址无效、非 HTTPS、
+ * 企业可通过 CLAWMASTER_UPDATE_MANIFEST_URL 提供就近 HTTPS 镜像。地址无效、非 HTTPS、
  * 或含 URL 凭证时直接忽略；GitHub 官方清单始终保留为下一跳。
  */
 export function resolveManifestUrls(candidate?: string | null): string[] {

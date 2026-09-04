@@ -25,7 +25,7 @@ describe('right panel preference', () => {
       serverUrl: '   ',
       organizationId: '   ',
       accountId: '   ',
-    })).toBe('otto.right-panel.v1:local:personal:anonymous');
+    })).toBe('clawmaster.right-panel.v1:local:personal:anonymous');
   });
 
   it('defaults to expanded for missing or invalid values', () => {

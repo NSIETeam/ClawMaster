@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,7 +13,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import type { ToolCall } from 'otto-server';
+import type { ToolCall } from 'clawmaster-server';
 import { buildToolCompletionSummary, ToolCallsCard } from './ToolCalls.js';
 
 /** 造一张待作答的 ask_user_question 工具卡。 */
@@ -143,7 +143,7 @@ describe('ToolCalls · 空正文的确定性总结', () => {
         toolCalls={[{
           id: 'code-1',
           toolName: 'read_file',
-          parameters: { absolute_path: 'D:/otto/otto-repo/packages/core/src/core/client.ts' },
+          parameters: { absolute_path: 'D:/otto/claw-repo/packages/core/src/core/client.ts' },
           status: 'success' as ToolCall['status'],
         }]}
       />,
@@ -177,7 +177,7 @@ describe('ToolCalls · 空正文的确定性总结', () => {
 
   it('Bash 结果提供可用的复制按钮并写入系统剪贴板', async () => {
     const writeClipboard = vi.fn(async () => true);
-    Object.defineProperty(window, 'otto', {
+    Object.defineProperty(window, 'clawmaster', {
       configurable: true,
       value: { writeClipboard },
     });
@@ -357,7 +357,7 @@ describe('ToolCalls · 敏感操作确认卡', () => {
 describe('ToolCalls · 飞书授权二维码', () => {
   it('从 lark_cli 实时输出渲染可扫码二维码，并保留浏览器授权入口', () => {
     const openExternal = vi.fn(async () => undefined);
-    (window as unknown as { otto: { openExternal: typeof openExternal } }).otto = {
+    (window as unknown as { clawmaster: { openExternal: typeof openExternal } }).clawmaster = {
       openExternal,
     };
     const authUrl =

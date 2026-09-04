@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,7 +13,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen, waitFor, act } from '@testing-library/react';
-import type { ModelInfo } from 'otto-server';
+import type { ModelInfo } from 'clawmaster-server';
 import { Composer, insertComposerDraft } from './Composer.js';
 import * as transport from '../transport.js';
 
@@ -40,7 +40,7 @@ function renderComposer(models: ModelInfo[], current: string | null) {
 
 /** 打开模型菜单：点 model pill（可访问名取当前模型 displayName，改用 class 定位更稳）。 */
 function openMenu() {
-  const pill = document.querySelector('.otto-modelpill');
+  const pill = document.querySelector('.claw-modelpill');
   fireEvent.click(pill as Element);
   return screen.getByRole('listbox', { name: '选择模型' });
 }
@@ -59,13 +59,13 @@ describe('输入区工具布局与弹层', () => {
         onSetModel={vi.fn()}
       />,
     );
-    const contextBar = container.querySelector('.otto-composer__contextbar');
-    expect(contextBar?.querySelector('.otto-workspace')).not.toBeNull();
-    expect(contextBar?.querySelector('.otto-authorization')).not.toBeNull();
+    const contextBar = container.querySelector('.claw-composer__contextbar');
+    expect(contextBar?.querySelector('.claw-workspace')).not.toBeNull();
+    expect(contextBar?.querySelector('.claw-authorization')).not.toBeNull();
     expect(container.querySelector('[aria-label="添加文件夹"]')).toBeNull();
-    const bar = container.querySelector('.otto-composer__bar')!;
-    const model = bar.querySelector('.otto-modelpill')!;
-    const send = bar.querySelector('.otto-send')!;
+    const bar = container.querySelector('.claw-composer__bar')!;
+    const model = bar.querySelector('.claw-modelpill')!;
+    const send = bar.querySelector('.claw-send')!;
     expect(model.compareDocumentPosition(send) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -89,7 +89,7 @@ describe('输入区工具布局与弹层', () => {
     expect(screen.getByRole('menu', { name: '选择执行授权方式' })).toBeTruthy();
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole('menu', { name: '选择执行授权方式' })).toBeNull();
-    fireEvent.click(document.querySelector('.otto-modelpill') as Element);
+    fireEvent.click(document.querySelector('.claw-modelpill') as Element);
     expect(screen.getByRole('listbox', { name: '选择模型' })).toBeTruthy();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('listbox', { name: '选择模型' })).toBeNull();
@@ -107,13 +107,13 @@ describe('输入区工具布局与弹层', () => {
       />,
     );
 
-    fireEvent.click(container.querySelector('.otto-modelpill') as Element);
+    fireEvent.click(container.querySelector('.claw-modelpill') as Element);
     const menu = screen.getByRole('listbox', { name: '选择模型' });
     const portal = menu.parentElement;
 
-    expect(menu.closest('.otto-composer__inner')).toBeNull();
-    expect(portal?.classList.contains('otto-modelmenu-portal')).toBe(true);
-    expect(portal?.classList.contains('otto-popover-anchor')).toBe(true);
+    expect(menu.closest('.claw-composer__inner')).toBeNull();
+    expect(portal?.classList.contains('claw-modelmenu-portal')).toBe(true);
+    expect(portal?.classList.contains('claw-popover-anchor')).toBe(true);
     expect(portal?.parentElement).toBe(document.body);
   });
 
@@ -130,11 +130,11 @@ describe('输入区工具布局与弹层', () => {
     render(
       <Composer models={[]} currentModel={null} sessionId="s1" onSend={vi.fn()} onSetModel={vi.fn()} />,
     );
-    const textarea = document.querySelector('.otto-composer__textarea') as HTMLTextAreaElement;
+    const textarea = document.querySelector('.claw-composer__textarea') as HTMLTextAreaElement;
     const send = screen.getByRole('button', { name: '发送' }) as HTMLButtonElement;
 
     expect(send.disabled).toBe(true);
-    expect(send.classList.contains('otto-send')).toBe(true);
+    expect(send.classList.contains('claw-send')).toBe(true);
     fireEvent.change(textarea, { target: { value: '   ' } });
     expect(send.disabled).toBe(true);
     fireEvent.change(textarea, { target: { value: '开始执行' } });
@@ -149,7 +149,7 @@ describe('输入区工具布局与弹层', () => {
       defaultPath: '/Users/yang',
       recentPaths: ['/Users/yang'],
     }));
-    Object.assign(window.otto, { selectWorkspaceDirectory, getWorkspaceDirectories });
+    Object.assign(window.clawmaster, { selectWorkspaceDirectory, getWorkspaceDirectories });
     const { rerender } = render(
       <Composer
         models={[]}
@@ -197,7 +197,7 @@ describe('专家提示词草稿', () => {
         onSetModel={vi.fn()}
       />,
     );
-    const textarea = document.querySelector('.otto-composer__textarea') as HTMLTextAreaElement;
+    const textarea = document.querySelector('.claw-composer__textarea') as HTMLTextAreaElement;
 
     act(() => insertComposerDraft('请作为「PPT 创作专家」协助我'));
     expect(textarea.value).toContain('PPT 创作专家');
@@ -230,13 +230,13 @@ describe('右侧模块 Agent 标签', () => {
       />,
     );
     const agentStatus = screen.getByRole('status');
-    const composerInner = document.querySelector('.otto-composer__inner');
+    const composerInner = document.querySelector('.claw-composer__inner');
     expect(screen.getByText('PPT 创作专家')).toBeTruthy();
     expect(composerInner?.contains(agentStatus)).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: '移除 PPT 创作专家' }));
     expect(onClearPendingAgent).toHaveBeenCalledTimes(1);
 
-    const textarea = document.querySelector('.otto-composer__textarea') as HTMLTextAreaElement;
+    const textarea = document.querySelector('.claw-composer__textarea') as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: '制作发布会' } });
     fireEvent.keyDown(textarea, { key: 'Enter' });
     fireEvent.keyDown(textarea, { key: 'Enter' });
@@ -261,7 +261,7 @@ describe('PPT 专家内置入口', () => {
       />,
     );
     const textarea = document.querySelector(
-      '.otto-composer__textarea',
+      '.claw-composer__textarea',
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: '/ppt' } });
@@ -288,7 +288,7 @@ describe('PPT 专家内置入口', () => {
       />,
     );
     const textarea = document.querySelector(
-      '.otto-composer__textarea',
+      '.claw-composer__textarea',
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: '/doc' } });
@@ -315,7 +315,7 @@ describe('PPT 专家内置入口', () => {
       />,
     );
     const textarea = document.querySelector(
-      '.otto-composer__textarea',
+      '.claw-composer__textarea',
     ) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: '/pdf' } });
@@ -355,9 +355,9 @@ describe('模型菜单搜索框显隐（阈值 8）', () => {
 
 describe('旧企业模型显示迁移', () => {
   it('会话残留的 otto 模型不存在时，显示首个可用的个人 API 模型', () => {
-    renderComposer(makeModels(2), 'otto:deepseek');
-    expect(document.querySelector('.otto-modelpill')?.textContent).toContain('模型-01');
-    expect(document.querySelector('.otto-modelpill')?.textContent).not.toContain('otto:deepseek');
+    renderComposer(makeModels(2), 'clawmaster:deepseek');
+    expect(document.querySelector('.claw-modelpill')?.textContent).toContain('模型-01');
+    expect(document.querySelector('.claw-modelpill')?.textContent).not.toContain('clawmaster:deepseek');
   });
 });
 
@@ -372,9 +372,9 @@ describe('执行授权菜单', () => {
       payload: { sessionId: 's1', mode: 'manual', scope: 'all' },
     });
     fireEvent.click(screen.getByRole('button', { name: '执行授权：手动授权' }));
-    expect(document.querySelector('.otto-authorization__option-icon--manual path[d^="M18 11V6"]')).toBeTruthy();
-    expect(document.querySelector('.otto-authorization__option-icon--session path[d="M8 12h.01M12 12h.01M16 12h.01"]')).toBeTruthy();
-    expect(document.querySelector('.otto-authorization__option-icon--global path[d="m9 12 2 2 4-4"]')).toBeTruthy();
+    expect(document.querySelector('.claw-authorization__option-icon--manual path[d^="M18 11V6"]')).toBeTruthy();
+    expect(document.querySelector('.claw-authorization__option-icon--session path[d="M8 12h.01M12 12h.01M16 12h.01"]')).toBeTruthy();
+    expect(document.querySelector('.claw-authorization__option-icon--global path[d="m9 12 2 2 4-4"]')).toBeTruthy();
     fireEvent.click(screen.getByRole('menuitemradio', { name: /自动授权（仅当前会话）/ }));
     expect(localStorage.getItem('otto.authorization.global-auto')).toBe('0');
     expect(send.mock.calls.slice(-2).map(([message]) => message)).toEqual([
@@ -460,7 +460,7 @@ describe('模型菜单搜索过滤', () => {
 
 describe('每会话草稿隔离', () => {
   const ta = () =>
-    document.querySelector('.otto-composer__textarea') as HTMLTextAreaElement;
+    document.querySelector('.claw-composer__textarea') as HTMLTextAreaElement;
 
   it('切换会话时各自保留未发送的草稿，切回原样复现', () => {
     const { rerender } = render(
@@ -590,7 +590,7 @@ describe('模型菜单 provider 分组与勾选', () => {
     const menu = openMenu();
     // 两个 provider 各成一组；用 class 精确取分组标题（避免撞到每项的 provider 副标签）。
     const heads = Array.from(
-      menu.querySelectorAll('.otto-modelmenu__grouphead'),
+      menu.querySelectorAll('.claw-modelmenu__grouphead'),
     ).map((el) => el.textContent);
     expect(heads).toContain('anthropic');
     expect(heads).toContain('openai');
@@ -599,7 +599,7 @@ describe('模型菜单 provider 分组与勾选', () => {
   it('当前模型仍被勾选高亮（分组不破坏 active 态）', () => {
     renderComposer(makeModels(10), 'm3');
     const menu = openMenu();
-    const active = menu.querySelector('.otto-modelmenu__item--active');
+    const active = menu.querySelector('.claw-modelmenu__item--active');
     expect(active).toBeTruthy();
     expect(active?.getAttribute('aria-selected')).toBe('true');
     expect(active?.textContent).toContain('模型-04'); // m3 → 第 4 个
@@ -641,15 +641,15 @@ describe('附件预览卡片', () => {
 
     const displayName = '产品销售数据汇总与下一季度预测';
     const fileName = await screen.findByText(displayName);
-    const card = fileName.closest('.otto-attachment');
-    expect(card?.classList.contains('otto-attachment--file')).toBe(true);
-    const typeIcon = card?.querySelector('.otto-attachment__type-icon');
+    const card = fileName.closest('.claw-attachment');
+    expect(card?.classList.contains('claw-attachment--file')).toBe(true);
+    const typeIcon = card?.querySelector('.claw-attachment__type-icon');
     expect(typeIcon?.textContent).toBe('EXCEL');
     expect(typeIcon?.getAttribute('data-type')).toBe('EXCEL');
-    expect(fileName.classList.contains('otto-attachment__file-name')).toBe(true);
+    expect(fileName.classList.contains('claw-attachment__file-name')).toBe(true);
     expect(fileName.getAttribute('title')).toBe(file.name);
     expect(fileName.textContent).not.toContain('.xlsx');
-    expect(card?.querySelector('.otto-attachment__meta')?.textContent).toContain(
+    expect(card?.querySelector('.claw-attachment__meta')?.textContent).toContain(
       '1.5 KB',
     );
 
@@ -663,7 +663,7 @@ describe('附件预览卡片', () => {
     const onSend = vi.fn();
     const folderPath = 'C:\\Users\\tester\\Documents\\客户资料';
     const selectFolders = vi.fn(async () => [folderPath]);
-    Object.assign(window.otto, { selectFolders });
+    Object.assign(window.clawmaster, { selectFolders });
     render(
       <Composer
         models={[]}
@@ -677,10 +677,10 @@ describe('附件预览卡片', () => {
     fireEvent.click(screen.getByRole('button', { name: '添加附件' }));
     fireEvent.click(screen.getByRole('menuitem', { name: '添加文件夹作为附件' }));
     const folderName = await screen.findByText('客户资料');
-    const card = folderName.closest('.otto-attachment');
+    const card = folderName.closest('.claw-attachment');
     expect(selectFolders).toHaveBeenCalledTimes(1);
-    expect(card?.classList.contains('otto-attachment--folder')).toBe(true);
-    expect(card?.querySelector('.otto-attachment__type-icon')?.textContent).toBe('DIR');
+    expect(card?.classList.contains('claw-attachment--folder')).toBe(true);
+    expect(card?.querySelector('.claw-attachment__type-icon')?.textContent).toBe('DIR');
     expect(await screen.findByTitle(folderPath)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '发送' }));
@@ -694,7 +694,7 @@ describe('附件预览卡片', () => {
   it('拖入外部卷文件时通过 webUtils 保留真实路径并随消息发送', async () => {
     const onSend = vi.fn();
     const externalPath = '/Volumes/Portable/客户资料/园区方案.pdf';
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       authorizeFileForAttachment: vi.fn(async () => externalPath),
     });
     const { container } = render(
@@ -710,7 +710,7 @@ describe('附件预览卡片', () => {
       type: 'application/pdf',
     });
 
-    fireEvent.drop(container.querySelector('.otto-composer') as Element, {
+    fireEvent.drop(container.querySelector('.claw-composer') as Element, {
       dataTransfer: { files: [file], types: ['Files'] },
     });
 
@@ -725,7 +725,7 @@ describe('附件预览卡片', () => {
 
   it('拖入文件若无法由 preload/main 授权，不会附加或发送裸路径', async () => {
     const onSend = vi.fn();
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       authorizeFileForAttachment: vi.fn(async () => {
         throw new Error('文件未获得授权');
       }),
@@ -741,7 +741,7 @@ describe('附件预览卡片', () => {
     );
     const file = new File(['x'], '机密.pdf', { type: 'application/pdf' });
 
-    fireEvent.drop(container.querySelector('.otto-composer') as Element, {
+    fireEvent.drop(container.querySelector('.claw-composer') as Element, {
       dataTransfer: { files: [file], types: ['Files'] },
     });
 
@@ -770,14 +770,14 @@ describe('附件预览卡片', () => {
       />,
     );
 
-    fireEvent.contextMenu(container.querySelector('.otto-composer') as Element, {
+    fireEvent.contextMenu(container.querySelector('.claw-composer') as Element, {
       clientX: 20,
       clientY: 30,
     });
     fireEvent.click(screen.getByRole('button', { name: '粘贴' }));
 
     await waitFor(() => {
-      expect((container.querySelector('.otto-composer__textarea') as HTMLTextAreaElement).value)
+      expect((container.querySelector('.claw-composer__textarea') as HTMLTextAreaElement).value)
         .toBe('粘贴内容');
     });
     expect(read).toHaveBeenCalledOnce();

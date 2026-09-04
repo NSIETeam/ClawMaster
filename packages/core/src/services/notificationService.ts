@@ -1,7 +1,7 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Otto Notification Service — 多渠道通知 + 逐级升级
+ * ClawMaster Notification Service — 多渠道通知 + 逐级升级
  *
  * 场景：园区报修 → 通知维修人员 → 飞书没回 → 5分钟后发短信 → 还是没回 → 电话告警
  *

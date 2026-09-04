@@ -1,10 +1,10 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Otto Knowledge Transfer — 离职交接/岗位传承。
+ * ClawMaster Knowledge Transfer — 离职交接/岗位传承。
  *
  * 员工离职时，将个人记忆打包导出（岗位画像+常用文档+偏好+历史决策）。
- * 新员工入职时，导入记忆包，Otto 第一天就"懂这个岗位"。
+ * 新员工入职时，导入记忆包，ClawMaster 第一天就"懂这个岗位"。
  *
  * 基于 Mem0Adapter 的导出/导入能力 + memory-manager 的 offboard/onboard。
  */
@@ -133,7 +133,7 @@ export async function exportMemoryPackage(
  * 1. 读取记忆包 JSON
  * 2. 将记忆导入到新员工的 Mem0 实例
  * 3. 合并岗位画像到新员工的文件记忆
- * 4. 新员工的 Otto 第一天就"懂这个岗位"
+ * 4. 新员工的 ClawMaster 第一天就"懂这个岗位"
  */
 export async function importMemoryPackage(
   _config: Config,

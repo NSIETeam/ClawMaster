@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createHash, randomUUID } from 'node:crypto';
@@ -217,7 +217,7 @@ function main() {
         { name: 'otto:sourceRevision', value: sourceRevision },
         { name: 'otto:runtime', value: runtime },
         { name: 'otto:runtimeVersion', value: expectedRuntimeVersion },
-        { name: 'otto:moduleAbi', value: process.versions.modules },
+        { name: 'clawmaster.moduleAbi', value: process.versions.modules },
         { name: 'otto:cryptoProvider', value: cryptoProvider },
         ...(runtime === 'electron'
           ? [

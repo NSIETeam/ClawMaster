@@ -2,7 +2,7 @@ import {
   parseCustomerModuleManifest,
   type CustomerModuleManifestV1,
   type CustomerModuleReviewStatus,
-} from 'otto-core';
+} from 'clawmaster-core';
 import {
   InMemoryCustomerModuleMarketplaceStore,
   type CustomerModuleMarketplaceStore,

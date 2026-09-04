@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import type { RpaWebPage, RpaWebSession, RpaWebSessionFactory } from './web-driver.js';
 import { existsSync } from 'node:fs';
@@ -27,7 +27,7 @@ export interface PlaywrightSessionOptions {
 
 export function resolveRpaBrowserExecutable(
   explicit = process.env['CLAWMASTER_RPA_BROWSER_EXECUTABLE']
-    ?? process.env['OTTO_RPA_BROWSER_EXECUTABLE'],
+    ?? process.env['CLAWMASTER_RPA_BROWSER_EXECUTABLE'],
   platform: string = process.platform,
   managedExecutable?: string,
   pathExists: (candidate: string) => boolean = existsSync,

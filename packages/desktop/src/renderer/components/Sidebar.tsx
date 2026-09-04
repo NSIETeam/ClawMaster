@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -18,7 +18,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { SessionSummary } from 'otto-server';
+import type { SessionSummary } from 'clawmaster-server';
 import { computeNavBadgeCounts } from '../attentionCenter.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import {
@@ -306,8 +306,8 @@ export function Sidebar({
   };
 
   return (
-    <aside className="otto-sidebar">
-      <div className="otto-sidebar__traffic" />
+    <aside className="claw-sidebar">
+      <div className="claw-sidebar__traffic" />
       <div className="clawmaster-sidebar-mark" aria-label="ClawMaster">
         <ClawMasterCrown size={30} />
       </div>
@@ -330,37 +330,37 @@ export function Sidebar({
       />
 
       <div
-        className={`otto-sidebar__workspace${workspaceScrollbarActive ? ' is-scrollbar-active' : ''}`}
+        className={`claw-sidebar__workspace${workspaceScrollbarActive ? ' is-scrollbar-active' : ''}`}
         onPointerMove={revealWorkspaceScrollbar}
         onScroll={revealWorkspaceScrollbar}
         onWheel={revealWorkspaceScrollbar}
         onKeyDown={revealWorkspaceScrollbar}
       >
-        <section className="otto-conversations" aria-label="任务">
-          <div className="otto-conversations__header">
+        <section className="claw-conversations" aria-label="任务">
+          <div className="claw-conversations__header">
             <button
               type="button"
-              className="otto-conversations__toggle"
+              className="claw-conversations__toggle"
               onClick={() => setSessionsOpen((value) => !value)}
               aria-expanded={sessionsOpen}
               aria-label={`任务（${sessionCount}）`}
             >
-              <span className="otto-conversations__title">
+              <span className="claw-conversations__title">
                 <span>任务</span>
-                <span className="otto-conversations__count" aria-hidden="true">
+                <span className="claw-conversations__count" aria-hidden="true">
                   {sessionCount}
                 </span>
               </span>
               <IconChevronDown
                 size={13}
-                className={'otto-conversations__chevron' + (sessionsOpen ? '' : ' is-collapsed')}
+                className={'claw-conversations__chevron' + (sessionsOpen ? '' : ' is-collapsed')}
               />
             </button>
-            <div className="otto-session-grouping" ref={groupingMenuRef}>
+            <div className="claw-session-grouping" ref={groupingMenuRef}>
               <button
                 ref={groupingMenuTriggerRef}
                 type="button"
-                className="otto-session-grouping__trigger"
+                className="claw-session-grouping__trigger"
                 aria-label="视图选项"
                 aria-haspopup="menu"
                 aria-expanded={groupingMenuOpen}
@@ -371,12 +371,12 @@ export function Sidebar({
               {groupingMenuOpen ? createPortal(
                 <div
                   ref={groupingMenuSurfaceRef}
-                  className="otto-session-grouping__menu"
+                  className="claw-session-grouping__menu"
                   role="menu"
                   aria-label="视图选项"
                   style={groupingMenuPosition}
                 >
-                  <div className="otto-session-grouping__menulabel" role="presentation">
+                  <div className="claw-session-grouping__menulabel" role="presentation">
                     分组方式
                   </div>
                   {([
@@ -389,7 +389,7 @@ export function Sidebar({
                       type="button"
                       role="menuitemradio"
                       aria-checked={preference.mode === mode}
-                      className="otto-session-grouping__menuitem"
+                      className="claw-session-grouping__menuitem"
                       onClick={() => {
                         commitPreference({ ...preference, mode });
                         setGroupingMenuOpen(false);
@@ -407,9 +407,9 @@ export function Sidebar({
           </div>
 
           {sessionsOpen ? (
-            <div className="otto-sessions">
+            <div className="claw-sessions">
               {sessionGroups.length === 0 ? (
-                <div className="otto-group__label">暂无对话</div>
+                <div className="claw-group__label">暂无对话</div>
               ) : (
                 sessionGroups.map((group) => {
                   const collapsed = group.collapsible && collapsedWorkspaceKeys.has(group.key);
@@ -419,12 +419,12 @@ export function Sidebar({
                   return (
                     <div
                       key={group.key}
-                      className={`otto-session-group${group.collapsible ? ' otto-session-group--workspace' : ''}`}
+                      className={`claw-session-group${group.collapsible ? ' claw-session-group--workspace' : ''}`}
                     >
                       {group.collapsible ? (
                         <button
                           type="button"
-                          className="otto-workspace-group__toggle"
+                          className="claw-workspace-group__toggle"
                           aria-expanded={!collapsed}
                           aria-label={
                             `${group.label}，${group.sessions.length} 个任务`
@@ -443,14 +443,14 @@ export function Sidebar({
                         >
                           <IconChevronDown
                             size={12}
-                            className={'otto-conversations__chevron' + (collapsed ? ' is-collapsed' : '')}
+                            className={'claw-conversations__chevron' + (collapsed ? ' is-collapsed' : '')}
                           />
-                          <IconFolderOpen size={16} className="otto-workspace-group__icon" />
-                          <span className="otto-workspace-group__label">{group.label}</span>
-                          <span className="otto-workspace-group__count">{group.sessions.length}</span>
+                          <IconFolderOpen size={16} className="claw-workspace-group__icon" />
+                          <span className="claw-workspace-group__label">{group.label}</span>
+                          <span className="claw-workspace-group__count">{group.sessions.length}</span>
                           {groupUnreadCount > 0 ? (
                             <span
-                              className="otto-workspace-group__unread"
+                              className="claw-workspace-group__unread"
                               aria-hidden="true"
                             >
                               {groupUnreadCount > 99 ? '99+' : groupUnreadCount}
@@ -458,7 +458,7 @@ export function Sidebar({
                           ) : null}
                         </button>
                       ) : (
-                        <div className="otto-group__label">{group.label}</div>
+                        <div className="claw-group__label">{group.label}</div>
                       )}
                       {!collapsed ? group.sessions.map((session) => (
                         <SessionItem
@@ -480,40 +480,40 @@ export function Sidebar({
         </section>
       </div>
 
-      <div className="otto-sidebar__footer">
+      <div className="claw-sidebar__footer">
         {!localOnly && enterpriseAccount?.accountType === 'personal' && onJoinEnterprise ? (
           <button
             type="button"
-            className="otto-viewall otto-viewall--upgrade"
+            className="claw-viewall claw-viewall--upgrade"
             onClick={() => setJoinEnterpriseOpen(true)}
             title="使用企业邀请码升级"
           >
-            <span className="otto-viewall__accounticon" aria-hidden>↗</span>
+            <span className="claw-viewall__accounticon" aria-hidden>↗</span>
             升级企业版
           </button>
         ) : null}
         {enterpriseAccount ? (
-          <div className="otto-sidebar-account" ref={accountMenuRef}>
+          <div className="claw-sidebar-account" ref={accountMenuRef}>
             <button
               ref={accountMenuTriggerRef}
               type="button"
-              className="otto-sidebar-account__identity"
+              className="claw-sidebar-account__identity"
               aria-label={`${enterpriseAccount.name}，${enterpriseAccount.department || '个人空间'}`}
               aria-haspopup="menu"
               aria-expanded={accountMenuOpen}
               onClick={() => setAccountMenuOpen((open) => !open)}
             >
-              <span className="otto-sidebar-account__avatar" aria-hidden>
+              <span className="claw-sidebar-account__avatar" aria-hidden>
                 <IconUserAvatar size={34} />
               </span>
-              <span className="otto-sidebar-account__copy">
+              <span className="claw-sidebar-account__copy">
                 <strong>{enterpriseAccount.name}</strong>
                 <small>{enterpriseAccount.department || '个人空间'}</small>
               </span>
             </button>
             <button
               type="button"
-              className={'otto-sidebar-account__settings' + (hubActive || activeView === 'hub' ? ' is-active' : '')}
+              className={'claw-sidebar-account__settings' + (hubActive || activeView === 'hub' ? ' is-active' : '')}
               onClick={() => {
                 setAccountMenuOpen(false);
                 onOpenHub();
@@ -523,15 +523,15 @@ export function Sidebar({
               title="设置"
             >
               <IconSettings size={17} />
-              {updateBadge ? <span className="otto-sidebar-account__update" aria-label="有可用更新" /> : null}
+              {updateBadge ? <span className="claw-sidebar-account__update" aria-label="有可用更新" /> : null}
             </button>
             {accountMenuOpen ? (
-              <div className="otto-sidebar-account__menu" role="menu" aria-label="账户菜单">
+              <div className="claw-sidebar-account__menu" role="menu" aria-label="账户菜单">
                 <button
                   ref={accountMenuItemRef}
                   type="button"
                   role="menuitem"
-                  className="otto-sidebar-account__menuitem otto-sidebar-account__menuitem--danger"
+                  className="claw-sidebar-account__menuitem claw-sidebar-account__menuitem--danger"
                   disabled={!onLogout}
                   onClick={() => {
                     if (!onLogout) return;
@@ -635,9 +635,9 @@ function NavItems({
   ] as const;
 
   return (
-    <nav className="otto-sidebar__nav" aria-label="主导航">
-      <button type="button" className="otto-sidebar__navitem" onClick={onNewChat}>
-        <IconSquarePen size={18} className="otto-sidebar__navicon" />
+    <nav className="claw-sidebar__nav" aria-label="主导航">
+      <button type="button" className="claw-sidebar__navitem" onClick={onNewChat}>
+        <IconSquarePen size={18} className="claw-sidebar__navicon" />
         <span>新建对话</span>
       </button>
       {onNavigate ? navItems.map((item) => {
@@ -649,18 +649,18 @@ function NavItems({
             key={item.key}
             type="button"
             className={
-              'otto-sidebar__navitem'
+              'claw-sidebar__navitem'
               + (isActive ? ' is-active' : '')
               + (hasAttention ? ' is-attention' : '')
             }
             aria-current={isActive ? 'page' : undefined}
             onClick={() => onNavigate(item.view)}
           >
-            <ItemIcon size={18} className="otto-sidebar__navicon" />
+            <ItemIcon size={18} className="claw-sidebar__navicon" />
             <span>{item.label}</span>
             {item.unread > 0 ? (
               <b
-                className="otto-attention-badge"
+                className="claw-attention-badge"
                 role="status"
                 aria-label={`${item.unread} 条未读`}
               >
@@ -673,11 +673,11 @@ function NavItems({
       {onOpenAccounts ? (
         <button
           type="button"
-          className={'otto-sidebar__navitem' + (accountManagementActive ? ' is-active' : '')}
+          className={'claw-sidebar__navitem' + (accountManagementActive ? ' is-active' : '')}
           aria-current={accountManagementActive ? 'page' : undefined}
           onClick={onOpenAccounts}
         >
-          <IconBuilding2 size={18} className="otto-sidebar__navicon" />
+          <IconBuilding2 size={18} className="claw-sidebar__navicon" />
           <span>企业管理</span>
         </button>
       ) : null}
@@ -775,11 +775,11 @@ function SessionItem({
     return (
       <div
         ref={rootRef}
-        className={`otto-session otto-session--editing${active ? ' otto-session--active' : ''}`}
+        className={`claw-session claw-session--editing${active ? ' claw-session--active' : ''}`}
       >
         <input
           ref={inputRef}
-          className="otto-session__renameinput"
+          className="claw-session__renameinput"
           value={draft}
           maxLength={120}
           onChange={(e) => setDraft(e.target.value)}
@@ -802,7 +802,7 @@ function SessionItem({
   return (
     <div
       ref={rootRef}
-      className={`otto-session${active ? ' otto-session--active' : ''}`}
+      className={`claw-session${active ? ' claw-session--active' : ''}`}
       role="button"
       tabIndex={0}
       aria-current={active ? 'true' : undefined}
@@ -814,10 +814,10 @@ function SessionItem({
         }
       }}
     >
-      {unread ? <span className="otto-session__unread" aria-label="未读消息" /> : null}
-      <div className="otto-session__top">
+      {unread ? <span className="claw-session__unread" aria-label="未读消息" /> : null}
+      <div className="claw-session__top">
         <span
-          className="otto-session__title"
+          className="claw-session__title"
           onDoubleClick={(e) => {
             // 双击标题直接进重命名（不触发选中冒泡）。
             e.stopPropagation();
@@ -826,11 +826,11 @@ function SessionItem({
         >
           {session.title || '未命名对话'}
         </span>
-        <span className="otto-session__time">{formatTime(session.updatedAt)}</span>
+        <span className="claw-session__time">{formatTime(session.updatedAt)}</span>
         <button
           ref={moreButtonRef}
           type="button"
-          className="otto-session__more"
+          className="claw-session__more"
           title="更多操作"
           aria-label="更多操作"
           onClick={(e) => {
@@ -846,7 +846,7 @@ function SessionItem({
       {mode === 'menu' ? createPortal(
         <div
           ref={menuRef}
-          className="otto-session__menu"
+          className="claw-session__menu"
           role="menu"
           aria-label={`“${session.title || '未命名对话'}”操作`}
           style={{ top: menuPosition.top, left: menuPosition.left }}
@@ -855,7 +855,7 @@ function SessionItem({
           <button
             type="button"
             role="menuitem"
-            className="otto-session__menuitem"
+            className="claw-session__menuitem"
             onClick={() => startRename()}
           >
             重命名
@@ -863,7 +863,7 @@ function SessionItem({
           <button
             type="button"
             role="menuitem"
-            className="otto-session__menuitem otto-session__menuitem--danger"
+            className="claw-session__menuitem claw-session__menuitem--danger"
             onClick={() => setMode('confirm')}
           >
             删除

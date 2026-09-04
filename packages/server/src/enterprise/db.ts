@@ -212,7 +212,7 @@ export type {
 export { PARK_SERVICE_IDS } from '../modules/park_services/index.js';
 
 const DATA_DIR =
-  process.env.OTTO_ENTERPRISE_DIR ||
+  process.env.CLAWMASTER_ENTERPRISE_DIR ||
   path.join(os.homedir(), '.otto-enterprise');
 const DB_PATH = path.join(DATA_DIR, 'data.db');
 const ENTERPRISE_SERVICE_TOPOLOGY = resolveEnterpriseServiceTopology({
@@ -226,21 +226,21 @@ const SQLCIPHER_RUNTIME =
     ? createSqlCipherFileRuntime({ dataDirectory: DATA_DIR })
     : null;
 const ACCOUNT_SYNC_EXTERNAL_KEY_PATH =
-  process.env.OTTO_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE?.trim() || null;
+  process.env.CLAWMASTER_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE?.trim() || null;
 const ACCOUNT_SYNC_KEY_PATH =
   ACCOUNT_SYNC_EXTERNAL_KEY_PATH || path.join(DATA_DIR, 'account-sync.key');
 const ATTACHMENT_STORAGE_DIR =
-  process.env.OTTO_ATTACHMENT_STORAGE_DIR || path.join(DATA_DIR, 'attachments');
+  process.env.CLAWMASTER_ATTACHMENT_STORAGE_DIR || path.join(DATA_DIR, 'attachments');
 const ATTACHMENT_EXTERNAL_KEY_PATH =
-  process.env.OTTO_ATTACHMENT_ENCRYPTION_KEY_FILE?.trim() || null;
+  process.env.CLAWMASTER_ATTACHMENT_ENCRYPTION_KEY_FILE?.trim() || null;
 const ATTACHMENT_STORAGE_KEY_PATH =
   ATTACHMENT_EXTERNAL_KEY_PATH || path.join(DATA_DIR, 'attachment-storage.key');
 const FIELD_EXTERNAL_KEY_PATH =
-  process.env.OTTO_FIELD_ENCRYPTION_KEY_FILE?.trim() || null;
+  process.env.CLAWMASTER_FIELD_ENCRYPTION_KEY_FILE?.trim() || null;
 const FIELD_ENCRYPTION_KEY_PATH =
   FIELD_EXTERNAL_KEY_PATH || path.join(DATA_DIR, 'field-encryption.key');
 const BACKUP_STORAGE_DIR =
-  process.env.OTTO_BACKUP_DIR || path.join(DATA_DIR, 'backups');
+  process.env.CLAWMASTER_BACKUP_DIR || path.join(DATA_DIR, 'backups');
 const PRIVACY_DELETION_LEDGER_PATH = path.join(
   DATA_DIR,
   'privacy-deletions.jsonl',
@@ -308,7 +308,7 @@ function initSchema(d: Database): void {
   migrateLegacyEnterpriseTenant(d, {
     defaultOrganizationId: DEFAULT_ORGANIZATION_ID,
     defaultOrganizationName:
-      process.env.OTTO_DEFAULT_ORGANIZATION_NAME?.trim() || '默认企业',
+      process.env.CLAWMASTER_DEFAULT_ORGANIZATION_NAME?.trim() || '默认企业',
     inviteSecret: randomBytes(32).toString('hex'),
   });
   backfillEnterpriseAccountEmployees(d);
@@ -385,16 +385,16 @@ const dataProtection = createDataProtectionService({
   attachmentObjectStore,
   getDatabase: dataPlatform.getDatabase,
   backupDirectory: BACKUP_STORAGE_DIR,
-  replicaDirectory: process.env.OTTO_BACKUP_REPLICA_DIR?.trim() || null,
-  encryptionKey: process.env.OTTO_BACKUP_ENCRYPTION_KEY,
-  encryptionKeyPath: process.env.OTTO_BACKUP_ENCRYPTION_KEY_FILE,
-  intervalHours: Number(process.env.OTTO_BACKUP_INTERVAL_HOURS || 24),
-  retentionDays: Number(process.env.OTTO_BACKUP_RETENTION_DAYS || 30),
-  minimumRetained: Number(process.env.OTTO_BACKUP_MINIMUM_RETAINED || 3),
+  replicaDirectory: process.env.CLAWMASTER_BACKUP_REPLICA_DIR?.trim() || null,
+  encryptionKey: process.env.CLAWMASTER_BACKUP_ENCRYPTION_KEY,
+  encryptionKeyPath: process.env.CLAWMASTER_BACKUP_ENCRYPTION_KEY_FILE,
+  intervalHours: Number(process.env.CLAWMASTER_BACKUP_INTERVAL_HOURS || 24),
+  retentionDays: Number(process.env.CLAWMASTER_BACKUP_RETENTION_DAYS || 30),
+  minimumRetained: Number(process.env.CLAWMASTER_BACKUP_MINIMUM_RETAINED || 3),
   minimumFreeBytes:
-    Number(process.env.OTTO_DISK_MIN_FREE_MB || 2048) * 1024 * 1024,
-  appVersion: () => process.env.OTTO_APP_VERSION?.trim() || 'development',
-  buildCommit: () => process.env.OTTO_BUILD_COMMIT?.trim() || 'unknown',
+    Number(process.env.CLAWMASTER_DISK_MIN_FREE_MB || 2048) * 1024 * 1024,
+  appVersion: () => process.env.CLAWMASTER_APP_VERSION?.trim() || 'development',
+  buildCommit: () => process.env.CLAWMASTER_BUILD_COMMIT?.trim() || 'unknown',
 });
 
 /** 释放当前企业数据库连接；服务关闭或隔离测试清理时调用。 */
@@ -514,21 +514,21 @@ export const {
 } = createCommercialControlComposition({
   db: getDB,
   defaultOrganizationId: DEFAULT_ORGANIZATION_ID,
-  creditTokenRate: () => process.env.OTTO_CREDIT_TOKEN_RATE,
+  creditTokenRate: () => process.env.CLAWMASTER_CREDIT_TOKEN_RATE,
   licenseEnforcementEnabled: () =>
-    process.env.OTTO_LICENSE_ENFORCE === 'true' ||
+    process.env.CLAWMASTER_LICENSE_ENFORCE === 'true' ||
     (process.env.NODE_ENV === 'production' &&
-      process.env.OTTO_LICENSE_ENFORCE !== 'false'),
+      process.env.CLAWMASTER_LICENSE_ENFORCE !== 'false'),
   licenseVerificationPublicKeys: () =>
     parsePublicKeyList(
-      process.env.OTTO_LICENSE_PUBLIC_KEYS ||
-        process.env.OTTO_LICENSE_PUBLIC_KEY,
-      process.env.OTTO_LICENSE_REVOKED_KEY_IDS,
+      process.env.CLAWMASTER_LICENSE_PUBLIC_KEYS ||
+        process.env.CLAWMASTER_LICENSE_PUBLIC_KEY,
+      process.env.CLAWMASTER_LICENSE_REVOKED_KEY_IDS,
     ),
-  telemetryEndpoint: () => process.env.OTTO_TELEMETRY_ENDPOINT || null,
-  telemetryIngestSecret: () => process.env.OTTO_TELEMETRY_INGEST_SECRET || '',
+  telemetryEndpoint: () => process.env.CLAWMASTER_TELEMETRY_ENDPOINT || null,
+  telemetryIngestSecret: () => process.env.CLAWMASTER_TELEMETRY_INGEST_SECRET || '',
   telemetryRetentionDays: () =>
-    Number(process.env.OTTO_TELEMETRY_RETENTION_DAYS || 90),
+    Number(process.env.CLAWMASTER_TELEMETRY_RETENTION_DAYS || 90),
   fieldCipher,
   databaseReadiness: getDatabaseReadiness,
 });
@@ -563,20 +563,20 @@ export const {
   fieldCipher,
   deploymentId: getDeploymentId,
   dataDirectory: DATA_DIR,
-  enabled: () => process.env.OTTO_FEDERATION_ENABLED === 'true',
-  gatewayUrl: () => process.env.OTTO_FEDERATION_GATEWAY_URL?.trim() || null,
-  publicOrigin: () => process.env.OTTO_ENTERPRISE_PUBLIC_URL?.trim() || null,
+  enabled: () => process.env.CLAWMASTER_FEDERATION_ENABLED === 'true',
+  gatewayUrl: () => process.env.CLAWMASTER_FEDERATION_GATEWAY_URL?.trim() || null,
+  publicOrigin: () => process.env.CLAWMASTER_ENTERPRISE_PUBLIC_URL?.trim() || null,
   displayName: () =>
-    process.env.OTTO_FEDERATION_DISPLAY_NAME?.trim() ||
-    process.env.OTTO_DEFAULT_ORGANIZATION_NAME?.trim() ||
+    process.env.CLAWMASTER_FEDERATION_DISPLAY_NAME?.trim() ||
+    process.env.CLAWMASTER_DEFAULT_ORGANIZATION_NAME?.trim() ||
     'ClawMaster private deployment',
   signingKeyPath: () =>
-    process.env.OTTO_FEDERATION_SIGNING_KEY_FILE?.trim() || null,
+    process.env.CLAWMASTER_FEDERATION_SIGNING_KEY_FILE?.trim() || null,
   pollIntervalMs: () =>
-    Number(process.env.OTTO_FEDERATION_POLL_INTERVAL_MS || 10_000),
+    Number(process.env.CLAWMASTER_FEDERATION_POLL_INTERVAL_MS || 10_000),
   allowInsecureLoopback:
     process.env.NODE_ENV === 'test' &&
-    process.env.OTTO_FEDERATION_ALLOW_INSECURE_LOOPBACK === 'true',
+    process.env.CLAWMASTER_FEDERATION_ALLOW_INSECURE_LOOPBACK === 'true',
 });
 
 export const {
@@ -592,7 +592,7 @@ export const {
 } = createMeshRendezvousComposition({
   db: getDB,
   now: Date.now,
-  signingKey: process.env.OTTO_MESH_SIGNING_KEY?.trim() || undefined,
+  signingKey: process.env.CLAWMASTER_MESH_SIGNING_KEY?.trim() || undefined,
 });
 
 export type OrganizationView = OrganizationDirectoryView;

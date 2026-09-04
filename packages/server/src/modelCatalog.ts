@@ -1,9 +1,9 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * 企业版只下发 Otto 托管模型的公开目录。上游 endpoint、密钥和真实采购价
+ * 企业版只下发 ClawMaster 托管模型的公开目录。上游 endpoint、密钥和真实采购价
  * 只存在于 API 中转站，绝不进入桌面协议。当前费率为 v1.7 产品占位规则，
- * 后台可通过 OTTO_ENTERPRISE_MODEL_CATALOG 整体替换。
+ * 后台可通过 CLAWMASTER_ENTERPRISE_MODEL_CATALOG 整体替换。
  */
 
 export type EnterpriseModelTier = 'standard' | 'premium';
@@ -134,7 +134,7 @@ function isCatalogItem(value: unknown): value is Omit<EnterpriseModelInfo, 'sour
 }
 
 export function loadEnterpriseModelCatalog(): EnterpriseModelInfo[] {
-  const raw = process.env['OTTO_ENTERPRISE_MODEL_CATALOG']?.trim();
+  const raw = process.env['CLAWMASTER_ENTERPRISE_MODEL_CATALOG']?.trim();
   if (!raw) return ENTERPRISE_MODEL_CATALOG;
   try {
     const parsed = JSON.parse(raw) as unknown;

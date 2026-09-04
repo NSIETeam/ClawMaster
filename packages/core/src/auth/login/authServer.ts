@@ -9,7 +9,7 @@ import * as http from 'http';
 import { URL } from 'url';
 import * as crypto from 'crypto';
 
-import { createOttoAuthHandler } from './ottoAuth.js';
+import { createClawMasterAuthHandler } from './clawmasterAuth.js';
 import { getFeishuConfigFromServer, getFeishuTenantsFromServer } from '../../config/serverConfig.js';
 import { ProxyAuthManager } from '../../core/proxyAuth.js';
 import { AuthTemplates } from './templates/index.js';
@@ -98,7 +98,7 @@ export class AuthServer {
             }
           });
         } else if (reqUrl.pathname === '/start-otto-auth' && req.method === 'POST') {
-          await this.handleStartOttoAuth(res);
+          await this.handleStartClawMasterAuth(res);
         } else if (reqUrl.pathname === '/start-vipcard-auth' && req.method === 'POST') {
           await this.handleStartVipCardAuth(req, res);
         } else if (reqUrl.pathname === '/api/backend/feishu-allowed' && req.method === 'GET') {
@@ -148,7 +148,7 @@ export class AuthServer {
                 }
               });
             } else if (reqUrl.pathname === '/start-otto-auth' && req.method === 'POST') {
-              await this.handleStartOttoAuth(res);
+              await this.handleStartClawMasterAuth(res);
             } else if (reqUrl.pathname === '/start-vipcard-auth' && req.method === 'POST') {
               await this.handleStartVipCardAuth(req, res);
             } else if (reqUrl.pathname === '/api/backend/feishu-allowed' && req.method === 'GET') {
@@ -281,10 +281,10 @@ export class AuthServer {
       console.log('🔍 [Auth Server] 处理飞书允许检查请求');
 
       // 调用后台接口检查是否允许飞书登录
-      // BYO-key: 未配置 OTTO_SERVER_URL 时无后端，抛错由本方法既有 catch 处理，不 fetch 空 URL。
-      const proxyServerUrl = process.env.OTTO_SERVER_URL || '';
+      // BYO-key: 未配置 CLAWMASTER_SERVER_URL 时无后端，抛错由本方法既有 catch 处理，不 fetch 空 URL。
+      const proxyServerUrl = process.env.CLAWMASTER_SERVER_URL || '';
       if (!proxyServerUrl) {
-        throw new Error('未配置 OTTO_SERVER_URL，飞书登录不可用');
+        throw new Error('未配置 CLAWMASTER_SERVER_URL，飞书登录不可用');
       }
       const apiUrl = `${proxyServerUrl}/api/client/feishu-allowed`;
 
@@ -461,13 +461,13 @@ export class AuthServer {
   }
 
   /**
-   * 处理启动Otto认证请求
+   * 处理启动ClawMaster认证请求
    */
-  private async handleStartOttoAuth(res: http.ServerResponse): Promise<void> {
+  private async handleStartClawMasterAuth(res: http.ServerResponse): Promise<void> {
     try {
       console.log('🚀 [Auth Server] 启动 ClawMaster 认证流程');
 
-      const ottoHandler = createOttoAuthHandler(this.actualCallbackPort);
+      const ottoHandler = createClawMasterAuthHandler(this.actualCallbackPort);
       const authUrl = ottoHandler.buildAuthUrl();
 
       const response = {
@@ -531,10 +531,10 @@ export class AuthServer {
           const trimmedCode = code.trim().toUpperCase();
           console.log('🔄 [Auth Server] VIP卡兑换码:', trimmedCode);
 
-          // BYO-key: 未配置 OTTO_SERVER_URL 时无后端，抛错由既有 catch 处理，不 fetch 空 URL。
-          const proxyServerUrl = process.env.OTTO_SERVER_URL || '';
+          // BYO-key: 未配置 CLAWMASTER_SERVER_URL 时无后端，抛错由既有 catch 处理，不 fetch 空 URL。
+          const proxyServerUrl = process.env.CLAWMASTER_SERVER_URL || '';
           if (!proxyServerUrl) {
-            throw new Error('未配置 OTTO_SERVER_URL，VIP卡兑换不可用');
+            throw new Error('未配置 CLAWMASTER_SERVER_URL，VIP卡兑换不可用');
           }
 
           // 智能处理：先尝试登录
@@ -758,8 +758,8 @@ export class AuthServer {
     console.log('🔄 [Auth Server] 平台参数:', plat);
 
     if (plat === 'otto') {
-      // Otto认证回调处理
-      await this.handleOttoCallback(url, res);
+      // ClawMaster认证回调处理
+      await this.handleClawMasterCallback(url, res);
     } else {
       // 飞书认证回调处理（默认）
       console.log('🔄 [Auth Server] 处理飞书认证回调');
@@ -828,12 +828,12 @@ export class AuthServer {
   }
 
   /**
-   * 处理Otto认证回调
+   * 处理ClawMaster认证回调
    */
-  private async handleOttoCallback(url: URL, res: http.ServerResponse): Promise<void> {
+  private async handleClawMasterCallback(url: URL, res: http.ServerResponse): Promise<void> {
     try {
       console.log('🔄 [Auth Server] 处理 ClawMaster 认证回调');
-      const ottoHandler = createOttoAuthHandler(this.actualCallbackPort);
+      const ottoHandler = createClawMasterAuthHandler(this.actualCallbackPort);
       const result = ottoHandler.handleCallback(url);
 
       if (!result.success) {
@@ -861,10 +861,10 @@ export class AuthServer {
       console.log('✅ [Auth Server] JWT格式验证通过，开始交换JWT令牌');
 
       // 调用后端接口交换JWT令牌
-      // BYO-key: 未配置 OTTO_SERVER_URL 时无后端，抛错由既有 catch 处理，不 fetch 空 URL。
-      const proxyServerUrl = process.env.OTTO_SERVER_URL || '';
+      // BYO-key: 未配置 CLAWMASTER_SERVER_URL 时无后端，抛错由既有 catch 处理，不 fetch 空 URL。
+      const proxyServerUrl = process.env.CLAWMASTER_SERVER_URL || '';
       if (!proxyServerUrl) {
-        throw new Error('未配置 OTTO_SERVER_URL，登录令牌交换不可用');
+        throw new Error('未配置 CLAWMASTER_SERVER_URL，登录令牌交换不可用');
       }
       console.log('ClawMaster 正在交换认证令牌');
 
@@ -946,7 +946,7 @@ export class AuthServer {
       }
 
       // 显示成功页面
-      this.sendOttoSuccessResponse(res);
+      this.sendClawMasterSuccessResponse(res);
 
     } catch (error) {
       console.error('❌ [Auth Server] ClawMaster 认证处理失败:', error);
@@ -985,10 +985,10 @@ export class AuthServer {
       const stateAppId = state && state.includes('_') ? state.split('_').slice(1).join('_') : undefined;
 
       // 调用服务端的飞书token交换接口（与官网相同的流程）
-      // BYO-key: 未配置 OTTO_SERVER_URL 时无后端，抛错由既有 catch 处理，不 fetch 空 URL。
-      const proxyServerUrl = process.env.OTTO_SERVER_URL || '';
+      // BYO-key: 未配置 CLAWMASTER_SERVER_URL 时无后端，抛错由既有 catch 处理，不 fetch 空 URL。
+      const proxyServerUrl = process.env.CLAWMASTER_SERVER_URL || '';
       if (!proxyServerUrl) {
-        throw new Error('未配置 OTTO_SERVER_URL，飞书token交换不可用');
+        throw new Error('未配置 CLAWMASTER_SERVER_URL，飞书token交换不可用');
       }
       console.log('飞书token交换，proxyServerUrl:', `${proxyServerUrl}/api/auth/feishu/exchange`);
 
@@ -1122,10 +1122,10 @@ export class AuthServer {
 
 
   /**
-   * 发送Otto认证成功响应
+   * 发送ClawMaster认证成功响应
    */
-  private sendOttoSuccessResponse(res: http.ServerResponse): void {
-    const html = AuthTemplates.getOttoSuccessPage();
+  private sendClawMasterSuccessResponse(res: http.ServerResponse): void {
+    const html = AuthTemplates.getClawMasterSuccessPage();
 
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
@@ -1203,7 +1203,7 @@ export class AuthServer {
 
     // TypeError: Only HTTP(S) protocols are supported
     if (error instanceof TypeError && error.message.includes('Only HTTP(S)')) {
-      return '服务器地址配置错误，请检查环境变量 OTTO_SERVER_URL';
+      return '服务器地址配置错误，请检查环境变量 CLAWMASTER_SERVER_URL';
     }
 
     // FetchError with error codes

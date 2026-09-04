@@ -5,16 +5,16 @@
  */
 
 /**
- * Single source of truth for the Otto User-Agent string.
+ * Single source of truth for the ClawMaster User-Agent string.
  *
- * Format: `Otto/<client>/<version> (<platform>; <arch>)`
+ * Format: `ClawMaster/<client>/<version> (<platform>; <arch>)`
  *   - client:  `VSCode` when the version is prefixed with `VSCode-`
  *              (set by the VS Code extension), otherwise `CLI`.
  *   - version: the resolved version with any `VSCode-` prefix stripped.
  *
  * Examples:
- *   Otto/CLI/1.0.399 (win32; x64)
- *   Otto/VSCode/1.1.0 (darwin; arm64)
+ *   ClawMaster/CLI/1.0.399 (win32; x64)
+ *   ClawMaster/VSCode/1.1.0 (darwin; arm64)
  *
  * The version is resolved from (in order):
  *   1. the explicit `version` argument, if provided;

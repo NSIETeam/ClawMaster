@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import fs from 'node:fs';
@@ -20,7 +20,7 @@ import {
 export function renderE2eeReleasePolicy(status, approvalDigest = null) {
   const enabled = status.protocol.productionCapabilityAdvertised === true;
   return `/**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Generated from security/e2ee-release-status.json. Production MLS must stay
  * disabled until the external audit and two-role signed approval pass the

@@ -1,5 +1,5 @@
 /* global console, process */
-/** Control-side USB license issuer. Requires a built otto-server package. */
+/** Control-side USB license issuer. Requires a built clawmaster-server package. */
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -14,7 +14,7 @@ const entitlementPath = arg('entitlement');
 const privateKeyPath = arg('private-key');
 const outputPath = arg('output');
 if (!entitlementPath || !privateKeyPath || !outputPath) {
-  throw new Error('usage: --entitlement entitlement.json --private-key signing-key.pem --output X:\\Otto\\license\\license.bin');
+  throw new Error('usage: --entitlement entitlement.json --private-key signing-key.pem --output X:\\ClawMaster\\license\\license.bin');
 }
 const entitlement = JSON.parse(await readFile(path.resolve(entitlementPath), 'utf8'));
 const signingPrivateKey = await readFile(path.resolve(privateKeyPath), 'utf8');

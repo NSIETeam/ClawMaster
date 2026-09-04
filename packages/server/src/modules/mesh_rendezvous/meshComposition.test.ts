@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * [MESH-05] 单元测试：rendezvous 发布/查询、relay 会话生命周期、TTL/背压/配额/DDoS、P2P 路径收据。
  */

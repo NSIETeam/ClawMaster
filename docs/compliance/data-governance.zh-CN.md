@@ -7,7 +7,7 @@
 - 私有化部署客户决定账号、企业协作、园区业务和模型供应商的处理目的与方式，通常承担客户侧个人信息处理者责任。
 - Otto 运营方仅在 License 校验、客户明确启用的健康遥测和支持诊断范围内处理最小必要数据。
 - 聊天原文、附件、会议内容和个人记忆默认不进入运营遥测。
-- 正式交付前必须配置 `OTTO_DATA_CONTROLLER_NAME` 和 `OTTO_PRIVACY_CONTACT`，由客户法务确认当前版本的完整用户协议、隐私规则和员工告知文本后，再把 `OTTO_LEGAL_DOCUMENTS_APPROVED` 设为 `true`。未确认时服务健康状态保持未就绪。
+- 正式交付前必须配置 `CLAWMASTER_DATA_CONTROLLER_NAME` 和 `CLAWMASTER_PRIVACY_CONTACT`，由客户法务确认当前版本的完整用户协议、隐私规则和员工告知文本后，再把 `CLAWMASTER_LEGAL_DOCUMENTS_APPROVED` 设为 `true`。未确认时服务健康状态保持未就绪。
 
 ## 数据位置与跨境
 
@@ -29,7 +29,7 @@
 | 健康遥测 | 内容字段拒收、本地队列 | 仅 HTTPS；Bearer 令牌 + HMAC-SHA256 请求签名 + 5 分钟时间窗 + nonce 防重放 |
 
 桌面端与离线部署使用 SQLite/SQLCipher 保留离线能力；企业集群以 PostgreSQL 作为权威数据源，禁止通过 NFS/SMB 共享 SQLite 文件供多实例并发写入。PostgreSQL 不使用 SQLCipher，应通过 TLS、加密卷/KMS、最小权限和必要字段级信封加密保护。无论后端类型，组织 ID、状态、时间和统计等检索字段仍可能是结构化数据，部署方必须按其敏感级别配置基础设施保护。
-部署方只有在完成上述磁盘保护后才能设置 `OTTO_STORAGE_VOLUME_ENCRYPTED=true`；否则“隐私与数据”页会返回未就绪告警。
+部署方只有在完成上述磁盘保护后才能设置 `CLAWMASTER_STORAGE_VOLUME_ENCRYPTED=true`；否则“隐私与数据”页会返回未就绪告警。
 
 ### 传输协议边界
 
@@ -42,8 +42,8 @@
 ### 密钥管理边界
 
 - 业务字段、附件对象、账号同步和备份使用不同密钥，备份归档会保存恢复所需的业务密钥，并由独立的备份密钥再次加密。
-- 可通过 `OTTO_FIELD_ENCRYPTION_KEY_FILE`、`OTTO_ATTACHMENT_ENCRYPTION_KEY_FILE` 和 `OTTO_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE` 把 32 字节原始密钥挂载到数据目录之外；客户托管密钥恢复时必须与备份内密钥一致，程序不会覆盖外部密钥。
-- `OTTO_BACKUP_ENCRYPTION_KEY_FILE` 使用 32 字节 Base64 或 64 位十六进制密钥，应由客户与交付方按合同离线托管。丢失备份密钥或业务密钥都将导致对应数据不可恢复。
+- 可通过 `CLAWMASTER_FIELD_ENCRYPTION_KEY_FILE`、`CLAWMASTER_ATTACHMENT_ENCRYPTION_KEY_FILE` 和 `CLAWMASTER_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE` 把 32 字节原始密钥挂载到数据目录之外；客户托管密钥恢复时必须与备份内密钥一致，程序不会覆盖外部密钥。
+- `CLAWMASTER_BACKUP_ENCRYPTION_KEY_FILE` 使用 32 字节 Base64 或 64 位十六进制密钥，应由客户与交付方按合同离线托管。丢失备份密钥或业务密钥都将导致对应数据不可恢复。
 - 密钥文件必须是普通文件，不允许符号链接，并只向 Otto 服务账号授予读取权限。生产环境需要制定生成、备份、轮换、吊销和双人恢复流程。
 
 ## 权限与越权控制
@@ -64,7 +64,7 @@
 
 ## 留存与运营
 
-- 健康遥测默认保留 90 天，可通过 `OTTO_TELEMETRY_RETENTION_DAYS` 缩短；到期由执行层清理。
+- 健康遥测默认保留 90 天，可通过 `CLAWMASTER_TELEMETRY_RETENTION_DAYS` 缩短；到期由执行层清理。
 - 安全审计日志至少保留 180 天；超过法定或合同期限后的上限仍需客户制定并验证清理策略。
 - 加密备份默认保留 30 天且至少保留 3 份；生产环境应配置异地副本、容量告警和定期恢复演练。
 - 收到查阅、更正、删除或投诉请求后，应核验身份、记录处理结果，并在适用法律期限内响应。

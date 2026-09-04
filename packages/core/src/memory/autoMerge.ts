@@ -3,7 +3,7 @@
  * Copyright 2026 Felix
  * SPDX-License-Identifier: Apache-2.0
  *
- * Otto Auto Memory Merge & Split — 记忆自动合并与分割引擎。
+ * ClawMaster Auto Memory Merge & Split — 记忆自动合并与分割引擎。
  *
  * 核心能力:
  *   1. 记忆自动合并: 检测相似/相关记忆条目，自动合并去重
@@ -167,7 +167,7 @@ const DEFAULT_TOKEN_ESTIMATOR: TokenEstimator = {
 };
 
 const MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
-const LEGACY_MEMORY_SECTION_HEADER = '## Otto Added Memories';
+const LEGACY_MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
 
 function findMemorySectionHeader(raw: string): { header: string; index: number } | null {
   for (const header of [MEMORY_SECTION_HEADER, LEGACY_MEMORY_SECTION_HEADER]) {
@@ -198,7 +198,7 @@ export class AutoMemoryEngine {
 
   /**
    * 扫描所有源文件，构建内存条目索引。
-   * 数据源：global.md (ClawMaster 记忆段落，兼容旧 Otto 标题) + entries.jsonl (JSONL)
+   * 数据源：global.md (ClawMaster 记忆段落，兼容旧 ClawMaster 标题) + entries.jsonl (JSONL)
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -952,7 +952,7 @@ export class AutoMemoryEngine {
       [/需求|PRD|产品|功能/i, 'product'],
       [/数据|分析|报表|统计/i, 'analytics'],
       [/学习|教程|文档|知识/i, 'learning'],
-      [/Otto|桌面|Electron|desktop/i, 'otto'],
+      [/ClawMaster|桌面|Electron|desktop/i, 'otto'],
       [/VS Code|vscode|插件|扩展/i, 'vscode'],
       [/记忆|memory|存储|持久化/i, 'memory'],
     ];

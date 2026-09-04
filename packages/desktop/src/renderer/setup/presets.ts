@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,18 +8,18 @@
  * BYO-key setup 向导的「品牌供应商预设」与配置构造。
  *
  * 设计取舍（Issue #7）：
- *   - 渲染层 **只能** import type otto-server / otto-core（纯类型），不得引运行时值，
+ *   - 渲染层 **只能** import type claw-server / claw-core（纯类型），不得引运行时值，
  *     否则会把 core 运行时打进 renderer bundle（nodeIntegration:false 下崩）。
  *     因此这里仅复刻向导需要的 `CustomModelConfig` 形状，不 import 运行时实现；
  *     模型 ID 由 Server 使用 core 的统一算法生成，Renderer 不保留第二份实现。
  *   - provider 与落盘格式必须与 CLI/server 完全一致：
- *     文件 `~/.otto-user/custom-models.json`，结构 `{ models: CustomModelConfig[], _metadata }`。
+ *     文件 `~/.claw-user/custom-models.json`，结构 `{ models: CustomModelConfig[], _metadata }`。
  *     校验逻辑也复刻 core 的 `validateCustomModelConfig`（保持错误等价）。
  *
  * 预设端点是公开稳定事实（各家官方 API base）。custom 供应商让用户自填 baseUrl。
  */
 
-import type { SaveCustomModelMsg } from 'otto-server';
+import type { SaveCustomModelMsg } from 'clawmaster-server';
 
 /** 与 core CustomModelProvider 同构（协议适配器键）。 */
 export type CustomModelProvider =
@@ -290,7 +290,7 @@ export function validateForm(form: SetupFormState): Record<string, string> {
 }
 
 /**
- * 生成 `~/.otto-user/custom-models.json` 文本片段。
+ * 生成 `~/.claw-user/custom-models.json` 文本片段。
  * apiKey 用占位符，明文 key 不进剪贴板，粘贴后用户自行填入。
  */
 export function buildModelsFileJson(cfg: CustomModelConfig): string {

@@ -32,7 +32,7 @@ export function LocalAgentPanel(): React.JSX.Element {
     setBusy(true);
     setResult(null);
     try {
-      const res = await window.otto?.enterprisePair(trimmed);
+      const res = await window.clawmaster?.enterprisePair(trimmed);
       setResult(res ?? { ok: false, message: '接入服务未响应，请重试' });
     } catch (err) {
       setResult({
@@ -55,10 +55,10 @@ export function LocalAgentPanel(): React.JSX.Element {
     >
       {/* 状态卡片 */}
       <Card>
-        <div className="otto-hub__row">
-          <div className="otto-hub__row-left">
-            <div className="otto-hub__row-title">企业服务器状态</div>
-            <div className="otto-hub__row-desc">
+        <div className="claw-hub__row">
+          <div className="claw-hub__row-left">
+            <div className="claw-hub__row-title">企业服务器状态</div>
+            <div className="claw-hub__row-desc">
               {result?.ok
                 ? `已接入：${result.enterpriseUrl ?? '企业服务器'}`
                 : result?.ok === false
@@ -66,11 +66,11 @@ export function LocalAgentPanel(): React.JSX.Element {
                   : '尚未接入企业服务器'}
             </div>
           </div>
-          <div className="otto-hub__row-right">
+          <div className="claw-hub__row-right">
             <span
               className={
-                'otto-hub__badge' +
-                (result?.ok ? ' otto-hub__badge--ok' : result ? ' otto-hub__badge--err' : ' otto-hub__badge--muted')
+                'claw-hub__badge' +
+                (result?.ok ? ' claw-hub__badge--ok' : result ? ' claw-hub__badge--err' : ' claw-hub__badge--muted')
               }
             >
               {result?.ok ? '已连接' : result ? '失败' : '未接入'}
@@ -80,19 +80,19 @@ export function LocalAgentPanel(): React.JSX.Element {
       </Card>
 
       {/* 令牌输入 */}
-      <div className="otto-local-agent__pairing">
+      <div className="claw-local-agent__pairing">
         <Card>
-          <div className="otto-local-agent__card-body">
-            <div className="otto-hub__field-label otto-local-agent__label">
+          <div className="claw-local-agent__card-body">
+            <div className="claw-hub__field-label claw-local-agent__label">
               配对令牌
             </div>
-            <div className="otto-hub__field-hint otto-local-agent__hint">
+            <div className="claw-hub__field-hint claw-local-agent__hint">
               在企业服务器网页 <code>/enterprise/local-agent</code> 生成配对令牌后粘贴到这里。
             </div>
-            <div className="otto-local-agent__controls">
+            <div className="claw-local-agent__controls">
               <input
                 type="text"
-                className="otto-hub__input otto-local-agent__token"
+                className="claw-hub__input claw-local-agent__token"
                 value={token}
                 onChange={(e) => {
                   setToken(e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 6));
@@ -107,7 +107,7 @@ export function LocalAgentPanel(): React.JSX.Element {
               />
               <button
                 type="button"
-                className="otto-hub__btn otto-hub__btn--primary otto-local-agent__submit"
+                className="claw-hub__btn claw-hub__btn--primary claw-local-agent__submit"
                 onClick={() => void handlePair()}
                 disabled={busy || token.trim().length < 6}
               >
@@ -120,10 +120,10 @@ export function LocalAgentPanel(): React.JSX.Element {
 
       {/* 成功提示 */}
       {result?.ok ? (
-        <div className="otto-local-agent__success">
-          <Card className="otto-prefs-simple">
-            <div className="otto-prefs-simple__intro">
-              <span className="otto-prefs-simple__check">✓</span>
+        <div className="claw-local-agent__success">
+          <Card className="claw-prefs-simple">
+            <div className="claw-prefs-simple__intro">
+              <span className="claw-prefs-simple__check">✓</span>
               企业服务器接入成功！你的 ClawMaster 现在可以与团队成员协作。
             </div>
           </Card>

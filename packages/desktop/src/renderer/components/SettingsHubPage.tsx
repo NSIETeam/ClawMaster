@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,7 +17,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import type { ModelInfo, SessionSummary } from 'otto-server';
+import type { ModelInfo, SessionSummary } from 'clawmaster-server';
 import type { UseSettingsData } from '../state/useSettingsData.js';
 import type { UseSoftwareUpdate } from '../state/useSoftwareUpdate.js';
 import { SoftwareUpdatePanel } from './SoftwareUpdatePanel.js';
@@ -209,34 +209,34 @@ export function SettingsHubPage({
   };
 
   return (
-    <section className="otto-hub-page" aria-label="设置与诊断中心" onKeyDown={onKeyDown}>
-      <header className="otto-hub__head">
-        <IconSettings size={20} className="otto-hub__headicon" />
-        <div className="otto-hub__headtext">
-          <div className="otto-hub__title">ClawMaster 设置</div>
+    <section className="claw-hub-page" aria-label="设置与诊断中心" onKeyDown={onKeyDown}>
+      <header className="claw-hub__head">
+        <IconSettings size={20} className="claw-hub__headicon" />
+        <div className="claw-hub__headtext">
+          <div className="claw-hub__title">ClawMaster 设置</div>
         </div>
         <button
           type="button"
-          className="otto-hub__back"
+          className="claw-hub__back"
           onClick={onBack}
           title="返回对话"
           aria-label="返回对话"
         >
-          <IconChevron size={14} className="otto-hub__back-chev" />
+          <IconChevron size={14} className="claw-hub__back-chev" />
           返回对话
         </button>
       </header>
 
-      <div className="otto-hub__body">
-        <nav className="otto-hub__nav" aria-label="设置分区">
+      <div className="claw-hub__body">
+        <nav className="claw-hub__nav" aria-label="设置分区">
           {SIMPLE_NAV_GROUPS.map((group) => (
-            <div key={group.label} className="otto-hub__nav-group">
-              <div className="otto-hub__nav-grouplabel">{group.label}</div>
+            <div key={group.label} className="claw-hub__nav-group">
+              <div className="claw-hub__nav-grouplabel">{group.label}</div>
               {group.tabs.filter((t) => isSettingsTabVisible(t, enterpriseEdition)).map((t) => (
                 <button
                   key={t}
                   type="button"
-                  className={'otto-hub__nav-item' + (tab === t ? ' is-active' : '')}
+                  className={'claw-hub__nav-item' + (tab === t ? ' is-active' : '')}
                   aria-current={tab === t ? 'page' : undefined}
                   onClick={() => setTab(t)}
                 >
@@ -247,7 +247,7 @@ export function SettingsHubPage({
           ))}
           <button
             type="button"
-            className={'otto-hub__nav-advanced' + (showAdvanced ? ' is-open' : '')}
+            className={'claw-hub__nav-advanced' + (showAdvanced ? ' is-open' : '')}
             aria-expanded={showAdvanced}
             onClick={() => {
               if (showAdvanced && ADVANCED_TABS.has(tab)) setTab('prefs');
@@ -258,13 +258,13 @@ export function SettingsHubPage({
             <IconChevron size={12} />
           </button>
           {showAdvanced ? ADVANCED_NAV_GROUPS.map((group) => (
-            <div key={group.label} className="otto-hub__nav-group otto-hub__nav-group--advanced">
-              <div className="otto-hub__nav-grouplabel">{group.label}</div>
+            <div key={group.label} className="claw-hub__nav-group claw-hub__nav-group--advanced">
+              <div className="claw-hub__nav-grouplabel">{group.label}</div>
               {group.tabs.filter((t) => isSettingsTabVisible(t, enterpriseEdition)).map((t) => (
                 <button
                   key={t}
                   type="button"
-                  className={'otto-hub__nav-item' + (tab === t ? ' is-active' : '')}
+                  className={'claw-hub__nav-item' + (tab === t ? ' is-active' : '')}
                   aria-current={tab === t ? 'page' : undefined}
                   onClick={() => setTab(t)}
                 >
@@ -275,9 +275,9 @@ export function SettingsHubPage({
           )) : null}
         </nav>
 
-        <div className="otto-hub__content">
+        <div className="claw-hub__content">
           {state.lastError ? (
-            <div className="otto-hub__errbar" role="alert">
+            <div className="claw-hub__errbar" role="alert">
               <span>{state.lastError}</span>
               <button type="button" onClick={actions.clearError} aria-label="关闭">
                 <IconClose size={12} />
@@ -285,7 +285,7 @@ export function SettingsHubPage({
             </div>
           ) : null}
 
-          <div className="otto-hub__scroll">
+          <div className="claw-hub__scroll">
             {tab === 'prefs' ? (
               <PrefsPanel data={data} uiMode={uiMode} onUiModeChange={onUiModeChange} />
             ) : null}

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,7 +11,7 @@
  *   1. 建主窗口（含图标占位），加载 renderer（dist/renderer/index.html）。
  *   2. 安全基线：禁 nodeIntegration、开 contextIsolation + sandbox、本地 CSP、
  *      导航/新窗口/权限/webview 全部按白名单收紧。
- *   3. 用 ServerManager 确保有可用 otto-server：发现已运行的就复用，否则
+ *   3. 用 ServerManager 确保有可用 clawmaster-server：发现已运行的就复用，否则
  *      同进程内嵌拉起（embedded-only；随 app 退出而停）。
  *   4. 把发现/拉起的 server 端点经 IPC（拉取 + 主动推送）交给 preload，
  *      供 renderer 建 WS 连接。
@@ -22,10 +22,10 @@
  * 且 import.meta.url 在 CJS 输出下会被 tsc 直接拒绝/TS1470）。__dirname 用 CJS 原生
  * 全局变量，不需要（也不能用）ESM 的 fileURLToPath(import.meta.url) 重建。
  *
- * 注意：otto-server 是纯 ESM 包，本文件是 CJS：不能静态 `import {...} from 'otto-server'`
+ * 注意：clawmaster-server 是纯 ESM 包，本文件是 CJS：不能静态 `import {...} from 'clawmaster-server'`
  * （会被编译成 require()，真机运行时抛 ERR_REQUIRE_ESM 崩溃）。DEFAULT_HOST/DEFAULT_PORT
  * 只是 CSP 兜底默认值的字面量，这里直接内联同样的值，避免为两个常量单独走一次
- * import()（server-manager.ts 已经承担了对 otto-server 真正需要的值的动态加载）。
+ * import()（server-manager.ts 已经承担了对 clawmaster-server 真正需要的值的动态加载）。
  */
 
 import {
@@ -57,7 +57,7 @@ import type {
   ChannelProvider,
   HealthInfo,
   ServerEndpoint,
-} from 'otto-server';
+} from 'clawmaster-server';
 import {
   CustomerModuleHostBroker,
   CustomerModuleRunner,
@@ -66,7 +66,7 @@ import {
   scanCustomerModuleWasm,
   validateCustomerModuleArchiveEntries,
   verifyCustomerModuleFileHashes,
-} from 'otto-core';
+} from 'clawmaster-core';
 import { WorkspaceDirectoryStore } from './workspace-directory-store.js';
 import { MainWindowPresentationController } from './main-window-presentation.js';
 import { askWindowCloseChoice } from './window-close-policy.js';
@@ -354,23 +354,23 @@ const CSP_FALLBACK_PORT = 7637;
 const RENDERER_DIR = path.join(__dirname, '../renderer');
 
 function worklogRootDir(): string {
-  const explicit = process.env['OTTO_WORKLOG_DIR']?.trim();
+  const explicit = process.env['CLAWMASTER_WORKLOG_DIR']?.trim();
   if (explicit) return explicit;
-  const userDir = process.env['OTTO_USER_DIR']?.trim();
+  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim();
   if (userDir) return path.join(userDir, 'memory', 'worklog');
   return path.join(os.homedir(), '.otto-user', 'memory', 'worklog');
 }
 
-let workLogServicePromise: Promise<import('otto-server').WorkLogService> | undefined;
-function workLogService(): Promise<import('otto-server').WorkLogService> {
-  workLogServicePromise ??= import('otto-server').then(
+let workLogServicePromise: Promise<import('clawmaster-server').WorkLogService> | undefined;
+function workLogService(): Promise<import('clawmaster-server').WorkLogService> {
+  workLogServicePromise ??= import('clawmaster-server').then(
     ({ WorkLogService }) => new WorkLogService(worklogRootDir()),
   );
   return workLogServicePromise;
 }
 
 function userSkillsRootDir(): string {
-  const userDir = process.env['OTTO_USER_DIR']?.trim();
+  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim();
   return path.join(userDir || path.join(os.homedir(), '.otto-user'), 'skills');
 }
 
@@ -473,7 +473,7 @@ const CRASH_RELOAD_MAX = 3;
 
 /** 企业身份服务真实入口；公网默认由中心部署负责，本机仅显式 loopback 时内嵌。 */
 const DEFAULT_ENTERPRISE_SERVER_URL = defaultEnterpriseServerUrl(
-  process.env.OTTO_ENTERPRISE_SERVER_URL,
+  process.env.CLAWMASTER_ENTERPRISE_SERVER_URL,
 );
 /** server 生命周期管理器（发现/拉起/探活/退出清理）。 */
 const serverManager = new ServerManager({
@@ -531,194 +531,194 @@ let videoEditorWindow: BrowserWindow | undefined;
 
 // ── IPC channel 名（与 preload 对齐）──
 const IPC = {
-  getEndpoint: 'otto:get-endpoint',
-  runtimeDiagnostic: 'otto:runtime-diagnostic',
-  endpointChanged: 'otto:endpoint-changed',
-  openExternal: 'otto:open-external',
-  openPath: 'otto:open-path',
-  inspectLocalPath: 'otto:inspect-local-path',
-  activateLocalPath: 'otto:activate-local-path',
-  selectFiles: 'otto:select-files',
-  selectFolders: 'otto:select-folders',
-  selectWorkspaceDirectory: 'otto:select-workspace-directory',
-  getWorkspaceDirectories: 'otto:get-workspace-directories',
-  authorizeWorkspaceDirectory: 'otto:authorize-workspace-directory',
-  grantBrowserFile: 'otto:grant-browser-file',
-  authorizeMessageFiles: 'otto:authorize-message-files',
-  readFilePath: 'otto:read-file-path',
-  extractEditableDocument: 'otto:extract-editable-document',
-  exportEditedDocument: 'otto:export-edited-document',
-  readClipboardText: 'otto:read-clipboard-text',
-  saveTextFile: 'otto:save-text-file',
-  openVideoEditor: 'otto:open-video-editor',
-  feishuStart: 'otto:feishu-start',
-  feishuStop: 'otto:feishu-stop',
-  feishuStatus: 'otto:feishu-status',
-  feishuGetConfig: 'otto:feishu-get-config',
-  feishuSaveConfig: 'otto:feishu-save-config',
-  feishuClearConfig: 'otto:feishu-clear-config',
-  channelPairingBegin: 'otto:channel-pairing-begin',
-  channelPairingStatus: 'otto:channel-pairing-status',
-  channelPairingInstall: 'otto:channel-pairing-install',
-  channelPairingCancel: 'otto:channel-pairing-cancel',
-  channelInstallations: 'otto:channel-installations',
-  channelInstallationAction: 'otto:channel-installation-action',
-  themeGet: 'otto:theme-get',
-  themeSet: 'otto:theme-set',
+  getEndpoint: 'clawmaster:get-endpoint',
+  runtimeDiagnostic: 'clawmaster:runtime-diagnostic',
+  endpointChanged: 'clawmaster:endpoint-changed',
+  openExternal: 'clawmaster:open-external',
+  openPath: 'clawmaster:open-path',
+  inspectLocalPath: 'clawmaster:inspect-local-path',
+  activateLocalPath: 'clawmaster:activate-local-path',
+  selectFiles: 'clawmaster:select-files',
+  selectFolders: 'clawmaster:select-folders',
+  selectWorkspaceDirectory: 'clawmaster:select-workspace-directory',
+  getWorkspaceDirectories: 'clawmaster:get-workspace-directories',
+  authorizeWorkspaceDirectory: 'clawmaster:authorize-workspace-directory',
+  grantBrowserFile: 'clawmaster:grant-browser-file',
+  authorizeMessageFiles: 'clawmaster:authorize-message-files',
+  readFilePath: 'clawmaster:read-file-path',
+  extractEditableDocument: 'clawmaster:extract-editable-document',
+  exportEditedDocument: 'clawmaster:export-edited-document',
+  readClipboardText: 'clawmaster:read-clipboard-text',
+  saveTextFile: 'clawmaster:save-text-file',
+  openVideoEditor: 'clawmaster:open-video-editor',
+  feishuStart: 'clawmaster:feishu-start',
+  feishuStop: 'clawmaster:feishu-stop',
+  feishuStatus: 'clawmaster:feishu-status',
+  feishuGetConfig: 'clawmaster:feishu-get-config',
+  feishuSaveConfig: 'clawmaster:feishu-save-config',
+  feishuClearConfig: 'clawmaster:feishu-clear-config',
+  channelPairingBegin: 'clawmaster:channel-pairing-begin',
+  channelPairingStatus: 'clawmaster:channel-pairing-status',
+  channelPairingInstall: 'clawmaster:channel-pairing-install',
+  channelPairingCancel: 'clawmaster:channel-pairing-cancel',
+  channelInstallations: 'clawmaster:channel-installations',
+  channelInstallationAction: 'clawmaster:channel-installation-action',
+  themeGet: 'clawmaster:theme-get',
+  themeSet: 'clawmaster:theme-set',
   taskRuntimeSetActive: 'clawmaster:task-runtime-set-active',
-  skillLeaderboard: 'otto:skill-leaderboard',
-  workLogToday: 'otto:worklog-today',
-  workLogRecent: 'otto:worklog-recent',
-  workLogReport: 'otto:worklog-report',
-  createDiagnosticBundle: 'otto:create-diagnostic-bundle',
-  skillShareList: 'otto:skill-share-list',
-  skillMarketplace: 'otto:skill-marketplace',
+  skillLeaderboard: 'clawmaster:skill-leaderboard',
+  workLogToday: 'clawmaster:worklog-today',
+  workLogRecent: 'clawmaster:worklog-recent',
+  workLogReport: 'clawmaster:worklog-report',
+  createDiagnosticBundle: 'clawmaster:create-diagnostic-bundle',
+  skillShareList: 'clawmaster:skill-share-list',
+  skillMarketplace: 'clawmaster:skill-marketplace',
   communitySkillInstall: 'clawmaster:community-skill-install',
   communitySkillList: 'clawmaster:community-skill-list',
-  enterpriseSkillLocalList: 'otto:enterprise-skill-local-list',
-  enterpriseSkillList: 'otto:enterprise-skill-list',
-  enterpriseSkillSubmit: 'otto:enterprise-skill-submit',
-  enterpriseSkillReview: 'otto:enterprise-skill-review',
-  enterpriseSkillInstall: 'otto:enterprise-skill-install',
-  enterpriseSkillRate: 'otto:enterprise-skill-rate',
-  enterpriseSkillLeaderboard: 'otto:enterprise-skill-leaderboard',
-  customerModuleList: 'otto:customer-module-list',
-  customerModuleSubmit: 'otto:customer-module-submit',
-  customerModuleTest: 'otto:customer-module-test',
-  customerModuleInstalledList: 'otto:customer-module-installed-list',
-  customerModuleInstall: 'otto:customer-module-install',
-  customerModuleSetEnabled: 'otto:customer-module-set-enabled',
-  customerModuleSetBackgroundEnabled: 'otto:customer-module-set-background-enabled',
-  customerModuleUninstall: 'otto:customer-module-uninstall',
-  customerModuleClearData: 'otto:customer-module-clear-data',
-  customerModuleExportData: 'otto:customer-module-export-data',
-  customerModuleRun: 'otto:customer-module-run',
-  customerModuleCancel: 'otto:customer-module-cancel',
-  setLocalTestUrl: 'otto:set-local-test-url',
-  appVersion: 'otto:app-version',
-  updateCheck: 'otto:update-check',
-  updateDownload: 'otto:update-download',
-  updateCancel: 'otto:update-cancel',
-  updateInstall: 'otto:update-install',
-  updateProgress: 'otto:update-progress',
-  incrementalUpdateCheck: 'otto:incremental-update-check',
-  incrementalUpdateApply: 'otto:incremental-update-apply',
-  voiceGetConfig: 'otto:voice-get-config',
-  voiceSaveConfig: 'otto:voice-save-config',
-  voiceTranscribe: 'otto:voice-transcribe',
-  autoGeneratedAgentProfiles: 'otto:auto-generated-agent-profiles',
-  enterpriseSession: 'otto:enterprise-session',
-  enterprisePasswordLogin: 'otto:enterprise-password-login',
-  enterpriseSmsLoginRequest: 'otto:enterprise-sms-login-request',
-  enterpriseSmsLoginVerify: 'otto:enterprise-sms-login-verify',
-  enterpriseRegistrationRequest: 'otto:enterprise-registration-request',
-  enterpriseRegistrationIntent: 'otto:enterprise-registration-intent',
+  enterpriseSkillLocalList: 'clawmaster:enterprise-skill-local-list',
+  enterpriseSkillList: 'clawmaster:enterprise-skill-list',
+  enterpriseSkillSubmit: 'clawmaster:enterprise-skill-submit',
+  enterpriseSkillReview: 'clawmaster:enterprise-skill-review',
+  enterpriseSkillInstall: 'clawmaster:enterprise-skill-install',
+  enterpriseSkillRate: 'clawmaster:enterprise-skill-rate',
+  enterpriseSkillLeaderboard: 'clawmaster:enterprise-skill-leaderboard',
+  customerModuleList: 'clawmaster:customer-module-list',
+  customerModuleSubmit: 'clawmaster:customer-module-submit',
+  customerModuleTest: 'clawmaster:customer-module-test',
+  customerModuleInstalledList: 'clawmaster:customer-module-installed-list',
+  customerModuleInstall: 'clawmaster:customer-module-install',
+  customerModuleSetEnabled: 'clawmaster:customer-module-set-enabled',
+  customerModuleSetBackgroundEnabled: 'clawmaster:customer-module-set-background-enabled',
+  customerModuleUninstall: 'clawmaster:customer-module-uninstall',
+  customerModuleClearData: 'clawmaster:customer-module-clear-data',
+  customerModuleExportData: 'clawmaster:customer-module-export-data',
+  customerModuleRun: 'clawmaster:customer-module-run',
+  customerModuleCancel: 'clawmaster:customer-module-cancel',
+  setLocalTestUrl: 'clawmaster:set-local-test-url',
+  appVersion: 'clawmaster:app-version',
+  updateCheck: 'clawmaster:update-check',
+  updateDownload: 'clawmaster:update-download',
+  updateCancel: 'clawmaster:update-cancel',
+  updateInstall: 'clawmaster:update-install',
+  updateProgress: 'clawmaster:update-progress',
+  incrementalUpdateCheck: 'clawmaster:incremental-update-check',
+  incrementalUpdateApply: 'clawmaster:incremental-update-apply',
+  voiceGetConfig: 'clawmaster:voice-get-config',
+  voiceSaveConfig: 'clawmaster:voice-save-config',
+  voiceTranscribe: 'clawmaster:voice-transcribe',
+  autoGeneratedAgentProfiles: 'clawmaster:auto-generated-agent-profiles',
+  enterpriseSession: 'clawmaster:enterprise-session',
+  enterprisePasswordLogin: 'clawmaster:enterprise-password-login',
+  enterpriseSmsLoginRequest: 'clawmaster:enterprise-sms-login-request',
+  enterpriseSmsLoginVerify: 'clawmaster:enterprise-sms-login-verify',
+  enterpriseRegistrationRequest: 'clawmaster:enterprise-registration-request',
+  enterpriseRegistrationIntent: 'clawmaster:enterprise-registration-intent',
   enterpriseRegistrationIntentOpened:
-    'otto:enterprise-registration-intent-opened',
-  enterpriseSessionInvalidated: 'otto:enterprise-session-invalidated',
-  enterpriseAccountUpdated: 'otto:enterprise-account-updated',
-  enterpriseRegister: 'otto:enterprise-register',
-  enterpriseJoinOrganization: 'otto:enterprise-join-organization',
-  enterpriseLogout: 'otto:enterprise-logout',
-  enterpriseAccounts: 'otto:enterprise-accounts',
-  enterpriseAccountCreate: 'otto:enterprise-account-create',
-  enterpriseAccountUpdate: 'otto:enterprise-account-update',
-  enterpriseAccountDelete: 'otto:enterprise-account-delete',
-  enterpriseDataGovernanceGet: 'otto:enterprise-data-governance-get',
-  enterpriseLegalAccept: 'otto:enterprise-legal-accept',
-  enterprisePrivacyExport: 'otto:enterprise-privacy-export',
-  enterprisePrivacyDelete: 'otto:enterprise-privacy-delete',
-  enterprisePair: 'otto:enterprise-pair',
-  enterpriseUsageRecord: 'otto:enterprise-usage-record',
-  enterpriseUsageProfile: 'otto:enterprise-usage-profile',
-  enterpriseKnowledgeRecord: 'otto:enterprise-knowledge-record',
-  enterpriseKnowledgeList: 'otto:enterprise-knowledge-list',
-  enterpriseKnowledgeReview: 'otto:enterprise-knowledge-review',
-  enterpriseKnowledgeRevise: 'otto:enterprise-knowledge-revise',
-  enterpriseKnowledgeRevisions: 'otto:enterprise-knowledge-revisions',
-  enterpriseOrganizationView: 'otto:enterprise-organization-view',
-  enterprisePresenceHeartbeat: 'otto:enterprise-presence-heartbeat',
+    'clawmaster:enterprise-registration-intent-opened',
+  enterpriseSessionInvalidated: 'clawmaster:enterprise-session-invalidated',
+  enterpriseAccountUpdated: 'clawmaster:enterprise-account-updated',
+  enterpriseRegister: 'clawmaster:enterprise-register',
+  enterpriseJoinOrganization: 'clawmaster:enterprise-join-organization',
+  enterpriseLogout: 'clawmaster:enterprise-logout',
+  enterpriseAccounts: 'clawmaster:enterprise-accounts',
+  enterpriseAccountCreate: 'clawmaster:enterprise-account-create',
+  enterpriseAccountUpdate: 'clawmaster:enterprise-account-update',
+  enterpriseAccountDelete: 'clawmaster:enterprise-account-delete',
+  enterpriseDataGovernanceGet: 'clawmaster:enterprise-data-governance-get',
+  enterpriseLegalAccept: 'clawmaster:enterprise-legal-accept',
+  enterprisePrivacyExport: 'clawmaster:enterprise-privacy-export',
+  enterprisePrivacyDelete: 'clawmaster:enterprise-privacy-delete',
+  enterprisePair: 'clawmaster:enterprise-pair',
+  enterpriseUsageRecord: 'clawmaster:enterprise-usage-record',
+  enterpriseUsageProfile: 'clawmaster:enterprise-usage-profile',
+  enterpriseKnowledgeRecord: 'clawmaster:enterprise-knowledge-record',
+  enterpriseKnowledgeList: 'clawmaster:enterprise-knowledge-list',
+  enterpriseKnowledgeReview: 'clawmaster:enterprise-knowledge-review',
+  enterpriseKnowledgeRevise: 'clawmaster:enterprise-knowledge-revise',
+  enterpriseKnowledgeRevisions: 'clawmaster:enterprise-knowledge-revisions',
+  enterpriseOrganizationView: 'clawmaster:enterprise-organization-view',
+  enterprisePresenceHeartbeat: 'clawmaster:enterprise-presence-heartbeat',
   enterpriseOrganizationFeaturesGet:
-    'otto:enterprise-organization-features-get',
+    'clawmaster:enterprise-organization-features-get',
   enterpriseOrganizationFeaturesUpdate:
-    'otto:enterprise-organization-features-update',
-  enterpriseOrganizationDepartments: 'otto:enterprise-organization-departments',
+    'clawmaster:enterprise-organization-features-update',
+  enterpriseOrganizationDepartments: 'clawmaster:enterprise-organization-departments',
   enterpriseOrganizationDepartmentCreate:
-    'otto:enterprise-organization-department-create',
+    'clawmaster:enterprise-organization-department-create',
   enterpriseOrganizationDepartmentUpdate:
-    'otto:enterprise-organization-department-update',
+    'clawmaster:enterprise-organization-department-update',
   enterpriseOrganizationDepartmentDelete:
-    'otto:enterprise-organization-department-delete',
+    'clawmaster:enterprise-organization-department-delete',
   enterpriseOrganizationPositionCreate:
-    'otto:enterprise-organization-position-create',
+    'clawmaster:enterprise-organization-position-create',
   enterpriseOrganizationPositionUpdate:
-    'otto:enterprise-organization-position-update',
+    'clawmaster:enterprise-organization-position-update',
   enterpriseOrganizationPositionDelete:
-    'otto:enterprise-organization-position-delete',
-  enterpriseMessagesList: 'otto:enterprise-messages-list',
-  enterpriseMessagesUnread: 'otto:enterprise-messages-unread',
-  enterpriseMessageSend: 'otto:enterprise-message-send',
-  enterpriseMessageSecurityReset: 'otto:enterprise-message-security-reset',
-  enterpriseFederationContactCode: 'otto:enterprise-federation-contact-code',
-  enterpriseFederationContactImport: 'otto:enterprise-federation-contact-import',
-  enterpriseFederationContacts: 'otto:enterprise-federation-contacts',
-  enterpriseFederationContactRemove: 'otto:enterprise-federation-contact-remove',
-  enterpriseFederationMessagesList: 'otto:enterprise-federation-messages-list',
-  enterpriseFederationMessageSend: 'otto:enterprise-federation-message-send',
-  enterpriseFederationAttachmentSave: 'otto:enterprise-federation-attachment-save',
-  enterpriseFederationAtoaTasks: 'otto:enterprise-federation-atoa-tasks',
-  enterpriseFederationAtoaApprove: 'otto:enterprise-federation-atoa-approve',
-  enterpriseFederationAtoaDeny: 'otto:enterprise-federation-atoa-deny',
-  enterpriseFederationAtoaDispatch: 'otto:enterprise-federation-atoa-dispatch',
-  enterpriseFederationAtoaRespond: 'otto:enterprise-federation-atoa-respond',
+    'clawmaster:enterprise-organization-position-delete',
+  enterpriseMessagesList: 'clawmaster:enterprise-messages-list',
+  enterpriseMessagesUnread: 'clawmaster:enterprise-messages-unread',
+  enterpriseMessageSend: 'clawmaster:enterprise-message-send',
+  enterpriseMessageSecurityReset: 'clawmaster:enterprise-message-security-reset',
+  enterpriseFederationContactCode: 'clawmaster:enterprise-federation-contact-code',
+  enterpriseFederationContactImport: 'clawmaster:enterprise-federation-contact-import',
+  enterpriseFederationContacts: 'clawmaster:enterprise-federation-contacts',
+  enterpriseFederationContactRemove: 'clawmaster:enterprise-federation-contact-remove',
+  enterpriseFederationMessagesList: 'clawmaster:enterprise-federation-messages-list',
+  enterpriseFederationMessageSend: 'clawmaster:enterprise-federation-message-send',
+  enterpriseFederationAttachmentSave: 'clawmaster:enterprise-federation-attachment-save',
+  enterpriseFederationAtoaTasks: 'clawmaster:enterprise-federation-atoa-tasks',
+  enterpriseFederationAtoaApprove: 'clawmaster:enterprise-federation-atoa-approve',
+  enterpriseFederationAtoaDeny: 'clawmaster:enterprise-federation-atoa-deny',
+  enterpriseFederationAtoaDispatch: 'clawmaster:enterprise-federation-atoa-dispatch',
+  enterpriseFederationAtoaRespond: 'clawmaster:enterprise-federation-atoa-respond',
   enterpriseFederationContactVerification:
-    'otto:enterprise-federation-contact-verification',
-  enterpriseFederationContactVerify: 'otto:enterprise-federation-contact-verify',
-  enterpriseMessageAttachmentRead: 'otto:enterprise-message-attachment-read',
-  enterpriseE2eeDevicesList: 'otto:enterprise-e2ee-devices-list',
-  enterpriseE2eeKeyTransparency: 'otto:enterprise-e2ee-key-transparency',
-  enterpriseE2eeDeviceApprove: 'otto:enterprise-e2ee-device-approve',
-  enterpriseE2eeDeviceVerification: 'otto:enterprise-e2ee-device-verification',
-  enterpriseE2eeDeviceRevoke: 'otto:enterprise-e2ee-device-revoke',
-  enterpriseE2eeRecoveryExport: 'otto:enterprise-e2ee-recovery-export',
-  enterpriseE2eeRecoveryImport: 'otto:enterprise-e2ee-recovery-import',
-  enterpriseAtoaInbox: 'otto:enterprise-atoa-inbox',
-  enterpriseParkServicePush: 'otto:enterprise-park-service-push',
-  enterpriseParkView: 'otto:enterprise-park-view',
-  enterpriseParkRegister: 'otto:enterprise-park-register',
-  enterpriseParkJoin: 'otto:enterprise-park-join',
-  enterpriseParkProfileUpdate: 'otto:enterprise-park-profile-update',
-  enterpriseParkInviteIssue: 'otto:enterprise-park-invite-issue',
-  enterpriseParkTenants: 'otto:enterprise-park-tenants',
-  enterpriseParkStatistics: 'otto:enterprise-park-statistics',
-  enterpriseParkSpecialists: 'otto:enterprise-park-specialists',
-  enterpriseParkSpecialistSet: 'otto:enterprise-park-specialist-set',
-  enterpriseParkSpecialistRemove: 'otto:enterprise-park-specialist-remove',
-  enterpriseParkServices: 'otto:enterprise-park-services',
-  enterpriseParkServiceUpdate: 'otto:enterprise-park-service-update',
-  enterpriseParkPublications: 'otto:enterprise-park-publications',
+    'clawmaster:enterprise-federation-contact-verification',
+  enterpriseFederationContactVerify: 'clawmaster:enterprise-federation-contact-verify',
+  enterpriseMessageAttachmentRead: 'clawmaster:enterprise-message-attachment-read',
+  enterpriseE2eeDevicesList: 'clawmaster:enterprise-e2ee-devices-list',
+  enterpriseE2eeKeyTransparency: 'clawmaster:enterprise-e2ee-key-transparency',
+  enterpriseE2eeDeviceApprove: 'clawmaster:enterprise-e2ee-device-approve',
+  enterpriseE2eeDeviceVerification: 'clawmaster:enterprise-e2ee-device-verification',
+  enterpriseE2eeDeviceRevoke: 'clawmaster:enterprise-e2ee-device-revoke',
+  enterpriseE2eeRecoveryExport: 'clawmaster:enterprise-e2ee-recovery-export',
+  enterpriseE2eeRecoveryImport: 'clawmaster:enterprise-e2ee-recovery-import',
+  enterpriseAtoaInbox: 'clawmaster:enterprise-atoa-inbox',
+  enterpriseParkServicePush: 'clawmaster:enterprise-park-service-push',
+  enterpriseParkView: 'clawmaster:enterprise-park-view',
+  enterpriseParkRegister: 'clawmaster:enterprise-park-register',
+  enterpriseParkJoin: 'clawmaster:enterprise-park-join',
+  enterpriseParkProfileUpdate: 'clawmaster:enterprise-park-profile-update',
+  enterpriseParkInviteIssue: 'clawmaster:enterprise-park-invite-issue',
+  enterpriseParkTenants: 'clawmaster:enterprise-park-tenants',
+  enterpriseParkStatistics: 'clawmaster:enterprise-park-statistics',
+  enterpriseParkSpecialists: 'clawmaster:enterprise-park-specialists',
+  enterpriseParkSpecialistSet: 'clawmaster:enterprise-park-specialist-set',
+  enterpriseParkSpecialistRemove: 'clawmaster:enterprise-park-specialist-remove',
+  enterpriseParkServices: 'clawmaster:enterprise-park-services',
+  enterpriseParkServiceUpdate: 'clawmaster:enterprise-park-service-update',
+  enterpriseParkPublications: 'clawmaster:enterprise-park-publications',
   enterpriseParkAnnouncementResults:
-    'otto:enterprise-park-announcement-results',
-  enterpriseParkSurveyResults: 'otto:enterprise-park-survey-results',
-  enterpriseParkPublicationRead: 'otto:enterprise-park-publication-read',
-  enterpriseParkSurveySubmit: 'otto:enterprise-park-survey-submit',
-  enterpriseParkResources: 'otto:enterprise-park-resources',
-  enterpriseOrganizationInviteGet: 'otto:enterprise-organization-invite-get',
+    'clawmaster:enterprise-park-announcement-results',
+  enterpriseParkSurveyResults: 'clawmaster:enterprise-park-survey-results',
+  enterpriseParkPublicationRead: 'clawmaster:enterprise-park-publication-read',
+  enterpriseParkSurveySubmit: 'clawmaster:enterprise-park-survey-submit',
+  enterpriseParkResources: 'clawmaster:enterprise-park-resources',
+  enterpriseOrganizationInviteGet: 'clawmaster:enterprise-organization-invite-get',
   enterpriseOrganizationInviteIssue:
-    'otto:enterprise-organization-invite-issue',
-  enterpriseTicketInbox: 'otto:enterprise-ticket-inbox',
-  enterpriseTicketList: 'otto:enterprise-ticket-list',
-  enterpriseTicketSubmit: 'otto:enterprise-ticket-submit',
-  enterpriseTicketRead: 'otto:enterprise-ticket-read',
-  enterpriseTicketAction: 'otto:enterprise-ticket-action',
-  parkNativeNotify: 'otto:park-native-notify',
-  writeClipboard: 'otto:write-clipboard',
-  notificationShow: 'otto:notification-show',
-  notificationMarkRead: 'otto:notification-mark-read',
-  notificationGetUnread: 'otto:notification-get-unread',
-  notificationUnreadChanged: 'otto:notification-unread-changed',
-  notificationCheckPermission: 'otto:notification-check-permission',
-  notificationSessionOpen: 'otto:notification-session-open',
+    'clawmaster:enterprise-organization-invite-issue',
+  enterpriseTicketInbox: 'clawmaster:enterprise-ticket-inbox',
+  enterpriseTicketList: 'clawmaster:enterprise-ticket-list',
+  enterpriseTicketSubmit: 'clawmaster:enterprise-ticket-submit',
+  enterpriseTicketRead: 'clawmaster:enterprise-ticket-read',
+  enterpriseTicketAction: 'clawmaster:enterprise-ticket-action',
+  parkNativeNotify: 'clawmaster:park-native-notify',
+  writeClipboard: 'clawmaster:write-clipboard',
+  notificationShow: 'clawmaster:notification-show',
+  notificationMarkRead: 'clawmaster:notification-mark-read',
+  notificationGetUnread: 'clawmaster:notification-get-unread',
+  notificationUnreadChanged: 'clawmaster:notification-unread-changed',
+  notificationCheckPermission: 'clawmaster:notification-check-permission',
+  notificationSessionOpen: 'clawmaster:notification-session-open',
 } as const;
 
 const customerModuleRunControllers = new Map<string, AbortController>();
@@ -748,7 +748,7 @@ type AuthenticatedEnterpriseAccount =
 function accountDataSyncIdentity(account: {
   id: string;
 }): { serverUrl: string; accountId: string } | null {
-  if (process.env['OTTO_ACCOUNT_SYNC_DISABLED'] === '1') return null;
+  if (process.env['CLAWMASTER_ACCOUNT_SYNC_DISABLED'] === '1') return null;
   const snapshot = enterpriseClient.snapshot();
   if (!snapshot.token || !snapshot.serverUrl) return null;
   return { serverUrl: snapshot.serverUrl, accountId: account.id };
@@ -1103,7 +1103,7 @@ function enterpriseSessionPath(): string {
 }
 
 function canRestoreEncryptedEnterpriseSession(): boolean {
-  if (process.env.OTTO_ENTERPRISE_RESTORE_KEYCHAIN_SESSION === '1') return true;
+  if (process.env.CLAWMASTER_ENTERPRISE_RESTORE_KEYCHAIN_SESSION === '1') return true;
   return !(process.platform === 'darwin' && app.isPackaged);
 }
 
@@ -1137,7 +1137,7 @@ function loadEnterpriseSession(): void {
     const target = restoreEnterpriseServerTarget(
       restored.serverUrl,
       DEFAULT_ENTERPRISE_SERVER_URL,
-      Boolean(process.env.OTTO_ENTERPRISE_SERVER_URL?.trim()),
+      Boolean(process.env.CLAWMASTER_ENTERPRISE_SERVER_URL?.trim()),
     );
     restored = {
       serverUrl: target.serverUrl,
@@ -2390,7 +2390,7 @@ function applyCsp(): void {
     // 首个 renderer 响应头通常早于 ensureEndpoint() 完成；若用户通过环境变量指定
     // 内嵌 server 端口，CSP 也必须从第一帧就放行同一端口，否则 WS 会被浏览器拦截、
     // UI 永久显示“正在重连”，即使 server 实际已健康监听。
-    const configuredPort = Number(process.env.OTTO_SERVER_PORT);
+    const configuredPort = Number(process.env.CLAWMASTER_SERVER_PORT);
     const configuredStartPort =
       Number.isFinite(configuredPort) && configuredPort > 0
         ? configuredPort
@@ -2572,7 +2572,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.readClipboardText, () => clipboard.readText());
   ipcMain.handle(IPC.autoGeneratedAgentProfiles, async () => {
     try {
-      const { loadAutoGeneratedProfiles } = await import('otto-core');
+      const { loadAutoGeneratedProfiles } = await import('clawmaster-core');
       return loadAutoGeneratedProfiles();
     } catch (error) {
       console.warn('[otto-desktop] 自动 Skill 专家读取失败：', error);
@@ -4268,7 +4268,7 @@ function registerIpc(): void {
     (await workLogService()).report());
 
   ipcMain.handle(IPC.createDiagnosticBundle, async () => {
-    const core = await import('otto-core');
+    const core = await import('clawmaster-core');
     const result = await core.createDiagnosticBundle();
     if (result.ok) {
       try {
@@ -4664,22 +4664,22 @@ function registerIpc(): void {
 
   // 本地测试模式：应用/清除 customProxyServerUrl。
   // renderer 通过 preload.setLocalTestUrl() 调用。
-  // 实现方式：将 OTTO_SERVER_URL env 设为指定地址，待下次会话创建时 proxyConfig
+  // 实现方式：将 CLAWMASTER_SERVER_URL env 设为指定地址，待下次会话创建时 proxyConfig
   // 会读到该改变的环境变量，从而路由请求到本地。
   ipcMain.handle(IPC.setLocalTestUrl, (_e, url: unknown) => {
     if (typeof url !== 'string') return Promise.resolve();
     const trimmed = url.trim();
     if (trimmed) {
       // 应用本地测试地址（真实状态只存 env，不留影子变量）
-      process.env.OTTO_SERVER_URL = trimmed;
+      process.env.CLAWMASTER_SERVER_URL = trimmed;
       console.log(
-        `[otto-desktop] 本地测试模式已应用： OTTO_SERVER_URL=${trimmed}`,
+        `[otto-desktop] 本地测试模式已应用： CLAWMASTER_SERVER_URL=${trimmed}`,
       );
     } else {
       // 清除本地测试
-      delete process.env.OTTO_SERVER_URL;
+      delete process.env.CLAWMASTER_SERVER_URL;
       console.log(
-        '[otto-desktop] 本地测试模式已清除， OTTO_SERVER_URL 已移除。',
+        '[otto-desktop] 本地测试模式已清除， CLAWMASTER_SERVER_URL 已移除。',
       );
     }
     return Promise.resolve();
@@ -5035,7 +5035,7 @@ function registerIpc(): void {
       throw new Error('文件路径无效');
     }
     const granted = fileAccessGrants.resolve(filePath, 50 * 1024 * 1024);
-    const core = (await import('otto-core')) as unknown as {
+    const core = (await import('clawmaster-core')) as unknown as {
       extractEditableDocument(filePath: string): Promise<unknown>;
     };
     return core.extractEditableDocument(granted.filePath);
@@ -5075,7 +5075,7 @@ function registerIpc(): void {
             filters,
           });
       if (result.canceled || !result.filePath) return null;
-      const core = (await import('otto-core')) as unknown as {
+      const core = (await import('clawmaster-core')) as unknown as {
         exportEditedDocument(
           sourcePath: string,
           content: string,
@@ -5111,8 +5111,8 @@ function registerIpc(): void {
 // 生命周期
 // ────────────────────────────────────────────────────────────────────────
 
-// 自动化验收与受管部署可使用隔离配置目录，避免与用户正在运行的 Otto 实例争抢单实例锁。
-const isolatedUserDataDir = process.env.OTTO_USER_DATA_DIR?.trim();
+// 自动化验收与受管部署可使用隔离配置目录，避免与用户正在运行的 ClawMaster 实例争抢单实例锁。
+const isolatedUserDataDir = process.env.CLAWMASTER_USER_DATA_DIR?.trim();
 if (isolatedUserDataDir) app.setPath('userData', isolatedUserDataDir);
 
 // Windows/Linux cold start 会把协议 URL 放进 argv；macOS 则通过 open-url 事件送达。
@@ -5124,7 +5124,7 @@ app.on('open-url', (event, url) => {
 });
 
 // 在窗口、托盘和 Notification 创建前注册稳定 AUMID。部分 Windows 机器若注册过晚，
-// 通知中心无法把 toast 与安装器创建的 Otto 开始菜单快捷方式关联。
+// 通知中心无法把 toast 与安装器创建的 ClawMaster 开始菜单快捷方式关联。
 if (process.platform === 'win32') app.setAppUserModelId('team.nsi.clawmaster.desktop');
 
 // 单实例锁：第二次启动直接聚焦已开窗口，避免多开多个 server 抢端口。
@@ -5201,8 +5201,8 @@ if (!gotLock) {
   });
 
   app.on('window-all-closed', () => {
-    // Windows/Linux 关闭主窗口后常驻系统托盘，避免 Otto 服务随窗口关闭而退出。
-    // 真正退出走应用菜单或托盘「退出 Otto」。
+    // Windows/Linux 关闭主窗口后常驻系统托盘，避免 ClawMaster 服务随窗口关闭而退出。
+    // 真正退出走应用菜单或托盘「退出 ClawMaster」。
     // detached server 故意留活：飞书守护不受窗口关闭影响。
     if (process.platform === 'darwin') return;
   });

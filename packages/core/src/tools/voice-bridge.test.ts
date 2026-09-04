@@ -3,7 +3,7 @@
  *
  * VoiceBridgeTool tests focus on dependency preflight. Missing dependencies
  * should explain whether the feature can work and how the user can fix it
- * before Otto records audio.
+ * before ClawMaster records audio.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
@@ -179,7 +179,7 @@ describe('VoiceBridgeTool', () => {
     expect(content).toContain('Local speech-to-text: blocked');
     expect(content).toContain('ClawMaster local transcription');
     expect(content).toContain('voice/transcription diagnostics');
-    expect(content).toContain('OTTO_WHISPER_MODEL');
+    expect(content).toContain('CLAWMASTER_WHISPER_MODEL');
     expect(content).toContain('OPENAI_API_KEY');
     expect(content).not.toContain('pip install -U openai-whisper');
   });
@@ -246,7 +246,7 @@ describe('VoiceBridgeTool', () => {
     });
 
     const depErr = await callPreflight(t);
-    expect(depErr).toContain('OTTO_ASR_BACKEND');
+    expect(depErr).toContain('CLAWMASTER_ASR_BACKEND');
     expect(depErr).toContain('faster-whisper');
     expect(depErr).toContain('auto');
   });

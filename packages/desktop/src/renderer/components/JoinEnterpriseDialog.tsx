@@ -53,14 +53,14 @@ export function JoinEnterpriseDialog({
 
   return (
     <div
-      className="otto-confirm-overlay"
+      className="claw-confirm-overlay"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !busy) onCancel();
       }}
       onClick={(event) => event.stopPropagation()}
     >
       <form
-        className="otto-confirm otto-join-enterprise"
+        className="claw-confirm claw-join-enterprise"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -78,12 +78,12 @@ export function JoinEnterpriseDialog({
         }}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <h2 className="otto-confirm__title" id={titleId}>升级为企业版</h2>
-        <p className="otto-confirm__message" id={descriptionId}>
+        <h2 className="claw-confirm__title" id={titleId}>升级为企业版</h2>
+        <p className="claw-confirm__message" id={descriptionId}>
           输入老板或管理员提供的企业邀请码。成功后将立即切换到对应企业；
           出于企业数据隔离，原个人空间对话不会自动带入企业。
         </p>
-        <label className="otto-join-enterprise__field">
+        <label className="claw-join-enterprise__field">
           <span>企业邀请码</span>
           <input
             ref={inputRef}
@@ -101,11 +101,11 @@ export function JoinEnterpriseDialog({
             placeholder="Aa3B-k9Pq-Z7xY"
           />
         </label>
-        {error ? <div className="otto-join-enterprise__error" role="alert">{error}</div> : null}
-        <div className="otto-confirm__actions">
+        {error ? <div className="claw-join-enterprise__error" role="alert">{error}</div> : null}
+        <div className="claw-confirm__actions">
           <button
             type="button"
-            className="otto-confirm__cancel"
+            className="claw-confirm__cancel"
             disabled={busy}
             onClick={onCancel}
           >
@@ -113,7 +113,7 @@ export function JoinEnterpriseDialog({
           </button>
           <button
             type="submit"
-            className="otto-confirm__confirm"
+            className="claw-confirm__confirm"
             disabled={!valid || busy}
           >
             {busy ? '正在加入…' : '加入企业'}

@@ -1,5 +1,5 @@
 {
-  "name": "@otto/native",
+  "name": "@clawmaster/native",
   "version": "0.1.0",
   "description": "Rust native bindings for Otto - Session store, encryption, tokenizer, agent pool",
   "type": "commonjs",

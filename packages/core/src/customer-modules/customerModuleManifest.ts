@@ -30,7 +30,7 @@ export interface CustomerModuleManifestV1 {
   icon: string;
   entrypoint: string;
   hostApi: typeof CUSTOMER_MODULE_HOST_API_V1;
-  minimumOttoVersion: string;
+  minimumClawMasterVersion: string;
   inputSchema: { type: 'object'; properties: Record<string, unknown>; required?: string[] };
   outputs: CustomerModuleOutput[];
   permissions: CustomerModulePermission[];
@@ -77,13 +77,13 @@ export function parseCustomerModuleManifest(
   if (!isObject(value)) fail('root must be an object');
   onlyKeys(value, [
     'schemaVersion', 'id', 'name', 'version', 'publisher', 'description', 'releaseNotes', 'icon',
-    'entrypoint', 'hostApi', 'minimumOttoVersion', 'inputSchema', 'outputs', 'permissions', 'files', 'signature',
+    'entrypoint', 'hostApi', 'minimumClawMasterVersion', 'inputSchema', 'outputs', 'permissions', 'files', 'signature',
   ], 'root');
   const manifest = value as unknown as CustomerModuleManifestV1;
   if (manifest.schemaVersion !== 1) fail('schemaVersion must be 1');
   if (!MODULE_ID.test(manifest.id)) fail('id must be a stable reverse-domain identifier');
   if (!manifest.name?.trim() || manifest.name.length > 80) fail('name is required and limited to 80 characters');
-  if (!SEMVER.test(manifest.version) || !SEMVER.test(manifest.minimumOttoVersion)) fail('versions must use semver');
+  if (!SEMVER.test(manifest.version) || !SEMVER.test(manifest.minimumClawMasterVersion)) fail('versions must use semver');
   if (!manifest.publisher?.id?.trim() || !manifest.publisher?.name?.trim()) fail('publisher is required');
   onlyKeys(manifest.publisher as unknown as Record<string, unknown>, ['id', 'name'], 'publisher');
   if (!manifest.description?.trim() || manifest.description.length > 2_000) fail('description is required');

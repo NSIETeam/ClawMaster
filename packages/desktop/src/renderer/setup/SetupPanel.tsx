@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,7 +9,7 @@
  *
  * 真实向导：品牌供应商下拉 → API key（掩码 + 粘贴）→ 模型 id → 显示名，
  * 本地实时校验，产出与 CLI/server 完全一致的 CustomModelConfig
- * （落盘 `~/.otto-user/custom-models.json`，结构 `{ models, _metadata }`）。
+ * （落盘 `~/.claw-user/custom-models.json`，结构 `{ models, _metadata }`）。
  *
  * 落盘闭环（固定契约，protocol.ts SaveCustomModelMsg）：
  *   submit() → 上层 onSave(payload) 发 `save_custom_model` 帧 →
@@ -21,7 +21,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { ModelInfo } from 'otto-server';
+import type { ModelInfo } from 'clawmaster-server';
 import { FeishuStatusBadge } from '../components/FeishuStatusBadge.js';
 import { GeneratedIcon } from '../components/GeneratedIcon.js';
 import { VoiceSettings } from '../components/VoiceSettings.js';
@@ -101,11 +101,11 @@ export function SetupPanel({
   const [localTestOpen, setLocalTestOpen] = useState(false);
   /**
    * 本地测试代理地址（不落盘，仅当前会话生效）。
-   * 用途：无需连接组织服务器，直接把 customProxyServerUrl 指向本机 localhost otto-server
+   * 用途：无需连接组织服务器，直接把 customProxyServerUrl 指向本机 localhost claw-server
    * 的 HTTP 端口，配合 BYO-key 自定义模型本地测试整条链路。
    *
    * 使用步骤：
-   *   1. 先在终端起本地 server：  OTTO_SERVER_MOCK=1 node packages/server/dist/bin.js start
+   *   1. 先在终端起本地 server：  CLAWMASTER_SERVER_MOCK=1 node packages/server/dist/bin.js start
    *      （或用真实 BYO-key 不加 MOCK=1 也可）
    *   2. 在此处填入 http://127.0.0.1:7637  并点「应用本地地址」
    *   3. 重新打开对话，请求将走本地 server 而非远程组织服务器
@@ -113,14 +113,14 @@ export function SetupPanel({
    */
   const [localTestUrl, setLocalTestUrl] = useState<string>(() => {
     try {
-      return sessionStorage.getItem('otto:local-test-url') || '';
+      return sessionStorage.getItem('clawmaster:local-test-url') || '';
     } catch {
       return '';
     }
   });
   const [localTestApplied, setLocalTestApplied] = useState<boolean>(() => {
     try {
-      return sessionStorage.getItem('otto:local-test-applied') === '1';
+      return sessionStorage.getItem('clawmaster:local-test-applied') === '1';
     } catch {
       return false;
     }
@@ -143,8 +143,8 @@ export function SetupPanel({
     setFsBusy(true);
     try {
       const res = fsRunning
-        ? await window.otto?.feishuStop()
-        : await window.otto?.feishuStart();
+        ? await window.clawmaster?.feishuStop()
+        : await window.clawmaster?.feishuStart();
       if (res?.text) setFsStatus(res.text);
       // running 不在这里猜——由徽标下一轮轮询的真实 /health 驱动更新。
     } catch (e) {
@@ -274,7 +274,7 @@ export function SetupPanel({
 
   const openConsole = (): void => {
     if (preset.keyConsoleUrl) {
-      void window.otto?.openExternal?.(preset.keyConsoleUrl);
+      void window.clawmaster?.openExternal?.(preset.keyConsoleUrl);
     }
   };
 
@@ -295,47 +295,47 @@ export function SetupPanel({
     const url = localTestUrl.trim().replace(/\/+$/, '');
     if (!url || !/^https?:\/\//i.test(url)) return;
     try {
-      sessionStorage.setItem('otto:local-test-url', url);
-      sessionStorage.setItem('otto:local-test-applied', '1');
+      sessionStorage.setItem('clawmaster:local-test-url', url);
+      sessionStorage.setItem('clawmaster:local-test-applied', '1');
     } catch {
       /* storage 不可用时静默 */
     }
     setLocalTestApplied(true);
-    // 通过 IPC 通知主进程把 customProxyServerUrl 和 OTTO_SERVER_URL 郤盖到 localTestUrl
-    void window.otto?.setLocalTestUrl?.(url);
+    // 通过 IPC 通知主进程把 customProxyServerUrl 和 CLAWMASTER_SERVER_URL 郤盖到 localTestUrl
+    void window.clawmaster?.setLocalTestUrl?.(url);
   };
 
   /** 清除本地测试：恢复默认连接。 */
   const clearLocalTestUrl = (): void => {
     try {
-      sessionStorage.removeItem('otto:local-test-url');
-      sessionStorage.removeItem('otto:local-test-applied');
+      sessionStorage.removeItem('clawmaster:local-test-url');
+      sessionStorage.removeItem('clawmaster:local-test-applied');
     } catch {
       /* storage 不可用时静默 */
     }
     setLocalTestApplied(false);
-    void window.otto?.setLocalTestUrl?.('');
+    void window.clawmaster?.setLocalTestUrl?.('');
   };
 
   const showErr = (field: string): string | undefined =>
     touched[field] ? errors[field] : undefined;
 
   return (
-    <section className="otto-setup-page" aria-label="配置你的模型">
-      <div className="otto-setup">
-        <header className="otto-setup__head">
-          <div className="otto-setup__brand">
+    <section className="claw-setup-page" aria-label="配置你的模型">
+      <div className="claw-setup">
+        <header className="claw-setup__head">
+          <div className="claw-setup__brand">
             <ClawMasterCrown size={28} />
           </div>
-          <div className="otto-setup__titles">
-            <h2 className="otto-setup__title">配置你的模型</h2>
-            <p className="otto-setup__subtitle">
+          <div className="claw-setup__titles">
+            <h2 className="claw-setup__title">配置你的模型</h2>
+            <p className="claw-setup__subtitle">
               ClawMaster 自带密钥（BYO-key）：选供应商、粘贴 API key、填模型即可。
             </p>
           </div>
           <button
             type="button"
-            className="otto-setup__close"
+            className="claw-setup__close"
             onClick={onClose}
             aria-label="返回对话"
             title="返回对话"
@@ -345,21 +345,21 @@ export function SetupPanel({
         </header>
 
         {models.length > 0 ? (
-          <div className="otto-setup__models">
-            <div className="otto-setup__models-head">
-              <span className="otto-setup__existing-dot" aria-hidden />
+          <div className="claw-setup__models">
+            <div className="claw-setup__models-head">
+              <span className="claw-setup__existing-dot" aria-hidden />
               已配置 {models.length} 个模型
             </div>
             {models.map((m) => (
-              <div key={m.id} className="otto-setup__modelrow">
-                <span className="otto-setup__modelname">{m.displayName}</span>
+              <div key={m.id} className="claw-setup__modelrow">
+                <span className="claw-setup__modelname">{m.displayName}</span>
                 {/* 厂商按接入域名识别；provider 只是协议名（全是 openai 的观感问题）。 */}
-                <span className="otto-setup__modelvendor">
+                <span className="claw-setup__modelvendor">
                   {vendorFromBaseUrl(m.baseUrl, m.provider)}
                 </span>
                 <button
                   type="button"
-                  className="otto-setup__modeledit"
+                  className="claw-setup__modeledit"
                   aria-label={`编辑 ${m.displayName}`}
                   onClick={() => startEdit(m)}
                 >
@@ -369,7 +369,7 @@ export function SetupPanel({
                   <button
                     type="button"
                     className={
-                      'otto-setup__modeldel' +
+                      'claw-setup__modeldel' +
                       (confirmDeleteId === m.id ? ' is-confirm' : '')
                     }
                     onClick={() => {
@@ -390,16 +390,16 @@ export function SetupPanel({
           </div>
         ) : null}
 
-        <div className="otto-setup__body">
+        <div className="claw-setup__body">
           {/* —— 供应商预设 —— */}
-          <label className="otto-setup__label">供应商</label>
-          <div className="otto-setup__presets">
+          <label className="claw-setup__label">供应商</label>
+          <div className="claw-setup__presets">
             {PROVIDER_PRESETS.map((p) => (
               <button
                 key={p.id}
                 type="button"
                 className={
-                  'otto-setup__preset' +
+                  'claw-setup__preset' +
                   (p.id === form.presetId ? ' is-active' : '')
                 }
                 onClick={() => selectPreset(p.id)}
@@ -409,15 +409,15 @@ export function SetupPanel({
             ))}
           </div>
           {preset.note ? (
-            <p className="otto-setup__hint">{preset.note}</p>
+            <p className="claw-setup__hint">{preset.note}</p>
           ) : null}
 
           {/* —— 协议（仅 custom 暴露）—— */}
           {!preset.baseUrlLocked || Boolean(form.replaceId) ? (
             <>
-              <label className="otto-setup__label">协议</label>
+              <label className="claw-setup__label">协议</label>
               <select
-                className="otto-setup__select"
+                className="claw-setup__select"
                 value={form.provider}
                 onChange={(e) =>
                   patch({ provider: e.target.value as CustomModelProvider })
@@ -433,15 +433,15 @@ export function SetupPanel({
           ) : null}
 
           {/* —— base URL —— */}
-          <label className="otto-setup__label">
+          <label className="claw-setup__label">
             接口地址 (base URL)
             {preset.baseUrlLocked ? (
-              <span className="otto-setup__locked">官方端点 · 已锁定</span>
+              <span className="claw-setup__locked">官方端点 · 已锁定</span>
             ) : null}
           </label>
           <input
             className={
-              'otto-setup__input' + (showErr('baseUrl') ? ' is-error' : '')
+              'claw-setup__input' + (showErr('baseUrl') ? ' is-error' : '')
             }
             type="text"
             value={form.baseUrl}
@@ -454,16 +454,16 @@ export function SetupPanel({
             onBlur={() => markTouched('baseUrl')}
           />
           {showErr('baseUrl') ? (
-            <p className="otto-setup__err">{showErr('baseUrl')}</p>
+            <p className="claw-setup__err">{showErr('baseUrl')}</p>
           ) : null}
 
           {/* —— API key（掩码 + 粘贴 + 显隐）—— */}
-          <label className="otto-setup__label">
+          <label className="claw-setup__label">
             API key
             {preset.keyConsoleUrl ? (
               <button
                 type="button"
-                className="otto-setup__linkbtn"
+                className="claw-setup__linkbtn"
                 onClick={openConsole}
               >
                 <span>去获取</span>
@@ -471,11 +471,11 @@ export function SetupPanel({
               </button>
             ) : null}
           </label>
-          <div className="otto-setup__keyrow">
+          <div className="claw-setup__keyrow">
             <input
               ref={keyRef}
               className={
-                'otto-setup__input otto-setup__keyinput' +
+                'claw-setup__input claw-setup__keyinput' +
                 (showErr('apiKey') ? ' is-error' : '')
               }
               type={revealKey ? 'text' : 'password'}
@@ -490,7 +490,7 @@ export function SetupPanel({
             />
             <button
               type="button"
-              className="otto-setup__iconbtn otto-setup__iconbtn--icon"
+              className="claw-setup__iconbtn claw-setup__iconbtn--icon"
               onClick={() => setRevealKey((v) => !v)}
               aria-label={revealKey ? '隐藏' : '显示'}
               title={revealKey ? '隐藏' : '显示'}
@@ -499,7 +499,7 @@ export function SetupPanel({
             </button>
             <button
               type="button"
-              className="otto-setup__iconbtn"
+              className="claw-setup__iconbtn"
               onClick={() => void pasteKey()}
               title="从剪贴板粘贴"
             >
@@ -507,24 +507,24 @@ export function SetupPanel({
             </button>
           </div>
           {showErr('apiKey') ? (
-            <p className="otto-setup__err">{showErr('apiKey')}</p>
+            <p className="claw-setup__err">{showErr('apiKey')}</p>
           ) : (
-            <p className="otto-setup__hint">
-              {form.replaceId ? '留空会保留当前 API Key；输入新值才替换。' : 'key 仅写入本机 `~/.otto-user`，不上传任何服务器。'}
+            <p className="claw-setup__hint">
+              {form.replaceId ? '留空会保留当前 API Key；输入新值才替换。' : 'key 仅写入本机 `~/.claw-user`，不上传任何服务器。'}
             </p>
           )}
 
           {/* —— 模型（可多选：填一次 key 批量加入）—— */}
-          <label className="otto-setup__label">
+          <label className="claw-setup__label">
             模型
-            <span className="otto-setup__locked">
+            <span className="claw-setup__locked">
               可多选 · 填一次 key 全部加入
             </span>
           </label>
 
           {/* 示例模型：点击勾选 / 取消 */}
           {preset.exampleModels.length > 0 ? (
-            <div className="otto-setup__examples">
+            <div className="claw-setup__examples">
               {preset.exampleModels.map((m) => {
                 const on = form.selectedModels.includes(m);
                 return (
@@ -532,7 +532,7 @@ export function SetupPanel({
                     key={m}
                     type="button"
                     className={
-                      'otto-setup__example' + (on ? ' is-selected' : '')
+                      'claw-setup__example' + (on ? ' is-selected' : '')
                     }
                     onClick={() => toggleModel(m)}
                   >
@@ -545,10 +545,10 @@ export function SetupPanel({
           ) : null}
 
           {/* 自定义模型 id：输入 + 添加（回车也可） */}
-          <div className="otto-setup__keyrow">
+          <div className="claw-setup__keyrow">
             <input
               className={
-                'otto-setup__input' + (showErr('modelId') ? ' is-error' : '')
+                'claw-setup__input' + (showErr('modelId') ? ' is-error' : '')
               }
               type="text"
               value={form.modelId}
@@ -567,7 +567,7 @@ export function SetupPanel({
             />
             <button
               type="button"
-              className="otto-setup__iconbtn"
+              className="claw-setup__iconbtn"
               onClick={addTypedModel}
               disabled={!form.modelId.trim()}
             >
@@ -577,13 +577,13 @@ export function SetupPanel({
 
           {/* 已选模型 chips（可删） */}
           {form.selectedModels.length > 0 ? (
-            <div className="otto-setup__chosen">
+            <div className="claw-setup__chosen">
               {form.selectedModels.map((m) => (
-                <span key={m} className="otto-setup__chosen-chip">
+                <span key={m} className="claw-setup__chosen-chip">
                   {m}
                   <button
                     type="button"
-                    className="otto-setup__chosen-x"
+                    className="claw-setup__chosen-x"
                     onClick={() => toggleModel(m)}
                     aria-label={`移除 ${m}`}
                   >
@@ -594,15 +594,15 @@ export function SetupPanel({
             </div>
           ) : null}
           {showErr('modelId') ? (
-            <p className="otto-setup__err">{showErr('modelId')}</p>
+            <p className="claw-setup__err">{showErr('modelId')}</p>
           ) : null}
 
           {/* —— 显示名（仅当最终恰好 1 个模型时）—— */}
           {effectiveModelIds(form).length <= 1 ? (
             <>
-              <label className="otto-setup__label">显示名（可选）</label>
+              <label className="claw-setup__label">显示名（可选）</label>
               <input
-                className="otto-setup__input"
+                className="claw-setup__input"
                 type="text"
                 value={form.displayName}
                 placeholder={cfg.displayName || '在模型菜单里怎么称呼它'}
@@ -611,22 +611,22 @@ export function SetupPanel({
               />
             </>
           ) : (
-            <p className="otto-setup__hint">
+            <p className="claw-setup__hint">
               已选 {effectiveModelIds(form).length} 个模型，将各自以模型 id
               命名、共用这一个 key 一次性加入。
             </p>
           )}
 
-          <label className="otto-setup__label">上下文窗口（tokens，可选）</label>
+          <label className="claw-setup__label">上下文窗口（tokens，可选）</label>
           <input
-            className="otto-setup__input"
+            className="claw-setup__input"
             type="number"
             min="1"
             value={form.maxTokens}
             placeholder="例如 128000"
             onChange={(e) => patch({ maxTokens: e.target.value })}
           />
-          <label className="otto-setup__toggleline">
+          <label className="claw-setup__toggleline">
             <input
               type="checkbox"
               checked={form.enabled}
@@ -638,8 +638,8 @@ export function SetupPanel({
 
         {/* —— 落盘失败提示（save_failed）—— */}
         {saveError ? (
-          <div className="otto-setup__savefail" role="alert">
-            <span className="otto-setup__warn" aria-hidden>
+          <div className="claw-setup__savefail" role="alert">
+            <span className="claw-setup__warn" aria-hidden>
               <IconWarning size={15} />
             </span>
             <span>{saveError}</span>
@@ -650,8 +650,8 @@ export function SetupPanel({
 
 
         {/* —— 飞书连接状态与常驻守护（状态真实：徽标轮询 server /health）—— */}
-        <div className="otto-setup__section" style={{ marginTop: '24px', padding: '16px', background: 'var(--otto-sidebar-bg)', borderRadius: 'var(--otto-radius)' }}>
-          <label className="otto-setup__label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <div className="claw-setup__section" style={{ marginTop: '24px', padding: '16px', background: 'var(--claw-sidebar-bg)', borderRadius: 'var(--claw-radius)' }}>
+          <label className="claw-setup__label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span>飞书双向控制与常驻守护</span>
             <FeishuStatusBadge
               onStatus={(res) => {
@@ -660,25 +660,25 @@ export function SetupPanel({
               }}
             />
           </label>
-          <p className="otto-setup__hint" style={{ marginBottom: '14px', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+          <p className="claw-setup__hint" style={{ marginBottom: '14px', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
             {fsStatus}
           </p>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button
               type="button"
               disabled={fsBusy}
-              className="otto-setup__btn otto-setup__btn--ghost"
+              className="claw-setup__btn claw-setup__btn--ghost"
               title="调用 ClawMaster 本地引擎的运行期启停端点：启动后断线自动重连；停止属有意停止，不会自动重连"
-              style={{ flex: 1, padding: '10px', height: '38px', borderRadius: 'var(--otto-radius-sm)', fontWeight: 600, fontSize: '12px', opacity: fsBusy ? 0.6 : 1, cursor: fsBusy ? 'wait' : 'pointer' }}
+              style={{ flex: 1, padding: '10px', height: '38px', borderRadius: 'var(--claw-radius-sm)', fontWeight: 600, fontSize: '12px', opacity: fsBusy ? 0.6 : 1, cursor: fsBusy ? 'wait' : 'pointer' }}
               onClick={() => void toggleFeishu()}
             >
               {fsBusy ? '处理中…' : fsRunning ? '停止飞书守护' : '启动飞书守护'}
             </button>
             <button
               type="button"
-              className="otto-setup__btn otto-setup__btn--ghost"
-              style={{ flex: 1, padding: '10px', height: '38px', borderRadius: 'var(--otto-radius-sm)', fontWeight: 600, fontSize: '12px' }}
-              onClick={() => void window.otto?.openExternal('https://open.feishu.cn')}
+              className="claw-setup__btn claw-setup__btn--ghost"
+              style={{ flex: 1, padding: '10px', height: '38px', borderRadius: 'var(--claw-radius-sm)', fontWeight: 600, fontSize: '12px' }}
+              onClick={() => void window.clawmaster?.openExternal('https://open.feishu.cn')}
             >
               <span>飞书开发者平台</span>
               <IconExternalLink size={12} />
@@ -687,50 +687,50 @@ export function SetupPanel({
         </div>
 
         {/* ——「本地测试模式」区块：默认折叠，面向开发者 —— */}
-        <div className="otto-setup__advanced" style={{ marginTop: '8px' }}>
+        <div className="claw-setup__advanced" style={{ marginTop: '8px' }}>
           <button
             type="button"
-            className="otto-setup__advanced-toggle"
+            className="claw-setup__advanced-toggle"
             onClick={() => setLocalTestOpen((v) => !v)}
             aria-expanded={localTestOpen}
           >
             <IconChevron
               size={13}
               className={
-                'otto-setup__advanced-chev' +
-                (localTestOpen ? ' otto-setup__advanced-chev--open' : '')
+                'claw-setup__advanced-chev' +
+                (localTestOpen ? ' claw-setup__advanced-chev--open' : '')
               }
             />
             本地测试模式（开发者）
             {localTestApplied ? (
-              <span style={{ marginLeft: '6px', fontSize: '11px', color: 'var(--otto-accent)', fontWeight: 700 }}>
+              <span style={{ marginLeft: '6px', fontSize: '11px', color: 'var(--claw-accent)', fontWeight: 700 }}>
                 • 已应用
               </span>
             ) : null}
           </button>
           {localTestOpen ? (
-            <div className="otto-setup__persist" style={{ marginTop: '8px' }}>
-              <p className="otto-setup__persist-body" style={{ marginBottom: '10px', lineHeight: '1.6' }}>
+            <div className="claw-setup__persist" style={{ marginTop: '8px' }}>
+              <p className="claw-setup__persist-body" style={{ marginBottom: '10px', lineHeight: '1.6' }}>
                 无需连接远程组织服务器，把请求指向本机运行的 ClawMaster 引擎。
                 <br />
-                <span style={{ color: 'var(--otto-text-secondary)', fontSize: '11px' }}>
+                <span style={{ color: 'var(--claw-text-secondary)', fontSize: '11px' }}>
                   先在终端启动 ClawMaster 本地引擎：
-                  <code style={{ fontFamily: 'var(--otto-font-mono)', fontSize: '10.5px', background: 'var(--otto-surface)', padding: '1px 4px', borderRadius: '3px' }}>
-                    OTTO_SERVER_MOCK=1 node packages/server/dist/bin.js start
+                  <code style={{ fontFamily: 'var(--claw-font-mono)', fontSize: '10.5px', background: 'var(--claw-surface)', padding: '1px 4px', borderRadius: '3px' }}>
+                    CLAWMASTER_SERVER_MOCK=1 node packages/server/dist/bin.js start
                   </code>
                 </span>
                 <br />
-                <span style={{ color: 'var(--otto-text-secondary)', fontSize: '11px' }}>
+                <span style={{ color: 'var(--claw-text-secondary)', fontSize: '11px' }}>
                   单配了 BYO-key 模型时去掉
-                  <code style={{ fontFamily: 'var(--otto-font-mono)', fontSize: '10.5px', background: 'var(--otto-surface)', padding: '1px 4px', borderRadius: '3px' }}>
-                    OTTO_SERVER_MOCK=1
+                  <code style={{ fontFamily: 'var(--claw-font-mono)', fontSize: '10.5px', background: 'var(--claw-surface)', padding: '1px 4px', borderRadius: '3px' }}>
+                    CLAWMASTER_SERVER_MOCK=1
                   </code>
                   可测真实推理。
                 </span>
               </p>
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <input
-                  className="otto-setup__input"
+                  className="claw-setup__input"
                   type="text"
                   value={localTestUrl}
                   placeholder="本地引擎地址，如 http://127.0.0.1:7637"
@@ -748,7 +748,7 @@ export function SetupPanel({
                 />
                 <button
                   type="button"
-                  className="otto-setup__iconbtn"
+                  className="claw-setup__iconbtn"
                   onClick={applyLocalTestUrl}
                   disabled={!localTestUrl.trim()}
                   style={{ whiteSpace: 'nowrap', fontSize: '12px' }}
@@ -758,21 +758,21 @@ export function SetupPanel({
                 {localTestApplied ? (
                   <button
                     type="button"
-                    className="otto-setup__iconbtn"
+                    className="claw-setup__iconbtn"
                     onClick={clearLocalTestUrl}
-                    style={{ whiteSpace: 'nowrap', fontSize: '12px', color: 'var(--otto-text-secondary)' }}
+                    style={{ whiteSpace: 'nowrap', fontSize: '12px', color: 'var(--claw-text-secondary)' }}
                   >
                     清除
                   </button>
                 ) : null}
               </div>
               {localTestApplied ? (
-                <p className="otto-setup__hint otto-generated-icon-label" style={{ marginTop: '8px', color: 'var(--otto-accent)' }}>
+                <p className="claw-setup__hint claw-generated-icon-label" style={{ marginTop: '8px', color: 'var(--claw-accent)' }}>
                   <GeneratedIcon name="status-success" size={15} />
                   <span>已应用本地测试地址：{localTestUrl}，下次对话请求将走本地引擎。</span>
                 </p>
               ) : (
-                <p className="otto-setup__hint" style={{ marginTop: '6px' }}>
+                <p className="claw-setup__hint" style={{ marginTop: '6px' }}>
                   应用后下次对话请求将通过本地引擎（而非连接远程组织服务器）。清除即可恢复默认。
                 </p>
               )}
@@ -781,32 +781,32 @@ export function SetupPanel({
         </div>
 
         {/* —— 离线兜底：默认折叠成一行「高级」，对新手隐去噪音；展开才露两条复制路径 —— */}
-        <div className="otto-setup__advanced">
+        <div className="claw-setup__advanced">
           <button
             type="button"
-            className="otto-setup__advanced-toggle"
+            className="claw-setup__advanced-toggle"
             onClick={() => setAdvancedOpen((v) => !v)}
             aria-expanded={advancedOpen}
           >
             <IconChevron
               size={13}
               className={
-                'otto-setup__advanced-chev' +
-                (advancedOpen ? ' otto-setup__advanced-chev--open' : '')
+                'claw-setup__advanced-chev' +
+                (advancedOpen ? ' claw-setup__advanced-chev--open' : '')
               }
             />
             高级：手动落盘方式
           </button>
           {advancedOpen ? (
-            <div className="otto-setup__persist">
-              <p className="otto-setup__persist-body">
+            <div className="claw-setup__persist">
+              <p className="claw-setup__persist-body">
                 「完成配置」会直接写入
-                <code>~/.otto-user/custom-models.json</code>。若需在别处手动落盘，也可复制：
+                <code>~/.claw-user/custom-models.json</code>。若需在别处手动落盘，也可复制：
               </p>
-              <div className="otto-setup__copyrow">
+              <div className="claw-setup__copyrow">
                 <button
                   type="button"
-                  className="otto-setup__copybtn"
+                  className="claw-setup__copybtn"
                   disabled={!valid}
                   onClick={() => void copyJson()}
                 >
@@ -815,28 +815,28 @@ export function SetupPanel({
                   ) : '复制 custom-models.json'}
                 </button>
               </div>
-              <p className="otto-setup__hint">
+              <p className="claw-setup__hint">
                 已用占位符代替 API Key，粘贴后请自行填入。
               </p>
             </div>
           ) : null}
         </div>
 
-        <footer className="otto-setup__foot">
+        <footer className="claw-setup__foot">
           <button
             type="button"
-            className="otto-setup__btn otto-setup__btn--ghost"
+            className="claw-setup__btn claw-setup__btn--ghost"
             onClick={form.replaceId ? cancelEdit : onClose}
           >
             {form.replaceId ? '取消编辑' : '稍后'}
           </button>
           <button
             type="button"
-            className="otto-setup__btn"
+            className="claw-setup__btn"
             onClick={() => {
               const code = prompt('请输入豁免码：');
-              if (code === 'OTTO-DEV-2026') {
-                try { localStorage.setItem('otto_exempt_code', code); } catch {}
+              if (code === 'CLAWMASTER-DEV-2026') {
+                try { localStorage.setItem('clawmaster_exempt_code', code); } catch {}
                 alert('豁免码验证成功！即将跳过配置直接使用。');
                 window.location.reload();
               } else if (code) {
@@ -849,7 +849,7 @@ export function SetupPanel({
           </button>
           <button
             type="button"
-            className="otto-setup__btn otto-setup__btn--primary"
+            className="claw-setup__btn claw-setup__btn--primary"
             disabled={!valid || saving}
             onClick={submit}
             title={
@@ -858,7 +858,7 @@ export function SetupPanel({
           >
             {saving ? (
               <>
-                <span className="otto-setup__spinner" aria-hidden />
+                <span className="claw-setup__spinner" aria-hidden />
                 保存中…
               </>
             ) : (

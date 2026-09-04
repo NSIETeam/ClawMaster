@@ -1,8 +1,8 @@
 /**
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
- * Otto Voice Bridge Tool - records microphone audio, transcribes it, and
- * optionally polishes it into a structured Otto instruction.
+ * ClawMaster Voice Bridge Tool - records microphone audio, transcribes it, and
+ * optionally polishes it into a structured ClawMaster instruction.
  */
 
 import path from 'path';
@@ -119,7 +119,7 @@ HOW IT WORKS:
 REQUIREMENTS:
   Recording/audio decode: ffmpeg
   Local transcription: ClawMaster local ASR fallback (faster-whisper/openai-whisper backend)
-  Optional quality: OTTO_WHISPER_MODEL=small|medium|large-v3`;
+  Optional quality: CLAWMASTER_WHISPER_MODEL=small|medium|large-v3`;
 
     super(VoiceBridgeTool.Name, 'VoiceBridge', desc, Icon.Terminal,
       {
@@ -187,7 +187,7 @@ REQUIREMENTS:
       missing.push(
         `- ClawMaster local transcription is not ready on this computer.\n` +
         `  Open ClawMaster voice/transcription diagnostics to repair the local ASR backend.\n` +
-        `  Accuracy setting: set OTTO_WHISPER_MODEL=medium, small, or large-v3\n` +
+        `  Accuracy setting: set CLAWMASTER_WHISPER_MODEL=medium, small, or large-v3\n` +
         `  Alternative: configure a user-owned ASR key with OPENAI_API_KEY or ARK_API_KEY`,
       );
     }
@@ -231,7 +231,7 @@ REQUIREMENTS:
     }
     if (!asrBackendValid) {
       missing.push(
-        `- OTTO_ASR_BACKEND="${asrBackend}" is unsupported.\n` +
+        `- CLAWMASTER_ASR_BACKEND="${asrBackend}" is unsupported.\n` +
         `  Use auto, faster-whisper, or openai-whisper.`,
       );
     }
@@ -242,7 +242,7 @@ REQUIREMENTS:
         : `- ClawMaster local transcription is not ready on this computer.\n` +
           `  Open ClawMaster voice/transcription diagnostics to repair the local ASR backend.\n` +
           `  Recommended backend: faster-whisper for speed, medium/large-v3 model for better accuracy.\n` +
-          `  Low-spec computer: set OTTO_WHISPER_MODEL=small`;
+          `  Low-spec computer: set CLAWMASTER_WHISPER_MODEL=small`;
       missing.push(
         selectedBackendHint,
       );
@@ -337,7 +337,7 @@ REQUIREMENTS:
         `- Check microphone permission for ClawMaster or the terminal.\n` +
         `- Install ffmpeg for recording and audio decoding.\n` +
         `- Open ClawMaster voice/transcription diagnostics to repair the local ASR backend.\n` +
-        `- If the computer is slow, set OTTO_WHISPER_MODEL=small and retry.`,
+        `- If the computer is slow, set CLAWMASTER_WHISPER_MODEL=small and retry.`,
       returnDisplay: 'voice_bridge FAILED: ' + (lastError || 'Python unavailable'),
     };
   }

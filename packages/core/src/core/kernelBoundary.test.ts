@@ -3,7 +3,7 @@
  * Copyright 2026 Felix
  * SPDX-License-Identifier: Apache-2.0
  *
- * Import-boundary test for the Otto runtime kernel.
+ * Import-boundary test for the ClawMaster runtime kernel.
  *
  * This test validates that core kernel files do NOT import from
  * optional/UI packages. It reads source files and checks for banned
@@ -36,11 +36,11 @@ const KERNEL_FILES = [
   'prompts.ts',
   'tokenLimits.ts',
   'modelConfig.ts',
-  'ottoChat.ts',
-  'ottoRequest.ts',
+  'clawmasterChat.ts',
+  'clawmasterRequest.ts',
   'subAgent.ts',
   'customModelAdapter.ts',
-  'OttoServerAdapter.ts',
+  'ClawMasterServerAdapter.ts',
   'imageGenerator.ts',
   'workflowRegistry.ts',
   'workflowRunner.ts',
@@ -279,7 +279,7 @@ describe('adapter import boundary', () => {
         if (
           (line.includes('import ') || line.includes('from ')) &&
           // Adapters should import from core
-          (line.includes('/core/src/') || line.includes('otto-core'))
+          (line.includes('/core/src/') || line.includes('clawmaster-core'))
         ) {
           hasCoreImport = true;
           break;

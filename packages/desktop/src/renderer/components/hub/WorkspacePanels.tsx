@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,7 +10,7 @@
  */
 
 import React, { useState } from 'react';
-import type { SessionSummary } from 'otto-server';
+import type { SessionSummary } from 'clawmaster-server';
 import type { UseSettingsData } from '../../state/useSettingsData.js';
 import { Panel, Card, Caption, Dot, Badge, Empty } from './HubUI.js';
 
@@ -30,7 +30,7 @@ export function TodosPanel({ data }: { data: UseSettingsData }): React.JSX.Eleme
       title="任务清单"
       desc="ClawMaster 正在跟进的任务及其进度。"
       actions={
-        <button type="button" className="otto-hub__btn" onClick={actions.refreshTodos}>
+        <button type="button" className="claw-hub__btn" onClick={actions.refreshTodos}>
           刷新
         </button>
       }
@@ -40,10 +40,10 @@ export function TodosPanel({ data }: { data: UseSettingsData }): React.JSX.Eleme
       ) : (
         <Card>
           {state.todos.map((t) => (
-            <div key={t.id} className={'otto-hub__item otto-hub__todo--' + t.status}>
-              <span className="otto-hub__todo-status">{TODO_STATUS_LABEL[t.status]}</span>
-              <span className="otto-hub__todo-content">{t.content}</span>
-              <span className={'otto-hub__todo-priority otto-hub__todo-priority--' + t.priority}>
+            <div key={t.id} className={'claw-hub__item claw-hub__todo--' + t.status}>
+              <span className="claw-hub__todo-status">{TODO_STATUS_LABEL[t.status]}</span>
+              <span className="claw-hub__todo-content">{t.content}</span>
+              <span className={'claw-hub__todo-priority claw-hub__todo-priority--' + t.priority}>
                 {t.priority}
               </span>
             </div>
@@ -72,14 +72,14 @@ export function MemoryPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
       title="记忆"
       desc="ClawMaster 长期记住的事实，写入项目级记忆文件，之后的对话都会生效。"
       actions={
-        <button type="button" className="otto-hub__btn" onClick={actions.refreshMemory}>
+        <button type="button" className="claw-hub__btn" onClick={actions.refreshMemory}>
           刷新
         </button>
       }
     >
-      <div className="otto-hub__inputrow">
+      <div className="claw-hub__inputrow">
         <input
-          className="otto-hub__input"
+          className="claw-hub__input"
           type="text"
           value={draft}
           placeholder="新增一条记忆，例如：用户偏好使用中文回复"
@@ -88,7 +88,7 @@ export function MemoryPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
             if (e.key === 'Enter') submit();
           }}
         />
-        <button type="button" className="otto-hub__btn otto-hub__btn--primary" onClick={submit}>
+        <button type="button" className="claw-hub__btn claw-hub__btn--primary" onClick={submit}>
           保存
         </button>
       </div>
@@ -100,10 +100,10 @@ export function MemoryPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
           <React.Fragment key={f.path}>
             <Caption>
               {f.scope === 'project' ? '项目记忆' : '全局记忆'}
-              <span className="otto-hub__caption-detail">{f.path}</span>
+              <span className="claw-hub__caption-detail">{f.path}</span>
             </Caption>
             {f.exists && f.content.trim() ? (
-              <pre className="otto-hub__memory-content">{f.content}</pre>
+              <pre className="claw-hub__memory-content">{f.content}</pre>
             ) : (
               <Empty>暂无内容。</Empty>
             )}
@@ -124,7 +124,7 @@ export function SkillsPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
       title="技能库"
       desc="已安装的技能，ClawMaster 会按任务需要自动调用。"
       actions={
-        <button type="button" className="otto-hub__btn" onClick={actions.refreshSkills}>
+        <button type="button" className="claw-hub__btn" onClick={actions.refreshSkills}>
           刷新
         </button>
       }
@@ -134,10 +134,10 @@ export function SkillsPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
       ) : (
         <Card>
           {state.skills.map((sk) => (
-            <div key={sk.id} className="otto-hub__item">
+            <div key={sk.id} className="claw-hub__item">
               <Dot tone={sk.enabled ? 'on' : 'off'} />
-              <span className="otto-hub__row-name">{sk.name}</span>
-              <span className="otto-hub__item-desc">{sk.description}</span>
+              <span className="claw-hub__row-name">{sk.name}</span>
+              <span className="claw-hub__item-desc">{sk.description}</span>
             </div>
           ))}
         </Card>
@@ -165,7 +165,7 @@ export function ToolsPanel({
         activeSession ? (
           <button
             type="button"
-            className="otto-hub__btn"
+            className="claw-hub__btn"
             onClick={() => actions.refreshTools(activeSession.sessionId)}
           >
             刷新
@@ -180,9 +180,9 @@ export function ToolsPanel({
       ) : (
         <Card>
           {state.tools.map((t) => (
-            <div key={t.name} className="otto-hub__item">
-              <span className="otto-hub__row-name">{t.displayName}</span>
-              <span className="otto-hub__item-desc">{t.description}</span>
+            <div key={t.name} className="claw-hub__item">
+              <span className="claw-hub__row-name">{t.displayName}</span>
+              <span className="claw-hub__item-desc">{t.description}</span>
               {t.serverName ? <Badge tone="accent">MCP · {t.serverName}</Badge> : null}
             </div>
           ))}

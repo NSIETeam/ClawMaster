@@ -1,9 +1,9 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import type { SearchProvider } from 'otto-server';
+import type { SearchProvider } from 'clawmaster-server';
 import type { UseSettingsData } from '../../state/useSettingsData.js';
 import { Badge, Card, Empty, Panel } from './HubUI.js';
 
@@ -150,12 +150,12 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
         <Empty>正在读取联网搜索配置…</Empty>
       ) : (
         <>
-          <Card className="otto-search-ready">
-            <div className="otto-search-ready__mark" aria-hidden>
+          <Card className="claw-search-ready">
+            <div className="claw-search-ready__mark" aria-hidden>
               <span />
             </div>
-            <div className="otto-search-ready__copy">
-              <div className="otto-search-ready__eyebrow">已自动开启</div>
+            <div className="claw-search-ready__copy">
+              <div className="claw-search-ready__eyebrow">已自动开启</div>
               <strong>ClawMaster 可以随时联网搜索</strong>
               <p>
                 默认使用内置免密钥线路；一条线路不可用时会自动换下一条。
@@ -165,23 +165,23 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
             <Badge tone="accent">无需配置</Badge>
           </Card>
 
-          <Card className="otto-search-diagnostics">
-            <div className="otto-search-diagnostics__header">
+          <Card className="claw-search-diagnostics">
+            <div className="claw-search-diagnostics__header">
               <div>
-                <div className="otto-hub__field-label">线路运行状态</div>
-                <div className="otto-hub__field-hint">
+                <div className="claw-hub__field-label">线路运行状态</div>
+                <div className="claw-hub__field-hint">
                   自动记录切换、熔断、响应时间和企业用量，不记录搜索内容。
                 </div>
               </div>
               <button
                 type="button"
-                className="otto-hub__btn"
+                className="claw-hub__btn"
                 onClick={data.actions.refreshSearchConfig}
               >
                 刷新状态
               </button>
             </div>
-            <div className="otto-search-diagnostics__summary">
+            <div className="claw-search-diagnostics__summary">
               <div>
                 <span>调用</span>
                 <strong>{diagnostics?.totalAttempts ?? 0}</strong>
@@ -199,7 +199,7 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
                 <strong>¥{(diagnostics?.estimatedCostCny ?? 0).toFixed(4)}</strong>
               </div>
             </div>
-            <div className="otto-search-diagnostics__quota">
+            <div className="claw-search-diagnostics__quota">
               <span>
                 当月请求：{diagnostics?.quota?.requestsUsed ?? 0}
                 {typeof diagnostics?.quota?.requestLimit === 'number'
@@ -216,21 +216,21 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
                 {diagnostics?.quota?.blocked ? '额度已用完' : '额度正常'}
               </Badge>
             </div>
-            <div className="otto-search-diagnostics__providers">
+            <div className="claw-search-diagnostics__providers">
               {diagnostics?.providers.map((item) => (
-                <div className="otto-search-provider" key={item.provider}>
-                  <div className="otto-search-provider__name">
+                <div className="claw-search-provider" key={item.provider}>
+                  <div className="claw-search-provider__name">
                     <span>{PROVIDER_LABELS[item.provider]}</span>
                     <Badge tone={item.status === 'healthy' ? 'accent' : undefined}>
                       {HEALTH_LABELS[item.status]}
                     </Badge>
                   </div>
-                  <div className="otto-search-provider__metrics">
+                  <div className="claw-search-provider__metrics">
                     <span>{item.successes}/{item.attempts} 成功</span>
                     <span>{item.averageLatencyMs} ms</span>
                     <span>¥{item.estimatedCostCny.toFixed(4)}</span>
                   </div>
-                  <div className="otto-search-provider__detail">
+                  <div className="claw-search-provider__detail">
                     {item.status === 'open' && item.openUntil
                       ? `暂停至 ${new Date(item.openUntil).toLocaleTimeString()}`
                       : item.lastErrorCode
@@ -246,7 +246,7 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
 
           <button
             type="button"
-            className="otto-hub__advanced-trigger"
+            className="claw-hub__advanced-trigger"
             aria-expanded={advancedOpen}
             onClick={() => setAdvancedOpen((value) => !value)}
           >
@@ -256,19 +256,19 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
 
           {advancedOpen ? (
             <Card>
-              <div className="otto-hub__setting otto-hub__setting--stack">
-                <div className="otto-hub__setting-text">
-                  <div className="otto-hub__field-label">优先使用</div>
-                  <div className="otto-hub__field-hint">
+              <div className="claw-hub__setting claw-hub__setting--stack">
+                <div className="claw-hub__setting-text">
+                  <div className="claw-hub__field-label">优先使用</div>
+                  <div className="claw-hub__field-hint">
                     大多数人保持“自动”即可；这里仅供已有企业搜索服务时使用。
                   </div>
                 </div>
-                <div className="otto-hub__chiprow">
+                <div className="claw-hub__chiprow">
                   {PROVIDERS.map((item) => (
                     <button
                       key={item.id}
                       type="button"
-                      className={'otto-hub__chip' + (provider === item.id ? ' is-active' : '')}
+                      className={'claw-hub__chip' + (provider === item.id ? ' is-active' : '')}
                       aria-pressed={provider === item.id}
                       title={item.hint}
                       onClick={() => chooseProvider(item.id)}
@@ -281,31 +281,31 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
 
               {provider === 'volcengine' ? (
                 <>
-                  <div className="otto-hub__setting otto-hub__setting--stack">
-                    <div className="otto-hub__setting-text">
-                      <label className="otto-hub__field-label" htmlFor="search-api-url">
+                  <div className="claw-hub__setting claw-hub__setting--stack">
+                    <div className="claw-hub__setting-text">
+                      <label className="claw-hub__field-label" htmlFor="search-api-url">
                         服务地址
                       </label>
-                      <div className="otto-hub__field-hint">默认已填好，只有企业网关不同才需要修改。</div>
+                      <div className="claw-hub__field-hint">默认已填好，只有企业网关不同才需要修改。</div>
                     </div>
                     <input
                       id="search-api-url"
-                      className="otto-hub__input"
+                      className="claw-hub__input"
                       type="url"
                       value={apiUrl}
                       spellCheck={false}
                       onChange={(event) => setApiUrl(event.target.value)}
                     />
                   </div>
-                  <div className="otto-hub__setting otto-hub__setting--stack">
-                    <div className="otto-hub__setting-text">
-                      <label className="otto-hub__field-label" htmlFor="search-model">
+                  <div className="claw-hub__setting claw-hub__setting--stack">
+                    <div className="claw-hub__setting-text">
+                      <label className="claw-hub__field-label" htmlFor="search-model">
                         模型或接入点 ID
                       </label>
                     </div>
                     <input
                       id="search-model"
-                      className="otto-hub__input"
+                      className="claw-hub__input"
                       value={model}
                       spellCheck={false}
                       onChange={(event) => setModel(event.target.value)}
@@ -315,48 +315,48 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
               ) : null}
 
               {requiresKey ? (
-                <div className="otto-hub__setting otto-hub__setting--stack">
-                  <div className="otto-hub__setting-text">
-                    <label className="otto-hub__field-label" htmlFor="search-api-key">API Key</label>
-                    <div className="otto-hub__field-hint">只保存在这台电脑，不会在界面中显示原文。</div>
+                <div className="claw-hub__setting claw-hub__setting--stack">
+                  <div className="claw-hub__setting-text">
+                    <label className="claw-hub__field-label" htmlFor="search-api-key">API Key</label>
+                    <div className="claw-hub__field-hint">只保存在这台电脑，不会在界面中显示原文。</div>
                   </div>
-                  <div className="otto-hub__inputrow">
+                  <div className="claw-hub__inputrow">
                     <input
                       id="search-api-key"
-                      className="otto-hub__input"
+                      className="claw-hub__input"
                       type="password"
                       value={apiKey}
                       autoComplete="new-password"
                       placeholder={hasSavedKey ? '留空即可继续使用已保存的密钥' : '粘贴 API Key'}
                       onChange={(event) => setApiKey(event.target.value)}
                     />
-                    {hasSavedKey ? <button type="button" className="otto-hub__btn" onClick={clearKey}>清除</button> : null}
+                    {hasSavedKey ? <button type="button" className="claw-hub__btn" onClick={clearKey}>清除</button> : null}
                   </div>
                   <div><Badge tone={hasSavedKey ? 'accent' : undefined}>{hasSavedKey ? '密钥已保存' : '尚未填写密钥'}</Badge></div>
                 </div>
               ) : (
-                <div className="otto-hub__setting">
-                  <div className="otto-hub__setting-text">
-                    <div className="otto-hub__field-label">{provider === 'bing' ? '无需 API Key' : '使用已有模型'}</div>
-                    <div className="otto-hub__field-hint">
+                <div className="claw-hub__setting">
+                  <div className="claw-hub__setting-text">
+                    <div className="claw-hub__field-label">{provider === 'bing' ? '无需 API Key' : '使用已有模型'}</div>
+                    <div className="claw-hub__field-hint">
                       {provider === 'bing' ? '保存后恢复 ClawMaster 自动搜索。' : 'Gemini 会使用你已经配置的 Gemini 模型。'}
                     </div>
                   </div>
                 </div>
               )}
 
-              <div className="otto-hub__setting otto-hub__setting--stack">
-                <div className="otto-hub__setting-text">
-                  <label className="otto-hub__field-label" htmlFor="search-request-cost">
+              <div className="claw-hub__setting claw-hub__setting--stack">
+                <div className="claw-hub__setting-text">
+                  <label className="claw-hub__field-label" htmlFor="search-request-cost">
                     单次调用成本（元）
                   </label>
-                  <div className="otto-hub__field-hint">
+                  <div className="claw-hub__field-hint">
                     可选。用于企业费用估算，不参与服务商实际扣费。
                   </div>
                 </div>
                 <input
                   id="search-request-cost"
-                  className="otto-hub__input"
+                  className="claw-hub__input"
                   type="number"
                   min="0"
                   step="0.0001"
@@ -366,16 +366,16 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
                 />
               </div>
 
-              <div className="otto-hub__setting otto-hub__setting--stack">
-                <div className="otto-hub__setting-text">
-                  <div className="otto-hub__field-label">企业月度额度</div>
-                  <div className="otto-hub__field-hint">
+              <div className="claw-hub__setting claw-hub__setting--stack">
+                <div className="claw-hub__setting-text">
+                  <div className="claw-hub__field-label">企业月度额度</div>
+                  <div className="claw-hub__field-hint">
                     可选。达到请求次数或预算任一上限后，ClawMaster 会停止对应供应商请求。
                   </div>
                 </div>
-                <div className="otto-hub__inputrow">
+                <div className="claw-hub__inputrow">
                   <input
-                    className="otto-hub__input"
+                    className="claw-hub__input"
                     aria-label="每月搜索请求上限"
                     type="number"
                     min="0"
@@ -385,7 +385,7 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
                     onChange={(event) => setMonthlyRequestQuota(event.target.value)}
                   />
                   <input
-                    className="otto-hub__input"
+                    className="claw-hub__input"
                     aria-label="每月搜索预算上限"
                     type="number"
                     min="0"
@@ -397,9 +397,9 @@ export function SearchPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
                 </div>
               </div>
 
-              <div className="otto-hub__setting otto-search-advanced__actions">
-                <span className="otto-hub__field-hint">保存后立即用于当前与新会话。</span>
-                <button type="button" className="otto-hub__btn otto-hub__btn--primary" disabled={!canSave} onClick={save}>保存</button>
+              <div className="claw-hub__setting claw-search-advanced__actions">
+                <span className="claw-hub__field-hint">保存后立即用于当前与新会话。</span>
+                <button type="button" className="claw-hub__btn claw-hub__btn--primary" disabled={!canSave} onClick={save}>保存</button>
               </div>
             </Card>
           ) : null}

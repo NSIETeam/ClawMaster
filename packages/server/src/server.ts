@@ -1,11 +1,11 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * otto-server：本地 HTTP + WS app server 骨架。
+ * clawmaster-server：本地 HTTP + WS app server 骨架。
  *
  * 唯一会话源：所有客户端（desktop renderer / 飞书网关）都经
  * 这里读写同一份 SessionStore，并通过 WS 收到同一会话的实时广播。
@@ -141,7 +141,7 @@ import {
   getAllMCPServerStatuses,
   MCPServerStatus,
   MemoryTool,
-  OTTO_CONFIG_DIR,
+  CLAWMASTER_CONFIG_DIR,
   DEFAULT_CONTEXT_FILENAME,
   resolveProjectMemoryFilePath,
   SkillsCatalogAdapter,
@@ -175,8 +175,8 @@ import {
   RecurringTaskRegistry,
   loadBuiltinSkillInstructions,
   getWebSearchDiagnostics,
-} from 'otto-core';
-import type { CustomModelConfig } from 'otto-core';
+} from 'clawmaster-core';
+import type { CustomModelConfig } from 'clawmaster-core';
 
 /** server 版本（实装时可从 package.json 注入）。 */
 const SERVER_VERSION = '0.1.0';
@@ -258,7 +258,7 @@ function publicAutoSkillCandidate(
 
 /**
  * 会话运行时工厂：为某会话建并初始化一个 SessionRuntime。
- * 默认实现 = 包 otto-core（createCoreSessionRuntime）。可注入替换（测试 / mock）。
+ * 默认实现 = 包 clawmaster-core（createCoreSessionRuntime）。可注入替换（测试 / mock）。
  */
 export type RuntimeFactory = (
   store: SessionStore,
@@ -337,7 +337,7 @@ const defaultRuntimeFactory: RuntimeFactory = async (
   });
 };
 
-export interface OttoServerOptions {
+export interface ClawMasterServerOptions {
   host?: string;
   port?: number;
   /** 是否启用飞书网关（缺省读 env / credentials 探测）。 */
@@ -346,14 +346,14 @@ export interface OttoServerOptions {
   /** 新会话默认工作目录；Electron 传用户主目录，独立 server 默认保留启动目录。 */
   defaultWorkspacePath?: string;
   /**
-   * 会话运行时工厂。缺省 = 包 otto-core 的真实运行时。
+   * 会话运行时工厂。缺省 = 包 clawmaster-core 的真实运行时。
    * 注入自定义工厂用于测试或 mock 模式。
    */
   runtimeFactory?: RuntimeFactory;
   /**
    * 强制 mock 模式：不接 core，send_user_message 走占位回声。
    * 缺省 false；但若未配置任何模型（无 BYO-key 且无 env auth），会自动降级 mock，
-   * 让无 key 的全新机器也能端到端验证收发链路。可被 env OTTO_SERVER_MOCK=1 置真。
+   * 让无 key 的全新机器也能端到端验证收发链路。可被 env CLAWMASTER_SERVER_MOCK=1 置真。
    */
   mock?: boolean;
   /**
@@ -416,9 +416,9 @@ interface QueuedMessage {
 }
 
 /**
- * OttoServer：可被 bin（start/stop/status）或 Electron 主进程内嵌拉起。
+ * ClawMasterServer：可被 bin（start/stop/status）或 Electron 主进程内嵌拉起。
  */
-export class OttoServer {
+export class ClawMasterServer {
   readonly store: SessionStore;
   private readonly host: string;
   private readonly port: number;
@@ -466,8 +466,8 @@ export class OttoServer {
   private http?: HttpServer;
   private wss?: WebSocketServer;
   private feishu?: FeishuRegistration;
-  /** 飞书测试注入（见 OttoServerOptions.feishuDeps）。 */
-  private readonly feishuDeps?: OttoServerOptions['feishuDeps'];
+  /** 飞书测试注入（见 ClawMasterServerOptions.feishuDeps）。 */
+  private readonly feishuDeps?: ClawMasterServerOptions['feishuDeps'];
   /** 飞书凭证存取（/feishu/config 端点用）。 */
   private readonly credentialsStore: FeishuCredentialsStore;
   /** 运行期飞书启停的单飞锁：并发 POST 复用同一次操作，防重复 register。 */
@@ -495,14 +495,14 @@ export class OttoServer {
   private readonly channelInstallationRegistry: ChannelInstallationRegistry;
   private readonly workLogService: WorkLogService;
 
-  constructor(opts: OttoServerOptions = {}) {
+  constructor(opts: ClawMasterServerOptions = {}) {
     this.host = opts.host ?? DEFAULT_HOST;
     this.port =
-      opts.port ?? Number(process.env.OTTO_SERVER_PORT ?? DEFAULT_PORT);
+      opts.port ?? Number(process.env.CLAWMASTER_SERVER_PORT ?? DEFAULT_PORT);
     this.enableFeishu =
-      opts.enableFeishu ?? process.env.OTTO_FEISHU_ENABLED === '1';
+      opts.enableFeishu ?? process.env.CLAWMASTER_FEISHU_ENABLED === '1';
     this.defaultWorkspacePath = opts.defaultWorkspacePath
-      ?? process.env.OTTO_DEFAULT_WORKSPACE_PATH
+      ?? process.env.CLAWMASTER_DEFAULT_WORKSPACE_PATH
       ?? resolveDefaultCwd();
     this.store = opts.store ?? new InMemorySessionStore({
       defaultWorkspacePath: this.defaultWorkspacePath,
@@ -512,7 +512,7 @@ export class OttoServer {
     });
     this.runtimeFactory = opts.runtimeFactory ?? defaultRuntimeFactory;
     // mock 决策：显式 opts.mock 优先，否则看 env；都没有则按「是否配了模型」自动判定。
-    this.mock = opts.mock ?? process.env.OTTO_SERVER_MOCK === '1';
+    this.mock = opts.mock ?? process.env.CLAWMASTER_SERVER_MOCK === '1';
     this.feishuDeps = opts.feishuDeps;
     this.credentialsStore = opts.credentialsStore ?? defaultCredentialsStore;
     this.productWorkspace =
@@ -580,7 +580,7 @@ export class OttoServer {
     // "没装 skill" 退回内置工具。放在 start() 而非 per-session runtime.initialize()，
     // 确保 app 一启动就就位，不必等用户发第一条消息。失败不影响对话。
     try {
-      const { initializeSkillsContext } = await import('otto-core');
+      const { initializeSkillsContext } = await import('clawmaster-core');
       await initializeSkillsContext(process.cwd());
     } catch {
       // skills 系统可选。
@@ -590,9 +590,9 @@ export class OttoServer {
     try {
       const sessionMgr = getSessionManager();
       await sessionMgr.initialize();
-      console.log('[Server] OttoSessionManager initialized');
+      console.log('[Server] ClawMasterSessionManager initialized');
     } catch (e) {
-      console.warn('[Server] OttoSessionManager init failed (non-fatal):', e);
+      console.warn('[Server] ClawMasterSessionManager init failed (non-fatal):', e);
     }
 
     // 自动 Skill 只分析本地工作日志并暂存“待确认候选”，不会直接写 SKILL.md。
@@ -1560,7 +1560,7 @@ export class OttoServer {
             cfg.setAgentStyle(
               value as Parameters<CoreConfig['setAgentStyle']>[0],
             );
-            const client = cfg.getOttoClient();
+            const client = cfg.getClawMasterClient();
             await client?.updateSystemPromptWithMcpPrompts();
           } catch {
             // 单个会话刷新失败不影响整体设置生效（下次新会话会读到最新落盘值）。
@@ -1917,7 +1917,7 @@ export class OttoServer {
       const projectPath = await resolveProjectMemoryFilePath(cwd);
       const globalPath = path.join(
         homedir(),
-        OTTO_CONFIG_DIR,
+        CLAWMASTER_CONFIG_DIR,
         'memory',
         DEFAULT_CONTEXT_FILENAME,
       );
@@ -2064,7 +2064,7 @@ export class OttoServer {
     const { sessionId } = msg.payload;
     const runtime = this.store.getRuntime(sessionId);
     const cfg = runtime?.getConfig?.() as CoreConfig | undefined;
-    const client = cfg?.getOttoClient?.();
+    const client = cfg?.getClawMasterClient?.();
     if (!client) {
       return this.send(
         conn.socket,
@@ -2156,7 +2156,7 @@ export class OttoServer {
         }
 
         const cfg = runtime.getConfig?.() as CoreConfig | undefined;
-        const client = cfg?.getOttoClient?.();
+        const client = cfg?.getClawMasterClient?.();
         if (!client) {
           skipped++;
           continue;
@@ -2303,7 +2303,7 @@ export class OttoServer {
 
   /**
    * IDE 伴生连接状态。desktop 是独立 Electron 应用，不像 CLI 那样跑在 VS Code
-   * 终端内、天然带 OTTO_CODE_IDE_SERVER_PORT；因此恒回 not_applicable + 说明，
+   * 终端内、天然带 CLAWMASTER_CODE_IDE_SERVER_PORT；因此恒回 not_applicable + 说明，
    * 诚实告知而非谎报「未连接」（那会让用户误以为该去连接，其实这条能力不适用桌面端）。
    */
   private handleGetIdeStatus(conn: ClientConn): void {
@@ -3641,7 +3641,7 @@ export class OttoServer {
   /**
    * 用户消息入口（app→server）：落库 user 消息 + 广播，然后驱动一轮回复。
    * - mock 模式（无 core / 无 BYO-key）：回占位回声，验证收发链路。
-   * - 实装模式：懒构建会话 runtime（包 otto-core），runtime.run 跑一整轮，
+   * - 实装模式：懒构建会话 runtime（包 clawmaster-core），runtime.run 跑一整轮，
    *   流式/工具事件由 runtime 内部 publish 广播给所有订阅者。
    */
   private async handleSendUserMessage(
@@ -3796,7 +3796,7 @@ export class OttoServer {
   /**
    * Raw message ingestion (after busy/new-session routing).
    * De-duplicated from handleSendUserMessage: session optional checks
-   * and OttoSessionManager touches are done in the caller.
+   * and ClawMasterSessionManager touches are done in the caller.
    */
   private async handleSendUserMessageRaw(
     sessionId: string,
@@ -3828,7 +3828,7 @@ export class OttoServer {
     }
     const shouldGenerateTitle = firstUserMessage !== undefined;
 
-    // ── OttoSessionManager ──
+    // ── ClawMasterSessionManager ──
     try {
       const sessionMgr = getSessionManager();
       sessionMgr.touchSession(sessionId);
@@ -4300,7 +4300,7 @@ export class OttoServer {
       payload: { message: assistant },
     });
     const text =
-      '（mock）otto-server 已就绪，core 驱动尚未接入（Issue #1）。收发链路 OK。';
+      '（mock）clawmaster-server 已就绪，core 驱动尚未接入（Issue #1）。收发链路 OK。';
     this.store.publish(sessionId, {
       type: 'chat_chunk',
       payload: { sessionId, messageId: assistant.id, delta: text },
@@ -4700,8 +4700,8 @@ function browserBridgeScript(clientToken: string): string {
     skillShareList: () => Promise.resolve({ text: '浏览器模式暂未接入部门共享 Skill。' }),
     skillMarketplace: () => Promise.resolve({ text: '浏览器模式暂未接入公司 Skill 市场。' }),
     setLocalTestUrl: () => Promise.resolve(),
-    appVersion: () => Promise.resolve('0.0.1'),
-    updateCheck: () => Promise.resolve({ status: 'up-to-date', currentVersion: '0.0.1', latestVersion: null }),
+    appVersion: () => Promise.resolve('0.0.2beta'),
+    updateCheck: () => Promise.resolve({ status: 'up-to-date', currentVersion: '0.0.2beta', latestVersion: null }),
     updateDownload: () => Promise.resolve({ ok: false, error: '浏览器模式不支持下载安装包。' }),
     updateCancel: () => Promise.resolve(),
     updateInstall: () => Promise.resolve({ ok: false, message: '浏览器模式不支持安装更新。' }),

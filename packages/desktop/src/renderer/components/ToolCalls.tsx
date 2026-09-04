@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,7 +20,7 @@ import type {
   ToolCall,
   ToolCallConfirmationDetails,
   ToolConfirmationResponsePayload,
-} from 'otto-server';
+} from 'clawmaster-server';
 import { parseDiff, type DiffLine } from './diff.js';
 import { QrCode } from './QrCode.js';
 import {
@@ -660,11 +660,11 @@ function statusInfo(status: ToolCallStatus): {
   kind: StatusIconKind;
 } {
   // 用字符串字面量比较（值与 protocol ToolCallStatus 枚举一致），
-  // 避免在渲染层 import 枚举「值」而把 otto-server 运行时拖进 bundle。
+  // 避免在渲染层 import 枚举「值」而把 claw-server 运行时拖进 bundle。
   switch (status as string) {
     case 'success':
       return {
-        cls: 'otto-tool__status--done',
+        cls: 'claw-tool__status--done',
         text: '已完成',
         running: false,
         error: false,
@@ -672,7 +672,7 @@ function statusInfo(status: ToolCallStatus): {
       };
     case 'error':
       return {
-        cls: 'otto-tool__status--error',
+        cls: 'claw-tool__status--error',
         text: '失败',
         running: false,
         error: true,
@@ -680,7 +680,7 @@ function statusInfo(status: ToolCallStatus): {
       };
     case 'cancelled':
       return {
-        cls: 'otto-tool__status--error',
+        cls: 'claw-tool__status--error',
         text: '已取消',
         running: false,
         error: true,
@@ -689,7 +689,7 @@ function statusInfo(status: ToolCallStatus): {
     case 'awaiting_approval':
       // 待确认：不转圈也不渲染成功勾，用中性暂停语义（琥珀点）。
       return {
-        cls: 'otto-tool__status--pending',
+        cls: 'claw-tool__status--pending',
         text: '待确认',
         running: false,
         error: false,
@@ -698,7 +698,7 @@ function statusInfo(status: ToolCallStatus): {
     case 'scheduled':
       // 排队中：尚未开始，用静态点而非转圈，区别于真正在跑。
       return {
-        cls: 'otto-tool__status--running',
+        cls: 'claw-tool__status--running',
         text: '排队中',
         running: false,
         error: false,
@@ -707,7 +707,7 @@ function statusInfo(status: ToolCallStatus): {
     case 'validating':
       // 校验中：已在动，保留转圈。
       return {
-        cls: 'otto-tool__status--running',
+        cls: 'claw-tool__status--running',
         text: '校验中',
         running: true,
         error: false,
@@ -716,7 +716,7 @@ function statusInfo(status: ToolCallStatus): {
     default:
       // executing 及其它未列举态：执行中转圈。
       return {
-        cls: 'otto-tool__status--running',
+        cls: 'claw-tool__status--running',
         text: '运行中',
         running: true,
         error: false,
@@ -738,7 +738,7 @@ function StatusIcon({
 }): React.JSX.Element {
   switch (kind) {
     case 'running':
-      return <span className="otto-spin" role="img" aria-label={label} />;
+      return <span className="claw-spin" role="img" aria-label={label} />;
     case 'done':
       return <IconCheck size={14} />;
     case 'error':
@@ -747,7 +747,7 @@ function StatusIcon({
     case 'pending':
     default:
       // 静态圆点：不动，区别于转圈的「在跑」。
-      return <span className="otto-tool__dot" role="img" aria-label={label} />;
+      return <span className="claw-tool__dot" role="img" aria-label={label} />;
   }
 }
 
@@ -765,22 +765,22 @@ export function ToolCallsCard({
   const summary = buildToolGroupSummary(toolCalls);
 
   return (
-    <div className="otto-tools">
+    <div className="claw-tools">
       <button
         type="button"
-        className="otto-tools__summary"
+        className="claw-tools__summary"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
         {summary}
         <IconChevron
           size={16}
-          className={`otto-tools__chev${open ? ' otto-tools__chev--open' : ''}`}
+          className={`claw-tools__chev${open ? ' claw-tools__chev--open' : ''}`}
         />
       </button>
-      <div className={`otto-collapse${open ? ' otto-collapse--open' : ''}`}>
-        <div className="otto-collapse__inner">
-          <div className="otto-tools__list">
+      <div className={`claw-collapse${open ? ' claw-collapse--open' : ''}`}>
+        <div className="claw-collapse__inner">
+          <div className="claw-tools__list">
             {toolCalls.map((tc) =>
               isPendingQuestion(tc) ? (
                 // 待作答的 AskUserQuestion：整卡换成交互式问答卡。
@@ -836,22 +836,22 @@ function ConfirmationCard({
     onRespond(tool.id, outcome, undefined, tool);
   };
   return (
-    <div className="otto-tool otto-ask otto-confirm">
-      <div className="otto-ask__head">
+    <div className="claw-tool claw-ask claw-confirm">
+      <div className="claw-ask__head">
         <span
-          className={`otto-ask__badge${highRisk ? ' otto-confirm__badge--danger' : ''}`}
+          className={`claw-ask__badge${highRisk ? ' claw-confirm__badge--danger' : ''}`}
         >
           {highRisk ? '高风险操作' : '需要你确认'}
         </span>
-        <span className="otto-ask__title">
+        <span className="claw-ask__title">
           {details.title ?? '允许 ClawMaster 执行此操作？'}
         </span>
       </div>
-      <div className="otto-confirm__target">{target}</div>
-      <div className="otto-ask__actions">
+      <div className="claw-confirm__target">{target}</div>
+      <div className="claw-ask__actions">
         <button
           type="button"
-          className="otto-ask__skip"
+          className="claw-ask__skip"
           disabled={sent || !onRespond}
           onClick={() => respond('rejected')}
         >
@@ -859,7 +859,7 @@ function ConfirmationCard({
         </button>
         <button
           type="button"
-          className="otto-ask__submit"
+          className="claw-ask__submit"
           disabled={sent || !onRespond}
           onClick={() => respond('approved')}
         >
@@ -882,7 +882,7 @@ function isPendingQuestion(tc: ToolCall): boolean {
 async function copyToolOutput(text: string): Promise<boolean> {
   try {
     // Desktop 通过 main 进程写系统剪贴板，避免 renderer 权限和焦点状态导致复制失败。
-    const desktopWriter = window.otto?.writeClipboard;
+    const desktopWriter = window.clawmaster?.writeClipboard;
     if (typeof desktopWriter === 'function') return await desktopWriter(text);
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
@@ -927,37 +927,37 @@ function ToolItem({ tool }: { tool: ToolCall }): React.JSX.Element {
 
   const headInner = (
     <>
-      <span className="otto-tool__icon">
+      <span className="claw-tool__icon">
         <Icon size={16} />
       </span>
-      <span className="otto-tool__kind" title={rawTitle}>
+      <span className="claw-tool__kind" title={rawTitle}>
         {resolved.label}
       </span>
-      <span className="otto-tool__target" title={resolved.target || undefined}>
+      <span className="claw-tool__target" title={resolved.target || undefined}>
         {resolved.target}
       </span>
-      <span className={`otto-tool__status ${st.cls}`}>
+      <span className={`claw-tool__status ${st.cls}`}>
         <StatusIcon kind={st.kind} label={st.text} />
         {/* key 绑文案：运行中→已完成 切换时触发淡入，不再硬切。 */}
-        <span key={st.text} className="otto-tool__statustext">
+        <span key={st.text} className="claw-tool__statustext">
           {st.text}
         </span>
       </span>
       {hasBody ? (
         <IconChevron
           size={15}
-          className={`otto-tool__chev${open ? ' otto-tool__chev--open' : ''}`}
+          className={`claw-tool__chev${open ? ' claw-tool__chev--open' : ''}`}
         />
       ) : null}
     </>
   );
 
   return (
-    <div className="otto-tool">
+    <div className="claw-tool">
       {hasBody ? (
         <button
           type="button"
-          className="otto-tool__head"
+          className="claw-tool__head"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
         >
@@ -965,26 +965,26 @@ function ToolItem({ tool }: { tool: ToolCall }): React.JSX.Element {
         </button>
       ) : (
         // 无可展开内容：不挂点击/展开语义，避免假可点性（cursor/hover 归 CSS 的 --static）。
-        <div className="otto-tool__head otto-tool__head--static">
+        <div className="claw-tool__head claw-tool__head--static">
           {headInner}
         </div>
       )}
 
       {/* grid 折叠动画包裹 body（diff / 终端输出） */}
       {hasBody ? (
-        <div className={`otto-collapse${open ? ' otto-collapse--open' : ''}`}>
-          <div className="otto-collapse__inner">
+        <div className={`claw-collapse${open ? ' claw-collapse--open' : ''}`}>
+          <div className="claw-collapse__inner">
             {feishuAuthorization ? (
               <FeishuAuthorizationCard authorization={feishuAuthorization} />
             ) : resolved.kind === 'edit' && resolved.diff ? (
               <DiffView diff={resolved.diff} path={resolved.target} />
             ) : safetyNotice || resolved.output ? (
-              <div className="otto-tool__output-wrap">
-                {safetyNotice ? <div className="otto-tool__safety-notice" role="status">{safetyNotice}</div> : null}
-                <div className="otto-tool__output-actions">
+              <div className="claw-tool__output-wrap">
+                {safetyNotice ? <div className="claw-tool__safety-notice" role="status">{safetyNotice}</div> : null}
+                <div className="claw-tool__output-actions">
                   <button
                     type="button"
-                    className="otto-tool__copy"
+                    className="claw-tool__copy"
                     onClick={async () => {
                       const copied = await copyToolOutput(resolved.output!);
                       setCopyState(copied ? 'copied' : 'failed');
@@ -999,7 +999,7 @@ function ToolItem({ tool }: { tool: ToolCall }): React.JSX.Element {
                         : '复制结果'}
                   </button>
                 </div>
-                <pre className="otto-tool__output">{resolved.output}</pre>
+                <pre className="claw-tool__output">{resolved.output}</pre>
               </div>
             ) : null}
           </div>
@@ -1015,23 +1015,23 @@ function FeishuAuthorizationCard({
   authorization: FeishuAuthorization;
 }): React.JSX.Element {
   return (
-    <div className="otto-feishu-auth">
-      <div className="otto-feishu-auth__copy">
-        <span className="otto-feishu-auth__eyebrow">飞书授权</span>
-        <strong className="otto-feishu-auth__title">用飞书扫码继续</strong>
-        <span className="otto-feishu-auth__hint">
+    <div className="claw-feishu-auth">
+      <div className="claw-feishu-auth__copy">
+        <span className="claw-feishu-auth__eyebrow">飞书授权</span>
+        <strong className="claw-feishu-auth__title">用飞书扫码继续</strong>
+        <span className="claw-feishu-auth__hint">
           扫码并确认后，ClawMaster 会自动继续当前工作。
         </span>
         {authorization.userCode ? (
-          <code className="otto-feishu-auth__code">
+          <code className="claw-feishu-auth__code">
             授权码：{authorization.userCode}
           </code>
         ) : null}
         <button
           type="button"
-          className="otto-feishu-auth__open"
+          className="claw-feishu-auth__open"
           onClick={() => {
-            void window.otto
+            void window.clawmaster
               .openExternal(authorization.url)
               .catch(() => undefined);
           }}
@@ -1042,7 +1042,7 @@ function FeishuAuthorizationCard({
       <QrCode
         value={authorization.url}
         label="飞书授权二维码"
-        className="otto-feishu-auth__qr"
+        className="claw-feishu-auth__qr"
       />
     </div>
   );
@@ -1117,10 +1117,10 @@ function QuestionCard({
   }
 
   return (
-    <div className="otto-tool otto-ask">
-      <div className="otto-ask__head">
-        <span className="otto-ask__badge">需要你确认</span>
-        <span className="otto-ask__title">
+    <div className="claw-tool claw-ask">
+      <div className="claw-ask__head">
+        <span className="claw-ask__badge">需要你确认</span>
+        <span className="claw-ask__title">
           {tool.confirmationDetails?.title ?? '请选择'}
         </span>
       </div>
@@ -1134,32 +1134,32 @@ function QuestionCard({
         ];
         const otherOn = sel.includes(OTHER_LABEL);
         return (
-          <div className="otto-ask__q" key={q.question}>
-            <div className="otto-ask__qtop">
+          <div className="claw-ask__q" key={q.question}>
+            <div className="claw-ask__qtop">
               {q.header ? (
-                <span className="otto-ask__chip">{q.header}</span>
+                <span className="claw-ask__chip">{q.header}</span>
               ) : null}
-              <span className="otto-ask__qtext">{q.question}</span>
+              <span className="claw-ask__qtext">{q.question}</span>
             </div>
-            <div className="otto-ask__opts">
+            <div className="claw-ask__opts">
               {opts.map((opt) => {
                 const active = sel.includes(opt.label);
                 return (
                   <button
                     key={opt.label}
                     type="button"
-                    className={`otto-ask__opt${active ? ' otto-ask__opt--on' : ''}`}
+                    className={`claw-ask__opt${active ? ' claw-ask__opt--on' : ''}`}
                     aria-pressed={active}
                     disabled={sent}
                     onClick={() => toggle(q.question, opt.label, multi)}
                   >
-                    <span className="otto-ask__optmark" aria-hidden>
+                    <span className="claw-ask__optmark" aria-hidden>
                       {active ? <IconCheck size={13} /> : null}
                     </span>
-                    <span className="otto-ask__optbody">
-                      <span className="otto-ask__optlabel">{opt.label}</span>
+                    <span className="claw-ask__optbody">
+                      <span className="claw-ask__optlabel">{opt.label}</span>
                       {opt.description ? (
-                        <span className="otto-ask__optdesc">
+                        <span className="claw-ask__optdesc">
                           {opt.description}
                         </span>
                       ) : null}
@@ -1171,7 +1171,7 @@ function QuestionCard({
             {otherOn ? (
               <input
                 type="text"
-                className="otto-ask__other"
+                className="claw-ask__other"
                 placeholder="输入你的回答…"
                 value={otherText[q.question] ?? ''}
                 disabled={sent}
@@ -1191,10 +1191,10 @@ function QuestionCard({
         );
       })}
 
-      <div className="otto-ask__actions">
+      <div className="claw-ask__actions">
         <button
           type="button"
-          className="otto-ask__skip"
+          className="claw-ask__skip"
           disabled={sent || !onRespond}
           onClick={skip}
         >
@@ -1202,7 +1202,7 @@ function QuestionCard({
         </button>
         <button
           type="button"
-          className="otto-ask__submit"
+          className="claw-ask__submit"
           disabled={sent || !allAnswered || !onRespond}
           onClick={submit}
         >
@@ -1222,23 +1222,23 @@ function DiffView({
 }): React.JSX.Element {
   const { lines, stats } = parseDiff(diff);
   return (
-    <div className="otto-diff">
+    <div className="claw-diff">
       {stats.added > 0 || stats.removed > 0 || path ? (
-        <div className="otto-diff__stat">
+        <div className="claw-diff__stat">
           {path ? (
-            <span className="otto-diff__stat-path" title={path}>
+            <span className="claw-diff__stat-path" title={path}>
               {path}
             </span>
           ) : (
-            <span className="otto-diff__stat-path" />
+            <span className="claw-diff__stat-path" />
           )}
-          <span className="otto-diff__stat-counts">
-            <span className="otto-diff__stat-add">+{stats.added}</span>
-            <span className="otto-diff__stat-del">−{stats.removed}</span>
+          <span className="claw-diff__stat-counts">
+            <span className="claw-diff__stat-add">+{stats.added}</span>
+            <span className="claw-diff__stat-del">−{stats.removed}</span>
           </span>
         </div>
       ) : null}
-      <div className="otto-diff__scroll">
+      <div className="claw-diff__scroll">
         {lines.map((line, i) => (
           <DiffRow key={i} line={line} />
         ))}
@@ -1250,10 +1250,10 @@ function DiffView({
 function DiffRow({ line }: { line: DiffLine }): React.JSX.Element {
   if (line.type === 'hunk') {
     return (
-      <div className="otto-diff__row otto-diff__row--hunk">
-        <span className="otto-diff__gutter" />
-        <span className="otto-diff__sign" />
-        <span className="otto-diff__code">{line.content}</span>
+      <div className="claw-diff__row claw-diff__row--hunk">
+        <span className="claw-diff__gutter" />
+        <span className="claw-diff__sign" />
+        <span className="claw-diff__code">{line.content}</span>
       </div>
     );
   }
@@ -1265,10 +1265,10 @@ function DiffRow({ line }: { line: DiffLine }): React.JSX.Element {
         ? (line.oldLine ?? '')
         : (line.newLine ?? '');
   return (
-    <div className={`otto-diff__row otto-diff__row--${line.type}`}>
-      <span className="otto-diff__gutter">{gutter}</span>
-      <span className="otto-diff__sign">{sign}</span>
-      <span className="otto-diff__code">{line.content}</span>
+    <div className={`claw-diff__row claw-diff__row--${line.type}`}>
+      <span className="claw-diff__gutter">{gutter}</span>
+      <span className="claw-diff__sign">{sign}</span>
+      <span className="claw-diff__code">{line.content}</span>
     </div>
   );
 }

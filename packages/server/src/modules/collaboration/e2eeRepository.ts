@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * The server-side half of private-chat E2EE. This module validates device
  * ownership, signatures and envelope coverage, but deliberately has no API

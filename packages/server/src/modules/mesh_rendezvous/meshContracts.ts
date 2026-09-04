@@ -1,7 +1,7 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * [MESH-05] Otto 根服务器低负载 rendezvous、NAT 穿透与短时密文中继 —— 契约与类型。
+ * [MESH-05] ClawMaster 根服务器低负载 rendezvous、NAT 穿透与短时密文中继 —— 契约与类型。
  *
  * 设计约束（与 issue #319 保持一致）：
  *  - 根服务器只做发现（rendezvous）、NAT 穿透协调与短时密文 relay；P2P 成功后立即退出数据路径。
@@ -33,7 +33,7 @@ export const MESH_RELAY_SESSION_MAX_CHUNKS = 256;
 export const MESH_RELAY_SESSION_MAX_BYTES = 4 * 1024 * 1024;
 export const MESH_MAX_CLOCK_SKEW_MS = 5 * 60_000;
 
-/** 单个节点（员工设备 = 私有 Otto 节点）的 rendezvous 记录。 */
+/** 单个节点（员工设备 = 私有 ClawMaster 节点）的 rendezvous 记录。 */
 export interface MeshRendezvousRecord {
   version: typeof MESH_PROTOCOL_VERSION;
   nodeId: string;

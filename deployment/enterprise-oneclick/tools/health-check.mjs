@@ -92,7 +92,7 @@ if (privatePublicFields.length > 0) {
   fail(`public health leaks private fields: ${privatePublicFields.join(', ')}`);
 }
 
-const configuredBuild = process.env.OTTO_BUILD_COMMIT?.trim();
+const configuredBuild = process.env.CLAWMASTER_BUILD_COMMIT?.trim();
 if (configuredBuild !== expectedBuild) {
   fail(
     `runtime build configuration mismatch: expected ${expectedBuild}, got ${
@@ -101,11 +101,11 @@ if (configuredBuild !== expectedBuild) {
   );
 }
 
-const enterpriseDir = process.env.OTTO_ENTERPRISE_DIR?.trim();
+const enterpriseDir = process.env.CLAWMASTER_ENTERPRISE_DIR?.trim();
 if (!enterpriseDir)
-  fail('OTTO_ENTERPRISE_DIR is required for local database verification');
+  fail('CLAWMASTER_ENTERPRISE_DIR is required for local database verification');
 const databasePath =
-  process.env.OTTO_HEALTH_DATABASE_PATH?.trim() ||
+  process.env.CLAWMASTER_HEALTH_DATABASE_PATH?.trim() ||
   path.join(enterpriseDir, 'data.db');
 let database;
 try {
@@ -139,10 +139,10 @@ try {
   database?.close();
 }
 
-const adminToken = process.env.OTTO_ENTERPRISE_ADMIN_TOKEN?.trim();
+const adminToken = process.env.CLAWMASTER_ENTERPRISE_ADMIN_TOKEN?.trim();
 if (!adminToken)
   fail(
-    'OTTO_ENTERPRISE_ADMIN_TOKEN is required for private health verification',
+    'CLAWMASTER_ENTERPRISE_ADMIN_TOKEN is required for private health verification',
   );
 const deploymentStatus = await fetchJson(
   `${baseUrl}/enterprise/deployment/status`,

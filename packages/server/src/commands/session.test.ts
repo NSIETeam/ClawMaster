@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import type { Config } from 'otto-core';
+import type { Config } from 'clawmaster-core';
 import { goalCommand, initCommand, planCommand, systemCommand } from './session.js';
 import { listSlashCommands } from './registry.js';
 import type { CommandHost } from './types.js';
@@ -72,7 +72,7 @@ describe('desktop long-running modes', () => {
       clearGoalContext: vi.fn(),
       getGoalContext: vi.fn(() => null),
     };
-    const host = hostWithConfig({ getOttoClient: () => client as never });
+    const host = hostWithConfig({ getClawMasterClient: () => client as never });
     const started = await goalCommand.action?.({ host, sessionId: 's1' }, '交付可安装的应用');
     expect(client.setGoalContext).toHaveBeenCalledWith(expect.objectContaining({
       task: '交付可安装的应用',
@@ -91,7 +91,7 @@ describe('desktop long-running modes', () => {
     const host = hostWithConfig({
       getCustomSystemPrompt: () => customPrompt,
       setCustomSystemPrompt,
-      getOttoClient: () => ({ updateSystemPromptWithMcpPrompts: refresh }) as never,
+      getClawMasterClient: () => ({ updateSystemPromptWithMcpPrompts: refresh }) as never,
     });
 
     const applied = await systemCommand.action?.(

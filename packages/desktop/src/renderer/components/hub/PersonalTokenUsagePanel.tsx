@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -36,7 +36,7 @@ export type PersonalTokenUsageLoader = (
 ) => Promise<PersonalTokenUsageProfileView>;
 
 function defaultLoader(periodDays: number): Promise<PersonalTokenUsageProfileView> {
-  const bridge = window.otto as typeof window.otto & {
+  const bridge = window.clawmaster as typeof window.clawmaster & {
     enterpriseUsageProfile(days?: number): Promise<PersonalTokenUsageProfileView>;
   };
   return bridge.enterpriseUsageProfile(periodDays);
@@ -88,7 +88,7 @@ export function PersonalTokenUsagePanel({
       desc="查看当前账号的模型使用规模、来源和变化趋势。"
       actions={(
         <>
-          <label className="otto-token-profile__period">
+          <label className="claw-token-profile__period">
             <span>统计周期</span>
             <select
               aria-label="统计周期"
@@ -101,16 +101,16 @@ export function PersonalTokenUsagePanel({
               <option value={90}>近 90 天</option>
             </select>
           </label>
-          <button className="otto-hub__btn" type="button" onClick={() => void refresh()} disabled={loading}>
+          <button className="claw-hub__btn" type="button" onClick={() => void refresh()} disabled={loading}>
             {loading ? '读取中…' : '刷新'}
           </button>
         </>
       )}
     >
       {error ? (
-        <div className="otto-token-profile__error" role="alert">
+        <div className="claw-token-profile__error" role="alert">
           <span>{error}</span>
-          <button className="otto-hub__btn" type="button" onClick={() => void refresh()}>重试</button>
+          <button className="claw-hub__btn" type="button" onClick={() => void refresh()}>重试</button>
         </div>
       ) : null}
 
@@ -122,7 +122,7 @@ export function PersonalTokenUsagePanel({
 
       {profile && profile.totalTokens > 0 ? (
         <>
-          <div className="otto-token-profile__metrics" aria-label="Token 使用概览">
+          <div className="claw-token-profile__metrics" aria-label="Token 使用概览">
             <div><span>总 Token</span><strong>{formatTokens(profile.totalTokens)}</strong></div>
             <div><span>输入</span><strong>{formatTokens(profile.inputTokens)}</strong></div>
             <div><span>输出</span><strong>{formatTokens(profile.outputTokens)}</strong></div>
@@ -132,22 +132,22 @@ export function PersonalTokenUsagePanel({
 
           <section>
             <Caption>按模型分布</Caption>
-            <Card className="otto-token-profile__models">
+            <Card className="claw-token-profile__models">
               {profile.byModel.map((item, index) => {
                 const share = profile.totalTokens > 0
                   ? Math.round((item.totalTokens / profile.totalTokens) * 100)
                   : 0;
                 return (
-                  <div className="otto-token-profile__model" key={`${item.model ?? 'unknown'}-${index}`}>
+                  <div className="claw-token-profile__model" key={`${item.model ?? 'unknown'}-${index}`}>
                     <div>
                       <strong>{item.model || '未标记模型'}</strong>
                       <span>{formatTokens(item.requestCount)} 次请求</span>
                     </div>
-                    <div className="otto-token-profile__model-value">
+                    <div className="claw-token-profile__model-value">
                       <strong>{formatTokens(item.totalTokens)}</strong>
                       <span>{share}%</span>
                     </div>
-                    <div className="otto-token-profile__bar" aria-label={`${share}%`}>
+                    <div className="claw-token-profile__bar" aria-label={`${share}%`}>
                       <span style={{ width: `${share}%` }} />
                     </div>
                   </div>
@@ -158,9 +158,9 @@ export function PersonalTokenUsagePanel({
 
           <section>
             <Caption>每日趋势</Caption>
-            <Card className="otto-token-profile__trend">
+            <Card className="claw-token-profile__trend">
               {profile.daily.map((day) => (
-                <div className="otto-token-profile__day" key={day.date}>
+                <div className="claw-token-profile__day" key={day.date}>
                   <span>{day.date}</span>
                   <div aria-hidden><i style={{ width: `${Math.round((day.totalTokens / maxDailyTokens) * 100)}%` }} /></div>
                   <strong>{formatTokens(day.totalTokens)}</strong>
@@ -171,7 +171,7 @@ export function PersonalTokenUsagePanel({
         </>
       ) : null}
 
-      <div className="otto-token-profile__source">
+      <div className="claw-token-profile__source">
         数据来自客户端回传的聚合观察值，只包含 Token 数量、模型和时间，不包含对话正文或密钥；不等同于模型供应商账单。
       </div>
     </Panel>

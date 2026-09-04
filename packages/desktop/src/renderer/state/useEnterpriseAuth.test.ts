@@ -51,7 +51,7 @@ beforeEach(() => {
   accountUpdatedHandler = null;
   bridge = {
     enterpriseSession: vi.fn(async () => ({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: null,
     })),
     enterpriseRegistrationIntent: vi.fn(async () => ({ inviteCode: 'Ab3D-k9Pq-Z7xY' })),
@@ -71,32 +71,32 @@ beforeEach(() => {
     }),
     enterprisePasswordLogin: vi.fn(),
     enterpriseSmsLoginRequest: vi.fn(async () => ({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       challengeId: 'sms_login_1',
       message: '验证码已发送',
       expiresAt: '2099-01-01',
       retryAfterSeconds: 60,
     })),
     enterpriseSmsLoginVerify: vi.fn(async () => ({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: ACCOUNT,
       expiresAt: '2099-01-01',
     })),
     enterpriseRegistrationRequest: vi.fn(),
     enterpriseRegister: vi.fn(async () => ({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: ACCOUNT,
       expiresAt: '2099-01-01',
     })),
     enterpriseJoinOrganization: vi.fn(async () => ({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: UPGRADED_ACCOUNT,
     })),
     enterpriseLogout: vi.fn(),
   };
-  Object.defineProperty(window, 'otto', {
+  Object.defineProperty(window, 'clawmaster', {
     configurable: true,
-    value: bridge as unknown as Window['otto'],
+    value: bridge as unknown as Window['clawmaster'],
   });
 });
 
@@ -106,13 +106,13 @@ describe('企业注册链接进入中心注册', () => {
     await waitFor(() => expect(view.result.current.state.status).toBe('signed-out'));
 
     expect(view.result.current.state.registrationIntent).toEqual({ inviteCode: 'Ab3D-k9Pq-Z7xY' });
-    expect(view.result.current.state.serverUrl).toBe('https://enterprise.otto.test');
+    expect(view.result.current.state.serverUrl).toBe('https://enterprise.clawmaster.test');
     expect(view.result.current.state.account).toBeNull();
   });
 
   it('已有有效自动登录账号时忽略 cold-start 与运行中链接，不静默退出或换企', async () => {
     bridge.enterpriseSession.mockResolvedValueOnce({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: ACCOUNT,
     });
     const view = renderHook(() => useEnterpriseAuth());
@@ -128,16 +128,16 @@ describe('企业注册链接进入中心注册', () => {
   it('运行中的 second-instance/open-url intent 先切到已规范化服务器，再替换待注册邀请码', async () => {
     const view = renderHook(() => useEnterpriseAuth());
     await waitFor(() => expect(view.result.current.state.status).toBe('signed-out'));
-    expect(view.result.current.state.serverUrl).toBe('https://enterprise.otto.test');
+    expect(view.result.current.state.serverUrl).toBe('https://enterprise.clawmaster.test');
 
     act(() => intentHandler?.({
       inviteCode: 'Wz8Y-m3Na-Q5pB',
-      serverUrl: 'https://new-enterprise.otto.test',
+      serverUrl: 'https://new-enterprise.clawmaster.test',
     }));
-    expect(view.result.current.state.serverUrl).toBe('https://new-enterprise.otto.test');
+    expect(view.result.current.state.serverUrl).toBe('https://new-enterprise.clawmaster.test');
     expect(view.result.current.state.registrationIntent).toEqual({
       inviteCode: 'Wz8Y-m3Na-Q5pB',
-      serverUrl: 'https://new-enterprise.otto.test',
+      serverUrl: 'https://new-enterprise.clawmaster.test',
     });
     expect(view.result.current.state.status).toBe('signed-out');
   });
@@ -167,7 +167,7 @@ describe('企业注册链接进入中心注册', () => {
     let challenge!: Awaited<ReturnType<typeof view.result.current.actions.requestLoginCode>>;
     await act(async () => {
       challenge = await view.result.current.actions.requestLoginCode({
-        serverUrl: 'https://enterprise.otto.test',
+        serverUrl: 'https://enterprise.clawmaster.test',
         phone: '13800138000',
       });
     });
@@ -186,7 +186,7 @@ describe('企业注册链接进入中心注册', () => {
 
   it('个人账号可用企业邀请码升级，并立即刷新为企业身份', async () => {
     bridge.enterpriseSession.mockResolvedValueOnce({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: PERSONAL_ACCOUNT,
     });
     const view = renderHook(() => useEnterpriseAuth());
@@ -211,7 +211,7 @@ describe('企业注册链接进入中心注册', () => {
 
   it('个人账号升级失败时保留当前登录身份，允许原地改邀请码重试', async () => {
     bridge.enterpriseSession.mockResolvedValueOnce({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: PERSONAL_ACCOUNT,
     });
     bridge.enterpriseJoinOrganization.mockRejectedValueOnce(new Error('企业邀请码无效或已失效'));
@@ -236,7 +236,7 @@ describe('企业注册链接进入中心注册', () => {
 
   it('中心已完成升级但本机身份同步失败时退出旧个人身份，避免卡在不可重试的分裂态', async () => {
     bridge.enterpriseSession.mockResolvedValueOnce({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: PERSONAL_ACCOUNT,
     });
     bridge.enterpriseJoinOrganization.mockRejectedValueOnce(
@@ -259,7 +259,7 @@ describe('企业注册链接进入中心注册', () => {
 
   it('恢复会话断网时仍保留服务器地址，让用户无需重启即可重试', async () => {
     bridge.enterpriseSession.mockResolvedValueOnce({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: null,
       connectionError: '连接企业服务器超时',
     });
@@ -267,13 +267,13 @@ describe('企业注册链接进入中心注册', () => {
 
     await waitFor(() => expect(view.result.current.state.status).toBe('signed-out'));
 
-    expect(view.result.current.state.serverUrl).toBe('https://enterprise.otto.test');
+    expect(view.result.current.state.serverUrl).toBe('https://enterprise.clawmaster.test');
     expect(view.result.current.state.error).toBe('连接企业服务器超时');
   });
 
   it('后台操作使 token 失效时立即退回登录页，而不是保留过期管理员界面', async () => {
     bridge.enterpriseSession.mockResolvedValueOnce({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: ACCOUNT,
     });
     const view = renderHook(() => useEnterpriseAuth());
@@ -288,7 +288,7 @@ describe('企业注册链接进入中心注册', () => {
 
   it('后台身份刷新后立即更新员工部门与职位，不要求退出重登', async () => {
     bridge.enterpriseSession.mockResolvedValueOnce({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: ACCOUNT,
     });
     const view = renderHook(() => useEnterpriseAuth());
@@ -310,7 +310,7 @@ describe('企业注册链接进入中心注册', () => {
 
   it('忽略同一账号较旧的后台身份事件，避免延迟事件覆盖新职位', async () => {
     bridge.enterpriseSession.mockResolvedValueOnce({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: { ...ACCOUNT, updatedAt: '2026-07-20T12:00:00.000Z' },
     });
     const view = renderHook(() => useEnterpriseAuth());
@@ -345,7 +345,7 @@ describe('企业注册链接进入中心注册', () => {
     let loginPromise!: Promise<void>;
     act(() => {
       loginPromise = view.result.current.actions.loginWithPassword({
-        serverUrl: 'https://enterprise.otto.test',
+        serverUrl: 'https://enterprise.clawmaster.test',
         identifier: 'staff01',
         password: 'password-1',
       });
@@ -357,7 +357,7 @@ describe('企业注册链接进入中心注册', () => {
     expect(view.result.current.state.busy).toBe(false);
 
     finishLogin({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: ACCOUNT,
       expiresAt: '2099-01-01',
     });
@@ -380,7 +380,7 @@ describe('企业注册链接进入中心注册', () => {
         finishFirst = resolve;
       }))
       .mockResolvedValueOnce({
-        serverUrl: 'https://enterprise.otto.test',
+        serverUrl: 'https://enterprise.clawmaster.test',
         account: newerAccount,
         expiresAt: '2099-01-01',
       });
@@ -391,12 +391,12 @@ describe('企业注册链接进入中心注册', () => {
     let second!: Promise<void>;
     act(() => {
       first = view.result.current.actions.loginWithPassword({
-        serverUrl: 'https://enterprise.otto.test',
+        serverUrl: 'https://enterprise.clawmaster.test',
         identifier: 'staff01',
         password: 'password-1',
       });
       second = view.result.current.actions.loginWithPassword({
-        serverUrl: 'https://enterprise.otto.test',
+        serverUrl: 'https://enterprise.clawmaster.test',
         identifier: 'staff02',
         password: 'password-2',
       });
@@ -405,7 +405,7 @@ describe('企业注册链接进入中心注册', () => {
     expect(view.result.current.state.account?.id).toBe('acc_2');
 
     finishFirst({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       account: ACCOUNT,
       expiresAt: '2099-01-01',
     });

@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
@@ -19,7 +19,7 @@ afterEach(async () => {
 });
 
 async function createStore(): Promise<FileRpaRunStore> {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'otto-rpa-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-rpa-'));
   roots.push(root);
   return new FileRpaRunStore(root);
 }

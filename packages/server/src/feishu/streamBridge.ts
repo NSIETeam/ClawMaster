@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,7 +20,7 @@
  *   - core 未接（mock 兜底）时，mock 也走同一套 publish，飞书侧同样能看到回推。
  *
  * 回推策略与实际行为一致（注意 CardKit 2.0 默认是**关闭**的，见
- * gateway.isCardKitV2Enabled：生产不稳定，需 OTTO_FEISHU_CARDKIT_V2=1 显式开启）：
+ * gateway.isCardKitV2Enabled：生产不稳定，需 CLAWMASTER_FEISHU_CARDKIT_V2=1 显式开启）：
  *   - CardKit 启用且起卡成功：1.5s 节流 pushContent 打字机流式 +
  *     chat_complete 时 finalize（对齐 cli `feishuCommand.ts` 主循环）。
  *   - CardKit 关闭 / 起卡失败（默认配置即如此）：首个 chunk 先发一条

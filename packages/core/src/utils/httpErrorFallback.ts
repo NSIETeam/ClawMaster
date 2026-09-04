@@ -22,7 +22,7 @@ import { isApiError, isStructuredError } from './quotaErrorDetection.js';
 export function extractHttpStatusCode(error: unknown): number | undefined {
   if (error === null || error === undefined) return undefined;
 
-  // 1. 直接挂在错误对象上的 status / statusCode（OttoServerAdapter 风格）
+  // 1. 直接挂在错误对象上的 status / statusCode（ClawMasterServerAdapter 风格）
   if (typeof error === 'object') {
     const errAny = error as Record<string, unknown>;
     if (typeof errAny.status === 'number') return errAny.status;

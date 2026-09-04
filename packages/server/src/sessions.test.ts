@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -15,7 +15,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { InMemorySessionStore } from './sessions.js';
 import type { SessionRuntime } from './sessions.js';
-import type { OttoMessage, ServerToClient } from './protocol.js';
+import type { ClawMasterMessage, ServerToClient } from './protocol.js';
 
 describe('InMemorySessionStore', () => {
   let store: InMemorySessionStore;
@@ -154,7 +154,7 @@ describe('InMemorySessionStore', () => {
         source: 'local',
       });
       // mutate 返回的副本
-      (m as OttoMessage).role = 'system';
+      (m as ClawMasterMessage).role = 'system';
       const hist = store.getHistory(s.sessionId);
       expect(hist[0].role).toBe('user'); // 内部未受污染
     });
@@ -189,8 +189,8 @@ describe('InMemorySessionStore', () => {
   });
 
   describe('getHistory', () => {
-    function seed(sessionId: string, n: number): OttoMessage[] {
-      const out: OttoMessage[] = [];
+    function seed(sessionId: string, n: number): ClawMasterMessage[] {
+      const out: ClawMasterMessage[] = [];
       for (let i = 0; i < n; i++) {
         out.push(
           store.appendMessage(sessionId, {

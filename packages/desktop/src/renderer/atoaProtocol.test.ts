@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -65,7 +65,7 @@ describe('企业 A2A 消息协议', () => {
     );
   });
 
-  it('双方协商请求携带发送方 Otto 的真实提案，并对字段做有界裁剪', () => {
+  it('双方协商请求携带发送方 ClawMaster 的真实提案，并对字段做有界裁剪', () => {
     const content = buildAtoaRequest('比较双方日程', {
       id: 'consult-1',
       mode: 'consult',

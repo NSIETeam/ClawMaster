@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { FeatureFlagManager } from 'otto-core';
+import type { FeatureFlagManager } from 'clawmaster-core';
 import * as db from './db.js';
 import { handleFeatureFlagsRoute } from './featureFlagsAdmin.js';
 import { adminAccountsHTML } from './adminAccountsPage.js';

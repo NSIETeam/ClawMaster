@@ -9,7 +9,7 @@ import os from 'os';
 import * as crypto from 'crypto';
 import fs from 'node:fs';
 
-export const OTTO_DIR = '.otto-user';
+export const CLAWMASTER_DIR = '.otto-user';
 export const PROJECT_DIR_PREFIX = '.otto';
 
 export const GOOGLE_ACCOUNTS_FILENAME = 'google_accounts.json';
@@ -169,7 +169,7 @@ export function getProjectHash(projectRoot: string): string {
  */
 export function getProjectTempDir(projectRoot: string): string {
   const hash = getProjectHash(projectRoot);
-  return path.join(os.homedir(), OTTO_DIR, TMP_DIR_NAME, hash);
+  return path.join(os.homedir(), CLAWMASTER_DIR, TMP_DIR_NAME, hash);
 }
 
 /**
@@ -177,7 +177,7 @@ export function getProjectTempDir(projectRoot: string): string {
  * @returns The path to the user's commands directory.
  */
 export function getUserCommandsDir(): string {
-  return path.join(os.homedir(), OTTO_DIR, COMMANDS_DIR_NAME);
+  return path.join(os.homedir(), CLAWMASTER_DIR, COMMANDS_DIR_NAME);
 }
 
 /**

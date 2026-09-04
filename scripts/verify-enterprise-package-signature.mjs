@@ -71,10 +71,10 @@ async function main() {
   }
   const trustedPublicKey = publicKeyFile
     ? await readFile(path.resolve(publicKeyFile), 'utf8')
-    : process.env.OTTO_ENTERPRISE_SIGNING_PUBLIC_KEY?.replace(/\\n/g, '\n');
+    : process.env.CLAWMASTER_ENTERPRISE_SIGNING_PUBLIC_KEY?.replace(/\\n/g, '\n');
   if (!trustedPublicKey) {
     throw new Error(
-      'trusted public key missing; pass a file or set OTTO_ENTERPRISE_SIGNING_PUBLIC_KEY',
+      'trusted public key missing; pass a file or set CLAWMASTER_ENTERPRISE_SIGNING_PUBLIC_KEY',
     );
   }
   const result = await verifyEnterprisePackageSignature({

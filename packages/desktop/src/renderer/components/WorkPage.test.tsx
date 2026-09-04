@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -10,7 +10,7 @@ import { localDateKey } from '../localDateKey.js';
 
 afterEach(() => {
   cleanup();
-  delete (window as unknown as { otto?: unknown }).otto;
+  delete (window as unknown as { clawmaster?: unknown }).clawmaster;
 });
 
 function installBridge() {
@@ -50,7 +50,7 @@ function installBridge() {
     message: '已生成并保存「市场竞品调研报告」',
   }));
   const openPath = vi.fn(async () => undefined);
-  (window as unknown as { otto: unknown }).otto = {
+  (window as unknown as { clawmaster: unknown }).clawmaster = {
     workLogToday: async () => ({
       summary: '共记录 2 条工作日志。',
       date,

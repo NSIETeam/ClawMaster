@@ -1,4 +1,4 @@
-import type { SessionSummary } from 'otto-server';
+import type { SessionSummary } from 'clawmaster-server';
 
 import type { UiModePreferenceScope } from './uiModePreference.js';
 
@@ -24,7 +24,7 @@ export const DEFAULT_SESSION_LIST_PREFERENCE: SessionListPreference = {
   collapsedWorkspaceKeys: [],
 };
 
-const STORAGE_PREFIX = 'otto.session-list.v1';
+const STORAGE_PREFIX = 'clawmaster.session-list.v1';
 const DEFAULT_WORKSPACE_KEY = 'workspace:default';
 
 function normalizeServerUrl(value: string | null | undefined): string {

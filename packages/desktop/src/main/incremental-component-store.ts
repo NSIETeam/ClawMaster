@@ -76,8 +76,8 @@ function safePathSegment(value: string): string | null {
   return value;
 }
 
-function resolveOttoUserDir(): string {
-  const configured = process.env['OTTO_USER_DIR']?.trim();
+function resolveClawMasterUserDir(): string {
+  const configured = process.env['CLAWMASTER_USER_DIR']?.trim();
   return configured ? path.resolve(configured) : path.join(os.homedir(), '.otto-user');
 }
 
@@ -192,7 +192,7 @@ async function exposeSkillComponent(extractedPath: string, skillName: string): P
   } catch {
     throw new Error('skills component bundle must contain SKILL.md at bundle root');
   }
-  const skillsRoot = path.join(resolveOttoUserDir(), 'skills');
+  const skillsRoot = path.join(resolveClawMasterUserDir(), 'skills');
   const destination = path.join(skillsRoot, skillName);
   const relative = path.relative(skillsRoot, destination);
   if (relative.startsWith('..') || path.isAbsolute(relative)) {

@@ -22,7 +22,7 @@ describe('SettingsManager', () => {
     testRoot = path.join(os.tmpdir(), `otto-test-settings-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
     // Mock SkillsPaths 使用测试目录
-    vi.spyOn(SkillsPaths, 'OTTO_HOME', 'get').mockReturnValue(testRoot);
+    vi.spyOn(SkillsPaths, 'CLAWMASTER_HOME', 'get').mockReturnValue(testRoot);
     vi.spyOn(SkillsPaths, 'SKILLS_ROOT', 'get').mockReturnValue(path.join(testRoot, 'skills'));
     vi.spyOn(SkillsPaths, 'MARKETPLACE_ROOT', 'get').mockReturnValue(
       path.join(testRoot, 'marketplace'),
@@ -50,7 +50,7 @@ describe('SettingsManager', () => {
     it('should create directory structure', async () => {
       await manager.initialize();
 
-      expect(await fs.pathExists(SkillsPaths.OTTO_HOME)).toBe(true);
+      expect(await fs.pathExists(SkillsPaths.CLAWMASTER_HOME)).toBe(true);
       expect(await fs.pathExists(SkillsPaths.SKILLS_ROOT)).toBe(true);
       expect(await fs.pathExists(SkillsPaths.MARKETPLACE_ROOT)).toBe(true);
       expect(await fs.pathExists(SkillsPaths.BACKUP_DIR)).toBe(true);

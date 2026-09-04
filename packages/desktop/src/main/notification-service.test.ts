@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -77,7 +77,7 @@ describe('NotificationService', () => {
     vi.useRealTimers();
   });
 
-  it('系统通知不可用时仍保留 Otto 内未读闪烁点', () => {
+  it('系统通知不可用时仍保留 ClawMaster 内未读闪烁点', () => {
     electron.supported = false;
     const onUnreadChange = vi.fn();
     const onSystemNotificationUnavailable = vi.fn();
@@ -100,7 +100,7 @@ describe('NotificationService', () => {
     );
   });
 
-  it('Otto 位于前台时只保留应用内未读，不弹系统通知也不播放提示音', () => {
+  it('ClawMaster 位于前台时只保留应用内未读，不弹系统通知也不播放提示音', () => {
     const onUnreadChange = vi.fn();
     const onBackgroundAttention = vi.fn();
     const onSystemNotificationUnavailable = vi.fn();
@@ -222,7 +222,7 @@ describe('NotificationService', () => {
     expect(electron.instances[1].options.body).toBe('你收到了一条新消息。');
   });
 
-  it('系统通知 show 失败时不丢 Otto 内部未读点', () => {
+  it('系统通知 show 失败时不丢 ClawMaster 内部未读点', () => {
     electron.failNextShow = true;
     const onSystemNotificationUnavailable = vi.fn();
     const service = new NotificationService();
@@ -294,7 +294,7 @@ describe('NotificationService', () => {
     expect(onNotificationClick).toHaveBeenCalledWith('s1');
   });
 
-  it('企业合成通知点击只打开 Otto，未真正读取会话前保留未读', () => {
+  it('企业合成通知点击只打开 ClawMaster，未真正读取会话前保留未读', () => {
     const onUnreadChange = vi.fn();
     const onNotificationClick = vi.fn();
     const service = new NotificationService();
@@ -335,7 +335,7 @@ describe('NotificationService', () => {
     const service = new NotificationService();
 
     service.show({ sessionId: 'enterprise:message:alice', source: 'enterprise', preview: '项目进度？' });
-    service.show({ sessionId: 'enterprise:message:bob', source: 'atoa', preview: '对方正在请求你的 Otto 协作' });
+    service.show({ sessionId: 'enterprise:message:bob', source: 'atoa', preview: '对方正在请求你的 ClawMaster 协作' });
 
     expect(electron.instances).toHaveLength(2);
     expect(electron.beep).toHaveBeenCalledTimes(2);
@@ -355,11 +355,11 @@ describe('NotificationService', () => {
     service.show({
       sessionId: 'park:service',
       source: 'park',
-      title: 'Otto 待处理提醒 · 园区服务',
+      title: 'ClawMaster 待处理提醒 · 园区服务',
       preview: 'A 座空调报修',
     });
 
-    expect(electron.instances[0].options.title).toBe('Otto 待处理提醒 · 园区服务');
+    expect(electron.instances[0].options.title).toBe('ClawMaster 待处理提醒 · 园区服务');
     expect(service.getUnreadSessions()).toEqual(['park:service']);
 
     service.clearAll();

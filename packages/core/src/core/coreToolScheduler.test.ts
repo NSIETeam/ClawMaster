@@ -31,7 +31,7 @@ import { resetAuditLoggerForTesting } from '../orchestration/auditLog.js';
 const tempRoots: string[] = [];
 
 afterEach(async () => {
-  delete process.env.OTTO_USER_DIR;
+  delete process.env.CLAWMASTER_USER_DIR;
   resetAuditLoggerForTesting();
   await Promise.all(
     tempRoots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })),
@@ -211,7 +211,7 @@ describe('CoreToolScheduler', () => {
   it('writes an audit record when a confirmation is denied', async () => {
     const auditRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-audit-confirm-'));
     tempRoots.push(auditRoot);
-    process.env.OTTO_USER_DIR = auditRoot;
+    process.env.CLAWMASTER_USER_DIR = auditRoot;
     resetAuditLoggerForTesting();
 
     const mockTool = new MockTool('run_shell_command');

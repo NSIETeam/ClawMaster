@@ -1,21 +1,21 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * otto-server 包入口（barrel）。
+ * clawmaster-server 包入口（barrel）。
  *
- * desktop 端经 `from 'otto-server'` 复用协议类型与服务类。
+ * desktop 端经 `from 'clawmaster-server'` 复用协议类型与服务类。
  */
 
 export * from './protocol.js';
 export * from './workLogService.js';
 export * from './sessions.js';
 export * from './sessions-persistent.js';
-export { OttoServer } from './server.js';
-export type { OttoServerOptions, RuntimeFactory } from './server.js';
+export { ClawMasterServer } from './server.js';
+export type { ClawMasterServerOptions, RuntimeFactory } from './server.js';
 export {
   createEnterpriseServer,
   startEnterpriseServer,

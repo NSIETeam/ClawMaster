@@ -1,7 +1,7 @@
 /**
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
- * Otto Multi-Channel Broadcast Tool.
+ * ClawMaster Multi-Channel Broadcast Tool.
  * Exposes WeChat, WeCom, and DingTalk messaging & progress synchronization
  * as an executable Agent tool, seamlessly tied to the MultiChannelGateway.
  */

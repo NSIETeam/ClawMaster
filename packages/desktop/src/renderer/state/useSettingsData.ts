@@ -1,11 +1,11 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * 设置/诊断面板的状态管理（P0）。与 useOttoStore（会话/聊天）解耦成独立 hook，
+ * 设置/诊断面板的状态管理（P0）。与 useClawMasterStore（会话/聊天）解耦成独立 hook，
  * 因为这块数据（settings/mcp/context/doctor/todos）与消息流无关，
  * 混进主 reducer 会让 App 的聊天路径多绕一层不相关状态更新。
  *
@@ -43,7 +43,7 @@ import type {
   ServerToClient,
   StatsSnapshot,
   KnowledgeItem,
-} from 'otto-server';
+} from 'clawmaster-server';
 
 export interface SettingsDataState {
   settings: SettingsSnapshot | null;
@@ -263,7 +263,7 @@ export function useSettingsData(activeSessionId?: string | null): UseSettingsDat
       // 在这里拦截并异步触发，完成后回填一句人类可读的提示。
       if (frame.type === 'export_result') {
         const { suggestedFileName, markdown } = frame.payload;
-        void window.otto
+        void window.clawmaster
           .saveTextFile(suggestedFileName, markdown)
           .then((savedPath) => {
             if (!mountedRef.current) return;

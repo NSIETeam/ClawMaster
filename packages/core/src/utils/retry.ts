@@ -7,7 +7,7 @@
 import {
   isProQuotaExceededError,
   isGenericQuotaExceededError,
-  isOttoQuotaError,
+  isClawMasterQuotaError,
 } from './quotaErrorDetection.js';
 
 export interface RetryOptions {
@@ -74,8 +74,8 @@ const AGGRESSIVE_RETRY_OPTIONS: Partial<RetryOptions> = {
  * @returns True if the error is a transient error, false otherwise.
  */
 function defaultShouldRetry(error: Error | unknown): boolean {
-  // 🚫 Otto配额错误不应重试 - 需要立即显示友好提示
-  if (isOttoQuotaError(error)) {
+  // 🚫 ClawMaster配额错误不应重试 - 需要立即显示友好提示
+  if (isClawMasterQuotaError(error)) {
     return false;
   }
 

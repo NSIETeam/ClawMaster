@@ -17,7 +17,7 @@ function manifest(version: string, permissions: CustomerModuleManifestV1['permis
     icon: 'icon.svg',
     entrypoint: 'module.wasm',
     hostApi: 'otto.customer-module.v1',
-    minimumOttoVersion: '1.15.3',
+    minimumClawMasterVersion: '1.15.3',
     inputSchema: { type: 'object', properties: {} },
     outputs: ['text'],
     permissions,

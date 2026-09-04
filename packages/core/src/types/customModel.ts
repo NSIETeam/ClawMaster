@@ -10,7 +10,7 @@
  * - openai-responses: OpenAI Responses API 格式（使用 /responses 端点）
  * - anthropic: Anthropic Claude API 格式
  * - gemini: Google GenAI 原生格式（POST /v1beta/models/{id}:streamGenerateContent）
- *           与 Otto 自带 Gemini 路径完全对齐，原生支持 thinkingConfig / thoughts
+ *           与 ClawMaster 自带 Gemini 路径完全对齐，原生支持 thinkingConfig / thoughts
  */
 export type CustomModelProvider = 'openai' | 'openai-responses' | 'anthropic' | 'gemini';
 
@@ -241,7 +241,7 @@ export type OpenAICompatibleVendor =
 
 /**
  * 按 modelId 的关键字检测客户端识别的 OpenAI 兼容厂商家族。
- * 关键字与服务器端 OttoServerAdapter.applyGenAIThinkingConfig() 对齐。
+ * 关键字与服务器端 ClawMasterServerAdapter.applyGenAIThinkingConfig() 对齐。
  *
  * 命中规则按优先级（一旦命中即返回）：
  * - 'openai': 包含 'gpt' / 'o1' / 'o3' / 'o4'（裸 'o\d' 用 word-ish 边界避免误伤）
@@ -264,7 +264,7 @@ export function detectOpenAICompatibleVendor(modelId: string): OpenAICompatibleV
  * Apply thinking config to an OpenAI-compatible chat request body in-place,
  * routed by the model's vendor family.
  *
- * Mirrors OttoServerAdapter.applyGenAIThinkingConfig() so client-direct
+ * Mirrors ClawMasterServerAdapter.applyGenAIThinkingConfig() so client-direct
  * (`callOpenAICompatibleModel`) and server-proxied paths produce identical
  * upstream requests.
  *
@@ -571,7 +571,7 @@ export const EASY_ROUTER_DEFAULT_MAX_TOKENS = 200_000;
 
 /**
  * 用于过滤 EasyRouter /v1/models 列表的关键字。
- * 模型 id（小写后）包含其中任一关键字时会被排除——因为 Otto
+ * 模型 id（小写后）包含其中任一关键字时会被排除——因为 ClawMaster
  * 当前主要面向文本/对话模型，图像/嵌入/视频/视频生成模型并不适用。
  *
  * 关键字一览：
@@ -637,7 +637,7 @@ export function filterEasyRouterModels(
 }
 
 /**
- * 根据 EasyRouter 的模型 id 决定 Otto 走哪个内部协议适配器。
+ * 根据 EasyRouter 的模型 id 决定 ClawMaster 走哪个内部协议适配器。
  *
  * 规则（按用户产品要求）：
  * - 以 "gpt" 开头 → 使用 OpenAI Responses 协议（/v1/responses）
@@ -650,7 +650,7 @@ export function filterEasyRouterModels(
 export function classifyEasyRouterModel(modelId: string): CustomModelProvider {
   const id = (modelId ?? '').trim().toLowerCase();
   if (id.startsWith('gemini')) {
-    // Gemini 走原生 GenAI 协议，与 Otto 自带同路，完整支持 thinkingConfig + thoughts
+    // Gemini 走原生 GenAI 协议，与 ClawMaster 自带同路，完整支持 thinkingConfig + thoughts
     return 'gemini';
   }
   if (id.startsWith('gpt')) {

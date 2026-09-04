@@ -1,21 +1,21 @@
 /**
  * 浏览器静态预览桥。
  *
- * Electron 会由 preload 注入 window.otto；只有普通浏览器缺少该对象时才启用这里的
+ * Electron 会由 preload 注入 window.clawmaster；只有普通浏览器缺少该对象时才启用这里的
  * 纯本地模拟实现。它不访问园区服务器，所有会话、模型和回复均为演示数据。
  */
 
 import { parkISODate, parkMinuteOfDay } from './parkBusinessTime.js';
 
 type PreviewFrame = { type: string; payload: Record<string, unknown> };
-type PreviewWindow = { otto?: unknown };
+type PreviewWindow = { clawmaster?: unknown };
 
 const previewWindow = window as unknown as PreviewWindow;
 
-if (!previewWindow.otto) {
+if (!previewWindow.clawmaster) {
   const frameHandlers = new Set<(frame: PreviewFrame) => void>();
   const connectionHandlers = new Set<(connected: boolean) => void>();
-  const modelStorageKey = 'otto:browser-preview-models';
+  const modelStorageKey = 'clawmaster:browser-preview-models';
   let connected = false;
   let currentModel: string | null = 'preview-model';
   let sessions = [makeSession('preview-session', '园区服务本地演示')];
@@ -363,7 +363,7 @@ if (!previewWindow.otto) {
     notificationShow: () => Promise.resolve(),
     notificationMarkRead: () => Promise.resolve(),
     notificationGetUnread: () => Promise.resolve([]),
-    appVersion: () => Promise.resolve('0.0.1-browser-preview'),
+    appVersion: () => Promise.resolve('0.0.2beta-browser-preview'),
     getWorkspaceDirectories: () => Promise.resolve({
       defaultPath: '/Users/demo',
       recentPaths: ['/Users/demo'],
@@ -386,7 +386,7 @@ if (!previewWindow.otto) {
     updateCheck: () =>
       Promise.resolve({
         status: 'up-to-date',
-        currentVersion: '0.0.1',
+        currentVersion: '0.0.2beta',
         latestVersion: null,
       }),
     updateDownload: () =>
@@ -496,7 +496,7 @@ if (!previewWindow.otto) {
       Promise.resolve({
         safetyNumber:
           '00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000',
-        qrPayload: 'otto-e2ee-verify:v1:e30',
+        qrPayload: 'claw-e2ee-verify:v1:e30',
         deviceFingerprints: ['0'.repeat(64), '0'.repeat(64)],
       }),
     enterpriseE2eeDeviceRevoke: () => Promise.resolve(),
@@ -537,9 +537,9 @@ if (!previewWindow.otto) {
       };
       if (organizationId === 'preview-tenant-smart') {
         const members = [
-          { id: 'smart-owner', username: 'smart.owner', name: '李总', role: '企业负责人', department: '管理层', departmentId: 'smart-management', positionId: 'smart-owner-pos', positionTitle: '企业负责人', avatarUrl: null, isAdmin: true, status: 'active', ottoOnline: true },
-          { id: 'smart-pm', username: 'smart.pm', name: '王敏', role: '项目经理', department: '研发中心', departmentId: 'smart-rd', positionId: 'smart-pm-pos', positionTitle: '项目经理', avatarUrl: null, isAdmin: false, status: 'active', ottoOnline: true },
-          { id: 'smart-engineer', username: 'smart.engineer', name: '周工', role: '工程师', department: '研发中心', departmentId: 'smart-rd', positionId: 'smart-engineer-pos', positionTitle: '工程师', avatarUrl: null, isAdmin: false, status: 'active', ottoOnline: false },
+          { id: 'smart-owner', username: 'smart.owner', name: '李总', role: '企业负责人', department: '管理层', departmentId: 'smart-management', positionId: 'smart-owner-pos', positionTitle: '企业负责人', avatarUrl: null, isAdmin: true, status: 'active', clawmasterOnline: true },
+          { id: 'smart-pm', username: 'smart.pm', name: '王敏', role: '项目经理', department: '研发中心', departmentId: 'smart-rd', positionId: 'smart-pm-pos', positionTitle: '项目经理', avatarUrl: null, isAdmin: false, status: 'active', clawmasterOnline: true },
+          { id: 'smart-engineer', username: 'smart.engineer', name: '周工', role: '工程师', department: '研发中心', departmentId: 'smart-rd', positionId: 'smart-engineer-pos', positionTitle: '工程师', avatarUrl: null, isAdmin: false, status: 'active', clawmasterOnline: false },
         ];
         return Promise.resolve({
           organization: { id: 'preview-tenant-smart', name: '宏创智能制造', status: 'active', industry: '智能制造', parkId: 'preview-park', createdAt: previewAccount.createdAt },
@@ -853,7 +853,7 @@ if (!previewWindow.otto) {
     customerModuleInstalledList: () => Promise.resolve([]),
   };
 
-  previewWindow.otto = new Proxy(bridge, {
+  previewWindow.clawmaster = new Proxy(bridge, {
     get(target, key) {
       return key in target
         ? target[key as string]

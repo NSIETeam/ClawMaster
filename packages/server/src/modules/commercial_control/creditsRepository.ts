@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Enterprise Credits System
  *
@@ -374,7 +374,7 @@ export function checkAndReserveCreditsInRepository(
   const rateRaw = store.creditTokenRate() || '1000';
   const rate = Number(rateRaw);
   if (!Number.isSafeInteger(rate) || rate <= 0) {
-    throw new Error('OTTO_CREDIT_TOKEN_RATE 必须是正整数');
+    throw new Error('CLAWMASTER_CREDIT_TOKEN_RATE 必须是正整数');
   }
   const estimatedCost = Math.max(1, Math.ceil(estimatedTokens / rate));
 

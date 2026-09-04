@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Zero-dependency package boundary checker.
  */
@@ -31,9 +31,9 @@ const KERNEL_LIFECYCLE_FILES = new Set([
   'packages/core/src/core/toolSchedulerAdapter.ts',
   'packages/core/src/core/sceneManager.ts',
   'packages/core/src/core/tokenLimits.ts',
-  'packages/core/src/core/ottoChat.ts',
+  'packages/core/src/core/clawmasterChat.ts',
   'packages/core/src/core/prompts.ts',
-  'packages/core/src/core/ottoRequest.ts',
+  'packages/core/src/core/clawmasterRequest.ts',
   'packages/core/src/core/agentResourceBudget.ts',
   'packages/core/src/core/workflowRegistry.ts',
   'packages/core/src/core/workflowRunner.ts',

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -15,7 +15,7 @@ import {
   getCoreSystemPrompt,
   tokenLimit,
   uiTelemetryService,
-} from 'otto-core';
+} from 'clawmaster-core';
 import { md, fail, type ServerSlashCommand } from './types.js';
 
 /** `/about`：core 版本环境 banner（复用 core AcpCommands.getAboutInfo）+ server 侧信息。 */
@@ -38,7 +38,7 @@ export const aboutCommand: ServerSlashCommand = {
 
 /**
  * `/context`：当前会话 context 用量分解。
- * 口径对齐 server 的 get_context_breakdown 帧 handler（那是 OttoServer 私有方法，
+ * 口径对齐 server 的 get_context_breakdown 帧 handler（那是 ClawMasterServer 私有方法，
  * 受「server.ts 只改帧路由区」约束不便抽出，这里按同一套 core API 独立重算；
  * 两处算式若要变更需同步——见 handleGetContextBreakdown）。
  */

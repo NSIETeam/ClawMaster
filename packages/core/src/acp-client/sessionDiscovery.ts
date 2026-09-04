@@ -6,7 +6,7 @@
 
 /**
  * Discover the *native* sessions that an external coding CLI (Claude Code,
- * Codex) already has on this machine, so Otto can show "what sessions
+ * Codex) already has on this machine, so ClawMaster can show "what sessions
  * each CLI has" and offer to resume one.
  *
  * Both the `@agentclientprotocol/claude-agent-acp` bridge and the

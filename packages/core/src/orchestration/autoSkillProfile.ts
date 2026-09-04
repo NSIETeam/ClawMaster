@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * AutoSkill 专家孵化模块。
  *
@@ -49,7 +49,7 @@ async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> 
 
 /**
  * 为一批 Skill 生成专家 Profile。
- * config 从全局注入（由 otto-server / CLI 侧在启动时调用 setAutoSkillConfig）。
+ * config 从全局注入（由 clawmaster-server / CLI 侧在启动时调用 setAutoSkillConfig）。
  */
 export async function generateProfilePipeline(
   skills: Array<{ skillName: string; skillDir: string; skillContent: string }>,
@@ -84,7 +84,7 @@ async function generateViaLLM(
   skillName: string,
   skillContent: string,
 ): Promise<AutoSkillProfileData> {
-  const client = config.getOttoClient();
+  const client = config.getClawMasterClient();
   if (!client) throw new Error('LLM client unavailable');
 
   const prompt = [

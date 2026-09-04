@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, {
@@ -401,12 +401,12 @@ export function ModuleWorkspace({
   return (
     <section
       ref={workspaceShellRef}
-      className={`otto-module-workspace-shell otto-module-workspace-shell--${presentation}`}
+      className={`claw-module-workspace-shell claw-module-workspace-shell--${presentation}`}
       aria-label="功能组"
     >
       <div
         ref={scrollViewportRef}
-        className={`otto-module-workspace-scroll-viewport otto-module-workspace-scroll-viewport--${presentation}`}
+        className={`claw-module-workspace-scroll-viewport claw-module-workspace-scroll-viewport--${presentation}`}
         onPointerEnter={revealFloatingScrollbar}
         onPointerMove={revealFloatingScrollbar}
         onScroll={revealFloatingScrollbar}
@@ -420,7 +420,7 @@ export function ModuleWorkspace({
         onReorder={(orderedGroupIds) => updateTransientLayout(
           reorderModuleGroups(transientLayoutRef.current, orderedGroupIds),
         )}
-        className={`otto-module-workspace otto-module-workspace--${presentation} otto-module-workspace--density-${density}${
+        className={`claw-module-workspace claw-module-workspace--${presentation} claw-module-workspace--density-${density}${
           reducedMotion ? ' is-reduced-motion' : ''
         }`}
         data-presentation={presentation}
@@ -447,19 +447,19 @@ export function ModuleWorkspace({
           <DraggableItem
             key={group.id}
             value={group.id}
-            className="otto-module-group-reorder-item"
+            className="claw-module-group-reorder-item"
             dataAttribute={{ 'data-reorder-group-item': group.id }}
             reducedMotion={reducedMotion}
             onDragEnd={persistTransientLayout}
           >
             {() => (
           <article
-            className={`otto-module-group${editingGroupId === group.id ? ' is-editing' : ''}${collapsed ? ' is-collapsed' : ''}`}
+            className={`claw-module-group${editingGroupId === group.id ? ' is-editing' : ''}${collapsed ? ' is-collapsed' : ''}`}
             data-group-id={group.id}
           >
-            <header className="otto-module-group__header">
+            <header className="claw-module-group__header">
               {renameDraft?.groupId === group.id ? (
-                <div className="otto-module-group__rename">
+                <div className="claw-module-group__rename">
                   <input
                     autoFocus
                     aria-label="功能组名称"
@@ -488,11 +488,11 @@ export function ModuleWorkspace({
                   {renameDraft.error ? <span role="alert">{renameDraft.error}</span> : null}
                 </div>
               ) : <h2 title={group.name}>{group.name}</h2>}
-              <div className="otto-module-group__header-actions">
+              <div className="claw-module-group__header-actions">
               {condensed ? (
                 <button
                   type="button"
-                  className="otto-module-group__collapse-button"
+                  className="claw-module-group__collapse-button"
                   aria-label={`${collapsed ? '展开' : '折叠'}${group.name}`}
                   aria-expanded={!collapsed}
                   onClick={() => setActiveCondensedGroupId(group.id)}
@@ -500,10 +500,10 @@ export function ModuleWorkspace({
                   <span aria-hidden>{collapsed ? '▼' : '▲'}</span>
                 </button>
               ) : null}
-              <div className="otto-module-group__menu-wrap" ref={openPopover?.kind === 'group' && openPopover.id === group.id ? menuRef : undefined}>
+              <div className="claw-module-group__menu-wrap" ref={openPopover?.kind === 'group' && openPopover.id === group.id ? menuRef : undefined}>
                 <button
                   type="button"
-                  className="otto-module-group__menu-button"
+                  className="claw-module-group__menu-button"
                   aria-label={`功能组菜单：${group.name}`}
                   aria-expanded={openPopover?.kind === 'group' && openPopover.id === group.id}
                   onClick={(event) => {
@@ -518,7 +518,7 @@ export function ModuleWorkspace({
                   ···
                 </button>
                 {openPopover?.kind === 'group' && openPopover.id === group.id ? (
-                  <div className="otto-module-group__menu" role="menu" aria-label={`${group.name}设置`}>
+                  <div className="claw-module-group__menu" role="menu" aria-label={`${group.name}设置`}>
                     <button
                       type="button"
                       role="menuitem"
@@ -590,7 +590,7 @@ export function ModuleWorkspace({
                 );
                 updateTransientLayout(reorderModulesInGroup(current, group.id, mergedOrder));
               }}
-              className={`otto-module-group__grid otto-module-group__grid--rows-${displayRows}${
+              className={`claw-module-group__grid claw-module-group__grid--rows-${displayRows}${
                 overflowing ? ' is-overflowing' : ''
               }`}
               hidden={collapsed}
@@ -609,7 +609,7 @@ export function ModuleWorkspace({
                   <DraggableItem
                     key={module.id}
                     value={module.id}
-                    className="otto-module-reorder-item"
+                    className="claw-module-reorder-item"
                     dataAttribute={{
                       'data-reorder-module-item': `${group.id}:${module.id}`,
                     }}
@@ -620,11 +620,11 @@ export function ModuleWorkspace({
                   >
                     {() => (
                   <div
-                    className="otto-module-tile-wrap"
+                    className="claw-module-tile-wrap"
                   >
                     <button
                       type="button"
-                      className="otto-module-tile"
+                      className="claw-module-tile"
                       aria-label={`打开 ${module.label}`}
                       disabled={disabled}
                       title={disabled ? module.disabledReason : editing ? '拖动调整模块顺序' : module.description}
@@ -657,7 +657,7 @@ export function ModuleWorkspace({
                     {editing ? (
                         <button
                           type="button"
-                          className="otto-module-tile__remove"
+                          className="claw-module-tile__remove"
                           aria-label={`移除 ${module.label}`}
                           title={`移除 ${module.label}`}
                           onPointerDown={(event) => event.stopPropagation()}
@@ -674,11 +674,11 @@ export function ModuleWorkspace({
               })}
               <button
                 type="button"
-                className="otto-module-group__add"
+                className="claw-module-group__add"
                 aria-label={`向${group.name}添加模块`}
                 onClick={() => onOpenMarketplace(group.id)}
               >
-                <span className="otto-module-group__add-icon" aria-hidden>＋</span>
+                <span className="claw-module-group__add-icon" aria-hidden>＋</span>
                 <span>添加模块</span>
               </button>
             </Reorder.Group>
@@ -688,10 +688,10 @@ export function ModuleWorkspace({
         );
         })}
       </Reorder.Group>
-      <div className="otto-module-workspace__footer">
+      <div className="claw-module-workspace__footer">
         <button
           type="button"
-          className="otto-module-workspace__add-group"
+          className="claw-module-workspace__add-group"
           aria-label="添加功能组"
           onClick={() => {
             const next = createModuleGroup(layout);
@@ -709,7 +709,7 @@ export function ModuleWorkspace({
         </button>
       </div>
       {undoState ? (
-        <div className="otto-module-workspace__undo" role="status">
+        <div className="claw-module-workspace__undo" role="status">
           <span>{undoState.label}</span>
           <button
             type="button"
@@ -728,13 +728,13 @@ export function ModuleWorkspace({
       </div>
       {presentation === 'panel' && scrollbarMetrics.overflowing ? (
         <div
-          className={`otto-module-workspace__floating-scrollbar${
+          className={`claw-module-workspace__floating-scrollbar${
             scrollbarVisible ? ' is-visible' : ''
           }`}
           aria-hidden="true"
         >
           <span
-            className="otto-module-workspace__floating-scrollbar-thumb"
+            className="claw-module-workspace__floating-scrollbar-thumb"
             style={{
               height: `${scrollbarMetrics.thumbHeight}px`,
               transform: `translateY(${scrollbarMetrics.thumbOffset}px)`,

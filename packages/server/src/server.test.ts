@@ -1,11 +1,11 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * OttoServer 端到端测：起真 HTTP+WS（port:0），用 ws 客户端往返各帧。
+ * ClawMasterServer 端到端测：起真 HTTP+WS（port:0），用 ws 客户端往返各帧。
  *
  * 注入自定义 store + runtimeFactory + mock，天然可测，不接 core。
  * 覆盖：HTTP /health /sessions /history /404；WS welcome 握手；
@@ -22,7 +22,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { WebSocket } from 'ws';
 import {
-  OttoServer,
+  ClawMasterServer,
   resolveSessionRuntimeModel,
   type RuntimeFactory,
 } from './server.js';
@@ -36,7 +36,7 @@ import type {
   HealthInfo,
   ServerToClient,
   SessionSummary,
-  OttoMessage,
+  ClawMasterMessage,
   type MessageContent,
 } from './protocol.js';
 
@@ -46,7 +46,7 @@ const wsClientTokens = new Map<string, string>();
 /** 起 server 监听随机端口（port:0），返回基础 URL。
  *  server.endpoint 返回构造端口（0），故从内部 http server 的 address() 取
  *  OS 实际分配的端口（测试侧反射读私有字段，不改源码）。 */
-async function startServer(server: OttoServer): Promise<string> {
+async function startServer(server: ClawMasterServer): Promise<string> {
   await server.start();
   const http = (server as unknown as { http: { address(): { port: number } } })
     .http;
@@ -124,10 +124,10 @@ async function getJson<T>(url: string): Promise<{ status: number; body: ApiRespo
 }
 
 beforeEach(() => {
-  tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'otto-server-'));
+  tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-server-'));
   vi.stubEnv('HOME', tmpHome);
   vi.stubEnv('USERPROFILE', tmpHome);
-  vi.stubEnv('OTTO_USER_DIR', path.join(tmpHome, 'user'));
+  vi.stubEnv('CLAWMASTER_USER_DIR', path.join(tmpHome, 'user'));
 });
 
 describe('会话运行时模型边界', () => {
@@ -139,16 +139,16 @@ describe('会话运行时模型边界', () => {
   });
 });
 
-describe('OttoServer WS（v1.7 产品工作区）', () => {
-  let server: OttoServer;
+describe('ClawMasterServer WS（v1.7 产品工作区）', () => {
+  let server: ClawMasterServer;
   let baseUrl: string;
 
   beforeEach(async () => {
     const productWorkspaceStore = new ProductWorkspaceStore({
       rootDir: path.join(tmpHome, 'workspace'),
     });
-    vi.stubEnv('OTTO_SCHEDULE_FILE', path.join(tmpHome, 'schedules.json'));
-    server = new OttoServer({
+    vi.stubEnv('CLAWMASTER_SCHEDULE_FILE', path.join(tmpHome, 'schedules.json'));
+    server = new ClawMasterServer({
       port: 0,
       mock: true,
       store: new InMemorySessionStore(),
@@ -305,7 +305,7 @@ describe('OttoServer WS（v1.7 产品工作区）', () => {
     client.close();
   });
 
-  it('用户和 Otto 共用同一份日程仓库，创建后可按日期读取', async () => {
+  it('用户和 ClawMaster 共用同一份日程仓库，创建后可按日期读取', async () => {
     const client = await connectWs(baseUrl);
     client.send({
       type: 'create_schedule',
@@ -512,7 +512,7 @@ describe('OttoServer WS（v1.7 产品工作区）', () => {
 
     client.send({
       type: 'create_session',
-      payload: { title: '个人 Otto', agentProfileId: 'otto-personal' },
+      payload: { title: '个人 ClawMaster', agentProfileId: 'otto-personal' },
     });
     const enterpriseDenied = await client.waitFor(
       (f) => f.type === 'error'
@@ -1144,12 +1144,12 @@ afterEach(() => {
   fs.rmSync(tmpHome, { recursive: true, force: true });
 });
 
-describe('OttoServer HTTP', () => {
-  let server: OttoServer;
+describe('ClawMasterServer HTTP', () => {
+  let server: ClawMasterServer;
   let baseUrl: string;
 
   beforeEach(async () => {
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: true,
       store: new InMemorySessionStore(),
@@ -1204,7 +1204,7 @@ describe('OttoServer HTTP', () => {
     const created = (await (
       await fetch(`${baseUrl}/sessions`, { method: 'POST' })
     ).json()) as ApiResponse<SessionSummary>;
-    const { body } = await getJson<OttoMessage[]>(
+    const { body } = await getJson<ClawMasterMessage[]>(
       `${baseUrl}/sessions/${created.data!.sessionId}/history`,
     );
     expect(body.ok).toBe(true);
@@ -1219,12 +1219,12 @@ describe('OttoServer HTTP', () => {
   });
 });
 
-describe('OttoServer WS（mock 模式）', () => {
-  let server: OttoServer;
+describe('ClawMasterServer WS（mock 模式）', () => {
+  let server: ClawMasterServer;
   let baseUrl: string;
 
   beforeEach(async () => {
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: true,
       store: new InMemorySessionStore(),
@@ -1701,8 +1701,8 @@ describe('OttoServer WS（mock 模式）', () => {
   });
 });
 
-describe('OttoServer runtimeFactory（非 mock 路径）', () => {
-  let server: OttoServer;
+describe('ClawMasterServer runtimeFactory（非 mock 路径）', () => {
+  let server: ClawMasterServer;
   let baseUrl: string;
 
   beforeEach(() => {
@@ -1744,7 +1744,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
       getConfig() { return undefined; },
       async dispose() {},
     });
-    server = new OttoServer({ port: 0, mock: false, runtimeFactory: factory, store });
+    server = new ClawMasterServer({ port: 0, mock: false, runtimeFactory: factory, store });
     baseUrl = await startServer(server);
     const client = await connectWs(baseUrl);
     await client.waitFor((frame) => frame.type === 'welcome');
@@ -1788,7 +1788,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
     const store = new InMemorySessionStore();
     const session = store.createSession();
     const generateTitle = vi.fn(async () => '合同风险分析');
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       store,
@@ -1836,7 +1836,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
   it('mock 模式不调用 AI 也会根据首条消息生成回退标题', async () => {
     const store = new InMemorySessionStore();
     const session = store.createSession();
-    server = new OttoServer({ port: 0, mock: true, store });
+    server = new ClawMasterServer({ port: 0, mock: true, store });
     baseUrl = await startServer(server);
     const client = await connectWs(baseUrl);
     await client.waitFor((frame) => frame.type === 'welcome');
@@ -1864,7 +1864,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
     const store = new InMemorySessionStore();
     const session = store.createSession();
     const run = vi.fn(async () => undefined);
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       store,
@@ -1905,7 +1905,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
     const store = new InMemorySessionStore();
     const session = store.createSession();
     const generateTitle = vi.fn(() => new Promise<string>(() => undefined));
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       store,
@@ -1948,7 +1948,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
     let resolveTitle!: (title: string) => void;
     const titlePending = new Promise<string>((resolve) => { resolveTitle = resolve; });
     const generateTitle = vi.fn(() => titlePending);
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       store,
@@ -1999,7 +1999,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
     const store = new InMemorySessionStore({ maxSessions: 1 });
     const first = store.createSession({ sessionId: 'reused-title-session' });
     const generateTitle = vi.fn(async () => '登录故障排查');
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       store,
@@ -2053,7 +2053,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
     const session = store.createSession();
     const generateTitle = vi.fn(async (input: string) =>
       input.includes('第一份合同') ? '首份合同检查' : '第二消息分析');
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       store,
@@ -2133,7 +2133,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
         dispose,
       };
     };
-    server = new OttoServer({ port: 0, mock: false, runtimeFactory: factory, store });
+    server = new ClawMasterServer({ port: 0, mock: false, runtimeFactory: factory, store });
     baseUrl = await startServer(server);
     const client = await connectWs(baseUrl);
     await client.waitFor((frame) => frame.type === 'welcome');
@@ -2200,7 +2200,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
         async dispose() {},
       };
     };
-    server = new OttoServer({ port: 0, mock: false, runtimeFactory: factory, store });
+    server = new ClawMasterServer({ port: 0, mock: false, runtimeFactory: factory, store });
     baseUrl = await startServer(server);
     const client = await connectWs(baseUrl);
     await client.waitFor((frame) => frame.type === 'welcome');
@@ -2242,7 +2242,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
     const store = new InMemorySessionStore({ defaultWorkspacePath: os.homedir() });
     const session = store.createSession({ workspacePath: first });
     const run = vi.fn(async () => undefined);
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       store,
@@ -2302,7 +2302,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
     fs.writeFileSync(path.join(tmpHome, 'OTTO.md'), '# legacy default memory', 'utf8');
     const store = new InMemorySessionStore({ defaultWorkspacePath: os.homedir() });
     const session = store.createSession({ workspacePath: workspace });
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: true,
       store,
@@ -2377,7 +2377,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
       companyName: '不应进入 A2A 提示的企业',
     });
     const store = new InMemorySessionStore();
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       runtimeFactory: factory,
@@ -2457,7 +2457,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
       };
       return runtime;
     };
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       runtimeFactory: factory,
@@ -2500,7 +2500,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
       getConfig() { return undefined; },
       async dispose() {},
     });
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       runtimeFactory: factory,
@@ -2559,7 +2559,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
       getConfig() { return undefined; },
       async dispose() {},
     });
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       runtimeFactory: factory,
@@ -2614,7 +2614,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
       });
       return runtime;
     };
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       runtimeFactory: factory,
@@ -2671,7 +2671,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
     const factory: RuntimeFactory = async () => {
       throw new Error('鉴权未配');
     };
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       runtimeFactory: factory,
@@ -2740,7 +2740,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
 
   it('最后一个订阅连接断开 → cancel 当前轮；仍有其他连接订阅则不取消', async () => {
     const { factory, calls } = makeHangingRuntime();
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       runtimeFactory: factory,
@@ -2777,7 +2777,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
 
   it('飞书绑定会话：桌面端全部断开也不取消（飞书侧还在等回复）', async () => {
     const { factory, calls } = makeHangingRuntime();
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       runtimeFactory: factory,
@@ -2807,7 +2807,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
 
   it('server.stop() → cancel + dispose 活跃 runtime', async () => {
     const { factory, calls } = makeHangingRuntime();
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       runtimeFactory: factory,
@@ -2832,7 +2832,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
 
   it('会话正忙（thinking）再来一条 → 入队等待，不立即落库或重复运行', async () => {
     const { factory, calls } = makeHangingRuntime();
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       runtimeFactory: factory,
@@ -2880,7 +2880,7 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
     let releaseFirst!: () => void;
     let runCount = 0;
     const store = new InMemorySessionStore();
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: false,
       store,
@@ -2980,8 +2980,8 @@ describe('OttoServer runtimeFactory（非 mock 路径）', () => {
   });
 });
 
-describe('OttoServer set_model 真实生效语义', () => {
-  let server: OttoServer;
+describe('ClawMasterServer set_model 真实生效语义', () => {
+  let server: ClawMasterServer;
   let baseUrl: string;
   let store: InMemorySessionStore;
 
@@ -3013,7 +3013,7 @@ describe('OttoServer set_model 真实生效语义', () => {
       'utf8',
     );
     store = new InMemorySessionStore();
-    server = new OttoServer({ port: 0, mock: true, store });
+    server = new ClawMasterServer({ port: 0, mock: true, store });
     baseUrl = await startServer(server);
   });
 
@@ -3156,16 +3156,16 @@ describe('OttoServer set_model 真实生效语义', () => {
   });
 });
 
-describe('OttoServer set_setting 实时提示词刷新', () => {
+describe('ClawMasterServer set_setting 实时提示词刷新', () => {
   it('切换工作方式时调用客户端的完整提示词重建', async () => {
     const store = new InMemorySessionStore();
-    const server = new OttoServer({ port: 0, mock: true, store });
+    const server = new ClawMasterServer({ port: 0, mock: true, store });
     const session = store.createSession({ title: '提示词刷新' });
     const refreshSystemPrompt = vi.fn(async () => undefined);
     const setAgentStyle = vi.fn();
     const config = {
       setAgentStyle,
-      getOttoClient: () => ({
+      getClawMasterClient: () => ({
         updateSystemPromptWithMcpPrompts: refreshSystemPrompt,
       }),
     };
@@ -3201,7 +3201,7 @@ describe('OttoServer set_setting 实时提示词刷新', () => {
   });
 
   it('后台智能默认关闭，只有用户开关开启时登记，关闭后立即释放', async () => {
-    const server = new OttoServer({
+    const server = new ClawMasterServer({
       port: 0,
       mock: true,
       store: new InMemorySessionStore(),
@@ -3248,12 +3248,12 @@ describe('OttoServer set_setting 实时提示词刷新', () => {
   });
 });
 
-describe('OttoServer 搜索 API 配置接口', () => {
-  let server: OttoServer;
+describe('ClawMasterServer 搜索 API 配置接口', () => {
+  let server: ClawMasterServer;
   let baseUrl: string;
 
   beforeEach(async () => {
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: true,
       store: new InMemorySessionStore(),
@@ -3300,12 +3300,12 @@ describe('OttoServer 搜索 API 配置接口', () => {
   });
 });
 
-describe('OttoServer 斜杠命令帧（P3）', () => {
-  let server: OttoServer;
+describe('ClawMasterServer 斜杠命令帧（P3）', () => {
+  let server: ClawMasterServer;
   let baseUrl: string;
 
   beforeEach(async () => {
-    server = new OttoServer({ port: 0, mock: true, store: new InMemorySessionStore() });
+    server = new ClawMasterServer({ port: 0, mock: true, store: new InMemorySessionStore() });
     baseUrl = await startServer(server);
   });
   afterEach(async () => {

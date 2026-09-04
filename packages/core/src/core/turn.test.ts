@@ -7,14 +7,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   Turn,
-  OttoEventType,
-  ServerOttoToolCallRequestEvent,
-  ServerOttoErrorEvent,
+  ClawMasterEventType,
+  ServerClawMasterToolCallRequestEvent,
+  ServerClawMasterErrorEvent,
 } from './turn.js';
 import { GenerateContentResponse, Part } from '@google/genai';
 import { Content } from '../types/extendedContent.js';
 import { reportError } from '../utils/errorReporting.js';
-import { OttoChat } from './ottoChat.js';
+import { ClawMasterChat } from './clawmasterChat.js';
 
 const mockSendMessageStream = vi.fn();
 const mockGetHistory = vi.fn();
@@ -56,7 +56,7 @@ describe('Turn', () => {
       sendMessageStream: mockSendMessageStream,
       getHistory: mockGetHistory,
     };
-    turn = new Turn(mockChatInstance as unknown as OttoChat, 'prompt-id-1', 'gemini-2.0-flash-exp');
+    turn = new Turn(mockChatInstance as unknown as ClawMasterChat, 'prompt-id-1', 'gemini-2.0-flash-exp');
     mockGetHistory.mockReturnValue([]);
     mockSendMessageStream.mockResolvedValue((async function* () {})());
   });
@@ -103,8 +103,8 @@ describe('Turn', () => {
       );
 
       expect(events).toEqual([
-        { type: OttoEventType.Content, value: 'Hello' },
-        { type: OttoEventType.Content, value: ' world' },
+        { type: ClawMasterEventType.Content, value: 'Hello' },
+        { type: ClawMasterEventType.Content, value: ' world' },
       ]);
       expect(turn.getDebugResponses().length).toBe(2);
     });
@@ -135,8 +135,8 @@ describe('Turn', () => {
       }
 
       expect(events.length).toBe(2);
-      const event1 = events[0] as ServerOttoToolCallRequestEvent;
-      expect(event1.type).toBe(OttoEventType.ToolCallRequest);
+      const event1 = events[0] as ServerClawMasterToolCallRequestEvent;
+      expect(event1.type).toBe(ClawMasterEventType.ToolCallRequest);
       expect(event1.value).toEqual(
         expect.objectContaining({
           callId: 'fc1',
@@ -147,8 +147,8 @@ describe('Turn', () => {
       );
       expect(turn.pendingToolCalls[0]).toEqual(event1.value);
 
-      const event2 = events[1] as ServerOttoToolCallRequestEvent;
-      expect(event2.type).toBe(OttoEventType.ToolCallRequest);
+      const event2 = events[1] as ServerClawMasterToolCallRequestEvent;
+      expect(event2.type).toBe(ClawMasterEventType.ToolCallRequest);
       expect(event2.value).toEqual(
         expect.objectContaining({
           name: 'tool2',
@@ -188,8 +188,8 @@ describe('Turn', () => {
         events.push(event);
       }
       expect(events).toEqual([
-        { type: OttoEventType.Content, value: 'First part' },
-        { type: OttoEventType.UserCancelled },
+        { type: ClawMasterEventType.Content, value: 'First part' },
+        { type: ClawMasterEventType.UserCancelled },
       ]);
       expect(turn.getDebugResponses().length).toBe(1);
     });
@@ -212,8 +212,8 @@ describe('Turn', () => {
       }
 
       expect(events.length).toBe(1);
-      const errorEvent = events[0] as ServerOttoErrorEvent;
-      expect(errorEvent.type).toBe(OttoEventType.Error);
+      const errorEvent = events[0] as ServerClawMasterErrorEvent;
+      expect(errorEvent.type).toBe(ClawMasterEventType.Error);
       expect(errorEvent.value).toEqual({
         error: { message: 'API Error', status: undefined },
       });
@@ -252,8 +252,8 @@ describe('Turn', () => {
 
       // 只有 fc2 (name='tool2') 通过防御过滤
       expect(events.length).toBe(1);
-      const event1 = events[0] as ServerOttoToolCallRequestEvent;
-      expect(event1.type).toBe(OttoEventType.ToolCallRequest);
+      const event1 = events[0] as ServerClawMasterToolCallRequestEvent;
+      expect(event1.type).toBe(ClawMasterEventType.ToolCallRequest);
       expect(event1.value).toEqual(
         expect.objectContaining({
           callId: 'fc2',
@@ -320,8 +320,8 @@ describe('Turn', () => {
       }
 
       expect(events).toEqual([
-        { type: OttoEventType.Content, value: 'Partial response' },
-        { type: OttoEventType.Finished, value: 'STOP' },
+        { type: ClawMasterEventType.Content, value: 'Partial response' },
+        { type: ClawMasterEventType.Finished, value: 'STOP' },
       ]);
     });
 
@@ -353,10 +353,10 @@ describe('Turn', () => {
 
       expect(events).toEqual([
         {
-          type: OttoEventType.Content,
+          type: ClawMasterEventType.Content,
           value: 'This is a long response that was cut off...',
         },
-        { type: OttoEventType.Finished, value: 'MAX_TOKENS' },
+        { type: ClawMasterEventType.Finished, value: 'MAX_TOKENS' },
       ]);
     });
 
@@ -383,8 +383,8 @@ describe('Turn', () => {
       }
 
       expect(events).toEqual([
-        { type: OttoEventType.Content, value: 'Content blocked' },
-        { type: OttoEventType.Finished, value: 'SAFETY' },
+        { type: ClawMasterEventType.Content, value: 'Content blocked' },
+        { type: ClawMasterEventType.Finished, value: 'SAFETY' },
       ]);
     });
 
@@ -412,7 +412,7 @@ describe('Turn', () => {
 
       expect(events).toEqual([
         {
-          type: OttoEventType.Content,
+          type: ClawMasterEventType.Content,
           value: 'Response without finish reason',
         },
       ]);
@@ -450,9 +450,9 @@ describe('Turn', () => {
       }
 
       expect(events).toEqual([
-        { type: OttoEventType.Content, value: 'First part' },
-        { type: OttoEventType.Content, value: 'Second part' },
-        { type: OttoEventType.Finished, value: 'OTHER' },
+        { type: ClawMasterEventType.Content, value: 'First part' },
+        { type: ClawMasterEventType.Content, value: 'Second part' },
+        { type: ClawMasterEventType.Finished, value: 'OTHER' },
       ]);
     });
   });

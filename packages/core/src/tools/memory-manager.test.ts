@@ -117,9 +117,9 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
 
   afterEach(async () => {
     await fs.rm(root, { recursive: true, force: true });
-    delete process.env.OTTO_ENTERPRISE_URL;
-    delete process.env.OTTO_ENTERPRISE_ADMIN_TOKEN;
-    delete process.env.OTTO_ENTERPRISE_RECALL_TIMEOUT_MS;
+    delete process.env.CLAWMASTER_ENTERPRISE_URL;
+    delete process.env.CLAWMASTER_ENTERPRISE_ADMIN_TOKEN;
+    delete process.env.CLAWMASTER_ENTERPRISE_RECALL_TIMEOUT_MS;
     if (server) {
       // Node's fetch keeps the real HTTP test connection alive. Force-close
       // those idle sockets so Vitest does not spend its entire 5 s budget in
@@ -149,7 +149,7 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
     const addr = server.address();
     const port = typeof addr === 'object' && addr ? addr.port : 0;
     serverUrl = `http://127.0.0.1:${port}`;
-    process.env.OTTO_ENTERPRISE_URL = serverUrl;
+    process.env.CLAWMASTER_ENTERPRISE_URL = serverUrl;
 
     const result = await tool.execute({
       action: 'recall',
@@ -163,7 +163,7 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
     expect(receivedPath).toContain('department=sales');
   });
 
-  it('sends the admin token header when OTTO_ENTERPRISE_ADMIN_TOKEN is set', async () => {
+  it('sends the admin token header when CLAWMASTER_ENTERPRISE_ADMIN_TOKEN is set', async () => {
     let receivedAuth: string | undefined;
     server = http.createServer((req, res) => {
       receivedAuth = req.headers['x-otto-admin-token'] as string | undefined;
@@ -173,8 +173,8 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
     await new Promise<void>((resolve) => server!.listen(0, '127.0.0.1', () => resolve()));
     const addr = server.address();
     const port = typeof addr === 'object' && addr ? addr.port : 0;
-    process.env.OTTO_ENTERPRISE_URL = `http://127.0.0.1:${port}`;
-    process.env.OTTO_ENTERPRISE_ADMIN_TOKEN = 'secret-token-123';
+    process.env.CLAWMASTER_ENTERPRISE_URL = `http://127.0.0.1:${port}`;
+    process.env.CLAWMASTER_ENTERPRISE_ADMIN_TOKEN = 'secret-token-123';
 
     const result = await tool.execute({
       action: 'recall',
@@ -187,8 +187,8 @@ describe('MemoryManagerTool recall — department/company knowledge unification'
 
   it('gracefully degrades (no crash, no error content) when the enterprise server is unreachable', async () => {
     // 指向一个必然连不上的端口（服务端未启动 —— 绝大多数个人用户的常态）。
-    process.env.OTTO_ENTERPRISE_URL = 'http://127.0.0.1:1';
-    process.env.OTTO_ENTERPRISE_RECALL_TIMEOUT_MS = '300';
+    process.env.CLAWMASTER_ENTERPRISE_URL = 'http://127.0.0.1:1';
+    process.env.CLAWMASTER_ENTERPRISE_RECALL_TIMEOUT_MS = '300';
 
     const result = await tool.execute({
       action: 'recall',

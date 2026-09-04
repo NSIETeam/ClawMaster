@@ -25,7 +25,7 @@ describe('UI mode preference', () => {
       serverUrl: '   ',
       organizationId: '   ',
       accountId: '   ',
-    })).toBe('otto.ui-mode.v1:local:personal:anonymous');
+    })).toBe('clawmaster.ui-mode.v1:local:personal:anonymous');
 
     expect(uiModeStorageKey({
       serverUrl: null,

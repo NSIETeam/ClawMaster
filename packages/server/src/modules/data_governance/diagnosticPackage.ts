@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * 脱敏诊断包生成器（NSI-10）。
  *
@@ -109,7 +109,7 @@ export function buildRedactedDiagnosticPackage(store: DataGovernanceRepositorySt
     messageSizeBytes = 0;
   }
 
-  const storageVolumeEncrypted = process.env.OTTO_STORAGE_VOLUME_ENCRYPTED === 'true';
+  const storageVolumeEncrypted = process.env.CLAWMASTER_STORAGE_VOLUME_ENCRYPTED === 'true';
   const hasFieldCipher = Boolean(store.fieldCipher);
   const hasAttachmentStore = Boolean(store.attachmentObjectStore);
 
@@ -118,8 +118,8 @@ export function buildRedactedDiagnosticPackage(store: DataGovernanceRepositorySt
     storageVolumeEncrypted,
     messageFieldsEncrypted: hasFieldCipher,
     attachmentObjectsEncrypted: hasAttachmentStore,
-    dataResidency: process.env.OTTO_DATA_RESIDENCY?.trim() || 'customer_server',
-    crossBorderEnabled: process.env.OTTO_CROSS_BORDER_DATA_ENABLED === 'true',
+    dataResidency: process.env.CLAWMASTER_DATA_RESIDENCY?.trim() || 'customer_server',
+    crossBorderEnabled: process.env.CLAWMASTER_CROSS_BORDER_DATA_ENABLED === 'true',
     retentionAuditDays: storeRetentionDays(),
     // 诊断包本身的脱敏说明：默认不含聊天原文。
     containsChatContent: false,
@@ -155,6 +155,6 @@ export function buildRedactedDiagnosticPackage(store: DataGovernanceRepositorySt
 }
 
 function storeRetentionDays(): number {
-  const configured = Number(process.env.OTTO_TELEMETRY_RETENTION_DAYS || 90);
+  const configured = Number(process.env.CLAWMASTER_TELEMETRY_RETENTION_DAYS || 90);
   return Number.isFinite(configured) ? Math.max(1, Math.min(3650, Math.floor(configured))) : 90;
 }

@@ -12,7 +12,7 @@ describe('customer module authoring', () => {
       draft: {
         id: 'com.acme.report', name: '月报', version: '1.0.0', description: '生成月报',
         releaseNotes: '首次发布',
-        minimumOttoVersion: '1.15.3', permissions: [], inputSchema: { type: 'object', properties: {} },
+        minimumClawMasterVersion: '1.15.3', permissions: [], inputSchema: { type: 'object', properties: {} },
       },
       publisher: { id: 'account-1', name: 'King' }, wasm: WASM,
     });

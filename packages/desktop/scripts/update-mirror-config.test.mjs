@@ -5,7 +5,7 @@ import {
 } from './update-mirror-config.mjs';
 
 describe('update mirror configuration', () => {
-  it('defaults release assets to the Otto no-proxy mirror', () => {
+  it('defaults release assets to the ClawMaster no-proxy mirror', () => {
     expect(resolveUpdateAssetBaseUrl('')).toBe(DEFAULT_UPDATE_ASSET_BASE_URL);
     expect(DEFAULT_UPDATE_ASSET_BASE_URL).toBe(
       'https://59.110.154.44:7777/downloads',
@@ -27,7 +27,7 @@ describe('update mirror configuration', () => {
     'not-a-url',
   ])('rejects unsafe mirror URL %s', (value) => {
     expect(() => resolveUpdateAssetBaseUrl(value)).toThrow(
-      /OTTO_UPDATE_ASSET_BASE_URL/,
+      /CLAWMASTER_UPDATE_ASSET_BASE_URL/,
     );
   });
 });

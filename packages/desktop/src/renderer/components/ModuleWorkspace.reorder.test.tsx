@@ -168,7 +168,7 @@ describe('ModuleWorkspace drag reorder contract', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '功能组菜单：园区服务' }));
     fireEvent.click(screen.getByRole('menuitem', { name: '编辑模块' }));
-    expect(container.querySelector('.otto-module-workspace.is-reduced-motion')).toBeTruthy();
+    expect(container.querySelector('.claw-module-workspace.is-reduced-motion')).toBeTruthy();
     expect(screen.queryByRole('button', { name: '拖动功能组：园区服务' })).toBeNull();
     expect(screen.queryByRole('button', { name: '拖动模块：园区公告' })).toBeNull();
     expect(screen.getByRole('button', { name: '移除 园区公告' })).toBeTruthy();
@@ -186,7 +186,7 @@ describe('ModuleWorkspace drag reorder contract', () => {
       />,
     );
     const groupList = container.querySelector<HTMLElement>('[data-reorder-group="groups"]')!;
-    const viewport = container.querySelector<HTMLElement>('.otto-module-workspace-scroll-viewport')!;
+    const viewport = container.querySelector<HTMLElement>('.claw-module-workspace-scroll-viewport')!;
     Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 900 });
     Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 300 });
     viewport.getBoundingClientRect = () => ({

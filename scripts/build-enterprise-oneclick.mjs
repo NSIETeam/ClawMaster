@@ -48,20 +48,20 @@ if (!schemaVersionMatch) {
 }
 const schemaVersion = Number(schemaVersionMatch[1]);
 const supportedSchemaFrom = supportedEnterpriseSchemaVersions(schemaVersion);
-const releaseChannel = process.env.OTTO_RELEASE_CHANNEL?.trim() || 'stable';
+const releaseChannel = process.env.CLAWMASTER_RELEASE_CHANNEL?.trim() || 'stable';
 if (!['stable', 'transition'].includes(releaseChannel)) {
-  throw new Error('OTTO_RELEASE_CHANNEL must be either stable or transition');
+  throw new Error('CLAWMASTER_RELEASE_CHANNEL must be either stable or transition');
 }
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const allowUnsignedEnterprisePackage =
-  process.env.OTTO_ALLOW_UNSIGNED_ENTERPRISE_PACKAGE === '1';
+  process.env.CLAWMASTER_ALLOW_UNSIGNED_ENTERPRISE_PACKAGE === '1';
 const enterpriseSigningPrivateKey = process.env
-  .OTTO_ENTERPRISE_SIGNING_PRIVATE_KEY_FILE
-  ? readFileSync(process.env.OTTO_ENTERPRISE_SIGNING_PRIVATE_KEY_FILE, 'utf8')
-  : process.env.OTTO_ENTERPRISE_SIGNING_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  .CLAWMASTER_ENTERPRISE_SIGNING_PRIVATE_KEY_FILE
+  ? readFileSync(process.env.CLAWMASTER_ENTERPRISE_SIGNING_PRIVATE_KEY_FILE, 'utf8')
+  : process.env.CLAWMASTER_ENTERPRISE_SIGNING_PRIVATE_KEY?.replace(/\\n/g, '\n');
 if (!enterpriseSigningPrivateKey && !allowUnsignedEnterprisePackage) {
   throw new Error(
-    'enterprise package signing key missing; set OTTO_ENTERPRISE_SIGNING_PRIVATE_KEY(_FILE), or explicitly allow an unsigned local build',
+    'enterprise package signing key missing; set CLAWMASTER_ENTERPRISE_SIGNING_PRIVATE_KEY(_FILE), or explicitly allow an unsigned local build',
   );
 }
 
@@ -84,12 +84,12 @@ function parseLicensePublicKeys(raw) {
   const value = raw?.trim();
   if (!value) {
     throw new Error(
-      'OTTO_LICENSE_PUBLIC_KEYS is required for enterprise packages',
+      'CLAWMASTER_LICENSE_PUBLIC_KEYS is required for enterprise packages',
     );
   }
   const values = value.startsWith('[') ? JSON.parse(value) : [value];
   if (!Array.isArray(values) || values.length === 0) {
-    throw new Error('OTTO_LICENSE_PUBLIC_KEYS must contain at least one key');
+    throw new Error('CLAWMASTER_LICENSE_PUBLIC_KEYS must contain at least one key');
   }
   return Array.from(
     new Set(
@@ -104,7 +104,7 @@ function parseLicensePublicKeys(raw) {
 }
 
 const licensePublicKeys = parseLicensePublicKeys(
-  process.env.OTTO_LICENSE_PUBLIC_KEYS,
+  process.env.CLAWMASTER_LICENSE_PUBLIC_KEYS,
 );
 
 function run(command, args, options = {}) {
@@ -474,7 +474,7 @@ export class FeatureFlagManager {
     {
       env: {
         ...process.env,
-        OTTO_ENTERPRISE_DIR: smokeDataRoot,
+        CLAWMASTER_ENTERPRISE_DIR: smokeDataRoot,
       },
     },
   );
@@ -682,7 +682,7 @@ export class FeatureFlagManager {
       {
         env: {
           ...process.env,
-          OTTO_ENTERPRISE_SIGNING_PUBLIC_KEY: publicKeyPem,
+          CLAWMASTER_ENTERPRISE_SIGNING_PUBLIC_KEY: publicKeyPem,
         },
       },
     );

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -26,7 +26,7 @@ describe('Redis enterprise shared cache', () => {
       backend: 'redis',
     });
     await expect(cache.get('session:abc')).resolves.toBe('value');
-    expect(client.get).toHaveBeenCalledWith('otto:session:abc');
+    expect(client.get).toHaveBeenCalledWith('clawmaster.session:abc');
   });
 
   it('uses atomic NX leases and owner-checked release', async () => {

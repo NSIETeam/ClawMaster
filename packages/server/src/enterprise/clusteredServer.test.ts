@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { generateKeyPairSync } from 'node:crypto';
@@ -27,7 +27,7 @@ import type {
 const account: PostgresEnterpriseAccountView = {
   id: 'acc_admin',
   organizationId: 'org_default',
-  organizationName: 'Otto',
+  organizationName: 'ClawMaster',
   accountType: 'enterprise',
   employeeId: null,
   username: 'admin',
@@ -459,12 +459,12 @@ describe('clustered PostgreSQL enterprise server', () => {
       members: [
         {
           id: 'acc_admin',
-          ottoOnline: true,
+          clawmasterOnline: true,
           ottoLastSeenAt: '2026-08-01T00:00:00.000Z',
         },
         {
           id: 'acc_peer',
-          ottoOnline: false,
+          clawmasterOnline: false,
           ottoLastSeenAt: null,
         },
       ],
@@ -873,11 +873,11 @@ describe('clustered PostgreSQL enterprise server', () => {
     const park = await fetch(`${baseUrl}/enterprise/park`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ name: 'Otto Campus' }),
+      body: JSON.stringify({ name: 'ClawMaster Campus' }),
     });
     expect(park.status).toBe(200);
     await expect(park.json()).resolves.toMatchObject({
-      park: { name: 'Otto Campus' },
+      park: { name: 'ClawMaster Campus' },
     });
 
     const ticket = await fetch(`${baseUrl}/enterprise/tickets`, {
@@ -940,7 +940,7 @@ describe('clustered PostgreSQL enterprise server', () => {
     );
     expect(manifest.status).toBe(200);
     await expect(manifest.json()).resolves.toMatchObject({
-      format: 'otto-module-updates-v1',
+      format: 'clawmaster.module-updates-v1',
       deploymentId: 'clustered-enterprise',
       modules: [],
     });
@@ -1133,7 +1133,7 @@ describe('clustered PostgreSQL enterprise server', () => {
     const joined = {
       ...personal,
       organizationId: 'org_default',
-      organizationName: 'Otto',
+      organizationName: 'ClawMaster',
       accountType: 'enterprise' as const,
     };
     const joinOrganizationWithInvite = vi.fn(async () => ({

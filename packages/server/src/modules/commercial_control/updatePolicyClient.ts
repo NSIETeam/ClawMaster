@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createHmac, randomUUID } from 'node:crypto';
@@ -236,7 +236,7 @@ export async function resolveDeploymentUpdatePolicy(
         headers: {
           authorization: `Bearer ${options.credentials.leaseToken}`,
           'content-type': 'application/json',
-          'user-agent': 'Otto-Private-Deployment/1',
+          'user-agent': 'ClawMaster-Private-Deployment/1',
           'x-otto-timestamp': String(timestamp),
           'x-otto-nonce': nonce,
           'x-otto-signature': requestSignature(

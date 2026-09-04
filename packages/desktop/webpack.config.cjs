@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -103,16 +103,16 @@ module.exports = (_env, argv) => {
     },
     plugins: [
       // Renderer 在 sandbox 中不能读取任意运行时环境变量。只在构建命令明确
-      // 设置 OTTO_INTERNAL_TEST_ACCESS=1 时烘焙本地免登录入口；普通构建恒为关闭。
+      // 设置 CLAWMASTER_INTERNAL_TEST_ACCESS=1 时烘焙本地免登录入口；普通构建恒为关闭。
       new webpack.DefinePlugin({
         // The large in-memory preview bridge contains demo data and exists only
         // for browser UI inspection. Never ship it in a desktop renderer.
         __CLAWMASTER_BROWSER_PREVIEW__: JSON.stringify(false),
-        __OTTO_INTERNAL_TEST_ACCESS__: JSON.stringify(
-          process.env.OTTO_INTERNAL_TEST_ACCESS === '1',
+        __CLAWMASTER_INTERNAL_TEST_ACCESS__: JSON.stringify(
+          process.env.CLAWMASTER_INTERNAL_TEST_ACCESS === '1',
         ),
-        __OTTO_INTERNAL_TEST_ADMIN__: JSON.stringify(
-          process.env.OTTO_INTERNAL_TEST_ADMIN === '1',
+        __CLAWMASTER_INTERNAL_TEST_ADMIN__: JSON.stringify(
+          process.env.CLAWMASTER_INTERNAL_TEST_ADMIN === '1',
         ),
       }),
       new HtmlWebpackPlugin({

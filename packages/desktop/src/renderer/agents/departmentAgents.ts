@@ -1,9 +1,9 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * Otto fixed Agent catalog.
+ * ClawMaster fixed Agent catalog.
  *
  * The product-level decision is to expose 9 Agents for each signed-in identity:
  * one identity-matched foundation plus eight common experts. Department-specific,
@@ -37,8 +37,8 @@ export interface AgentProfile {
   readonly accent?: string;
 }
 
-export const PERSONAL_OTTO_PROFILE: AgentProfile = {
-  id: 'otto-personal',
+export const PERSONAL_CLAWMASTER_PROFILE: AgentProfile = {
+  id: 'claw-personal',
   name: 'ClawMaster',
   tagline: '基础 Agent · 会做事，也会把重复工作沉淀成 Skill',
   scope: 'personal',
@@ -49,7 +49,7 @@ export const PERSONAL_OTTO_PROFILE: AgentProfile = {
 };
 
 export const ENTERPRISE_CEO_PROFILE: AgentProfile = {
-  id: 'otto-enterprise-ceo',
+  id: 'claw-enterprise-ceo',
   name: 'CEO Agent',
   tagline: '企业框架、经营决策与跨部门推进',
   icon: 'agent-ceo',
@@ -61,7 +61,7 @@ export const ENTERPRISE_CEO_PROFILE: AgentProfile = {
 };
 
 export const ENTERPRISE_WORK_PROFILE: AgentProfile = {
-  id: 'otto-enterprise-work',
+  id: 'claw-enterprise-work',
   name: '企业工作 Agent',
   tagline: '按当前部门和职位完成日常工作',
   scope: 'base',
@@ -177,7 +177,7 @@ export const COMMON_EXPERT_PROFILES: readonly AgentProfile[] = [
 
 /** Personal UI catalog: enterprise work Agents must never leak into this list. */
 export const BASE_AGENT_PROFILES: readonly AgentProfile[] = [
-  PERSONAL_OTTO_PROFILE,
+  PERSONAL_CLAWMASTER_PROFILE,
 ];
 
 /** The fixed 9 enterprise work Agents: one general work Agent plus eight experts. */
@@ -190,7 +190,7 @@ export const DEPARTMENT_AGENT_PROFILES: readonly AgentProfile[] = [];
 
 /** 当前可见 UI profiles；旧 CEO profile 仅保留常量用于历史兼容，不再进入目录。 */
 export const ALL_AGENT_PROFILES: readonly AgentProfile[] = [
-  PERSONAL_OTTO_PROFILE,
+  PERSONAL_CLAWMASTER_PROFILE,
   ENTERPRISE_WORK_PROFILE,
   SELF_DEVELOPMENT_PROFILE,
   ...COMMON_EXPERT_PROFILES,

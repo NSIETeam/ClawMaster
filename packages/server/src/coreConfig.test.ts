@@ -1,10 +1,10 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
 import { createCoreConfig } from './coreConfig.js';
-import { ApprovalMode } from 'otto-core';
+import { ApprovalMode } from 'clawmaster-core';
 
 const PERSONAL_MODEL = {
   displayName: '个人模型',
@@ -25,7 +25,7 @@ describe('createCoreConfig v1.7 模式隔离', () => {
     expect(config.getApprovalMode()).toBe(ApprovalMode.DEFAULT);
   });
 
-  it('内部测试阶段遇到旧 Otto 托管模型 id 时回退个人 BYOK', () => {
+  it('内部测试阶段遇到旧 ClawMaster 托管模型 id 时回退个人 BYOK', () => {
     const config = createCoreConfig({
       sessionId: 'enterprise-session',
       model: 'otto:deepseek',

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Private-chat cryptography lives in Electron main, outside the renderer and
  * outside the enterprise server. The server receives ciphertext, signatures
@@ -26,7 +26,7 @@ import * as path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 
 export const ENTERPRISE_E2EE_PROTOCOL_VERSION = 1 as const;
-export const ENTERPRISE_FEDERATION_E2EE_SCOPE = 'otto:federation-e2ee:v1';
+export const ENTERPRISE_FEDERATION_E2EE_SCOPE = 'clawmaster:federation-e2ee:v1';
 
 export interface EnterpriseE2eeDeviceBundle {
   accountId: string;
@@ -293,7 +293,7 @@ export function enterpriseE2eeDeviceKeyFingerprint(
   const signing = publicPem(createPublicKey(device.identitySigningPublicKey));
   const exchange = publicPem(createPublicKey(device.deviceExchangePublicKey));
   return createHash('sha256')
-    .update('otto:e2ee-device-fingerprint:v1\n')
+    .update('clawmaster:e2ee-device-fingerprint:v1\n')
     .update(signing)
     .update('\n')
     .update(exchange)
@@ -318,7 +318,7 @@ export function enterpriseE2eeDeviceVerification(
     );
   const canonical = JSON.stringify({ v: 1, devices: identities });
   const digest = createHash('sha512')
-    .update('otto:e2ee-safety-number:v1\n')
+    .update('clawmaster:e2ee-safety-number:v1\n')
     .update(canonical)
     .digest();
   const groups = Array.from({ length: 12 }, (_, index) =>
@@ -346,7 +346,7 @@ export function enterpriseFederationContactVerification(
     .sort((left, right) => left.identity.localeCompare(right.identity));
   const canonical = JSON.stringify({ v: 2, identities });
   const digest = createHash('sha512')
-    .update('otto:federation-safety-number:v2\n')
+    .update('clawmaster:federation-safety-number:v2\n')
     .update(canonical)
     .digest();
   const groups = Array.from({ length: 12 }, (_, index) =>
@@ -370,7 +370,7 @@ export function enterpriseE2eeDeviceApprovalSignaturePayload(input: {
   targetKeyFingerprint: string;
 }): Buffer {
   return Buffer.from(
-    `otto:e2ee-device-approval:v1\n${JSON.stringify(input)}`,
+    `clawmaster:e2ee-device-approval:v1\n${JSON.stringify(input)}`,
     'utf8',
   );
 }
@@ -519,7 +519,7 @@ function validateTransparencyView(
       throw new Error('E2EE key transparency log integrity check failed');
     }
     const expectedHash = createHash('sha256')
-      .update('otto:e2ee-key-transparency:v1\n')
+      .update('clawmaster:e2ee-key-transparency:v1\n')
       .update(
         JSON.stringify({
           sequence: entry.sequence,
@@ -1002,7 +1002,7 @@ function messageAad(
   senderAccountId: string,
   recipientAccountId: string,
 ): string {
-  return `otto:e2ee:message:v1:${organizationId}:${messageId}:${senderAccountId}:${recipientAccountId}`;
+  return `clawmaster:e2ee:message:v1:${organizationId}:${messageId}:${senderAccountId}:${recipientAccountId}`;
 }
 
 function envelopeAad(
@@ -1010,11 +1010,11 @@ function envelopeAad(
   accountId: string,
   deviceId: string,
 ): string {
-  return `otto:e2ee:envelope:v1:${messageId}:${accountId}:${deviceId}`;
+  return `clawmaster:e2ee:envelope:v1:${messageId}:${accountId}:${deviceId}`;
 }
 
 function attachmentAad(messageId: string, attachmentId: string): string {
-  return `otto:e2ee:attachment:v1:${messageId}:${attachmentId}`;
+  return `clawmaster:e2ee:attachment:v1:${messageId}:${attachmentId}`;
 }
 
 function deriveEnvelopeKey(

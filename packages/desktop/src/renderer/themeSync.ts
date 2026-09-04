@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 export type ThemeSource = 'system' | 'light' | 'dark';
 type ResolvedTheme = Exclude<ThemeSource, 'system'>;
@@ -28,8 +28,8 @@ export function applyRendererTheme(
   root: HTMLElement = document.documentElement,
   media: MediaQueryList = darkMediaQuery(),
 ): void {
-  root.dataset.ottoTheme = resolveTheme(source, media);
-  root.dataset.ottoThemeSource = source;
+  root.dataset.clawTheme = resolveTheme(source, media);
+  root.dataset.clawThemeSource = source;
 }
 
 export function startRendererThemeSync(
@@ -51,9 +51,9 @@ export function startRendererThemeSync(
   };
 
   media.addEventListener('change', onSystemThemeChange);
-  window.addEventListener('otto:theme-source', onThemeSource);
+  window.addEventListener('clawmaster:theme-source', onThemeSource);
   refresh();
-  void window.otto?.themeGet?.().then((value) => {
+  void window.clawmaster?.themeGet?.().then((value) => {
     if (sourceWasAnnounced) return;
     if (value === 'system' || value === 'light' || value === 'dark') {
       source = value;
@@ -63,7 +63,7 @@ export function startRendererThemeSync(
 
   return () => {
     media.removeEventListener('change', onSystemThemeChange);
-    window.removeEventListener('otto:theme-source', onThemeSource);
+    window.removeEventListener('clawmaster:theme-source', onThemeSource);
   };
 }
 
@@ -72,5 +72,5 @@ export function announceRendererTheme(
   media: MediaQueryList = darkMediaQuery(),
 ): void {
   applyRendererTheme(source, document.documentElement, media);
-  window.dispatchEvent(new CustomEvent<ThemeSource>('otto:theme-source', { detail: source }));
+  window.dispatchEvent(new CustomEvent<ThemeSource>('clawmaster:theme-source', { detail: source }));
 }

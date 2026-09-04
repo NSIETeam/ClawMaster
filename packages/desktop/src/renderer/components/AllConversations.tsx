@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -15,7 +15,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { SessionSummary } from 'otto-server';
+import type { SessionSummary } from 'clawmaster-server';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { SourceBadge } from './SourceBadge.js';
 import { IconClose, IconList, IconTrash } from './icons.js';
@@ -126,7 +126,7 @@ export function AllConversations({
   // 高亮项滚动进视野（列表长到需要滚动时）。jsdom 无 scrollIntoView，存在才调。
   useEffect(() => {
     const el = listRef.current?.querySelector<HTMLElement>(
-      '.otto-allconv__item--highlight',
+      '.claw-allconv__item--highlight',
     );
     el?.scrollIntoView?.({ block: 'nearest' });
   }, [highlight]);
@@ -160,18 +160,18 @@ export function AllConversations({
   };
 
   return (
-    <div className="otto-allconv-overlay" onClick={onClose}>
+    <div className="claw-allconv-overlay" onClick={onClose}>
       <div
-        className="otto-allconv"
+        className="claw-allconv"
         role="dialog"
         aria-label="消息中心"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="otto-allconv__head">
-          <IconList size={16} className="otto-allconv__searchicon" />
+        <div className="claw-allconv__head">
+          <IconList size={16} className="claw-allconv__searchicon" />
           <input
             ref={inputRef}
-            className="otto-allconv__search"
+            className="claw-allconv__search"
             type="text"
             placeholder="搜索消息标题或内容…"
             value={query}
@@ -180,7 +180,7 @@ export function AllConversations({
           />
           <button
             type="button"
-            className="otto-allconv__close"
+            className="claw-allconv__close"
             onClick={onClose}
             title="关闭"
             aria-label="关闭"
@@ -189,7 +189,7 @@ export function AllConversations({
           </button>
         </div>
 
-        <div className="otto-allconv__filters" aria-label="消息分类">
+        <div className="claw-allconv__filters" aria-label="消息分类">
           {([
             ['all', '全部消息', '全部'],
             ['unread', '仅看未读', '未读'],
@@ -199,7 +199,7 @@ export function AllConversations({
           ] as const).map(([value, label, text]) => (
             <button
               type="button"
-              className={`otto-allconv__filter${filter === value ? ' is-active' : ''}`}
+              className={`claw-allconv__filter${filter === value ? ' is-active' : ''}`}
               aria-label={label}
               aria-pressed={filter === value}
               key={value}
@@ -210,9 +210,9 @@ export function AllConversations({
           ))}
         </div>
 
-        <div className="otto-allconv__list" ref={listRef}>
+        <div className="claw-allconv__list" ref={listRef}>
           {filtered.length === 0 ? (
-            <div className="otto-allconv__empty">
+            <div className="claw-allconv__empty">
               {allItems.length === 0
                 ? '还没有任何消息记录'
                 : '没有匹配的消息'}
@@ -230,11 +230,11 @@ export function AllConversations({
                 aria-current={
                   s.sessionId === activeSessionId ? 'true' : undefined
                 }
-                className={`otto-allconv__item${
+                className={`claw-allconv__item${
                   s.sessionId === activeSessionId
-                    ? ' otto-allconv__item--active'
+                    ? ' claw-allconv__item--active'
                     : ''
-                }${i === highlight ? ' otto-allconv__item--highlight' : ''}`}
+                }${i === highlight ? ' claw-allconv__item--highlight' : ''}`}
                 onMouseEnter={() => setHighlight(i)}
                 onClick={() => pick(s.sessionId)}
                 onKeyDown={(e) => {
@@ -244,23 +244,23 @@ export function AllConversations({
                   }
                 }}
               >
-                <div className="otto-allconv__itemtop">
+                <div className="claw-allconv__itemtop">
                   {unread ? (
                     <span
-                      className="otto-allconv__unread"
+                      className="claw-allconv__unread"
                       aria-label="未读消息"
                       title="未读消息"
                     />
                   ) : null}
-                  <span className="otto-allconv__title">
+                  <span className="claw-allconv__title">
                     {s.title || '未命名对话'}
                   </span>
-                  <span className="otto-allconv__time">
+                  <span className="claw-allconv__time">
                     {formatWhen(s.updatedAt)}
                   </span>
                   {!notification ? <button
                     type="button"
-                    className="otto-allconv__del"
+                    className="claw-allconv__del"
                     title="删除对话"
                     aria-label="删除对话"
                     onClick={(e) => {
@@ -272,11 +272,11 @@ export function AllConversations({
                   </button> : null}
                 </div>
                 {s.lastMessagePreview ? (
-                  <div className="otto-allconv__preview">
+                  <div className="claw-allconv__preview">
                     {s.lastMessagePreview}
                   </div>
                 ) : null}
-                <div className="otto-allconv__meta">
+                <div className="claw-allconv__meta">
                   <SourceBadge source={s.source} />
                 </div>
               </div>
@@ -285,7 +285,7 @@ export function AllConversations({
           )}
         </div>
 
-        <div className="otto-allconv__footer">
+        <div className="claw-allconv__footer">
           共 {allItems.length} 条历史与通知
           {query.trim() ? `，匹配 ${filtered.length} 个` : ''}
         </div>

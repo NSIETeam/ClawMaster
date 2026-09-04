@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { DesktopRuntimeDiagnostic, OttoBridge } from '../preload/index.js';
-import type { ClientToServer, ServerToClient } from 'otto-server';
+import type { DesktopRuntimeDiagnostic, ClawMasterBridge } from '../preload/index.js';
+import type { ClientToServer, ServerToClient } from 'clawmaster-server';
 
 export type TauriInvoke = <T>(
   command: string,
@@ -57,7 +57,7 @@ export class HostBridgeUnavailableError extends Error {
 export function createTauriHostBridge(
   invoke: TauriInvoke,
   listen: TauriListen | undefined = window.__TAURI__?.event?.listen,
-): OttoBridge {
+): ClawMasterBridge {
   let connected = false;
   let requestSequence = 0;
   const frameHandlers = new Set<(frame: ServerToClient) => void>();
@@ -147,7 +147,7 @@ export function createTauriHostBridge(
   const nextRequestId = (): string =>
     `work-log-${Date.now().toString(36)}-${++requestSequence}`;
 
-  const migrated: Partial<Record<keyof OttoBridge, (...args: never[]) => unknown>> = {
+  const migrated: Partial<Record<keyof ClawMasterBridge, (...args: never[]) => unknown>> = {
     connect: connectDesktop as never,
     disconnect: (() => {
       connected = false;
@@ -226,7 +226,7 @@ export function createTauriHostBridge(
     appVersion: (() => invoke<string>('app_version')) as never,
     runtimeDiagnostic: (() =>
       invoke<DesktopRuntimeDiagnostic>('runtime_diagnostic')) as never,
-    notificationShow: ((payload: Parameters<OttoBridge['notificationShow']>[0]) =>
+    notificationShow: ((payload: Parameters<ClawMasterBridge['notificationShow']>[0]) =>
       invoke<void>('notification_show', { payload })) as never,
     enterpriseSession: (() => Promise.resolve({
       serverUrl: 'tauri://local',
@@ -310,24 +310,24 @@ export function createTauriHostBridge(
   return new Proxy(migrated, {
     get(target, property) {
       if (typeof property !== 'string') return undefined;
-      const implementation = target[property as keyof OttoBridge];
+      const implementation = target[property as keyof ClawMasterBridge];
       if (implementation) return implementation;
       return () => Promise.reject(new TauriBridgeUnsupportedError(property));
     },
-  }) as OttoBridge;
+  }) as ClawMasterBridge;
 }
 
 /** Resolve the active desktop shell while Electron remains available as fallback. */
-export function getHostBridge(): OttoBridge {
-  if (window.otto) return window.otto;
+export function getHostBridge(): ClawMasterBridge {
+  if (window.clawmaster) return window.clawmaster;
   const invoke = window.__TAURI_INTERNALS__?.invoke;
   if (invoke) return createTauriHostBridge(invoke);
   throw new HostBridgeUnavailableError();
 }
 
-/** Install the Tauri bridge before React modules evaluate direct window.otto consumers. */
+/** Install the Tauri bridge before React modules evaluate direct window.clawmaster consumers. */
 export function installTauriHostBridge(): boolean {
-  if (window.otto) return false;
+  if (window.clawmaster) return false;
   const invoke = window.__TAURI_INTERNALS__?.invoke;
   if (!invoke) {
     if (window.__TAURI_INTERNALS__ || window.__TAURI__) {
@@ -335,7 +335,7 @@ export function installTauriHostBridge(): boolean {
     }
     return false;
   }
-  Object.defineProperty(window, 'otto', {
+  Object.defineProperty(window, 'clawmaster', {
     configurable: true,
     value: createTauriHostBridge(invoke),
   });

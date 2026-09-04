@@ -1,9 +1,9 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useState } from 'react';
-import type { ScheduleItemInfo } from 'otto-server';
+import type { ScheduleItemInfo } from 'clawmaster-server';
 import type {
   EnterpriseAccount,
   EnterpriseDirectMessage,
@@ -18,7 +18,7 @@ import {
   buildAtoaRequest,
   type AtoaContextSource,
 } from '../atoaProtocol.js';
-import { askLocalPeerOtto } from '../peerOttoRunner.js';
+import { askLocalPeerClawMaster } from '../peerClawMasterRunner.js';
 
 type Member = EnterpriseOrganizationView['members'][number];
 
@@ -40,9 +40,9 @@ export function AtoaConsultDialog({
   onClose,
   onSent,
   collectContext,
-  askOtto = (input) => askLocalPeerOtto(input),
+  askClawMaster = (input) => askLocalPeerClawMaster(input),
   sendMessage = (peerAccountId, content) =>
-    window.otto.enterpriseMessageSend(peerAccountId, content),
+    window.clawmaster.enterpriseMessageSend(peerAccountId, content),
 }: {
   account: EnterpriseAccount;
   member: Member;
@@ -53,7 +53,7 @@ export function AtoaConsultDialog({
   collectContext?: (
     sources: AtoaContextSource[],
   ) => Promise<AuthorizedAtoaContext>;
-  askOtto?: (input: {
+  askClawMaster?: (input: {
     question: string;
     workContext: string;
     mode: 'consult_initiator';
@@ -99,12 +99,12 @@ export function AtoaConsultDialog({
             currentAccountId: account.id,
             currentAccountName: account.name,
             peerName: member.name,
-            listMessages: window.otto.enterpriseMessagesList,
-            listKnowledge: () => window.otto.enterpriseKnowledgeList(),
-            workLogRecent: window.otto.workLogRecent,
+            listMessages: window.clawmaster.enterpriseMessagesList,
+            listKnowledge: () => window.clawmaster.enterpriseKnowledgeList(),
+            workLogRecent: window.clawmaster.workLogRecent,
             schedules,
           });
-      const next = await askOtto({
+      const next = await askClawMaster({
         question: cleanQuestion,
         workContext: context.context,
         mode: 'consult_initiator',
@@ -140,9 +140,9 @@ export function AtoaConsultDialog({
   };
 
   return (
-    <div className="otto-a2a-consult-backdrop">
+    <div className="claw-a2a-consult-backdrop">
       <section
-        className="otto-a2a-consult"
+        className="claw-a2a-consult"
         role="dialog"
         aria-modal="true"
         aria-label="双方 ClawMaster 协商"
@@ -157,7 +157,7 @@ export function AtoaConsultDialog({
           </button>
         </header>
 
-        <label className="otto-a2a-consult__goal">
+        <label className="claw-a2a-consult__goal">
           <strong>协商目标</strong>
           <textarea
             aria-label="协商目标"
@@ -173,7 +173,7 @@ export function AtoaConsultDialog({
 
         <fieldset>
           <legend>允许我的 ClawMaster 用于提案的资料（默认不选）</legend>
-          <div className="otto-a2a-consult__sources">
+          <div className="claw-a2a-consult__sources">
             {CONSULT_CONTEXT_SOURCES.map((source) => (
               <label key={source}>
                 <input
@@ -191,13 +191,13 @@ export function AtoaConsultDialog({
         </fieldset>
 
         {proposal ? (
-          <div className="otto-a2a-consult__proposal">
+          <div className="claw-a2a-consult__proposal">
             <strong>发送前预览</strong>
             <p>{proposal}</p>
           </div>
         ) : null}
         {error ? (
-          <p className="otto-a2a-consult__error" role="alert">
+          <p className="claw-a2a-consult__error" role="alert">
             {error}
           </p>
         ) : null}

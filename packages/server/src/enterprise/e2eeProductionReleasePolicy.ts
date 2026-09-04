@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Generated from security/e2ee-release-status.json. Production MLS must stay
  * disabled until the external audit and two-role signed approval pass the

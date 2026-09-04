@@ -1,7 +1,7 @@
 /**
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
- * Enterprise Server - HTTP API for Otto Enterprise.
+ * Enterprise Server - HTTP API for ClawMaster Enterprise.
  * 跑在管理员/老板设备上，所有数据本地（node:sqlite），零云端。
  *
  * 相对 enterprise 分支原版做的加固（optimize）：
@@ -30,7 +30,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createAliyunLoginSmsFromEnv } from 'otto-core';
+import { createAliyunLoginSmsFromEnv } from 'clawmaster-core';
 import * as db from './db.js';
 import { e2eeProductionCapabilities } from './e2eeProductionReleasePolicy.js';
 
@@ -40,7 +40,7 @@ import {
   createRepairSmsSenderFromEnv,
   type RepairNotificationSender,
 } from '../modules/integration_adapters/index.js';
-import { FeatureFlagManager, ProjectSettingsManager } from 'otto-core';
+import { FeatureFlagManager, ProjectSettingsManager } from 'clawmaster-core';
 import {
   dispatchEnterpriseRoute,
   type AdminPrincipal,
@@ -97,9 +97,9 @@ export interface EnterpriseServerOptions {
    * 仅测试或受控开发环境可显式开启。
    */
   localAgentPairingEnabled?: boolean;
-  /** 对外企业引入页基址；不传则读 OTTO_ENTERPRISE_PUBLIC_URL，再回落到内置公网地址。 */
+  /** 对外企业引入页基址；不传则读 CLAWMASTER_ENTERPRISE_PUBLIC_URL，再回落到内置公网地址。 */
   publicUrl?: string;
-  /** 管理端令牌；不传则读 OTTO_ENTERPRISE_ADMIN_TOKEN。 */
+  /** 管理端令牌；不传则读 CLAWMASTER_ENTERPRISE_ADMIN_TOKEN。 */
   adminToken?: string;
   /** 验证码发送器；测试可注入，显式 null 表示关闭。 */
   smsSender?: VerificationSmsSender | null;
@@ -107,13 +107,13 @@ export interface EnterpriseServerOptions {
   repairSmsSender?: RepairNotificationSender | null;
   /** 园区报修飞书私聊；测试可注入。 */
   repairFeishuSender?: RepairNotificationSender | null;
-  /** 部署版本；不传则读 OTTO_APP_VERSION。 */
+  /** 部署版本；不传则读 CLAWMASTER_APP_VERSION。 */
   appVersion?: string;
-  /** 构建提交；不传则读 OTTO_BUILD_COMMIT / GITHUB_SHA。 */
+  /** 构建提交；不传则读 CLAWMASTER_BUILD_COMMIT / GITHUB_SHA。 */
   buildCommit?: string;
   /** Test seam for the signed commercial-control billing channel. */
   billingFetch?: typeof fetch;
-  /** Control 信任根公钥（PEM 列表）；不传则读 OTTO_ENTERPRISE_CONTROL_PUBLIC_KEYS。未配置时 CONTROL-12 端点 fail closed 不挂载。 */
+  /** Control 信任根公钥（PEM 列表）；不传则读 CLAWMASTER_ENTERPRISE_CONTROL_PUBLIC_KEYS。未配置时 CONTROL-12 端点 fail closed 不挂载。 */
   controlPublicKeys?: string[];
   /** 回执签名私钥（PEM）；不传则不签名（只含 digest）。 */
   controlSigningPrivateKey?: string;
@@ -530,7 +530,7 @@ function makeHandler(
               referenceId,
               holdId: admission.holdId,
             });
-            res.setHeader('X-Otto-Billing-Admission', admission.holdId ?? 'required');
+            res.setHeader('X-ClawMaster-Billing-Admission', admission.holdId ?? 'required');
             res.once('finish', () => {
               const outcome = res.statusCode >= 200 && res.statusCode < 400
                 ? 'capture'
@@ -652,17 +652,17 @@ export function createEnterpriseServer(opts: EnterpriseServerOptions = {}): {
   repairSmsSender: RepairNotificationSender | null;
   repairFeishuSender: RepairNotificationSender | null;
 } {
-  const host = opts.host || process.env.OTTO_ENTERPRISE_HOST || '127.0.0.1';
+  const host = opts.host || process.env.CLAWMASTER_ENTERPRISE_HOST || '127.0.0.1';
   const port =
     opts.port ??
-    parseInt(process.env.OTTO_ENTERPRISE_PORT || String(DEFAULT_PORT), 10);
+    parseInt(process.env.CLAWMASTER_ENTERPRISE_PORT || String(DEFAULT_PORT), 10);
   const publicBaseUrl = resolveEnterprisePublicBaseUrl({
-    configuredUrl: opts.publicUrl ?? process.env.OTTO_ENTERPRISE_PUBLIC_URL,
+    configuredUrl: opts.publicUrl ?? process.env.CLAWMASTER_ENTERPRISE_PUBLIC_URL,
     host,
     port,
   });
   let adminToken =
-    opts.adminToken ?? process.env.OTTO_ENTERPRISE_ADMIN_TOKEN ?? '';
+    opts.adminToken ?? process.env.CLAWMASTER_ENTERPRISE_ADMIN_TOKEN ?? '';
   let generatedToken = false;
   if (!adminToken && !isLoopback(host)) {
     adminToken = randomBytes(18).toString('base64url');
@@ -690,22 +690,22 @@ export function createEnterpriseServer(opts: EnterpriseServerOptions = {}): {
       : opts.repairFeishuSender;
   const version =
     opts.appVersion?.trim() ||
-    process.env.OTTO_APP_VERSION?.trim() ||
+    process.env.CLAWMASTER_APP_VERSION?.trim() ||
     'unknown';
   const buildCommit =
     opts.buildCommit?.trim() ||
-    process.env.OTTO_BUILD_COMMIT?.trim() ||
+    process.env.CLAWMASTER_BUILD_COMMIT?.trim() ||
     process.env.GITHUB_SHA?.trim() ||
     'unknown';
   const configuredProxyHops = nonNegativeInteger(
     opts.loginRateLimit?.trustedProxyHops ??
-      Number(process.env.OTTO_ENTERPRISE_TRUST_PROXY_HOPS),
+      Number(process.env.CLAWMASTER_ENTERPRISE_TRUST_PROXY_HOPS),
     0,
     5,
   );
   const configuredProxyAddresses =
     opts.loginRateLimit?.trustedProxyAddresses ??
-    process.env.OTTO_ENTERPRISE_TRUSTED_PROXIES?.split(',')
+    process.env.CLAWMASTER_ENTERPRISE_TRUSTED_PROXIES?.split(',')
       .map((address) => address.trim())
       .filter(Boolean) ??
     [];
@@ -728,7 +728,7 @@ export function createEnterpriseServer(opts: EnterpriseServerOptions = {}): {
     }));
   const controlBoundary = createEnterpriseControlCommandBoundary({
     deploymentId:
-      process.env.OTTO_ENTERPRISE_DEPLOYMENT_ID || publicBaseUrl,
+      process.env.CLAWMASTER_ENTERPRISE_DEPLOYMENT_ID || publicBaseUrl,
     controlPublicKeys: controlKeys,
     signingPrivateKey: opts.controlSigningPrivateKey,
     execute: controlExecute,
@@ -766,7 +766,7 @@ export function createEnterpriseServer(opts: EnterpriseServerOptions = {}): {
 
 function persistGeneratedAdminToken(token: string): string {
   const directory =
-    process.env.OTTO_ENTERPRISE_DIR ||
+    process.env.CLAWMASTER_ENTERPRISE_DIR ||
     path.join(os.homedir(), '.otto-enterprise');
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   try {
@@ -790,22 +790,22 @@ function persistGeneratedAdminToken(token: string): string {
 function validatedStartOptions(
   opts: EnterpriseServerOptions,
 ): EnterpriseServerOptions {
-  const host = opts.host || process.env.OTTO_ENTERPRISE_HOST || '127.0.0.1';
+  const host = opts.host || process.env.CLAWMASTER_ENTERPRISE_HOST || '127.0.0.1';
   if (isLoopback(host)) return opts;
 
   const appVersion =
-    opts.appVersion?.trim() || process.env.OTTO_APP_VERSION?.trim() || '';
+    opts.appVersion?.trim() || process.env.CLAWMASTER_APP_VERSION?.trim() || '';
   const buildCommit =
     opts.buildCommit?.trim() ||
-    process.env.OTTO_BUILD_COMMIT?.trim() ||
+    process.env.CLAWMASTER_BUILD_COMMIT?.trim() ||
     process.env.GITHUB_SHA?.trim() ||
     '';
   const errors: string[] = [];
   if (!appVersion || appVersion.toLowerCase() === 'unknown') {
-    errors.push('OTTO_APP_VERSION 必须设置为明确的发布版本');
+    errors.push('CLAWMASTER_APP_VERSION 必须设置为明确的发布版本');
   }
   if (!/^[0-9a-f]{40}$/i.test(buildCommit)) {
-    errors.push('OTTO_BUILD_COMMIT 必须是完整的 40 位十六进制 Git SHA');
+    errors.push('CLAWMASTER_BUILD_COMMIT 必须是完整的 40 位十六进制 Git SHA');
   }
   if (errors.length > 0) {
     throw new Error(

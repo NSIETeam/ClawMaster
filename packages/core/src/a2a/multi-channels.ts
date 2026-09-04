@@ -12,7 +12,7 @@ const labels: Record<ChannelType, string> = { wechat: '微信', wecom: '企业�
 
 export class MultiChannelGateway {
   private readonly connected = new Map<ChannelType, ChannelCredentials>();
-  constructor(private readonly http: Http = fetch, private readonly userDir = process.env.OTTO_USER_DIR?.trim() || path.join(os.homedir(), '.otto-user')) {}
+  constructor(private readonly http: Http = fetch, private readonly userDir = process.env.CLAWMASTER_USER_DIR?.trim() || path.join(os.homedir(), '.otto-user')) {}
 
   isChannelReady(channel: ChannelType): boolean { return this.connected.has(channel); }
 

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * 工作日志共享服务：不依赖 Electron/Tauri，所有桌面外壳经本机 Server 复用。
  */
@@ -56,9 +56,9 @@ export interface WorkLogReportResult {
 }
 
 export function resolveDefaultWorkLogRoot(): string {
-  const explicit = process.env['OTTO_WORKLOG_DIR']?.trim();
+  const explicit = process.env['CLAWMASTER_WORKLOG_DIR']?.trim();
   if (explicit) return explicit;
-  const userDir = process.env['OTTO_USER_DIR']?.trim();
+  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim();
   return path.join(userDir || path.join(homedir(), '.otto-user'), 'memory', 'worklog');
 }
 

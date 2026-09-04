@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -31,7 +31,7 @@ const FEDERATION_MESSAGE_TYPE_SET = new Set([
   'a2a.request',
   'a2a.response',
 ]);
-const OTTO_FEDERATION_CAPABILITIES = [
+const CLAWMASTER_FEDERATION_CAPABILITIES = [
   'federation.v1',
   'chat.e2ee',
   'a2a.e2ee',
@@ -270,7 +270,7 @@ export class FederationGatewayClient {
   }
 
   get capabilities(): readonly string[] {
-    return OTTO_FEDERATION_CAPABILITIES;
+    return CLAWMASTER_FEDERATION_CAPABILITIES;
   }
 
   get deploymentId(): string {

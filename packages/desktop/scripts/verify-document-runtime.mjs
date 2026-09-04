@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Static, cross-platform packaging guard. It deliberately does not download
  * runtimes. A release build must provide the declared Python/Node payload;

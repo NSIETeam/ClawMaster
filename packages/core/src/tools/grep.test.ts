@@ -27,9 +27,9 @@ describe('GrepTool', () => {
   it('uses an explicitly packaged ripgrep binary and rejects missing assets', async () => {
     const binary = path.join(tempRootDir, 'rg');
     await fs.writeFile(binary, 'runtime');
-    expect(resolveExplicitRipgrepPath({ OTTO_RIPGREP_BINARY: binary })).toBe(binary);
+    expect(resolveExplicitRipgrepPath({ CLAWMASTER_RIPGREP_BINARY: binary })).toBe(binary);
     expect(() =>
-      resolveExplicitRipgrepPath({ OTTO_RIPGREP_BINARY: `${binary}-missing` }),
+      resolveExplicitRipgrepPath({ CLAWMASTER_RIPGREP_BINARY: `${binary}-missing` }),
     ).toThrow('does not exist');
   });
 

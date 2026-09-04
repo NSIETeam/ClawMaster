@@ -1,5 +1,5 @@
 /**
- * Otto 诊断包：收集排障所需的日志和环境信息，并在写入前统一脱敏。
+ * ClawMaster 诊断包：收集排障所需的日志和环境信息，并在写入前统一脱敏。
  * 设计目标：用户点击一次即可生成 zip；任何 secret 文件和明文密钥都不会进入包。
  */
 
@@ -148,7 +148,7 @@ export async function createDiagnosticBundle(options: DiagnosticBundleOptions = 
     platform: process.platform,
     arch: process.arch,
     node: process.version,
-    ottoVersion: process.env.OTTO_VERSION ?? 'unknown',
+    ottoVersion: process.env.CLAWMASTER_VERSION ?? 'unknown',
   }, null, 2));
   zip.file(
     'model-config.json',
@@ -159,10 +159,10 @@ export async function createDiagnosticBundle(options: DiagnosticBundleOptions = 
   fileCount += await collectFiles(path.join(homeDir, '.otto-user', 'logs'), 'otto-user/logs', zip, budget);
   fileCount += await collectFiles(path.join(homeDir, '.otto-user', 'audit'), 'otto-user/audit', zip, budget);
   const desktopLogCandidates = process.platform === 'darwin'
-    ? [path.join(homeDir, 'Library', 'Logs', 'Otto')]
+    ? [path.join(homeDir, 'Library', 'Logs', 'ClawMaster')]
     : process.platform === 'win32'
-      ? [path.join(process.env.APPDATA ?? homeDir, 'Otto', 'logs')]
-      : [path.join(homeDir, '.config', 'Otto', 'logs')];
+      ? [path.join(process.env.APPDATA ?? homeDir, 'ClawMaster', 'logs')]
+      : [path.join(homeDir, '.config', 'ClawMaster', 'logs')];
   for (const logDir of desktopLogCandidates) {
     fileCount += await collectFiles(logDir, 'desktop/logs', zip, budget);
   }

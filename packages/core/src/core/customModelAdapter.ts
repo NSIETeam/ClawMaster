@@ -9,7 +9,7 @@ import {
   CustomModelConfig,
   resolveThinkingConfig,
 } from '../types/customModel.js';
-import { OttoChat } from './ottoChat.js';
+import { ClawMasterChat } from './clawmasterChat.js';
 import type { Content } from '../types/extendedContent.js';
 import {
   sanitiseGeminiToolSchema,
@@ -58,7 +58,7 @@ export async function* callCustomModelStream(
     `\x1b[35m[thinking-debug]\x1b[0m (custom-direct/stream) modelId=\x1b[36m${modelConfig.modelId}\x1b[0m  resolvedThinking=${JSON.stringify(resolveThinkingConfig(modelConfig))}`,
   );
 
-  // 🛡️ 协议安全网：复用 OttoChat.sanitizeRequestContents（即 fixRequestContents）
+  // 🛡️ 协议安全网：复用 ClawMasterChat.sanitizeRequestContents（即 fixRequestContents）
   // 修复 functionCall ↔ functionResponse 配对错乱、孤立 functionResponse、
   // 末尾 model 消息（破坏 Bedrock prefill 限制）等问题。
   // 该方法在 Gemini 原生路径已经经过长期打磨，CustomModel 路径直连（GCP/AWS/...）也必须走同一卫士。
@@ -66,7 +66,7 @@ export async function* callCustomModelStream(
     request && Array.isArray(request.contents)
       ? {
           ...request,
-          contents: OttoChat.sanitizeRequestContents(request.contents as unknown as Content[]),
+          contents: ClawMasterChat.sanitizeRequestContents(request.contents as unknown as Content[]),
         }
       : request;
 
@@ -111,7 +111,7 @@ export async function callCustomModel(
     request && Array.isArray(request.contents)
       ? {
           ...request,
-          contents: OttoChat.sanitizeRequestContents(request.contents as unknown as Content[]),
+          contents: ClawMasterChat.sanitizeRequestContents(request.contents as unknown as Content[]),
         }
       : request;
 

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -12,7 +12,7 @@
  * vision 模型对超大图无收益。缩到最长边 1568px、JPEG 0.85 兼顾清晰与体积。
  */
 
-import type { ImageAttachment, FileAttachment, Attachment } from '../state/useOttoStore.js';
+import type { ImageAttachment, FileAttachment, Attachment } from '../state/useClawMasterStore.js';
 
 /** 最长边上限（px）。对齐 Anthropic vision 推荐尺寸，兼顾清晰与体积。 */
 const MAX_EDGE = 1568;

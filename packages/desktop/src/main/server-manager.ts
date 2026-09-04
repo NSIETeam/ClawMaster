@@ -1,31 +1,31 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * ServerManager —— 主进程侧的「确保有一个可用 otto-server」逻辑（Issue #4 + #9）。
+ * ServerManager —— 主进程侧的「确保有一个可用 clawmaster-server」逻辑（Issue #4 + #9）。
  *
  * 策略（detached-first）：
  *   1. 先读端点文件发现已运行的 server；探活（pid 存活 + /health 应答）通过即复用
  *      （headless / CLI 已在跑时直接连上它，不重复拉起）。
  *   2. 没有可用的现存 server → 以 detached 子进程拉起 server，
- *      关窗不杀 server（飞书继续活），仅托盘「退出 Otto」才 SIGTERM。
+ *      关窗不杀 server（飞书继续活），仅托盘「退出 ClawMaster」才 SIGTERM。
  *   3. 开发/非打包形态无法走 detached 时，回退同进程内嵌（embedded）。
  *
  * 打包形态通过 ELECTRON_RUN_AS_NODE 启动 detached server；无法解析或启动 server bin 时，
  * 才明确回退到同进程内嵌模式。两条路径均由下面的健康检查和停止策略管理。
  *
- * 注意：模块加载方式（打包崩溃根因修复）：otto-server 是纯 ESM 包（package.json
+ * 注意：模块加载方式（打包崩溃根因修复）：clawmaster-server 是纯 ESM 包（package.json
  * "type":"module"），而本文件编译目标是 CJS（tsconfig.main.json 无 "type":"module"，
  * Electron 主进程标准做法）。CJS 对 ESM 只能用**动态** `import()`，静态
- * `import {...} from 'otto-server'` 会被 tsc 编译成 `require('otto-server')`，
+ * `import {...} from 'clawmaster-server'` 会被 tsc 编译成 `require('clawmaster-server')`，
  * 在真机运行时抛 `ERR_REQUIRE_ESM` 直接崩溃（Node/Electron 官方错误信息本身就是这句
  * 建议）。因此这里只保留 `import type` 型引入（纯类型，编译期擦除，不产生 require），
- * 运行期需要的值全部经 loadOttoServer() 懒加载并缓存。
+ * 运行期需要的值全部经 loadClawMasterServer() 懒加载并缓存。
  *
- * enterprise server 也经 otto-server 公共入口动态 import，避免 desktop 深导入
+ * enterprise server 也经 clawmaster-server 公共入口动态 import，避免 desktop 深导入
  * server/src 或 dist/src。
  */
 
@@ -41,11 +41,11 @@ import {
   readActiveKernelBinPath,
   readActiveKernelModulePath,
 } from './incremental-kernel-store.js';
-import type { OttoServer as OttoServerType, ServerEndpoint } from 'otto-server';
+import type { ClawMasterServer as ClawMasterServerType, ServerEndpoint } from 'clawmaster-server';
 import type { AuthenticatedEnterpriseAccountInput } from './enterprise-identity.js';
 
 type ServerEndpointRecord = ServerEndpoint & { controlToken?: string };
-type TrustedOttoServer = OttoServerType & {
+type TrustedClawMasterServer = ClawMasterServerType & {
   readonly endpoint: {
     host: string;
     port: number;
@@ -57,15 +57,15 @@ type TrustedOttoServer = OttoServerType & {
   ): unknown;
 };
 
-/** otto-server（ESM）动态加载并缓存：避免每次调用都重新 import()。 */
-let ottoServerModulePromise: Promise<typeof import('otto-server')> | undefined;
+/** clawmaster-server（ESM）动态加载并缓存：避免每次调用都重新 import()。 */
+let ottoServerModulePromise: Promise<typeof import('clawmaster-server')> | undefined;
 const kernelOverlayModulePromises = new Map<
   string,
-  Promise<typeof import('otto-server')>
+  Promise<typeof import('clawmaster-server')>
 >();
-async function loadOttoServer(
+async function loadClawMasterServer(
   kernelUpdateRoot?: string,
-): Promise<typeof import('otto-server')> {
+): Promise<typeof import('clawmaster-server')> {
   const activeModulePath = kernelUpdateRoot
     ? await readActiveKernelModulePath(kernelUpdateRoot).catch(() => null)
     : null;
@@ -73,23 +73,23 @@ async function loadOttoServer(
     const url = pathToFileURL(activeModulePath).href;
     let promise = kernelOverlayModulePromises.get(url);
     if (!promise) {
-      promise = import(url) as Promise<typeof import('otto-server')>;
+      promise = import(url) as Promise<typeof import('clawmaster-server')>;
       kernelOverlayModulePromises.set(url, promise);
     }
     return promise;
   }
   if (!ottoServerModulePromise) {
-    ottoServerModulePromise = import('otto-server');
+    ottoServerModulePromise = import('clawmaster-server');
   }
   return ottoServerModulePromise;
 }
 
 /** enterprise-server（ESM）动态加载并缓存。 */
 let enterpriseServerModulePromise:
-  Promise<typeof import('otto-server')> | undefined;
-function loadEnterpriseServer(): Promise<typeof import('otto-server')> {
+  Promise<typeof import('clawmaster-server')> | undefined;
+function loadEnterpriseServer(): Promise<typeof import('clawmaster-server')> {
   if (!enterpriseServerModulePromise) {
-    enterpriseServerModulePromise = import('otto-server');
+    enterpriseServerModulePromise = import('clawmaster-server');
   }
   return enterpriseServerModulePromise;
 }
@@ -110,7 +110,7 @@ function logsDir(): string {
 }
 
 function serverLogPath(): string {
-  return path.join(logsDir(), 'otto-server.log');
+  return path.join(logsDir(), 'clawmaster-server.log');
 }
 
 export function prepareDesktopSqlCipherRuntime(
@@ -120,17 +120,17 @@ export function prepareDesktopSqlCipherRuntime(
     resourcesPath?: string;
   } = {},
 ): { keyPath: string | null; nativeBindingPath: string | null } {
-  const encryptionMode = environment.OTTO_DATABASE_ENCRYPTION
+  const encryptionMode = environment.CLAWMASTER_DATABASE_ENCRYPTION
     ?.trim()
     .toLowerCase();
   if (['disabled', 'off', 'false', '0'].includes(encryptionMode ?? '')) {
     return { keyPath: null, nativeBindingPath: null };
   }
 
-  let keyPath = environment.OTTO_DATABASE_ENCRYPTION_KEY_FILE?.trim() || null;
+  let keyPath = environment.CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE?.trim() || null;
   if (!keyPath) {
     const userDirectory =
-      environment.OTTO_USER_DIR?.trim() ||
+      environment.CLAWMASTER_USER_DIR?.trim() ||
       path.join(options.homeDirectory ?? os.homedir(), '.otto-user');
     const custodyDirectory = path.join(userDirectory, 'custody');
     keyPath = path.join(custodyDirectory, 'database-sqlcipher.key');
@@ -165,12 +165,12 @@ export function prepareDesktopSqlCipherRuntime(
     } catch {
       // Windows protects these paths with the current user's directory ACL.
     }
-    environment.OTTO_DATABASE_ENCRYPTION_KEY_FILE = keyPath;
-    environment.OTTO_DATABASE_ENCRYPTION_KEY_ID ??= 'desktop-local-custody';
+    environment.CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE = keyPath;
+    environment.CLAWMASTER_DATABASE_ENCRYPTION_KEY_ID ??= 'desktop-local-custody';
   }
 
   let nativeBindingPath =
-    environment.OTTO_SQLCIPHER_NATIVE_BINDING?.trim() || null;
+    environment.CLAWMASTER_SQLCIPHER_NATIVE_BINDING?.trim() || null;
   if (!nativeBindingPath && options.resourcesPath) {
     const packagedBinding = path.join(
       options.resourcesPath,
@@ -179,7 +179,7 @@ export function prepareDesktopSqlCipherRuntime(
     );
     if (fs.existsSync(packagedBinding)) {
       nativeBindingPath = packagedBinding;
-      environment.OTTO_SQLCIPHER_NATIVE_BINDING = packagedBinding;
+      environment.CLAWMASTER_SQLCIPHER_NATIVE_BINDING = packagedBinding;
     }
   }
 
@@ -237,9 +237,9 @@ export type EnterpriseServerOwnership =
  * 才能覆盖「主服务已发现」「7777 竞争」「监听永不完成」这些生命周期分支。
  */
 export interface ServerManagerDependencies {
-  loadOttoServer: typeof loadOttoServer;
+  loadClawMasterServer: typeof loadClawMasterServer;
   loadEnterpriseServer: typeof loadEnterpriseServer;
-  /** 子进程边界可注入，避免单测真的拉起另一个 Otto server。 */
+  /** 子进程边界可注入，避免单测真的拉起另一个 ClawMaster server。 */
   spawnDetached: typeof childProcess.spawn;
   pidAlive: typeof pidAlive;
   probeHealth: typeof probeHealth;
@@ -248,7 +248,7 @@ export interface ServerManagerDependencies {
 }
 
 const DEFAULT_DEPENDENCIES: ServerManagerDependencies = {
-  loadOttoServer,
+  loadClawMasterServer,
   loadEnterpriseServer,
   spawnDetached: childProcess.spawn,
   pidAlive,
@@ -273,7 +273,7 @@ export interface ServerManagerOptions {
 
 export class ServerManager {
   /** 仅当本进程内嵌拉起时持有，用于 before-quit 时停掉。 */
-  private embedded?: TrustedOttoServer;
+  private embedded?: TrustedClawMasterServer;
   /** 仅当本进程以 detached 子进程拉起时持有。 */
   private detachedChild?: childProcess.ChildProcess;
   /** 最近一次确保成功的内部端点记录；可含控制令牌，绝不返回 renderer。 */
@@ -319,7 +319,7 @@ export class ServerManager {
     this.kernelUpdateRoot = options.kernelUpdateRoot;
     this.dependencies = options.dependencies ?? {
       ...DEFAULT_DEPENDENCIES,
-      loadOttoServer: () => loadOttoServer(this.kernelUpdateRoot),
+      loadClawMasterServer: () => loadClawMasterServer(this.kernelUpdateRoot),
     };
     this.localEnterpriseServerUrl = loopbackServerUrl(
       options.enterpriseServerUrl,
@@ -353,10 +353,10 @@ export class ServerManager {
 
   /** A renderer-facing status snapshot for Settings & Diagnostics. */
   getDesktopRuntimeDiagnostic(): DesktopRuntimeDiagnostic {
-    const rawMode = String(process.env.OTTO_NATIVE_CORE ?? 'auto').toLowerCase();
+    const rawMode = String(process.env.CLAWMASTER_NATIVE_CORE ?? 'auto').toLowerCase();
     const mode: DesktopRuntimeDiagnostic['nativeCore']['mode'] =
       rawMode === 'required' || rawMode === 'off' ? rawMode : 'auto';
-    const binaryConfigured = Boolean(process.env.OTTO_NATIVE_CORE_BINARY?.trim());
+    const binaryConfigured = Boolean(process.env.CLAWMASTER_NATIVE_CORE_BINARY?.trim());
     const nativeCore = mode === 'off'
       ? { mode, status: 'disabled' as const, message: '原生 bridge 已按配置关闭。' }
       : binaryConfigured
@@ -397,7 +397,7 @@ export class ServerManager {
         };
       }
     }
-    const mod = await this.dependencies.loadOttoServer();
+    const mod = await this.dependencies.loadClawMasterServer();
     this.throwIfShuttingDown();
     // 1) 发现并探活已运行的 server（headless / CLI / detached 已在跑时直接复用）。
     const readEndpointRecord = (
@@ -461,15 +461,15 @@ export class ServerManager {
   }
 
   /**
-   * 以 detached 子进程拉起 otto-server。
+   * 以 detached 子进程拉起 clawmaster-server。
    * 使用 process.execPath + ELECTRON_RUN_AS_NODE=1 打包形态可用。
    * 开发形态：直接 node bin.js。
    */
   private async startDetached(port: number): Promise<ServerEndpointRecord> {
     const nodeExec = process.execPath;
-    const mod = await this.dependencies.loadOttoServer();
+    const mod = await this.dependencies.loadClawMasterServer();
 
-    // 查找 bin.js 路径；active kernel overlay 优先，其次回退安装包内 otto-server。
+    // 查找 bin.js 路径；active kernel overlay 优先，其次回退安装包内 clawmaster-server。
     let binPath: string;
     const activeKernelBinPath = this.kernelUpdateRoot
       ? await readActiveKernelBinPath(this.kernelUpdateRoot).catch(() => null)
@@ -478,9 +478,9 @@ export class ServerManager {
       binPath = activeKernelBinPath;
     } else {
       try {
-        // 打包/开发形态：尝试通过 otto-server 模块解析
+        // 打包/开发形态：尝试通过 clawmaster-server 模块解析
         const serverPkg = path.dirname(
-          require.resolve('otto-server/package.json'),
+          require.resolve('clawmaster-server/package.json'),
         );
         binPath = path.join(serverPkg, 'dist', 'bin.js');
         if (!fs.existsSync(binPath)) {
@@ -498,8 +498,8 @@ export class ServerManager {
 
     const env: Record<string, string> = {
       ...process.env,
-      OTTO_SERVER_PORT: String(port),
-      OTTO_DEFAULT_WORKSPACE_PATH: os.homedir(),
+      CLAWMASTER_SERVER_PORT: String(port),
+      CLAWMASTER_DEFAULT_WORKSPACE_PATH: os.homedir(),
     };
 
     let spawnArgs: string[];
@@ -508,7 +508,7 @@ export class ServerManager {
     if (nodeExec.endsWith('Electron') || nodeExec.includes('electron')) {
       // 打包形态：Electron 主二进制 + ELECTRON_RUN_AS_NODE
       env.ELECTRON_RUN_AS_NODE = '1';
-      env.OTTO_SQLCIPHER_NATIVE_BINDING = path.join(
+      env.CLAWMASTER_SQLCIPHER_NATIVE_BINDING = path.join(
         process.resourcesPath,
         'sqlcipher',
         'better_sqlite3.node',
@@ -596,7 +596,7 @@ export class ServerManager {
   }
 
   /**
-   * 把中心企业服务已经验证的账号应用到本机 OttoServer。
+   * 把中心企业服务已经验证的账号应用到本机 ClawMasterServer。
    * embedded 走同进程 setter；discovered 只能走 loopback + 端点控制令牌。
    */
   setAuthenticatedEnterpriseAccount(
@@ -657,7 +657,7 @@ export class ServerManager {
       } catch {
       } finally {
         try {
-          const mod = await this.dependencies.loadOttoServer();
+          const mod = await this.dependencies.loadClawMasterServer();
           mod.clearEndpoint();
         } catch {}
         this.embedded = undefined;
@@ -668,7 +668,7 @@ export class ServerManager {
       if (forceKill) {
         console.log('[ServerManager] 强制停止 detached server…');
         try {
-          const mod = await this.dependencies.loadOttoServer();
+          const mod = await this.dependencies.loadClawMasterServer();
           const ep = mod.readEndpoint();
           if (ep?.pid && this.dependencies.pidAlive(ep.pid)) {
             process.kill(ep.pid, 'SIGTERM');
@@ -711,7 +711,7 @@ export class ServerManager {
     if (!this.currentEndpointRecord) return;
     const { host, port } = this.currentEndpointRecord;
     try {
-      const mod = await this.dependencies.loadOttoServer();
+      const mod = await this.dependencies.loadClawMasterServer();
       const healthy = await this.dependencies.probeHealth(
         host,
         port,
@@ -781,7 +781,7 @@ export class ServerManager {
       this.detachedChild = undefined;
     }
     try {
-      const mod = await this.dependencies.loadOttoServer();
+      const mod = await this.dependencies.loadClawMasterServer();
       const ep = mod.readEndpoint();
       if (ep?.pid && this.dependencies.pidAlive(ep.pid)) {
         process.kill(ep.pid, 'SIGTERM');
@@ -795,7 +795,7 @@ export class ServerManager {
 
     // 重新拉起：detached 优先
     try {
-      const mod = await this.dependencies.loadOttoServer();
+      const mod = await this.dependencies.loadClawMasterServer();
       const port = resolvePort(mod.DEFAULT_PORT);
       try {
         const ep = await this.startDetached(port);
@@ -836,10 +836,10 @@ export class ServerManager {
     }
   }
 
-  /** detached 不可用时，在当前进程内启动 OttoServer。 */
+  /** detached 不可用时，在当前进程内启动 ClawMasterServer。 */
   private async startEmbedded(
     port: number,
-    mod: typeof import('otto-server'),
+    mod: typeof import('clawmaster-server'),
   ): Promise<ServerEndpointRecord> {
     const enableFeishu = feishuCredentialsExist();
     const store = new mod.PersistentSessionStore(sessionsDir(), {
@@ -849,14 +849,14 @@ export class ServerManager {
     try {
       fs.mkdirSync(logsDir(), { recursive: true });
     } catch {}
-    process.env.OTTO_LOG_DIR = logsDir();
-    const server = new mod.OttoServer({
+    process.env.CLAWMASTER_LOG_DIR = logsDir();
+    const server = new mod.ClawMasterServer({
       host: mod.DEFAULT_HOST,
       port,
       enableFeishu,
       store,
       defaultWorkspacePath: os.homedir(),
-    }) as TrustedOttoServer;
+    }) as TrustedClawMasterServer;
     try {
       await server.start();
     } catch (err) {
@@ -901,7 +901,7 @@ export class ServerManager {
     // （避免 shutdown 对一个 start 尚未完成的 server 调 stop）。
     this.embedded = server;
     const { host, port: boundPort, clientToken } = server.endpoint;
-    const logMsg = `[ServerManager] otto-server 已就绪 → http://${host}:${boundPort} | 飞书:${enableFeishu ? '已启用' : '未启用'} | 日志: ${serverLogPath()}`;
+    const logMsg = `[ServerManager] clawmaster-server 已就绪 → http://${host}:${boundPort} | 飞书:${enableFeishu ? '已启用' : '未启用'} | 日志: ${serverLogPath()}`;
     const logFile = serverLogPath();
     try {
       fs.mkdirSync(logsDir(), { recursive: true });
@@ -951,7 +951,7 @@ export class ServerManager {
       throw new Error('本机 ClawMaster 引擎端点不是 loopback，已拒绝发送企业身份');
     }
 
-    const mod = await this.dependencies.loadOttoServer();
+    const mod = await this.dependencies.loadClawMasterServer();
     const identityRoute = (
       mod.HTTP_ROUTES as typeof mod.HTTP_ROUTES & {
         enterpriseIdentity?: string;
@@ -1044,7 +1044,7 @@ export class ServerManager {
       ? Number(localUrl.port)
       : ENTERPRISE_DEFAULT_PORT;
     try {
-      // 先探活再监听：CLI 或另一个 Otto 实例已经启动企业服务时直接复用，
+      // 先探活再监听：CLI 或另一个 ClawMaster 实例已经启动企业服务时直接复用，
       // 避免把正常的 EADDRINUSE 当成后台不可用。
       if (
         await this.dependencies.probeHealth(host, port, '/enterprise/health')
@@ -1133,7 +1133,7 @@ function formatHttpHost(host: string): string {
 
 /** 解析监听端口：env 覆盖 > 默认。 */
 function resolvePort(defaultPort: number): number {
-  const fromEnv = Number(process.env.OTTO_SERVER_PORT);
+  const fromEnv = Number(process.env.CLAWMASTER_SERVER_PORT);
   return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : defaultPort;
 }
 

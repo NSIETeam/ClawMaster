@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import {
@@ -12,7 +12,7 @@ import {
   within,
 } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ProductWorkspaceSnapshot } from 'otto-server';
+import type { ProductWorkspaceSnapshot } from 'clawmaster-server';
 import type { EnterpriseAccount, EnterpriseDirectMessage } from '../../preload/index.js';
 import * as nonOverlappingPoll from '../lib/nonOverlappingPoll.js';
 import {
@@ -21,19 +21,19 @@ import {
   parseDirectMessageTimestamp,
 } from './OrganizationTree.js';
 
-const askLocalPeerOttoMock = vi.hoisted(() => vi.fn(async () => '本机 ClawMaster 给出的建议。'));
+const askLocalPeerClawMasterMock = vi.hoisted(() => vi.fn(async () => '本机 ClawMaster 给出的建议。'));
 const originalScrollIntoView = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
   'scrollIntoView',
 );
 
-vi.mock('../peerOttoRunner.js', async () => {
-  const actual = await vi.importActual<typeof import('../peerOttoRunner.js')>(
-    '../peerOttoRunner.js',
+vi.mock('../peerClawMasterRunner.js', async () => {
+  const actual = await vi.importActual<typeof import('../peerClawMasterRunner.js')>(
+    '../peerClawMasterRunner.js',
   );
   return {
     ...actual,
-    askLocalPeerOtto: askLocalPeerOttoMock,
+    askLocalPeerClawMaster: askLocalPeerClawMasterMock,
   };
 });
 
@@ -164,7 +164,7 @@ describe('OrganizationTree', () => {
       },
     ]);
     const enterpriseMessageSecurityReset = vi.fn(async () => undefined);
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseMessagesList,
       enterpriseMessageSecurityReset,
     });
@@ -248,7 +248,7 @@ describe('OrganizationTree', () => {
       resolveOrganization = resolve;
     });
     const enterpriseOrganizationView = vi.fn(() => pending);
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     render(
       <OrganizationTree
@@ -308,7 +308,7 @@ describe('OrganizationTree', () => {
       }],
       employeeCount: 1,
     }));
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     render(
       <OrganizationTree
@@ -329,7 +329,7 @@ describe('OrganizationTree', () => {
     const enterpriseOrganizationView = vi.fn(async () => {
       throw new Error('服务器暂不可用');
     });
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     render(
       <OrganizationTree
@@ -363,7 +363,7 @@ describe('OrganizationTree', () => {
       }],
       employeeCount: 1,
     }));
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     render(
       <OrganizationTree
@@ -398,7 +398,7 @@ describe('OrganizationTree', () => {
       }],
       employeeCount: 1,
     }));
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     render(
       <OrganizationTree
@@ -414,7 +414,7 @@ describe('OrganizationTree', () => {
 
   it('默认免登录的本地测试身份不会冒充企业账号或触发组织请求', () => {
     const enterpriseOrganizationView = vi.fn();
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     const { container } = render(
       <OrganizationTree
@@ -446,7 +446,7 @@ describe('OrganizationTree', () => {
       }],
       employeeCount: 1,
     }));
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     render(
       <OrganizationTree
@@ -470,7 +470,7 @@ describe('OrganizationTree', () => {
       members: [],
       employeeCount: 0,
     }));
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     const { rerender } = render(
       <OrganizationTree
@@ -501,7 +501,7 @@ describe('OrganizationTree', () => {
       members: [],
       employeeCount: 0,
     }));
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     const { rerender } = render(
       <OrganizationTree
@@ -528,7 +528,7 @@ describe('OrganizationTree', () => {
 
   it('本机企业成员只有内测假身份时不调用远程接口', () => {
     const enterpriseOrganizationView = vi.fn();
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     render(
       <OrganizationTree
@@ -586,7 +586,7 @@ describe('OrganizationTree', () => {
         }],
         employeeCount: 2,
       });
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     try {
       render(
@@ -643,7 +643,7 @@ describe('OrganizationTree', () => {
       }],
       employeeCount: 2,
     }));
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     render(
       <OrganizationTree
@@ -667,7 +667,7 @@ describe('OrganizationTree', () => {
     expect(screen.queryByText('Alice')).toBeNull();
   });
 
-  it('can ask Otto from a direct chat with recent messages', async () => {
+  it('can ask ClawMaster from a direct chat with recent messages', async () => {
     const messages: EnterpriseDirectMessage[] = [{
       id: 'dm_1',
       senderAccountId: 'acc_2',
@@ -706,7 +706,7 @@ describe('OrganizationTree', () => {
         department: 'R&D',
         isAdmin: false,
         status: 'active' as const,
-        ottoOnline: true,
+        clawmasterOnline: true,
         ottoLastSeenAt: '2026-07-23T06:00:00.000Z',
       }],
       employeeCount: 2,
@@ -720,7 +720,7 @@ describe('OrganizationTree', () => {
       createdAt: '2026-07-19T09:10:00.000Z',
       readAt: null,
     }));
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationView,
       enterpriseMessagesList,
       enterpriseMessageSend,
@@ -744,7 +744,7 @@ describe('OrganizationTree', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '问 ClawMaster' }));
 
-    await waitFor(() => expect(askLocalPeerOttoMock).toHaveBeenCalledWith(
+    await waitFor(() => expect(askLocalPeerClawMasterMock).toHaveBeenCalledWith(
       expect.objectContaining({
         question: 'Please help review the proposal today.',
       }),
@@ -783,14 +783,14 @@ describe('OrganizationTree', () => {
         department: 'R&D',
         isAdmin: false,
         status: 'active' as const,
-        ottoOnline: true,
+        clawmasterOnline: true,
         ottoLastSeenAt: '2026-07-23T06:00:00.000Z',
       }],
       employeeCount: 2,
     }));
     const onMessageRead = vi.fn();
     const enterpriseMessagesList = vi.fn(async () => []);
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationView,
       enterpriseMessagesList,
     });
@@ -851,7 +851,7 @@ describe('OrganizationTree', () => {
       employeeCount: 3,
     }));
     const onMessageRead = vi.fn();
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationView,
       enterpriseMessagesList: vi.fn(async () => []),
     });
@@ -892,7 +892,7 @@ describe('OrganizationTree', () => {
     fireEvent.click(within(bobChat).getByRole('button', { name: '还原聊天' }));
     expect(bobChat.classList.contains('is-maximized')).toBe(false);
 
-    const header = bobChat.querySelector('.otto-direct-chat__header') as HTMLElement;
+    const header = bobChat.querySelector('.claw-direct-chat__header') as HTMLElement;
     const leftBeforeDrag = bobChat.style.left;
     const topBeforeDrag = bobChat.style.top;
     const firePointer = (type: string, clientX: number, clientY: number): void => {
@@ -969,7 +969,7 @@ describe('OrganizationTree', () => {
       configurable: true,
       value: scrollIntoView,
     });
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationView,
       enterpriseMessagesList,
     });
@@ -1040,7 +1040,7 @@ describe('OrganizationTree', () => {
     }));
     const enterpriseMessagesList = vi.fn(async () => []);
     const onMessageRead = vi.fn();
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationView,
       enterpriseMessagesList,
     });
@@ -1091,7 +1091,7 @@ describe('OrganizationTree', () => {
       readAt: null,
       attachments: [{ id: 'attachment-1', ...attachments[0]! }],
     }));
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationView,
       enterpriseMessagesList: vi.fn(async () => []),
       enterpriseMessageSend,
@@ -1134,7 +1134,7 @@ describe('OrganizationTree', () => {
     expect(await screen.findByRole('button', { name: '下载 方案.pdf' })).toBeTruthy();
   });
 
-  it('summarizes enterprise Otto presence, refreshes on demand, and keeps online members easy to find', async () => {
+  it('summarizes enterprise ClawMaster presence, refreshes on demand, and keeps online members easy to find', async () => {
     let calls = 0;
     const enterpriseOrganizationView = vi.fn(async () => {
       calls += 1;
@@ -1161,7 +1161,7 @@ describe('OrganizationTree', () => {
           department: 'R&D',
           isAdmin: false,
           status: 'active' as const,
-          ottoOnline: false,
+          clawmasterOnline: false,
           ottoLastSeenAt: '2026-07-23T05:55:00.000Z',
         }, {
           id: 'acc_3',
@@ -1171,13 +1171,13 @@ describe('OrganizationTree', () => {
           department: 'R&D',
           isAdmin: false,
           status: 'active' as const,
-          ottoOnline: true,
+          clawmasterOnline: true,
           ottoLastSeenAt: '2026-07-23T06:00:00.000Z',
         }],
         employeeCount: 3,
       };
     });
-    Object.assign(window.otto, { enterpriseOrganizationView });
+    Object.assign(window.clawmaster, { enterpriseOrganizationView });
 
     render(
       <OrganizationTree
@@ -1194,8 +1194,8 @@ describe('OrganizationTree', () => {
     const zara = await screen.findByRole('button', { name: /Zara/ });
     expect(screen.getByText('Manager')).toBeTruthy();
     expect(screen.getByText('Designer')).toBeTruthy();
-    expect(bob.closest('.otto-orgtree__position-group')?.textContent).toContain('Manager');
-    expect(zara.closest('.otto-orgtree__position-group')?.textContent).toContain('Designer');
+    expect(bob.closest('.claw-orgtree__position-group')?.textContent).toContain('Manager');
+    expect(zara.closest('.claw-orgtree__position-group')?.textContent).toContain('Designer');
 
     fireEvent.click(screen.getByRole('button', { name: '刷新企业组织在线状态' }));
     await waitFor(() => expect(calls).toBeGreaterThanOrEqual(2));
@@ -1229,7 +1229,7 @@ describe('OrganizationTree', () => {
       createdAt: '2026-07-19T09:10:00.000Z',
       readAt: null,
     }));
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationView,
       enterpriseMessagesList,
       enterpriseMessageSend,
@@ -1251,7 +1251,7 @@ describe('OrganizationTree', () => {
     fireEvent.change(input, { target: { value: '@otto summarize action items' } });
     fireEvent.submit(input.closest('form')!);
 
-    await waitFor(() => expect(askLocalPeerOttoMock).toHaveBeenCalledWith(
+    await waitFor(() => expect(askLocalPeerClawMasterMock).toHaveBeenCalledWith(
       expect.objectContaining({
         question: 'summarize action items',
       }),
@@ -1262,7 +1262,7 @@ describe('OrganizationTree', () => {
     );
   });
 
-  it('sends a peer Otto request as a structured direct message', async () => {
+  it('sends a peer ClawMaster request as a structured direct message', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
       organization: {
         id: 'org_acme',
@@ -1290,7 +1290,7 @@ describe('OrganizationTree', () => {
       createdAt: '2026-07-19T09:10:00.000Z',
       readAt: null,
     }));
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationView,
       enterpriseMessagesList,
       enterpriseMessageSend,
@@ -1313,11 +1313,11 @@ describe('OrganizationTree', () => {
 
     await waitFor(() => expect(enterpriseMessageSend).toHaveBeenCalledOnce());
     expect(enterpriseMessageSend.mock.calls[0][0]).toBe('acc_2');
-    expect(enterpriseMessageSend.mock.calls[0][1]).toContain('OTTO_ATOA_REQUEST ');
+    expect(enterpriseMessageSend.mock.calls[0][1]).toContain('CLAWMASTER_ATOA_REQUEST ');
     expect(await screen.findByText(/向对方 ClawMaster 提问：Are you free now\?/)).toBeTruthy();
   });
 
-  it('把低频双方 Otto 协商折叠在加号里，并在发送前打开资料选择与提案预览流程', async () => {
+  it('把低频双方 ClawMaster 协商折叠在加号里，并在发送前打开资料选择与提案预览流程', async () => {
     const enterpriseOrganizationView = vi.fn(async () => ({
       organization: {
         id: 'org_acme',
@@ -1338,7 +1338,7 @@ describe('OrganizationTree', () => {
       ],
       employeeCount: 1,
     }));
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationView,
       enterpriseMessagesList: vi.fn(async () => []),
     });

@@ -113,9 +113,9 @@ describe('ModuleWorkspace', () => {
 
     expect(screen.getByRole('heading', { name: '园区服务' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: '日常办公' })).toBeTruthy();
-    expect(container.querySelectorAll('.otto-module-group__grid')).toHaveLength(2);
-    expect(container.querySelector('.otto-module-group__grid--rows-2')).toBeTruthy();
-    expect(container.querySelector('.otto-module-group__grid--rows-3')).toBeTruthy();
+    expect(container.querySelectorAll('.claw-module-group__grid')).toHaveLength(2);
+    expect(container.querySelector('.claw-module-group__grid--rows-2')).toBeTruthy();
+    expect(container.querySelector('.claw-module-group__grid--rows-3')).toBeTruthy();
   });
 
   it('activates modules through accessible buttons and opens the matching group marketplace', () => {
@@ -130,15 +130,15 @@ describe('ModuleWorkspace', () => {
 
   it('renders module addition as the next grid tile and group addition after all groups', () => {
     const { container } = renderWorkspace();
-    const parkGrid = container.querySelector('[data-group-id="park-services"] .otto-module-group__grid');
+    const parkGrid = container.querySelector('[data-group-id="park-services"] .claw-module-group__grid');
     const parkChildren = parkGrid?.children ?? [];
     const addModule = screen.getByRole('button', { name: '向园区服务添加模块' });
-    const workspace = container.querySelector('.otto-module-workspace');
+    const workspace = container.querySelector('.claw-module-workspace');
     const addGroup = screen.getByRole('button', { name: '添加功能组' });
 
     expect(parkChildren).toHaveLength(3);
     expect(parkChildren[2]).toBe(addModule);
-    expect(addModule.classList.contains('otto-module-group__add')).toBe(true);
+    expect(addModule.classList.contains('claw-module-group__add')).toBe(true);
     expect(
       (workspace?.compareDocumentPosition(addGroup) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
@@ -165,7 +165,7 @@ describe('ModuleWorkspace', () => {
     'keeps activation semantics in the %s presentation',
     (presentation) => {
       const { container, onActivate } = renderWorkspace(presentation);
-      const workspace = container.querySelector('.otto-module-workspace');
+      const workspace = container.querySelector('.claw-module-workspace');
       const parkIcon = container.querySelector('[data-module-icon="park-announcement"] svg');
 
       expect(workspace?.getAttribute('data-presentation')).toBe(presentation);
@@ -177,10 +177,10 @@ describe('ModuleWorkspace', () => {
 
   it('shows a non-layout floating scrollbar only while the panel scroll area is active', () => {
     const { container } = renderWorkspace('panel');
-    const viewport = container.querySelector<HTMLElement>('.otto-module-workspace-scroll-viewport');
+    const viewport = container.querySelector<HTMLElement>('.claw-module-workspace-scroll-viewport');
 
-    expect(viewport?.classList.contains('otto-module-workspace-scroll-viewport--panel')).toBe(true);
-    expect(container.querySelector('.otto-module-workspace__floating-scrollbar')).toBeNull();
+    expect(viewport?.classList.contains('claw-module-workspace-scroll-viewport--panel')).toBe(true);
+    expect(container.querySelector('.claw-module-workspace__floating-scrollbar')).toBeNull();
     if (!viewport) throw new Error('missing module workspace scroll viewport');
 
     Object.defineProperties(viewport, {
@@ -190,8 +190,8 @@ describe('ModuleWorkspace', () => {
     });
     fireEvent.scroll(viewport);
 
-    const scrollbar = container.querySelector<HTMLElement>('.otto-module-workspace__floating-scrollbar');
-    const thumb = scrollbar?.querySelector<HTMLElement>('.otto-module-workspace__floating-scrollbar-thumb');
+    const scrollbar = container.querySelector<HTMLElement>('.claw-module-workspace__floating-scrollbar');
+    const thumb = scrollbar?.querySelector<HTMLElement>('.claw-module-workspace__floating-scrollbar-thumb');
     expect(scrollbar?.classList.contains('is-visible')).toBe(true);
     expect(thumb?.style.height).toBe('97px');
     expect(thumb?.style.transform).toBe('translateY(49px)');
@@ -202,10 +202,10 @@ describe('ModuleWorkspace', () => {
 
   it('keeps the full-page workspace on its native scroll presentation', () => {
     const { container } = renderWorkspace('page');
-    const viewport = container.querySelector('.otto-module-workspace-scroll-viewport');
+    const viewport = container.querySelector('.claw-module-workspace-scroll-viewport');
 
-    expect(viewport?.classList.contains('otto-module-workspace-scroll-viewport--page')).toBe(true);
-    expect(container.querySelector('.otto-module-workspace__floating-scrollbar')).toBeNull();
+    expect(viewport?.classList.contains('claw-module-workspace-scroll-viewport--page')).toBe(true);
+    expect(container.querySelector('.claw-module-workspace__floating-scrollbar')).toBeNull();
   });
 
   it('uses a focusable internal scroller for overflowing groups', () => {
@@ -236,7 +236,7 @@ describe('ModuleWorkspace', () => {
       />,
     );
 
-    const grid = container.querySelector('.otto-module-group__grid');
+    const grid = container.querySelector('.claw-module-group__grid');
     expect(grid?.classList.contains('is-overflowing')).toBe(true);
     expect(grid?.getAttribute('tabindex')).toBe('0');
   });
@@ -269,10 +269,10 @@ describe('ModuleWorkspace', () => {
       />,
     );
 
-    const grid = container.querySelector('.otto-module-group__grid');
+    const grid = container.querySelector('.claw-module-group__grid');
     expect(grid?.children).toHaveLength(7);
     expect(grid?.children[6]).toBe(screen.getByRole('button', { name: '向六个模块添加模块' }));
-    expect(grid?.classList.contains('otto-module-group__grid--rows-4')).toBe(true);
+    expect(grid?.classList.contains('claw-module-group__grid--rows-4')).toBe(true);
     expect(grid?.classList.contains('is-overflowing')).toBe(false);
   });
 
@@ -304,19 +304,19 @@ describe('ModuleWorkspace', () => {
       })),
     };
     const { container } = renderWorkspace('panel', fiveGroups);
-    const workspace = container.querySelector('.otto-module-workspace');
+    const workspace = container.querySelector('.claw-module-workspace');
 
-    expect(workspace?.classList.contains('otto-module-workspace--density-condensed')).toBe(true);
+    expect(workspace?.classList.contains('claw-module-workspace--density-condensed')).toBe(true);
     expect(container.querySelector('[data-group-id="group-1"]')?.classList.contains('is-collapsed')).toBe(false);
     expect(container.querySelector('[data-group-id="group-2"]')?.classList.contains('is-collapsed')).toBe(true);
-    expect(container.querySelector('[data-group-id="group-2"] .otto-module-group__grid')?.hasAttribute('hidden'))
+    expect(container.querySelector('[data-group-id="group-2"] .claw-module-group__grid')?.hasAttribute('hidden'))
       .toBe(true);
     expect(screen.queryByRole('button', { name: '打开 PPT 创作专家' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '展开分组 2' }));
     expect(container.querySelector('[data-group-id="group-1"]')?.classList.contains('is-collapsed')).toBe(true);
     expect(container.querySelector('[data-group-id="group-2"]')?.classList.contains('is-collapsed')).toBe(false);
-    expect(container.querySelector('[data-group-id="group-2"] .otto-module-group__grid')?.hasAttribute('hidden'))
+    expect(container.querySelector('[data-group-id="group-2"] .claw-module-group__grid')?.hasAttribute('hidden'))
       .toBe(false);
   });
 
@@ -335,8 +335,8 @@ describe('ModuleWorkspace', () => {
       })),
     };
     const { container } = renderWorkspace('panel', layout);
-    expect(container.querySelector('.otto-module-workspace')?.classList.contains(
-      `otto-module-workspace--density-${density}`,
+    expect(container.querySelector('.claw-module-workspace')?.classList.contains(
+      `claw-module-workspace--density-${density}`,
     )).toBe(true);
   });
 
@@ -352,10 +352,10 @@ describe('ModuleWorkspace', () => {
       })),
     };
     const { container } = renderWorkspace('panel', layout);
-    const groups = container.querySelectorAll('.otto-module-group');
+    const groups = container.querySelectorAll('.claw-module-group');
 
     expect(groups).toHaveLength(10);
-    expect(container.querySelectorAll('.otto-module-group.is-collapsed')).toHaveLength(9);
+    expect(container.querySelectorAll('.claw-module-group.is-collapsed')).toHaveLength(9);
     expect(screen.getByRole('heading', { name: longName }).getAttribute('title')).toBe(longName);
   });
 
@@ -434,12 +434,12 @@ describe('ModuleWorkspace', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: '编辑模块' }));
     const satisfaction = screen.getByRole('button', { name: '打开 满意度调查' });
     fireEvent.keyDown(satisfaction, { key: 'ArrowLeft' });
-    const grid = document.querySelector('[data-group-id="park-services"] .otto-module-group__grid');
-    expect(grid?.querySelectorAll('.otto-module-tile')[0]?.getAttribute('aria-label'))
+    const grid = document.querySelector('[data-group-id="park-services"] .claw-module-group__grid');
+    expect(grid?.querySelectorAll('.claw-module-tile')[0]?.getAttribute('aria-label'))
       .toBe('打开 满意度调查');
 
     fireEvent.keyDown(satisfaction, { key: 'ArrowRight' });
-    expect(grid?.querySelectorAll('.otto-module-tile')[1]?.getAttribute('aria-label'))
+    expect(grid?.querySelectorAll('.claw-module-tile')[1]?.getAttribute('aria-label'))
       .toBe('打开 满意度调查');
   });
 

@@ -17,7 +17,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WorkflowAgentBridge } from './workflowAgentBridge.js';
 import { Config } from '../config/config.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
-import { OttoClient } from './client.js';
+import { ClawMasterClient } from './client.js';
 import { SubAgent } from './subAgent.js';
 import {
   resetSubAgentResourceCoordinatorForTests,
@@ -71,7 +71,7 @@ function makeBridge(opts: {
     registerTool: vi.fn(),
   } as unknown as ToolRegistry;
 
-  const mockGeminiClient = {} as unknown as OttoClient;
+  const mockGeminiClient = {} as unknown as ClawMasterClient;
 
   const subAgentResult = {
     success: true,
@@ -264,7 +264,7 @@ describe('WorkflowAgentBridge.runParallel — concurrency', () => {
     const bridge = new WorkflowAgentBridge(
       mockConfig,
       { getAllTools: () => [], registerTool: vi.fn() } as unknown as ToolRegistry,
-      {} as OttoClient,
+      {} as ClawMasterClient,
       ctrl.signal,
       undefined,
       2, // maxConcurrency = 2
@@ -322,7 +322,7 @@ describe('WorkflowAgentBridge.runParallel — concurrency', () => {
         getHookSystem: () => ({ getEventHandler: () => undefined }),
       } as unknown as Config,
       { getAllTools: () => [], registerTool: vi.fn() } as unknown as ToolRegistry,
-      {} as OttoClient,
+      {} as ClawMasterClient,
       new AbortController().signal,
       undefined,
       2,

@@ -1,13 +1,13 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Enterprise direct-message unread reconciliation:
  * group unread items by sender, show one OS notification for the latest item,
- * and keep Otto's unread marker until the backend reports the message as read.
+ * and keep ClawMaster's unread marker until the backend reports the message as read.
  */
 
-const ATOA_REQUEST_PREFIX = 'OTTO_ATOA_REQUEST ';
-const ATOA_RESPONSE_PREFIX = 'OTTO_ATOA_RESPONSE ';
+const ATOA_REQUEST_PREFIX = 'CLAWMASTER_ATOA_REQUEST ';
+const ATOA_RESPONSE_PREFIX = 'CLAWMASTER_ATOA_RESPONSE ';
 
 export interface EnterpriseUnreadMessageNotification {
   id: string;

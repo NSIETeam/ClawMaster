@@ -165,13 +165,13 @@ The kernel owns these lifecycle-critical concerns:
 - Defaults are conservative: low-profile devices run one direct task agent and two workflow agents; high-profile devices still default to four workflow agents, not unlimited fan-out.
 - Includes `subAgentHistoryMaxChars` so long-running agents have a character-level history ceiling in addition to token compression.
 - Supported overrides:
-  - `OTTO_AGENT_PROFILE=low|standard|high`
-  - `OTTO_TASK_MAX_CONCURRENCY`
-  - `OTTO_WORKFLOW_MAX_CONCURRENCY`
-  - `OTTO_WORKFLOW_MAX_AGENTS`
-  - `OTTO_WORKFLOW_CONTEXT_MAX_CHARS`
-  - `OTTO_SUBAGENT_HISTORY_MAX_CHARS`
-  - `OTTO_SUBAGENT_TIMEOUT_MS`
+  - `CLAWMASTER_AGENT_PROFILE=low|standard|high`
+  - `CLAWMASTER_TASK_MAX_CONCURRENCY`
+  - `CLAWMASTER_WORKFLOW_MAX_CONCURRENCY`
+  - `CLAWMASTER_WORKFLOW_MAX_AGENTS`
+  - `CLAWMASTER_WORKFLOW_CONTEXT_MAX_CHARS`
+  - `CLAWMASTER_SUBAGENT_HISTORY_MAX_CHARS`
+  - `CLAWMASTER_SUBAGENT_TIMEOUT_MS`
 - Rule: new multi-agent features must consume this budget helper instead of inventing local constants.
 - **File**: `packages/core/src/core/agentMemoryStats.ts`
 - Builds lightweight per-agent memory footprint reports from process snapshots.

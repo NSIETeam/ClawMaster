@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * [MESH-05] 签名与校验：rendezvous record（节点签名）、relay ticket（根服务器签名）。
  * 全部使用 Ed25519，沿用 commercial_control 的 canonical JSON + base64url 签名惯例，

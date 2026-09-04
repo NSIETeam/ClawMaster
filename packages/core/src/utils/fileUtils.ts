@@ -559,9 +559,9 @@ export interface PdfTextCacheResult {
 const pdfExtractionsInFlight = new Map<string, Promise<PdfTextCacheResult>>();
 
 function resolvePdfTextCacheDir(): string {
-  const explicit = process.env['OTTO_PDF_TEXT_CACHE_DIR']?.trim();
+  const explicit = process.env['CLAWMASTER_PDF_TEXT_CACHE_DIR']?.trim();
   if (explicit) return explicit;
-  const userDir = process.env['OTTO_USER_DIR']?.trim();
+  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim();
   if (userDir) return path.join(userDir, 'cache', 'pdf-text');
   if (process.env['NODE_ENV'] === 'test' || process.env['VITEST']) {
     return path.join(os.tmpdir(), 'otto-pdf-text-cache-tests', String(process.pid));

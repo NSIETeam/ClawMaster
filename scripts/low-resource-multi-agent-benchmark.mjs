@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Synthetic multi-agent memory benchmark. It never calls model APIs.
  */
@@ -13,6 +13,7 @@ const PROFILES = {
     retainedHistoryChars: 80_000,
     maxRssMb: 384,
     maxHeapMb: 128,
+    maxAgentStateBytes: 1 * 1024 * 1024,
     maxElapsedMs: 2_500,
   },
   standard8gb: {
@@ -22,6 +23,7 @@ const PROFILES = {
     retainedHistoryChars: 160_000,
     maxRssMb: 640,
     maxHeapMb: 192,
+    maxAgentStateBytes: 1 * 1024 * 1024,
     maxElapsedMs: 4_000,
   },
   high: {
@@ -31,6 +33,7 @@ const PROFILES = {
     retainedHistoryChars: 320_000,
     maxRssMb: 896,
     maxHeapMb: 256,
+    maxAgentStateBytes: 1 * 1024 * 1024,
     maxElapsedMs: 6_500,
   },
 };
@@ -61,6 +64,7 @@ async function runProfile(name, profile) {
   }));
   let peakRss = 0;
   let peakHeap = 0;
+  let peakAgentStateBytes = 0;
 
   for (let turn = 0; turn < profile.turnsPerAgent; turn += 1) {
     await Promise.all(agents.map(async (agent, agentIndex) => {
@@ -75,6 +79,11 @@ async function runProfile(name, profile) {
     const usage = process.memoryUsage();
     peakRss = Math.max(peakRss, usage.rss);
     peakHeap = Math.max(peakHeap, usage.heapUsed);
+    peakAgentStateBytes = Math.max(
+      peakAgentStateBytes,
+      ...agents.map((agent) => Buffer.byteLength(agent.history)
+        + agent.digests.reduce((total, digest) => total + Buffer.byteLength(digest), 0)),
+    );
   }
 
   const elapsedMs = performance.now() - started;
@@ -84,14 +93,17 @@ async function runProfile(name, profile) {
     agentCount: profile.agents,
     elapsedMs: Math.round(elapsedMs),
     peakRssMb: Number(mb(peakRss).toFixed(1)),
-    peakHeapMb: Number(mb(peakHeap).toFixed(1)),
+      peakHeapMb: Number(mb(peakHeap).toFixed(1)),
+      peakAgentStateMb: Number(mb(peakAgentStateBytes).toFixed(3)),
     retainedHistoryChars,
     pass: mb(peakRss) <= profile.maxRssMb &&
       mb(peakHeap) <= profile.maxHeapMb &&
+      peakAgentStateBytes <= profile.maxAgentStateBytes &&
       elapsedMs <= profile.maxElapsedMs,
     budget: {
       maxRssMb: profile.maxRssMb,
       maxHeapMb: profile.maxHeapMb,
+      maxAgentStateMb: Number(mb(profile.maxAgentStateBytes).toFixed(3)),
       maxElapsedMs: profile.maxElapsedMs,
     },
   };
@@ -103,11 +115,11 @@ for (const [name, profile] of Object.entries(profiles)) {
   results.push(await runProfile(name, profile));
 }
 
-console.log('Otto low-resource multi-agent benchmark');
+console.log('ClawMaster low-resource multi-agent benchmark');
 for (const result of results) {
   console.log(`${result.pass ? 'PASS' : 'FAIL'} ${result.profile}`);
-  console.log(`  agents=${result.agentCount} elapsedMs=${result.elapsedMs} peakRssMb=${result.peakRssMb} peakHeapMb=${result.peakHeapMb} retainedHistoryChars=${result.retainedHistoryChars}`);
-  console.log(`  budget rss<=${result.budget.maxRssMb}MB heap<=${result.budget.maxHeapMb}MB elapsed<=${result.budget.maxElapsedMs}ms`);
+  console.log(`  agents=${result.agentCount} elapsedMs=${result.elapsedMs} peakRssMb=${result.peakRssMb} peakHeapMb=${result.peakHeapMb} peakAgentStateMb=${result.peakAgentStateMb} retainedHistoryChars=${result.retainedHistoryChars}`);
+  console.log(`  budget rss<=${result.budget.maxRssMb}MB heap<=${result.budget.maxHeapMb}MB agentState<=${result.budget.maxAgentStateMb}MB elapsed<=${result.budget.maxElapsedMs}ms`);
 }
 
 if (results.some((result) => !result.pass)) process.exit(1);

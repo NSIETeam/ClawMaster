@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import type { AttachmentObjectStore } from './attachmentObjectStore.js';
@@ -29,7 +29,7 @@ export interface ClusteredEnterpriseInfrastructureRuntime {
 }
 
 /**
- * Owns the shared dependencies required by a stateless Otto Server replica.
+ * Owns the shared dependencies required by a stateless ClawMaster Server replica.
  * There is deliberately no local fallback in this runtime.
  */
 export function createClusteredEnterpriseInfrastructureRuntime(input: {

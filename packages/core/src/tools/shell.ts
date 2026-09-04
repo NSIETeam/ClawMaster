@@ -724,9 +724,9 @@ Reserve this tool for system commands and terminal operations that have no dedic
           cwd: path.resolve(this.config.getTargetDir(), params.directory || ''),
           env: {
             ...process.env,
-            // New marker for tools that detect they run inside Otto's shell.
+            // New marker for tools that detect they run inside ClawMaster's shell.
             // Legacy GEMINI_CLI kept so existing user scripts keep working.
-            OTTO_CLI: '1',
+            CLAWMASTER_CLI: '1',
             GEMINI_CLI: '1',
           },
           // On Windows, use shell: true to properly handle quotes
@@ -739,9 +739,9 @@ Reserve this tool for system commands and terminal operations that have no dedic
           cwd: path.resolve(this.config.getTargetDir(), params.directory || ''),
           env: {
             ...process.env,
-            // New marker for tools that detect they run inside Otto's shell.
+            // New marker for tools that detect they run inside ClawMaster's shell.
             // Legacy GEMINI_CLI kept so existing user scripts keep working.
-            OTTO_CLI: '1',
+            CLAWMASTER_CLI: '1',
             GEMINI_CLI: '1',
           },
         });
@@ -1132,7 +1132,7 @@ Reserve this tool for system commands and terminal operations that have no dedic
     if (summarizeConfig && summarizeConfig[this.name]) {
       const summary = await summarizeToolOutput(
         llmContent,
-        this.config.getOttoClient(),
+        this.config.getClawMasterClient(),
         signal,
         summarizeConfig[this.name].tokenBudget,
       );
@@ -1219,9 +1219,9 @@ Reserve this tool for system commands and terminal operations that have no dedic
           cwd: path.resolve(this.config.getTargetDir(), params.directory || ''),
           env: {
             ...process.env,
-            // New marker for tools that detect they run inside Otto's shell.
+            // New marker for tools that detect they run inside ClawMaster's shell.
             // Legacy GEMINI_CLI kept so existing user scripts keep working.
-            OTTO_CLI: '1',
+            CLAWMASTER_CLI: '1',
             GEMINI_CLI: '1',
           },
           shell: false,
@@ -1234,9 +1234,9 @@ Reserve this tool for system commands and terminal operations that have no dedic
           cwd: path.resolve(this.config.getTargetDir(), params.directory || ''),
           env: {
             ...process.env,
-            // New marker for tools that detect they run inside Otto's shell.
+            // New marker for tools that detect they run inside ClawMaster's shell.
             // Legacy GEMINI_CLI kept so existing user scripts keep working.
-            OTTO_CLI: '1',
+            CLAWMASTER_CLI: '1',
             GEMINI_CLI: '1',
           },
         });

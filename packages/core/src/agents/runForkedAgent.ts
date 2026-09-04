@@ -14,7 +14,7 @@
  *   - aggregate tokens into the main session counter
  *
  * The fork talks directly to `ContentGenerator.generateContentStream`,
- * bypassing the `OttoChat` / `Turn` / `ToolExecutionEngine` stack
+ * bypassing the `ClawMasterChat` / `Turn` / `ToolExecutionEngine` stack
  * entirely. This keeps the fork dead-simple and guaranteed-side-effect-free.
  *
  * Prompt-cache prefix sharing: if `cacheSafeSnapshot` is provided, the

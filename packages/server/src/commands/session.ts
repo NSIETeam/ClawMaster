@@ -1,13 +1,13 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
  * 会话类命令：/compress /init。
  *   - /compress：手动压缩当前会话上下文（与 compress_context 帧同一 core 能力：
- *     OttoClient.tryCompressChat）。
+ *     ClawMasterClient.tryCompressChat）。
  *   - /init：项目无 OTTO.md 时复用 core AcpCommands.performInit 的分析 prompt，
  *     以 submit_prompt 形态转投给模型跑一轮（真实生成文件的是 agent 本身）。
  */
@@ -21,7 +21,7 @@ import {
   buildGoalClearMessage,
   type Config,
   type GoalContext,
-} from 'otto-core';
+} from 'clawmaster-core';
 import { md, fail, type ServerSlashCommand } from './types.js';
 
 export const compressCommand: ServerSlashCommand = {
@@ -29,7 +29,7 @@ export const compressCommand: ServerSlashCommand = {
   description: '压缩当前会话的上下文（腾出 token 空间）',
   action: async ({ host, sessionId }) => {
     const cfg = host.getConfig(sessionId);
-    const client = cfg?.getOttoClient?.();
+    const client = cfg?.getClawMasterClient?.();
     if (!client) {
       return fail(
         '会话运行时尚未初始化，无法压缩——先发一条消息让会话跑起来。',
@@ -122,7 +122,7 @@ export const goalCommand: ServerSlashCommand = {
   usage: 'goal <目标> | goal clear',
   action: async ({ host, sessionId }, args) => {
     const config = host.getConfig(sessionId) ?? await host.ensureConfig?.(sessionId);
-    const client = config?.getOttoClient?.();
+    const client = config?.getClawMasterClient?.();
     if (!client) return fail('会话运行时尚未初始化，请先发一条消息。');
     if (args.toLowerCase() === 'clear' || args.toLowerCase() === 'off') {
       client.clearGoalContext();
@@ -139,7 +139,7 @@ export const goalCommand: ServerSlashCommand = {
 const MAX_CUSTOM_SYSTEM_PROMPT_LENGTH = 12_000;
 
 async function refreshSystemPrompt(config: Config): Promise<void> {
-  const client = config.getOttoClient?.();
+  const client = config.getClawMasterClient?.();
   if (!client) return;
   await client.updateSystemPromptWithMcpPrompts();
 }

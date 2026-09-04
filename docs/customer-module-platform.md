@@ -4,10 +4,10 @@ Customer modules are reviewed WASM/WASI tool packages owned by `tool_skill_platf
 
 ## Rollout and signing
 
-- `OTTO_CUSTOMER_MODULE_MARKET_MODE=internal|invite|public|disabled` controls publisher access and defaults to `internal`.
-- Internal mode permits organization admins and IDs listed in `OTTO_CUSTOMER_MODULE_PUBLISHER_IDS`; invite mode permits only that list.
-- Approval requires `OTTO_CUSTOMER_MODULE_SIGNING_PRIVATE_KEY` and `OTTO_CUSTOMER_MODULE_SIGNING_KEY_ID`.
-- Desktop installation trusts only Ed25519 public keys configured in `OTTO_CUSTOMER_MODULE_TRUSTED_PUBLIC_KEYS` as a JSON key-ID to PEM map.
+- `CLAWMASTER_CUSTOMER_MODULE_MARKET_MODE=internal|invite|public|disabled` controls publisher access and defaults to `internal`.
+- Internal mode permits organization admins and IDs listed in `CLAWMASTER_CUSTOMER_MODULE_PUBLISHER_IDS`; invite mode permits only that list.
+- Approval requires `CLAWMASTER_CUSTOMER_MODULE_SIGNING_PRIVATE_KEY` and `CLAWMASTER_CUSTOMER_MODULE_SIGNING_KEY_ID`.
+- Desktop installation trusts only Ed25519 public keys configured in `CLAWMASTER_CUSTOMER_MODULE_TRUSTED_PUBLIC_KEYS` as a JSON key-ID to PEM map.
 - Suspended or withdrawn signed versions stop new installation. Desktop refresh marks an installed copy risky and disables execution.
 
 ## Safe defaults

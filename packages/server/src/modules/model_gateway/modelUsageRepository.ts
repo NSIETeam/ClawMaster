@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import type { Database } from '../data_platform/index.js';
@@ -70,7 +70,7 @@ function dailyRecordLimit(): number {
     100_000,
     Math.max(
       1,
-      Math.floor(envNum('OTTO_ENTERPRISE_USAGE_DAILY_LIMIT', 10_000)),
+      Math.floor(envNum('CLAWMASTER_ENTERPRISE_USAGE_DAILY_LIMIT', 10_000)),
     ),
   );
 }

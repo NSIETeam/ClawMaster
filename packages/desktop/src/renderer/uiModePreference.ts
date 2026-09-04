@@ -8,7 +8,7 @@ export interface UiModePreferenceScope {
   accountId: string;
 }
 
-const STORAGE_PREFIX = 'otto.ui-mode.v1';
+const STORAGE_PREFIX = 'clawmaster.ui-mode.v1';
 
 function normalizeServerUrl(value: string | null | undefined): string {
   const normalized = value?.trim().replace(/\/+$/, '').toLowerCase();

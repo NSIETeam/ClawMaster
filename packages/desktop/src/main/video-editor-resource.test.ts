@@ -11,10 +11,10 @@ describe('video editor packaged resource', () => {
   it('打包后只从 Electron resourcesPath 读取内置编辑器', () => {
     expect(resolveVideoEditorIndex({
       isPackaged: true,
-      resourcesPath: '/Applications/Otto.app/Contents/Resources',
-      moduleDir: '/Applications/Otto.app/Contents/Resources/app.asar/dist/main',
+      resourcesPath: '/Applications/ClawMaster.app/Contents/Resources',
+      moduleDir: '/Applications/ClawMaster.app/Contents/Resources/app.asar/dist/main',
     })).toBe(join(
-      '/Applications/Otto.app/Contents/Resources',
+      '/Applications/ClawMaster.app/Contents/Resources',
       'video-editor',
       'index.html',
     ));

@@ -1,5 +1,5 @@
 /**
- * Otto Unified Component Model
+ * ClawMaster Unified Component Model
  *
  * Defines the core types for the refactored skills system that unifies
  * Agents, Commands, Skills, Hooks, and Tools into a single component model.
@@ -11,7 +11,7 @@
 export enum ComponentType {
   AGENT = 'agent',       // Claude Code Agents (.md)
   COMMAND = 'command',   // Claude Code Commands (.md)
-  SKILL = 'skill',       // Otto Skills (SKILL.md)
+  SKILL = 'skill',       // ClawMaster Skills (SKILL.md)
   HOOK = 'hook',         // Lifecycle Hooks
   TOOL = 'tool',         // MCP Tools
   SCRIPT = 'script',     // Executable Scripts

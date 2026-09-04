@@ -7,7 +7,7 @@
 /**
  * Periodic cleanup of `~/.otto/last-requests/`.
  *
- * The directory is a debugging ring-buffer where both OttoServerAdapter
+ * The directory is a debugging ring-buffer where both ClawMasterServerAdapter
  * (proxy-mode requests) and customModelAdapter (Gemini native requests) drop
  * a JSON copy of every outbound body. Each writer trims its OWN files via
  * a small ring (5–N entries), but:
@@ -68,7 +68,7 @@ export async function cleanupLastRequestsDir(
   try {
     entries = await fs.promises.readdir(dir);
   } catch (err) {
-    // ENOENT is expected the very first time anyone runs Otto.
+    // ENOENT is expected the very first time anyone runs ClawMaster.
     if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
       // Any other error is non-fatal — just don't sweep this run.
     }

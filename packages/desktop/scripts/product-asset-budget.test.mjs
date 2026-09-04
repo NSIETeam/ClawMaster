@@ -21,13 +21,13 @@ describe('product asset budget', () => {
   it('keeps the retired animated pet atlas out of the lean renderer', () => {
     const atlas = path.join(assetsRoot, 'otto-pet-atlas.png');
     const component = readFileSync(
-      path.join(desktopRoot, 'src', 'renderer', 'components', 'OttoPetStage.tsx'),
+      path.join(desktopRoot, 'src', 'renderer', 'components', 'ClawMasterPetStage.tsx'),
       'utf8',
     );
 
     expect(existsSync(atlas)).toBe(false);
     expect(component).not.toContain("../assets/otto-pet-atlas.png");
-    expect(component).toContain('otto-pet-stage__mark');
+    expect(component).toContain('claw-pet-stage__mark');
   });
 
   it('keeps the generated icon catalog compact without duplicate source assets', () => {
@@ -50,16 +50,13 @@ describe('product asset budget', () => {
     }
   });
 
-  it('keeps the shared avatar compact at its rendered resolution', () => {
-    const avatar = path.join(assetsRoot, 'otto-avatar.png');
-
-    expect(statSync(avatar).size).toBeLessThan(50 * 1024);
-    expect(readPngMetadata(avatar)).toEqual({
-      width: 256,
-      height: 256,
-      bitDepth: 8,
-      colorType: 3,
-    });
+  it('keeps the shared avatar vector-only in the lean renderer', () => {
+    expect(existsSync(path.join(assetsRoot, 'otto-avatar.png'))).toBe(false);
+    const icons = readFileSync(
+      path.join(desktopRoot, 'src', 'renderer', 'components', 'icons.tsx'),
+      'utf8',
+    );
+    expect(icons).toContain('ClawMasterAvatar');
   });
 
   it('keeps the product crown compact while preserving Tauri RGBA input', () => {
@@ -85,7 +82,7 @@ describe('product asset budget', () => {
     expect(existsSync(retired)).toBe(false);
     expect(existsSync(legacy)).toBe(false);
     expect(component).not.toContain("../assets/meeting-room-default.jpg");
-    expect(component).toContain('otto-park-meeting-room-detail__placeholder');
+    expect(component).toContain('claw-park-meeting-room-detail__placeholder');
   });
 
   it('does not retain the unreferenced legacy avatar source set', () => {
@@ -94,7 +91,7 @@ describe('product asset budget', () => {
       path.join(desktopRoot, 'scripts', 'release-recovery-gate.mjs'),
       'utf8',
     );
-    expect(releaseGate).toContain("'src', 'renderer', 'assets', 'otto-avatar.png'");
+    expect(releaseGate).not.toContain('otto-avatar.png');
     expect(releaseGate).not.toContain("'otto-avatar-1.png'");
   });
 });

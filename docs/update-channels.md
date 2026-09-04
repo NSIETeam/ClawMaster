@@ -43,7 +43,7 @@ Otto 后续更新分为四类，默认优先发增量包，只有触及 Electron
 
 运行约束：
 
-- 客户端可通过 `OTTO_INCREMENTAL_UPDATE_MANIFEST_URL` 指向企业 HTTPS 增量 manifest；服务器推送帧也可携带本次检查用的 HTTPS manifest URL。未配置且未收到推送时检查会明确失败，不会伪装成“已最新”。
+- 客户端可通过 `CLAWMASTER_INCREMENTAL_UPDATE_MANIFEST_URL` 指向企业 HTTPS 增量 manifest；服务器推送帧也可携带本次检查用的 HTTPS manifest URL。未配置且未收到推送时检查会明确失败，不会伪装成“已最新”。
 - 当前 patch 支持 `desktop/renderer-css` 受控 UI 热补丁，kernel 支持 `server/runtime` 签名 bundle 安装并在 server 重启后切换，component 支持 `skills/<name>` 安全解包。
 
 未实现：

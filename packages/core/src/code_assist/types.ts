@@ -46,16 +46,16 @@ export interface LoadCodeAssistRequest {
  * http://google3/google/internal/cloud/code/v1internal/cloudcode.proto;l=224
  */
 export interface LoadCodeAssistResponse {
-  currentTier?: OttoUserTier | null;
-  allowedTiers?: OttoUserTier[] | null;
+  currentTier?: ClawMasterUserTier | null;
+  allowedTiers?: ClawMasterUserTier[] | null;
   ineligibleTiers?: IneligibleTier[] | null;
   cloudaicompanionProject?: string | null;
 }
 
 /**
- * OttoUserTier reflects the structure received from the CodeAssist when calling LoadCodeAssist.
+ * ClawMasterUserTier reflects the structure received from the CodeAssist when calling LoadCodeAssist.
  */
-export interface OttoUserTier {
+export interface ClawMasterUserTier {
   id: UserTierId;
   name: string;
   description: string;

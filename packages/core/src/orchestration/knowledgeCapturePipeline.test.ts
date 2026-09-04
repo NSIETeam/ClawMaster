@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -293,7 +293,7 @@ describe('KnowledgeCapturePipeline', () => {
     ).toBe(true);
   });
 
-  it('bounds prompt dedupe memory and the durable knowledge index for long-running Otto sessions', async () => {
+  it('bounds prompt dedupe memory and the durable knowledge index for long-running ClawMaster sessions', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-capture-'));
     tempDirs.push(root);
     const log = vi.fn(async () => undefined);

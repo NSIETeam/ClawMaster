@@ -1,12 +1,12 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
  * 底部输入区。spec §底部输入区：
- *   圆角输入框（占位「给 Otto 发送消息...」）+ model 选择器 pill（反映真实生效模型 ▾）
+ *   圆角输入框（占位「给 ClawMaster 发送消息...」）+ model 选择器 pill（反映真实生效模型 ▾）
  *   + 回形针附件 + amber 圆形发送（↑），生成中发送按钮变「停止」。
  *
  * model pill 点击弹出可用模型菜单（来自协议 models_list）。pill 文字取 currentModel
@@ -20,9 +20,9 @@
 
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { ModelInfo } from 'otto-server';
+import type { ModelInfo } from 'clawmaster-server';
 import * as transport from '../transport.js';
-import type { Attachment } from '../state/useOttoStore.js';
+import type { Attachment } from '../state/useClawMasterStore.js';
 import {
   fileToAttachment,
   isImageAttachment,
@@ -215,7 +215,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
  * Composer 深居 ChatView 之下，为一条注入通路把 draft/draftNonce 逐层穿透
  * App→ChatView→Composer 不值当；派发函数与事件监听同在本文件维护，耦合可见。
  */
-const COMPOSER_INSERT_EVENT = 'otto:composer-insert';
+const COMPOSER_INSERT_EVENT = 'clawmaster:composer-insert';
 
 /** 把一段文本填入底部输入框（只填入不发送，随后聚焦）。供 RightPanel 工具列表点击调用。 */
 export function insertComposerDraft(text: string): void {
@@ -285,7 +285,7 @@ interface ComposerProps {
   onOpenPrefs?: () => void;
   /** 斜杠命令 `/session`：打开「查看全部对话」检索面板。 */
   onOpenSessions?: () => void;
-  /** 斜杠命令 `/copy`：复制最近一条 Otto 回复到剪贴板。 */
+  /** 斜杠命令 `/copy`：复制最近一条 ClawMaster 回复到剪贴板。 */
   onCopyLast?: () => void;
   /** 斜杠命令 `/help`：在聊天区展示命令总览（系统气泡）。 */
   onShowHelp?: () => void;
@@ -370,8 +370,8 @@ export function Composer({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
-    if (!window.otto?.getWorkspaceDirectories) return;
-    void window.otto.getWorkspaceDirectories()
+    if (!window.clawmaster?.getWorkspaceDirectories) return;
+    void window.clawmaster.getWorkspaceDirectories()
       .then((state) => {
         setNativeWorkspaceState(state);
         setWorkspaceError(null);
@@ -386,7 +386,7 @@ export function Composer({
     if (!openPopover) return;
     const closeOutside = (event: PointerEvent): void => {
       const target = event.target;
-      if (target instanceof Element && target.closest('.otto-popover-anchor')) return;
+      if (target instanceof Element && target.closest('.claw-popover-anchor')) return;
       setOpenPopover(null);
     };
     const closeOnEscape = (event: KeyboardEvent): void => {
@@ -471,7 +471,7 @@ export function Composer({
         const blob = new Blob(voiceChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
         stream.getTracks().forEach((track) => track.stop());
         void blobToWav(blob)
-          .then((wav) => window.otto.voiceTranscribe(wav, 'audio/wav'))
+          .then((wav) => window.clawmaster.voiceTranscribe(wav, 'audio/wav'))
           .then((result) => insertVoiceText(result.text))
           .catch((e) => setVoiceError(e instanceof Error ? e.message : String(e)))
           .finally(() => setVoiceProcessing(false));
@@ -641,7 +641,7 @@ export function Composer({
         // 剪贴板图片没有本地路径，但图片会转为内联 base64，可安全降级。
         let resolvedPath = '';
         try {
-          resolvedPath = await window.otto.authorizeFileForAttachment(file);
+          resolvedPath = await window.clawmaster.authorizeFileForAttachment(file);
         } catch (error) {
           if (!file.type.toLowerCase().startsWith('image/')) throw error;
         }
@@ -668,10 +668,10 @@ export function Composer({
   const pickFiles = useCallback(() => {
     setAttachError(null);
     // 优先使用原生文件选择器（获取完整路径）
-    if (window.otto?.selectFiles) {
+    if (window.clawmaster?.selectFiles) {
       void (async () => {
         try {
-          const paths = await window.otto.selectFiles();
+          const paths = await window.clawmaster.selectFiles();
           if (paths.length === 0) return;
           const room = MAX_ATTACHMENTS - attachments.length;
           if (room <= 0) {
@@ -684,7 +684,7 @@ export function Composer({
           let firstError: string | null = null;
           for (const filePath of paths.slice(0, room)) {
             try {
-              const result = await window.otto.readFilePath(filePath);
+              const result = await window.clawmaster.readFilePath(filePath);
               const ext = result.fileName.split('.').pop()?.toLowerCase() ?? '';
               const imgExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
               if (imgExts.includes(ext)) {
@@ -732,7 +732,7 @@ export function Composer({
     setAttachError(null);
     void (async () => {
       try {
-        const paths = await window.otto.selectFolders();
+        const paths = await window.clawmaster.selectFolders();
         if (paths.length === 0) return;
         const room = MAX_ATTACHMENTS - attachments.length;
         if (room <= 0) {
@@ -956,11 +956,11 @@ export function Composer({
         onOpenFeishu?.();
         break;
       case 'feishu-start':
-        void window.otto?.feishuStart();
+        void window.clawmaster?.feishuStart();
         onOpenFeishu?.();
         break;
       case 'feishu-stop':
-        void window.otto?.feishuStop();
+        void window.clawmaster?.feishuStop();
         onOpenFeishu?.();
         break;
       case 'memory':
@@ -1148,7 +1148,7 @@ export function Composer({
   };
   const chooseNewWorkspace = async (): Promise<void> => {
     try {
-      const selected = await window.otto?.selectWorkspaceDirectory?.();
+      const selected = await window.clawmaster?.selectWorkspaceDirectory?.();
       if (!selected) return;
       setNativeWorkspaceState((current) => ({
         ...current,
@@ -1167,7 +1167,7 @@ export function Composer({
   return (
     <div
       ref={composerRef}
-      className={`otto-composer${disabled ? ' is-disabled' : ''}${dragOver ? ' is-dragover' : ''}`}
+      className={`claw-composer${disabled ? ' is-disabled' : ''}${dragOver ? ' is-dragover' : ''}`}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
@@ -1180,12 +1180,12 @@ export function Composer({
       {contextMenu ? (
         <>
           <div
-            className="otto-context-overlay"
+            className="claw-context-overlay"
             onClick={() => setContextMenu(null)}
             onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
           />
           <div
-            className="otto-context-menu"
+            className="claw-context-menu"
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
             <button type="button" onClick={() => { void pasteFromClipboard(); setContextMenu(null); }}>
@@ -1206,11 +1206,11 @@ export function Composer({
           </div>
         </>
       ) : null}
-      <div className="otto-composer__contextbar">
-        <div className="otto-workspace otto-popover-anchor">
+      <div className="claw-composer__contextbar">
+        <div className="claw-workspace claw-popover-anchor">
           <button
             type="button"
-            className="otto-contextpill"
+            className="claw-contextpill"
             aria-label={`工作目录：${workspacePath ? workspaceName(workspacePath) : '个人目录'}`}
             aria-haspopup="menu"
             aria-expanded={openPopover === 'workspace'}
@@ -1223,15 +1223,15 @@ export function Composer({
             <IconChevronDown size={14} />
           </button>
           {openPopover === 'workspace' && !disabled ? (
-            <div className="otto-workspace__menu" role="menu" aria-label="选择工作目录">
-              <div className="otto-workspace__heading">最近使用</div>
+            <div className="claw-workspace__menu" role="menu" aria-label="选择工作目录">
+              <div className="claw-workspace__heading">最近使用</div>
               {workspacePaths.map((item) => (
                 <button
                   key={item}
                   type="button"
                   role="menuitemradio"
                   aria-checked={item === workspacePath}
-                  className={`otto-workspace__option${item === workspacePath ? ' is-active' : ''}`}
+                  className={`claw-workspace__option${item === workspacePath ? ' is-active' : ''}`}
                   title={item}
                   onClick={() => {
                     onSetWorkspace?.(item);
@@ -1243,7 +1243,7 @@ export function Composer({
                   {item === workspacePath ? <IconCheck size={15} /> : null}
                 </button>
               ))}
-              <button type="button" role="menuitem" className="otto-workspace__add" onClick={() => void chooseNewWorkspace()}>
+              <button type="button" role="menuitem" className="claw-workspace__add" onClick={() => void chooseNewWorkspace()}>
                 <IconPlus size={16} />
                 <span>添加工作目录…</span>
               </button>
@@ -1251,10 +1251,10 @@ export function Composer({
           ) : null}
         </div>
 
-        <div className="otto-authorization otto-popover-anchor">
+        <div className="claw-authorization claw-popover-anchor">
           <button
             type="button"
-            className="otto-contextpill otto-authorization__trigger"
+            className="claw-contextpill claw-authorization__trigger"
             aria-label={`执行授权：${authorizationLabel}`}
             aria-haspopup="menu"
             aria-expanded={openPopover === 'authorization'}
@@ -1271,7 +1271,7 @@ export function Composer({
         </div>
       </div>
       {workspaceError ? (
-        <div className="otto-workspace__error" role="alert">
+        <div className="claw-workspace__error" role="alert">
           <span>{workspaceError}</span>
           <button
             type="button"
@@ -1280,10 +1280,10 @@ export function Composer({
           >×</button>
         </div>
       ) : null}
-      <div className="otto-composer__inner">
+      <div className="claw-composer__inner">
         {pendingAgent ? (
-          <div className="otto-composer__agent-slot" aria-label="已启用的智能体">
-            <div className="otto-composer__agent-chip" role="status">
+          <div className="claw-composer__agent-slot" aria-label="已启用的智能体">
+            <div className="claw-composer__agent-chip" role="status">
               <ModuleIcon icon={pendingAgent.icon} label={pendingAgent.title} size={14} />
               <span>{pendingAgent.title}</span>
               <button
@@ -1297,7 +1297,7 @@ export function Composer({
           </div>
         ) : null}
         {attachments.length > 0 || attaching || attachError ? (
-          <div className="otto-attachments">
+          <div className="claw-attachments">
             {attachments.map((attachment) => {
               const key = attachmentKey(attachment);
               const image = isImageAttachment(attachment);
@@ -1313,34 +1313,34 @@ export function Composer({
               return (
                 <div
                   key={key}
-                  className={`otto-attachment otto-attachment--${image ? 'image' : folder ? 'folder' : 'file'}`}
+                  className={`claw-attachment claw-attachment--${image ? 'image' : folder ? 'folder' : 'file'}`}
                 >
                   {image ? (
                     <img
-                      className="otto-attachment__img"
+                      className="claw-attachment__img"
                       src={attachmentToDataUrl(attachment)}
                       alt=""
                     />
                   ) : (
-                    <span className="otto-attachment__type-col" aria-hidden="true">
-                      <span className="otto-attachment__type-icon" data-type={typeKey}>
+                    <span className="claw-attachment__type-col" aria-hidden="true">
+                      <span className="claw-attachment__type-icon" data-type={typeKey}>
                         {typeKey}
                       </span>
-                      <span className="otto-attachment__type-label">{typeLabel}</span>
+                      <span className="claw-attachment__type-label">{typeLabel}</span>
                     </span>
                   )}
-                  <div className="otto-attachment__copy">
+                  <div className="claw-attachment__copy">
                     <span
-                      className="otto-attachment__file-name"
+                      className="claw-attachment__file-name"
                       title={name}
                     >
                       {displayName}
                     </span>
-                    <span className="otto-attachment__meta">
+                    <span className="claw-attachment__meta">
                       {typeLabel}{size != null ? ` · ${formatAttachmentSize(size)}` : ''}
                     </span>
                     {localPath && localPath !== name ? (
-                      <span className="otto-attachment__path" title={localPath}>
+                      <span className="claw-attachment__path" title={localPath}>
                         {localPath.length > 50
                           ? `…${localPath.slice(-47)}`
                           : localPath}
@@ -1349,7 +1349,7 @@ export function Composer({
                   </div>
                   <button
                     type="button"
-                    className="otto-attachment__remove"
+                    className="claw-attachment__remove"
                     title={`移除 ${name}`}
                     aria-label={`移除 ${name}`}
                     onClick={() => removeAttachment(key)}
@@ -1360,12 +1360,12 @@ export function Composer({
               );
             })}
             {attaching ? (
-              <div className="otto-attachment otto-attachment--loading">
+              <div className="claw-attachment claw-attachment--loading">
                 处理中…
               </div>
             ) : null}
             {attachError ? (
-              <div className="otto-attachments__error" role="alert">
+              <div className="claw-attachments__error" role="alert">
                 {attachError}
               </div>
             ) : null}
@@ -1393,25 +1393,25 @@ export function Composer({
         ) : null}
 
         {recording ? (
-          <div className="otto-voice-recorder" role="group" aria-label="语音录音中">
-            <div className="otto-voice-recorder__wave" aria-hidden>
-              <span className="otto-voice-recorder__baseline" />
+          <div className="claw-voice-recorder" role="group" aria-label="语音录音中">
+            <div className="claw-voice-recorder__wave" aria-hidden>
+              <span className="claw-voice-recorder__baseline" />
               {voiceWave.map((height, index) => (
-                <span key={index} className="otto-voice-recorder__bar" style={{ height: `${height}px` }} />
+                <span key={index} className="claw-voice-recorder__bar" style={{ height: `${height}px` }} />
               ))}
             </div>
-            <span className="otto-voice-recorder__time" aria-label="录音时长">{formattedVoiceTime}</span>
-            <button type="button" className="otto-voice-recorder__stop" aria-label="停止录音" title="停止并转成文字" onClick={toggleVoice}>
+            <span className="claw-voice-recorder__time" aria-label="录音时长">{formattedVoiceTime}</span>
+            <button type="button" className="claw-voice-recorder__stop" aria-label="停止录音" title="停止并转成文字" onClick={toggleVoice}>
               <IconStop size={14} />
             </button>
-            <button type="button" className="otto-send" aria-label="完成录音" title="完成录音并转成文字" onClick={toggleVoice}>
+            <button type="button" className="claw-send" aria-label="完成录音" title="完成录音并转成文字" onClick={toggleVoice}>
               <IconArrowUp size={17} />
             </button>
           </div>
         ) : (<>
         <textarea
           ref={taRef}
-          className="otto-composer__textarea"
+          className="claw-composer__textarea"
           placeholder={disabledReason ?? '给 ClawMaster 发送消息...'}
           rows={1}
           value={text}
@@ -1424,15 +1424,15 @@ export function Composer({
             void addBrowserFiles(files);
           }}
           aria-expanded={slashVisible}
-          aria-controls={slashVisible ? 'otto-slashmenu' : undefined}
+          aria-controls={slashVisible ? 'claw-slashmenu' : undefined}
           // 生成中仍可输入下一条；仅无会话（disabled）时锁死。
           disabled={disabled}
         />
-        <div className="otto-composer__bar">
-          <div className="otto-attachment-picker otto-popover-anchor">
+        <div className="claw-composer__bar">
+          <div className="claw-attachment-picker claw-popover-anchor">
             <button
               type="button"
-              className="otto-attach"
+              className="claw-attach"
               title="添加附件"
               aria-label="添加附件"
               aria-haspopup="menu"
@@ -1443,7 +1443,7 @@ export function Composer({
               <IconPaperclip size={17} />
             </button>
             {openPopover === 'attachment' && !disabled ? (
-              <div className="otto-attachment-picker__menu" role="menu" aria-label="添加附件">
+              <div className="claw-attachment-picker__menu" role="menu" aria-label="添加附件">
                 <button type="button" role="menuitem" onClick={() => { pickFiles(); setOpenPopover(null); }}>
                   <IconPaperclip size={15} /> 添加文件或图片
                 </button>
@@ -1454,11 +1454,11 @@ export function Composer({
             ) : null}
           </div>
 
-          <div className="otto-model-anchor otto-popover-anchor">
+          <div className="claw-model-anchor claw-popover-anchor">
             <button
               ref={modelTriggerRef}
               type="button"
-              className="otto-modelpill"
+              className="claw-modelpill"
               onClick={() => setOpenPopover((value) => value === 'model' ? null : 'model')}
               aria-haspopup="listbox"
               aria-expanded={openPopover === 'model'}
@@ -1466,7 +1466,7 @@ export function Composer({
               title={disabled ? disabledReason ?? '请先选择或新建会话' : '切换模型'}
             >
               {modelLabel}
-              <IconChevronDown size={14} className="otto-modelpill__chev" />
+              <IconChevronDown size={14} className="claw-modelpill__chev" />
             </button>
             {openPopover === 'model' && !disabled ? (
               <ModelMenuPopover
@@ -1488,7 +1488,7 @@ export function Composer({
           {busy && onCancel ? (
             <button
               type="button"
-              className="otto-send otto-send--stop"
+              className="claw-send claw-send--stop"
               title="停止生成"
               aria-label="停止生成"
               onClick={onCancel}
@@ -1498,7 +1498,7 @@ export function Composer({
           ) : (
             <button
               type="button"
-              className="otto-send"
+              className="claw-send"
               title={sendTitle}
               aria-label="发送"
               disabled={!canSend}
@@ -1509,12 +1509,12 @@ export function Composer({
           )}
         </div>
         </>)}
-        {voiceError ? <div className="otto-composer__voice-error" role="alert">{voiceError}</div> : null}
+        {voiceError ? <div className="claw-composer__voice-error" role="alert">{voiceError}</div> : null}
       </div>
 
       {/* 极简键位提示：让首次使用者知道 Enter/Shift+Enter 的分工。无会话时不显示（避免噪声）。 */}
       {!disabled ? (
-        <div className="otto-composer__hint" aria-hidden>
+        <div className="claw-composer__hint" aria-hidden>
           Enter 发送 · Shift+Enter 换行 · 输入 / 唤起命令
         </div>
       ) : null}
@@ -1535,24 +1535,24 @@ function AuthorizationMenu({
     { id: 'global' as const, title: '自动授权（所有会话）', desc: '所有会话放行非高危操作，高危操作仍会询问' },
   ];
   return (
-    <div className="otto-authorization__menu" role="menu" aria-label="选择执行授权方式">
+    <div className="claw-authorization__menu" role="menu" aria-label="选择执行授权方式">
       {options.map((option) => (
         <button
           key={option.id}
           type="button"
           role="menuitemradio"
           aria-checked={current === option.id}
-          className={`otto-authorization__option${current === option.id ? ' is-active' : ''}`}
+          className={`claw-authorization__option${current === option.id ? ' is-active' : ''}`}
           onClick={() => onPick(option.id)}
         >
-          <span className={`otto-authorization__option-icon otto-authorization__option-icon--${option.id}`}>
+          <span className={`claw-authorization__option-icon claw-authorization__option-icon--${option.id}`}>
             <AuthorizationModeIcon kind={option.id} size={18} />
           </span>
-          <span className="otto-authorization__copy">
-            <span className="otto-authorization__title">{option.title}</span>
-            <span className="otto-authorization__desc">{option.desc}</span>
+          <span className="claw-authorization__copy">
+            <span className="claw-authorization__title">{option.title}</span>
+            <span className="claw-authorization__desc">{option.desc}</span>
           </span>
-          {current === option.id ? <IconCheck size={19} className="otto-authorization__selected" /> : null}
+          {current === option.id ? <IconCheck size={19} className="claw-authorization__selected" /> : null}
         </button>
       ))}
     </div>
@@ -1631,7 +1631,7 @@ function ModelMenuPopover({
   return createPortal(
     <div
       ref={portalRef}
-      className="otto-modelmenu-portal otto-popover-anchor"
+      className="claw-modelmenu-portal claw-popover-anchor"
       style={position}
     >
       <ModelMenu models={models} current={current} onPick={onPick} onManage={onManage} />
@@ -1681,13 +1681,13 @@ function ModelMenu({
   }, [showSearch, filtered]);
 
   // 方向键在选项间移动焦点（role=listbox 名副其实）。搜索框聚焦时 ↓ 也能进入列表
-  // （输入框非 .otto-modelmenu__item，idx=-1 → ArrowDown 落到首个候选）。
+  // （输入框非 .claw-modelmenu__item，idx=-1 → ArrowDown 落到首个候选）。
   const onMenuKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     e.preventDefault();
     const items = Array.from(
       menuRef.current?.querySelectorAll<HTMLButtonElement>(
-        '.otto-modelmenu__item',
+        '.claw-modelmenu__item',
       ) ?? [],
     );
     if (items.length === 0) return;
@@ -1709,19 +1709,19 @@ function ModelMenu({
         type="button"
         role="option"
         aria-selected={active}
-        className={`otto-modelmenu__item${
-          active ? ' otto-modelmenu__item--active' : ''
+        className={`claw-modelmenu__item${
+          active ? ' claw-modelmenu__item--active' : ''
         }`}
         disabled={unavailable}
         onClick={() => onPick(m.id)}
       >
-        <span className="otto-modelmenu__check">
+        <span className="claw-modelmenu__check">
           {active ? <IconCheck size={15} /> : null}
         </span>
-        <span className="otto-modelmenu__text">
-          <span className="otto-modelmenu__name">{m.displayName}</span>
+        <span className="claw-modelmenu__text">
+          <span className="claw-modelmenu__name">{m.displayName}</span>
           {m.provider ? (
-            <span className="otto-modelmenu__provider">
+            <span className="claw-modelmenu__provider">
               {unavailable ? '暂不可用' : m.provider}
             </span>
           ) : null}
@@ -1733,7 +1733,7 @@ function ModelMenu({
   return (
     <div
       ref={menuRef}
-      className="otto-modelmenu"
+      className="claw-modelmenu"
       role="listbox"
       aria-label="选择模型"
       onClick={(e) => e.stopPropagation()}
@@ -1741,7 +1741,7 @@ function ModelMenu({
     >
       {showSearch ? (
         <input
-          className="otto-modelmenu__search"
+          className="claw-modelmenu__search"
           type="text"
           placeholder="搜索模型…"
           aria-label="搜索模型"
@@ -1753,15 +1753,15 @@ function ModelMenu({
       ) : null}
 
       {models.length === 0 ? (
-        <div className="otto-modelmenu__empty">
+        <div className="claw-modelmenu__empty">
           暂无可用模型，先在「设置」里配置 BYO-key
         </div>
       ) : filtered.length === 0 ? (
-        <div className="otto-modelmenu__empty">未找到匹配的模型</div>
+        <div className="claw-modelmenu__empty">未找到匹配的模型</div>
       ) : groups ? (
         groups.map(([provider, items]) => (
-          <div key={provider} className="otto-modelmenu__group">
-            <div className="otto-modelmenu__grouphead">{provider}</div>
+          <div key={provider} className="claw-modelmenu__group">
+            <div className="claw-modelmenu__grouphead">{provider}</div>
             {items.map(renderItem)}
           </div>
         ))
@@ -1771,10 +1771,10 @@ function ModelMenu({
 
       {onManage ? (
         <>
-          <div className="otto-modelmenu__sep" />
+          <div className="claw-modelmenu__sep" />
           <button
             type="button"
-            className="otto-modelmenu__manage"
+            className="claw-modelmenu__manage"
             onClick={onManage}
           >
             <IconSettings size={14} />

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -13,7 +13,7 @@ import {
 
 describe('federation A2A main-process protocol', () => {
   it('strictly parses the existing A2A request wire format', () => {
-    const content = 'OTTO_ATOA_REQUEST ' + JSON.stringify({
+    const content = 'CLAWMASTER_ATOA_REQUEST ' + JSON.stringify({
       v: 1,
       id: 'request_one',
       question: '对方今天是否方便开会？',
@@ -49,7 +49,7 @@ describe('federation A2A main-process protocol', () => {
       },
     ]) {
       expect(parseAtoaRequest(
-        'OTTO_ATOA_REQUEST ' + JSON.stringify(payload),
+        'CLAWMASTER_ATOA_REQUEST ' + JSON.stringify(payload),
       )).toBeNull();
     }
   });

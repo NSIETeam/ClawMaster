@@ -1,5 +1,5 @@
 /**
- * Otto Skills System - Settings Manager
+ * ClawMaster Skills System - Settings Manager
  *
  * Manages Skills system configuration:
  * - settings.json (enabledPlugins, marketplaces, security, performance)
@@ -26,13 +26,13 @@ import {
  */
 export class SkillsPaths {
   /** 用户主目录 ~/.otto-user */
-  static readonly OTTO_HOME = path.join(os.homedir(), '.otto-user');
+  static readonly CLAWMASTER_HOME = path.join(os.homedir(), '.otto-user');
 
   /** Skills 根目录 ~/.otto-user/skills */
-  static readonly SKILLS_ROOT = path.join(SkillsPaths.OTTO_HOME, 'skills');
+  static readonly SKILLS_ROOT = path.join(SkillsPaths.CLAWMASTER_HOME, 'skills');
 
   /** Marketplace 根目录 ~/.otto-user/marketplace */
-  static readonly MARKETPLACE_ROOT = path.join(SkillsPaths.OTTO_HOME, 'marketplace');
+  static readonly MARKETPLACE_ROOT = path.join(SkillsPaths.CLAWMASTER_HOME, 'marketplace');
 
   /** Plugin 缓存根目录 ~/.otto-user/skills/cache */
   static readonly PLUGIN_CACHE_ROOT = path.join(SkillsPaths.SKILLS_ROOT, 'cache');
@@ -110,7 +110,7 @@ export class SettingsManager {
    */
   private async ensureDirectories(): Promise<void> {
     const directories = [
-      SkillsPaths.OTTO_HOME,
+      SkillsPaths.CLAWMASTER_HOME,
       SkillsPaths.SKILLS_ROOT,
       SkillsPaths.MARKETPLACE_ROOT,
       SkillsPaths.PLUGIN_CACHE_ROOT,

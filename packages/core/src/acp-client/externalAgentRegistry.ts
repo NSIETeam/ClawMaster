@@ -5,7 +5,7 @@
  */
 
 /**
- * Registry of external ACP-speaking agents that Otto can drive as an ACP
+ * Registry of external ACP-speaking agents that ClawMaster can drive as an ACP
  * *client* (orchestrator). Today only Claude Code is wired up; `codex` is left
  * as a documented extension point so adding it later is a one-line change here
  * plus a tool/route that targets the new type.
@@ -44,16 +44,16 @@ export interface ExternalAgentSpec {
 /**
  * Per-agent environment variable(s) that override the spawn command. The value
  * is split on whitespace into `command` + `args`, e.g.
- *   OTTO_CLAUDE_CODE_ACP_CMD="node /abs/path/to/acp-bridge.js --flag"
+ *   CLAWMASTER_CLAUDE_CODE_ACP_CMD="node /abs/path/to/acp-bridge.js --flag"
  * This lets users point at a globally-installed bridge, a pinned version, or a
  * local build without code changes.
  *
- * Each entry lists the names in priority order: the new OTTO_* name first, with
- * the legacy OTTO_* name kept as a backward-compatible fallback.
+ * Each entry lists the names in priority order: the new CLAWMASTER_* name first, with
+ * the legacy CLAWMASTER_* name kept as a backward-compatible fallback.
  */
 const OVERRIDE_ENV: Record<ExternalAgentType, readonly string[]> = {
-  'claude-code': ['OTTO_CLAUDE_CODE_ACP_CMD', 'OTTO_CLAUDE_CODE_ACP_CMD'],
-  'codex': ['OTTO_CODEX_ACP_CMD', 'OTTO_CODEX_ACP_CMD'],
+  'claude-code': ['CLAWMASTER_CLAUDE_CODE_ACP_CMD', 'CLAWMASTER_CLAUDE_CODE_ACP_CMD'],
+  'codex': ['CLAWMASTER_CODEX_ACP_CMD', 'CLAWMASTER_CODEX_ACP_CMD'],
 };
 
 const DEFAULT_SPECS: Record<ExternalAgentType, ExternalAgentSpec> = {

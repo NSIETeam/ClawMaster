@@ -1,7 +1,7 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Runtime contract for document generation in packaged Otto desktop builds.
+ * Runtime contract for document generation in packaged ClawMaster desktop builds.
  * No binary is downloaded here: packaging must place platform resources under
  * `<resourcesPath>/runtime/<platform>-<arch>` and the verifier fails loud when
  * required files are absent. Development/CLI builds retain explicit PATH
@@ -51,7 +51,7 @@ export function bundledRuntimeRoot(
 ): string | undefined {
   const resourcesPath =
     options.resourcesPath ??
-    process.env['OTTO_RESOURCES_PATH']?.trim() ??
+    process.env['CLAWMASTER_RESOURCES_PATH']?.trim() ??
     processResourcesPath();
   if (!resourcesPath) return undefined;
   const platform = options.platform ?? process.platform;

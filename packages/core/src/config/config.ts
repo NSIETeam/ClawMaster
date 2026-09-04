@@ -27,8 +27,8 @@ import { WebFetchTool } from '../tools/web-fetch.js';
 import { ReadManyFilesTool } from '../tools/read-many-files.js';
 import {
   MemoryTool,
-  setOttoMdFilename,
-  OTTO_CONFIG_DIR as OTTO_DIR,
+  setClawMasterMdFilename,
+  CLAWMASTER_CONFIG_DIR as CLAWMASTER_DIR,
 } from '../tools/memoryTool.js';
 import { WebSearchTool } from '../tools/web-search.js';
 import type { SearchTelemetryEvent } from '../tools/web-search-runtime.js';
@@ -57,7 +57,7 @@ import { DelegateToAgentTool } from '../tools/delegate-agent.js';
 import { CheckDelegateStatusTool } from '../tools/delegate-status.js';
 import { ProjectSettingsManager } from './projectSettings.js';
 import { generateCustomModelId } from '../types/customModel.js';
-import { OttoClient } from '../core/client.js';
+import { ClawMasterClient } from '../core/client.js';
 import { ResourceRegistry } from '../resources/resource-registry.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import {
@@ -239,7 +239,7 @@ export interface ConfigParameters {
   disableMcpDiscovery?: boolean;
   /** 隔离会话不得把 cwd、系统信息或目录树加入模型历史。 */
   disableEnvironmentContext?: boolean;
-  /** 隔离会话在 OttoChat 的生成配置中也必须保持空工具集。 */
+  /** 隔离会话在 ClawMasterChat 的生成配置中也必须保持空工具集。 */
   disableTools?: boolean;
   userMemory?: string;
   /** 飞书按会话隔离的个人记忆文件路径(每 chat 独立,save_memory 写此处)。 */
@@ -264,7 +264,7 @@ export interface ConfigParameters {
   customProxyServerUrl?: string; // Custom proxy server URL (from settings)
   /** web_search 工具的搜索后端：bing(默认,免key,国内可用) / bocha(需key) / gemini(Google grounding) */
   searchProvider?: WebSearchProvider;
-  /** bocha 等需要 key 的搜索后端的 API key；未配置时环境变量 OTTO_BOCHA_API_KEY 兜底 */
+  /** bocha 等需要 key 的搜索后端的 API key；未配置时环境变量 CLAWMASTER_BOCHA_API_KEY 兜底 */
   searchApiKey?: string;
   /** 搜索 API 完整地址；火山方舟默认 https://ark.cn-beijing.volces.com/api/v3/responses */
   searchApiUrl?: string;
@@ -355,7 +355,7 @@ export class Config {
   private readonly showMemoryUsage: boolean;
   private readonly accessibility: AccessibilitySettings;
   private readonly telemetrySettings: TelemetrySettings;
-  private geminiClient!: OttoClient;
+  private geminiClient!: ClawMasterClient;
   private hookSystem!: HookSystem;
   private readonly fileFiltering: {
     respectGitIgnore: boolean;
@@ -515,7 +515,7 @@ export class Config {
     this.preferredLanguage = params.preferredLanguage;
 
     if (params.contextFileName) {
-      setOttoMdFilename(params.contextFileName);
+      setClawMasterMdFilename(params.contextFileName);
     }
 
     if (this.telemetrySettings.enabled) {
@@ -680,7 +680,7 @@ export class Config {
     //   this.modelSwitchedDuringSession = wasModelSwitched;
     // }
 
-    this.geminiClient = new OttoClient(this);
+    this.geminiClient = new ClawMasterClient(this);
     await this.geminiClient.initialize(this.contentGeneratorConfig);
   }
 
@@ -929,19 +929,19 @@ export class Config {
       : undefined;
   }
 
-  getOttoMdFileCount(): number {
+  getClawMasterMdFileCount(): number {
     return this.geminiMdFileCount;
   }
 
-  setOttoMdFileCount(count: number): void {
+  setClawMasterMdFileCount(count: number): void {
     this.geminiMdFileCount = count;
   }
 
-  getOttoMdFilePaths(): string[] {
+  getClawMasterMdFilePaths(): string[] {
     return this.geminiMdFilePaths;
   }
 
-  setOttoMdFilePaths(paths: string[]): void {
+  setClawMasterMdFilePaths(paths: string[]): void {
     this.geminiMdFilePaths = paths;
   }
 
@@ -1092,7 +1092,7 @@ export class Config {
     return this.telemetrySettings.outfile;
   }
 
-  getOttoClient(): OttoClient {
+  getClawMasterClient(): ClawMasterClient {
     return this.geminiClient;
   }
 
@@ -1100,8 +1100,8 @@ export class Config {
     return this.hookSystem;
   }
 
-  getOttoDir(): string {
-    return path.join(this.targetDir, OTTO_DIR);
+  getClawMasterDir(): string {
+    return path.join(this.targetDir, CLAWMASTER_DIR);
   }
 
   getProjectTempDir(): string {
@@ -1143,7 +1143,7 @@ export class Config {
     return this.searchProvider ?? 'bing';
   }
 
-  /** 搜索 API key；按 provider 分别支持 ARK_API_KEY / OTTO_BOCHA_API_KEY 环境变量。 */
+  /** 搜索 API key；按 provider 分别支持 ARK_API_KEY / CLAWMASTER_BOCHA_API_KEY 环境变量。 */
   getSearchApiKey(
     provider: WebSearchProvider = this.getSearchProvider(),
   ): string | undefined {
@@ -1156,7 +1156,7 @@ export class Config {
     return provider === 'volcengine'
       ? (process.env.ARK_API_KEY ?? undefined)
       : provider === 'bocha'
-        ? (process.env.OTTO_BOCHA_API_KEY ?? undefined)
+        ? (process.env.CLAWMASTER_BOCHA_API_KEY ?? undefined)
         : undefined;
   }
 
@@ -1167,7 +1167,7 @@ export class Config {
       this.searchProviderConfigs[provider]?.apiUrl ??
       (provider === this.getSearchProvider() ? this.searchApiUrl : undefined) ??
       (provider === 'volcengine'
-        ? process.env.OTTO_SEARCH_API_URL
+        ? process.env.CLAWMASTER_SEARCH_API_URL
         : undefined) ??
       undefined
     );
@@ -1179,7 +1179,7 @@ export class Config {
     return (
       this.searchProviderConfigs[provider]?.model ??
       (provider === this.getSearchProvider() ? this.searchModel : undefined) ??
-      (provider === 'volcengine' ? process.env.OTTO_SEARCH_MODEL : undefined) ??
+      (provider === 'volcengine' ? process.env.CLAWMASTER_SEARCH_MODEL : undefined) ??
       undefined
     );
   }
@@ -1459,7 +1459,7 @@ export class Config {
     registerCoreTool(LocalScheduleTool, this);
     registerCoreTool(LarkCliTool, this);
 
-    // —— Otto Enterprise 九大能力：把「AI 办公同事」落到实处 ——
+    // —— ClawMaster Enterprise 九大能力：把「AI 办公同事」落到实处 ——
     // 这些工具对系统二进制/依赖均做优雅降级（缺依赖时 fail-loud，不崩）。
     await registerLazyCoreTool('DesktopAutomationTool', 'desktop_automation', async () => (await import('../tools/desktop-automation.js')).DesktopAutomationTool, this); // 桌面自动化（窗口/键鼠/脚本）
     await registerLazyCoreTool('VideoEditorTool', 'video_editor', async () => (await import('../tools/video-editor.js')).VideoEditorTool, this); // 视频编辑器（OpenReel集成）
@@ -1474,7 +1474,7 @@ export class Config {
     await registerLazyCoreTool('MeetingActionsTool', 'meeting_actions', async () => (await import('../tools/meeting-actions.js')).MeetingActionsTool);
     await registerLazyCoreTool('MemoryManagerTool', 'memory_manager', async () => (await import('../tools/memory-manager.js')).MemoryManagerTool, this); // 知识沉淀 + HR 生命周期
     await registerLazyCoreTool('FeishuProjectCollabTool', 'feishu_project_collab', async () => (await import('../tools/feishu-project-collab.js')).FeishuProjectCollabTool, this); // 飞书项目协作：表格/多维表格/验收节点/提醒/进度同步
-    await registerLazyCoreTool('EnterpriseCollaborationTool', 'enterprise_collaboration', async () => (await import('../tools/enterprise-collaboration.js')).EnterpriseCollaborationTool); // 企业树成员、私聊与经授权的 Otto-to-Otto 协作
+    await registerLazyCoreTool('EnterpriseCollaborationTool', 'enterprise_collaboration', async () => (await import('../tools/enterprise-collaboration.js')).EnterpriseCollaborationTool); // 企业树成员、私聊与经授权的 ClawMaster-to-ClawMaster 协作
     // 语音输入：真管线在 scripts/voice_bridge.py（已并入）；运行时另需 ffmpeg + python3 +
     // 本地 whisper 或云端转写 API。缺依赖时工具 fail-loud，不影响其它能力。
     await registerLazyCoreTool('VoiceBridgeTool', 'voice_bridge', async () => (await import('../tools/voice-bridge.js')).VoiceBridgeTool, this); // 语音输入（录音→转写→润色成指令）

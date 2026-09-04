@@ -73,7 +73,7 @@ function truncateTranscript(transcript: string): { transcript: string; truncated
  *
  * Used when the active model needs help turning local audio into text.
  *
- * The tool first tries the user's current audio-capable model, then Otto's
+ * The tool first tries the user's current audio-capable model, then ClawMaster's
  * local/user-owned ASR bridge.
  */
 export class AudioReaderTool extends BaseTool<AudioReaderToolParams, ToolResult> {
@@ -269,7 +269,7 @@ export class AudioReaderTool extends BaseTool<AudioReaderToolParams, ToolResult>
         `   - Windows: winget install --id Gyan.FFmpeg\n` +
         `   - macOS: brew install ffmpeg\n` +
         `   - Linux: sudo apt-get install -y ffmpeg\n` +
-        `3. For better accuracy, use OTTO_WHISPER_MODEL=medium or large-v3; use small on low-spec computers.\n` +
+        `3. For better accuracy, use CLAWMASTER_WHISPER_MODEL=medium or large-v3; use small on low-spec computers.\n` +
         `4. Restart ClawMaster, then retry the audio. If you already have a transcript, paste it and ClawMaster can summarize the meeting notes immediately.`,
       returnDisplay: `Audio transcription setup needed`,
     };
@@ -281,7 +281,7 @@ export class AudioReaderTool extends BaseTool<AudioReaderToolParams, ToolResult>
     model?: string,
   ): Promise<{ transcript: string | null; error?: string }> {
     try {
-      const ottoClient = this.config.getOttoClient();
+      const ottoClient = this.config.getClawMasterClient();
       const temporaryChat = await ottoClient.createTemporaryChat(
         SceneType.IMAGE_READER,
         model,

@@ -10,7 +10,7 @@ describe('customer module signatures', () => {
       schemaVersion: 1, id: 'com.acme.signed', name: 'Signed', version: '1.0.0',
       publisher: { id: 'acme', name: 'Acme' }, description: 'Signed module',
       icon: 'icon.svg', entrypoint: 'module.wasm', hostApi: 'otto.customer-module.v1',
-      minimumOttoVersion: '1.15.3', inputSchema: { type: 'object', properties: {} },
+      minimumClawMasterVersion: '1.15.3', inputSchema: { type: 'object', properties: {} },
       outputs: ['text'], permissions: [], files: { 'module.wasm': 'a'.repeat(64), 'icon.svg': 'b'.repeat(64) },
     } satisfies Omit<CustomerModuleManifestV1, 'signature'>;
     const signature = sign(null, Buffer.from(canonicalCustomerModuleManifest(manifest)), keys.privateKey).toString('base64url');

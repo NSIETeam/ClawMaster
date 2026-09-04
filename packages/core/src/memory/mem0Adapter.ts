@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Mem0Adapter — Mem0 结构化记忆适配层。
  *
@@ -130,7 +130,7 @@ export class Mem0Adapter implements MemoryProvider {
         options.apiKey = this.mem0Config.apiKey;
       }
 
-      // 配置 LLM（复用 Otto 当前的模型配置）
+      // 配置 LLM（复用 ClawMaster 当前的模型配置）
       if (this.mem0Config.llm) {
         options.llm = {
           provider: this.mem0Config.llm.provider,
@@ -188,7 +188,7 @@ export class Mem0Adapter implements MemoryProvider {
     }
   }
 
-  /** 获取 Agent ID（区分不同 Otto 实例） */
+  /** 获取 Agent ID（区分不同 ClawMaster 实例） */
   private getAgentId(): string {
     return this.config.getSessionId?.() || 'otto-main';
   }
@@ -418,14 +418,14 @@ export class Mem0Adapter implements MemoryProvider {
 }
 
 /**
- * 从 Otto 的 Config 构建 Mem0 配置。
- * 复用 Otto 已有的模型配置（DeepSeek/GLM/Codex），不引入新的 API Key。
+ * 从 ClawMaster 的 Config 构建 Mem0 配置。
+ * 复用 ClawMaster 已有的模型配置（DeepSeek/GLM/Codex），不引入新的 API Key。
  */
 export function buildMem0Config(config: Config): Mem0Config {
   const customModels = config.getCustomModels?.();
   const firstModel = customModels?.[0];
 
-  // 复用 Otto 的第一个自定义模型作为 Mem0 的 LLM
+  // 复用 ClawMaster 的第一个自定义模型作为 Mem0 的 LLM
   const llm = firstModel
     ? {
         provider: firstModel.provider === 'anthropic' ? 'anthropic' : 'openai',

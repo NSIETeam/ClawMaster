@@ -7,7 +7,7 @@ describe('CustomerModuleRunDialog', () => {
     const pending = new Promise(() => undefined);
     const customerModuleRun = vi.fn().mockReturnValue(pending);
     const customerModuleCancel = vi.fn().mockResolvedValue(true);
-    Object.assign(window.otto, { customerModuleRun, customerModuleCancel });
+    Object.assign(window.clawmaster, { customerModuleRun, customerModuleCancel });
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('00000000-0000-4000-8000-000000000001');
     const onClose = vi.fn();
     render(<CustomerModuleRunDialog open name="Report" moduleId="com.acme.report" version="1.0.0" inputSchema={{ properties: { title: { type: 'string', title: '标题' } }, required: ['title'] }} permissions={[{ kind: 'model', paid: true }]} onClose={onClose} />);

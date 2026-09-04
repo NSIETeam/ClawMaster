@@ -32,6 +32,14 @@ const contents = path.join(bundle, 'Contents');
 const resources = process.platform === 'win32'
   ? path.join(bundle, 'runtime')
   : path.join(contents, 'Resources', 'runtime');
+if (process.env.CLAWMASTER_PACKAGING_MODE === 'micro-bootstrap') {
+  if (!existsSync(bundle)) throw new Error(`Tauri bootstrap bundle is missing: ${bundle}`);
+  if (existsSync(resources)) {
+    throw new Error(`micro-bootstrap bundle must not contain runtime resources: ${resources}`);
+  }
+  console.log('[tauri-bundle] verified micro-bootstrap shell without embedded runtime');
+  process.exit(0);
+}
 const nodeCapsule = path.join(resources, 'node', 'node.br');
 const nodeManifestPath = path.join(resources, 'node', 'node-manifest.json');
 const required = [
@@ -120,7 +128,7 @@ try {
       cwd: repoRoot,
       encoding: 'utf8',
       input: JSON.stringify(request),
-      env: { ...process.env, OTTO_USER_DIR: path.join(probeRoot, 'document-user') },
+      env: { ...process.env, CLAWMASTER_USER_DIR: path.join(probeRoot, 'document-user') },
       timeout: 120_000,
     });
     const response = JSON.parse(output);

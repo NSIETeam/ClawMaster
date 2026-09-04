@@ -14,7 +14,7 @@ const dataDir = path.resolve(process.argv[3] || '');
 if (!process.argv[2] || !process.argv[3]) {
   fail('用法：migrate-check.mjs <release-dir> <isolated-data-dir>');
 }
-process.env.OTTO_ENTERPRISE_DIR = dataDir;
+process.env.CLAWMASTER_ENTERPRISE_DIR = dataDir;
 const manifest = JSON.parse(
   await readFile(path.join(releaseDir, 'manifest.json'), 'utf8'),
 );

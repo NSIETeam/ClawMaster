@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -7,14 +7,14 @@ import { describe, expect, it } from 'vitest';
 import { createClusteredEnterpriseInfrastructure } from './clusteredInfrastructure.js';
 
 const clusteredEnvironment = {
-  OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
-  OTTO_POSTGRES_URL: 'postgresql://otto:secret@db.internal/otto',
-  OTTO_ENTERPRISE_CACHE_BACKEND: 'redis',
-  OTTO_REDIS_URL: 'rediss://default:secret@cache.internal:6379',
-  OTTO_ATTACHMENT_OBJECT_STORE: 's3',
-  OTTO_S3_BUCKET: 'otto-private',
-  OTTO_S3_REGION: 'us-east-1',
-  OTTO_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
+  CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+  CLAWMASTER_POSTGRES_URL: 'postgresql://otto:secret@db.internal/otto',
+  CLAWMASTER_ENTERPRISE_CACHE_BACKEND: 'redis',
+  CLAWMASTER_REDIS_URL: 'rediss://default:secret@cache.internal:6379',
+  CLAWMASTER_ATTACHMENT_OBJECT_STORE: 's3',
+  CLAWMASTER_S3_BUCKET: 'otto-private',
+  CLAWMASTER_S3_REGION: 'us-east-1',
+  CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
 } as const;
 
 describe('clustered enterprise infrastructure configuration', () => {
@@ -23,7 +23,7 @@ describe('clustered enterprise infrastructure configuration', () => {
       createClusteredEnterpriseInfrastructure({
         environment: {
           ...clusteredEnvironment,
-          OTTO_ATTACHMENT_LEGACY_READ_DIR: 'D:\\legacy-attachments',
+          CLAWMASTER_ATTACHMENT_LEGACY_READ_DIR: 'D:\\legacy-attachments',
         },
       }),
     ).rejects.toThrow(/requires both/i);
@@ -34,9 +34,9 @@ describe('clustered enterprise infrastructure configuration', () => {
       createClusteredEnterpriseInfrastructure({
         environment: {
           ...clusteredEnvironment,
-          OTTO_ENTERPRISE_REPLICA_COUNT: '2',
-          OTTO_ATTACHMENT_LEGACY_READ_DIR: 'D:\\legacy-attachments',
-          OTTO_ATTACHMENT_LEGACY_READ_KEY_FILE: 'D:\\keys\\attachment.key',
+          CLAWMASTER_ENTERPRISE_REPLICA_COUNT: '2',
+          CLAWMASTER_ATTACHMENT_LEGACY_READ_DIR: 'D:\\legacy-attachments',
+          CLAWMASTER_ATTACHMENT_LEGACY_READ_KEY_FILE: 'D:\\keys\\attachment.key',
         },
       }),
     ).rejects.toThrow(/one migration-window replica/i);
@@ -47,7 +47,7 @@ describe('clustered enterprise infrastructure configuration', () => {
       createClusteredEnterpriseInfrastructure({
         environment: {
           ...clusteredEnvironment,
-          OTTO_ATTACHMENT_MAX_BYTES: String(10 * 1024 * 1024 + 17),
+          CLAWMASTER_ATTACHMENT_MAX_BYTES: String(10 * 1024 * 1024 + 17),
         },
       }),
     ).rejects.toThrow(/E2EE protocol limit/i);

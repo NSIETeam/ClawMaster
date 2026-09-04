@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -21,10 +21,10 @@ import {
   DEFAULT_CONTEXT_FILENAME,
   KnowledgeBaseTool,
   MemoryTool,
-  OTTO_CONFIG_DIR,
+  CLAWMASTER_CONFIG_DIR,
   resolveProjectMemoryFilePath,
   todoStore,
-} from 'otto-core';
+} from 'clawmaster-core';
 import {
   md,
   fail,
@@ -148,7 +148,7 @@ export const kbCommand: ServerSlashCommand = {
 async function memoryFilePaths(cwd: string): Promise<{ project: string; global: string }> {
   return {
     project: await resolveProjectMemoryFilePath(cwd),
-    global: path.join(homedir(), OTTO_CONFIG_DIR, 'memory', DEFAULT_CONTEXT_FILENAME),
+    global: path.join(homedir(), CLAWMASTER_CONFIG_DIR, 'memory', DEFAULT_CONTEXT_FILENAME),
   };
 }
 

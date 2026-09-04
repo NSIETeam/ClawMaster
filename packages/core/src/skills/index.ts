@@ -1,7 +1,7 @@
 /**
  * Skills system exports
  *
- * This module provides the complete Skills system for Otto.
+ * This module provides the complete Skills system for ClawMaster.
  * All skill-related functionality has been consolidated here from cli package
  * to ensure proper bundling and avoid cross-package dynamic imports.
  */

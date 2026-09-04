@@ -24,7 +24,7 @@ import {
   UnauthorizedError,
   toFriendlyError,
 } from '../utils/errors.js';
-import { OttoChat } from './ottoChat.js';
+import { ClawMasterChat } from './clawmasterChat.js';
 import type { Config } from '../config/config.js';
 import { SceneType } from './sceneManager.js';
 import { validateAndFixFunctionCall } from '../utils/functionCallValidator.js';
@@ -51,7 +51,7 @@ export interface ServerTool {
   ): Promise<ToolCallConfirmationDetails | false>;
 }
 
-export enum OttoEventType {
+export enum ClawMasterEventType {
   Content = 'content',
   ToolCallRequest = 'tool_call_request',
   ToolCallResponse = 'tool_call_response',
@@ -73,7 +73,7 @@ export interface StructuredError {
   status?: number;
 }
 
-export interface OttoErrorEventValue {
+export interface ClawMasterErrorEventValue {
   error: StructuredError;
 }
 
@@ -109,43 +109,43 @@ export type ReasoningSummary = {
   text: string;
 };
 
-export type ServerOttoContentEvent = {
-  type: OttoEventType.Content;
+export type ServerClawMasterContentEvent = {
+  type: ClawMasterEventType.Content;
   value: string;
 };
 
-export type ServerOttoThoughtEvent = {
-  type: OttoEventType.Thought;
+export type ServerClawMasterThoughtEvent = {
+  type: ClawMasterEventType.Thought;
   value: ThoughtSummary;
 };
 
-export type ServerOttoReasoningEvent = {
-  type: OttoEventType.Reasoning;
+export type ServerClawMasterReasoningEvent = {
+  type: ClawMasterEventType.Reasoning;
   value: ReasoningSummary;
 };
 
-export type ServerOttoToolCallRequestEvent = {
-  type: OttoEventType.ToolCallRequest;
+export type ServerClawMasterToolCallRequestEvent = {
+  type: ClawMasterEventType.ToolCallRequest;
   value: ToolCallRequestInfo;
 };
 
-export type ServerOttoToolCallResponseEvent = {
-  type: OttoEventType.ToolCallResponse;
+export type ServerClawMasterToolCallResponseEvent = {
+  type: ClawMasterEventType.ToolCallResponse;
   value: ToolCallResponseInfo;
 };
 
-export type ServerOttoToolCallConfirmationEvent = {
-  type: OttoEventType.ToolCallConfirmation;
+export type ServerClawMasterToolCallConfirmationEvent = {
+  type: ClawMasterEventType.ToolCallConfirmation;
   value: ServerToolCallConfirmationDetails;
 };
 
-export type ServerOttoUserCancelledEvent = {
-  type: OttoEventType.UserCancelled;
+export type ServerClawMasterUserCancelledEvent = {
+  type: ClawMasterEventType.UserCancelled;
 };
 
-export type ServerOttoErrorEvent = {
-  type: OttoEventType.Error;
-  value: OttoErrorEventValue;
+export type ServerClawMasterErrorEvent = {
+  type: ClawMasterEventType.Error;
+  value: ClawMasterErrorEventValue;
 };
 
 export interface ChatCompressionInfo {
@@ -189,28 +189,28 @@ export interface TokenUsageInfo {
   model?: string; // 🎯 新增：记录真实使用的模型名称
 }
 
-export type ServerOttoChatCompressedEvent = {
-  type: OttoEventType.ChatCompressed;
+export type ServerClawMasterChatCompressedEvent = {
+  type: ClawMasterEventType.ChatCompressed;
   value: ChatCompressionEventPayload | null;
 };
 
-export type ServerOttoMaxSessionTurnsEvent = {
-  type: OttoEventType.MaxSessionTurns;
+export type ServerClawMasterMaxSessionTurnsEvent = {
+  type: ClawMasterEventType.MaxSessionTurns;
 };
 
-export type ServerOttoFinishedEvent = {
-  type: OttoEventType.Finished;
+export type ServerClawMasterFinishedEvent = {
+  type: ClawMasterEventType.Finished;
   value: FinishReason;
   errorDetails?: string; // 可选的错误详情，用于提供更具体的错误信息
 };
 
-export type ServerOttoLoopDetectedEvent = {
-  type: OttoEventType.LoopDetected;
+export type ServerClawMasterLoopDetectedEvent = {
+  type: ClawMasterEventType.LoopDetected;
   value?: string; // Optional loop type: 'consecutive_identical_tool_calls', 'chanting_identical_sentences', 'llm_detected_loop'
 };
 
-export type ServerOttoTokenUsageEvent = {
-  type: OttoEventType.TokenUsage;
+export type ServerClawMasterTokenUsageEvent = {
+  type: ClawMasterEventType.TokenUsage;
   value: TokenUsageInfo;
 };
 
@@ -227,27 +227,27 @@ export interface MemoryContextEventPayload {
   items: MemoryContextItem[];
 }
 
-export type ServerOttoMemoryContextEvent = {
-  type: OttoEventType.MemoryContext;
+export type ServerClawMasterMemoryContextEvent = {
+  type: ClawMasterEventType.MemoryContext;
   value: MemoryContextEventPayload;
 };
 
 // The original union type, now composed of the individual types
-export type ServerOttoStreamEvent =
-  | ServerOttoContentEvent
-  | ServerOttoToolCallRequestEvent
-  | ServerOttoToolCallResponseEvent
-  | ServerOttoToolCallConfirmationEvent
-  | ServerOttoUserCancelledEvent
-  | ServerOttoErrorEvent
-  | ServerOttoChatCompressedEvent
-  | ServerOttoThoughtEvent
-  | ServerOttoReasoningEvent
-  | ServerOttoMaxSessionTurnsEvent
-  | ServerOttoFinishedEvent
-  | ServerOttoLoopDetectedEvent
-  | ServerOttoTokenUsageEvent
-  | ServerOttoMemoryContextEvent;
+export type ServerClawMasterStreamEvent =
+  | ServerClawMasterContentEvent
+  | ServerClawMasterToolCallRequestEvent
+  | ServerClawMasterToolCallResponseEvent
+  | ServerClawMasterToolCallConfirmationEvent
+  | ServerClawMasterUserCancelledEvent
+  | ServerClawMasterErrorEvent
+  | ServerClawMasterChatCompressedEvent
+  | ServerClawMasterThoughtEvent
+  | ServerClawMasterReasoningEvent
+  | ServerClawMasterMaxSessionTurnsEvent
+  | ServerClawMasterFinishedEvent
+  | ServerClawMasterLoopDetectedEvent
+  | ServerClawMasterTokenUsageEvent
+  | ServerClawMasterMemoryContextEvent;
 
 // A turn manages the agentic loop turn within the server context.
 export class Turn {
@@ -273,7 +273,7 @@ export class Turn {
   readonly turnId: string;
 
   constructor(
-    private readonly chat: OttoChat,
+    private readonly chat: ClawMasterChat,
     private readonly prompt_id: string,
     private readonly modelName?: string,
     configParam?: Config,
@@ -391,7 +391,7 @@ export class Turn {
   async *run(
     req: PartListUnion,
     signal: AbortSignal,
-  ): AsyncGenerator<ServerOttoStreamEvent> {
+  ): AsyncGenerator<ServerClawMasterStreamEvent> {
     try {
       // State machine: turn is now planning
       this.safeTransition(TurnState.PLANNING);
@@ -443,7 +443,7 @@ export class Turn {
       for await (const resp of responseStream) {
         if (signal?.aborted) {
           this.safeTransition(TurnState.CANCELLED);
-          yield { type: OttoEventType.UserCancelled };
+          yield { type: ClawMasterEventType.UserCancelled };
           // Do not add resp to debugResponses if aborted before processing
           return;
         }
@@ -465,7 +465,7 @@ export class Turn {
           };
 
           yield {
-            type: OttoEventType.Thought,
+            type: ClawMasterEventType.Thought,
             value: thought,
           };
           continue;
@@ -482,18 +482,18 @@ export class Turn {
           };
 
           yield {
-            type: OttoEventType.Reasoning,
+            type: ClawMasterEventType.Reasoning,
             value: reasoning,
           };
           // reasoning 仅用于 UI 显示，不再走 getResponseText 等正文处理路径。
-          // 注意：reasoning 会保留在 history 中，由 OttoChat.processStreamResponse
-          // 收集进 outputContent，再交由 Otto Server 决定如何转发上游。
+          // 注意：reasoning 会保留在 history 中，由 ClawMasterChat.processStreamResponse
+          // 收集进 outputContent，再交由 ClawMaster Server 决定如何转发上游。
           continue;
         }
 
         const text = getResponseText(resp);
         if (text) {
-          yield { type: OttoEventType.Content, value: text };
+          yield { type: ClawMasterEventType.Content, value: text };
         }
 
         // Handle function calls (requesting tool execution)
@@ -507,7 +507,7 @@ export class Turn {
         }
         for (const fnCall of functionCalls) {
           // 🛡️ 防御：跳过明显残缺的 functionCall（无 name 或 name 为空）。
-          // 流式合并失败时（OttoServerAdapter.mergeStreamContent 兜底之外
+          // 流式合并失败时（ClawMasterServerAdapter.mergeStreamContent 兜底之外
           // 的边缘情况）可能会传到这里。残缺的 fnCall 进入 pendingToolCalls
           // 后会以 "undefined_tool_name" 调度，污染会话历史并导致后续模型
           // 困惑。这里直接丢弃 + 警告。
@@ -547,13 +547,13 @@ export class Turn {
           // 🔍 STOP-DEBUG: dump 原始响应。两种值得排查的场景：
           //   1. finishReason=STOP 且无工具调用 —— 模型是否返回了非标准工具调用？
           //   2. finishReason=FUNCTION_CALL 且无工具调用 —— ⚠ server 端 bug：
-          //      Claude 模型返回了 tool_use，但 Otto proxy 在翻译成 Gemini
+          //      Claude 模型返回了 tool_use，但 ClawMaster proxy 在翻译成 Gemini
           //      schema 时丢失了 functionCall part（candidates[0].content.parts
           //      变成了空数组 []），只剩 finishReason 这个壳。已知发生在
           //      claude-opus-4-7 上。需要后端修复；客户端这里只能尽量观察并报警。
           //
           // 注：FinishReason 这个 enum 来自 @google/genai，里面没有 'FUNCTION_CALL'
-          // 字面量（Gemini 原生用 'STOP'/'MAX_TOKENS' 等）。但 Otto proxy 在
+          // 字面量（Gemini 原生用 'STOP'/'MAX_TOKENS' 等）。但 ClawMaster proxy 在
           // 翻译 Claude 响应时会把 stop_reason='tool_use' 映射成 'FUNCTION_CALL'
           // 这个非标值，所以这里要按字符串比较，不能依赖 enum 类型。
           const isEmptyFunctionCallChunk =
@@ -583,7 +583,7 @@ export class Turn {
                 // （而且消耗了 candidatesToken），但 parts 数组是空的，工具调用
                 // payload 没被翻译/序列化出来。
                 //
-                // 已知触发场景：claude-opus-4-7 走 Otto proxy 时，Claude 原生
+                // 已知触发场景：claude-opus-4-7 走 ClawMaster proxy 时，Claude 原生
                 // tool_use block 应被翻译成 Gemini functionCall part，但 proxy
                 // 在 SSE 最后一个 chunk 里漏写了这个 part，只保留了 finishReason。
                 //
@@ -597,7 +597,7 @@ export class Turn {
                   `           intended tool call was lost in translation between the upstream model\n` +
                   `           response and the Gemini-shaped SSE stream.\n` +
                   `  Likely cause: Claude tool_use → Gemini functionCall translation drop in the\n` +
-                  `                Otto proxy /v1/chat/stream handler. Especially seen on claude-opus-4-7.\n` +
+                  `                ClawMaster proxy /v1/chat/stream handler. Especially seen on claude-opus-4-7.\n` +
                   `  Effect: the agent appears to "say one sentence and stop". No recovery is possible\n` +
                   `          client-side — the tool name and arguments are gone. This needs a server fix.\n` +
                   `  Context: model=${this.modelName}, candidatesTokenCount=${resp.usageMetadata?.candidatesTokenCount ?? 'unknown'}, role=${candidate?.content?.role ?? 'unknown'}, parts=${partsSummary.join('; ')}`,
@@ -661,7 +661,7 @@ export class Turn {
           }
 
           yield {
-            type: OttoEventType.Finished,
+            type: ClawMasterEventType.Finished,
             value: finishReason as FinishReason,
             errorDetails,
           };
@@ -690,7 +690,7 @@ export class Turn {
           };
 
           yield {
-            type: OttoEventType.TokenUsage,
+            type: ClawMasterEventType.TokenUsage,
             value: tokenUsageInfo,
           };
         }
@@ -705,7 +705,7 @@ export class Turn {
       }
       if (signal.aborted) {
         this.safeTransition(TurnState.CANCELLED);
-        yield { type: OttoEventType.UserCancelled };
+        yield { type: ClawMasterEventType.UserCancelled };
         // Regular cancellation error, fail gracefully.
         return;
       }
@@ -729,14 +729,14 @@ export class Turn {
         message: getErrorMessage(error),
         status,
       };
-      yield { type: OttoEventType.Error, value: { error: structuredError } };
+      yield { type: ClawMasterEventType.Error, value: { error: structuredError } };
       return;
     }
   }
 
   private handlePendingFunctionCall(
     fnCall: FunctionCall,
-  ): ServerOttoStreamEvent | null {
+  ): ServerClawMasterStreamEvent | null {
     // 对于小模型，尝试修复函数调用格式
     let processedFnCall = fnCall;
     if (this.modelName) {
@@ -763,6 +763,6 @@ export class Turn {
     this.pendingToolCalls.push(toolCallRequest);
 
     // Yield a request for the tool call, not the pending/confirming status
-    return { type: OttoEventType.ToolCallRequest, value: toolCallRequest };
+    return { type: ClawMasterEventType.ToolCallRequest, value: toolCallRequest };
   }
 }

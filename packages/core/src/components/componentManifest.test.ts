@@ -8,12 +8,12 @@ import { describe, expect, it } from 'vitest';
 import {
   isKernelOwnedPath,
   validateComponentManifest,
-  type OttoComponentManifest,
+  type ClawMasterComponentManifest,
 } from './componentManifest.js';
 
 describe('componentManifest', () => {
   it('accepts an organization-owned GUI shell component outside the kernel', () => {
-    const manifest: OttoComponentManifest = {
+    const manifest: ClawMasterComponentManifest = {
       manifestVersion: 1,
       id: 'gov.local.gui',
       displayName: 'Local Government GUI',
@@ -55,7 +55,7 @@ describe('componentManifest', () => {
     const result = validateComponentManifest({
       manifestVersion: 1,
       id: 'otto.kernel',
-      displayName: 'Otto Kernel',
+      displayName: 'ClawMaster Kernel',
       version: '2.0.0',
       kind: 'runtime',
       updateOwner: 'kernel',

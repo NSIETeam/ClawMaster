@@ -434,7 +434,7 @@ describe('EnterpriseClient', () => {
       'password',
     );
     expect(client.supportsFederationGateway()).toBe(true);
-    const contactCode = `OTTO_FEDERATION_CONTACT_V1:${Buffer.from(
+    const contactCode = `CLAWMASTER_FEDERATION_CONTACT_V1:${Buffer.from(
       JSON.stringify(remoteCard),
       'utf8',
     ).toString('base64url')}`;
@@ -999,7 +999,7 @@ describe('EnterpriseClient', () => {
 
   it('uses the member session to read enterprise module update manifests', async () => {
     const manifest = {
-      format: 'otto-module-updates-v1',
+      format: 'clawmaster.module-updates-v1',
       deploymentId: 'dep_1',
       generatedAt: '2026-07-26T00:00:00.000Z',
       modules: [{
@@ -1530,7 +1530,7 @@ describe('EnterpriseClient', () => {
         positionTitle: '产品经理',
         role: 'member',
       },
-      content: 'OTTO_ATOA_REQUEST {"v":1,"id":"request-1","question":"现在方便吗？"}',
+      content: 'CLAWMASTER_ATOA_REQUEST {"v":1,"id":"request-1","question":"现在方便吗？"}',
       createdAt: '2026-07-19T12:00:00.000Z',
       readAt: null,
       attachments: [],

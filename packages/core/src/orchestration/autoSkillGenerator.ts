@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * AutoSkillGenerator — 从工作日志自动生成个人 Skill。
  *
@@ -92,11 +92,11 @@ const DEFAULT_OPTIONS: PatternDetectionOptions = {
 };
 
 /**
- * 自动 Skill 的用户数据根目录。测试/企业隔离可通过 OTTO_USER_DIR 重定向，
+ * 自动 Skill 的用户数据根目录。测试/企业隔离可通过 CLAWMASTER_USER_DIR 重定向，
  * 绝不再默认写入当前项目。
  */
 export function resolveAutoSkillUserDir(): string {
-  const configured = process.env['OTTO_USER_DIR']?.trim();
+  const configured = process.env['CLAWMASTER_USER_DIR']?.trim();
   if (configured) return configured;
   if (process.env['NODE_ENV'] === 'test' || process.env['VITEST']) {
     return path.join(tmpdir(), 'otto-auto-skill-tests', String(process.pid));
@@ -842,7 +842,7 @@ async function callLLMForSkillCandidates(
   existingSkills: ExistingSkillSummary[],
   personalKnowledge: AutoSkillKnowledgeEvidence[],
 ): Promise<SkillCandidate[]> {
-  const client = config.getOttoClient();
+  const client = config.getClawMasterClient();
   if (!client) throw new Error('LLM client unavailable');
 
   const allDates = [...new Set(allEntries.map((e) => e.date))].sort();
@@ -1122,7 +1122,7 @@ export async function confirmAndSaveSkill(candidate: SkillCandidate): Promise<st
   return safePath;
 }
 
-/** 读取等待用户确认的候选。损坏/不存在时按空列表处理，不影响 Otto 启动。 */
+/** 读取等待用户确认的候选。损坏/不存在时按空列表处理，不影响 ClawMaster 启动。 */
 export async function listPendingSkillCandidates(): Promise<SkillCandidate[]> {
   try {
     const raw = await fs.readFile(pendingCandidatesPath(), 'utf8');

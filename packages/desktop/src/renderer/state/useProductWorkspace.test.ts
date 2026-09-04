@@ -1,9 +1,9 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import type { ClientToServer, ServerToClient } from 'otto-server';
+import type { ClientToServer, ServerToClient } from 'clawmaster-server';
 import {
   createProductWorkspaceConnectionHandler,
   initialProductWorkspaceState,
@@ -68,7 +68,7 @@ describe('productWorkspaceReducer', () => {
         type: 'enterprise_invite_created',
         payload: {
           kind: 'position',
-          link: 'otto://enterprise/join?token=abc',
+          link: 'clawmaster://enterprise/join?token=abc',
           expiresAt: '2030-01-01T00:00:00.000Z',
         },
       },

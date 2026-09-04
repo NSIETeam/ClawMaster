@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * CONTROL-11 — License 生命周期 / 降配整改窗 / 离线窗 / 密钥轮换 / 回滚 / 审计测试。
  */

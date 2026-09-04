@@ -23,7 +23,7 @@ describe('PluginInstaller', () => {
     testMarketplacePath = path.join(testRoot, 'test-marketplace');
 
     // Mock SkillsPaths
-    vi.spyOn(SkillsPaths, 'OTTO_HOME', 'get').mockReturnValue(testRoot);
+    vi.spyOn(SkillsPaths, 'CLAWMASTER_HOME', 'get').mockReturnValue(testRoot);
     vi.spyOn(SkillsPaths, 'SKILLS_ROOT', 'get').mockReturnValue(path.join(testRoot, 'skills'));
     vi.spyOn(SkillsPaths, 'MARKETPLACE_ROOT', 'get').mockReturnValue(
       path.join(testRoot, 'marketplace'),

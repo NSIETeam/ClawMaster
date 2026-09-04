@@ -68,19 +68,19 @@ function artifact(body: string, overrides: Partial<IncrementalUpdateArtifact> = 
 }
 
 describe('incremental component updater', () => {
-  let originalOttoUserDir: string | undefined;
-  let isolatedOttoUserDir: string;
+  let originalClawMasterUserDir: string | undefined;
+  let isolatedClawMasterUserDir: string;
 
   beforeEach(async () => {
-    originalOttoUserDir = process.env['OTTO_USER_DIR'];
-    isolatedOttoUserDir = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-component-user-'));
-    process.env['OTTO_USER_DIR'] = isolatedOttoUserDir;
+    originalClawMasterUserDir = process.env['CLAWMASTER_USER_DIR'];
+    isolatedClawMasterUserDir = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-component-user-'));
+    process.env['CLAWMASTER_USER_DIR'] = isolatedClawMasterUserDir;
   });
 
   afterEach(async () => {
-    if (originalOttoUserDir === undefined) delete process.env['OTTO_USER_DIR'];
-    else process.env['OTTO_USER_DIR'] = originalOttoUserDir;
-    await fs.rm(isolatedOttoUserDir, { recursive: true, force: true });
+    if (originalClawMasterUserDir === undefined) delete process.env['CLAWMASTER_USER_DIR'];
+    else process.env['CLAWMASTER_USER_DIR'] = originalClawMasterUserDir;
+    await fs.rm(isolatedClawMasterUserDir, { recursive: true, force: true });
   });
 
   it('downloads, verifies and registers a component update', async () => {

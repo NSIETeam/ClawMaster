@@ -12,7 +12,7 @@
  * we cannot just `console.log` from the Feishu code paths.
  *
  * - `dlog` / `dwarn` / `derror` write to stderr ONLY when the env var
- *   `OTTO_DEBUG_FEISHU` is truthy. This keeps Ink's stdout clean by
+ *   `CLAWMASTER_DEBUG_FEISHU` is truthy. This keeps Ink's stdout clean by
  *   default, while still allowing developers to opt in for diagnosis.
  * - User-facing status messages (success / error feedback) should go
  *   through the slash command return value or `tuiContext.addItem(...)`,
@@ -24,14 +24,14 @@ const DEBUG_ENABLED = (() => {
     return false;
   }
   const v =
-    process.env['OTTO_DEBUG_FEISHU'] ??
-    process.env['OTTO_DEBUG_FEISHU'] ??
-    process.env['OTTO_DEBUG_FEISHU'];
+    process.env['CLAWMASTER_DEBUG_FEISHU'] ??
+    process.env['CLAWMASTER_DEBUG_FEISHU'] ??
+    process.env['CLAWMASTER_DEBUG_FEISHU'];
   if (v !== undefined) {
     const lower = v.toLowerCase();
     return lower !== '0' && lower !== 'false' && lower !== 'no' && lower !== '';
   }
-  return false; // 🚀 默认关闭所有原始 stderr 日志打印，防止破坏日志输出。需要调试时可设置 OTTO_DEBUG_FEISHU=1 开启。
+  return false; // 🚀 默认关闭所有原始 stderr 日志打印，防止破坏日志输出。需要调试时可设置 CLAWMASTER_DEBUG_FEISHU=1 开启。
 })();
 
 function ts(): string {

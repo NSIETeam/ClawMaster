@@ -102,8 +102,8 @@ export function isGenericQuotaExceededError(error: unknown): boolean {
   return false;
 }
 
-// 🆕 Otto服务端配额错误检测和格式化
-export interface OttoQuotaError {
+// 🆕 ClawMaster服务端配额错误检测和格式化
+export interface ClawMasterQuotaError {
   error: string;
   message: string;
   currentUsage?: {
@@ -120,8 +120,8 @@ export interface OttoQuotaError {
   timestamp?: string;
 }
 
-export function isOttoQuotaError(error: unknown): boolean {
-  // 检测HTTP响应数据中的Otto配额错误
+export function isClawMasterQuotaError(error: unknown): boolean {
+  // 检测HTTP响应数据中的ClawMaster配额错误
   if (error && typeof error === 'object' && 'response' in error) {
     const gaxiosError = error as {
       response?: {
@@ -141,7 +141,7 @@ export function isOttoQuotaError(error: unknown): boolean {
       }
     }
 
-    // 🆕 检测500错误且message包含 quota exceeded (Otto Server)
+    // 🆕 检测500错误且message包含 quota exceeded (ClawMaster Server)
     if (gaxiosError.response?.status === 500 && gaxiosError.response.data) {
       const data = gaxiosError.response.data as Record<string, unknown>;
       if (data && typeof data.message === 'string' && data.message.includes('quota exceeded')) {
@@ -150,7 +150,7 @@ export function isOttoQuotaError(error: unknown): boolean {
     }
   }
 
-  // 检测Error对象message中的Otto配额错误
+  // 检测Error对象message中的ClawMaster配额错误
   if (error instanceof Error && error.message) {
     // 检测402配额错误
     if (error.message.includes('API request failed (402):') &&
@@ -158,7 +158,7 @@ export function isOttoQuotaError(error: unknown): boolean {
          error.message.includes('"error":"No quota configuration"'))) {
       return true;
     }
-    // 🆕 检测500配额错误 (Otto Server)
+    // 🆕 检测500配额错误 (ClawMaster Server)
     if (error.message.includes('API request failed (500):') && error.message.includes('quota exceeded')) {
       return true;
     }
@@ -172,7 +172,7 @@ export function isOttoQuotaError(error: unknown): boolean {
   if (typeof error === 'object' && error !== null) {
     const obj = error as Record<string, unknown>;
 
-    // 检查对象有message属性且包含Otto配额错误的情况
+    // 检查对象有message属性且包含ClawMaster配额错误的情况
     if (obj.message && typeof obj.message === 'string') {
       if (obj.message.includes('API request failed (402):') &&
           (obj.message.includes('"error":"Quota limit exceeded"') ||
@@ -216,8 +216,8 @@ export function isOttoQuotaError(error: unknown): boolean {
   return false;
 }
 
-export function getOttoQuotaErrorMessage(error: unknown): string | null {
-  let quotaError: OttoQuotaError | null = null;
+export function getClawMasterQuotaErrorMessage(error: unknown): string | null {
+  let quotaError: ClawMasterQuotaError | null = null;
 
   // 从HTTP响应中提取配额错误信息
   if (error && typeof error === 'object' && 'response' in error) {
@@ -230,18 +230,18 @@ export function getOttoQuotaErrorMessage(error: unknown): string | null {
 
     // 402 Payment Required - 配额相关错误统一状态码
     if (gaxiosError.response?.status === 402 && gaxiosError.response.data) {
-      quotaError = gaxiosError.response.data as OttoQuotaError;
+      quotaError = gaxiosError.response.data as ClawMasterQuotaError;
     } else if (gaxiosError.response?.status === 500 && gaxiosError.response.data) {
       // 🆕 处理 500 配额错误
       const data = gaxiosError.response.data as Record<string, unknown>;
       if (data && typeof data.message === 'string' && data.message.includes('quota exceeded')) {
-        quotaError = data as unknown as OttoQuotaError;
+        quotaError = data as unknown as ClawMasterQuotaError;
       }
     }
   } else if (typeof error === 'object' && error !== null) {
     const obj = error as Record<string, unknown>;
 
-    // 处理对象有message属性且包含Otto配额错误的情况
+    // 处理对象有message属性且包含ClawMaster配额错误的情况
     if (obj.message && typeof obj.message === 'string') {
       if ((obj.message.includes('API request failed (402):') ||
            obj.message.includes('API request failed (500):') ||
@@ -252,7 +252,7 @@ export function getOttoQuotaErrorMessage(error: unknown): string | null {
         try {
           const jsonMatch = obj.message.match(/\{.*\}$/);
           if (jsonMatch) {
-            quotaError = JSON.parse(jsonMatch[0]) as OttoQuotaError;
+            quotaError = JSON.parse(jsonMatch[0]) as ClawMasterQuotaError;
           }
         } catch (_parseError) {
           // JSON解析失败，继续其他检查
@@ -262,11 +262,11 @@ export function getOttoQuotaErrorMessage(error: unknown): string | null {
 
     // 如果还没找到，尝试直接对象检测
     if (!quotaError) {
-      quotaError = error as OttoQuotaError;
+      quotaError = error as ClawMasterQuotaError;
     }
   }
 
-  // 从Error对象message中提取Otto配额错误信息
+  // 从Error对象message中提取ClawMaster配额错误信息
   if (!quotaError && error instanceof Error && error.message) {
     if ((error.message.includes('API request failed (402):') ||
          error.message.includes('API request failed (500):') ||
@@ -277,7 +277,7 @@ export function getOttoQuotaErrorMessage(error: unknown): string | null {
       try {
         const jsonMatch = error.message.match(/\{.*\}$/);
         if (jsonMatch) {
-          quotaError = JSON.parse(jsonMatch[0]) as OttoQuotaError;
+          quotaError = JSON.parse(jsonMatch[0]) as ClawMasterQuotaError;
         }
       } catch (_parseError) {
         // 继续手动处理
@@ -289,14 +289,14 @@ export function getOttoQuotaErrorMessage(error: unknown): string | null {
 
   // 🆕 特殊处理 500 quota exceeded 错误
   if (quotaError.message && quotaError.message.includes('quota exceeded')) {
-    return formatOttoServerQuotaError(quotaError);
+    return formatClawMasterServerQuotaError(quotaError);
   }
 
-  return formatOttoQuotaError(quotaError);
+  return formatClawMasterQuotaError(quotaError);
 }
 
-// 格式化 Otto Server 500 配额错误
-function formatOttoServerQuotaError(errorData: { message?: string }): string {
+// 格式化 ClawMaster Server 500 配额错误
+function formatClawMasterServerQuotaError(errorData: { message?: string }): string {
   // 简单检测系统语言环境
   const isChineseEnvironment = (): boolean => {
     try {
@@ -366,8 +366,8 @@ function formatOttoServerQuotaError(errorData: { message?: string }): string {
 }
 
 
-// 格式化Otto配额错误消息，支持i18n
-function formatOttoQuotaError(quotaError: OttoQuotaError): string {
+// 格式化ClawMaster配额错误消息，支持i18n
+function formatClawMasterQuotaError(quotaError: ClawMasterQuotaError): string {
   // 简单检测系统语言环境
   const isChineseEnvironment = (): boolean => {
     try {

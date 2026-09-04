@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import fs from 'node:fs';
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   const command = process.argv[2];
   const dataDirectory = path.resolve(
     argument('--data-dir') ||
-      process.env.OTTO_ENTERPRISE_DIR ||
+      process.env.CLAWMASTER_ENTERPRISE_DIR ||
       path.join(process.env.HOME || process.cwd(), '.otto-enterprise'),
   );
   if (command === 'rollback') {
@@ -56,8 +56,8 @@ async function main(): Promise<void> {
       : null;
   const key = loadExistingDataProtectionEncryptionKey({
     dataDirectory,
-    encryptionKey: process.env.OTTO_BACKUP_ENCRYPTION_KEY,
-    encryptionKeyPath: process.env.OTTO_BACKUP_ENCRYPTION_KEY_FILE,
+    encryptionKey: process.env.CLAWMASTER_BACKUP_ENCRYPTION_KEY,
+    encryptionKeyPath: process.env.CLAWMASTER_BACKUP_ENCRYPTION_KEY_FILE,
   });
   if (command === 'verify') {
     const result = await verifyDataProtectionBackup({
@@ -83,11 +83,11 @@ async function main(): Promise<void> {
     key,
     maximumSchemaVersion,
     accountSyncKeyPath:
-      process.env.OTTO_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE?.trim() || undefined,
+      process.env.CLAWMASTER_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE?.trim() || undefined,
     attachmentKeyPath:
-      process.env.OTTO_ATTACHMENT_ENCRYPTION_KEY_FILE?.trim() || undefined,
+      process.env.CLAWMASTER_ATTACHMENT_ENCRYPTION_KEY_FILE?.trim() || undefined,
     fieldEncryptionKeyPath:
-      process.env.OTTO_FIELD_ENCRYPTION_KEY_FILE?.trim() || undefined,
+      process.env.CLAWMASTER_FIELD_ENCRYPTION_KEY_FILE?.trim() || undefined,
     ...(sqlCipherRuntime
       ? {
           databaseKeyPath: sqlCipherRuntime.keyPath,

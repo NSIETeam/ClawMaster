@@ -52,8 +52,8 @@ const mockConfigInternal = {
   getUserAgent: () => 'test-agent',
   getUserMemory: () => '',
   setUserMemory: vi.fn(),
-  getOttoMdFileCount: () => 0,
-  setOttoMdFileCount: vi.fn(),
+  getClawMasterMdFileCount: () => 0,
+  setClawMasterMdFileCount: vi.fn(),
   getToolRegistry: () =>
     ({
       registerTool: vi.fn(),

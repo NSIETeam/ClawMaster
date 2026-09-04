@@ -23,7 +23,7 @@ import {
 const ACCOUNT: EnterpriseAccount = {
   id: 'acc_1',
   organizationId: 'org_1',
-  organizationName: 'Otto 企业',
+  organizationName: 'ClawMaster 企业',
   employeeId: 'OTTO-001',
   username: 'staff01',
   phone: '13800000000',
@@ -42,7 +42,7 @@ const ACCOUNT: EnterpriseAccount = {
 const LOCAL_ACCOUNT = {
   id: 'acc_1',
   organizationId: 'org_1',
-  organizationName: 'Otto 企业',
+  organizationName: 'ClawMaster 企业',
   name: '员工一号',
   isAdmin: false,
   role: 'member',
@@ -55,7 +55,7 @@ const LOCAL_ACCOUNT = {
 const ORGANIZATION_VIEW = {
   organization: {
     id: 'org_1',
-    name: 'Otto 企业',
+    name: 'ClawMaster 企业',
     status: 'active' as const,
     createdAt: '2026-07-01T00:00:00.000Z',
   },
@@ -146,7 +146,7 @@ describe('enterprise auth identity synchronization', () => {
   it('mac 打包版不会无条件恢复 Keychain token 以免系统密码框卡死登录页', () => {
     const source = readFileSync(resolve(__dirname, 'index.ts'), 'utf8');
     expect(source).toContain('function canRestoreEncryptedEnterpriseSession()');
-    expect(source).toContain("process.env.OTTO_ENTERPRISE_RESTORE_KEYCHAIN_SESSION === '1'");
+    expect(source).toContain("process.env.CLAWMASTER_ENTERPRISE_RESTORE_KEYCHAIN_SESSION === '1'");
     expect(source).toContain("process.platform === 'darwin' && app.isPackaged");
     expect(source).toContain('if (!canRestoreEncryptedEnterpriseSession()) return');
   });
@@ -339,7 +339,7 @@ describe('enterprise auth identity synchronization', () => {
 
   it('登录后的本机身份同步失败会清中心 token、持久化退出态并保持登录页', async () => {
     const synchronize = vi.fn()
-      .mockRejectedValueOnce(new Error('旧版本本机 OttoServer，请重启'))
+      .mockRejectedValueOnce(new Error('旧版本本机 ClawMasterServer，请重启'))
       .mockRejectedValueOnce(new Error('旧 server 无法清理'));
     const logout = vi.fn(async () => undefined);
     const persist = vi.fn();
@@ -349,7 +349,7 @@ describe('enterprise auth identity synchronization', () => {
       { logout },
       synchronize,
       persist,
-    )).rejects.toThrow('旧版本本机 OttoServer，请重启');
+    )).rejects.toThrow('旧版本本机 ClawMasterServer，请重启');
 
     expect(logout).toHaveBeenCalledOnce();
     expect(persist).toHaveBeenCalledOnce();
@@ -410,7 +410,7 @@ describe('enterprise auth identity synchronization', () => {
       account: ACCOUNT,
     };
     const synchronize = vi.fn()
-      .mockRejectedValueOnce(new Error('本机 OttoServer 身份同步失败，请重启'))
+      .mockRejectedValueOnce(new Error('本机 ClawMasterServer 身份同步失败，请重启'))
       .mockResolvedValueOnce(undefined);
     const logout = vi.fn(async () => undefined);
     const persist = vi.fn();
@@ -425,7 +425,7 @@ describe('enterprise auth identity synchronization', () => {
     expect(result).toEqual({
       serverUrl: 'https://enterprise.otto.test',
       account: null,
-      connectionError: expect.stringContaining('本机 OttoServer 身份同步失败，请重启'),
+      connectionError: expect.stringContaining('本机 ClawMasterServer 身份同步失败，请重启'),
     });
     expect(logout).toHaveBeenCalledOnce();
     expect(persist).toHaveBeenCalledOnce();

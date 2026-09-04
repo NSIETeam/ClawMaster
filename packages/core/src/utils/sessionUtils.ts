@@ -62,8 +62,8 @@ function partsToString(parts: Part[]): string {
 
 /**
  * Convert a persisted conversation (from `SessionManager`) into the
- * `{role, parts}[]` shape expected by {@link OttoClient.startChat} /
- * {@link OttoClient.resumeChat}.
+ * `{role, parts}[]` shape expected by {@link ClawMasterClient.startChat} /
+ * {@link ClawMasterClient.resumeChat}.
  *
  * Supports two input formats:
  *

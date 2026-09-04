@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,10 +13,9 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import type { OttoMessage, SessionSummary, ModelInfo } from 'otto-server';
+import type { ClawMasterMessage, SessionSummary, ModelInfo } from 'clawmaster-server';
 import { ChatView } from './ChatView.js';
 
-vi.mock('../assets/otto-avatar.png', () => ({ default: 'avatar.png' }));
 
 const SESSION: SessionSummary = {
   sessionId: 's1',
@@ -33,12 +32,12 @@ const MODELS: ModelInfo[] = [
 ];
 
 // 两轮问答：用户 A → botA，用户 B → botB。上翻对 botA 点重生成应传 botA 的 id。
-function twoRounds(): OttoMessage[] {
+function twoRounds(): ClawMasterMessage[] {
   const mk = (
     id: string,
-    role: OttoMessage['role'],
+    role: ClawMasterMessage['role'],
     text: string,
-  ): OttoMessage => ({
+  ): ClawMasterMessage => ({
     id,
     sessionId: 's1',
     role,
@@ -86,7 +85,7 @@ describe('ChatView 重新生成携带消息 id', () => {
     renderChat();
 
     expect(screen.getByText('测试会话')).toBeTruthy();
-    expect(document.querySelector('.otto-main__identity')).toBeNull();
+    expect(document.querySelector('.claw-main__identity')).toBeNull();
     expect(screen.queryByRole('button', { name: '切换到深色' })).toBeNull();
     expect(screen.queryByRole('button', { name: '切换到浅色' })).toBeNull();
     expect(screen.queryByRole('button', { name: '导出会话为 Markdown' })).toBeNull();
@@ -113,7 +112,7 @@ describe('ChatView 重新生成携带消息 id', () => {
     const emptyMark = screen.getByRole('img', { name: 'ClawMaster 皇冠标志' });
     expect(emptyMark.getAttribute('width')).toBe('56');
     expect(emptyMark.getAttribute('height')).toBe('56');
-    expect(emptyMark.classList.contains('otto-empty__brand-mark')).toBe(true);
+    expect(emptyMark.classList.contains('claw-empty__brand-mark')).toBe(true);
 
     rerender(<ChatView session={SESSION} messages={[]} {...props} />);
     const conversationMark = screen.getByRole('img', { name: 'ClawMaster 皇冠标志' });

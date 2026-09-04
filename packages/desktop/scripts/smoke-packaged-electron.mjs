@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2026 Otto
+ * Copyright 2026 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,7 @@
  * 最终 DMG 的动态交付门禁。
  *
  * 静态看到 app.asar 里存在 preload 不代表它能在 Electron sandbox 中执行。
- * 本脚本从 DMG 启动真实 Otto.app，并通过 CDP 验证：
+ * 本脚本从 DMG 启动真实 ClawMaster.app，并通过 CDP 验证：
  *   1. renderer 确实来自最终 app.asar；
  *   2. preload 暴露真实 window.otto；
  *   3. main IPC 可往返，且浏览器预览 bridge 无法伪造成功；
@@ -39,7 +39,7 @@ const packageJson = JSON.parse(
 const expectedVersion = packageJson.version;
 const enterpriseSmokeUrl = 'https://enterprise-smoke.invalid';
 const dmgPath = resolve(
-  process.argv[2] ?? resolve(desktopDir, `release/Otto-${expectedVersion}-arm64.dmg`),
+  process.argv[2] ?? resolve(desktopDir, `release/ClawMaster-${expectedVersion}-arm64.dmg`),
 );
 
 if (process.platform !== 'darwin') {
@@ -72,7 +72,7 @@ async function reservePort() {
   return port;
 }
 
-const cdpCommandTimeoutMs = Number(process.env.OTTO_SMOKE_CDP_TIMEOUT_MS || 45_000);
+const cdpCommandTimeoutMs = Number(process.env.CLAWMASTER_SMOKE_CDP_TIMEOUT_MS || 45_000);
 
 async function waitForDebugger(port, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
@@ -88,7 +88,7 @@ async function waitForDebugger(port, timeoutMs = 30_000) {
         && String(target.url).includes('/app.asar/dist/renderer/index.html')
       );
       if (page) return page;
-      lastError = `目标列表没有 Otto renderer: ${JSON.stringify(targets)}`;
+      lastError = `目标列表没有 ClawMaster renderer: ${JSON.stringify(targets)}`;
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
     }
@@ -223,10 +223,10 @@ try {
   );
   mounted = true;
 
-  const appPath = resolve(mountPoint, 'Otto.app');
-  const executable = resolve(appPath, 'Contents/MacOS/Otto');
+  const appPath = resolve(mountPoint, 'ClawMaster.app');
+  const executable = resolve(appPath, 'Contents/MacOS/ClawMaster');
   if (!existsSync(executable)) {
-    throw new Error(`DMG 内缺少 Otto.app 可执行文件: ${executable}`);
+    throw new Error(`DMG 内缺少 ClawMaster.app 可执行文件: ${executable}`);
   }
 
   const [serverPort, debuggerPort] = await Promise.all([
@@ -247,10 +247,10 @@ try {
         ...process.env,
         HOME: homeDir,
         USERPROFILE: homeDir,
-        OTTO_USER_DATA_DIR: userDataDir,
-        OTTO_USER_DIR: ottoUserDir,
-        OTTO_SERVER_PORT: String(serverPort),
-        OTTO_ENTERPRISE_SERVER_URL: enterpriseSmokeUrl,
+        CLAWMASTER_USER_DATA_DIR: userDataDir,
+        CLAWMASTER_USER_DIR: ottoUserDir,
+        CLAWMASTER_SERVER_PORT: String(serverPort),
+        CLAWMASTER_ENTERPRISE_SERVER_URL: enterpriseSmokeUrl,
         ELECTRON_ENABLE_LOGGING: '1',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -353,7 +353,7 @@ try {
         loginProbeError,
         connected,
         frameType,
-        hasLoginEntry: bodyText.includes('进入 Otto'),
+        hasLoginEntry: bodyText.includes('进入 ClawMaster'),
         bodyHasNullServerError:
           bodyText.includes("Cannot read properties of null")
           || bodyText.includes("reading 'serverUrl'")

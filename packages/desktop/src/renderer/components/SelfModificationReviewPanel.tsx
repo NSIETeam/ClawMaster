@@ -38,12 +38,12 @@ export function SelfModificationReviewPanel({ request, reviewerKind, onApprove, 
   const securityBlocked = request.risk === 'security-review' && reviewerKind !== 'security-reviewer';
   const humanBlocked = request.risk === 'human-confirmation' && reviewerKind === 'policy';
   const approvalBlocked = !awaitingReview || securityBlocked || humanBlocked;
-  return <section className="otto-self-modification-review" aria-label="自修改候选审查">
+  return <section className="claw-self-modification-review" aria-label="自修改候选审查">
     <header>
       <div><small>自修改候选 · {request.state}</small><h2>{request.goal}</h2></div>
       <span data-risk={request.risk}>{request.risk}</span>
     </header>
-    <dl className="otto-self-modification-review__summary">
+    <dl className="claw-self-modification-review__summary">
       <div><dt>基线</dt><dd>{shortCommit(request.baselineCommit)}</dd></div>
       <div><dt>候选</dt><dd>{shortCommit(request.candidateCommit)}</dd></div>
       <div><dt>预计费用</dt><dd>{request.estimatedCost.amount} {request.estimatedCost.currency}</dd></div>
@@ -52,7 +52,7 @@ export function SelfModificationReviewPanel({ request, reviewerKind, onApprove, 
       <div><dt>CPU 变化</dt><dd>{request.resourceDelta.cpuPercent > 0 ? '+' : ''}{request.resourceDelta.cpuPercent.toFixed(1)}%</dd></div>
     </dl>
     <section><h3>代码差异</h3><ul>{request.changedPaths.map((entry) => <li key={entry}><code>{entry}</code></li>)}</ul></section>
-    <section><h3>受影响代码图谱</h3><div className="otto-self-modification-review__map">{request.codeMapNodes.map((entry) => <span key={entry}>{entry}</span>)}</div></section>
+    <section><h3>受影响代码图谱</h3><div className="claw-self-modification-review__map">{request.codeMapNodes.map((entry) => <span key={entry}>{entry}</span>)}</div></section>
     <section><h3>权限差异</h3>
       {request.permissionChanges.added.length ? <ul>{request.permissionChanges.added.map((entry) => <li key={`added:${entry}`}>新增：{entry}</li>)}</ul> : <p>没有新增权限</p>}
       {request.permissionChanges.removed.length ? <ul>{request.permissionChanges.removed.map((entry) => <li key={`removed:${entry}`}>移除：{entry}</li>)}</ul> : null}

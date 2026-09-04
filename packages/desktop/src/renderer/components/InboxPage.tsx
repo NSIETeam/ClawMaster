@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 /**
@@ -43,7 +43,7 @@ function FederationVerificationQr({ payload }: { payload: string }): React.JSX.E
     <QrCode
       value={payload}
       label="联邦联系人安全号码二维码"
-      className="otto-inbox-page__security-qr"
+      className="claw-inbox-page__security-qr"
     />
   );
 }
@@ -109,7 +109,7 @@ export function InboxPage({
   const refreshNotifications = useCallback(async (): Promise<void> => {
     if (!hasAuth) return;
     try {
-      const data = await window.otto.enterpriseMessagesUnread();
+      const data = await window.clawmaster.enterpriseMessagesUnread();
       setNotifications(Array.isArray(data) ? data : []);
     } catch { /* 网络错误不清空已有数据 */ }
   }, [hasAuth]);
@@ -117,7 +117,7 @@ export function InboxPage({
   const refreshFederationContacts = useCallback(async (): Promise<void> => {
     if (!hasAuth) return;
     try {
-      const contacts = await window.otto.enterpriseFederationContacts();
+      const contacts = await window.clawmaster.enterpriseFederationContacts();
       setFederationContacts(Array.isArray(contacts) ? contacts : []);
     } catch {
       // Federation is optional. Keep the local inbox available when it is not licensed.
@@ -128,7 +128,7 @@ export function InboxPage({
   useEffect(() => {
     if (!hasAuth) return;
     let cancelled = false;
-    void window.otto.enterpriseOrganizationView().then((view) => {
+    void window.clawmaster.enterpriseOrganizationView().then((view) => {
       if (!cancelled && view?.members) setOrgMembers(view.members);
     }).catch(() => { /* 忽略 */ });
     return () => { cancelled = true; };
@@ -169,7 +169,7 @@ export function InboxPage({
         lastMessage: notif.preview,
         lastMessageAt: notif.createdAt,
         unreadCount: unread,
-        online: member?.ottoOnline ?? false,
+        online: member?.clawmasterOnline ?? false,
       });
     }
 
@@ -188,7 +188,7 @@ export function InboxPage({
         lastMessage: '',
         lastMessageAt: '',
         unreadCount: count,
-        online: member.ottoOnline ?? false,
+        online: member.clawmasterOnline ?? false,
       });
     }
 
@@ -205,7 +205,7 @@ export function InboxPage({
         lastMessage: history.lastMessage,
         lastMessageAt: history.lastMessageAt,
         unreadCount: 0,
-        online: member.ottoOnline ?? false,
+        online: member.clawmasterOnline ?? false,
       });
     }
 
@@ -243,7 +243,7 @@ export function InboxPage({
     if (!selectedPeer || selectedFederationContactId) return;
     let cancelled = false;
     setMessagesLoading(true);
-    void window.otto.enterpriseMessagesList(selectedPeer).then((msgs) => {
+    void window.clawmaster.enterpriseMessagesList(selectedPeer).then((msgs) => {
       if (cancelled) return;
       const safeMessages = Array.isArray(msgs) ? msgs : [];
       setMessages(safeMessages);
@@ -266,7 +266,7 @@ export function InboxPage({
     let cancelled = false;
     setMessagesLoading(true);
     setFederationError('');
-    void window.otto.enterpriseFederationMessagesList(selectedFederationContactId)
+    void window.clawmaster.enterpriseFederationMessagesList(selectedFederationContactId)
       .then((items) => {
         if (!cancelled) {
           setMessages(Array.isArray(items) ? items : []);
@@ -282,7 +282,7 @@ export function InboxPage({
       .finally(() => {
         if (!cancelled) setMessagesLoading(false);
       });
-    void window.otto.enterpriseFederationContactVerification(
+    void window.clawmaster.enterpriseFederationContactVerification(
       selectedFederationContactId,
     ).then((verification) => {
       if (!cancelled) setFederationVerification(verification);
@@ -327,12 +327,12 @@ export function InboxPage({
     setSending(true);
     try {
       const msg = selectedFederationContactId
-        ? await window.otto.enterpriseFederationMessageSend(
+        ? await window.clawmaster.enterpriseFederationMessageSend(
             selectedFederationContactId,
             text,
             federationAttachments,
           )
-        : await window.otto.enterpriseMessageSend(selectedPeer!, text);
+        : await window.clawmaster.enterpriseMessageSend(selectedPeer!, text);
       setMessages((cur) => [...cur, msg]);
       if (selectedPeer) {
         setHistoryPeers((cur) => ({
@@ -353,7 +353,7 @@ export function InboxPage({
     }
   };
 
-  const askFederationPeerOtto = async (): Promise<void> => {
+  const askFederationPeerClawMaster = async (): Promise<void> => {
     const question = replyInput.trim();
     if (
       !selectedFederationContactId || !selectedFederationContact ||
@@ -365,7 +365,7 @@ export function InboxPage({
     }
     setSending(true);
     try {
-      const message = await window.otto.enterpriseFederationMessageSend(
+      const message = await window.clawmaster.enterpriseFederationMessageSend(
         selectedFederationContactId,
         buildAtoaRequest(question, { mode: 'answer' }),
       );
@@ -388,7 +388,7 @@ export function InboxPage({
         if (file.size < 1 || file.size > 1024 * 1024 * 1024) {
           throw new Error(`${file.name} 超过 1 GB 或内容为空`);
         }
-        const sourcePath = await window.otto.authorizeFileForAttachment(file);
+        const sourcePath = await window.clawmaster.authorizeFileForAttachment(file);
         next.push({
           fileName: file.name,
           mimeType: file.type || 'application/octet-stream',
@@ -412,7 +412,7 @@ export function InboxPage({
   ): Promise<void> => {
     if (!selectedFederationContactId) return;
     try {
-      await window.otto.enterpriseFederationAttachmentSave(
+      await window.clawmaster.enterpriseFederationAttachmentSave(
         selectedFederationContactId,
         messageId,
         attachment.id,
@@ -426,7 +426,7 @@ export function InboxPage({
 
   const copyFederationContactCode = async (): Promise<void> => {
     try {
-      const code = await window.otto.enterpriseFederationContactCode();
+      const code = await window.clawmaster.enterpriseFederationContactCode();
       await navigator.clipboard.writeText(code);
       setFederationError('');
     } catch (error) {
@@ -437,7 +437,7 @@ export function InboxPage({
   const importFederationContact = async (): Promise<void> => {
     if (!federationContactCode.trim()) return;
     try {
-      const contact = await window.otto.enterpriseFederationContactImport(
+      const contact = await window.clawmaster.enterpriseFederationContactImport(
         federationContactCode,
       );
       setFederationContactCode('');
@@ -454,7 +454,7 @@ export function InboxPage({
   const confirmFederationVerification = async (): Promise<void> => {
     if (!selectedFederationContactId) return;
     try {
-      const verification = await window.otto.enterpriseFederationContactVerify(
+      const verification = await window.clawmaster.enterpriseFederationContactVerify(
         selectedFederationContactId,
       );
       setFederationVerification(verification);
@@ -471,7 +471,7 @@ export function InboxPage({
       return;
     }
     try {
-      await window.otto.enterpriseFederationContactRemove(selectedFederationContactId);
+      await window.clawmaster.enterpriseFederationContactRemove(selectedFederationContactId);
       setSelectedFederationContactId(null);
       setFederationVerification(null);
       setMessages([]);
@@ -483,11 +483,11 @@ export function InboxPage({
   };
 
   const renderMessages = (emptyLabel: string): React.JSX.Element => (
-    <div className="otto-inbox-page__messages">
+    <div className="claw-inbox-page__messages">
       {messagesLoading ? (
-        <div className="otto-inbox-page__empty">加载消息中…</div>
+        <div className="claw-inbox-page__empty">加载消息中…</div>
       ) : messages.length === 0 ? (
-        <div className="otto-inbox-page__empty">{emptyLabel}</div>
+        <div className="claw-inbox-page__empty">{emptyLabel}</div>
       ) : messages.map((msg) => {
         const mine = msg.senderAccountId === enterpriseAccount?.id;
         const deliveryStatus = 'deliveryStatus' in msg &&
@@ -495,13 +495,13 @@ export function InboxPage({
           ? msg.deliveryStatus
           : null;
         return (
-          <div key={msg.id} className={`otto-inbox-page__msg${mine ? ' is-mine' : ''}`}>
-            <span className="otto-inbox-page__msg-bubble">
+          <div key={msg.id} className={`claw-inbox-page__msg${mine ? ' is-mine' : ''}`}>
+            <span className="claw-inbox-page__msg-bubble">
               {msg.content ? (
                 <span>{displayDirectMessageContent(msg.content)}</span>
               ) : null}
               {(msg.attachments ?? []).map((attachment) => (
-                <span key={attachment.id} className="otto-inbox-page__attachment">
+                <span key={attachment.id} className="claw-inbox-page__attachment">
                   <span>
                     <strong>{attachment.fileName}</strong>
                     <small>{(attachment.size / 1024 / 1024).toFixed(1)} MB</small>
@@ -517,7 +517,7 @@ export function InboxPage({
                 </span>
               ))}
             </span>
-            <span className="otto-inbox-page__msg-meta">
+            <span className="claw-inbox-page__msg-meta">
               <time>{new Date(msg.createdAt).toLocaleString('zh-CN', {
                 month: '2-digit',
                 day: '2-digit',
@@ -537,7 +537,7 @@ export function InboxPage({
 
   const renderReply = (placeholder: string): React.JSX.Element => (
     <form
-      className="otto-inbox-page__reply"
+      className="claw-inbox-page__reply"
       onSubmit={(event) => { event.preventDefault(); void handleSendReply(); }}
     >
       <textarea
@@ -555,8 +555,8 @@ export function InboxPage({
         aria-label="回复消息"
       />
       {selectedFederationContactId ? (
-        <div className="otto-inbox-page__reply-actions">
-          <label className="otto-inbox-page__attach-button">
+        <div className="claw-inbox-page__reply-actions">
+          <label className="claw-inbox-page__attach-button">
             <input
               type="file"
               multiple
@@ -570,7 +570,7 @@ export function InboxPage({
           </label>
           <button
             type="button"
-            className="otto-inbox-page__a2a-button"
+            className="claw-inbox-page__a2a-button"
             disabled={
               !replyInput.trim() || sending || federationAttachments.length > 0 ||
               selectedFederationContact?.trustState !== 'verified'
@@ -578,14 +578,14 @@ export function InboxPage({
             title={selectedFederationContact?.trustState === 'verified'
               ? '对方必须明确批准资料范围，授权仅使用一次'
               : '请先核验联系人身份'}
-            onClick={() => { void askFederationPeerOtto(); }}
+            onClick={() => { void askFederationPeerClawMaster(); }}
           >
             询问对方 ClawMaster
           </button>
         </div>
       ) : null}
       {selectedFederationContactId && federationAttachments.length > 0 ? (
-        <div className="otto-inbox-page__pending-attachments">
+        <div className="claw-inbox-page__pending-attachments">
           {federationAttachments.map((attachment, index) => (
             <span key={`${attachment.fileName}:${index}`}>
               {attachment.fileName}
@@ -612,19 +612,19 @@ export function InboxPage({
 
   if (!hasAuth) {
     return (
-      <div className="otto-inbox-page" role="region" aria-label="我的消息">
-        <header className="otto-inbox-page__header">
+      <div className="claw-inbox-page" role="region" aria-label="我的消息">
+        <header className="claw-inbox-page__header">
           <h1>我的消息</h1>
           <button type="button" onClick={onBack}>返回</button>
         </header>
-        <div className="otto-inbox-page__empty">需要企业账号登录后查看消息。</div>
+        <div className="claw-inbox-page__empty">需要企业账号登录后查看消息。</div>
       </div>
     );
   }
 
   return (
-    <div className="otto-inbox-page" role="region" aria-label="我的消息">
-      <header className="otto-inbox-page__header">
+    <div className="claw-inbox-page" role="region" aria-label="我的消息">
+      <header className="claw-inbox-page__header">
         <div>
           <h1>我的消息</h1>
           <p>{conversations.length + federationContacts.length} 个会话{totalUnread > 0 ? ` · ${totalUnread} 条未读` : ''}</p>
@@ -632,7 +632,7 @@ export function InboxPage({
         <button type="button" onClick={onBack}>返回对话</button>
       </header>
 
-      <div className="otto-inbox-page__filters" role="tablist" aria-label="消息过滤">
+      <div className="claw-inbox-page__filters" role="tablist" aria-label="消息过滤">
         {([
           ['all', `全部 ${conversations.length + federationContacts.length}`],
           ['unread', `未读 ${conversations.filter((c) => c.unreadCount > 0).length + federationContacts.filter((c) => c.unreadCount > 0).length}`],
@@ -651,10 +651,10 @@ export function InboxPage({
         ))}
       </div>
 
-      <div className="otto-inbox-page__layout">
+      <div className="claw-inbox-page__layout">
         {/* 左：会话列表 */}
-        <div className="otto-inbox-page__list" role="list" aria-label="会话列表">
-          <div className="otto-inbox-page__federation-actions">
+        <div className="claw-inbox-page__list" role="list" aria-label="会话列表">
+          <div className="claw-inbox-page__federation-actions">
             <button
               type="button"
               title="复制我的跨服务器联系码"
@@ -674,15 +674,15 @@ export function InboxPage({
             </button>
           </div>
           {federationSetupOpen ? (
-            <div className="otto-inbox-page__federation-setup">
-              <label htmlFor="otto-federation-contact-code">粘贴对方的联系码</label>
+            <div className="claw-inbox-page__federation-setup">
+              <label htmlFor="claw-federation-contact-code">粘贴对方的联系码</label>
               <textarea
-                id="otto-federation-contact-code"
+                id="claw-federation-contact-code"
                 value={federationContactCode}
                 onChange={(event) => setFederationContactCode(event.target.value)}
                 rows={3}
                 spellCheck={false}
-                placeholder="OTTO_FEDERATION_CONTACT_V1:…"
+                placeholder="CLAWMASTER_FEDERATION_CONTACT_V1:…"
               />
               <button
                 type="button"
@@ -694,48 +694,48 @@ export function InboxPage({
             </div>
           ) : null}
           {federationError && !selectedFederationContactId ? (
-            <div className="otto-inbox-page__error" role="alert">{federationError}</div>
+            <div className="claw-inbox-page__error" role="alert">{federationError}</div>
           ) : null}
           {filteredFederationContacts.length > 0 ? (
             <>
-              <div className="otto-inbox-page__section-label">跨服务器</div>
+              <div className="claw-inbox-page__section-label">跨服务器</div>
               {filteredFederationContacts.map((contact) => (
                 <button
                   key={contact.id}
                   type="button"
                   role="listitem"
                   aria-label={`${contact.displayName}，跨服务器联系人，${contact.unreadCount} 条未读`}
-                  className={`otto-inbox-page__conv${selectedFederationContactId === contact.id ? ' is-selected' : ''}`}
+                  className={`claw-inbox-page__conv${selectedFederationContactId === contact.id ? ' is-selected' : ''}`}
                   onClick={() => {
                     setSelectedPeer(null);
                     setSelectedFederationContactId(contact.id);
                     setReplyInput('');
                   }}
                 >
-                  <span className="otto-inbox-page__conv-avatar otto-inbox-page__conv-avatar--federated" aria-hidden>
+                  <span className="claw-inbox-page__conv-avatar claw-inbox-page__conv-avatar--federated" aria-hidden>
                     {contact.displayName.slice(0, 1)}
                   </span>
-                  <span className="otto-inbox-page__conv-body">
+                  <span className="claw-inbox-page__conv-body">
                     <strong>{contact.displayName}</strong>
-                    <span className="otto-inbox-page__conv-meta">{contact.deploymentDisplayName}</span>
-                    <span className={`otto-inbox-page__trust${contact.trustState === 'verified' ? ' is-verified' : ''}`}>
+                    <span className="claw-inbox-page__conv-meta">{contact.deploymentDisplayName}</span>
+                    <span className={`claw-inbox-page__trust${contact.trustState === 'verified' ? ' is-verified' : ''}`}>
                       {contact.trustState === 'verified' ? '已核验身份' : '身份待核验'}
                     </span>
                   </span>
-                  <span className="otto-inbox-page__conv-side">
+                  <span className="claw-inbox-page__conv-side">
                     {contact.unreadCount > 0 ? (
-                      <span className="otto-inbox-page__unread" role="status">{contact.unreadCount}</span>
+                      <span className="claw-inbox-page__unread" role="status">{contact.unreadCount}</span>
                     ) : null}
                   </span>
                 </button>
               ))}
             </>
           ) : null}
-          {filtered.length > 0 ? <div className="otto-inbox-page__section-label">本企业</div> : null}
+          {filtered.length > 0 ? <div className="claw-inbox-page__section-label">本企业</div> : null}
           {loading && conversations.length === 0 && federationContacts.length === 0 ? (
-            <div className="otto-inbox-page__empty">正在加载消息…</div>
+            <div className="claw-inbox-page__empty">正在加载消息…</div>
           ) : filtered.length === 0 && filteredFederationContacts.length === 0 ? (
-            <div className="otto-inbox-page__empty">
+            <div className="claw-inbox-page__empty">
               {filter === 'unread' ? '没有未读消息' : filter === 'handled' ? '没有已处理消息' : '暂无消息'}
             </div>
           ) : filtered.map((conv) => (
@@ -744,29 +744,29 @@ export function InboxPage({
               type="button"
               role="listitem"
               aria-label={`${conv.peerName}，本企业联系人，${conv.unreadCount} 条未读`}
-              className={`otto-inbox-page__conv${selectedPeer === conv.peerAccountId ? ' is-selected' : ''}`}
+              className={`claw-inbox-page__conv${selectedPeer === conv.peerAccountId ? ' is-selected' : ''}`}
               onClick={() => {
                 setSelectedFederationContactId(null);
                 setSelectedPeer(conv.peerAccountId);
                 setReplyInput('');
               }}
             >
-              <span className="otto-inbox-page__conv-avatar" aria-hidden>
+              <span className="claw-inbox-page__conv-avatar" aria-hidden>
                 {conv.peerName.slice(0, 1)}
               </span>
-              <span className="otto-inbox-page__conv-body">
+              <span className="claw-inbox-page__conv-body">
                 <strong>{conv.peerName}</strong>
-                <span className="otto-inbox-page__conv-meta">
+                <span className="claw-inbox-page__conv-meta">
                   {conv.peerDepartment || ''}{conv.peerPositionTitle ? ` · ${conv.peerPositionTitle}` : ''}
                 </span>
                 {conv.lastMessage ? (
-                  <span className="otto-inbox-page__conv-preview">{conv.lastMessage}</span>
+                  <span className="claw-inbox-page__conv-preview">{conv.lastMessage}</span>
                 ) : null}
               </span>
-              <span className="otto-inbox-page__conv-side">
-                {conv.online ? <span className="otto-inbox-page__online" aria-label="在线" /> : null}
+              <span className="claw-inbox-page__conv-side">
+                {conv.online ? <span className="claw-inbox-page__online" aria-label="在线" /> : null}
                 {conv.unreadCount > 0 ? (
-                  <span className="otto-inbox-page__unread" role="status">{conv.unreadCount}</span>
+                  <span className="claw-inbox-page__unread" role="status">{conv.unreadCount}</span>
                 ) : null}
               </span>
             </button>
@@ -774,19 +774,19 @@ export function InboxPage({
         </div>
 
         {/* 右：消息详情 */}
-        <div className="otto-inbox-page__detail" aria-label="消息详情">
+        <div className="claw-inbox-page__detail" aria-label="消息详情">
           {selectedFederationContactId && selectedFederationContact ? (
             <>
-              <header className="otto-inbox-page__detail-header">
+              <header className="claw-inbox-page__detail-header">
                 <strong>{selectedFederationContact.displayName}</strong>
                 <span>{selectedFederationContact.deploymentDisplayName}</span>
-                <span className={`otto-inbox-page__security-state${selectedFederationContact.trustState === 'verified' ? ' is-verified' : ''}`}>
+                <span className={`claw-inbox-page__security-state${selectedFederationContact.trustState === 'verified' ? ' is-verified' : ''}`}>
                   {selectedFederationContact.trustState === 'verified' ? <IconCheckCheck size={13} /> : <IconWarning size={13} />}
                   {selectedFederationContact.trustState === 'verified' ? '已核验' : '未核验'}
                 </span>
                 <button
                   type="button"
-                  className="otto-inbox-page__remove-contact"
+                  className="claw-inbox-page__remove-contact"
                   title="移除联系人"
                   aria-label="移除联系人"
                   onClick={() => { void removeFederationContact(); }}
@@ -795,14 +795,14 @@ export function InboxPage({
                 </button>
               </header>
               {federationVerification ? (
-                <section className="otto-inbox-page__security" aria-label="端到端加密身份核验">
+                <section className="claw-inbox-page__security" aria-label="端到端加密身份核验">
                   <FederationVerificationQr payload={federationVerification.qrPayload} />
                   <div>
                     <strong>端到端加密安全号码</strong>
                     <p>请通过电话或当面与对方核对。号码一致后再确认身份。</p>
                     <code>{federationVerification.safetyNumber.match(/.{1,4}/g)?.join(' ') ?? federationVerification.safetyNumber}</code>
                     {federationVerification.verifiedAt ? (
-                      <span className="otto-inbox-page__verified-note"><IconCheckCheck size={14} /> 已于本设备核验</span>
+                      <span className="claw-inbox-page__verified-note"><IconCheckCheck size={14} /> 已于本设备核验</span>
                     ) : (
                       <button type="button" onClick={() => { void confirmFederationVerification(); }}>
                         我已核对，确认身份
@@ -812,23 +812,23 @@ export function InboxPage({
                 </section>
               ) : null}
               {federationError ? (
-                <div className="otto-inbox-page__error" role="alert">{federationError}</div>
+                <div className="claw-inbox-page__error" role="alert">{federationError}</div>
               ) : null}
               {renderMessages(`开始与 ${selectedFederationContact.displayName} 进行加密对话`)}
               {renderReply(`加密回复 ${selectedFederationContact.displayName}…`)}
             </>
           ) : selectedPeer && selectedMember ? (
             <>
-              <header className="otto-inbox-page__detail-header">
+              <header className="claw-inbox-page__detail-header">
                 <strong>{selectedMember.name}</strong>
                 <span>{selectedMember.department || ''} · {selectedMember.positionTitle || selectedMember.role || ''}</span>
-                {selectedMember.ottoOnline ? <span className="otto-inbox-page__presence">在线</span> : null}
+                {selectedMember.clawmasterOnline ? <span className="claw-inbox-page__presence">在线</span> : null}
               </header>
               {renderMessages(`开始与 ${selectedMember.name} 对话`)}
               {renderReply(`回复 ${selectedMember.name}…`)}
             </>
           ) : (
-            <div className="otto-inbox-page__empty otto-inbox-page__empty--detail">
+            <div className="claw-inbox-page__empty claw-inbox-page__empty--detail">
               选择左侧会话查看消息
             </div>
           )}

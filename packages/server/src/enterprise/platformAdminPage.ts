@@ -3,7 +3,7 @@
  */
 
 export function platformAdminHTML(): string {
-  if (process.env.OTTO_ENTERPRISE_PLATFORM_LEGACY_UI === '1') {
+  if (process.env.CLAWMASTER_ENTERPRISE_PLATFORM_LEGACY_UI === '1') {
     return legacyPlatformAdminHTML();
   }
   return `<!DOCTYPE html>

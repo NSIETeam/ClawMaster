@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import path from 'node:path';
@@ -68,7 +68,7 @@ export async function prepareEnterprisePostgres(input: {
   });
   if (topology.backend !== 'postgresql') {
     throw new Error(
-      'PostgreSQL preparation requires OTTO_ENTERPRISE_DATABASE_BACKEND=postgresql',
+      'PostgreSQL preparation requires CLAWMASTER_ENTERPRISE_DATABASE_BACKEND=postgresql',
     );
   }
   const pool = input.poolFactory
@@ -111,7 +111,7 @@ if (import.meta.url === invokedPath) {
   main().catch((error: unknown) => {
     const message = safePostgresErrorMessage(
       error,
-      process.env.OTTO_POSTGRES_URL,
+      process.env.CLAWMASTER_POSTGRES_URL,
     );
     console.error(
       `[ClawMaster Enterprise] PostgreSQL preparation failed: ${message}`,

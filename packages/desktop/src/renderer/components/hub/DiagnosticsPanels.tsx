@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,7 +11,7 @@
 
 import React from 'react';
 import type { DesktopRuntimeDiagnostic } from '../../../preload/index.js';
-import type { SessionSummary } from 'otto-server';
+import type { SessionSummary } from 'clawmaster-server';
 import type { UseSettingsData } from '../../state/useSettingsData.js';
 import { IconCheck, IconClose } from '../icons.js';
 import { Panel, Card, Badge, Empty } from './HubUI.js';
@@ -25,7 +25,7 @@ export function DoctorPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
   const [runtime, setRuntime] = React.useState<DesktopRuntimeDiagnostic | null>(null);
   React.useEffect(() => {
     let cancelled = false;
-    void window.otto.runtimeDiagnostic().then((next) => {
+    void window.clawmaster.runtimeDiagnostic().then((next) => {
       if (!cancelled) setRuntime(next);
     }).catch(() => {
       if (!cancelled) setRuntime(null);
@@ -45,11 +45,11 @@ export function DoctorPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
         <>
           <button
             type="button"
-            className="otto-hub__btn"
+            className="claw-hub__btn"
             onClick={async () => {
               setBundleState('working');
               try {
-                await window.otto.createDiagnosticBundle();
+                await window.clawmaster.createDiagnosticBundle();
                 setBundleState('done');
               } catch {
                 setBundleState('error');
@@ -61,7 +61,7 @@ export function DoctorPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
           </button>
           <button
             type="button"
-            className="otto-hub__btn otto-hub__btn--primary"
+            className="claw-hub__btn claw-hub__btn--primary"
             onClick={actions.runDoctor}
             disabled={state.doctorRunning}
           >
@@ -71,16 +71,16 @@ export function DoctorPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
       }
     >
       <Card>
-        <div className="otto-hub__item">
-          <span className="otto-hub__row-name">本地服务</span>
-          <span className="otto-hub__row-detail">{runtime?.server.message ?? '正在读取运行状态…'}</span>
+        <div className="claw-hub__item">
+          <span className="claw-hub__row-name">本地服务</span>
+          <span className="claw-hub__row-detail">{runtime?.server.message ?? '正在读取运行状态…'}</span>
           <Badge tone={runtime?.server.status === 'unavailable' ? 'danger' : 'accent'}>
             {runtime?.server.status === 'ready' ? `已就绪${runtime.server.ownership ? ` · ${runtime.server.ownership}` : ''}` : runtime?.server.status === 'unavailable' ? '不可用' : '启动中'}
           </Badge>
         </div>
-        <div className="otto-hub__item">
-          <span className="otto-hub__row-name">原生核心</span>
-          <span className="otto-hub__row-detail">{runtime?.nativeCore.message ?? '正在读取原生核心状态…'}</span>
+        <div className="claw-hub__item">
+          <span className="claw-hub__row-name">原生核心</span>
+          <span className="claw-hub__row-detail">{runtime?.nativeCore.message ?? '正在读取原生核心状态…'}</span>
           <Badge>{runtime ? `${runtime.nativeCore.mode} · ${runtime.nativeCore.status}` : '未知'}</Badge>
         </div>
       </Card>
@@ -88,41 +88,41 @@ export function DoctorPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
         <Empty>点击「开始体检」检查 pandoc / libreoffice / ffmpeg / playwright 等外部依赖。</Empty>
       ) : (
         <>
-          <div className="otto-hub__statgrid">
-            <div className="otto-hub__stat">
-              <div className="otto-hub__stat-value">{report.presentCount}</div>
-              <div className="otto-hub__stat-label">就绪</div>
+          <div className="claw-hub__statgrid">
+            <div className="claw-hub__stat">
+              <div className="claw-hub__stat-value">{report.presentCount}</div>
+              <div className="claw-hub__stat-label">就绪</div>
             </div>
-            <div className="otto-hub__stat">
+            <div className="claw-hub__stat">
               <div
                 className={
-                  'otto-hub__stat-value' +
-                  (report.missingCount > 0 ? ' otto-hub__stat-value--warn' : '')
+                  'claw-hub__stat-value' +
+                  (report.missingCount > 0 ? ' claw-hub__stat-value--warn' : '')
                 }
               >
                 {report.missingCount}
               </div>
-              <div className="otto-hub__stat-label">缺失</div>
+              <div className="claw-hub__stat-label">缺失</div>
             </div>
-            <div className="otto-hub__stat">
-              <div className="otto-hub__stat-value otto-hub__stat-value--text">
+            <div className="claw-hub__stat">
+              <div className="claw-hub__stat-value claw-hub__stat-value--text">
                 {report.platform}
               </div>
-              <div className="otto-hub__stat-label">平台</div>
+              <div className="claw-hub__stat-label">平台</div>
             </div>
           </div>
           <Card>
             {checks.map((c) => (
-              <div key={c.name} className="otto-hub__item">
-                <span className="otto-hub__item-lead" aria-hidden>
+              <div key={c.name} className="claw-hub__item">
+                <span className="claw-hub__item-lead" aria-hidden>
                   {c.present ? (
-                    <IconCheck size={13} className="otto-hub__doctor-ok" />
+                    <IconCheck size={13} className="claw-hub__doctor-ok" />
                   ) : (
-                    <IconClose size={13} className="otto-hub__doctor-missing" />
+                    <IconClose size={13} className="claw-hub__doctor-missing" />
                   )}
                 </span>
-                <span className="otto-hub__row-name">{c.name}</span>
-                <span className="otto-hub__row-detail">
+                <span className="claw-hub__row-name">{c.name}</span>
+                <span className="claw-hub__row-detail">
                   {c.present
                     ? c.version
                       ? 'v' + c.version
@@ -161,14 +161,14 @@ export function ContextPanel({
           <>
             <button
               type="button"
-              className="otto-hub__btn"
+              className="claw-hub__btn"
               onClick={() => actions.refreshContextBreakdown(activeSession.sessionId)}
             >
               刷新
             </button>
             <button
               type="button"
-              className="otto-hub__btn otto-hub__btn--primary"
+              className="claw-hub__btn claw-hub__btn--primary"
               onClick={() => actions.compressContext(activeSession.sessionId)}
               disabled={state.compressRunning || !loaded}
             >
@@ -206,8 +206,8 @@ function ContextUsageCard({
   const pct = b.maxTokens > 0 ? Math.min(100, (used / b.maxTokens) * 100) : 0;
 
   return (
-    <Card className="otto-hub__card--pad">
-      <div className="otto-hub__ctx-head">
+    <Card className="claw-hub__card--pad">
+      <div className="claw-hub__ctx-head">
         <span>{b.modelDisplayName}</span>
         <span>
           {used.toLocaleString()} / {b.maxTokens.toLocaleString()} tokens ·{' '}
@@ -215,27 +215,27 @@ function ContextUsageCard({
         </span>
       </div>
       {/* 分段着色的占用条：各段颜色与下方图例一一对应。 */}
-      <div className="otto-hub__ctx-bar">
+      <div className="claw-hub__ctx-bar">
         {segments.map((seg) => (
           <div
             key={seg.cls}
-            className={'otto-hub__ctx-seg otto-hub__ctx-seg--' + seg.cls}
+            className={'claw-hub__ctx-seg claw-hub__ctx-seg--' + seg.cls}
             style={{
               width: b.maxTokens > 0 ? (seg.value / b.maxTokens) * 100 + '%' : '0%',
             }}
           />
         ))}
       </div>
-      <div className="otto-hub__ctx-legend">
+      <div className="claw-hub__ctx-legend">
         {segments.map((seg) => (
-          <div key={seg.label} className="otto-hub__ctx-legend-item">
-            <span className={'otto-hub__ctx-dot otto-hub__ctx-dot--' + seg.cls} />
+          <div key={seg.label} className="claw-hub__ctx-legend-item">
+            <span className={'claw-hub__ctx-dot claw-hub__ctx-dot--' + seg.cls} />
             {seg.label}: {seg.value.toLocaleString()}
           </div>
         ))}
       </div>
       {data.state.compressMessage ? (
-        <div className="otto-hub__field-hint">{data.state.compressMessage}</div>
+        <div className="claw-hub__field-hint">{data.state.compressMessage}</div>
       ) : null}
     </Card>
   );
@@ -258,10 +258,10 @@ function workflowStatusLabel(status: string): string {
 
 function workflowStatusClass(status: string): string {
   return status === 'completed'
-    ? 'otto-hub__wfstatus--done'
+    ? 'claw-hub__wfstatus--done'
     : status === 'failed'
-      ? 'otto-hub__wfstatus--fail'
-      : 'otto-hub__wfstatus--run';
+      ? 'claw-hub__wfstatus--fail'
+      : 'claw-hub__wfstatus--run';
 }
 
 export function WorkflowsPanel({ data }: { data: UseSettingsData }): React.JSX.Element {
@@ -272,7 +272,7 @@ export function WorkflowsPanel({ data }: { data: UseSettingsData }): React.JSX.E
       title="Workflow"
       desc="多专家 workflow 的运行记录与各 agent 明细。"
       actions={
-        <button type="button" className="otto-hub__btn" onClick={actions.refreshWorkflows}>
+        <button type="button" className="claw-hub__btn" onClick={actions.refreshWorkflows}>
           刷新
         </button>
       }
@@ -284,25 +284,25 @@ export function WorkflowsPanel({ data }: { data: UseSettingsData }): React.JSX.E
           const agents = wf.phases.length ? wf.phases.flatMap((p) => p.agents) : wf.agents;
           const duration = formatWorkflowDuration((wf.endTime ?? Date.now()) - wf.startTime);
           return (
-            <Card key={wf.id} className="otto-hub__card--pad">
-              <div className="otto-hub__workflow-head">
-                <span className={'otto-hub__wfstatus ' + workflowStatusClass(wf.status)}>
+            <Card key={wf.id} className="claw-hub__card--pad">
+              <div className="claw-hub__workflow-head">
+                <span className={'claw-hub__wfstatus ' + workflowStatusClass(wf.status)}>
                   {workflowStatusLabel(wf.status)}
                 </span>
-                <span className="otto-hub__row-name">{wf.description}</span>
-                <span className="otto-hub__row-status">
+                <span className="claw-hub__row-name">{wf.description}</span>
+                <span className="claw-hub__row-status">
                   {duration} · {wf.totalTokenUsage.totalTokens.toLocaleString()} tokens
                 </span>
               </div>
               {agents.length > 0 ? (
-                <div className="otto-hub__workflow-agents">
+                <div className="claw-hub__workflow-agents">
                   {agents.map((a) => (
-                    <div key={a.agentId} className="otto-hub__workflow-agent">
-                      <span className={'otto-hub__wfstatus ' + workflowStatusClass(a.status)}>
+                    <div key={a.agentId} className="claw-hub__workflow-agent">
+                      <span className={'claw-hub__wfstatus ' + workflowStatusClass(a.status)}>
                         {workflowStatusLabel(a.status)}
                       </span>
-                      <span className="otto-hub__row-name">{a.label}</span>
-                      <span className="otto-hub__row-status">
+                      <span className="claw-hub__row-name">{a.label}</span>
+                      <span className="claw-hub__row-status">
                         工具调用 {a.toolCallCount}
                         {a.tokenUsage
                           ? ` · ${a.tokenUsage.totalTokens.toLocaleString()} tokens`

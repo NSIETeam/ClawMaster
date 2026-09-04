@@ -14,7 +14,7 @@ import { Config, WebSearchProvider } from '../config/config.js';
 import { getResponseText } from '../utils/generateContentResponseUtilities.js';
 import { SceneType } from '../core/sceneManager.js';
 import { t } from '../utils/simpleI18n.js';
-import { isOttoQuotaError } from '../utils/quotaErrorDetection.js';
+import { isClawMasterQuotaError } from '../utils/quotaErrorDetection.js';
 import { isCustomModel, generateCustomModelId } from '../types/customModel.js';
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
 import {
@@ -357,7 +357,7 @@ function describeSearchError(error: unknown): string {
  *
  * Provider 分层（config.searchProvider 显式选择，默认 'bing'）：
  * - bing：抓取 cn.bing.com 搜索页并解析 HTML，免 key、国内开箱可用
- * - bocha：博查 Web Search API，需 searchApiKey（或环境变量 OTTO_BOCHA_API_KEY）
+ * - bocha：博查 Web Search API，需 searchApiKey（或环境变量 CLAWMASTER_BOCHA_API_KEY）
  * - gemini：原有 Google Search grounding（依赖 Gemini API，海外可用）
  */
 export class WebSearchTool extends BaseTool<
@@ -616,7 +616,7 @@ export class WebSearchTool extends BaseTool<
         : undefined;
     if (!apiKey) {
       return this.errorResult(
-        `searchProvider is set to 'bocha' but no API key is configured. Set 'searchApiKey' in settings.json or export the OTTO_BOCHA_API_KEY environment variable, or switch searchProvider back to 'bing' (no key required).`,
+        `searchProvider is set to 'bocha' but no API key is configured. Set 'searchApiKey' in settings.json or export the CLAWMASTER_BOCHA_API_KEY environment variable, or switch searchProvider back to 'bing' (no key required).`,
       );
     }
 
@@ -841,7 +841,7 @@ export class WebSearchTool extends BaseTool<
 
   /**
    * gemini provider（保留原有逻辑）：Gemini API googleSearch grounding。
-   * 依赖 Otto 账号 / Gemini 访问，海外用户可用。
+   * 依赖 ClawMaster 账号 / Gemini 访问，海外用户可用。
    */
   private async executeGeminiSearch(
     params: WebSearchToolParams,
@@ -871,7 +871,7 @@ export class WebSearchTool extends BaseTool<
       resolvedModel = generateCustomModelId(geminiFlashModel);
     }
 
-    const geminiClient = this.config.getOttoClient();
+    const geminiClient = this.config.getClawMasterClient();
 
     // 🚨 创建超时保护：web search最多30秒
     const controller = new AbortController();
@@ -984,7 +984,7 @@ export class WebSearchTool extends BaseTool<
         sources,
       };
     } catch (error: unknown) {
-      // 检测是否使用自定义模型（用户可能未登录 Otto）
+      // 检测是否使用自定义模型（用户可能未登录 ClawMaster）
       const currentModel = this.config.getModel();
       const isUsingCustomModel = isCustomModel(currentModel);
 
@@ -1008,7 +1008,7 @@ export class WebSearchTool extends BaseTool<
       }
 
       // 检测积分不足错误（402 配额错误）
-      if (isOttoQuotaError(error)) {
+      if (isClawMasterQuotaError(error)) {
         const quotaExceededMessage = isUsingCustomModel
           ? `This tool (${WebSearchTool.Name}) is currently unavailable because your ClawMaster account has insufficient credits. ` +
             `Web search with the 'gemini' provider requires available credits in your account. ` +

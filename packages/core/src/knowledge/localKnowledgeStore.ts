@@ -10,7 +10,7 @@
  * （几千条）全量载入内存检索绰绰有余；条目变多也只是线性扫描，可接受。
  *
  * 路径：~/.otto-user/knowledge/entries.jsonl。
- * OTTO_USER_DIR 环境变量可覆盖根目录（与 customModelsStorage 的
+ * CLAWMASTER_USER_DIR 环境变量可覆盖根目录（与 customModelsStorage 的
  * 测试隔离/沙箱重定向惯例一致），测试绝不污染真实 ~/.otto-user。
  */
 
@@ -127,11 +127,11 @@ export function personalKnowledgeFreshness(
 }
 
 /**
- * 配置根目录：默认 ~/.otto-user；OTTO_USER_DIR 可覆盖（测试隔离用）。
+ * 配置根目录：默认 ~/.otto-user；CLAWMASTER_USER_DIR 可覆盖（测试隔离用）。
  * 每次调用现读环境变量，保证测试在 beforeEach 里改 env 后立即生效。
  */
 function getUserDir(): string {
-  return process.env.OTTO_USER_DIR || path.join(homedir(), '.otto-user');
+  return process.env.CLAWMASTER_USER_DIR || path.join(homedir(), '.otto-user');
 }
 
 /** 知识库目录：~/.otto-user/knowledge */
@@ -185,7 +185,7 @@ export class LocalKnowledgeStore {
 
   /**
    * @param baseDir 存储目录，默认 ~/.otto-user/knowledge
-   *（构造时固化；测试请先设 OTTO_USER_DIR 再 new）
+   *（构造时固化；测试请先设 CLAWMASTER_USER_DIR 再 new）
    */
   constructor(baseDir: string = getKnowledgeDir()) {
     this.filePath = path.join(baseDir, ENTRIES_FILE_NAME);

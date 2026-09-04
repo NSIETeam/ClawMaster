@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -25,15 +25,15 @@ export function Panel({
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <div className="otto-hub__panel">
-      <div className="otto-hub__panel-head">
-        <div className="otto-hub__panel-titles">
-          <h2 className="otto-hub__panel-title">{title}</h2>
-          <div className="otto-hub__panel-desc">{desc}</div>
+    <div className="claw-hub__panel">
+      <div className="claw-hub__panel-head">
+        <div className="claw-hub__panel-titles">
+          <h2 className="claw-hub__panel-title">{title}</h2>
+          <div className="claw-hub__panel-desc">{desc}</div>
         </div>
-        {actions ? <div className="otto-hub__panel-actions">{actions}</div> : null}
+        {actions ? <div className="claw-hub__panel-actions">{actions}</div> : null}
       </div>
-      <div className="otto-hub__panel-body">{children}</div>
+      <div className="claw-hub__panel-body">{children}</div>
     </div>
   );
 }
@@ -46,19 +46,19 @@ export function Card({
   children: React.ReactNode;
   className?: string;
 }): React.JSX.Element {
-  return <div className={'otto-hub__card' + (className ? ' ' + className : '')}>{children}</div>;
+  return <div className={'claw-hub__card' + (className ? ' ' + className : '')}>{children}</div>;
 }
 
 /** 卡片上方的小节标题（如「按模型」「按工具」）。 */
 export function Caption({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return <div className="otto-hub__caption">{children}</div>;
+  return <div className="claw-hub__caption">{children}</div>;
 }
 
 export type DotTone = 'on' | 'busy' | 'off' | 'err';
 
 /** 状态圆点：绿=就绪 / 黄=进行中 / 灰=未启用 / 红=断开。取代原来的 emoji。 */
 export function Dot({ tone }: { tone: DotTone }): React.JSX.Element {
-  return <span className={'otto-hub__dot otto-hub__dot--' + tone} aria-hidden />;
+  return <span className={'claw-hub__dot claw-hub__dot--' + tone} aria-hidden />;
 }
 
 /** 小徽章：分类 / 来源 / 作用域等次要元信息。 */
@@ -70,7 +70,7 @@ export function Badge({
   tone?: 'accent' | 'danger';
 }): React.JSX.Element {
   return (
-    <span className={'otto-hub__badge' + (tone ? ' otto-hub__badge--' + tone : '')}>
+    <span className={'claw-hub__badge' + (tone ? ' claw-hub__badge--' + tone : '')}>
       {children}
     </span>
   );
@@ -78,5 +78,5 @@ export function Badge({
 
 /** 空态：占位说明（可附一个动作按钮），居中放在虚线卡片里。 */
 export function Empty({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return <div className="otto-hub__empty">{children}</div>;
+  return <div className="claw-hub__empty">{children}</div>;
 }

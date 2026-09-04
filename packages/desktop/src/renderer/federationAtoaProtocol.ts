@@ -1,10 +1,10 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import type { AtoaContextSource } from '../../../core/src/a2a/atoaProtocol.js';
 
-export const FEDERATION_ATOA_DECISION_PREFIX = 'OTTO_FEDERATION_ATOA_DECISION ';
+export const FEDERATION_ATOA_DECISION_PREFIX = 'CLAWMASTER_FEDERATION_ATOA_DECISION ';
 
 const ATOA_CONTEXT_SOURCES: readonly AtoaContextSource[] = [
   'current_chat',

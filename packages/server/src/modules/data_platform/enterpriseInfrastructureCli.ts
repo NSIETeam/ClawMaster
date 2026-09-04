@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import path from 'node:path';
@@ -45,7 +45,7 @@ export function safeInfrastructureErrorMessage(
   error: unknown,
   environment: Pick<
     InfrastructureEnvironment,
-    'OTTO_POSTGRES_URL' | 'OTTO_REDIS_URL'
+    'CLAWMASTER_POSTGRES_URL' | 'CLAWMASTER_REDIS_URL'
   >,
 ): string {
   let message = error instanceof Error ? error.message : 'unknown error';
@@ -53,8 +53,8 @@ export function safeInfrastructureErrorMessage(
     .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, 'postgresql://[REDACTED]')
     .replace(/redis(?:s)?:\/\/[^\s]+/gi, 'redis://[REDACTED]');
   for (const connectionString of [
-    environment.OTTO_POSTGRES_URL,
-    environment.OTTO_REDIS_URL,
+    environment.CLAWMASTER_POSTGRES_URL,
+    environment.CLAWMASTER_REDIS_URL,
   ]) {
     if (!connectionString) continue;
     try {
@@ -160,7 +160,7 @@ export async function checkClusteredEnterpriseInfrastructure(input: {
 
 async function main(): Promise<void> {
   const dataDirectory =
-    process.env.OTTO_ENTERPRISE_DIR?.trim() ||
+    process.env.CLAWMASTER_ENTERPRISE_DIR?.trim() ||
     path.join(process.cwd(), '.otto-enterprise');
   await checkClusteredEnterpriseInfrastructure({
     environment: process.env,

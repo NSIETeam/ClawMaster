@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import type { EnterpriseOrganizationFeatures } from '../preload/index.js';
@@ -192,8 +192,8 @@ export const STATIC_MODULE_SPECS: readonly StaticModuleSpec[] = [
 ] as const;
 
 const PROFILE_MODULE_IDS: Readonly<Record<string, string>> = {
-  'otto-personal': 'agent-personal-otto',
-  'otto-enterprise-work': 'agent-enterprise-work',
+  'claw-personal': 'agent-personal-clawmaster',
+  'claw-enterprise-work': 'agent-enterprise-work',
   'self-development': 'agent-self-development',
   ppt: 'agent-ppt',
   meeting: 'agent-meeting',
@@ -232,7 +232,7 @@ function staticAvailability(
 }
 
 const PROFILE_LINE_ICONS: Readonly<Record<string, ModuleIconKey>> = {
-  'otto-enterprise-work': 'office-work',
+  'claw-enterprise-work': 'office-work',
   ppt: 'office-presentation',
   meeting: 'office-meeting',
   doc: 'office-document',
@@ -250,17 +250,17 @@ const PROFILE_LINE_ICONS: Readonly<Record<string, ModuleIconKey>> = {
  * optical weight and cannot follow system appearance reliably.
  */
 function profileModuleIcon(profile: AgentProfile): ModuleIconKey {
-  if (profile.id === 'otto-personal') return 'otto-avatar';
+  if (profile.id === 'claw-personal') return 'clawmaster-avatar';
   if (profile.id === 'self-development') return 'self-development';
   return PROFILE_LINE_ICONS[profile.id] ?? 'agent';
 }
 
 function profileIsAllowed(profile: AgentProfile, edition: ModuleCatalogContext['edition']): boolean {
   if (edition === 'personal') {
-    return profile.id === 'otto-personal' || Object.prototype.hasOwnProperty.call(PROFILE_MODULE_IDS, profile.id)
-      && profile.id !== 'otto-enterprise-work';
+    return profile.id === 'claw-personal' || Object.prototype.hasOwnProperty.call(PROFILE_MODULE_IDS, profile.id)
+      && profile.id !== 'claw-enterprise-work';
   }
-  return profile.id !== 'otto-personal' && Boolean(PROFILE_MODULE_IDS[profile.id]);
+  return profile.id !== 'claw-personal' && Boolean(PROFILE_MODULE_IDS[profile.id]);
 }
 
 function agentModules(context: ModuleCatalogContext): ModuleDefinition[] {
@@ -292,8 +292,8 @@ function agentModules(context: ModuleCatalogContext): ModuleDefinition[] {
 
 function customAgentModules(context: ModuleCatalogContext): ModuleDefinition[] {
   const baseProfileId = context.edition === 'enterprise'
-    ? 'otto-enterprise-work'
-    : 'otto-personal';
+    ? 'claw-enterprise-work'
+    : 'claw-personal';
   return context.customAgents.map((agent) => ({
     id: `agent-${agent.id}`,
     label: agent.name,

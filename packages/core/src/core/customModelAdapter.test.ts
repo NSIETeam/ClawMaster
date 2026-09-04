@@ -2487,7 +2487,7 @@ describe('callGeminiNativeModel', () => {
   it('normalises a string systemInstruction to canonical { parts: [{ text }] }', async () => {
     // The /v1beta endpoint rejects raw strings with HTTP 500
     //   "json: cannot unmarshal string into Go struct field .systemInstruction
-    //    of type OttoChatContent"
+    //    of type ClawMasterChatContent"
     // — so we must convert any non-canonical shape on the client side.
     let capturedBody: LooseJson;
     global.fetch = vi.fn().mockImplementation(async (_url, options) => {
@@ -2989,7 +2989,7 @@ describe('callGeminiNativeModelStream', () => {
 // Root cause was that buildGeminiNativeRequestBody used to forward
 // request.config.tools verbatim, so MCP-supplied JSON-Schema-2020-12 keys
 // (`$schema`, `additionalProperties`, …) reached EasyRouter / Google's
-// strict OpenAPI-3-subset validator. The OttoServerAdapter path didn't
+// strict OpenAPI-3-subset validator. The ClawMasterServerAdapter path didn't
 // trip this because the proxy strips them server-side.
 //
 // These tests exercise the pure helper directly (fast, deterministic) and

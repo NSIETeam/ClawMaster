@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -135,7 +135,7 @@ function seedIdentity(database: Database): void {
 
 describe('identity credential security kernel', () => {
   it('keeps password policy and scrypt verification behind one public contract', () => {
-    expect(isAcceptableAccountPassword('Otto-2026')).toBe(true);
+    expect(isAcceptableAccountPassword('ClawMaster-2026')).toBe(true);
     expect(isAcceptableAccountPassword('short')).toBe(false);
     expect(isAcceptableAccountPassword('12345678')).toBe(false);
     expect(isAcceptableAccountPassword('abcdefgh')).toBe(false);
@@ -144,12 +144,12 @@ describe('identity credential security kernel', () => {
       '登录密码不能包含控制字符或不可见字符',
     );
 
-    const first = hashIdentitySecret('Otto-2026');
-    const second = hashIdentitySecret('Otto-2026');
+    const first = hashIdentitySecret('ClawMaster-2026');
+    const second = hashIdentitySecret('ClawMaster-2026');
     expect(first).not.toBe(second);
-    expect(identitySecretMatches('Otto-2026', first)).toBe(true);
+    expect(identitySecretMatches('ClawMaster-2026', first)).toBe(true);
     expect(identitySecretMatches('wrong-password', first)).toBe(false);
-    expect(identitySecretMatches('Otto-2026', 'malformed')).toBe(false);
+    expect(identitySecretMatches('ClawMaster-2026', 'malformed')).toBe(false);
   });
 });
 

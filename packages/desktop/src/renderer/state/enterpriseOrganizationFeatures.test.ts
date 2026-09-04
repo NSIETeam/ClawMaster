@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import type { EnterpriseOrganizationFeatures } from '../../preload/index.js';
@@ -27,7 +27,7 @@ afterEach(() => {
 describe('enterprise organization feature cache', () => {
   it('rejects an empty organization id before requesting server permissions', async () => {
     const request = vi.fn(async () => FEATURES);
-    Object.assign(window.otto, { enterpriseOrganizationFeaturesGet: request });
+    Object.assign(window.clawmaster, { enterpriseOrganizationFeaturesGet: request });
 
     await expect(getEnterpriseOrganizationFeatures('  ')).rejects.toThrow(
       '缺少企业组织标识',
@@ -46,7 +46,7 @@ describe('enterprise organization feature cache', () => {
       .fn()
       .mockReturnValueOnce(firstRequest)
       .mockResolvedValue(FEATURES);
-    Object.assign(window.otto, { enterpriseOrganizationFeaturesGet: request });
+    Object.assign(window.clawmaster, { enterpriseOrganizationFeaturesGet: request });
 
     const first = getEnterpriseOrganizationFeatures(' org-1 ');
     const concurrent = getEnterpriseOrganizationFeatures('org-1');
@@ -76,7 +76,7 @@ describe('enterprise organization feature cache', () => {
       .fn()
       .mockRejectedValueOnce(new Error('offline'))
       .mockResolvedValueOnce(FEATURES);
-    Object.assign(window.otto, { enterpriseOrganizationFeaturesGet: request });
+    Object.assign(window.clawmaster, { enterpriseOrganizationFeaturesGet: request });
 
     await expect(getEnterpriseOrganizationFeatures('org-2')).rejects.toThrow(
       'offline',

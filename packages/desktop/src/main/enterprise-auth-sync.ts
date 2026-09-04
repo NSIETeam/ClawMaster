@@ -1,7 +1,7 @@
 /**
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
- * Electron main 的企业认证提交闸门。中心账号只有在本机 OttoServer 同步成功后
+ * Electron main 的企业认证提交闸门。中心账号只有在本机 ClawMasterServer 同步成功后
  * 才能返回 renderer；任何失败都会清中心 token、持久化退出态并尝试清本机身份。
  */
 

@@ -1,7 +1,7 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Otto Task Orchestrator — 基于 LangGraph 的任务编排引擎。
+ * ClawMaster Task Orchestrator — 基于 LangGraph 的任务编排引擎。
  *
  * 状态机流程：
  *   分配(allocate) → 执行中(executing) → 待验收(pending_review)
@@ -9,7 +9,7 @@
  *
  * 节点说明：
  *   - allocate:   根据员工画像+任务要求，LLM 决策分配给谁
- *   - execute:    委托 delegate_to_agent 或 Otto 自身执行
+ *   - execute:    委托 delegate_to_agent 或 ClawMaster 自身执行
  *   - review:     人工/自动验收节点（支持暂停等待审批）
  *   - complete:   验收通过，更新记忆
  *   - rework:     验收打回，回到 execute（带反馈）
@@ -131,7 +131,7 @@ async function allocateNode(state: typeof TaskOrchestrationState.State): Promise
 
   try {
     const config = state.config;
-    const client = config.getOttoClient() as unknown as {
+    const client = config.getClawMasterClient() as unknown as {
       generateContent?: (request: unknown) => Promise<unknown>;
     };
     let suggestion: AllocationSuggestion;
@@ -192,7 +192,7 @@ async function executeNode(state: typeof TaskOrchestrationState.State): Promise<
       `[execute] ${allocation.assigneeName} is executing "${task.title}"...`,
     ],
   };
-  // 实际执行委托给 delegate_to_agent 或 Otto 自身
+  // 实际执行委托给 delegate_to_agent 或 ClawMaster 自身
   // 这里只更新状态，具体执行由外部回调完成
 }
 

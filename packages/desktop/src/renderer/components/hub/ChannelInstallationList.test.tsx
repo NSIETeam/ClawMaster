@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,7 +9,7 @@ const installation = {
   provider: 'wecom' as const,
   tenantId: 'corp-1',
   tenantName: '示例企业',
-  botName: 'Otto Bot',
+  botName: 'ClawMaster Bot',
   grantedScopes: ['message.send'],
   connectedAtMs: 1,
 };
@@ -38,7 +38,7 @@ describe('ChannelInstallationList', () => {
           }
         : { ok: true, data: action === 'revoke' ? { revoked: true } : {}, error: null },
     );
-    (window as unknown as { otto: unknown }).otto = {
+    (window as unknown as { clawmaster: unknown }).clawmaster = {
       channelInstallations,
       channelInstallationAction,
     };
@@ -47,7 +47,7 @@ describe('ChannelInstallationList', () => {
   it('shows verified tenant, permissions and live health from the shared supervisor', async () => {
     render(<ChannelInstallationList provider="wecom" />);
 
-    expect(await screen.findByText('Otto Bot')).toBeTruthy();
+    expect(await screen.findByText('ClawMaster Bot')).toBeTruthy();
     expect(screen.getByText('示例企业')).toBeTruthy();
     expect(screen.getByText(/权限：message.send · 重连 1 次/)).toBeTruthy();
     expect(screen.getByText('connected')).toBeTruthy();

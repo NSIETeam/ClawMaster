@@ -1,5 +1,5 @@
 /**
- * Otto Skills System - Skill Context Injector
+ * ClawMaster Skills System - Skill Context Injector
  *
  * Manages AI Context injection with three-tier loading:
  * - Level 1: Metadata (启动时) - ~100 tokens/skill

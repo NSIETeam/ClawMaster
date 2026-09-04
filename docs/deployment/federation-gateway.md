@@ -16,14 +16,14 @@ Otto Server 的 `federation_gateway` 模块负责把两个独立私有部署连�
 ## 服务器配置
 
 ```dotenv
-OTTO_FEDERATION_ENABLED=true
-OTTO_FEDERATION_GATEWAY_URL=https://federation.example.com
-OTTO_FEDERATION_DISPLAY_NAME=示例企业私有部署
-OTTO_FEDERATION_POLL_INTERVAL_MS=10000
+CLAWMASTER_FEDERATION_ENABLED=true
+CLAWMASTER_FEDERATION_GATEWAY_URL=https://federation.example.com
+CLAWMASTER_FEDERATION_DISPLAY_NAME=示例企业私有部署
+CLAWMASTER_FEDERATION_POLL_INTERVAL_MS=10000
 ```
 
-默认签名私钥生成在 `${OTTO_ENTERPRISE_DIR}/federation-signing-key.pem`，文件权限为
-`0600`。也可以通过 `OTTO_FEDERATION_SIGNING_KEY_FILE` 指向预置的 Ed25519 PKCS#8
+默认签名私钥生成在 `${CLAWMASTER_ENTERPRISE_DIR}/federation-signing-key.pem`，文件权限为
+`0600`。也可以通过 `CLAWMASTER_FEDERATION_SIGNING_KEY_FILE` 指向预置的 Ed25519 PKCS#8
 PEM 私钥；该路径必须位于备份策略覆盖之外，并由客户的 KMS/HSM 或密钥托管流程保护。
 
 ## 首次注册
@@ -46,7 +46,7 @@ PEM 私钥；该路径必须位于备份策略覆盖之外，并由客户的 KMS
 1. 在客户侧 KMS/HSM 或离线密钥机生成新的 Ed25519 PKCS#8 私钥，不覆盖旧密钥备份。
 2. 先把新公钥和未来的 `notBefore` 登记到 Control，保留旧公钥为 active。
 3. 把新私钥放到客户服务器的 root/otto 专用只读路径，权限限制为 `0600`，并更新
-   `OTTO_FEDERATION_SIGNING_KEY_FILE` 后重启 Otto Server。
+   `CLAWMASTER_FEDERATION_SIGNING_KEY_FILE` 后重启 Otto Server。
 4. 从 `GET /enterprise/federation/admin/provisioning` 核对新的 `keyId`，运行一次
    `POST /enterprise/federation/admin/run`，确认新消息已使用新密钥且旧发件箱仍能投递。
 5. 等旧密钥签名的待发送消息清空，并超过最长消息有效期后，再在 Control 吊销旧公钥。
@@ -75,17 +75,17 @@ PEM 私钥；该路径必须位于备份策略覆盖之外，并由客户的 KMS
 两台 staging Otto Server 和 staging Control Federation 网关准备好后，可以运行黑盒验收：
 
 ```bash
-export OTTO_FEDERATION_SMOKE_CONFIRM=STAGING_ONLY
-export OTTO_FEDERATION_SMOKE_GATEWAY_URL=https://federation-staging.example.com
-export OTTO_FEDERATION_SMOKE_GATEWAY_ADMIN_TOKEN='<control-admin-token>'
-export OTTO_FEDERATION_SMOKE_SERVER_A_URL=https://otto-a-staging.example.com
-export OTTO_FEDERATION_SMOKE_SERVER_A_ADMIN_TOKEN='<server-a-admin-session>'
-export OTTO_FEDERATION_SMOKE_SERVER_A_MEMBER_TOKEN='<server-a-member-session>'
-export OTTO_FEDERATION_SMOKE_SERVER_B_URL=https://otto-b-staging.example.com
-export OTTO_FEDERATION_SMOKE_SERVER_B_ADMIN_TOKEN='<server-b-admin-session>'
-export OTTO_FEDERATION_SMOKE_SERVER_B_MEMBER_TOKEN='<server-b-member-session>'
-export OTTO_FEDERATION_SMOKE_ATTACHMENT_BYTES=12582912
-export OTTO_FEDERATION_SMOKE_SOURCE_COMMIT="$(git rev-parse HEAD)"
+export CLAWMASTER_FEDERATION_SMOKE_CONFIRM=STAGING_ONLY
+export CLAWMASTER_FEDERATION_SMOKE_GATEWAY_URL=https://federation-staging.example.com
+export CLAWMASTER_FEDERATION_SMOKE_GATEWAY_ADMIN_TOKEN='<control-admin-token>'
+export CLAWMASTER_FEDERATION_SMOKE_SERVER_A_URL=https://otto-a-staging.example.com
+export CLAWMASTER_FEDERATION_SMOKE_SERVER_A_ADMIN_TOKEN='<server-a-admin-session>'
+export CLAWMASTER_FEDERATION_SMOKE_SERVER_A_MEMBER_TOKEN='<server-a-member-session>'
+export CLAWMASTER_FEDERATION_SMOKE_SERVER_B_URL=https://otto-b-staging.example.com
+export CLAWMASTER_FEDERATION_SMOKE_SERVER_B_ADMIN_TOKEN='<server-b-admin-session>'
+export CLAWMASTER_FEDERATION_SMOKE_SERVER_B_MEMBER_TOKEN='<server-b-member-session>'
+export CLAWMASTER_FEDERATION_SMOKE_ATTACHMENT_BYTES=12582912
+export CLAWMASTER_FEDERATION_SMOKE_SOURCE_COMMIT="$(git rev-parse HEAD)"
 npm run test:federation:staging > federation-staging-evidence.json
 ```
 
@@ -95,7 +95,7 @@ A2A grant 和部署停用 fail-closed。它会短暂把部署 A 设置为 `disab
 部署 ID、公钥 ID、时间和测试结论，不包含 Token、密文、claim token 或用户内容。
 
 脚本默认通过对象存储中继上传并下载校验 12 MiB 随机密文附件，报告只记录字节数和 SHA-256，
-不会保存随机密文本身。可用 `OTTO_FEDERATION_SMOKE_ATTACHMENT_BYTES` 调整为 1 至 64 MiB；正式验收
+不会保存随机密文本身。可用 `CLAWMASTER_FEDERATION_SMOKE_ATTACHMENT_BYTES` 调整为 1 至 64 MiB；正式验收
 不应低于 12 MiB，以覆盖旧版 10 MiB 附件限制。网络中断和恢复语义由
 `federationComposition.test.ts` 的故障注入用例验证：网关离线时消息留在持久队列，恢复后只投递一次。
 真实 staging 报告与故障注入测试结果必须同时归档，任何一项都不能替代另一项。

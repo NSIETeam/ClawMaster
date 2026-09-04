@@ -7,7 +7,7 @@ next model to understand.
 ## Project identity
 
 ClawMaster is an AI coworker and coding agent with several surfaces. It was
-seeded from Otto, so internal `otto-*` package names and `OTTO_*` environment
+seeded from Otto, so internal `otto-*` package names and `CLAWMASTER_*` environment
 variables remain compatibility contracts until they are migrated deliberately:
 
 - Runtime kernel and tools in `packages/core`

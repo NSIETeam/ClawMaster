@@ -862,7 +862,7 @@ export async function refreshDeploymentLicenseLease(
       headers: {
         authorization: `Bearer ${leaseToken}`,
         'content-type': 'application/json',
-        'user-agent': 'Otto-Private-Deployment/1',
+        'user-agent': 'ClawMaster-Private-Deployment/1',
       },
       body: JSON.stringify({
         version: 1,
@@ -1300,7 +1300,7 @@ export async function flushTelemetryQueue(
       headers: {
         authorization: `Bearer ${telemetryToken}`,
         'content-type': 'application/json',
-        'user-agent': 'Otto-Private-Deployment/1',
+        'user-agent': 'ClawMaster-Private-Deployment/1',
         'x-otto-timestamp': String(requestTimestamp),
         'x-otto-nonce': requestNonce,
         'x-otto-signature': signTelemetryRequest({

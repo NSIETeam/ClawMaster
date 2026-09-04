@@ -36,11 +36,11 @@ describe('企业公开引入链接', () => {
         configuredUrl,
         host: '127.0.0.1',
         port: 7777,
-      }), configuredUrl).toThrow(/OTTO_ENTERPRISE_PUBLIC_URL/);
+      }), configuredUrl).toThrow(/CLAWMASTER_ENTERPRISE_PUBLIC_URL/);
     }
   });
 
-  it('未配置时使用经过确认的 Otto 公网基址，而不是监听地址或请求 Host', () => {
+  it('未配置时使用经过确认的 ClawMaster 公网基址，而不是监听地址或请求 Host', () => {
     expect(DEFAULT_ENTERPRISE_PUBLIC_URL).toBe('https://59.110.154.44:7777');
     expect(resolveEnterprisePublicBaseUrl({ host: '127.0.0.1', port: 7777 }))
       .toBe(DEFAULT_ENTERPRISE_PUBLIC_URL);

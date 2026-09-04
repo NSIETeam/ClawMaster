@@ -117,7 +117,7 @@ describe('WebFetchTool', () => {
       getApprovalMode: vi.fn(),
       setApprovalMode: vi.fn(),
       getProxy: vi.fn(),
-      getOttoClient: () => ({
+      getClawMasterClient: () => ({
         createTemporaryChat: createTemporaryChatMock,
       }),
     };

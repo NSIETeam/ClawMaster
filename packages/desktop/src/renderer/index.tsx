@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,7 @@
  * Renderer 入口。挂载 App 到 #root。
  *
  * 对照 webview src/index.tsx：那边先 acquireVsCodeApi() 存 window.vscode；
- * 这边的等价物是 preload 注入的 window.otto（见 ../preload/index.ts），
+ * 这边的等价物是 preload 注入的 window.clawmaster（见 ../preload/index.ts），
  * renderer 经 ./transport 使用，无需在此初始化。
  */
 
@@ -52,7 +52,7 @@ if (!container) {
 async function bootstrap(): Promise<void> {
   startRendererThemeSync();
   installTauriHostBridge();
-  if (!window.otto) {
+  if (!window.clawmaster) {
     if (!__CLAWMASTER_BROWSER_PREVIEW__) {
       throw new Error('ClawMaster 桌面宿主桥未就绪');
     }

@@ -71,10 +71,10 @@ export class AuthTemplates {
   }
 
   /**
-   * 获取Otto成功页面模板
+   * 获取ClawMaster成功页面模板
    */
-  static getOttoSuccessPage(): string {
-    return this.generateOttoSuccessTemplate();
+  static getClawMasterSuccessPage(): string {
+    return this.generateClawMasterSuccessTemplate();
   }
 
   /**
@@ -331,7 +331,7 @@ export class AuthTemplates {
             <!-- 飞书登录按钮区域（动态生成，支持多租户） -->
             <div id="feishu-buttons-container"></div>
 
-            <button class="auth-button" onclick="startOttoAuth()" data-i18n="auth.otto.button">
+            <button class="auth-button" onclick="startClawMasterAuth()" data-i18n="auth.otto.button">
               <span style="font-size: 18px; margin-right: 8px; vertical-align: middle;">🔐</span>
               ClawMaster Login
             </button>
@@ -524,7 +524,7 @@ export class AuthTemplates {
               .catch(error => alert(t('auth.feishu.start.error')));
           }
 
-          function startOttoAuth() {
+          function startClawMasterAuth() {
             fetch('/start-otto-auth', { method: 'POST' })
               .then(response => response.json())
               .then(data => {
@@ -672,9 +672,9 @@ export class AuthTemplates {
   }
 
   /**
-   * 生成Otto成功页面模板
+   * 生成ClawMaster成功页面模板
    */
-  private static generateOttoSuccessTemplate(): string {
+  private static generateClawMasterSuccessTemplate(): string {
     return `
       <!DOCTYPE html>
       <html>

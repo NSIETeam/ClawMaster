@@ -1,12 +1,12 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
  * 「软件更新」面板集成测试：真实 useSoftwareUpdate hook + 面板组件，
- * window.otto 桥全程 mock（fetch/IPC 不真发）。
+ * window.clawmaster 桥全程 mock（fetch/IPC 不真发）。
  *
  * 覆盖 UI 状态机主链路：
  *   有新版（含更新日志渲染）→ 下载（进度）→ 完成（打开安装包 + 指引）；
@@ -31,12 +31,12 @@ const AVAILABLE: UpdateCheckResult = {
   notes: '## 更新日志\n- 支持软件内更新',
   publishedAt: '2026-07-08T18:00:00Z',
   asset: {
-    name: 'Otto-1.4.1-arm64.dmg',
-    url: 'https://github.com/Felix201209/otto-releases/releases/download/v1.4.1/Otto-1.4.1-arm64.dmg',
+    name: 'ClawMaster-1.4.1-arm64.dmg',
+    url: 'https://github.com/Felix201209/claw-releases/releases/download/v1.4.1/ClawMaster-1.4.1-arm64.dmg',
     size: 136314880,
     sha256: 'a'.repeat(64),
   },
-  releasePageUrl: 'https://github.com/Felix201209/otto-releases/releases/latest',
+  releasePageUrl: 'https://github.com/Felix201209/claw-releases/releases/latest',
 };
 
 /** 手动裁决的 Promise（把下载停在「进行中」，测完进度再放行）。 */
@@ -51,7 +51,7 @@ function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void } {
 /** 捕获进度订阅回调，供测试手动推进度帧。 */
 let progressHandler: ((p: UpdateProgressInfo) => void) | null = null;
 
-function installOttoMock(over: Partial<Record<string, unknown>> = {}): void {
+function installClawMasterMock(over: Partial<Record<string, unknown>> = {}): void {
   progressHandler = null;
   const mock = {
     appVersion: vi.fn(async () => '1.4.0'),
@@ -59,14 +59,14 @@ function installOttoMock(over: Partial<Record<string, unknown>> = {}): void {
     updateDownload: vi.fn(
       async (): Promise<UpdateDownloadResult> => ({
         ok: true,
-        filePath: '/Users/felix/Downloads/Otto-1.4.1-arm64.dmg',
+        filePath: '/Users/felix/Downloads/ClawMaster-1.4.1-arm64.dmg',
         reused: false,
       }),
     ),
     updateCancel: vi.fn(async () => undefined),
     updateInstall: vi.fn(async () => ({
       ok: true,
-      message: '安装包已打开：完成后请重新启动 Otto。',
+      message: '安装包已打开：完成后请重新启动 ClawMaster。',
     })),
     onUpdateProgress: vi.fn((h: (p: UpdateProgressInfo) => void) => {
       progressHandler = h;
@@ -77,7 +77,7 @@ function installOttoMock(over: Partial<Record<string, unknown>> = {}): void {
     openExternal: vi.fn(async () => undefined),
     ...over,
   };
-  window.otto = mock as unknown as Window['otto'];
+  window.clawmaster = mock as unknown as Window['clawmaster'];
 }
 
 /** 真实 hook + 面板的最小挂载壳。 */
@@ -87,13 +87,13 @@ function Harness(): React.JSX.Element {
 }
 
 beforeEach(() => {
-  installOttoMock();
+  installClawMasterMock();
 });
 
 describe('SoftwareUpdatePanel：有新版 → 下载 → 完成', () => {
   it('完整链路：检查出新版（日志渲染）→ 下载出进度 → 校验通过后可打开安装包', async () => {
     const download = deferred<UpdateDownloadResult>();
-    installOttoMock({ updateDownload: vi.fn(() => download.promise) });
+    installClawMasterMock({ updateDownload: vi.fn(() => download.promise) });
     render(<Harness />);
 
     // 常态：当前版本 + 检查按钮。
@@ -117,7 +117,7 @@ describe('SoftwareUpdatePanel：有新版 → 下载 → 完成', () => {
     await act(async () => {
       download.resolve({
         ok: true,
-        filePath: '/Users/felix/Downloads/Otto-1.4.1-arm64.dmg',
+        filePath: '/Users/felix/Downloads/ClawMaster-1.4.1-arm64.dmg',
         reused: false,
       });
     });
@@ -125,11 +125,11 @@ describe('SoftwareUpdatePanel：有新版 → 下载 → 完成', () => {
     expect(screen.getByText(/自动完成安装并重启/)).toBeTruthy();
 
     fireEvent.click(screen.getByText('立即安装并重启'));
-    expect(await screen.findByText(/完成后请重新启动 Otto/)).toBeTruthy();
+    expect(await screen.findByText(/完成后请重新启动 ClawMaster/)).toBeTruthy();
   });
 
   it('sha256 校验失败：先给应用内重试，再提供发布页作最后兜底', async () => {
-    installOttoMock({
+    installClawMasterMock({
       updateDownload: vi.fn(async (): Promise<UpdateDownloadResult> => ({
         ok: false,
         error: '安装包 sha256 校验不通过（期望 aaaa…，实际 bbbb…），已删除下载文件，请重新下载',
@@ -143,14 +143,14 @@ describe('SoftwareUpdatePanel：有新版 → 下载 → 完成', () => {
     expect(screen.getByText('重试下载')).toBeTruthy();
     fireEvent.click(screen.getByText('手动下载'));
     expect(
-      (window.otto.openExternal as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0],
-    ).toContain('otto-releases/releases/latest');
+      (window.clawmaster.openExternal as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0],
+    ).toContain('claw-releases/releases/latest');
   });
 });
 
 describe('SoftwareUpdatePanel：检查失败 ≠ 已是最新（诚实契约）', () => {
   it('检查失败：诚实显示原因 + 重试，绝不显示「已是最新」', async () => {
-    installOttoMock({
+    installClawMasterMock({
       updateCheck: vi.fn(async (): Promise<UpdateCheckResult> => ({
         status: 'check-failed',
         currentVersion: '1.4.0',
@@ -165,12 +165,12 @@ describe('SoftwareUpdatePanel：检查失败 ≠ 已是最新（诚实契约）'
     expect(screen.queryByText(/已是最新/)).toBeNull();
     fireEvent.click(screen.getByText('前往发布页'));
     expect(
-      (window.otto.openExternal as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0],
-    ).toContain('NSIETeam/otto-new/releases/latest');
+      (window.clawmaster.openExternal as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0],
+    ).toContain('NSIETeam/claw-new/releases/latest');
   });
 
   it('已是最新：明确显示最新版本号，绝不出现失败文案', async () => {
-    installOttoMock({
+    installClawMasterMock({
       updateCheck: vi.fn(async (): Promise<UpdateCheckResult> => ({
         status: 'up-to-date',
         currentVersion: '1.4.0',
@@ -185,7 +185,7 @@ describe('SoftwareUpdatePanel：检查失败 ≠ 已是最新（诚实契约）'
   });
 
   it('清单没有本平台资产：仍报新版但引导发布页手动下载', async () => {
-    installOttoMock({
+    installClawMasterMock({
       updateCheck: vi.fn(async (): Promise<UpdateCheckResult> => ({
         ...AVAILABLE,
         asset: null,
@@ -197,15 +197,15 @@ describe('SoftwareUpdatePanel：检查失败 ≠ 已是最新（诚实契约）'
     expect(screen.queryByText(/下载更新/)).toBeNull();
     fireEvent.click(screen.getByText('打开发布页'));
     expect(
-      (window.otto.openExternal as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0],
-    ).toContain('otto-releases/releases/latest');
+      (window.clawmaster.openExternal as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0],
+    ).toContain('claw-releases/releases/latest');
   });
 });
 
 describe('installHintForFile：按安装包类型给平台指引', () => {
   it('.exe → NSIS 向导指引；.dmg → 拖入应用程序指引；未知 → 通用指引', () => {
-    expect(installHintForFile('C:\\Users\\f\\Downloads\\Otto-Setup.exe')).toContain('静默安装');
-    expect(installHintForFile('/Users/f/Downloads/Otto.dmg')).toContain('自动完成安装');
+    expect(installHintForFile('C:\\Users\\f\\Downloads\\ClawMaster-Setup.exe')).toContain('静默安装');
+    expect(installHintForFile('/Users/f/Downloads/ClawMaster.dmg')).toContain('自动完成安装');
     expect(installHintForFile(null)).toContain('重新启动 ClawMaster');
   });
 });

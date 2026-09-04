@@ -14,7 +14,7 @@ function deferred<T>(): { promise: Promise<T>; resolve(value: T): void } {
 }
 
 beforeEach(() => {
-  Object.assign(window.otto, {
+  Object.assign(window.clawmaster, {
     enterpriseKnowledgeList: vi.fn(async () => []),
     enterpriseKnowledgeRecord: vi.fn(async () => ({ status: 'added', added: true })),
     enterpriseKnowledgeRevise: vi.fn(async () => ({ status: 'updated' })),
@@ -27,12 +27,12 @@ beforeEach(() => {
 
 describe('WorkspaceDialogs', () => {
   it('关闭再打开后，旧范围的企业记忆响应不能覆盖新结果', async () => {
-    const oldRequest = deferred<Awaited<ReturnType<typeof window.otto.enterpriseKnowledgeList>>>();
-    const newRequest = deferred<Awaited<ReturnType<typeof window.otto.enterpriseKnowledgeList>>>();
+    const oldRequest = deferred<Awaited<ReturnType<typeof window.clawmaster.enterpriseKnowledgeList>>>();
+    const newRequest = deferred<Awaited<ReturnType<typeof window.clawmaster.enterpriseKnowledgeList>>>();
     const list = vi.fn()
       .mockReturnValueOnce(oldRequest.promise)
       .mockReturnValueOnce(newRequest.promise);
-    Object.assign(window.otto, { enterpriseKnowledgeList: list });
+    Object.assign(window.clawmaster, { enterpriseKnowledgeList: list });
     const props = { role: 'company_admin' as const, onClose: vi.fn() };
     const view = render(<EnterpriseMemoryDialog open {...props} />);
     view.rerender(<EnterpriseMemoryDialog open={false} {...props} />);
@@ -54,7 +54,7 @@ describe('WorkspaceDialogs', () => {
   });
 
   it('企业记忆保留最近工作成果候选，并按成果来源沉淀', async () => {
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       workLogRecent: vi.fn(async () => [{
         date: '2026-08-27',
         entries: [{
@@ -68,7 +68,7 @@ describe('WorkspaceDialogs', () => {
     await screen.findByText('客户方案定稿');
     fireEvent.click(screen.getByRole('button', { name: '沉淀' }));
 
-    await waitFor(() => expect(window.otto.enterpriseKnowledgeRecord).toHaveBeenCalledWith(
+    await waitFor(() => expect(window.clawmaster.enterpriseKnowledgeRecord).toHaveBeenCalledWith(
       expect.objectContaining({
         sourceType: 'work_result',
         title: '客户方案定稿',
@@ -81,7 +81,7 @@ describe('WorkspaceDialogs', () => {
   });
 
   it('企业知识保留部门、证据、来源和完整记忆沿革', async () => {
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseKnowledgeList: vi.fn(async () => [{
         id: 'knowledge-1', organizationId: 'org-a', sourceId: 'source-1',
         sourceLabel: '项目复盘', sourceType: 'work_result', title: '交付规范',

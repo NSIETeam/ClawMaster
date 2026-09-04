@@ -2,7 +2,7 @@
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
  * 企业 report 算法 + 成本口径单测。
- * 数据安全：绝不污染真实企业库。每个测试用独立临时 OTTO_ENTERPRISE_DIR，
+ * 数据安全：绝不污染真实企业库。每个测试用独立临时 CLAWMASTER_ENTERPRISE_DIR，
  * 并 vi.resetModules() + 动态 import，让 db.ts 的模块级单例每次全新，互不串档。
  */
 
@@ -27,18 +27,18 @@ const prevEnv: Record<string, string | undefined> = {};
 
 // 需要在测试里覆盖/还原的 env（隔离目录 + 估算参数）。
 const ENV_KEYS = [
-  'OTTO_ENTERPRISE_DIR',
-  'OTTO_ESTIMATE_MANUAL_MULT',
-  'OTTO_ESTIMATE_CNY_PER_HOUR',
-  'OTTO_ESTIMATE_LABOR_PER_TOKEN_CAP',
-  'OTTO_ENTERPRISE_USAGE_DAILY_LIMIT',
+  'CLAWMASTER_ENTERPRISE_DIR',
+  'CLAWMASTER_ESTIMATE_MANUAL_MULT',
+  'CLAWMASTER_ESTIMATE_CNY_PER_HOUR',
+  'CLAWMASTER_ESTIMATE_LABOR_PER_TOKEN_CAP',
+  'CLAWMASTER_ENTERPRISE_USAGE_DAILY_LIMIT',
 ] as const;
 
 /** 设隔离目录 + 可选估算 env，然后拿到全新的 db 模块（单例已重置）。 */
 async function freshDb(
   estimateEnv: Record<string, string> = {},
 ): Promise<DbModule> {
-  process.env.OTTO_ENTERPRISE_DIR = tmpDir;
+  process.env.CLAWMASTER_ENTERPRISE_DIR = tmpDir;
   for (const [k, v] of Object.entries(estimateEnv)) process.env[k] = v;
   vi.resetModules();
   return import('./db.js');
@@ -1351,7 +1351,7 @@ describe('企业 Token 用量时间窗口', () => {
   });
 
   it('每账号每日记录数有硬上限，重复消息仍保持幂等且不消耗额外配额', async () => {
-    const db = await freshDb({ OTTO_ENTERPRISE_USAGE_DAILY_LIMIT: '2' });
+    const db = await freshDb({ CLAWMASTER_ENTERPRISE_USAGE_DAILY_LIMIT: '2' });
     const account = db.createAccount({
       username: 'usage-quota',
       password: 'usage-quota-password',
@@ -1556,7 +1556,7 @@ describe('企业成员直聊', () => {
       password: 'charlie-password-123',
       name: 'Charlie',
     });
-    const file = Buffer.from('%PDF-1.7\nOtto enterprise attachment');
+    const file = Buffer.from('%PDF-1.7\nClawMaster enterprise attachment');
 
     const message = db.sendDirectMessage({
       organizationId: db.DEFAULT_ORGANIZATION_ID,
@@ -1715,7 +1715,7 @@ describe('企业成员直聊', () => {
     ).not.toThrow();
   });
 
-  it('A2A 收件箱只返回尚未由当前 Otto 回复的请求', async () => {
+  it('A2A 收件箱只返回尚未由当前 ClawMaster 回复的请求', async () => {
     const db = await freshDb();
     const alice = db.createAccount({
       username: 'atoa-alice',
@@ -1738,8 +1738,8 @@ describe('企业成员直聊', () => {
       db.listPendingAtoaRequests({
         organizationId: db.DEFAULT_ORGANIZATION_ID,
         accountId: bob.id,
-        requestPrefix: 'OTTO_ATOA_REQUEST ',
-        responsePrefix: 'OTTO_ATOA_RESPONSE ',
+        requestPrefix: 'CLAWMASTER_ATOA_REQUEST ',
+        responsePrefix: 'CLAWMASTER_ATOA_RESPONSE ',
       }),
     ).toEqual([
       expect.objectContaining({
@@ -1762,8 +1762,8 @@ describe('企业成员直聊', () => {
       db.listPendingAtoaRequests({
         organizationId: db.DEFAULT_ORGANIZATION_ID,
         accountId: bob.id,
-        requestPrefix: 'OTTO_ATOA_REQUEST ',
-        responsePrefix: 'OTTO_ATOA_RESPONSE ',
+        requestPrefix: 'CLAWMASTER_ATOA_REQUEST ',
+        responsePrefix: 'CLAWMASTER_ATOA_RESPONSE ',
       }),
     ).toEqual([]);
   });
@@ -2524,8 +2524,8 @@ describe('timeSaved 口径：ottoMinutes × (mult − 1)，不双算', () => {
     expect(r.timeSavedHours).toBe(1);
   });
 
-  it('mult 可配：改 OTTO_ESTIMATE_MANUAL_MULT=3 生效，省时 = ottoMin × 2', async () => {
-    const db = await freshDb({ OTTO_ESTIMATE_MANUAL_MULT: '3' });
+  it('mult 可配：改 CLAWMASTER_ESTIMATE_MANUAL_MULT=3 生效，省时 = ottoMin × 2', async () => {
+    const db = await freshDb({ CLAWMASTER_ESTIMATE_MANUAL_MULT: '3' });
     seedOneEmployeeTasks(db, [30, 30]); // ottoMin=60
     const r = db.getReport(30);
     expect(r.assumptions.manualTimeMultiplier).toBe(3);
@@ -2533,8 +2533,8 @@ describe('timeSaved 口径：ottoMinutes × (mult − 1)，不双算', () => {
     expect(r.timeSavedHours).toBe(2);
   });
 
-  it('mult=1 时省时为 0（人工与 Otto 同速，无净节省）', async () => {
-    const db = await freshDb({ OTTO_ESTIMATE_MANUAL_MULT: '1' });
+  it('mult=1 时省时为 0（人工与 ClawMaster 同速，无净节省）', async () => {
+    const db = await freshDb({ CLAWMASTER_ESTIMATE_MANUAL_MULT: '1' });
     seedOneEmployeeTasks(db, [60]);
     const r = db.getReport(30);
     expect(r.timeSavedHours).toBe(0);
@@ -2623,8 +2623,8 @@ describe('P1 修复：laborPerToken 在 cost=0 场景不再爆表', () => {
   it('正常成本区间不封顶，返回真实可解释倍率', async () => {
     // cnyPerHour 调低让 laborSaved 变小，落在封顶线以内。
     const db = await freshDb({
-      OTTO_ESTIMATE_CNY_PER_HOUR: '50',
-      OTTO_ESTIMATE_LABOR_PER_TOKEN_CAP: '50',
+      CLAWMASTER_ESTIMATE_CNY_PER_HOUR: '50',
+      CLAWMASTER_ESTIMATE_LABOR_PER_TOKEN_CAP: '50',
     });
     db.createEmployee({ id: 'e1', name: '张三', department: 'legal' });
     // 耗时 12min、真实 cost 1 元 → laborSaved=(12×1/60)×50=10；10/1=10 ≤ 50，不封顶。
@@ -2639,8 +2639,8 @@ describe('P1 修复：laborPerToken 在 cost=0 场景不再爆表', () => {
     expect(r.laborPerTokenCNY).toBe(10);
   });
 
-  it('cap 可配：OTTO_ESTIMATE_LABOR_PER_TOKEN_CAP 生效', async () => {
-    const db = await freshDb({ OTTO_ESTIMATE_LABOR_PER_TOKEN_CAP: '20' });
+  it('cap 可配：CLAWMASTER_ESTIMATE_LABOR_PER_TOKEN_CAP 生效', async () => {
+    const db = await freshDb({ CLAWMASTER_ESTIMATE_LABOR_PER_TOKEN_CAP: '20' });
     db.createEmployee({ id: 'e1', name: '张三', department: 'legal' });
     // 造一个裸算远超 20 的场景：耗时 600min、cost 0.028 兜底 → laborSaved=(600×1/60)×50=500；500/0.028≈17857 → 封顶 20。
     db.logTask({

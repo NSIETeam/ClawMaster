@@ -31,7 +31,7 @@ function bundle(files: Record<string, string>): string {
 async function tempRoot(): Promise<{ root: string; userDir: string }> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-component-update-'));
   const userDir = path.join(dir, 'otto-user');
-  vi.stubEnv('OTTO_USER_DIR', userDir);
+  vi.stubEnv('CLAWMASTER_USER_DIR', userDir);
   return { root: resolveComponentUpdateRoot(dir), userDir };
 }
 

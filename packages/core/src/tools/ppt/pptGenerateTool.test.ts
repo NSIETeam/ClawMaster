@@ -21,20 +21,20 @@ describe('PptGenerateTool local rendering', () => {
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'otto-ppt-local-'));
-    originalServerUrl = process.env.OTTO_SERVER_URL;
-    originalWebUrl = process.env.OTTO_WEB_URL;
-    delete process.env.OTTO_SERVER_URL;
-    delete process.env.OTTO_WEB_URL;
+    originalServerUrl = process.env.CLAWMASTER_SERVER_URL;
+    originalWebUrl = process.env.CLAWMASTER_WEB_URL;
+    delete process.env.CLAWMASTER_SERVER_URL;
+    delete process.env.CLAWMASTER_WEB_URL;
     PPTOutlineManager.getInstance().clear();
 
   });
 
   afterEach(() => {
     PPTOutlineManager.getInstance().clear();
-    if (originalServerUrl === undefined) delete process.env.OTTO_SERVER_URL;
-    else process.env.OTTO_SERVER_URL = originalServerUrl;
-    if (originalWebUrl === undefined) delete process.env.OTTO_WEB_URL;
-    else process.env.OTTO_WEB_URL = originalWebUrl;
+    if (originalServerUrl === undefined) delete process.env.CLAWMASTER_SERVER_URL;
+    else process.env.CLAWMASTER_SERVER_URL = originalServerUrl;
+    if (originalWebUrl === undefined) delete process.env.CLAWMASTER_WEB_URL;
+    else process.env.CLAWMASTER_WEB_URL = originalWebUrl;
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -70,7 +70,7 @@ describe('PptGenerateTool local rendering', () => {
     expect(zip.file('ppt/slides/slide2.xml')).not.toBeNull();
     expect(result.llmContent).toContain('PPT 已在本地生成');
     expect(result.llmContent).toContain(outputPath);
-    expect(result.llmContent).not.toContain('OTTO_WEB_URL');
+    expect(result.llmContent).not.toContain('CLAWMASTER_WEB_URL');
     expect(result.llmContent).not.toContain('服务端');
     expect(manager.isActive()).toBe(false);
   });
@@ -93,7 +93,7 @@ describe('PptGenerateTool local rendering', () => {
       expect(confirmation.prompt).toContain(outputPath);
       expect(confirmation.prompt).not.toContain('服务端');
       expect(confirmation.prompt).toContain('本机浏览器');
-      expect(confirmation.prompt).not.toContain('OTTO_WEB_URL');
+      expect(confirmation.prompt).not.toContain('CLAWMASTER_WEB_URL');
     }
   });
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import fs from 'node:fs';
@@ -42,13 +42,13 @@ type SqlitePostgresImportEnvironment = NodeJS.ProcessEnv &
   EnterpriseDatabaseTopologyEnvironment &
   NodePostgresEnvironment & {
     NODE_ENV?: string;
-    OTTO_SQLITE_IMPORT_PATH?: string;
-    OTTO_SQLITE_IMPORT_ENCRYPTION?: string;
-    OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED?: string;
-    OTTO_DATABASE_ENCRYPTION_KEY_FILE?: string;
-    OTTO_DATABASE_ENCRYPTION_KEY_ID?: string;
-    OTTO_DATABASE_ENCRYPTION_KEY_READONLY?: string;
-    OTTO_SQLCIPHER_NATIVE_BINDING?: string;
+    CLAWMASTER_SQLITE_IMPORT_PATH?: string;
+    CLAWMASTER_SQLITE_IMPORT_ENCRYPTION?: string;
+    CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED?: string;
+    CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE?: string;
+    CLAWMASTER_DATABASE_ENCRYPTION_KEY_ID?: string;
+    CLAWMASTER_DATABASE_ENCRYPTION_KEY_READONLY?: string;
+    CLAWMASTER_SQLCIPHER_NATIVE_BINDING?: string;
   };
 
 export interface SqlitePostgresImportArguments {
@@ -113,7 +113,7 @@ function openSqliteImportSource(
 ): SqliteImportSourceRuntime {
   const sourceEnvironment: NodeJS.ProcessEnv = {
     ...environment,
-    OTTO_DATABASE_ENCRYPTION: environment.OTTO_SQLITE_IMPORT_ENCRYPTION,
+    CLAWMASTER_DATABASE_ENCRYPTION: environment.CLAWMASTER_SQLITE_IMPORT_ENCRYPTION,
   };
   if (parseSqlCipherRuntimeMode(sourceEnvironment) === 'disabled') {
     const database = new Database(sourcePath, { readOnly: true });
@@ -145,17 +145,17 @@ function maintenanceConfirmed(
   environment: SqlitePostgresImportEnvironment,
 ): boolean {
   return (
-    environment.OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED?.trim().toLowerCase() ===
+    environment.CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED?.trim().toLowerCase() ===
     'true'
   );
 }
 
 export function safeSqlitePostgresImportErrorMessage(
   error: unknown,
-  environment: Pick<SqlitePostgresImportEnvironment, 'OTTO_POSTGRES_URL'>,
+  environment: Pick<SqlitePostgresImportEnvironment, 'CLAWMASTER_POSTGRES_URL'>,
   sourcePath?: string,
 ): string {
-  let message = safePostgresErrorMessage(error, environment.OTTO_POSTGRES_URL);
+  let message = safePostgresErrorMessage(error, environment.CLAWMASTER_POSTGRES_URL);
   if (sourcePath) {
     const sourceName = sourcePath.includes('\\')
       ? path.win32.basename(sourcePath)
@@ -182,14 +182,14 @@ export async function importEnterpriseSqliteToPostgres(input: {
   const options = parseSqlitePostgresImportArguments(input.arguments);
   if (!options.dryRun && !maintenanceConfirmed(input.environment)) {
     throw new Error(
-      'execute requires OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED=true after stopping all SQLite writers',
+      'execute requires CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED=true after stopping all SQLite writers',
     );
   }
   const configuredSource =
-    options.sourcePath ?? input.environment.OTTO_SQLITE_IMPORT_PATH?.trim();
+    options.sourcePath ?? input.environment.CLAWMASTER_SQLITE_IMPORT_PATH?.trim();
   if (!configuredSource) {
     throw new Error(
-      'SQLite import requires --source or OTTO_SQLITE_IMPORT_PATH',
+      'SQLite import requires --source or CLAWMASTER_SQLITE_IMPORT_PATH',
     );
   }
   const sourcePath = path.resolve(configuredSource);
@@ -203,7 +203,7 @@ export async function importEnterpriseSqliteToPostgres(input: {
   });
   if (topology.backend !== 'postgresql') {
     throw new Error(
-      'SQLite import target requires OTTO_ENTERPRISE_DATABASE_BACKEND=postgresql',
+      'SQLite import target requires CLAWMASTER_ENTERPRISE_DATABASE_BACKEND=postgresql',
     );
   }
 
@@ -277,7 +277,7 @@ async function main(): Promise<void> {
   try {
     const options = parseSqlitePostgresImportArguments(process.argv.slice(2));
     sourcePath =
-      options.sourcePath ?? process.env.OTTO_SQLITE_IMPORT_PATH?.trim();
+      options.sourcePath ?? process.env.CLAWMASTER_SQLITE_IMPORT_PATH?.trim();
     await importEnterpriseSqliteToPostgres({
       arguments: process.argv.slice(2),
       environment: process.env,

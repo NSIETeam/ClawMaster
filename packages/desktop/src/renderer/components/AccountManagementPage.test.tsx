@@ -96,7 +96,7 @@ beforeEach(() => {
     configurable: true,
     value: { writeText: clipboardWrite },
   });
-  Object.defineProperty(window, 'otto', {
+  Object.defineProperty(window, 'clawmaster', {
     configurable: true,
     value: {
       enterpriseAccounts: vi.fn(async () => [ADMIN]),
@@ -134,7 +134,7 @@ beforeEach(() => {
           responseData: { score: '4', focus: '网络响应', feedback: '希望加强巡检', submittedBy: '实名员工' },
         }],
       }]),
-    } as unknown as Window['otto'],
+    } as unknown as Window['clawmaster'],
   });
 });
 
@@ -244,7 +244,7 @@ describe('企业引入链接', () => {
       organization: { id: 'org_acme', name: '星河科技' },
       invite: { ...INVITE, id: 'invite_new', code: 'NEW1-2345' },
     }));
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationInviteGet: vi.fn(() => pending.promise),
       enterpriseOrganizationInviteIssue: issue,
     });
@@ -271,14 +271,14 @@ describe('园区内容发布', () => {
     render(<AccountManagementPage currentAccount={ADMIN} onBack={() => undefined} />);
     openManagementSection('产业园端');
 
-    await waitFor(() => expect(window.otto.enterpriseParkView).toHaveBeenCalled());
+    await waitFor(() => expect(window.clawmaster.enterpriseParkView).toHaveBeenCalled());
     expect(screen.queryByRole('region', { name: '园区公告与调查发布' })).toBeNull();
-    expect(window.otto.enterpriseParkServicePush).not.toHaveBeenCalled();
-    expect(window.otto.enterpriseParkSurveyResults).not.toHaveBeenCalled();
+    expect(window.clawmaster.enterpriseParkServicePush).not.toHaveBeenCalled();
+    expect(window.clawmaster.enterpriseParkSurveyResults).not.toHaveBeenCalled();
   });
 
   it('管理员只发布公告和问卷，其他七项服务由用户主动申请', async () => {
-    vi.mocked(window.otto.enterpriseParkView).mockResolvedValueOnce({
+    vi.mocked(window.clawmaster.enterpriseParkView).mockResolvedValueOnce({
       id: 'park_acme',
       name: '星河产业园',
       slug: 'acme-park',
@@ -302,7 +302,7 @@ describe('园区内容发布', () => {
       target: { value: '今天下午 14:00–16:00 停水' },
     });
     fireEvent.click(within(panel).getByRole('button', { name: '发布内容' }));
-    await waitFor(() => expect(window.otto.enterpriseParkServicePush).toHaveBeenCalledWith({
+    await waitFor(() => expect(window.clawmaster.enterpriseParkServicePush).toHaveBeenCalledWith({
       recipientAccountId: 'all',
       serviceId: 'announcement',
       note: '今天下午 14:00–16:00 停水',
@@ -310,7 +310,7 @@ describe('园区内容发布', () => {
   });
 
   it('有中心园区时无障碍文案使用动态品牌', async () => {
-    vi.mocked(window.otto.enterpriseParkView).mockResolvedValueOnce({
+    vi.mocked(window.clawmaster.enterpriseParkView).mockResolvedValueOnce({
       id: 'park_star',
       name: '星火产业园',
       slug: 'star-park',
@@ -335,7 +335,7 @@ describe('企业账号目录', () => {
     const createDepartment = vi.fn(async () => {
       throw new Error('部门名称已存在');
     });
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationDepartmentCreate: createDepartment,
     });
     render(<AccountManagementPage currentAccount={ADMIN} onBack={() => undefined} />);
@@ -353,7 +353,7 @@ describe('企业账号目录', () => {
 
   it('初始目录仍在加载时锁定新增入口，避免晚到 GET 覆盖新建成员', async () => {
     const pending = deferred<Array<typeof ADMIN>>();
-    Object.assign(window.otto, { enterpriseAccounts: vi.fn(() => pending.promise) });
+    Object.assign(window.clawmaster, { enterpriseAccounts: vi.fn(() => pending.promise) });
     render(<AccountManagementPage currentAccount={ADMIN} onBack={() => undefined} />);
 
     const create = screen.getByRole('button', { name: '新增账号' }) as HTMLButtonElement;
@@ -366,10 +366,10 @@ describe('企业账号目录', () => {
   });
 
   it('清理 Electron IPC 技术前缀，只向管理员显示服务端错误', async () => {
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseAccounts: vi.fn(async () => {
         throw new Error(
-          "Error invoking remote method 'otto:enterprise-accounts': Error: 登录已失效，请重新登录",
+          "Error invoking remote method 'clawmaster:enterprise-accounts': Error: 登录已失效，请重新登录",
         );
       }),
     });
@@ -402,7 +402,7 @@ describe('企业账号目录', () => {
       positionTitle: '首席执行官',
       role: '企业管理员',
     };
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseAccounts: vi.fn(async () => [executive, CREATED_ACCOUNT]),
     });
     render(<AccountManagementPage currentAccount={executive} onBack={() => undefined} />);
@@ -423,7 +423,7 @@ describe('企业账号目录', () => {
       positionTitle: '品牌运营',
       department: '市场部',
     };
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseAccounts: vi.fn(async () => [ADMIN, operator]),
     });
     render(<AccountManagementPage currentAccount={ADMIN} onBack={() => undefined} />);
@@ -439,7 +439,7 @@ describe('企业账号目录', () => {
 
   it('新增成员会把头像地址和职位提交到真实账号接口', async () => {
     const create = vi.fn(async (_input) => CREATED_ACCOUNT);
-    Object.assign(window.otto, { enterpriseAccountCreate: create });
+    Object.assign(window.clawmaster, { enterpriseAccountCreate: create });
     render(<AccountManagementPage currentAccount={ADMIN} onBack={() => undefined} />);
 
     fireEvent.click(await readyCreateButton());
@@ -473,7 +473,7 @@ describe('企业账号目录', () => {
       positionTitle: '总经理',
     };
     const update = vi.fn(async (_id, input) => ({ ...existing, ...input }));
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseAccounts: vi.fn(async () => [existing]),
       enterpriseAccountUpdate: update,
     });
@@ -512,7 +512,7 @@ describe('企业账号目录', () => {
       isAdmin: false,
     }));
     const onOrganizationChanged = vi.fn();
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseAccounts: vi.fn(async () => [ADMIN, employee]),
       enterpriseAccountUpdate: update,
     });
@@ -562,7 +562,7 @@ describe('企业账号目录', () => {
       role: '成员',
       isAdmin: false,
     }));
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseAccounts: vi.fn(async () => [ADMIN, employee]),
       enterpriseAccountUpdate: update,
     });
@@ -589,7 +589,7 @@ describe('企业账号目录', () => {
 
   it('CEO 管理中心二次确认后删除其他账号，并立即从成员目录移除', async () => {
     const remove = vi.fn(async (id: string) => ({ id, deleted: true as const }));
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseAccounts: vi.fn(async () => [ADMIN, CREATED_ACCOUNT]),
       enterpriseAccountDelete: remove,
     });
@@ -608,7 +608,7 @@ describe('企业账号目录', () => {
     const create = vi.fn()
       .mockRejectedValueOnce(new Error('账号已存在'))
       .mockResolvedValueOnce(CREATED_ACCOUNT);
-    Object.assign(window.otto, { enterpriseAccountCreate: create });
+    Object.assign(window.clawmaster, { enterpriseAccountCreate: create });
     render(<AccountManagementPage currentAccount={ADMIN} onBack={() => undefined} />);
 
     const trigger = await readyCreateButton();
@@ -629,7 +629,7 @@ describe('企业账号目录', () => {
 
   it('管理员可指定维修工作人员，并保存短信与飞书通知地址', async () => {
     const create = vi.fn(async () => CREATED_ACCOUNT);
-    Object.assign(window.otto, { enterpriseAccountCreate: create });
+    Object.assign(window.clawmaster, { enterpriseAccountCreate: create });
     render(<AccountManagementPage currentAccount={ADMIN} onBack={() => undefined} />);
 
     fireEvent.click(await readyCreateButton());
@@ -668,7 +668,7 @@ describe('企业账号目录', () => {
     const update = vi.fn()
       .mockRejectedValueOnce(new Error('会话暂时不可用'))
       .mockResolvedValueOnce(updated);
-    Object.assign(window.otto, { enterpriseAccountUpdate: update });
+    Object.assign(window.clawmaster, { enterpriseAccountUpdate: update });
     render(<AccountManagementPage currentAccount={ADMIN} onBack={() => undefined} />);
 
     fireEvent.click(await screen.findByRole('button', { name: '编辑 管理员' }));
@@ -697,7 +697,7 @@ describe('账号编辑弹窗', () => {
 
     const dialog = screen.getByRole('dialog', { name: '新增账号' });
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox', { name: '登录账号' })));
-    const background = container.querySelector('.otto-account-page__content');
+    const background = container.querySelector('.claw-account-page__content');
     expect(background?.getAttribute('aria-hidden')).toBe('true');
     expect(background?.hasAttribute('inert')).toBe(true);
 
@@ -718,7 +718,7 @@ describe('账号编辑弹窗', () => {
 
   it('保存期间禁止 X、Escape 和背景点击关闭，完成后才关闭并恢复焦点', async () => {
     const pending = deferred<typeof CREATED_ACCOUNT>();
-    Object.assign(window.otto, { enterpriseAccountCreate: vi.fn(() => pending.promise) });
+    Object.assign(window.clawmaster, { enterpriseAccountCreate: vi.fn(() => pending.promise) });
     render(<AccountManagementPage currentAccount={ADMIN} onBack={() => undefined} />);
 
     const trigger = await readyCreateButton();

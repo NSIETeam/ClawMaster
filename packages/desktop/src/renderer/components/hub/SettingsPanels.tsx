@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -69,7 +69,7 @@ export function PrefsPanel({
 
   useEffect(() => {
     let cancelled = false;
-    void window.otto?.themeGet?.().then((v) => {
+    void window.clawmaster?.themeGet?.().then((v) => {
       if (!cancelled && v) setTheme(v);
     });
     return () => {
@@ -80,7 +80,7 @@ export function PrefsPanel({
   const pickTheme = (v: 'system' | 'light' | 'dark'): void => {
     setTheme(v);
     announceRendererTheme(v);
-    void window.otto?.themeSet?.(v);
+    void window.clawmaster?.themeSet?.(v);
   };
 
   useEffect(() => {
@@ -151,7 +151,7 @@ export function PrefsPanel({
       if (needsThemeReset) {
         setTheme('system');
         announceRendererTheme('system');
-        themeReset = window.otto?.themeSet?.('system');
+        themeReset = window.clawmaster?.themeSet?.('system');
       }
       if (s.agentStyle !== 'default') actions.setSetting('agentStyle', 'default');
       if (s.healthyUse !== true) actions.setSetting('healthyUse', true);
@@ -190,7 +190,7 @@ export function PrefsPanel({
       actions={(
         <button
           type="button"
-          className="otto-hub__btn"
+          className="claw-hub__btn"
           disabled={
             !s ||
             resetStatus === 'pending' ||
@@ -207,15 +207,15 @@ export function PrefsPanel({
         <Empty>正在加载偏好设置…</Empty>
       ) : (
         <>
-        <Card className="otto-prefs-simple">
-          <div className="otto-hub__setting otto-hub__setting--stack">
-            <div className="otto-hub__setting-text">
-              <div className="otto-hub__field-label">界面模式</div>
-              <div className="otto-hub__field-hint">
+        <Card className="claw-prefs-simple">
+          <div className="claw-hub__setting claw-hub__setting--stack">
+            <div className="claw-hub__setting-text">
+              <div className="claw-hub__field-label">界面模式</div>
+              <div className="claw-hub__field-hint">
                 两种界面的功能和数据完全相同，切换后立即生效。
               </div>
             </div>
-            <div className="otto-ui-mode-setting" role="radiogroup" aria-label="界面模式">
+            <div className="claw-ui-mode-setting" role="radiogroup" aria-label="界面模式">
               <button
                 type="button"
                 role="radio"
@@ -238,19 +238,19 @@ export function PrefsPanel({
               </button>
             </div>
           </div>
-          <div className="otto-hub__setting otto-hub__setting--stack">
-            <div className="otto-hub__setting-text">
-              <div className="otto-hub__field-label">外观</div>
-              <div className="otto-hub__field-hint">
+          <div className="claw-hub__setting claw-hub__setting--stack">
+            <div className="claw-hub__setting-text">
+              <div className="claw-hub__field-label">外观</div>
+              <div className="claw-hub__field-hint">
                 选择你看着最舒服的界面。
               </div>
             </div>
-            <div className="otto-hub__chiprow">
+            <div className="claw-hub__chiprow">
               {THEME_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
-                  className={'otto-hub__chip' + (theme === opt.id ? ' is-active' : '')}
+                  className={'claw-hub__chip' + (theme === opt.id ? ' is-active' : '')}
                   onClick={() => pickTheme(opt.id)}
                 >
                   {opt.label}
@@ -259,20 +259,20 @@ export function PrefsPanel({
             </div>
           </div>
 
-          <div className="otto-hub__setting otto-hub__setting--stack">
-            <div className="otto-hub__setting-text">
-              <div className="otto-hub__field-label">希望 ClawMaster 怎么帮你</div>
-              <div className="otto-hub__field-hint">
+          <div className="claw-hub__setting claw-hub__setting--stack">
+            <div className="claw-hub__setting-text">
+              <div className="claw-hub__field-label">希望 ClawMaster 怎么帮你</div>
+              <div className="claw-hub__field-hint">
                 不需要理解模型参数，只选最接近你的习惯。
               </div>
             </div>
-            <div className="otto-prefs-modes">
+            <div className="claw-prefs-modes">
               {SIMPLE_AGENT_STYLES.map((style) => (
                 <button
                   key={style.id}
                   type="button"
                   className={
-                    'otto-hub__chip' + (s.agentStyle === style.id ? ' is-active' : '')
+                    'claw-hub__chip' + (s.agentStyle === style.id ? ' is-active' : '')
                   }
                   onClick={() => actions.setSetting('agentStyle', style.id)}
                 >
@@ -284,20 +284,20 @@ export function PrefsPanel({
           </div>
         </Card>
 
-        <details className="otto-hub__details">
+        <details className="claw-hub__details">
           <summary>更多偏好</summary>
           <Card>
-          <div className="otto-hub__setting otto-hub__setting--stack">
-            <div className="otto-hub__setting-text">
-              <div className="otto-hub__field-label">其他工作风格</div>
-              <div className="otto-hub__field-hint">只有你明确知道自己想要哪种风格时才需要改。</div>
+          <div className="claw-hub__setting claw-hub__setting--stack">
+            <div className="claw-hub__setting-text">
+              <div className="claw-hub__field-label">其他工作风格</div>
+              <div className="claw-hub__field-hint">只有你明确知道自己想要哪种风格时才需要改。</div>
             </div>
-            <div className="otto-hub__chiprow">
+            <div className="claw-hub__chiprow">
               {AGENT_STYLES.filter((style) => !SIMPLE_AGENT_STYLES.some((simple) => simple.id === style.id)).map((style) => (
                 <button
                   key={style.id}
                   type="button"
-                  className={'otto-hub__chip' + (s.agentStyle === style.id ? ' is-active' : '')}
+                  className={'claw-hub__chip' + (s.agentStyle === style.id ? ' is-active' : '')}
                   onClick={() => actions.setSetting('agentStyle', style.id)}
                 >
                   <GeneratedIcon name={style.icon} size={18} />
@@ -307,14 +307,14 @@ export function PrefsPanel({
             </div>
           </div>
 
-          <div className="otto-hub__setting">
-            <div className="otto-hub__setting-text">
-              <div className="otto-hub__field-label">小宠物挂件</div>
-              <div className="otto-hub__field-hint">在右下角显示 ClawMaster 的实时工作状态。</div>
+          <div className="claw-hub__setting">
+            <div className="claw-hub__setting-text">
+              <div className="claw-hub__field-label">小宠物挂件</div>
+              <div className="claw-hub__field-hint">在右下角显示 ClawMaster 的实时工作状态。</div>
             </div>
             <button
               type="button"
-              className={'otto-hub__toggle' + (petWidgetEnabled ? ' is-on' : '')}
+              className={'claw-hub__toggle' + (petWidgetEnabled ? ' is-on' : '')}
               onClick={() => {
                 const next = !petWidgetEnabled;
                 setPetWidgetEnabled(next);
@@ -322,37 +322,37 @@ export function PrefsPanel({
               }}
               aria-pressed={petWidgetEnabled}
             >
-              <span className="otto-hub__toggle-knob" />
+              <span className="claw-hub__toggle-knob" />
               {petWidgetEnabled ? '已开启' : '已关闭'}
             </button>
           </div>
 
-          <div className="otto-hub__setting">
-            <div className="otto-hub__setting-text">
-              <div className="otto-hub__field-label">健康使用提醒</div>
-              <div className="otto-hub__field-hint">深夜/长时间使用时收到善意提醒。</div>
+          <div className="claw-hub__setting">
+            <div className="claw-hub__setting-text">
+              <div className="claw-hub__field-label">健康使用提醒</div>
+              <div className="claw-hub__field-hint">深夜/长时间使用时收到善意提醒。</div>
             </div>
             <button
               type="button"
-              className={'otto-hub__toggle' + (s.healthyUse ? ' is-on' : '')}
+              className={'claw-hub__toggle' + (s.healthyUse ? ' is-on' : '')}
               onClick={() => actions.setSetting('healthyUse', !s.healthyUse)}
               aria-pressed={s.healthyUse}
             >
-              <span className="otto-hub__toggle-knob" />
+              <span className="claw-hub__toggle-knob" />
               {s.healthyUse ? '已开启' : '已关闭'}
             </button>
           </div>
 
-          <div className="otto-hub__setting">
-            <div className="otto-hub__setting-text">
-              <div className="otto-hub__field-label">偏好语言</div>
-              <div className="otto-hub__field-hint">
+          <div className="claw-hub__setting">
+            <div className="claw-hub__setting-text">
+              <div className="claw-hub__field-label">偏好语言</div>
+              <div className="claw-hub__field-hint">
                 影响 ClawMaster 回复所用的语言（留空 = 跟随对话自动判断）。
               </div>
             </div>
-            <div className="otto-hub__inputrow otto-hub__inputrow--compact">
+            <div className="claw-hub__inputrow claw-hub__inputrow--compact">
               <input
-                className="otto-hub__input"
+                className="claw-hub__input"
                 type="text"
                 value={langDraft}
                 placeholder="例如：中文 / English"
@@ -360,7 +360,7 @@ export function PrefsPanel({
               />
               <button
                 type="button"
-                className="otto-hub__btn"
+                className="claw-hub__btn"
                 onClick={() => actions.setSetting('preferredLanguage', langDraft.trim())}
               >
                 保存
@@ -368,24 +368,24 @@ export function PrefsPanel({
             </div>
           </div>
 
-          <div className="otto-hub__setting">
-            <div className="otto-hub__setting-text">
-              <div className="otto-hub__field-label">后台付费分析</div>
-              <div className="otto-hub__field-hint">
+          <div className="claw-hub__setting">
+            <div className="claw-hub__setting-text">
+              <div className="claw-hub__field-label">后台付费分析</div>
+              <div className="claw-hub__field-hint">
                 允许 ClawMaster 在后台使用当前模型分析工作内容，可能产生 API 费用。新安装默认关闭，只有用户明确开启后才允许运行。
               </div>
             </div>
             <button
               type="button"
               aria-label="后台付费分析"
-              className={'otto-hub__toggle' + (s.backgroundModelTasksEnabled ? ' is-on' : '')}
+              className={'claw-hub__toggle' + (s.backgroundModelTasksEnabled ? ' is-on' : '')}
               onClick={() => actions.setSetting(
                 'backgroundModelTasksEnabled',
                 !s.backgroundModelTasksEnabled,
               )}
               aria-pressed={s.backgroundModelTasksEnabled}
             >
-              <span className="otto-hub__toggle-knob" />
+              <span className="claw-hub__toggle-knob" />
               {s.backgroundModelTasksEnabled ? '已开启' : '已关闭'}
             </button>
           </div>
@@ -439,12 +439,12 @@ export function McpPanel({ data }: { data: UseSettingsData }): React.JSX.Element
       desc="管理 Model Context Protocol 服务器，为 ClawMaster 接入外部工具。"
       actions={
         <>
-          <button type="button" className="otto-hub__btn" onClick={actions.refreshMcpServers}>
+          <button type="button" className="claw-hub__btn" onClick={actions.refreshMcpServers}>
             刷新
           </button>
           <button
             type="button"
-            className="otto-hub__btn otto-hub__btn--primary"
+            className="claw-hub__btn claw-hub__btn--primary"
             onClick={() => setOpen((v) => !v)}
           >
             {open ? '取消' : '+ 添加服务器'}
@@ -453,26 +453,26 @@ export function McpPanel({ data }: { data: UseSettingsData }): React.JSX.Element
       }
     >
       {open ? (
-        <div className="otto-hub__addform">
+        <div className="claw-hub__addform">
           <input
-            className="otto-hub__input"
+            className="claw-hub__input"
             placeholder="服务器名（唯一标识）"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
           <input
-            className="otto-hub__input"
+            className="claw-hub__input"
             placeholder="启动命令（stdio，如 npx @my/server）"
             value={command}
             onChange={(e) => setCommand(e.target.value)}
           />
           <input
-            className="otto-hub__input"
+            className="claw-hub__input"
             placeholder="或 HTTP URL（与命令二选一）"
             value={urlField}
             onChange={(e) => setUrlField(e.target.value)}
           />
-          <button type="button" className="otto-hub__btn otto-hub__btn--primary" onClick={submit}>
+          <button type="button" className="claw-hub__btn claw-hub__btn--primary" onClick={submit}>
             确认添加
           </button>
         </div>
@@ -483,16 +483,16 @@ export function McpPanel({ data }: { data: UseSettingsData }): React.JSX.Element
       ) : (
         <Card>
           {state.mcpServers.map((s) => (
-            <div key={s.name} className="otto-hub__item">
+            <div key={s.name} className="claw-hub__item">
               <Dot tone={mcpTone(s.status)} />
-              <span className="otto-hub__row-name">{s.name}</span>
-              <span className="otto-hub__row-detail">
+              <span className="claw-hub__row-name">{s.name}</span>
+              <span className="claw-hub__row-detail">
                 {s.command ?? s.httpUrl ?? s.url ?? ''}
               </span>
-              <span className="otto-hub__row-status">{MCP_STATUS_LABEL[s.status]}</span>
+              <span className="claw-hub__row-status">{MCP_STATUS_LABEL[s.status]}</span>
               <button
                 type="button"
-                className="otto-hub__row-remove"
+                className="claw-hub__row-remove"
                 onClick={() => actions.removeMcpServer(s.name)}
                 aria-label={'移除 ' + s.name}
               >
@@ -516,7 +516,7 @@ export function ExtensionsPanel({ data }: { data: UseSettingsData }): React.JSX.
       title="扩展"
       desc="已安装的扩展包及其版本。"
       actions={
-        <button type="button" className="otto-hub__btn" onClick={actions.refreshExtensions}>
+        <button type="button" className="claw-hub__btn" onClick={actions.refreshExtensions}>
           刷新
         </button>
       }
@@ -526,9 +526,9 @@ export function ExtensionsPanel({ data }: { data: UseSettingsData }): React.JSX.
       ) : (
         <Card>
           {state.extensions.map((ext) => (
-            <div key={ext.name} className="otto-hub__item">
-              <span className="otto-hub__row-name">{ext.name}</span>
-              <span className="otto-hub__row-detail">{ext.path}</span>
+            <div key={ext.name} className="claw-hub__item">
+              <span className="claw-hub__row-name">{ext.name}</span>
+              <span className="claw-hub__row-detail">{ext.path}</span>
               <Badge>v{ext.version}</Badge>
             </div>
           ))}
@@ -566,7 +566,7 @@ export function IdePanel({ data }: { data: UseSettingsData }): React.JSX.Element
       title="IDE 伴生"
       desc="VS Code 伴生插件的连接状态。"
       actions={
-        <button type="button" className="otto-hub__btn" onClick={actions.refreshIdeStatus}>
+        <button type="button" className="claw-hub__btn" onClick={actions.refreshIdeStatus}>
           刷新
         </button>
       }
@@ -575,12 +575,12 @@ export function IdePanel({ data }: { data: UseSettingsData }): React.JSX.Element
         <Empty>正在查询 IDE 伴生状态…</Empty>
       ) : (
         <Card>
-          <div className="otto-hub__item">
+          <div className="claw-hub__item">
             <Dot tone={ideTone(s.status)} />
-            <span className="otto-hub__row-name">
+            <span className="claw-hub__row-name">
               {IDE_STATUS_LABEL[s.status] ?? s.status}
             </span>
-            {s.details ? <span className="otto-hub__row-detail">{s.details}</span> : null}
+            {s.details ? <span className="claw-hub__row-detail">{s.details}</span> : null}
           </div>
         </Card>
       )}

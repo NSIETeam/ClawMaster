@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,7 @@
  * 软件更新服务（main 进程副作用层）。纯逻辑在 update-core.ts，sha256 在
  * update-verify.ts；本文件负责网络、文件、进度推送与安装器拉起。
  *
- * 更新源：可选 OTTO_UPDATE_MANIFEST_URL 企业 HTTPS 镜像，其后是公开仓
+ * 更新源：可选 CLAWMASTER_UPDATE_MANIFEST_URL 企业 HTTPS 镜像，其后是公开仓
  * NSIETeam/otto-new（正式发布）与 Felix201209/otto-releases（旧客户端兼容）：
  *   优先 GET releases/latest/download/latest.json（匿名、跟随重定向、免 API 限流）；
  *   兜底：GET api.github.com/.../releases/latest（主 URL 404/超时时），并优先从
@@ -185,7 +185,7 @@ export class UpdateService {
     const currentVersion = app.getVersion();
     const assetKey = platformAssetKey(process.platform, process.arch);
 
-    // 1) 完整清单源。企业部署可用 OTTO_UPDATE_MANIFEST_URL 指向自己的 HTTPS 镜像；
+    // 1) 完整清单源。企业部署可用 CLAWMASTER_UPDATE_MANIFEST_URL 指向自己的 HTTPS 镜像；
     // 配置非法就忽略，镜像失败/清单不合法继续尝试 GitHub，绝不再硬编码未部署路由。
     const manifestErrors: string[] = [];
     let managedManifestUrl: string | null = null;
@@ -206,7 +206,7 @@ export class UpdateService {
     }
     const manifestUrls = managedManifestUrl
       ? [managedManifestUrl]
-      : resolveManifestUrls(process.env.OTTO_UPDATE_MANIFEST_URL);
+      : resolveManifestUrls(process.env.CLAWMASTER_UPDATE_MANIFEST_URL);
     for (const manifestUrl of manifestUrls) {
       const result = await fetchJsonWithRetry(
         manifestUrl,

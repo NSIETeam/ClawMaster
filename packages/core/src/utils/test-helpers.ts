@@ -1,7 +1,7 @@
 /**
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
- * Test helpers for Otto tool unit tests.
+ * Test helpers for ClawMaster tool unit tests.
  * Provides a shared mock Config factory to eliminate boilerplate.
  *
  * Usage:

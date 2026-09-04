@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -17,7 +17,7 @@ describe('web search runtime', () => {
 
   it('caches normalized queries and expires them after five minutes', () => {
     cacheWebSearchResult(
-      '  Otto   Search ',
+      '  ClawMaster   Search ',
       {
         llmContent: 'result',
         returnDisplay: 'ok',

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,14 +20,14 @@ import { useCallback, useEffect, useReducer, useRef } from 'react';
 import * as transport from '../transport.js';
 import type {
   ToolCallStatus,
-  OttoMessage,
+  ClawMasterMessage,
   SessionSummary,
   ServerToClient,
   ModelInfo,
   MessageSource,
   SlashCommandInfo,
   ToolConfirmationResponsePayload,
-} from 'otto-server';
+} from 'clawmaster-server';
 import { getEnterpriseOrganizationFeatures } from './enterpriseOrganizationFeatures.js';
 
 // ── 状态形状 ──────────────────────────────────────────────────────────────
@@ -36,33 +36,33 @@ export type ConnectionState = 'connecting' | 'connected' | 'disconnected';
 
 /** 图片附件（image_reference part 的 value）——Composer 选图后组进 content 发送。 */
 export type ImageAttachment = Extract<
-  OttoMessage['content'][number],
+  ClawMasterMessage['content'][number],
   { type: 'image_reference' }
 >['value'];
 
 /** 普通文件附件（file_reference part 的 value）。 */
 export type FileAttachment = Extract<
-  OttoMessage['content'][number],
+  ClawMasterMessage['content'][number],
   { type: 'file_reference' }
 >['value'];
 
 /** 用户明确选择的目录引用；只发送规范目录路径，不在 renderer 递归读取。 */
 export type FolderAttachment = Extract<
-  OttoMessage['content'][number],
+  ClawMasterMessage['content'][number],
   { type: 'folder_reference' }
 >['value'];
 
 /** 附件统一类型（图片、文件或目录）。 */
 export type Attachment = ImageAttachment | FileAttachment | FolderAttachment;
 
-export interface OttoState {
+export interface ClawMasterState {
   connection: ConnectionState;
   sessions: Record<string, SessionSummary>;
   /** 列表顺序（按 updatedAt 倒序由 selector 计算）。 */
   sessionIds: string[];
   activeSessionId: string | null;
   /** 每会话消息表。 */
-  messages: Record<string, OttoMessage[]>;
+  messages: Record<string, ClawMasterMessage[]>;
   models: ModelInfo[];
   /**
    * 是否已收到过至少一帧 models_list。首帧到达前 models 恒为空数组，那是"尚未知晓"
@@ -107,7 +107,7 @@ export interface OttoState {
   runtimeActivity?: Extract<ServerToClient, { type: 'runtime_activity' }>['payload'];
 }
 
-const initialState: OttoState = {
+const initialState: ClawMasterState = {
   connection: 'connecting',
   sessions: {},
   sessionIds: [],
@@ -130,7 +130,7 @@ type Action =
   | { kind: 'connection'; value: ConnectionState }
   | { kind: 'frame'; frame: ServerToClient }
   | { kind: 'select'; sessionId: string }
-  | { kind: 'optimistic_user'; message: OttoMessage }
+  | { kind: 'optimistic_user'; message: ClawMasterMessage }
   | { kind: 'system_note'; markdown: string }
   | { kind: 'local_error'; message: string }
   | { kind: 'clear_error' }
@@ -140,9 +140,9 @@ type Action =
   | { kind: 'set_unread'; sessions: string[] };
 
 function upsertSession(
-  state: OttoState,
+  state: ClawMasterState,
   session: SessionSummary,
-): OttoState {
+): ClawMasterState {
   const sessions = { ...state.sessions, [session.sessionId]: session };
   const sessionIds = state.sessionIds.includes(session.sessionId)
     ? state.sessionIds
@@ -165,9 +165,9 @@ function upsertSession(
  * 快照顺序即服务器 listSessions 顺序（已按 updatedAt 倒序），直接沿用。
  */
 function reconcileSessions(
-  state: OttoState,
+  state: ClawMasterState,
   list: SessionSummary[],
-): OttoState {
+): ClawMasterState {
   const sessions: Record<string, SessionSummary> = {};
   const sessionIds: string[] = [];
   for (const s of list) {
@@ -176,7 +176,7 @@ function reconcileSessions(
   }
   const liveIds = new Set(sessionIds);
   // 只保留仍存活会话的消息缓存，随删除会话一并回收，避免内存里留孤儿消息。
-  const messages: Record<string, OttoMessage[]> = {};
+  const messages: Record<string, ClawMasterMessage[]> = {};
   for (const id of sessionIds) {
     if (state.messages[id]) messages[id] = state.messages[id];
   }
@@ -202,9 +202,9 @@ function reconcileSessions(
 }
 
 function appendMessage(
-  state: OttoState,
-  message: OttoMessage,
-): OttoState {
+  state: ClawMasterState,
+  message: ClawMasterMessage,
+): ClawMasterState {
   const list = state.messages[message.sessionId] ?? [];
   // 去重：相同 id 覆盖（流式占位 → 定稿）。
   const idx = list.findIndex((m) => m.id === message.id);
@@ -219,11 +219,11 @@ function appendMessage(
 }
 
 function patchMessage(
-  state: OttoState,
+  state: ClawMasterState,
   sessionId: string,
   messageId: string,
-  patch: (m: OttoMessage) => OttoMessage,
-): OttoState {
+  patch: (m: ClawMasterMessage) => ClawMasterMessage,
+): ClawMasterState {
   const list = state.messages[sessionId];
   if (!list) return state;
   const next = list.map((m) => (m.id === messageId ? patch(m) : m));
@@ -238,7 +238,7 @@ function patchMessage(
  * 会永远停在 isStreaming=true → 派生的 busy 卡死 → 发送键锁在「停止」态，用户再也发不出
  * 下一条（「有时无法继续对话」bug）。带 sessionId 只结算该会话，无则兜底结算全部。
  */
-function settleInFlight(state: OttoState, sessionId?: string): OttoState {
+function settleInFlight(state: ClawMasterState, sessionId?: string): ClawMasterState {
   const ids =
     sessionId != null
       ? state.messages[sessionId]
@@ -288,7 +288,7 @@ function maybeShowChatNotification(
     const preview = text?.trim()
       ? text.trim().slice(0, 180)
       : 'ClawMaster 已完成后台对话。';
-    void window.otto.notificationShow?.({
+    void window.clawmaster.notificationShow?.({
       messageId: `chat-complete:${messageId}`,
       sessionId,
       source: 'local',
@@ -302,7 +302,7 @@ function maybeShowChatNotification(
     const { sessionId, code, message } = frame.payload;
     if (sessionId === activeSessionId) return;
     const session = sessions[sessionId];
-    void window.otto.notificationShow?.({
+    void window.clawmaster.notificationShow?.({
       messageId: `chat-error:${code}:${message}`,
       sessionId,
       source: 'local',
@@ -313,8 +313,8 @@ function maybeShowChatNotification(
 }
 
 function cancelInFlightToolCalls(
-  toolCalls: OttoMessage['associatedToolCalls'],
-): OttoMessage['associatedToolCalls'] {
+  toolCalls: ClawMasterMessage['associatedToolCalls'],
+): ClawMasterMessage['associatedToolCalls'] {
   return toolCalls?.map((toolCall) => {
     if (!isToolCallInFlight(toolCall.status)) return toolCall;
     return {
@@ -335,11 +335,11 @@ function cancelInFlightToolCalls(
 
 /** 回滚仍在等待确认的模型切换；请求已被新选择/确认替代时保持原状态。 */
 function rollbackPendingModelSwitch(
-  state: OttoState,
+  state: ClawMasterState,
   sessionId: string,
   model: string | null,
   message?: string,
-): OttoState {
+): ClawMasterState {
   const pending = state.pendingModelSwitch;
   if (
     !pending ||
@@ -371,7 +371,7 @@ function rollbackPendingModelSwitch(
   };
 }
 
-function reducer(state: OttoState, action: Action): OttoState {
+function reducer(state: ClawMasterState, action: Action): ClawMasterState {
   switch (action.kind) {
     case 'connection':
       return { ...state, connection: action.value };
@@ -460,7 +460,7 @@ function reducer(state: OttoState, action: Action): OttoState {
 }
 
 /** 把一条 ServerToClient 帧 reduce 进状态。 */
-function applyFrame(state: OttoState, frame: ServerToClient): OttoState {
+function applyFrame(state: ClawMasterState, frame: ServerToClient): ClawMasterState {
   switch (frame.type) {
     case 'welcome':
       return state;
@@ -474,7 +474,7 @@ function applyFrame(state: OttoState, frame: ServerToClient): OttoState {
       return upsertSession(state, frame.payload.session);
 
     case 'session_created': {
-      if (frame.payload.session.agentProfileId === 'otto-enterprise-a2a') {
+      if (frame.payload.session.agentProfileId === 'claw-enterprise-a2a') {
         // A2A 由独立 runner 通过 clientRequestId 接管。它是服务端原生临时会话，
         // 不能进入侧栏，也不能清掉用户同时发起的普通新建会话关联状态。
         return state;
@@ -725,9 +725,9 @@ function applyFrame(state: OttoState, frame: ServerToClient): OttoState {
 
 /** 把流式文本增量并进 content 的末尾 text 片段。 */
 function mergeTextDelta(
-  content: OttoMessage['content'],
+  content: ClawMasterMessage['content'],
   delta: string,
-): OttoMessage['content'] {
+): ClawMasterMessage['content'] {
   if (content.length === 0) return [{ type: 'text', value: delta }];
   const last = content[content.length - 1];
   if (last.type === 'text') {
@@ -741,7 +741,7 @@ function mergeTextDelta(
 
 // ── Hook ────────────────────────────────────────────────────────────────
 
-export interface OttoActions {
+export interface ClawMasterActions {
   selectSession(sessionId: string): void;
   createSession(title?: string): void;
   /** 删除会话（不可逆）。发帧后由 server 广播的 sessions_list 快照落地移除。 */
@@ -798,12 +798,12 @@ export interface OttoActions {
   clearError(): void;
 }
 
-export interface UseOttoStore {
-  state: OttoState;
-  actions: OttoActions;
+export interface UseClawMasterStore {
+  state: ClawMasterState;
+  actions: ClawMasterActions;
 }
 
-export interface UseOttoStoreOptions {
+export interface UseClawMasterStoreOptions {
   /** 只有已认证企业账号传入；个人空间保持本地知识但不上传组织。 */
   enterpriseOrganizationId?: string | null;
 }
@@ -813,8 +813,8 @@ let clientMsgSeq = 0;
 function buildUserMessageContent(
   text: string,
   attachments: Attachment[] = [],
-): OttoMessage['content'] {
-  const content: OttoMessage['content'] = [];
+): ClawMasterMessage['content'] {
+  const content: ClawMasterMessage['content'] = [];
   const trimmed = text.trim();
   if (trimmed) content.push({ type: 'text', value: trimmed });
   for (const value of attachments) {
@@ -825,9 +825,9 @@ function buildUserMessageContent(
   return content;
 }
 
-export function useOttoStore(
-  options: UseOttoStoreOptions = {},
-): UseOttoStore {
+export function useClawMasterStore(
+  options: UseClawMasterStoreOptions = {},
+): UseClawMasterStore {
   const [state, dispatch] = useReducer(reducer, initialState);
   const enterpriseOrganizationIdRef = useRef<string | null>(null);
   enterpriseOrganizationIdRef.current = options.enterpriseOrganizationId?.trim() || null;
@@ -857,7 +857,7 @@ export function useOttoStore(
   } | null>(null);
   const profileLaunchRef = useRef(new Map<string, {
     agentProfileId: string;
-    content: OttoMessage['content'];
+    content: ClawMasterMessage['content'];
     source: MessageSource;
     authorizedContext?: string;
     workspacePath?: string;
@@ -892,7 +892,7 @@ export function useOttoStore(
         try {
           // 用量上报是旁路遥测：会话令牌只在 main 进程持有，任何网络/鉴权失败
           // 都必须被吞掉，绝不能反向污染聊天收口或让用户无法继续对话。
-          void window.otto.enterpriseUsageRecord({
+          void window.clawmaster.enterpriseUsageRecord({
             sessionId,
             messageId,
             model: tokenUsage.model
@@ -962,7 +962,7 @@ export function useOttoStore(
             .then((features) => {
               if (!features.knowledge) return;
               for (const entry of observations) {
-                void window.otto.enterpriseKnowledgeRecord({
+                void window.clawmaster.enterpriseKnowledgeRecord({
                   sourceId: `auto:${sourceSessionId}:${entry.fingerprint}`.slice(0, 180),
                   sourceSessionId: entry.sourceSessionId || sourceSessionId,
                   sourceFingerprint: entry.fingerprint,
@@ -1062,31 +1062,31 @@ export function useOttoStore(
   // ── 桌面通知订阅：未读闪烁 + 点击跳转 ──
   useEffect(() => {
     let cancelled = false;
-    const unsubUnread = window.otto.onNotificationUnreadChanged?.((unread) => {
+    const unsubUnread = window.clawmaster.onNotificationUnreadChanged?.((unread) => {
       dispatch({ kind: 'set_unread', sessions: unread });
     }) ?? (() => {});
 
     // renderer 崩溃重载/窗口重建后，main 的未读集合仍在；先拉快照，避免闪烁点丢失。
-    void window.otto.notificationGetUnread?.()
+    void window.clawmaster.notificationGetUnread?.()
       .then((unread) => {
         if (!cancelled) dispatch({ kind: 'set_unread', sessions: unread });
       })
       .catch(() => undefined);
 
-    const unsubClick = window.otto.onNotificationSessionOpen?.((sessionId) => {
+    const unsubClick = window.clawmaster.onNotificationSessionOpen?.((sessionId) => {
       // 企业私聊/A2A/园区通知使用非聊天会话的合成 id；
       // 不能把 activeSessionId 切到一个不存在的本地 server 会话。
       // 企业通知需等真正打开私聊/处理 A2A 后才清未读；点 toast 只聚焦窗口。
       if (sessionId.startsWith('enterprise:')) return;
       if (sessionId.startsWith('park:')) {
-        void window.otto.notificationMarkRead(sessionId);
+        void window.clawmaster.notificationMarkRead(sessionId);
         return;
       }
       dispatch({ kind: 'select', sessionId });
       transport.send({ type: 'subscribe', payload: { sessionId } });
       transport.send({ type: 'get_history', payload: { sessionId } });
       // 点击通知后标记该会话已读
-      void window.otto.notificationMarkRead(sessionId);
+      void window.clawmaster.notificationMarkRead(sessionId);
     }) ?? (() => {});
 
     return () => {
@@ -1123,7 +1123,7 @@ export function useOttoStore(
     if (state.connection !== 'connected') return;
     kickoffRef.current = null;
     const clientMessageId = `c-${Date.now()}-${clientMsgSeq++}`;
-    const content: OttoMessage['content'] = [
+    const content: ClawMasterMessage['content'] = [
       { type: 'text', value: pk.kickoff },
     ];
     // 乐观渲染开场消息（server 回的 message_start 会按 id 对账覆盖）。
@@ -1152,7 +1152,7 @@ export function useOttoStore(
   const selectSession = useCallback((sessionId: string) => {
     dispatch({ kind: 'select', sessionId });
     // 从侧栏直接进入会话也是真正“已读”，不能只在点击系统弹窗时清点。
-    void window.otto.notificationMarkRead?.(sessionId).catch(() => undefined);
+    void window.clawmaster.notificationMarkRead?.(sessionId).catch(() => undefined);
   }, []);
 
   const createSession = useCallback((title?: string) => {
@@ -1392,7 +1392,7 @@ export function useOttoStore(
 // ── selectors ─────────────────────────────────────────────────────────────
 
 /** 全量会话按 updatedAt 倒序（侧栏任务列表与「查看全部对话」检索面板共用）。 */
-export function selectSortedSessions(state: OttoState): SessionSummary[] {
+export function selectSortedSessions(state: ClawMasterState): SessionSummary[] {
   return state.sessionIds
     .map((id) => state.sessions[id])
     .filter((s): s is SessionSummary => Boolean(s))

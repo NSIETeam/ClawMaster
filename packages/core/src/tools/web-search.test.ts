@@ -553,7 +553,7 @@ describe('WebSearchTool', () => {
       const tool = new WebSearchTool(
         makeConfig({
           getSearchProvider: vi.fn().mockReturnValue('gemini'),
-          getOttoClient: () => ({
+          getClawMasterClient: () => ({
             createTemporaryChat: vi
               .fn()
               .mockResolvedValue({ setTools, sendMessage }),

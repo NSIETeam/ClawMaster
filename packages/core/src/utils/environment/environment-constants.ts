@@ -12,7 +12,7 @@
 export const ENVIRONMENT_VARIABLES = {
   // VSCode 相关环境变量
   VSCODE_PID: 'VSCODE_PID',           // VSCode 进程 ID（由 VSCode 设置）
-  VSCODE_PLUGIN: 'VSCODE_PLUGIN',     // Otto 插件标记（由插件设置为 '1'）
+  VSCODE_PLUGIN: 'VSCODE_PLUGIN',     // ClawMaster 插件标记（由插件设置为 '1'）
   VSCODE_APP_ROOT: 'VSCODE_APP_ROOT', // VSCode 应用根路径（由 VSCode 设置）
   TERM_PROGRAM: 'TERM_PROGRAM',       // 终端程序（macOS Terminal 设置为 'Apple_Terminal'）
 

@@ -69,24 +69,24 @@ export function EnterpriseAdministrationPanel({
   const [message, setMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
-    if (!window.otto.enterpriseOrganizationFeaturesGet) return;
+    if (!window.clawmaster.enterpriseOrganizationFeaturesGet) return;
     try {
-      const nextFeatures = await window.otto.enterpriseOrganizationFeaturesGet();
+      const nextFeatures = await window.clawmaster.enterpriseOrganizationFeaturesGet();
       setFeatures(nextFeatures);
       onFeaturesLoaded?.(nextFeatures);
       const nextDepartments = nextFeatures.enterprise_tree
-        ? await window.otto.enterpriseOrganizationDepartments()
+        ? await window.clawmaster.enterpriseOrganizationDepartments()
         : [];
       setDepartments(nextDepartments);
       if (nextFeatures.park_service) {
-        const nextPark = await window.otto.enterpriseParkView();
+        const nextPark = await window.clawmaster.enterpriseParkView();
         setPark(nextPark);
         setParkAddress(nextPark?.tenantAddress ?? '');
         setParkRoomNumber(nextPark?.tenantRoomNumber ?? '');
         if (nextPark?.isAdminOrganization) {
           const [services, people] = await Promise.all([
-            window.otto.enterpriseParkServices(),
-            window.otto.enterpriseParkSpecialists(),
+            window.clawmaster.enterpriseParkServices(),
+            window.clawmaster.enterpriseParkSpecialists(),
           ]);
           setParkServices(services);
           setSpecialists(people);
@@ -137,29 +137,29 @@ export function EnterpriseAdministrationPanel({
 
   return (
     <section
-      className="otto-enterprise-config"
+      className="claw-enterprise-config"
       aria-label="企业组织与园区配置"
       hidden={activeSection === null}
     >
-      <div className="otto-enterprise-config__toolbar">
-        <button type="button" className="otto-enterprise-config__refresh" disabled={busy} onClick={() => void refresh()}>刷新</button>
+      <div className="claw-enterprise-config__toolbar">
+        <button type="button" className="claw-enterprise-config__refresh" disabled={busy} onClick={() => void refresh()}>刷新</button>
       </div>
 
-      {error ? <div className="otto-account-invite__error" role="alert">{error}</div> : null}
-      {message ? <div className="otto-account-invite__success" role="status">{message}</div> : null}
+      {error ? <div className="claw-account-invite__error" role="alert">{error}</div> : null}
+      {message ? <div className="claw-account-invite__success" role="status">{message}</div> : null}
       {!features ? (
-        <div className="otto-enterprise-config__card otto-enterprise-config__empty" role="status">
+        <div className="claw-enterprise-config__card claw-enterprise-config__empty" role="status">
           <h3>正在读取企业配置</h3>
           <p>正在同步企业能力、组织结构和产业园状态…</p>
         </div>
       ) : null}
 
       {features ? (
-        <div className="otto-enterprise-config__card" hidden={sectionHidden('capabilities')}>
+        <div className="claw-enterprise-config__card" hidden={sectionHidden('capabilities')}>
           <h3>企业能力开关</h3><p>开关决定客户端是否展示对应能力；关闭后服务端接口同时 fail closed。</p>
-          <div className="otto-enterprise-config__switches">
+          <div className="claw-enterprise-config__switches">
             {FEATURE_LABELS.map(([key, label]) => (
-              <label key={key} className="otto-enterprise-config__switch">
+              <label key={key} className="claw-enterprise-config__switch">
                 <input
                   type="checkbox"
                   checked={features[key]}
@@ -167,7 +167,7 @@ export function EnterpriseAdministrationPanel({
                   onChange={(event) => {
                     const enabled = event.target.checked;
                     void run(
-                      () => window.otto.enterpriseOrganizationFeaturesUpdate({ [key]: enabled }),
+                      () => window.clawmaster.enterpriseOrganizationFeaturesUpdate({ [key]: enabled }),
                       `${label}已${enabled ? '开启' : '关闭'}`,
                     );
                   }}
@@ -180,32 +180,32 @@ export function EnterpriseAdministrationPanel({
       ) : null}
 
       {features?.enterprise_tree ? (
-        <div className="otto-enterprise-config__card" hidden={sectionHidden('organization')}>
+        <div className="claw-enterprise-config__card" hidden={sectionHidden('organization')}>
           <h3>部门与职位</h3><p>用职位映射权限，避免单独给人手动加权导致权限漂移。</p>
-          <div className="otto-enterprise-config__department-create">
+          <div className="claw-enterprise-config__department-create">
             <label>
               <span>新部门</span>
               <input value={newDepartment} onChange={(event) => setNewDepartment(event.target.value)} placeholder="例如：产业合作部" />
             </label>
             <button className="is-primary" type="button" disabled={busy || !newDepartment.trim()} onClick={() => {
               void run(
-                () => window.otto.enterpriseOrganizationDepartmentCreate(newDepartment.trim()),
+                () => window.clawmaster.enterpriseOrganizationDepartmentCreate(newDepartment.trim()),
                 '部门已创建',
               ).then((saved) => { if (saved) setNewDepartment(''); });
             }}>新增部门</button>
           </div>
-          <div className="otto-enterprise-config__department-list">
+          <div className="claw-enterprise-config__department-list">
             {departments.map((department, departmentIndex) => (
               <section
                 key={department.id}
-                className="otto-enterprise-config__department"
+                className="claw-enterprise-config__department"
                 aria-label={`${department.name}部门设置`}
               >
-                <header className="otto-enterprise-config__department-head">
-                  <span className="otto-enterprise-config__department-index" aria-hidden="true">
+                <header className="claw-enterprise-config__department-head">
+                  <span className="claw-enterprise-config__department-index" aria-hidden="true">
                     {String(departmentIndex + 1).padStart(2, '0')}
                   </span>
-                  <div className="otto-enterprise-config__department-title">
+                  <div className="claw-enterprise-config__department-title">
                     <label htmlFor={`department-${department.id}`}>部门名称</label>
                     <input
                       id={`department-${department.id}`}
@@ -215,11 +215,11 @@ export function EnterpriseAdministrationPanel({
                       {department.memberCount} 名在职成员 · {department.positions.length} 个职位
                     </p>
                   </div>
-                  <div className="otto-enterprise-config__department-actions">
+                  <div className="claw-enterprise-config__department-actions">
                     <button type="button" disabled={busy} onClick={() => {
                   const input = document.getElementById(`department-${department.id}`) as HTMLInputElement | null;
                   void run(
-                    () => window.otto.enterpriseOrganizationDepartmentUpdate(department.id, input?.value.trim() || ''),
+                    () => window.clawmaster.enterpriseOrganizationDepartmentUpdate(department.id, input?.value.trim() || ''),
                     '部门名称已更新',
                   );
                     }}>保存名称</button>
@@ -230,7 +230,7 @@ export function EnterpriseAdministrationPanel({
                       disabled={busy || department.memberCount > 0 || department.positions.length > 0}
                       onClick={() => {
                   void run(
-                    () => window.otto.enterpriseOrganizationDepartmentDelete(department.id),
+                    () => window.clawmaster.enterpriseOrganizationDepartmentDelete(department.id),
                     '空部门已删除',
                   );
                       }}
@@ -238,16 +238,16 @@ export function EnterpriseAdministrationPanel({
                   </div>
                 </header>
 
-                <div className="otto-enterprise-config__positions">
-                  <div className="otto-enterprise-config__positions-head">
+                <div className="claw-enterprise-config__positions">
+                  <div className="claw-enterprise-config__positions-head">
                     <h4>部门职位</h4>
                     <span>职位权限会同步到该职位的所有成员</span>
                   </div>
                   {department.positions.length > 0 ? (
-                    <div className="otto-enterprise-config__position-list">
+                    <div className="claw-enterprise-config__position-list">
                       {department.positions.map((position, positionIndex) => (
-                        <div key={position.id} className="otto-enterprise-config__position">
-                          <span className="otto-enterprise-config__position-index" aria-hidden="true">
+                        <div key={position.id} className="claw-enterprise-config__position">
+                          <span className="claw-enterprise-config__position-index" aria-hidden="true">
                             {positionIndex + 1}
                           </span>
                           <label>
@@ -260,28 +260,28 @@ export function EnterpriseAdministrationPanel({
                               {Object.entries(ROLE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                             </select>
                           </label>
-                          <div className="otto-enterprise-config__position-actions">
+                          <div className="claw-enterprise-config__position-actions">
                             <button type="button" disabled={busy} onClick={() => {
                               const title = (document.getElementById(`position-${position.id}`) as HTMLInputElement | null)?.value.trim();
                               const roleMapping = (document.getElementById(`position-role-${position.id}`) as HTMLSelectElement | null)?.value as EnterprisePositionRoleMapping;
                               void run(
-                                () => window.otto.enterpriseOrganizationPositionUpdate(position.id, { title, roleMapping }),
+                                () => window.clawmaster.enterpriseOrganizationPositionUpdate(position.id, { title, roleMapping }),
                                 '职位与权限映射已更新',
                               );
                             }}>保存职位</button>
                             <button className="is-danger" type="button" disabled={busy} title="仅空职位可以删除" onClick={() => {
-                              void run(() => window.otto.enterpriseOrganizationPositionDelete(position.id), '空职位已删除');
+                              void run(() => window.clawmaster.enterpriseOrganizationPositionDelete(position.id), '空职位已删除');
                             }}>删除</button>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="otto-enterprise-config__positions-empty">这个部门还没有职位，请在下方创建第一个职位。</p>
+                    <p className="claw-enterprise-config__positions-empty">这个部门还没有职位，请在下方创建第一个职位。</p>
                   )}
 
                   <form
-                    className="otto-enterprise-config__position-create"
+                    className="claw-enterprise-config__position-create"
                     aria-label={`为${department.name}新增职位`}
                     onSubmit={(event) => {
                       event.preventDefault();
@@ -290,7 +290,7 @@ export function EnterpriseAdministrationPanel({
                       const title = String(data.get('title') ?? '').trim();
                       const roleMapping = String(data.get('roleMapping') ?? 'member') as EnterprisePositionRoleMapping;
                       if (!title) return;
-                      void run(() => window.otto.enterpriseOrganizationPositionCreate({
+                      void run(() => window.clawmaster.enterpriseOrganizationPositionCreate({
                         departmentId: department.id,
                         title,
                         roleMapping,
@@ -313,54 +313,54 @@ export function EnterpriseAdministrationPanel({
               </section>
             ))}
             {departments.length === 0 ? (
-              <p className="otto-enterprise-config__positions-empty">暂时没有部门，请先创建一个部门。</p>
+              <p className="claw-enterprise-config__positions-empty">暂时没有部门，请先创建一个部门。</p>
             ) : null}
           </div>
         </div>
       ) : null}
 
       {features && !features.enterprise_tree ? (
-        <div className="otto-enterprise-config__card otto-enterprise-config__empty" hidden={sectionHidden('organization')}>
+        <div className="claw-enterprise-config__card claw-enterprise-config__empty" hidden={sectionHidden('organization')}>
           <h3>组织结构尚未开启</h3>
           <p>请前往“企业能力”开启企业组织树，然后再创建部门、职位和权限映射。</p>
         </div>
       ) : null}
 
       {features?.park_service ? (
-        <div className="otto-enterprise-config__card" hidden={sectionHidden('park')}>
+        <div className="claw-enterprise-config__card" hidden={sectionHidden('park')}>
           <h3>产业园配置</h3><p>产业园管理方可以签发邀请码邀请其他企业入驻；普通企业只能凭有效邀请码加入。</p>
           {park ? (
             <>
-              <div className="otto-enterprise-config__park-state"><div><strong>{park.brandName}</strong><span>{park.name}</span></div><b>{park.isAdminOrganization ? '产业园管理方' : '入驻企业'}</b></div>
+              <div className="claw-enterprise-config__park-state"><div><strong>{park.brandName}</strong><span>{park.name}</span></div><b>{park.isAdminOrganization ? '产业园管理方' : '入驻企业'}</b></div>
               {park.isAdminOrganization ? (
                 <>
                   <button type="button" disabled={busy} onClick={() => {
                     void run(async () => {
-                      const invite = await window.otto.enterpriseParkInviteIssue(null);
+                      const invite = await window.clawmaster.enterpriseParkInviteIssue(null);
                       setParkInvite(invite);
                     }, '产业园邀请码已生成');
                   }}>生成入驻企业邀请码</button>
-                  {parkInvite ? <p className="otto-enterprise-config__invite">入驻邀请码：<strong>{parkInvite.code}</strong><span>7 天有效，已使用 {parkInvite.usedCount} 次</span></p> : null}
+                  {parkInvite ? <p className="claw-enterprise-config__invite">入驻邀请码：<strong>{parkInvite.code}</strong><span>7 天有效，已使用 {parkInvite.usedCount} 次</span></p> : null}
                   {parkServices.map((service) => {
                     const assigned = specialists.filter((item) => item.serviceId === service.id);
                     const assignedIds = new Set(assigned.map((item) => item.accountId));
                     const availableAccounts = activeAccounts.filter((account) => !assignedIds.has(account.id));
                     const selectedAccountId = specialistSelections[service.id] || '';
                     return (
-                      <div key={service.id} className="otto-enterprise-config__service">
-                        <div className="otto-enterprise-config__service-head">
+                      <div key={service.id} className="claw-enterprise-config__service">
+                        <div className="claw-enterprise-config__service-head">
                           <div><strong>{service.name}</strong><span>{assigned.length ? `${assigned.length} 名服务专员` : '未指定时投递产业园管理员'}</span></div>
-                          <label className="otto-enterprise-config__service-toggle">
+                          <label className="claw-enterprise-config__service-toggle">
                             <span>{service.enabled ? '已启用' : '已停用'}</span>
                             <input type="checkbox" checked={service.enabled} disabled={busy} onChange={(event) => {
-                              void run(() => window.otto.enterpriseParkServiceUpdate({
+                              void run(() => window.clawmaster.enterpriseParkServiceUpdate({
                                 serviceId: service.id,
                                 enabled: event.target.checked,
                               }), `${service.name}已${event.target.checked ? '启用' : '停用'}`);
                             }} />
                           </label>
                         </div>
-                        <div className="otto-enterprise-config__specialist-picker">
+                        <div className="claw-enterprise-config__specialist-picker">
                           <label>
                             <span>添加服务专员</span>
                             <select
@@ -381,7 +381,7 @@ export function EnterpriseAdministrationPanel({
                             disabled={busy || !service.enabled || !selectedAccountId}
                             onClick={() => {
                               void run(
-                                () => window.otto.enterpriseParkSpecialistSet(service.id, selectedAccountId),
+                                () => window.clawmaster.enterpriseParkSpecialistSet(service.id, selectedAccountId),
                                 '服务专员已添加',
                               ).then((saved) => {
                                 if (saved) setSpecialistSelections((current) => ({ ...current, [service.id]: '' }));
@@ -390,9 +390,9 @@ export function EnterpriseAdministrationPanel({
                           >添加</button>
                         </div>
                         {assigned.length ? (
-                          <div className="otto-enterprise-config__specialists" aria-label={`${service.name}已分配专员`}>
+                          <div className="claw-enterprise-config__specialists" aria-label={`${service.name}已分配专员`}>
                             {assigned.map((specialist) => (
-                              <span key={specialist.accountId} className="otto-enterprise-config__specialist">
+                              <span key={specialist.accountId} className="claw-enterprise-config__specialist">
                                 <b>{specialist.name}</b>
                                 <button
                                   type="button"
@@ -400,7 +400,7 @@ export function EnterpriseAdministrationPanel({
                                   disabled={busy}
                                   onClick={() => {
                                     void run(
-                                      () => window.otto.enterpriseParkSpecialistRemove(service.id, specialist.accountId),
+                                      () => window.clawmaster.enterpriseParkSpecialistRemove(service.id, specialist.accountId),
                                       '服务专员已移除',
                                     );
                                   }}
@@ -414,11 +414,11 @@ export function EnterpriseAdministrationPanel({
                   })}
                 </>
               ) : (
-                <div className="otto-account-invite__controls">
+                <div className="claw-account-invite__controls">
                   <label>企业地址<input value={parkAddress} onChange={(event) => setParkAddress(event.target.value)} maxLength={160} placeholder="例如：科技大厦 A 座" /></label>
                   <label>门牌/房间号<input value={parkRoomNumber} onChange={(event) => setParkRoomNumber(event.target.value)} maxLength={40} placeholder="例如：1203 室" /></label>
                   <button type="button" disabled={busy || !parkAddress.trim() || !parkRoomNumber.trim()} onClick={() => {
-                    void run(() => window.otto.enterpriseParkProfileUpdate({
+                    void run(() => window.clawmaster.enterpriseParkProfileUpdate({
                       address: parkAddress.trim(),
                       roomNumber: parkRoomNumber.trim(),
                     }), '企业入驻资料已更新');
@@ -428,26 +428,26 @@ export function EnterpriseAdministrationPanel({
             </>
           ) : (
             <>
-              <div className="otto-account-invite__controls">
+              <div className="claw-account-invite__controls">
                 <label>产业园邀请码<input value={parkInviteCode} onChange={(event) => setParkInviteCode(event.target.value)} placeholder="Aa3B-k9Pq-Z7xY" /></label>
                 <label>企业地址<input value={parkAddress} onChange={(event) => setParkAddress(event.target.value)} maxLength={160} placeholder="例如：科技大厦 A 座" /></label>
                 <label>门牌/房间号<input value={parkRoomNumber} onChange={(event) => setParkRoomNumber(event.target.value)} maxLength={40} placeholder="例如：1203 室" /></label>
                 <button type="button" disabled={busy || !parkInviteCode.trim() || !parkAddress.trim() || !parkRoomNumber.trim()} onClick={() => {
-                  void run(() => window.otto.enterpriseParkJoin({
+                  void run(() => window.clawmaster.enterpriseParkJoin({
                     inviteCode: parkInviteCode.trim(),
                     address: parkAddress.trim(),
                     roomNumber: parkRoomNumber.trim(),
                   }), '整个企业已加入产业园');
                 }}>作为入驻企业加入</button>
               </div>
-              <p className="otto-enterprise-config__hint">创建产业园端需要平台管理员在多企业管理页面完成认证。普通企业管理员填写邀请码、企业地址和门牌号后，整个企业加入已有产业园。</p>
+              <p className="claw-enterprise-config__hint">创建产业园端需要平台管理员在多企业管理页面完成认证。普通企业管理员填写邀请码、企业地址和门牌号后，整个企业加入已有产业园。</p>
             </>
           )}
         </div>
       ) : null}
 
       {features && !features.park_service ? (
-        <div className="otto-enterprise-config__card otto-enterprise-config__empty" hidden={sectionHidden('park')}>
+        <div className="claw-enterprise-config__card claw-enterprise-config__empty" hidden={sectionHidden('park')}>
           <h3>产业园端尚未开启</h3>
           <p>请前往“企业能力”开启园区服务，再配置入驻信息、服务专员和园区内容。</p>
         </div>

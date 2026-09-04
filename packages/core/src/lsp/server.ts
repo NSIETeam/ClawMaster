@@ -218,7 +218,7 @@ const Gopls = (projectRoot: string): LSPServerInfo => ({
   async spawn(root: string) {
     // Prefer user-provided path, then PATH, finally install via Go toolchain.
     // Note: golang/tools GitHub releases often ship no prebuilt assets.
-    const envPath = process.env.OTTO_GOPLS_PATH;
+    const envPath = process.env.CLAWMASTER_GOPLS_PATH;
     if (envPath && fs.existsSync(envPath)) {
       return { process: spawn(envPath, [], { cwd: root }) };
     }

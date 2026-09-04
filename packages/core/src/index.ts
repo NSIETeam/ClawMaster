@@ -5,7 +5,7 @@
  */
 
 /**
- * Otto Core — the runtime kernel and shared library.
+ * ClawMaster Core — the runtime kernel and shared library.
  *
  * ## Kernel Boundary
  *
@@ -16,7 +16,7 @@
  * - Kernel files MUST NOT import from `react`, `ink`, `electron`, `../ui/`, `../../desktop/`, `../../cli/`, `../../server/`, `../ide/`, or `../lsp/`
  * - The boundary is enforced by {@link ./core/kernelBoundary.test.ts | kernelBoundary.test.ts}
  *
- * @module otto-core
+ * @module clawmaster-core
  */
 
 // Export config
@@ -45,14 +45,14 @@ export * from './types/customModel.js';
 export * from './core/client.js';
 export * from './core/contentGenerator.js';
 export * from './core/customModelProviderContract.js';
-export * from './core/ottoChat.js';
+export * from './core/clawmasterChat.js';
 export * from './core/logger.js';
 export * from './core/prompts.js';
 export * from './core/tokenLimits.js';
 export * from './core/turn.js';
 export * from './core/turnCheckpoint.js';
 export * from './core/invalidStreamError.js';
-export * from './core/ottoRequest.js';
+export * from './core/clawmasterRequest.js';
 export * from './core/coreToolScheduler.js';
 export * from './core/nonInteractiveToolExecutor.js';
 export * from './tools/task.js';
@@ -78,8 +78,8 @@ export * from './core/workflowRegistry.js';
 export * from './a2a/atoaProtocol.js';
 
 export * from './code_assist/codeAssist.js';
-// clearCachedCredentialFile removed with OAuth2 - no longer needed for Otto custom-model auth
-// OAuth2 module removed - only Otto custom-model authentication supported
+// clearCachedCredentialFile removed with OAuth2 - no longer needed for ClawMaster custom-model auth
+// OAuth2 module removed - only ClawMaster custom-model authentication supported
 export * from './code_assist/server.js';
 export * from './code_assist/types.js';
 export * from './code_assist/inlineCompletion.js';
@@ -120,7 +120,7 @@ export * from './utils/environment/index.js';
 export * from './auth/authenticatedHttpClient.js';
 export * from './auth/authNavigator.js';
 export * from './auth/login/authServer.js';
-export * from './auth/login/ottoAuth.js';
+export * from './auth/login/clawmasterAuth.js';
 export * from './auth/login/templates/index.js';
 // Explicitly export AuthServer class
 export { AuthServer } from './auth/login/authServer.js';
@@ -234,7 +234,7 @@ export * from './tools/ppt/index.js';
 
 // Session 处理
 export {
-  OttoSessionManager,
+  ClawMasterSessionManager,
   getSessionManager,
 } from './sessions/index.js';
 export type {
@@ -274,7 +274,7 @@ export {
   getAutoMemoryEngine,
 } from './memory/autoMerge.js';
 
-// Otto Enterprise 能力工具
+// ClawMaster Enterprise 能力工具
 export * from './tools/desktop-automation.js';
 export * from './tools/convert-document.js';
 export * from './tools/generate-document.js';

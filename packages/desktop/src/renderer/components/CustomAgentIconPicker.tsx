@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useEffect, useState } from 'react';
@@ -51,10 +51,10 @@ export function CustomAgentIconPicker({
   };
 
   return (
-    <div className={`otto-custom-agent-icon-picker${open ? ' is-open' : ''}`}>
+    <div className={`claw-custom-agent-icon-picker${open ? ' is-open' : ''}`}>
       <button
         type="button"
-        className="otto-custom-agent-icon-picker__trigger"
+        className="claw-custom-agent-icon-picker__trigger"
         aria-label={triggerLabel}
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
@@ -63,9 +63,9 @@ export function CustomAgentIconPicker({
         <span>{value ? '更换图标' : '选择图标'}</span>
       </button>
       {open ? (
-        <section className="otto-custom-agent-icon-picker__panel" aria-label="模块图标选择器">
-          <div className="otto-custom-agent-icon-picker__header">
-            <div className="otto-custom-agent-icon-picker__tabs" role="tablist" aria-label="图标来源">
+        <section className="claw-custom-agent-icon-picker__panel" aria-label="模块图标选择器">
+          <div className="claw-custom-agent-icon-picker__header">
+            <div className="claw-custom-agent-icon-picker__tabs" role="tablist" aria-label="图标来源">
               <button
                 type="button"
                 role="tab"
@@ -85,7 +85,7 @@ export function CustomAgentIconPicker({
             </div>
             <button
               type="button"
-              className="otto-custom-agent-icon-picker__close"
+              className="claw-custom-agent-icon-picker__close"
               aria-label="关闭图标选择器"
               onClick={() => setOpen(false)}
             >
@@ -93,7 +93,7 @@ export function CustomAgentIconPicker({
             </button>
           </div>
           {tab === 'preset' ? (
-            <div className="otto-custom-agent-icon-picker__grid">
+            <div className="claw-custom-agent-icon-picker__grid">
               {CUSTOM_AGENT_PRESET_ICONS.map((item) => {
                 const selected = value?.kind === 'preset' && value.name === item.id;
                 return (
@@ -114,7 +114,7 @@ export function CustomAgentIconPicker({
               })}
             </div>
           ) : (
-            <div className="otto-custom-agent-icon-picker__upload">
+            <div className="claw-custom-agent-icon-picker__upload">
               <label>
                 <span>{busy ? '正在处理图片…' : '选择本地图片'}</span>
                 <input
@@ -141,7 +141,7 @@ export function CustomAgentIconPicker({
               <p>支持 PNG、JPEG、WebP，最大 5MB；图片会自动居中裁切并压缩。</p>
             </div>
           )}
-          {error ? <p role="alert" className="otto-workspace-dialog__error">{error}</p> : null}
+          {error ? <p role="alert" className="claw-workspace-dialog__error">{error}</p> : null}
         </section>
       ) : null}
     </div>

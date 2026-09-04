@@ -33,7 +33,7 @@ describe('SkillContextInjector', () => {
     vi.spyOn(os, 'homedir').mockReturnValue(testRoot);
 
     // Mock SkillsPaths
-    vi.spyOn(SkillsPaths, 'OTTO_HOME', 'get').mockReturnValue(testRoot);
+    vi.spyOn(SkillsPaths, 'CLAWMASTER_HOME', 'get').mockReturnValue(testRoot);
     vi.spyOn(SkillsPaths, 'SKILLS_ROOT', 'get').mockReturnValue(
       path.join(testRoot, 'skills'),
     );

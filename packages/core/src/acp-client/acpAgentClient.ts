@@ -5,7 +5,7 @@
  */
 
 /**
- * Otto as an ACP *client* (orchestrator): spawns an external ACP-speaking
+ * ClawMaster as an ACP *client* (orchestrator): spawns an external ACP-speaking
  * coding agent (e.g. Claude Code via the `claude-code-acp` bridge) over stdio,
  * runs a single delegated task, streams its progress back through an `onUpdate`
  * callback, and returns the agent's final answer.
@@ -821,7 +821,7 @@ function launchGuidance(rawMessage: string, command: string, label: string): str
       `on this machine, and that "${command}" is available on PATH. ` +
       `ClawMaster drives ${label} via the @agentclientprotocol/claude-agent-acp bridge ` +
       `(run on demand with npx); override the command with the ` +
-      `OTTO_CLAUDE_CODE_ACP_CMD environment variable if needed.`
+      `CLAWMASTER_CLAUDE_CODE_ACP_CMD environment variable if needed.`
     );
   }
   return rawMessage;

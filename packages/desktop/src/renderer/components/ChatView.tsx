@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -15,12 +15,12 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import type {
-  OttoMessage,
+  ClawMasterMessage,
   SessionSummary,
   ModelInfo,
   MessageSource,
-} from 'otto-server';
-import type { Attachment } from '../state/useOttoStore.js';
+} from 'clawmaster-server';
+import type { Attachment } from '../state/useClawMasterStore.js';
 import { Message } from './Message.js';
 import type { RespondQuestionFn } from './ToolCalls.js';
 import {
@@ -31,7 +31,7 @@ import {
 import type { SlashCommand } from './SlashCommands.js';
 import { ClawMasterCrown, IconArrowDown, IconPanelRight } from './icons.js';
 
-import { OttoPetStage } from './OttoPetStage.js';
+import { ClawMasterPetStage } from './ClawMasterPetStage.js';
 import {
   PET_WIDGET_PREFERENCE_EVENT,
   readPetWidgetEnabled,
@@ -48,7 +48,7 @@ const EXAMPLE_PROMPTS = [
 
 interface ChatViewProps {
   session: SessionSummary | null;
-  messages: OttoMessage[];
+  messages: ClawMasterMessage[];
   models: ModelInfo[];
   currentModel: string | null;
   busy: boolean;
@@ -216,7 +216,7 @@ export function ChatView({
     void navigator.clipboard?.writeText(text);
   };
 
-  // 斜杠命令 `/copy`（对齐 CLI）：复制最近一条 Otto 回复的纯文本。
+  // 斜杠命令 `/copy`（对齐 CLI）：复制最近一条 ClawMaster 回复的纯文本。
   // 无可复制内容时静默（面板描述已说明语义，空会话点它没有副作用）。
   const copyLastReply = () => {
     const last = [...messages].reverse().find((m) => m.role === 'assistant');
@@ -236,24 +236,24 @@ export function ChatView({
   // server 据会话归属（feishuChatId）决定回推飞书。
   const sendSource: MessageSource = 'local';
   return (
-    <section className="otto-main">
+    <section className="claw-main">
       <header
-        className={`otto-main__topbar${
-          scrolled ? ' otto-main__topbar--scrolled' : ''
+        className={`claw-main__topbar${
+          scrolled ? ' claw-main__topbar--scrolled' : ''
         }`}
       >
-        <span className="otto-main__title">
+        <span className="claw-main__title">
           {session?.title ?? 'ClawMaster'}
         </span>
 
         {session?.source === 'feishu' ? (
-          <span className="otto-main__sync">飞书 · 实时同步</span>
+          <span className="claw-main__sync">飞书 · 实时同步</span>
         ) : null}
 
         {onToggleRightPanel ? (
           <button
             type="button"
-            className="otto-main__panel-toggle"
+            className="claw-main__panel-toggle"
             aria-label={rightPanelCollapsed ? '展开右侧栏' : '折叠右侧栏'}
             aria-pressed={!rightPanelCollapsed}
             title={rightPanelCollapsed ? '展开右侧栏' : '折叠右侧栏'}
@@ -264,8 +264,8 @@ export function ChatView({
         ) : null}
       </header>
 
-      <div className="otto-thread" ref={threadRef} onScroll={onThreadScroll}>
-        <div className="otto-thread__inner">
+      <div className="claw-thread" ref={threadRef} onScroll={onThreadScroll}>
+        <div className="claw-thread__inner">
           {!session ? (
             <EmptyState />
           ) : messages.length === 0 ? (
@@ -288,7 +288,7 @@ export function ChatView({
       {showJump ? (
         <button
           type="button"
-          className="otto-jump"
+          className="claw-jump"
           onClick={jumpToBottom}
           aria-label="滚动到最新消息"
         >
@@ -301,7 +301,7 @@ export function ChatView({
 
 
       {petWidgetEnabled ? (
-        <OttoPetStage
+        <ClawMasterPetStage
           variant="widget"
           running={busy}
           workLabel={busy ? '正在处理当前对话' : session ? '等待你的下一项工作' : '准备开始新的对话'}
@@ -351,9 +351,9 @@ export function ChatView({
 
 function EmptyState(): React.JSX.Element {
   return (
-    <div className="otto-empty">
-      <ClawMasterCrown size={56} className="otto-empty__brand-mark" />
-      <div className="otto-empty__title">选择左侧对话，或新建一个</div>
+    <div className="claw-empty">
+      <ClawMasterCrown size={56} className="claw-empty__brand-mark" />
+      <div className="claw-empty__title">选择左侧对话，或新建一个</div>
       <div>所有任务和对话都保存在这台电脑上</div>
     </div>
   );
@@ -365,16 +365,16 @@ function EmptyConversation({
   onPick: (text: string) => void;
 }): React.JSX.Element {
   return (
-    <div className="otto-empty">
-      <ClawMasterCrown size={48} className="otto-empty__brand-mark" />
-      <div className="otto-empty__title">给 ClawMaster 发送第一条消息</div>
+    <div className="claw-empty">
+      <ClawMasterCrown size={48} className="claw-empty__brand-mark" />
+      <div className="claw-empty__title">给 ClawMaster 发送第一条消息</div>
       <div>试试这些开头，或直接输入你的问题</div>
-      <div className="otto-empty__prompts">
+      <div className="claw-empty__prompts">
         {EXAMPLE_PROMPTS.map((p) => (
           <button
             key={p}
             type="button"
-            className="otto-prompt-chip"
+            className="claw-prompt-chip"
             onClick={() => onPick(p)}
           >
             {p}

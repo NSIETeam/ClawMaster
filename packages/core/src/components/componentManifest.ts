@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type OttoComponentKind =
+export type ClawMasterComponentKind =
   | 'tool'
   | 'connector'
   | 'runtime'
@@ -12,9 +12,9 @@ export type OttoComponentKind =
   | 'theme'
   | 'gui-shell';
 
-export type OttoComponentUpdateOwner = 'kernel' | 'organization' | 'vendor';
+export type ClawMasterComponentUpdateOwner = 'kernel' | 'organization' | 'vendor';
 
-export interface OttoComponentEntrypoints {
+export interface ClawMasterComponentEntrypoints {
   tools?: string[];
   mcpServers?: string[];
   desktopRoutes?: string[];
@@ -23,14 +23,14 @@ export interface OttoComponentEntrypoints {
   runtimeBins?: string[];
 }
 
-export interface OttoComponentManifest {
+export interface ClawMasterComponentManifest {
   manifestVersion: 1;
   id: string;
   displayName: string;
   version: string;
-  kind: OttoComponentKind;
-  updateOwner: OttoComponentUpdateOwner;
-  entrypoints: OttoComponentEntrypoints;
+  kind: ClawMasterComponentKind;
+  updateOwner: ClawMasterComponentUpdateOwner;
+  entrypoints: ClawMasterComponentEntrypoints;
   permissions?: string[];
   description?: string;
 }
@@ -106,11 +106,11 @@ export function validateComponentManifest(value: unknown): ComponentManifestVali
     errors.push('version must be semantic version x.y.z');
   }
 
-  const kinds: OttoComponentKind[] = ['tool', 'connector', 'runtime', 'agent-profile', 'theme', 'gui-shell'];
-  if (!kinds.includes(value.kind as OttoComponentKind)) errors.push(`kind must be one of: ${kinds.join(', ')}`);
+  const kinds: ClawMasterComponentKind[] = ['tool', 'connector', 'runtime', 'agent-profile', 'theme', 'gui-shell'];
+  if (!kinds.includes(value.kind as ClawMasterComponentKind)) errors.push(`kind must be one of: ${kinds.join(', ')}`);
 
-  const owners: OttoComponentUpdateOwner[] = ['kernel', 'organization', 'vendor'];
-  if (!owners.includes(value.updateOwner as OttoComponentUpdateOwner)) {
+  const owners: ClawMasterComponentUpdateOwner[] = ['kernel', 'organization', 'vendor'];
+  if (!owners.includes(value.updateOwner as ClawMasterComponentUpdateOwner)) {
     errors.push(`updateOwner must be one of: ${owners.join(', ')}`);
   }
 

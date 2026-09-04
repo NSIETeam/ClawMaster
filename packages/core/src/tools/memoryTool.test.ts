@@ -7,7 +7,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
 import {
   MemoryTool,
-  setOttoMdFilename,
+  setClawMasterMdFilename,
   getCurrentGeminiMdFilename,
   getAllGeminiMdFilenames,
   DEFAULT_CONTEXT_FILENAME,
@@ -32,7 +32,7 @@ vi.mock('os', async (importOriginal) => {
 vi.mock('glob');
 
 const MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
-const LEGACY_MEMORY_SECTION_HEADER = '## Otto Added Memories';
+const LEGACY_MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
 
 // Define a type for our fsAdapter to ensure consistency
 interface FsAdapter {
@@ -80,29 +80,29 @@ describe('MemoryTool', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    // Reset OTTO_MD_FILENAME to its original value after each test
-    setOttoMdFilename(DEFAULT_CONTEXT_FILENAME);
+    // Reset CLAWMASTER_MD_FILENAME to its original value after each test
+    setClawMasterMdFilename(DEFAULT_CONTEXT_FILENAME);
   });
 
-  describe('setOttoMdFilename', () => {
+  describe('setClawMasterMdFilename', () => {
     it('should update currentGeminiMdFilename when a valid new name is provided', () => {
       const newName = 'CUSTOM_CONTEXT.md';
-      setOttoMdFilename(newName);
+      setClawMasterMdFilename(newName);
       expect(getCurrentGeminiMdFilename()).toBe(newName);
     });
 
     it('should not update currentGeminiMdFilename if the new name is empty or whitespace', () => {
       const initialName = getCurrentGeminiMdFilename(); // Get current before trying to change
-      setOttoMdFilename('  ');
+      setClawMasterMdFilename('  ');
       expect(getCurrentGeminiMdFilename()).toBe(initialName);
 
-      setOttoMdFilename('');
+      setClawMasterMdFilename('');
       expect(getCurrentGeminiMdFilename()).toBe(initialName);
     });
 
     it('should handle an array of filenames', () => {
       const newNames = ['CUSTOM_CONTEXT.md', 'ANOTHER_CONTEXT.md'];
-      setOttoMdFilename(newNames);
+      setClawMasterMdFilename(newNames);
       expect(getCurrentGeminiMdFilename()).toBe('CUSTOM_CONTEXT.md');
       expect(getAllGeminiMdFilenames()).toEqual(newNames);
     });
@@ -154,7 +154,7 @@ describe('MemoryTool', () => {
       expect(writeFileCall[1]).toBe(expectedContent);
     });
 
-    it('should append to the legacy Otto section without creating a duplicate section', async () => {
+    it('should append to the legacy ClawMaster section without creating a duplicate section', async () => {
       const initialContent = `${LEGACY_MEMORY_SECTION_HEADER}\n- Existing fact\n`;
       mockFsAdapter.readFile.mockResolvedValue(initialContent);
 

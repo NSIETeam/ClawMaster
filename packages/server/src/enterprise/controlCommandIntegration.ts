@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Enterprise composition root for the Control command boundary. HTTP route
  * assembly receives only the typed boundary and never accesses the database

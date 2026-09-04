@@ -3,7 +3,7 @@
 Otto requires SQLCipher for the enterprise database in every non-test runtime.
 It fails closed if the custody key, native binding, SQLCipher runtime, key
 authentication, or cipher integrity check is unavailable. Emergency plaintext
-compatibility requires an explicit `OTTO_DATABASE_ENCRYPTION=disabled` opt-out.
+compatibility requires an explicit `CLAWMASTER_DATABASE_ENCRYPTION=disabled` opt-out.
 
 ## Key custody
 
@@ -14,15 +14,15 @@ share the same fail-closed boundary. The built-in headless provider continues
 to support a customer-controlled offline file:
 
 ```text
-OTTO_DATABASE_ENCRYPTION=required
-OTTO_DATABASE_ENCRYPTION_KEY_FILE=/mounted-custody/otto-database.key
-OTTO_SQLCIPHER_NATIVE_BINDING=/opt/otto/sqlcipher/better_sqlite3.node
+CLAWMASTER_DATABASE_ENCRYPTION=required
+CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE=/mounted-custody/otto-database.key
+CLAWMASTER_SQLCIPHER_NATIVE_BINDING=/opt/otto/sqlcipher/better_sqlite3.node
 ```
 
 The initial offline file is exactly 32 cryptographically random bytes. It must
 be provisioned outside the Otto data directory, backed up separately, limited
 to the service account, and never committed or copied into an image. Set
-`OTTO_DATABASE_ENCRYPTION_KEY_READONLY=true` for read-only removable custody;
+`CLAWMASTER_DATABASE_ENCRYPTION_KEY_READONLY=true` for read-only removable custody;
 Otto will then reject automatic rotation.
 
 On the first managed rotation, Otto converts a writable raw file into an

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * The single contract for observable, interceptable server-side provider calls.
  * Credentials and request bodies deliberately do not belong in this contract.

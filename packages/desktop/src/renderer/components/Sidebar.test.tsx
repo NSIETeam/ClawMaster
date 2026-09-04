@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { act, render, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import type { SessionSummary } from 'otto-server';
+import type { SessionSummary } from 'clawmaster-server';
 import { Sidebar } from './Sidebar.js';
 import { sessionListPreferenceStorageKey } from '../sessionListView.js';
 
@@ -143,7 +143,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     try {
       renderSidebar();
       const workspace = screen.getByRole('button', { name: '任务（1）' })
-        .closest('.otto-sidebar__workspace');
+        .closest('.claw-sidebar__workspace');
       expect(workspace).toBeTruthy();
       expect(workspace?.classList.contains('is-scrollbar-active')).toBe(false);
 
@@ -225,13 +225,13 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
       '我的工作',
       '企业管理',
     ]);
-    expect(buttons.every((button) => button.querySelector('.otto-sidebar__navicon'))).toBe(true);
+    expect(buttons.every((button) => button.querySelector('.claw-sidebar__navicon'))).toBe(true);
   });
 
   it('新建对话与其他主导航入口使用一致的纵向间距', () => {
     const css = readFileSync(resolve(process.cwd(), 'src/renderer/styles/app.css'), 'utf8');
     expect(css).not.toMatch(
-      /\.otto-sidebar__navitem:first-child\s*\{[^}]*margin-bottom\s*:/,
+      /\.claw-sidebar__navitem:first-child\s*\{[^}]*margin-bottom\s*:/,
     );
   });
 
@@ -503,8 +503,8 @@ describe('Sidebar：任务分组方式', () => {
   it('默认保持按时间，并可从菜单切换到按工作目录', () => {
     renderSidebar({ sessions: workspaceSessions, preferenceScope });
 
-    expect(screen.getByText('项目新任务').closest('.otto-session-group')
-      ?.classList.contains('otto-session-group--workspace')).toBe(false);
+    expect(screen.getByText('项目新任务').closest('.claw-session-group')
+      ?.classList.contains('claw-session-group--workspace')).toBe(false);
 
     fireEvent.click(screen.getByRole('button', { name: '视图选项' }));
     const menu = screen.getByRole('menu', { name: '视图选项' });
@@ -515,12 +515,12 @@ describe('Sidebar：任务分组方式', () => {
     fireEvent.click(within(menu).getByRole('menuitemradio', { name: '按工作目录' }));
 
     const project = screen.getByRole('button', { name: 'project，2 个任务' });
-    const projectIcon = project.querySelector('.otto-workspace-group__icon');
+    const projectIcon = project.querySelector('.claw-workspace-group__icon');
     expect(projectIcon?.getAttribute('width')).toBe('16');
     expect(projectIcon?.getAttribute('height')).toBe('16');
     expect(screen.getByRole('button', { name: 'Desktop，1 个任务' })).toBeTruthy();
-    expect(screen.getByText('项目新任务').closest('.otto-session-group')
-      ?.classList.contains('otto-session-group--workspace')).toBe(true);
+    expect(screen.getByText('项目新任务').closest('.claw-session-group')
+      ?.classList.contains('claw-session-group--workspace')).toBe(true);
     expect(JSON.parse(localStorage.getItem(sessionListPreferenceStorageKey(preferenceScope)) ?? '{}'))
       .toMatchObject({ mode: 'workspace' });
   });
@@ -619,7 +619,7 @@ describe('Sidebar 会话项：溢出菜单', () => {
       expect(menu.style.top).toBe('484px');
       expect(menu.style.left).toBe('100px');
       const css = readFileSync(resolve(process.cwd(), 'src/renderer/styles/app.css'), 'utf8');
-      expect(css).toMatch(/\.otto-session__menu\s*\{[^}]*position:\s*fixed/);
+      expect(css).toMatch(/\.claw-session__menu\s*\{[^}]*position:\s*fixed/);
     } finally {
       Object.defineProperty(window, 'innerHeight', {
         configurable: true,
@@ -693,7 +693,7 @@ describe('Sidebar 会话项：删除二次确认（弹窗）', () => {
     expect(onDelete).not.toHaveBeenCalled();
     // 弹窗里的「删除」按钮
     const confirmDel = screen.getByText('删除', {
-      selector: '.otto-confirm__confirm',
+      selector: '.claw-confirm__confirm',
     });
     fireEvent.click(confirmDel);
     expect(onDelete).toHaveBeenCalledWith('s1');

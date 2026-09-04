@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * WorkLog — 员工工作日志自动记录系统。
  *
@@ -22,9 +22,9 @@ import { redactSensitiveText } from '../utils/redaction.js';
 /** 工作日志根目录 */
 /** 运行时解析，尊重企业/测试隔离目录；不要在模块加载时冻结 HOME。 */
 export function resolveDefaultWorklogDir(): string {
-  const explicit = process.env['OTTO_WORKLOG_DIR']?.trim();
+  const explicit = process.env['CLAWMASTER_WORKLOG_DIR']?.trim();
   if (explicit) return explicit;
-  const userDir = process.env['OTTO_USER_DIR']?.trim();
+  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim();
   if (userDir) return path.join(userDir, 'memory', 'worklog');
   if (process.env['NODE_ENV'] === 'test' || process.env['VITEST']) {
     return path.join(tmpdir(), 'otto-worklog-tests', String(process.pid));

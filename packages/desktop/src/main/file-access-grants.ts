@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * 原生附件选择的最小授权账本。renderer 只能引用本轮进程中用户明确选过的文件或目录，
  * 但路径可以位于任意已挂载磁盘（含 /Volumes、Windows 其它盘符与网络盘）。

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * CONTROL-12 边界模块——把签名指令队列全套接入单个 db + Control 信任根配置。
  *
@@ -7,7 +7,7 @@
  * 构建 processor（校验+入队）→ scheduler（领取+执行+投递）→ HTTP services，
  * 暴露一个 `handleRoute` 供企业服务端路由分发器调用。
  *
- * 信任根密钥按「部署时配置」注入（默认读环境变量 OTTO_ENTERPRISE_CONTROL_PUBLIC_KEYS），
+ * 信任根密钥按「部署时配置」注入（默认读环境变量 CLAWMASTER_ENTERPRISE_CONTROL_PUBLIC_KEYS），
  * 与 license/telemetry 的配置模式一致。未配置信任根时 fail closed（不挂载端点），
  * 不提供任何人工导入或默认凭据静默降级。
  */
@@ -90,8 +90,8 @@ export function controlPublicKeysFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): string[] {
   return parsePublicKeyList(
-    env.OTTO_ENTERPRISE_CONTROL_PUBLIC_KEYS || '',
-    env.OTTO_ENTERPRISE_CONTROL_REVOKED_KEY_IDS,
+    env.CLAWMASTER_ENTERPRISE_CONTROL_PUBLIC_KEYS || '',
+    env.CLAWMASTER_ENTERPRISE_CONTROL_REVOKED_KEY_IDS,
   );
 }
 

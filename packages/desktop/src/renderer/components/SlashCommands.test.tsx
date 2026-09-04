@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,7 +17,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import type { ModelInfo } from 'otto-server';
+import type { ModelInfo } from 'clawmaster-server';
 import {
   filterCommands,
   parseSlashQuery,
@@ -139,7 +139,7 @@ describe('斜杠命令面板（Composer 集成）', () => {
     // 首项默认高亮 /new；↓ 两次到 /clear（new→model→clear）。
     fireEvent.keyDown(textarea, { key: 'ArrowDown' });
     fireEvent.keyDown(textarea, { key: 'ArrowDown' });
-    const active = document.querySelector('.otto-slashmenu__item--active');
+    const active = document.querySelector('.claw-slashmenu__item--active');
     expect(active?.textContent).toContain('/clear');
 
     fireEvent.keyDown(textarea, { key: 'Enter' });

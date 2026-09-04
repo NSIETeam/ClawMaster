@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 /**
@@ -20,7 +20,7 @@ import type {
   EnterpriseOrganizationView,
   EnterpriseParkTenantOrganization,
 } from '../../preload/index.js';
-import type { ProductWorkspaceSnapshot, ScheduleItemInfo } from 'otto-server';
+import type { ProductWorkspaceSnapshot, ScheduleItemInfo } from 'clawmaster-server';
 import { isAuthenticatedEnterpriseAccount } from '../internal-test-access.js';
 import { DirectMessagePanel } from './OrganizationTree.js';
 import { IconBuilding, IconChevronDown, IconFolder, IconSearch } from './icons.js';
@@ -80,7 +80,7 @@ function compareOrganizationMembers(
   left: EnterpriseOrganizationMember,
   right: EnterpriseOrganizationMember,
 ): number {
-  const onlineDiff = Number(Boolean(right.ottoOnline)) - Number(Boolean(left.ottoOnline));
+  const onlineDiff = Number(Boolean(right.clawmasterOnline)) - Number(Boolean(left.clawmasterOnline));
   if (onlineDiff !== 0) return onlineDiff;
   const adminDiff = Number(Boolean(right.isAdmin)) - Number(Boolean(left.isAdmin));
   if (adminDiff !== 0) return adminDiff;
@@ -214,7 +214,7 @@ function buildOrganizationTree(orgView: EnterpriseOrganizationView): Organizatio
 }
 
 function departmentOnlineCount(department: OrganizationDepartmentNode): number {
-  return department.members.filter((member) => member.ottoOnline).length
+  return department.members.filter((member) => member.clawmasterOnline).length
     + department.children.reduce((sum, child) => sum + departmentOnlineCount(child), 0);
 }
 
@@ -270,7 +270,7 @@ export function OrganizationPage({
     const load = async (showSpinner: boolean): Promise<void> => {
       if (showSpinner) setLoading(true);
       try {
-        const view = await window.otto.enterpriseOrganizationView(selectedOrganizationId ?? undefined);
+        const view = await window.clawmaster.enterpriseOrganizationView(selectedOrganizationId ?? undefined);
         if (cancelled) return;
         setOrgView(view);
         setSyncedAt(new Date());
@@ -307,7 +307,7 @@ export function OrganizationPage({
     }
     let cancelled = false;
     setParkTenantsLoading(true);
-    void window.otto.enterpriseParkTenants().then((organizations) => {
+    void window.clawmaster.enterpriseParkTenants().then((organizations) => {
       if (cancelled) return;
       setParkTenants(organizations);
       setParkTenantsError(null);
@@ -352,7 +352,7 @@ export function OrganizationPage({
     [orgView],
   );
   const totalOnline = useMemo(
-    () => orgView?.members.filter((member) => member.status === 'active' && member.ottoOnline).length ?? 0,
+    () => orgView?.members.filter((member) => member.status === 'active' && member.clawmasterOnline).length ?? 0,
     [orgView],
   );
 
@@ -381,15 +381,15 @@ export function OrganizationPage({
 
   if (!hasAuth) {
     return (
-      <div className="otto-org-page" role="region" aria-label="组织架构">
-        <header className="otto-org-page__header">
+      <div className="claw-org-page" role="region" aria-label="组织架构">
+        <header className="claw-org-page__header">
           <div>
             <h1>组织架构</h1>
             <p>需要企业账号登录后查看</p>
           </div>
           <button type="button" onClick={onBack}>返回</button>
         </header>
-        <div className="otto-org-page__empty">当前账号未关联企业组织。</div>
+        <div className="claw-org-page__empty">当前账号未关联企业组织。</div>
       </div>
     );
   }
@@ -410,23 +410,23 @@ export function OrganizationPage({
     const isSelf = member.id === enterpriseAccount?.id;
     const unread = enterpriseUnreadCounts[`enterprise:message:${member.id}`] ?? 0;
     return (
-      <div key={member.id} className={`otto-org-page__member${isSelf ? ' is-self' : ''}`}>
-        <span className="otto-org-page__avatar" aria-hidden>
+      <div key={member.id} className={`claw-org-page__member${isSelf ? ' is-self' : ''}`}>
+        <span className="claw-org-page__avatar" aria-hidden>
           {member.avatarUrl ? <img src={member.avatarUrl} alt="" /> : member.name.slice(0, 1)}
-          <i className={member.ottoOnline ? 'is-online' : ''} />
+          <i className={member.clawmasterOnline ? 'is-online' : ''} />
         </span>
-        <div className="otto-org-page__member-info">
+        <div className="claw-org-page__member-info">
           <strong>
             {member.name}
             {isSelf ? <small>（我）</small> : null}
-            {member.isAdmin ? <small className="otto-org-page__admin-badge">管理员</small> : null}
+            {member.isAdmin ? <small className="claw-org-page__admin-badge">管理员</small> : null}
           </strong>
           <span>{member.positionTitle || member.role || FALLBACK_POSITION}</span>
         </div>
-        <span className={`otto-org-page__presence${member.ottoOnline ? ' is-online' : ''}`} aria-label={member.ottoOnline ? '在线' : '离线'} />
-        {unread > 0 ? <span className="otto-org-page__unread" role="status" aria-label={`${unread} 条未读`}>{unread}</span> : null}
+        <span className={`claw-org-page__presence${member.clawmasterOnline ? ' is-online' : ''}`} aria-label={member.clawmasterOnline ? '在线' : '离线'} />
+        {unread > 0 ? <span className="claw-org-page__unread" role="status" aria-label={`${unread} 条未读`}>{unread}</span> : null}
         {!isSelf ? (
-          <button type="button" className="otto-org-page__chat-btn" onClick={() => openChat(member)} aria-label={`与 ${member.name} 聊天`}>
+          <button type="button" className="claw-org-page__chat-btn" onClick={() => openChat(member)} aria-label={`与 ${member.name} 聊天`}>
             发消息
           </button>
         ) : null}
@@ -441,18 +441,18 @@ export function OrganizationPage({
     const memberCount = departmentMemberCount(department);
     const visibleMembers = department.members.map((member) => renderMember(member, departmentMatches)).filter(Boolean);
     return (
-      <section key={department.key} className={`otto-org-page__tree-dept${depth > 0 ? ' is-nested' : ''}`}>
-        <button type="button" className="otto-org-page__tree-node otto-org-page__tree-node--dept" onClick={() => toggleNode(department.key)} role="treeitem" aria-expanded={departmentExpanded}>
+      <section key={department.key} className={`claw-org-page__tree-dept${depth > 0 ? ' is-nested' : ''}`}>
+        <button type="button" className="claw-org-page__tree-node claw-org-page__tree-node--dept" onClick={() => toggleNode(department.key)} role="treeitem" aria-expanded={departmentExpanded}>
           <IconChevronDown size={14} className={departmentExpanded ? '' : 'is-collapsed'} />
-          <IconFolder size={16} className="otto-org-page__department-icon" />
-          <span className="otto-org-page__tree-title">{department.name}</span>
-          <span className="otto-org-page__tree-meta">{memberCount} 人{onlineCount > 0 ? ` · ${onlineCount} 在线` : ''}</span>
+          <IconFolder size={16} className="claw-org-page__department-icon" />
+          <span className="claw-org-page__tree-title">{department.name}</span>
+          <span className="claw-org-page__tree-meta">{memberCount} 人{onlineCount > 0 ? ` · ${onlineCount} 在线` : ''}</span>
         </button>
         {departmentExpanded ? (
-          <div className="otto-org-page__tree-position-list" role="group">
+          <div className="claw-org-page__tree-position-list" role="group">
             {department.children.filter((child) => departmentMatchesQuery(child, normalizedQuery)).map((child) => renderDepartment(child, depth + 1))}
-            {visibleMembers.length ? <div className="otto-org-page__members" role="group">{visibleMembers}</div> : null}
-            {!department.children.length && !visibleMembers.length ? <div className="otto-org-page__position-empty">暂无成员</div> : null}
+            {visibleMembers.length ? <div className="claw-org-page__members" role="group">{visibleMembers}</div> : null}
+            {!department.children.length && !visibleMembers.length ? <div className="claw-org-page__position-empty">暂无成员</div> : null}
           </div>
         ) : null}
       </section>
@@ -460,10 +460,10 @@ export function OrganizationPage({
   };
 
   return (
-    <div className="otto-org-page" role="region" aria-label="组织架构">
-      <header className="otto-org-page__header">
+    <div className="claw-org-page" role="region" aria-label="组织架构">
+      <header className="claw-org-page__header">
         <div>
-          {isParkAdmin ? <span className="otto-org-page__eyebrow">园区总览</span> : null}
+          {isParkAdmin ? <span className="claw-org-page__eyebrow">园区总览</span> : null}
           <h1>{isParkAdmin ? (orgView?.park?.name ?? '园区总览') : organizationName}</h1>
           <p>{isParkAdmin
             ? `${parkTenants.length} 家入驻企业${syncedAt ? ` · 同步于 ${syncedAt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}` : ''}`
@@ -472,16 +472,16 @@ export function OrganizationPage({
         <button type="button" onClick={backFromCurrentView}>{selectedOrganizationId ? '返回园区总览' : '返回对话'}</button>
       </header>
 
-      {loading && !orgView ? <div className="otto-org-page__empty">正在加载组织信息…</div>
-        : error ? <div className="otto-org-page__empty" role="alert">{error}</div>
-          : !orgView ? <div className="otto-org-page__empty">组织信息不可用</div>
+      {loading && !orgView ? <div className="claw-org-page__empty">正在加载组织信息…</div>
+        : error ? <div className="claw-org-page__empty" role="alert">{error}</div>
+          : !orgView ? <div className="claw-org-page__empty">组织信息不可用</div>
             : isParkAdmin ? (
               <ParkOrganizationOverview tenants={parkTenants} loading={parkTenantsLoading} error={parkTenantsError} onSelect={(id) => setSelectedOrganizationId(id)} />
             ) : (
-              <div className="otto-org-page__body">
-                <section className="otto-org-page__contacts" aria-label="常用联系人">
+              <div className="claw-org-page__body">
+                <section className="claw-org-page__contacts" aria-label="常用联系人">
                   <header><div><h2>常用联系人</h2><p>个人常用联系人，与企业成员目录分开管理。</p></div></header>
-                  <div className="otto-org-page__contact-list">
+                  <div className="claw-org-page__contact-list">
                     {friends.map((friend) => <div key={friend.id}><strong>{friend.displayName}</strong>{friend.note ? <span>{friend.note}</span> : null}</div>)}
                     {!friends.length ? <p>暂未添加常用联系人。</p> : null}
                   </div>
@@ -497,15 +497,15 @@ export function OrganizationPage({
                     <button type="submit" disabled={!friendName.trim()}>添加联系人</button>
                   </form> : null}
                 </section>
-                <div className="otto-org-page__toolbar">
-                  <label className="otto-org-page__search">
+                <div className="claw-org-page__toolbar">
+                  <label className="claw-org-page__search">
                     <IconSearch size={16} />
                     <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名或部门" aria-label="搜索姓名或部门" />
                   </label>
                   <span>{query ? `${visibleDepartments.length} 个匹配部门` : '默认展开当前部门及直属上级'}</span>
                 </div>
-                <div className="otto-org-page__tree" role="tree" aria-label={`${organizationName}组织架构`}>
-                  {visibleDepartments.length ? visibleDepartments.map((department) => renderDepartment(department)) : <div className="otto-org-page__tree-empty">没有找到匹配的姓名或部门</div>}
+                <div className="claw-org-page__tree" role="tree" aria-label={`${organizationName}组织架构`}>
+                  {visibleDepartments.length ? visibleDepartments.map((department) => renderDepartment(department)) : <div className="claw-org-page__tree-empty">没有找到匹配的姓名或部门</div>}
                 </div>
               </div>
             )}
@@ -552,43 +552,43 @@ function ParkOrganizationOverview({
   const totalDepartments = tenants.reduce((sum, tenant) => sum + (tenant.departmentCount ?? 0), 0);
 
   return (
-    <div className="otto-org-page__body otto-org-page__body--park">
-      <div className="otto-org-page__park-metrics" aria-label="园区概览数据">
+    <div className="claw-org-page__body claw-org-page__body--park">
+      <div className="claw-org-page__park-metrics" aria-label="园区概览数据">
         <div><span>入驻企业</span><strong>{tenants.length}</strong><small>家</small></div>
         <div><span>企业员工</span><strong>{totalEmployees}</strong><small>人</small></div>
         <div><span>当前在线</span><strong>{totalOnline}</strong><small>人</small></div>
         <div><span>部门总数</span><strong>{totalDepartments}</strong><small>个</small></div>
       </div>
-      <div className="otto-org-page__toolbar otto-org-page__toolbar--park">
-        <label className="otto-org-page__search">
+      <div className="claw-org-page__toolbar claw-org-page__toolbar--park">
+        <label className="claw-org-page__search">
           <IconSearch size={16} />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索企业或产业类型" aria-label="搜索企业或产业类型" />
         </label>
         <span>{normalizedQuery ? `${visibleTenants.length} 家匹配企业` : '选择企业查看组织架构'}</span>
       </div>
-      {loading ? <div className="otto-org-page__empty">正在加载入驻企业…</div>
-        : error ? <div className="otto-org-page__empty" role="alert">{error}</div>
+      {loading ? <div className="claw-org-page__empty">正在加载入驻企业…</div>
+        : error ? <div className="claw-org-page__empty" role="alert">{error}</div>
           : visibleTenants.length ? (
-            <div className="otto-org-page__tenant-grid">
+            <div className="claw-org-page__tenant-grid">
               {visibleTenants.map((tenant) => (
-                <button key={tenant.id} type="button" className="otto-org-page__tenant-card" onClick={() => onSelect(tenant.id)}>
-                  <span className="otto-org-page__tenant-brand"><IconBuilding size={18} /></span>
-                  <span className="otto-org-page__tenant-copy">
+                <button key={tenant.id} type="button" className="claw-org-page__tenant-card" onClick={() => onSelect(tenant.id)}>
+                  <span className="claw-org-page__tenant-brand"><IconBuilding size={18} /></span>
+                  <span className="claw-org-page__tenant-copy">
                     <strong>{tenant.name}</strong>
                     <small>{tenant.industry || '产业类型待完善'}</small>
                   </span>
-                  <span className={`otto-org-page__tenant-status${tenant.status === 'active' ? ' is-active' : ''}`}>
+                  <span className={`claw-org-page__tenant-status${tenant.status === 'active' ? ' is-active' : ''}`}>
                     {tenant.status === 'active' ? '正常' : '已停用'}
                   </span>
-                  <span className="otto-org-page__tenant-stats">
+                  <span className="claw-org-page__tenant-stats">
                     <span>{tenant.employeeCount ?? 0} 人 · {tenant.departmentCount ?? 0} 个部门</span>
-                    <span><i className="otto-org-page__online-dot" />{tenant.onlineCount ?? 0} 人在线</span>
+                    <span><i className="claw-org-page__online-dot" />{tenant.onlineCount ?? 0} 人在线</span>
                   </span>
-                  <span className="otto-org-page__tenant-action">查看架构 <IconChevronDown size={14} /></span>
+                  <span className="claw-org-page__tenant-action">查看架构 <IconChevronDown size={14} /></span>
                 </button>
               ))}
             </div>
-          ) : <div className="otto-org-page__empty">暂无匹配的入驻企业</div>}
+          ) : <div className="claw-org-page__empty">暂无匹配的入驻企业</div>}
     </div>
   );
 }

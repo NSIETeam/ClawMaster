@@ -17,7 +17,7 @@ import {
 import fs from 'node:fs';
 import path from 'node:path';
 
-import type { MlsDeviceScope, MlsGroupState } from '@otto/native';
+import type { MlsDeviceScope, MlsGroupState } from '@clawmaster/native';
 
 import type {
   EnterpriseMlsAttachmentSession,
@@ -222,13 +222,13 @@ function messageMetadata(content: string): {
   contentType: EnterpriseMlsContentType;
   inReplyToMessageId: string | null;
 } {
-  if (content.startsWith('OTTO_ATOA_REQUEST ')) {
+  if (content.startsWith('CLAWMASTER_ATOA_REQUEST ')) {
     return { contentType: 'atoa_request', inReplyToMessageId: null };
   }
-  if (content.startsWith('OTTO_ATOA_RESPONSE ')) {
+  if (content.startsWith('CLAWMASTER_ATOA_RESPONSE ')) {
     try {
       const parsed = JSON.parse(
-        content.slice('OTTO_ATOA_RESPONSE '.length),
+        content.slice('CLAWMASTER_ATOA_RESPONSE '.length),
       ) as unknown;
       if (
         parsed &&
@@ -256,13 +256,13 @@ function identityHash(scope: MlsDeviceScope): string {
     deviceId: requireIdentifier(scope.deviceId, 'device id'),
   };
   return createHash('sha256')
-    .update('otto:mls-message-history:v1\n')
+    .update('clawmaster:mls-message-history:v1\n')
     .update(JSON.stringify(normalized))
     .digest('hex');
 }
 
 function historyAad(hash: string): Buffer {
-  return Buffer.from(`otto:mls-message-history:v1\n${hash}`, 'utf8');
+  return Buffer.from(`clawmaster:mls-message-history:v1\n${hash}`, 'utf8');
 }
 
 function historyFileName(scope: MlsDeviceScope): string {

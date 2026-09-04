@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import os from 'node:os';
 import path from 'node:path';
@@ -104,7 +104,7 @@ function containsSecret(value: unknown): boolean {
 }
 
 function runDirectory(): string {
-  return path.join(process.env['OTTO_USER_DIR']?.trim() || path.join(os.homedir(), '.otto-user'), 'rpa');
+  return path.join(process.env['CLAWMASTER_USER_DIR']?.trim() || path.join(os.homedir(), '.otto-user'), 'rpa');
 }
 
 function summarize(run: RpaRunSummarySource | null): Record<string, unknown> {
@@ -259,7 +259,7 @@ export class RpaRunTool extends BaseTool<RpaRunToolParams, ToolResult> {
   private async loadRuntime(): Promise<RpaRuntime> {
     let module: RpaRuntimeModule;
     try {
-      module = (await import('otto-rpa')) as unknown as RpaRuntimeModule;
+      module = (await import('clawmaster-rpa')) as unknown as RpaRuntimeModule;
     } catch (caught) {
       const detail = caught instanceof Error ? caught.message : String(caught);
       throw new Error(`ClawMaster RPA runtime is unavailable (${detail}). Repair the local runtime before running RPA.`);

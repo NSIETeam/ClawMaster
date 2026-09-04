@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -30,8 +30,8 @@ import { parkISODate } from '../parkBusinessTime.js';
 
 afterEach(() => {
   cleanup();
-  window.localStorage.removeItem('otto:local-repair-ticket');
-  if (window.otto) {
+  window.localStorage.removeItem('clawmaster:local-repair-ticket');
+  if (window.clawmaster) {
     for (const key of [
       'enterpriseSession', 'enterpriseTicketList', 'enterpriseTicketSubmit',
       'enterpriseTicketAction', 'enterpriseTicketRead', 'parkNativeNotify',
@@ -39,7 +39,7 @@ afterEach(() => {
       'enterpriseParkPublications', 'enterpriseParkPublicationRead', 'enterpriseParkSurveySubmit',
       'enterpriseParkView', 'enterpriseParkStatistics', 'enterpriseParkResources',
       'enterpriseOrganizationView', 'parkConfig',
-    ]) delete (window.otto as unknown as Record<string, unknown>)[key];
+    ]) delete (window.clawmaster as unknown as Record<string, unknown>)[key];
   }
 });
 
@@ -136,7 +136,7 @@ function installRepairBridge(kind: 'reporter' | 'worker' = 'reporter', ticketCou
     notificationSessionListeners.add(listener);
     return () => { notificationSessionListeners.delete(listener); };
   });
-  Object.assign(window.otto, {
+  Object.assign(window.clawmaster, {
     enterpriseParkView: vi.fn(async () => ({
       id: 'park-1',
       name: '测试园区',
@@ -212,7 +212,7 @@ function installPublicationBridge(kind: 'announcement' | 'satisfaction') {
     items = items.map((item) => item.id === id ? next : item);
     return next;
   });
-  Object.assign(window.otto, {
+  Object.assign(window.clawmaster, {
     enterpriseSession: vi.fn(async () => ({ serverUrl: 'https://enterprise.test', account })),
     enterpriseParkView: vi.fn(async () => ({
       id: 'park-1',
@@ -248,7 +248,7 @@ describe('ParkServicesPlugin', () => {
   it('默认不渲染任何可见节点（无悬浮小钮，弹窗关闭）', () => {
     const { container } = render(<ParkServicesPlugin />);
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(container.querySelector('.otto-park-fab')).toBeNull();
+    expect(container.querySelector('.claw-park-fab')).toBeNull();
   });
 
   it('openParkServices 事件打开居中对话框，9 项服务齐全', () => {
@@ -264,8 +264,8 @@ describe('ParkServicesPlugin', () => {
     expect(screen.queryByText('行政后勤')).toBeNull();
     expect(screen.queryByText('班车通勤')).toBeNull();
     expect(screen.queryByText('餐饮服务')).toBeNull();
-    expect(document.querySelectorAll('.otto-park-service')).toHaveLength(9);
-    expect(Array.from(document.querySelectorAll('.otto-park-service__name')).slice(0, 2).map((node) => node.textContent)).toEqual(['园区公告', '满意度调查']);
+    expect(document.querySelectorAll('.claw-park-service')).toHaveLength(9);
+    expect(Array.from(document.querySelectorAll('.claw-park-service__name')).slice(0, 2).map((node) => node.textContent)).toEqual(['园区公告', '满意度调查']);
   });
 
   it('可直达指定园区服务，不改变原有业务窗口', () => {
@@ -300,7 +300,7 @@ describe('ParkServicesPlugin', () => {
     const enterpriseSession = vi.fn(async () => ({ serverUrl: '', account: null }));
     const enterpriseTicketList = vi.fn(async () => []);
     const enterpriseParkPublications = vi.fn(async () => []);
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseParkView,
       enterpriseSession,
       enterpriseTicketList,
@@ -319,7 +319,7 @@ describe('ParkServicesPlugin', () => {
     const enterpriseParkStatistics = vi.fn(async () => {
       throw new Error('登录已失效，请重新登录');
     });
-    Object.assign(window.otto, { enterpriseParkStatistics });
+    Object.assign(window.clawmaster, { enterpriseParkStatistics });
 
     render(<ParkServicesPlugin internalAdminPreview />);
     openDialog('overview');
@@ -401,7 +401,7 @@ describe('ParkServicesPlugin', () => {
     fireEvent.click(screen.getByRole('button', { name: '还原园区服务窗口' }));
     expect(dialog.classList.contains('is-maximized')).toBe(false);
 
-    const header = dialog.querySelector('.otto-park-dialog__head') as HTMLElement;
+    const header = dialog.querySelector('.claw-park-dialog__head') as HTMLElement;
     const pointerEvent = (type: string, x: number, y: number): Event => {
       const event = new Event(type, { bubbles: true });
       Object.defineProperties(event, {
@@ -443,7 +443,7 @@ describe('ParkServicesPlugin', () => {
   it('中心接口返回 null 时不显示宏创园区面板，也不回退旧本机品牌', async () => {
     const enterpriseParkView = vi.fn(async () => null);
     const parkConfig = vi.fn(async () => ({ brandName: '旧本机宏创园区服务' }));
-    Object.assign(window.otto, { enterpriseParkView, parkConfig });
+    Object.assign(window.clawmaster, { enterpriseParkView, parkConfig });
     render(<ParkServicesPlugin />);
 
     await waitFor(() => expect(enterpriseParkView).toHaveBeenCalledOnce());
@@ -460,7 +460,7 @@ describe('ParkServicesPlugin', () => {
       throw new Error('园区服务暂时不可用');
     });
     const parkConfig = vi.fn(async () => ({ brandName: '陈旧宏创园区服务' }));
-    Object.assign(window.otto, { enterpriseParkView, parkConfig });
+    Object.assign(window.clawmaster, { enterpriseParkView, parkConfig });
     render(<ParkServicesPlugin />);
 
     await waitFor(() => expect(enterpriseParkView).toHaveBeenCalledOnce());
@@ -530,7 +530,7 @@ describe('ParkServicesPlugin', () => {
         services,
       }],
     }));
-    Object.assign(window.otto, { enterpriseParkView, enterpriseParkStatistics });
+    Object.assign(window.clawmaster, { enterpriseParkView, enterpriseParkStatistics });
 
     render(<ParkServicesPlugin />);
     await waitFor(() => expect(enterpriseParkView).toHaveBeenCalledOnce());
@@ -569,7 +569,7 @@ describe('ParkServicesPlugin', () => {
       tenantRoomNumber: '806 室',
     }));
     const enterpriseParkStatistics = vi.fn();
-    Object.assign(window.otto, { enterpriseParkView, enterpriseParkStatistics });
+    Object.assign(window.clawmaster, { enterpriseParkView, enterpriseParkStatistics });
 
     render(<ParkServicesPlugin />);
     await waitFor(() => expect(enterpriseParkView).toHaveBeenCalledOnce());
@@ -706,7 +706,7 @@ describe('ParkServicesPlugin', () => {
     installRepairBridge('reporter');
     const tomorrow = parkISODate(new Date(), 1);
     const keys = ['22:00', '22:30'];
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseParkResources: vi.fn(async () => ({
         settings: { parkingTotal: 10, parkingNote: null, updatedAt: tomorrow },
         meetingRooms: [{
@@ -756,7 +756,7 @@ describe('ParkServicesPlugin', () => {
         label: '22:00–22:30', status: 'available' as const, updatedAt: tomorrow,
       }],
     }));
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseParkResources: resources,
       enterpriseTicketSubmit: vi.fn(async () => {
         throw new Error('该时段刚刚已被预约，请选择其他时段');
@@ -812,7 +812,7 @@ describe('ParkServicesPlugin', () => {
     render(<ParkServicesPlugin />);
     openDialog();
     fireEvent.click(await screen.findByText('停车办理'));
-    await waitFor(() => expect(window.otto.enterpriseTicketList).toHaveBeenCalled());
+    await waitFor(() => expect(window.clawmaster.enterpriseTicketList).toHaveBeenCalled());
     const form = await screen.findByLabelText('停车办理申请表');
     await waitFor(() => expect((screen.getByLabelText('公司名称') as HTMLInputElement).value).toBe('测试企业'));
     fireEvent.change(screen.getByLabelText('申请内容'), { target: { value: 'underground-fixed' } });
@@ -830,7 +830,7 @@ describe('ParkServicesPlugin', () => {
   it('客服一次完成回复并固定转交工程部，不允许选择个人', async () => {
     const bridge = installRepairBridge('worker');
     render(<ParkServicesPlugin />);
-    await waitFor(() => expect(window.otto.notificationShow).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(window.clawmaster.notificationShow).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: 'park:ticket:ticket-1',
       source: 'park',
     })));
@@ -860,13 +860,13 @@ describe('ParkServicesPlugin', () => {
     render(<ParkServicesPlugin />);
 
     fireEvent.click(await screen.findByLabelText('打开园区待办汇总'));
-    expect(window.otto.notificationShow).toHaveBeenCalledTimes(1);
-    expect(window.otto.notificationShow).toHaveBeenCalledWith(expect.objectContaining({
+    expect(window.clawmaster.notificationShow).toHaveBeenCalledTimes(1);
+    expect(window.clawmaster.notificationShow).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: 'park:service',
       source: 'park',
       title: 'ClawMaster 待处理提醒 · 园区服务',
     }));
-    expect(window.otto.notificationMarkRead).toHaveBeenCalledWith('park:service');
+    expect(window.clawmaster.notificationMarkRead).toHaveBeenCalledWith('park:service');
     await waitFor(() => expect(bridge.read).toHaveBeenCalledTimes(2));
 
     fireEvent.click(await screen.findByRole('button', { name: /打开工作人员待办：A 座大厅/ }));
@@ -876,7 +876,7 @@ describe('ParkServicesPlugin', () => {
   it('点过系统园区提醒后不再重复弹窗，未处理工单继续保留在我的园区待办', async () => {
     const bridge = installRepairBridge('worker');
     render(<ParkServicesPlugin />);
-    await waitFor(() => expect(window.otto.notificationShow).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(window.clawmaster.notificationShow).toHaveBeenCalledTimes(1));
 
     act(() => bridge.openSystemNotification('park:ticket:ticket-1'));
     await waitFor(() => expect(bridge.read).toHaveBeenCalledWith('ticket-1'));
@@ -886,11 +886,11 @@ describe('ParkServicesPlugin', () => {
     expect(screen.getByText(/待接单/)).toBeTruthy();
 
     cleanup();
-    const ticketList = vi.mocked(window.otto.enterpriseTicketList);
+    const ticketList = vi.mocked(window.clawmaster.enterpriseTicketList);
     const previousListCalls = ticketList.mock.calls.length;
     render(<ParkServicesPlugin />);
     await waitFor(() => expect(ticketList.mock.calls.length).toBeGreaterThan(previousListCalls));
-    expect(window.otto.notificationShow).toHaveBeenCalledTimes(1);
+    expect(window.clawmaster.notificationShow).toHaveBeenCalledTimes(1);
     expect(screen.queryByLabelText(/打开园区服务通知|打开园区待办汇总/)).toBeNull();
 
     openDialog();
@@ -917,7 +917,7 @@ describe('ParkServicesPlugin', () => {
     bridge.setTickets([creatorTicket]);
     render(<ParkServicesPlugin />);
 
-    await waitFor(() => expect(window.otto.notificationShow).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(window.clawmaster.notificationShow).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: 'park:ticket:ticket-1',
       persistent: true,
       preview: expect.stringContaining('申请单 20260720001'),
@@ -934,26 +934,26 @@ describe('ParkServicesPlugin', () => {
     expect(within(detail).getByText('物业报修', { selector: 'strong' })).toBeTruthy();
     expect(within(detail).queryByText('灯坏了')).toBeNull();
     expect(within(detail).getAllByText('预约已收到')).toHaveLength(2);
-    expect(window.otto.notificationMarkRead).toHaveBeenCalledWith('park:ticket:ticket-1');
+    expect(window.clawmaster.notificationMarkRead).toHaveBeenCalledWith('park:ticket:ticket-1');
     await waitFor(() => expect(bridge.read).toHaveBeenCalledWith('ticket-1'));
 
     cleanup();
-    const notificationsBeforeRemount = vi.mocked(window.otto.notificationShow).mock.calls.length;
+    const notificationsBeforeRemount = vi.mocked(window.clawmaster.notificationShow).mock.calls.length;
     render(<ParkServicesPlugin />);
-    await waitFor(() => expect(window.otto.enterpriseTicketList).toHaveBeenCalled());
-    expect(window.otto.notificationShow).toHaveBeenCalledTimes(notificationsBeforeRemount);
+    await waitFor(() => expect(window.clawmaster.enterpriseTicketList).toHaveBeenCalled());
+    expect(window.clawmaster.notificationShow).toHaveBeenCalledTimes(notificationsBeforeRemount);
   });
 
   it('客服未打开的历史任务不会被自动已读，状态通知持续保留', async () => {
     installRepairBridge('worker', 3, ['已完成', '待验收', '待接单']);
     render(<ParkServicesPlugin />);
 
-    await waitFor(() => expect(window.otto.notificationShow).toHaveBeenCalledTimes(3));
-    expect(window.otto.notificationShow).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(window.clawmaster.notificationShow).toHaveBeenCalledTimes(3));
+    expect(window.clawmaster.notificationShow).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: 'park:ticket:ticket-3',
     }));
-    expect(window.otto.notificationMarkRead).not.toHaveBeenCalledWith('park:ticket:ticket-1');
-    expect(window.otto.notificationMarkRead).not.toHaveBeenCalledWith('park:ticket:ticket-2');
+    expect(window.clawmaster.notificationMarkRead).not.toHaveBeenCalledWith('park:ticket:ticket-1');
+    expect(window.clawmaster.notificationMarkRead).not.toHaveBeenCalledWith('park:ticket:ticket-2');
     expect(await screen.findAllByLabelText(/打开园区服务通知/)).toHaveLength(3);
     openDialog();
     expect(await screen.findAllByRole('button', { name: /打开工作人员待办/ })).toHaveLength(1);
@@ -965,10 +965,10 @@ describe('ParkServicesPlugin', () => {
     render(<ParkServicesPlugin />);
 
     expect(await screen.findAllByLabelText(/打开园区服务通知/)).toHaveLength(2);
-    expect(window.otto.notificationMarkRead).not.toHaveBeenCalled();
+    expect(window.clawmaster.notificationMarkRead).not.toHaveBeenCalled();
     fireEvent.click(screen.getAllByLabelText(/打开园区服务通知/)[0]);
     await waitFor(() => expect(bridge.read).toHaveBeenCalledTimes(1));
-    expect(window.otto.notificationMarkRead).toHaveBeenCalledTimes(1);
+    expect(window.clawmaster.notificationMarkRead).toHaveBeenCalledTimes(1);
   });
 
   it('六条未打开园区通知全部保留，不因显示上限自行消失', async () => {
@@ -976,7 +976,7 @@ describe('ParkServicesPlugin', () => {
     render(<ParkServicesPlugin />);
 
     expect(await screen.findAllByLabelText(/打开园区服务通知/)).toHaveLength(6);
-    expect(window.otto.notificationShow).toHaveBeenCalledTimes(6);
+    expect(window.clawmaster.notificationShow).toHaveBeenCalledTimes(6);
     expect(bridge.read).not.toHaveBeenCalled();
   });
 
@@ -1104,7 +1104,7 @@ describe('ParkServicesPlugin', () => {
     installRepairBridge('reporter');
     render(<ParkServicesPlugin />);
     openDialog();
-    await waitFor(() => expect(window.otto.enterpriseTicketList).toHaveBeenCalled());
+    await waitFor(() => expect(window.clawmaster.enterpriseTicketList).toHaveBeenCalled());
     expect(screen.queryByLabelText('我的园区待办')).toBeNull();
   });
 
@@ -1140,7 +1140,7 @@ describe('ParkServicesPlugin', () => {
     await screen.findByLabelText('园区服务回复表');
 
     const options = Array.from(document.querySelectorAll(
-      '#otto-park-response-parking option',
+      '#claw-park-response-parking option',
     )).map((option) => option.getAttribute('value'));
     expect(options).toContain('预约已收到');
     expect(options).toContain('订单已收到');
@@ -1167,7 +1167,7 @@ describe('ParkServicesPlugin', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
 
     openDialog();
-    const overlay = document.querySelector('.otto-park-overlay')!;
+    const overlay = document.querySelector('.claw-park-overlay')!;
     fireEvent.mouseDown(overlay);
     expect(screen.queryByRole('dialog')).toBeNull();
 
@@ -1187,8 +1187,8 @@ describe('ParkServicesPlugin', () => {
 
   it('缺少中心园区 API 时只使用内置默认，不调用旧本机配置入口', async () => {
     const parkConfig = vi.fn(async () => ({ brandName: '陈旧本机园区' }));
-    delete (window.otto as unknown as Record<string, unknown>).enterpriseParkView;
-    (window.otto as unknown as Record<string, unknown>).parkConfig = parkConfig;
+    delete (window.clawmaster as unknown as Record<string, unknown>).enterpriseParkView;
+    (window.clawmaster as unknown as Record<string, unknown>).parkConfig = parkConfig;
 
     render(<ParkServicesPlugin />);
     openDialog();

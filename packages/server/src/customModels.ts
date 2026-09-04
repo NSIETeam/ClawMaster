@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,14 +11,14 @@
  * 结构 `{ models: CustomModelConfig[] }`。CLI 侧的读写 API 在
  * 历史 CLI 设置格式；server 不能反向依赖任何 UI 包。
  *
- * 因此这里在 server 包内复刻「只读」路径：仅依赖 otto-core 的
+ * 因此这里在 server 包内复刻「只读」路径：仅依赖 clawmaster-core 的
  * `CustomModelConfig` / `validateCustomModelConfig` / `generateCustomModelId`，
  * 不引第三方 strip-json-comments（用一个保守的注释剥离兜底自给自足）。
  *
  * 写入：setup GUI（Issue #7）经 `save_custom_model` 帧落盘，由本文件的
  * `saveCustomModel` 处理 —— 复刻 CLI `customModelsStorage.ts` 的**原子写**
  * （.tmp → rename）+ 按 displayName 去重 + `{ models, _metadata }` 结构，
- * 字节级对齐 CLI 格式；依赖仍只有 otto-core，**不**反向依赖 UI 包。
+ * 字节级对齐 CLI 格式；依赖仍只有 clawmaster-core，**不**反向依赖 UI 包。
  */
 
 import * as fs from 'node:fs';
@@ -29,7 +29,7 @@ import {
   generateCustomModelId,
   validateCustomModelConfig,
   type CustomModelConfig,
-} from 'otto-core';
+} from 'clawmaster-core';
 import type { ModelInfo } from './protocol.js';
 
 const SETTINGS_DIR_NAME = '.otto-user';

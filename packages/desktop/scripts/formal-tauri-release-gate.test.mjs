@@ -88,7 +88,7 @@ describe('formal Tauri release gate', () => {
       'nsis',
     );
     mkdirSync(nsis, { recursive: true });
-    writeFileSync(path.join(nsis, 'Otto-Setup-0.0.1-win-x64.exe'), 'legacy');
+    writeFileSync(path.join(nsis, 'ClawMaster-Setup-0.0.1-win-x64.exe'), 'legacy');
     const result = evaluateFormalTauriReleaseGate({
       root,
       platform: 'win32',

@@ -1,12 +1,12 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import type { ServerResponse } from 'node:http';
 import {
   FEATURE_FLAGS,
   type FeatureFlagManager,
-} from 'otto-core';
+} from 'clawmaster-core';
 
 type ConfigFeatureFlag = keyof typeof FEATURE_FLAGS;
 

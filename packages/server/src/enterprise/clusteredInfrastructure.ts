@@ -1,6 +1,6 @@
 
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Production composition root for a stateless enterprise replica. All three
  * shared dependencies are mandatory and startup is fail-closed.
@@ -36,12 +36,12 @@ import { createClusteredEnterpriseSharedState } from './clusteredSharedState.js'
 export type ClusteredEnterpriseEnvironment = EnterpriseServiceEnvironment &
   NodePostgresEnvironment &
   NodeRedisEnvironment & {
-    OTTO_ENTERPRISE_DIR?: string;
-    OTTO_ATTACHMENT_MAX_BYTES?: string;
-    OTTO_ATTACHMENT_TENANT_QUOTA_BYTES?: string;
-    OTTO_ATTACHMENT_LEGACY_READ_DIR?: string;
-    OTTO_ATTACHMENT_LEGACY_READ_KEY_FILE?: string;
-    OTTO_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE?: string;
+    CLAWMASTER_ENTERPRISE_DIR?: string;
+    CLAWMASTER_ATTACHMENT_MAX_BYTES?: string;
+    CLAWMASTER_ATTACHMENT_TENANT_QUOTA_BYTES?: string;
+    CLAWMASTER_ATTACHMENT_LEGACY_READ_DIR?: string;
+    CLAWMASTER_ATTACHMENT_LEGACY_READ_KEY_FILE?: string;
+    CLAWMASTER_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE?: string;
   };
 
 function positiveIntegerSetting(input: {
@@ -62,7 +62,7 @@ export async function createClusteredEnterpriseInfrastructure(input: {
 } = {}) {
   const environment = input.environment ?? process.env;
   const dataDirectory =
-    environment.OTTO_ENTERPRISE_DIR?.trim() ||
+    environment.CLAWMASTER_ENTERPRISE_DIR?.trim() ||
     path.join(process.cwd(), '.otto-enterprise');
   const topology = resolveEnterpriseServiceTopology({
     environment,
@@ -80,33 +80,33 @@ export async function createClusteredEnterpriseInfrastructure(input: {
   }
 
   const maxAttachmentBytes = positiveIntegerSetting({
-    name: 'OTTO_ATTACHMENT_MAX_BYTES',
-    value: environment.OTTO_ATTACHMENT_MAX_BYTES,
+    name: 'CLAWMASTER_ATTACHMENT_MAX_BYTES',
+    value: environment.CLAWMASTER_ATTACHMENT_MAX_BYTES,
     fallback: E2EE_ATTACHMENT_MAX_CIPHERTEXT_BYTES,
   });
   if (maxAttachmentBytes > E2EE_ATTACHMENT_MAX_CIPHERTEXT_BYTES) {
     throw new Error(
-      `OTTO_ATTACHMENT_MAX_BYTES must not exceed the E2EE protocol limit (${E2EE_ATTACHMENT_MAX_CIPHERTEXT_BYTES})`,
+      `CLAWMASTER_ATTACHMENT_MAX_BYTES must not exceed the E2EE protocol limit (${E2EE_ATTACHMENT_MAX_CIPHERTEXT_BYTES})`,
     );
   }
   const defaultQuotaBytes = positiveIntegerSetting({
-    name: 'OTTO_ATTACHMENT_TENANT_QUOTA_BYTES',
-    value: environment.OTTO_ATTACHMENT_TENANT_QUOTA_BYTES,
+    name: 'CLAWMASTER_ATTACHMENT_TENANT_QUOTA_BYTES',
+    value: environment.CLAWMASTER_ATTACHMENT_TENANT_QUOTA_BYTES,
     fallback: 100 * 1024 * 1024 * 1024,
   });
   if (defaultQuotaBytes < maxAttachmentBytes) {
     throw new Error(
-      'OTTO_ATTACHMENT_TENANT_QUOTA_BYTES must be at least OTTO_ATTACHMENT_MAX_BYTES',
+      'CLAWMASTER_ATTACHMENT_TENANT_QUOTA_BYTES must be at least CLAWMASTER_ATTACHMENT_MAX_BYTES',
     );
   }
 
   const legacyReadDirectory =
-    environment.OTTO_ATTACHMENT_LEGACY_READ_DIR?.trim();
+    environment.CLAWMASTER_ATTACHMENT_LEGACY_READ_DIR?.trim();
   const legacyReadKeyFile =
-    environment.OTTO_ATTACHMENT_LEGACY_READ_KEY_FILE?.trim();
+    environment.CLAWMASTER_ATTACHMENT_LEGACY_READ_KEY_FILE?.trim();
   if (Boolean(legacyReadDirectory) !== Boolean(legacyReadKeyFile)) {
     throw new Error(
-      'legacy attachment dual-read requires both OTTO_ATTACHMENT_LEGACY_READ_DIR and OTTO_ATTACHMENT_LEGACY_READ_KEY_FILE',
+      'legacy attachment dual-read requires both CLAWMASTER_ATTACHMENT_LEGACY_READ_DIR and CLAWMASTER_ATTACHMENT_LEGACY_READ_KEY_FILE',
     );
   }
   if (legacyReadDirectory && topology.replicas !== 1) {
@@ -115,10 +115,10 @@ export async function createClusteredEnterpriseInfrastructure(input: {
     );
   }
   const accountSyncKeyFile =
-    environment.OTTO_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE?.trim();
+    environment.CLAWMASTER_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE?.trim();
   if (!accountSyncKeyFile) {
     throw new Error(
-      'clustered account sync requires OTTO_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE from a shared secret provider',
+      'clustered account sync requires CLAWMASTER_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE from a shared secret provider',
     );
   }
   const accountSyncKeyProvider = createFileEncryptionKeyProvider({

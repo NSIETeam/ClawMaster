@@ -7,7 +7,7 @@
  * 导出 SessionManager 及关键类型。
  */
 
-export { OttoSessionManager, getSessionManager } from './sessionManager.js';
+export { ClawMasterSessionManager, getSessionManager } from './sessionManager.js';
 
 export type {
   SessionMeta,

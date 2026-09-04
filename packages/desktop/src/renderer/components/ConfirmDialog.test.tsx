@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -79,7 +79,7 @@ describe('ConfirmDialog：确认 / 取消回调', () => {
 
   it('点遮罩（起手落在遮罩本身）触发 onCancel', () => {
     const { onCancel } = renderDialog();
-    const overlay = document.querySelector('.otto-confirm-overlay') as HTMLElement;
+    const overlay = document.querySelector('.claw-confirm-overlay') as HTMLElement;
     // mouseDown target === overlay 自身 → 取消。
     fireEvent.mouseDown(overlay);
     expect(onCancel).toHaveBeenCalledTimes(1);
@@ -146,14 +146,14 @@ describe('ConfirmDialog：danger 样式', () => {
   it('danger 默认 true → 确认钮带 --danger 修饰类', () => {
     renderDialog();
     expect(
-      screen.getByText('删除').classList.contains('otto-confirm__confirm--danger'),
+      screen.getByText('删除').classList.contains('claw-confirm__confirm--danger'),
     ).toBe(true);
   });
 
   it('danger=false → 确认钮不带 --danger 修饰类', () => {
     renderDialog({ danger: false });
     expect(
-      screen.getByText('删除').classList.contains('otto-confirm__confirm--danger'),
+      screen.getByText('删除').classList.contains('claw-confirm__confirm--danger'),
     ).toBe(false);
   });
 });

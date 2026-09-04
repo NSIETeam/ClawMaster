@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import {
@@ -122,7 +122,7 @@ function toOrganizationInviteView(
         : 'active';
   const code = deriveOrganizationInviteCode(store, organization, row.nonce);
   const publicBaseUrl = resolveEnterprisePublicBaseUrl({
-    configuredUrl: process.env.OTTO_ENTERPRISE_PUBLIC_URL,
+    configuredUrl: process.env.CLAWMASTER_ENTERPRISE_PUBLIC_URL,
   });
   return {
     id: row.id,

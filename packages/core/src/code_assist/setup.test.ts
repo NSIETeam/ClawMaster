@@ -8,11 +8,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setupUser, ProjectIdRequiredError } from './setup.js';
 import { CodeAssistServer } from '../code_assist/server.js';
 import { OAuth2Client } from 'google-auth-library';
-import { OttoUserTier, UserTierId } from './types.js';
+import { ClawMasterUserTier, UserTierId } from './types.js';
 
 vi.mock('../code_assist/server.js');
 
-const mockPaidTier: OttoUserTier = {
+const mockPaidTier: ClawMasterUserTier = {
   id: UserTierId.STANDARD,
   name: 'paid',
   description: 'Paid tier',

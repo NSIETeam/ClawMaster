@@ -13,7 +13,7 @@ describe('SQLite customer module marketplace store', () => {
       schemaVersion: 1, id: 'com.acme.persisted', name: 'Persisted', version: '1.0.0',
       publisher: { id: 'publisher', name: 'Publisher' }, description: 'Persisted module',
       icon: 'icon.svg', entrypoint: 'module.wasm', hostApi: 'otto.customer-module.v1',
-      minimumOttoVersion: '1.15.3', inputSchema: { type: 'object', properties: {} },
+      minimumClawMasterVersion: '1.15.3', inputSchema: { type: 'object', properties: {} },
       outputs: ['text'], permissions: [],
       files: { 'module.wasm': 'a'.repeat(64), 'icon.svg': 'b'.repeat(64) },
     };

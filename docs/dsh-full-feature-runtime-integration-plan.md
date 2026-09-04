@@ -1,4 +1,11 @@
-# Otto 集成 DSH 全特性运行时总体规划
+# Otto 集成 DSH 全特性运行时总体规划（历史冻结）
+
+该文档保留为历史对照。当前执行路线已改为：
+- 不再依赖 DeepSeek Harness 进程化接入
+- 采用纯 Rust native runtime 做事件驱动实现
+- 安装包目标由 20MiB 下调到 10MiB，优先保证最小可运行闭环与可回滚性
+
+新执行计划文档：`docs/runtime-native-10mb-execution-plan.md`
 
 状态：规划草案
 
@@ -515,6 +522,23 @@ Server 通过相同 Runtime Gateway 创建远程或本地执行：
 - 服务器任务使用工作负载身份和短期 credential reference。
 - 任务事件进入企业持久层，但本地私聊明文仍遵守 E2EE 边界。
 
+### 10.4 Windows 安装包 20 MiB 收敛
+
+DSH 接入与桌面安装包瘦身必须并行推进，不能先无限增加运行时体积，再把优化留到迁移结束。正式目标为 Windows x64 NSIS 安装包不超过 `20 MiB`（`20,971,520` bytes）。体积只以 CI 实际生成、可安装的 `*_x64-setup.exe` 为准，不使用源码大小、staging 目录或压缩前目录估算代替。
+
+`v0.0.1` 的已发布基线为 `31,540,929` bytes（约 `30.08 MiB`）。每次 DSH 或桌面运行时变更都必须生成按组件排序的体积报告，并与该基线及上一候选版本比较。任何增长都必须说明来源、用户价值、退出条件和回滚方式；不得通过放宽门禁掩盖增长。
+
+收敛策略按以下顺序执行：
+
+1. 只打包当前平台和架构需要的 Node、ripgrep、SQLCipher、DSH Runtime 与 Profile，禁止携带其他平台产物、测试、源码映射、声明文件、示例、重复许可证正文和开发 UI。
+2. 对 Legacy 与 DSH 的依赖做文件级去重。迁移期允许两个 Adapter 共存，但不得打包两份 Node、通用工具实现、模型 SDK、Web 资源或同内容依赖树。
+3. 保持最小可信 bootstrap、Runtime Gateway 和回滚能力在主安装包内；大型可选插件、Skills、文档运行时、浏览器/RPA附加资源和企业专用组件改为签名、摘要校验、按需安装且可回滚的组件包。
+4. DSH Runtime 使用固定、可复现的生产构建，执行 tree-shaking、无用入口裁剪和确定性压缩；任何上游包裁剪都必须由运行时能力探针与合同测试证明安全。
+5. DSH 成为默认运行时并完成旧会话只读保障后，删除 Legacy 生产执行代码和仅为双运行时过渡保留的重复资源。
+6. 优先使用增量 Kernel/Runtime/Component 更新；只有安装器、Tauri、系统权限或 native ABI 变化时才重新分发完整安装包。
+
+20 MiB 不是以功能、安全或可运行性换体积。SQLCipher、摘要和签名校验、中央策略、审计、父进程回收、三平台所需的安全控制、安装后运行时探针和GUI冒烟不得删除。若必要能力在当前技术约束下无法进入20 MiB，候选版本必须失败，并提交逐组件证据和架构调整方案，不得静默放宽目标。
+
 ## 11. 迁移方案
 
 ### 11.1 会话迁移
@@ -689,6 +713,7 @@ schema validation
 - Runtime ADR。
 - `runtime-contracts` 初版。
 - 风险登记表。
+- `v0.0.1` 安装包及 runtime 各组件体积基线、20 MiB 预算分配和自动差异报告。
 
 退出条件：所有团队同意范围、协议、进程模型和回滚路径。
 
@@ -700,6 +725,7 @@ schema validation
 - Initialize、Prompt、事件流和健康检查。
 - 模型、文件、Shell、Web、Skills、MCP、Todo。
 - 只读开发者开关。
+- DSH Runtime 最小生产构建与安装包体积增量报告；禁止无说明地突破上一候选版本。
 
 退出条件：固定任务集在 DSH Adapter 上稳定通过，关闭后无孤儿进程。
 
@@ -752,6 +778,7 @@ schema validation
 - Memory、Skill、Feishu、Document、RPA、Enterprise 插件。
 - 企业身份和权限上下文。
 - Produced files 与 Worklog Projection。
+- 大型可选能力拆为签名按需组件，主安装包不携带未启用的开发资源和跨平台重复资源。
 
 退出条件：原有 Otto 关键产品回归全部通过，插件可独立禁用。
 
@@ -775,8 +802,9 @@ schema validation
 - 旧会话迁移报告。
 - Legacy 只读窗口和最终移除 PR。
 - 发布、升级、回滚和运维文档。
+- Windows x64 NSIS 安装包收敛到不超过 20 MiB，并保留安装后运行时、SQLCipher和GUI冒烟证据。
 
-退出条件：连续两个正式版本无 P0/P1 回退，Legacy 执行代码不再被生产入口引用。
+退出条件：连续两个正式版本无 P0/P1 回退，Legacy 执行代码不再被生产入口引用，实际发布安装包不超过20 MiB。
 
 ## 16. Issue 拆分建议
 
@@ -812,6 +840,7 @@ schema validation
 28. 建立灰度、遥测、回滚和发布门禁。
 29. 切换新会话默认 Runtime。
 30. 移除 Legacy Runtime 生产执行路径。
+31. 建立安装包组件体积账本并将 Windows x64 NSIS 安装包收敛到20 MiB。
 
 每个 Issue 必须包含：行为目标、非目标、受影响协议、事件、数据迁移、安全风险、测试、回滚方式和可观察性。
 
@@ -829,6 +858,8 @@ schema validation
 8. 性能不低于已批准基线，弱设备档位没有无界并发或内存增长。
 9. 发布产物支持一键回滚到前一固定 Runtime。
 10. 用户可见行为有对应类型事件或状态，不只存在于日志。
+11. Windows x64 正式 NSIS 安装包不超过 `20,971,520` bytes；体积证据来自本次 CI 构建的实际安装包，并附逐组件差异报告。
+12. 安装包通过静默安装、已安装 Runtime/SQLCipher 探针和新用户目录GUI启动冒烟；体积达标不得替代可运行性验收。
 
 ## 18. 风险与缓解
 
@@ -843,6 +874,8 @@ schema validation
 | Desktop 与 Server 状态不一致 | 用户看到错误状态 | 事件日志真相源、幂等 sequence、重连补放 |
 | 企业数据进入本地日志 | 合规风险 | 数据分类、租户授权、脱敏事件、企业存储策略 |
 | 直接复用 DSH Web API 内部细节 | 升级脆弱 | Otto Runtime Protocol 包装，不允许产品层依赖内部方法 |
+| DSH 与 Legacy 过渡资源重复 | 安装包反弹并长期高于20 MiB | 文件级依赖账本、共享运行时、可选组件外置、Legacy 删除里程碑和每次构建体积差异门禁 |
+| 为追求20 MiB误删必要运行能力 | 安装后不可用或安全退化 | SQLCipher、策略、审计、进程回收和安装后冒烟列为不可裁剪门禁；超标时失败而非降级 |
 
 ## 19. 完成定义
 
@@ -859,5 +892,6 @@ schema validation
 - 三个平台的 Sandbox、进程回收、故障恢复和安全评测通过。
 - Otto 的飞书、知识、文档、RPA 和企业能力已通过插件接入且无核心边界违规。
 - Legacy Runtime 已从生产执行路径移除，旧会话仍可读取或已完成可审计迁移。
+- Windows x64 实际发布 NSIS 安装包不超过20 MiB，且已安装 Runtime、SQLCipher和GUI启动验收全部通过。
 
 在以上条件未全部满足前，产品描述应使用“DSH Runtime 预览”“部分 DSH 能力兼容”或明确的阶段性名称，不得宣称全量兼容。

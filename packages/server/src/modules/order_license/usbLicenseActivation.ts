@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { verifyEd25519Envelope } from '../commercial_control/signedEnvelope.js';
 
 const execFileAsync = promisify(execFile);
-const REGISTRY_KEY = 'HKCU\\Software\\Otto\\UsbLicenses';
+const REGISTRY_KEY = 'HKCU\\Software\\ClawMaster\\UsbLicenses';
 
 export interface UsbActivationOptions { licensePath: string; statePath: string }
 export interface UsbActivationDeps {
@@ -83,11 +83,11 @@ export function windowsProtectedActivationStore() {
 }
 
 export async function enforceUsbLicenseFromEnvironment(): Promise<void> {
-  const licensePath = process.env.OTTO_USB_LICENSE_PATH?.trim();
+  const licensePath = process.env.CLAWMASTER_USB_LICENSE_PATH?.trim();
   if (!licensePath) return;
-  const userDir = process.env.OTTO_USER_DIR?.trim() || path.join(os.homedir(), '.otto-user');
-  let configuredKeys = process.env.OTTO_LICENSE_PUBLIC_KEYS || process.env.OTTO_LICENSE_PUBLIC_KEY || '';
-  const keyFile = process.env.OTTO_LICENSE_PUBLIC_KEY_FILE?.trim();
+  const userDir = process.env.CLAWMASTER_USER_DIR?.trim() || path.join(os.homedir(), '.otto-user');
+  let configuredKeys = process.env.CLAWMASTER_LICENSE_PUBLIC_KEYS || process.env.CLAWMASTER_LICENSE_PUBLIC_KEY || '';
+  const keyFile = process.env.CLAWMASTER_LICENSE_PUBLIC_KEY_FILE?.trim();
   if (!configuredKeys && keyFile) {
     try { configuredKeys = await readFile(keyFile, 'utf8'); }
     catch { throw new Error('U 盘许可证公钥文件不存在或无法读取'); }

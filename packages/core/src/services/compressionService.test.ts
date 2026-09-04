@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Content } from '../types/extendedContent.js';
 import type { Config } from '../config/config.js';
-import type { OttoClient } from '../core/client.js';
+import type { ClawMasterClient } from '../core/client.js';
 import type { ContentGenerator } from '../core/contentGenerator.js';
 import { CompressionService, findIndexAfterFraction } from './compressionService.js';
 
@@ -31,7 +31,7 @@ describe('CompressionService', () => {
   let compressionService: CompressionService;
   type MockFn = ReturnType<typeof vi.fn>;
   let mockContentGenerator: ContentGenerator & { countTokens: MockFn; generateContent: MockFn };
-  let mockGeminiClient: OttoClient & { getContentGenerator: MockFn; createTemporaryChat: MockFn };
+  let mockGeminiClient: ClawMasterClient & { getContentGenerator: MockFn; createTemporaryChat: MockFn };
   let mockChat: { sendMessage: MockFn; setHistory: MockFn; getHistory: MockFn; setTools: MockFn };
   let mockConfig: Config & { getToolRegistry: MockFn };
 
@@ -57,7 +57,7 @@ describe('CompressionService', () => {
     mockGeminiClient = {
       getContentGenerator: vi.fn().mockReturnValue(mockContentGenerator),
       createTemporaryChat: vi.fn().mockResolvedValue(mockChat),
-    } as unknown as OttoClient & { getContentGenerator: MockFn; createTemporaryChat: MockFn };
+    } as unknown as ClawMasterClient & { getContentGenerator: MockFn; createTemporaryChat: MockFn };
 
     mockConfig = {
       getToolRegistry: vi.fn().mockResolvedValue({

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,16 +17,16 @@
 import type {
   ClientToServer,
   ServerToClient,
-  OttoMessage,
+  ClawMasterMessage,
   SessionSummary,
-} from 'otto-server';
-import type { OttoBridge } from '../preload/index.js';
+} from 'clawmaster-server';
+import type { ClawMasterBridge } from '../preload/index.js';
 import { getHostBridge } from './hostBridge.js';
 
 declare global {
   interface Window {
     /** preload 经 contextBridge 暴露的桥。 */
-    otto: OttoBridge;
+    clawmaster: ClawMasterBridge;
   }
 }
 
@@ -52,7 +52,7 @@ export function onFrame(handler: FrameHandler): () => void {
 
 /**
  * 订阅连接状态变化（断线/重连）。返回取消订阅函数。
- * 透传封装：组件/store 经此订阅，不直接碰 window.otto。
+ * 透传封装：组件/store 经此订阅，不直接碰 window.clawmaster。
  * preload 会在注册时立即以当前状态回调一次。
  */
 export function onConnectionChange(handler: ConnectionHandler): () => void {
@@ -65,13 +65,13 @@ export function isConnected(): boolean {
 
 /**
  * 订阅应用菜单动作（main 经 preload 下发）：'new-chat' | 'open-settings'。
- * 返回取消订阅函数。透传封装：App 经此订阅，不直接碰 window.otto。
+ * 返回取消订阅函数。透传封装：App 经此订阅，不直接碰 window.clawmaster。
  */
 export function onMenu(handler: MenuHandler): () => void {
   return getHostBridge().onMenu(handler);
 }
 
-/** host-only：用系统浏览器打开外链（斜杠命令 /hooks 等）。透传封装，不直接碰 window.otto。 */
+/** host-only：用系统浏览器打开外链（斜杠命令 /hooks 等）。透传封装，不直接碰 window.clawmaster。 */
 export function openExternal(url: string): Promise<void> {
   return getHostBridge().openExternal(url);
 }
@@ -98,4 +98,4 @@ export function sendUserMessage(
 }
 
 // 重导出常用协议类型，方便 renderer 子模块 import 一处。
-export type { OttoMessage, SessionSummary, ServerToClient, ClientToServer };
+export type { ClawMasterMessage, SessionSummary, ServerToClient, ClientToServer };

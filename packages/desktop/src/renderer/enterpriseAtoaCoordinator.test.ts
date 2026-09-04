@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -27,7 +27,7 @@ const inboxRequest = (content: string) => ({
 describe('企业 A2A 请求协调器', () => {
   it('拒绝时不读取任何资料、不调用模型，并发出明确拒绝回执', async () => {
     const collectContext = vi.fn();
-    const askOtto = vi.fn();
+    const askClawMaster = vi.fn();
     const sendMessage = vi.fn(
       async (_peerAccountId: string, _content: string) => undefined,
     );
@@ -35,13 +35,13 @@ describe('企业 A2A 请求协调器', () => {
       request: inboxRequest(buildAtoaRequest('能帮我吗？', 'req-1')),
       requestPermission: vi.fn(async () => ({ kind: 'deny' as const })),
       collectContext,
-      askOtto,
+      askClawMaster,
       sendMessage,
     });
 
     expect(status).toBe('denied');
     expect(collectContext).not.toHaveBeenCalled();
-    expect(askOtto).not.toHaveBeenCalled();
+    expect(askClawMaster).not.toHaveBeenCalled();
     expect(sendMessage).toHaveBeenCalledOnce();
     const response = parseAtoaMessage(sendMessage.mock.calls[0][1]);
     expect(response).toMatchObject({
@@ -53,13 +53,13 @@ describe('企业 A2A 请求协调器', () => {
     );
   });
 
-  it('协商时只收集接收方勾选范围，并让第二个 Otto 比较发起方提案', async () => {
+  it('协商时只收集接收方勾选范围，并让第二个 ClawMaster 比较发起方提案', async () => {
     const request = inboxRequest(
       buildAtoaRequest('协商明天的评审时间', {
         id: 'req-consult',
         mode: 'consult',
         requestedSources: ['current_chat', 'schedules'],
-        initiatorProposal: '发起方 Otto 建议明天 15:00。',
+        initiatorProposal: '发起方 ClawMaster 建议明天 15:00。',
       }),
     );
     const collectContext = vi.fn(async () => ({
@@ -67,7 +67,7 @@ describe('企业 A2A 请求协调器', () => {
       loadedSources: ['schedules' as const],
       failedSources: [],
     }));
-    const askOtto = vi.fn(async () => '双方可考虑明天 16:30，仍需本人确认。');
+    const askClawMaster = vi.fn(async () => '双方可考虑明天 16:30，仍需本人确认。');
     const sendMessage = vi.fn(
       async (_peerAccountId: string, _content: string) => undefined,
     );
@@ -80,17 +80,17 @@ describe('企业 A2A 请求协调器', () => {
         return { kind: 'allow' as const, sources: ['schedules' as const] };
       }),
       collectContext,
-      askOtto,
+      askClawMaster,
       sendMessage,
     });
 
     expect(status).toBe('answered');
     expect(collectContext).toHaveBeenCalledWith(['schedules'], []);
-    expect(askOtto).toHaveBeenCalledWith({
+    expect(askClawMaster).toHaveBeenCalledWith({
       question: '协商明天的评审时间',
       workContext: '接收方日程：明天 16:00 后有空。',
       mode: 'consult',
-      initiatorProposal: '发起方 Otto 建议明天 15:00。',
+      initiatorProposal: '发起方 ClawMaster 建议明天 15:00。',
     });
     const response = parseAtoaMessage(sendMessage.mock.calls[0][1]);
     expect(response).toMatchObject({
@@ -119,7 +119,7 @@ describe('企业 A2A 请求协调器', () => {
         loadedSources: ['current_chat' as const],
         failedSources: [],
       })),
-      askOtto: vi.fn(async () => {
+      askClawMaster: vi.fn(async () => {
         throw new Error('没有模型');
       }),
       sendMessage,
@@ -139,7 +139,7 @@ describe('企业 A2A 请求协调器', () => {
         request: inboxRequest('普通消息'),
         requestPermission,
         collectContext: vi.fn(),
-        askOtto: vi.fn(),
+        askClawMaster: vi.fn(),
         sendMessage,
       }),
     ).resolves.toBe('ignored');

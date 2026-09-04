@@ -361,7 +361,7 @@ export class MarketplaceLoader implements IPluginLoader {
     // 的仓库（monorepo workspace 常见），`Dirent.isDirectory()` 对 symlink 返回
     // false，所以要显式 follow。
 
-    // 1. 检查根目录下的插件 (Otto 风格)
+    // 1. 检查根目录下的插件 (ClawMaster 风格)
     const rootEntries = await fs.readdir(mpPath, { withFileTypes: true });
     for (const entry of rootEntries) {
       if (entry.name.startsWith('.')) continue;
@@ -483,8 +483,8 @@ export class MarketplaceLoader implements IPluginLoader {
         found.forEach(addComponent);
       }
     } else {
-      // 尝试扫描根目录下的 Skills (Otto 扁平结构)
-      // 这种结构常见于旧性 Otto 插件，如 document-skills
+      // 尝试扫描根目录下的 Skills (ClawMaster 扁平结构)
+      // 这种结构常见于旧性 ClawMaster 插件，如 document-skills
       const skills = await this.scanComponents(
         pluginDir, '.', ComponentType.SKILL, id, marketplaceId
       );

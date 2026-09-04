@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * NSI-11: schema ownership for the ticket unread-notification escalation queue.
  * Business decisions remain in the repository/facade.

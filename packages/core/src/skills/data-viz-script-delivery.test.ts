@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { spawnSync } from 'node:child_process';
@@ -253,7 +253,7 @@ print(json.dumps({"rejected": rejected, "layout": layout}))
       'date_cols.append(col)\n                continue',
     );
     expect(analyzeSource).not.toContain(
-      '"source": "Otto Data-Viz-Pro 自动分析"',
+      '"source": "ClawMaster Data-Viz-Pro 自动分析"',
     );
     expect(analyzeSource).toContain('cfg["source"] = input_path.name');
   });

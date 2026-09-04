@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -26,7 +26,7 @@ browserSuite('Playwright RPA browser boundary', () => {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const { port } = server.address() as AddressInfo;
     const driver = new RunScopedWebDriver(new PlaywrightWebSessionFactory({
-      executablePath: process.env['OTTO_RPA_BROWSER_EXECUTABLE'],
+      executablePath: process.env['CLAWMASTER_RPA_BROWSER_EXECUTABLE'],
     }));
     try {
       await driver.execute(input('web.navigate', { url: `http://127.0.0.1:${port}/` }));

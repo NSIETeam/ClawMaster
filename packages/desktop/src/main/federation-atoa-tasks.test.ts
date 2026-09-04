@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -30,7 +30,7 @@ const contact: EnterpriseFederationContact = {
   keyFingerprint: 'b'.repeat(64),
 };
 
-const requestContent = 'OTTO_ATOA_REQUEST ' + JSON.stringify({
+const requestContent = 'CLAWMASTER_ATOA_REQUEST ' + JSON.stringify({
   v: 1,
   id: 'request_one',
   question: '明天下午是否方便开会？',
@@ -188,7 +188,7 @@ describe('deriveFederationAtoaTasks', () => {
     const response = message({
       id: 'response_one',
       direction: 'outbound',
-      content: 'OTTO_ATOA_RESPONSE {}',
+      content: 'CLAWMASTER_ATOA_RESPONSE {}',
       federationMessageType: 'a2a.response',
       contentType: 'atoa_response',
       inReplyToMessageId: request.id,

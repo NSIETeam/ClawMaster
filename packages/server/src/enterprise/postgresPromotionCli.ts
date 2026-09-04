@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import path from 'node:path';
@@ -31,10 +31,10 @@ import {
 type PromotionEnvironment = NodeJS.ProcessEnv &
   EnterpriseDatabaseTopologyEnvironment &
   NodePostgresEnvironment & {
-    OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED?: string;
-    OTTO_ATTACHMENT_TENANT_QUOTA_BYTES?: string;
-    OTTO_ATTACHMENT_MIGRATION_GRACE_DAYS?: string;
-    OTTO_ENTERPRISE_FIELD_KEY_FILE?: string;
+    CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED?: string;
+    CLAWMASTER_ATTACHMENT_TENANT_QUOTA_BYTES?: string;
+    CLAWMASTER_ATTACHMENT_MIGRATION_GRACE_DAYS?: string;
+    CLAWMASTER_ENTERPRISE_FIELD_KEY_FILE?: string;
   };
 
 export interface PostgresEnterprisePromotionArguments {
@@ -95,11 +95,11 @@ export async function promoteEnterprisePostgres(input: {
   const options = parsePostgresEnterprisePromotionArguments(input.arguments);
   if (
     !options.dryRun &&
-    input.environment.OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED?.trim().toLowerCase() !==
+    input.environment.CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED?.trim().toLowerCase() !==
       'true'
   ) {
     throw new Error(
-      'execute requires OTTO_SQLITE_IMPORT_MAINTENANCE_CONFIRMED=true after stopping all SQLite writers',
+      'execute requires CLAWMASTER_SQLITE_IMPORT_MAINTENANCE_CONFIRMED=true after stopping all SQLite writers',
     );
   }
   const topology = resolveEnterpriseDatabaseTopology({
@@ -119,7 +119,7 @@ export async function promoteEnterprisePostgres(input: {
     pool,
     migrations: ENTERPRISE_POSTGRES_MIGRATIONS,
   });
-  const fieldKeyFile = input.environment.OTTO_ENTERPRISE_FIELD_KEY_FILE?.trim();
+  const fieldKeyFile = input.environment.CLAWMASTER_ENTERPRISE_FIELD_KEY_FILE?.trim();
   const fieldKeyProvider = fieldKeyFile
     ? createFileEncryptionKeyProvider({
         keyPath: path.resolve(fieldKeyFile),
@@ -137,14 +137,14 @@ export async function promoteEnterprisePostgres(input: {
       runId: options.runId,
       dryRun: options.dryRun,
       defaultAttachmentQuotaBytes: positiveIntegerSetting({
-        name: 'OTTO_ATTACHMENT_TENANT_QUOTA_BYTES',
-        value: input.environment.OTTO_ATTACHMENT_TENANT_QUOTA_BYTES,
+        name: 'CLAWMASTER_ATTACHMENT_TENANT_QUOTA_BYTES',
+        value: input.environment.CLAWMASTER_ATTACHMENT_TENANT_QUOTA_BYTES,
         fallback: 100 * 1024 * 1024 * 1024,
       }),
       legacyAttachmentGraceMs:
         positiveIntegerSetting({
-          name: 'OTTO_ATTACHMENT_MIGRATION_GRACE_DAYS',
-          value: input.environment.OTTO_ATTACHMENT_MIGRATION_GRACE_DAYS,
+          name: 'CLAWMASTER_ATTACHMENT_MIGRATION_GRACE_DAYS',
+          value: input.environment.CLAWMASTER_ATTACHMENT_MIGRATION_GRACE_DAYS,
           fallback: 30,
         }) *
         24 *
@@ -183,7 +183,7 @@ async function main(): Promise<void> {
     console.error(
       `[ClawMaster Enterprise] PostgreSQL promotion failed: ${safePostgresErrorMessage(
         error,
-        process.env.OTTO_POSTGRES_URL,
+        process.env.CLAWMASTER_POSTGRES_URL,
       )}`,
     );
     process.exitCode = 1;

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import fs from 'node:fs';
@@ -30,13 +30,13 @@ describe('SQLCipher runtime configuration', () => {
     );
     expect(parseSqlCipherRuntimeMode({ NODE_ENV: 'test' })).toBe('disabled');
     expect(
-      parseSqlCipherRuntimeMode({ OTTO_DATABASE_ENCRYPTION: 'required' }),
+      parseSqlCipherRuntimeMode({ CLAWMASTER_DATABASE_ENCRYPTION: 'required' }),
     ).toBe('required');
-    expect(parseSqlCipherRuntimeMode({ OTTO_DATABASE_ENCRYPTION: 'off' })).toBe(
+    expect(parseSqlCipherRuntimeMode({ CLAWMASTER_DATABASE_ENCRYPTION: 'off' })).toBe(
       'disabled',
     );
     expect(() =>
-      parseSqlCipherRuntimeMode({ OTTO_DATABASE_ENCRYPTION: 'maybe' }),
+      parseSqlCipherRuntimeMode({ CLAWMASTER_DATABASE_ENCRYPTION: 'maybe' }),
     ).toThrow(/must be required or disabled/i);
   });
 
@@ -48,7 +48,7 @@ describe('SQLCipher runtime configuration', () => {
 
     expect(() =>
       createSqlCipherFileRuntime({ dataDirectory, environment: {} }),
-    ).toThrow(/OTTO_DATABASE_ENCRYPTION_KEY_FILE is required/i);
+    ).toThrow(/CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE is required/i);
     expect(fs.readdirSync(dataDirectory)).toEqual([]);
   });
 
@@ -64,8 +64,8 @@ describe('SQLCipher runtime configuration', () => {
       createSqlCipherFileRuntime({
         dataDirectory,
         environment: {
-          OTTO_DATABASE_ENCRYPTION_KEY_FILE: keyPath,
-          OTTO_SQLCIPHER_NATIVE_BINDING: path.join(
+          CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE: keyPath,
+          CLAWMASTER_SQLCIPHER_NATIVE_BINDING: path.join(
             dataDirectory,
             'missing.node',
           ),

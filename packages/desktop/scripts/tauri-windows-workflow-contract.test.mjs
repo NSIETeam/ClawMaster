@@ -81,7 +81,7 @@ describe('Tauri Windows workflow contract', () => {
     expect(installSmoke).toContain("@('/S', \"/D=$installRoot\")");
     expect(installSmoke).toContain("-Filter 'clawmaster-desktop.exe'");
     expect(installSmoke).toContain('verify-tauri-bundle.mjs');
-    expect(installSmoke).toContain('$env:OTTO_USER_DIR = $userRoot');
+    expect(installSmoke).toContain('$env:CLAWMASTER_USER_DIR = $userRoot');
     expect(installSmoke).toContain('if ($appProcess.HasExited)');
     expect(installSmoke).toContain('Remove-Item -LiteralPath $smokeRoot');
   });

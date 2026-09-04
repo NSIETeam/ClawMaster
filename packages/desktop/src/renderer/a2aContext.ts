@@ -1,11 +1,11 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * A2A 隐私边界：这里只读取接收方在单次请求中明确勾选的资料，并在进入
  * tool-free Agent 前做数量、字段和总长度裁剪。
  */
 
-import type { ScheduleItemInfo, WorkLogDay } from 'otto-server';
+import type { ScheduleItemInfo, WorkLogDay } from 'clawmaster-server';
 import type {
   EnterpriseDirectMessage,
   EnterpriseKnowledgeItem,

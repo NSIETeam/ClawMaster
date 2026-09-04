@@ -25,7 +25,7 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 if (typeof manifest.sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(manifest.sha256)) {
   throw new Error('packaged Agent capsule manifest has an invalid identity');
 }
-const userRoot = process.env.OTTO_USER_DIR
+const userRoot = process.env.CLAWMASTER_USER_DIR
   || path.join(homedir(), '.clawmaster-user');
 if (process.env.CLAWMASTER_PARENT_PIPE === '1') {
   bindSidecarToParentPipe({

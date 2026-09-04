@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * AuditLog — 操作审计日志。
  *
@@ -17,7 +17,7 @@ import { redactSensitiveText } from '../utils/redaction.js';
 
 /** 审计日志根目录（运行时解析，便于企业/测试隔离） */
 function resolveDefaultAuditDir(): string {
-  const userDir = process.env['OTTO_USER_DIR']?.trim();
+  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim();
   return userDir ? path.join(userDir, 'audit') : path.join(homedir(), '.otto-user', 'audit');
 }
 

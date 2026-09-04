@@ -1,20 +1,20 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
  * 单条消息渲染。spec §主聊天区：
  *   - 用户消息：右对齐 peach 气泡 + 时间 + amber 双勾已读回执；图片缩略图可点开放大。
- *   - Otto 回复：副图标 + 名 + 时间 + 正文 + 工具卡 + 动作行（复制 / 重新生成）。
+ *   - ClawMaster 回复：副图标 + 名 + 时间 + 正文 + 工具卡 + 动作行（复制 / 重新生成）。
  *
  * 动作行只保留复制与重新生成——这两个是真的落地功能；原先的赞/踩仅本地高亮、
  * 不落库不发帧、切会话即丢，是误导用户的假按钮，已移除。
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import type { OttoMessage } from 'otto-server';
+import type { ClawMasterMessage } from 'clawmaster-server';
 import { Prose, contentToText } from './Prose.js';
 import { attachmentToDataUrl } from '../lib/image.js';
 import {
@@ -22,7 +22,7 @@ import {
   ToolCallsCard,
   type RespondQuestionFn,
 } from './ToolCalls.js';
-import { OttoSecondaryMark } from './OttoSecondaryMark.js';
+import { ClawMasterSecondaryMark } from './ClawMasterSecondaryMark.js';
 import {
   IconCheckCheck,
   IconCheck,
@@ -40,7 +40,7 @@ function formatTime(ts: number): string {
 }
 
 interface MessageProps {
-  message: OttoMessage;
+  message: ClawMasterMessage;
   onCopy: (text: string) => void;
   /**
    * 重新生成。携带被点的那条 bot 消息 id，App 据此定位「该条之前最近的一条
@@ -76,23 +76,23 @@ export function Message({
 }
 
 /** 系统消息（命令回执）：居中窄卡，markdown 正文（Prose），弱化视觉不抢对话主线。 */
-function SystemMessage({ message }: { message: OttoMessage }): React.JSX.Element {
+function SystemMessage({ message }: { message: ClawMasterMessage }): React.JSX.Element {
   return (
-    <div className="otto-msg-system" role="note">
-      <div className="otto-msg-system__card">
+    <div className="claw-msg-system" role="note">
+      <div className="claw-msg-system__card">
         <Prose text={contentToText(message.content)} />
       </div>
     </div>
   );
 }
 
-function UserMessage({ message }: { message: OttoMessage }): React.JSX.Element {
+function UserMessage({ message }: { message: ClawMasterMessage }): React.JSX.Element {
   const text = contentToText(message.content);
   const images = message.content.filter(
     (
       p,
     ): p is Extract<
-      OttoMessage['content'][number],
+      ClawMasterMessage['content'][number],
       { type: 'image_reference' }
     > => p.type === 'image_reference',
   );
@@ -101,22 +101,22 @@ function UserMessage({ message }: { message: OttoMessage }): React.JSX.Element {
     null,
   );
   return (
-    <div className="otto-msg-user">
+    <div className="claw-msg-user">
       {images.length > 0 ? (
-        <div className="otto-msg-user__images">
+        <div className="claw-msg-user__images">
           {images.map((p) => {
             const src = attachmentToDataUrl(p.value);
             return (
               <button
                 key={p.value.id}
                 type="button"
-                className="otto-msg-user__thumb"
+                className="claw-msg-user__thumb"
                 title="点击查看大图"
                 aria-label={`查看大图：${p.value.fileName}`}
                 onClick={() => setZoomed({ src, alt: p.value.fileName })}
               >
                 <img
-                  className="otto-msg-user__image"
+                  className="claw-msg-user__image"
                   src={src}
                   alt={p.value.fileName}
                 />
@@ -125,10 +125,10 @@ function UserMessage({ message }: { message: OttoMessage }): React.JSX.Element {
           })}
         </div>
       ) : null}
-      {text ? <div className="otto-msg-user__bubble">{text}</div> : null}
-      <div className="otto-msg-user__receipt">
+      {text ? <div className="claw-msg-user__bubble">{text}</div> : null}
+      <div className="claw-msg-user__receipt">
         <span>{formatTime(message.timestamp)}</span>
-        <IconCheckCheck size={14} className="otto-msg-user__check" />
+        <IconCheckCheck size={14} className="claw-msg-user__check" />
       </div>
       {zoomed ? (
         <ImageLightbox
@@ -169,7 +169,7 @@ function ImageLightbox({
 
   return (
     <div
-      className="otto-lightbox"
+      className="claw-lightbox"
       role="dialog"
       aria-modal="true"
       aria-label="图片预览"
@@ -178,7 +178,7 @@ function ImageLightbox({
       <button
         ref={closeRef}
         type="button"
-        className="otto-lightbox__close"
+        className="claw-lightbox__close"
         aria-label="关闭预览"
         title="关闭"
         onClick={onClose}
@@ -187,7 +187,7 @@ function ImageLightbox({
       </button>
       {/* 点图本身不关闭：拦截冒泡，只有点遮罩空白处才关。 */}
       <img
-        className="otto-lightbox__img"
+        className="claw-lightbox__img"
         src={src}
         alt={alt}
         onClick={(e) => e.stopPropagation()}
@@ -214,12 +214,12 @@ function BotMessage({
   const displayText = text || fallbackSummary;
 
   return (
-    <div className="otto-msg-bot">
-      <OttoSecondaryMark active={responding} />
-      <div className="otto-msg-bot__body">
-        <div className="otto-msg-bot__head">
-          <span className="otto-msg-bot__name">ClawMaster</span>
-          <span className="otto-msg-bot__time">
+    <div className="claw-msg-bot">
+      <ClawMasterSecondaryMark active={responding} />
+      <div className="claw-msg-bot__body">
+        <div className="claw-msg-bot__head">
+          <span className="claw-msg-bot__name">ClawMaster</span>
+          <span className="claw-msg-bot__time">
             {formatTime(message.timestamp)}
           </span>
         </div>
@@ -254,7 +254,7 @@ function BotMessage({
 /** 首个 chunk 未到时只显示克制文案；动效由左侧回答标记承担。 */
 function TypingIndicator(): React.JSX.Element {
   return (
-    <div className="otto-typing" role="status" aria-label="ClawMaster 正在输入">
+    <div className="claw-typing" role="status" aria-label="ClawMaster 正在输入">
       正在组织回答…
     </div>
   );
@@ -276,7 +276,7 @@ function ProcessTrace({
 }: {
   reasoning?: string;
   reasoningActive: boolean;
-  tools: NonNullable<OttoMessage['associatedToolCalls']>;
+  tools: NonNullable<ClawMasterMessage['associatedToolCalls']>;
   toolsActive: boolean;
   onRespondQuestion?: RespondQuestionFn;
 }): React.JSX.Element {
@@ -298,33 +298,33 @@ function ProcessTrace({
   }, [automaticOpen]);
 
   return (
-    <div className="otto-reasoning otto-process-trace">
+    <div className="claw-reasoning claw-process-trace">
       <button
         type="button"
-        className="otto-reasoning__head"
+        className="claw-reasoning__head"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
-        <span className="otto-reasoning__title">
+        <span className="claw-reasoning__title">
           {active ? '正在处理…' : requiresAttention ? '等待确认' : '处理记录'}
         </span>
         {tools.length > 0 ? (
-          <span className="otto-process-trace__count">
+          <span className="claw-process-trace__count">
             {tools.length} 个步骤
           </span>
         ) : null}
         <IconChevron
           size={14}
-          className={`otto-reasoning__chev${
-            open ? ' otto-reasoning__chev--open' : ''
+          className={`claw-reasoning__chev${
+            open ? ' claw-reasoning__chev--open' : ''
           }`}
         />
       </button>
-      <div className={`otto-collapse${open ? ' otto-collapse--open' : ''}`}>
-        <div className="otto-collapse__inner">
-          <div className="otto-process-trace__body">
+      <div className={`claw-collapse${open ? ' claw-collapse--open' : ''}`}>
+        <div className="claw-collapse__inner">
+          <div className="claw-process-trace__body">
             {reasoning ? (
-              <div className="otto-reasoning__body">{reasoning}</div>
+              <div className="claw-reasoning__body">{reasoning}</div>
             ) : null}
             {tools.length > 0 ? (
               <ToolCallsCard
@@ -361,10 +361,10 @@ function MessageActions({
     copiedTimerRef.current = setTimeout(() => setCopied(false), 1200);
   };
   return (
-    <div className="otto-actions">
+    <div className="claw-actions">
       <button
         type="button"
-        className={`otto-action${copied ? ' otto-action--on' : ''}`}
+        className={`claw-action${copied ? ' claw-action--on' : ''}`}
         title={copied ? '已复制' : '复制'}
         aria-label={copied ? '已复制' : '复制'}
         onClick={handleCopy}
@@ -373,7 +373,7 @@ function MessageActions({
       </button>
       <button
         type="button"
-        className="otto-action"
+        className="claw-action"
         title="重新生成"
         aria-label="重新生成"
         onClick={onRegenerate}

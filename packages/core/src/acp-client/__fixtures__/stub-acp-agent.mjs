@@ -5,7 +5,7 @@
  */
 
 /**
- * Minimal ACP *agent* (server) used to test the Otto ACP client.
+ * Minimal ACP *agent* (server) used to test the ClawMaster ACP client.
  *
  * Behaviour is selected via the STUB_MODE env var:
  *   - "normal" (default): on prompt, asks for permission, then streams an

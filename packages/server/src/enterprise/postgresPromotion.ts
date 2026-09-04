@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Atomically promotes a verified SQLite staging run into the PostgreSQL core
  * domain. The target must be unused; retries are idempotent through the

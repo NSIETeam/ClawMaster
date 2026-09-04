@@ -5,20 +5,20 @@
  * Enterprise launcher. PostgreSQL mode is loaded through an isolated async
  * entry point and never imports the legacy SQLite repository.
  *
- * Otto Enterprise 服务端启动入口（管理员/老板设备运行）。
+ * ClawMaster Enterprise 服务端启动入口（管理员/老板设备运行）。
  *
  *   node dist/enterprise/bin.js                 # 本机启动，端口 7777
  *   node dist/enterprise/bin.js --seed          # 先灌一批演示数据（看板立刻有东西看）
- *   OTTO_ENTERPRISE_HOST=0.0.0.0 \
- *   OTTO_ENTERPRISE_PUBLIC_URL=https://your-public-host \
- *   OTTO_APP_VERSION=0.0.1 \
- *   OTTO_BUILD_COMMIT=<完整的40位Git-SHA> \
- *   OTTO_ENTERPRISE_ADMIN_TOKEN=xxx node dist/enterprise/bin.js   # 局域网 + 鉴权
+ *   CLAWMASTER_ENTERPRISE_HOST=0.0.0.0 \
+ *   CLAWMASTER_ENTERPRISE_PUBLIC_URL=https://your-public-host \
+ *   CLAWMASTER_APP_VERSION=0.0.2beta \
+ *   CLAWMASTER_BUILD_COMMIT=<完整的40位Git-SHA> \
+ *   CLAWMASTER_ENTERPRISE_ADMIN_TOKEN=xxx node dist/enterprise/bin.js   # 局域网 + 鉴权
  */
 
 function configuredForPostgres(): boolean {
   const backend =
-    process.env.OTTO_ENTERPRISE_DATABASE_BACKEND?.trim().toLowerCase() ||
+    process.env.CLAWMASTER_ENTERPRISE_DATABASE_BACKEND?.trim().toLowerCase() ||
     'sqlite';
   return backend === 'postgres' || backend === 'postgresql';
 }
@@ -34,12 +34,12 @@ async function startPostgres(args: Set<string>): Promise<void> {
     );
   }
   if (args.has('--bootstrap-admin')) {
-    const username = process.env.OTTO_BOOTSTRAP_USERNAME?.trim() || 'admin';
-    const password = process.env.OTTO_BOOTSTRAP_PASSWORD || '';
-    const name = process.env.OTTO_BOOTSTRAP_NAME?.trim() || '系统管理员';
+    const username = process.env.CLAWMASTER_BOOTSTRAP_USERNAME?.trim() || 'admin';
+    const password = process.env.CLAWMASTER_BOOTSTRAP_PASSWORD || '';
+    const name = process.env.CLAWMASTER_BOOTSTRAP_NAME?.trim() || '系统管理员';
     if (password.length < 8) {
       throw new Error(
-        'OTTO_BOOTSTRAP_PASSWORD must contain at least 8 characters',
+        'CLAWMASTER_BOOTSTRAP_PASSWORD must contain at least 8 characters',
       );
     }
     const account = await bootstrapClusteredEnterpriseAdmin({
@@ -60,12 +60,12 @@ async function startLocal(args: Set<string>): Promise<void> {
   ]);
 
   if (args.has('--bootstrap-admin')) {
-    const username = process.env.OTTO_BOOTSTRAP_USERNAME?.trim() || 'admin';
-    const password = process.env.OTTO_BOOTSTRAP_PASSWORD || '';
-    const name = process.env.OTTO_BOOTSTRAP_NAME?.trim() || '系统管理员';
+    const username = process.env.CLAWMASTER_BOOTSTRAP_USERNAME?.trim() || 'admin';
+    const password = process.env.CLAWMASTER_BOOTSTRAP_PASSWORD || '';
+    const name = process.env.CLAWMASTER_BOOTSTRAP_NAME?.trim() || '系统管理员';
     if (password.length < 8) {
       throw new Error(
-        'OTTO_BOOTSTRAP_PASSWORD must contain at least 8 characters',
+        'CLAWMASTER_BOOTSTRAP_PASSWORD must contain at least 8 characters',
       );
     }
     if (db.listAccounts().length > 0) {

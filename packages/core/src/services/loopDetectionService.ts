@@ -5,7 +5,7 @@
  */
 
 import { createHash } from 'crypto';
-import { OttoEventType, ServerOttoStreamEvent } from '../core/turn.js';
+import { ClawMasterEventType, ServerClawMasterStreamEvent } from '../core/turn.js';
 import { logLoopDetected } from '../telemetry/loggers.js';
 import { LoopDetectedEvent, LoopType } from '../telemetry/types.js';
 import { Config } from '../config/config.js';
@@ -88,12 +88,12 @@ async function callGeminiLoopDetectionAPI(
   abortSignal: AbortSignal,
   config: Config,
 ): Promise<LoopDetectionResponse> {
-  // 🔄 使用统一的OttoServerAdapter接口
-  const ottoAdapter = config.getOttoClient()?.getContentGenerator() as unknown as {
+  // 🔄 使用统一的ClawMasterServerAdapter接口
+  const ottoAdapter = config.getClawMasterClient()?.getContentGenerator() as unknown as {
     generateContent: (request: unknown, scene: string) => Promise<LoopDetectionResponse>;
   };
   if (!ottoAdapter) {
-    throw new Error('OttoServerAdapter not available');
+    throw new Error('ClawMasterServerAdapter not available');
   }
 
   console.log(`[LoopDetection] Calling unified interface for loop detection`);
@@ -161,19 +161,19 @@ export class LoopDetectionService {
    * @param event - The stream event to process
    * @returns true if a loop is detected, false otherwise
    */
-  addAndCheck(event: ServerOttoStreamEvent): boolean {
+  addAndCheck(event: ServerClawMasterStreamEvent): boolean {
     if (this.loopDetected) {
       return true;
     }
 
     switch (event.type) {
-      case OttoEventType.ToolCallRequest:
+      case ClawMasterEventType.ToolCallRequest:
         // content chanting only happens in one single stream, reset if there
         // is a tool call in between
         this.resetContentTracking();
         this.loopDetected = this.checkToolCallLoop(event.value);
         break;
-      case OttoEventType.Content:
+      case ClawMasterEventType.Content:
         this.loopDetected = this.checkContentLoop(event.value);
         break;
       default:
@@ -517,7 +517,7 @@ export class LoopDetectionService {
 
   private async checkForLoopWithLLM(signal: AbortSignal) {
     const recentHistory = this.config
-      .getOttoClient()
+      .getClawMasterClient()
       .getHistory()
       .slice(-LLM_LOOP_CHECK_HISTORY_COUNT);
 

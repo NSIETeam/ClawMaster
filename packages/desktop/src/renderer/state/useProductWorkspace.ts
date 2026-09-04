@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * 个人/企业模式、组织、好友、积分和本地日程的 renderer 状态。
  * 服务端是唯一事实源；本 hook 不向 localStorage 复制企业身份。
@@ -12,7 +12,7 @@ import type {
   ProductWorkspaceSnapshot,
   ScheduleItemInfo,
   ServerToClient,
-} from 'otto-server';
+} from 'clawmaster-server';
 import * as transport from '../transport.js';
 
 export function createProductWorkspaceConnectionHandler(

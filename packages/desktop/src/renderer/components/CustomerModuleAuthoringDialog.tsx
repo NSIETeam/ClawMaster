@@ -22,7 +22,7 @@ export function CustomerModuleAuthoringDialog({
 }): React.JSX.Element | null {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<CustomerModuleAuthoringDraft>({
-    id: '', name: '', version: '1.0.0', description: '', releaseNotes: '', minimumOttoVersion: '1.15.3',
+    id: '', name: '', version: '1.0.0', description: '', releaseNotes: '', minimumClawMasterVersion: '1.15.3',
     permissions: [], inputSchema: { type: 'object', properties: {} },
   });
   const [wasm, setWasm] = useState<Uint8Array | null>(null);
@@ -100,14 +100,14 @@ export function CustomerModuleAuthoringDialog({
   };
 
   return createPortal(
-    <div className="otto-module-marketplace-overlay" onMouseDown={modal.onBackdropMouseDown}>
-      <div ref={modal.dialogRef} className="otto-module-marketplace" role="dialog" aria-modal="true" aria-label="创建客户模块" onKeyDown={modal.onKeyDown}>
-        <header className="otto-module-marketplace__header">
+    <div className="claw-module-marketplace-overlay" onMouseDown={modal.onBackdropMouseDown}>
+      <div ref={modal.dialogRef} className="claw-module-marketplace" role="dialog" aria-modal="true" aria-label="创建客户模块" onKeyDown={modal.onKeyDown}>
+        <header className="claw-module-marketplace__header">
           <div><h2>创建客户模块</h2><p>步骤 {step + 1}/6 · {STEPS[step]}</p></div>
           <button ref={modal.closeRef} type="button" aria-label="关闭创建模块" disabled={busy} onClick={onClose}>×</button>
         </header>
-        <div className="otto-module-marketplace__catalog">
-          {step === 0 ? <div className="otto-settings-form">
+        <div className="claw-module-marketplace__catalog">
+          {step === 0 ? <div className="claw-settings-form">
             <label>稳定模块 ID<input aria-label="稳定模块 ID" value={draft.id} onChange={(event) => setDraft({ ...draft, id: event.target.value })} placeholder="com.company.module" /></label>
             <label>模块名称<input aria-label="模块名称" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
             <label>版本<input aria-label="版本" value={draft.version} onChange={(event) => setDraft({ ...draft, version: event.target.value })} placeholder="1.0.0" /></label>
@@ -120,7 +120,7 @@ export function CustomerModuleAuthoringDialog({
           }} /></label> : null}
           {step === 2 ? <label>输入表单 JSON Schema<textarea aria-label="输入表单 JSON Schema" rows={12} value={schemaText} onChange={(event) => setSchemaText(event.target.value)} /></label> : null}
           {step === 3 ? <fieldset><legend>申请权限（安装时用户必须逐项确认）</legend>{(['model', 'http', 'storage', 'file', 'background'] as const).map((kind) => <label key={kind}><input type="checkbox" checked={draft.permissions.some((permission) => permission.kind === kind)} onChange={() => togglePermission(kind)} />{kind}{kind === 'model' ? '（可能产生费用）' : kind === 'background' ? '（默认关闭，安装后仍需用户单独开启）' : ''}</label>)}
-            {draft.permissions.some((permission) => permission.kind === 'http') ? <div className="otto-settings-form">
+            {draft.permissions.some((permission) => permission.kind === 'http') ? <div className="claw-settings-form">
               <label>允许的 HTTPS 域名<input aria-label="允许的 HTTPS 域名" value={httpHosts} placeholder="api.company.com, files.company.com" onChange={(event) => updateHttpPermission(event.target.value, httpWrites)} /></label>
               <label><input type="checkbox" checked={httpWrites} onChange={(event) => updateHttpPermission(httpHosts, event.target.checked)} />允许 POST/PUT/PATCH/DELETE 外部写操作（必须携带幂等键）</label>
             </div> : null}
@@ -130,7 +130,7 @@ export function CustomerModuleAuthoringDialog({
             <button type="button" disabled={busy || !wasm} onClick={() => {
               if (!wasm) return;
               setBusy(true); setStatus('沙箱测试中…'); setTestTrace([]); setTestPassed(false);
-              void buildCustomerModuleSubmission({ draft, publisher, wasm }).then((submission) => window.otto.customerModuleTest(submission)).then((execution) => {
+              void buildCustomerModuleSubmission({ draft, publisher, wasm }).then((submission) => window.clawmaster.customerModuleTest(submission)).then((execution) => {
                 setStatus(`退出状态：${execution.result.status} · 退出码 ${execution.result.exitCode ?? '无'}${execution.result.error ? ` · ${execution.result.error}` : ''}`);
                 setTestTrace([...execution.audit, ...execution.hostAudit]);
                 setTestPassed(execution.result.status === 'completed');
@@ -142,9 +142,9 @@ export function CustomerModuleAuthoringDialog({
           {step === 5 ? <div><p>发布者：{publisher.name}</p><p>{draft.id}@{draft.version}</p><p>权限：{draft.permissions.length === 0 ? '无' : draft.permissions.map((item) => String(item.kind)).join('、')}</p></div> : null}
           {status && step !== 4 ? <p role="alert">{status}</p> : null}
         </div>
-        <footer className="otto-module-marketplace__footer">
+        <footer className="claw-module-marketplace__footer">
           <button type="button" disabled={step === 0 || busy} onClick={() => setStep((current) => current - 1)}>上一步</button>
-          {step < 5 ? <button type="button" className="otto-module-marketplace__confirm" onClick={() => void advance()}>下一步</button> : <button type="button" className="otto-module-marketplace__confirm" disabled={busy || !wasm} onClick={() => {
+          {step < 5 ? <button type="button" className="claw-module-marketplace__confirm" onClick={() => void advance()}>下一步</button> : <button type="button" className="claw-module-marketplace__confirm" disabled={busy || !wasm} onClick={() => {
             if (!wasm) return;
             setBusy(true); setStatus(null);
             void buildCustomerModuleSubmission({ draft, publisher, wasm })

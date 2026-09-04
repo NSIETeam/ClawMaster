@@ -1,11 +1,11 @@
 /**
  * @license
- * Copyright 2026 Otto
+ * Copyright 2026 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const PET_WIDGET_PREFERENCE_KEY = 'otto.pet-widget.enabled';
-export const PET_WIDGET_PREFERENCE_EVENT = 'otto:pet-widget-preference-change';
+const PET_WIDGET_PREFERENCE_KEY = 'clawmaster.pet-widget.enabled';
+export const PET_WIDGET_PREFERENCE_EVENT = 'clawmaster:pet-widget-preference-change';
 
 export function readPetWidgetEnabled(): boolean {
   try {

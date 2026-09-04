@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Real external notification channels for park repair requests. Server-side
  * environment variables are the only credential source, keeping secrets away
@@ -24,7 +24,7 @@ export function createRepairSmsSenderFromEnv(): RepairNotificationSender | null 
     channel: 'sms',
     async send(recipientId, title, body) {
       if (!sender) {
-        const { AliyunSmsSender } = await import('otto-core');
+        const { AliyunSmsSender } = await import('clawmaster-core');
         sender = new AliyunSmsSender({
           accessKeyId,
           accessKeySecret,
@@ -118,11 +118,11 @@ class EnterpriseFeishuSender implements RepairNotificationSender {
 }
 
 export function createRepairFeishuSenderFromEnv(): RepairNotificationSender | null {
-  const appId = process.env.OTTO_ENTERPRISE_FEISHU_APP_ID?.trim();
-  const appSecret = process.env.OTTO_ENTERPRISE_FEISHU_APP_SECRET?.trim();
+  const appId = process.env.CLAWMASTER_ENTERPRISE_FEISHU_APP_ID?.trim();
+  const appSecret = process.env.CLAWMASTER_ENTERPRISE_FEISHU_APP_SECRET?.trim();
   if (!appId || !appSecret) return null;
   const domain =
-    process.env.OTTO_ENTERPRISE_FEISHU_DOMAIN?.trim().toLowerCase();
+    process.env.CLAWMASTER_ENTERPRISE_FEISHU_DOMAIN?.trim().toLowerCase();
   const apiBaseUrl =
     domain === 'lark' ? 'https://open.larksuite.com' : 'https://open.feishu.cn';
   return new EnterpriseFeishuSender(appId, appSecret, apiBaseUrl);

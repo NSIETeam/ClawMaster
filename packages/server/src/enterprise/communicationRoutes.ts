@@ -64,7 +64,7 @@ export function organizationViewPayload(organizationId: string) {
       avatarUrl: account.avatarUrl,
       isAdmin: account.isAdmin,
       status: account.status,
-      ottoOnline: presenceByAccountId.get(account.id)?.online ?? false,
+      clawmasterOnline: presenceByAccountId.get(account.id)?.online ?? false,
       ottoLastSeenAt: presenceByAccountId.get(account.id)?.lastSeenAt ?? null,
     })),
     employeeCount: employees.length,

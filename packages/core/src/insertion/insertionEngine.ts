@@ -3,7 +3,7 @@
  * Copyright 2026 Felix
  * SPDX-License-Identifier: Apache-2.0
  *
- * Otto Insertion Engine — 任务进行中连续插入需求引擎。
+ * ClawMaster Insertion Engine — 任务进行中连续插入需求引擎。
  *
  * 核心能力:
  *   1. 任务中断与恢复: 在长任务执行期间接收新需求，挂起当前任务
@@ -13,14 +13,14 @@
  *   5. 增量上下文: 新需求自动携带当前执行上下文
  *
  * 场景示例:
- *   Otto 正在生成一份 30 页 PPT（"生成销售报告 PPT"）
+ *   ClawMaster 正在生成一份 30 页 PPT（"生成销售报告 PPT"）
  *   用户插入: "等一下，先帮我查一下今天张三的日程"
- *   → Otto 挂起 PPT 任务 → 查日程 → 恢复 PPT → 继续生成
+ *   → ClawMaster 挂起 PPT 任务 → 查日程 → 恢复 PPT → 继续生成
  *
  *   或:
- *   Otto 正在写代码
+ *   ClawMaster 正在写代码
  *   用户插入: "加上刚才那个日志功能"
- *   → Otto 记住这个需求 → 当前代码完成后 → 自动切到日志功能
+ *   → ClawMaster 记住这个需求 → 当前代码完成后 → 自动切到日志功能
  */
 
 import * as fs from 'fs/promises';

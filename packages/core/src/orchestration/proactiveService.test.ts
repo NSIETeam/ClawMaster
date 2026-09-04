@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -52,10 +52,10 @@ describe('ProactiveService 调度与日程提醒', () => {
     vi.stubEnv('TZ', 'Asia/Shanghai');
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'otto-proactive-'));
     vi.stubEnv(
-      'OTTO_SCHEDULE_FILE',
+      'CLAWMASTER_SCHEDULE_FILE',
       path.join(tempDir, 'schedules.json'),
     );
-    vi.stubEnv('OTTO_WORKLOG_DIR', path.join(tempDir, 'worklog'));
+    vi.stubEnv('CLAWMASTER_WORKLOG_DIR', path.join(tempDir, 'worklog'));
     services = [];
   });
 

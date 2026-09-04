@@ -120,7 +120,7 @@ let statisticsTasks=[];
 let currentImageUrl=null;
 function localDate(offset){const date=new Date();date.setHours(12,0,0,0);date.setDate(date.getDate()+offset);return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')}
 function show(id,message){const el=$(id);el.textContent=message||'';el.classList.toggle('hidden',!message)}
-function headers(){return {'Content-Type':'application/json','X-Otto-Admin-Token':token}}
+function headers(){return {'Content-Type':'application/json','X-ClawMaster-Admin-Token':token}}
 async function api(path,options){const response=await fetch(path,{...options,headers:{...headers(),...(options&&options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error||'请求失败');error.status=response.status;throw error}return data}
 function setLoggedIn(value){$('loginCard').classList.toggle('hidden',value);$('content').classList.toggle('hidden',!value);$('status').textContent=value?'园区管理员已登录':'等待登录'}
 function resetRoom(){currentImageUrl=null;$('roomId').value='';$('roomName').value='';$('roomLocation').value='';$('roomCapacity').value='12';$('roomHours').value='工作日 09:00–18:00';$('roomEquipment').value='投屏，视频会议，白板';$('roomEnabled').checked=true;$('roomImage').value='';$('roomFormTitle').textContent='新增会议室';$('saveRoom').textContent='保存会议室';$('deleteRoom').classList.add('hidden');$('imagePreview').replaceChildren(document.createTextNode('未上传时使用 ClawMaster 默认会议室图片'));show('roomNotice','');show('roomError','')}

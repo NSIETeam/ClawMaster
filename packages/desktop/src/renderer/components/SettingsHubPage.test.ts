@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -150,7 +150,7 @@ describe('SettingsHubPage internal-test navigation', () => {
         enterpriseAccount: {
           id: 'account-1',
           organizationId: 'org-1',
-          organizationName: 'Otto',
+          organizationName: 'ClawMaster',
           employeeId: null,
           username: 'user',
           phone: null,
@@ -177,7 +177,7 @@ describe('SettingsHubPage internal-test navigation', () => {
 
     const navButtons = Array.from(
       view.container.querySelectorAll<HTMLButtonElement>(
-        'button.otto-hub__nav-item',
+        'button.claw-hub__nav-item',
       ),
     );
     expect(navButtons).toHaveLength(19);
@@ -222,14 +222,14 @@ describe('SettingsHubPage internal-test navigation', () => {
     fireEvent.click(screen.getByRole('alert').querySelector('button')!);
     expect(actions.clearError).toHaveBeenCalledOnce();
 
-    const page = view.container.querySelector<HTMLElement>('.otto-hub-page')!;
+    const page = view.container.querySelector<HTMLElement>('.claw-hub-page')!;
     fireEvent.keyDown(page, { key: 'Enter' });
     expect(onBack).not.toHaveBeenCalled();
     fireEvent.keyDown(page, { key: 'Escape' });
     expect(onBack).toHaveBeenCalledOnce();
 
     const advanced = view.container.querySelector<HTMLButtonElement>(
-      'button.otto-hub__nav-advanced',
+      'button.claw-hub__nav-advanced',
     )!;
     fireEvent.click(advanced);
     expect(screen.getByText('prefs-panel')).toBeTruthy();

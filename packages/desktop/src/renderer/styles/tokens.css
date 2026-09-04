@@ -6,114 +6,114 @@
 
 /*
  * Otto Desktop 渲染层设计 token（浅色主题 + amber 强调）。
- * 唯一基准：docs/otto-desktop-ui-spec.md。
+ * 唯一基准：docs/claw-desktop-ui-spec.md。
  * 所有组件只引用这些变量，不硬编码颜色 / 间距 / 圆角。
  */
 
 :root {
   color-scheme: light dark;
   /* —— 表面 / 文字 —— */
-  --otto-bg: #ffffff;
-  --otto-sidebar-bg: #f5f5f7;
-  --otto-surface: #ffffff;
-  --otto-surface-raised: #fbfbfc;
-  --otto-text: #1d1d1f;
-  --otto-text-secondary: #8a8a8e;
-  --otto-text-tertiary: #aeaeb2;
-  --otto-border: #e5e5ea;
-  --otto-border-strong: #d1d1d6;
+  --claw-bg: #ffffff;
+  --claw-sidebar-bg: #f5f5f7;
+  --claw-surface: #ffffff;
+  --claw-surface-raised: #fbfbfc;
+  --claw-text: #1d1d1f;
+  --claw-text-secondary: #8a8a8e;
+  --claw-text-tertiary: #aeaeb2;
+  --claw-border: #e5e5ea;
+  --claw-border-strong: #d1d1d6;
 
   /* Compatibility aliases used by shared subpages. They resolve through the
    * active palette instead of silently invalidating an entire CSS property. */
-  --otto-text-primary: var(--otto-text);
-  --otto-bg-secondary: var(--otto-surface-raised);
-  --otto-surface-hover: color-mix(in srgb, var(--otto-text) 7%, var(--otto-surface));
-  --otto-surface-subtle: var(--otto-surface-raised);
-  --otto-border-subtle: var(--otto-border);
-  --otto-shadow-soft: var(--otto-shadow-card);
+  --claw-text-primary: var(--claw-text);
+  --claw-bg-secondary: var(--claw-surface-raised);
+  --claw-surface-hover: color-mix(in srgb, var(--claw-text) 7%, var(--claw-surface));
+  --claw-surface-subtle: var(--claw-surface-raised);
+  --claw-border-subtle: var(--claw-border);
+  --claw-shadow-soft: var(--claw-shadow-card);
 
   /* —— amber 强调 —— */
-  --otto-accent: #007aff;
-  --otto-accent-hover: #0066d6;
-  --otto-accent-soft: rgba(0, 122, 255, 0.1);
-  --otto-accent-gradient: var(--otto-accent);
-  --otto-accent-contrast: #ffffff;
-  --otto-amber: var(--otto-accent);
+  --claw-accent: #007aff;
+  --claw-accent-hover: #0066d6;
+  --claw-accent-soft: rgba(0, 122, 255, 0.1);
+  --claw-accent-gradient: var(--claw-accent);
+  --claw-accent-contrast: #ffffff;
+  --claw-amber: var(--claw-accent);
 
   /* —— 语义来源徽章 —— */
-  --otto-feishu-fg: #0284c7;
-  --otto-feishu-bg: #e0f2fe;
-  --otto-local-fg: #4b5563;
-  --otto-local-bg: #f3f4f6;
+  --claw-feishu-fg: #0284c7;
+  --claw-feishu-bg: #e0f2fe;
+  --claw-local-fg: #4b5563;
+  --claw-local-bg: #f3f4f6;
 
   /* —— 气泡 —— */
-  --otto-user-bubble: #f2f2f3; /* peach/cream，较纯白背景压深半档以获得实体感 */
-  --otto-user-bubble-border: #dedee0; /* 1px 暖描边，进一步把气泡从白底剥离 */
-  --otto-user-bubble-text: #1d1d1f;
+  --claw-user-bubble: #f2f2f3; /* peach/cream，较纯白背景压深半档以获得实体感 */
+  --claw-user-bubble-border: #dedee0; /* 1px 暖描边，进一步把气泡从白底剥离 */
+  --claw-user-bubble-text: #1d1d1f;
 
   /* —— diff —— */
-  --otto-diff-add-bg: #f2f2f3;
-  --otto-diff-add-gutter: #e0e0e2;
-  --otto-diff-del-bg: #f2f2f3;
-  --otto-diff-del-gutter: #e0e0e2;
-  --otto-diff-text: #1d1d1f;
-  --otto-diff-gutter-text: #a0a0a4;
-  --otto-diff-hunk-bg: #eeeeef; /* hunk 头蓝灰底（原硬编码进 token） */
-  --otto-diff-hunk-fg: #6f6f73;
-  --otto-diff-stat-add: #6f6f73;
-  --otto-diff-stat-del: #6f6f73;
+  --claw-diff-add-bg: #f2f2f3;
+  --claw-diff-add-gutter: #e0e0e2;
+  --claw-diff-del-bg: #f2f2f3;
+  --claw-diff-del-gutter: #e0e0e2;
+  --claw-diff-text: #1d1d1f;
+  --claw-diff-gutter-text: #a0a0a4;
+  --claw-diff-hunk-bg: #eeeeef; /* hunk 头蓝灰底（原硬编码进 token） */
+  --claw-diff-hunk-fg: #6f6f73;
+  --claw-diff-stat-add: #6f6f73;
+  --claw-diff-stat-del: #6f6f73;
 
   /* —— 状态 —— */
-  --otto-success: #4b5563;
-  --otto-danger: #4b5563;
-  --otto-running: #0284c7;
-  --otto-warning: #9a6700;
-  --otto-warning-soft: color-mix(in srgb, var(--otto-warning) 11%, var(--otto-surface));
-  --otto-data-system: #0284c7;
-  --otto-data-tools: #7c5ac7;
-  --otto-data-memory: #2f8f68;
-  --otto-data-messages: #9a6700;
+  --claw-success: #4b5563;
+  --claw-danger: #4b5563;
+  --claw-running: #0284c7;
+  --claw-warning: #9a6700;
+  --claw-warning-soft: color-mix(in srgb, var(--claw-warning) 11%, var(--claw-surface));
+  --claw-data-system: #0284c7;
+  --claw-data-tools: #7c5ac7;
+  --claw-data-memory: #2f8f68;
+  --claw-data-messages: #9a6700;
 
   /* —— 行内代码 —— */
-  --otto-code-bg: #f1f1f3;
-  --otto-code-text: #4b4b4f;
+  --claw-code-bg: #f1f1f3;
+  --claw-code-text: #4b4b4f;
 
   /* —— 半径 —— */
-  --otto-radius-sm: 7px;
-  --otto-radius: 11px;
-  --otto-radius-lg: 16px;
-  --otto-radius-pill: 999px;
+  --claw-radius-sm: 7px;
+  --claw-radius: 11px;
+  --claw-radius-lg: 16px;
+  --claw-radius-pill: 999px;
 
   /* —— 阴影（分层景深：卡片轻浮 < 浮层 < 弹层）—— */
-  --otto-shadow-xs: 0 1px 1px rgba(28, 25, 23, 0.04);
-  --otto-shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.05), 0 1px 3px rgba(28, 25, 23, 0.04);
-  --otto-shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04), 0 2px 8px rgba(28, 25, 23, 0.05);
-  --otto-shadow: 0 4px 16px rgba(28, 25, 23, 0.08);
-  --otto-shadow-pop: 0 8px 28px rgba(28, 25, 23, 0.13), 0 2px 6px rgba(28, 25, 23, 0.06);
-  --otto-shadow-focus: 0 0 0 3px rgba(232, 137, 58, 0.2);
+  --claw-shadow-xs: 0 1px 1px rgba(28, 25, 23, 0.04);
+  --claw-shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.05), 0 1px 3px rgba(28, 25, 23, 0.04);
+  --claw-shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04), 0 2px 8px rgba(28, 25, 23, 0.05);
+  --claw-shadow: 0 4px 16px rgba(28, 25, 23, 0.08);
+  --claw-shadow-pop: 0 8px 28px rgba(28, 25, 23, 0.13), 0 2px 6px rgba(28, 25, 23, 0.06);
+  --claw-shadow-focus: 0 0 0 3px rgba(232, 137, 58, 0.2);
   /* 顶栏滚动分隔 hairline */
-  --otto-hairline: rgba(28, 25, 23, 0.08);
-  --otto-overlay-scrim: rgba(16, 19, 25, 0.42);
+  --claw-hairline: rgba(28, 25, 23, 0.08);
+  --claw-overlay-scrim: rgba(16, 19, 25, 0.42);
 
   /* —— 字体 —— */
-  --otto-font:
+  --claw-font:
     'SF Pro Rounded', 'Hiragino Maru Gothic ProN', ui-rounded, -apple-system,
     'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  --otto-font-mono:
+  --claw-font-mono:
     'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, 'Liberation Mono',
     monospace;
 
   /* —— 动效 —— */
-  --otto-ease: cubic-bezier(0.2, 0, 0, 1);
-  --otto-dur-fast: 120ms;
-  --otto-dur: 200ms;
+  --claw-ease: cubic-bezier(0.2, 0, 0, 1);
+  --claw-dur-fast: 120ms;
+  --claw-dur: 200ms;
 
   /* —— VSCode 变量兜底（webview 残留引用万一被牵入时不至于裸默认；
      本渲染层未使用 webview 组件，仅作防御）。 —— */
-  --vscode-editor-background: var(--otto-bg);
-  --vscode-editor-foreground: var(--otto-text);
-  --vscode-foreground: var(--otto-text);
-  --vscode-panel-border: var(--otto-border);
+  --vscode-editor-background: var(--claw-bg);
+  --vscode-editor-foreground: var(--claw-text);
+  --vscode-foreground: var(--claw-text);
+  --vscode-panel-border: var(--claw-border);
 }
 
 /*
@@ -126,71 +126,71 @@
 @media (prefers-color-scheme: dark) {
   :root {
     /* —— 表面 / 文字 —— */
-    --otto-bg: #1c1c1e;
-    --otto-sidebar-bg: #242426;
-    --otto-surface: #2c2c2e;
-    --otto-surface-raised: #363638;
-    --otto-text: #f5f5f7;
-    --otto-text-secondary: #b8b8bd;
-    --otto-text-tertiary: #8e8e93;
-    --otto-border: #3a3a3c;
-    --otto-border-strong: #636366;
+    --claw-bg: #1c1c1e;
+    --claw-sidebar-bg: #242426;
+    --claw-surface: #2c2c2e;
+    --claw-surface-raised: #363638;
+    --claw-text: #f5f5f7;
+    --claw-text-secondary: #b8b8bd;
+    --claw-text-tertiary: #8e8e93;
+    --claw-border: #3a3a3c;
+    --claw-border-strong: #636366;
 
     /* —— amber 强调（暗底略提亮，防橙色发闷）—— */
-    --otto-accent: #0a84ff;
-    --otto-accent-hover: #409cff;
-    --otto-accent-soft: rgba(10, 132, 255, 0.18);
-    --otto-accent-gradient: var(--otto-accent);
+    --claw-accent: #0a84ff;
+    --claw-accent-hover: #409cff;
+    --claw-accent-soft: rgba(10, 132, 255, 0.18);
+    --claw-accent-gradient: var(--claw-accent);
 
     /* —— 语义来源徽章（暗底低饱和底 + 提亮前景）—— */
-    --otto-feishu-fg: #7dd3fc;
-    --otto-feishu-bg: rgba(56, 132, 214, 0.18);
-    --otto-local-fg: #a3a29d;
-    --otto-local-bg: rgba(163, 162, 157, 0.18);
+    --claw-feishu-fg: #7dd3fc;
+    --claw-feishu-bg: rgba(56, 132, 214, 0.18);
+    --claw-local-fg: #a3a29d;
+    --claw-local-bg: rgba(163, 162, 157, 0.18);
 
     /* —— 气泡（暖褐深底 + 暖描边 + 亮暖文字，延续 peach 性格）—— */
-    --otto-user-bubble: #3a2c20;
-    --otto-user-bubble-border: #55402e;
-    --otto-user-bubble-text: #f2dcc7;
+    --claw-user-bubble: #3a2c20;
+    --claw-user-bubble-border: #55402e;
+    --claw-user-bubble-text: #f2dcc7;
 
     /* —— diff（暗底半透明色块，gutter 略深，文字用暗色主文字）—— */
-    --otto-diff-add-bg: rgba(163, 162, 157, 0.16);
-    --otto-diff-add-gutter: rgba(163, 162, 157, 0.28);
-    --otto-diff-del-bg: rgba(163, 162, 157, 0.15);
-    --otto-diff-del-gutter: rgba(163, 162, 157, 0.28);
-    --otto-diff-text: #ededec;
-    --otto-diff-gutter-text: #7a7974;
-    --otto-diff-hunk-bg: rgba(75, 101, 132, 0.22); /* hunk 头蓝灰底 */
-    --otto-diff-hunk-fg: #a3a29d;
-    --otto-diff-stat-add: #a3a29d;
-    --otto-diff-stat-del: #a3a29d;
+    --claw-diff-add-bg: rgba(163, 162, 157, 0.16);
+    --claw-diff-add-gutter: rgba(163, 162, 157, 0.28);
+    --claw-diff-del-bg: rgba(163, 162, 157, 0.15);
+    --claw-diff-del-gutter: rgba(163, 162, 157, 0.28);
+    --claw-diff-text: #ededec;
+    --claw-diff-gutter-text: #7a7974;
+    --claw-diff-hunk-bg: rgba(75, 101, 132, 0.22); /* hunk 头蓝灰底 */
+    --claw-diff-hunk-fg: #a3a29d;
+    --claw-diff-stat-add: #a3a29d;
+    --claw-diff-stat-del: #a3a29d;
 
     /* —— 状态 —— */
-    --otto-success: #a3a29d;
-    --otto-danger: #a3a29d;
-    --otto-running: #7dd3fc;
-    --otto-warning: #e6b450;
-    --otto-data-system: #7dd3fc;
-    --otto-data-tools: #c4b5fd;
-    --otto-data-memory: #6ee7b7;
-    --otto-data-messages: #fcd34d;
+    --claw-success: #a3a29d;
+    --claw-danger: #a3a29d;
+    --claw-running: #7dd3fc;
+    --claw-warning: #e6b450;
+    --claw-data-system: #7dd3fc;
+    --claw-data-tools: #c4b5fd;
+    --claw-data-memory: #6ee7b7;
+    --claw-data-messages: #fcd34d;
 
     /* —— 行内代码（暗底 + 提亮暖橙文字，保对比）—— */
-    --otto-code-bg: #2a2825;
-    --otto-code-text: #d0d0cc;
+    --claw-code-bg: #2a2825;
+    --claw-code-text: #d0d0cc;
 
     /* —— 半径：与浅色一致，不随主题变 —— */
 
     /* —— 阴影（暗色用更深的黑，景深靠明度差 + 阴影共同建立）—— */
-    --otto-shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.3);
-    --otto-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
-    --otto-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.36);
-    --otto-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
-    --otto-shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
-    --otto-shadow-focus: 0 0 0 3px rgba(163, 162, 157, 0.32);
+    --claw-shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.3);
+    --claw-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --claw-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.36);
+    --claw-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+    --claw-shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+    --claw-shadow-focus: 0 0 0 3px rgba(163, 162, 157, 0.32);
     /* 顶栏滚动分隔 hairline：暗底用浅色低透明 */
-    --otto-hairline: rgba(255, 255, 255, 0.1);
-    --otto-overlay-scrim: rgba(0, 0, 0, 0.58);
+    --claw-hairline: rgba(255, 255, 255, 0.1);
+    --claw-overlay-scrim: rgba(0, 0, 0, 0.58);
   }
 }
 
@@ -207,9 +207,9 @@ body,
 }
 
 body {
-  background: var(--otto-bg);
-  color: var(--otto-text);
-  font-family: var(--otto-font);
+  background: var(--claw-bg);
+  color: var(--claw-text);
+  font-family: var(--claw-font);
   font-size: 14px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
@@ -257,90 +257,90 @@ button {
 /* Mirror Electron's resolved theme onto the renderer. This explicit override
  * keeps detached right-rail surfaces correct even if Chromium delays a media
  * query repaint after nativeTheme.themeSource changes. */
-:root[data-otto-theme='light'] {
-  --otto-bg: #ffffff;
-  --otto-sidebar-bg: #f5f5f7;
-  --otto-surface: #ffffff;
-  --otto-surface-raised: #fbfbfc;
-  --otto-text: #1d1d1f;
-  --otto-text-secondary: #8a8a8e;
-  --otto-text-tertiary: #aeaeb2;
-  --otto-border: #e5e5ea;
-  --otto-border-strong: #d1d1d6;
-  --otto-accent: #007aff;
-  --otto-accent-hover: #0066d6;
-  --otto-accent-soft: rgba(0, 122, 255, 0.1);
-  --otto-accent-gradient: var(--otto-accent);
-  --otto-accent-contrast: #ffffff;
-  --otto-success: #4b5563;
-  --otto-danger: #4b5563;
-  --otto-running: #0284c7;
-  --otto-warning: #9a6700;
-  --otto-data-system: #0284c7;
-  --otto-data-tools: #7c5ac7;
-  --otto-data-memory: #2f8f68;
-  --otto-data-messages: #9a6700;
-  --otto-user-bubble: #f2f2f3;
-  --otto-user-bubble-border: #dedee0;
-  --otto-user-bubble-text: #1d1d1f;
-  --otto-code-bg: #f1f1f3;
-  --otto-code-text: #4b4b4f;
-  --otto-shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04), 0 2px 8px rgba(28, 25, 23, 0.05);
-  --otto-shadow: 0 4px 16px rgba(28, 25, 23, 0.08);
-  --otto-shadow-pop: 0 8px 28px rgba(28, 25, 23, 0.13), 0 2px 6px rgba(28, 25, 23, 0.06);
-  --otto-hairline: rgba(28, 25, 23, 0.08);
-  --otto-overlay-scrim: rgba(16, 19, 25, 0.42);
+:root[data-claw-theme='light'] {
+  --claw-bg: #ffffff;
+  --claw-sidebar-bg: #f5f5f7;
+  --claw-surface: #ffffff;
+  --claw-surface-raised: #fbfbfc;
+  --claw-text: #1d1d1f;
+  --claw-text-secondary: #8a8a8e;
+  --claw-text-tertiary: #aeaeb2;
+  --claw-border: #e5e5ea;
+  --claw-border-strong: #d1d1d6;
+  --claw-accent: #007aff;
+  --claw-accent-hover: #0066d6;
+  --claw-accent-soft: rgba(0, 122, 255, 0.1);
+  --claw-accent-gradient: var(--claw-accent);
+  --claw-accent-contrast: #ffffff;
+  --claw-success: #4b5563;
+  --claw-danger: #4b5563;
+  --claw-running: #0284c7;
+  --claw-warning: #9a6700;
+  --claw-data-system: #0284c7;
+  --claw-data-tools: #7c5ac7;
+  --claw-data-memory: #2f8f68;
+  --claw-data-messages: #9a6700;
+  --claw-user-bubble: #f2f2f3;
+  --claw-user-bubble-border: #dedee0;
+  --claw-user-bubble-text: #1d1d1f;
+  --claw-code-bg: #f1f1f3;
+  --claw-code-text: #4b4b4f;
+  --claw-shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04), 0 2px 8px rgba(28, 25, 23, 0.05);
+  --claw-shadow: 0 4px 16px rgba(28, 25, 23, 0.08);
+  --claw-shadow-pop: 0 8px 28px rgba(28, 25, 23, 0.13), 0 2px 6px rgba(28, 25, 23, 0.06);
+  --claw-hairline: rgba(28, 25, 23, 0.08);
+  --claw-overlay-scrim: rgba(16, 19, 25, 0.42);
 }
 
-:root[data-otto-theme='dark'] {
-  --otto-bg: #1c1c1e;
-  --otto-sidebar-bg: #242426;
-  --otto-surface: #2c2c2e;
-  --otto-surface-raised: #363638;
-  --otto-text: #f5f5f7;
-  --otto-text-secondary: #b8b8bd;
-  --otto-text-tertiary: #8e8e93;
-  --otto-border: #3a3a3c;
-  --otto-border-strong: #636366;
-  --otto-accent: #0a84ff;
-  --otto-accent-hover: #409cff;
-  --otto-accent-soft: rgba(10, 132, 255, 0.18);
-  --otto-accent-gradient: var(--otto-accent);
-  --otto-accent-contrast: #ffffff;
-  --otto-success: #a3a29d;
-  --otto-danger: #a3a29d;
-  --otto-running: #7dd3fc;
-  --otto-warning: #e6b450;
-  --otto-data-system: #7dd3fc;
-  --otto-data-tools: #c4b5fd;
-  --otto-data-memory: #6ee7b7;
-  --otto-data-messages: #fcd34d;
-  --otto-user-bubble: #3a2c20;
-  --otto-user-bubble-border: #55402e;
-  --otto-user-bubble-text: #f2dcc7;
-  --otto-code-bg: #2a2825;
-  --otto-code-text: #d0d0cc;
-  --otto-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.36);
-  --otto-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
-  --otto-shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
-  --otto-hairline: rgba(255, 255, 255, 0.1);
-  --otto-overlay-scrim: rgba(0, 0, 0, 0.58);
+:root[data-claw-theme='dark'] {
+  --claw-bg: #1c1c1e;
+  --claw-sidebar-bg: #242426;
+  --claw-surface: #2c2c2e;
+  --claw-surface-raised: #363638;
+  --claw-text: #f5f5f7;
+  --claw-text-secondary: #b8b8bd;
+  --claw-text-tertiary: #8e8e93;
+  --claw-border: #3a3a3c;
+  --claw-border-strong: #636366;
+  --claw-accent: #0a84ff;
+  --claw-accent-hover: #409cff;
+  --claw-accent-soft: rgba(10, 132, 255, 0.18);
+  --claw-accent-gradient: var(--claw-accent);
+  --claw-accent-contrast: #ffffff;
+  --claw-success: #a3a29d;
+  --claw-danger: #a3a29d;
+  --claw-running: #7dd3fc;
+  --claw-warning: #e6b450;
+  --claw-data-system: #7dd3fc;
+  --claw-data-tools: #c4b5fd;
+  --claw-data-memory: #6ee7b7;
+  --claw-data-messages: #fcd34d;
+  --claw-user-bubble: #3a2c20;
+  --claw-user-bubble-border: #55402e;
+  --claw-user-bubble-text: #f2dcc7;
+  --claw-code-bg: #2a2825;
+  --claw-code-text: #d0d0cc;
+  --claw-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.36);
+  --claw-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --claw-shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --claw-hairline: rgba(255, 255, 255, 0.1);
+  --claw-overlay-scrim: rgba(0, 0, 0, 0.58);
 }
 
 /* macOS “Increase contrast” and equivalent browser settings must strengthen
  * the same shared palette instead of creating a second component theme. */
 @media (prefers-contrast: more) {
   :root {
-    --otto-text-secondary: var(--otto-text);
-    --otto-text-tertiary: var(--otto-text-secondary);
-    --otto-border: color-mix(in srgb, var(--otto-text) 55%, transparent);
-    --otto-border-strong: var(--otto-text);
-    --otto-hairline: color-mix(in srgb, var(--otto-text) 65%, transparent);
-    --otto-shadow-focus: 0 0 0 3px var(--otto-text);
+    --claw-text-secondary: var(--claw-text);
+    --claw-text-tertiary: var(--claw-text-secondary);
+    --claw-border: color-mix(in srgb, var(--claw-text) 55%, transparent);
+    --claw-border-strong: var(--claw-text);
+    --claw-hairline: color-mix(in srgb, var(--claw-text) 65%, transparent);
+    --claw-shadow-focus: 0 0 0 3px var(--claw-text);
   }
 
-  .otto-right-panel {
-    border-left: 1px solid var(--otto-border-strong);
+  .claw-right-panel {
+    border-left: 1px solid var(--claw-border-strong);
   }
 }
 
@@ -348,24 +348,24 @@ button {
  * module cards, controls and SVG currentColor legible without per-page hacks. */
 @media (forced-colors: active) {
   :root {
-    --otto-bg: Canvas;
-    --otto-sidebar-bg: Canvas;
-    --otto-surface: Canvas;
-    --otto-surface-raised: Canvas;
-    --otto-text: CanvasText;
-    --otto-text-secondary: CanvasText;
-    --otto-text-tertiary: GrayText;
-    --otto-border: ButtonBorder;
-    --otto-border-strong: CanvasText;
-    --otto-accent: Highlight;
-    --otto-accent-hover: Highlight;
-    --otto-accent-soft: Canvas;
-    --otto-accent-contrast: HighlightText;
-    --otto-shadow-focus: 0 0 0 3px Highlight;
+    --claw-bg: Canvas;
+    --claw-sidebar-bg: Canvas;
+    --claw-surface: Canvas;
+    --claw-surface-raised: Canvas;
+    --claw-text: CanvasText;
+    --claw-text-secondary: CanvasText;
+    --claw-text-tertiary: GrayText;
+    --claw-border: ButtonBorder;
+    --claw-border-strong: CanvasText;
+    --claw-accent: Highlight;
+    --claw-accent-hover: Highlight;
+    --claw-accent-soft: Canvas;
+    --claw-accent-contrast: HighlightText;
+    --claw-shadow-focus: 0 0 0 3px Highlight;
   }
 
-  .otto-right-panel {
-    border-left: 1px solid var(--otto-border-strong);
+  .claw-right-panel {
+    border-left: 1px solid var(--claw-border-strong);
   }
 }
 

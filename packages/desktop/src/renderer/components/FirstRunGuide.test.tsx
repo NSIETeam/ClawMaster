@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -24,12 +24,12 @@ describe('FirstRunGuide', () => {
     fireEvent.click(screen.getByRole('button', { name: '开始使用' }));
 
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(localStorage.getItem('otto:first-run-guide:v2:conversational')).toBe('completed');
-    expect(localStorage.getItem('otto:first-run-guide:v2:work')).toBeNull();
+    expect(localStorage.getItem('clawmaster:first-run-guide:v2:conversational')).toBe('completed');
+    expect(localStorage.getItem('clawmaster:first-run-guide:v2:work')).toBeNull();
   });
 
   it('uses a separate walkthrough and completion state for the work UI', () => {
-    localStorage.setItem('otto:first-run-guide:v2:conversational', 'completed');
+    localStorage.setItem('clawmaster:first-run-guide:v2:conversational', 'completed');
     render(<FirstRunGuide mode="work" />);
 
     expect(screen.getByText('对话与工作区并排协作')).toBeTruthy();
@@ -39,7 +39,7 @@ describe('FirstRunGuide', () => {
   });
 
   it('starts the matching walkthrough when the user switches UI modes', () => {
-    localStorage.setItem('otto:first-run-guide:v2:conversational', 'completed');
+    localStorage.setItem('clawmaster:first-run-guide:v2:conversational', 'completed');
     const view = render(<FirstRunGuide mode="conversational" />);
     expect(screen.queryByRole('dialog')).toBeNull();
 
@@ -48,7 +48,7 @@ describe('FirstRunGuide', () => {
   });
 
   it('stays hidden after the selected mode has completed its walkthrough', () => {
-    localStorage.setItem('otto:first-run-guide:v2:work', 'completed');
+    localStorage.setItem('clawmaster:first-run-guide:v2:work', 'completed');
     render(<FirstRunGuide mode="work" />);
     expect(screen.queryByRole('dialog')).toBeNull();
   });

@@ -22,8 +22,8 @@ test('production renderer embeds the complete CSS before Tauri packages it', asy
     /═{4,}/u,
     'production renderer CSS must not retain source-only section comments',
   );
-  assert.match(stylesheet, /\.otto-app\s*\{/);
-  assert.match(stylesheet, /--otto-bg\s*:/);
+  assert.match(stylesheet, /\.claw-app\s*\{/);
+  assert.match(stylesheet, /--claw-bg\s*:/);
 
   const entryScript = html.match(/<script[^>]+src=["']([^"']+)["'][^>]*>/i)?.[1];
   assert.match(
@@ -55,7 +55,7 @@ test('production renderer emits images instead of parsing base64 inside JavaScri
   );
   assert.ok(
     assetNames.every((name) => !/^otto-pet-atlas\.[a-f0-9]{8}\.png$/u.test(name)),
-    'legacy Otto pet atlas must not ship in the lean ClawMaster renderer',
+    'legacy ClawMaster pet atlas must not ship in the lean ClawMaster renderer',
   );
   assert.ok(
     assetNames.some((name) => /^agent-ceo\.[a-f0-9]{8}\.png$/u.test(name)),

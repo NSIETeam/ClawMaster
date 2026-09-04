@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -58,17 +58,17 @@ export function AgentGallery({
 
   return (
     <section
-      className="otto-agents-page"
+      className="claw-agents-page"
       aria-label="专家目录"
       onKeyDown={onKeyDown}
     >
-      <header className="otto-agents__head">
-        <IconAgent size={20} className="otto-agents__headicon" />
-        <div className="otto-agents__headtext">
-          <div className="otto-agents__title">
+      <header className="claw-agents__head">
+        <IconAgent size={20} className="claw-agents__headicon" />
+        <div className="claw-agents__headtext">
+          <div className="claw-agents__title">
             {enterpriseMode ? '企业工作 Agent 目录' : '个人 ClawMaster'}
           </div>
-          <div className="otto-agents__subtitle">
+          <div className="claw-agents__subtitle">
             {enterpriseMode
               ? '选择一位企业工作 Agent，在独立会话中完成对应工作'
               : '使用个人 ClawMaster 开始独立工作会话'}
@@ -76,43 +76,43 @@ export function AgentGallery({
         </div>
         <button
           type="button"
-          className="otto-agents__back"
+          className="claw-agents__back"
           onClick={onBack}
           title="返回对话"
           aria-label="返回对话"
         >
-          <IconChevron size={14} className="otto-agents__back-chev" />
+          <IconChevron size={14} className="claw-agents__back-chev" />
           返回对话
         </button>
       </header>
 
-      <div className="otto-agents__scroll">
-        <div className="otto-agents__grid">
+      <div className="claw-agents__scroll">
+        <div className="claw-agents__grid">
           {visibleProfiles.map((profile, i) => (
             <button
               key={profile.id}
               ref={i === 0 ? firstCardRef : undefined}
               type="button"
-              className="otto-agent-card"
+              className="claw-agent-card"
               style={{ ['--card-accent' as string]: profile.accent ?? '#38bdf8' }}
               onClick={() => onLaunch(profile)}
             >
-              <span className="otto-agent-card__avatar" aria-hidden>
+              <span className="claw-agent-card__avatar" aria-hidden>
                 {profile.icon
                   ? <GeneratedIcon name={profile.icon} size={28} />
                   : profile.name.slice(0, 1)}
               </span>
-              <span className="otto-agent-card__body">
-                <span className="otto-agent-card__name">{profile.name}</span>
-                <span className="otto-agent-card__tag">{profile.tagline}</span>
-                <span className="otto-agent-card__skills">
+              <span className="claw-agent-card__body">
+                <span className="claw-agent-card__name">{profile.name}</span>
+                <span className="claw-agent-card__tag">{profile.tagline}</span>
+                <span className="claw-agent-card__skills">
                   {profile.skills.map((s) => (
-                    <span key={s} className="otto-agent-card__skill">
+                    <span key={s} className="claw-agent-card__skill">
                       {s}
                     </span>
                   ))}
                   {profile.scope === 'department' && (
-                    <span className="otto-agent-card__skill otto-agent-card__skill--dept">
+                    <span className="claw-agent-card__skill claw-agent-card__skill--dept">
                       🔒 部门专属
                     </span>
                   )}
@@ -122,7 +122,7 @@ export function AgentGallery({
           ))}
         </div>
 
-        <div className="otto-agents__foot">
+        <div className="claw-agents__foot">
           共 {visibleProfiles.length} 位 {enterpriseMode ? '企业工作 Agent' : 'Agent'} · 点击即可开始新对话
         </div>
       </div>

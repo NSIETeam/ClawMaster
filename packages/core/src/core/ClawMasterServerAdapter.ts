@@ -23,7 +23,7 @@ import { logger } from '../utils/enhancedLogger.js';
 import { UnauthorizedError, isOurAuthError } from '../utils/errors.js';
 import { SceneType, SceneManager } from './sceneManager.js';
 import { retryWithBackoff } from '../utils/retry.js';
-import { isOttoQuotaError } from '../utils/quotaErrorDetection.js';
+import { isClawMasterQuotaError } from '../utils/quotaErrorDetection.js';
 
 import { realTimeTokenEventManager } from '../events/realTimeTokenEvents.js';
 import { MESSAGE_ROLES } from '../config/messageRoles.js';
@@ -254,7 +254,7 @@ function supportsSSEStreaming(modelName: string): boolean {
 }
 
 /**
- * 按模型关键词适配走 GenAI 格式（Otto 服务端代理）的思考模式配置
+ * 按模型关键词适配走 GenAI 格式（ClawMaster 服务端代理）的思考模式配置
  */
 function applyGenAIThinkingConfig(
   model: string,
@@ -391,7 +391,7 @@ function applyGenAIThinkingConfig(
   }
 
   // 🐛 [thinking-debug] 出口处打印"实际写入 generationConfig 的思考字段"
-  // 这是真正会随请求体发到 Otto 后端的形态
+  // 这是真正会随请求体发到 ClawMaster 后端的形态
   const gc = config.generationConfig || {};
   const injected: Record<string, unknown> = {};
   if (gc.thinkingConfig !== undefined) injected.thinkingConfig = gc.thinkingConfig; // Gemini
@@ -408,11 +408,11 @@ function applyGenAIThinkingConfig(
 }
 
 /**
- * Otto服务器适配器 - 精简版
+ * ClawMaster服务器适配器 - 精简版
  * 通过统一的聊天API调用所有AI模型，服务端智能处理模型选择和格式转换
  * 支持Claude和Gemini模型的统一接口
  */
-export class OttoServerAdapter implements ContentGenerator {
+export class ClawMasterServerAdapter implements ContentGenerator {
   userTier?: UserTierId;
   private authHandler: (() => Promise<void>) | null = null;
   private config?: Config;
@@ -703,7 +703,7 @@ export class OttoServerAdapter implements ContentGenerator {
       const userModel = this.config?.getModel();
 
       // 🆕 如果用户使用自定义模型，辅助场景（非主对话场景）应该也使用用户的自定义模型
-      // 这样可以避免在使用自定义模型时仍然调用 Otto API
+      // 这样可以避免在使用自定义模型时仍然调用 ClawMaster API
       let modelToUse: string;
       if (userModel && isCustomModel(userModel)) {
         // 用户使用自定义模型时：
@@ -748,7 +748,7 @@ export class OttoServerAdapter implements ContentGenerator {
         console.log(`[🎯 Model Resolution] Using model: ${modelToUse} for scene: ${scene}`);
       }
 
-      // 🆕 注入走 GenAI 格式 (Otto 服务端代理) 的思考模式适配
+      // 🆕 注入走 GenAI 格式 (ClawMaster 服务端代理) 的思考模式适配
       const resolvedConfig = applyGenAIThinkingConfig(
         modelToUse,
         (request.config ?? {}) as unknown as ProxyRequestConfig,
@@ -805,8 +805,8 @@ export class OttoServerAdapter implements ContentGenerator {
         // 使用标准退避配置，适合大多数场景
         // 对于大量工具调用场景，可以在调用处设置 aggressiveBackoff: true
         shouldRetry: (error: Error) => {
-          // 🚫 Otto配额错误(402) - 不重试，立即显示友好提示
-          if (isOttoQuotaError(error)) {
+          // 🚫 ClawMaster配额错误(402) - 不重试，立即显示友好提示
+          if (isClawMasterQuotaError(error)) {
             return false;
           }
           // 🚫 用户取消 - 不重试
@@ -1174,7 +1174,7 @@ export class OttoServerAdapter implements ContentGenerator {
     // Actual model selection is done by the server based on 'auto' requests
     // Uses broad pattern matching to automatically support new model versions
     //
-    // 注：早期版本曾因 cloud-mode (OTTO_CLOUD_MODE=true) 强制走非流式以避免
+    // 注：早期版本曾因 cloud-mode (CLAWMASTER_CLOUD_MODE=true) 强制走非流式以避免
     // "消息被打断"，但该限制在远程协议加入 thoughtId 聚合 + Thought/Reasoning
     // chunk 转发后已不再需要。流式体验对 thinking mode 至关重要，恢复默认行为。
     if (supportsSSEStreaming(request.model)) {
@@ -1223,7 +1223,7 @@ export class OttoServerAdapter implements ContentGenerator {
         console.log(`[🎯 Model Resolution (Stream)] Using model: ${modelToUse} for scene: ${scene}`);
       }
 
-      // 🆕 注入走 GenAI 格式 (Otto 服务端代理) 的思考模式适配 (流式)
+      // 🆕 注入走 GenAI 格式 (ClawMaster 服务端代理) 的思考模式适配 (流式)
       const resolvedConfig = applyGenAIThinkingConfig(
         modelToUse,
         (request.config ?? {}) as unknown as ProxyRequestConfig,
@@ -1275,8 +1275,8 @@ export class OttoServerAdapter implements ContentGenerator {
       () => this.executeStreamAPICall(endpoint, requestBody, abortSignal, sceneType),
       {
         shouldRetry: (error: Error) => {
-          // 🚫 Otto配额错误(402) - 不重试，立即显示友好提示
-          if (isOttoQuotaError(error)) {
+          // 🚫 ClawMaster配额错误(402) - 不重试，立即显示友好提示
+          if (isClawMasterQuotaError(error)) {
             return false;
           }
           // 🚫 用户取消 - 不重试

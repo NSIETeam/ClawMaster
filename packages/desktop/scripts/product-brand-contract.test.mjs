@@ -12,11 +12,11 @@ const sourceRoots = [
 ];
 
 const compatibilityAllowlist = [
-  '## Otto Added Memories',
-  'X-Otto-',
-  'Otto proxy /v1/chat/stream handler',
-  'Otto-Private-Deployment/',
-  'HKCU\\Software\\Otto\\UsbLicenses',
+  '## ClawMaster Added Memories',
+  'X-ClawMaster-',
+  'ClawMaster proxy /v1/chat/stream handler',
+  'ClawMaster-Private-Deployment/',
+  'HKCU\\Software\\ClawMaster\\UsbLicenses',
 ];
 
 function productionFiles(directory) {
@@ -56,7 +56,7 @@ function exactBrandLiterals(file) {
         : undefined;
     if (
       text
-      && /\bOtto\b/u.test(text)
+      && /\bClawMaster\b/u.test(text)
       && !compatibilityAllowlist.some((allowed) => text.includes(allowed))
       && !file.endsWith('diagnosticBundle.ts')
     ) {
@@ -70,13 +70,13 @@ function exactBrandLiterals(file) {
 }
 
 describe('ClawMaster product brand contract', () => {
-  it('keeps legacy Otto identifiers internal and out of user-facing source literals', () => {
+  it('keeps legacy ClawMaster identifiers internal and out of user-facing source literals', () => {
     const violations = sourceRoots.flatMap((root) =>
       productionFiles(path.join(repositoryRoot, root)).flatMap(exactBrandLiterals));
     expect(violations).toEqual([]);
   }, 15_000);
 
-  it('does not resurrect the deleted Otto Green distribution branch', () => {
+  it('does not resurrect the deleted ClawMaster Green distribution branch', () => {
     const packagingSources = [
       path.join(repositoryRoot, 'packages/desktop/package.json'),
       ...fs.readdirSync(path.join(repositoryRoot, 'packages/desktop/scripts'))
@@ -84,7 +84,7 @@ describe('ClawMaster product brand contract', () => {
         .map((name) => path.join(repositoryRoot, 'packages/desktop/scripts', name)),
     ];
     const violations = packagingSources.filter((file) =>
-      /Otto Green|otto-green|OTTO_GREEN/u.test(fs.readFileSync(file, 'utf8')));
+      /ClawMaster Green|otto-green|CLAWMASTER_GREEN/u.test(fs.readFileSync(file, 'utf8')));
     expect(violations).toEqual([]);
   });
 });

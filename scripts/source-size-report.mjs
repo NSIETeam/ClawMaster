@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Zero-dependency source-size report and guard.
  */
@@ -153,7 +153,7 @@ function fmt(bytes) {
   return `${(bytes / 1048576).toFixed(2)} MB`;
 }
 
-console.log('Otto source-size report');
+console.log('ClawMaster source-size report');
 console.log(`Total source-like size: ${fmt(total)} (budget: ${fmt(BUDGETS.totalBytes)})`);
 console.log(`Files counted: ${files.length}`);
 console.log(`Excluded directories: ${[...EXCLUDED_DIRS].sort().join(', ')}`);

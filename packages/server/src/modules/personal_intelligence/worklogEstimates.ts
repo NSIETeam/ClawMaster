@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import type { WorklogEstimateConfiguration } from './worklogTypes.js';
@@ -13,11 +13,11 @@ function envNum(name: string, fallback: number): number {
 
 /** These values are disclosed estimates, not measured business outcomes. */
 export const ESTIMATE: WorklogEstimateConfiguration = {
-  manualTimeMultiplier: envNum('OTTO_ESTIMATE_MANUAL_MULT', 2),
-  cnyPerHour: envNum('OTTO_ESTIMATE_CNY_PER_HOUR', 50),
+  manualTimeMultiplier: envNum('CLAWMASTER_ESTIMATE_MANUAL_MULT', 2),
+  cnyPerHour: envNum('CLAWMASTER_ESTIMATE_CNY_PER_HOUR', 50),
   defaultTokensPerTask: 2_000,
   defaultCostPerTaskCNY: 0.028,
-  laborPerTokenCap: envNum('OTTO_ESTIMATE_LABOR_PER_TOKEN_CAP', 50),
+  laborPerTokenCap: envNum('CLAWMASTER_ESTIMATE_LABOR_PER_TOKEN_CAP', 50),
 };
 
 export function normalizeCostCNY(cost: unknown): number {

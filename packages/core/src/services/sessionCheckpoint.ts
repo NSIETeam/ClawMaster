@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import * as fs from 'node:fs/promises';
@@ -43,12 +43,12 @@ export interface SessionCheckpointServiceOptions {
 }
 
 function defaultRoot(): string {
-  const userDir = process.env['OTTO_USER_DIR']?.trim();
+  const userDir = process.env['CLAWMASTER_USER_DIR']?.trim();
   if (userDir) return path.join(userDir, 'runtime', 'checkpoints');
   if (process.env['NODE_ENV'] === 'test' || process.env['VITEST']) {
     return path.join(
       os.tmpdir(),
-      'otto-session-checkpoint-tests',
+      'clawmaster.session-checkpoint-tests',
       String(process.pid),
     );
   }

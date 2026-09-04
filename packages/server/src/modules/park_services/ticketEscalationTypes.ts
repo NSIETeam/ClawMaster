@@ -1,10 +1,10 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * NSI-11: Park ticket unread-notification escalation queue.
  *
  * A notification job is created when a park ticket produces a notification for
- * a recipient. It is delivered immediately to Otto and Feishu; if the recipient
+ * a recipient. It is delivered immediately to ClawMaster and Feishu; if the recipient
  * has not acknowledged (read receipt) within five minutes, an SMS is sent as an
  * escalation. The job is durable (persisted), idempotent, retryable, cancellable
  * and reaches a terminal state. Server restart resumes pending timers.
@@ -13,8 +13,8 @@
 /** Lifecycle state of a persisted escalation notification job. */
 export type EscalationJobStatus =
   | 'queued' // 已入队，待立即投递
-  | 'delivering' // Otto/飞书投递中
-  | 'delivered' // Otto/飞书已投递，等待已读回执或超时
+  | 'delivering' // ClawMaster/飞书投递中
+  | 'delivered' // ClawMaster/飞书已投递，等待已读回执或超时
   | 'escalating' // 5 分钟未读，短信升级投递中
   | 'resolved' // 已读回执收到或任务完成（终态）
   | 'cancelled' // 被显式取消（终态）

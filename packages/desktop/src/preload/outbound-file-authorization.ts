@@ -1,12 +1,12 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * preload 是 renderer 与本地 server 之间的信任边界。renderer 可以构造任意
  * ClientToServer 对象，所以 file_reference/folder_reference 不能直接进 WS；必须先交给 main
  * 进程内的授权账本复核，再用 main 返回的 realpath 重建帧。
  */
 
-import type { ClientToServer } from 'otto-server';
+import type { ClientToServer } from 'clawmaster-server';
 
 export interface OutboundPathReference {
   path: string;

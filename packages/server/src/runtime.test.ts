@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -15,13 +15,13 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import type { Config, CustomModelConfig } from 'otto-core';
+import type { Config, CustomModelConfig } from 'clawmaster-core';
 import {
   AskUserQuestionTool,
   SceneType,
   ToolConfirmationOutcome,
   generateCustomModelId,
-} from 'otto-core';
+} from 'clawmaster-core';
 import { CoreSessionRuntime, messageNeedsBuiltinPptSkill } from './runtime.js';
 import { InMemorySessionStore } from './sessions.js';
 import { ToolCallStatus, type ServerToClient } from './protocol.js';
@@ -35,7 +35,7 @@ describe('CoreSessionRuntime 会话标题生成', () => {
     const getChat = vi.fn();
     const config = {
       getModel: () => 'custom:test-model',
-      getOttoClient: () => ({ createTemporaryChat, getChat }),
+      getClawMasterClient: () => ({ createTemporaryChat, getChat }),
     } as unknown as Config;
     const store = new InMemorySessionStore();
     const session = store.createSession();
@@ -90,7 +90,7 @@ describe('PPT 内置 Skill 自动路由', () => {
         discoverMcpTools: async () => undefined,
         getFunctionDeclarations: () => [],
       }),
-      getOttoClient: () => ({
+      getClawMasterClient: () => ({
         updateSystemPromptWithMcpPrompts: refreshSystem,
         getChat: async () => ({ sendMessageStream: async () => stream() }),
       }),
@@ -113,14 +113,14 @@ describe('PPT 内置 Skill 自动路由', () => {
 });
 
 describe('CoreSessionRuntime 模型切换', () => {
-  it('通过 OttoClient.switchModel 切换正在使用的 live chat，而不只改 Config 标签', async () => {
+  it('通过 ClawMasterClient.switchModel 切换正在使用的 live chat，而不只改 Config 标签', async () => {
     const switchModel = vi.fn(async (model: string) => ({
       success: true,
       modelName: model,
     }));
     const setModel = vi.fn();
     const config = {
-      getOttoClient: () => ({ switchModel }),
+      getClawMasterClient: () => ({ switchModel }),
       setModel,
     } as unknown as Config;
     const store = new InMemorySessionStore();
@@ -144,7 +144,7 @@ describe('CoreSessionRuntime 模型切换', () => {
 
   it('live chat 拒绝切换时如实失败，不能伪装成已生效', async () => {
     const config = {
-      getOttoClient: () => ({
+      getClawMasterClient: () => ({
         switchModel: vi.fn(async () => ({
           success: false,
           modelName: 'target',
@@ -189,7 +189,7 @@ function makeFakeConfig(stream: () => AsyncGenerator<unknown>): Config {
       discoverMcpTools: async () => undefined,
       getFunctionDeclarations: () => [],
     }),
-    getOttoClient: () => ({
+    getClawMasterClient: () => ({
       getChat: async () => ({
         sendMessageStream: async () => stream(),
       }),
@@ -216,7 +216,7 @@ describe('CoreSessionRuntime tool-free 安全边界', () => {
         discoverMcpTools,
         getFunctionDeclarations: () => [{ name: 'read_file' }],
       }),
-      getOttoClient: () => ({
+      getClawMasterClient: () => ({
         getChat: async () => ({ sendMessageStream }),
       }),
       getModel: () => 'test-model',
@@ -307,7 +307,7 @@ describe('CoreSessionRuntime tool-free 安全边界', () => {
         discoverMcpTools: async () => undefined,
         getFunctionDeclarations: () => [],
       }),
-      getOttoClient: () => ({
+      getClawMasterClient: () => ({
         getChat: async () => ({ sendMessageStream: async () => failingStream() }),
         switchModel,
       }),
@@ -438,7 +438,7 @@ describe('CoreSessionRuntime 流式落库与收口对账', () => {
         discoverMcpTools: async () => undefined,
         getFunctionDeclarations: () => [],
       }),
-      getOttoClient: () => ({
+      getClawMasterClient: () => ({
         getChat: async () => ({
           sendMessageStream: async () =>
             currentModel === brokenId ? brokenStream() : fallbackStream(),
@@ -642,7 +642,7 @@ function makeFakeConfigWithAsk(
     initialize: async () => undefined,
     refreshAuth: async () => undefined,
     getToolRegistry: async () => registry,
-    getOttoClient: () => ({
+    getClawMasterClient: () => ({
       getChat: async () => ({
         sendMessageStream: async () =>
           turns[Math.min(call++, turns.length - 1)](),
@@ -727,7 +727,7 @@ function makeFakeConfigWithTool(
     initialize: async () => undefined,
     refreshAuth: async () => undefined,
     getToolRegistry: async () => registry,
-    getOttoClient: () => ({
+    getClawMasterClient: () => ({
       getChat: async () => ({
         sendMessageStream: async () =>
           turns[Math.min(call++, turns.length - 1)](),

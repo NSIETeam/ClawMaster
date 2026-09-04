@@ -112,33 +112,33 @@ chmod 600 ./enterprise.env
 
 必须修改：
 
-- `OTTO_PUBLIC_HOST`：最终企业域名；
+- `CLAWMASTER_PUBLIC_HOST`：最终企业域名；
 - 阿里云短信四项：`ACCESS_KEY_ID`、`ACCESS_KEY_SECRET`、签名和模板；
-- 若不用包管理 Caddy，把 `OTTO_CADDY_MODE` 改为 `external`。
+- 若不用包管理 Caddy，把 `CLAWMASTER_CADDY_MODE` 改为 `external`。
 
 园区报修通知为可选配置：
 
 - `ALIYUN_SMS_NOTIFICATION_TEMPLATE_ID`：报修短信通知模板；它与注册验证码的 `ALIYUN_SMS_TEMPLATE_ID` 分开配置；
-- `OTTO_ENTERPRISE_FEISHU_APP_ID` 与 `OTTO_ENTERPRISE_FEISHU_APP_SECRET`：必须成对填写，服务端只从 0600 运行配置读取；
-- `OTTO_ENTERPRISE_FEISHU_DOMAIN`：`feishu` 使用飞书中国站，`lark` 使用 Lark 国际站，留空默认飞书中国站。
+- `CLAWMASTER_ENTERPRISE_FEISHU_APP_ID` 与 `CLAWMASTER_ENTERPRISE_FEISHU_APP_SECRET`：必须成对填写，服务端只从 0600 运行配置读取；
+- `CLAWMASTER_ENTERPRISE_FEISHU_DOMAIN`：`feishu` 使用飞书中国站，`lark` 使用 Lark 国际站，留空默认飞书中国站。
 
 这些可选项留空不会阻止报修记录写入，但对应的外部通知通道不会发送。安装器会把它们写入 `/etc/otto-enterprise/enterprise.env`，不会放进迁移包或日志。
 
 跨私有服务器联邦为可选配置：
 
-- `OTTO_FEDERATION_ENABLED`：仅在已完成 Control 联邦网关注册和验签配置后设为 `1`；
-- `OTTO_FEDERATION_GATEWAY_URL`：Control 联邦网关的 HTTPS 地址；
-- `OTTO_FEDERATION_DISPLAY_NAME`：该私有部署在联邦目录中展示的名称；
-- `OTTO_FEDERATION_POLL_INTERVAL_MS`：离线消息领取间隔，留空使用服务端安全默认值；
-- `OTTO_FEDERATION_SIGNING_KEY_FILE`：部署签名私钥的绝对路径，文件不得是符号链接且只能由服务账号读取。
+- `CLAWMASTER_FEDERATION_ENABLED`：仅在已完成 Control 联邦网关注册和验签配置后设为 `1`；
+- `CLAWMASTER_FEDERATION_GATEWAY_URL`：Control 联邦网关的 HTTPS 地址；
+- `CLAWMASTER_FEDERATION_DISPLAY_NAME`：该私有部署在联邦目录中展示的名称；
+- `CLAWMASTER_FEDERATION_POLL_INTERVAL_MS`：离线消息领取间隔，留空使用服务端安全默认值；
+- `CLAWMASTER_FEDERATION_SIGNING_KEY_FILE`：部署签名私钥的绝对路径，文件不得是符号链接且只能由服务账号读取。
 
-未启用联邦时应保留 `OTTO_FEDERATION_ENABLED=0`。安装和升级会原样保存上述配置，但不会自动生成签名私钥，也不会绕过 Control 的部署注册与吊销检查。
+未启用联邦时应保留 `CLAWMASTER_FEDERATION_ENABLED=0`。安装和升级会原样保存上述配置，但不会自动生成签名私钥，也不会绕过 Control 的部署注册与吊销检查。
 
-`OTTO_ENTERPRISE_ADMIN_TOKEN=auto` 会生成不输出到日志的随机平台令牌。迁移库已有管理员账号时不会重建账号；空库会生成一次性管理员密码，安装结束后只写到 `/root/otto-enterprise-bootstrap-*.txt`。
+`CLAWMASTER_ENTERPRISE_ADMIN_TOKEN=auto` 会生成不输出到日志的随机平台令牌。迁移库已有管理员账号时不会重建账号；空库会生成一次性管理员密码，安装结束后只写到 `/root/otto-enterprise-bootstrap-*.txt`。
 
 `external` 表示你自行管理 Nginx/Caddy/负载均衡器。安装器不会验证外置证书、公网 health 或 404 屏蔽规则，完成提示也会明确标为“待外置代理验收”。
 
-正式迁移不要把 `OTTO_ALLOW_SMS_DISABLED` 设为 `1`。短信未配置时，邀请码注册必然不可用，安装器会默认阻断。
+正式迁移不要把 `CLAWMASTER_ALLOW_SMS_DISABLED` 设为 `1`。短信未配置时，邀请码注册必然不可用，安装器会默认阻断。
 
 ## 四、一条命令安装
 
@@ -269,27 +269,27 @@ sudo /opt/otto-enterprise/deploy/restore-backup.sh \
   /var/lib/otto-enterprise/backups/otto-enterprise-*.otto-backup
 ```
 
-`OTTO_BACKUP_ENCRYPTION_KEY` 必须由客户和交付方按合同约定离线托管；只剩备份文件但
+`CLAWMASTER_BACKUP_ENCRYPTION_KEY` 必须由客户和交付方按合同约定离线托管；只剩备份文件但
 丢失该密钥时无法解密。需要异地副本时，将 NFS、对象存储网关或备份卷挂载到
 `/var/backups/otto-enterprise`，再设置
-`OTTO_BACKUP_REPLICA_DIR=/var/backups/otto-enterprise`。异地副本写入后会重新计算
+`CLAWMASTER_BACKUP_REPLICA_DIR=/var/backups/otto-enterprise`。异地副本写入后会重新计算
 SHA-256，上传或复制失败不会阻断 Otto 业务，但会进入健康状态告警。
 
 高安全部署可以预先创建三个恰好 32 字节的原始密钥文件，并在配置中填写
-`OTTO_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE`、`OTTO_ATTACHMENT_ENCRYPTION_KEY_FILE`、
-`OTTO_FIELD_ENCRYPTION_KEY_FILE`。文件必须使用绝对路径、不能是符号链接，并且
+`CLAWMASTER_ACCOUNT_SYNC_ENCRYPTION_KEY_FILE`、`CLAWMASTER_ATTACHMENT_ENCRYPTION_KEY_FILE`、
+`CLAWMASTER_FIELD_ENCRYPTION_KEY_FILE`。文件必须使用绝对路径、不能是符号链接，并且
 `otto-enterprise` 服务账号必须可读；恢复时外部密钥与备份不一致会 fail closed，安装器
 不会替客户覆盖密钥。私聊正文以及 License 内的租约令牌、遥测令牌均使用字段密钥
 AES-256-GCM 加密，服务启动时会先迁移旧明文数据并验证密钥，失败时拒绝对外提供服务。
 
-如配置 `OTTO_TELEMETRY_ENDPOINT`，地址必须使用 HTTPS。遥测请求除 Bearer 令牌外还
+如配置 `CLAWMASTER_TELEMETRY_ENDPOINT`，地址必须使用 HTTPS。遥测请求除 Bearer 令牌外还
 携带 HMAC-SHA256 签名、时间戳和一次性随机数；接收端只接受 5 分钟窗口内且未重放的
-请求，本地遥测保留期由 `OTTO_TELEMETRY_RETENTION_DAYS` 控制。正式交付前必须填写
-`OTTO_DATA_CONTROLLER_NAME` 和 `OTTO_PRIVACY_CONTACT`，由部署方法务确认当前完整正文后再把
-`OTTO_LEGAL_DOCUMENTS_APPROVED` 设为 `true`，
-并确认 `OTTO_DATA_REGION`、`OTTO_DATA_RESIDENCY` 与
-`OTTO_CROSS_BORDER_DATA_ENABLED` 符合客户实际数据流。只有数据目录所在磁盘已经启用
-LUKS、云盘加密卷或等价保护后，才能把 `OTTO_STORAGE_VOLUME_ENCRYPTED` 设为 `true`；
+请求，本地遥测保留期由 `CLAWMASTER_TELEMETRY_RETENTION_DAYS` 控制。正式交付前必须填写
+`CLAWMASTER_DATA_CONTROLLER_NAME` 和 `CLAWMASTER_PRIVACY_CONTACT`，由部署方法务确认当前完整正文后再把
+`CLAWMASTER_LEGAL_DOCUMENTS_APPROVED` 设为 `true`，
+并确认 `CLAWMASTER_DATA_REGION`、`CLAWMASTER_DATA_RESIDENCY` 与
+`CLAWMASTER_CROSS_BORDER_DATA_ENABLED` 符合客户实际数据流。只有数据目录所在磁盘已经启用
+LUKS、云盘加密卷或等价保护后，才能把 `CLAWMASTER_STORAGE_VOLUME_ENCRYPTED` 设为 `true`；
 否则管理页会持续显示未达到数据治理就绪状态。
 
 聊天附件不再以大 BLOB 写进 SQLite，而是以 AES-256-GCM 加密对象写入
@@ -297,13 +297,13 @@ LUKS、云盘加密卷或等价保护后，才能把 `OTTO_STORAGE_VOLUME_ENCRYP
 或客户对象存储；数据库只保存受控对象键，不保存任意文件路径。
 
 建议每季度在隔离服务器执行一次真实恢复演练，并记录恢复点目标（默认 24 小时）和
-恢复时间目标。磁盘可用空间低于 `OTTO_DISK_MIN_FREE_MB` 时 health 会告警，空间不足以
+恢复时间目标。磁盘可用空间低于 `CLAWMASTER_DISK_MIN_FREE_MB` 时 health 会告警，空间不足以
 容纳校验副本时新备份会拒绝执行，但现有业务数据不会被自动删除。
 
-License 验签支持多把 Ed25519 公钥并行。`OTTO_LICENSE_PUBLIC_KEYS` 可以填写 PEM 数组，
+License 验签支持多把 Ed25519 公钥并行。`CLAWMASTER_LICENSE_PUBLIC_KEYS` 可以填写 PEM 数组，
 也可以填写 Otto Control `GET /v1/signing-keyring` 返回的完整 JSON；客户端会接受
 `active`、`standby` 和 `retired` 公钥，因此密钥轮换后历史 License 仍可验证，并自动排除
-`revoked` 公钥。紧急处置还可通过 `OTTO_LICENSE_REVOKED_KEY_IDS` 填写 JSON 数组或
+`revoked` 公钥。紧急处置还可通过 `CLAWMASTER_LICENSE_REVOKED_KEY_IDS` 填写 JSON 数组或
 逗号分隔的 16 位 key ID。更新这两个配置前必须先用已信任公钥验证控制面密钥环签名，
 不能把 HTTPS 下载结果直接当作新的信任根。在线 License 还会在下一次短租约刷新时由
 控制面检查签名密钥状态；离线 License 无法实时接收吊销，必须使用较短有效期并由交付
@@ -343,7 +343,7 @@ sudo journalctl -u caddy -n 100 --no-pager
 
 ### 邀请码能打开，但收不到验证码
 
-查看 health 中 `sms.configured`。若为 `false`，说明短信四项没有进入 `/etc/otto-enterprise/enterprise.env`。不要用 `OTTO_ALLOW_SMS_DISABLED=1` 绕过正式迁移验收。
+查看 health 中 `sms.configured`。若为 `false`，说明短信四项没有进入 `/etc/otto-enterprise/enterprise.env`。不要用 `CLAWMASTER_ALLOW_SMS_DISABLED=1` 绕过正式迁移验收。
 
 ### 客户端仍没有组织树
 

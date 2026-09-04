@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2026 Otto
+ * Copyright 2026 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,15 +9,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const createRendererConfig = require('../webpack.config.cjs');
-const originalValue = process.env.OTTO_INTERNAL_TEST_ACCESS;
-const originalAdminValue = process.env.OTTO_INTERNAL_TEST_ADMIN;
+const originalValue = process.env.CLAWMASTER_INTERNAL_TEST_ACCESS;
+const originalAdminValue = process.env.CLAWMASTER_INTERNAL_TEST_ADMIN;
 
 function internalAccessDefinition() {
   const config = createRendererConfig({}, { mode: 'production' });
   const plugin = config.plugins.find(
     (candidate) => candidate?.constructor?.name === 'DefinePlugin',
   );
-  return plugin?.definitions?.__OTTO_INTERNAL_TEST_ACCESS__;
+  return plugin?.definitions?.__CLAWMASTER_INTERNAL_TEST_ACCESS__;
 }
 
 function internalAdminDefinition() {
@@ -25,19 +25,19 @@ function internalAdminDefinition() {
   const plugin = config.plugins.find(
     (candidate) => candidate?.constructor?.name === 'DefinePlugin',
   );
-  return plugin?.definitions?.__OTTO_INTERNAL_TEST_ADMIN__;
+  return plugin?.definitions?.__CLAWMASTER_INTERNAL_TEST_ADMIN__;
 }
 
 afterEach(() => {
   if (originalValue === undefined) {
-    delete process.env.OTTO_INTERNAL_TEST_ACCESS;
+    delete process.env.CLAWMASTER_INTERNAL_TEST_ACCESS;
   } else {
-    process.env.OTTO_INTERNAL_TEST_ACCESS = originalValue;
+    process.env.CLAWMASTER_INTERNAL_TEST_ACCESS = originalValue;
   }
   if (originalAdminValue === undefined) {
-    delete process.env.OTTO_INTERNAL_TEST_ADMIN;
+    delete process.env.CLAWMASTER_INTERNAL_TEST_ADMIN;
   } else {
-    process.env.OTTO_INTERNAL_TEST_ADMIN = originalAdminValue;
+    process.env.CLAWMASTER_INTERNAL_TEST_ADMIN = originalAdminValue;
   }
 });
 
@@ -50,22 +50,22 @@ describe('renderer internal-test build switch', () => {
   });
 
   it('is compiled off unless the build explicitly opts in', () => {
-    delete process.env.OTTO_INTERNAL_TEST_ACCESS;
+    delete process.env.CLAWMASTER_INTERNAL_TEST_ACCESS;
     expect(internalAccessDefinition()).toBe(JSON.stringify(false));
   });
 
   it('is compiled on only for the explicit internal preview build', () => {
-    process.env.OTTO_INTERNAL_TEST_ACCESS = '1';
+    process.env.CLAWMASTER_INTERNAL_TEST_ACCESS = '1';
     expect(internalAccessDefinition()).toBe(JSON.stringify(true));
   });
 
   it('keeps the synthetic administrator preview off by default', () => {
-    delete process.env.OTTO_INTERNAL_TEST_ADMIN;
+    delete process.env.CLAWMASTER_INTERNAL_TEST_ADMIN;
     expect(internalAdminDefinition()).toBe(JSON.stringify(false));
   });
 
   it('enables the synthetic administrator preview only when explicitly requested', () => {
-    process.env.OTTO_INTERNAL_TEST_ADMIN = '1';
+    process.env.CLAWMASTER_INTERNAL_TEST_ADMIN = '1';
     expect(internalAdminDefinition()).toBe(JSON.stringify(true));
   });
 });

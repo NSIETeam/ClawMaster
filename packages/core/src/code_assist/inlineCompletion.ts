@@ -284,7 +284,7 @@ export class InlineCompletionService {
           'Content-Type': 'application/json',
           ...userHeaders,
           // 协议 v1.4.2 新增 header
-          'X-Otto-Scene': 'inline_complete',
+          'X-ClawMaster-Scene': 'inline_complete',
           'X-Session-ID': getSessionId(),
           ...getInlineGitHeaders(this.workingDir),
         },
@@ -398,7 +398,7 @@ export class InlineCompletionService {
 
 /**
  * inline_complete 链路 git header 采集（已停用）。
- * Otto 是独立产品，不附带任何 git 仓库遥测，恒返回空对象。
+ * ClawMaster 是独立产品，不附带任何 git 仓库遥测，恒返回空对象。
  */
 function getInlineGitHeaders(_cwd: string): Record<string, string> {
   return {};

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createHash } from 'node:crypto';
@@ -40,9 +40,9 @@ type FederationAtoaDecision = FederationAtoaApprovedDecision | {
   createdAt: string;
 };
 
-const REQUEST_PREFIX = 'OTTO_ATOA_REQUEST ';
-const RESPONSE_PREFIX = 'OTTO_ATOA_RESPONSE ';
-const DECISION_PREFIX = 'OTTO_FEDERATION_ATOA_DECISION ';
+const REQUEST_PREFIX = 'CLAWMASTER_ATOA_REQUEST ';
+const RESPONSE_PREFIX = 'CLAWMASTER_ATOA_RESPONSE ';
+const DECISION_PREFIX = 'CLAWMASTER_FEDERATION_ATOA_DECISION ';
 const SOURCES: readonly AtoaContextSource[] = [
   'current_chat',
   'enterprise_knowledge',

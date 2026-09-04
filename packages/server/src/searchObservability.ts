@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import * as fs from 'node:fs';
@@ -12,7 +12,7 @@ import type {
   SearchTelemetryEvent,
   WebSearchDiagnosticsSnapshot,
   WebSearchProvider,
-} from 'otto-core';
+} from 'clawmaster-core';
 import { loadUserSettingsSubset } from './userSettings.js';
 
 const MAX_LOG_BYTES = 5 * 1024 * 1024;

@@ -1,7 +1,7 @@
 /**
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
- * doctor 工具：一次性体检 Otto 各能力所依赖的外部二进制/模块，返回可读报告
+ * doctor 工具：一次性体检 ClawMaster 各能力所依赖的外部二进制/模块，返回可读报告
  * （哪些就绪、哪些缺、缺的怎么装、各自影响哪个能力）。只读、安全、自动批准。
  */
 

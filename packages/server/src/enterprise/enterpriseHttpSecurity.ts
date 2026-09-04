@@ -17,7 +17,7 @@ export interface PasswordLoginRateLimitOptions {
   trustedProxyHops?: number;
   /**
    * 允许提供 X-Forwarded-For 的直连代理 IP（仅支持精确 IP）。
-   * loopback 代理始终可信；其他来源必须列在这里或 OTTO_ENTERPRISE_TRUSTED_PROXIES。
+   * loopback 代理始终可信；其他来源必须列在这里或 CLAWMASTER_ENTERPRISE_TRUSTED_PROXIES。
    */
   trustedProxyAddresses?: string[];
   now?: () => number;

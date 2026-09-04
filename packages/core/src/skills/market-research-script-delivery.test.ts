@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import {
@@ -100,7 +100,7 @@ describe('market-research 脚本交付安全', () => {
       const output = join(dir, 'nested', 'report.html');
       const result = runScript(
         {
-          brand: 'Otto',
+          brand: 'ClawMaster',
           industry: 'ai',
           competitors: [{ name: '竞品 A' }],
           trends: [],
@@ -133,7 +133,7 @@ describe('market-research 脚本交付安全', () => {
       const output = join(dir, 'report.html');
       const result = runScript(
         {
-          brand: 'Otto',
+          brand: 'ClawMaster',
           industry: 'ai',
           competitors: [
             {

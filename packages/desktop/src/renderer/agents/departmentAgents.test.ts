@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -11,7 +11,7 @@ import {
   DEPARTMENT_IDS,
   ENTERPRISE_CEO_PROFILE,
   ENTERPRISE_WORK_PROFILE,
-  PERSONAL_OTTO_PROFILE,
+  PERSONAL_CLAWMASTER_PROFILE,
   SELF_DEVELOPMENT_PROFILE,
   getDepartmentAgentProfiles,
   getEnterpriseAgentProfiles,
@@ -31,9 +31,9 @@ const COMMON_EXPERT_IDS = [
 ];
 
 describe('fixed Agent profile catalog', () => {
-  it('keeps the fixed 9 Agents enterprise-only and personal mode on Otto', () => {
+  it('keeps the fixed 9 Agents enterprise-only and personal mode on ClawMaster', () => {
     expect(getPersonalAgentProfiles().map((profile) => profile.id)).toEqual([
-      'otto-personal',
+      'claw-personal',
     ]);
 
     const enterpriseCatalogs = [
@@ -45,7 +45,7 @@ describe('fixed Agent profile catalog', () => {
 
     for (const profiles of enterpriseCatalogs) {
       expect(profiles.map((profile) => profile.id)).toEqual([
-        'otto-enterprise-work',
+        'claw-enterprise-work',
         ...COMMON_EXPERT_IDS,
       ]);
       expect(profiles).toHaveLength(9);
@@ -56,18 +56,18 @@ describe('fixed Agent profile catalog', () => {
   });
 
   it('keeps the three server-whitelisted foundational profiles as independent objects', () => {
-    expect(PERSONAL_OTTO_PROFILE).toMatchObject({
-      id: 'otto-personal',
+    expect(PERSONAL_CLAWMASTER_PROFILE).toMatchObject({
+      id: 'claw-personal',
       name: 'ClawMaster',
       department: null,
     });
     expect(ENTERPRISE_CEO_PROFILE).toMatchObject({
-      id: 'otto-enterprise-ceo',
+      id: 'claw-enterprise-ceo',
       name: 'CEO Agent',
       department: null,
     });
     expect(ENTERPRISE_WORK_PROFILE).toMatchObject({
-      id: 'otto-enterprise-work',
+      id: 'claw-enterprise-work',
       scope: 'base',
       department: null,
     });
@@ -78,13 +78,13 @@ describe('fixed Agent profile catalog', () => {
     expect(ENTERPRISE_WORK_PROFILE.systemPrompt).not.toContain(
       '不发起多 Agent 交流',
     );
-    expect(PERSONAL_OTTO_PROFILE).not.toBe(ENTERPRISE_CEO_PROFILE);
-    expect(PERSONAL_OTTO_PROFILE).not.toBe(ENTERPRISE_WORK_PROFILE);
+    expect(PERSONAL_CLAWMASTER_PROFILE).not.toBe(ENTERPRISE_CEO_PROFILE);
+    expect(PERSONAL_CLAWMASTER_PROFILE).not.toBe(ENTERPRISE_WORK_PROFILE);
     expect(ENTERPRISE_CEO_PROFILE).not.toBe(ENTERPRISE_WORK_PROFILE);
 
     expect(ALL_AGENT_PROFILES.map((profile) => profile.id)).toEqual([
-      'otto-personal',
-      'otto-enterprise-work',
+      'claw-personal',
+      'claw-enterprise-work',
       'self-development',
       ...COMMON_EXPERT_IDS,
     ]);
@@ -111,13 +111,13 @@ describe('fixed Agent profile catalog', () => {
       systemPrompt: 'Generated system prompt that should not enter the fixed catalog.',
     }]);
 
-    expect(getPersonalAgentProfiles().map((profile) => profile.id)).toEqual(['otto-personal']);
+    expect(getPersonalAgentProfiles().map((profile) => profile.id)).toEqual(['claw-personal']);
     expect(getEnterpriseAgentProfiles('company_owner').map((profile) => profile.id)).toEqual([
-      'otto-enterprise-work',
+      'claw-enterprise-work',
       ...COMMON_EXPERT_IDS,
     ]);
     expect(getEnterpriseAgentProfiles('member').map((profile) => profile.id)).toEqual([
-      'otto-enterprise-work',
+      'claw-enterprise-work',
       ...COMMON_EXPERT_IDS,
     ]);
   });
@@ -144,7 +144,7 @@ describe('fixed Agent profile catalog', () => {
       },
     ]);
 
-    expect(getPersonalAgentProfiles().map((profile) => profile.id)).toEqual(['otto-personal']);
+    expect(getPersonalAgentProfiles().map((profile) => profile.id)).toEqual(['claw-personal']);
   });
 
   it('keeps ids stable and system prompts private', () => {

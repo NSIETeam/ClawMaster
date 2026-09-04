@@ -1,10 +1,10 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
-import { OttoPetStage, PET_ANIMATIONS } from './OttoPetStage.js';
+import { ClawMasterPetStage, PET_ANIMATIONS } from './ClawMasterPetStage.js';
 
 const matchMedia = (matches: boolean): typeof window.matchMedia =>
   vi.fn().mockReturnValue({
@@ -28,15 +28,15 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('OttoPetStage', () => {
+describe('ClawMasterPetStage', () => {
   it('小宠物作为右下角挂件显示真实工作状态和红绿灯', () => {
-    const { rerender } = render(<OttoPetStage running={false} variant="widget" />);
+    const { rerender } = render(<ClawMasterPetStage running={false} variant="widget" />);
 
     expect(screen.getByRole('complementary', { name: 'ClawMaster 小宠物工作状态' })).toBeTruthy();
     expect(screen.getByText('等待下一项工作')).toBeTruthy();
     expect(screen.getByLabelText('空闲待命')).toBeTruthy();
 
-    rerender(<OttoPetStage running variant="widget" workLabel="正在运行工具" />);
+    rerender(<ClawMasterPetStage running variant="widget" workLabel="正在运行工具" />);
     expect(screen.getByText('正在运行工具')).toBeTruthy();
     expect(screen.getByLabelText('工作中')).toBeTruthy();
   });
@@ -48,7 +48,7 @@ describe('OttoPetStage', () => {
   });
 
   it('按 idle 行的逐帧时长推进状态动效帧', () => {
-    const { container } = render(<OttoPetStage running={false} variant="widget" />);
+    const { container } = render(<ClawMasterPetStage running={false} variant="widget" />);
     const motion = container.querySelector<HTMLElement>('[data-state="idle"]');
     expect(motion?.dataset.frame).toBe('0');
 
@@ -58,7 +58,7 @@ describe('OttoPetStage', () => {
 
   it('系统要求减少动效时固定在 idle 首帧', () => {
     window.matchMedia = matchMedia(true);
-    const { container } = render(<OttoPetStage running variant="widget" />);
+    const { container } = render(<ClawMasterPetStage running variant="widget" />);
     const motion = container.querySelector<HTMLElement>('[data-state="idle"]');
     expect(motion?.dataset.reducedMotion).toBe('true');
 
@@ -66,21 +66,21 @@ describe('OttoPetStage', () => {
     expect(motion?.dataset.frame).toBe('0');
   });
 
-  it('Otto 真正运行时切到右向跑步行', () => {
-    const { container } = render(<OttoPetStage running variant="widget" />);
+  it('ClawMaster 真正运行时切到右向跑步行', () => {
+    const { container } = render(<ClawMasterPetStage running variant="widget" />);
     expect(
       container.querySelector<HTMLElement>('[data-state="running-right"]'),
     ).toBeTruthy();
   });
 
   it('登录页模式放大轻量 ClawMaster 标识，并移除右栏标题和地面装饰', () => {
-    const { container } = render(<OttoPetStage running={false} variant="login" />);
-    const stage = container.querySelector<HTMLElement>('[data-testid="otto-pet-stage"]');
-    const sprite = container.querySelector<HTMLElement>('.otto-pet-stage__sprite');
+    const { container } = render(<ClawMasterPetStage running={false} variant="login" />);
+    const stage = container.querySelector<HTMLElement>('[data-testid="claw-pet-stage"]');
+    const sprite = container.querySelector<HTMLElement>('.claw-pet-stage__sprite');
 
-    expect(stage?.classList.contains('otto-pet-stage--login')).toBe(true);
-    expect(container.querySelector('.otto-pet-stage__head')).toBeNull();
-    expect(container.querySelector('.otto-pet-stage__floor')).toBeNull();
+    expect(stage?.classList.contains('claw-pet-stage--login')).toBe(true);
+    expect(container.querySelector('.claw-pet-stage__head')).toBeNull();
+    expect(container.querySelector('.claw-pet-stage__floor')).toBeNull();
     expect(sprite?.textContent).toContain('♛');
     expect(sprite?.style.width).toBe('316.8px');
     expect(sprite?.style.height).toBe('343.2px');

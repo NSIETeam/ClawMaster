@@ -13,7 +13,7 @@ import {
   type CustomerModuleRunResult,
   type CustomerModuleManifestV1,
   type CustomerModulePermission,
-} from 'otto-core';
+} from 'clawmaster-core';
 import type { EnterpriseClient } from './enterprise-client.js';
 
 const CUSTOMER_MODULE_DATA_KEY = /^[A-Za-z0-9_.-]{1,120}$/u;
@@ -49,7 +49,7 @@ function isVersionCompatible(current: string, minimum: string): boolean {
 }
 
 function trustedKeys(): Record<string, string> {
-  const raw = process.env.OTTO_CUSTOMER_MODULE_TRUSTED_PUBLIC_KEYS?.trim();
+  const raw = process.env.CLAWMASTER_CUSTOMER_MODULE_TRUSTED_PUBLIC_KEYS?.trim();
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw) as unknown;
@@ -197,7 +197,7 @@ export async function installCustomerModule(input: {
   const bundle = decodeCustomerModulePackageV1(Uint8Array.from(Buffer.from(downloaded.archive, 'base64')));
   const manifest = parseCustomerModuleManifest(bundle.manifest);
   if (manifest.id !== input.moduleId || manifest.version !== input.version) throw new Error('客户模块包身份不匹配');
-  if (!isVersionCompatible(input.ottoVersion, manifest.minimumOttoVersion)) throw new Error(`客户模块要求 ClawMaster ${manifest.minimumOttoVersion} 或更高版本`);
+  if (!isVersionCompatible(input.ottoVersion, manifest.minimumClawMasterVersion)) throw new Error(`客户模块要求 ClawMaster ${manifest.minimumClawMasterVersion} 或更高版本`);
   if (!verifyCustomerModuleSignature(manifest, trustedKeys())) throw new Error('客户模块市场签名不可信');
   const declared = new Set(manifest.permissions.map(permissionKey));
   const approved = new Set(input.approvedPermissions.map(permissionKey));

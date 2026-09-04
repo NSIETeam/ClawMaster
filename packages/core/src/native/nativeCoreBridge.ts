@@ -43,7 +43,7 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
 const BINARY_BASENAME = process.platform === 'win32' ? 'otto-native.exe' : 'otto-native';
 
 export function resolveNativeCoreMode(env: NodeJS.ProcessEnv = process.env): NativeCoreMode {
-  const raw = String(env.OTTO_NATIVE_CORE ?? 'auto').toLowerCase();
+  const raw = String(env.CLAWMASTER_NATIVE_CORE ?? 'auto').toLowerCase();
   if (raw === 'off' || raw === 'auto' || raw === 'required') return raw;
   return 'auto';
 }
@@ -58,7 +58,7 @@ export function getNativeCoreBinaryCandidates(options: {
   const platform = options.platform ?? process.platform;
   const executableName = platform === 'win32' ? 'otto-native.exe' : 'otto-native';
   const candidates = [
-    env.OTTO_NATIVE_CORE_BINARY,
+    env.CLAWMASTER_NATIVE_CORE_BINARY,
     path.join(cwd, 'otto-native', 'bin', executableName),
     path.join(cwd, 'otto-native', 'target', 'release', executableName),
     path.join(cwd, 'otto-native', 'target', 'x86_64-pc-windows-gnu', 'release', 'otto-native.exe'),
@@ -93,8 +93,8 @@ export function resolveNativeCoreRuntime(options: NativeCoreRuntimeOptions = {})
 
   if (!binaryPath && mode === 'required') {
     throw new Error(
-      `OTTO_NATIVE_CORE=required but no ${BINARY_BASENAME} binary was found. ` +
-        'Build otto-native or set OTTO_NATIVE_CORE_BINARY.',
+      `CLAWMASTER_NATIVE_CORE=required but no ${BINARY_BASENAME} binary was found. ` +
+        'Build otto-native or set CLAWMASTER_NATIVE_CORE_BINARY.',
     );
   }
 
@@ -159,7 +159,7 @@ export class NativeCoreBridge {
 
     const selection = this.selection;
     if (!selection.enabled || !selection.binaryPath) {
-      throw new Error('native core is not available; use JS fallback or set OTTO_NATIVE_CORE=required to fail fast');
+      throw new Error('native core is not available; use JS fallback or set CLAWMASTER_NATIVE_CORE=required to fail fast');
     }
 
     this.child = spawn(selection.binaryPath, [], {

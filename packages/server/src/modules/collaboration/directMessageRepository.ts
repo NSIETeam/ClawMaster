@@ -117,8 +117,8 @@ function sqliteUtcTimestamp(value: string | null): string | null {
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
-const ATOA_REQUEST_CONTENT_PREFIX = 'OTTO_ATOA_REQUEST ';
-const ATOA_RESPONSE_CONTENT_PREFIX = 'OTTO_ATOA_RESPONSE ';
+const ATOA_REQUEST_CONTENT_PREFIX = 'CLAWMASTER_ATOA_REQUEST ';
+const ATOA_RESPONSE_CONTENT_PREFIX = 'CLAWMASTER_ATOA_RESPONSE ';
 
 function directMessageContentType(
   content: string,

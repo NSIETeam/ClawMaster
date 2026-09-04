@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import {
@@ -8,7 +8,7 @@ import {
 } from './atoaProtocol.js';
 
 export const FEDERATION_ATOA_DECISION_PREFIX =
-  'OTTO_FEDERATION_ATOA_DECISION ';
+  'CLAWMASTER_FEDERATION_ATOA_DECISION ';
 
 interface FederationAtoaDecisionBase {
   v: 1;

@@ -201,7 +201,7 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
     );
 
     // 追踪文件读取，用于压缩后上下文恢复
-    this.config.getOttoClient?.()?.trackFileRead(params.absolute_path);
+    this.config.getClawMasterClient?.()?.trackFileRead(params.absolute_path);
 
     if (
       typeof result.llmContent === 'string' &&

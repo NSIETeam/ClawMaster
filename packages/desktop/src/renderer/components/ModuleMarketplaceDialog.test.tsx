@@ -21,7 +21,7 @@ const modules: readonly ModuleDefinition[] = [
   },
   {
     id: 'agent-custom', label: '客户成功助手', category: 'custom-agent', icon: 'custom-agent',
-    activation: { kind: 'agent', profileId: 'otto-enterprise-work', customAgentId: 'custom' },
+    activation: { kind: 'agent', profileId: 'claw-enterprise-work', customAgentId: 'custom' },
     availability: 'available',
   },
 ];
@@ -58,7 +58,7 @@ describe('ModuleMarketplaceDialog', () => {
     const install = vi.fn().mockResolvedValue({
       id: 'anthropics/skills/pdf', name: 'pdf', source: 'anthropics/skills', installPath: '/tmp/pdf',
     });
-    Object.defineProperty(window, 'otto', { configurable: true, value: {
+    Object.defineProperty(window, 'clawmaster', { configurable: true, value: {
       communitySkillInstall: install, communitySkillList: vi.fn().mockResolvedValue([]),
     } });
     vi.spyOn(window, 'confirm').mockReturnValue(true);

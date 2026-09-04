@@ -1,5 +1,5 @@
 import { once } from 'node:events';
-import { exportEditedDocument, extractEditableDocument } from 'otto-core';
+import { exportEditedDocument, extractEditableDocument } from 'clawmaster-core';
 
 let input = '';
 process.stdin.setEncoding('utf8');

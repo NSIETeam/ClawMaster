@@ -1,21 +1,21 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Pure attachment-store configuration. Keep this module independent from the
  * AWS SDK so local/offline topology checks do not load the S3 runtime.
  */
 
 export interface AttachmentObjectStoreEnvironment {
-  OTTO_ENTERPRISE_REPLICA_COUNT?: string;
-  OTTO_ATTACHMENT_OBJECT_STORE?: string;
-  OTTO_S3_BUCKET?: string;
-  OTTO_S3_REGION?: string;
-  OTTO_S3_ENDPOINT?: string;
-  OTTO_S3_FORCE_PATH_STYLE?: string;
-  OTTO_S3_BUCKET_PRIVATE_CONFIRMED?: string;
-  OTTO_S3_ALLOW_INSECURE?: string;
-  OTTO_S3_KMS_KEY_ID?: string;
-  OTTO_S3_PRESIGN_TTL_SECONDS?: string;
+  CLAWMASTER_ENTERPRISE_REPLICA_COUNT?: string;
+  CLAWMASTER_ATTACHMENT_OBJECT_STORE?: string;
+  CLAWMASTER_S3_BUCKET?: string;
+  CLAWMASTER_S3_REGION?: string;
+  CLAWMASTER_S3_ENDPOINT?: string;
+  CLAWMASTER_S3_FORCE_PATH_STYLE?: string;
+  CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED?: string;
+  CLAWMASTER_S3_ALLOW_INSECURE?: string;
+  CLAWMASTER_S3_KMS_KEY_ID?: string;
+  CLAWMASTER_S3_PRESIGN_TTL_SECONDS?: string;
 }
 
 export type AttachmentObjectStoreConfig =
@@ -69,17 +69,17 @@ function endpointUrl(value: string | undefined, allowInsecure: boolean) {
   try {
     parsed = new URL(value);
   } catch {
-    throw new Error('OTTO_S3_ENDPOINT must be a valid HTTP(S) URL');
+    throw new Error('CLAWMASTER_S3_ENDPOINT must be a valid HTTP(S) URL');
   }
   if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) {
-    throw new Error('OTTO_S3_ENDPOINT must be a valid HTTP(S) URL');
+    throw new Error('CLAWMASTER_S3_ENDPOINT must be a valid HTTP(S) URL');
   }
   if (parsed.username || parsed.password) {
-    throw new Error('OTTO_S3_ENDPOINT must not contain credentials');
+    throw new Error('CLAWMASTER_S3_ENDPOINT must not contain credentials');
   }
   if (parsed.protocol === 'http:' && !allowInsecure) {
     throw new Error(
-      'insecure S3 endpoint must be explicitly enabled with OTTO_S3_ALLOW_INSECURE=true',
+      'insecure S3 endpoint must be explicitly enabled with CLAWMASTER_S3_ALLOW_INSECURE=true',
     );
   }
   return parsed.toString();
@@ -89,10 +89,10 @@ export function resolveAttachmentObjectStoreConfig(
   environment: AttachmentObjectStoreEnvironment,
 ): AttachmentObjectStoreConfig {
   const configured =
-    environment.OTTO_ATTACHMENT_OBJECT_STORE?.trim().toLowerCase() || 'local';
+    environment.CLAWMASTER_ATTACHMENT_OBJECT_STORE?.trim().toLowerCase() || 'local';
   const replicas = boundedInteger({
-    name: 'OTTO_ENTERPRISE_REPLICA_COUNT',
-    value: environment.OTTO_ENTERPRISE_REPLICA_COUNT,
+    name: 'CLAWMASTER_ENTERPRISE_REPLICA_COUNT',
+    value: environment.CLAWMASTER_ENTERPRISE_REPLICA_COUNT,
     fallback: 1,
     minimum: 1,
     maximum: 1_000,
@@ -106,46 +106,46 @@ export function resolveAttachmentObjectStoreConfig(
     return { backend: 'encrypted-filesystem' };
   }
   if (configured !== 's3') {
-    throw new Error('OTTO_ATTACHMENT_OBJECT_STORE must be local or s3');
+    throw new Error('CLAWMASTER_ATTACHMENT_OBJECT_STORE must be local or s3');
   }
 
   const privateBucketConfirmed = booleanSetting({
-    name: 'OTTO_S3_BUCKET_PRIVATE_CONFIRMED',
-    value: environment.OTTO_S3_BUCKET_PRIVATE_CONFIRMED,
+    name: 'CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED',
+    value: environment.CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED,
     fallback: false,
   });
   if (!privateBucketConfirmed) {
     throw new Error(
-      'S3 attachment bucket must be private and OTTO_S3_BUCKET_PRIVATE_CONFIRMED=true must be set',
+      'S3 attachment bucket must be private and CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED=true must be set',
     );
   }
-  const bucket = environment.OTTO_S3_BUCKET?.trim() ?? '';
+  const bucket = environment.CLAWMASTER_S3_BUCKET?.trim() ?? '';
   if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket)) {
-    throw new Error('OTTO_S3_BUCKET must be a valid private bucket name');
+    throw new Error('CLAWMASTER_S3_BUCKET must be a valid private bucket name');
   }
-  const region = environment.OTTO_S3_REGION?.trim() ?? '';
+  const region = environment.CLAWMASTER_S3_REGION?.trim() ?? '';
   if (!region || region.length > 100 || /\s/.test(region)) {
-    throw new Error('OTTO_S3_REGION is required for S3 attachment storage');
+    throw new Error('CLAWMASTER_S3_REGION is required for S3 attachment storage');
   }
   const allowInsecure = booleanSetting({
-    name: 'OTTO_S3_ALLOW_INSECURE',
-    value: environment.OTTO_S3_ALLOW_INSECURE,
+    name: 'CLAWMASTER_S3_ALLOW_INSECURE',
+    value: environment.CLAWMASTER_S3_ALLOW_INSECURE,
     fallback: false,
   });
-  const endpoint = endpointUrl(environment.OTTO_S3_ENDPOINT, allowInsecure);
+  const endpoint = endpointUrl(environment.CLAWMASTER_S3_ENDPOINT, allowInsecure);
   const forcePathStyle = booleanSetting({
-    name: 'OTTO_S3_FORCE_PATH_STYLE',
-    value: environment.OTTO_S3_FORCE_PATH_STYLE,
+    name: 'CLAWMASTER_S3_FORCE_PATH_STYLE',
+    value: environment.CLAWMASTER_S3_FORCE_PATH_STYLE,
     fallback: false,
   });
   const presignTtlSeconds = boundedInteger({
-    name: 'OTTO_S3_PRESIGN_TTL_SECONDS',
-    value: environment.OTTO_S3_PRESIGN_TTL_SECONDS,
+    name: 'CLAWMASTER_S3_PRESIGN_TTL_SECONDS',
+    value: environment.CLAWMASTER_S3_PRESIGN_TTL_SECONDS,
     fallback: 300,
     minimum: 30,
     maximum: 900,
   });
-  const kmsKeyId = environment.OTTO_S3_KMS_KEY_ID?.trim() || undefined;
+  const kmsKeyId = environment.CLAWMASTER_S3_KMS_KEY_ID?.trim() || undefined;
   return {
     backend: 's3',
     bucket,

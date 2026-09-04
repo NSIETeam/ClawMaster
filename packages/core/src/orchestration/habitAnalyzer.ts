@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * HabitAnalyzer — 内置大模型习惯分析引擎
  *
@@ -175,7 +175,7 @@ export class HabitAnalyzer {
   }
 
   private async llmAnalyze(config: Config): Promise<HabitInsight[]> {
-    const client = config.getOttoClient();
+    const client = config.getClawMasterClient();
     if (!client) return this.basicAnalyze();
 
     const recentOps = this.ops.slice(-300);

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * PostgreSQL-backed enterprise HTTP entry point. It deliberately imports no
  * legacy SQLite repository module, so clustered mode cannot create a hidden
@@ -13,7 +13,7 @@ import {
   type Server,
   type ServerResponse,
 } from 'node:http';
-import { createAliyunLoginSmsFromEnv } from 'otto-core';
+import { createAliyunLoginSmsFromEnv } from 'clawmaster-core';
 
 import {
   commercialFeatureForEnterpriseRoute,
@@ -558,16 +558,16 @@ export function createClusteredEnterpriseServer(
     configuredUrl: options.publicUrl,
   });
   const deploymentId =
-    process.env.OTTO_DEPLOYMENT_ID?.trim() || 'clustered-enterprise';
+    process.env.CLAWMASTER_DEPLOYMENT_ID?.trim() || 'clustered-enterprise';
   const licensePublicKeys =
     options.licensePublicKeys ??
     parsePublicKeyList(
-      process.env.OTTO_LICENSE_PUBLIC_KEYS,
-      process.env.OTTO_LICENSE_REVOKED_KEY_IDS,
+      process.env.CLAWMASTER_LICENSE_PUBLIC_KEYS,
+      process.env.CLAWMASTER_LICENSE_REVOKED_KEY_IDS,
     );
   const governanceAuthorization = {
     deploymentId:
-      process.env.OTTO_DEPLOYMENT_ID?.trim() || 'clustered-enterprise',
+      process.env.CLAWMASTER_DEPLOYMENT_ID?.trim() || 'clustered-enterprise',
     license: {
       status: 'unavailable',
       plan: 'unconfigured',
@@ -1760,7 +1760,7 @@ export function createClusteredEnterpriseServer(
           organization,
           members: members.map((account) => ({
             ...account,
-            ottoOnline: presenceByAccount.get(account.id)?.online ?? false,
+            clawmasterOnline: presenceByAccount.get(account.id)?.online ?? false,
             ottoLastSeenAt:
               presenceByAccount.get(account.id)?.lastSeenAt ?? null,
           })),
@@ -2396,21 +2396,21 @@ export async function startClusteredEnterpriseServer(
     }
 
     const created = createClusteredEnterpriseServer(repository, {
-      host: options.host ?? process.env.OTTO_ENTERPRISE_HOST,
+      host: options.host ?? process.env.CLAWMASTER_ENTERPRISE_HOST,
       port:
         options.port ??
-        Number(process.env.OTTO_ENTERPRISE_PORT || String(DEFAULT_PORT)),
-      adminToken: options.adminToken ?? process.env.OTTO_ENTERPRISE_ADMIN_TOKEN,
-      appVersion: options.appVersion ?? process.env.OTTO_APP_VERSION,
+        Number(process.env.CLAWMASTER_ENTERPRISE_PORT || String(DEFAULT_PORT)),
+      adminToken: options.adminToken ?? process.env.CLAWMASTER_ENTERPRISE_ADMIN_TOKEN,
+      appVersion: options.appVersion ?? process.env.CLAWMASTER_APP_VERSION,
       buildCommit:
         options.buildCommit ??
-        process.env.OTTO_BUILD_COMMIT ??
+        process.env.CLAWMASTER_BUILD_COMMIT ??
         process.env.GITHUB_SHA,
       infrastructureReadiness: infrastructure.getReadiness,
       topologyDescription: infrastructure.topologyDescription,
       sharedState: infrastructure.sharedState,
       attachmentStorage: infrastructure.attachmentStorage,
-      publicUrl: options.publicUrl ?? process.env.OTTO_ENTERPRISE_PUBLIC_URL,
+      publicUrl: options.publicUrl ?? process.env.CLAWMASTER_ENTERPRISE_PUBLIC_URL,
       licensePublicKeys: options.licensePublicKeys,
       smsSender:
         options.smsSender !== undefined

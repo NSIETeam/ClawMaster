@@ -22,7 +22,7 @@ import {
   type MlsPendingReceivedApplication,
   type MlsStagedReceivedApplication,
   type MlsStatePersistence,
-} from '@otto/native';
+} from '@clawmaster/native';
 
 export const ENTERPRISE_MLS_CIPHERSUITE =
   'MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519' as const;
@@ -95,8 +95,8 @@ export interface EnterpriseMlsAttachmentSession {
   authorizedDevices: Array<{ accountId: string; deviceId: string }>;
 }
 
-const MLS_MEMBER_ADD_ENVELOPE_V1_PREFIX = 'otto:mls:member-add:v1:';
-const MLS_MEMBER_ADD_ENVELOPE_PREFIX = 'otto:mls:member-add:v2:';
+const MLS_MEMBER_ADD_ENVELOPE_V1_PREFIX = 'clawmaster:mls:member-add:v1:';
+const MLS_MEMBER_ADD_ENVELOPE_PREFIX = 'clawmaster:mls:member-add:v2:';
 
 function parseMemberAddCommitEnvelope(payload: string): {
   commit: string;
@@ -455,7 +455,7 @@ export function enterpriseMlsDirectConversationId(input: {
     identifiers[2]!,
   ].sort() as [string, string];
   return createHash('sha256')
-    .update('otto:mls-direct-conversation:v1\n')
+    .update('clawmaster:mls-direct-conversation:v1\n')
     .update(identifiers[0]!)
     .update('\n')
     .update(participantAAccountId)
@@ -699,7 +699,7 @@ export function enterpriseMlsTransportEventId(input: {
   recipientDeviceId?: string | null;
 }): string {
   return `mls-${createHash('sha256')
-    .update('otto:mls-transport-event:v1\n')
+    .update('clawmaster:mls-transport-event:v1\n')
     .update(
       JSON.stringify([
         input.conversationId,

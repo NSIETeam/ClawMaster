@@ -1,8 +1,8 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AutoSkillCandidateInfo } from 'otto-server';
+import type { AutoSkillCandidateInfo } from 'clawmaster-server';
 import type { CentralEnterpriseRole } from '../state/centralEnterpriseIdentity.js';
 import { customAgentIconToModuleIcon, type CustomAgentIcon } from '../customAgentIcons.js';
 import type { CustomAgentDefinition, CustomAgentDraft } from '../customAgents.js';
@@ -35,10 +35,10 @@ function DialogFrame({ title, onClose, children }: {
     };
   }, []);
   return createPortal(
-    <div className="otto-workspace-dialog-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section ref={ref} className="otto-workspace-dialog" role="dialog" aria-modal="true" aria-label={title}>
+    <div className="claw-workspace-dialog-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section ref={ref} className="claw-workspace-dialog" role="dialog" aria-modal="true" aria-label={title}>
         <header><h2>{title}</h2><button type="button" aria-label={`关闭${title}`} onClick={onClose}>×</button></header>
-        <div className="otto-workspace-dialog__body">{children}</div>
+        <div className="claw-workspace-dialog__body">{children}</div>
       </section>
     </div>, document.body,
   );
@@ -92,8 +92,8 @@ export function EnterpriseMemoryDialog({ open, role, onClose }: {
     setLoading(true); setError('');
     try {
       const [next, recentWork] = await Promise.all([
-        window.otto.enterpriseKnowledgeList({ query: queryRef.current.trim() || undefined, includeReview: true }),
-        window.otto.workLogRecent(7).catch(() => []),
+        window.clawmaster.enterpriseKnowledgeList({ query: queryRef.current.trim() || undefined, includeReview: true }),
+        window.clawmaster.workLogRecent(7).catch(() => []),
       ]);
       if (epoch === epochRef.current) {
         setItems(next);
@@ -127,8 +127,8 @@ export function EnterpriseMemoryDialog({ open, role, onClose }: {
     const operationId = editor.id || 'new-knowledge';
     setBusyId(operationId);
     try {
-      if (editor.id) await window.otto.enterpriseKnowledgeRevise(editor.id, { title: editor.title.trim(), category: editor.category.trim(), content: editor.content.trim(), confidence: 0.95, changeNote: '管理员在企业记忆弹窗中修订' });
-      else await window.otto.enterpriseKnowledgeRecord({ sourceId: `manual:${crypto.randomUUID()}`, title: editor.title.trim(), category: editor.category.trim(), content: editor.content.trim(), confidence: 0.95, sourceType: 'manual', sourceLabel: '企业管理员手动录入' });
+      if (editor.id) await window.clawmaster.enterpriseKnowledgeRevise(editor.id, { title: editor.title.trim(), category: editor.category.trim(), content: editor.content.trim(), confidence: 0.95, changeNote: '管理员在企业记忆弹窗中修订' });
+      else await window.clawmaster.enterpriseKnowledgeRecord({ sourceId: `manual:${crypto.randomUUID()}`, title: editor.title.trim(), category: editor.category.trim(), content: editor.content.trim(), confidence: 0.95, sourceType: 'manual', sourceLabel: '企业管理员手动录入' });
       if (epoch !== epochRef.current) return;
       setEditor(null); setNotice(editor.id ? '知识已修订。' : '企业知识已发布。'); setBusyId(''); await refresh();
     } catch (cause) { if (epoch === epochRef.current) setError(cause instanceof Error ? cause.message : String(cause)); }
@@ -137,7 +137,7 @@ export function EnterpriseMemoryDialog({ open, role, onClose }: {
   const review = async (id: string, action: 'approve' | 'archive'): Promise<void> => {
     const epoch = epochRef.current;
     setBusyId(id);
-    try { await window.otto.enterpriseKnowledgeReview(id, action); if (epoch !== epochRef.current) return; setNotice(action === 'approve' ? '知识已发布。' : '知识已归档。'); setRevisions((current) => { const next = { ...current }; delete next[id]; return next; }); setBusyId(''); await refresh(); }
+    try { await window.clawmaster.enterpriseKnowledgeReview(id, action); if (epoch !== epochRef.current) return; setNotice(action === 'approve' ? '知识已发布。' : '知识已归档。'); setRevisions((current) => { const next = { ...current }; delete next[id]; return next; }); setBusyId(''); await refresh(); }
     catch (cause) { if (epoch === epochRef.current) setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { if (epoch === epochRef.current) setBusyId(''); }
   };
@@ -146,7 +146,7 @@ export function EnterpriseMemoryDialog({ open, role, onClose }: {
     const epoch = epochRef.current;
     setBusyId(id);
     try {
-      const loaded = await window.otto.enterpriseKnowledgeRevisions(id);
+      const loaded = await window.clawmaster.enterpriseKnowledgeRevisions(id);
       if (epoch === epochRef.current) setRevisions((current) => ({ ...current, [id]: loaded }));
     } catch (cause) { if (epoch === epochRef.current) setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { if (epoch === epochRef.current) setBusyId(''); }
@@ -158,7 +158,7 @@ export function EnterpriseMemoryDialog({ open, role, onClose }: {
     const epoch = epochRef.current;
     void Promise.all(missing.map(async (item) => ({
       id: item.id,
-      loaded: await window.otto.enterpriseKnowledgeRevisions(item.id),
+      loaded: await window.clawmaster.enterpriseKnowledgeRevisions(item.id),
     }))).then((loaded) => {
       if (epoch !== epochRef.current) return;
       setRevisions((current) => ({
@@ -175,7 +175,7 @@ export function EnterpriseMemoryDialog({ open, role, onClose }: {
     const epoch = epochRef.current;
     setBusyId(sourceId); setError(''); setNotice('');
     try {
-      const result = await window.otto.enterpriseKnowledgeRecord({
+      const result = await window.clawmaster.enterpriseKnowledgeRecord({
         sourceId, title, category: entry.category || 'work_result',
         content: [title, entry.details].filter(Boolean).join('\n'), confidence: 0.82,
         sourceType: 'work_result', sourceLabel: `${date} ${entry.time} ClawMaster 工作成果`,
@@ -199,23 +199,23 @@ export function EnterpriseMemoryDialog({ open, role, onClose }: {
     .sort((left, right) => (right.revision.createdAt || '').localeCompare(left.revision.createdAt || ''));
   if (!open) return null;
   return <DialogFrame title="企业记忆" onClose={requestClose}>
-    <div role="tablist" aria-label="企业知识与记忆" className="otto-enterprise-memory-switch">
+    <div role="tablist" aria-label="企业知识与记忆" className="claw-enterprise-memory-switch">
       <button type="button" role="tab" aria-selected={view === 'knowledge'} onClick={() => setView('knowledge')}>企业知识</button>
       <button type="button" role="tab" aria-selected={view === 'timeline'} onClick={() => setView('timeline')}>记忆沿革</button>
     </div>
-    <div className="otto-workspace-dialog__toolbar">
+    <div className="claw-workspace-dialog__toolbar">
       <form onSubmit={(event) => { event.preventDefault(); void refresh(); }}><input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="搜索企业知识" placeholder="搜索制度、流程、项目结论"/><button type="submit">搜索</button></form>
       {role === 'company_admin' ? <button type="button" onClick={() => setEditor({ title: '', category: '制度流程', content: '' })}>新增知识</button> : null}
       <button type="button" disabled={loading} onClick={() => void refresh()}>{loading ? '加载中…' : '刷新'}</button>
     </div>
-    {view === 'knowledge' && editor ? <form className="otto-workspace-dialog__editor" onSubmit={(event) => { event.preventDefault(); void save(); }}>
+    {view === 'knowledge' && editor ? <form className="claw-workspace-dialog__editor" onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <input aria-label="知识标题" value={editor.title} onChange={(event) => setEditor({ ...editor, title: event.target.value })}/>
       <input aria-label="知识分类" value={editor.category} onChange={(event) => setEditor({ ...editor, category: event.target.value })}/>
       <textarea aria-label="知识内容" rows={6} value={editor.content} onChange={(event) => setEditor({ ...editor, content: event.target.value })}/>
       <div><button type="button" disabled={Boolean(busyId)} onClick={() => setEditor(null)}>取消</button><button type="submit" disabled={Boolean(busyId)}>{busyId ? '保存中…' : '保存'}</button></div>
     </form> : null}
-    {error ? <p role="alert" className="otto-workspace-dialog__error">{error}</p> : null}{notice ? <p role="status">{notice}</p> : null}
-    {view === 'knowledge' && candidates.length ? <section className="otto-enterprise-memory-candidates" aria-label="可沉淀的工作成果">
+    {error ? <p role="alert" className="claw-workspace-dialog__error">{error}</p> : null}{notice ? <p role="status">{notice}</p> : null}
+    {view === 'knowledge' && candidates.length ? <section className="claw-enterprise-memory-candidates" aria-label="可沉淀的工作成果">
       <strong>最近成果候选</strong><span>提交后先审核，不会静默发布给全公司</span>
       {candidates.map((candidate) => {
         const title = candidate.entry.taskTitle || candidate.entry.action;
@@ -224,9 +224,9 @@ export function EnterpriseMemoryDialog({ open, role, onClose }: {
         return <div key={sourceId}><span><strong>{title}</strong><small>{candidate.date} {candidate.entry.time}</small></span><button type="button" disabled={submitted || busyId === sourceId} onClick={() => void submitCandidate(candidate)}>{submitted ? '已提交' : busyId === sourceId ? '提交中…' : '沉淀'}</button></div>;
       })}
     </section> : null}
-    {view === 'timeline' ? <div className="otto-enterprise-memory-timeline" aria-label="企业记忆沿革">{timeline.map(({ item, revision }) => <article key={`${item.id}-${revision.id}`}>
+    {view === 'timeline' ? <div className="claw-enterprise-memory-timeline" aria-label="企业记忆沿革">{timeline.map(({ item, revision }) => <article key={`${item.id}-${revision.id}`}>
       <time>{formatKnowledgeDate(revision.createdAt)}</time><div><span>{item.department || '全组织'} · {revision.category || item.category} · v{revision.version}</span><strong>{revision.title || item.title || item.category}</strong><p>{revision.content}</p><small>{revision.changedBy || item.contributor || '系统沉淀'} · {revision.changeNote || revision.status || '形成知识'}</small></div>
-    </article>)}</div> : <div className="otto-workspace-dialog__list">{items.filter((item) => item.status !== 'archived').map((item) => <article key={item.id}>
+    </article>)}</div> : <div className="claw-workspace-dialog__list">{items.filter((item) => item.status !== 'archived').map((item) => <article key={item.id}>
       <div><span>{item.department || '全组织'}</span><span>{item.category}</span><span>{item.status === 'pending_review' ? '待审核' : '已发布'}</span><span>v{item.version ?? 1}</span><span>{Math.round(item.confidence * 100)}%</span></div>
       {item.evidenceCount ? <div><strong>{item.evidenceCount} 条证据</strong><span>{item.distinctSessionCount || 0} 个会话</span><span>{item.distinctContributorCount || 0} 名贡献者</span>{item.lastObservedAt ? <span>最近验证 {formatKnowledgeDate(item.lastObservedAt)}</span> : null}</div> : item.sourceType === 'manual' ? <div><strong>管理员确认发布</strong></div> : null}
       <h3>{item.title || item.category}</h3><p>{item.content}</p>{item.sourceLabel || item.sourceId ? <div>来源：{item.sourceLabel || item.sourceId}</div> : null}<small>{item.contributor || '系统沉淀'} · {formatKnowledgeDate(item.updatedAt || item.createdAt)}</small>
@@ -242,7 +242,7 @@ export function AutoSkillDialog({ open, candidates, lastAction, onRefresh, onCon
   onRefresh(): void; onConfirm(id: string): void; onReject(id: string): void; onClose(): void;
 }): React.JSX.Element | null {
   if (!open) return null;
-  return <DialogFrame title="自动 Skill 候选" onClose={onClose}><div className="otto-workspace-dialog__toolbar"><p>从重复工作成果中沉淀可复用流程。</p><button type="button" onClick={onRefresh}>立即分析</button></div>{lastAction?.kind === 'confirmed' ? <p role="status">Skill 已生成{lastAction.savedPath ? `：${lastAction.savedPath}` : ''}</p> : null}<div className="otto-workspace-dialog__list">{candidates.length ? candidates.map((candidate) => <article key={candidate.id}><h3>{candidate.name}</h3><p>{candidate.description}</p><small>{candidate.detectedPattern} · {candidate.occurrenceCount} 次重复</small><footer><button type="button" onClick={() => onConfirm(candidate.id)}>{candidate.recommendation === 'enhance' ? '确认增强' : '确认生成'}</button><button type="button" onClick={() => onReject(candidate.id)}>不再建议</button></footer></article>) : <p>暂无候选。点击“立即分析”扫描最近成果。</p>}</div></DialogFrame>;
+  return <DialogFrame title="自动 Skill 候选" onClose={onClose}><div className="claw-workspace-dialog__toolbar"><p>从重复工作成果中沉淀可复用流程。</p><button type="button" onClick={onRefresh}>立即分析</button></div>{lastAction?.kind === 'confirmed' ? <p role="status">Skill 已生成{lastAction.savedPath ? `：${lastAction.savedPath}` : ''}</p> : null}<div className="claw-workspace-dialog__list">{candidates.length ? candidates.map((candidate) => <article key={candidate.id}><h3>{candidate.name}</h3><p>{candidate.description}</p><small>{candidate.detectedPattern} · {candidate.occurrenceCount} 次重复</small><footer><button type="button" onClick={() => onConfirm(candidate.id)}>{candidate.recommendation === 'enhance' ? '确认增强' : '确认生成'}</button><button type="button" onClick={() => onReject(candidate.id)}>不再建议</button></footer></article>) : <p>暂无候选。点击“立即分析”扫描最近成果。</p>}</div></DialogFrame>;
 }
 
 export function CustomAgentManagerDialog({
@@ -276,7 +276,7 @@ export function CustomAgentManagerDialog({
   return (
     <DialogFrame title="我的专家" onClose={onClose}>
       <form
-        className="otto-workspace-dialog__editor otto-custom-agent-editor"
+        className="claw-workspace-dialog__editor claw-custom-agent-editor"
         onSubmit={(event) => {
           event.preventDefault();
           setError('');
@@ -297,7 +297,7 @@ export function CustomAgentManagerDialog({
           onChange={(event) => setName(event.target.value)}
           placeholder="例如：招投标助手"
         />
-        <div className="otto-custom-agent-editor__icon">
+        <div className="claw-custom-agent-editor__icon">
           <span>模块图标</span>
           <CustomAgentIconPicker value={icon} label="模块" onChange={setIcon} />
         </div>
@@ -309,13 +309,13 @@ export function CustomAgentManagerDialog({
           onChange={(event) => setInstructions(event.target.value)}
           placeholder="说明职责、交付格式和边界"
         />
-        {error ? <p role="alert" className="otto-workspace-dialog__error">{error}</p> : null}
+        {error ? <p role="alert" className="claw-workspace-dialog__error">{error}</p> : null}
         <button type="submit">创建专家</button>
       </form>
-      <div className="otto-workspace-dialog__list otto-custom-agent-list">
+      <div className="claw-workspace-dialog__list claw-custom-agent-list">
         {agents.map((agent) => (
           <article key={agent.id}>
-            <div className="otto-custom-agent-list__heading">
+            <div className="claw-custom-agent-list__heading">
               <ModuleIcon
                 icon={customAgentIconToModuleIcon(agent.icon)}
                 label={agent.name}

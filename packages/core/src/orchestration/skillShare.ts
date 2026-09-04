@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * SkillShare — 个人 Skill 分享到小组。
  *
@@ -7,7 +7,7 @@
  * 1. 个人在 .otto/skills/ 下有自己创建/自动生成的 Skill
  * 2. 选择要分享的 Skill，指定目标小组
  * 3. Skill 被复制到 OrgMemoryStore 的 skills 列表，scope=team
- * 4. 小组成员各自的 Otto 能看到并安装这个共享 Skill
+ * 4. 小组成员各自的 ClawMaster 能看到并安装这个共享 Skill
  *
  * 同时支持：
  * - 撤回已分享的 Skill

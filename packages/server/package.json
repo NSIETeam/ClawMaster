@@ -1,11 +1,11 @@
 {
-  "name": "otto-server",
+  "name": "clawmaster-server",
   "version": "0.1.0",
   "description": "Otto - local app server (single source of session truth, HTTP/WS, Feishu bridge)",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "otto-server": "dist/bin.js",
+    "clawmaster-server": "dist/bin.js",
     "otto-database-encryption": "dist/src/modules/data_platform/databaseEncryptionCli.js",
     "otto-enterprise-infrastructure": "dist/src/modules/data_platform/enterpriseInfrastructureCli.js",
     "otto-enterprise-data-protection": "dist/src/modules/data_platform/dataProtectionCli.js",
@@ -40,7 +40,7 @@
     "@google/genai": "1.35.0",
     "@larksuiteoapi/node-sdk": "^1.71.1",
     "better-sqlite3": "13.0.3",
-    "otto-core": "file:../core",
+    "clawmaster-core": "file:../core",
     "pg": "8.22.0",
     "redis": "4.7.1",
     "ws": "^8.21.1"

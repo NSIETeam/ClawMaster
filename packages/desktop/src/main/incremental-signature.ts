@@ -6,8 +6,8 @@ import { createPublicKey, verify } from 'node:crypto';
 import * as fs from 'node:fs';
 
 const SIGNATURE_PREFIX = 'ed25519:';
-const PUBLIC_KEY_ENV = 'OTTO_INCREMENTAL_UPDATE_PUBLIC_KEY';
-const PUBLIC_KEY_FILE_ENV = 'OTTO_INCREMENTAL_UPDATE_PUBLIC_KEY_FILE';
+const PUBLIC_KEY_ENV = 'CLAWMASTER_INCREMENTAL_UPDATE_PUBLIC_KEY';
+const PUBLIC_KEY_FILE_ENV = 'CLAWMASTER_INCREMENTAL_UPDATE_PUBLIC_KEY_FILE';
 
 export type SignatureVerificationResult =
   | { ok: true }

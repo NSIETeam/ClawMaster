@@ -1,9 +1,9 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import type { ScheduleItemInfo } from 'otto-server';
+import type { ScheduleItemInfo } from 'clawmaster-server';
 import { IconChevron } from './icons.js';
 
 function localTime(iso: string): string {
@@ -62,7 +62,7 @@ export function DayAgenda({
   useEffect(() => {
     if (providedWorkResults) return undefined;
     let cancelled = false;
-    const bridge = window.otto;
+    const bridge = window.clawmaster;
     if (!bridge?.workLogRecent) {
       setLoadedWorkResults([]);
       return () => {
@@ -99,45 +99,45 @@ export function DayAgenda({
   };
 
   return (
-    <section className="otto-agenda-page" aria-label={`${date} 日程安排`}>
-      <header className="otto-agenda__head">
+    <section className="claw-agenda-page" aria-label={`${date} 日程安排`}>
+      <header className="claw-agenda__head">
         <div>
-          <div className="otto-agenda__eyebrow">工作日志 · 日期视图</div>
+          <div className="claw-agenda__eyebrow">工作日志 · 日期视图</div>
           <h1>{date} 日程安排</h1>
           <p>当天工作和安排集中在这里；标有“ClawMaster”的项目由 Agent 自主创建。</p>
         </div>
-        <div className="otto-agenda__actions">
-          <button type="button" className="otto-hub__btn otto-hub__btn--primary" onClick={() => setAdding((value) => !value)}>
+        <div className="claw-agenda__actions">
+          <button type="button" className="claw-hub__btn claw-hub__btn--primary" onClick={() => setAdding((value) => !value)}>
             {adding ? '取消新增' : '+ 新建日程'}
           </button>
-          <button type="button" className="otto-hub__btn" onClick={onBack}>
+          <button type="button" className="claw-hub__btn" onClick={onBack}>
             <IconChevron size={13} /> {backLabel}
           </button>
         </div>
       </header>
 
-      <section className="otto-agenda__results" aria-label="当日工作成果">
-        <div className="otto-agenda__results-head">
+      <section className="claw-agenda__results" aria-label="当日工作成果">
+        <div className="claw-agenda__results-head">
           <div><span>WORK RESULTS</span><h2>当日工作成果</h2></div>
           <strong>{workResults.length}</strong>
         </div>
         {workResults.length > 0 ? (
-          <div className="otto-agenda__results-grid">
+          <div className="claw-agenda__results-grid">
             {workResults.map((entry, index) => (
               <article key={`${entry.time}-${index}`}>
-                <div className="otto-agenda__result-time">{entry.time}</div>
+                <div className="claw-agenda__result-time">{entry.time}</div>
                 <strong>完成 · {entry.taskTitle || entry.action}</strong>
                 {entry.details ? <p>{entry.details.replace(/\s+/g, ' ').slice(0, 220)}</p> : null}
               </article>
             ))}
           </div>
         ) : (
-          <div className="otto-agenda__results-empty">这一天还没有自动归纳的工作成果。</div>
+          <div className="claw-agenda__results-empty">这一天还没有自动归纳的工作成果。</div>
         )}
       </section>
 
       {adding ? (
-        <div className="otto-agenda__form">
+        <div className="claw-agenda__form">
           <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="日程标题" aria-label="日程标题" />
           <label>开始<input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label>
           <label>结束<input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label>
@@ -146,29 +146,29 @@ export function DayAgenda({
         </div>
       ) : null}
 
-      <div className="otto-agenda__timeline">
+      <div className="claw-agenda__timeline">
         {sorted.length === 0 ? (
-          <div className="otto-agenda__empty">
+          <div className="claw-agenda__empty">
             <strong>这一天还没有日程</strong>
             <span>你可以手动新增，也可以直接告诉 ClawMaster“帮我安排一个复盘”。</span>
           </div>
         ) : (
           sorted.map((item) => (
-            <article key={item.id} className="otto-agenda__item">
-              <div className="otto-agenda__time">
+            <article key={item.id} className="claw-agenda__item">
+              <div className="claw-agenda__time">
                 {localTime(item.startAt)}
                 {item.endAt ? <span>— {localTime(item.endAt)}</span> : null}
               </div>
-              <div className="otto-agenda__card">
-                <div className="otto-agenda__card-title">
+              <div className="claw-agenda__card">
+                <div className="claw-agenda__card-title">
                   <strong>{item.title}</strong>
-                  <span className={'otto-agenda__source ' + (item.source === 'otto' ? 'is-otto' : '')}>
+                  <span className={'claw-agenda__source ' + (item.source === 'otto' ? 'is-otto' : '')}>
                     {item.source === 'otto' ? 'ClawMaster 自主创建' : '手动创建'}
                   </span>
                 </div>
                 {item.notes ? <p>{item.notes}</p> : null}
-                {item.reason ? <div className="otto-agenda__reason">创建原因：{item.reason}</div> : null}
-                <button type="button" className="otto-agenda__delete" onClick={() => onDelete(item.id)}>删除</button>
+                {item.reason ? <div className="claw-agenda__reason">创建原因：{item.reason}</div> : null}
+                <button type="button" className="claw-agenda__delete" onClick={() => onDelete(item.id)}>删除</button>
               </div>
             </article>
           ))

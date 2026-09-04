@@ -171,7 +171,7 @@ describe('专业登录入口', () => {
     }));
     render(
       <EnterpriseLoginPage
-        initialServerUrl="https://enterprise.otto.test"
+        initialServerUrl="https://enterprise.clawmaster.test"
         busy={false}
         error={null}
         onPasswordLogin={async () => undefined}
@@ -186,7 +186,7 @@ describe('专业登录入口', () => {
     fireEvent.click(screen.getByRole('button', { name: '获取验证码' }));
 
     await waitFor(() => expect(onRequestRegistrationCode).toHaveBeenCalledWith({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       phone: '13800138000',
     }));
   });
@@ -200,7 +200,7 @@ describe('专业登录入口', () => {
     const onSmsLogin = vi.fn(async () => undefined);
     render(
       <EnterpriseLoginPage
-        initialServerUrl="https://enterprise.otto.test"
+        initialServerUrl="https://enterprise.clawmaster.test"
         busy={false}
         error={null}
         onPasswordLogin={async () => undefined}
@@ -224,7 +224,7 @@ describe('专业登录入口', () => {
     fireEvent.change(screen.getByLabelText('登录手机号'), { target: { value: '13800138000' } });
     fireEvent.click(screen.getByRole('button', { name: '获取验证码' }));
     await waitFor(() => expect(onRequestLoginCode).toHaveBeenCalledWith({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       phone: '13800138000',
     }));
     fireEvent.change(screen.getByLabelText('登录验证码'), { target: { value: '042731' } });
@@ -245,7 +245,7 @@ describe('专业登录入口', () => {
     }));
     render(
       <EnterpriseLoginPage
-        initialServerUrl="https://enterprise.otto.test"
+        initialServerUrl="https://enterprise.clawmaster.test"
         busy={false}
         error={null}
         onPasswordLogin={async () => undefined}
@@ -260,7 +260,7 @@ describe('专业登录入口', () => {
     fireEvent.click(screen.getByRole('button', { name: '获取验证码' }));
 
     await waitFor(() => expect(onRequestRegistrationCode).toHaveBeenCalledWith({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       phone: '13800138000',
       inviteCode: 'Ab3D-k9Pq-Z7xY',
     }));
@@ -290,7 +290,7 @@ describe('专业登录入口', () => {
       legalDocuments: LEGAL_DOCUMENTS,
     }));
     const props = {
-      initialServerUrl: 'https://enterprise.otto.test',
+      initialServerUrl: 'https://enterprise.clawmaster.test',
       busy: false,
       error: null,
       onPasswordLogin: async () => undefined,
@@ -307,7 +307,7 @@ describe('专业登录入口', () => {
     fireEvent.change(screen.getByLabelText('手机号'), { target: { value: '13800138000' } });
     fireEvent.click(screen.getByRole('button', { name: '获取验证码' }));
     await waitFor(() => expect(onRequestRegistrationCode).toHaveBeenCalledWith({
-      serverUrl: 'https://enterprise.otto.test',
+      serverUrl: 'https://enterprise.clawmaster.test',
       phone: '13800138000',
       inviteCode: 'Ab3D-k9Pq-Z7xY',
     }));
@@ -320,7 +320,7 @@ describe('专业登录入口', () => {
   it('隐藏 Electron IPC 技术前缀，只展示产品错误文案', () => {
     expect(
       friendlyAuthError(
-        new Error("Error invoking remote method 'otto:enterprise-password-login': Error: 账号或密码错误"),
+        new Error("Error invoking remote method 'clawmaster:enterprise-password-login': Error: 账号或密码错误"),
       ),
     ).toBe('账号或密码错误');
   });
@@ -334,7 +334,7 @@ describe('专业登录入口', () => {
     const onClearError = vi.fn();
     render(
       <EnterpriseLoginPage
-        initialServerUrl="https://enterprise.otto.test"
+        initialServerUrl="https://enterprise.clawmaster.test"
         busy={false}
         error="账号或密码错误"
         onPasswordLogin={onPasswordLogin}
@@ -393,7 +393,7 @@ describe('专业登录入口', () => {
     });
     render(
       <EnterpriseLoginPage
-        initialServerUrl="https://enterprise.otto.test"
+        initialServerUrl="https://enterprise.clawmaster.test"
         busy={false}
         error={null}
         onPasswordLogin={async () => undefined}

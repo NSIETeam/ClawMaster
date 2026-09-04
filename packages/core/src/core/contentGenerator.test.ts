@@ -10,11 +10,11 @@ import {
   AuthType,
   createContentGeneratorConfig,
 } from './contentGenerator.js';
-import { OttoServerAdapter } from './OttoServerAdapter.js';
+import { ClawMasterServerAdapter } from './ClawMasterServerAdapter.js';
 import { Config } from '../config/config.js';
 import * as proxyConfig from '../config/proxyConfig.js';
 
-vi.mock('./OttoServerAdapter.js');
+vi.mock('./ClawMasterServerAdapter.js');
 vi.mock('../config/proxyConfig.js');
 
 const mockConfig = {
@@ -30,15 +30,15 @@ describe('createContentGenerator', () => {
     vi.mocked(proxyConfig.getActiveProxyServerUrl).mockReturnValue('http://mock-server');
   });
 
-  it('should create a OttoServerAdapter', async () => {
+  it('should create a ClawMasterServerAdapter', async () => {
     const generator = await createContentGenerator(
       {
         authType: AuthType.USE_PROXY_AUTH,
       },
       mockConfig,
     );
-    expect(OttoServerAdapter).toHaveBeenCalled();
-    expect(generator).toBeInstanceOf(OttoServerAdapter);
+    expect(ClawMasterServerAdapter).toHaveBeenCalled();
+    expect(generator).toBeInstanceOf(ClawMasterServerAdapter);
   });
 
   it('should use custom proxy server URL if provided', async () => {
@@ -51,7 +51,7 @@ describe('createContentGenerator', () => {
       mockConfig,
     );
 
-    expect(OttoServerAdapter).toHaveBeenCalledWith(
+    expect(ClawMasterServerAdapter).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
       'http://custom-server',

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * 服务端白名单是 Agent profile 的安全边界：客户端只提交 id，不能提交任意
  * system prompt。UI 目录负责展示；这里负责会话真正注入的人设。
@@ -258,7 +258,7 @@ function buildWelcomeMessage(profile: ServerAgentProfile): string {
   return `Hello，我是 ${profile.name}，我可以帮你${capability}。`;
 }
 
-/** 服务端统一加上身份回答契约，避免 core 的基础 Otto 自我介绍覆盖专家人设。 */
+/** 服务端统一加上身份回答契约，避免 core 的基础 ClawMaster 自我介绍覆盖专家人设。 */
 export const BUILTIN_AGENT_PROFILES: readonly ServerAgentProfile[] =
   rawBuiltinAgentProfiles.map((profile) => ({
     ...profile,

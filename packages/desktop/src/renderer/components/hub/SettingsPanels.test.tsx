@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -11,7 +11,7 @@ afterEach(cleanup);
 
 beforeEach(() => {
   window.localStorage.clear();
-  (window as unknown as { otto: unknown }).otto = {
+  (window as unknown as { clawmaster: unknown }).clawmaster = {
     themeGet: async () => 'system',
     themeSet: vi.fn(async () => undefined),
   };
@@ -99,7 +99,7 @@ describe('PrefsPanel 外观与回复', () => {
   it('只把当前页面的真实偏好恢复为默认值', async () => {
     window.localStorage.setItem('otto.pet-widget.enabled', '1');
     const themeSet = vi.fn(async () => undefined);
-    (window as unknown as { otto: unknown }).otto = {
+    (window as unknown as { clawmaster: unknown }).clawmaster = {
       themeGet: async () => 'dark',
       themeSet,
     };
@@ -173,7 +173,7 @@ describe('PrefsPanel 外观与回复', () => {
 
   it('主题恢复失败时恢复原状态并允许重试', async () => {
     const themeSet = vi.fn(async () => Promise.reject(new Error('theme failed')));
-    (window as unknown as { otto: unknown }).otto = {
+    (window as unknown as { clawmaster: unknown }).clawmaster = {
       themeGet: async () => 'dark',
       themeSet,
     };

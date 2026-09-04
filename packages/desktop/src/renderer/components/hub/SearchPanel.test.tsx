@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';

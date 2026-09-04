@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createHash, createHmac } from 'node:crypto';
@@ -365,7 +365,7 @@ function dryRunPool(
           {
             row_data: [
               'org_default',
-              'Otto',
+              'ClawMaster',
               'otto-default',
               null,
               '1'.repeat(64),

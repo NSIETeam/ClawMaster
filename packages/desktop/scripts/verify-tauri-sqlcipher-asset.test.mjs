@@ -26,7 +26,7 @@ function fixture({
       properties: [
         { name: 'otto:runtime', value: 'node' },
         { name: 'otto:runtimeVersion', value: '24.20.0' },
-        { name: 'otto:moduleAbi', value: '137' },
+        { name: 'clawmaster.moduleAbi', value: '137' },
         { name: 'otto:cryptoProvider', value: cryptoProvider },
       ],
     },

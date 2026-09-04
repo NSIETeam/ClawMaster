@@ -68,9 +68,9 @@ The native core takeover is intentionally narrow. Rust owns the paths that must 
 
 `packages/core/src/native/nativeHotPaths.ts` is the source-of-truth method list. `packages/core/src/native/nativeCoreBridge.ts` controls runtime selection:
 
-- `OTTO_NATIVE_CORE=auto`: prefer Rust when present, otherwise use the safe TypeScript fallback.
-- `OTTO_NATIVE_CORE=required`: enterprise/release mode; fail fast if the Rust binary is missing.
-- `OTTO_NATIVE_CORE=off`: development escape hatch for comparing behavior.
+- `CLAWMASTER_NATIVE_CORE=auto`: prefer Rust when present, otherwise use the safe TypeScript fallback.
+- `CLAWMASTER_NATIVE_CORE=required`: enterprise/release mode; fail fast if the Rust binary is missing.
+- `CLAWMASTER_NATIVE_CORE=off`: development escape hatch for comparing behavior.
 
 The release distribution budget is 10MB. Optional tools, GUI shells, connectors, and organization-specific integrations must stay outside the kernel artifact unless they are required for all distributions.
 

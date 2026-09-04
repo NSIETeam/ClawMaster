@@ -18,9 +18,9 @@ function option(name, fallback) {
   return index >= 0 ? args[index + 1] : fallback;
 }
 
-const host = option('--host', process.env.OTTO_ENTERPRISE_HOST || '127.0.0.1');
+const host = option('--host', process.env.CLAWMASTER_ENTERPRISE_HOST || '127.0.0.1');
 const port = Number(
-  option('--port', process.env.OTTO_ENTERPRISE_PORT || '7777'),
+  option('--port', process.env.CLAWMASTER_ENTERPRISE_PORT || '7777'),
 );
 const openDashboard = args.includes('--dashboard');
 if (!host || !Number.isInteger(port) || port < 1 || port > 65535) {
@@ -30,11 +30,11 @@ if (!host || !Number.isInteger(port) || port < 1 || port > 65535) {
   process.exit(2);
 }
 
-process.env.OTTO_ENTERPRISE_HOST = host;
-process.env.OTTO_ENTERPRISE_PORT = String(port);
-const appVersion = process.env.OTTO_APP_VERSION
+process.env.CLAWMASTER_ENTERPRISE_HOST = host;
+process.env.CLAWMASTER_ENTERPRISE_PORT = String(port);
+const appVersion = process.env.CLAWMASTER_APP_VERSION
   || JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8')).version;
-let buildCommit = process.env.OTTO_BUILD_COMMIT || process.env.GITHUB_SHA || '';
+let buildCommit = process.env.CLAWMASTER_BUILD_COMMIT || process.env.GITHUB_SHA || '';
 if (!/^[0-9a-f]{40}$/i.test(buildCommit)) {
   try {
     buildCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -49,7 +49,7 @@ if (!/^[0-9a-f]{40}$/i.test(buildCommit)) {
 if (!/^[0-9a-f]{40}$/i.test(buildCommit)) {
   if (host !== '127.0.0.1' && host !== 'localhost' && host !== '::1') {
     console.error(
-      '[ClawMaster Enterprise] 对外部署必须设置 OTTO_BUILD_COMMIT 为完整 40 位提交 SHA。',
+      '[ClawMaster Enterprise] 对外部署必须设置 CLAWMASTER_BUILD_COMMIT 为完整 40 位提交 SHA。',
     );
     process.exit(2);
   }

@@ -10,7 +10,7 @@ describe('CustomerModuleMarketDialog', () => {
     };
     const customerModuleList = vi.fn().mockResolvedValue([next]);
     const customerModuleInstall = vi.fn().mockResolvedValue({ id: next.manifest.id, version: next.manifest.version });
-    Object.assign(window.otto, { customerModuleList, customerModuleInstall });
+    Object.assign(window.clawmaster, { customerModuleList, customerModuleInstall });
     render(<CustomerModuleMarketDialog open installed={[{ id: next.manifest.id, version: '1.0.0', name: 'Report', description: '', permissions: [{ kind: 'storage', access: 'read' }], enabled: true, installedAt: '', iconDataUrl: '', inputSchema: { type: 'object', properties: {} } }]} onInstalled={vi.fn()} onInstalledChanged={vi.fn()} onCreate={vi.fn()} onClose={vi.fn()} />);
     expect(await screen.findByText(/com\.acme\.report@2\.0\.0/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '查看并安装' }));

@@ -5,8 +5,8 @@
 
 ## 1. 你（Control）需要准备什么
 
-1. **一对 Ed25519 密钥**（签发指令用）。私钥留在 Control，公钥交给 Server 部署方配置到 `OTTO_ENTERPRISE_CONTROL_PUBLIC_KEYS`。
-2. **Server 部署 ID**（`OTTO_ENTERPRISE_DEPLOYMENT_ID`，未设则等于 Server 的公网基址），用于每条指令的 `deploymentId`。
+1. **一对 Ed25519 密钥**（签发指令用）。私钥留在 Control，公钥交给 Server 部署方配置到 `CLAWMASTER_ENTERPRISE_CONTROL_PUBLIC_KEYS`。
+2. **Server 部署 ID**（`CLAWMASTER_ENTERPRISE_DEPLOYMENT_ID`，未设则等于 Server 的公网基址），用于每条指令的 `deploymentId`。
 3. **Server 的 `/control/v1/*` 基址**（配置了信任根后才挂载该端点）。
 
 ## 2. 指令信封
@@ -117,7 +117,7 @@ curl 'http://<server>:7777/control/v1/receipts?commandId=cmd-...'
 
 | 响应 | 含义 | Control 侧动作 |
 | --- | --- | --- |
-| 404 无此端点 | Server 未配置 CONTROL-12 信任根，端点关闭 | 通知 Server 部署方配置 `OTTO_ENTERPRISE_CONTROL_PUBLIC_KEYS` |
+| 404 无此端点 | Server 未配置 CONTROL-12 信任根，端点关闭 | 通知 Server 部署方配置 `CLAWMASTER_ENTERPRISE_CONTROL_PUBLIC_KEYS` |
 | 401 | 签名无效 / 密钥未信任 / 已吊销 | 核对私钥、规范化一致性、吊销状态 |
 | 422 expired | 指令过期 | 重新签发（延长 `expiresAt`） |
 | 422 deployment_mismatch | 绑定到其它部署 | 改用目标 Server 的 `deploymentId` |

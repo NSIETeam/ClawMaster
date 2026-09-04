@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 const RELEASE_OWNED_LEASE_SCRIPT = `
@@ -61,7 +61,7 @@ function positiveTtl(ttlMs: number): number {
   return ttlMs;
 }
 
-/** Redis-backed cache and lease primitive shared by every Otto Server replica. */
+/** Redis-backed cache and lease primitive shared by every ClawMaster Server replica. */
 export function createRedisEnterpriseSharedCache(input: {
   client: RedisEnterpriseClientLike;
   keyPrefix?: string;

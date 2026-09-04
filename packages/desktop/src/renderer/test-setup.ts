@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { beforeEach, vi } from 'vitest';
@@ -10,8 +10,8 @@ import { configure } from '@testing-library/dom';
 configure({ asyncUtilTimeout: 3_000 });
 
 beforeEach(() => {
-  const existing = window.otto ?? {};
-  Object.defineProperty(window, 'otto', {
+  const existing = window.clawmaster ?? {};
+  Object.defineProperty(window, 'clawmaster', {
     configurable: true,
     writable: true,
     value: {
@@ -66,6 +66,6 @@ beforeEach(() => {
         workResults: 0,
       })),
       workLogRecent: vi.fn(async () => []),
-    } as unknown as Window['otto'],
+    } as unknown as Window['clawmaster'],
   });
 });

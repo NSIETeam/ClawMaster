@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 const MAX_DATABASE_BYTES = 20 * 1024 * 1024 * 1024;
 
 function expectedSchemaVersion() {
-  const configured = Number(process.env.OTTO_EXPECTED_SCHEMA_VERSION);
+  const configured = Number(process.env.CLAWMASTER_EXPECTED_SCHEMA_VERSION);
   if (Number.isInteger(configured) && configured >= 2) return configured;
   try {
     const manifestPath = fileURLToPath(

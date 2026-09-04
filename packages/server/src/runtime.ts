@@ -1,11 +1,11 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * CoreSessionRuntime —— 把 otto-core「跑一整轮对话」封进一个 SessionRuntime。
+ * CoreSessionRuntime —— 把 clawmaster-core「跑一整轮对话」封进一个 SessionRuntime。
  *
  * 设计为 headless 运行循环：
  *   1. chat.sendMessageStream(...) 拿逐 chunk 流；
@@ -47,7 +47,7 @@ import {
   type ToolRegistry,
   type ToolQuestionConfirmationDetails,
   type LogCategory,
-} from 'otto-core';
+} from 'clawmaster-core';
 import type {
   Content,
   FunctionCall,
@@ -395,10 +395,10 @@ export class CoreSessionRuntime implements SessionRuntime {
   }
 
   async setModel(model: string): Promise<void> {
-    // 不能只改 Config：OttoChat 会缓存 specifiedModel，真实出网请求仍会走旧模型。
+    // 不能只改 Config：ClawMasterChat 会缓存 specifiedModel，真实出网请求仍会走旧模型。
     // 统一走 core 的 switchModel，让 Config、live chat、工具与系统提示词一起切换。
     const result = await this.config
-      .getOttoClient()
+      .getClawMasterClient()
       .switchModel(model, new AbortController().signal);
     if (!result.success) {
       throw new Error(result.error || `无法切换到模型 ${model}`);
@@ -406,7 +406,7 @@ export class CoreSessionRuntime implements SessionRuntime {
   }
 
   async generateTitle(firstUserMessage: string): Promise<string> {
-    const temporaryChat = await this.config.getOttoClient().createTemporaryChat(
+    const temporaryChat = await this.config.getClawMasterClient().createTemporaryChat(
       SceneType.CONTENT_SUMMARY,
       undefined,
       { type: 'sub', agentId: 'SessionTitle' },
@@ -574,7 +574,7 @@ export class CoreSessionRuntime implements SessionRuntime {
             ].filter(Boolean).join('\n\n'),
           );
           try {
-            await this.config.getOttoClient().updateSystemPromptWithMcpPrompts();
+            await this.config.getClawMasterClient().updateSystemPromptWithMcpPrompts();
           } catch {
             // 动态刷新失败不让本轮对话直接报错；专家 profile 路径仍在初始化时注入。
           }
@@ -582,7 +582,7 @@ export class CoreSessionRuntime implements SessionRuntime {
       }
     }
 
-    const chat = await this.config.getOttoClient().getChat();
+    const chat = await this.config.getClawMasterClient().getChat();
     let modelName = this.config.getModel();
     let caps = getModelCapabilities(modelName);
     const attemptedModels = new Set<string>([modelName]);

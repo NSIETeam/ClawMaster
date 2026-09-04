@@ -1,7 +1,7 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * 桌面端通知服务：OS 原生通知 + Otto 内部未读闪烁点。
+ * 桌面端通知服务：OS 原生通知 + ClawMaster 内部未读闪烁点。
  *
  * 职责：
  *   1. 收到非本地来源的消息时弹 Windows 右下角系统 toast（Electron Notification API）。
@@ -132,12 +132,12 @@ export class NotificationService {
         this.seenMessageIds.delete(oldest);
       }
     }
-    // 未读态属于 Otto 自己，不能依赖系统通知权限/平台支持。即使用户关闭了 OS toast，
+    // 未读态属于 ClawMaster 自己，不能依赖系统通知权限/平台支持。即使用户关闭了 OS toast，
     // 聊天侧栏和托盘徽标仍必须提示，直到真正打开该会话。
     this.unreadSessions.add(normalized.sessionId);
     this.emitUnread();
 
-    // Otto 正在前台时，界面本身已经承担消息反馈，不再额外打断用户。
+    // ClawMaster 正在前台时，界面本身已经承担消息反馈，不再额外打断用户。
     // 先关掉同会话此前留下的系统 toast，但保留上面的未读状态。
     if (!this.canPresentSystemNotification()) {
       this.closeActiveNotification(normalized.sessionId);
@@ -154,7 +154,7 @@ export class NotificationService {
       try {
         this.onSystemNotificationUnavailable?.(normalized, reason);
       } catch {
-        // 降级提醒失败也不能破坏 Otto 自己的未读状态。
+        // 降级提醒失败也不能破坏 ClawMaster 自己的未读状态。
       }
     };
 
@@ -210,7 +210,7 @@ export class NotificationService {
     };
     notification.on('click', () => {
       confirmDelivery();
-      // 企业私聊/A2A 用合成会话 id：点 toast 只能证明用户打开了 Otto，
+      // 企业私聊/A2A 用合成会话 id：点 toast 只能证明用户打开了 ClawMaster，
       // 不代表他已打开真正的企业会话或完成授权。其未读点由业务已读回执清除。
       if (!normalized.sessionId.startsWith('enterprise:')) {
         this.markRead(normalized.sessionId);
@@ -228,7 +228,7 @@ export class NotificationService {
       }
     });
 
-    // 只关闭系统弹窗；Otto 内未读点继续保留。
+    // 只关闭系统弹窗；ClawMaster 内未读点继续保留。
     const closeTimer = normalized.persistent
       ? undefined
       : setTimeout(() => {
@@ -256,7 +256,7 @@ export class NotificationService {
       if (closeTimer) clearTimeout(closeTimer);
       clearTimeout(deliveryTimer);
       this.active.delete(normalized.sessionId);
-      // OS 弹窗失败不影响上面已写入的 Otto 未读态。
+      // OS 弹窗失败不影响上面已写入的 ClawMaster 未读态。
       requestFallback('show-failed');
     }
   }
@@ -349,7 +349,7 @@ export class NotificationService {
     try {
       shell.beep();
     } catch {
-      // 系统声音失败不影响弹窗和 Otto 内部未读点。
+      // 系统声音失败不影响弹窗和 ClawMaster 内部未读点。
     }
   }
 

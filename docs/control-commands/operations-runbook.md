@@ -7,12 +7,12 @@
 
 | 环境变量 | 必填 | 说明 |
 | --- | --- | --- |
-| `OTTO_ENTERPRISE_CONTROL_PUBLIC_KEYS` | 启用 CONTROL-12 时 | Control 信任根公钥（PEM，多把用逗号分隔；用 `parsePublicKeyList` 解析） |
-| `OTTO_ENTERPRISE_CONTROL_REVOKED_KEY_IDS` | 否 | 已吊销公钥 ID（逗号分隔），吊销后对应 Key 签发的指令拒收 |
-| `OTTO_ENTERPRISE_DEPLOYMENT_ID` | 否 | 本部署 ID；缺省回落到 `publicBaseUrl`，用于部署绑定校验 |
-| `OTTO_LICENSE_PUBLIC_KEYS` 等 | 无关 | 企业许可/遥测，与 CONTROL-12 信任根独立 |
+| `CLAWMASTER_ENTERPRISE_CONTROL_PUBLIC_KEYS` | 启用 CONTROL-12 时 | Control 信任根公钥（PEM，多把用逗号分隔；用 `parsePublicKeyList` 解析） |
+| `CLAWMASTER_ENTERPRISE_CONTROL_REVOKED_KEY_IDS` | 否 | 已吊销公钥 ID（逗号分隔），吊销后对应 Key 签发的指令拒收 |
+| `CLAWMASTER_ENTERPRISE_DEPLOYMENT_ID` | 否 | 本部署 ID；缺省回落到 `publicBaseUrl`，用于部署绑定校验 |
+| `CLAWMASTER_LICENSE_PUBLIC_KEYS` 等 | 无关 | 企业许可/遥测，与 CONTROL-12 信任根独立 |
 
-**重要**：未配置 `OTTO_ENTERPRISE_CONTROL_PUBLIC_KEYS` 时 CONTROL-12 **完全关闭**（fail closed，端点不挂载）。这是刻意的安全姿态——绝不提供「无信任根的人工导入」或「默认凭据」静默降级。
+**重要**：未配置 `CLAWMASTER_ENTERPRISE_CONTROL_PUBLIC_KEYS` 时 CONTROL-12 **完全关闭**（fail closed，端点不挂载）。这是刻意的安全姿态——绝不提供「无信任根的人工导入」或「默认凭据」静默降级。
 
 ## 2. 快速验证（健康检查）
 
@@ -77,12 +77,12 @@ UPDATE control_command_outbox SET state='pending', delivery_attempts=0, next_att
 
 **追加新信任根**（平滑轮换，两把同时有效一个过渡期）：
 
-1. 将新公钥追加进 `OTTO_ENTERPRISE_CONTROL_PUBLIC_KEYS`（旧新并用）。
+1. 将新公钥追加进 `CLAWMASTER_ENTERPRISE_CONTROL_PUBLIC_KEYS`（旧新并用）。
 2. 部署重启生效。
-3. 过渡期后，将旧公钥 ID 加入 `OTTO_ENTERPRISE_CONTROL_REVOKED_KEY_IDS` 吊销旧钥。
+3. 过渡期后，将旧公钥 ID 加入 `CLAWMASTER_ENTERPRISE_CONTROL_REVOKED_KEY_IDS` 吊销旧钥。
 4. 吊销后立刻验证旧钥签发的指令被拒（`401 invalid_signature`）。
 
-**紧急吊销**（密钥泄露）：立即将泄露公钥 ID 加入 `OTTO_ENTERPRISE_CONTROL_REVOKED_KEY_IDS` 并重启；所有用旧钥签发的指令即刻 fail closed。
+**紧急吊销**（密钥泄露）：立即将泄露公钥 ID 加入 `CLAWMASTER_ENTERPRISE_CONTROL_REVOKED_KEY_IDS` 并重启；所有用旧钥签发的指令即刻 fail closed。
 
 ## 5. 回执核对
 
@@ -95,9 +95,9 @@ UPDATE control_command_outbox SET state='pending', delivery_attempts=0, next_att
 
 | 症状 | 可能原因 | 处理 |
 | --- | --- | --- |
-| 端点 404 | 未配置信任根，CONTROL-12 关闭 | 配置 `OTTO_ENTERPRISE_CONTROL_PUBLIC_KEYS` 后重启；这是预期的 fail-closed |
+| 端点 404 | 未配置信任根，CONTROL-12 关闭 | 配置 `CLAWMASTER_ENTERPRISE_CONTROL_PUBLIC_KEYS` 后重启；这是预期的 fail-closed |
 | POST 返回 422 expired | 指令已过期 | Control 端重签（延长 `expiresAt`） |
-| POST 返回 422 deployment_mismatch | 指令绑定到其它部署 | 核对 `deploymentId` 与 `OTTO_ENTERPRISE_DEPLOYMENT_ID` |
+| POST 返回 422 deployment_mismatch | 指令绑定到其它部署 | 核对 `deploymentId` 与 `CLAWMASTER_ENTERPRISE_DEPLOYMENT_ID` |
 | POST 返回 401 | 签名无效或信任根未包含该 Key | 核对控制端密钥 + 是否被吊销 |
 | outbox dead 累积 | Control 接收失败 | 见 §3.2 |
 | 重复创建企业 | 若发生说明幂等被绕过 | 检查指令幂等 + 业务层原子性（SERVER-16），立即停止新指令并核对资源 |

@@ -116,7 +116,7 @@ export function verifyTauriSqlCipherAsset({
     || !components.some((entry) => entry.name === 'better-sqlite3')
     || properties.get('otto:runtime') !== 'node'
     || properties.get('otto:runtimeVersion') !== expectedNodeVersion
-    || properties.get('otto:moduleAbi') !== expectedModuleAbi
+    || properties.get('clawmaster.moduleAbi') !== expectedModuleAbi
     || properties.get('otto:cryptoProvider') !== expectedCryptoProvider
   ) {
     throw new Error('Tauri SQLCipher SBOM identity is invalid');

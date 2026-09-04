@@ -1,13 +1,13 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Otto Multi-Agent Collaboration — 多 Otto 协作网络。
+ * ClawMaster Multi-Agent Collaboration — 多 ClawMaster 协作网络。
  *
- * 当每个员工飞书里都有自己的 Otto 时，Otto 之间可以互相协作：
- * - 小王的 Otto 需要查老张的日历 → 直接问老张的 Otto
+ * 当每个员工飞书里都有自己的 ClawMaster 时，ClawMaster 之间可以互相协作：
+ * - 小王的 ClawMaster 需要查老张的日历 → 直接问老张的 ClawMaster
  * - 不需要人与人之间的协调，AI 之间自动完成
  *
- * 基于 CrewAI 的角色驱动模型设计，但适配 Otto 的飞书场景。
+ * 基于 CrewAI 的角色驱动模型设计，但适配 ClawMaster 的飞书场景。
  */
 
 import type { Config } from '../config/config.js';
@@ -59,13 +59,13 @@ export interface AgentRegistration {
   userId: string;
   userName: string;
   department: string;
-  capabilities: string[]; // 该 Otto 能做什么
+  capabilities: string[]; // 该 ClawMaster 能做什么
   endpoint?: string; // 可达的 HTTP/WS 端点
   status: 'online' | 'busy' | 'offline';
   lastSeen: string;
   /** 飞书 open_id（用于通过飞书消息发送协作请求） */
   feishuOpenId?: string;
-  /** 飞书 chat_id（如果 Otto 在某个群里） */
+  /** 飞书 chat_id（如果 ClawMaster 在某个群里） */
   feishuChatId?: string;
 }
 
@@ -73,9 +73,9 @@ export interface AgentRegistration {
  * 多 Agent 协作管理器。
  *
  * 设计：
- * - 每个 Otto 实例注册自己的能力（能操作飞书日历/文档/任务等）
- * - 需要协作时，通过中央注册表找到目标 Otto
- * - 发送协作请求，目标 Otto 响应
+ * - 每个 ClawMaster 实例注册自己的能力（能操作飞书日历/文档/任务等）
+ * - 需要协作时，通过中央注册表找到目标 ClawMaster
+ * - 发送协作请求，目标 ClawMaster 响应
  * - 全程通过飞书消息流可见（人在飞书里看到 AI 之间的对话）
  */
 export class MultiAgentCollaboration {
@@ -114,7 +114,7 @@ export class MultiAgentCollaboration {
   }
 
   /**
-   * 注册当前 Otto 实例。
+   * 注册当前 ClawMaster 实例。
    */
   async register(reg: Omit<AgentRegistration, 'lastSeen' | 'status'>): Promise<void> {
     const full: AgentRegistration = {
@@ -152,8 +152,8 @@ export class MultiAgentCollaboration {
    * 发起协作请求。
    *
    * 实际通信路径：
-   * 1. 如果目标 Otto 有 HTTP 端点 → 直接 HTTP 调用
-   * 2. 如果没有 → 通过飞书消息发送（目标 Otto 在飞书里收到并处理）
+   * 1. 如果目标 ClawMaster 有 HTTP 端点 → 直接 HTTP 调用
+   * 2. 如果没有 → 通过飞书消息发送（目标 ClawMaster 在飞书里收到并处理）
    */
   async requestCollaboration(
     req: Omit<CollaborationRequest, 'id'>,
@@ -297,7 +297,7 @@ export class MultiAgentCollaboration {
   }
 
   /**
-   * 处理收到的协作请求（作为目标 Otto）。
+   * 处理收到的协作请求（作为目标 ClawMaster）。
    */
   async handleCollaborationRequest(
     req: CollaborationRequest,
@@ -307,7 +307,7 @@ export class MultiAgentCollaboration {
     // 例如："查老张下周日历" → 调用 calendar +agenda
 
     try {
-      // 这里委托给 Otto 的工具系统执行
+      // 这里委托给 ClawMaster 的工具系统执行
       // 实际实现中会调用 lark-cli 的对应能力
       const result = `[Collaboration] Received request from ${req.fromAgentId}: ${req.task}`;
 
@@ -364,7 +364,7 @@ export function getCollaborationManager(): MultiAgentCollaboration {
 }
 
 /**
- * 初始化当前 Otto 的协作注册。
+ * 初始化当前 ClawMaster 的协作注册。
  */
 export function initCollaboration(
   config: Config,

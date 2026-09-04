@@ -1,11 +1,11 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * NSI-11: park ticket unread-notification escalation queue — facade.
  *
  * Responsibilities:
  *   - submit(): create a durable job (idempotent by caller key) and immediately
- *     deliver to Otto + Feishu.
+ *     deliver to ClawMaster + Feishu.
  *   - acknowledge(): record a read receipt, resolving the job so SMS is skipped.
  *   - cancel(): mark a queued/delivered job terminal without sending SMS.
  *   - tick(): the scheduler entry — escalates jobs whose deadline has passed and
@@ -57,7 +57,7 @@ export class TicketEscalationFacade {
   }
 
   /**
-   * Submits a notification job and immediately attempts Otto + Feishu delivery.
+   * Submits a notification job and immediately attempts ClawMaster + Feishu delivery.
    * Idempotent by `id`: a duplicate returns the existing job with accepted=false.
    */
   async submit(input: SubmitEscalationInput): Promise<EscalationSubmitResult> {
@@ -147,7 +147,7 @@ export class TicketEscalationFacade {
     return this.repository.listByOrganization(organizationId, status);
   }
 
-  /** Private: deliver Otto + Feishu at submit time; record attempts. */
+  /** Private: deliver ClawMaster + Feishu at submit time; record attempts. */
   private async deliverImmediate(job: EscalationJob): Promise<void> {
     const results = await Promise.allSettled([
       this.tryChannel(job, 'otto', job.recipientAccountId),

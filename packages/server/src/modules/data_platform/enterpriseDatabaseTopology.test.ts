@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -28,7 +28,7 @@ describe('enterprise database topology', () => {
   it('refuses multiple writers against SQLite', () => {
     expect(() =>
       resolveEnterpriseDatabaseTopology({
-        environment: { OTTO_ENTERPRISE_REPLICA_COUNT: '2' },
+        environment: { CLAWMASTER_ENTERPRISE_REPLICA_COUNT: '2' },
         sqliteDatabasePath: '/var/lib/otto/data.db',
       }),
     ).toThrow(/SQLite.*exactly one.*PostgreSQL/i);
@@ -59,17 +59,17 @@ describe('enterprise database topology', () => {
   it('requires PostgreSQL configuration and rejects SQLCipher server settings', () => {
     expect(() =>
       resolveEnterpriseDatabaseTopology({
-        environment: { OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql' },
+        environment: { CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql' },
         sqliteDatabasePath: '/unused/data.db',
       }),
-    ).toThrow(/OTTO_POSTGRES_URL is required/i);
+    ).toThrow(/CLAWMASTER_POSTGRES_URL is required/i);
 
     expect(() =>
       resolveEnterpriseDatabaseTopology({
         environment: {
-          OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
-          OTTO_POSTGRES_URL: 'postgresql://otto:secret@db.internal/otto',
-          OTTO_DATABASE_ENCRYPTION: 'required',
+          CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+          CLAWMASTER_POSTGRES_URL: 'postgresql://otto:secret@db.internal/otto',
+          CLAWMASTER_DATABASE_ENCRYPTION: 'required',
         },
         sqliteDatabasePath: '/unused/data.db',
       }),
@@ -79,9 +79,9 @@ describe('enterprise database topology', () => {
   it('allows multiple PostgreSQL application replicas without exposing credentials', () => {
     const topology = resolveEnterpriseDatabaseTopology({
       environment: {
-        OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
-        OTTO_ENTERPRISE_REPLICA_COUNT: '4',
-        OTTO_POSTGRES_URL:
+        CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+        CLAWMASTER_ENTERPRISE_REPLICA_COUNT: '4',
+        CLAWMASTER_POSTGRES_URL:
           'postgresql://otto:super-secret@db.internal:5432/otto',
       },
       sqliteDatabasePath: '/unused/data.db',
@@ -105,8 +105,8 @@ describe('enterprise database topology', () => {
   it('does not silently fall back to SQLite when PostgreSQL is configured', () => {
     const topology = resolveEnterpriseDatabaseTopology({
       environment: {
-        OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
-        OTTO_POSTGRES_URL: 'postgresql://otto:secret@db.internal/otto',
+        CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+        CLAWMASTER_POSTGRES_URL: 'postgresql://otto:secret@db.internal/otto',
       },
       sqliteDatabasePath: '/unused/data.db',
     });

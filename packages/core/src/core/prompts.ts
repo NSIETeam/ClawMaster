@@ -17,7 +17,7 @@ import { ShellTool } from '../tools/shell.js';
 import { WriteFileTool } from '../tools/write-file.js';
 import process from 'node:process';
 import { isGitRepository } from '../utils/gitUtils.js';
-import { MemoryTool, OTTO_CONFIG_DIR } from '../tools/memoryTool.js';
+import { MemoryTool, CLAWMASTER_CONFIG_DIR } from '../tools/memoryTool.js';
 import { KnowledgeBaseTool } from '../tools/knowledge-base.js';
 import { TaskTool } from '../tools/task.js';
 import { WorkflowTool } from '../tools/workflow.js';
@@ -1105,16 +1105,16 @@ export function getCoreSystemPrompt(
   } else {
     promptRegistry = promptRegistryOrUserRules;
   }
-  // if OTTO_SYSTEM_MD is set (and not 0|false), override system prompt from file
+  // if CLAWMASTER_SYSTEM_MD is set (and not 0|false), override system prompt from file
   // default path is <config dir>/system.md but can be modified via custom path
-  // in OTTO_SYSTEM_MD. Legacy name GEMINI_SYSTEM_MD is kept as a fallback.
+  // in CLAWMASTER_SYSTEM_MD. Legacy name GEMINI_SYSTEM_MD is kept as a fallback.
   let systemMdEnabled = false;
   const productUserDirectory = process.env.CLAWMASTER_USER_DIR?.trim();
   let systemMdPath = productUserDirectory
     ? path.resolve(productUserDirectory, 'system.md')
-    : path.resolve(path.join(OTTO_CONFIG_DIR, 'system.md'));
+    : path.resolve(path.join(CLAWMASTER_CONFIG_DIR, 'system.md'));
   const systemMdVar =
-    process.env.OTTO_SYSTEM_MD ?? process.env.GEMINI_SYSTEM_MD;
+    process.env.CLAWMASTER_SYSTEM_MD ?? process.env.GEMINI_SYSTEM_MD;
   if (systemMdVar) {
     const systemMdVarLower = systemMdVar.toLowerCase();
     if (!['0', 'false'].includes(systemMdVarLower)) {
@@ -1143,7 +1143,7 @@ export function getCoreSystemPrompt(
   //           2. User-selected work mode (legacy AgentStyle ID)
   //           3. Gemini 3 model-specific prompt (auto-detected by model ID)
   //           4. VSCode-specific prompt
-  //           5. Default Otto prompt
+  //           5. Default ClawMaster prompt
   let basePrompt: string;
   if (systemMdEnabled) {
     basePrompt = fs.readFileSync(systemMdPath, 'utf8');
@@ -1173,10 +1173,10 @@ export function getCoreSystemPrompt(
 
   const dynamicPrompt = getDynamicSystemPrompt(userMemory, workingDirectory);
 
-  // if OTTO_WRITE_SYSTEM_MD is set (and not 0|false), write base system prompt to
+  // if CLAWMASTER_WRITE_SYSTEM_MD is set (and not 0|false), write base system prompt to
   // file. Legacy name GEMINI_WRITE_SYSTEM_MD is kept as a fallback.
   const writeSystemMdVar =
-    process.env.OTTO_WRITE_SYSTEM_MD ?? process.env.GEMINI_WRITE_SYSTEM_MD;
+    process.env.CLAWMASTER_WRITE_SYSTEM_MD ?? process.env.GEMINI_WRITE_SYSTEM_MD;
   if (writeSystemMdVar) {
     const writeSystemMdVarLower = writeSystemMdVar.toLowerCase();
     if (!['0', 'false'].includes(writeSystemMdVarLower)) {

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * CONTROL-10 — 计算巢注入的一次性 bootstrap token（签发+校验，纯函数）。
  *

@@ -19,6 +19,7 @@ import {
   resolveSqlCipherSource,
   resolveTauriNodeSource,
   resolveTauriRuntimePlatform,
+  resolveTauriPackagingMode,
 } from './tauri-runtime-policy.mjs';
 import {
   readVerifiedBinaryCapsule,
@@ -50,6 +51,23 @@ const nodeCapsuleRoot = path.join(runtimeRoot, 'node');
 const binariesRoot = path.join(stagingRoot, 'binaries');
 const runtimePlatform = resolveTauriRuntimePlatform(process.platform, process.arch);
 const runtimeTarget = runtimePlatform.target;
+const packagingMode = process.env.CLAWMASTER_PACKAGING_MODE || 'embedded-legacy';
+const packagingPolicy = resolveTauriPackagingMode(packagingMode);
+if (packagingMode !== 'embedded-legacy') {
+  rmSync(runtimeRoot, { recursive: true, force: true });
+  mkdirSync(runtimeRoot, { recursive: true });
+  writeFileSync(
+    path.join(runtimeRoot, 'module-manifest.json'),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      product: 'clawmaster',
+      mode: packagingMode,
+      modules: [],
+    }, null, 2)}\n`,
+  );
+  console.log(`[tauri-runtime] ${packagingMode}: base package contains no executable runtime`);
+  process.exit(0);
+}
 const nodeSource = resolveTauriNodeSource({
   repoRoot,
   target: runtimeTarget,
@@ -159,7 +177,7 @@ function prepareAgentBundle() {
     '--bundle', '--platform=node', '--format=esm', '--target=node22',
     '--minify', '--splitting',
     "--banner:js=import { createRequire as __createRequire } from 'node:module'; const __runtimeBase = process.env.CLAWMASTER_AGENT_ROOT ? process.env.CLAWMASTER_AGENT_ROOT + '/server.mjs' : process.env.CLAWMASTER_RESOURCES_PATH ? process.env.CLAWMASTER_RESOURCES_PATH + '/agent/server.mjs' : import.meta.url; const require = __createRequire(__runtimeBase); if (process.env.CLAWMASTER_RESOURCES_PATH) Object.defineProperty(process, 'resourcesPath', { value: process.env.CLAWMASTER_RESOURCES_PATH });",
-    '--external:better-sqlite3', '--external:@otto/native', '--external:pg-native',
+    '--external:better-sqlite3', '--external:@clawmaster/native', '--external:pg-native',
     // Heavy document parsers are optional capability modules. Keep the resident
     // desktop agent self-iteration/RPA path small; load PDF/XLSX support through
     // a user-authorized module instead of charging every install for it.
@@ -318,7 +336,7 @@ function verifyStaging() {
     readdirSync(runtimeRoot, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => [entry.name, directoryBytes(path.join(runtimeRoot, entry.name))]),
-  ));
+  ), { mode: packagingMode });
   const sizeMiB = (size.bytes / 1024 / 1024).toFixed(1);
   console.log('[tauri-runtime] component budget:');
   for (const component of size.components) {
@@ -328,10 +346,10 @@ function verifyStaging() {
   }
   if (!size.withinTarget) {
     console.warn(
-      `[tauri-runtime] ${sizeMiB} MiB exceeds the 28 MiB runtime target reserved for a 31 MiB download`,
+      `[tauri-runtime] ${sizeMiB} MiB exceeds the ${packagingPolicy.targetBytes / 1024 / 1024} MiB ${packagingMode} target`,
     );
   } else {
-    console.log(`[tauri-runtime] ${sizeMiB} MiB is within the 28 MiB runtime target`);
+    console.log(`[tauri-runtime] ${sizeMiB} MiB is within the ${packagingPolicy.targetBytes / 1024 / 1024} MiB ${packagingMode} target`);
   }
   const probeAgentRoot = path.join(stagingRoot, 'agent-probe');
   try {
@@ -352,9 +370,9 @@ function verifyStaging() {
   console.log(`[tauri-runtime] minimal Agent runtime staged at ${runtimeRoot}`);
 }
 
-run(process.execPath, [npmCli, 'run', 'build', '--workspace=otto-core']);
-run(process.execPath, [npmCli, 'run', 'build', '--workspace=otto-server']);
-run(process.execPath, [npmCli, 'run', 'build', '--workspace=@otto/native']);
+run(process.execPath, [npmCli, 'run', 'build', '--workspace=clawmaster-core']);
+run(process.execPath, [npmCli, 'run', 'build', '--workspace=clawmaster-server']);
+run(process.execPath, [npmCli, 'run', 'build', '--workspace=@clawmaster/native']);
 prepareNodeSidecar();
 prepareAgentBundle();
 prepareNodeCapsule();

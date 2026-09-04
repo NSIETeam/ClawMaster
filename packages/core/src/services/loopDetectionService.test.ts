@@ -7,10 +7,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Config } from '../config/config.js';
 import {
-  OttoEventType,
-  ServerOttoContentEvent,
-  ServerOttoStreamEvent,
-  ServerOttoToolCallRequestEvent,
+  ClawMasterEventType,
+  ServerClawMasterContentEvent,
+  ServerClawMasterStreamEvent,
+  ServerClawMasterToolCallRequestEvent,
 } from '../core/turn.js';
 import * as loggers from '../telemetry/loggers.js';
 import { LoopDetectionService } from './loopDetectionService.js';
@@ -39,8 +39,8 @@ describe('LoopDetectionService', () => {
   const createToolCallRequestEvent = (
     name: string,
     args: Record<string, unknown>,
-  ): ServerOttoToolCallRequestEvent => ({
-    type: OttoEventType.ToolCallRequest,
+  ): ServerClawMasterToolCallRequestEvent => ({
+    type: ClawMasterEventType.ToolCallRequest,
     value: {
       name,
       args,
@@ -50,8 +50,8 @@ describe('LoopDetectionService', () => {
     },
   });
 
-  const createContentEvent = (content: string): ServerOttoContentEvent => ({
-    type: OttoEventType.Content,
+  const createContentEvent = (content: string): ServerClawMasterContentEvent => ({
+    type: ClawMasterEventType.Content,
     value: content,
   });
 
@@ -106,7 +106,7 @@ describe('LoopDetectionService', () => {
       });
       const otherEvent = {
         type: 'thought',
-      } as unknown as ServerOttoStreamEvent;
+      } as unknown as ServerClawMasterStreamEvent;
 
       // Send events just below the threshold
       for (let i = 0; i < TOOL_CALL_LOOP_THRESHOLD - 1; i++) {
@@ -216,7 +216,7 @@ describe('LoopDetectionService', () => {
     it('should return false for unhandled event types', () => {
       const otherEvent = {
         type: 'unhandled_event',
-      } as unknown as ServerOttoStreamEvent;
+      } as unknown as ServerClawMasterStreamEvent;
       expect(service.addAndCheck(otherEvent)).toBe(false);
       expect(service.addAndCheck(otherEvent)).toBe(false);
     });
@@ -236,8 +236,8 @@ describe('LoopDetectionService - Preview Model Strict Checking', () => {
   const createToolCallRequestEvent = (
     name: string,
     args: Record<string, unknown>,
-  ): ServerOttoToolCallRequestEvent => ({
-    type: OttoEventType.ToolCallRequest,
+  ): ServerClawMasterToolCallRequestEvent => ({
+    type: ClawMasterEventType.ToolCallRequest,
     value: {
       name,
       args,

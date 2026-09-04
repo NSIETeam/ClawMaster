@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import React, { useEffect, useState } from 'react';
 import type { ModuleDefinition } from '../moduleCatalog.js';
@@ -75,12 +75,12 @@ export function RightPanel({
   const hidden = presentation === 'panel' && collapsed;
   return (
     <aside
-      className={`otto-right-panel otto-right-panel--${presentation}${hidden ? ' otto-right-panel--collapsed' : ''}`}
+      className={`claw-right-panel claw-right-panel--${presentation}${hidden ? ' claw-right-panel--collapsed' : ''}`}
       aria-label="功能组"
       aria-busy={busy || readiness === 'loading'}
       aria-hidden={hidden || undefined}
     >
-      <div className="otto-right-panel__switcher" role="tablist" aria-label="右侧工作区">
+      <div className="claw-right-panel__switcher" role="tablist" aria-label="右侧工作区">
         <button type="button" role="tab" aria-selected={activeView === 'modules'} onClick={() => setActiveView('modules')}>功能</button>
         {filePath ? <button type="button" role="tab" aria-selected={activeView === 'files'} onClick={() => setActiveView('files')}>文件</button> : null}
         {platformTarget ? <button type="button" role="tab" aria-selected={activeView === 'platform'} onClick={() => setActiveView('platform')}>{platformTarget.label}</button> : null}
@@ -100,12 +100,12 @@ export function RightPanel({
           onLayoutChange={onLayoutChange}
         />
       ) : readiness === 'failed' ? (
-        <div className="otto-module-workspace__loading" role="status">
+        <div className="claw-module-workspace__loading" role="status">
           <span>暂时无法加载可用模块。</span>
           {onRetryCapabilities ? <button type="button" onClick={onRetryCapabilities}>重试</button> : null}
         </div>
       ) : (
-        <div className="otto-module-workspace__loading" role="status">正在加载可用模块…</div>
+        <div className="claw-module-workspace__loading" role="status">正在加载可用模块…</div>
       )}
     </aside>
   );

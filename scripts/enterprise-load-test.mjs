@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Credential-free local HTTP load test for Otto Enterprise Server. The script
+ * Credential-free local HTTP load test for ClawMaster Enterprise Server. The script
  * creates an isolated temporary database and never targets a remote server.
  */
 
@@ -347,21 +347,21 @@ async function main() {
   const baseUrl = `http://127.0.0.1:${port}`;
   const environment = {
     ...process.env,
-    OTTO_ENTERPRISE_DIR: dataDirectory,
-    OTTO_ENTERPRISE_HOST: '127.0.0.1',
-    OTTO_ENTERPRISE_PORT: String(port),
-    OTTO_BOOTSTRAP_USERNAME: username,
-    OTTO_BOOTSTRAP_PASSWORD: password,
-    OTTO_BOOTSTRAP_NAME: 'Load Test Administrator',
-    OTTO_APP_VERSION: 'load-test',
-    OTTO_BUILD_COMMIT: '0000000000000000000000000000000000000000',
+    CLAWMASTER_ENTERPRISE_DIR: dataDirectory,
+    CLAWMASTER_ENTERPRISE_HOST: '127.0.0.1',
+    CLAWMASTER_ENTERPRISE_PORT: String(port),
+    CLAWMASTER_BOOTSTRAP_USERNAME: username,
+    CLAWMASTER_BOOTSTRAP_PASSWORD: password,
+    CLAWMASTER_BOOTSTRAP_NAME: 'Load Test Administrator',
+    CLAWMASTER_APP_VERSION: 'load-test',
+    CLAWMASTER_BUILD_COMMIT: '0000000000000000000000000000000000000000',
     ...(backendName === 'sqlite'
       ? {
           NODE_ENV: 'test',
-          OTTO_DATABASE_ENCRYPTION: 'disabled',
-          OTTO_ENTERPRISE_DATABASE_BACKEND: 'sqlite',
+          CLAWMASTER_DATABASE_ENCRYPTION: 'disabled',
+          CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'sqlite',
         }
-      : { OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql' }),
+      : { CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql' }),
   };
 
   const bootstrap = skipBootstrap

@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import { describe, expect, it, vi } from 'vitest';
 import type { RpaRun, RpaWorkflowV1 } from './contracts.js';

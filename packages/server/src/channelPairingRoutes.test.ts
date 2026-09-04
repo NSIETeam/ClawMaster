@@ -1,12 +1,12 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { OttoServer } from './server.js';
+import { ClawMasterServer } from './server.js';
 import { ProductWorkspaceStore } from './productWorkspaceStore.js';
 import type {
   ChannelConnectorV1,
@@ -46,13 +46,13 @@ function fakeConnector(): ChannelConnectorV1 {
 
 describe('channel pairing REST routes', () => {
   let userDir: string;
-  let server: OttoServer | undefined;
+  let server: ClawMasterServer | undefined;
 
   beforeEach(() => {
     userDir = mkdtempSync(path.join(tmpdir(), 'otto-channel-pairing-'));
     vi.stubEnv('HOME', userDir);
     vi.stubEnv('USERPROFILE', userDir);
-    vi.stubEnv('OTTO_USER_DIR', userDir);
+    vi.stubEnv('CLAWMASTER_USER_DIR', userDir);
   });
 
   afterEach(async () => {
@@ -62,7 +62,7 @@ describe('channel pairing REST routes', () => {
   });
 
   async function start(connectors = {}): Promise<{ baseUrl: string; token: string }> {
-    server = new OttoServer({
+    server = new ClawMasterServer({
       port: 0,
       mock: true,
       channelConnectors: connectors,

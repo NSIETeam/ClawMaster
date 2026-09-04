@@ -1,11 +1,11 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * Otto Desktop 交付包聚合 + 自动发布脚本（Issue #8）。
+ * ClawMaster Desktop 交付包聚合 + 自动发布脚本（Issue #8）。
  *
  * 产出 macOS 双架构与 Windows x64 安装包和更新清单，并可发布到 GitHub Releases。
  *
@@ -16,12 +16,12 @@
  *   node scripts/make-delivery-zip.mjs --build --publish # 全流程
  *
  * 产物（release/ 目录）：
- *   Otto-<version>-arm64.dmg          — Mac ARM64 安装包
- *   Otto-<version>-x64.dmg            — Mac x86_64 安装包
- *   Otto-Setup-<version>-win-x64.exe  — Windows x64 安装包
- *   Otto-<version>-arm64.dmg.blockmap — Mac ARM64 增量更新块图
- *   Otto-<version>-x64.dmg.blockmap   — Mac x86_64 增量更新块图
- *   Otto-Setup-<version>-win-x64.exe.blockmap — Windows x64 增量更新块图
+ *   ClawMaster-<version>-arm64.dmg          — Mac ARM64 安装包
+ *   ClawMaster-<version>-x64.dmg            — Mac x86_64 安装包
+ *   ClawMaster-Setup-<version>-win-x64.exe  — Windows x64 安装包
+ *   ClawMaster-<version>-arm64.dmg.blockmap — Mac ARM64 增量更新块图
+ *   ClawMaster-<version>-x64.dmg.blockmap   — Mac x86_64 增量更新块图
+ *   ClawMaster-Setup-<version>-win-x64.exe.blockmap — Windows x64 增量更新块图
  *   latest.json                       — 更新清单（sha256 + URL）
  */
 
@@ -62,16 +62,16 @@ const ROOT_PKG = JSON.parse(
 const VERSION = PKG.version;
 const SOURCE_REPO = 'NSIETeam/otto-new';
 const SOURCE_UPSTREAM = 'origin/internal';
-const RELEASES_REPO = process.env.OTTO_RELEASES_REPO || 'NSIETeam/otto-new';
+const RELEASES_REPO = process.env.CLAWMASTER_RELEASES_REPO || 'NSIETeam/otto-new';
 const UPDATE_ASSET_BASE_URL = resolveUpdateAssetBaseUrl();
 const RELEASE_TAG = `v${VERSION}`;
 const BUILD_ASSET_NAMES = [
-  `Otto-${VERSION}-arm64.dmg`,
-  `Otto-${VERSION}-arm64.dmg.blockmap`,
-  `Otto-${VERSION}-x64.dmg`,
-  `Otto-${VERSION}-x64.dmg.blockmap`,
-  `Otto-Setup-${VERSION}-win-x64.exe`,
-  `Otto-Setup-${VERSION}-win-x64.exe.blockmap`,
+  `ClawMaster-${VERSION}-arm64.dmg`,
+  `ClawMaster-${VERSION}-arm64.dmg.blockmap`,
+  `ClawMaster-${VERSION}-x64.dmg`,
+  `ClawMaster-${VERSION}-x64.dmg.blockmap`,
+  `ClawMaster-Setup-${VERSION}-win-x64.exe`,
+  `ClawMaster-Setup-${VERSION}-win-x64.exe.blockmap`,
 ];
 const RELEASE_ASSET_NAMES = [...BUILD_ASSET_NAMES, 'latest.json'];
 
@@ -80,7 +80,7 @@ const RELEASE_ASSET_NAMES = [...BUILD_ASSET_NAMES, 'latest.json'];
 const ARGS = process.argv.slice(2);
 const SHOULD_BUILD = ARGS.includes('--build');
 const SHOULD_PUBLISH = ARGS.includes('--publish');
-const ALLOW_UNSIGNED_MAC = process.env.OTTO_ALLOW_UNSIGNED_MAC === '1';
+const ALLOW_UNSIGNED_MAC = process.env.CLAWMASTER_ALLOW_UNSIGNED_MAC === '1';
 const GITHUB_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
 const NPM_BIN = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const NPX_BIN = process.platform === 'win32' ? 'npx.cmd' : 'npx';
@@ -260,7 +260,7 @@ function runBuildStep(
 }
 
 function verifySignedMacApplication(unpackedOutput) {
-  const appPath = path.join(RELEASE_DIR, unpackedOutput, 'Otto.app');
+  const appPath = path.join(RELEASE_DIR, unpackedOutput, 'ClawMaster.app');
   if (!existsSync(appPath)) {
     throw new Error(`缺少待验证的 macOS 应用包: ${appPath}`);
   }
@@ -273,7 +273,7 @@ function verifySignedMacApplication(unpackedOutput) {
   execFileSync('spctl', ['--assess', '--type', 'execute', '--verbose=4', appPath], {
     stdio: 'inherit',
   });
-  log('BUILD', `Developer ID 与公证票据验证通过: ${unpackedOutput}/Otto.app`);
+  log('BUILD', `Developer ID 与公证票据验证通过: ${unpackedOutput}/ClawMaster.app`);
 }
 
 async function writeBuildProvenance(sourceCommit) {
@@ -347,14 +347,14 @@ async function inspectWindowsRipgrep() {
 async function build(sourceCommit) {
   log('BUILD', '开始编译服务端与桌面端...');
 
-  // desktop 通过 file:../server 读取 otto-server/dist。必须先从当前 HEAD
+  // desktop 通过 file:../server 读取 clawmaster-server/dist。必须先从当前 HEAD
   // 重建 server（tsc -b 会同步 project reference），禁止把旧 dist 打进新版本。
   execFileSync(NPM_BIN, ['run', 'build', '--workspace=packages/server'], {
     cwd: ROOT_DIR,
     stdio: 'inherit',
     ...EXEC_FILE_OPTIONS,
   });
-  log('BUILD', 'otto-server 当前源码构建完成');
+  log('BUILD', 'clawmaster-server 当前源码构建完成');
 
   // 构建 renderer + main + preload
   execFileSync(NPM_BIN, ['run', 'build'], {
@@ -387,7 +387,7 @@ async function build(sourceCommit) {
     process.execPath,
     [
       path.join(__dirname, 'smoke-packaged-electron.mjs'),
-      path.join(RELEASE_DIR, `Otto-${VERSION}-arm64.dmg`),
+      path.join(RELEASE_DIR, `ClawMaster-${VERSION}-arm64.dmg`),
     ],
     {
       cwd: DESKTOP_DIR,
@@ -418,7 +418,7 @@ async function build(sourceCommit) {
     process.execPath,
     [
       path.join(__dirname, 'smoke-packaged-electron.mjs'),
-      path.join(RELEASE_DIR, `Otto-${VERSION}-x64.dmg`),
+      path.join(RELEASE_DIR, `ClawMaster-${VERSION}-x64.dmg`),
     ],
     {
       cwd: DESKTOP_DIR,
@@ -516,12 +516,12 @@ async function makeLatestJson(sourceCommit) {
       `git log --oneline --no-decorate v${VERSION}..HEAD 2>/dev/null || git log --oneline -20`,
       { cwd: DESKTOP_DIR, encoding: 'utf-8' },
     );
-    notes = `## Otto v${VERSION}\n\n${logOutput}`;
+    notes = `## ClawMaster v${VERSION}\n\n${logOutput}`;
   }
 
-  const macArm64 = path.join(RELEASE_DIR, `Otto-${VERSION}-arm64.dmg`);
-  const macX64 = path.join(RELEASE_DIR, `Otto-${VERSION}-x64.dmg`);
-  const winX64 = path.join(RELEASE_DIR, `Otto-Setup-${VERSION}-win-x64.exe`);
+  const macArm64 = path.join(RELEASE_DIR, `ClawMaster-${VERSION}-arm64.dmg`);
+  const macX64 = path.join(RELEASE_DIR, `ClawMaster-${VERSION}-x64.dmg`);
+  const winX64 = path.join(RELEASE_DIR, `ClawMaster-Setup-${VERSION}-win-x64.exe`);
   const releaseBaseUrl = UPDATE_ASSET_BASE_URL;
   // 使用发布候选提交时间，确保同一 commit 的失败重试能生成字节完全一致的清单。
   const publishedAt = git(['show', '-s', '--format=%cI', sourceCommit]);
@@ -533,20 +533,20 @@ async function makeLatestJson(sourceCommit) {
     publishedAt,
     assets: {
       'mac-arm64': {
-        name: `Otto-${VERSION}-arm64.dmg`,
-        url: `${releaseBaseUrl}/Otto-${VERSION}-arm64.dmg`,
+        name: `ClawMaster-${VERSION}-arm64.dmg`,
+        url: `${releaseBaseUrl}/ClawMaster-${VERSION}-arm64.dmg`,
         size: statSync(macArm64).size,
         sha256: await sha256(macArm64),
       },
       'mac-x64': {
-        name: `Otto-${VERSION}-x64.dmg`,
-        url: `${releaseBaseUrl}/Otto-${VERSION}-x64.dmg`,
+        name: `ClawMaster-${VERSION}-x64.dmg`,
+        url: `${releaseBaseUrl}/ClawMaster-${VERSION}-x64.dmg`,
         size: statSync(macX64).size,
         sha256: await sha256(macX64),
       },
       'win-x64': {
-        name: `Otto-Setup-${VERSION}-win-x64.exe`,
-        url: `${releaseBaseUrl}/Otto-Setup-${VERSION}-win-x64.exe`,
+        name: `ClawMaster-Setup-${VERSION}-win-x64.exe`,
+        url: `${releaseBaseUrl}/ClawMaster-Setup-${VERSION}-win-x64.exe`,
         size: statSync(winX64).size,
         sha256: await sha256(winX64),
       },
@@ -652,9 +652,9 @@ function validateManifest(manifest, localAssets, source, sourceCommit) {
   }
 
   const expectedPlatforms = {
-    'mac-arm64': `Otto-${VERSION}-arm64.dmg`,
-    'mac-x64': `Otto-${VERSION}-x64.dmg`,
-    'win-x64': `Otto-Setup-${VERSION}-win-x64.exe`,
+    'mac-arm64': `ClawMaster-${VERSION}-arm64.dmg`,
+    'mac-x64': `ClawMaster-${VERSION}-x64.dmg`,
+    'win-x64': `ClawMaster-Setup-${VERSION}-win-x64.exe`,
   };
   const manifestAssets = manifest.assets;
   const actualPlatforms =
@@ -839,8 +839,8 @@ async function ensureDraftRelease(sourceCommit, releaseTargetCommit) {
       body: JSON.stringify({
         tag_name: RELEASE_TAG,
         target_commitish: releaseTargetCommit,
-        name: `Otto Desktop v${VERSION}`,
-        body: `## Otto Desktop v${VERSION}\n\n源码提交：[${sourceCommit}](https://github.com/${SOURCE_REPO}/commit/${sourceCommit})\n\n### 更新内容\n\n${logOutput}\n\n### 安装说明\n\n- Mac ARM64: \`Otto-${VERSION}-arm64.dmg\`\n- Mac x64: \`Otto-${VERSION}-x64.dmg\`\n- Windows x64: \`Otto-Setup-${VERSION}-win-x64.exe\`\n\nMac 打开 DMG 后将 Otto.app 拖入 Applications 文件夹；首次运行如提示「无法验证开发者」，右键 → 打开。Windows 运行安装器并按向导完成安装。`,
+        name: `ClawMaster Desktop v${VERSION}`,
+        body: `## ClawMaster Desktop v${VERSION}\n\n源码提交：[${sourceCommit}](https://github.com/${SOURCE_REPO}/commit/${sourceCommit})\n\n### 更新内容\n\n${logOutput}\n\n### 安装说明\n\n- Mac ARM64: \`ClawMaster-${VERSION}-arm64.dmg\`\n- Mac x64: \`ClawMaster-${VERSION}-x64.dmg\`\n- Windows x64: \`ClawMaster-Setup-${VERSION}-win-x64.exe\`\n\nMac 打开 DMG 后将 ClawMaster.app 拖入 Applications 文件夹；首次运行如提示「无法验证开发者」，右键 → 打开。Windows 运行安装器并按向导完成安装。`,
         draft: true,
         prerelease: false,
       }),
@@ -1047,7 +1047,7 @@ async function publishToGithub(localAssets, sourceCommit) {
 
 async function main() {
   console.log('');
-  log('OTTO', `Otto Desktop v${VERSION} 构建发布工具`);
+  log('OTTO', `ClawMaster Desktop v${VERSION} 构建发布工具`);
   log('OTTO', `工作目录: ${DESKTOP_DIR}`);
   console.log('');
 

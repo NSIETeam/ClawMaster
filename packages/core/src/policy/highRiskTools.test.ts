@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2026 Otto
+ * Copyright 2026 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  *
  * Tests for high-risk tool classification and policy enforcement.

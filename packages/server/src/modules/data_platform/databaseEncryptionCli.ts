@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import os from 'node:os';
@@ -62,7 +62,7 @@ async function main(): Promise<void> {
   }
   const dataDirectory = path.resolve(
     argument('--data-dir') ??
-      process.env.OTTO_ENTERPRISE_DIR ??
+      process.env.CLAWMASTER_ENTERPRISE_DIR ??
       path.join(os.homedir(), '.otto-enterprise'),
   );
   const result = rotateOfflineSqlCipherDatabase({ dataDirectory });

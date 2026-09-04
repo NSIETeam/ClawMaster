@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -33,10 +33,10 @@ describe('enterprise service topology', () => {
     expect(() =>
       resolveEnterpriseServiceTopology({
         environment: {
-          OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
-          OTTO_POSTGRES_URL: 'postgresql://otto:secret@db.internal/otto',
-          OTTO_ENTERPRISE_CACHE_BACKEND: 'redis',
-          OTTO_REDIS_URL: 'rediss://default:secret@cache.internal:6379',
+          CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+          CLAWMASTER_POSTGRES_URL: 'postgresql://otto:secret@db.internal/otto',
+          CLAWMASTER_ENTERPRISE_CACHE_BACKEND: 'redis',
+          CLAWMASTER_REDIS_URL: 'rediss://default:secret@cache.internal:6379',
         },
         sqliteDatabasePath: '/var/lib/otto/data.db',
       }),
@@ -47,12 +47,12 @@ describe('enterprise service topology', () => {
     expect(() =>
       resolveEnterpriseServiceTopology({
         environment: {
-          OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
-          OTTO_POSTGRES_URL: 'postgresql://otto:secret@db.internal/otto',
-          OTTO_ATTACHMENT_OBJECT_STORE: 's3',
-          OTTO_S3_BUCKET: 'otto-private',
-          OTTO_S3_REGION: 'cn-east-1',
-          OTTO_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
+          CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+          CLAWMASTER_POSTGRES_URL: 'postgresql://otto:secret@db.internal/otto',
+          CLAWMASTER_ATTACHMENT_OBJECT_STORE: 's3',
+          CLAWMASTER_S3_BUCKET: 'otto-private',
+          CLAWMASTER_S3_REGION: 'cn-east-1',
+          CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
         },
         sqliteDatabasePath: '/var/lib/otto/data.db',
       }),
@@ -63,10 +63,10 @@ describe('enterprise service topology', () => {
     expect(() =>
       resolveEnterpriseServiceTopology({
         environment: {
-          OTTO_ATTACHMENT_OBJECT_STORE: 's3',
-          OTTO_S3_BUCKET: 'otto-private',
-          OTTO_S3_REGION: 'cn-east-1',
-          OTTO_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
+          CLAWMASTER_ATTACHMENT_OBJECT_STORE: 's3',
+          CLAWMASTER_S3_BUCKET: 'otto-private',
+          CLAWMASTER_S3_REGION: 'cn-east-1',
+          CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
         },
         sqliteDatabasePath: '/var/lib/otto/data.db',
       }),
@@ -75,8 +75,8 @@ describe('enterprise service topology', () => {
     expect(() =>
       resolveEnterpriseServiceTopology({
         environment: {
-          OTTO_ENTERPRISE_CACHE_BACKEND: 'redis',
-          OTTO_REDIS_URL: 'rediss://cache.internal:6379',
+          CLAWMASTER_ENTERPRISE_CACHE_BACKEND: 'redis',
+          CLAWMASTER_REDIS_URL: 'rediss://cache.internal:6379',
         },
         sqliteDatabasePath: '/var/lib/otto/data.db',
       }),
@@ -86,15 +86,15 @@ describe('enterprise service topology', () => {
   it('builds a credential-free stateless topology for multiple replicas', () => {
     const topology = resolveEnterpriseServiceTopology({
       environment: {
-        OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
-        OTTO_POSTGRES_URL: 'postgresql://otto:db-secret@db.internal:5432/otto',
-        OTTO_ENTERPRISE_REPLICA_COUNT: '3',
-        OTTO_ENTERPRISE_CACHE_BACKEND: 'redis',
-        OTTO_REDIS_URL: 'rediss://default:cache-secret@cache.internal:6379/2',
-        OTTO_ATTACHMENT_OBJECT_STORE: 's3',
-        OTTO_S3_BUCKET: 'otto-private',
-        OTTO_S3_REGION: 'cn-east-1',
-        OTTO_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
+        CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+        CLAWMASTER_POSTGRES_URL: 'postgresql://otto:db-secret@db.internal:5432/otto',
+        CLAWMASTER_ENTERPRISE_REPLICA_COUNT: '3',
+        CLAWMASTER_ENTERPRISE_CACHE_BACKEND: 'redis',
+        CLAWMASTER_REDIS_URL: 'rediss://default:cache-secret@cache.internal:6379/2',
+        CLAWMASTER_ATTACHMENT_OBJECT_STORE: 's3',
+        CLAWMASTER_S3_BUCKET: 'otto-private',
+        CLAWMASTER_S3_REGION: 'cn-east-1',
+        CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
       },
       sqliteDatabasePath: '/var/lib/otto/data.db',
     });

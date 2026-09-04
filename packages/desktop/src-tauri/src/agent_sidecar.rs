@@ -316,7 +316,10 @@ pub fn spawn(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .ok_or("user home is unavailable for Agent custody")?;
     for required in [&server, &sqlcipher] {
         if !required.is_file() {
-            return Err(format!("packaged Agent runtime is missing {}", required.display()).into());
+            // The bootstrap build deliberately ships without executable
+            // modules. The UI remains usable and reports the missing
+            // capability instead of opening a broken shell.
+            return Ok(());
         }
     }
     let user_directory = product_user_directory(&home);
@@ -350,11 +353,11 @@ pub fn spawn(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             std::env::var_os("LANG").unwrap_or_else(|| "C.UTF-8".into()),
         )
         .env("CLAWMASTER_RESOURCES_PATH", &resources)
-        .env("OTTO_SQLCIPHER_NATIVE_BINDING", &sqlcipher)
-        .env("OTTO_DATABASE_ENCRYPTION_KEY_FILE", custody_key)
-        .env("OTTO_DATABASE_ENCRYPTION_KEY_ID", "desktop-local-custody")
-        .env("OTTO_SERVER_PORT", port.to_string())
-        .env("OTTO_USER_DIR", &user_directory)
+        .env("CLAWMASTER_SQLCIPHER_NATIVE_BINDING", &sqlcipher)
+        .env("CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE", custody_key)
+        .env("CLAWMASTER_DATABASE_ENCRYPTION_KEY_ID", "desktop-local-custody")
+        .env("CLAWMASTER_SERVER_PORT", port.to_string())
+        .env("CLAWMASTER_USER_DIR", &user_directory)
         .env("CLAWMASTER_USER_DIR", product_user_directory(&home))
         .env("CLAWMASTER_PARENT_PIPE", "1")
         .env("CLAWMASTER_PARENT_PID", std::process::id().to_string())
@@ -364,7 +367,7 @@ pub fn spawn(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .stdout(Stdio::from(log))
         .stderr(Stdio::from(error_log));
     if let Some(ripgrep) = ripgrep {
-        command.env("OTTO_RIPGREP_BINARY", ripgrep);
+        command.env("CLAWMASTER_RIPGREP_BINARY", ripgrep);
     }
     for name in ["SystemRoot", "WINDIR", "PATHEXT", "COMSPEC", "TEMP", "TMP"] {
         if let Some(value) = std::env::var_os(name) {
@@ -406,7 +409,7 @@ pub fn run_document_worker(
         .env("TEMP", std::env::temp_dir())
         .env("TMP", std::env::temp_dir())
         .env("CLAWMASTER_RESOURCES_PATH", &state.resources)
-        .env("OTTO_USER_DIR", &state.user_directory)
+        .env("CLAWMASTER_USER_DIR", &state.user_directory)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());

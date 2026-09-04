@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createHash, verify } from 'node:crypto';
@@ -105,7 +105,7 @@ function transparencyView(
       createdAt,
     };
     const entryHash = createHash('sha256')
-      .update('otto:e2ee-key-transparency:v1\n')
+      .update('clawmaster:e2ee-key-transparency:v1\n')
       .update(JSON.stringify(unsigned))
       .digest('hex');
     previousHash = entryHash;

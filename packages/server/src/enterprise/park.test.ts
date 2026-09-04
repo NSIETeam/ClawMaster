@@ -2,7 +2,7 @@
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
  * Park unit tests - invite codes, service specialists, repair routing.
- * 数据安全：独立临时 OTTO_ENTERPRISE_DIR + resetModules，绝不碰真实企业库。
+ * 数据安全：独立临时 CLAWMASTER_ENTERPRISE_DIR + resetModules，绝不碰真实企业库。
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -16,19 +16,19 @@ let tmpDir: string;
 const prevEnv: Record<string, string | undefined> = {};
 
 async function freshPark(): Promise<ParkModule> {
-  process.env.OTTO_ENTERPRISE_DIR = tmpDir;
+  process.env.CLAWMASTER_ENTERPRISE_DIR = tmpDir;
   vi.resetModules();
   return import('./park.js');
 }
 
 beforeEach(() => {
-  prevEnv.OTTO_ENTERPRISE_DIR = process.env.OTTO_ENTERPRISE_DIR;
+  prevEnv.CLAWMASTER_ENTERPRISE_DIR = process.env.CLAWMASTER_ENTERPRISE_DIR;
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'otto-park-'));
 });
 
 afterEach(() => {
-  if (prevEnv.OTTO_ENTERPRISE_DIR === undefined) delete process.env.OTTO_ENTERPRISE_DIR;
-  else process.env.OTTO_ENTERPRISE_DIR = prevEnv.OTTO_ENTERPRISE_DIR;
+  if (prevEnv.CLAWMASTER_ENTERPRISE_DIR === undefined) delete process.env.CLAWMASTER_ENTERPRISE_DIR;
+  else process.env.CLAWMASTER_ENTERPRISE_DIR = prevEnv.CLAWMASTER_ENTERPRISE_DIR;
   try {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   } catch {

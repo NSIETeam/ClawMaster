@@ -1,5 +1,5 @@
 /**
- * Otto Skills System - Plugin Installer
+ * ClawMaster Skills System - Plugin Installer
  *
  * Manages Plugin lifecycle:
  * - Install/Uninstall plugins from marketplaces

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
-import { OttoClient } from '../core/client.js';
+import { ClawMasterClient } from '../core/client.js';
 import { Config } from '../config/config.js';
 import {
   summarizeToolOutput,
@@ -15,12 +15,12 @@ import {
 import { ToolResult } from '../tools/tools.js';
 import { SceneType } from '../core/sceneManager.js';
 
-// Mock OttoClient and Config constructor
+// Mock ClawMasterClient and Config constructor
 vi.mock('../core/client.js');
 vi.mock('../config/config.js');
 
 describe('summarizers', () => {
-  let mockGeminiClient: OttoClient;
+  let mockGeminiClient: ClawMasterClient;
   let MockConfig: Mock;
   let mockTemporaryChat: { sendMessage: ReturnType<typeof vi.fn> };
   const abortSignal = new AbortController().signal;
@@ -44,7 +44,7 @@ describe('summarizers', () => {
       sendMessage: vi.fn()
     };
 
-    mockGeminiClient = new OttoClient(mockConfigInstance);
+    mockGeminiClient = new ClawMasterClient(mockConfigInstance);
     (mockGeminiClient.createTemporaryChat as Mock) = vi.fn().mockResolvedValue(mockTemporaryChat);
 
     vi.spyOn(console, 'error').mockImplementation(() => {});

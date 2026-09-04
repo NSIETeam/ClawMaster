@@ -1,8 +1,8 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import type { ToolCallConfirmationDetails } from 'otto-core';
+import type { ToolCallConfirmationDetails } from 'clawmaster-core';
 
 export type RuntimeAuthorizationMode = 'manual' | 'auto';
 

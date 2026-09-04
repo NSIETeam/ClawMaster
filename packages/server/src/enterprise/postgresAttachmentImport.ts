@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Resumable preparation of verified SQLite E2EE attachments for atomic
  * PostgreSQL promotion. S3 becomes authoritative only during promotion.

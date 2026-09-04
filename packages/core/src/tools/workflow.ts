@@ -258,7 +258,7 @@ IMPORTANT — sub-agent output discipline:
       };
     }
 
-    const geminiClient = this.config.getOttoClient();
+    const geminiClient = this.config.getClawMasterClient();
     if (!geminiClient) {
       return {
         llmContent: 'Workflow failed: ClawMaster client not initialized.',

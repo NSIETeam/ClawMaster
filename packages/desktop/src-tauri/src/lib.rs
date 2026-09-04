@@ -12,6 +12,8 @@ use tokio::time::{sleep, Duration};
 use tokio_tungstenite::tungstenite::Message;
 
 mod agent_sidecar;
+mod agent_state_pool;
+mod runtime_contracts;
 mod community_skills;
 mod system_commands;
 mod task_runtime_guard;
@@ -162,9 +164,9 @@ fn runtime_diagnostic_payload(
             status: "ready",
             ownership: Some("detached"),
             message: if transport_connected {
-                "Tauri Agent sidecar 已就绪，桌面连接正常"
+                "本地运行时已就绪，桌面连接正常"
             } else {
-                "Tauri Agent sidecar 已就绪，桌面正在连接"
+                "本地运行时已就绪，桌面正在连接"
             },
         }
     } else if transport_connected {
@@ -177,7 +179,7 @@ fn runtime_diagnostic_payload(
         RuntimeServerDiagnostic {
             status: "unavailable",
             ownership: None,
-            message: "Tauri Agent sidecar 未运行",
+            message: "本地运行时未运行",
         }
     };
     DesktopRuntimeDiagnostic {
@@ -186,9 +188,14 @@ fn runtime_diagnostic_payload(
         native_core: RuntimeNativeCoreDiagnostic {
             mode: "off",
             status: "disabled",
-            message: "Tauri 使用精简 Agent sidecar，原生加速核心未启用",
+            message: "桌面使用本地精简运行时，原生加速核心未启用",
         },
     }
+}
+
+#[tauri::command]
+fn runtime_contract_version() -> runtime_contracts::RuntimeContractVersion {
+    runtime_contracts::RuntimeContractVersion::CURRENT
 }
 
 #[tauri::command]
@@ -381,6 +388,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .setup(agent_sidecar::spawn)
         .manage(Arc::new(DesktopConnection::default()))
+        .manage(agent_state_pool::AgentStatePool::default())
         .manage(system_commands::DesktopFileState::default())
         .manage(system_commands::ThemePreference::default())
         .manage(task_runtime_guard::TaskRuntimeGuard::default())
@@ -389,7 +397,11 @@ pub fn run() {
             desktop_disconnect,
             desktop_send,
             desktop_is_connected,
+            agent_state_pool::agent_state_replace,
+            agent_state_pool::agent_state_bytes,
+            agent_state_pool::agent_state_remove,
             runtime_diagnostic,
+            runtime_contract_version,
             notification_show,
             system_commands::open_external,
             system_commands::open_path,
@@ -483,6 +495,12 @@ mod tests {
         let serialized = serde_json::to_value(&ready).unwrap();
         assert_eq!(serialized["contractVersion"], 1);
         assert_eq!(serialized["nativeCore"]["status"], "disabled");
+
+        let contract = runtime_contract_version();
+        assert_eq!(contract.protocol.major, 1);
+        assert_eq!(contract.protocol.minor, 0);
+        assert_eq!(contract.protocol.patch, 0);
+        assert_eq!(contract.event_schema, 1);
 
         let unavailable = runtime_diagnostic_payload(false, false);
         assert_eq!(unavailable.server.status, "unavailable");

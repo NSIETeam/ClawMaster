@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Tests for KnowledgeCapturePipeline
  */
@@ -21,13 +21,13 @@ describe('KnowledgeCapturePipeline', () => {
 
   beforeEach(async () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-kcp-test-'));
-    process.env.OTTO_USER_DIR = tempDir;
+    process.env.CLAWMASTER_USER_DIR = tempDir;
     const store = new LocalKnowledgeStore(path.join(tempDir, 'knowledge'));
     pipeline = new KnowledgeCapturePipeline(store);
   });
 
   afterEach(async () => {
-    delete process.env.OTTO_USER_DIR;
+    delete process.env.CLAWMASTER_USER_DIR;
     resetKnowledgeCapturePipeline();
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   });

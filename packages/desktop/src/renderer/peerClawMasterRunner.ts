@@ -1,22 +1,22 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import type { ClientToServer, ServerToClient } from 'otto-server';
+import type { ClientToServer, ServerToClient } from 'clawmaster-server';
 import * as liveTransport from './transport.js';
 
-export interface PeerOttoTransport {
+export interface PeerClawMasterTransport {
   isConnected(): boolean;
   onFrame(handler: (frame: ServerToClient) => void): () => void;
   send(frame: ClientToServer): void;
 }
 
-export interface AskLocalPeerOttoInput {
+export interface AskLocalPeerClawMasterInput {
   question: string;
   workContext: string;
   mode?: 'answer' | 'consult' | 'consult_initiator';
   initiatorProposal?: string;
-  transport?: PeerOttoTransport;
+  transport?: PeerClawMasterTransport;
   requestId?: string;
   clientMessageId?: string;
   timeoutMs?: number;
@@ -24,11 +24,11 @@ export interface AskLocalPeerOttoInput {
 }
 
 /** 用户确认框与真正发给模型的问题必须使用同一份文本。 */
-export function normalizePeerOttoQuestion(question: string): string {
+export function normalizePeerClawMasterQuestion(question: string): string {
   return question.trim().slice(0, 1200);
 }
 
-export function buildPeerOttoPrompt(
+export function buildPeerClawMasterPrompt(
   question: string,
   workContext: string,
   options: {
@@ -36,7 +36,7 @@ export function buildPeerOttoPrompt(
     initiatorProposal?: string;
   } = {},
 ): string {
-  const cleanQuestion = normalizePeerOttoQuestion(question);
+  const cleanQuestion = normalizePeerClawMasterQuestion(question);
   const cleanContext = workContext.trim().slice(0, 8000) || '没有可用的工作上下文。';
   const consult = options.mode === 'consult';
   const consultInitiator = options.mode === 'consult_initiator';
@@ -76,7 +76,7 @@ export function buildPeerOttoPrompt(
   ].join('\n');
 }
 
-function defaultTransport(): PeerOttoTransport {
+function defaultTransport(): PeerClawMasterTransport {
   return {
     isConnected: liveTransport.isConnected,
     onFrame: liveTransport.onFrame,
@@ -84,8 +84,8 @@ function defaultTransport(): PeerOttoTransport {
   };
 }
 
-export async function askLocalPeerOtto(input: AskLocalPeerOttoInput): Promise<string> {
-  const question = normalizePeerOttoQuestion(input.question);
+export async function askLocalPeerClawMaster(input: AskLocalPeerClawMasterInput): Promise<string> {
+  const question = normalizePeerClawMasterQuestion(input.question);
   if (!question) throw new Error('A2A 问题不能为空');
   if (input.signal?.aborted) throw new Error('A2A 请求已取消');
   const transport = input.transport ?? defaultTransport();
@@ -94,7 +94,7 @@ export async function askLocalPeerOtto(input: AskLocalPeerOttoInput): Promise<st
   const requestId = input.requestId ?? crypto.randomUUID();
   const clientMessageId = input.clientMessageId ?? 'a2a-' + crypto.randomUUID();
   const timeoutMs = Math.min(180_000, Math.max(1_000, input.timeoutMs ?? 120_000));
-  const prompt = buildPeerOttoPrompt(question, input.workContext, {
+  const prompt = buildPeerClawMasterPrompt(question, input.workContext, {
     mode: input.mode,
     initiatorProposal: input.initiatorProposal,
   });
@@ -197,7 +197,7 @@ export async function askLocalPeerOtto(input: AskLocalPeerOttoInput): Promise<st
       type: 'create_session',
       payload: {
         title: 'A2A 自动协助',
-        agentProfileId: 'otto-enterprise-a2a',
+        agentProfileId: 'claw-enterprise-a2a',
         clientRequestId: requestId,
       },
     });

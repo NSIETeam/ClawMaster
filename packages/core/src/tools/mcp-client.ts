@@ -33,7 +33,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { parse } from 'shell-quote';
 import { AuthProviderType, MCPServerConfig } from '../config/config.js';
-// Google auth provider removed - only Otto custom-model auth supported
+// Google auth provider removed - only ClawMaster custom-model auth supported
 import { DiscoveredMCPTool } from './mcp-tool.js';
 
 import { FunctionDeclaration, mcpToTool } from '@google/genai';
@@ -1415,7 +1415,7 @@ export async function createTransport(
   if (
     mcpServerConfig.authProviderType === AuthProviderType.GOOGLE_CREDENTIALS
   ) {
-    // Google credentials provider removed - only Otto custom-model auth supported
+    // Google credentials provider removed - only ClawMaster custom-model auth supported
     throw new Error('Google credentials authentication is not supported in ClawMaster. Configure a custom model instead.');
   }
 

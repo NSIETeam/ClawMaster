@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import fs from 'node:fs';
@@ -90,8 +90,8 @@ describe('integration_adapters module boundary', () => {
       path.join(sourceRoot, 'enterprise', 'repairNotifications.ts'),
     )).toBe(false);
     expect(notificationSenders).not.toMatch(
-      /^import .* from ['"]otto-core['"];$/m,
+      /^import .* from ['"]clawmaster-core['"];$/m,
     );
-    expect(notificationSenders).toContain("await import('otto-core')");
+    expect(notificationSenders).toContain("await import('clawmaster-core')");
   });
 });

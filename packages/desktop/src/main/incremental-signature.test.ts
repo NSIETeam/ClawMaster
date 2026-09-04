@@ -38,7 +38,7 @@ describe('incremental artifact signature verification', () => {
     const original = 'original component bundle';
     const filePath = await writeArtifact('tampered component bundle');
     const signature = `ed25519:${base64url(sign(null, Buffer.from(original), keys.privateKey))}`;
-    vi.stubEnv('OTTO_INCREMENTAL_UPDATE_PUBLIC_KEY', keys.publicKey.export({ format: 'pem', type: 'spki' }).toString());
+    vi.stubEnv('CLAWMASTER_INCREMENTAL_UPDATE_PUBLIC_KEY', keys.publicKey.export({ format: 'pem', type: 'spki' }).toString());
 
     await expect(verifyIncrementalArtifactSignature({ filePath, signature })).resolves.toEqual({
       ok: false,
@@ -54,7 +54,7 @@ describe('incremental artifact signature verification', () => {
 
     await expect(verifyIncrementalArtifactSignature({ filePath, signature })).resolves.toEqual({
       ok: false,
-      error: 'missing OTTO_INCREMENTAL_UPDATE_PUBLIC_KEY or OTTO_INCREMENTAL_UPDATE_PUBLIC_KEY_FILE',
+      error: 'missing CLAWMASTER_INCREMENTAL_UPDATE_PUBLIC_KEY or CLAWMASTER_INCREMENTAL_UPDATE_PUBLIC_KEY_FILE',
     });
   });
 

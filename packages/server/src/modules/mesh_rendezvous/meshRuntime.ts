@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * [MESH-05] 运行时：relay 会话生命周期（内存短时驻留）、TTL、背压、配额、DDoS。
  *

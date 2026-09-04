@@ -151,7 +151,7 @@ function AccountAvatar({ account }: { account: EnterpriseAccount }): React.JSX.E
   if (avatarUrl && !failed) {
     return (
       <img
-        className="otto-account-table__avatar"
+        className="claw-account-table__avatar"
         src={avatarUrl}
         alt={`${account.name}头像`}
         referrerPolicy="no-referrer"
@@ -160,7 +160,7 @@ function AccountAvatar({ account }: { account: EnterpriseAccount }): React.JSX.E
     );
   }
   return (
-    <span className="otto-account-table__avatar" aria-label={`${account.name}头像占位`}>
+    <span className="claw-account-table__avatar" aria-label={`${account.name}头像占位`}>
       {initial}
     </span>
   );
@@ -245,10 +245,10 @@ export function AccountManagementPage({
     let cancelled = false;
     setParkServiceBrand('园区服务');
     setCurrentPark(null);
-    if (!currentAccount.isAdmin || typeof window.otto.enterpriseParkView !== 'function') {
+    if (!currentAccount.isAdmin || typeof window.clawmaster.enterpriseParkView !== 'function') {
       return () => { cancelled = true; };
     }
-    void window.otto.enterpriseParkView()
+    void window.clawmaster.enterpriseParkView()
       .then((park) => {
         if (!cancelled) {
           setCurrentPark(park);
@@ -267,7 +267,7 @@ export function AccountManagementPage({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    void window.otto.enterpriseAccounts()
+    void window.clawmaster.enterpriseAccounts()
       .then((result) => {
         if (!cancelled) setAccounts(result);
       })
@@ -286,7 +286,7 @@ export function AccountManagementPage({
     if (!currentAccount.isAdmin) return undefined;
     let cancelled = false;
     setInviteLoading(true);
-    void window.otto.enterpriseOrganizationInviteGet()
+    void window.clawmaster.enterpriseOrganizationInviteGet()
       .then((result) => {
         if (!cancelled) setInviteContext(result);
       })
@@ -318,12 +318,12 @@ export function AccountManagementPage({
   }, [invite]);
 
   const refreshOrganizationStructure = useCallback(async (): Promise<void> => {
-    if (!currentAccount.isAdmin || !window.otto.enterpriseOrganizationDepartments) {
+    if (!currentAccount.isAdmin || !window.clawmaster.enterpriseOrganizationDepartments) {
       setOrganizationDepartments([]);
       return;
     }
     try {
-      setOrganizationDepartments(await window.otto.enterpriseOrganizationDepartments());
+      setOrganizationDepartments(await window.clawmaster.enterpriseOrganizationDepartments());
     } catch {
       // enterprise_tree 关闭时服务端返回 403；安排入口保持 fail-closed。
       setOrganizationDepartments([]);
@@ -381,7 +381,7 @@ export function AccountManagementPage({
       return;
     }
     try {
-      setParkAnnouncementResults(await window.otto.enterpriseParkAnnouncementResults());
+      setParkAnnouncementResults(await window.clawmaster.enterpriseParkAnnouncementResults());
       setParkAnnouncementError(null);
     } catch (cause) {
       setParkAnnouncementError(errorMessage(cause));
@@ -395,7 +395,7 @@ export function AccountManagementPage({
       return;
     }
     try {
-      setParkSurveyResults(await window.otto.enterpriseParkSurveyResults());
+      setParkSurveyResults(await window.clawmaster.enterpriseParkSurveyResults());
       setParkSurveyError(null);
     } catch (cause) {
       setParkSurveyError(errorMessage(cause));
@@ -403,13 +403,13 @@ export function AccountManagementPage({
   }, [currentAccount.isAdmin, isParkAdminOrganization]);
 
   const refreshParkTenantOrganizations = useCallback(async (): Promise<void> => {
-    if (!currentAccount.isAdmin || !isParkAdminOrganization || typeof window.otto.enterpriseParkTenants !== 'function') {
+    if (!currentAccount.isAdmin || !isParkAdminOrganization || typeof window.clawmaster.enterpriseParkTenants !== 'function') {
       setParkTenantOrganizations([]);
       setParkTenantError(null);
       return;
     }
     try {
-      setParkTenantOrganizations(await window.otto.enterpriseParkTenants());
+      setParkTenantOrganizations(await window.clawmaster.enterpriseParkTenants());
       setParkTenantError(null);
     } catch (cause) {
       setParkTenantOrganizations([]);
@@ -547,7 +547,7 @@ export function AccountManagementPage({
       let saved: EnterpriseAccount;
       if (editing === 'new') {
         const input: EnterpriseAccountCreateInput = { ...common, password: draft.password };
-        saved = await window.otto.enterpriseAccountCreate(input);
+        saved = await window.clawmaster.enterpriseAccountCreate(input);
         setAccounts((list) => [...list, saved]);
       } else if (editing) {
         const input: EnterpriseAccountUpdateInput = editorMode === 'assignment'
@@ -562,7 +562,7 @@ export function AccountManagementPage({
             status: draft.status,
             ...(draft.password ? { password: draft.password } : {}),
           };
-        saved = await window.otto.enterpriseAccountUpdate(editing.id, input);
+        saved = await window.clawmaster.enterpriseAccountUpdate(editing.id, input);
         setAccounts((list) => list.map((item) => item.id === saved.id ? saved : item));
       } else {
         return;
@@ -587,7 +587,7 @@ export function AccountManagementPage({
     setSaving(true);
     setError(null);
     try {
-      await window.otto.enterpriseAccountDelete(editing.id);
+      await window.clawmaster.enterpriseAccountDelete(editing.id);
       setAccounts((list) => list.filter((account) => account.id !== editing.id));
       onOrganizationChanged?.();
       setEditing(null);
@@ -605,7 +605,7 @@ export function AccountManagementPage({
     setInviteError(null);
     setCopied(null);
     try {
-      const result = await window.otto.enterpriseOrganizationInviteIssue({
+      const result = await window.clawmaster.enterpriseOrganizationInviteIssue({
         defaultDepartment: inviteDepartment.trim() || null,
         positionTitle: invitePosition.trim() || null,
         defaultRole: inviteRole.trim() || null,
@@ -623,8 +623,8 @@ export function AccountManagementPage({
   const copyInviteValue = async (kind: 'link' | 'code', value: string): Promise<void> => {
     try {
       // 优先走 IPC clipboard（Electron 桌面端），可靠且不受 CSP/navigator API 限制
-      if (window.otto?.writeClipboard) {
-        await window.otto.writeClipboard(value);
+      if (window.clawmaster?.writeClipboard) {
+        await window.clawmaster.writeClipboard(value);
       } else {
         await navigator.clipboard.writeText(value);
       }
@@ -645,7 +645,7 @@ export function AccountManagementPage({
     setParkPushMessage(null);
     try {
       const service = PARK_SERVICE_OPTIONS.find((item) => item.id === parkPushServiceId);
-      await window.otto.enterpriseParkServicePush({
+      await window.clawmaster.enterpriseParkServicePush({
         recipientAccountId: 'all',
         serviceId: parkPushServiceId,
         note: parkPushNote.trim() || null,
@@ -742,33 +742,33 @@ export function AccountManagementPage({
     const nextSection = managementSections[nextIndex];
     selectManagementSection(nextSection.id);
     window.requestAnimationFrame(() => {
-      document.getElementById(`otto-enterprise-tab-${nextSection.id}`)?.focus();
+      document.getElementById(`claw-enterprise-tab-${nextSection.id}`)?.focus();
     });
   };
 
   return (
-    <main ref={pageRef} className="otto-account-page">
+    <main ref={pageRef} className="claw-account-page">
       <div
         ref={contentRef}
-        className="otto-account-page__content"
+        className="claw-account-page__content"
         aria-hidden={editing ? true : undefined}
       >
-      <aside className="otto-account-workspace__rail" aria-label="企业管理导航">
-        <header className="otto-account-hero">
+      <aside className="claw-account-workspace__rail" aria-label="企业管理导航">
+        <header className="claw-account-hero">
           <h1>企业管理</h1>
           <p>管理组织结构、成员身份、企业能力和产业园服务。</p>
         </header>
-        <nav className="otto-account-workspace__tabs" aria-label="企业管理分类" role="tablist">
+        <nav className="claw-account-workspace__tabs" aria-label="企业管理分类" role="tablist">
           {managementSections.map((section, sectionIndex) => {
             const SectionIcon = section.icon;
             return (
               <button
                 key={section.id}
-                id={`otto-enterprise-tab-${section.id}`}
+                id={`claw-enterprise-tab-${section.id}`}
                 type="button"
                 role="tab"
                 aria-selected={activeSection === section.id}
-                aria-controls="otto-enterprise-management-panel"
+                aria-controls="claw-enterprise-management-panel"
                 tabIndex={activeSection === section.id ? 0 : -1}
                 className={activeSection === section.id ? 'is-active' : ''}
                 onClick={() => selectManagementSection(section.id)}
@@ -785,14 +785,14 @@ export function AccountManagementPage({
         </nav>
       </aside>
 
-      <div className="otto-account-workspace">
+      <div className="claw-account-workspace">
         <section
-          id="otto-enterprise-management-panel"
-          className="otto-account-workspace__panel"
+          id="claw-enterprise-management-panel"
+          className="claw-account-workspace__panel"
           role="tabpanel"
-          aria-labelledby={`otto-enterprise-tab-${activeSection}`}
+          aria-labelledby={`claw-enterprise-tab-${activeSection}`}
         >
-          <header className="otto-account-workspace__head">
+          <header className="claw-account-workspace__head">
             <div>
               <h2>{activeSectionCopy.label}</h2>
               <p>{activeSectionCopy.description}</p>
@@ -800,7 +800,7 @@ export function AccountManagementPage({
             {activeSection === 'members' ? (
               <button
                 type="button"
-                className="otto-account-page__create"
+                className="claw-account-page__create"
                 onClick={openCreate}
                 disabled={loading}
                 aria-label="新增账号"
@@ -813,7 +813,7 @@ export function AccountManagementPage({
 
       {currentAccount.isAdmin ? (
         <section
-          className="otto-account-invite"
+          className="claw-account-invite"
           aria-label="7 天企业引入链接"
           hidden={activeSection !== 'members'}
         >
@@ -832,23 +832,23 @@ export function AccountManagementPage({
               {inviteBusy ? '正在生成…' : inviteContext?.invite ? '换新链接' : '生成链接'}
             </button>
           </header>
-          <label className="otto-account-invite__department">
+          <label className="claw-account-invite__department">
             <span>新成员默认加入部门</span>
             <input
               aria-label="新成员默认加入部门"
-              list="otto-invite-departments"
+              list="claw-invite-departments"
               value={inviteDepartment}
               disabled={inviteBusy || inviteLoading}
               onChange={(event) => setInviteDepartment(event.target.value)}
               placeholder="不指定则加入未分配部门"
             />
-            <datalist id="otto-invite-departments">
+            <datalist id="claw-invite-departments">
               {departmentOptions.map((department) => (
                 <option key={department} value={department} />
               ))}
             </datalist>
           </label>
-          <div className="otto-account-invite__position-grid">
+          <div className="claw-account-invite__position-grid">
             <label>
               <span>职位 / 岗位</span>
               <input
@@ -883,10 +883,10 @@ export function AccountManagementPage({
               />
             </label>
           </div>
-          {inviteLoading ? <div className="otto-account-invite__loading">正在读取当前企业引入链接…</div> : null}
+          {inviteLoading ? <div className="claw-account-invite__loading">正在读取当前企业引入链接…</div> : null}
           {!inviteLoading && inviteContext?.invite ? (
-            <div className="otto-account-invite__body">
-              <div className="otto-account-invite__code">
+            <div className="claw-account-invite__body">
+              <div className="claw-account-invite__code">
                 <span>企业邀请码</span>
                 <strong>{inviteContext.invite.code}</strong>
                 <small className={inviteIsActive ? 'is-active' : 'is-expired'}>
@@ -905,19 +905,19 @@ export function AccountManagementPage({
                     : ''}
                 </small>
               </div>
-              <div className="otto-account-invite__link">
+              <div className="claw-account-invite__link">
                 <span>公网引入链接</span>
                 <code>{inviteContext.invite.link}</code>
                 <small>员工在浏览器打开后可一键唤起 ClawMaster，首次注册时自动填入该企业邀请码。</small>
               </div>
-              <div className="otto-account-invite__actions">
+              <div className="claw-account-invite__actions">
                 <button type="button" aria-label="复制完整引入链接" onClick={() => void copyInviteValue('link', inviteContext.invite!.link)}>{copied === 'link' ? '链接已复制' : '复制链接'}</button>
                 <button type="button" aria-label="复制企业邀请码" onClick={() => void copyInviteValue('code', inviteContext.invite!.code)}>{copied === 'code' ? '邀请码已复制' : '复制邀请码'}</button>
               </div>
             </div>
           ) : null}
-          {!inviteLoading && !inviteContext?.invite ? <div className="otto-account-invite__loading">尚未生成引入链接</div> : null}
-          {inviteError ? <div className="otto-account-invite__error" role="alert">{inviteError}</div> : null}
+          {!inviteLoading && !inviteContext?.invite ? <div className="claw-account-invite__loading">尚未生成引入链接</div> : null}
+          {inviteError ? <div className="claw-account-invite__error" role="alert">{inviteError}</div> : null}
         </section>
       ) : null}
 
@@ -926,7 +926,7 @@ export function AccountManagementPage({
           accounts={accounts}
           activeSection={activeSection === 'members' ? null : activeSection}
           onChanged={() => {
-            void window.otto.enterpriseAccounts().then(setAccounts).catch((cause: unknown) => {
+            void window.clawmaster.enterpriseAccounts().then(setAccounts).catch((cause: unknown) => {
               setError(errorMessage(cause));
             });
             void refreshOrganizationStructure();
@@ -938,7 +938,7 @@ export function AccountManagementPage({
 
       {currentAccount.isAdmin && configurationFeatures?.park_service === true && isParkAdminOrganization ? (
         <section
-          className="otto-account-invite otto-account-park-push"
+          className="claw-account-invite claw-account-park-push"
           aria-label="园区公告与调查发布"
           hidden={activeSection !== 'park'}
         >
@@ -956,7 +956,7 @@ export function AccountManagementPage({
               {parkPushBusy ? '正在发布…' : '发布内容'}
             </button>
           </header>
-          <div className="otto-account-invite__position-grid">
+          <div className="claw-account-invite__position-grid">
             <label>
               <span>发布类型</span>
               <select
@@ -989,36 +989,36 @@ export function AccountManagementPage({
               />
             </label>
           </div>
-          {parkPushMessage ? <div className="otto-account-invite__loading" role="status">{parkPushMessage}</div> : null}
-          {parkPushError ? <div className="otto-account-invite__error" role="alert">{parkPushError}</div> : null}
-          <div className="otto-account-survey-results" aria-label="产业园入驻企业">
-            <div className="otto-account-survey-results__head"><strong>已入驻企业</strong><span>企业管理员填写产业园邀请码后加入</span></div>
-            {parkTenantError ? <div className="otto-account-invite__error" role="alert">{parkTenantError}</div> : null}
-            {!parkTenantError && parkTenantOrganizations.length === 0 ? <div className="otto-account-invite__loading">暂无企业加入当前产业园</div> : null}
-            {parkTenantOrganizations.length ? <div className="otto-account-park-tenants">{parkTenantOrganizations.map((organization) => <article key={organization.id}><strong>{organization.name}</strong><span>{organization.slug}</span></article>)}</div> : null}
+          {parkPushMessage ? <div className="claw-account-invite__loading" role="status">{parkPushMessage}</div> : null}
+          {parkPushError ? <div className="claw-account-invite__error" role="alert">{parkPushError}</div> : null}
+          <div className="claw-account-survey-results" aria-label="产业园入驻企业">
+            <div className="claw-account-survey-results__head"><strong>已入驻企业</strong><span>企业管理员填写产业园邀请码后加入</span></div>
+            {parkTenantError ? <div className="claw-account-invite__error" role="alert">{parkTenantError}</div> : null}
+            {!parkTenantError && parkTenantOrganizations.length === 0 ? <div className="claw-account-invite__loading">暂无企业加入当前产业园</div> : null}
+            {parkTenantOrganizations.length ? <div className="claw-account-park-tenants">{parkTenantOrganizations.map((organization) => <article key={organization.id}><strong>{organization.name}</strong><span>{organization.slug}</span></article>)}</div> : null}
           </div>
-          <div className="otto-account-survey-results" aria-label="园区公告确认结果">
-            <div className="otto-account-survey-results__head"><strong>公告确认</strong><span>按公告查看已确认人数 / 园区全部企业员工数</span></div>
-            {parkAnnouncementError ? <div className="otto-account-invite__error" role="alert">{parkAnnouncementError}</div> : null}
-            {!parkAnnouncementError && parkAnnouncementResults.length === 0 ? <div className="otto-account-invite__loading">尚未发布园区公告</div> : null}
-            {parkAnnouncementResults.map((announcement) => <article key={announcement.id} className="otto-account-survey-result">
+          <div className="claw-account-survey-results" aria-label="园区公告确认结果">
+            <div className="claw-account-survey-results__head"><strong>公告确认</strong><span>按公告查看已确认人数 / 园区全部企业员工数</span></div>
+            {parkAnnouncementError ? <div className="claw-account-invite__error" role="alert">{parkAnnouncementError}</div> : null}
+            {!parkAnnouncementError && parkAnnouncementResults.length === 0 ? <div className="claw-account-invite__loading">尚未发布园区公告</div> : null}
+            {parkAnnouncementResults.map((announcement) => <article key={announcement.id} className="claw-account-survey-result">
               <header><div><strong>{announcement.title}</strong><span>{announcement.body}</span><time>{new Date(announcement.createdAt).toLocaleString('zh-CN')}</time></div><b>{announcement.readCount} / {announcement.recipientCount} 已确认</b></header>
             </article>)}
           </div>
-          <div className="otto-account-survey-results" aria-label="满意度问卷回收结果">
-            <div className="otto-account-survey-results__head"><strong>问卷回收</strong><span>实名提交，提交后不可修改</span></div>
-            {parkSurveyError ? <div className="otto-account-invite__error" role="alert">{parkSurveyError}</div> : null}
-            {!parkSurveyError && parkSurveyResults.length === 0 ? <div className="otto-account-invite__loading">尚未发布满意度调查</div> : null}
-            {parkSurveyResults.map((survey) => <article key={survey.id} className="otto-account-survey-result">
+          <div className="claw-account-survey-results" aria-label="满意度问卷回收结果">
+            <div className="claw-account-survey-results__head"><strong>问卷回收</strong><span>实名提交，提交后不可修改</span></div>
+            {parkSurveyError ? <div className="claw-account-invite__error" role="alert">{parkSurveyError}</div> : null}
+            {!parkSurveyError && parkSurveyResults.length === 0 ? <div className="claw-account-invite__loading">尚未发布满意度调查</div> : null}
+            {parkSurveyResults.map((survey) => <article key={survey.id} className="claw-account-survey-result">
               <header><div><strong>{survey.title}</strong><span>{survey.body}</span></div><b>{survey.submittedCount} / {survey.recipientCount} 已提交</b></header>
-              {survey.responses.length ? <div className="otto-account-survey-result__responses">{survey.responses.map((response) => <div key={response.accountId}><strong>{response.accountName} · {response.responseData.score || '-'} 分</strong><span>{response.responseData.focus || '未填写关注项'}</span><p>{response.responseData.feedback || '未填写建议'}</p><time>{new Date(response.submittedAt).toLocaleString('zh-CN')}</time></div>)}</div> : <p className="otto-account-survey-result__empty">等待成员提交</p>}
+              {survey.responses.length ? <div className="claw-account-survey-result__responses">{survey.responses.map((response) => <div key={response.accountId}><strong>{response.accountName} · {response.responseData.score || '-'} 分</strong><span>{response.responseData.focus || '未填写关注项'}</span><p>{response.responseData.feedback || '未填写建议'}</p><time>{new Date(response.submittedAt).toLocaleString('zh-CN')}</time></div>)}</div> : <p className="claw-account-survey-result__empty">等待成员提交</p>}
             </article>)}
           </div>
         </section>
       ) : null}
 
       <section
-        className="otto-account-metrics"
+        className="claw-account-metrics"
         aria-label="账号概览"
         hidden={activeSection !== 'members'}
       >
@@ -1029,20 +1029,20 @@ export function AccountManagementPage({
         <article><span>园区客服人员</span><strong>{serviceWorkerCount}</strong><small>六类申请自动投递</small></article>
       </section>
 
-      <section className="otto-account-directory" hidden={activeSection !== 'members'}>
+      <section className="claw-account-directory" hidden={activeSection !== 'members'}>
         <header>
           <div>
             <h2>成员目录</h2>
             <p>账号状态与权限变更实时同步到登录网关。Token 用量由客户端回传，仅用于内部观察，不等同于模型供应商账单。</p>
           </div>
-          <label className="otto-account-search"><span aria-hidden>⌕</span><input aria-label="搜索账号" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名、手机、职位、部门或标签" /></label>
+          <label className="claw-account-search"><span aria-hidden>⌕</span><input aria-label="搜索账号" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名、手机、职位、部门或标签" /></label>
         </header>
 
-        {error && !editing ? <div className="otto-account-page__error" role="alert">{error}</div> : null}
-        <div className="otto-account-table">
+        {error && !editing ? <div className="claw-account-page__error" role="alert">{error}</div> : null}
+        <div className="claw-account-table">
           <table aria-label="账号列表">
             <thead>
-              <tr className="otto-account-table__row otto-account-table__header">
+              <tr className="claw-account-table__row claw-account-table__header">
                 <th scope="col">成员</th>
                 <th scope="col">组织信息</th>
                 <th scope="col">职责标签</th>
@@ -1052,11 +1052,11 @@ export function AccountManagementPage({
               </tr>
             </thead>
             <tbody>
-              {loading ? <tr><td className="otto-account-table__empty" colSpan={6}>正在同步企业身份目录…</td></tr> : null}
-              {!loading && filtered.length === 0 ? <tr><td className="otto-account-table__empty" colSpan={6}>没有匹配的成员</td></tr> : null}
+              {loading ? <tr><td className="claw-account-table__empty" colSpan={6}>正在同步企业身份目录…</td></tr> : null}
+              {!loading && filtered.length === 0 ? <tr><td className="claw-account-table__empty" colSpan={6}>没有匹配的成员</td></tr> : null}
               {filtered.map((account) => (
-                <tr className="otto-account-table__row" key={account.id}>
-                  <td><div className="otto-account-table__identity"><AccountAvatar account={account} /><div><strong>{account.name}</strong><small>@{account.username} · {maskedPhone(account.phone)}</small></div></div></td>
+                <tr className="claw-account-table__row" key={account.id}>
+                  <td><div className="claw-account-table__identity"><AccountAvatar account={account} /><div><strong>{account.name}</strong><small>@{account.username} · {maskedPhone(account.phone)}</small></div></div></td>
                   <td>
                     <strong>{account.positionTitle || account.role || '未设置职位'}</strong>
                     <small>
@@ -1064,17 +1064,17 @@ export function AccountManagementPage({
                       {account.positionTitle && account.role ? ` · 角色：${account.role}` : ''}
                     </small>
                   </td>
-                  <td><div className="otto-account-table__tags">{account.tags.length ? account.tags.map((tag) => <span key={tag}>{tag}</span>) : <small>暂无标签</small>}</div></td>
+                  <td><div className="claw-account-table__tags">{account.tags.length ? account.tags.map((tag) => <span key={tag}>{tag}</span>) : <small>暂无标签</small>}</div></td>
                   <td>
-                    <div className="otto-account-table__usage">
+                    <div className="claw-account-table__usage">
                       <strong>{account.usage ? `${account.usage.totalTokens.toLocaleString('en-US')} tokens` : '暂无用量'}</strong>
                       <small>{account.usage ? `${account.usage.requestCount.toLocaleString('en-US')} 次请求` : '尚无调用数据'}</small>
                       {account.usage ? <small title={account.usage.lastUsedAt ?? undefined}>{formatLastUsedAt(account.usage.lastUsedAt)}</small> : null}
                     </div>
                   </td>
-                  <td><div className="otto-account-table__state">{account.isAdmin ? <span className="is-admin">管理员</span> : <span>成员</span>}<span className={account.status === 'active' ? 'is-active' : 'is-disabled'}>{account.status === 'active' ? '可登录' : '已停用'}</span>{account.tags.includes('维修工作人员') ? <span className="is-admin">维修人员</span> : null}{account.phone ? <span className="is-sms">短信</span> : null}{account.feishuOpenId ? <span className="is-sms">飞书</span> : null}</div></td>
+                  <td><div className="claw-account-table__state">{account.isAdmin ? <span className="is-admin">管理员</span> : <span>成员</span>}<span className={account.status === 'active' ? 'is-active' : 'is-disabled'}>{account.status === 'active' ? '可登录' : '已停用'}</span>{account.tags.includes('维修工作人员') ? <span className="is-admin">维修人员</span> : null}{account.phone ? <span className="is-sms">短信</span> : null}{account.feishuOpenId ? <span className="is-sms">飞书</span> : null}</div></td>
                   <td>
-                    <div className="otto-account-table__actions">
+                    <div className="claw-account-table__actions">
                       <button type="button" className="is-primary" onClick={() => openAssignment(account)} aria-label={`安排职位 ${account.name}`}>安排职位</button>
                       <button type="button" onClick={() => openEdit(account)} aria-label={`编辑 ${account.name}`}>编辑身份</button>
                     </div>
@@ -1090,10 +1090,10 @@ export function AccountManagementPage({
       </div>
 
       {editing ? (
-        <div className="otto-account-editor__overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}>
+        <div className="claw-account-editor__overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}>
           <section
             ref={dialogRef}
-            className="otto-account-editor"
+            className="claw-account-editor"
             role="dialog"
             aria-modal="true"
             aria-label={editorMode === 'assignment' ? '安排员工职位' : editing === 'new' ? '新增账号' : '编辑账号'}
@@ -1101,7 +1101,7 @@ export function AccountManagementPage({
             onKeyDown={handleEditorKeyDown}
           >
             <header><div><span>{editorMode === 'assignment' ? 'POSITION ASSIGNMENT' : editing === 'new' ? 'NEW IDENTITY' : 'IDENTITY DETAIL'}</span><h2>{editorMode === 'assignment' ? `安排 ${editing === 'new' ? '' : editing.name} 的职位` : editing === 'new' ? '添加企业成员' : '编辑成员身份'}</h2><p>{editorMode === 'assignment' ? '任命会同步到企业组织树、员工档案和该员工下一次身份读取。' : '账号、手机和角色决定成员如何进入 ClawMaster 及能访问的空间。'}</p></div><button type="button" onClick={closeEditor} disabled={saving} aria-label="关闭">×</button></header>
-            {editorMode === 'identity' ? <section className="otto-account-templates" aria-label="账户模板">
+            {editorMode === 'identity' ? <section className="claw-account-templates" aria-label="账户模板">
               <div><strong>账户模板</strong><small>先选一个最接近的岗位，再按需调整</small></div>
               <div>
                 {ACCOUNT_TEMPLATES.map((template) => (
@@ -1115,7 +1115,7 @@ export function AccountManagementPage({
                 ))}
               </div>
             </section> : null}
-            <div className="otto-account-editor__grid">
+            <div className="claw-account-editor__grid">
               {editorMode === 'identity' ? <>
                 <label><span>登录账号</span><input ref={initialFocusRef} aria-label="登录账号" value={draft.username} onChange={(e) => setDraft((v) => ({ ...v, username: e.target.value }))} required /></label>
                 <label><span>显示名称</span><input aria-label="显示名称" value={draft.name} onChange={(e) => setDraft((v) => ({ ...v, name: e.target.value }))} required /></label>
@@ -1125,7 +1125,7 @@ export function AccountManagementPage({
                 <label><span>{editing === 'new' ? '初始密码' : '重设密码（留空不变）'}</span><input aria-label={editing === 'new' ? '初始密码' : '重设密码（留空不变）'} type="password" minLength={8} maxLength={128} value={draft.password} onChange={(e) => setDraft((v) => ({ ...v, password: e.target.value }))} required={editing === 'new'} placeholder="至少 8 位，不能是纯数字或纯字母" /><small>不能使用常见密码、纯数字、纯字母或连续重复字符。</small></label>
               </> : null}
               {editorMode === 'assignment' ? <>
-                <label><span>所属部门</span><input ref={assignmentFocusRef} aria-label="安排职位部门" list="otto-assignment-departments" value={draft.department} placeholder="选择或输入部门" onChange={(event) => {
+                <label><span>所属部门</span><input ref={assignmentFocusRef} aria-label="安排职位部门" list="claw-assignment-departments" value={draft.department} placeholder="选择或输入部门" onChange={(event) => {
                   const nextName = event.target.value;
                   const department = organizationDepartments.find((item) => item.name.trim().toLocaleLowerCase() === nextName.trim().toLocaleLowerCase());
                   setDraft((value) => ({
@@ -1137,8 +1137,8 @@ export function AccountManagementPage({
                     role: '',
                     isAdmin: false,
                   }));
-                }} required /><datalist id="otto-assignment-departments">{organizationDepartments.map((department) => <option key={department.id} value={department.name} />)}</datalist></label>
-                <label><span>职位 / 岗位</span><input aria-label="安排真实职位" list="otto-assignment-positions" value={draft.positionTitle} placeholder="选择或输入自定义职位" onChange={(event) => {
+                }} required /><datalist id="claw-assignment-departments">{organizationDepartments.map((department) => <option key={department.id} value={department.name} />)}</datalist></label>
+                <label><span>职位 / 岗位</span><input aria-label="安排真实职位" list="claw-assignment-positions" value={draft.positionTitle} placeholder="选择或输入自定义职位" onChange={(event) => {
                   const nextTitle = event.target.value;
                   const position = assignmentDepartment?.positions.find((item) => item.title.trim().toLocaleLowerCase() === nextTitle.trim().toLocaleLowerCase());
                   setDraft((value) => ({
@@ -1150,23 +1150,23 @@ export function AccountManagementPage({
                       : position?.roleMapping === 'department_admin' ? '部门管理员' : nextTitle.trim() ? '成员' : '',
                     isAdmin: position?.roleMapping === 'enterprise_admin',
                   }));
-                }} required /><datalist id="otto-assignment-positions">{(assignmentDepartment?.positions ?? []).map((position) => <option key={position.id} value={position.title} />)}</datalist></label>
+                }} required /><datalist id="claw-assignment-positions">{(assignmentDepartment?.positions ?? []).map((position) => <option key={position.id} value={position.title} />)}</datalist></label>
                 <label><span>权限映射</span><input aria-label="职位权限映射" value={assignmentPosition ? (assignmentPosition.roleMapping === 'enterprise_admin' ? '企业管理员' : assignmentPosition.roleMapping === 'department_admin' ? '部门管理员' : '成员') : draft.positionTitle.trim() ? '成员（自定义职位）' : ''} readOnly placeholder="自定义职位默认普通成员" /></label>
-                {organizationDepartments.length === 0 ? <div className="otto-account-page__error" role="alert">企业树未启用或尚未建立部门职位，请先在上方“部门与职位管理”中创建。</div> : null}
+                {organizationDepartments.length === 0 ? <div className="claw-account-page__error" role="alert">企业树未启用或尚未建立部门职位，请先在上方“部门与职位管理”中创建。</div> : null}
               </> : <>
                 <label><span>职位 / 岗位</span><input aria-label="职位 / 岗位" value={draft.positionTitle} onChange={(e) => setDraft((v) => ({ ...v, positionTitle: e.target.value, positionId: '' }))} placeholder="例如：品牌运营" /></label>
                 <label><span>角色</span><input aria-label="角色" value={draft.role} onChange={(e) => setDraft((v) => ({ ...v, role: e.target.value }))} placeholder="例如：桌面支持" /></label>
-                <label><span>部门</span><input aria-label="部门" list="otto-account-departments" value={draft.department} onChange={(e) => setDraft((v) => ({ ...v, department: e.target.value, departmentId: '' }))} placeholder="选择或输入部门" /><datalist id="otto-account-departments">{ACCOUNT_DEPARTMENT_PRESETS.map((department) => <option key={department} value={department} />)}</datalist></label>
+                <label><span>部门</span><input aria-label="部门" list="claw-account-departments" value={draft.department} onChange={(e) => setDraft((v) => ({ ...v, department: e.target.value, departmentId: '' }))} placeholder="选择或输入部门" /><datalist id="claw-account-departments">{ACCOUNT_DEPARTMENT_PRESETS.map((department) => <option key={department} value={department} />)}</datalist></label>
               </>}
               {editorMode === 'identity' ? <>
-                <div className="otto-account-editor__field is-wide"><span>职责标签</span><div className="otto-account-tag-presets" aria-label="预设标签">{ACCOUNT_TAG_PRESETS.map((tag) => { const selected = tagsFromText(draft.tags).includes(tag); return <button key={tag} type="button" className={selected ? 'is-selected' : ''} aria-pressed={selected} onClick={() => setDraft((v) => ({ ...v, tags: toggleAccountTag(v.tags, tag) }))}>{tag}</button>; })}</div><input aria-label="账号标签" value={draft.tags} onChange={(e) => setDraft((v) => ({ ...v, tags: e.target.value }))} placeholder="也可输入自定义标签，用逗号分隔" /><small>标签参与专家权限、工单和任务路由。</small></div>
+                <div className="claw-account-editor__field is-wide"><span>职责标签</span><div className="claw-account-tag-presets" aria-label="预设标签">{ACCOUNT_TAG_PRESETS.map((tag) => { const selected = tagsFromText(draft.tags).includes(tag); return <button key={tag} type="button" className={selected ? 'is-selected' : ''} aria-pressed={selected} onClick={() => setDraft((v) => ({ ...v, tags: toggleAccountTag(v.tags, tag) }))}>{tag}</button>; })}</div><input aria-label="账号标签" value={draft.tags} onChange={(e) => setDraft((v) => ({ ...v, tags: e.target.value }))} placeholder="也可输入自定义标签，用逗号分隔" /><small>标签参与专家权限、工单和任务路由。</small></div>
                 {editing !== 'new' ? <label><span>账号状态</span><select aria-label="账号状态" value={draft.status} onChange={(e) => setDraft((v) => ({ ...v, status: e.target.value as AccountDraft['status'] }))}><option value="active">可登录</option><option value="disabled">停用</option></select></label> : null}
-                <label className="otto-account-editor__check"><input type="checkbox" checked={tagsFromText(draft.tags).includes('维修工作人员')} onChange={() => setDraft((v) => ({ ...v, tags: toggleAccountTag(v.tags, '维修工作人员') }))} /><span>设为维修工作人员（新报修自动投递）</span></label>
-                <label className="otto-account-editor__check"><input type="checkbox" checked={tagsFromText(draft.tags).includes('客服人员')} onChange={() => setDraft((v) => ({ ...v, tags: toggleAccountTag(v.tags, '客服人员') }))} /><span>设为园区客服人员（六类服务申请自动投递）</span></label>
-                <label className="otto-account-editor__check"><input type="checkbox" checked={draft.isAdmin} onChange={(e) => setDraft((v) => ({ ...v, isAdmin: e.target.checked }))} /><span>授予身份管理权限</span></label>
+                <label className="claw-account-editor__check"><input type="checkbox" checked={tagsFromText(draft.tags).includes('维修工作人员')} onChange={() => setDraft((v) => ({ ...v, tags: toggleAccountTag(v.tags, '维修工作人员') }))} /><span>设为维修工作人员（新报修自动投递）</span></label>
+                <label className="claw-account-editor__check"><input type="checkbox" checked={tagsFromText(draft.tags).includes('客服人员')} onChange={() => setDraft((v) => ({ ...v, tags: toggleAccountTag(v.tags, '客服人员') }))} /><span>设为园区客服人员（六类服务申请自动投递）</span></label>
+                <label className="claw-account-editor__check"><input type="checkbox" checked={draft.isAdmin} onChange={(e) => setDraft((v) => ({ ...v, isAdmin: e.target.checked }))} /><span>授予身份管理权限</span></label>
               </> : null}
             </div>
-            {error ? <div className="otto-account-page__error" role="alert">{error}</div> : null}
+            {error ? <div className="claw-account-page__error" role="alert">{error}</div> : null}
             <footer>
               {editorMode === 'identity' && editing !== 'new' && editing.id !== currentAccount.id ? (
                 <button
@@ -1181,7 +1181,7 @@ export function AccountManagementPage({
               <button type="button" onClick={closeEditor} disabled={saving}>取消</button>
               <button type="button" className="is-primary" onClick={() => void save()} disabled={editorMode === 'assignment' ? saving || !draft.department.trim() || !draft.positionTitle.trim() : saving || !draft.username.trim() || !draft.name.trim() || (editing === 'new' && !isAcceptableAccountPassword(draft.password)) || (editing !== 'new' && Boolean(draft.password) && !isAcceptableAccountPassword(draft.password))}>{saving ? '正在保存…' : editorMode === 'assignment' ? '保存职位' : '保存身份'}</button>
             </footer>
-            {editorMode === 'identity' && editing !== 'new' && editing.id === currentAccount.id ? <p className="otto-account-editor__self">这是你当前登录的账号；停用或降权将在会话重新校验后生效。</p> : null}
+            {editorMode === 'identity' && editing !== 'new' && editing.id === currentAccount.id ? <p className="claw-account-editor__self">这是你当前登录的账号；停用或降权将在会话重新校验后生效。</p> : null}
           </section>
         </div>
       ) : null}

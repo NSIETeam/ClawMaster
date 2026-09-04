@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -77,10 +77,10 @@ function repeatedWorkResultLogs(): Record<string, WorkLogEntry[]> {
 }
 
 beforeEach(async () => {
-  previousUserDir = process.env['OTTO_USER_DIR'];
+  previousUserDir = process.env['CLAWMASTER_USER_DIR'];
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-auto-skill-'));
   tempDirs.push(root);
-  process.env['OTTO_USER_DIR'] = root;
+  process.env['CLAWMASTER_USER_DIR'] = root;
   workLogMock.readDateRange.mockReset().mockResolvedValue(repeatedPatternLogs());
   workLogMock.log.mockClear();
 });
@@ -88,8 +88,8 @@ beforeEach(async () => {
 afterEach(async () => {
   stopAutoSkillScanner();
   vi.useRealTimers();
-  if (previousUserDir === undefined) delete process.env['OTTO_USER_DIR'];
-  else process.env['OTTO_USER_DIR'] = previousUserDir;
+  if (previousUserDir === undefined) delete process.env['CLAWMASTER_USER_DIR'];
+  else process.env['CLAWMASTER_USER_DIR'] = previousUserDir;
   await Promise.all(
     tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })),
   );
@@ -211,7 +211,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
   });
 
   it('stores portable pending paths and rehydrates them on another device', async () => {
-    const sourceRoot = process.env['OTTO_USER_DIR']!;
+    const sourceRoot = process.env['CLAWMASTER_USER_DIR']!;
     const [candidate] = await scanAndStageSkillCandidates(fakeConfig, () => 'user-1');
     const sourcePendingPath = path.join(
       sourceRoot,
@@ -234,7 +234,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
     );
     await fs.mkdir(path.dirname(restoredPendingPath), { recursive: true });
     await fs.copyFile(sourcePendingPath, restoredPendingPath);
-    process.env['OTTO_USER_DIR'] = restoredRoot;
+    process.env['CLAWMASTER_USER_DIR'] = restoredRoot;
 
     const [restored] = await listPendingSkillCandidates();
     const expectedPath = path.join(restoredRoot, 'skills', candidate.name, 'SKILL.md');
@@ -261,7 +261,7 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
 
   it('即使候选数据被篡改，也不能把 Skill 写到用户 skills 目录之外', async () => {
     const [candidate] = await generateSkillCandidates(fakeConfig);
-    const outsidePath = path.join(process.env['OTTO_USER_DIR']!, 'outside.md');
+    const outsidePath = path.join(process.env['CLAWMASTER_USER_DIR']!, 'outside.md');
 
     await expect(
       confirmAndSaveSkill({ ...candidate, filePath: outsidePath }),

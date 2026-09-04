@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import type { EnterpriseAtoaInboxMessage } from '../preload/index.js';
@@ -45,7 +45,7 @@ export interface ProcessEnterpriseAtoaRequestInput {
     sources: AtoaContextSource[],
     authorizedMessageIds: string[],
   ): Promise<AuthorizedAtoaContext>;
-  askOtto(input: {
+  askClawMaster(input: {
     question: string;
     workContext: string;
     mode: 'answer' | 'consult';
@@ -96,7 +96,7 @@ export async function processEnterpriseAtoaRequest(
   let answer: string;
   let status: EnterpriseAtoaProcessingStatus = 'answered';
   try {
-    answer = await input.askOtto({
+    answer = await input.askClawMaster({
       question: parsed.payload.question,
       workContext: context.context,
       mode: parsed.payload.mode,

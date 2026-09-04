@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -24,7 +24,7 @@ const member = {
 const account = {
   id: 'me',
   organizationId: 'org-1',
-  organizationName: 'Otto 企业',
+  organizationName: 'ClawMaster 企业',
   accountType: 'enterprise' as const,
   employeeId: 'OTTO-001',
   username: 'bob',
@@ -41,14 +41,14 @@ const account = {
   updatedAt: '2026-07-20T00:00:00.000Z',
 };
 
-describe('双方 Otto 协商发起弹窗', () => {
-  it('先生成本方提案并预览，用户再次确认后才发送给对方 Otto', async () => {
+describe('双方 ClawMaster 协商发起弹窗', () => {
+  it('先生成本方提案并预览，用户再次确认后才发送给对方 ClawMaster', async () => {
     const collectContext = vi.fn(async () => ({
       context: '我的日程：16:00 后有空。',
       loadedSources: ['schedules' as const],
       failedSources: [],
     }));
-    const askOtto = vi.fn(async () => '建议 16:30 评审，先审接口，仍需双方确认。');
+    const askClawMaster = vi.fn(async () => '建议 16:30 评审，先审接口，仍需双方确认。');
     const sendMessage = vi.fn(async (_peerAccountId: string, _content: string) => ({
       id: 'sent-1',
       senderAccountId: 'me',
@@ -67,7 +67,7 @@ describe('双方 Otto 协商发起弹窗', () => {
         onClose={vi.fn()}
         onSent={onSent}
         collectContext={collectContext}
-        askOtto={askOtto}
+        askClawMaster={askClawMaster}
         sendMessage={sendMessage}
       />,
     );
@@ -80,7 +80,7 @@ describe('双方 Otto 协商发起弹窗', () => {
 
     await screen.findByText('建议 16:30 评审，先审接口，仍需双方确认。');
     expect(collectContext).toHaveBeenCalledWith(['schedules']);
-    expect(askOtto).toHaveBeenCalledWith({
+    expect(askClawMaster).toHaveBeenCalledWith({
       question: '协商明天的接口评审时间和分工',
       workContext: '我的日程：16:00 后有空。',
       mode: 'consult_initiator',
@@ -107,7 +107,7 @@ describe('双方 Otto 协商发起弹窗', () => {
       loadedSources: [],
       failedSources: [],
     }));
-    const askOtto = vi.fn(async () => '可先询问双方候选时间。');
+    const askClawMaster = vi.fn(async () => '可先询问双方候选时间。');
     render(
       <AtoaConsultDialog
         account={account}
@@ -116,7 +116,7 @@ describe('双方 Otto 协商发起弹窗', () => {
         onClose={vi.fn()}
         onSent={vi.fn()}
         collectContext={collectContext}
-        askOtto={askOtto}
+        askClawMaster={askClawMaster}
         sendMessage={vi.fn()}
       />,
     );

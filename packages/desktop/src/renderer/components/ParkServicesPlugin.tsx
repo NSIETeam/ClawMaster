@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -132,17 +132,17 @@ function isCreatorUpdateUnread(ticket: EnterpriseRepairTicket): boolean {
 }
 
 function showParkNotification(
-  payload: Parameters<NonNullable<typeof window.otto.notificationShow>>[0],
+  payload: Parameters<NonNullable<typeof window.clawmaster.notificationShow>>[0],
   fallbackTitle: string,
   fallbackBody: string,
 ): void {
-  const notify = window.otto.notificationShow?.(payload);
+  const notify = window.clawmaster.notificationShow?.(payload);
   if (notify) {
     void notify.catch(() => {
-      void window.otto.parkNativeNotify?.(fallbackTitle, fallbackBody);
+      void window.clawmaster.parkNativeNotify?.(fallbackTitle, fallbackBody);
     });
   } else {
-    void window.otto.parkNativeNotify?.(fallbackTitle, fallbackBody);
+    void window.clawmaster.parkNativeNotify?.(fallbackTitle, fallbackBody);
   }
 }
 
@@ -427,10 +427,10 @@ function defaultServices(park: string, actors: ParkActorDirectory = {}): ParkSer
   return personalizeParkServices(baseDefaultServices(park), actors);
 }
 
-const PARK_OPEN_EVENT = 'otto:open-park-services';
-const PARK_CLOSE_EVENT = 'otto:close-park-services';
-const PARK_HIDE_EVENT = 'otto:hide-park-services';
-export const PARK_STATE_EVENT = 'otto:park-services-state';
+const PARK_OPEN_EVENT = 'clawmaster:open-park-services';
+const PARK_CLOSE_EVENT = 'clawmaster:close-park-services';
+const PARK_HIDE_EVENT = 'clawmaster:hide-park-services';
+export const PARK_STATE_EVENT = 'clawmaster:park-services-state';
 
 export function openParkServices(target?: ParkModuleTarget): void {
   window.dispatchEvent(new CustomEvent(PARK_OPEN_EVENT, { detail: { target } }));
@@ -451,7 +451,7 @@ export function useParkBrand(): string {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const enterpriseParkView = window.otto?.enterpriseParkView;
+      const enterpriseParkView = window.clawmaster?.enterpriseParkView;
       if (typeof enterpriseParkView === 'function') {
         try {
           const park = await enterpriseParkView();
@@ -488,7 +488,7 @@ function AnnouncementView({ onBack }: { onBack: () => void }): React.JSX.Element
   const [error, setError] = useState<string | null>(null);
   const refresh = useCallback(async (): Promise<void> => {
     try {
-      const next = await window.otto.enterpriseParkPublications();
+      const next = await window.clawmaster.enterpriseParkPublications();
       setItems(next.filter((item) => item.kind === 'announcement'));
       setError(null);
     } catch (cause) { setError(errorMessage(cause)); } finally { setLoading(false); }
@@ -498,16 +498,16 @@ function AnnouncementView({ onBack }: { onBack: () => void }): React.JSX.Element
     setSelectedId(item.id);
     if (!item.readAt) {
       try {
-        const next = await window.otto.enterpriseParkPublicationRead(item.id);
+        const next = await window.clawmaster.enterpriseParkPublicationRead(item.id);
         setItems((current) => current.map((value) => value.id === next.id ? next : value));
       } catch (cause) { setError(errorMessage(cause)); }
     }
   };
   const selected = items.find((item) => item.id === selectedId) ?? null;
-  return <div className="otto-park-demo">
-    <div className="otto-park-demo__topline"><button type="button" className="otto-park-demo__back" onClick={onBack}>← 返回服务列表</button><span className="otto-park-demo__status">{items.filter((item) => !item.readAt).length} 条未读</span></div>
-    {error ? <div className="otto-park-form__receipt" role="alert">{error}</div> : null}
-    {loading ? <div className="otto-park-repair__empty">正在读取公告…</div> : items.length ? <div className="otto-park-survey"><section className="otto-park-survey__publish" aria-label="公告列表"><div className="otto-park-repair__roles">{items.map((item) => <button key={item.id} type="button" className={selected?.id === item.id ? 'is-active' : ''} onClick={() => { void openItem(item); }}>{item.readAt ? '' : '新 · '}{item.title}</button>)}</div></section>{selected ? <section className="otto-park-announcement-detail" aria-label="公告详情"><div className="otto-park-receiver__label">已查看</div><h3>{selected.title}</h3><p>{selected.body}</p><small>{new Date(selected.createdAt).toLocaleString('zh-CN')}</small></section> : <div className="otto-park-repair__empty">选择一条公告查看内容，打开后会自动确认已查看。</div>}</div> : <div className="otto-park-repair__empty">暂无园区公告。</div>}
+  return <div className="claw-park-demo">
+    <div className="claw-park-demo__topline"><button type="button" className="claw-park-demo__back" onClick={onBack}>← 返回服务列表</button><span className="claw-park-demo__status">{items.filter((item) => !item.readAt).length} 条未读</span></div>
+    {error ? <div className="claw-park-form__receipt" role="alert">{error}</div> : null}
+    {loading ? <div className="claw-park-repair__empty">正在读取公告…</div> : items.length ? <div className="claw-park-survey"><section className="claw-park-survey__publish" aria-label="公告列表"><div className="claw-park-repair__roles">{items.map((item) => <button key={item.id} type="button" className={selected?.id === item.id ? 'is-active' : ''} onClick={() => { void openItem(item); }}>{item.readAt ? '' : '新 · '}{item.title}</button>)}</div></section>{selected ? <section className="claw-park-announcement-detail" aria-label="公告详情"><div className="claw-park-receiver__label">已查看</div><h3>{selected.title}</h3><p>{selected.body}</p><small>{new Date(selected.createdAt).toLocaleString('zh-CN')}</small></section> : <div className="claw-park-repair__empty">选择一条公告查看内容，打开后会自动确认已查看。</div>}</div> : <div className="claw-park-repair__empty">暂无园区公告。</div>}
   </div>;
 }
 
@@ -526,10 +526,10 @@ function SatisfactionView({ onBack }: { onBack: () => void }): React.JSX.Element
   const refresh = useCallback(async (): Promise<void> => {
     try {
       const [session, publications, park] = await Promise.all([
-        window.otto.enterpriseSession(),
-        window.otto.enterpriseParkPublications(),
-        typeof window.otto.enterpriseParkView === 'function'
-          ? window.otto.enterpriseParkView().catch(() => null)
+        window.clawmaster.enterpriseSession(),
+        window.clawmaster.enterpriseParkPublications(),
+        typeof window.clawmaster.enterpriseParkView === 'function'
+          ? window.clawmaster.enterpriseParkView().catch(() => null)
           : Promise.resolve(null),
       ]);
       setAccount(session.account);
@@ -556,17 +556,17 @@ function SatisfactionView({ onBack }: { onBack: () => void }): React.JSX.Element
       );
       if (Object.values(requiredIdentity).some((value) => !value))
         throw new Error('请完善公司、地址、房间和联系人信息');
-      const next = await window.otto.enterpriseParkSurveySubmit(selected.id, {
+      const next = await window.clawmaster.enterpriseParkSurveySubmit(selected.id, {
         ...requiredIdentity, score, focus, feedback, submittedBy: identity.contact || account?.name || '',
       });
       setItems((current) => current.map((item) => item.id === next.id ? next : item));
-      window.dispatchEvent(new CustomEvent('otto:park-publication-handled', { detail: { id: selected.id } }));
+      window.dispatchEvent(new CustomEvent('clawmaster:park-publication-handled', { detail: { id: selected.id } }));
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   };
-  return <div className="otto-park-demo">
-    <div className="otto-park-demo__topline"><button type="button" className="otto-park-demo__back" onClick={onBack}>← 返回服务列表</button><span className={`otto-park-demo__status ${selected?.submittedAt ? 'is-done' : ''}`}>{selected?.submittedAt ? '已提交' : selected ? '待填写' : '暂无问卷'}</span></div>
-    {error ? <div className="otto-park-form__receipt" role="alert">{error}</div> : null}
-    {items.length ? <><div className="otto-park-repair__roles">{items.map((item) => <button key={item.id} type="button" className={selected?.id === item.id ? 'is-active' : ''} onClick={() => setSelectedId(item.id)}>{item.submittedAt ? '已提交 · ' : '待填写 · '}{item.title}</button>)}</div>{selected ? <form className="otto-park-survey__form" onSubmit={(event) => { void submit(event); }} aria-label="员工填写满意度调查"><div className="otto-park-receiver__label">提交人：{account?.name || '当前用户'}</div><h3>{selected.title}</h3><p>{selected.body}</p><div className="otto-park-form__grid">{COMMON_SERVICE_FORM_FIELDS.map((field) => <label key={field.key} className="otto-park-form__field">{field.label}<input aria-label={field.label} required value={selected.responseData?.[field.key] ?? identity[field.key as keyof typeof identity]} onChange={(event) => setIdentity((current) => ({ ...current, [field.key]: event.target.value }))} disabled={Boolean(selected.submittedAt)} placeholder={field.placeholder} /></label>)}</div><label>总体满意度<select value={selected.responseData?.score || score} onChange={(event) => setScore(event.target.value)} disabled={Boolean(selected.submittedAt)}><option value="5">5 分 · 非常满意</option><option value="4">4 分 · 满意</option><option value="3">3 分 · 一般</option><option value="2">2 分 · 待改进</option><option value="1">1 分 · 不满意</option></select></label><label>重点关注<input required value={selected.responseData?.focus || focus} onChange={(event) => setFocus(event.target.value)} disabled={Boolean(selected.submittedAt)} placeholder="例如：网络响应、会议室环境" /></label><label>改进建议<textarea required rows={4} value={selected.responseData?.feedback || feedback} onChange={(event) => setFeedback(event.target.value)} disabled={Boolean(selected.submittedAt)} placeholder="请填写具体建议" /></label><button type="submit" className="otto-park-demo__primary" disabled={busy || Boolean(selected.submittedAt)}>{selected.submittedAt ? '已实名提交，不能修改' : busy ? '正在提交…' : '提交问卷'}</button></form> : null}</> : <div className="otto-park-repair__empty">暂无需要填写的满意度调查。</div>}
+  return <div className="claw-park-demo">
+    <div className="claw-park-demo__topline"><button type="button" className="claw-park-demo__back" onClick={onBack}>← 返回服务列表</button><span className={`claw-park-demo__status ${selected?.submittedAt ? 'is-done' : ''}`}>{selected?.submittedAt ? '已提交' : selected ? '待填写' : '暂无问卷'}</span></div>
+    {error ? <div className="claw-park-form__receipt" role="alert">{error}</div> : null}
+    {items.length ? <><div className="claw-park-repair__roles">{items.map((item) => <button key={item.id} type="button" className={selected?.id === item.id ? 'is-active' : ''} onClick={() => setSelectedId(item.id)}>{item.submittedAt ? '已提交 · ' : '待填写 · '}{item.title}</button>)}</div>{selected ? <form className="claw-park-survey__form" onSubmit={(event) => { void submit(event); }} aria-label="员工填写满意度调查"><div className="claw-park-receiver__label">提交人：{account?.name || '当前用户'}</div><h3>{selected.title}</h3><p>{selected.body}</p><div className="claw-park-form__grid">{COMMON_SERVICE_FORM_FIELDS.map((field) => <label key={field.key} className="claw-park-form__field">{field.label}<input aria-label={field.label} required value={selected.responseData?.[field.key] ?? identity[field.key as keyof typeof identity]} onChange={(event) => setIdentity((current) => ({ ...current, [field.key]: event.target.value }))} disabled={Boolean(selected.submittedAt)} placeholder={field.placeholder} /></label>)}</div><label>总体满意度<select value={selected.responseData?.score || score} onChange={(event) => setScore(event.target.value)} disabled={Boolean(selected.submittedAt)}><option value="5">5 分 · 非常满意</option><option value="4">4 分 · 满意</option><option value="3">3 分 · 一般</option><option value="2">2 分 · 待改进</option><option value="1">1 分 · 不满意</option></select></label><label>重点关注<input required value={selected.responseData?.focus || focus} onChange={(event) => setFocus(event.target.value)} disabled={Boolean(selected.submittedAt)} placeholder="例如：网络响应、会议室环境" /></label><label>改进建议<textarea required rows={4} value={selected.responseData?.feedback || feedback} onChange={(event) => setFeedback(event.target.value)} disabled={Boolean(selected.submittedAt)} placeholder="请填写具体建议" /></label><button type="submit" className="claw-park-demo__primary" disabled={busy || Boolean(selected.submittedAt)}>{selected.submittedAt ? '已实名提交，不能修改' : busy ? '正在提交…' : '提交问卷'}</button></form> : null}</> : <div className="claw-park-repair__empty">暂无需要填写的满意度调查。</div>}
   </div>;
 }
 
@@ -659,10 +659,10 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
   const refresh = useCallback(async (): Promise<void> => {
     try {
       const [session, next, park] = await Promise.all([
-        window.otto.enterpriseSession(),
-        window.otto.enterpriseTicketList(),
-        typeof window.otto.enterpriseParkView === 'function'
-          ? window.otto.enterpriseParkView().catch(() => null)
+        window.clawmaster.enterpriseSession(),
+        window.clawmaster.enterpriseTicketList(),
+        typeof window.clawmaster.enterpriseParkView === 'function'
+          ? window.clawmaster.enterpriseParkView().catch(() => null)
           : Promise.resolve(null),
       ]);
       setAccount(session.account);
@@ -693,12 +693,12 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
   }, [service.id]);
 
   const refreshResources = useCallback(async (): Promise<void> => {
-    if (service.id !== 'meeting-room' || !window.otto?.enterpriseParkResources) {
+    if (service.id !== 'meeting-room' || !window.clawmaster?.enterpriseParkResources) {
       setResources(null);
       return;
     }
     try {
-      setResources(await window.otto.enterpriseParkResources());
+      setResources(await window.clawmaster.enterpriseParkResources());
     } catch {
       setResources(null);
     }
@@ -854,7 +854,7 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
             .filter((field) => !(service.id === 'electric-card' && field.key === 'chargingKwh'))
             .map((field) => `${field.label}：${displayForm[field.key] || ''}`),
         ].join('\n');
-      const next = await window.otto.enterpriseTicketSubmit({
+      const next = await window.clawmaster.enterpriseTicketSubmit({
         serviceId: service.id,
         title: service.id === 'repair'
           ? `${primary} · ${normalized.category}报修`
@@ -912,7 +912,7 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
     setBusy(true);
     setError(null);
     try {
-      const next = await window.otto.enterpriseTicketAction(ticket.id, {
+      const next = await window.clawmaster.enterpriseTicketAction(ticket.id, {
         action: actionName,
         ...(['respond', 'respond_and_transfer'].includes(actionName)
           ? { responseType: response.type, responseText: response.text }
@@ -935,44 +935,44 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
     setSelectedId(ticket.id);
     if (!ticket.readAt) {
       try {
-        replaceTicket(await window.otto.enterpriseTicketRead(ticket.id));
+        replaceTicket(await window.clawmaster.enterpriseTicketRead(ticket.id));
       } catch { /* 后续轮询重试 */ }
     }
   };
 
   if (loading) {
-    return <div className="otto-park-demo"><div className="otto-park-repair__empty">正在读取园区服务…</div></div>;
+    return <div className="claw-park-demo"><div className="claw-park-repair__empty">正在读取园区服务…</div></div>;
   }
   if (!account) {
-    return <div className="otto-park-demo">
-      <div className="otto-park-demo__topline"><button type="button" className="otto-park-demo__back" onClick={onBack}>← 返回服务列表</button></div>
-      <div className="otto-park-repair__empty">{error || '请先登录企业账号。'}</div>
+    return <div className="claw-park-demo">
+      <div className="claw-park-demo__topline"><button type="button" className="claw-park-demo__back" onClick={onBack}>← 返回服务列表</button></div>
+      <div className="claw-park-repair__empty">{error || '请先登录企业账号。'}</div>
     </div>;
   }
 
-  return <div className="otto-park-demo">
-    <div className="otto-park-demo__topline">
-      <button type="button" className="otto-park-demo__back" onClick={onBack}>← 返回服务列表</button>
-      <span className={`otto-park-demo__status ${activeTicket?.status === '已完成' ? 'is-done' : ''}`}>
+  return <div className="claw-park-demo">
+    <div className="claw-park-demo__topline">
+      <button type="button" className="claw-park-demo__back" onClick={onBack}>← 返回服务列表</button>
+      <span className={`claw-park-demo__status ${activeTicket?.status === '已完成' ? 'is-done' : ''}`}>
         {activeTicket?.status || (handlerMode ? '待处理' : '可提交')}
       </span>
     </div>
-    {error ? <div className="otto-park-form__receipt" role="alert">{error}</div> : null}
+    {error ? <div className="claw-park-form__receipt" role="alert">{error}</div> : null}
 
-    {creatorHistoryMode && activeTicket?.isCreator ? <div className="otto-park-technician-form">
-      <div className="otto-park-request-summary">
+    {creatorHistoryMode && activeTicket?.isCreator ? <div className="claw-park-technician-form">
+      <div className="claw-park-request-summary">
         <div><span>申请编号</span><strong>{ticketApplicationNumber(activeTicket)}</strong></div>
         <div><span>服务类型</span><strong>{service.name}</strong></div>
         <div><span>状态</span><strong>{activeTicket.status}</strong></div>
         <div><span>办理回复</span><strong>{activeTicket.responseType || '等待受理'}</strong></div>
         <div><span>回复内容补充</span><strong>{activeTicket.responseText || '暂无'}</strong></div>
       </div>
-      <section className="otto-park-ticket-history" aria-label="我的园区服务处理历史">
-        <div className="otto-park-ticket-history__head"><strong>处理记录</strong><span>{historyEntries.length} 条 · 按时间顺序</span></div>
+      <section className="claw-park-ticket-history" aria-label="我的园区服务处理历史">
+        <div className="claw-park-ticket-history__head"><strong>处理记录</strong><span>{historyEntries.length} 条 · 按时间顺序</span></div>
         <ol>{historyEntries.map((entry) => <li key={entry.id}>
-          <span className="otto-park-ticket-history__marker" aria-hidden />
+          <span className="claw-park-ticket-history__marker" aria-hidden />
           <div>
-            <div className="otto-park-ticket-history__meta">
+            <div className="claw-park-ticket-history__meta">
               <strong>{HISTORY_ACTION_LABELS[entry.action]}</strong>
               <time dateTime={entry.createdAt}>{formatParkTimestamp(entry.createdAt)}</time>
             </div>
@@ -981,11 +981,11 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
           </div>
         </li>)}</ol>
       </section>
-      {activeTicket.status === '待验收' ? <button type="button" className="otto-park-demo__primary" disabled={busy} onClick={() => { void action(activeTicket, 'confirm'); }}>确认办理完成</button> : null}
+      {activeTicket.status === '待验收' ? <button type="button" className="claw-park-demo__primary" disabled={busy} onClick={() => { void action(activeTicket, 'confirm'); }}>确认办理完成</button> : null}
     </div> : !handlerMode ? (
-      <form className="otto-park-request-form" onSubmit={(event) => { void submitTicket(event); }} aria-label={`${service.name}申请表`}>
-        {service.id === 'meeting-room' ? <div className="otto-park-meeting-booking">
-          <label className="otto-park-form__field">会议室名称
+      <form className="claw-park-request-form" onSubmit={(event) => { void submitTicket(event); }} aria-label={`${service.name}申请表`}>
+        {service.id === 'meeting-room' ? <div className="claw-park-meeting-booking">
+          <label className="claw-park-form__field">会议室名称
             <select aria-label="会议室名称" required value={form.roomId} onChange={(event) => chooseRoom(event.target.value)}>
               <option value="">请选择会议室</option>
               {resources?.meetingRooms.map((room) => <option key={room.id} value={room.id}>
@@ -993,11 +993,11 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
               </option>)}
             </select>
           </label>
-          {selectedRoom ? <div className="otto-park-meeting-room-detail">
+          {selectedRoom ? <div className="claw-park-meeting-room-detail">
             {selectedRoom.imageUrl ? (
               <img src={selectedRoom.imageUrl} alt={`${selectedRoom.name}照片`} />
             ) : (
-              <div className="otto-park-meeting-room-detail__placeholder" aria-hidden>
+              <div className="claw-park-meeting-room-detail__placeholder" aria-hidden>
                 <IconCalendarCheck size={26} />
               </div>
             )}
@@ -1007,7 +1007,7 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
               <span>{selectedRoom.priceHalfDay} 元/半天 · {selectedRoom.openingHours || '开放时间待确认'}</span>
             </div>
           </div> : null}
-          <label className="otto-park-form__field">使用日期
+          <label className="claw-park-form__field">使用日期
             <input
               aria-label="使用日期"
               type="date"
@@ -1025,14 +1025,14 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
               }))}
             />
           </label>
-          <fieldset className="otto-park-meeting-slots">
+          <fieldset className="claw-park-meeting-slots">
             <legend>使用时间</legend>
             {!form.roomId ? <p>请先选择会议室</p> : visibleSlots.length ? <>
-              <div className="otto-park-meeting-timeline-scroll">
-                <div className="otto-park-meeting-timeline__hours" aria-hidden>
+              <div className="claw-park-meeting-timeline-scroll">
+                <div className="claw-park-meeting-timeline__hours" aria-hidden>
                   {Array.from({ length: 15 }, (_, index) => <span key={index}>{String(9 + index).padStart(2, '0')}:00</span>)}
                 </div>
-                <div className="otto-park-meeting-timeline" role="group" aria-label="09:00 到 23:00 会议室预约时间轴">
+                <div className="claw-park-meeting-timeline" role="group" aria-label="09:00 到 23:00 会议室预约时间轴">
                   {visibleSlots.map((slot) => {
                     const selectedSlot = selectedMeetingSlots.some((item) => item.id === slot.id);
                     return <button
@@ -1047,14 +1047,14 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
                   })}
                 </div>
               </div>
-              <div className="otto-park-meeting-selection">
+              <div className="claw-park-meeting-selection">
                 <span>{form.startTime && form.endTime
                   ? `已选择 ${form.startTime}–${form.endTime}；${selectedRoom?.priceHalfDay} 元/半天，不足半天按半天计；本次预计 ${meetingEstimatedAmount} 元；再次点击黄色时段可取消`
                   : '点击绿色格子选择开始时间，再点击后续绿色格子延长时间'}</span>
                 {form.startTime ? <button type="button" onClick={() => setForm((current) => ({ ...current, slotKey: '', startTime: '', endTime: '', time: '' }))}>重新选择</button> : null}
               </div>
             </> : <p>该日期暂时没有园区发布的可预约时段</p>}
-            <div className="otto-park-meeting-legend">
+            <div className="claw-park-meeting-legend">
               <span className="is-available">绿色 · 可预约</span>
               <span className="is-booked">红色 · 已预约</span>
               <span className="is-selected">黄色 · 已选择</span>
@@ -1063,9 +1063,9 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
           </fieldset>
         </div> : null}
 
-        <div className="otto-park-form__grid">
+        <div className="claw-park-form__grid">
           {fields.map((field) => <React.Fragment key={field.key}>
-            <label className={`otto-park-form__field ${field.key === 'meetingContent' ? 'is-wide' : ''}`}>
+            <label className={`claw-park-form__field ${field.key === 'meetingContent' ? 'is-wide' : ''}`}>
               {field.label}
               {field.options && !field.allowCustom ? <select
                 aria-label={field.label}
@@ -1079,12 +1079,12 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
                 <input
                   aria-label={field.label}
                   required
-                  list={`otto-park-${service.id}-${field.key}-options`}
+                  list={`claw-park-${service.id}-${field.key}-options`}
                   value={form[field.key] || ''}
                   placeholder={field.placeholder}
                   onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value }))}
                 />
-                <datalist id={`otto-park-${service.id}-${field.key}-options`}>
+                <datalist id={`claw-park-${service.id}-${field.key}-options`}>
                   {field.options?.map((option) => <option key={serviceOptionValue(option)} value={serviceOptionValue(option)}>{serviceOptionLabel(option)}</option>)}
                 </datalist>
               </> : field.inputType === 'textarea' ? <textarea
@@ -1112,7 +1112,7 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
                 : null}
             </label>
             {service.id === 'vehicle-visit' && field.key === 'vehicleCount'
-              ? Array.from({ length: Math.max(0, Math.min(20, Number(form.vehicleCount) || 0)) }, (_, index) => <label key={`plate${index + 1}`} className="otto-park-form__field">
+              ? Array.from({ length: Math.max(0, Math.min(20, Number(form.vehicleCount) || 0)) }, (_, index) => <label key={`plate${index + 1}`} className="claw-park-form__field">
                 第 {index + 1} 辆车车牌号
                 <input aria-label={`第 ${index + 1} 辆车车牌号`} required value={form[`plate${index + 1}`] || ''} placeholder="例如：京 A·12345" onChange={(event) => setForm((current) => ({ ...current, [`plate${index + 1}`]: event.target.value }))} />
               </label>)
@@ -1121,33 +1121,33 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
         </div>
         <button
           type="submit"
-          className="otto-park-demo__primary"
+          className="claw-park-demo__primary"
           disabled={busy || (service.id === 'meeting-room' && (!form.roomId || !form.startTime || !form.endTime || Boolean(attendeeError)))}
         >
           {busy ? '正在提交…' : `提交${service.name}申请`}
         </button>
       </form>
-    ) : <div className="otto-park-technician-form">
+    ) : <div className="claw-park-technician-form">
       {assignedTickets.length ? <>
-        <div className="otto-park-repair__roles">{assignedTickets.map((ticket) => <button key={ticket.id} type="button" className={activeTicket?.id === ticket.id ? 'is-active' : ''} onClick={() => { void openAssigned(ticket); }}>{ticket.title} · {ticket.status}{!ticket.readAt ? ' · 新' : ''}</button>)}</div>
+        <div className="claw-park-repair__roles">{assignedTickets.map((ticket) => <button key={ticket.id} type="button" className={activeTicket?.id === ticket.id ? 'is-active' : ''} onClick={() => { void openAssigned(ticket); }}>{ticket.title} · {ticket.status}{!ticket.readAt ? ' · 新' : ''}</button>)}</div>
         {activeTicket?.isRecipient ? <>
-          {historicalTicket ? <div className="otto-park-history-readonly" role="status">
+          {historicalTicket ? <div className="claw-park-history-readonly" role="status">
             <strong>历史记录只读</strong>
             <span>该服务已进入验收或完成阶段，申请内容和每次处理结果均已留存。</span>
           </div> : null}
-          <div className="otto-park-request-summary">
+          <div className="claw-park-request-summary">
             <div><span>申请编号</span><strong>{ticketApplicationNumber(activeTicket)}</strong></div>
             <div className="is-wide"><span>{service.id === 'meeting-room' ? '会议内容' : '申请内容'}</span><strong>{activeTicket.description}</strong></div>
             <div><span>最终状态</span><strong>{activeTicket.status}</strong></div>
             <div><span>最新办理结果</span><strong>{activeTicket.responseType || '暂无办理回复'}</strong></div>
             <div className="is-wide"><span>回复内容补充</span><strong>{activeTicket.responseText || '暂无'}</strong></div>
           </div>
-          <section className="otto-park-ticket-history" aria-label="园区服务处理历史">
-            <div className="otto-park-ticket-history__head"><strong>处理记录</strong><span>{historyEntries.length} 条 · 按时间顺序</span></div>
+          <section className="claw-park-ticket-history" aria-label="园区服务处理历史">
+            <div className="claw-park-ticket-history__head"><strong>处理记录</strong><span>{historyEntries.length} 条 · 按时间顺序</span></div>
             <ol>{historyEntries.map((entry) => <li key={entry.id}>
-              <span className="otto-park-ticket-history__marker" aria-hidden />
+              <span className="claw-park-ticket-history__marker" aria-hidden />
               <div>
-                <div className="otto-park-ticket-history__meta">
+                <div className="claw-park-ticket-history__meta">
                   <strong>{HISTORY_ACTION_LABELS[entry.action]}</strong>
                   <time dateTime={entry.createdAt}>{formatParkTimestamp(entry.createdAt)}</time>
                 </div>
@@ -1157,50 +1157,50 @@ function ServiceRequestView({ service, onBack, onComplete, focusTicket }: {
             </li>)}</ol>
           </section>
           {!historicalTicket ? <>
-            {service.id !== 'repair' ? <form className="otto-park-response-form" onSubmit={(event) => { event.preventDefault(); void action(activeTicket, 'respond'); }} aria-label="园区服务回复表">
-              <label className="otto-park-form__field">处理方式
-                <input required list={`otto-park-response-${service.id}`} value={response.type} onChange={(event) => setResponse((current) => ({ ...current, type: event.target.value }))} placeholder="选择或输入处理方式" />
-                <datalist id={`otto-park-response-${service.id}`}>{serviceReplyOptions(interaction).map((reply) => <option key={reply} value={reply} />)}</datalist>
+            {service.id !== 'repair' ? <form className="claw-park-response-form" onSubmit={(event) => { event.preventDefault(); void action(activeTicket, 'respond'); }} aria-label="园区服务回复表">
+              <label className="claw-park-form__field">处理方式
+                <input required list={`claw-park-response-${service.id}`} value={response.type} onChange={(event) => setResponse((current) => ({ ...current, type: event.target.value }))} placeholder="选择或输入处理方式" />
+                <datalist id={`claw-park-response-${service.id}`}>{serviceReplyOptions(interaction).map((reply) => <option key={reply} value={reply} />)}</datalist>
               </label>
-              <label className="otto-park-form__field">回复内容补充
+              <label className="claw-park-form__field">回复内容补充
                 <textarea required rows={4} value={response.text} onChange={(event) => setResponse((current) => ({ ...current, text: event.target.value }))} placeholder="请说明办理结果或后续安排" />
               </label>
-              <button type="submit" className="otto-park-demo__primary" disabled={busy || !response.type.trim() || !response.text.trim()}>发送办理回复</button>
-            </form> : activeTicket.status === '已转交' ? <form className="otto-park-response-form" onSubmit={(event) => {
+              <button type="submit" className="claw-park-demo__primary" disabled={busy || !response.type.trim() || !response.text.trim()}>发送办理回复</button>
+            </form> : activeTicket.status === '已转交' ? <form className="claw-park-response-form" onSubmit={(event) => {
               event.preventDefault();
               void action(activeTicket, 'complete', {
                 responseType: '已完成工作',
                 responseText: completionNote,
               });
             }} aria-label="完成转交的物业报修">
-              <div className="otto-park-form__guide"><strong>完成现场工作</strong><span>请填写实际处理结果，完成后申请人和原客服都会收到通知。</span></div>
-              <label className="otto-park-form__field">工作完成说明
+              <div className="claw-park-form__guide"><strong>完成现场工作</strong><span>请填写实际处理结果，完成后申请人和原客服都会收到通知。</span></div>
+              <label className="claw-park-form__field">工作完成说明
                 <textarea required rows={4} value={completionNote} onChange={(event) => setCompletionNote(event.target.value)} placeholder="例如：已更换损坏灯具并完成通电测试" />
               </label>
-              <button type="submit" className="otto-park-demo__primary" disabled={busy || !completionNote.trim()}>已完成工作</button>
-            </form> : <form className="otto-park-response-form" onSubmit={(event) => {
+              <button type="submit" className="claw-park-demo__primary" disabled={busy || !completionNote.trim()}>已完成工作</button>
+            </form> : <form className="claw-park-response-form" onSubmit={(event) => {
               event.preventDefault();
               void action(activeTicket, 'respond_and_transfer', {
                 transferDepartment: '工程部',
                 transferNote: '请工程部接手处理该物业报修，并在完成后记录工作结果。',
               });
             }} aria-label="物业报修回复并转交工程部">
-                <label className="otto-park-form__field">处理方式
-                  <input required list="otto-park-repair-response-options" value={response.type} onChange={(event) => setResponse((current) => ({ ...current, type: event.target.value }))} placeholder="选择或输入处理方式" />
-                  <datalist id="otto-park-repair-response-options">{serviceReplyOptions(interaction).map((reply) => <option key={reply} value={reply} />)}</datalist>
+                <label className="claw-park-form__field">处理方式
+                  <input required list="claw-park-repair-response-options" value={response.type} onChange={(event) => setResponse((current) => ({ ...current, type: event.target.value }))} placeholder="选择或输入处理方式" />
+                  <datalist id="claw-park-repair-response-options">{serviceReplyOptions(interaction).map((reply) => <option key={reply} value={reply} />)}</datalist>
                 </label>
-                <label className="otto-park-form__field">回复内容补充
+                <label className="claw-park-form__field">回复内容补充
                   <textarea required rows={4} value={response.text} onChange={(event) => setResponse((current) => ({ ...current, text: event.target.value }))} placeholder="说明处理建议、预约时间或需要补充的信息" />
                 </label>
-                <div className="otto-park-request-summary">
+                <div className="claw-park-request-summary">
                   <div><span>转交部门</span><strong>工程部</strong></div>
                   <div><span>处理步骤</span><strong>回复申请人并同步转交</strong></div>
                 </div>
-                <button type="submit" className="otto-park-demo__primary" disabled={busy || !response.type.trim() || !response.text.trim()}>回复并转交工程部</button>
+                <button type="submit" className="claw-park-demo__primary" disabled={busy || !response.type.trim() || !response.text.trim()}>回复并转交工程部</button>
               </form>}
           </> : null}
         </> : null}
-      </> : <div className="otto-park-repair__empty">当前没有分配给你的待办。</div>}
+      </> : <div className="claw-park-repair__empty">当前没有分配给你的待办。</div>}
     </div>}
   </div>;
 }
@@ -1253,7 +1253,7 @@ function ParkServiceWindow({
   const startDrag = (event: React.PointerEvent<HTMLDivElement>): void => {
     if (mode !== 'normal' || event.button !== 0) return;
     if ((event.target as HTMLElement).closest('button')) return;
-    const dialog = event.currentTarget.closest('.otto-park-dialog');
+    const dialog = event.currentTarget.closest('.claw-park-dialog');
     const bounds = dialog?.getBoundingClientRect();
     drag.current = {
       pointerId: event.pointerId,
@@ -1286,7 +1286,7 @@ function ParkServiceWindow({
   if (mode === 'minimized') {
     return <button
       type="button"
-      className="otto-park-window-minimized otto-park-window-minimized--stacked"
+      className="claw-park-window-minimized claw-park-window-minimized--stacked"
       style={{ bottom: 18 + dockIndex * 50, zIndex: 121 + stackOrder }}
       onClick={() => {
         onActivate(entry.id);
@@ -1300,12 +1300,12 @@ function ParkServiceWindow({
   }
 
   return <div
-    className={`otto-park-overlay otto-park-overlay--service-window ${mode === 'maximized' ? 'is-maximized' : ''}`}
+    className={`claw-park-overlay claw-park-overlay--service-window ${mode === 'maximized' ? 'is-maximized' : ''}`}
     style={{ zIndex: 90 + stackOrder }}
     onPointerDown={() => onActivate(entry.id)}
   >
     <div
-      className={`otto-park-dialog ${mode === 'maximized' ? 'is-maximized' : ''}`}
+      className={`claw-park-dialog ${mode === 'maximized' ? 'is-maximized' : ''}`}
       role="dialog"
       aria-modal="false"
       aria-labelledby={`${uid}-title`}
@@ -1320,18 +1320,18 @@ function ParkServiceWindow({
         : undefined}
     >
       <div
-        className="otto-park-dialog__head"
+        className="claw-park-dialog__head"
         onPointerDown={startDrag}
         onPointerMove={move}
         onPointerUp={stopDrag}
         onPointerCancel={stopDrag}
       >
-        <span className="otto-park-dialog__headicon" aria-hidden><IconBuilding size={19} /></span>
-        <div className="otto-park-dialog__headtext">
-          <h2 className="otto-park-dialog__title" id={`${uid}-title`}>{entry.service.name}</h2>
-          <div className="otto-park-dialog__subtitle">可与其他园区服务窗口同时办理，表单进度互不影响。</div>
+        <span className="claw-park-dialog__headicon" aria-hidden><IconBuilding size={19} /></span>
+        <div className="claw-park-dialog__headtext">
+          <h2 className="claw-park-dialog__title" id={`${uid}-title`}>{entry.service.name}</h2>
+          <div className="claw-park-dialog__subtitle">可与其他园区服务窗口同时办理，表单进度互不影响。</div>
         </div>
-        <div className="otto-park-dialog__window-controls">
+        <div className="claw-park-dialog__window-controls">
           <button type="button" onClick={() => setMode('minimized')} aria-label={`最小化${entry.service.name}窗口`}>—</button>
           <button
             type="button"
@@ -1341,7 +1341,7 @@ function ParkServiceWindow({
             }}
             aria-label={mode === 'maximized' ? `还原${entry.service.name}窗口` : `最大化${entry.service.name}窗口`}
           >{mode === 'maximized' ? '❐' : '□'}</button>
-          <button type="button" className="otto-park-dialog__close" onClick={() => onClose(entry.id)} aria-label={`关闭${entry.service.name}窗口`}><IconClose size={14} /></button>
+          <button type="button" className="claw-park-dialog__close" onClick={() => onClose(entry.id)} aria-label={`关闭${entry.service.name}窗口`}><IconClose size={14} /></button>
         </div>
       </div>
       <ServiceDemo
@@ -1358,7 +1358,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
   internalAdminPreview?: boolean;
 } = {}): React.JSX.Element {
   const [parkEnabled, setParkEnabled] = useState(() => (
-    internalAdminPreview || typeof window.otto?.enterpriseParkView !== 'function'
+    internalAdminPreview || typeof window.clawmaster?.enterpriseParkView !== 'function'
   ));
   const [parkAdminOrganization, setParkAdminOrganization] = useState(false);
   const [parkStatistics, setParkStatistics] = useState<EnterpriseParkStatistics | null>(null);
@@ -1485,7 +1485,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
         setServices(defaultServices(DEFAULT_PARK));
         return;
       }
-      const enterpriseParkView = window.otto?.enterpriseParkView;
+      const enterpriseParkView = window.clawmaster?.enterpriseParkView;
       if (typeof enterpriseParkView === 'function') {
         try {
           const park = await enterpriseParkView();
@@ -1573,10 +1573,10 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     let cancelled = false;
     const refreshStatistics = async (): Promise<void> => {
       try {
-        if (typeof window.otto?.enterpriseParkStatistics !== 'function') {
+        if (typeof window.clawmaster?.enterpriseParkStatistics !== 'function') {
           throw new Error('当前 ClawMaster 版本尚未提供园区统计，请更新客户端。');
         }
-        const statistics = await window.otto.enterpriseParkStatistics();
+        const statistics = await window.clawmaster.enterpriseParkStatistics();
         if (!cancelled) {
           setParkStatistics(statistics);
           setParkStatisticsError('');
@@ -1598,13 +1598,13 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
   useEffect(() => {
     if (internalAdminPreview) return undefined;
     if (parkEnabled !== true) return undefined;
-    if (!window.otto?.enterpriseParkPublications) return undefined;
+    if (!window.clawmaster?.enterpriseParkPublications) return undefined;
     let cancelled = false;
     let unavailable = false;
     const poll = async (): Promise<void> => {
       if (unavailable) return;
       try {
-        const publications = await window.otto.enterpriseParkPublications();
+        const publications = await window.clawmaster.enterpriseParkPublications();
         if (cancelled) return;
         const candidate = publications.find(
           (item) => !item.readAt && !item.submittedAt && !notifiedPublicationKeys.current.has(item.id),
@@ -1612,7 +1612,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
         if (!candidate) return;
         notifiedPublicationKeys.current.add(candidate.id);
         setBackgroundPublication(candidate);
-        void window.otto.parkNativeNotify?.(
+        void window.clawmaster.parkNativeNotify?.(
           candidate.kind === 'announcement' ? 'ClawMaster 园区公告' : 'ClawMaster 满意度调查',
           `${candidate.title} · 点击查看`,
         );
@@ -1651,8 +1651,8 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       notifiedPublicationKeys.current.add(id);
       setBackgroundPublication((current) => current?.id === id ? null : current);
     };
-    window.addEventListener('otto:park-publication-handled', onPublicationHandled);
-    return () => window.removeEventListener('otto:park-publication-handled', onPublicationHandled);
+    window.addEventListener('clawmaster:park-publication-handled', onPublicationHandled);
+    return () => window.removeEventListener('clawmaster:park-publication-handled', onPublicationHandled);
   }, []);
 
   useEffect(() => {
@@ -1713,7 +1713,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       setOpen(false);
       setParkSurfacesVisible(false);
     };
-    const unsubscribeNotification = window.otto.onNotificationSessionOpen?.((sessionId) => {
+    const unsubscribeNotification = window.clawmaster.onNotificationSessionOpen?.((sessionId) => {
       if (sessionId.startsWith('park:')) showParkSession(sessionId);
     }) ?? (() => {});
     window.addEventListener(PARK_OPEN_EVENT, onOpen);
@@ -1730,13 +1730,13 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
   useEffect(() => {
     if (internalAdminPreview) return undefined;
     if (parkEnabled !== true) return undefined;
-    if (!window.otto?.enterpriseSession || !window.otto?.enterpriseTicketList) return undefined;
+    if (!window.clawmaster?.enterpriseSession || !window.clawmaster?.enterpriseTicketList) return undefined;
     let cancelled = false;
     let unavailable = false;
     const poll = async (): Promise<void> => {
       if (unavailable) return;
       try {
-        const session = await window.otto.enterpriseSession();
+        const session = await window.clawmaster.enterpriseSession();
         if (cancelled) return;
         if (!session.account) {
           setAssignedTasks([]);
@@ -1765,7 +1765,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
           // account or organization switch invalidates open service windows.
           if (previousIdentity !== null) setServiceWindows([]);
         }
-        const tickets = await window.otto.enterpriseTicketList();
+        const tickets = await window.clawmaster.enterpriseTicketList();
         if (cancelled) return;
         const actionableTasks = tickets.filter(isActionableStaffTicket);
         const completedHistory = tickets.filter(isStaffHistoryTicket);
@@ -1929,7 +1929,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
   const startWindowDrag = (event: React.PointerEvent<HTMLDivElement>): void => {
     if (windowMode !== 'normal' || event.button !== 0) return;
     if ((event.target as HTMLElement).closest('button')) return;
-    const dialog = event.currentTarget.closest('.otto-park-dialog');
+    const dialog = event.currentTarget.closest('.claw-park-dialog');
     const bounds = dialog?.getBoundingClientRect();
     windowDrag.current = {
       pointerId: event.pointerId,
@@ -1974,8 +1974,8 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
   const openOwnHistoryTicket = useCallback((ticket: EnterpriseRepairTicket): void => {
     openTicket(ticket);
     setBackgroundTickets((current) => current.filter((item) => item.id !== ticket.id));
-    void window.otto.notificationMarkRead?.(`park:ticket:${ticket.id}`).catch(() => undefined);
-    void window.otto.enterpriseTicketRead(ticket.id).then((viewed) => {
+    void window.clawmaster.notificationMarkRead?.(`park:ticket:${ticket.id}`).catch(() => undefined);
+    void window.clawmaster.enterpriseTicketRead(ticket.id).then((viewed) => {
       const applyUpdate = (current: EnterpriseRepairTicket[]): EnterpriseRepairTicket[] => current.map(
         (item) => item.id === viewed.id ? viewed : item,
       );
@@ -1993,7 +1993,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     if (!unread.length) return;
     void Promise.all(unread.map(async (ticket) => {
       try {
-        return await window.otto.enterpriseTicketRead(ticket.id);
+        return await window.clawmaster.enterpriseTicketRead(ticket.id);
       } catch {
         return null;
       }
@@ -2019,7 +2019,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
   const openAssignedTicket = useCallback((ticket: EnterpriseRepairTicket): void => {
     openTicket(ticket);
     markAssignedTicketsViewed([ticket]);
-    void window.otto.notificationMarkRead?.(`park:ticket:${ticket.id}`).catch(() => undefined);
+    void window.clawmaster.notificationMarkRead?.(`park:ticket:${ticket.id}`).catch(() => undefined);
   }, [markAssignedTicketsViewed, openTicket]);
 
   const openBackgroundTicket = (ticket: EnterpriseRepairTicket): void => {
@@ -2034,7 +2034,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     setFocusTicket(null);
     setOpen(true);
     setBackgroundTicketSummaryCount(0);
-    void window.otto.notificationMarkRead?.('park:service').catch(() => undefined);
+    void window.clawmaster.notificationMarkRead?.('park:service').catch(() => undefined);
   };
 
   useEffect(() => {
@@ -2045,7 +2045,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
       markAssignedTicketsViewed(assignedTasks);
       setPendingNotificationSessionId(null);
       setBackgroundTicketSummaryCount(0);
-      void window.otto.notificationMarkRead?.(sessionId).catch(() => undefined);
+      void window.clawmaster.notificationMarkRead?.(sessionId).catch(() => undefined);
       return;
     }
     if (!sessionId.startsWith('park:ticket:')) {
@@ -2061,7 +2061,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     else openAssignedTicket(ticket);
     setPendingNotificationSessionId(null);
     setBackgroundTickets((current) => current.filter((item) => item.id !== ticket.id));
-    void window.otto.notificationMarkRead?.(sessionId).catch(() => undefined);
+    void window.clawmaster.notificationMarkRead?.(sessionId).catch(() => undefined);
   }, [assignedTasks, backgroundTickets, markAssignedTicketsViewed, openAssignedTicket, openOwnHistoryTicket, ownHistory, pendingNotificationSessionId]);
 
   const openBackgroundPublication = (): void => {
@@ -2079,7 +2079,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
   {open && windowMode === 'minimized' ? (
     <button
       type="button"
-      className="otto-park-window-minimized"
+      className="claw-park-window-minimized"
       onClick={() => setWindowMode('normal')}
       aria-label="还原园区服务窗口"
     >
@@ -2088,13 +2088,13 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     </button>
   ) : open ? (
     <div
-      className={`otto-park-overlay ${windowMode === 'maximized' ? 'is-maximized' : ''}`}
+      className={`claw-park-overlay ${windowMode === 'maximized' ? 'is-maximized' : ''}`}
       onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } }}
     >
       <div
-        className={`otto-park-dialog ${windowMode === 'maximized' ? 'is-maximized' : ''}`}
+        className={`claw-park-dialog ${windowMode === 'maximized' ? 'is-maximized' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -2104,16 +2104,16 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
           : undefined}
       >
         <div
-          className="otto-park-dialog__head"
+          className="claw-park-dialog__head"
           onPointerDown={startWindowDrag}
           onPointerMove={moveWindow}
           onPointerUp={stopWindowDrag}
           onPointerCancel={stopWindowDrag}
         >
-          <span className="otto-park-dialog__headicon" aria-hidden><IconBuilding size={19} /></span>
-          <div className="otto-park-dialog__headtext">
-            <h2 className="otto-park-dialog__title" id={titleId}>{selected ? selected.name : brand}</h2>
-            <div className="otto-park-dialog__subtitle">
+          <span className="claw-park-dialog__headicon" aria-hidden><IconBuilding size={19} /></span>
+          <div className="claw-park-dialog__headtext">
+            <h2 className="claw-park-dialog__title" id={titleId}>{selected ? selected.name : brand}</h2>
+            <div className="claw-park-dialog__subtitle">
               {selected?.id === 'announcement'
                 ? '查看园区发布的最新通知和历史公告。'
                 : selected?.id === 'satisfaction'
@@ -2125,7 +2125,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                     : '选择需要办理的园区服务。'}
             </div>
           </div>
-          <div className="otto-park-dialog__window-controls">
+          <div className="claw-park-dialog__window-controls">
             <button type="button" onClick={() => setWindowMode('minimized')} aria-label="最小化园区服务窗口">—</button>
             <button
               type="button"
@@ -2135,20 +2135,20 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
               }}
               aria-label={windowMode === 'maximized' ? '还原园区服务窗口' : '最大化园区服务窗口'}
             >{windowMode === 'maximized' ? '❐' : '□'}</button>
-            <button type="button" className="otto-park-dialog__close" onClick={close} aria-label="关闭"><IconClose size={14} /></button>
+            <button type="button" className="claw-park-dialog__close" onClick={close} aria-label="关闭"><IconClose size={14} /></button>
           </div>
         </div>
         {selected ? (
           <ServiceDemo service={selected} onBack={() => { setSelected(null); setFocusTicket(null); }} onComplete={completeService} focusTicket={focusTicket} />
         ) : (
-          <div className="otto-park-dialog__landing">
+          <div className="claw-park-dialog__landing">
             {parkAdminOrganization ? <section
               ref={statisticsRef}
-              className="otto-park-statistics"
+              className="claw-park-statistics"
               aria-label="产业园服务统计"
               tabIndex={-1}
             >
-              <div className="otto-park-statistics__head">
+              <div className="claw-park-statistics__head">
                 <div>
                   <strong>产业园服务统计</strong>
                   <span>按真实服务申请汇总，不包含公告和问卷。</span>
@@ -2159,8 +2159,8 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                     : parkStatisticsError ? '统计暂不可用' : '正在读取'}
                 </time>
               </div>
-              {parkStatisticsError ? <div className="otto-park-statistics__error" role="alert">{parkStatisticsError}</div> : parkStatistics ? <>
-                <div className="otto-park-statistics__metrics">
+              {parkStatisticsError ? <div className="claw-park-statistics__error" role="alert">{parkStatisticsError}</div> : parkStatistics ? <>
+                <div className="claw-park-statistics__metrics">
                   <div><span>入驻企业</span><strong>{parkStatistics.organizationCount}</strong><small>{parkStatistics.activeOrganizationCount} 家正常使用</small></div>
                   <div><span>服务使用</span><strong>{parkStatistics.totalServiceUses}</strong><small>七类服务累计</small></div>
                   <div><span>车辆来访</span><strong>{parkStatistics.vehicleVisits}</strong><small>已提交次数</small></div>
@@ -2168,8 +2168,8 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                   <div><span>累计金额</span><strong>{parkCurrency(parkStatistics.totalAmountCny)}</strong><small>按申请价格与数量汇总</small></div>
                   <div><span>每月持续费用</span><strong>{parkCurrency(parkStatistics.recurringMonthlyCny)}</strong><small>固话、专线等月费</small></div>
                 </div>
-                <div className="otto-park-statistics__organizations">
-                  <div className="otto-park-statistics__organizations-head">
+                <div className="claw-park-statistics__organizations">
+                  <div className="claw-park-statistics__organizations-head">
                     <strong>企业服务使用情况</strong>
                     <span>点击企业查看各项服务次数</span>
                   </div>
@@ -2177,22 +2177,22 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                     const expanded = expandedOrganizationId === organization.organizationId;
                     const detailId = uid + '-park-statistics-' + index;
                     const location = [organization.address, organization.roomNumber].filter(Boolean).join(' · ');
-                    return <div className="otto-park-statistics__organization" key={organization.organizationId}>
+                    return <div className="claw-park-statistics__organization" key={organization.organizationId}>
                       <button
                         type="button"
                         aria-expanded={expanded}
                         aria-controls={detailId}
                         onClick={() => setExpandedOrganizationId(expanded ? null : organization.organizationId)}
                       >
-                        <span className="otto-park-statistics__organization-name">
+                        <span className="claw-park-statistics__organization-name">
                           <strong>{organization.name}</strong>
                           <small>{location || '尚未填写园区地址'}{organization.status === 'disabled' ? ' · 已停用' : ''}</small>
                         </span>
-                        <span className="otto-park-statistics__organization-total"><strong>{organization.totalUses}</strong><small>{parkCurrency(organization.totalAmountCny)}</small></span>
-                        <span className="otto-park-statistics__organization-last"><small>最近使用</small><span>{organization.lastUsedAt ? formatParkTimestamp(organization.lastUsedAt) : '暂无记录'}</span></span>
+                        <span className="claw-park-statistics__organization-total"><strong>{organization.totalUses}</strong><small>{parkCurrency(organization.totalAmountCny)}</small></span>
+                        <span className="claw-park-statistics__organization-last"><small>最近使用</small><span>{organization.lastUsedAt ? formatParkTimestamp(organization.lastUsedAt) : '暂无记录'}</span></span>
                         <IconChevronDown size={16} className={expanded ? 'is-expanded' : undefined} />
                       </button>
-                      {expanded ? <div className="otto-park-statistics__service-counts" id={detailId}>
+                      {expanded ? <div className="claw-park-statistics__service-counts" id={detailId}>
                         {organization.services.map((service) => <div key={service.serviceId}>
                           <span>{service.name}</span>
                           <strong>{service.count} 次 · {parkCurrency(service.amountCny)}</strong>
@@ -2200,45 +2200,45 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                         </div>)}
                       </div> : null}
                     </div>;
-                  }) : <div className="otto-park-statistics__empty">当前还没有企业加入这个产业园。</div>}
+                  }) : <div className="claw-park-statistics__empty">当前还没有企业加入这个产业园。</div>}
                 </div>
-              </> : <div className="otto-park-statistics__loading">正在汇总园区服务数据...</div>}
+              </> : <div className="claw-park-statistics__loading">正在汇总园区服务数据...</div>}
             </section> : null}
-            <div className="otto-park-home-layout">
-              <section className="otto-park-home-services" aria-label="园区服务列表">
-                <div className="otto-park-home-panel__head">
+            <div className="claw-park-home-layout">
+              <section className="claw-park-home-services" aria-label="园区服务列表">
+                <div className="claw-park-home-panel__head">
                   <strong>园区服务</strong>
                   <span>选择左侧服务开始办理</span>
                 </div>
-                <div className="otto-park-dialog__grid">
+                <div className="claw-park-dialog__grid">
                   {services.map((service, index) => {
                     const Icon = service.icon;
                     return (
-                      <button key={service.id} ref={index === 0 ? firstItemRef : undefined} type="button" className="otto-park-service" onClick={() => pick(service)}>
-                        <span className="otto-park-service__icon" aria-hidden><Icon size={17} /></span>
-                        <span className="otto-park-service__name">{service.name}</span>
-                        <span className="otto-park-service__desc">{service.desc}</span>
+                      <button key={service.id} ref={index === 0 ? firstItemRef : undefined} type="button" className="claw-park-service" onClick={() => pick(service)}>
+                        <span className="claw-park-service__icon" aria-hidden><Icon size={17} /></span>
+                        <span className="claw-park-service__name">{service.name}</span>
+                        <span className="claw-park-service__desc">{service.desc}</span>
                       </button>
                     );
                   })}
                 </div>
               </section>
-              <aside className="otto-park-home-activity" aria-label="园区待办与历史">
-                {assignedTasks.length || assignedHistory.length || pendingLandingTarget === 'staff-tasks' ? <div className="otto-park-staff-workspace">
+              <aside className="claw-park-home-activity" aria-label="园区待办与历史">
+                {assignedTasks.length || assignedHistory.length || pendingLandingTarget === 'staff-tasks' ? <div className="claw-park-staff-workspace">
                   {assignedTasks.length || pendingLandingTarget === 'staff-tasks' ? <section
                     ref={staffTasksRef}
-                    className="otto-park-staff-tasks"
+                    className="claw-park-staff-tasks"
                     aria-label="我的园区待办"
                     tabIndex={-1}
                   >
-                    <div className="otto-park-staff-panel__head"><strong>我的园区待办</strong><span>{assignedTasks.length} 项待处理 · 仅工作人员可见</span></div>
-                    <div className="otto-park-staff-tasks__items">{assignedTasks.length
+                    <div className="claw-park-staff-panel__head"><strong>我的园区待办</strong><span>{assignedTasks.length} 项待处理 · 仅工作人员可见</span></div>
+                    <div className="claw-park-staff-tasks__items">{assignedTasks.length
                       ? assignedTasks.map((ticket) => <button key={ticket.id} type="button" onClick={() => openAssignedTicket(ticket)} aria-label={`打开工作人员待办：${ticket.title}`}><span>{ticket.title}</span><em>{ticket.status} {!ticket.readAt ? '· 新' : ''}</em></button>)
-                      : <div className="otto-park-staff-history__empty">当前没有待处理的园区任务。</div>}</div>
+                      : <div className="claw-park-staff-history__empty">当前没有待处理的园区任务。</div>}</div>
                   </section> : null}
-                  {assignedHistory.length ? <section className="otto-park-staff-history" aria-label="我的园区服务历史记录">
-                    <div className="otto-park-staff-panel__head"><strong>工作人员办理历史</strong><span>{visibleAssignedHistory.length} / {assignedHistory.length} 条 · 仅工作人员可见</span></div>
-                    <div className="otto-park-staff-history__controls">
+                  {assignedHistory.length ? <section className="claw-park-staff-history" aria-label="我的园区服务历史记录">
+                    <div className="claw-park-staff-panel__head"><strong>工作人员办理历史</strong><span>{visibleAssignedHistory.length} / {assignedHistory.length} 条 · 仅工作人员可见</span></div>
+                    <div className="claw-park-staff-history__controls">
                       <input
                         type="search"
                         aria-label="搜索园区服务历史"
@@ -2255,7 +2255,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                         <option value="asc">时间从旧到新</option>
                       </select>
                     </div>
-                    <div className="otto-park-staff-history__items">
+                    <div className="claw-park-staff-history__items">
                       {visibleAssignedHistory.length ? visibleAssignedHistory.map((ticket) => {
                         const serviceName = historyCategoryOptions.find((service) => service.id === ticket.serviceId)?.name || ticket.serviceId;
                         const latestTime = (ticket.history ?? []).at(-1)?.createdAt || ticket.responseAt || ticket.updatedAt;
@@ -2265,18 +2265,18 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                           <small>{ticket.creator.name} · {formatParkTimestamp(latestTime)}</small>
                           <p>{ticket.responseType || '办理完成'}{ticket.responseText ? `：${ticket.responseText}` : ''}</p>
                         </button>;
-                      }) : <div className="otto-park-staff-history__empty">没有符合当前搜索和分类条件的历史记录。</div>}
+                      }) : <div className="claw-park-staff-history__empty">没有符合当前搜索和分类条件的历史记录。</div>}
                     </div>
                   </section> : null}
                 </div> : null}
                 <section
                   ref={applicationsRef}
-                  className="otto-park-staff-history otto-park-own-history"
+                  className="claw-park-staff-history claw-park-own-history"
                   aria-label="我的园区申请历史记录"
                   tabIndex={-1}
                 >
-                  <div className="otto-park-staff-panel__head"><strong>我的申请历史</strong><span>{ownHistory.length} 条 · 点击查看完整处理记录</span></div>
-                  <div className="otto-park-staff-history__items">
+                  <div className="claw-park-staff-panel__head"><strong>我的申请历史</strong><span>{ownHistory.length} 条 · 点击查看完整处理记录</span></div>
+                  <div className="claw-park-staff-history__items">
                     {ownHistory.length ? ownHistory.map((ticket) => {
                       const serviceName = historyCategoryOptions.find((service) => service.id === ticket.serviceId)?.name || ticket.serviceId;
                       return <button key={ticket.id} type="button" onClick={() => openOwnHistoryTicket(ticket)} aria-label={`打开我的申请历史：${ticket.title}`}>
@@ -2285,7 +2285,7 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
                         <small>{formatParkTimestamp(ticket.updatedAt || ticket.createdAt)}</small>
                         <p>{ticket.responseType || '等待受理'}{ticket.responseText ? `：${ticket.responseText}` : ''}</p>
                       </button>;
-                    }) : <div className="otto-park-staff-history__empty">暂无申请历史；提交服务后可在这里查看。</div>}
+                    }) : <div className="claw-park-staff-history__empty">暂无申请历史；提交服务后可在这里查看。</div>}
                   </div>
                 </section>
               </aside>
@@ -2309,22 +2309,22 @@ export function ParkServicesPlugin({ internalAdminPreview = false }: {
     />
   ))}
   </div>
-  {(backgroundTicketSummaryCount || backgroundTickets.length || backgroundPublication) ? <div className="otto-park-toast-stack" aria-live="polite">
+  {(backgroundTicketSummaryCount || backgroundTickets.length || backgroundPublication) ? <div className="claw-park-toast-stack" aria-live="polite">
     {backgroundTicketSummaryCount ? (
-      <button type="button" className="otto-park-toast otto-park-toast--result" onClick={openBackgroundTicketSummary} aria-label="打开园区待办汇总">
+      <button type="button" className="claw-park-toast claw-park-toast--result" onClick={openBackgroundTicketSummary} aria-label="打开园区待办汇总">
         <span>ClawMaster 园区服务</span>
         <strong>{backgroundTicketSummaryCount} 项任务待处理</strong>
         <em>已合并历史提醒 · 点击查看待办列表</em>
       </button>
     ) : null}
     {backgroundTickets.map((ticket) => (
-      <button key={ticket.id} type="button" className="otto-park-toast otto-park-toast--result" onClick={() => openBackgroundTicket(ticket)} aria-label={`打开园区服务通知：${ticket.title}`}>
+      <button key={ticket.id} type="button" className="claw-park-toast claw-park-toast--result" onClick={() => openBackgroundTicket(ticket)} aria-label={`打开园区服务通知：${ticket.title}`}>
         <span>ClawMaster 园区服务</span>
         <strong>{ticket.isRecipient && !ticket.readAt ? '收到新的待处理申请' : '你的园区服务申请有新进展'}</strong>
         <em>{ticket.title} · {ticket.status} · 点击查看</em>
       </button>
     ))}
-    {backgroundPublication ? <button type="button" className="otto-park-toast" onClick={openBackgroundPublication} aria-label="打开园区通知"><span>{backgroundPublication.kind === 'announcement' ? '园区公告' : '满意度调查'}</span><strong>{backgroundPublication.title}</strong><em>点击查看</em></button> : null}
+    {backgroundPublication ? <button type="button" className="claw-park-toast" onClick={openBackgroundPublication} aria-label="打开园区通知"><span>{backgroundPublication.kind === 'announcement' ? '园区公告' : '满意度调查'}</span><strong>{backgroundPublication.title}</strong><em>点击查看</em></button> : null}
   </div> : null}
   </>;
 }

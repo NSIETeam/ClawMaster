@@ -30,7 +30,7 @@ afterEach(() => {
     'enterpriseOrganizationPositionUpdate',
     'enterpriseOrganizationPositionDelete',
   ]) {
-    delete (window.otto as unknown as Record<string, unknown>)[key];
+    delete (window.clawmaster as unknown as Record<string, unknown>)[key];
   }
 });
 
@@ -108,7 +108,7 @@ describe('park service specialist assignments', () => {
       return true;
     });
 
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationFeaturesGet: vi.fn(async () => features),
       enterpriseOrganizationDepartments: vi.fn(async () => []),
       enterpriseParkView: vi.fn(async () => park),
@@ -182,7 +182,7 @@ describe('organization structure editor', () => {
     }];
     const createPosition = vi.fn(async () => departments[0].positions[0]);
     const updatePosition = vi.fn(async () => departments[0].positions[0]);
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseOrganizationFeaturesGet: vi.fn(async () => organizationFeatures),
       enterpriseOrganizationDepartments: vi.fn(async () => departments),
       enterpriseOrganizationPositionCreate: createPosition,

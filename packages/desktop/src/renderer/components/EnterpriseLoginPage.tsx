@@ -4,7 +4,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import type { EnterpriseLegalDocumentReference } from '../../preload/index.js';
-import { OttoPetStage } from './OttoPetStage.js';
+import { ClawMasterPetStage } from './ClawMasterPetStage.js';
 
 type LoginMode = 'login' | 'register' | 'join';
 type LoginMethod = 'password' | 'sms';
@@ -15,7 +15,7 @@ export interface TypewriterFrame {
   deleting: boolean;
 }
 
-const OTTO_CAPABILITIES = [
+const CLAWMASTER_CAPABILITIES = [
   '代码直接写好。',
   '会议变成行动。',
   '浏览器替你操作。',
@@ -109,7 +109,7 @@ function enterpriseLegalUrl(serverUrl: string): string | null {
 function CapabilityTypewriter(): React.JSX.Element {
   const [frame, setFrame] = useState<TypewriterFrame>({ phraseIndex: 0, charIndex: 0, deleting: false });
   const [reducedMotion, setReducedMotion] = useState(false);
-  const phrase = OTTO_CAPABILITIES[frame.phraseIndex];
+  const phrase = CLAWMASTER_CAPABILITIES[frame.phraseIndex];
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -124,17 +124,17 @@ function CapabilityTypewriter(): React.JSX.Element {
     const isHolding = !frame.deleting && frame.charIndex === phrase.length;
     const delay = isHolding ? 1700 : frame.deleting ? 34 : 66;
     const timer = window.setTimeout(
-      () => setFrame((current) => advanceTypewriterFrame(current, OTTO_CAPABILITIES)),
+      () => setFrame((current) => advanceTypewriterFrame(current, CLAWMASTER_CAPABILITIES)),
       delay,
     );
     return () => window.clearTimeout(timer);
   }, [frame, phrase, reducedMotion]);
 
-  const visiblePhrase = reducedMotion ? OTTO_CAPABILITIES[0] : phrase.slice(0, frame.charIndex);
+  const visiblePhrase = reducedMotion ? CLAWMASTER_CAPABILITIES[0] : phrase.slice(0, frame.charIndex);
   return (
-    <span className="otto-auth-typewriter" aria-label={reducedMotion ? OTTO_CAPABILITIES[0] : phrase}>
+    <span className="claw-auth-typewriter" aria-label={reducedMotion ? CLAWMASTER_CAPABILITIES[0] : phrase}>
       <span aria-hidden>{visiblePhrase}</span>
-      <span className="otto-auth-typewriter__cursor" aria-hidden />
+      <span className="claw-auth-typewriter__cursor" aria-hidden />
     </span>
   );
 }
@@ -381,51 +381,51 @@ export function EnterpriseLoginPage({
   };
 
   return (
-    <main className="otto-auth-shell">
-      <section className="otto-auth-visual" aria-label="ClawMaster 企业安全空间">
-        <div className="otto-auth-visual__aurora" aria-hidden />
-        <header className="otto-auth-brand">
-          <span className="otto-auth-brand__mark" aria-hidden>
+    <main className="claw-auth-shell">
+      <section className="claw-auth-visual" aria-label="ClawMaster 企业安全空间">
+        <div className="claw-auth-visual__aurora" aria-hidden />
+        <header className="claw-auth-brand">
+          <span className="claw-auth-brand__mark" aria-hidden>
             <svg viewBox="0 0 32 32"><path d="m16 2 4 6 7-1-1 7 5 4-6 4v7l-7-3-5 5-2-7-7-1 4-6-4-6 7-1Z" /><circle cx="16" cy="16" r="6" /></svg>
           </span>
           <span>CLAWMASTER</span>
           <small>DIGITAL COLLEAGUE</small>
         </header>
 
-        <div className="otto-auth-mascot-stage">
-          <span className="otto-auth-mascot-stage__label">READY TO WORK</span>
-          <OttoPetStage running={false} variant="login" />
+        <div className="claw-auth-mascot-stage">
+          <span className="claw-auth-mascot-stage__label">READY TO WORK</span>
+          <ClawMasterPetStage running={false} variant="login" />
         </div>
 
-        <div className="otto-auth-visual__copy">
-          <span className="otto-auth-kicker">YOUR AI COLLEAGUE, ONLINE</span>
+        <div className="claw-auth-visual__copy">
+          <span className="claw-auth-kicker">YOUR AI COLLEAGUE, ONLINE</span>
           <h1><span>有事交给 ClawMaster。</span><CapabilityTypewriter /></h1>
           <p>能读懂项目、调用工具、操作浏览器，也懂得在企业权限边界内做事。</p>
         </div>
 
-        <footer className="otto-auth-trust" aria-label="企业安全能力">
+        <footer className="claw-auth-trust" aria-label="企业安全能力">
           <span><svg viewBox="0 0 20 20" aria-hidden><path d="m4 10 4 4 8-8" /></svg> 身份强制验证</span>
           <span><svg viewBox="0 0 20 20" aria-hidden><path d="M10 2 4 5v5c0 4 2.4 6.8 6 8 3.6-1.2 6-4 6-8V5Z" /></svg> 企业数据隔离</span>
           <span><svg viewBox="0 0 20 20" aria-hidden><circle cx="10" cy="10" r="7" /><path d="M10 6v5l3 2" /></svg> 操作全程可追踪</span>
         </footer>
       </section>
 
-      <section className="otto-auth-panel">
+      <section className="claw-auth-panel">
         <form
-          className={`otto-auth-card otto-auth-card--${mode === 'login' ? 'login' : 'register'}`}
+          className={`claw-auth-card claw-auth-card--${mode === 'login' ? 'login' : 'register'}`}
           onSubmit={(event) => {
             event.preventDefault();
             void submitAuth();
           }}
         >
-          <span className="otto-auth-card__pixel-corner" aria-hidden />
-          <header className="otto-auth-card__masthead">
-            <span className="otto-auth-card__pixel-mark" aria-hidden><i /><i /><i /><i /></span>
+          <span className="claw-auth-card__pixel-corner" aria-hidden />
+          <header className="claw-auth-card__masthead">
+            <span className="claw-auth-card__pixel-mark" aria-hidden><i /><i /><i /><i /></span>
             <span><strong>CLAWMASTER SECURE ACCESS</strong><small>企业身份门禁</small></span>
             <b>{mode === 'login' ? 'AUTHORIZED' : mode === 'join' ? 'JOIN COMPANY' : 'NEW ACCOUNT'}</b>
           </header>
-          <div className="otto-auth-card__topline">
-            <span className="otto-auth-status-dot" />
+          <div className="claw-auth-card__topline">
+            <span className="claw-auth-status-dot" />
             {mode === 'login'
               ? '此设备将安全保持登录'
               : mode === 'join' ? '企业成员加入' : '创建个人 ClawMaster 账号'}
@@ -434,7 +434,7 @@ export function EnterpriseLoginPage({
           {mode === 'register' || mode === 'join' ? (
             <>
               <h2>{mode === 'join' ? '加入企业' : '创建 ClawMaster 账号'}</h2>
-              <p className="otto-auth-card__intro">
+              <p className="claw-auth-card__intro">
                 {mode === 'join' ? (
                   <span>企业员工输入管理员提供的邀请码，验证后加入对应组织。</span>
                 ) : (
@@ -443,7 +443,7 @@ export function EnterpriseLoginPage({
                 <span>注册后可用账号密码或手机号验证码登录。</span>
               </p>
               {mode === 'join' ? (
-                <label className="otto-auth-field otto-auth-invite-field">
+                <label className="claw-auth-field claw-auth-invite-field">
                   <span>企业邀请码</span>
                   <input
                     aria-label="企业邀请码"
@@ -464,8 +464,8 @@ export function EnterpriseLoginPage({
                   <small>仅加入企业时需要，由企业管理员生成；大小写敏感</small>
                 </label>
               ) : null}
-              <div className="otto-auth-register-grid">
-                <label className="otto-auth-field">
+              <div className="claw-auth-register-grid">
+                <label className="claw-auth-field">
                   <span>姓名</span>
                   <input
                     aria-label="姓名"
@@ -480,9 +480,9 @@ export function EnterpriseLoginPage({
                     required
                   />
                 </label>
-                <label className="otto-auth-field">
+                <label className="claw-auth-field">
                   <span>手机号</span>
-                  <div className="otto-auth-phone">
+                  <div className="claw-auth-phone">
                     <b>+86</b>
                     <input
                       aria-label="手机号"
@@ -501,8 +501,8 @@ export function EnterpriseLoginPage({
                   </div>
                 </label>
               </div>
-              <div className="otto-auth-register-grid">
-                <label className="otto-auth-field">
+              <div className="claw-auth-register-grid">
+                <label className="claw-auth-field">
                   <span>设置登录密码</span>
                   <input
                     aria-label="设置登录密码"
@@ -520,8 +520,8 @@ export function EnterpriseLoginPage({
                     required
                   />
                 </label>
-                <div className="otto-auth-inline-hint">至少 8 位；不能使用常见密码、纯数字、纯字母或连续重复字符。</div>
-                <label className="otto-auth-field">
+                <div className="claw-auth-inline-hint">至少 8 位；不能使用常见密码、纯数字、纯字母或连续重复字符。</div>
+                <label className="claw-auth-field">
                   <span>确认登录密码</span>
                   <input
                     aria-label="确认登录密码"
@@ -539,9 +539,9 @@ export function EnterpriseLoginPage({
                   />
                 </label>
               </div>
-              <label className="otto-auth-field">
+              <label className="claw-auth-field">
                 <span>短信验证码</span>
-                <div className="otto-auth-code">
+                <div className="claw-auth-code">
                   <input
                     aria-label="短信验证码"
                     inputMode="numeric"
@@ -569,13 +569,13 @@ export function EnterpriseLoginPage({
                 </div>
               </label>
               {confirmPassword && registrationPassword !== confirmPassword ? (
-                <div className="otto-auth-inline-warning" role="status">两次输入的密码不一致</div>
+                <div className="claw-auth-inline-warning" role="status">两次输入的密码不一致</div>
               ) : null}
               {organizationName ? (
-                <div className="otto-auth-organization" role="status">将加入「{organizationName}」</div>
+                <div className="claw-auth-organization" role="status">将加入「{organizationName}」</div>
               ) : null}
-              {notice ? <div className="otto-auth-notice" role="status">{notice}</div> : null}
-              <label className="otto-auth-consent">
+              {notice ? <div className="claw-auth-notice" role="status">{notice}</div> : null}
+              <label className="claw-auth-consent">
                 <input
                   type="checkbox"
                   checked={legalConsent}
@@ -590,7 +590,7 @@ export function EnterpriseLoginPage({
                     type="button"
                     disabled={!legalUrl}
                     onClick={() => {
-                      if (legalUrl) void window.otto.openExternal(legalUrl);
+                      if (legalUrl) void window.clawmaster.openExternal(legalUrl);
                     }}
                   >《用户服务协议》与《隐私规则》</button>
                   <small>
@@ -604,8 +604,8 @@ export function EnterpriseLoginPage({
           ) : (
             <>
               <h2>欢迎回来</h2>
-              <p className="otto-auth-card__intro">账号密码和手机号验证码是两种独立登录方式，均不需要企业邀请码。</p>
-              <div className="otto-auth-login-methods" aria-label="登录方式">
+              <p className="claw-auth-card__intro">账号密码和手机号验证码是两种独立登录方式，均不需要企业邀请码。</p>
+              <div className="claw-auth-login-methods" aria-label="登录方式">
                 <button
                   type="button"
                   aria-pressed={loginMethod === 'password'}
@@ -631,7 +631,7 @@ export function EnterpriseLoginPage({
               </div>
               {loginMethod === 'password' ? (
                 <>
-                  <label className="otto-auth-field">
+                  <label className="claw-auth-field">
                     <span>账号或手机号</span>
                     <input
                       aria-label="账号或手机号"
@@ -646,7 +646,7 @@ export function EnterpriseLoginPage({
                       required
                     />
                   </label>
-                  <label className="otto-auth-field">
+                  <label className="claw-auth-field">
                     <span>密码</span>
                     <input
                       aria-label="密码"
@@ -665,9 +665,9 @@ export function EnterpriseLoginPage({
                 </>
               ) : (
                 <>
-                  <label className="otto-auth-field">
+                  <label className="claw-auth-field">
                     <span>手机号</span>
-                    <div className="otto-auth-phone">
+                    <div className="claw-auth-phone">
                       <b>+86</b>
                       <input
                         aria-label="登录手机号"
@@ -685,9 +685,9 @@ export function EnterpriseLoginPage({
                       />
                     </div>
                   </label>
-                  <label className="otto-auth-field">
+                  <label className="claw-auth-field">
                     <span>短信验证码</span>
-                    <div className="otto-auth-code">
+                    <div className="claw-auth-code">
                       <input
                         aria-label="登录验证码"
                         inputMode="numeric"
@@ -715,15 +715,15 @@ export function EnterpriseLoginPage({
                       </button>
                     </div>
                   </label>
-                  {loginNotice ? <div className="otto-auth-notice" role="status">{loginNotice}</div> : null}
+                  {loginNotice ? <div className="claw-auth-notice" role="status">{loginNotice}</div> : null}
                 </>
               )}
             </>
           )}
 
-          {error ? <div className="otto-auth-error" role="alert">{error}</div> : null}
+          {error ? <div className="claw-auth-error" role="alert">{error}</div> : null}
           <button
-            className="otto-auth-submit"
+            className="claw-auth-submit"
             type="submit"
             disabled={formPending || requesting || loginRequesting
               || (mode === 'login' && (
@@ -753,7 +753,7 @@ export function EnterpriseLoginPage({
             <svg viewBox="0 0 24 24" aria-hidden><path d="M5 12h13m-5-5 5 5-5 5" /></svg>
           </button>
 
-          <div className="otto-auth-mode-switch">
+          <div className="claw-auth-mode-switch">
             <span>{mode === 'login' ? '第一次使用 ClawMaster？' : '已经有 ClawMaster 账号？'}</span>
             {mode === 'login' ? (
               <>
@@ -800,7 +800,7 @@ export function EnterpriseLoginPage({
             )}
           </div>
 
-          <p className="otto-auth-legal"><span aria-hidden>●</span> TLS 加密连接 · 企业邀请码只用于加入组织</p>
+          <p className="claw-auth-legal"><span aria-hidden>●</span> TLS 加密连接 · 企业邀请码只用于加入组织</p>
         </form>
       </section>
     </main>

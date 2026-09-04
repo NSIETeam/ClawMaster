@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import fs from 'node:fs';
@@ -64,8 +64,8 @@ describe('SQLite to PostgreSQL import CLI', () => {
       importEnterpriseSqliteToPostgres({
         arguments: ['--execute', '--source', 'snapshot.db'],
         environment: {
-          OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
-          OTTO_POSTGRES_URL:
+          CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+          CLAWMASTER_POSTGRES_URL:
             'postgresql://otto:super-secret@db.internal:5432/otto',
         },
         sourceFactory: () => {
@@ -86,10 +86,10 @@ describe('SQLite to PostgreSQL import CLI', () => {
     const result = await importEnterpriseSqliteToPostgres({
       arguments: ['--source', source.path],
       environment: {
-        OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
-        OTTO_POSTGRES_URL:
+        CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+        CLAWMASTER_POSTGRES_URL:
           'postgresql://otto:super-secret@db.internal:5432/otto',
-        OTTO_SQLITE_IMPORT_ENCRYPTION: 'required',
+        CLAWMASTER_SQLITE_IMPORT_ENCRYPTION: 'required',
       },
       sourceFactory: () => ({ database: source.database, close }),
       poolFactory,
@@ -112,7 +112,7 @@ describe('SQLite to PostgreSQL import CLI', () => {
     const sourcePath = String.raw`C:\Users\operator\private\snapshot.db`;
     const message = safeSqlitePostgresImportErrorMessage(
       new Error(`failed ${connectionString} while reading ${sourcePath}`),
-      { OTTO_POSTGRES_URL: connectionString },
+      { CLAWMASTER_POSTGRES_URL: connectionString },
       sourcePath,
     );
 

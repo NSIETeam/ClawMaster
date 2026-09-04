@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -14,7 +14,7 @@ describe('bundled document runtime', () => {
   it('prefers the packaged resourcesPath runtime over a PATH fallback', () => {
     const resourcesPath = path.join(
       '/Applications',
-      'Otto.app',
+      'ClawMaster.app',
       'Contents',
       'Resources',
     );

@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Control 网络端点 / HTTP 传输（CONTROL-12）——把调度器/处理器接到真实 HTTP 请求。
  *

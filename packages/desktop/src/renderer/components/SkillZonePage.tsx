@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -43,7 +43,7 @@ function formatCount(value: number): string {
 
 function SkillFacts({ skill }: { skill: EnterpriseSkillMarketItem }): React.JSX.Element {
   return (
-    <dl className="otto-skillzone__facts">
+    <dl className="claw-skillzone__facts">
       <div><dt>安装</dt><dd>{formatCount(skill.installCount)}</dd></div>
       <div><dt>使用</dt><dd>{formatCount(skill.usageCount)}</dd></div>
       <div><dt>评分</dt><dd>{skill.ratingCount > 0 ? `${skill.rating.toFixed(1)} / 5` : '暂无'}</dd></div>
@@ -53,7 +53,7 @@ function SkillFacts({ skill }: { skill: EnterpriseSkillMarketItem }): React.JSX.
 }
 
 function EmptyState({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return <div className="otto-skillzone__empty">{children}</div>;
+  return <div className="claw-skillzone__empty">{children}</div>;
 }
 
 export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps): React.JSX.Element {
@@ -82,14 +82,14 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
     setError('');
     try {
       if (section === 'ranking') {
-        const result = await window.otto.enterpriseSkillLeaderboard();
+        const result = await window.clawmaster.enterpriseSkillLeaderboard();
         if (loadRequest.current === request) setLeaderboard(result);
         return;
       }
       if (section === 'mine') {
         const [local, shared] = await Promise.all([
-          window.otto.enterpriseSkillLocalList(),
-          window.otto.enterpriseSkillList({ scope: 'mine', sort: 'newest' }),
+          window.clawmaster.enterpriseSkillLocalList(),
+          window.clawmaster.enterpriseSkillList({ scope: 'mine', sort: 'newest' }),
         ]);
         if (loadRequest.current !== request) return;
         setLocalSkills(local);
@@ -97,11 +97,11 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
         return;
       }
       if (section === 'review') {
-        const result = await window.otto.enterpriseSkillList({ scope: 'review', sort: 'newest' });
+        const result = await window.clawmaster.enterpriseSkillList({ scope: 'review', sort: 'newest' });
         if (loadRequest.current === request) setSkills(result);
         return;
       }
-      const result = await window.otto.enterpriseSkillList({
+      const result = await window.clawmaster.enterpriseSkillList({
         scope: marketScope,
         query: submittedQuery || undefined,
         sort,
@@ -143,7 +143,7 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
 
   const install = (skill: EnterpriseSkillMarketItem): void => {
     void runAction(skill.id, async () => {
-      const result = await window.otto.enterpriseSkillInstall(skill.id);
+      const result = await window.clawmaster.enterpriseSkillInstall(skill.id);
       return `${skill.name} v${result.skill.version} 已安装`;
     });
   };
@@ -151,7 +151,7 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
   const rate = (skill: EnterpriseSkillMarketItem): void => {
     const score = ratingDraft[skill.id] ?? 5;
     void runAction(skill.id, async () => {
-      await window.otto.enterpriseSkillRate(skill.id, score);
+      await window.clawmaster.enterpriseSkillRate(skill.id, score);
       return `已提交 ${score} 分评价`;
     });
   };
@@ -159,7 +159,7 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
   const submit = (skill: LocalSkillShareCandidate): void => {
     const visibility = submitVisibility[skill.name] ?? 'department';
     void runAction(`local:${skill.name}`, async () => {
-      const result = await window.otto.enterpriseSkillSubmit({
+      const result = await window.clawmaster.enterpriseSkillSubmit({
         localSkillName: skill.name,
         visibility,
       });
@@ -173,7 +173,7 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
     visibility?: EnterpriseSkillVisibility,
   ): void => {
     void runAction(skill.id, async () => {
-      await window.otto.enterpriseSkillReview(skill.id, action, visibility);
+      await window.clawmaster.enterpriseSkillReview(skill.id, action, visibility);
       return action === 'approve' ? 'Skill 已通过审核并上架' : 'Skill 已拒绝并归档';
     });
   };
@@ -181,17 +181,17 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
   const renderMarket = (): React.JSX.Element => (
     <>
       <form
-        className="otto-skillzone__toolbar"
+        className="claw-skillzone__toolbar"
         onSubmit={(event) => {
           event.preventDefault();
           setSubmittedQuery(query.trim());
         }}
       >
-        <div className="otto-skillzone__segmented" role="group" aria-label="市场范围">
+        <div className="claw-skillzone__segmented" role="group" aria-label="市场范围">
           <button type="button" className={marketScope === 'department' ? 'is-active' : ''} onClick={() => setMarketScope('department')}>本部门</button>
           <button type="button" className={marketScope === 'company' ? 'is-active' : ''} onClick={() => setMarketScope('company')}>全公司</button>
         </div>
-        <label className="otto-skillzone__search">
+        <label className="claw-skillzone__search">
           <span className="sr-only">搜索 Skill</span>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索 Skill、作者或部门" />
         </label>
@@ -202,34 +202,34 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
           <option value="usage">使用最多</option>
           <option value="newest">最新上架</option>
         </select>
-        <button type="submit" className="otto-skillzone__command">搜索</button>
-        <button type="button" className="otto-skillzone__icon-btn" title="刷新" aria-label="刷新" onClick={() => setRevision((value) => value + 1)}>
+        <button type="submit" className="claw-skillzone__command">搜索</button>
+        <button type="button" className="claw-skillzone__icon-btn" title="刷新" aria-label="刷新" onClick={() => setRevision((value) => value + 1)}>
           <IconRegenerate size={16} />
         </button>
       </form>
       {loading ? <EmptyState>正在加载 Skill…</EmptyState> : skills.length === 0 ? <EmptyState>没有符合条件的 Skill</EmptyState> : (
-        <div className="otto-skillzone__grid">
+        <div className="claw-skillzone__grid">
           {skills.map((skill) => {
             const installed = skill.installedVersion !== null && skill.installedVersion >= skill.version;
             const canRate = skill.installedVersion !== null && skill.authorAccountId !== accountId;
             return (
-              <article className="otto-skillzone__card" key={skill.id}>
-                <div className="otto-skillzone__card-head">
+              <article className="claw-skillzone__card" key={skill.id}>
+                <div className="claw-skillzone__card-head">
                   <div>
                     <h2>{skill.name}</h2>
-                    <div className="otto-skillzone__byline">{skill.authorName} · {skill.department || '未设置部门'}</div>
+                    <div className="claw-skillzone__byline">{skill.authorName} · {skill.department || '未设置部门'}</div>
                   </div>
-                  <span className="otto-skillzone__scope">{visibilityLabel(skill.visibility)}</span>
+                  <span className="claw-skillzone__scope">{visibilityLabel(skill.visibility)}</span>
                 </div>
                 <p>{skill.description}</p>
                 <SkillFacts skill={skill} />
-                <div className="otto-skillzone__card-actions">
+                <div className="claw-skillzone__card-actions">
                   <button type="button" disabled={installed || actionId === skill.id} onClick={() => install(skill)}>
                     {installed ? <IconCheck size={14} /> : <IconPackage size={14} />}
                     {installed ? '已安装' : skill.installedVersion === null ? '安装' : '更新'}
                   </button>
                   {canRate ? (
-                    <div className="otto-skillzone__rating">
+                    <div className="claw-skillzone__rating">
                       <select
                         aria-label={`评价 ${skill.name}`}
                         value={ratingDraft[skill.id] ?? 5}
@@ -250,17 +250,17 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
   );
 
   const renderMine = (): React.JSX.Element => (
-    <div className="otto-skillzone__mine-layout">
-      <section className="otto-skillzone__panel" aria-labelledby="local-skills-heading">
-        <div className="otto-skillzone__panel-head"><h2 id="local-skills-heading">本机 Skill</h2><span>{localSkills.length}</span></div>
+    <div className="claw-skillzone__mine-layout">
+      <section className="claw-skillzone__panel" aria-labelledby="local-skills-heading">
+        <div className="claw-skillzone__panel-head"><h2 id="local-skills-heading">本机 Skill</h2><span>{localSkills.length}</span></div>
         {loading ? <EmptyState>正在读取本机 Skill…</EmptyState> : localSkills.length === 0 ? <EmptyState>本机暂无可投稿 Skill</EmptyState> : (
-          <div className="otto-skillzone__rows">
+          <div className="claw-skillzone__rows">
             {localSkills.map((skill) => {
               const shared = sharedByLocalName.get(skill.name);
               return (
-                <div className="otto-skillzone__local-row" key={skill.name}>
+                <div className="claw-skillzone__local-row" key={skill.name}>
                   <div><strong>{skill.name}</strong><span>{skill.kind === 'auto' ? '自动生成' : '个人创建'}</span><p>{skill.description}</p></div>
-                  <div className="otto-skillzone__submit-controls">
+                  <div className="claw-skillzone__submit-controls">
                     <select
                       aria-label={`${skill.name} 分享范围`}
                       value={submitVisibility[skill.name] ?? 'department'}
@@ -283,14 +283,14 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
           </div>
         )}
       </section>
-      <section className="otto-skillzone__panel" aria-labelledby="shared-skills-heading">
-        <div className="otto-skillzone__panel-head"><h2 id="shared-skills-heading">我的投稿</h2><span>{skills.length}</span></div>
+      <section className="claw-skillzone__panel" aria-labelledby="shared-skills-heading">
+        <div className="claw-skillzone__panel-head"><h2 id="shared-skills-heading">我的投稿</h2><span>{skills.length}</span></div>
         {skills.length === 0 ? <EmptyState>暂无投稿记录</EmptyState> : (
-          <div className="otto-skillzone__rows">
+          <div className="claw-skillzone__rows">
             {skills.map((skill) => (
-              <div className="otto-skillzone__shared-row" key={skill.id}>
+              <div className="claw-skillzone__shared-row" key={skill.id}>
                 <div><strong>{skill.name}</strong><span>{visibilityLabel(skill.visibility)}</span></div>
-                <span className={`otto-skillzone__status is-${skill.status}`}>{skillStatusLabel(skill.status)}</span>
+                <span className={`claw-skillzone__status is-${skill.status}`}>{skillStatusLabel(skill.status)}</span>
               </div>
             ))}
           </div>
@@ -301,22 +301,22 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
 
   const renderRanking = (): React.JSX.Element => (
     <>
-      <div className="otto-skillzone__toolbar otto-skillzone__toolbar--ranking">
-        <div className="otto-skillzone__segmented" role="group" aria-label="排行榜类型">
+      <div className="claw-skillzone__toolbar claw-skillzone__toolbar--ranking">
+        <div className="claw-skillzone__segmented" role="group" aria-label="排行榜类型">
           <button type="button" className={rankingMode === 'skills' ? 'is-active' : ''} onClick={() => setRankingMode('skills')}>Skill 榜</button>
           <button type="button" className={rankingMode === 'contributors' ? 'is-active' : ''} onClick={() => setRankingMode('contributors')}>贡献榜</button>
         </div>
-        <button type="button" className="otto-skillzone__icon-btn" title="刷新" aria-label="刷新排行榜" onClick={() => setRevision((value) => value + 1)}>
+        <button type="button" className="claw-skillzone__icon-btn" title="刷新" aria-label="刷新排行榜" onClick={() => setRevision((value) => value + 1)}>
           <IconRegenerate size={16} />
         </button>
       </div>
       {loading ? <EmptyState>正在计算排行榜…</EmptyState> : rankingMode === 'skills' ? (
         leaderboard.skills.length === 0 ? <EmptyState>还没有可排名的 Skill</EmptyState> : (
-          <ol className="otto-skillzone__leaderboard">
+          <ol className="claw-skillzone__leaderboard">
             {leaderboard.skills.map((skill) => (
               <li key={skill.id}>
-                <span className="otto-skillzone__rank">{skill.rank}</span>
-                <div className="otto-skillzone__rank-main"><strong>{skill.name}</strong><span>{skill.authorName} · {skill.department || '未设置部门'}</span></div>
+                <span className="claw-skillzone__rank">{skill.rank}</span>
+                <div className="claw-skillzone__rank-main"><strong>{skill.name}</strong><span>{skill.authorName} · {skill.department || '未设置部门'}</span></div>
                 <div><strong>{skill.score.toFixed(1)}</strong><span>综合分</span></div>
                 <div><strong>{skill.ratingCount ? skill.rating.toFixed(1) : '—'}</strong><span>评分</span></div>
                 <div><strong>{formatCount(skill.installCount)}</strong><span>安装</span></div>
@@ -326,11 +326,11 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
           </ol>
         )
       ) : leaderboard.contributors.length === 0 ? <EmptyState>还没有可排名的贡献者</EmptyState> : (
-        <ol className="otto-skillzone__leaderboard">
+        <ol className="claw-skillzone__leaderboard">
           {leaderboard.contributors.map((contributor) => (
             <li key={`${contributor.accountId || contributor.name}:${contributor.rank}`}>
-              <span className="otto-skillzone__rank">{contributor.rank}</span>
-              <div className="otto-skillzone__rank-main"><strong>{contributor.name}</strong><span>{contributor.skillCount} 个上架 Skill</span></div>
+              <span className="claw-skillzone__rank">{contributor.rank}</span>
+              <div className="claw-skillzone__rank-main"><strong>{contributor.name}</strong><span>{contributor.skillCount} 个上架 Skill</span></div>
               <div><strong>{contributor.score.toFixed(1)}</strong><span>贡献分</span></div>
               <div><strong>{formatCount(contributor.installCount)}</strong><span>安装</span></div>
               <div><strong>{formatCount(contributor.usageCount)}</strong><span>使用</span></div>
@@ -344,11 +344,11 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
   const renderReview = (): React.JSX.Element => loading ? <EmptyState>正在读取审核队列…</EmptyState> : skills.length === 0 ? (
     <EmptyState>审核队列为空</EmptyState>
   ) : (
-    <div className="otto-skillzone__review-list">
+    <div className="claw-skillzone__review-list">
       {skills.map((skill) => (
         <article key={skill.id}>
           <div><h2>{skill.name}</h2><span>{skill.authorName} · {skill.department || '未设置部门'}</span><p>{skill.description}</p></div>
-          <div className="otto-skillzone__review-actions">
+          <div className="claw-skillzone__review-actions">
             <button type="button" disabled={actionId === skill.id} onClick={() => review(skill, 'approve', 'department')}>部门上架</button>
             <button type="button" disabled={actionId === skill.id} onClick={() => review(skill, 'approve', 'company')}>公司上架</button>
             <button type="button" className="is-danger" disabled={actionId === skill.id} onClick={() => review(skill, 'archive')}>拒绝</button>
@@ -359,20 +359,20 @@ export function SkillZonePage({ onBack, accountId, isAdmin }: SkillZonePageProps
   );
 
   return (
-    <section className="otto-skillzone" aria-label="Skill 专区">
-      <header className="otto-skillzone__head">
-        <div><div className="otto-skillzone__eyebrow">Enterprise Skills</div><h1>Skill 专区</h1></div>
-        <button type="button" className="otto-hub__btn" onClick={onBack}><IconChevron size={13} /> 返回对话</button>
+    <section className="claw-skillzone" aria-label="Skill 专区">
+      <header className="claw-skillzone__head">
+        <div><div className="claw-skillzone__eyebrow">Enterprise Skills</div><h1>Skill 专区</h1></div>
+        <button type="button" className="claw-hub__btn" onClick={onBack}><IconChevron size={13} /> 返回对话</button>
       </header>
-      <nav className="otto-skillzone__primary-tabs" aria-label="Skill 专区导航">
+      <nav className="claw-skillzone__primary-tabs" aria-label="Skill 专区导航">
         <button type="button" className={section === 'market' ? 'is-active' : ''} onClick={() => setSection('market')}>市场</button>
         <button type="button" className={section === 'mine' ? 'is-active' : ''} onClick={() => setSection('mine')}>我的 Skill</button>
         <button type="button" className={section === 'ranking' ? 'is-active' : ''} onClick={() => setSection('ranking')}>排行榜</button>
         {isAdmin ? <button type="button" className={section === 'review' ? 'is-active' : ''} onClick={() => setSection('review')}>审核</button> : null}
       </nav>
-      <div className="otto-skillzone__content">
-        {error ? <div className="otto-skillzone__message is-error" role="alert">{error}</div> : null}
-        {notice ? <div className="otto-skillzone__message is-success" role="status">{notice}</div> : null}
+      <div className="claw-skillzone__content">
+        {error ? <div className="claw-skillzone__message is-error" role="alert">{error}</div> : null}
+        {notice ? <div className="claw-skillzone__message is-success" role="status">{notice}</div> : null}
         {section === 'market' ? renderMarket() : null}
         {section === 'mine' ? renderMine() : null}
         {section === 'ranking' ? renderRanking() : null}

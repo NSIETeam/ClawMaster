@@ -281,13 +281,13 @@ export const CARDKIT_LOADING_ELEMENT_ID = 'loading_icon';
  *
  * 当前 CardKit 2.0 在生产环境表现不稳定（创建/推送偶发 5xx、卡片渲染不一致），
  * 默认禁用 CardKit 2.0，统一走老版带标题的交互卡片（sendCard + updateCard）。
- * 设置环境变量 OTTO_FEISHU_CARDKIT_V2=1 可临时启用（仅供测试 / 开发）。
- * 向后兼容旧环境变量 OTTO_FEISHU_CARDKIT_V2。
+ * 设置环境变量 CLAWMASTER_FEISHU_CARDKIT_V2=1 可临时启用（仅供测试 / 开发）。
+ * 向后兼容旧环境变量 CLAWMASTER_FEISHU_CARDKIT_V2。
  */
 export function isCardKitV2Enabled(): boolean {
   const v =
-    process.env['OTTO_FEISHU_CARDKIT_V2'] ??
-    process.env['OTTO_FEISHU_CARDKIT_V2'];
+    process.env['CLAWMASTER_FEISHU_CARDKIT_V2'] ??
+    process.env['CLAWMASTER_FEISHU_CARDKIT_V2'];
   return v === '1';
 }
 
@@ -499,16 +499,16 @@ export function buildCardKitFinalCard(content: string, footerMetrics?: FeishuFoo
 // 跨进程连接互斥锁（同一 appId 全机只允许一个进程建立飞书长连接）
 //
 // 背景：进程内去重表（processedMessages / inFlightMessages）只在单进程内生效。
-// server 侧 FeishuAdapter（OTTO_FEISHU_ENABLED=1）与 cli 侧 daemon 若同时对
+// server 侧 FeishuAdapter（CLAWMASTER_FEISHU_ENABLED=1）与 cli 侧 daemon 若同时对
 // 同一 appId connect，每条飞书消息会被两个进程各处理一遍、回复两遍。
 // 因此 connect() 前必须先按 appId 拿到 ~/.otto-user/ 下的锁文件（O_EXCL 原子
 // 创建，内容含 pid + startedAt）；持有者已死（stale）则接管，持有者存活则
 // fail-loud 拒绝连接。
 // ---------------------------------------------------------------------------
 
-/** 连接互斥锁存放目录（与凭证同在 ~/.otto-user/；OTTO_FEISHU_LOCK_DIR 仅供测试隔离）。 */
+/** 连接互斥锁存放目录（与凭证同在 ~/.otto-user/；CLAWMASTER_FEISHU_LOCK_DIR 仅供测试隔离）。 */
 function gatewayLockDir(): string {
-  return process.env['OTTO_FEISHU_LOCK_DIR'] || path.join(os.homedir(), '.otto-user');
+  return process.env['CLAWMASTER_FEISHU_LOCK_DIR'] || path.join(os.homedir(), '.otto-user');
 }
 
 /** 某 appId 的连接锁文件路径（appId 经净化后拼入文件名，杜绝路径穿越）。 */

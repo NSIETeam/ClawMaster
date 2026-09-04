@@ -21,9 +21,9 @@ async function writeFixtureRelease() {
   tempDirs.push(dir);
   const version = '9.8.7';
   const files = [
-    `Otto-Setup-${version}-win-x64.exe`,
-    `Otto-${version}-arm64.dmg`,
-    `Otto-${version}-x64.dmg`,
+    `ClawMaster-Setup-${version}-win-x64.exe`,
+    `ClawMaster-${version}-arm64.dmg`,
+    `ClawMaster-${version}-x64.dmg`,
   ];
   const assets = {};
   const keys = ['win-x64', 'mac-arm64', 'mac-x64'];
@@ -72,7 +72,7 @@ describe('verify-update-manifest', () => {
       version,
       requiredAssets: [{
         key: 'win-x64',
-        fileName: (targetVersion) => `Otto-Setup-${targetVersion}-win-x64.exe`,
+        fileName: (targetVersion) => `ClawMaster-Setup-${targetVersion}-win-x64.exe`,
       }],
     })).toEqual({ version, assets: ['win-x64'] });
   });
@@ -99,10 +99,10 @@ describe('verify-update-manifest', () => {
 
   it('rejects missing release files referenced by latest.json', async () => {
     const { dir, version } = await writeFixtureRelease();
-    await rm(path.join(dir, `Otto-${version}-x64.dmg`));
+    await rm(path.join(dir, `ClawMaster-${version}-x64.dmg`));
 
     expect(() => verifyUpdateManifest({ releaseDir: dir, version })).toThrow(
-      `missing mac-x64 asset file: Otto-${version}-x64.dmg`,
+      `missing mac-x64 asset file: ClawMaster-${version}-x64.dmg`,
     );
   });
 
@@ -125,7 +125,7 @@ describe('verify-update-manifest', () => {
 
     const { dir: urlDir } = await writeFixtureRelease();
     await rewriteManifest(urlDir, (manifest) => {
-      manifest.assets['win-x64'].url = 'https://example.com/Otto.exe';
+      manifest.assets['win-x64'].url = 'https://example.com/ClawMaster.exe';
     });
     expect(() =>
       verifyUpdateManifest({ releaseDir: urlDir, version }),

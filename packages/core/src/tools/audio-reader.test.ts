@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2026 Otto
+ * Copyright 2026 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -15,7 +15,7 @@ import type { Config } from '../config/config.js';
 type AudioTestConfig = Config & {
   getModel: () => string;
   getCustomModelConfig: () => Record<string, unknown>;
-  getOttoClient: ReturnType<typeof vi.fn>;
+  getClawMasterClient: ReturnType<typeof vi.fn>;
 };
 
 describe('AudioReaderTool', () => {
@@ -58,7 +58,7 @@ describe('AudioReaderTool', () => {
       displayName: 'GPT-4o Audio',
       capabilities: ['audio'],
     });
-    config.getOttoClient = vi.fn(() => ({ createTemporaryChat }));
+    config.getClawMasterClient = vi.fn(() => ({ createTemporaryChat }));
 
     const tool = new AudioReaderTool(config, localTranscriber);
 
@@ -76,7 +76,7 @@ describe('AudioReaderTool', () => {
   });
 
   it('falls back to local ASR when the current custom model is text-only', async () => {
-    const getOttoClient = vi.fn();
+    const getClawMasterClient = vi.fn();
     const config = createMockConfig({
       getTargetDir: () => tempDir,
     }) as unknown as AudioTestConfig;
@@ -90,7 +90,7 @@ describe('AudioReaderTool', () => {
       displayName: 'Doubao Pro',
       capabilities: ['text'],
     });
-    config.getOttoClient = getOttoClient;
+    config.getClawMasterClient = getClawMasterClient;
 
     const tool = new AudioReaderTool(
       config,
@@ -101,7 +101,7 @@ describe('AudioReaderTool', () => {
 
     expect(result.llmContent).toContain('via local ASR');
     expect(result.llmContent).toContain('local meeting transcript');
-    expect(getOttoClient).not.toHaveBeenCalled();
+    expect(getClawMasterClient).not.toHaveBeenCalled();
   });
 
   it('explains local setup options when a custom text model has no local ASR', async () => {
@@ -118,7 +118,7 @@ describe('AudioReaderTool', () => {
       displayName: 'Doubao Pro',
       capabilities: ['text'],
     });
-    config.getOttoClient = vi.fn();
+    config.getClawMasterClient = vi.fn();
 
     const tool = new AudioReaderTool(config, vi.fn().mockResolvedValue(null));
 
@@ -130,9 +130,9 @@ describe('AudioReaderTool', () => {
     expect(result.llmContent).toContain('local transcription fallback');
     expect(result.llmContent).toContain('voice/transcription diagnostics');
     expect(result.llmContent).toContain('winget install --id Gyan.FFmpeg');
-    expect(result.llmContent).toContain('OTTO_WHISPER_MODEL');
+    expect(result.llmContent).toContain('CLAWMASTER_WHISPER_MODEL');
     expect(result.llmContent).not.toContain('pip install -U openai-whisper');
     expect(result.llmContent).not.toContain('Gemini');
-    expect(config.getOttoClient).not.toHaveBeenCalled();
+    expect(config.getClawMasterClient).not.toHaveBeenCalled();
   });
 });

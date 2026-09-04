@@ -115,7 +115,7 @@ interface GeneratedIconProps {
 }
 
 /**
- * Codex 内置 imagegen 生成的 Otto 刺绣图标。
+ * Codex 内置 imagegen 生成的 ClawMaster 刺绣图标。
  * 默认纯装饰；只有显式传入 alt 时才进入无障碍树。
  */
 export function GeneratedIcon({
@@ -131,7 +131,7 @@ export function GeneratedIcon({
       height={size}
       alt={alt}
       aria-hidden={alt ? undefined : true}
-      className={['otto-generated-icon', className].filter(Boolean).join(' ')}
+      className={['claw-generated-icon', className].filter(Boolean).join(' ')}
       draggable={false}
       decoding="async"
     />

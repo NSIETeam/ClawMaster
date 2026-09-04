@@ -135,7 +135,7 @@ function renderLocalAgentPage(): string {
       document.getElementById('indicator-dot').className = 'dot';
       detectedInstance = null;
       pairingToken = null;
-      OttoDiscovery.detect(handleResult, { force: true });
+      ClawMasterDiscovery.detect(handleResult, { force: true });
     }
 
     function handleResult(result) {
@@ -190,7 +190,7 @@ function renderLocalAgentPage(): string {
     }
 
     // 启动探测
-    OttoDiscovery.detect(handleResult);
+    ClawMasterDiscovery.detect(handleResult);
   </script>
 </body>
 </html>`;

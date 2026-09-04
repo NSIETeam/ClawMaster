@@ -162,7 +162,7 @@ Use this to persist reusable knowledge across sessions: project conventions, tro
       return { llmContent: `Error: ${validationError}`, returnDisplay: validationError };
     }
 
-    // 每次执行现建 store：让 OTTO_USER_DIR 的变化（测试/沙箱）即时生效
+    // 每次执行现建 store：让 CLAWMASTER_USER_DIR 的变化（测试/沙箱）即时生效
     const store = new LocalKnowledgeStore();
 
     try {

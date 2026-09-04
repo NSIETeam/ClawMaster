@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import fs from 'node:fs';
@@ -24,10 +24,10 @@ export type EnterpriseDatabaseTopology =
     };
 
 export interface EnterpriseDatabaseTopologyEnvironment {
-  OTTO_ENTERPRISE_DATABASE_BACKEND?: string;
-  OTTO_ENTERPRISE_REPLICA_COUNT?: string;
-  OTTO_POSTGRES_URL?: string;
-  OTTO_DATABASE_ENCRYPTION?: string;
+  CLAWMASTER_ENTERPRISE_DATABASE_BACKEND?: string;
+  CLAWMASTER_ENTERPRISE_REPLICA_COUNT?: string;
+  CLAWMASTER_POSTGRES_URL?: string;
+  CLAWMASTER_DATABASE_ENCRYPTION?: string;
 }
 
 export interface SqlitePathInspectionOptions {
@@ -56,7 +56,7 @@ function readFilesystemType(existingPath: string): number | bigint | undefined {
   }
 }
 
-/** SQLite locking is unsupported on NFS/SMB for an Otto write-serving process. */
+/** SQLite locking is unsupported on NFS/SMB for an ClawMaster write-serving process. */
 export function assertLocalSqliteDatabasePath(
   databasePath: string,
   options: SqlitePathInspectionOptions = {},
@@ -84,7 +84,7 @@ function parseReplicaCount(value: string | undefined): number {
   const replicas = Number(value);
   if (!Number.isSafeInteger(replicas) || replicas < 1 || replicas > 1_000) {
     throw new Error(
-      'OTTO_ENTERPRISE_REPLICA_COUNT must be an integer from 1 to 1000',
+      'CLAWMASTER_ENTERPRISE_REPLICA_COUNT must be an integer from 1 to 1000',
     );
   }
   return replicas;
@@ -95,13 +95,13 @@ function parsePostgresUrl(value: string): URL {
   try {
     parsed = new URL(value);
   } catch {
-    throw new Error('OTTO_POSTGRES_URL must be a valid PostgreSQL URL');
+    throw new Error('CLAWMASTER_POSTGRES_URL must be a valid PostgreSQL URL');
   }
   if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) {
-    throw new Error('OTTO_POSTGRES_URL must use postgres:// or postgresql://');
+    throw new Error('CLAWMASTER_POSTGRES_URL must use postgres:// or postgresql://');
   }
   if (!parsed.hostname || parsed.pathname === '' || parsed.pathname === '/') {
-    throw new Error('OTTO_POSTGRES_URL must include a host and database name');
+    throw new Error('CLAWMASTER_POSTGRES_URL must include a host and database name');
   }
   return parsed;
 }
@@ -111,10 +111,10 @@ export function resolveEnterpriseDatabaseTopology(input: {
   sqliteDatabasePath: string;
 }): EnterpriseDatabaseTopology {
   const configuredBackend =
-    input.environment.OTTO_ENTERPRISE_DATABASE_BACKEND?.trim().toLowerCase() ||
+    input.environment.CLAWMASTER_ENTERPRISE_DATABASE_BACKEND?.trim().toLowerCase() ||
     'sqlite';
   const replicas = parseReplicaCount(
-    input.environment.OTTO_ENTERPRISE_REPLICA_COUNT,
+    input.environment.CLAWMASTER_ENTERPRISE_REPLICA_COUNT,
   );
 
   if (configuredBackend === 'sqlite') {
@@ -133,18 +133,18 @@ export function resolveEnterpriseDatabaseTopology(input: {
 
   if (!['postgres', 'postgresql'].includes(configuredBackend)) {
     throw new Error(
-      'OTTO_ENTERPRISE_DATABASE_BACKEND must be sqlite or postgresql',
+      'CLAWMASTER_ENTERPRISE_DATABASE_BACKEND must be sqlite or postgresql',
     );
   }
-  const connectionString = input.environment.OTTO_POSTGRES_URL?.trim();
+  const connectionString = input.environment.CLAWMASTER_POSTGRES_URL?.trim();
   if (!connectionString) {
     throw new Error(
-      'OTTO_POSTGRES_URL is required when the enterprise database backend is PostgreSQL',
+      'CLAWMASTER_POSTGRES_URL is required when the enterprise database backend is PostgreSQL',
     );
   }
   parsePostgresUrl(connectionString);
   if (
-    input.environment.OTTO_DATABASE_ENCRYPTION?.trim().toLowerCase() ===
+    input.environment.CLAWMASTER_DATABASE_ENCRYPTION?.trim().toLowerCase() ===
     'required'
   ) {
     throw new Error(

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -30,12 +30,12 @@ const AVAILABLE: UpdateCheckResult = {
   notes: '## 更新\n- 更快',
   publishedAt: '2026-07-08T18:00:00Z',
   asset: {
-    name: 'Otto-1.4.1-arm64.dmg',
-    url: 'https://github.com/Felix201209/otto-releases/releases/download/v1.4.1/Otto-1.4.1-arm64.dmg',
+    name: 'ClawMaster-1.4.1-arm64.dmg',
+    url: 'https://github.com/Felix201209/claw-releases/releases/download/v1.4.1/ClawMaster-1.4.1-arm64.dmg',
     size: 136314880,
     sha256: 'a'.repeat(64),
   },
-  releasePageUrl: 'https://github.com/Felix201209/otto-releases/releases/latest',
+  releasePageUrl: 'https://github.com/Felix201209/claw-releases/releases/latest',
 };
 
 function run(actions: UpdateAction[], from = initialUpdateState): SoftwareUpdateState {
@@ -116,7 +116,7 @@ describe('updateReducer：有新版 → 下载 → 完成 的状态流转', () =
   it('完整正向链路：available → downloading（进度推进）→ downloaded', () => {
     let s = run([{ kind: 'check_result', result: AVAILABLE, at: 1, silent: false }]);
     expect(s.phase).toBe('available');
-    expect(s.asset?.name).toBe('Otto-1.4.1-arm64.dmg');
+    expect(s.asset?.name).toBe('ClawMaster-1.4.1-arm64.dmg');
     expect(s.notes).toContain('更快');
 
     s = updateReducer(s, { kind: 'download_start' });
@@ -130,10 +130,10 @@ describe('updateReducer：有新版 → 下载 → 完成 的状态流转', () =
 
     s = updateReducer(s, {
       kind: 'download_result',
-      result: { ok: true, filePath: '/Users/x/Downloads/Otto-1.4.1-arm64.dmg', reused: false },
+      result: { ok: true, filePath: '/Users/x/Downloads/ClawMaster-1.4.1-arm64.dmg', reused: false },
     });
     expect(s.phase).toBe('downloaded');
-    expect(s.filePath).toBe('/Users/x/Downloads/Otto-1.4.1-arm64.dmg');
+    expect(s.filePath).toBe('/Users/x/Downloads/ClawMaster-1.4.1-arm64.dmg');
     expect(s.progress).toBeNull();
   });
 
@@ -185,7 +185,7 @@ describe('updateReducer：有新版 → 下载 → 完成 的状态流转', () =
       { kind: 'download_result', result: { ok: true, filePath: '/p.dmg', reused: false } },
       {
         kind: 'install_result',
-        result: { ok: true, message: '安装包已打开：请把 Otto 拖入「应用程序」…' },
+        result: { ok: true, message: '安装包已打开：请把 ClawMaster 拖入「应用程序」…' },
       },
     ]);
     expect(s.installMessage).toContain('安装包已打开');

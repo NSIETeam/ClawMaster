@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useState } from 'react';
@@ -18,7 +18,7 @@ import type {
 export interface AtoaPermissionRequest {
   peer: AtoaPeerIdentity;
   payload: AtoaRequestPayload;
-  /** Already decrypted locally; never loaded by Otto unless selected below. */
+  /** Already decrypted locally; never loaded by ClawMaster unless selected below. */
   messages: EnterpriseDirectMessage[];
 }
 const SOURCE_DETAILS: Record<
@@ -76,16 +76,16 @@ export function AtoaPermissionDialog({
     selected.includes('current_chat') && selectedMessageIds.length === 0;
 
   return (
-    <div className="otto-a2a-permission-backdrop">
+    <div className="claw-a2a-permission-backdrop">
       <section
-        className="otto-a2a-permission"
+        className="claw-a2a-permission"
         role="dialog"
         aria-modal="true"
         aria-label="ClawMaster 协作权限"
       >
         <header>
           <div>
-            <span className="otto-a2a-permission__eyebrow">
+            <span className="claw-a2a-permission__eyebrow">
               {request.payload.mode === 'consult'
                 ? '双方 ClawMaster 协商请求'
                 : '对方 ClawMaster 提问'}
@@ -95,23 +95,23 @@ export function AtoaPermissionDialog({
           </div>
         </header>
 
-        <div className="otto-a2a-permission__question">
+        <div className="claw-a2a-permission__question">
           {request.payload.question}
         </div>
         {request.payload.mode === 'consult' &&
         request.payload.initiatorProposal ? (
-          <div className="otto-a2a-permission__proposal">
+          <div className="claw-a2a-permission__proposal">
             <strong>发起方 ClawMaster 的提案</strong>
             <p>{request.payload.initiatorProposal}</p>
           </div>
         ) : null}
 
-        <p className="otto-a2a-permission__notice">
+        <p className="claw-a2a-permission__notice">
           默认不授权。请选择本次允许 ClawMaster 查阅的资料；“全部”只包括下列四类，
           不包括本机文件、模型密钥、其他聊天或未列出的数据。
         </p>
 
-        <div className="otto-a2a-permission__sources">
+        <div className="claw-a2a-permission__sources">
           {ATOA_CONTEXT_SOURCES.map((source) => (
             <label key={source}>
               <input

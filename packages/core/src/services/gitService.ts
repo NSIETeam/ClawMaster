@@ -10,7 +10,7 @@ import * as os from 'os';
 import { isNodeError } from '../utils/errors.js';
 import { exec } from 'node:child_process';
 import { simpleGit, SimpleGit } from 'simple-git';
-import { getProjectHash, OTTO_DIR } from '../utils/paths.js';
+import { getProjectHash, CLAWMASTER_DIR } from '../utils/paths.js';
 
 /**
  * Git service initialization result
@@ -125,7 +125,7 @@ export class GitService {
 
   private getHistoryDir(): string {
     const hash = getProjectHash(this.projectRoot);
-    return path.join(os.homedir(), OTTO_DIR, 'history', hash);
+    return path.join(os.homedir(), CLAWMASTER_DIR, 'history', hash);
   }
 
   async initialize(): Promise<GitServiceInitResult> {

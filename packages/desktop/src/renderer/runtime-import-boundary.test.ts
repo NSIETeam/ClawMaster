@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import fs from 'node:fs';
@@ -20,13 +20,13 @@ function rendererSources(dir: string): string[] {
 }
 
 describe('renderer runtime import boundary', () => {
-  it('otto-server/otto-core only enter as types, never as renderer runtime code', () => {
+  it('claw-server/claw-core only enter as types, never as renderer runtime code', () => {
     const violations = rendererSources(rendererRoot).flatMap((file) => {
       const source = fs.readFileSync(file, 'utf8');
       const imports = source.match(/^[ \t]*import[\s\S]*?;[ \t]*$/gm) ?? [];
       const staticViolations = imports
         .filter((statement) =>
-          /(?:from\s+)?['"]otto-(?:server|core)(?:\/[^'"]*)?['"]/.test(statement),
+          /(?:from\s+)?['"]claw-(?:server|core)(?:\/[^'"]*)?['"]/.test(statement),
         )
         .filter((statement) => !statement.trimStart().startsWith('import type '))
         .map((statement) => ({
@@ -34,7 +34,7 @@ describe('renderer runtime import boundary', () => {
           statement: statement.replace(/\s+/g, ' ').trim(),
         }));
       const callViolations = [...source.matchAll(
-        /\b(?:require|import)\(\s*['"]otto-(?:server|core)(?:\/[^'"]*)?['"]\s*\)/g,
+        /\b(?:require|import)\(\s*['"]claw-(?:server|core)(?:\/[^'"]*)?['"]\s*\)/g,
       )].map((match) => ({
         file: path.relative(rendererRoot, file),
         statement: match[0],

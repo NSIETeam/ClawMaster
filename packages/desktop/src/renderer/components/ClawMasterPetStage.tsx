@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2026 Otto
+ * Copyright 2026 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -132,7 +132,7 @@ function useReducedMotion(): boolean {
   return reduced;
 }
 
-export function OttoPetStage({
+export function ClawMasterPetStage({
   running,
   variant,
   workLabel,
@@ -202,7 +202,7 @@ export function OttoPetStage({
   };
 
   const motionStyle = {
-    '--otto-pet-state-duration': `${totalStateDuration}ms`,
+    '--claw-pet-state-duration': `${totalStateDuration}ms`,
   } as React.CSSProperties;
 
   const travelling =
@@ -211,37 +211,37 @@ export function OttoPetStage({
   if (variant === 'widget') {
     return (
       <aside
-        className="otto-pet-widget"
+        className="claw-pet-widget"
         aria-label="ClawMaster 小宠物工作状态"
-        data-testid="otto-pet-stage"
+        data-testid="claw-pet-stage"
         data-current-state={animation.id}
         data-running={running ? 'true' : 'false'}
       >
-        <div className="otto-pet-widget__sprite" aria-hidden="true">
+        <div className="claw-pet-widget__sprite" aria-hidden="true">
           <div
-            className="otto-pet-stage__motion"
+            className="claw-pet-stage__motion"
             style={motionStyle}
             data-state={animation.id}
             data-frame={frameIndex}
             data-reduced-motion={reducedMotion ? 'true' : 'false'}
           >
-            <div className="otto-pet-stage__sprite" style={spriteStyle}>
-              <span className="otto-pet-stage__mark">♛</span>
+            <div className="claw-pet-stage__sprite" style={spriteStyle}>
+              <span className="claw-pet-stage__mark">♛</span>
             </div>
           </div>
         </div>
-        <div className="otto-pet-widget__copy">
-          <span className="otto-pet-widget__name">ClawMaster</span>
+        <div className="claw-pet-widget__copy">
+          <span className="claw-pet-widget__name">ClawMaster</span>
           <strong>{workLabel ?? (running ? '正在处理当前对话' : '等待下一项工作')}</strong>
         </div>
         <span
-          className="otto-pet-widget__lights"
+          className="claw-pet-widget__lights"
           aria-label={running ? '工作中' : '空闲待命'}
           title={running ? '工作中' : '空闲待命'}
         >
-          <i className="otto-pet-widget__light is-red" />
-          <i className={'otto-pet-widget__light is-yellow' + (running ? ' is-active' : '')} />
-          <i className={'otto-pet-widget__light is-green' + (!running ? ' is-active' : '')} />
+          <i className="claw-pet-widget__light is-red" />
+          <i className={'claw-pet-widget__light is-yellow' + (running ? ' is-active' : '')} />
+          <i className={'claw-pet-widget__light is-green' + (!running ? ' is-active' : '')} />
         </span>
       </aside>
     );
@@ -249,16 +249,16 @@ export function OttoPetStage({
 
   return (
     <section
-      className="otto-pet-stage otto-pet-stage--login"
+      className="claw-pet-stage claw-pet-stage--login"
       aria-label="ClawMaster 像素吉祥物动画"
-      data-testid="otto-pet-stage"
+      data-testid="claw-pet-stage"
       data-current-state={animation.id}
       data-running={running ? 'true' : 'false'}
     >
-      <div className="otto-pet-stage__scene">
+      <div className="claw-pet-stage__scene">
         <div
           key={`${animation.id}-${stepIndex}`}
-          className={`otto-pet-stage__motion${
+          className={`claw-pet-stage__motion${
             travelling ? ` is-${animation.id}` : ''
           }`}
           style={motionStyle}
@@ -266,8 +266,8 @@ export function OttoPetStage({
           data-frame={frameIndex}
           data-reduced-motion={reducedMotion ? 'true' : 'false'}
         >
-          <div className="otto-pet-stage__sprite" style={spriteStyle} aria-hidden="true">
-            <span className="otto-pet-stage__mark">♛</span>
+          <div className="claw-pet-stage__sprite" style={spriteStyle} aria-hidden="true">
+            <span className="claw-pet-stage__mark">♛</span>
           </div>
         </div>
       </div>

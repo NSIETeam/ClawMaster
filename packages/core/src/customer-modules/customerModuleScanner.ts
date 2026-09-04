@@ -83,9 +83,9 @@ export async function scanCustomerModuleWasm(bytes: Uint8Array): Promise<Custome
   validateMemoryLimits(bytes);
   const imports = WebAssembly.Module.imports(module);
   for (const item of imports) {
-    const allowedOtto = item.module === 'otto' && item.kind === 'function' && ALLOWED_HOST_IMPORTS.has(item.name);
+    const allowedClawMaster = item.module === 'otto' && item.kind === 'function' && ALLOWED_HOST_IMPORTS.has(item.name);
     const allowedWasi = item.module === 'wasi_snapshot_preview1' && item.kind === 'function' && ALLOWED_WASI_IMPORTS.has(item.name);
-    if (!allowedOtto && !allowedWasi) {
+    if (!allowedClawMaster && !allowedWasi) {
       throw new Error(`customer module uses forbidden WASM import: ${item.module}.${item.name}`);
     }
   }

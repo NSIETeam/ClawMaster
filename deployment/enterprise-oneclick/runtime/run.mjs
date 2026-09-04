@@ -9,19 +9,19 @@ function required(name) {
   return value;
 }
 
-const host = required('OTTO_ENTERPRISE_HOST');
+const host = required('CLAWMASTER_ENTERPRISE_HOST');
 if (host !== '127.0.0.1') {
   throw new Error(
-    'OTTO_ENTERPRISE_HOST must be 127.0.0.1 in the managed deployment',
+    'CLAWMASTER_ENTERPRISE_HOST must be 127.0.0.1 in the managed deployment',
   );
 }
-const port = Number(required('OTTO_ENTERPRISE_PORT'));
+const port = Number(required('CLAWMASTER_ENTERPRISE_PORT'));
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error(
-    'OTTO_ENTERPRISE_PORT must be an integer between 1 and 65535',
+    'CLAWMASTER_ENTERPRISE_PORT must be an integer between 1 and 65535',
   );
 }
-const publicUrl = required('OTTO_ENTERPRISE_PUBLIC_URL');
+const publicUrl = required('CLAWMASTER_ENTERPRISE_PUBLIC_URL');
 const parsedPublicUrl = new URL(publicUrl);
 if (
   parsedPublicUrl.protocol !== 'https:' ||
@@ -29,33 +29,33 @@ if (
   parsedPublicUrl.password
 ) {
   throw new Error(
-    'OTTO_ENTERPRISE_PUBLIC_URL must be a credential-free HTTPS URL',
+    'CLAWMASTER_ENTERPRISE_PUBLIC_URL must be a credential-free HTTPS URL',
   );
 }
-const appVersion = required('OTTO_APP_VERSION');
-const buildCommit = required('OTTO_BUILD_COMMIT');
+const appVersion = required('CLAWMASTER_APP_VERSION');
+const buildCommit = required('CLAWMASTER_BUILD_COMMIT');
 if (!/^[0-9a-f]{40}$/i.test(buildCommit)) {
   throw new Error(
-    'OTTO_BUILD_COMMIT must be a 40-character hexadecimal build id',
+    'CLAWMASTER_BUILD_COMMIT must be a 40-character hexadecimal build id',
   );
 }
-const adminToken = required('OTTO_ENTERPRISE_ADMIN_TOKEN');
+const adminToken = required('CLAWMASTER_ENTERPRISE_ADMIN_TOKEN');
 if (adminToken.length < 32) {
   throw new Error(
-    'OTTO_ENTERPRISE_ADMIN_TOKEN must contain at least 32 characters',
+    'CLAWMASTER_ENTERPRISE_ADMIN_TOKEN must contain at least 32 characters',
   );
 }
-if (required('OTTO_ENTERPRISE_TRUST_PROXY_HOPS') !== '1') {
+if (required('CLAWMASTER_ENTERPRISE_TRUST_PROXY_HOPS') !== '1') {
   throw new Error(
-    'OTTO_ENTERPRISE_TRUST_PROXY_HOPS must be exactly 1 behind managed Caddy',
+    'CLAWMASTER_ENTERPRISE_TRUST_PROXY_HOPS must be exactly 1 behind managed Caddy',
   );
 }
 
-const licenseTrustFile = path.resolve(required('OTTO_LICENSE_TRUST_FILE'));
+const licenseTrustFile = path.resolve(required('CLAWMASTER_LICENSE_TRUST_FILE'));
 const trustMetadata = fs.lstatSync(licenseTrustFile);
 if (trustMetadata.isSymbolicLink() || !trustMetadata.isFile()) {
   throw new Error(
-    'OTTO_LICENSE_TRUST_FILE must be a regular file from the signed release',
+    'CLAWMASTER_LICENSE_TRUST_FILE must be a regular file from the signed release',
   );
 }
 const licensePublicKeys = JSON.parse(fs.readFileSync(licenseTrustFile, 'utf8'));
@@ -69,8 +69,8 @@ if (
   throw new Error('signed release license trust store is invalid');
 }
 process.env.NODE_ENV = 'production';
-process.env.OTTO_LICENSE_ENFORCE = 'true';
-process.env.OTTO_LICENSE_PUBLIC_KEYS = JSON.stringify(licensePublicKeys);
+process.env.CLAWMASTER_LICENSE_ENFORCE = 'true';
+process.env.CLAWMASTER_LICENSE_PUBLIC_KEYS = JSON.stringify(licensePublicKeys);
 
 const { closeEnterpriseDatabase } = await import('./src/enterprise/db.js');
 const { startEnterpriseServer } = await import('./src/enterprise/server.js');

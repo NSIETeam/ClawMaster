@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -72,22 +72,22 @@ describe('versioned legal documents', () => {
 
   it('keeps legal delivery fail-closed until the deployment approves the text', () => {
     const previous = {
-      controller: process.env.OTTO_DATA_CONTROLLER_NAME,
-      contact: process.env.OTTO_PRIVACY_CONTACT,
-      storage: process.env.OTTO_STORAGE_VOLUME_ENCRYPTED,
-      approved: process.env.OTTO_LEGAL_DOCUMENTS_APPROVED,
+      controller: process.env.CLAWMASTER_DATA_CONTROLLER_NAME,
+      contact: process.env.CLAWMASTER_PRIVACY_CONTACT,
+      storage: process.env.CLAWMASTER_STORAGE_VOLUME_ENCRYPTED,
+      approved: process.env.CLAWMASTER_LEGAL_DOCUMENTS_APPROVED,
     };
     try {
-      process.env.OTTO_DATA_CONTROLLER_NAME = '测试企业';
-      process.env.OTTO_PRIVACY_CONTACT = 'privacy@example.test';
-      process.env.OTTO_STORAGE_VOLUME_ENCRYPTED = 'true';
-      process.env.OTTO_LEGAL_DOCUMENTS_APPROVED = 'false';
+      process.env.CLAWMASTER_DATA_CONTROLLER_NAME = '测试企业';
+      process.env.CLAWMASTER_PRIVACY_CONTACT = 'privacy@example.test';
+      process.env.CLAWMASTER_STORAGE_VOLUME_ENCRYPTED = 'true';
+      process.env.CLAWMASTER_LEGAL_DOCUMENTS_APPROVED = 'false';
       expect(dataGovernanceConfiguration().readiness).toMatchObject({
         configured: false,
         legalDocumentsApproved: false,
       });
 
-      process.env.OTTO_LEGAL_DOCUMENTS_APPROVED = 'true';
+      process.env.CLAWMASTER_LEGAL_DOCUMENTS_APPROVED = 'true';
       expect(dataGovernanceConfiguration().readiness).toMatchObject({
         configured: true,
         legalDocumentsApproved: true,
@@ -97,10 +97,10 @@ describe('versioned legal documents', () => {
         if (value === undefined) delete process.env[key];
         else process.env[key] = value;
       };
-      restore('OTTO_DATA_CONTROLLER_NAME', previous.controller);
-      restore('OTTO_PRIVACY_CONTACT', previous.contact);
-      restore('OTTO_STORAGE_VOLUME_ENCRYPTED', previous.storage);
-      restore('OTTO_LEGAL_DOCUMENTS_APPROVED', previous.approved);
+      restore('CLAWMASTER_DATA_CONTROLLER_NAME', previous.controller);
+      restore('CLAWMASTER_PRIVACY_CONTACT', previous.contact);
+      restore('CLAWMASTER_STORAGE_VOLUME_ENCRYPTED', previous.storage);
+      restore('CLAWMASTER_LEGAL_DOCUMENTS_APPROVED', previous.approved);
     }
   });
 });

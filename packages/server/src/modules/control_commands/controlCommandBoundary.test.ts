@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * CONTROL-12 —— 边界模块测试（信任根配置、fail closed、submit、handleRoute）。
  */
@@ -141,7 +141,7 @@ describe('control command boundary (CONTROL-12)', () => {
 
   it('env 解析信任根公钥', () => {
     expect(controlPublicKeysFromEnv({})).toEqual([]);
-    expect(controlPublicKeysFromEnv({ OTTO_ENTERPRISE_CONTROL_PUBLIC_KEYS: publicKey }))
+    expect(controlPublicKeysFromEnv({ CLAWMASTER_ENTERPRISE_CONTROL_PUBLIC_KEYS: publicKey }))
       .toHaveLength(1);
   });
 });

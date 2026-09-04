@@ -1,5 +1,5 @@
 /**
- * Otto Skills System - Integration with Core
+ * ClawMaster Skills System - Integration with Core
  *
  * Provides Skills context to the AI system prompt
  */

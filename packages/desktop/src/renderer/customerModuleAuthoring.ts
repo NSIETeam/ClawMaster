@@ -4,7 +4,7 @@ export interface CustomerModuleAuthoringDraft {
   version: string;
   description: string;
   releaseNotes: string;
-  minimumOttoVersion: string;
+  minimumClawMasterVersion: string;
   permissions: Array<Record<string, unknown>>;
   inputSchema: { type: 'object'; properties: Record<string, unknown> };
 }

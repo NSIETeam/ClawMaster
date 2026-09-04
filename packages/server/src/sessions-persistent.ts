@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -33,7 +33,7 @@ import {
   type InMemorySessionStoreLimits,
 } from './sessions.js';
 import type {
-  OttoMessage,
+  ClawMasterMessage,
   SessionStatus,
   SessionSummary,
 } from './protocol.js';
@@ -71,7 +71,7 @@ export class PersistentSessionStore extends InMemorySessionStore {
           const raw = readFileSync(join(this.baseDir, f), 'utf8');
           const { summary, messages } = JSON.parse(raw) as {
             summary: SessionSummary;
-            messages: OttoMessage[];
+            messages: ClawMasterMessage[];
           };
           if (!summary?.sessionId) continue;
           summary.status = 'idle'; // 重启后没有运行时在跑
@@ -105,7 +105,7 @@ export class PersistentSessionStore extends InMemorySessionStore {
 
   override appendMessage(
     ...args: Parameters<InMemorySessionStore['appendMessage']>
-  ): OttoMessage {
+  ): ClawMasterMessage {
     const m = super.appendMessage(...args);
     if (!this.isEphemeralSession(m.sessionId)) {
       this.writeNow(m.sessionId); // 新消息（含用户消息、助手消息起点）立即落地
@@ -115,7 +115,7 @@ export class PersistentSessionStore extends InMemorySessionStore {
 
   override patchMessage(
     ...args: Parameters<InMemorySessionStore['patchMessage']>
-  ): OttoMessage | undefined {
+  ): ClawMasterMessage | undefined {
     const m = super.patchMessage(...args);
     if (m && !this.isEphemeralSession(m.sessionId)) {
       this.scheduleWrite(m.sessionId); // 流式高频更新 → 去抖合并

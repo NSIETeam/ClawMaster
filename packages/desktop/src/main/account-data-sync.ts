@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createHash, randomUUID } from 'node:crypto';
@@ -23,7 +23,7 @@ const MAX_FILES = 1_000;
 const MAX_FILE_BYTES = 1024 * 1024;
 const MAX_PAYLOAD_BYTES = 8 * 1024 * 1024;
 const MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
-const LEGACY_MEMORY_SECTION_HEADER = '## Otto Added Memories';
+const LEGACY_MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
 
 function findMemorySectionHeader(content: string): { header: string; index: number } | null {
   for (const header of [MEMORY_SECTION_HEADER, LEGACY_MEMORY_SECTION_HEADER]) {
@@ -85,12 +85,12 @@ interface ProtectedAccountSyncMirror {
 }
 
 function defaultUserRoot(): string {
-  return process.env['OTTO_USER_DIR']?.trim()
+  return process.env['CLAWMASTER_USER_DIR']?.trim()
     || path.join(os.homedir(), '.otto-user');
 }
 
 function defaultWorklogRoot(userRoot: string): string {
-  return process.env['OTTO_WORKLOG_DIR']?.trim()
+  return process.env['CLAWMASTER_WORKLOG_DIR']?.trim()
     || path.join(userRoot, 'memory', 'worklog');
 }
 

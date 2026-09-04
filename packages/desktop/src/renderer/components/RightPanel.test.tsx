@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -33,7 +33,7 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof RightPanel>>
 
 describe('RightPanel module workspace boundary', () => {
   beforeEach(() => {
-    (window as unknown as { otto: unknown }).otto = {
+    (window as unknown as { clawmaster: unknown }).clawmaster = {
       extractEditableDocument: vi.fn(async (filePath: string) => ({
         filePath,
         fileName: '方案.md',

@@ -145,9 +145,9 @@ describe('getGitProjectPath', () => {
 
   it('parses HTTPS remote URL without .git suffix', () => {
     mockGitRemoteOutput(
-      'origin\thttps://github.com/Felix/Otto (fetch)\n',
+      'origin\thttps://github.com/Felix/ClawMaster (fetch)\n',
     );
-    expect(getGitProjectPath('/some/repo')).toBe('Felix/Otto');
+    expect(getGitProjectPath('/some/repo')).toBe('Felix/ClawMaster');
   });
 
   it('parses SSH remote URL (colon syntax) with .git suffix', () => {
@@ -159,16 +159,16 @@ describe('getGitProjectPath', () => {
 
   it('parses SSH remote URL (colon syntax) without .git suffix', () => {
     mockGitRemoteOutput(
-      'origin\tgit@github.com:Felix/Otto (fetch)\n',
+      'origin\tgit@github.com:Felix/ClawMaster (fetch)\n',
     );
-    expect(getGitProjectPath('/some/repo')).toBe('Felix/Otto');
+    expect(getGitProjectPath('/some/repo')).toBe('Felix/ClawMaster');
   });
 
   it('parses SSH remote URL with multi-level subgroup path', () => {
     mockGitRemoteOutput(
-      'origin\tgit@gitlab.example.com:group/Otto/OttoClient.git (fetch)\n',
+      'origin\tgit@gitlab.example.com:group/ClawMaster/ClawMasterClient.git (fetch)\n',
     );
-    expect(getGitProjectPath('/some/repo')).toBe('group/Otto/OttoClient');
+    expect(getGitProjectPath('/some/repo')).toBe('group/ClawMaster/ClawMasterClient');
   });
 
   it('falls back to first remote when origin is absent', () => {

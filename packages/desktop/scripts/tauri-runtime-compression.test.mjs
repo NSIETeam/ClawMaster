@@ -53,7 +53,7 @@ describe('Tauri Agent runtime compression contract', () => {
     expect(agentSmoke).toContain("node.br");
     expect(agentSmoke).toContain('readVerifiedBinaryCapsule');
     expect(agentSmoke).toContain("agent.br");
-    expect(agentSmoke).not.toContain("OTTO_RIPGREP_BINARY");
+    expect(agentSmoke).not.toContain("CLAWMASTER_RIPGREP_BINARY");
     expect(agentSmoke).not.toContain("'binaries'");
     expect(rpaSmoke).toContain('materializeDirectoryCapsule');
     expect(agentBootstrap).toContain('materializeDirectoryCapsule');
@@ -64,7 +64,7 @@ describe('Tauri Agent runtime compression contract', () => {
     expect(rustSidecar).toContain("node-manifest.json");
     expect(rustSidecar).toContain("brotli::Decompressor");
     expect(rustSidecar).toContain("try_materialize_ripgrep_capsule");
-    expect(rustSidecar).toContain("OTTO_RIPGREP_BINARY");
+    expect(rustSidecar).toContain("CLAWMASTER_RIPGREP_BINARY");
     expect(rustSidecar).toContain('.stdin(Stdio::piped())');
     expect(binaryCapsule).toContain('brotliCompressSync');
     expect(binaryCapsule).toContain('brotliDecompressSync');

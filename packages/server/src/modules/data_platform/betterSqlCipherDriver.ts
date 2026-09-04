@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createRequire } from 'node:module';
@@ -186,7 +186,7 @@ function loadConstructor(): BetterSqlCipherDatabaseConstructor {
 }
 
 /**
- * Adapter for Otto's `better_sqlite3.node` build compiled against the official
+ * Adapter for ClawMaster's `better_sqlite3.node` build compiled against the official
  * Zetetic SQLCipher amalgamation. The binding path is mandatory so a registry
  * prebuild containing ordinary SQLite can never be selected by accident.
  */

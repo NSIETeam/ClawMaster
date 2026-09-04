@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -60,8 +60,8 @@ describe('enterprise PostgreSQL preparation CLI', () => {
     await expect(
       prepareEnterprisePostgres({
         environment: {
-          OTTO_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
-          OTTO_POSTGRES_URL:
+          CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+          CLAWMASTER_POSTGRES_URL:
             'postgresql://otto:super-secret@db.internal:5432/otto',
         },
         poolFactory: () => pool,

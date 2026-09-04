@@ -4,7 +4,7 @@
  * 内置 skill 预置：把随包分发的办公 skill（skills-seed/）拷进用户级
  * ~/.otto-user/skills/，让**任何安装（含打包的桌面 App）开箱即有 skill 可用**。
  *
- * 幂等 + 非破坏：新 skill 直接复制；旧版内置 skill 仅在内容仍等于 Otto 上次预置
+ * 幂等 + 非破坏：新 skill 直接复制；旧版内置 skill 仅在内容仍等于 ClawMaster 上次预置
  * 的快照时刷新，绝不覆盖用户已改过的 skill。
  * 由 initializeSkillsContext() 在启动时调用（CLI 与桌面内嵌 server 都会经过）。
  */
@@ -89,7 +89,7 @@ function writeManagedHash(skillDir: string, sourceHash: string): void {
   );
 }
 
-/** 只刷新 Otto 自己管理且用户未修改的内置 skill。 */
+/** 只刷新 ClawMaster 自己管理且用户未修改的内置 skill。 */
 export function shouldRefreshBuiltinSkill(
   name: string,
   currentHash: string,

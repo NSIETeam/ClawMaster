@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -28,9 +28,9 @@ describe('node PostgreSQL pool configuration', () => {
       connectionString:
         'postgresql://otto:secret@127.0.0.1/otto?sslmode=disable',
       environment: {
-        OTTO_POSTGRES_POOL_MAX: '4',
-        OTTO_POSTGRES_CONNECT_TIMEOUT_MS: '2500',
-        OTTO_POSTGRES_STATEMENT_TIMEOUT_MS: '8000',
+        CLAWMASTER_POSTGRES_POOL_MAX: '4',
+        CLAWMASTER_POSTGRES_CONNECT_TIMEOUT_MS: '2500',
+        CLAWMASTER_POSTGRES_STATEMENT_TIMEOUT_MS: '8000',
       },
     });
 
@@ -47,13 +47,13 @@ describe('node PostgreSQL pool configuration', () => {
     expect(() =>
       buildNodePostgresPoolConfig({
         connectionString: 'postgresql://db.internal/otto',
-        environment: { OTTO_POSTGRES_SSL_MODE: 'trust-everything' },
+        environment: { CLAWMASTER_POSTGRES_SSL_MODE: 'trust-everything' },
       }),
     ).toThrow(/SSL mode/i);
     expect(() =>
       buildNodePostgresPoolConfig({
         connectionString: 'postgresql://db.internal/otto',
-        environment: { OTTO_POSTGRES_POOL_MAX: '0' },
+        environment: { CLAWMASTER_POSTGRES_POOL_MAX: '0' },
       }),
     ).toThrow(/POOL_MAX/i);
   });

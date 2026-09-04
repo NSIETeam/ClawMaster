@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,13 +14,13 @@
  * 写回时不覆盖，避免 GUI 保存设置时把 CLI 专属字段冲掉。
  *
  * agentStyle 不在本文件管理：它是项目级设置（<cwd>/.otto/settings.json），
- * 走 otto-core 的 ProjectSettingsManager（与 CLI /config agent-style 同源）。
+ * 走 clawmaster-core 的 ProjectSettingsManager（与 CLI /config agent-style 同源）。
  */
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { MCPServerConfig, WebSearchProvider } from "otto-core";
+import type { MCPServerConfig, WebSearchProvider } from "clawmaster-core";
 
 const SETTINGS_DIR_NAME = ".otto-user";
 const SETTINGS_FILE = "settings.json";

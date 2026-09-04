@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,7 +17,7 @@
  *   - 打开时记住触发元素，关闭后把焦点还回去。
  *
  * 无障碍：role=dialog + aria-modal + aria-labelledby（标题）+ aria-describedby（正文）。
- * 视觉全走 var(--otto-*) token，随暗色主题自动切换；圆角 / 阴影对齐现有浮层（lightbox）风格。
+ * 视觉全走 var(--claw-*) token，随暗色主题自动切换；圆角 / 阴影对齐现有浮层（lightbox）风格。
  */
 
 import React, { useEffect, useId, useRef } from 'react';
@@ -94,7 +94,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="otto-confirm-overlay"
+      className="claw-confirm-overlay"
       // 用 onMouseDown（而非 onClick）判定点遮罩=取消：避免从卡片内按下、
       // 拖到遮罩上松手被误当成取消。仅当起手点就在遮罩本身时才关。
       onMouseDown={(e) => {
@@ -107,7 +107,7 @@ export function ConfirmDialog({
       onKeyDown={(e) => e.stopPropagation()}
     >
       <div
-        className="otto-confirm"
+        className="claw-confirm"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -116,17 +116,17 @@ export function ConfirmDialog({
         // 卡片内点击不冒泡到遮罩（虽用 mousedown 判定，这里再兜一层）。
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <h2 className="otto-confirm__title" id={titleId}>
+        <h2 className="claw-confirm__title" id={titleId}>
           {title}
         </h2>
-        <p className="otto-confirm__message" id={descId}>
+        <p className="claw-confirm__message" id={descId}>
           {message}
         </p>
-        <div className="otto-confirm__actions">
+        <div className="claw-confirm__actions">
           <button
             ref={cancelRef}
             type="button"
-            className="otto-confirm__cancel"
+            className="claw-confirm__cancel"
             onClick={onCancel}
           >
             {cancelText}
@@ -134,8 +134,8 @@ export function ConfirmDialog({
           <button
             ref={confirmRef}
             type="button"
-            className={`otto-confirm__confirm${
-              danger ? ' otto-confirm__confirm--danger' : ''
+            className={`claw-confirm__confirm${
+              danger ? ' claw-confirm__confirm--danger' : ''
             }`}
             onClick={onConfirm}
           >

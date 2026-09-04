@@ -20,7 +20,7 @@ const record = {
 
 describe('desktop customer module host adapter', () => {
   it('isolates storage by module and persists only approved writes', async () => {
-    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'otto-module-storage-')); roots.push(root);
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-storage-')); roots.push(root);
     const host = createDesktopCustomerModuleHost({ record, storageRoot: root });
     await host.request({ moduleId: record.id, version: record.version, capability: 'storage', approvedCapabilities: ['storage'], externalWrite: true, idempotencyKey: 'write-1', payload: { operation: 'write', key: 'state', value: { ok: true } } });
     const result = await host.request({ moduleId: record.id, version: record.version, capability: 'storage', approvedCapabilities: ['storage'], payload: { operation: 'read', key: 'state' } });
@@ -36,7 +36,7 @@ describe('desktop customer module host adapter', () => {
   });
 
   it('rejects HTTP writes that try to bypass idempotency metadata', async () => {
-    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'otto-module-http-ledger-')); roots.push(root);
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-http-ledger-')); roots.push(root);
     const writable = { ...record, permissions: [{ kind: 'http' as const, hosts: ['api.acme.test'], writes: true }] };
     const fetchImpl = vi.fn().mockResolvedValue(new Response('ok'));
     const host = createDesktopCustomerModuleHost({ record: writable, storageRoot: path.join(root, 'data'), fetchImpl });
@@ -49,7 +49,7 @@ describe('desktop customer module host adapter', () => {
   });
 
   it('keeps file writes user-selected and resumes by operation instead of rerunning the module', async () => {
-    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'otto-module-file-ledger-')); roots.push(root);
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clawmaster.module-file-ledger-')); roots.push(root);
     const target = path.join(root, 'output.txt');
     const writable = { ...record, permissions: [{ kind: 'file' as const, access: 'user-selected-write' as const }] };
     const selectWriteFile = vi.fn().mockResolvedValue(target);

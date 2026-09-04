@@ -17,7 +17,7 @@ const enabledFeatures = {
 
 beforeEach(() => {
   clearEnterpriseOrganizationFeaturesCache();
-  Object.assign(window.otto, {
+  Object.assign(window.clawmaster, {
     enterpriseOrganizationFeaturesGet: vi.fn(async () => enabledFeatures),
     enterpriseParkView: vi.fn(async () => ({
       status: 'active', brandName: '测试园区', isAdminOrganization: false,
@@ -28,8 +28,8 @@ beforeEach(() => {
 
 describe('useModuleWorkspaceCapabilities', () => {
   it('显式管理员 UI 预览使用本地完整目录且不请求企业后端', () => {
-    const getFeatures = vi.mocked(window.otto.enterpriseOrganizationFeaturesGet);
-    const getPark = vi.mocked(window.otto.enterpriseParkView);
+    const getFeatures = vi.mocked(window.clawmaster.enterpriseOrganizationFeaturesGet);
+    const getPark = vi.mocked(window.clawmaster.enterpriseParkView);
     const view = renderHook(() => useModuleWorkspaceCapabilities({
       edition: 'enterprise', serverUrl: 'internal://admin-preview',
       organizationId: 'local-internal-test', accountId: 'local-admin', accountIsAdmin: true,
@@ -52,7 +52,7 @@ describe('useModuleWorkspaceCapabilities', () => {
     const getFeatures = vi.fn()
       .mockRejectedValueOnce(new Error('temporary'))
       .mockResolvedValueOnce(enabledFeatures);
-    Object.assign(window.otto, { enterpriseOrganizationFeaturesGet: getFeatures });
+    Object.assign(window.clawmaster, { enterpriseOrganizationFeaturesGet: getFeatures });
     const view = renderHook(() => useModuleWorkspaceCapabilities({
       edition: 'enterprise', serverUrl: 'https://enterprise.example.com',
       organizationId: 'org-a', accountId: 'account-a', accountIsAdmin: false,
@@ -68,7 +68,7 @@ describe('useModuleWorkspaceCapabilities', () => {
   });
 
   it('个人版立即就绪且不会请求企业能力', () => {
-    const getFeatures = vi.mocked(window.otto.enterpriseOrganizationFeaturesGet);
+    const getFeatures = vi.mocked(window.clawmaster.enterpriseOrganizationFeaturesGet);
     const view = renderHook(() => useModuleWorkspaceCapabilities({
       edition: 'personal', serverUrl: 'local', accountId: 'account-a',
       profiles: BASE_AGENT_PROFILES, customAgents: [],
@@ -81,7 +81,7 @@ describe('useModuleWorkspaceCapabilities', () => {
   });
 
   it('does not grant park administration modules to a tenant organization administrator', async () => {
-    Object.assign(window.otto, { enterpriseTicketList: vi.fn(async () => []) });
+    Object.assign(window.clawmaster, { enterpriseTicketList: vi.fn(async () => []) });
     const view = renderHook(() => useModuleWorkspaceCapabilities({
       edition: 'enterprise', serverUrl: 'https://enterprise.example.com',
       organizationId: 'tenant-org', accountId: 'tenant-admin', accountIsAdmin: true,
@@ -96,7 +96,7 @@ describe('useModuleWorkspaceCapabilities', () => {
   });
 
   it('exposes staff tasks only when the current account has received a park ticket', async () => {
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseTicketList: vi.fn(async () => [{ id: 'ticket-1', isRecipient: true }]),
     });
     const view = renderHook(() => useModuleWorkspaceCapabilities({
@@ -111,7 +111,7 @@ describe('useModuleWorkspaceCapabilities', () => {
   });
 
   it('isolates park capability loading failures from non-park modules', async () => {
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseParkView: vi.fn(async () => { throw new Error('park unavailable'); }),
       enterpriseTicketList: vi.fn(async () => []),
     });
@@ -131,7 +131,7 @@ describe('useModuleWorkspaceCapabilities', () => {
   });
 
   it('isolates park ticket loading failures from non-park modules', async () => {
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseTicketList: vi.fn(async () => { throw new Error('tickets unavailable'); }),
     });
     const view = renderHook(() => useModuleWorkspaceCapabilities({
@@ -150,7 +150,7 @@ describe('useModuleWorkspaceCapabilities', () => {
   });
 
   it('synchronously drops the previous privilege snapshot when account or role changes', async () => {
-    Object.assign(window.otto, {
+    Object.assign(window.clawmaster, {
       enterpriseParkView: vi.fn(async () => ({
         status: 'active', brandName: '测试园区', isAdminOrganization: true,
       })),

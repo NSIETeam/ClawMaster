@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -16,15 +16,15 @@ let previousUserDir: string | undefined;
 let userDir = '';
 
 beforeEach(async () => {
-  previousUserDir = process.env['OTTO_USER_DIR'];
+  previousUserDir = process.env['CLAWMASTER_USER_DIR'];
   userDir = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-skill-usage-'));
-  process.env['OTTO_USER_DIR'] = userDir;
+  process.env['CLAWMASTER_USER_DIR'] = userDir;
 });
 
 afterEach(async () => {
   await flushSkillUsageWrites();
-  if (previousUserDir === undefined) delete process.env['OTTO_USER_DIR'];
-  else process.env['OTTO_USER_DIR'] = previousUserDir;
+  if (previousUserDir === undefined) delete process.env['CLAWMASTER_USER_DIR'];
+  else process.env['CLAWMASTER_USER_DIR'] = previousUserDir;
   await fs.rm(userDir, { recursive: true, force: true });
 });
 
@@ -74,10 +74,10 @@ describe('AutoSkill usage feedback', () => {
 
     const secondDir = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-skill-usage-'));
     userDir = secondDir;
-    process.env['OTTO_USER_DIR'] = secondDir;
+    process.env['CLAWMASTER_USER_DIR'] = secondDir;
     expect(getSkillStats('auto-first').totalUses).toBe(0);
 
-    process.env['OTTO_USER_DIR'] = firstDir;
+    process.env['CLAWMASTER_USER_DIR'] = firstDir;
     expect(getSkillStats('auto-first').totalUses).toBe(1);
     userDir = firstDir;
     await fs.rm(secondDir, { recursive: true, force: true });

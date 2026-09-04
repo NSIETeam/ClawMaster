@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import { describe, expect, it } from 'vitest';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -11,7 +11,7 @@ import {
   ToolReplayClass,
   TurnCheckpointManager,
   type TurnCheckpoint,
-} from 'otto-core';
+} from 'clawmaster-core';
 import { RpaRunner } from '../../rpa/src/runner.js';
 import { FileRpaRunStore } from '../../rpa/src/file-run-store.js';
 import { FileRpaArtifactStore } from '../../rpa/src/file-artifact-store.js';
@@ -44,7 +44,7 @@ const scenarios: readonly DeterministicScenario[] = [
     description: 'An external RPA action cannot reach the driver before a matching approval is recorded.',
     requiredEvidence: ['tool_trace', 'approval', 'artifact', 'assertion'],
     async execute() {
-      const root = await mkdtemp(path.join(os.tmpdir(), 'otto-evals-rpa-approval-'));
+      const root = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-evals-rpa-approval-'));
       try {
         let driverCalls = 0;
         const workflow = { id: 'download-report', version: 1 as const, steps: [{ id: 'download', action: 'web.click' as const, args: { selector: '#download' }, sideEffect: 'external' as const }] };
@@ -82,7 +82,7 @@ const scenarios: readonly DeterministicScenario[] = [
     description: 'Durable workflow defaults external steps to approval and fails closed after interruption.',
     requiredEvidence: ['tool_trace', 'approval', 'artifact', 'assertion'],
     async execute() {
-      const root = await mkdtemp(path.join(os.tmpdir(), 'otto-evals-workflow-recovery-'));
+      const root = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-evals-workflow-recovery-'));
       try {
         const store = new FileWorkflowStore(path.join(root, 'runs'));
         const runtime = new WorkflowRuntime(store, { async execute() { return { sent: true }; } });
@@ -144,7 +144,7 @@ const scenarios: readonly DeterministicScenario[] = [
         }],
         timestamp: new Date().toISOString(),
       };
-      const manager = new TurnCheckpointManager('/tmp/otto-evals-no-write');
+      const manager = new TurnCheckpointManager('/tmp/clawmaster-evals-no-write');
       return {
         passed: manager.shouldSkipTool(checkpoint, 'send_message', 'call-1'),
         evidence: [

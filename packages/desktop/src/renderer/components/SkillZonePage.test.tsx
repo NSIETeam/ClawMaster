@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -9,7 +9,7 @@ import { SkillZonePage } from './SkillZonePage.js';
 
 afterEach(() => {
   cleanup();
-  delete (window as unknown as { otto?: unknown }).otto;
+  delete (window as unknown as { clawmaster?: unknown }).clawmaster;
 });
 
 function skill(overrides: Partial<EnterpriseSkillMarketItem> = {}): EnterpriseSkillMarketItem {
@@ -61,7 +61,7 @@ function installBridge(overrides: Record<string, unknown> = {}): Record<string, 
 describe('SkillZonePage', () => {
   it('支持市场检索、安装、排序与结构化排行榜', async () => {
     const bridge = installBridge();
-    (window as unknown as { otto: unknown }).otto = bridge;
+    (window as unknown as { clawmaster: unknown }).clawmaster = bridge;
 
     render(<SkillZonePage accountId="member-1" isAdmin={false} onBack={vi.fn()} />);
     expect(await screen.findByRole('heading', { name: '月报整理' })).toBeTruthy();
@@ -92,7 +92,7 @@ describe('SkillZonePage', () => {
       enterpriseSkillSubmit,
       enterpriseSkillReview,
     });
-    (window as unknown as { otto: unknown }).otto = bridge;
+    (window as unknown as { clawmaster: unknown }).clawmaster = bridge;
 
     render(<SkillZonePage accountId="admin-1" isAdmin onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '我的 Skill' }));

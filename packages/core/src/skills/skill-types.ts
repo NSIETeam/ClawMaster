@@ -1,5 +1,5 @@
 /**
- * Otto Skills System - Type Definitions
+ * ClawMaster Skills System - Type Definitions
  *
  * Core types for Marketplace, Plugin, Skill management system
  * Aligned with Claude Code's Skills architecture

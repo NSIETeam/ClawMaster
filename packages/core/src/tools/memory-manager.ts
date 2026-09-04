@@ -1,7 +1,7 @@
 /**
  * @license Copyright 2026 Felix SPDX-License-Identifier: Apache-2.0
  *
- * Otto Memory Manager v2 - Auto-learning knowledge base + HR lifecycle.
+ * ClawMaster Memory Manager v2 - Auto-learning knowledge base + HR lifecycle.
  *
  * 4 core capabilities:
  * 1. Onboard: new employee inherits department + role knowledge instantly
@@ -346,7 +346,7 @@ FILES CREATED:
 
     // 2.5 企业知识库桥接（统一部门/公司知识库）：
     //   之前部门知识只有本地 markdown 一份，与 enterprise server 的 SQLite
-    //   knowledge 表（真正跨机器共享、按部门维度存储）完全不通——同一个 Otto
+    //   knowledge 表（真正跨机器共享、按部门维度存储）完全不通——同一个 ClawMaster
     //   装在两台机器上互相看不到对方学到的东西。这里尝试连一次本机/局域网的
     //   enterprise server（GET /enterprise/knowledge），拿到的结果与本地
     //   markdown 合并展示。企业服务端未启动是绝大多数个人用户的常态，此时
@@ -367,13 +367,13 @@ FILES CREATED:
   }
 
   /**
-   * 从 Otto Enterprise 服务端（packages/server/src/enterprise）拉取部门知识，
+   * 从 ClawMaster Enterprise 服务端（packages/server/src/enterprise）拉取部门知识，
    * 与本地 markdown 部门知识合并，实现"部门知识库统一"。
    *
    * 端点/鉴权/超时均可通过环境变量覆盖：
-   *   OTTO_ENTERPRISE_URL         默认 http://127.0.0.1:7777（企业服务端默认监听地址）
-   *   OTTO_ENTERPRISE_ADMIN_TOKEN 若企业服务端配置了 admin token 则需要
-   *   OTTO_ENTERPRISE_RECALL_TIMEOUT_MS 默认 800ms —— 必须短，绝不能让本地
+   *   CLAWMASTER_ENTERPRISE_URL         默认 http://127.0.0.1:7777（企业服务端默认监听地址）
+   *   CLAWMASTER_ENTERPRISE_ADMIN_TOKEN 若企业服务端配置了 admin token 则需要
+   *   CLAWMASTER_ENTERPRISE_RECALL_TIMEOUT_MS 默认 800ms —— 必须短，绝不能让本地
    *     recall（大多数场景企业服务端根本没启动）被网络等待拖慢。
    *
    * 失败模式全部静默降级为空字符串（服务端未启动 / 网络错误 / 超时 / 非 2xx
@@ -381,8 +381,8 @@ FILES CREATED:
    * 本来就不会运行——这不是错误，是常态。
    */
   private async recallFromEnterprise(p: MemoryManagerToolParams): Promise<string | null> {
-    const base = (process.env.OTTO_ENTERPRISE_URL || 'http://127.0.0.1:7777').replace(/\/$/, '');
-    const timeoutMs = Number(process.env.OTTO_ENTERPRISE_RECALL_TIMEOUT_MS || 800);
+    const base = (process.env.CLAWMASTER_ENTERPRISE_URL || 'http://127.0.0.1:7777').replace(/\/$/, '');
+    const timeoutMs = Number(process.env.CLAWMASTER_ENTERPRISE_RECALL_TIMEOUT_MS || 800);
     const department = p.department_id;
 
     const url = new URL(base + '/enterprise/knowledge');
@@ -392,7 +392,7 @@ FILES CREATED:
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const token = process.env.OTTO_ENTERPRISE_ADMIN_TOKEN;
+      const token = process.env.CLAWMASTER_ENTERPRISE_ADMIN_TOKEN;
       const headers: Record<string, string> = {};
       if (token) headers['x-otto-admin-token'] = token;
 
@@ -562,7 +562,7 @@ ${efficiencyLines.join('\n')}
       data.avgMin = data.totalMin / data.count;
     }
 
-    // Estimate time saved (assume manual takes 3x Otto time)
+    // Estimate time saved (assume manual takes 3x ClawMaster time)
     const estimatedManualMin = totalMinutes * 3;
     const timeSavedMin = estimatedManualMin - totalMinutes;
     const timeSavedHours = (timeSavedMin / 60).toFixed(1);

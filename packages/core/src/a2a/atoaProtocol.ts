@@ -1,9 +1,9 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-export const ATOA_REQUEST_PREFIX = 'OTTO_ATOA_REQUEST ';
-export const ATOA_RESPONSE_PREFIX = 'OTTO_ATOA_RESPONSE ';
+export const ATOA_REQUEST_PREFIX = 'CLAWMASTER_ATOA_REQUEST ';
+export const ATOA_RESPONSE_PREFIX = 'CLAWMASTER_ATOA_RESPONSE ';
 export const ATOA_DIRECT_MESSAGE_MAX_LENGTH = 4000;
 
 export const ATOA_CONTEXT_SOURCES = [
@@ -23,7 +23,7 @@ export interface AtoaRequestPayload {
   createdAt: string;
   mode: AtoaMode;
   requestedSources: AtoaContextSource[];
-  /** consult 时由发起方 Otto 先基于本方授权资料形成的提案。 */
+  /** consult 时由发起方 ClawMaster 先基于本方授权资料形成的提案。 */
   initiatorProposal?: string;
 }
 

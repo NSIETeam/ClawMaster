@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -97,7 +97,7 @@ export async function registerFeishu(
     credentials: deps.credentials,
     gatewayFactory: deps.gatewayFactory,
     inboundQueuePath: deps.inboundQueuePath ?? (
-      process.env['OTTO_FEISHU_INBOUND_QUEUE_PATH']?.trim() ||
+      process.env['CLAWMASTER_FEISHU_INBOUND_QUEUE_PATH']?.trim() ||
       join(homedir(), '.otto-user', 'feishu-inbound-queue.json')
     ),
   });

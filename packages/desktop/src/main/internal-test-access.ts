@@ -8,10 +8,10 @@
  */
 
 /** 仅显式开启本地预览内测入口；正式启动默认仍强制企业验证。 */
-declare const __OTTO_INTERNAL_TEST_ACCESS__: boolean | undefined;
+declare const __CLAWMASTER_INTERNAL_TEST_ACCESS__: boolean | undefined;
 
 export const INTERNAL_TEST_ACCESS_ENABLED =
-  (typeof __OTTO_INTERNAL_TEST_ACCESS__ !== 'undefined' &&
-    __OTTO_INTERNAL_TEST_ACCESS__ === true) ||
+  (typeof __CLAWMASTER_INTERNAL_TEST_ACCESS__ !== 'undefined' &&
+    __CLAWMASTER_INTERNAL_TEST_ACCESS__ === true) ||
   (typeof process !== 'undefined' &&
-    process.env.OTTO_INTERNAL_TEST_ACCESS === '1');
+    process.env.CLAWMASTER_INTERNAL_TEST_ACCESS === '1');

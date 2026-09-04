@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -56,19 +56,19 @@ export function SoftwareUpdatePanel({
   const checkedAt = formatCheckedAt(state.lastCheckedAt);
 
   return (
-    <div className="otto-hub__section">
+    <div className="claw-hub__section">
       {/* 当前版本 + 检查入口（常态区，任何 phase 都在）。 */}
-      <div className="otto-hub__field">
-        <div className="otto-hub__field-label">当前版本</div>
-        <div className="otto-hub__field-hint">
+      <div className="claw-hub__field">
+        <div className="claw-hub__field-label">当前版本</div>
+        <div className="claw-hub__field-hint">
           ClawMaster 桌面版 v{state.currentVersion ?? '…'}
           {checkedAt ? ` · 上次检查 ${checkedAt}` : ''}
         </div>
         {state.phase !== 'downloading' && state.phase !== 'downloaded' ? (
-          <div className="otto-hub__toolbar">
+          <div className="claw-hub__toolbar">
             <button
               type="button"
-              className="otto-hub__btn"
+              className="claw-hub__btn"
               onClick={actions.checkNow}
               disabled={state.phase === 'checking'}
             >
@@ -80,12 +80,12 @@ export function SoftwareUpdatePanel({
 
       {/* 已是最新：与「检查失败」是两种不同状态，绝不混用。 */}
       {state.phase === 'upToDate' ? (
-        <div className="otto-hub__field">
-          <div className="otto-hub__field-label otto-generated-icon-label">
+        <div className="claw-hub__field">
+          <div className="claw-hub__field-label claw-generated-icon-label">
             <GeneratedIcon name="status-success" size={20} />
             <span>已是最新版本</span>
           </div>
-          <div className="otto-hub__field-hint">
+          <div className="claw-hub__field-hint">
             {state.latestVersion
               ? `最新发布版本 v${state.latestVersion}，无需更新。`
               : '当前已是最新，无需更新。'}
@@ -95,20 +95,20 @@ export function SoftwareUpdatePanel({
 
       {/* 检查失败：诚实报原因（网络不通 / 清单异常），给重试。 */}
       {state.phase === 'checkFailed' ? (
-        <div className="otto-hub__field" role="alert">
-          <div className="otto-hub__field-label">检查更新失败</div>
-          <div className="otto-hub__field-hint">{state.errorMessage}</div>
-          <div className="otto-hub__toolbar">
+        <div className="claw-hub__field" role="alert">
+          <div className="claw-hub__field-label">检查更新失败</div>
+          <div className="claw-hub__field-hint">{state.errorMessage}</div>
+          <div className="claw-hub__toolbar">
             <button
               type="button"
-              className="otto-hub__btn otto-hub__btn--primary"
+              className="claw-hub__btn claw-hub__btn--primary"
               onClick={actions.checkNow}
             >
               重试
             </button>
             <button
               type="button"
-              className="otto-hub__btn"
+              className="claw-hub__btn"
               onClick={() => actions.openReleasePage()}
             >
               前往发布页
@@ -119,21 +119,21 @@ export function SoftwareUpdatePanel({
 
       {/* 有新版：版本号 + 更新日志 + 下载（或发布页兜底）。 */}
       {state.phase === 'available' ? (
-        <div className="otto-hub__field">
-          <div className="otto-hub__field-label otto-generated-icon-label">
+        <div className="claw-hub__field">
+          <div className="claw-hub__field-label claw-generated-icon-label">
             <GeneratedIcon name="status-update" size={20} />
             <span>发现新版本 v{state.latestVersion}</span>
           </div>
           {state.notes ? (
-            <div className="otto-update__notes">
+            <div className="claw-update__notes">
               <Prose text={state.notes} />
             </div>
           ) : null}
           {state.asset ? (
-            <div className="otto-hub__toolbar">
+            <div className="claw-hub__toolbar">
               <button
                 type="button"
-                className="otto-hub__btn otto-hub__btn--primary"
+                className="claw-hub__btn claw-hub__btn--primary"
                 onClick={actions.download}
               >
                 下载更新（{toMb(state.asset.size)} MB）
@@ -141,13 +141,13 @@ export function SoftwareUpdatePanel({
             </div>
           ) : (
             <>
-              <div className="otto-hub__field-hint">
+              <div className="claw-hub__field-hint">
                 这次发布没有当前平台可校验的安装包，可到发布页手动下载。
               </div>
-              <div className="otto-hub__toolbar">
+              <div className="claw-hub__toolbar">
                 <button
                   type="button"
-                  className="otto-hub__btn otto-hub__btn--primary"
+                  className="claw-hub__btn claw-hub__btn--primary"
                   onClick={() =>
                     actions.openReleasePage(state.releasePageUrl ?? undefined)
                   }
@@ -162,25 +162,25 @@ export function SoftwareUpdatePanel({
 
       {/* 下载中：进度条 + MB 计数 + 取消。 */}
       {state.phase === 'downloading' ? (
-        <div className="otto-hub__field">
-          <div className="otto-hub__field-label">
+        <div className="claw-hub__field">
+          <div className="claw-hub__field-label">
             正在下载 v{state.latestVersion} …
           </div>
-          <div className="otto-hub__ctx-bar">
+          <div className="claw-hub__ctx-bar">
             <div
-              className="otto-hub__ctx-bar-fill"
+              className="claw-hub__ctx-bar-fill"
               style={{ width: `${Math.round(state.progress?.percent ?? 0)}%` }}
             />
           </div>
-          <div className="otto-hub__field-hint">
+          <div className="claw-hub__field-hint">
             {state.progress
               ? `${Math.round(state.progress.percent)}% · ${toMb(state.progress.transferred)} / ${toMb(state.progress.total)} MB`
               : '正在建立连接…'}
           </div>
-          <div className="otto-hub__toolbar">
+          <div className="claw-hub__toolbar">
             <button
               type="button"
-              className="otto-hub__btn"
+              className="claw-hub__btn"
               onClick={actions.cancelDownload}
             >
               取消下载
@@ -191,24 +191,24 @@ export function SoftwareUpdatePanel({
 
       {/* 下载完成（sha256 已校验通过）：打开安装包 + 平台指引。 */}
       {state.phase === 'downloaded' ? (
-        <div className="otto-hub__field">
-          <div className="otto-hub__field-label otto-generated-icon-label">
+        <div className="claw-hub__field">
+          <div className="claw-hub__field-label claw-generated-icon-label">
             <GeneratedIcon name="status-success" size={20} />
             <span>v{state.latestVersion} 安装包已就绪（sha256 校验通过）</span>
           </div>
-          <div className="otto-hub__field-hint">{state.filePath}</div>
-          <div className="otto-hub__field-hint">
+          <div className="claw-hub__field-hint">{state.filePath}</div>
+          <div className="claw-hub__field-hint">
             {installHintForFile(state.filePath)}
           </div>
-          <div className="otto-hub__toolbar">
+          <div className="claw-hub__toolbar">
             <button
               type="button"
-              className="otto-hub__btn otto-hub__btn--primary"
+              className="claw-hub__btn claw-hub__btn--primary"
               onClick={actions.install}
             >立即安装并重启</button>
           </div>
           {state.installMessage ? (
-            <div className="otto-hub__field-hint" role="status">
+            <div className="claw-hub__field-hint" role="status">
               {state.installMessage}
             </div>
           ) : null}
@@ -217,20 +217,20 @@ export function SoftwareUpdatePanel({
 
       {/* 下载失败（含 sha256 校验不通过，文件已被删除）：诚实报原因 + 重试。 */}
       {state.phase === 'downloadFailed' ? (
-        <div className="otto-hub__field" role="alert">
-          <div className="otto-hub__field-label">下载失败</div>
-          <div className="otto-hub__field-hint">{state.errorMessage}</div>
-          <div className="otto-hub__toolbar">
+        <div className="claw-hub__field" role="alert">
+          <div className="claw-hub__field-label">下载失败</div>
+          <div className="claw-hub__field-hint">{state.errorMessage}</div>
+          <div className="claw-hub__toolbar">
             <button
               type="button"
-              className="otto-hub__btn otto-hub__btn--primary"
+              className="claw-hub__btn claw-hub__btn--primary"
               onClick={actions.download}
             >
               重试下载
             </button>
             <button
               type="button"
-              className="otto-hub__btn"
+              className="claw-hub__btn"
               onClick={() => actions.openReleasePage(state.releasePageUrl ?? undefined)}
             >
               手动下载

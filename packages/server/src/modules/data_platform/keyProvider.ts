@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 export type KeyProviderKind =
@@ -53,7 +53,7 @@ export interface KeyProvider {
 
 /**
  * Narrow bridge implemented by an official cloud SDK, Vault transit client,
- * or PKCS#11 host. Provider credentials and sessions remain outside Otto.
+ * or PKCS#11 host. Provider credentials and sessions remain outside ClawMaster.
  */
 export interface KeyProviderTransport {
   readonly kind: KeyProviderKind;

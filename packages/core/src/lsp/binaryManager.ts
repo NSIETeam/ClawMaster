@@ -183,7 +183,7 @@ export class BinaryManager {
         throw new Error(
           `[LSP] Go toolchain not found in PATH (required to install ${binName}). ` +
             `Please install Go from https://go.dev/dl/ and ensure "go" is available in your PATH, ` +
-            `or configure a preinstalled gopls via PATH/OTTO_GOPLS_PATH.`,
+            `or configure a preinstalled gopls via PATH/CLAWMASTER_GOPLS_PATH.`,
         );
       }
 

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,8 +8,8 @@
  * 应用菜单（Issue #4「主进程 + 窗口 + 菜单 + 图标」）。
  *
  * macOS 习惯的标准菜单骨架（App / Edit / View / Window / Help），
- * 外加 Otto 专属项：New Chat、打开 server 端点文件、查看 server 状态。
- * 这些 Otto 项经 webContents.send 通知 renderer（renderer 后续接入 #5/#7），
+ * 外加 ClawMaster 专属项：New Chat、打开 server 端点文件、查看 server 状态。
+ * 这些 ClawMaster 项经 webContents.send 通知 renderer（renderer 后续接入 #5/#7），
  * 或直接走 shell 打开本地文件 —— 不引入跨人阻塞。
  */
 
@@ -20,19 +20,19 @@ import {
   type BrowserWindow,
   type MenuItemConstructorOptions,
 } from 'electron';
-// otto-server 是纯 ESM 包，本文件编译为 CJS：不能静态 import（会变 require()，
+// clawmaster-server 是纯 ESM 包，本文件编译为 CJS：不能静态 import（会变 require()，
 // 真机运行时抛 ERR_REQUIRE_ESM）。这个值只在「Reveal Server Endpoint File」
 // 菜单项被点击时才需要，天然适合懒加载——点击时才 import()，不影响启动路径。
 async function getEndpointFilePath(): Promise<string> {
-  const mod = await import('otto-server');
+  const mod = await import('clawmaster-server');
   return mod.endpointFilePath();
 }
 
 const isMac = process.platform === 'darwin';
 
-/** 给 renderer 发一个菜单动作（renderer 监听 'otto:menu' IPC）。 */
+/** 给 renderer 发一个菜单动作（renderer 监听 'clawmaster:menu' IPC）。 */
 function emit(win: BrowserWindow | undefined, action: string): void {
-  win?.webContents.send('otto:menu', action);
+  win?.webContents.send('clawmaster:menu', action);
 }
 
 export function buildAppMenu(getWindow: () => BrowserWindow | undefined): Menu {
@@ -63,7 +63,7 @@ export function buildAppMenu(getWindow: () => BrowserWindow | undefined): Menu {
         ]
       : []),
 
-    // ── File（Otto 专属）──
+    // ── File（ClawMaster 专属）──
     {
       label: 'File',
       submenu: [
@@ -135,7 +135,7 @@ export function buildAppMenu(getWindow: () => BrowserWindow | undefined): Menu {
       ],
     },
 
-    // ── Help（Otto 专属诊断项）──
+    // ── Help（ClawMaster 专属诊断项）──
     {
       role: 'help',
       submenu: [

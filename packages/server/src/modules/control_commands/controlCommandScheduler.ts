@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Control 指令调度器 / transport（CONTROL-12）——把纯队列/outbox 接到可注入时钟的
  * 运行时驱动。

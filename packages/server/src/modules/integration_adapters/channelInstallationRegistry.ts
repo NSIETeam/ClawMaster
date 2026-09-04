@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Durable public metadata for installed chat-channel connectors. Provider
  * credentials stay in their encrypted vaults; this registry only restores
@@ -79,7 +79,7 @@ function validateInstallation(value: unknown): ChannelInstallation {
 }
 
 export function defaultChannelInstallationRegistryPath(): string {
-  const configured = process.env.OTTO_USER_DIR?.trim();
+  const configured = process.env.CLAWMASTER_USER_DIR?.trim();
   const root = configured || path.join(os.homedir(), '.otto-user');
   return path.join(root, 'channel-installations.json');
 }

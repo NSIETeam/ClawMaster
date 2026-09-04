@@ -3,7 +3,7 @@
  * Copyright 2026 Felix
  * SPDX-License-Identifier: Apache-2.0
  *
- * Otto Session Manager — 多会话处理引擎。
+ * ClawMaster Session Manager — 多会话处理引擎。
  *
  * 核心能力：
  *   1. 会话分区: 按主题/项目/渠道自动路由到独立 session
@@ -126,11 +126,11 @@ const DEFAULT_CONFIG: SessionManagerConfig = {
 // ============================================================
 
 /**
- * Otto Session Manager — 多会话处理引擎。
+ * ClawMaster Session Manager — 多会话处理引擎。
  * 注意：与 services/sessionManager.ts 的 SessionManager 不同，
  * 后者负责会话持久化/选择，这个类负责会话的合并/分割/路由/桥梁。
  */
-export class OttoSessionManager {
+export class ClawMasterSessionManager {
   private sessions = new Map<string, SessionMeta>();
   private routingRules: SessionRoutingRule[] = [];
   private bridges = new Map<string, ContextBridge[]>();
@@ -145,7 +145,7 @@ export class OttoSessionManager {
 
   /**
    * 从磁盘加载已有 session 元数据。
-   * 应在 Otto 启动时调用。
+   * 应在 ClawMaster 启动时调用。
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -205,7 +205,7 @@ export class OttoSessionManager {
 
   /**
    * 创建新会话。
-   * 当 Otto 收到一个不属于任何现有 session 的请求时调用。
+   * 当 ClawMaster 收到一个不属于任何现有 session 的请求时调用。
    */
   async createSession(opts: {
     title?: string;
@@ -713,13 +713,13 @@ export class OttoSessionManager {
 // 全局单例
 // ============================================================
 
-let globalSessionManager: OttoSessionManager | null = null;
+let globalSessionManager: ClawMasterSessionManager | null = null;
 
 export function getSessionManager(
   config?: Partial<SessionManagerConfig>,
-): OttoSessionManager {
+): ClawMasterSessionManager {
   if (!globalSessionManager) {
-    globalSessionManager = new OttoSessionManager(config);
+    globalSessionManager = new ClawMasterSessionManager(config);
   }
   return globalSessionManager;
 }

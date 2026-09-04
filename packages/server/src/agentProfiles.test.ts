@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -67,7 +67,7 @@ describe('服务端 Agent profile 白名单', () => {
     }
   });
 
-  it('个人只允许 Otto，四种企业角色都允许固定 9 个企业工作 Agent', () => {
+  it('个人只允许 ClawMaster，四种企业角色都允许固定 9 个企业工作 Agent', () => {
     expect(allowedProfileIds('personal', 'member')).toEqual(['otto-personal']);
     expectIdentityProfiles(
       allowedProfileIds('enterprise', 'company_owner'),
@@ -182,7 +182,7 @@ describe('服务端 Agent profile 白名单', () => {
     expect(prompt).toContain('职位：研发工程师');
     expect(prompt).toContain('角色：成员');
     expect(prompt).toContain('由中心企业服务认证');
-    expect(prompt).not.toContain('由企业管理者在 Otto 中建档生成');
+    expect(prompt).not.toContain('由企业管理者在 ClawMaster 中建档生成');
     expect(prompt).not.toContain('本机错误企业');
     expect(prompt).not.toContain('本机错误部门');
     expect(prompt).not.toContain('本机错误职位');
@@ -257,7 +257,7 @@ describe('服务端 Agent profile 白名单', () => {
     expect(docPrompt).toContain('不要让用户打一大段需求');
   });
 
-  it('基础 Otto 与 PDF/Excel 专家也会用选项式问题引导办公文档任务', () => {
+  it('基础 ClawMaster 与 PDF/Excel 专家也会用选项式问题引导办公文档任务', () => {
     const basePrompt = resolveAgentProfile('otto-personal')?.systemPrompt ?? '';
     expect(basePrompt).toContain('办公文档傻瓜式引导');
     expect(basePrompt).toContain('PPT、Word、PDF、Excel');

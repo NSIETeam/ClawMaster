@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, it } from 'vitest';
@@ -53,10 +53,10 @@ describe('federated A2A decision protocol', () => {
   it('rejects malformed, expired-at-creation and unknown-source decisions', () => {
     expect(parseFederationAtoaDecision('ordinary message')).toBeNull();
     expect(parseFederationAtoaDecision(
-      'OTTO_FEDERATION_ATOA_DECISION {bad-json',
+      'CLAWMASTER_FEDERATION_ATOA_DECISION {bad-json',
     )).toBeNull();
     expect(parseFederationAtoaDecision(
-      'OTTO_FEDERATION_ATOA_DECISION ' + JSON.stringify({
+      'CLAWMASTER_FEDERATION_ATOA_DECISION ' + JSON.stringify({
         v: 1,
         status: 'approved',
         requestId: 'request_three',

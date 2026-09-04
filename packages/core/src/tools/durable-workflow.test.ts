@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import { describe, expect, it } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -35,8 +35,8 @@ describe('DurableWorkflowTool', () => {
 
   it('persists and executes a deterministic condition step through the Core adapter', async () => {
     const temporary = await mkdtemp(path.join(os.tmpdir(), 'otto-durable-workflow-tool-'));
-    const previous = process.env['OTTO_USER_DIR'];
-    process.env['OTTO_USER_DIR'] = temporary;
+    const previous = process.env['CLAWMASTER_USER_DIR'];
+    process.env['CLAWMASTER_USER_DIR'] = temporary;
     try {
       const isolated = new DurableWorkflowTool(createMockConfig(), new ToolRegistry(createMockConfig()));
       const started = await isolated.execute({ action: 'start', definition }, new AbortController().signal);
@@ -46,8 +46,8 @@ describe('DurableWorkflowTool', () => {
       const completed = await isolated.execute({ action: 'run_next', run_id: runId }, new AbortController().signal);
       expect(String(completed.llmContent)).toContain('"status":"succeeded"');
     } finally {
-      if (previous === undefined) delete process.env['OTTO_USER_DIR'];
-      else process.env['OTTO_USER_DIR'] = previous;
+      if (previous === undefined) delete process.env['CLAWMASTER_USER_DIR'];
+      else process.env['CLAWMASTER_USER_DIR'] = previous;
       await rm(temporary, { recursive: true, force: true });
     }
   });

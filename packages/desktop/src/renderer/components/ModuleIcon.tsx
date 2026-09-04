@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import React from 'react';
@@ -34,7 +34,7 @@ import {
   IconFile,
   IconTerminal,
   IconWand,
-  OttoAvatar,
+  ClawMasterAvatar,
 } from './icons.js';
 
 const MODULE_LINE_ICON_REGISTRY = {
@@ -80,7 +80,7 @@ export type ModuleLineIconKey = keyof typeof MODULE_LINE_ICON_REGISTRY;
 export type ModuleIconKey =
   | ModuleLineIconKey
   | `generated:${GeneratedIconName}`
-  | 'otto-avatar'
+  | 'clawmaster-avatar'
   | 'custom-agent';
 export type ModuleIconSource = ModuleIconKey | { kind: 'image'; src: string };
 
@@ -95,7 +95,7 @@ function isGeneratedModuleIcon(
 }
 
 export function hasModuleIcon(value: string): value is ModuleIconKey {
-  if (value === 'otto-avatar' || value === 'custom-agent') return true;
+  if (value === 'clawmaster-avatar' || value === 'custom-agent') return true;
   if (value in MODULE_LINE_ICON_REGISTRY) return true;
   if (!value.startsWith('generated:')) return false;
   return isGeneratedIconName(value.slice('generated:'.length));
@@ -114,11 +114,11 @@ export function ModuleIcon({
   size = 28,
   className,
 }: ModuleIconProps): React.JSX.Element {
-  const wrapperClassName = ['otto-module-icon', className].filter(Boolean).join(' ');
+  const wrapperClassName = ['claw-module-icon', className].filter(Boolean).join(' ');
   if (typeof icon !== 'string') {
     return (
       <span
-        className={`${wrapperClassName} otto-module-icon--image`}
+        className={`${wrapperClassName} claw-module-icon--image`}
         data-module-icon="custom-image"
         aria-hidden
       >
@@ -134,16 +134,16 @@ export function ModuleIcon({
       </span>
     );
   }
-  if (icon === 'otto-avatar') {
+  if (icon === 'clawmaster-avatar') {
     return (
       <span className={wrapperClassName} data-module-icon={icon} aria-hidden>
-        <OttoAvatar size={size} />
+        <ClawMasterAvatar size={size} />
       </span>
     );
   }
   if (icon === 'custom-agent') {
     return (
-      <span className={`${wrapperClassName} otto-module-icon--custom`} data-module-icon={icon} aria-hidden>
+      <span className={`${wrapperClassName} claw-module-icon--custom`} data-module-icon={icon} aria-hidden>
         {Array.from(label.trim())[0] || '专'}
       </span>
     );

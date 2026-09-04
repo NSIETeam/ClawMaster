@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -2299,7 +2299,7 @@ async function commercialStatus(input: ClusteredBusinessRouteInput) {
   };
   return {
     deploymentId:
-      process.env.OTTO_DEPLOYMENT_ID?.trim() || 'clustered-enterprise',
+      process.env.CLAWMASTER_DEPLOYMENT_ID?.trim() || 'clustered-enterprise',
     authority: 'postgresql',
     license: verifiedLicense,
     telemetry: {
@@ -2398,9 +2398,9 @@ async function handleCommercialControl(
       limit: 500,
     });
     input.sendJson(input.res, 200, {
-      format: 'otto-module-updates-v1',
+      format: 'clawmaster.module-updates-v1',
       deploymentId:
-        process.env.OTTO_DEPLOYMENT_ID?.trim() || 'clustered-enterprise',
+        process.env.CLAWMASTER_DEPLOYMENT_ID?.trim() || 'clustered-enterprise',
       generatedAt: new Date().toISOString(),
       modules: modules.map((record) => record.payload),
       catalog: licenseModuleCatalog(),
@@ -2486,8 +2486,8 @@ async function handleCommercialControl(
     const signingKeyId =
       typeof envelope.signingKeyId === 'string' ? envelope.signingKeyId : null;
     const publicKeys = parsePublicKeyList(
-      process.env.OTTO_LICENSE_PUBLIC_KEYS,
-      process.env.OTTO_LICENSE_REVOKED_KEY_IDS,
+      process.env.CLAWMASTER_LICENSE_PUBLIC_KEYS,
+      process.env.CLAWMASTER_LICENSE_REVOKED_KEY_IDS,
     );
     if (!payload || publicKeys.length === 0) {
       input.sendJson(input.res, 503, {
@@ -2507,7 +2507,7 @@ async function handleCommercialControl(
       return true;
     }
     const deploymentId =
-      process.env.OTTO_DEPLOYMENT_ID?.trim() || 'clustered-enterprise';
+      process.env.CLAWMASTER_DEPLOYMENT_ID?.trim() || 'clustered-enterprise';
     if (
       payload.deploymentId !== deploymentId ||
       payload.organizationId !== organizationId
@@ -2690,9 +2690,9 @@ async function handleCommercialControl(
       limit: 500,
     });
     input.sendJson(input.res, 200, {
-      format: 'otto-module-updates-v1',
+      format: 'clawmaster.module-updates-v1',
       deploymentId:
-        process.env.OTTO_DEPLOYMENT_ID?.trim() || 'clustered-enterprise',
+        process.env.CLAWMASTER_DEPLOYMENT_ID?.trim() || 'clustered-enterprise',
       generatedAt: new Date().toISOString(),
       modules: modules.map((record) => record.payload),
       catalog: licenseModuleCatalog(),
@@ -2775,9 +2775,9 @@ async function handleCommercialControl(
     input.sendJson(input.res, 200, {
       moduleUpdate: recordPayloadView(saved!),
       manifest: {
-        format: 'otto-module-updates-v1',
+        format: 'clawmaster.module-updates-v1',
         deploymentId:
-          process.env.OTTO_DEPLOYMENT_ID?.trim() || 'clustered-enterprise',
+          process.env.CLAWMASTER_DEPLOYMENT_ID?.trim() || 'clustered-enterprise',
         generatedAt: new Date().toISOString(),
         modules: modules.map((record) => record.payload),
         catalog: licenseModuleCatalog(),

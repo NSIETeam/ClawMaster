@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Redis is a short-lived accelerator and cross-replica invalidation channel.
  * PostgreSQL remains authoritative for sessions and durable login throttling.

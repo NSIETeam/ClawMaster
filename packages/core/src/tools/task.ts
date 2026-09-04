@@ -293,13 +293,13 @@ export class TaskTool extends BaseTool<TaskToolParams, ToolResult> {
       }
       releaseSubAgentSlot = await this.acquireSubAgentSlot(agentId, signal);
 
-      // 获取已初始化的 OttoClient
-      const geminiClient = this.config.getOttoClient();
+      // 获取已初始化的 ClawMasterClient
+      const geminiClient = this.config.getClawMasterClient();
       if (!geminiClient) {
         throw new Error(TaskPrompts.EXECUTION_ERRORS.GEMINI_CLIENT_NOT_INITIALIZED);
       }
 
-      // 验证 OttoClient 是否已经正确初始化
+      // 验证 ClawMasterClient 是否已经正确初始化
       try {
         geminiClient.getChat();
       } catch (chatError) {

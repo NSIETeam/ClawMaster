@@ -15,9 +15,9 @@ describe('enterprise registration link parsing', () => {
     )).toEqual({ inviteCode: 'Ab3D-k9Pq-Z7xY' });
   });
 
-  it('accepts exact otto://enterprise/join links and normalizes invite codes', () => {
+  it('accepts exact clawmaster://enterprise/join links and normalizes invite codes', () => {
     expect(parseEnterpriseRegistrationIntent(
-      'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY',
+      'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY',
     )).toEqual({
       inviteCode: 'Ab3D-k9Pq-Z7xY',
     });
@@ -25,7 +25,7 @@ describe('enterprise registration link parsing', () => {
 
   it('accepts a single safe HTTPS enterprise server URL and normalizes it to origin', () => {
     expect(parseEnterpriseRegistrationIntent(
-      'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=https%3A%2F%2Fenterprise.otto.test%2F',
+      'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=https%3A%2F%2Fenterprise.otto.test%2F',
     )).toEqual({
       inviteCode: 'Ab3D-k9Pq-Z7xY',
       serverUrl: 'https://enterprise.otto.test',
@@ -34,7 +34,7 @@ describe('enterprise registration link parsing', () => {
 
   it('allows HTTP loopback URLs for local integration', () => {
     expect(parseEnterpriseRegistrationIntent(
-      'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=http%3A%2F%2F127.0.0.1%3A7777',
+      'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=http%3A%2F%2F127.0.0.1%3A7777',
     )).toEqual({
       inviteCode: 'Ab3D-k9Pq-Z7xY',
       serverUrl: 'http://127.0.0.1:7777',
@@ -43,7 +43,7 @@ describe('enterprise registration link parsing', () => {
 
   it('preserves HTTPS reverse proxy path prefixes from otto links', () => {
     expect(parseEnterpriseRegistrationIntent(
-      'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=https%3A%2F%2Fenterprise.otto.test%2Fcompany%2F',
+      'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=https%3A%2F%2Fenterprise.otto.test%2Fcompany%2F',
     )).toEqual({
       inviteCode: 'Ab3D-k9Pq-Z7xY',
       serverUrl: 'https://enterprise.otto.test/company',
@@ -69,24 +69,24 @@ describe('enterprise registration link parsing', () => {
   });
 
   it.each([
-    'otto://enterprise/register?invite=Ab3D-k9Pq-Z7xY',
-    'otto://other/join?invite=Ab3D-k9Pq-Z7xY',
-    'otto://enterprise/join?token=signed&key=public',
+    'clawmaster://enterprise/register?invite=Ab3D-k9Pq-Z7xY',
+    'clawmaster://other/join?invite=Ab3D-k9Pq-Z7xY',
+    'clawmaster://enterprise/join?token=signed&key=public',
     'https://enterprise.otto.test/enterprise/join/Ab3D-k9Pq-Z7xY?token=signed',
     'https://enterprise.otto.test/enterprise/join/Ab3D-k9Pq-Z7xY#fragment',
     'https://user:pass@enterprise.otto.test/enterprise/join/Ab3D-k9Pq-Z7xY',
     'http://enterprise.otto.test/enterprise/join/Ab3D-k9Pq-Z7xY',
-    'otto://enterprise/join?invite=BAD',
-    'otto://enterprise/join?invite=ABCI-EFGH',
-    'otto://user:pass@enterprise/join?invite=Ab3D-k9Pq-Z7xY',
-    'otto://enterprise:123/join?invite=Ab3D-k9Pq-Z7xY',
-    'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=http%3A%2F%2Fenterprise.otto.test',
-    'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=https%3A%2F%2Fuser%3Apass%40enterprise.otto.test',
-    'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=https%3A%2F%2Fenterprise.otto.test%3Fx%3D1',
-    'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=https%3A%2F%2Fenterprise.otto.test&server=https%3A%2F%2Fb.otto.test',
-    'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY&extra=1',
-    'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY&invite=Wz8Y-m3Na-Q5pB',
-    'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY#fragment',
+    'clawmaster://enterprise/join?invite=BAD',
+    'clawmaster://enterprise/join?invite=ABCI-EFGH',
+    'clawmaster://user:pass@enterprise/join?invite=Ab3D-k9Pq-Z7xY',
+    'clawmaster://enterprise:123/join?invite=Ab3D-k9Pq-Z7xY',
+    'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=http%3A%2F%2Fenterprise.otto.test',
+    'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=https%3A%2F%2Fuser%3Apass%40enterprise.otto.test',
+    'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=https%3A%2F%2Fenterprise.otto.test%3Fx%3D1',
+    'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY&server=https%3A%2F%2Fenterprise.otto.test&server=https%3A%2F%2Fb.otto.test',
+    'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY&extra=1',
+    'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY&invite=Wz8Y-m3Na-Q5pB',
+    'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY#fragment',
   ])('rejects non-registration, legacy signed, or suspicious links: %s', (url) => {
     expect(parseEnterpriseRegistrationIntent(url)).toBeNull();
   });
@@ -102,9 +102,9 @@ describe('enterprise registration intent store', () => {
   it('caches a valid cold-start argv link until the renderer consumes it once', () => {
     const store = new EnterpriseRegistrationIntentStore();
     expect(store.acceptArgv([
-      '/Applications/Otto.app/Contents/MacOS/Otto',
+      '/Applications/ClawMaster.app/Contents/MacOS/ClawMaster',
       '--flag',
-      'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY',
+      'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY',
     ])).toBe(true);
     expect(store.take()).toEqual({
       inviteCode: 'Ab3D-k9Pq-Z7xY',
@@ -115,9 +115,9 @@ describe('enterprise registration intent store', () => {
   it('does not let invalid second-instance args overwrite a cached valid intent', () => {
     const store = new EnterpriseRegistrationIntentStore();
     store.acceptUrl(
-      'otto://enterprise/join?invite=Ab3D-k9Pq-Z7xY',
+      'clawmaster://enterprise/join?invite=Ab3D-k9Pq-Z7xY',
     );
-    expect(store.acceptArgv(['otto://enterprise/join?token=signed&key=public'])).toBe(false);
+    expect(store.acceptArgv(['clawmaster://enterprise/join?token=signed&key=public'])).toBe(false);
     expect(store.take()?.inviteCode).toBe('Ab3D-k9Pq-Z7xY');
   });
 });

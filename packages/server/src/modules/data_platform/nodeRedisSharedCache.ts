@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createClient, type RedisClientOptions } from 'redis';
@@ -11,7 +11,7 @@ import {
 } from './enterpriseSharedCache.js';
 
 export interface NodeRedisEnvironment {
-  OTTO_REDIS_CONNECT_TIMEOUT_MS?: string;
+  CLAWMASTER_REDIS_CONNECT_TIMEOUT_MS?: string;
 }
 
 export interface NodeRedisClientLike extends RedisEnterpriseClientLike {
@@ -50,8 +50,8 @@ export function buildNodeRedisClientOptions(input: {
     disableOfflineQueue: true,
     socket: {
       connectTimeout: boundedInteger({
-        name: 'OTTO_REDIS_CONNECT_TIMEOUT_MS',
-        value: input.environment.OTTO_REDIS_CONNECT_TIMEOUT_MS,
+        name: 'CLAWMASTER_REDIS_CONNECT_TIMEOUT_MS',
+        value: input.environment.CLAWMASTER_REDIS_CONNECT_TIMEOUT_MS,
         fallback: 10_000,
         min: 100,
         max: 120_000,

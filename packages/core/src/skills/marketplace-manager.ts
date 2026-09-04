@@ -1,5 +1,5 @@
 /**
- * Otto Skills System - Marketplace Manager
+ * ClawMaster Skills System - Marketplace Manager
  *
  * Manages Marketplace lifecycle:
  * - Git clone and update
@@ -70,7 +70,7 @@ interface MarketplacePluginEntry {
   agents?: string | string[];
   hooks?: unknown;
   mcpServers?: unknown;
-  // Legacy/Otto specific
+  // Legacy/ClawMaster specific
   skills?: string[];
 }
 
@@ -584,7 +584,7 @@ export class MarketplaceManager {
     const isStrict = pluginDef.strict !== false; // Default to true
 
     if (sourcePath && await fs.pathExists(sourcePath)) {
-      // Try two locations: plugin.json (Otto) and .claude-plugin/plugin.json (Claude Code)
+      // Try two locations: plugin.json (ClawMaster) and .claude-plugin/plugin.json (Claude Code)
       let manifestPath = path.join(sourcePath, 'plugin.json');
       let hasManifest = await fs.pathExists(manifestPath);
 

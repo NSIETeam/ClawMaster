@@ -17,7 +17,7 @@ authorization, quota, upload state, and migration state.
   not contain an organization, account, conversation, or original filename.
 - The bucket is private. The S3 runtime refuses to start unless the operator
   explicitly confirms that policy with
-  `OTTO_S3_BUCKET_PRIVATE_CONFIRMED=true`; the adapter never requests a public
+  `CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED=true`; the adapter never requests a public
   ACL.
 - Authorization is an exact PostgreSQL ACL lookup by attachment, organization,
   and account. A bucket path or possession of an object key is never treated as
@@ -110,33 +110,33 @@ replica is configured.
 
 | Variable                             | Meaning                                               |
 | ------------------------------------ | ----------------------------------------------------- |
-| `OTTO_ATTACHMENT_OBJECT_STORE`       | `local` or `s3`                                       |
-| `OTTO_S3_BUCKET`                     | Private attachment bucket                             |
-| `OTTO_S3_REGION`                     | S3 signing region                                     |
-| `OTTO_S3_ENDPOINT`                   | Optional S3-compatible endpoint                       |
-| `OTTO_S3_FORCE_PATH_STYLE`           | Enable for providers such as many MinIO deployments   |
-| `OTTO_S3_BUCKET_PRIVATE_CONFIRMED`   | Must be `true` in S3 mode                             |
-| `OTTO_S3_ALLOW_INSECURE`             | Explicit development-only opt-in for an HTTP endpoint |
-| `OTTO_S3_PRESIGN_TTL_SECONDS`        | URL lifetime, from 30 through 900 seconds             |
-| `OTTO_S3_KMS_KEY_ID`                 | Optional SSE-KMS key identifier                       |
-| `OTTO_ATTACHMENT_MAX_BYTES`          | Maximum ciphertext bytes for one attachment           |
-| `OTTO_ATTACHMENT_TENANT_QUOTA_BYTES` | Default per-tenant stored plus reserved byte quota     |
-| `OTTO_ATTACHMENT_MIGRATION_GRACE_DAYS` | Days to retain verified legacy copies after cutover  |
-| `OTTO_SQLITE_ATTACHMENT_STORAGE_DIR` | Explicit source directory used by the migration tool   |
-| `OTTO_SQLITE_ATTACHMENT_ENCRYPTION_KEY_FILE` | Read-only source key file used by the migration tool |
-| `OTTO_ATTACHMENT_LEGACY_READ_DIR`    | Single-replica grace-window fallback directory         |
-| `OTTO_ATTACHMENT_LEGACY_READ_KEY_FILE` | Single-replica grace-window fallback key file         |
+| `CLAWMASTER_ATTACHMENT_OBJECT_STORE`       | `local` or `s3`                                       |
+| `CLAWMASTER_S3_BUCKET`                     | Private attachment bucket                             |
+| `CLAWMASTER_S3_REGION`                     | S3 signing region                                     |
+| `CLAWMASTER_S3_ENDPOINT`                   | Optional S3-compatible endpoint                       |
+| `CLAWMASTER_S3_FORCE_PATH_STYLE`           | Enable for providers such as many MinIO deployments   |
+| `CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED`   | Must be `true` in S3 mode                             |
+| `CLAWMASTER_S3_ALLOW_INSECURE`             | Explicit development-only opt-in for an HTTP endpoint |
+| `CLAWMASTER_S3_PRESIGN_TTL_SECONDS`        | URL lifetime, from 30 through 900 seconds             |
+| `CLAWMASTER_S3_KMS_KEY_ID`                 | Optional SSE-KMS key identifier                       |
+| `CLAWMASTER_ATTACHMENT_MAX_BYTES`          | Maximum ciphertext bytes for one attachment           |
+| `CLAWMASTER_ATTACHMENT_TENANT_QUOTA_BYTES` | Default per-tenant stored plus reserved byte quota     |
+| `CLAWMASTER_ATTACHMENT_MIGRATION_GRACE_DAYS` | Days to retain verified legacy copies after cutover  |
+| `CLAWMASTER_SQLITE_ATTACHMENT_STORAGE_DIR` | Explicit source directory used by the migration tool   |
+| `CLAWMASTER_SQLITE_ATTACHMENT_ENCRYPTION_KEY_FILE` | Read-only source key file used by the migration tool |
+| `CLAWMASTER_ATTACHMENT_LEGACY_READ_DIR`    | Single-replica grace-window fallback directory         |
+| `CLAWMASTER_ATTACHMENT_LEGACY_READ_KEY_FILE` | Single-replica grace-window fallback key file         |
 
 Example for a TLS-enabled MinIO deployment:
 
 ```text
-OTTO_ATTACHMENT_OBJECT_STORE=s3
-OTTO_S3_BUCKET=otto-private-attachments
-OTTO_S3_REGION=us-east-1
-OTTO_S3_ENDPOINT=https://minio.internal:9000
-OTTO_S3_FORCE_PATH_STYLE=true
-OTTO_S3_BUCKET_PRIVATE_CONFIRMED=true
-OTTO_S3_PRESIGN_TTL_SECONDS=120
+CLAWMASTER_ATTACHMENT_OBJECT_STORE=s3
+CLAWMASTER_S3_BUCKET=otto-private-attachments
+CLAWMASTER_S3_REGION=us-east-1
+CLAWMASTER_S3_ENDPOINT=https://minio.internal:9000
+CLAWMASTER_S3_FORCE_PATH_STYLE=true
+CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED=true
+CLAWMASTER_S3_PRESIGN_TTL_SECONDS=120
 ```
 
 ## Delivery boundary

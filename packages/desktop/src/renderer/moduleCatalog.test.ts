@@ -106,7 +106,7 @@ describe('capability-driven availability', () => {
       .filter((module) => module.availability === 'available')
       .map((module) => module.id);
 
-    expect(availableIds).toContain('agent-personal-otto');
+    expect(availableIds).toContain('agent-personal-clawmaster');
     expect(availableIds).toContain('auto-skill');
     expect(availableIds).toEqual(expect.arrayContaining([
       'agent-word',
@@ -161,7 +161,7 @@ describe('custom expert modules', () => {
       category: 'custom-agent',
       activation: {
         kind: 'agent',
-        profileId: 'otto-enterprise-work',
+        profileId: 'claw-enterprise-work',
         customAgentId: 'custom-bid-helper',
       },
       icon: 'agent',

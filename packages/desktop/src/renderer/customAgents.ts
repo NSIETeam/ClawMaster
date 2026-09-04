@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { isCustomAgentIcon, type CustomAgentIcon } from './customAgentIcons.js';
@@ -28,7 +28,7 @@ export function customAgentStorageKey(
   accountId: string,
 ): string {
   return [
-    'otto.custom-agents.v1',
+    'clawmaster.custom-agents.v1',
     encodeURIComponent(organizationId.trim() || 'personal'),
     encodeURIComponent(accountId.trim() || 'anonymous'),
   ].join(':');

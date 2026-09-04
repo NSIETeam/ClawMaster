@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,7 +11,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import type { SessionSummary } from 'otto-server';
+import type { SessionSummary } from 'clawmaster-server';
 import { AllConversations } from './AllConversations.js';
 
 function makeSession(over: Partial<SessionSummary> = {}): SessionSummary {
@@ -164,7 +164,7 @@ describe('AllConversations：每行删除二次确认（弹窗）', () => {
     ).toBeTruthy();
     expect(onDelete).not.toHaveBeenCalled();
     const confirmDel = screen.getByText('删除', {
-      selector: '.otto-confirm__confirm',
+      selector: '.claw-confirm__confirm',
     });
     fireEvent.click(confirmDel);
     expect(onDelete).toHaveBeenCalledWith('b');

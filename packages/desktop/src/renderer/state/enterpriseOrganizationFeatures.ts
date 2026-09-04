@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import type { EnterpriseOrganizationFeatures } from '../../preload/index.js';
@@ -26,7 +26,7 @@ export async function getEnterpriseOrganizationFeatures(
   if (cached?.inFlight) return cached.inFlight;
   if (!options.force && cached?.value) return cached.value;
 
-  const inFlight = window.otto.enterpriseOrganizationFeaturesGet()
+  const inFlight = window.clawmaster.enterpriseOrganizationFeaturesGet()
     .then((features) => {
       featureCache.set(key, { value: features });
       return features;

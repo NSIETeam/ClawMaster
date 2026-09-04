@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import {
@@ -16,11 +16,11 @@ import type {
 } from './postgresDatabaseLifecycle.js';
 
 export interface NodePostgresEnvironment {
-  OTTO_POSTGRES_POOL_MAX?: string;
-  OTTO_POSTGRES_CONNECT_TIMEOUT_MS?: string;
-  OTTO_POSTGRES_IDLE_TIMEOUT_MS?: string;
-  OTTO_POSTGRES_STATEMENT_TIMEOUT_MS?: string;
-  OTTO_POSTGRES_SSL_MODE?: string;
+  CLAWMASTER_POSTGRES_POOL_MAX?: string;
+  CLAWMASTER_POSTGRES_CONNECT_TIMEOUT_MS?: string;
+  CLAWMASTER_POSTGRES_IDLE_TIMEOUT_MS?: string;
+  CLAWMASTER_POSTGRES_STATEMENT_TIMEOUT_MS?: string;
+  CLAWMASTER_POSTGRES_SSL_MODE?: string;
 }
 
 function boundedInteger(input: {
@@ -71,35 +71,35 @@ export function buildNodePostgresPoolConfig(input: {
 }): PoolConfig {
   const transport = resolveSsl({
     connectionString: input.connectionString,
-    configuredMode: input.environment.OTTO_POSTGRES_SSL_MODE,
+    configuredMode: input.environment.CLAWMASTER_POSTGRES_SSL_MODE,
   });
   return {
     connectionString: transport.connectionString,
     application_name: 'otto-enterprise',
     max: boundedInteger({
-      name: 'OTTO_POSTGRES_POOL_MAX',
-      value: input.environment.OTTO_POSTGRES_POOL_MAX,
+      name: 'CLAWMASTER_POSTGRES_POOL_MAX',
+      value: input.environment.CLAWMASTER_POSTGRES_POOL_MAX,
       fallback: 10,
       min: 1,
       max: 100,
     }),
     connectionTimeoutMillis: boundedInteger({
-      name: 'OTTO_POSTGRES_CONNECT_TIMEOUT_MS',
-      value: input.environment.OTTO_POSTGRES_CONNECT_TIMEOUT_MS,
+      name: 'CLAWMASTER_POSTGRES_CONNECT_TIMEOUT_MS',
+      value: input.environment.CLAWMASTER_POSTGRES_CONNECT_TIMEOUT_MS,
       fallback: 10_000,
       min: 100,
       max: 120_000,
     }),
     idleTimeoutMillis: boundedInteger({
-      name: 'OTTO_POSTGRES_IDLE_TIMEOUT_MS',
-      value: input.environment.OTTO_POSTGRES_IDLE_TIMEOUT_MS,
+      name: 'CLAWMASTER_POSTGRES_IDLE_TIMEOUT_MS',
+      value: input.environment.CLAWMASTER_POSTGRES_IDLE_TIMEOUT_MS,
       fallback: 30_000,
       min: 1_000,
       max: 600_000,
     }),
     statement_timeout: boundedInteger({
-      name: 'OTTO_POSTGRES_STATEMENT_TIMEOUT_MS',
-      value: input.environment.OTTO_POSTGRES_STATEMENT_TIMEOUT_MS,
+      name: 'CLAWMASTER_POSTGRES_STATEMENT_TIMEOUT_MS',
+      value: input.environment.CLAWMASTER_POSTGRES_STATEMENT_TIMEOUT_MS,
       fallback: 30_000,
       min: 100,
       max: 600_000,

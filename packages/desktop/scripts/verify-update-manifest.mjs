@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { createHash } from 'node:crypto';
@@ -12,27 +12,27 @@ const AVAILABLE_ASSETS = [
   {
     key: 'win-x64',
     fileName(version) {
-      return `Otto-Setup-${version}-win-x64.exe`;
+      return `ClawMaster-Setup-${version}-win-x64.exe`;
     },
   },
   {
     key: 'mac-arm64',
     fileName(version) {
-      return `Otto-${version}-arm64.dmg`;
+      return `ClawMaster-${version}-arm64.dmg`;
     },
   },
   {
     key: 'mac-x64',
     fileName(version) {
-      return `Otto-${version}-x64.dmg`;
+      return `ClawMaster-${version}-x64.dmg`;
     },
   },
 ];
 
-function resolveRequiredAssets(candidate = process.env.OTTO_UPDATE_REQUIRED_ASSETS) {
+function resolveRequiredAssets(candidate = process.env.CLAWMASTER_UPDATE_REQUIRED_ASSETS) {
   if (!candidate?.trim()) return AVAILABLE_ASSETS;
   const keys = [...new Set(candidate.split(',').map((key) => key.trim()).filter(Boolean))];
-  if (keys.length === 0) throw new Error('OTTO_UPDATE_REQUIRED_ASSETS must not be empty');
+  if (keys.length === 0) throw new Error('CLAWMASTER_UPDATE_REQUIRED_ASSETS must not be empty');
   return keys.map((key) => {
     const asset = AVAILABLE_ASSETS.find((candidateAsset) => candidateAsset.key === key);
     if (!asset) throw new Error(`unknown required update asset: ${key}`);

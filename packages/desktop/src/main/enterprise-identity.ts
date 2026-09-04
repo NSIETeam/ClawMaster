@@ -15,7 +15,7 @@ export interface AuthenticatedEnterpriseOrganizationMemberInput {
   status: 'active' | 'disabled';
 }
 
-/** Electron main 传给本机 OttoServer 可信控制面的最小中心账号形状。 */
+/** Electron main 传给本机 ClawMasterServer 可信控制面的最小中心账号形状。 */
 export interface AuthenticatedEnterpriseAccountInput {
   id: string;
   organizationId: string;

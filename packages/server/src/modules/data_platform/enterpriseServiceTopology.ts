@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import path from 'node:path';
@@ -17,9 +17,9 @@ import {
 } from './enterpriseDatabaseTopology.js';
 
 export interface EnterpriseSharedCacheEnvironment {
-  OTTO_ENTERPRISE_CACHE_BACKEND?: string;
-  OTTO_REDIS_URL?: string;
-  OTTO_REDIS_ALLOW_INSECURE?: string;
+  CLAWMASTER_ENTERPRISE_CACHE_BACKEND?: string;
+  CLAWMASTER_REDIS_URL?: string;
+  CLAWMASTER_REDIS_ALLOW_INSECURE?: string;
 }
 
 export type EnterpriseServiceEnvironment =
@@ -58,21 +58,21 @@ function parseRedisUrl(value: string, allowInsecure: boolean): URL {
   try {
     parsed = new URL(value);
   } catch {
-    throw new Error('OTTO_REDIS_URL must be a valid Redis URL');
+    throw new Error('CLAWMASTER_REDIS_URL must be a valid Redis URL');
   }
   if (!['redis:', 'rediss:'].includes(parsed.protocol) || !parsed.hostname) {
     throw new Error(
-      'OTTO_REDIS_URL must use redis:// or rediss:// and include a host',
+      'CLAWMASTER_REDIS_URL must use redis:// or rediss:// and include a host',
     );
   }
   if (parsed.protocol === 'redis:' && !allowInsecure) {
     throw new Error(
-      'plaintext Redis must be explicitly enabled with OTTO_REDIS_ALLOW_INSECURE=true',
+      'plaintext Redis must be explicitly enabled with CLAWMASTER_REDIS_ALLOW_INSECURE=true',
     );
   }
   const database = parsed.pathname.replace(/^\/+/, '');
   if (database && !/^\d+$/.test(database)) {
-    throw new Error('OTTO_REDIS_URL database must be numeric');
+    throw new Error('CLAWMASTER_REDIS_URL database must be numeric');
   }
   return parsed;
 }
@@ -82,7 +82,7 @@ export function resolveEnterpriseSharedCacheConfig(input: {
   requireShared: boolean;
 }): EnterpriseSharedCacheConfig {
   const backend = configuredBackend(
-    input.environment.OTTO_ENTERPRISE_CACHE_BACKEND,
+    input.environment.CLAWMASTER_ENTERPRISE_CACHE_BACKEND,
     'memory',
   );
   if (backend === 'memory') {
@@ -94,19 +94,19 @@ export function resolveEnterpriseSharedCacheConfig(input: {
     return { backend: 'memory' };
   }
   if (backend !== 'redis') {
-    throw new Error('OTTO_ENTERPRISE_CACHE_BACKEND must be memory or redis');
+    throw new Error('CLAWMASTER_ENTERPRISE_CACHE_BACKEND must be memory or redis');
   }
-  const connectionString = input.environment.OTTO_REDIS_URL?.trim();
+  const connectionString = input.environment.CLAWMASTER_REDIS_URL?.trim();
   if (!connectionString) {
     throw new Error(
-      'OTTO_REDIS_URL is required for the Redis enterprise cache',
+      'CLAWMASTER_REDIS_URL is required for the Redis enterprise cache',
     );
   }
   parseRedisUrl(
     connectionString,
     parseBoolean(
-      'OTTO_REDIS_ALLOW_INSECURE',
-      input.environment.OTTO_REDIS_ALLOW_INSECURE,
+      'CLAWMASTER_REDIS_ALLOW_INSECURE',
+      input.environment.CLAWMASTER_REDIS_ALLOW_INSECURE,
     ),
   );
   return { backend: 'redis', connectionString };
@@ -119,7 +119,7 @@ export function resolveEnterpriseServiceTopology(input: {
   const database = resolveEnterpriseDatabaseTopology(input);
   const clustered = database.backend === 'postgresql';
   const attachmentBackend = configuredBackend(
-    input.environment.OTTO_ATTACHMENT_OBJECT_STORE,
+    input.environment.CLAWMASTER_ATTACHMENT_OBJECT_STORE,
     'local',
   );
   if (clustered && attachmentBackend !== 's3') {

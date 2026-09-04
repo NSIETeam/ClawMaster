@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { ServerEndpoint } from 'otto-server';
+import type { ServerEndpoint } from 'clawmaster-server';
 
 type ClientServerEndpoint = Pick<
   ServerEndpoint,

@@ -154,7 +154,7 @@ describe('GenerateDocumentTool', () => {
     expect(fs.readFileSync(out, 'utf8')).toContain('# T');
   });
 
-  it('markdown output uses the trusted Otto department and name as its visible byline', async () => {
+  it('markdown output uses the trusted ClawMaster department and name as its visible byline', async () => {
     const out = path.join(tmpDir, 'trusted-identity.md');
     const markdownTool = new GenerateDocumentTool(
       createMockConfig({
@@ -184,7 +184,7 @@ describe('GenerateDocumentTool', () => {
     expect(fs.readFileSync(out, 'utf8')).not.toContain('mac-login-name');
   });
 
-  it('omits an untrusted caller author when Otto has no registered document identity', async () => {
+  it('omits an untrusted caller author when ClawMaster has no registered document identity', async () => {
     const out = path.join(tmpDir, 'untrusted-identity.md');
     const result = await tool.execute(
       {
@@ -216,9 +216,9 @@ describe('GenerateDocumentTool', () => {
       runner,
       vi.fn(async () => null),
       vi.fn(() => ({
-        executable: '/Applications/Otto.app/Contents/Resources/runtime/darwin-arm64/python/bin/python3',
+        executable: '/Applications/ClawMaster.app/Contents/Resources/runtime/darwin-arm64/python/bin/python3',
         source: 'bundled',
-        pythonSitePackages: '/Applications/Otto.app/Contents/Resources/runtime/darwin-arm64/python/site-packages',
+        pythonSitePackages: '/Applications/ClawMaster.app/Contents/Resources/runtime/darwin-arm64/python/site-packages',
       })),
     );
 
@@ -228,7 +228,7 @@ describe('GenerateDocumentTool', () => {
         format: 'report',
         output_format: 'docx',
         title: '公文测试',
-        author: 'Otto',
+        author: 'ClawMaster',
         output_path: out,
       },
       new AbortController().signal,
@@ -242,12 +242,12 @@ describe('GenerateDocumentTool', () => {
     expect(commands[0].args[2]).toBe(out);
     expect(commands[0].env?.PYTHONPATH).toContain('/runtime/darwin-arm64/python/site-packages');
     expect(commands[0].env?.PYTHONNOUSERSITE).toBe('1');
-    expect(commands[0].env?.OTTO_DOCUMENT_AUTHOR).toBeUndefined();
+    expect(commands[0].env?.CLAWMASTER_DOCUMENT_AUTHOR).toBeUndefined();
     expect(updates.join('\n')).toContain('预检 Python 公文依赖');
     expect(updates.join('\n')).toContain('导出 DOCX 文件');
   });
 
-  it('docx output enforces trusted Otto name and department instead of a computer login name', async () => {
+  it('docx output enforces trusted ClawMaster name and department instead of a computer login name', async () => {
     const out = path.join(tmpDir, 'trusted-identity.docx');
     let generatedMarkdown = '';
     let docWriterScript = '';
@@ -295,8 +295,8 @@ describe('GenerateDocumentTool', () => {
       expect.any(Array),
       expect.objectContaining({
         env: expect.objectContaining({
-          OTTO_DOCUMENT_AUTHOR: '林一',
-          OTTO_DOCUMENT_DEPARTMENT: '产品与研发部',
+          CLAWMASTER_DOCUMENT_AUTHOR: '林一',
+          CLAWMASTER_DOCUMENT_DEPARTMENT: '产品与研发部',
         }),
       }),
     );
@@ -305,8 +305,8 @@ describe('GenerateDocumentTool', () => {
       'self.doc.core_properties.last_modified_by=self.m.get("author","")',
     );
     expect(writerSource).toContain('apply_trusted_identity(meta)');
-    expect(writerSource).toContain('OTTO_DOCUMENT_AUTHOR');
-    expect(writerSource).toContain('OTTO_DOCUMENT_DEPARTMENT');
+    expect(writerSource).toContain('CLAWMASTER_DOCUMENT_AUTHOR');
+    expect(writerSource).toContain('CLAWMASTER_DOCUMENT_DEPARTMENT');
     expect(writerSource).toContain('meta.pop(key, None)');
     expect(writerSource.match(/self\.sig\(\)/g)).toHaveLength(1);
   });

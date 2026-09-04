@@ -61,7 +61,7 @@ function parseSub(content: string): string {
 /**
  * VideoAnalyzer Tool
  *
- * Give Otto the ability to watch videos. Accepts a video URL (YouTube/Zoom/Loom)
+ * Give ClawMaster the ability to watch videos. Accepts a video URL (YouTube/Zoom/Loom)
  * or local path, downloads it, uses FFmpeg scene detection to extract key frames,
  * fetches subtitles (YouTube official or Whisper), and sends frames+subtitles
  * to a vision-capable LLM for structured analysis.
@@ -273,7 +273,7 @@ export class VideoAnalyzerTool extends BaseTool<VideoAnalyzerToolParams, ToolRes
         `4. action_items: 如果视频中有可执行的建议或步骤\n` +
         `5. target_audience: 目标观众`;
 
-      // Try vision model via Otto's temporary chat (like AudioReaderTool)
+      // Try vision model via ClawMaster's temporary chat (like AudioReaderTool)
       let analysisResult = '';
 
       const currentModel = typeof this.config.getModel === 'function' ? this.config.getModel() : undefined;
@@ -299,7 +299,7 @@ export class VideoAnalyzerTool extends BaseTool<VideoAnalyzerToolParams, ToolRes
       }
 
       try {
-        const geminiClient = this.config.getOttoClient();
+        const geminiClient = this.config.getClawMasterClient();
         const temporaryChat = await geminiClient.createTemporaryChat(
           SceneType.IMAGE_READER,
           resolvedModel,

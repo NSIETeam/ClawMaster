@@ -15,7 +15,7 @@ describe('Tauri runtime forbidden payload guard', () => {
     expect(() => assertNoTauriRuntimePackageManagers([
       'agent/node_modules/npm/bin/npm-cli.js',
       'agent/node_modules/electron/dist/Electron.app',
-      'agent/node_modules/@otto/native/target/release/build-cache',
+      'agent/node_modules/@clawmaster/native/target/release/build-cache',
       'node/.cache/native.tar',
     ])).toThrow(/must not package npm, package managers, Electron tooling, or build caches/u);
   });

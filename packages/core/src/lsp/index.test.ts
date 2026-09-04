@@ -55,7 +55,7 @@ describe('LSPManager robustness', () => {
   });
 
   it('should not hang forever if a server never responds to a request (timeout)', async () => {
-    vi.stubEnv('OTTO_LSP_REQUEST_TIMEOUT_MS', '50');
+    vi.stubEnv('CLAWMASTER_LSP_REQUEST_TIMEOUT_MS', '50');
 
     const manager = new LSPManager(tempRootDir);
 

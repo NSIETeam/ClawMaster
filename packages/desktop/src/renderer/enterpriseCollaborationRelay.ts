@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * enterprise_collaboration 的 renderer 可信中继。Core 只提出结构化意图；
  * 本模块在当前登录身份下重新读取企业树、执行真实 IPC，并把真实结果回传。
@@ -21,12 +21,12 @@ export type EnterpriseCollaborationRelayParams =
       content: string;
     }
   | {
-      action: 'ask_peer_otto';
+      action: 'ask_peer_clawmaster';
       recipientAccountId: string;
       question: string;
     }
   | {
-      action: 'consult_peer_otto';
+      action: 'consult_peer_clawmaster';
       recipientAccountId: string;
       question: string;
     }
@@ -59,16 +59,16 @@ const RECIPIENT_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const ACTIONS = new Set([
   'list_members',
   'send_message',
-  'ask_peer_otto',
-  'consult_peer_otto',
+  'ask_peer_clawmaster',
+  'consult_peer_clawmaster',
   'assign_member_position',
 ]);
 
 const ACTION_FIELDS: Record<EnterpriseCollaborationRelayParams['action'], ReadonlySet<string>> = {
   list_members: new Set(['action']),
   send_message: new Set(['action', 'recipientAccountId', 'content']),
-  ask_peer_otto: new Set(['action', 'recipientAccountId', 'question']),
-  consult_peer_otto: new Set(['action', 'recipientAccountId', 'question']),
+  ask_peer_clawmaster: new Set(['action', 'recipientAccountId', 'question']),
+  consult_peer_clawmaster: new Set(['action', 'recipientAccountId', 'question']),
   assign_member_position: new Set([
     'action',
     'recipientAccountId',
@@ -256,7 +256,7 @@ export async function executeEnterpriseCollaborationRelay(
       message: await deps.sendMessage(member.id, params.content),
     };
   }
-  if (params.action === 'ask_peer_otto') {
+  if (params.action === 'ask_peer_clawmaster') {
     const message = await deps.sendMessage(
       member.id,
       buildAtoaRequest(params.question, { mode: 'answer' }),

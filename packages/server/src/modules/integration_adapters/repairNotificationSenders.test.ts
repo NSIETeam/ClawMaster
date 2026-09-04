@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -19,16 +19,16 @@ describe('repair notification senders', () => {
     vi.stubEnv('ALIYUN_SMS_ACCESS_KEY_SECRET', '');
     vi.stubEnv('ALIYUN_SMS_SIGN_NAME', '');
     vi.stubEnv('ALIYUN_SMS_NOTIFICATION_TEMPLATE_ID', '');
-    vi.stubEnv('OTTO_ENTERPRISE_FEISHU_APP_ID', '');
-    vi.stubEnv('OTTO_ENTERPRISE_FEISHU_APP_SECRET', '');
+    vi.stubEnv('CLAWMASTER_ENTERPRISE_FEISHU_APP_ID', '');
+    vi.stubEnv('CLAWMASTER_ENTERPRISE_FEISHU_APP_SECRET', '');
 
     expect(createRepairSmsSenderFromEnv()).toBeNull();
     expect(createRepairFeishuSenderFromEnv()).toBeNull();
   });
 
   it('rejects malformed Feishu recipients before making a network request', async () => {
-    vi.stubEnv('OTTO_ENTERPRISE_FEISHU_APP_ID', 'app-id');
-    vi.stubEnv('OTTO_ENTERPRISE_FEISHU_APP_SECRET', 'app-secret');
+    vi.stubEnv('CLAWMASTER_ENTERPRISE_FEISHU_APP_ID', 'app-id');
+    vi.stubEnv('CLAWMASTER_ENTERPRISE_FEISHU_APP_SECRET', 'app-secret');
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     const sender = createRepairFeishuSenderFromEnv();
@@ -40,9 +40,9 @@ describe('repair notification senders', () => {
   });
 
   it('uses the configured Lark endpoint and sends a text message', async () => {
-    vi.stubEnv('OTTO_ENTERPRISE_FEISHU_APP_ID', 'app-id');
-    vi.stubEnv('OTTO_ENTERPRISE_FEISHU_APP_SECRET', 'app-secret');
-    vi.stubEnv('OTTO_ENTERPRISE_FEISHU_DOMAIN', 'lark');
+    vi.stubEnv('CLAWMASTER_ENTERPRISE_FEISHU_APP_ID', 'app-id');
+    vi.stubEnv('CLAWMASTER_ENTERPRISE_FEISHU_APP_SECRET', 'app-secret');
+    vi.stubEnv('CLAWMASTER_ENTERPRISE_FEISHU_DOMAIN', 'lark');
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(

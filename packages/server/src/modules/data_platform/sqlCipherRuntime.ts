@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import fs from 'node:fs';
@@ -20,13 +20,13 @@ export type SqlCipherRuntimeMode = 'required' | 'disabled';
 export function parseSqlCipherRuntimeMode(
   environment: NodeJS.ProcessEnv = process.env,
 ): SqlCipherRuntimeMode {
-  const configured = environment.OTTO_DATABASE_ENCRYPTION?.trim().toLowerCase();
+  const configured = environment.CLAWMASTER_DATABASE_ENCRYPTION?.trim().toLowerCase();
   if (['required', 'on', 'true', '1'].includes(configured ?? ''))
     return 'required';
   if (['disabled', 'off', 'false', '0'].includes(configured ?? ''))
     return 'disabled';
   if (configured) {
-    throw new Error('OTTO_DATABASE_ENCRYPTION must be required or disabled');
+    throw new Error('CLAWMASTER_DATABASE_ENCRYPTION must be required or disabled');
   }
   // Tests retain the ordinary SQLite adapter. Every non-test runtime fails
   // closed unless an operator explicitly opts out for emergency compatibility.
@@ -36,7 +36,7 @@ export function parseSqlCipherRuntimeMode(
 export function defaultSqlCipherNativeBindingPath(
   environment: NodeJS.ProcessEnv = process.env,
 ): string {
-  const configured = environment.OTTO_SQLCIPHER_NATIVE_BINDING?.trim();
+  const configured = environment.CLAWMASTER_SQLCIPHER_NATIVE_BINDING?.trim();
   if (configured) return path.resolve(configured);
   return path.resolve(
     process.cwd(),
@@ -108,10 +108,10 @@ export function createSqlCipherFileRuntime(input: {
 }): SqlCipherFileRuntime {
   const environment = input.environment ?? process.env;
   const configuredKeyPath =
-    environment.OTTO_DATABASE_ENCRYPTION_KEY_FILE?.trim();
+    environment.CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE?.trim();
   if (!configuredKeyPath) {
     throw new Error(
-      'OTTO_DATABASE_ENCRYPTION_KEY_FILE is required for offline SQLCipher custody',
+      'CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE is required for offline SQLCipher custody',
     );
   }
   const keyPath = path.resolve(configuredKeyPath);
@@ -120,10 +120,10 @@ export function createSqlCipherFileRuntime(input: {
   const keyProvider = createFileSqlCipherKeyProvider({
     keyPath,
     keyId:
-      environment.OTTO_DATABASE_ENCRYPTION_KEY_ID?.trim() ||
+      environment.CLAWMASTER_DATABASE_ENCRYPTION_KEY_ID?.trim() ||
       'offline-database-key',
     createIfMissing: false,
-    writable: environment.OTTO_DATABASE_ENCRYPTION_KEY_READONLY !== 'true',
+    writable: environment.CLAWMASTER_DATABASE_ENCRYPTION_KEY_READONLY !== 'true',
     managePermissions: false,
   });
 

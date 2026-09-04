@@ -93,17 +93,17 @@ export class MemoryPressureMonitor {
   private latest: MemoryPressureSnapshot;
 
   constructor(options: MemoryPressureMonitorOptions = {}) {
-    this.intervalMs = options.intervalMs ?? envNumber('OTTO_MEMORY_MONITOR_INTERVAL_MS') ?? 15_000;
+    this.intervalMs = options.intervalMs ?? envNumber('CLAWMASTER_MEMORY_MONITOR_INTERVAL_MS') ?? 15_000;
     this.thresholds = {
       ...DEFAULT_THRESHOLDS,
       warningFreeSystemRatio:
-        envNumber('OTTO_MEMORY_WARNING_FREE_RATIO') ?? DEFAULT_THRESHOLDS.warningFreeSystemRatio,
+        envNumber('CLAWMASTER_MEMORY_WARNING_FREE_RATIO') ?? DEFAULT_THRESHOLDS.warningFreeSystemRatio,
       criticalFreeSystemRatio:
-        envNumber('OTTO_MEMORY_CRITICAL_FREE_RATIO') ?? DEFAULT_THRESHOLDS.criticalFreeSystemRatio,
+        envNumber('CLAWMASTER_MEMORY_CRITICAL_FREE_RATIO') ?? DEFAULT_THRESHOLDS.criticalFreeSystemRatio,
       warningRssBytes:
-        (envNumber('OTTO_MEMORY_WARNING_RSS_MB') ?? DEFAULT_THRESHOLDS.warningRssBytes / MB) * MB,
+        (envNumber('CLAWMASTER_MEMORY_WARNING_RSS_MB') ?? DEFAULT_THRESHOLDS.warningRssBytes / MB) * MB,
       criticalRssBytes:
-        (envNumber('OTTO_MEMORY_CRITICAL_RSS_MB') ?? DEFAULT_THRESHOLDS.criticalRssBytes / MB) * MB,
+        (envNumber('CLAWMASTER_MEMORY_CRITICAL_RSS_MB') ?? DEFAULT_THRESHOLDS.criticalRssBytes / MB) * MB,
       ...options.thresholds,
     };
     this.readMemory = options.readMemory ?? readDefaultMemory;

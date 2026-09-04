@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -12,14 +12,14 @@ describe('DayAgenda', () => {
   const deferWorkLogs = (): (() => Promise<void>) => {
     let resolveWorkLogs!: (value: []) => void;
     const request = new Promise<[]>((resolve) => { resolveWorkLogs = resolve; });
-    Object.assign(window.otto, { workLogRecent: vi.fn(() => request) });
+    Object.assign(window.clawmaster, { workLogRecent: vi.fn(() => request) });
     return async () => {
       resolveWorkLogs([]);
       await request;
     };
   };
 
-  it('按时间展示日程，并明确标出 Otto 自主创建原因', async () => {
+  it('按时间展示日程，并明确标出 ClawMaster 自主创建原因', async () => {
     const settleWorkLogs = deferWorkLogs();
     render(
       <DayAgenda

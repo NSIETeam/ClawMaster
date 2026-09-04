@@ -13,7 +13,7 @@ export const DEFAULT_ENTERPRISE_PUBLIC_URL = 'https://59.110.154.44:7777';
 const ORGANIZATION_INVITE_CODE_PATTERN = /^[A-HJ-NP-Za-km-z2-9]{4}-[A-HJ-NP-Za-km-z2-9]{4}-[A-HJ-NP-Za-km-z2-9]{4}$/;
 
 export interface EnterprisePublicBaseUrlOptions {
-  /** Explicit option or OTTO_ENTERPRISE_PUBLIC_URL. */
+  /** Explicit option or CLAWMASTER_ENTERPRISE_PUBLIC_URL. */
   configuredUrl?: string;
   /** Accepted for call-site context only; never used to construct the public URL. */
   host?: string;
@@ -23,13 +23,13 @@ export interface EnterprisePublicBaseUrlOptions {
 
 function invalidPublicUrl(): Error {
   return new Error(
-    'OTTO_ENTERPRISE_PUBLIC_URL 必须是无账号、query 或 fragment 的 HTTP(S) 公网基址',
+    'CLAWMASTER_ENTERPRISE_PUBLIC_URL 必须是无账号、query 或 fragment 的 HTTP(S) 公网基址',
   );
 }
 
 /**
  * Normalize the configured public base while retaining an optional deployment
- * path prefix. An empty value intentionally falls back to Otto's built-in,
+ * path prefix. An empty value intentionally falls back to ClawMaster's built-in,
  * certificate-verified public endpoint.
  */
 export function resolveEnterprisePublicBaseUrl(

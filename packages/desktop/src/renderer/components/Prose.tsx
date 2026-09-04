@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -18,7 +18,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import type { MessageContentPart } from 'otto-server';
+import type { MessageContentPart } from 'clawmaster-server';
 import { IconCopy, IconCheck, IconExternalLink, IconFolder } from './icons.js';
 
 /** 把内容片段折叠为纯文本（非 text 片段给出可读占位）。 */
@@ -278,7 +278,7 @@ function LocalOutputPath({ value }: { value: string }): React.JSX.Element {
 
   useEffect(() => {
     let active = true;
-    const inspect = window.otto?.inspectLocalPath;
+    const inspect = window.clawmaster?.inspectLocalPath;
     if (!inspect) {
       return () => {
         active = false;
@@ -300,7 +300,7 @@ function LocalOutputPath({ value }: { value: string }): React.JSX.Element {
     setBusy(action);
     setError(null);
     try {
-      const result = await window.otto.activateLocalPath(value, action);
+      const result = await window.clawmaster.activateLocalPath(value, action);
       if (!result.ok) setError(result.error ?? '无法打开该路径');
     } catch {
       setError('无法打开该路径');
@@ -316,13 +316,13 @@ function LocalOutputPath({ value }: { value: string }): React.JSX.Element {
   if (!info?.exists) return <code>{value}</code>;
   const targetName = info.kind === 'directory' ? '文件夹' : '文件';
   return (
-    <span className="otto-local-path">
+    <span className="claw-local-path">
       <code title={value}>{value}</code>
-      <span className="otto-local-path__actions">
+      <span className="claw-local-path__actions">
         {info.kind === 'file' && info.canOpen ? (
           <button
             type="button"
-            className="otto-local-path__button"
+            className="claw-local-path__button"
             title="在右侧编辑"
             aria-label="在右侧编辑"
             disabled={busy !== null}
@@ -334,7 +334,7 @@ function LocalOutputPath({ value }: { value: string }): React.JSX.Element {
         {info.canOpen ? (
           <button
             type="button"
-            className="otto-local-path__button"
+            className="claw-local-path__button"
             title={`打开${targetName}`}
             aria-label={`打开${targetName}`}
             disabled={busy !== null}
@@ -345,7 +345,7 @@ function LocalOutputPath({ value }: { value: string }): React.JSX.Element {
         ) : null}
         <button
           type="button"
-          className="otto-local-path__button"
+          className="claw-local-path__button"
           title="在文件夹中显示"
           aria-label="在文件夹中显示"
           disabled={busy !== null}
@@ -355,7 +355,7 @@ function LocalOutputPath({ value }: { value: string }): React.JSX.Element {
         </button>
       </span>
       {error ? (
-        <span className="otto-local-path__error" role="status" title={error}>
+        <span className="claw-local-path__error" role="status" title={error}>
           打开失败
         </span>
       ) : null}
@@ -369,7 +369,7 @@ function onExternalLink(
   url: string,
 ): void {
   e.preventDefault();
-  void window.otto?.openExternal?.(url);
+  void window.clawmaster?.openExternal?.(url);
 }
 
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
@@ -400,7 +400,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
       nodes.push(
         <a
           key={`${keyPrefix}-l-${key++}`}
-          className="otto-prose__link"
+          className="claw-prose__link"
           href={url}
           onClick={(e) => onExternalLink(e, url)}
         >
@@ -413,7 +413,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
       nodes.push(
         <a
           key={`${keyPrefix}-a-${key++}`}
-          className="otto-prose__link"
+          className="claw-prose__link"
           href={url}
           onClick={(e) => onExternalLink(e, url)}
         >
@@ -441,18 +441,18 @@ function renderTextSegment(value: string, keyPrefix: string): React.ReactNode[] 
     const k = `${keyPrefix}-b${i}`;
     switch (b.kind) {
       case 'hr':
-        return <hr className="otto-prose__hr" key={k} />;
+        return <hr className="claw-prose__hr" key={k} />;
       case 'heading': {
         const Tag = `h${b.level}` as keyof React.JSX.IntrinsicElements;
         return (
-          <Tag className="otto-prose__h" key={k}>
+          <Tag className="claw-prose__h" key={k}>
             {renderInline(b.text, k)}
           </Tag>
         );
       }
       case 'ul':
         return (
-          <ul className="otto-prose__ul" key={k}>
+          <ul className="claw-prose__ul" key={k}>
             {b.items.map((it, j) => (
               <li key={`${k}-${j}`}>{renderInline(it, `${k}-${j}`)}</li>
             ))}
@@ -460,7 +460,7 @@ function renderTextSegment(value: string, keyPrefix: string): React.ReactNode[] 
         );
       case 'ol':
         return (
-          <ol className="otto-prose__ol" start={b.start} key={k}>
+          <ol className="claw-prose__ol" start={b.start} key={k}>
             {b.items.map((it, j) => (
               <li key={`${k}-${j}`}>{renderInline(it, `${k}-${j}`)}</li>
             ))}
@@ -468,14 +468,14 @@ function renderTextSegment(value: string, keyPrefix: string): React.ReactNode[] 
         );
       case 'quote':
         return (
-          <blockquote className="otto-prose__quote" key={k}>
+          <blockquote className="claw-prose__quote" key={k}>
             {renderInline(b.text, k)}
           </blockquote>
         );
       case 'table':
         return (
-          <div className="otto-prose__tablewrap" key={k}>
-            <table className="otto-prose__table">
+          <div className="claw-prose__tablewrap" key={k}>
+            <table className="claw-prose__table">
               <thead>
                 <tr>
                   {b.headers.map((h, j) => (
@@ -507,7 +507,7 @@ function renderTextSegment(value: string, keyPrefix: string): React.ReactNode[] 
         );
       default:
         return (
-          <p className="otto-prose__p" key={k}>
+          <p className="claw-prose__p" key={k}>
             {renderInline(b.text, k)}
           </p>
         );
@@ -538,12 +538,12 @@ function CodeBlock({
     timer.current = setTimeout(() => setCopied(false), 1200);
   };
   return (
-    <div className="otto-code">
-      <div className="otto-code__head">
-        <span className="otto-code__lang">{lang ?? 'code'}</span>
+    <div className="claw-code">
+      <div className="claw-code__head">
+        <span className="claw-code__lang">{lang ?? 'code'}</span>
         <button
           type="button"
-          className="otto-code__copy"
+          className="claw-code__copy"
           onClick={copy}
           aria-label={copied ? '已复制' : '复制代码'}
         >
@@ -551,7 +551,7 @@ function CodeBlock({
           {copied ? '已复制' : '复制'}
         </button>
       </div>
-      <pre className="otto-code__pre">
+      <pre className="claw-code__pre">
         <code>{value}</code>
       </pre>
     </div>
@@ -568,7 +568,7 @@ export function Prose({
 }): React.JSX.Element {
   const segments = parseSegments(text);
   return (
-    <div className="otto-prose">
+    <div className="claw-prose">
       {segments.map((seg, i) =>
         seg.type === 'code' ? (
           <CodeBlock key={`s-${i}`} lang={seg.lang} value={seg.value} />
@@ -578,7 +578,7 @@ export function Prose({
           </React.Fragment>
         ),
       )}
-      {streaming ? <span className="otto-caret" aria-hidden /> : null}
+      {streaming ? <span className="claw-caret" aria-hidden /> : null}
     </div>
   );
 }

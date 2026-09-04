@@ -17,10 +17,10 @@ const isWindows = process.platform === 'win32';
 const binSuffix = isWindows ? '.cmd' : '';
 
 const checks = [];
-const SOURCE_SIZE_BUDGET_MB = Number(process.env.OTTO_DOCTOR_SOURCE_SIZE_BUDGET_MB || 50);
-const DISTRIBUTION_SIZE_BUDGET_MB = Number(process.env.OTTO_DOCTOR_DISTRIBUTION_SIZE_BUDGET_MB || 10);
+const SOURCE_SIZE_BUDGET_MB = Number(process.env.CLAWMASTER_DOCTOR_SOURCE_SIZE_BUDGET_MB || 50);
+const DISTRIBUTION_SIZE_BUDGET_MB = Number(process.env.CLAWMASTER_DOCTOR_DISTRIBUTION_SIZE_BUDGET_MB || 10);
 const DISTRIBUTION_ARTIFACT_PATHS = [
-  process.env.OTTO_DOCTOR_RELEASE_ARTIFACT_DIR,
+  process.env.CLAWMASTER_DOCTOR_RELEASE_ARTIFACT_DIR,
   'bundle',
   path.join('otto-native', 'bin'),
 ].filter(Boolean);
@@ -233,7 +233,7 @@ addCheck(
   'source payload size',
   sourcePayloadBytes <= SOURCE_SIZE_BUDGET_MB * 1024 * 1024,
   `${formatMb(sourcePayloadBytes)} (budget: ${SOURCE_SIZE_BUDGET_MB} MB; top: ${topSourceContributors || 'none'})`,
-  'Remove stale generated assets/dead code or raise OTTO_DOCTOR_SOURCE_SIZE_BUDGET_MB with a release note.',
+  'Remove stale generated assets/dead code or raise CLAWMASTER_DOCTOR_SOURCE_SIZE_BUDGET_MB with a release note.',
 );
 
 addCheck(
@@ -247,7 +247,7 @@ addCheck(
   'host memory profile',
   totalMemoryGb >= 4,
   `${totalMemoryGb.toFixed(1)} GB RAM detected`,
-  'Use OTTO_AGENT_PROFILE=low and keep max_concurrency at 1 on very small devices.',
+  'Use CLAWMASTER_AGENT_PROFILE=low and keep max_concurrency at 1 on very small devices.',
 );
 
 addCheck(

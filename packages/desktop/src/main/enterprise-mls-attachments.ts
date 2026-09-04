@@ -147,7 +147,7 @@ function chunkAad(input: {
   chunkPlaintextBytes: number;
 }): Buffer {
   return Buffer.from(
-    `otto:mls-attachment:v1\n${JSON.stringify({
+    `clawmaster:mls-attachment:v1\n${JSON.stringify({
       format: input.manifest.format,
       cipher: input.manifest.cipher,
       attachmentId: input.manifest.id,

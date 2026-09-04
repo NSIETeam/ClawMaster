@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -11,7 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const desktopRoot = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(desktopRoot, '../..');
 const maxWindowsInstallerBytes =
-  Number(process.env.OTTO_DESKTOP_MAX_INSTALLER_MB || 160) * 1024 * 1024;
+  Number(process.env.CLAWMASTER_DESKTOP_MAX_INSTALLER_MB || 160) * 1024 * 1024;
 
 const failures = [];
 const notes = [];
@@ -66,10 +66,6 @@ if (lock.packages?.['packages/desktop']?.version !== desktopPkg.version) {
   );
 }
 
-assertFile(
-  path.join(desktopRoot, 'src', 'renderer', 'assets', 'otto-avatar.png'),
-  { minBytes: 32 * 1024, maxBytes: 256 * 1024 },
-);
 assertFile(path.join(desktopRoot, 'build', 'icon.png'), {
   minBytes: 64 * 1024,
 });
@@ -83,7 +79,7 @@ const mainSource = readFileSync(
 );
 for (const expected of [
   'function canRestoreEncryptedEnterpriseSession()',
-  "process.env.OTTO_ENTERPRISE_RESTORE_KEYCHAIN_SESSION === '1'",
+  "process.env.CLAWMASTER_ENTERPRISE_RESTORE_KEYCHAIN_SESSION === '1'",
   "process.platform === 'darwin' && app.isPackaged",
   'if (!canRestoreEncryptedEnterpriseSession()) return',
 ]) {
@@ -101,12 +97,12 @@ if (buildFiles.includes('!**/node_modules/**/src/**')) {
 const releaseDir = path.join(desktopRoot, 'release');
 const winInstaller = path.join(
   releaseDir,
-  `Otto-Setup-${desktopPkg.version}-win-x64.exe`,
+  `ClawMaster-Setup-${desktopPkg.version}-win-x64.exe`,
 );
 const releaseAssetCandidates = [
   winInstaller,
-  path.join(releaseDir, `Otto-${desktopPkg.version}-arm64.dmg`),
-  path.join(releaseDir, `Otto-${desktopPkg.version}-x64.dmg`),
+  path.join(releaseDir, `ClawMaster-${desktopPkg.version}-arm64.dmg`),
+  path.join(releaseDir, `ClawMaster-${desktopPkg.version}-x64.dmg`),
   path.join(releaseDir, 'latest.json'),
 ];
 if (existsSync(winInstaller)) {

@@ -14,7 +14,7 @@ import {
 } from '@google/genai';
 import { Config } from '../config/config.js';
 import { UserTierId } from '../code_assist/types.js';
-import { OttoServerAdapter } from './OttoServerAdapter.js';
+import { ClawMasterServerAdapter } from './ClawMasterServerAdapter.js';
 import { getActiveProxyServerUrl, hasAvailableProxyServer } from '../config/proxyConfig.js';
 import { SceneType } from './sceneManager.js';
 
@@ -77,15 +77,15 @@ export async function createContentGenerator(
   gcConfig: Config,
   _sessionId?: string,
 ): Promise<ContentGenerator> {
-  // NOTE: The Otto server path below (the only active path) builds its request
+  // NOTE: The ClawMaster server path below (the only active path) builds its request
   // headers — including the User-Agent — via proxyAuthManager.getUserHeaders(),
   // which uses the unified getUserAgent() from utils/userAgent.ts. No local
   // httpOptions/User-Agent is needed here.
 
-  // 🎯 统一Otto Server处理：所有模型都使用OttoServerAdapter，但路由逻辑会自动选择正确的API端点
-  const isOttoServer = true; // 现在所有模型都通过Otto Server，适配器内部会根据模型类型选择正确路径
+  // 🎯 统一ClawMaster Server处理：所有模型都使用ClawMasterServerAdapter，但路由逻辑会自动选择正确的API端点
+  const isClawMasterServer = true; // 现在所有模型都通过ClawMaster Server，适配器内部会根据模型类型选择正确路径
 
-  if (isOttoServer) {
+  if (isClawMasterServer) {
 
     // Use custom proxy server URL if configured, otherwise use default
     const customProxyUrl = gcConfig.getCustomProxyServerUrl();
@@ -107,12 +107,12 @@ export async function createContentGenerator(
       console.log(`[ClawMaster] Connecting to local runtime: ${proxyServerUrl}`);
     }
 
-    // 🔧 Linus式修复：统一使用OttoServerAdapter，内部会根据模型类型自动路由
+    // 🔧 Linus式修复：统一使用ClawMasterServerAdapter，内部会根据模型类型自动路由
     // NOTE: googleCloudLocation and googleCloudProject are legacy parameters, no longer used after switching to proxy-based architecture
     const googleCloudLocation = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
     const googleCloudProject = process.env.GOOGLE_CLOUD_PROJECT || 'default-project';
 
-    return new OttoServerAdapter(googleCloudLocation, googleCloudProject, proxyServerUrl, gcConfig);
+    return new ClawMasterServerAdapter(googleCloudLocation, googleCloudProject, proxyServerUrl, gcConfig);
   }
 
   // For other auth types (should only be USE_PROXY_AUTH now), fall through to error

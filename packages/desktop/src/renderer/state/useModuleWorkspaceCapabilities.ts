@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AgentProfile } from '../agents/departmentAgents.js';
@@ -92,12 +92,12 @@ export function useModuleWorkspaceCapabilities(input: {
     void getEnterpriseOrganizationFeatures(organizationId, { force: true }).then(async (features) => {
       let parkAuthorization = NO_PARK;
       try {
-        const park = await window.otto.enterpriseParkView();
+        const park = await window.clawmaster.enterpriseParkView();
         const hasParkContext = Boolean(park && park.status === 'active');
         let canViewStaffTasks = false;
         if (hasParkContext) {
           try {
-            const tickets = await window.otto.enterpriseTicketList();
+            const tickets = await window.clawmaster.enterpriseTicketList();
             canViewStaffTasks = tickets.some((ticket) => ticket.isRecipient === true);
           } catch {
             // 工单是园区能力中的可选数据源；失败时仅隐藏员工待办入口。

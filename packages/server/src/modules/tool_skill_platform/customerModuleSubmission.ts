@@ -3,7 +3,7 @@ import {
   scanCustomerModuleWasm,
   validateCustomerModuleArchiveEntries,
   verifyCustomerModuleFileHashes,
-} from 'otto-core';
+} from 'clawmaster-core';
 import type { CustomerModuleMarketplace } from './customerModuleMarketplace.js';
 import type { CustomerModuleMarketplaceStore } from './customerModuleRepository.js';
 

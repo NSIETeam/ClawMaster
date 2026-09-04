@@ -1,10 +1,10 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ProductWorkspaceSnapshot } from 'otto-server';
+import type { ProductWorkspaceSnapshot } from 'clawmaster-server';
 import type { EnterpriseAccount } from '../../../preload/index.js';
 import type { UseProductWorkspace } from '../../state/useProductWorkspace.js';
 import { OrganizationPanel } from './ProductWorkspacePanels.js';
@@ -151,7 +151,7 @@ describe('OrganizationPanel', () => {
   it('CEO 可输入签名链接接入总公司或子公司', () => {
     const { value, acceptCompanyLink } = product(enterprise());
     render(<OrganizationPanel product={value} />);
-    const link = 'otto://enterprise/join?token=signed&key=public';
+    const link = 'clawmaster://enterprise/join?token=signed&key=public';
     fireEvent.change(screen.getByLabelText('待接入的总分公司链接'), { target: { value: link } });
     fireEvent.click(screen.getByRole('button', { name: '验证并接入企业框架' }));
     expect(acceptCompanyLink).toHaveBeenCalledWith(link);

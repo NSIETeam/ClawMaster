@@ -91,13 +91,13 @@ try {
     await page.getByRole('button', { name: '稍后了解' }).click();
 
     assert.equal(await page.getByRole('img', { name: 'ClawMaster 皇冠标志' }).count() > 0, true);
-    assert.equal(await page.getByText(/^otto$/iu).count(), 0, 'legacy Otto wordmark became visible');
+    assert.equal(await page.getByText(/^otto$/iu).count(), 0, 'legacy ClawMaster wordmark became visible');
 
     // A normal pointer click is intentional: it catches overlapping groups and
     // pointer interception that force-click or DOM dispatch would conceal.
     await page.getByRole('button', { name: '向园区服务添加模块' }).click();
     await page.getByRole('button', { name: /社区插件/u }).click();
-    assert.equal(await page.locator('.otto-community-skill-card').count(), 41);
+    assert.equal(await page.locator('.claw-community-skill-card').count(), 41);
     assert.equal(await page.getByRole('img', { name: /插件$/u }).count(), 41);
     await page.waitForFunction(() => [...document.querySelectorAll('img[src]')]
       .every((image) => image.complete));
@@ -108,12 +108,12 @@ try {
     assert.deepEqual(failedResources, [], 'renderer requested missing or failed resources');
 
     const geometry = await page.evaluate(() => {
-      const body = document.querySelector('.otto-module-marketplace__body');
-      const catalog = document.querySelector('.otto-module-marketplace__catalog');
-      const tabs = document.querySelector('.otto-module-marketplace__tabs');
-      const srOnly = document.querySelector('.otto-module-marketplace .sr-only');
+      const body = document.querySelector('.claw-module-marketplace__body');
+      const catalog = document.querySelector('.claw-module-marketplace__catalog');
+      const tabs = document.querySelector('.claw-module-marketplace__tabs');
+      const srOnly = document.querySelector('.claw-module-marketplace .sr-only');
       const buttons = [...document.querySelectorAll(
-        '.otto-module-marketplace__tabs button, .otto-module-marketplace__filters button',
+        '.claw-module-marketplace__tabs button, .claw-module-marketplace__filters button',
       )];
       if (!body || !catalog || !tabs || !srOnly) throw new Error('marketplace layout is incomplete');
       const topBefore = tabs.getBoundingClientRect().top;
@@ -128,8 +128,8 @@ try {
         srOnlyPosition: getComputedStyle(srOnly).position,
         srOnlyWidth: getComputedStyle(srOnly).width,
         controlsFit: buttons.every((button) => button.scrollHeight <= button.clientHeight),
-        rightPanelBackground: getComputedStyle(document.querySelector('.otto-right-panel')).backgroundColor,
-        dialogBackground: getComputedStyle(document.querySelector('.otto-module-marketplace')).backgroundColor,
+        rightPanelBackground: getComputedStyle(document.querySelector('.claw-right-panel')).backgroundColor,
+        dialogBackground: getComputedStyle(document.querySelector('.claw-module-marketplace')).backgroundColor,
       };
     });
     assert.equal(geometry.bodyScrollHeight, geometry.bodyClientHeight);

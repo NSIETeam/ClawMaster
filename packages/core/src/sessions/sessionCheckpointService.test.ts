@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
  * Tests for SessionCheckpointService
  */
@@ -19,13 +19,13 @@ describe('SessionCheckpointService', () => {
 
   beforeEach(async () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-cp-test-'));
-    process.env.OTTO_USER_DIR = tempDir;
+    process.env.CLAWMASTER_USER_DIR = tempDir;
     service = new SessionCheckpointService(tempDir);
     resetCheckpointService();
   });
 
   afterEach(async () => {
-    delete process.env.OTTO_USER_DIR;
+    delete process.env.CLAWMASTER_USER_DIR;
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   });
 

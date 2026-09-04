@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { generateKeyPairSync } from 'node:crypto';
@@ -19,7 +19,7 @@ import {
 } from './productWorkspace.js';
 
 describe('product context', () => {
-  it('personal context only exposes the base Otto, BYOK and self-learning skills', () => {
+  it('personal context only exposes the base ClawMaster, BYOK and self-learning skills', () => {
     const context = createPersonalContext({ userId: 'u-personal', displayName: 'Felix' });
 
     expect(context).toMatchObject({

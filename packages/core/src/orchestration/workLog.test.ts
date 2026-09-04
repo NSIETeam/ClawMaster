@@ -1,5 +1,5 @@
 /**
- * @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -24,27 +24,27 @@ afterEach(async () => {
 
 describe('WorkLogger 工作结果日志', () => {
   it('测试和企业自定义目录不会污染真实 ~/.otto-user', () => {
-    const oldWorklog = process.env['OTTO_WORKLOG_DIR'];
-    const oldUserDir = process.env['OTTO_USER_DIR'];
+    const oldWorklog = process.env['CLAWMASTER_WORKLOG_DIR'];
+    const oldUserDir = process.env['CLAWMASTER_USER_DIR'];
     const oldVitest = process.env['VITEST'];
     try {
-      process.env['OTTO_WORKLOG_DIR'] = '/tmp/otto-explicit-worklog';
+      process.env['CLAWMASTER_WORKLOG_DIR'] = '/tmp/otto-explicit-worklog';
       expect(resolveDefaultWorklogDir()).toBe('/tmp/otto-explicit-worklog');
-      delete process.env['OTTO_WORKLOG_DIR'];
-      process.env['OTTO_USER_DIR'] = '/tmp/otto-user-test';
+      delete process.env['CLAWMASTER_WORKLOG_DIR'];
+      process.env['CLAWMASTER_USER_DIR'] = '/tmp/otto-user-test';
       expect(resolveDefaultWorklogDir()).toBe(
         path.join('/tmp/otto-user-test', 'memory', 'worklog'),
       );
-      delete process.env['OTTO_USER_DIR'];
+      delete process.env['CLAWMASTER_USER_DIR'];
       process.env['VITEST'] = 'true';
       expect(resolveDefaultWorklogDir()).toContain(
         path.join('otto-worklog-tests', String(process.pid)),
       );
     } finally {
-      if (oldWorklog === undefined) delete process.env['OTTO_WORKLOG_DIR'];
-      else process.env['OTTO_WORKLOG_DIR'] = oldWorklog;
-      if (oldUserDir === undefined) delete process.env['OTTO_USER_DIR'];
-      else process.env['OTTO_USER_DIR'] = oldUserDir;
+      if (oldWorklog === undefined) delete process.env['CLAWMASTER_WORKLOG_DIR'];
+      else process.env['CLAWMASTER_WORKLOG_DIR'] = oldWorklog;
+      if (oldUserDir === undefined) delete process.env['CLAWMASTER_USER_DIR'];
+      else process.env['CLAWMASTER_USER_DIR'] = oldUserDir;
       if (oldVitest === undefined) delete process.env['VITEST'];
       else process.env['VITEST'] = oldVitest;
     }

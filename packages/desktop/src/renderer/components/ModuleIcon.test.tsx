@@ -15,12 +15,12 @@ describe('ModuleIcon', () => {
     }
   });
 
-  it('renders local, generated, Otto, and custom-agent avatar forms', () => {
+  it('renders local, generated, product, and custom-agent avatar forms', () => {
     const view = render(
       <>
         <ModuleIcon icon="park-announcement" label="园区公告" />
         <ModuleIcon icon="generated:expert-presentation" label="PPT 创作专家" />
-        <ModuleIcon icon="otto-avatar" label="Otto" />
+        <ModuleIcon icon="clawmaster-avatar" label="ClawMaster" />
         <ModuleIcon icon="custom-agent" label="招投标助手" />
         <ModuleIcon
           icon={{ kind: 'image', src: 'data:image/webp;base64,UklGRg==' }}
@@ -31,7 +31,7 @@ describe('ModuleIcon', () => {
 
     expect(view.container.querySelector('[data-module-icon="park-announcement"]')).not.toBeNull();
     expect(view.container.querySelector('[data-module-icon="generated:expert-presentation"] img')).not.toBeNull();
-    expect(view.container.querySelector('[data-module-icon="otto-avatar"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-module-icon="clawmaster-avatar"]')).not.toBeNull();
     expect(view.container.querySelector('[data-module-icon="custom-agent"]')?.textContent).toBe('招');
     expect(
       view.container.querySelector('[data-module-icon="custom-image"] img')?.getAttribute('src'),

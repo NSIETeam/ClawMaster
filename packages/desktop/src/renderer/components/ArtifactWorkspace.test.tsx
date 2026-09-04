@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,7 +23,7 @@ const exportEditedDocument = vi.fn(async () => ({
 describe('ArtifactWorkspace', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (window as unknown as { otto: unknown }).otto = {
+    (window as unknown as { clawmaster: unknown }).clawmaster = {
       selectFiles: vi.fn(async () => ['/tmp/方案.docx']),
       extractEditableDocument,
       exportEditedDocument,

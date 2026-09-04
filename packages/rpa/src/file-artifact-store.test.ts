@@ -1,4 +1,4 @@
-/** @license Copyright 2026 Otto SPDX-License-Identifier: Apache-2.0 */
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
@@ -14,7 +14,7 @@ afterEach(async () => {
 
 describe('FileRpaArtifactStore', () => {
   it('stores a content-hashed artifact and only returns a redacted summary', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'otto-rpa-artifact-'));
+    const root = await mkdtemp(path.join(os.tmpdir(), 'clawmaster-rpa-artifact-'));
     roots.push(root);
     const store = new FileRpaArtifactStore(root);
 

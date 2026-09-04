@@ -10,11 +10,11 @@ import path from 'path';
 import os from 'os';
 
 // Get actual paths for test assertions (before mock)
-const mockOttoHome = path.join(os.homedir(), '.otto-user');
+const mockClawMasterHome = path.join(os.homedir(), '.otto-user');
 const mockSkillsPaths = {
-  OTTO_HOME: mockOttoHome,
-  SKILLS_ROOT: path.join(mockOttoHome, 'skills'),
-  MARKETPLACE_ROOT: path.join(mockOttoHome, 'marketplace'),
+  CLAWMASTER_HOME: mockClawMasterHome,
+  SKILLS_ROOT: path.join(mockClawMasterHome, 'skills'),
+  MARKETPLACE_ROOT: path.join(mockClawMasterHome, 'marketplace'),
 };
 
 // Create mock class constructors that can be configured per test
@@ -30,7 +30,7 @@ vi.mock('../skills/index.js', async () => {
 
   return {
     SkillsPaths: {
-      OTTO_HOME: ottoHome,
+      CLAWMASTER_HOME: ottoHome,
       SKILLS_ROOT: pathModule.join(ottoHome, 'skills'),
       MARKETPLACE_ROOT: pathModule.join(ottoHome, 'marketplace'),
     },
