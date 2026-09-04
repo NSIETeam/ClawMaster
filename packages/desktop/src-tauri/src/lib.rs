@@ -11,6 +11,7 @@ mod native_diagnostics;
 mod native_models;
 mod native_memory;
 mod native_agent_tools;
+mod native_mcp;
 mod native_projects;
 mod native_process;
 mod native_runtime;
@@ -220,7 +221,7 @@ async fn desktop_send(
     if frame.get("type").and_then(Value::as_str) == Some("send_user_message") {
         return runtime.run_turn(&app, &frame).await;
     }
-    for response in runtime.handle(&frame)? {
+    for response in runtime.handle_async(&frame).await? {
         app.emit(FRAME_EVENT, response)
             .map_err(|error| format!("无法发送 Rust 运行时事件: {error}"))?;
     }

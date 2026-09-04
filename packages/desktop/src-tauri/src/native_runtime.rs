@@ -3,7 +3,8 @@ use crate::native_models::{
     ModelStreamEvent, ModelToolCall, NativeModel, StreamCompletion,
 };
 use crate::{
-    native_agent_tools, native_diagnostics, native_memory, native_projects, native_skills,
+    native_agent_tools, native_diagnostics, native_mcp, native_memory, native_projects,
+    native_skills,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -80,6 +81,7 @@ struct PersistedState {
     authorization_mode: String,
     models: Vec<NativeModel>,
     handled_auto_skills: Vec<String>,
+    mcp_servers: Vec<native_mcp::McpServerConfig>,
 }
 
 pub struct NativeRuntime {
@@ -580,6 +582,90 @@ impl NativeRuntime {
             }
             "get_settings" => vec![frame("settings", json!(state.settings))],
             "run_doctor" => vec![frame("doctor_report", native_diagnostics::doctor_report())],
+            "mcp_list" => vec![frame(
+                "mcp_servers",
+                json!({ "servers": native_mcp::public_servers(&state.mcp_servers) }),
+            )],
+            "mcp_add" => {
+                let name = payload
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .trim();
+                let existing_index = state
+                    .mcp_servers
+                    .iter()
+                    .position(|server| server.name == name);
+                if existing_index.is_none() && state.mcp_servers.len() >= 20 {
+                    vec![error_frame(
+                        None,
+                        "mcp_add_failed",
+                        "MCP 服务器数量已达到 20 个上限",
+                    )]
+                } else {
+                    let existing = existing_index.map(|index| &state.mcp_servers[index]);
+                    match native_mcp::parse_config(&payload, existing) {
+                        Ok((mut config, secrets)) => {
+                            let store_result = if let Some(secrets) = secrets {
+                                let credential_id = config
+                                    .credential_id
+                                    .clone()
+                                    .unwrap_or_else(|| next_id("mcp-credential"));
+                                match serde_json::to_string(&secrets) {
+                                    Ok(secret) => self.credentials.set(&credential_id, &secret),
+                                    Err(error) => Err(format!("无法编码 MCP 安全凭据: {error}")),
+                                }
+                                .map(|_| config.credential_id = Some(credential_id))
+                            } else {
+                                Ok(())
+                            };
+                            match store_result {
+                                Ok(()) => {
+                                    if let Some(index) = existing_index {
+                                        state.mcp_servers[index] = config;
+                                    } else {
+                                        state.mcp_servers.push(config);
+                                    }
+                                    dirty = true;
+                                    vec![frame(
+                                        "mcp_servers",
+                                        json!({ "servers": native_mcp::public_servers(&state.mcp_servers) }),
+                                    )]
+                                }
+                                Err(message) => vec![error_frame(None, "mcp_add_failed", &message)],
+                            }
+                        }
+                        Err(message) => vec![error_frame(None, "mcp_add_failed", &message)],
+                    }
+                }
+            }
+            "mcp_remove" => {
+                let name = payload.get("name").and_then(Value::as_str).unwrap_or("");
+                if let Some(index) = state
+                    .mcp_servers
+                    .iter()
+                    .position(|server| server.name == name)
+                {
+                    let credential_id = state.mcp_servers[index].credential_id.clone();
+                    let deletion = credential_id
+                        .as_deref()
+                        .map(|id| self.credentials.delete(id))
+                        .unwrap_or(Ok(()));
+                    match deletion {
+                        Ok(()) => {
+                            state.mcp_servers.remove(index);
+                            dirty = true;
+                            vec![frame(
+                                "mcp_servers",
+                                json!({ "servers": native_mcp::public_servers(&state.mcp_servers) }),
+                            )]
+                        }
+                        Err(message) => vec![error_frame(None, "mcp_remove_failed", &message)],
+                    }
+                } else {
+                    vec![error_frame(None, "mcp_remove_failed", "MCP 服务器不存在")]
+                }
+            }
             "get_product_workspace" => vec![frame(
                 "product_workspace",
                 json!({
@@ -800,6 +886,40 @@ impl NativeRuntime {
         Ok(responses)
     }
 
+    pub async fn handle_async(&self, request: &Value) -> Result<Vec<Value>, String> {
+        let request_type = request.get("type").and_then(Value::as_str).unwrap_or("");
+        if !matches!(request_type, "mcp_list" | "get_tools") {
+            return self.handle(request);
+        }
+        let payload = request.get("payload").cloned().unwrap_or_else(|| json!({}));
+        let configs = self
+            .state
+            .lock()
+            .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?
+            .mcp_servers
+            .clone();
+        let catalog = native_mcp::discover(&configs, self.credentials.as_ref()).await;
+        if request_type == "mcp_list" {
+            return Ok(vec![frame(
+                "mcp_servers",
+                json!({ "servers": catalog.public_servers(&configs) }),
+            )]);
+        }
+        let session_id = payload
+            .get("sessionId")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let mut tools = native_agent_tools::summaries()
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        tools.extend(catalog.tool_summaries());
+        Ok(vec![frame(
+            "tools_list",
+            json!({"sessionId":session_id,"tools":tools}),
+        )])
+    }
+
     async fn await_tool_confirmation(
         &self,
         app: &AppHandle,
@@ -863,7 +983,28 @@ impl NativeRuntime {
         mut messages: Vec<ModelMessage>,
         cancel: watch::Receiver<bool>,
     ) -> Result<StreamCompletion, String> {
-        let tools = native_agent_tools::definitions();
+        let mcp_configs = self
+            .state
+            .lock()
+            .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?
+            .mcp_servers
+            .clone();
+        let mcp_catalog = native_mcp::discover(&mcp_configs, self.credentials.as_ref()).await;
+        emit(
+            context.app,
+            frame(
+                "mcp_servers",
+                json!({ "servers": mcp_catalog.public_servers(&mcp_configs) }),
+            ),
+        )?;
+        let mut tools = native_agent_tools::definitions();
+        tools.extend(mcp_catalog.definitions.clone());
+        if !mcp_catalog.notices.is_empty() {
+            messages.push(ModelMessage {
+                role: "system".into(),
+                text: format!("[Native MCP status]\n{}", mcp_catalog.notices.join("\n")),
+            });
+        }
         let mut full_text = String::new();
         let mut total_input = 0;
         let mut total_output = 0;
@@ -955,7 +1096,8 @@ impl NativeRuntime {
                     }));
                 }
                 let risk = native_agent_tools::risk(&call.name);
-                let approved = if risk == Some(native_agent_tools::ToolRisk::Write) {
+                let is_mcp = mcp_catalog.contains(&call.name);
+                let approved = if risk == Some(native_agent_tools::ToolRisk::Write) || is_mcp {
                     self.await_tool_confirmation(
                         context.app,
                         context.session_id,
@@ -977,7 +1119,11 @@ impl NativeRuntime {
                     }));
                 }
                 let started = now_ms();
-                let mut result = if approved {
+                let mut result = if approved && is_mcp {
+                    mcp_catalog
+                        .execute(call, self.credentials.as_ref(), cancel.clone())
+                        .await
+                } else if approved {
                     native_agent_tools::execute_model(call, context.workspace, cancel.clone()).await
                 } else {
                     Err("用户拒绝或取消了工具操作".into())
@@ -1499,6 +1645,29 @@ mod tests {
         let persisted = fs::read_to_string(root.path().join(STATE_FILE_NAME)).unwrap();
         assert!(!persisted.contains("secret-value"));
         assert!(!persisted.contains("apiKey"));
+    }
+
+    #[test]
+    fn stores_mcp_secrets_outside_state_and_supports_removal() {
+        let (_root, runtime) = runtime();
+        let added = runtime
+            .handle(&json!({"type":"mcp_add","payload":{
+                "name":"workspace-files", "command":"mcp-files",
+                "args":["--safe"], "env":{"MCP_TOKEN":"secret-value"},
+                "headers":{"Authorization":"Bearer secret-value"}
+            }}))
+            .expect("add mcp");
+        assert_eq!(added[0]["type"], "mcp_servers");
+        assert_eq!(added[0]["payload"]["servers"][0]["status"], "disconnected");
+        let persisted = fs::read_to_string(&runtime.state_path).expect("state file");
+        assert!(!persisted.contains("secret-value"));
+        assert!(!persisted.contains("MCP_TOKEN"));
+        assert!(persisted.contains("mcp-credential"));
+
+        let removed = runtime
+            .handle(&json!({"type":"mcp_remove","payload":{"name":"workspace-files"}}))
+            .expect("remove mcp");
+        assert_eq!(removed[0]["payload"]["servers"], json!([]));
     }
 
     #[test]
