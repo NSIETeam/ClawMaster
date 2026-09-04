@@ -7,14 +7,15 @@ use tauri_plugin_notification::NotificationExt;
 
 mod agent_state_pool;
 mod community_skills;
-mod native_diagnostics;
-mod native_models;
-mod native_memory;
 mod native_agent_tools;
-mod native_mcp;
+mod native_context;
+mod native_diagnostics;
 mod native_knowledge;
-mod native_projects;
+mod native_mcp;
+mod native_memory;
+mod native_models;
 mod native_process;
+mod native_projects;
 mod native_runtime;
 mod native_schedule;
 mod native_skills;
@@ -223,6 +224,9 @@ async fn desktop_send(
     }
     if frame.get("type").and_then(Value::as_str) == Some("send_user_message") {
         return runtime.run_turn(&app, &frame).await;
+    }
+    if frame.get("type").and_then(Value::as_str) == Some("run_slash_command") {
+        return runtime.run_slash_command(&app, &frame).await;
     }
     for response in runtime.handle_async(&frame).await? {
         app.emit(FRAME_EVENT, response)

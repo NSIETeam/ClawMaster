@@ -3,8 +3,8 @@ use crate::native_models::{
     ModelStreamEvent, ModelToolCall, NativeModel, StreamCompletion,
 };
 use crate::{
-    native_agent_tools, native_diagnostics, native_knowledge, native_mcp, native_memory,
-    native_projects, native_schedule, native_skills, native_todos,
+    native_agent_tools, native_context, native_diagnostics, native_knowledge, native_mcp,
+    native_memory, native_projects, native_schedule, native_skills, native_todos,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,9 @@ use tokio::sync::watch;
 const STATE_FILE_NAME: &str = "native-runtime.json";
 const DEFAULT_TITLE: &str = "新会话";
 const MAX_TITLE_CHARS: usize = 120;
+const COMPRESSION_THRESHOLD_CHARS: usize = 16_000;
+const MAX_COMPRESSION_INPUT_CHARS: usize = 2_000_000;
+const SEARCH_CREDENTIAL_ID: &str = "native-search-api-key";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,13 +45,13 @@ struct Session {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct StoredMessage {
-    id: String,
-    session_id: String,
-    role: String,
-    content: Value,
-    timestamp: u64,
-    source: String,
+pub(crate) struct StoredMessage {
+    pub(crate) id: String,
+    pub(crate) session_id: String,
+    pub(crate) role: String,
+    pub(crate) content: Value,
+    pub(crate) timestamp: u64,
+    pub(crate) source: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -71,6 +74,30 @@ impl Default for Settings {
     }
 }
 
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(default, rename_all = "camelCase")]
+struct SearchConfig {
+    provider: String,
+    api_url: String,
+    model: String,
+    cost_per_request_cny: Option<f64>,
+    monthly_request_quota: Option<u64>,
+    monthly_budget_cny: Option<f64>,
+}
+
+impl Default for SearchConfig {
+    fn default() -> Self {
+        Self {
+            provider: "bing".into(),
+            api_url: "https://api.bing.microsoft.com/v7.0/search".into(),
+            model: String::new(),
+            cost_per_request_cny: None,
+            monthly_request_quota: None,
+            monthly_budget_cny: None,
+        }
+    }
+}
+
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(default, rename_all = "camelCase")]
 struct ModelUsage {
@@ -85,6 +112,7 @@ struct PersistedState {
     sessions: Vec<Session>,
     messages: HashMap<String, Vec<StoredMessage>>,
     settings: Settings,
+    search_config: SearchConfig,
     current_model: Option<String>,
     authorization_mode: String,
     models: Vec<NativeModel>,
@@ -383,6 +411,22 @@ impl NativeRuntime {
             "models":models,
             "tools":{"totalCalls":total_calls,"totalSuccess":total_success,"totalFail":total_fail,"byName":by_name},
             "sessions":{"total":state.sessions.len(),"active":active,"idle":state.sessions.len().saturating_sub(active),"archived":0,"frozen":0}
+        })
+    }
+
+    fn search_config_snapshot(&self, config: &SearchConfig) -> Value {
+        let has_api_key = self.credentials.get(SEARCH_CREDENTIAL_ID).is_ok();
+        json!({
+            "provider":config.provider,"apiUrl":config.api_url,"model":config.model,
+            "hasApiKey":has_api_key,
+            "configuredProviders":if has_api_key { vec![config.provider.clone()] } else { Vec::<String>::new() },
+            "costPerRequestCny":config.cost_per_request_cny,
+            "monthlyRequestQuota":config.monthly_request_quota,
+            "monthlyBudgetCny":config.monthly_budget_cny,
+            "diagnostics":{
+                "tenantId":"local","cacheEntries":0,"cacheHits":0,"totalAttempts":0,
+                "totalSuccesses":0,"estimatedCostCny":0,"updatedAt":0,"providers":[]
+            }
         })
     }
 
@@ -715,10 +759,130 @@ impl NativeRuntime {
                 )]
             }
             "get_settings" => vec![frame("settings", json!(state.settings))],
+            "get_search_config" => vec![frame(
+                "search_config",
+                self.search_config_snapshot(&state.search_config),
+            )],
+            "save_search_config" => {
+                let provider = payload
+                    .get("provider")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let api_url = payload
+                    .get("apiUrl")
+                    .and_then(Value::as_str)
+                    .unwrap_or(&state.search_config.api_url)
+                    .to_string();
+                let valid_url = url::Url::parse(&api_url).is_ok_and(|url| {
+                    url.scheme() == "https" && url.username().is_empty() && url.password().is_none()
+                });
+                let valid_numbers =
+                    ["costPerRequestCny", "monthlyBudgetCny"].iter().all(|key| {
+                        payload.get(key).is_none_or(|value| {
+                            value
+                                .as_f64()
+                                .is_some_and(|number| number.is_finite() && number >= 0.0)
+                        })
+                    }) && payload.get("monthlyRequestQuota").is_none_or(Value::is_u64);
+                if !matches!(provider, "bing" | "bocha" | "gemini" | "volcengine")
+                    || !valid_url
+                    || !valid_numbers
+                {
+                    vec![error_frame(
+                        None,
+                        "save_search_config_failed",
+                        "搜索配置无效；provider 必须受支持且 API 地址必须为无内嵌凭据的 HTTPS",
+                    )]
+                } else {
+                    let credential_result = if payload
+                        .get("clearApiKey")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        self.credentials.delete(SEARCH_CREDENTIAL_ID)
+                    } else if let Some(api_key) = payload.get("apiKey").and_then(Value::as_str) {
+                        if api_key.trim().is_empty() {
+                            Ok(())
+                        } else {
+                            self.credentials.set(SEARCH_CREDENTIAL_ID, api_key.trim())
+                        }
+                    } else {
+                        Ok(())
+                    };
+                    match credential_result {
+                        Err(message) => {
+                            vec![error_frame(None, "save_search_config_failed", &message)]
+                        }
+                        Ok(()) => {
+                            state.search_config.provider = provider.into();
+                            state.search_config.api_url = api_url;
+                            if let Some(model) = payload.get("model").and_then(Value::as_str) {
+                                state.search_config.model = model.chars().take(200).collect();
+                            }
+                            if payload.get("costPerRequestCny").is_some() {
+                                state.search_config.cost_per_request_cny =
+                                    payload.get("costPerRequestCny").and_then(Value::as_f64);
+                            }
+                            if payload.get("monthlyRequestQuota").is_some() {
+                                state.search_config.monthly_request_quota =
+                                    payload.get("monthlyRequestQuota").and_then(Value::as_u64);
+                            }
+                            if payload.get("monthlyBudgetCny").is_some() {
+                                state.search_config.monthly_budget_cny =
+                                    payload.get("monthlyBudgetCny").and_then(Value::as_f64);
+                            }
+                            dirty = true;
+                            vec![frame(
+                                "search_config",
+                                self.search_config_snapshot(&state.search_config),
+                            )]
+                        }
+                    }
+                }
+            }
             "run_doctor" => vec![frame("doctor_report", native_diagnostics::doctor_report())],
             "get_stats" => vec![frame("stats_snapshot", self.stats_snapshot(&state))],
             "get_todos" => vec![frame("todos_list", json!({"todos":state.todos}))],
             "get_workflows" => vec![frame("workflows_list", json!({"workflows":[]}))],
+            "export_conversation" => {
+                let session_id = payload
+                    .get("sessionId")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                if let Some(session) = state
+                    .sessions
+                    .iter()
+                    .find(|item| item.session_id == session_id)
+                {
+                    let messages = state
+                        .messages
+                        .get(session_id)
+                        .map(Vec::as_slice)
+                        .unwrap_or_default();
+                    let (suggested_file_name, markdown) =
+                        native_context::export_markdown(&session.title, messages);
+                    vec![frame(
+                        "export_result",
+                        json!({
+                            "sessionId":session_id,"suggestedFileName":suggested_file_name,"markdown":markdown
+                        }),
+                    )]
+                } else {
+                    vec![error_frame(Some(session_id), "no_session", "会话不存在")]
+                }
+            }
+            "get_extensions" => {
+                let workspace = Self::workspace_for_session(
+                    &state,
+                    payload.get("sessionId").and_then(Value::as_str),
+                );
+                match native_context::extensions(&workspace) {
+                    Ok(extensions) => {
+                        vec![frame("extensions_list", json!({"extensions":extensions}))]
+                    }
+                    Err(message) => vec![error_frame(None, "get_extensions_failed", &message)],
+                }
+            }
             "get_ide_status" => vec![frame(
                 "ide_status",
                 json!({
@@ -957,6 +1121,7 @@ impl NativeRuntime {
                 tools.extend(native_knowledge::summaries());
                 tools.extend(native_schedule::summaries());
                 tools.extend(native_todos::summaries());
+                tools.extend(native_skills::summaries());
                 vec![frame(
                     "tools_list",
                     json!({"sessionId":session_id,"tools":tools}),
@@ -1044,11 +1209,16 @@ impl NativeRuntime {
             "list_slash_commands" => vec![frame(
                 "slash_commands_list",
                 json!({ "commands": [
-                    {"name":"new","description":"新建会话"},
-                    {"name":"model","description":"切换模型"},
+                    {"name":"about","description":"版本与运行环境信息"},
+                    {"name":"context","description":"当前会话的上下文 token 用量分解"},
+                    {"name":"tools","description":"列出当前会话可用的原生与 MCP 工具"},
+                    {"name":"mcp","description":"MCP 服务器清单与连接状态"},
+                    {"name":"extensions","description":"列出已安装扩展"},
+                    {"name":"memory","description":"查看项目与全局记忆"},
+                    {"name":"skills","description":"查看已安装 Skill"},
                     {"name":"doctor","description":"检查原生运行时"},
-                    {"name":"memory","description":"查看项目记忆"},
-                    {"name":"skills","description":"查看技能"}
+                    {"name":"compress","description":"使用当前模型压缩会话上下文"},
+                    {"name":"init","description":"分析当前目录并生成项目记忆"}
                 ]}),
             )],
             "set_setting" => {
@@ -1133,10 +1303,16 @@ impl NativeRuntime {
 
     pub async fn handle_async(&self, request: &Value) -> Result<Vec<Value>, String> {
         let request_type = request.get("type").and_then(Value::as_str).unwrap_or("");
-        if !matches!(request_type, "mcp_list" | "get_tools") {
+        if !matches!(
+            request_type,
+            "mcp_list" | "get_tools" | "get_context_breakdown" | "compress_context"
+        ) {
             return self.handle(request);
         }
         let payload = request.get("payload").cloned().unwrap_or_else(|| json!({}));
+        if request_type == "compress_context" {
+            return self.compress_context(&payload).await;
+        }
         let configs = self
             .state
             .lock()
@@ -1154,6 +1330,62 @@ impl NativeRuntime {
             .get("sessionId")
             .and_then(Value::as_str)
             .unwrap_or("");
+        if request_type == "get_context_breakdown" {
+            let state = self
+                .state
+                .lock()
+                .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+            let Some(session) = state
+                .sessions
+                .iter()
+                .find(|item| item.session_id == session_id)
+            else {
+                return Ok(vec![error_frame(
+                    Some(session_id),
+                    "no_session",
+                    "会话不存在",
+                )]);
+            };
+            let workspace = Self::workspace_for_session(&state, Some(session_id));
+            let prompt = native_context::system_prompt(
+                &workspace,
+                &state.settings.preferred_language,
+                &state.settings.agent_style,
+                &native_skills::list(&workspace).unwrap_or_default(),
+            );
+            let messages = state
+                .messages
+                .get(session_id)
+                .into_iter()
+                .flatten()
+                .map(|message| ModelMessage {
+                    role: message.role.clone(),
+                    text: text_content(&message.content),
+                })
+                .collect::<Vec<_>>();
+            let model = session
+                .model
+                .as_deref()
+                .or(state.current_model.as_deref())
+                .and_then(|id| state.models.iter().find(|item| item.id == id));
+            let mut definitions = native_agent_tools::definitions();
+            definitions.extend(native_knowledge::definitions());
+            definitions.extend(native_schedule::definitions());
+            definitions.extend(native_todos::definitions());
+            definitions.extend(native_skills::definitions());
+            definitions.extend(catalog.definitions.clone());
+            return Ok(vec![frame(
+                "context_breakdown",
+                native_context::breakdown(
+                    session_id,
+                    model,
+                    &messages,
+                    &prompt,
+                    &definitions,
+                    &workspace,
+                ),
+            )]);
+        }
         let mut tools = native_agent_tools::summaries()
             .as_array()
             .cloned()
@@ -1161,10 +1393,177 @@ impl NativeRuntime {
         tools.extend(native_knowledge::summaries());
         tools.extend(native_schedule::summaries());
         tools.extend(native_todos::summaries());
+        tools.extend(native_skills::summaries());
         tools.extend(catalog.tool_summaries());
         Ok(vec![frame(
             "tools_list",
             json!({"sessionId":session_id,"tools":tools}),
+        )])
+    }
+
+    async fn compress_context(&self, payload: &Value) -> Result<Vec<Value>, String> {
+        let session_id = payload
+            .get("sessionId")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        if self
+            .active_turns
+            .lock()
+            .map_err(|_| "Rust 运行时取消状态锁已损坏".to_string())?
+            .contains_key(&session_id)
+        {
+            return Ok(vec![frame(
+                "compress_result",
+                json!({"sessionId":session_id,"compressed":false,"message":"会话正在生成回复，请结束当前回复后再压缩。"}),
+            )]);
+        }
+        let (model, api_key, transcript, original_tokens) = {
+            let state = self
+                .state
+                .lock()
+                .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+            let Some(session) = state
+                .sessions
+                .iter()
+                .find(|item| item.session_id == session_id)
+            else {
+                return Ok(vec![error_frame(
+                    Some(&session_id),
+                    "no_session",
+                    "会话不存在",
+                )]);
+            };
+            let model_id = session
+                .model
+                .as_deref()
+                .or(state.current_model.as_deref())
+                .ok_or_else(|| "请先配置并选择模型".to_string())?;
+            let model = state
+                .models
+                .iter()
+                .find(|item| item.id == model_id && item.enabled)
+                .cloned()
+                .ok_or_else(|| "当前模型不可用，请重新选择".to_string())?;
+            let transcript = state
+                .messages
+                .get(&session_id)
+                .into_iter()
+                .flatten()
+                .filter_map(|message| {
+                    let text = text_content(&message.content);
+                    (!text.trim().is_empty()).then(|| format!("{}: {}", message.role, text))
+                })
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            let chars = transcript.chars().count();
+            if chars < COMPRESSION_THRESHOLD_CHARS {
+                return Ok(vec![frame(
+                    "compress_result",
+                    json!({"sessionId":session_id,"compressed":false,"message":"当前上下文较小，无需压缩。"}),
+                )]);
+            }
+            if chars > MAX_COMPRESSION_INPUT_CHARS {
+                return Ok(vec![error_frame(
+                    Some(&session_id),
+                    "compression_input_too_large",
+                    "上下文超过 Rust 压缩安全上限，原历史已保留",
+                )]);
+            }
+            let key = self.credentials.get(&model.credential_id)?;
+            (model, key, transcript, chars.div_ceil(4) as u64)
+        };
+        let (_, cancel) = watch::channel(false);
+        let messages = vec![
+            ModelMessage {
+                role: "system".into(),
+                text: "Compress the conversation into a faithful continuation summary. Preserve decisions, requirements, paths, commands, errors, evidence, unresolved work, and safety constraints. Do not invent facts. Return only the summary.".into(),
+            },
+            ModelMessage { role: "user".into(), text: transcript },
+        ];
+        let completion = match stream_complete(
+            &self.http,
+            &model,
+            &api_key,
+            &messages,
+            &[],
+            cancel,
+            |_| Ok(()),
+        )
+        .await
+        {
+            Ok(StreamCompletion::Completed(value)) if !value.text.trim().is_empty() => value,
+            Ok(StreamCompletion::Completed(_)) => {
+                return Ok(vec![error_frame(
+                    Some(&session_id),
+                    "compression_empty",
+                    "模型返回空摘要，原历史已保留",
+                )])
+            }
+            Ok(StreamCompletion::Cancelled(_)) => {
+                return Ok(vec![frame(
+                    "compress_result",
+                    json!({"sessionId":session_id,"compressed":false,"message":"压缩已取消，原历史已保留。"}),
+                )])
+            }
+            Err(message) => {
+                return Ok(vec![error_frame(
+                    Some(&session_id),
+                    "compression_failed",
+                    &format!("压缩失败，原历史已保留：{message}"),
+                )])
+            }
+        };
+        let new_tokens = completion
+            .output_tokens
+            .max(completion.text.chars().count().div_ceil(4) as u64);
+        let timestamp = now_ms();
+        {
+            let mut state = self
+                .state
+                .lock()
+                .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+            if !state
+                .sessions
+                .iter()
+                .any(|item| item.session_id == session_id)
+            {
+                return Ok(vec![error_frame(
+                    Some(&session_id),
+                    "no_session",
+                    "压缩完成前会话已被删除，未写入摘要",
+                )]);
+            }
+            state.messages.insert(session_id.clone(), vec![StoredMessage {
+                id: next_id("summary"),
+                session_id: session_id.clone(),
+                role: "user".into(),
+                content: json!([{"type":"text","value":format!("[此前会话的模型压缩摘要]\n{}", completion.text.trim())}]),
+                timestamp,
+                source: "local".into(),
+            }]);
+            if let Some(session) = state
+                .sessions
+                .iter_mut()
+                .find(|item| item.session_id == session_id)
+            {
+                session.message_count = 1;
+                session.updated_at = timestamp;
+                session.last_message_preview = "上下文已压缩".into();
+            }
+            let usage = state.model_usage.entry(model.id.clone()).or_default();
+            usage.requests += 1;
+            usage.input_tokens += completion.input_tokens;
+            usage.output_tokens += completion.output_tokens;
+            self.persist(&state)?;
+        }
+        Ok(vec![frame(
+            "compress_result",
+            json!({
+                "sessionId":session_id,"compressed":true,
+                "originalTokenCount":original_tokens,"newTokenCount":new_tokens,
+                "message":format!("已压缩：{original_tokens} → {new_tokens} tokens")
+            }),
         )])
     }
 
@@ -1249,6 +1648,7 @@ impl NativeRuntime {
         tools.extend(native_knowledge::definitions());
         tools.extend(native_schedule::definitions());
         tools.extend(native_todos::definitions());
+        tools.extend(native_skills::definitions());
         tools.extend(mcp_catalog.definitions.clone());
         if !mcp_catalog.notices.is_empty() {
             messages.push(ModelMessage {
@@ -1351,6 +1751,7 @@ impl NativeRuntime {
                 let is_knowledge = native_knowledge::contains(&call.name);
                 let is_schedule = call.name == "local_schedule";
                 let is_todo = call.name == "todo_write";
+                let is_skill = native_skills::contains(&call.name);
                 let approved = if risk == Some(native_agent_tools::ToolRisk::Write)
                     || is_mcp
                     || native_knowledge::is_write(&call.name)
@@ -1366,7 +1767,7 @@ impl NativeRuntime {
                     )
                     .await?
                 } else {
-                    risk.is_some() || is_knowledge || is_schedule || is_todo
+                    risk.is_some() || is_knowledge || is_schedule || is_todo || is_skill
                 };
                 if *cancel.borrow() {
                     return Ok(StreamCompletion::Cancelled(ModelCompletion {
@@ -1396,6 +1797,8 @@ impl NativeRuntime {
                         self.persist(&state)?;
                         Ok(json!({"todos":state.todos}))
                     })
+                } else if approved && is_skill {
+                    native_skills::execute(context.workspace, call)
                 } else if approved {
                     native_agent_tools::execute_model(call, context.workspace, cancel.clone()).await
                 } else {
@@ -1448,6 +1851,220 @@ impl NativeRuntime {
             });
         }
         unreachable!()
+    }
+
+    pub async fn run_slash_command(&self, app: &AppHandle, request: &Value) -> Result<(), String> {
+        let payload = request
+            .get("payload")
+            .ok_or_else(|| "斜杠命令缺少 payload".to_string())?;
+        let session_id = payload
+            .get("sessionId")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let name = payload
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        let args = payload
+            .get("args")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        if !self
+            .state
+            .lock()
+            .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?
+            .sessions
+            .iter()
+            .any(|session| session.session_id == session_id)
+        {
+            return emit(
+                app,
+                error_frame(Some(&session_id), "no_session", "会话不存在"),
+            );
+        }
+        let response = match name.as_str() {
+            "about" => {
+                let state = self
+                    .state
+                    .lock()
+                    .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+                (true, format!(
+                    "### 关于 ClawMaster\n\n- 本地引擎：Rust native\n- 协议版本：1\n- 会话数：{}\n- Node sidecar：未启用",
+                    state.sessions.len()
+                ))
+            }
+            "doctor" => (
+                true,
+                format!(
+                    "```json\n{}\n```",
+                    serde_json::to_string_pretty(&native_diagnostics::doctor_report())
+                        .unwrap_or_default()
+                ),
+            ),
+            "memory" => {
+                let workspace = {
+                    let state = self
+                        .state
+                        .lock()
+                        .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+                    Self::workspace_for_session(&state, Some(&session_id))
+                };
+                match native_memory::snapshot(&workspace) {
+                    Ok(value) => (
+                        true,
+                        format!(
+                            "```json\n{}\n```",
+                            serde_json::to_string_pretty(&value).unwrap_or_default()
+                        ),
+                    ),
+                    Err(message) => (false, message),
+                }
+            }
+            "skills" => {
+                let workspace = {
+                    let state = self
+                        .state
+                        .lock()
+                        .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+                    Self::workspace_for_session(&state, Some(&session_id))
+                };
+                match native_skills::list(&workspace) {
+                    Ok(values) if values.is_empty() => (true, "未安装 Skill。".into()),
+                    Ok(values) => (
+                        true,
+                        values
+                            .iter()
+                            .filter_map(|value| {
+                                Some(format!(
+                                    "- `{}` - {}",
+                                    value.get("id")?.as_str()?,
+                                    value.get("description")?.as_str()?
+                                ))
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n"),
+                    ),
+                    Err(message) => (false, message),
+                }
+            }
+            "extensions" => {
+                let workspace = {
+                    let state = self
+                        .state
+                        .lock()
+                        .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+                    Self::workspace_for_session(&state, Some(&session_id))
+                };
+                match native_context::extensions(&workspace) {
+                    Ok(values) if values.is_empty() => (true, "未安装扩展。".into()),
+                    Ok(values) => (
+                        true,
+                        values
+                            .iter()
+                            .filter_map(|value| {
+                                Some(format!(
+                                    "- **{}** v{} - `{}`",
+                                    value.get("name")?.as_str()?,
+                                    value.get("version")?.as_str()?,
+                                    value.get("path")?.as_str()?
+                                ))
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n"),
+                    ),
+                    Err(message) => (false, message),
+                }
+            }
+            "context" | "tools" | "mcp" => {
+                let request_type = match name.as_str() {
+                    "context" => "get_context_breakdown",
+                    "tools" => "get_tools",
+                    _ => "mcp_list",
+                };
+                let values = self
+                    .handle_async(&json!({"type":request_type,"payload":{"sessionId":session_id}}))
+                    .await?;
+                let value = values.first().cloned().unwrap_or(Value::Null);
+                if value.get("type").and_then(Value::as_str) == Some("error") {
+                    (
+                        false,
+                        value
+                            .pointer("/payload/message")
+                            .and_then(Value::as_str)
+                            .unwrap_or("命令失败")
+                            .into(),
+                    )
+                } else {
+                    (
+                        true,
+                        format!(
+                            "```json\n{}\n```",
+                            serde_json::to_string_pretty(&value["payload"]).unwrap_or_default()
+                        ),
+                    )
+                }
+            }
+            "compress" => {
+                let values = self
+                    .compress_context(&json!({"sessionId":session_id}))
+                    .await?;
+                let value = values.first().cloned().unwrap_or(Value::Null);
+                let ok = value.get("type").and_then(Value::as_str) != Some("error");
+                let markdown = value
+                    .pointer("/payload/message")
+                    .and_then(Value::as_str)
+                    .unwrap_or("压缩未返回结果")
+                    .to_string();
+                (ok, markdown)
+            }
+            "init" => {
+                let workspace = {
+                    let state = self
+                        .state
+                        .lock()
+                        .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+                    Self::workspace_for_session(&state, Some(&session_id))
+                };
+                if workspace.join("CLAWMASTER.md").exists() || workspace.join("OTTO.md").exists() {
+                    (true, "项目记忆文件已存在，未覆盖。".into())
+                } else {
+                    let markdown = format!(
+                        "已提交项目分析任务，将在 `{}` 生成 CLAWMASTER.md。",
+                        workspace.display()
+                    );
+                    emit(
+                        app,
+                        frame(
+                            "slash_command_result",
+                            json!({
+                                "sessionId":session_id,"name":name,"args":args,"ok":true,"markdown":markdown
+                            }),
+                        ),
+                    )?;
+                    return self.run_turn(app, &json!({
+                        "type":"send_user_message","payload":{"sessionId":session_id,"source":"local","content":[{
+                            "type":"text","value":"分析当前项目结构、构建、测试和关键约束，并使用 write_file 在工作区根目录创建 CLAWMASTER.md。内容必须简洁、可验证，不得复制密钥或隐私数据。"
+                        }]}
+                    })).await;
+                }
+            }
+            _ => (
+                false,
+                format!("未知命令 `/{name}`。输入 `/` 查看 Rust 原生可用命令。"),
+            ),
+        };
+        emit(
+            app,
+            frame(
+                "slash_command_result",
+                json!({
+                    "sessionId":session_id,"name":name,"args":args,"ok":response.0,"markdown":response.1
+                }),
+            ),
+        )
     }
 
     pub async fn run_turn(&self, app: &AppHandle, request: &Value) -> Result<(), String> {
@@ -1529,7 +2146,7 @@ impl NativeRuntime {
             session.updated_at = timestamp;
             session.message_count += 1;
             session.last_message_preview = prompt.chars().take(120).collect();
-            let history = state
+            let mut history = state
                 .messages
                 .get(&session_id)
                 .into_iter()
@@ -1541,6 +2158,16 @@ impl NativeRuntime {
                 })
                 .filter(|message| !message.text.is_empty())
                 .collect::<Vec<_>>();
+            native_context::prepend_system_message(
+                &mut history,
+                native_context::system_prompt(
+                    &Self::workspace_for_session(&state, Some(&session_id)),
+                    &state.settings.preferred_language,
+                    &state.settings.agent_style,
+                    &native_skills::list(&Self::workspace_for_session(&state, Some(&session_id)))
+                        .unwrap_or_default(),
+                ),
+            );
             self.persist(&state)?;
             let workspace = Self::workspace_for_session(&state, Some(&session_id));
             (model, api_key, history, workspace, inferred_session)
@@ -1782,7 +2409,7 @@ impl NativeRuntime {
     }
 }
 
-fn text_content(content: &Value) -> String {
+pub(crate) fn text_content(content: &Value) -> String {
     content
         .as_array()
         .into_iter()
@@ -1877,6 +2504,29 @@ mod tests {
             sessions[0]["payload"]["sessions"].as_array().unwrap().len(),
             1
         );
+    }
+
+    #[tokio::test]
+    async fn compression_keeps_small_histories_without_contacting_the_model() {
+        let (_root, runtime) = runtime();
+        runtime
+            .handle(&json!({"type":"save_custom_model","payload":{
+                "provider":"openai","baseUrl":"https://example.invalid/v1",
+                "modelId":"test","apiKey":"secret","makeActive":true
+            }}))
+            .unwrap();
+        let created = runtime
+            .handle(&json!({"type":"create_session","payload":{"title":"small"}}))
+            .unwrap();
+        let session_id = created[0]["payload"]["session"]["sessionId"]
+            .as_str()
+            .unwrap();
+        let result = runtime
+            .compress_context(&json!({"sessionId":session_id}))
+            .await
+            .unwrap();
+        assert_eq!(result[0]["type"], "compress_result");
+        assert_eq!(result[0]["payload"]["compressed"], false);
     }
 
     #[test]

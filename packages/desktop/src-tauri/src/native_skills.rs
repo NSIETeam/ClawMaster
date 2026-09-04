@@ -1,3 +1,4 @@
+use crate::native_models::{ModelToolCall, ModelToolDefinition};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -8,6 +9,7 @@ use std::path::{Path, PathBuf};
 
 const MIN_OCCURRENCES: usize = 3;
 const MAX_AUDIT_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_SKILL_BYTES: u64 = 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -271,9 +273,116 @@ pub fn list(workspace: &Path) -> Result<Vec<Value>, String> {
     Ok(skills)
 }
 
+pub fn definitions() -> Vec<ModelToolDefinition> {
+    vec![ModelToolDefinition {
+        name: "use_skill".into(),
+        description: "Load the full instructions for one installed project or global Skill by the exact id returned by get_skills. Read the Skill before following its workflow.".into(),
+        parameters: json!({
+            "type":"object",
+            "properties":{"id":{"type":"string","maxLength":300}},
+            "required":["id"],
+            "additionalProperties":false
+        }),
+    }]
+}
+
+pub fn summaries() -> Vec<Value> {
+    definitions()
+        .into_iter()
+        .map(|tool| {
+            json!({
+                "name":tool.name,"displayName":tool.name,"description":tool.description
+            })
+        })
+        .collect()
+}
+
+pub fn contains(name: &str) -> bool {
+    name == "use_skill"
+}
+
+pub fn execute(workspace: &Path, call: &ModelToolCall) -> Result<Value, String> {
+    if !contains(&call.name) {
+        return Err("未知 Skill 工具".into());
+    }
+    let id = call
+        .arguments
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "use_skill 缺少 id".to_string())?;
+    let (scope, plugin) = id
+        .split_once(':')
+        .ok_or_else(|| "Skill id 格式无效".to_string())?;
+    if plugin.is_empty()
+        || plugin.len() > 200
+        || plugin.contains('/')
+        || plugin.contains('\\')
+        || plugin == "."
+        || plugin == ".."
+    {
+        return Err("Skill id 包含非法路径".into());
+    }
+    let root = match scope {
+        "user-project" => workspace.join(".otto/skills"),
+        "user-global" => std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .map(PathBuf::from)
+            .ok_or_else(|| "无法定位用户目录".to_string())?
+            .join(".otto-user/skills"),
+        _ => return Err("Skill scope 不受支持".into()),
+    };
+    let canonical_root = root
+        .canonicalize()
+        .map_err(|error| format!("Skill 根目录不可用: {error}"))?;
+    let path = root
+        .join(plugin)
+        .join("SKILL.md")
+        .canonicalize()
+        .map_err(|error| format!("Skill 不存在: {error}"))?;
+    if !path.starts_with(&canonical_root) {
+        return Err("拒绝读取 Skill 根目录以外的文件".into());
+    }
+    let metadata = path
+        .metadata()
+        .map_err(|error| format!("无法检查 Skill: {error}"))?;
+    if !metadata.is_file() || metadata.len() > MAX_SKILL_BYTES {
+        return Err("Skill 不是普通文件或超过 1 MiB".into());
+    }
+    let instructions =
+        fs::read_to_string(&path).map_err(|error| format!("无法读取 Skill 指令: {error}"))?;
+    Ok(json!({"id":id,"path":path,"instructions":instructions}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn loads_only_an_installed_skill_by_exact_id() {
+        let root = tempfile::tempdir().unwrap();
+        let directory = root.path().join(".otto/skills/demo");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(directory.join("SKILL.md"), "# Safe instructions").unwrap();
+        let value = execute(
+            root.path(),
+            &ModelToolCall {
+                id: "call-1".into(),
+                name: "use_skill".into(),
+                arguments: json!({"id":"user-project:demo"}),
+            },
+        )
+        .unwrap();
+        assert_eq!(value["instructions"], "# Safe instructions");
+        assert!(execute(
+            root.path(),
+            &ModelToolCall {
+                id: "call-2".into(),
+                name: "use_skill".into(),
+                arguments: json!({"id":"user-project:../demo"}),
+            }
+        )
+        .is_err());
+    }
 
     fn write_audit(path: &Path, tools: &[&str]) {
         let content = tools
