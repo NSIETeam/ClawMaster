@@ -29,7 +29,7 @@ pub fn capability_manifest() -> serde_json::Value {
                 status: "ready",
                 description: "原生键盘、鼠标、拖拽和滚动，无需 cliclick",
                 tool: "desktop_automation",
-                usage: "action=type_text|hotkey|mouse|drag|scroll",
+                usage: "action=type|hotkey|click|drag|scroll",
                 replaces: &["cliclick"],
             },
             NativeCapability {
@@ -93,7 +93,7 @@ pub fn write_capability_manifest(user_directory: &Path) -> Result<PathBuf, Strin
     Ok(path)
 }
 
-fn input_tool(args: &[String]) -> Result<(), String> {
+pub(crate) fn input_tool(args: &[String]) -> Result<(), String> {
     let action = args
         .first()
         .map(String::as_str)
@@ -201,7 +201,7 @@ fn hotkey(enigo: &mut Enigo, value: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn merge_pdfs(output: &Path, inputs: &[String]) -> Result<(), String> {
+pub(crate) fn merge_pdfs(output: &Path, inputs: &[String]) -> Result<(), String> {
     if inputs.len() < 2 {
         return Err("pdf merge requires at least two inputs".to_string());
     }
@@ -279,7 +279,7 @@ fn merge_pdfs(output: &Path, inputs: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-fn optimize_pdf(output: &Path, input: &Path) -> Result<(), String> {
+pub(crate) fn optimize_pdf(output: &Path, input: &Path) -> Result<(), String> {
     let mut document =
         Document::load(input).map_err(|error| format!("load {}: {error}", input.display()))?;
     document.prune_objects();
@@ -298,6 +298,26 @@ struct DocxRequest {
     department: String,
     format: String,
     content: String,
+}
+
+pub(crate) fn write_docx_content(
+    output: &Path,
+    title: &str,
+    author: &str,
+    department: &str,
+    format: &str,
+    content: &str,
+) -> Result<(), String> {
+    write_docx_request(
+        output,
+        &DocxRequest {
+            title: title.to_string(),
+            author: author.to_string(),
+            department: department.to_string(),
+            format: format.to_string(),
+            content: content.to_string(),
+        },
+    )
 }
 
 fn xml_escape(value: &str) -> String {
@@ -353,6 +373,10 @@ fn write_docx(output: &Path, request_path: &Path) -> Result<(), String> {
         &std::fs::read(request_path).map_err(|error| format!("read DOCX request: {error}"))?,
     )
     .map_err(|error| format!("parse DOCX request: {error}"))?;
+    write_docx_request(output, &request)
+}
+
+fn write_docx_request(output: &Path, request: &DocxRequest) -> Result<(), String> {
     let file = std::fs::File::create(output)
         .map_err(|error| format!("create {}: {error}", output.display()))?;
     let mut archive = zip::ZipWriter::new(file);
@@ -418,11 +442,11 @@ pub fn dispatch_from_args(args: &[String]) -> Option<Result<(), String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Read;
     use lopdf::{
         content::{Content, Operation},
         dictionary, Stream,
     };
+    use std::io::Read;
 
     #[test]
     fn manifest_declares_real_native_replacements() {

@@ -64,10 +64,12 @@ back to the legacy Node sidecar.
   choices are never overwritten. Repeated successful Rust tool paths are staged
   as privacy-preserving auto-Skill candidates; user confirmation writes an
   atomic project `.otto/skills/<name>/SKILL.md`, while confirmation and rejection
-  suppression survive restarts.
+  suppression survive restarts. The model tool catalog now exposes the existing
+  Rust DOCX writer, PDF merge/optimization engine, native input automation, and
+  a capability manifest that identifies the external dependencies they replace.
 - Verified locally: 7.22 MiB application bundle and 3.25 MiB compressed macOS
   ARM64 DMG. The bundle contains no Node executable, `.node` addon, or agent
   payload.
-- Remaining before release: native process, browser/RPA, document and MCP tool
-  adapters; enterprise channel adapters; then installed real-model and
+- Remaining before release: native process, browser/RPA, remaining document and
+  MCP tool adapters; enterprise channel adapters; then installed real-model and
   destructive-path acceptance.
