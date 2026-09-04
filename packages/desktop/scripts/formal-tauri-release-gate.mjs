@@ -122,7 +122,7 @@ export function evaluateFormalTauriReleaseGate({
   for (const expected of [
     'name: ClawMaster Tauri Release',
     'name: Publish ClawMaster v0.0.2-beta.1',
-    "tags: ['v0.0.2-beta.1']",
+    "- 'v*.*.*'",
   ]) {
     if (!tauriWorkflow.includes(expected)) {
       fail(

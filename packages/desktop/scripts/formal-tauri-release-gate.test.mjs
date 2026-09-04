@@ -30,7 +30,8 @@ function makeFixture({ version = '0.0.1', dmgBytes = 1024 } = {}) {
     path.join(root, '.github', 'workflows', 'tauri-preview.yml'),
     `
 name: ClawMaster Tauri Release
-tags: ['v0.0.2-beta.1']
+tags:
+  - 'v*.*.*'
 name: Publish ClawMaster v0.0.2-beta.1
 npm run release:beta:gate --workspace=packages/desktop
 `,
