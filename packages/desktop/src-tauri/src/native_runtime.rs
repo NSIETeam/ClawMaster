@@ -1,5 +1,6 @@
 use crate::native_models::{
-    complete, system_credential_store, CredentialStore, ModelMessage, NativeModel,
+    stream_complete, system_credential_store, CredentialStore, ModelMessage, ModelStreamEvent,
+    NativeModel, StreamCompletion,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
+use tokio::sync::watch;
 
 const STATE_FILE_NAME: &str = "native-runtime.json";
 const DEFAULT_TITLE: &str = "新会话";
@@ -80,6 +82,12 @@ pub struct NativeRuntime {
     state: Mutex<PersistedState>,
     credentials: Arc<dyn CredentialStore>,
     http: Client,
+    active_turns: Mutex<HashMap<String, ActiveTurn>>,
+}
+
+struct ActiveTurn {
+    turn_id: String,
+    cancel: watch::Sender<bool>,
 }
 
 fn now_ms() -> u64 {
@@ -147,6 +155,7 @@ impl NativeRuntime {
                 .timeout(std::time::Duration::from_secs(120))
                 .build()
                 .map_err(|error| format!("无法初始化 Rust 模型客户端: {error}"))?,
+            active_turns: Mutex::new(HashMap::new()),
         })
     }
 
@@ -509,10 +518,9 @@ impl NativeRuntime {
                 "schedules_list",
                 json!({ "schedules": [], "date": payload.get("date") }),
             )],
-            "get_pending_auto_skills" | "scan_pending_auto_skills" => vec![frame(
-                "pending_auto_skills",
-                json!({ "candidates": [] }),
-            )],
+            "get_pending_auto_skills" | "scan_pending_auto_skills" => {
+                vec![frame("pending_auto_skills", json!({ "candidates": [] }))]
+            }
             "list_slash_commands" => vec![frame(
                 "slash_commands_list",
                 json!({ "commands": [
@@ -563,6 +571,21 @@ impl NativeRuntime {
                 }
             }
             "subscribe" | "unsubscribe" => Vec::new(),
+            "cancel" => {
+                let session_id = payload
+                    .get("sessionId")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                if let Some(active) = self
+                    .active_turns
+                    .lock()
+                    .map_err(|_| "Rust 运行时取消状态锁已损坏".to_string())?
+                    .get(session_id)
+                {
+                    let _ = active.cancel.send(true);
+                }
+                vec![frame("queue_drained", json!({"sessionId":session_id}))]
+            }
             _ => vec![error_frame(
                 payload.get("sessionId").and_then(Value::as_str),
                 "native_migration_incomplete",
@@ -690,8 +713,57 @@ impl NativeRuntime {
             ),
         )?;
 
-        match complete(&self.http, &model, &api_key, &model_messages).await {
-            Ok(completion) => {
+        let turn_id = next_id("turn");
+        let (cancel_sender, cancel_receiver) = watch::channel(false);
+        let previous = self
+            .active_turns
+            .lock()
+            .map_err(|_| "Rust 运行时取消状态锁已损坏".to_string())?
+            .insert(
+                session_id.clone(),
+                ActiveTurn {
+                    turn_id: turn_id.clone(),
+                    cancel: cancel_sender,
+                },
+            );
+        if let Some(previous) = previous {
+            let _ = previous.cancel.send(true);
+        }
+        let streamed = stream_complete(
+            &self.http,
+            &model,
+            &api_key,
+            &model_messages,
+            cancel_receiver,
+            |event| match event {
+                ModelStreamEvent::Text(delta) => emit(
+                    app,
+                    frame(
+                        "chat_chunk",
+                        json!({"sessionId":session_id,"messageId":assistant_message_id,"delta":delta}),
+                    ),
+                ),
+                ModelStreamEvent::Reasoning(delta) => emit(
+                    app,
+                    frame(
+                        "chat_reasoning",
+                        json!({"sessionId":session_id,"messageId":assistant_message_id,"delta":delta}),
+                    ),
+                ),
+            },
+        )
+        .await;
+        if let Ok(mut active_turns) = self.active_turns.lock() {
+            if active_turns
+                .get(&session_id)
+                .is_some_and(|active| active.turn_id == turn_id)
+            {
+                active_turns.remove(&session_id);
+            }
+        }
+
+        match streamed {
+            Ok(StreamCompletion::Completed(completion)) => {
                 let message = StoredMessage {
                     id: assistant_message_id.clone(),
                     session_id: session_id.clone(),
@@ -724,13 +796,6 @@ impl NativeRuntime {
                 emit(
                     app,
                     frame(
-                        "chat_chunk",
-                        json!({"sessionId":session_id,"messageId":assistant_message_id,"delta":completion.text}),
-                    ),
-                )?;
-                emit(
-                    app,
-                    frame(
                         "chat_complete",
                         json!({
                             "sessionId":session_id,"messageId":assistant_message_id,"text":completion.text,
@@ -753,6 +818,62 @@ impl NativeRuntime {
                         "runtime_activity",
                         json!({
                             "contractVersion":1,"sessionId":session_id,"kind":"turn","state":"completed","timestamp":now_ms()
+                        }),
+                    ),
+                )
+            }
+            Ok(StreamCompletion::Cancelled(completion)) => {
+                if let Ok(mut state) = self.state.lock() {
+                    if !completion.text.is_empty() {
+                        state
+                            .messages
+                            .entry(session_id.clone())
+                            .or_default()
+                            .push(StoredMessage {
+                                id: assistant_message_id.clone(),
+                                session_id: session_id.clone(),
+                                role: "assistant".into(),
+                                content: json!([{"type":"text","value":completion.text}]),
+                                timestamp: now_ms(),
+                                source: "local".into(),
+                            });
+                    }
+                    if let Some(session) = state
+                        .sessions
+                        .iter_mut()
+                        .find(|item| item.session_id == session_id)
+                    {
+                        session.status = "idle".into();
+                        session.updated_at = now_ms();
+                        if !completion.text.is_empty() {
+                            session.message_count += 1;
+                        }
+                    }
+                    let _ = self.persist(&state);
+                }
+                emit(
+                    app,
+                    frame(
+                        "chat_complete",
+                        json!({
+                            "sessionId":session_id,"messageId":assistant_message_id,
+                            "text":completion.text,"finishReason":"cancelled"
+                        }),
+                    ),
+                )?;
+                emit(
+                    app,
+                    frame(
+                        "session_status",
+                        json!({"sessionId":session_id,"status":"idle"}),
+                    ),
+                )?;
+                emit(
+                    app,
+                    frame(
+                        "runtime_activity",
+                        json!({
+                            "contractVersion":1,"sessionId":session_id,"kind":"turn","state":"cancelled","timestamp":now_ms()
                         }),
                     ),
                 )
@@ -930,5 +1051,24 @@ mod tests {
         let persisted = fs::read_to_string(root.path().join(STATE_FILE_NAME)).unwrap();
         assert!(!persisted.contains("secret-value"));
         assert!(!persisted.contains("apiKey"));
+    }
+
+    #[test]
+    fn cancel_signals_only_the_active_session_turn() {
+        let (_root, runtime) = runtime();
+        let (sender, mut receiver) = watch::channel(false);
+        runtime.active_turns.lock().unwrap().insert(
+            "session-1".into(),
+            ActiveTurn {
+                turn_id: "turn-1".into(),
+                cancel: sender,
+            },
+        );
+        let response = runtime
+            .handle(&json!({"type":"cancel","payload":{"sessionId":"session-1"}}))
+            .unwrap();
+        assert_eq!(response[0]["type"], "queue_drained");
+        assert!(receiver.has_changed().unwrap());
+        assert!(*receiver.borrow_and_update());
     }
 }
