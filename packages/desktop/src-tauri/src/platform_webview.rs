@@ -16,10 +16,17 @@ pub struct PlatformWebviewBounds {
 
 fn validate_url(value: &str) -> Result<Url, String> {
     let url = Url::parse(value).map_err(|_| "平台地址无效".to_string())?;
-    if !matches!(url.scheme(), "http" | "https") || !url.username().is_empty() || url.password().is_some() {
+    if !matches!(url.scheme(), "http" | "https")
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
         return Err("平台地址必须是没有内嵌凭据的 HTTP 或 HTTPS 地址".into());
     }
     Ok(url)
+}
+
+pub(crate) fn validated_url_string(value: &str) -> Result<String, String> {
+    validate_url(value).map(|url| url.to_string())
 }
 
 fn validate_bounds(bounds: PlatformWebviewBounds) -> Result<PlatformWebviewBounds, String> {
@@ -119,10 +126,27 @@ mod tests {
 
     #[test]
     fn rejects_invalid_or_unbounded_layout_coordinates() {
-        let valid = PlatformWebviewBounds { x: 10.0, y: 20.0, width: 640.0, height: 480.0 };
+        let valid = PlatformWebviewBounds {
+            x: 10.0,
+            y: 20.0,
+            width: 640.0,
+            height: 480.0,
+        };
         assert!(validate_bounds(valid).is_ok());
-        assert!(validate_bounds(PlatformWebviewBounds { width: 0.0, ..valid }).is_err());
-        assert!(validate_bounds(PlatformWebviewBounds { x: f64::NAN, ..valid }).is_err());
-        assert!(validate_bounds(PlatformWebviewBounds { height: 20_000.0, ..valid }).is_err());
+        assert!(validate_bounds(PlatformWebviewBounds {
+            width: 0.0,
+            ..valid
+        })
+        .is_err());
+        assert!(validate_bounds(PlatformWebviewBounds {
+            x: f64::NAN,
+            ..valid
+        })
+        .is_err());
+        assert!(validate_bounds(PlatformWebviewBounds {
+            height: 20_000.0,
+            ..valid
+        })
+        .is_err());
     }
 }

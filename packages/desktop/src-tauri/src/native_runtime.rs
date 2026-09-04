@@ -974,11 +974,18 @@ impl NativeRuntime {
                     }));
                 }
                 let started = now_ms();
-                let result = if approved {
+                let mut result = if approved {
                     native_agent_tools::execute_model(call, context.workspace, cancel.clone()).await
                 } else {
                     Err("用户拒绝或取消了工具操作".into())
                 };
+                if call.name == "open_browser" {
+                    if let Ok(payload) = &result {
+                        if let Err(error) = context.app.emit("desktop://open-platform", payload) {
+                            result = Err(format!("无法打开右侧浏览器: {error}"));
+                        }
+                    }
+                }
                 self.audit_tool(
                     context.session_id,
                     call,

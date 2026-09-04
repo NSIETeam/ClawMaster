@@ -69,11 +69,13 @@ back to the legacy Node sidecar.
   a capability manifest that identifies the external dependencies they replace.
   A no-shell Rust process runner adds PATH dependency checks, sanitized child
   environments, bounded output, timeout/cancellation, and confirmation-gated
-  executable-plus-argv execution.
+  executable-plus-argv execution. Confirmed model requests can also open a
+  credential-free HTTP(S) URL in the existing right-side Tauri child WebView;
+  the Rust runtime emits the activation event instead of falling back to Node.
 - Verified locally after the native process migration: 7.42 MiB stripped ARM64
   release executable. The last packaged check produced a 7.22 MiB application
   bundle and 3.25 MiB compressed macOS ARM64 DMG with no Node executable,
   `.node` addon, or agent payload.
-- Remaining before release: browser/RPA, remaining document and MCP tool
-  adapters; enterprise channel adapters; then installed real-model and
-  destructive-path acceptance.
+- Remaining before release: browser visual/DOM feedback for reliable RPA,
+  remaining document and MCP tool adapters; enterprise channel adapters; then
+  installed real-model and destructive-path acceptance.

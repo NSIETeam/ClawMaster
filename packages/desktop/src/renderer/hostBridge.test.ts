@@ -171,6 +171,8 @@ describe('Tauri host bridge', () => {
     );
     const frames = vi.fn();
     const connections = vi.fn();
+    const openPlatform = vi.fn();
+    window.addEventListener('clawmaster:open-platform', openPlatform);
     bridge.onFrame(frames);
     bridge.onConnectionChange(connections);
 
@@ -179,6 +181,9 @@ describe('Tauri host bridge', () => {
     eventHandlers.get('desktop://server-frame')?.({
       payload: { type: 'sessions', payload: { sessions: [] } },
     });
+    eventHandlers.get('desktop://open-platform')?.({
+      payload: { id: 'platform-agent-browser', label: 'Example', url: 'https://example.com/' },
+    });
 
     expect(bridge.isConnected()).toBe(true);
     expect(connections).toHaveBeenNthCalledWith(1, false);
@@ -186,6 +191,11 @@ describe('Tauri host bridge', () => {
     expect(frames).toHaveBeenCalledWith({
       type: 'sessions', payload: { sessions: [] },
     });
+    expect(openPlatform).toHaveBeenCalledOnce();
+    expect((openPlatform.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({
+      id: 'platform-agent-browser', label: 'Example', url: 'https://example.com/',
+    });
+    window.removeEventListener('clawmaster:open-platform', openPlatform);
   });
 
   it('serves work logs through the shared local Server instead of a Tauri copy', async () => {

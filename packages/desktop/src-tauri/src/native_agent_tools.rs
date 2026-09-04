@@ -1,6 +1,7 @@
 use crate::native_models::{ModelToolCall, ModelToolDefinition};
 use crate::native_process;
 use crate::native_tools;
+use crate::platform_webview;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -103,6 +104,13 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
                 "description":{"type":"string","maxLength":500}
             },"required":["executable"],"additionalProperties":false}),
         },
+        ModelToolDefinition {
+            name: "open_browser".into(),
+            description: "Open an HTTP or HTTPS URL in ClawMaster's right-side native WebView. Requires user confirmation. Credentials must not be embedded in the URL.".into(),
+            parameters: json!({"type":"object","properties":{
+                "url":{"type":"string"},"label":{"type":"string","maxLength":120}
+            },"required":["url"],"additionalProperties":false}),
+        },
     ]
 }
 
@@ -129,7 +137,7 @@ pub fn risk(name: &str) -> Option<ToolRisk> {
         | "native_capabilities"
         | "check_dependencies" => Some(ToolRisk::ReadOnly),
         "write_file" | "generate_docx" | "merge_pdfs" | "optimize_pdf" | "desktop_automation"
-        | "run_command" => Some(ToolRisk::Write),
+        | "run_command" | "open_browser" => Some(ToolRisk::Write),
         _ => None,
     }
 }
@@ -519,6 +527,19 @@ pub fn execute(call: &ModelToolCall, workspace: &Path) -> Result<Value, String> 
                 native_tools::capability_manifest()["capabilities"].clone();
             Ok(status)
         }
+        "open_browser" => {
+            let url =
+                platform_webview::validated_url_string(required_string(&call.arguments, "url")?)?;
+            let label = call
+                .arguments
+                .get("label")
+                .and_then(Value::as_str)
+                .unwrap_or("浏览器");
+            if label.is_empty() || label.chars().count() > 120 {
+                return Err("浏览器标签为空或超过 120 字符".into());
+            }
+            Ok(json!({"id":"platform-agent-browser","label":label,"url":url}))
+        }
         _ => Err(format!("未知 Rust 原生工具: {}", call.name)),
     }
 }
@@ -617,7 +638,7 @@ mod tests {
 
     #[test]
     fn definitions_and_risks_keep_writes_confirmation_gated() {
-        assert_eq!(definitions().len(), 11);
+        assert_eq!(definitions().len(), 12);
         assert_eq!(summaries().as_array().unwrap().len(), definitions().len());
         assert_eq!(risk("read_file"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("write_file"), Some(ToolRisk::Write));
@@ -626,6 +647,7 @@ mod tests {
         assert_eq!(risk("generate_docx"), Some(ToolRisk::Write));
         assert_eq!(risk("desktop_automation"), Some(ToolRisk::Write));
         assert_eq!(risk("run_command"), Some(ToolRisk::Write));
+        assert_eq!(risk("open_browser"), Some(ToolRisk::Write));
         assert_eq!(risk("unknown"), None);
     }
 
@@ -683,5 +705,32 @@ mod tests {
         .unwrap();
         assert_eq!(result["success"], true);
         assert!(result["stdout"].as_str().unwrap().contains("native"));
+    }
+
+    #[test]
+    fn browser_tool_accepts_only_credential_free_web_urls() {
+        let root = tempfile::tempdir().unwrap();
+        let opened = execute(
+            &call(
+                "open_browser",
+                json!({"url":"https://example.com/path","label":"Example"}),
+            ),
+            root.path(),
+        )
+        .unwrap();
+        assert_eq!(opened["url"], "https://example.com/path");
+        assert!(execute(
+            &call("open_browser", json!({"url":"file:///tmp/private"})),
+            root.path(),
+        )
+        .is_err());
+        assert!(execute(
+            &call(
+                "open_browser",
+                json!({"url":"https://user:secret@example.com"}),
+            ),
+            root.path(),
+        )
+        .is_err());
     }
 }

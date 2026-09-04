@@ -110,6 +110,13 @@ export function createTauriHostBridge(
         listen<boolean>('desktop://connection-change', ({ payload }) =>
           dispatchConnection(payload),
         ),
+        listen<{ id: string; label: string; url: string }>(
+          'desktop://open-platform',
+          ({ payload }) => window.dispatchEvent(new CustomEvent(
+            'clawmaster:open-platform',
+            { detail: payload },
+          )),
+        ),
       ]).then(() => undefined)
     : Promise.resolve();
 
