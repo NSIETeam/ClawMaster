@@ -58,6 +58,8 @@ describe('release version displays', () => {
     expect(workflow).toContain('npm run validate:integration-baseline');
     expect(workflow).toMatch(/Install locked dependencies\n\s+run: npm ci/g);
     expect(workflow).not.toMatch(/run: npm install(?:\s|$)/g);
+    expect(workflow).toContain("-name '*.msi'");
+    expect(workflow).toContain('"$(basename "$file")"');
 
     const ciWorkflow = readFileSync(
       path.resolve('.github/workflows/ci.yml'),

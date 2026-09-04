@@ -106,8 +106,13 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$(find release-assets -type f -name '*.exe' -print -quit)"
+          test -n "$(find release-assets -type f -name '*.msi' -print -quit)"
           test -n "$(find release-assets -type f -name '*_aarch64.dmg' -print -quit)"
-          sha256sum $(find release-assets -type f \( -name '*.exe' -o -name '*_aarch64.dmg' \) | sort) > release-assets/SHA256SUMS
+          : > release-assets/SHA256SUMS
+          while IFS= read -r file; do
+            digest="$(sha256sum "$file" | cut -d ' ' -f 1)"
+            printf '%s  %s\n' "$digest" "$(basename "$file")" >> release-assets/SHA256SUMS
+          done < <(find release-assets -type f \( -name '*.exe' -o -name '*.msi' -o -name '*_aarch64.dmg' \) | sort)
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v0.0.2-beta.1
