@@ -585,6 +585,7 @@ dependencies = [
  "keyring",
  "lopdf",
  "reqwest",
+ "ring",
  "rmcp",
  "serde",
  "serde_json",

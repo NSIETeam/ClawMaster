@@ -10,6 +10,7 @@ mod community_skills;
 mod native_agent_tools;
 mod native_context;
 mod native_diagnostics;
+mod native_enterprise;
 mod native_knowledge;
 mod native_mcp;
 mod native_memory;

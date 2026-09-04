@@ -3,8 +3,9 @@ use crate::native_models::{
     ModelStreamEvent, ModelToolCall, NativeModel, StreamCompletion,
 };
 use crate::{
-    native_agent_tools, native_context, native_diagnostics, native_knowledge, native_mcp,
-    native_memory, native_projects, native_schedule, native_skills, native_todos, native_worklog,
+    native_agent_tools, native_context, native_diagnostics, native_enterprise, native_knowledge,
+    native_mcp, native_memory, native_projects, native_schedule, native_skills, native_todos,
+    native_worklog,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -120,6 +121,7 @@ struct PersistedState {
     mcp_servers: Vec<native_mcp::McpServerConfig>,
     todos: Vec<native_todos::TodoItem>,
     model_usage: HashMap<String, ModelUsage>,
+    enterprise: native_enterprise::EnterpriseState,
 }
 
 pub struct NativeRuntime {
@@ -994,20 +996,53 @@ impl NativeRuntime {
             }
             "get_product_workspace" => vec![frame(
                 "product_workspace",
-                json!({
-                    "schemaVersion": 1,
-                    "context": {
-                        "edition": "personal",
-                        "role": "personal",
-                        "userId": "local-user",
-                        "displayName": "ClawMaster User",
-                        "capabilities": ["agent:base", "model:byok", "skill:built-in", "skill:auto-create", "schedule:write"]
-                    },
-                    "members": [],
-                    "friends": [],
-                    "credits": { "balance": 0, "frozen": 0, "status": "design-preview" }
-                }),
+                native_enterprise::snapshot(&state.enterprise),
             )],
+            "configure_enterprise" => {
+                match native_enterprise::configure(&mut state.enterprise, &payload) {
+                    Ok(workspace) => {
+                        dirty = true;
+                        vec![frame("product_workspace", workspace)]
+                    }
+                    Err(message) => vec![error_frame(None, "workspace_failed", &message)],
+                }
+            }
+            "switch_to_personal" => {
+                let workspace = native_enterprise::switch_personal(&mut state.enterprise);
+                dirty = true;
+                vec![frame("product_workspace", workspace)]
+            }
+            "join_enterprise" => match native_enterprise::join(&mut state.enterprise, &payload) {
+                Ok(workspace) => {
+                    dirty = true;
+                    vec![frame("product_workspace", workspace)]
+                }
+                Err(message) => vec![error_frame(None, "workspace_failed", &message)],
+            },
+            "create_enterprise_invite" => match native_enterprise::issue(
+                &state.enterprise,
+                &payload,
+                self.credentials.as_ref(),
+            ) {
+                Ok(invite) => vec![frame("enterprise_invite_created", invite)],
+                Err(message) => vec![error_frame(None, "workspace_failed", &message)],
+            },
+            "add_friend" => match native_enterprise::add_friend(&mut state.enterprise, &payload) {
+                Ok(workspace) => {
+                    dirty = true;
+                    vec![frame("product_workspace", workspace)]
+                }
+                Err(message) => vec![error_frame(None, "workspace_failed", &message)],
+            },
+            "accept_company_link" => {
+                match native_enterprise::accept_company_link(&mut state.enterprise, &payload) {
+                    Ok(workspace) => {
+                        dirty = true;
+                        vec![frame("product_workspace", workspace)]
+                    }
+                    Err(message) => vec![error_frame(None, "workspace_failed", &message)],
+                }
+            }
             "get_schedules" => match native_schedule::list(
                 &self.schedule_path,
                 payload.get("date").and_then(Value::as_str),
