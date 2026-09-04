@@ -900,10 +900,10 @@ function packagedOpenMlsBinaryPath(): string | undefined {
     process.resourcesPath,
     'app.asar.unpacked',
     'node_modules',
-    '@otto',
+    '@clawmaster',
     'native',
     'bin',
-    process.platform === 'win32' ? 'otto-native.exe' : 'otto-native',
+    process.platform === 'win32' ? 'clawmaster-native.exe' : 'clawmaster-native',
   );
 }
 

@@ -11,9 +11,9 @@ const rootDir = path.resolve('.');
 describe('source tree hygiene', () => {
   it('does not keep generated JavaScript beside the authoritative TypeScript source', () => {
     const generatedArtifacts = [
-      'otto-native/src/index.js',
-      'otto-native/src/test.js',
-      'otto-native/src/test.ts',
+      'clawmaster-native/src/index.js',
+      'clawmaster-native/src/test.js',
+      'clawmaster-native/src/test.ts',
       'scripts/tests/test-setup.d.ts',
       'scripts/tests/test-setup.js',
       'scripts/tests/test-setup.js.map',
@@ -50,10 +50,10 @@ describe('source tree hygiene', () => {
 
   it('runs the native package tests from their maintained Rust source', () => {
     const manifest = JSON.parse(
-      readFileSync(path.join(rootDir, 'otto-native/package.json'), 'utf8'),
+      readFileSync(path.join(rootDir, 'clawmaster-native/package.json'), 'utf8'),
     );
 
-    expect(manifest.scripts.test).toBe('cargo test --bin otto-native');
+    expect(manifest.scripts.test).toBe('cargo test --bin clawmaster-native');
   });
 
   it('does not retain unreferenced legacy root dependencies', () => {
@@ -114,7 +114,10 @@ describe('source tree hygiene', () => {
     );
 
     expect(runner).toContain("'packages/desktop'");
+    expect(runner).toContain("'packages/server'");
+    expect(runner).toContain("'clawmaster-native/Cargo.toml'");
     expect(runner).not.toContain("'otto-desktop'");
+    expect(runner).not.toContain("'otto-native/Cargo.toml'");
   });
 
   it('tracks renderer asset types in clean checkouts', () => {

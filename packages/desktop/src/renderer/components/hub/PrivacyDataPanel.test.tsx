@@ -218,6 +218,38 @@ describe('PrivacyDataPanel', () => {
     expect(getProfile).toHaveBeenCalledTimes(1);
   });
 
+  it('does not present enterprise storage or destructive actions in local-only mode', async () => {
+    const enterpriseProfile = await getProfile();
+    getProfile.mockClear();
+    getProfile.mockResolvedValueOnce({
+      ...enterpriseProfile,
+      residency: {
+        mode: 'local_device',
+        region: '本机',
+        crossBorderEnabled: false,
+        localizationReady: true,
+      },
+      security: {
+        ...enterpriseProfile.security,
+        publicTransport: '本地应用内通信',
+      },
+      authorization: {
+        ...enterpriseProfile.authorization,
+        license: { ...enterpriseProfile.authorization.license, status: 'local', plan: 'local' },
+      },
+    });
+
+    render(<PrivacyDataPanel />);
+
+    expect(await screen.findByText('本地个人模式')).toBeTruthy();
+    expect(screen.getByText('本机')).toBeTruthy();
+    expect(screen.getByText('本地应用内通信')).toBeTruthy();
+    expect(screen.getByText(/未连接企业端到端加密服务/u)).toBeTruthy();
+    expect(screen.getByText(/尚未接通企业账号的数据导出与注销服务/u)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '导出' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '开始注销' })).toBeNull();
+  });
+
   it('lists encrypted-chat devices and requires an explicit second click before revocation', async () => {
     render(<PrivacyDataPanel />);
 

@@ -46,7 +46,7 @@ const SCENARIOS = [
         'fails closed on object tampering or a cross-generation binding',
       ],
       [
-        'otto-native/src/mls.rs',
+        'clawmaster-native/src/mls.rs',
         'remote_commit_tampering_quarantines_without_advancing_cursor',
       ],
     ],
@@ -81,7 +81,7 @@ const SCENARIOS = [
         'fails closed when a remote Commit skips an epoch',
       ],
       [
-        'otto-native/src/mls.rs',
+        'clawmaster-native/src/mls.rs',
         'remote_commit_tampering_quarantines_without_advancing_cursor',
       ],
     ],
@@ -94,7 +94,7 @@ const SCENARIOS = [
         'rejects revoked senders and cross-tenant participants',
       ],
       [
-        'otto-native/src/mls.rs',
+        'clawmaster-native/src/mls.rs',
         'member_key_packages_cannot_cross_server_or_organization_boundaries',
       ],
     ],
@@ -203,7 +203,7 @@ function main() {
     ]),
     npmCommand([
       '--workspace',
-      'otto-server',
+      'packages/server',
       'run',
       'test',
       '--',
@@ -211,7 +211,7 @@ function main() {
     ]),
     [
       'cargo',
-      ['test', '--manifest-path', 'otto-native/Cargo.toml', 'mls::tests'],
+      ['test', '--manifest-path', 'clawmaster-native/Cargo.toml', 'mls::tests'],
     ],
   ];
   const securityProfile = computeE2eeSecurityProfile(rootDirectory);

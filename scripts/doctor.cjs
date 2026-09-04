@@ -22,7 +22,7 @@ const DISTRIBUTION_SIZE_BUDGET_MB = Number(process.env.CLAWMASTER_DOCTOR_DISTRIB
 const DISTRIBUTION_ARTIFACT_PATHS = [
   process.env.CLAWMASTER_DOCTOR_RELEASE_ARTIFACT_DIR,
   'bundle',
-  path.join('otto-native', 'bin'),
+  path.join('clawmaster-native', 'bin'),
 ].filter(Boolean);
 const SOURCE_SIZE_EXCLUDES = new Set([
   '.git',

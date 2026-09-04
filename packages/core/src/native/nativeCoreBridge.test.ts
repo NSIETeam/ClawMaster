@@ -28,12 +28,12 @@ describe('nativeCoreBridge', () => {
     const candidates = getNativeCoreBinaryCandidates({
       cwd: '/repo',
       platform: 'linux',
-      env: { CLAWMASTER_NATIVE_CORE_BINARY: '/secure/otto-native' },
+      env: { CLAWMASTER_NATIVE_CORE_BINARY: '/secure/clawmaster-native' },
     });
 
-    expect(candidates[0]).toBe('/secure/otto-native');
-    expect(candidates).toContain(path.join('/repo', 'otto-native', 'bin', 'otto-native'));
-    expect(candidates).toContain(path.join('/repo', 'otto-native', 'target', 'release', 'otto-native'));
+    expect(candidates[0]).toBe('/secure/clawmaster-native');
+    expect(candidates).toContain(path.join('/repo', 'clawmaster-native', 'bin', 'clawmaster-native'));
+    expect(candidates).toContain(path.join('/repo', 'clawmaster-native', 'target', 'release', 'clawmaster-native'));
   });
 
   it('keeps the native takeover scoped to the three approved hot paths', () => {

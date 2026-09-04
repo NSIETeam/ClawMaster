@@ -18,7 +18,7 @@ export const NATIVE_HOT_PATH_CONTRACTS: readonly NativeHotPathContract[] = [
   {
     id: 'agent_pool',
     purpose: 'Sub-agent concurrency admission and memory accounting.',
-    rustModule: 'otto-native/src/agent_pool.rs',
+    rustModule: 'clawmaster-native/src/agent_pool.rs',
     legacyOwner: 'packages/core/src/core/subAgent.ts and packages/core/src/core/agentResourceBudget.ts',
     methods: [
       'agent_pool.create',
@@ -30,7 +30,7 @@ export const NATIVE_HOT_PATH_CONTRACTS: readonly NativeHotPathContract[] = [
   {
     id: 'session_store',
     purpose: 'Session persistence, metadata listing, cache-aware reads, and bounded on-disk history.',
-    rustModule: 'otto-native/src/session_store.rs',
+    rustModule: 'clawmaster-native/src/session_store.rs',
     legacyOwner: 'packages/core/src/services/sessionManager.ts',
     methods: [
       'session_store.open',
@@ -44,7 +44,7 @@ export const NATIVE_HOT_PATH_CONTRACTS: readonly NativeHotPathContract[] = [
   {
     id: 'tokenizer',
     purpose: 'Local token counting, truncation, and model tokenizer capability discovery.',
-    rustModule: 'otto-native/src/tokenizer.rs',
+    rustModule: 'clawmaster-native/src/tokenizer.rs',
     legacyOwner: 'packages/core/src/core/tokenLimits.ts and tool-schema budget callers',
     methods: [
       'tokenizer.create',

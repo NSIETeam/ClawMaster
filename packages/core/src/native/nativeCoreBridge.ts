@@ -40,7 +40,7 @@ interface PendingRequest {
 }
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
-const BINARY_BASENAME = process.platform === 'win32' ? 'otto-native.exe' : 'otto-native';
+const BINARY_BASENAME = process.platform === 'win32' ? 'clawmaster-native.exe' : 'clawmaster-native';
 
 export function resolveNativeCoreMode(env: NodeJS.ProcessEnv = process.env): NativeCoreMode {
   const raw = String(env.CLAWMASTER_NATIVE_CORE ?? 'auto').toLowerCase();
@@ -56,14 +56,14 @@ export function getNativeCoreBinaryCandidates(options: {
   const env = options.env ?? process.env;
   const cwd = options.cwd ?? process.cwd();
   const platform = options.platform ?? process.platform;
-  const executableName = platform === 'win32' ? 'otto-native.exe' : 'otto-native';
+  const executableName = platform === 'win32' ? 'clawmaster-native.exe' : 'clawmaster-native';
   const candidates = [
     env.CLAWMASTER_NATIVE_CORE_BINARY,
-    path.join(cwd, 'otto-native', 'bin', executableName),
-    path.join(cwd, 'otto-native', 'target', 'release', executableName),
-    path.join(cwd, 'otto-native', 'target', 'x86_64-pc-windows-gnu', 'release', 'otto-native.exe'),
-    path.join(cwd, 'otto-native', 'target', 'x86_64-unknown-linux-gnu', 'release', 'otto-native'),
-    path.join(cwd, 'otto-native', 'target', 'x86_64-apple-darwin', 'release', 'otto-native'),
+    path.join(cwd, 'clawmaster-native', 'bin', executableName),
+    path.join(cwd, 'clawmaster-native', 'target', 'release', executableName),
+    path.join(cwd, 'clawmaster-native', 'target', 'x86_64-pc-windows-gnu', 'release', 'clawmaster-native.exe'),
+    path.join(cwd, 'clawmaster-native', 'target', 'x86_64-unknown-linux-gnu', 'release', 'clawmaster-native'),
+    path.join(cwd, 'clawmaster-native', 'target', 'aarch64-apple-darwin', 'release', 'clawmaster-native'),
   ];
 
   return candidates.filter((candidate): candidate is string => Boolean(candidate));
@@ -94,7 +94,7 @@ export function resolveNativeCoreRuntime(options: NativeCoreRuntimeOptions = {})
   if (!binaryPath && mode === 'required') {
     throw new Error(
       `CLAWMASTER_NATIVE_CORE=required but no ${BINARY_BASENAME} binary was found. ` +
-        'Build otto-native or set CLAWMASTER_NATIVE_CORE_BINARY.',
+        'Build clawmaster-native or set CLAWMASTER_NATIVE_CORE_BINARY.',
     );
   }
 
@@ -213,4 +213,3 @@ export class NativeCoreBridge {
     this.pending.clear();
   }
 }
-

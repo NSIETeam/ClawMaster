@@ -170,7 +170,7 @@ export function ContextPanel({
               type="button"
               className="claw-hub__btn claw-hub__btn--primary"
               onClick={() => actions.compressContext(activeSession.sessionId)}
-              disabled={state.compressRunning || !loaded}
+              disabled={state.compressRunning || !loaded || b.maxTokens <= 0}
             >
               {state.compressRunning ? '压缩中…' : '压缩上下文'}
             </button>
@@ -210,8 +210,9 @@ function ContextUsageCard({
       <div className="claw-hub__ctx-head">
         <span>{b.modelDisplayName}</span>
         <span>
-          {used.toLocaleString()} / {b.maxTokens.toLocaleString()} tokens ·{' '}
-          {pct.toFixed(1)}% · 剩余 {b.freeSpaceTokens.toLocaleString()}
+          {b.maxTokens > 0
+            ? `${used.toLocaleString()} / ${b.maxTokens.toLocaleString()} tokens · ${pct.toFixed(1)}% · 剩余 ${b.freeSpaceTokens.toLocaleString()}`
+            : '当前运行时不提供上下文容量统计'}
         </span>
       </div>
       {/* 分段着色的占用条：各段颜色与下方图例一一对应。 */}

@@ -20,7 +20,7 @@ const directories = [];
 
 function fixture(input = {}) {
   const root =
-    input.root ?? fs.mkdtempSync(path.join(os.tmpdir(), 'otto-native-assets-'));
+    input.root ?? fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-native-assets-'));
   if (!input.root) directories.push(root);
   const target = input.target ?? 'linux-x64';
   const directory = path.join(root, target);
@@ -202,7 +202,7 @@ describe('SQLCipher native asset gate', () => {
   });
 
   it('writes and verifies an exact, same-commit five-target matrix manifest', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'otto-native-matrix-'));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-native-matrix-'));
     directories.push(root);
     for (const target of REQUIRED_SQLCIPHER_TARGETS) {
       fixture({ root, target });
@@ -230,7 +230,7 @@ describe('SQLCipher native asset gate', () => {
   });
 
   it('rejects a matrix assembled from different source commits', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'otto-native-mixed-'));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'clawmaster-native-mixed-'));
     directories.push(root);
     for (const target of REQUIRED_SQLCIPHER_TARGETS) {
       fixture({

@@ -52,7 +52,7 @@ export const CLAWMASTER_CONFIG_DIR = '.otto-user';
 export const DEFAULT_CONTEXT_FILENAME = 'CLAWMASTER.md';
 export const LEGACY_CONTEXT_FILENAME = 'OTTO.md';
 export const MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
-export const LEGACY_MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
+export const LEGACY_MEMORY_SECTION_HEADER = '## Otto Added Memories';
 
 export function findMemorySectionHeader(content: string): {
   header: string;

@@ -202,13 +202,13 @@ function prepareAgentBundle() {
   cpSync(path.join(repoRoot, 'node_modules', 'better-sqlite3', 'lib'), path.join(sqliteDestination, 'lib'), { recursive: true });
   cpSync(path.join(repoRoot, 'node_modules', 'better-sqlite3', 'package.json'), path.join(sqliteDestination, 'package.json'));
 
-  const nativeDestination = path.join(agentPayloadRoot, 'node_modules', '@otto', 'native');
+  const nativeDestination = path.join(agentPayloadRoot, 'node_modules', '@clawmaster', 'native');
   mkdirSync(path.join(nativeDestination, 'dist'), { recursive: true });
   cpSync(
-    path.join(repoRoot, 'otto-native', 'dist', 'index.js'),
+    path.join(repoRoot, 'clawmaster-native', 'dist', 'index.js'),
     path.join(nativeDestination, 'dist', 'index.js'),
   );
-  cpSync(path.join(repoRoot, 'otto-native', 'package.json'), path.join(nativeDestination, 'package.json'));
+  cpSync(path.join(repoRoot, 'clawmaster-native', 'package.json'), path.join(nativeDestination, 'package.json'));
 
   // RPA keeps Playwright Core optional in Core, but the productized desktop runtime
   // must make the adapter usable without asking the user to install npm packages.

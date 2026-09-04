@@ -93,8 +93,10 @@ export function MemoryPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
         </button>
       </div>
 
-      {state.memoryFiles.length === 0 ? (
+      {!state.memoryLoaded ? (
         <Empty>正在加载记忆文件…</Empty>
+      ) : state.memoryFiles.length === 0 ? (
+        <Empty>当前项目还没有记忆文件。</Empty>
       ) : (
         state.memoryFiles.map((f) => (
           <React.Fragment key={f.path}>
@@ -175,8 +177,10 @@ export function ToolsPanel({
     >
       {!activeSession ? (
         <Empty>请先选择一个会话。</Empty>
-      ) : state.tools.length === 0 ? (
+      ) : !state.toolsLoaded ? (
         <Empty>正在加载工具清单…</Empty>
+      ) : state.tools.length === 0 ? (
+        <Empty>当前运行时没有可用工具。</Empty>
       ) : (
         <Card>
           {state.tools.map((t) => (

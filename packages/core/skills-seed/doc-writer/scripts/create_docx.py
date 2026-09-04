@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Otto Doc-Writer v8 — 零空白终极版。python create_docx.py in.md out.docx"""
+"""ClawMaster Doc-Writer v8 — 零空白终极版。python create_docx.py in.md out.docx"""
 from __future__ import annotations
 import os, re, sys
 from datetime import datetime
@@ -110,18 +110,18 @@ def parse(text):
     return meta,secs
 
 def apply_trusted_identity(meta, environ=None):
-    """只接受 Otto 外层注入的账户身份，禁止 YAML 自报作者或读取电脑用户名。"""
+    """只接受 ClawMaster 外层注入的账户身份，禁止 YAML 自报作者或读取电脑用户名。"""
     env = os.environ if environ is None else environ
-    author = re.sub(r"[\x00-\x1f\x7f]+", " ", env.get("OTTO_DOCUMENT_AUTHOR", "")).strip()[:160]
-    department = re.sub(r"[\x00-\x1f\x7f]+", " ", env.get("OTTO_DOCUMENT_DEPARTMENT", "")).strip()[:160]
+    author = re.sub(r"[\x00-\x1f\x7f]+", " ", env.get("CLAWMASTER_DOCUMENT_AUTHOR", env.get("OTTO_DOCUMENT_AUTHOR", ""))).strip()[:160]
+    department = re.sub(r"[\x00-\x1f\x7f]+", " ", env.get("CLAWMASTER_DOCUMENT_DEPARTMENT", env.get("OTTO_DOCUMENT_DEPARTMENT", ""))).strip()[:160]
     requested_identity = any(meta.get(key) for key in ("author", "department", "signature_unit"))
     for key in ("author", "department", "signature_unit"):
         meta.pop(key, None)
     if not author:
         if requested_identity:
             raise ValueError(
-                "document identity must come from OTTO_DOCUMENT_AUTHOR "
-                "and OTTO_DOCUMENT_DEPARTMENT, never YAML or the computer login"
+                "document identity must come from CLAWMASTER_DOCUMENT_AUTHOR "
+                "and CLAWMASTER_DOCUMENT_DEPARTMENT, never YAML or the computer login"
             )
         return
     meta["author"] = author
@@ -372,7 +372,7 @@ class R:
 
 def main():
     import argparse
-    p=argparse.ArgumentParser(description="Otto Doc-Writer v8")
+    p=argparse.ArgumentParser(description="ClawMaster Doc-Writer v8")
     p.add_argument("input"); p.add_argument("output")
     a=p.parse_args()
     ip=Path(a.input)

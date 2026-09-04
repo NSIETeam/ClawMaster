@@ -3004,7 +3004,7 @@ h6.claw-prose__h {
   }
 }
 
-/* Account identity stays in the sidebar: soft blue, no green status-card treatment. */
+/* Account identity stays neutral and monochrome in the sidebar. */
 .claw-sidebar-account {
   grid-template-columns: 38px minmax(0, 1fr) auto;
   gap: 9px;
@@ -3019,8 +3019,9 @@ h6.claw-prose__h {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  color: #4b9eea;
-  background: #e2f2ff;
+  color: var(--claw-text-secondary);
+  background: color-mix(in srgb, var(--claw-text) 7%, transparent);
+  filter: grayscale(1);
 }
 
 .claw-sidebar-account__copy {
@@ -3039,8 +3040,8 @@ h6.claw-prose__h {
 
 @media (prefers-color-scheme: dark) {
   .claw-sidebar-account__avatar {
-    color: #8bc7ff;
-    background: rgba(82, 164, 235, 0.18);
+    color: var(--claw-text-secondary);
+    background: rgba(255, 255, 255, 0.08);
   }
 
   .claw-sidebar-account__copy small {
@@ -9192,14 +9193,6 @@ h6.claw-prose__h {
 .claw-platform-workspace button { padding: 0 10px; cursor: pointer; }
 .claw-platform-workspace__url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--claw-text-secondary); }
 .claw-platform-workspace__warning { padding: 8px 10px; border-radius: 8px; color: var(--claw-warning); background: var(--claw-warning-soft); font-size: 12px; }
-.claw-platform-workspace iframe {
-  width: 100%;
-  min-height: 300px;
-  flex: 1;
-  border: 1px solid var(--claw-border-subtle);
-  border-radius: 10px;
-  background: var(--claw-surface);
-}
 .claw-platform-workspace__empty {
   display: grid;
   min-height: 220px;

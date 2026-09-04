@@ -26,7 +26,7 @@ function argumentValue(name) {
 
 function openMlsVersions(rootDirectory) {
   const cargoLock = fs.readFileSync(
-    resolveRepositoryPath(rootDirectory, 'otto-native/Cargo.lock'),
+    resolveRepositoryPath(rootDirectory, 'clawmaster-native/Cargo.lock'),
     'utf8',
   );
   const versions = {};

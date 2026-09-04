@@ -46,12 +46,17 @@ describe('native-local release contract', () => {
     for (const expected of [
       'windows-2022', 'macos-15',
       'release:preflight',
+      'cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml native_runtime --lib',
       'softprops/action-gh-release',
+      'bundle/nsis/*.exe',
+      'bundle/msi/*.msi',
+      'bundle/dmg/*_aarch64.dmg',
     ]) expect(workflow).toContain(expected);
     expect(await readText(path.join(repoRoot, 'scripts/release-preflight.mjs')))
       .toContain('low-resource-multi-agent-benchmark.mjs');
     expect(workflow).not.toContain('tauri-node-runtime.yml');
     expect(workflow).not.toContain('sqlcipher-native.yml');
+    expect(workflow).not.toContain('path: packages/desktop/src-tauri/target/release/bundle/');
   });
 
   it('makes the browser RPA E2E non-optional in CI', async () => {

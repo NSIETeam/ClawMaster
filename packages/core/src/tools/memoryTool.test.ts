@@ -32,7 +32,7 @@ vi.mock('os', async (importOriginal) => {
 vi.mock('glob');
 
 const MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
-const LEGACY_MEMORY_SECTION_HEADER = '## ClawMaster Added Memories';
+const LEGACY_MEMORY_SECTION_HEADER = '## Otto Added Memories';
 
 // Define a type for our fsAdapter to ensure consistency
 interface FsAdapter {
@@ -154,7 +154,7 @@ describe('MemoryTool', () => {
       expect(writeFileCall[1]).toBe(expectedContent);
     });
 
-    it('should append to the legacy ClawMaster section without creating a duplicate section', async () => {
+    it('should append to the legacy Otto section without creating a duplicate section', async () => {
       const initialContent = `${LEGACY_MEMORY_SECTION_HEADER}\n- Existing fact\n`;
       mockFsAdapter.readFile.mockResolvedValue(initialContent);
 

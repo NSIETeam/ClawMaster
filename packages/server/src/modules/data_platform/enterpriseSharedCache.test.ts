@@ -26,7 +26,7 @@ describe('Redis enterprise shared cache', () => {
       backend: 'redis',
     });
     await expect(cache.get('session:abc')).resolves.toBe('value');
-    expect(client.get).toHaveBeenCalledWith('clawmaster.session:abc');
+    expect(client.get).toHaveBeenCalledWith('otto:session:abc');
   });
 
   it('uses atomic NX leases and owner-checked release', async () => {

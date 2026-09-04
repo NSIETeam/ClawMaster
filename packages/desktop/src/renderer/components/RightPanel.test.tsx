@@ -70,6 +70,15 @@ describe('RightPanel module workspace boundary', () => {
     expect(screen.getByRole('tab', { name: '知访' }).getAttribute('aria-selected')).toBe('true');
   });
 
+  it('opens endpoint configuration when a platform has no registered URL', () => {
+    renderPanel({ layout: layoutWithPlatform });
+    fireEvent(window, new CustomEvent('clawmaster:open-platform', {
+      detail: { id: 'platform-zhifang', label: '知访', url: null },
+    }));
+    expect(screen.getByRole('region', { name: '知访平台工作区' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: '平台地址配置' })).toBeTruthy();
+  });
+
   it('removes a platform tab when the platform is closed or removed from the layout', () => {
     const { rerender, props } = renderPanel({ layout: layoutWithPlatform });
     fireEvent(window, new CustomEvent('clawmaster:open-platform', { detail: { id: 'platform-zhifang', label: '知访', url: 'https://47.116.30.60/' } }));

@@ -11,7 +11,7 @@ import path from 'node:path';
 
 const ROOT = process.cwd();
 const CHECK = process.argv.includes('--check');
-const ROOTS = ['packages', 'docs', 'scripts', '.otto', 'otto-native'];
+const ROOTS = ['packages', 'docs', 'scripts', '.otto', 'clawmaster-native'];
 const ROOT_FILES = [
   'package.json',
   'package-lock.json',

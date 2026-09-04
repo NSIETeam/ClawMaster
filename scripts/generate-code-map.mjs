@@ -7,7 +7,7 @@ const rootDir = path.resolve(path.dirname(scriptPath), '..');
 const outputPath = path.join(rootDir, 'docs', 'code-map.md');
 
 const displayNames = {
-  '@otto/native': 'Native bridge',
+  '@clawmaster/native': 'Native bridge',
   'otto-core': 'Runtime kernel',
   'clawmaster-desktop': 'Desktop / Tauri target',
   'otto-evals': 'Deterministic evals',

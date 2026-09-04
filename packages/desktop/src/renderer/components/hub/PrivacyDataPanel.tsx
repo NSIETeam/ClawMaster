@@ -28,6 +28,7 @@ function DeviceVerificationQr({
 }
 
 function licenseLabel(status: string): { text: string; danger: boolean } {
+  if (status === 'local') return { text: '本地个人模式', danger: false };
   if (status === 'active') return { text: '授权有效', danger: false };
   if (status === 'expiring') return { text: '授权即将到期', danger: true };
   if (status === 'missing' || status === 'invalid')
@@ -264,6 +265,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
   const license = profile
     ? licenseLabel(profile.authorization.license.status)
     : null;
+  const localOnly = profile?.residency.mode === 'local_device';
   return (
     <Panel
       title="隐私与数据"
@@ -304,7 +306,7 @@ export function PrivacyDataPanel(): React.JSX.Element {
             <div>
               <span>数据位置</span>
               <strong>
-                {profile.residency.localizationReady
+                {profile.residency.localizationReady && !localOnly
                   ? '中国境内 / 当前企业服务器'
                   : profile.residency.region}
               </strong>
@@ -323,11 +325,15 @@ export function PrivacyDataPanel(): React.JSX.Element {
             </div>
             <div>
               <span>传输</span>
-              <strong>公网 HTTPS / TLS</strong>
-              <small>会话令牌不进入 URL</small>
+              <strong>{profile.security.publicTransport}</strong>
+              <small>{localOnly ? '数据不离开当前设备' : '会话令牌不进入 URL'}</small>
             </div>
           </Card>
 
+          {localOnly ? (
+            <Empty>本地个人模式未连接企业端到端加密服务，也不会伪造设备、恢复包或透明日志。</Empty>
+          ) : (
+            <>
           <div className="claw-hub__privacy-section-head">
             <div>
               <strong>端到端加密私聊</strong>
@@ -556,6 +562,8 @@ export function PrivacyDataPanel(): React.JSX.Element {
               )}
             </div>
           </Card>
+            </>
+          )}
 
           {!profile.readiness.configured ? (
             <div className="claw-hub__privacy-warning">
@@ -571,9 +579,11 @@ export function PrivacyDataPanel(): React.JSX.Element {
                 {profile.controller.name} · {profile.controller.privacyContact}
               </span>
             </div>
-            <button type="button" className="claw-hub__btn" onClick={openLegal}>
-              查看完整规则
-            </button>
+            {!localOnly ? (
+              <button type="button" className="claw-hub__btn" onClick={openLegal}>
+                查看完整规则
+              </button>
+            ) : null}
           </div>
           <Card>
             {profile.documents.map((document) => (
@@ -650,8 +660,15 @@ export function PrivacyDataPanel(): React.JSX.Element {
                 </dl>
               </details>
             ))}
+            {profile.processingActivities.length === 0 ? (
+              <Empty>当前模式没有企业服务器数据处理活动。</Empty>
+            ) : null}
           </div>
 
+          {localOnly ? (
+            <Empty>本地个人模式尚未接通企业账号的数据导出与注销服务。</Empty>
+          ) : (
+            <>
           <div className="claw-hub__privacy-section-head">
             <div>
               <strong>我的数据权利</strong>
@@ -733,6 +750,8 @@ export function PrivacyDataPanel(): React.JSX.Element {
               )}
             </div>
           </Card>
+            </>
+          )}
         </>
       )}
     </Panel>

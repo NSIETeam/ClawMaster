@@ -1011,7 +1011,7 @@ describe('受保护 vs 公开路由边界', () => {
     availableCredits = true;
     const accepted = await request('knowledge:e2e:2');
     expect(accepted.status, await accepted.clone().text()).toBe(200);
-    expect(accepted.headers.get('x-otto-billing-admission')).toBe(
+    expect(accepted.headers.get('x-clawmaster-billing-admission')).toBe(
       'hold_servere2e123456',
     );
     await vi.waitFor(() => {

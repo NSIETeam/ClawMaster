@@ -17,10 +17,11 @@ const EXPLICIT_SECURITY_FILES = new Set([
   '.github/workflows/tauri-preview.yml',
   'package-lock.json',
   'package.json',
-  'otto-native/Cargo.lock',
-  'otto-native/Cargo.toml',
-  'otto-native/src/lib.rs',
-  'otto-native/src/main.rs',
+  'clawmaster-native/Cargo.lock',
+  'clawmaster-native/Cargo.toml',
+  'clawmaster-native/src/index.ts',
+  'clawmaster-native/src/main.rs',
+  'clawmaster-native/src/mls.rs',
   'packages/desktop/src/main/enterprise-client.ts',
   'packages/server/src/enterprise/clusteredServer.ts',
   'packages/server/src/enterprise/server.ts',
@@ -112,7 +113,7 @@ export function discoverE2eeSecurityFiles(trackedFiles) {
         lower.includes('e2ee') ||
         lower.includes('mls') ||
         lower.startsWith('docs/security/') ||
-        lower.startsWith('otto-native/src/mls')
+        lower.startsWith('clawmaster-native/src/mls')
       );
     })
     .sort(stableCompare);

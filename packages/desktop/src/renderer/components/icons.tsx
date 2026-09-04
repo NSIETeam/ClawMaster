@@ -7,10 +7,12 @@
 /**
  * 自带 SVG 图标集 —— 故意不引 lucide-react，让渲染层零额外依赖、独立可编译。
  * 全部用 currentColor，跟随父级文字色，hover 态由 CSS 控制。
- * ClawMaster 头像使用轻量 SVG，占位资源不进入发布包。
+ * ClawMaster 产品标志复用桌面应用图标；默认账户头像使用单色 emoji。
  */
 
 import React from 'react';
+
+const clawmasterAppIcon = new URL('../../../build/icon.png', import.meta.url).href;
 
 type IconProps = { size?: number; className?: string; strokeWidth?: number };
 
@@ -122,26 +124,16 @@ export function IconAgent({ size, className }: IconProps): React.JSX.Element {
   );
 }
 
-/** 默认账户头像：简洁的人形轮廓，避免用字母或高饱和色块占位。 */
+/** 默认账户头像：使用灰度 emoji，避免蓝色或高饱和色块占位。 */
 export function IconUserAvatar({ size = 28, className }: IconProps): React.JSX.Element {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
+    <span
       className={className}
       aria-hidden
+      style={{ fontSize: size * 0.72 }}
     >
-      <circle cx="16" cy="16" r="15" fill="currentColor" opacity=".14" />
-      <circle cx="16" cy="12" r="5" fill="currentColor" opacity=".82" />
-      <path
-        d="M7.5 26c1.4-4.2 4.3-6.3 8.5-6.3s7.1 2.1 8.5 6.3"
-        fill="currentColor"
-        opacity=".82"
-      />
-      <path d="M10 26.5h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".35" />
-    </svg>
+      👤
+    </span>
   );
 }
 
@@ -521,15 +513,14 @@ export function ClawMasterAvatar({ size = 30, className }: IconProps): React.JSX
   );
 }
 
-/** ClawMaster 品牌皇冠，仅用于产品级品牌位，不作为 Agent 或模块头像。 */
+/** 产品级品牌位直接复用桌面应用图标，确保窗口、Dock 与页面内视觉一致。 */
 export function ClawMasterCrown({ size = 56, className }: IconProps): React.JSX.Element {
   return (
-    <svg
+    <img
+      src={clawmasterAppIcon}
+      alt="ClawMaster 皇冠标志"
       width={size}
       height={size}
-      viewBox="-3 -3 70 70"
-      role="img"
-      aria-label="ClawMaster 皇冠标志"
       className={className}
       style={{
         display: 'block',
@@ -537,25 +528,9 @@ export function ClawMasterCrown({ size = 56, className }: IconProps): React.JSX.
         height: size,
         maxWidth: size,
         maxHeight: size,
+        objectFit: 'contain',
       }}
-    >
-      <path
-        d="M18 43c0-3.5-1.7-5.8-4.7-7.2A12.6 12.6 0 1 1 24.2 13.1 12.2 12.2 0 0 1 47.7 16a12.6 12.6 0 1 1 10.9 19.8c-3 1.4-4.7 3.7-4.7 7.2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="4.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M26 23.5c-2 6.8-1.7 13.2.7 19M42 23.5c2 6.8 1.7 13.2-.7 19"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3.2"
-        strokeLinecap="round"
-      />
-      <rect x="17" y="41" width="38" height="13" rx="4" fill="currentColor" />
-    </svg>
+    />
   );
 }
 

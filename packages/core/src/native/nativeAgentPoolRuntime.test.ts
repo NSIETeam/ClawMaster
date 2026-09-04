@@ -20,7 +20,7 @@ function createBridge(params: {
       mode: params.required ? 'required' : 'auto',
       enabled: params.enabled,
       required: Boolean(params.required),
-      binaryPath: params.enabled ? '/native/otto-native' : undefined,
+      binaryPath: params.enabled ? '/native/clawmaster-native' : undefined,
       hotPathMethods: [],
     },
     async call(method: string, callParams?: Record<string, unknown>): Promise<unknown> {

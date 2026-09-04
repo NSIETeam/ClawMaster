@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { FileMlsStatePersistence } from '../../otto-native/src/index.ts';
+import { FileMlsStatePersistence } from '../../clawmaster-native/src/index.ts';
 
 const temporaryDirectories = [];
 

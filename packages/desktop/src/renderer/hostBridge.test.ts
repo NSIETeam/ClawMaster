@@ -111,6 +111,36 @@ describe('Tauri host bridge', () => {
     expect(bridge.onMenu(vi.fn())).toEqual(expect.any(Function));
   });
 
+  it('provides honest empty snapshots for local-only settings pages', async () => {
+    const bridge = createTauriHostBridge(vi.fn() as unknown as TauriInvoke);
+
+    await expect(bridge.enterpriseUsageProfile(7)).resolves.toMatchObject({
+      accountId: 'tauri-local-user',
+      periodDays: 7,
+      totalTokens: 0,
+      requestCount: 0,
+      byModel: [],
+      daily: [],
+    });
+    await expect(bridge.enterpriseDataGovernanceGet()).resolves.toMatchObject({
+      controller: { configured: false },
+      residency: { mode: 'local_device', crossBorderEnabled: false },
+      readiness: { configured: false },
+      processingActivities: [],
+    });
+    await expect(bridge.enterpriseE2eeDevicesList()).resolves.toEqual([]);
+    await expect(bridge.enterpriseE2eeKeyTransparency()).resolves.toMatchObject({
+      accountId: 'tauri-local-user',
+      headSequence: 0,
+      entries: [],
+    });
+    await expect(bridge.channelInstallations()).resolves.toEqual({
+      ok: true,
+      data: [],
+      error: null,
+    });
+  });
+
   it('bridges connection state and server frames through Tauri events', async () => {
     const eventHandlers = new Map<string, (event: { payload: unknown }) => void>();
     const listen = vi.fn(async (event: string, handler: (event: { payload: unknown }) => void) => {

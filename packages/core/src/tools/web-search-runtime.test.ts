@@ -24,10 +24,10 @@ describe('web search runtime', () => {
       },
       1000,
     );
-    expect(getCachedWebSearchResult('otto search', 2000)?.llmContent).toBe(
+    expect(getCachedWebSearchResult('clawmaster search', 2000)?.llmContent).toBe(
       'result',
     );
-    expect(getCachedWebSearchResult('otto search', 302_001)).toBeUndefined();
+    expect(getCachedWebSearchResult('clawmaster search', 302_001)).toBeUndefined();
   });
 
   it('opens a provider circuit after three failures and closes it after cooldown', () => {

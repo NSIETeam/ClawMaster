@@ -94,12 +94,11 @@ beforeEach(() => {
 });
 
 describe('Sidebar：布局（工具区已迁右侧面板）', () => {
-  it('左上角显示品牌皇冠但不重复显示产品名称', () => {
+  it('左上角复用桌面应用图标但不重复显示产品名称', () => {
     renderSidebar();
     const mark = screen.getByRole('img', { name: 'ClawMaster 皇冠标志' });
-    expect(mark.tagName.toLowerCase()).toBe('svg');
-    expect(mark.innerHTML).toContain('currentColor');
-    expect(mark.getAttribute('viewBox')).toBe('-3 -3 70 70');
+    expect(mark.tagName.toLowerCase()).toBe('img');
+    expect(mark.getAttribute('src')).toContain('icon');
     expect(screen.queryByText('ClawMaster')).toBeNull();
     expect(screen.queryByText('otto')).toBeNull();
   });
@@ -181,6 +180,15 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     expect(settings.getAttribute('aria-current')).toBe('page');
     fireEvent.click(settings);
     expect(onOpenHub).toHaveBeenCalledOnce();
+  });
+
+  it('左下角账户使用黑白 emoji 头像，不再显示蓝色矢量头像', () => {
+    renderSidebar({ enterpriseAccount: PERSONAL_ACCOUNT });
+
+    const identity = screen.getByRole('button', { name: 'Felix，个人空间' });
+    const avatar = identity.querySelector('.claw-sidebar-account__avatar');
+    expect(avatar?.textContent?.trim()).toBe('👤');
+    expect(avatar?.querySelector('svg')).toBeNull();
   });
 
   it('企业管理员在我的工作下方看到企业管理，并可打开和高亮该页面', () => {

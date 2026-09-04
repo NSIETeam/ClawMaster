@@ -65,7 +65,12 @@ export function RightPanel({
   useEffect(() => {
     const showPlatform = (event: Event): void => {
       const detail = (event as CustomEvent<PlatformWorkspaceTarget>).detail;
-      if (!detail || typeof detail.id !== 'string' || typeof detail.label !== 'string' || typeof detail.url !== 'string') return;
+      if (
+        !detail ||
+        typeof detail.id !== 'string' ||
+        typeof detail.label !== 'string' ||
+        (detail.url !== null && typeof detail.url !== 'string')
+      ) return;
       setPlatformTarget(detail);
       setActiveView('platform');
     };
