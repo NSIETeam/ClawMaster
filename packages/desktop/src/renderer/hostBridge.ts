@@ -4,7 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { DesktopRuntimeDiagnostic, ClawMasterBridge } from '../preload/index.js';
+import type {
+  DesktopRuntimeDiagnostic,
+  ClawMasterBridge,
+  PlatformWebviewBounds,
+} from '../preload/index.js';
 import type { ClientToServer, ServerToClient } from 'clawmaster-server';
 
 export type TauriInvoke = <T>(
@@ -180,6 +184,14 @@ export function createTauriHostBridge(
     isConnected: (() => connected) as never,
     openExternal: ((url: string) =>
       invoke<void>('open_external', { url })) as never,
+    platformWebviewOpen: ((url: string, bounds: PlatformWebviewBounds) =>
+      invoke<void>('platform_webview_open', { url, bounds })) as never,
+    platformWebviewSetBounds: ((bounds: PlatformWebviewBounds) =>
+      invoke<void>('platform_webview_set_bounds', { bounds })) as never,
+    platformWebviewReload: (() =>
+      invoke<void>('platform_webview_reload')) as never,
+    platformWebviewClose: (() =>
+      invoke<void>('platform_webview_close')) as never,
     openPath: ((path: string) =>
       invoke<void>('open_path', { path })) as never,
     inspectLocalPath: ((path: string) =>

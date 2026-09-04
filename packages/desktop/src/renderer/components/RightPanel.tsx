@@ -80,7 +80,7 @@ export function RightPanel({
   const hidden = presentation === 'panel' && collapsed;
   return (
     <aside
-      className={`claw-right-panel claw-right-panel--${presentation}${hidden ? ' claw-right-panel--collapsed' : ''}`}
+      className={`claw-right-panel claw-right-panel--${presentation}${activeView === 'platform' ? ' claw-right-panel--browser' : ''}${hidden ? ' claw-right-panel--collapsed' : ''}`}
       aria-label="功能组"
       aria-busy={busy || readiness === 'loading'}
       aria-hidden={hidden || undefined}

@@ -9168,6 +9168,11 @@ h6.claw-prose__h {
   pointer-events: none;
 }
 
+.claw-right-panel--browser {
+  width: clamp(520px, 55vw, 820px);
+  min-width: clamp(520px, 55vw, 820px);
+}
+
 .claw-right-panel__switcher {
   display: grid;
   grid-auto-flow: column;
@@ -9208,7 +9213,7 @@ h6.claw-prose__h {
 .claw-platform-workspace button { padding: 0 10px; cursor: pointer; }
 .claw-platform-workspace__url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--claw-text-secondary); }
 .claw-platform-workspace__warning { padding: 8px 10px; border-radius: 8px; color: var(--claw-warning); background: var(--claw-warning-soft); font-size: 12px; }
-.claw-platform-workspace__empty {
+.claw-platform-workspace__browser {
   display: grid;
   min-height: 220px;
   flex: 1;
@@ -9432,6 +9437,7 @@ h6.claw-prose__h {
 
 @media (max-width: 1100px) {
   .claw-right-panel { width: 270px; min-width: 270px; }
+  .claw-right-panel--browser { width: clamp(440px, 55vw, 700px); min-width: clamp(440px, 55vw, 700px); }
   .claw-agenda__form { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 860px) {

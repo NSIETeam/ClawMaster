@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Minimum core permissions for the main ClawMaster window. System access is exposed only through validated Rust commands; raw plugin commands are intentionally not granted.",
-  "windows": ["main"],
+  "description": "Minimum core permissions for the trusted main ClawMaster webview. External platform child webviews intentionally match no capability and cannot access IPC.",
+  "webviews": ["main"],
   "permissions": ["core:default"]
 }

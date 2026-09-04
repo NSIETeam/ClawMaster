@@ -14,6 +14,7 @@ use tokio_tungstenite::tungstenite::Message;
 mod agent_sidecar;
 mod agent_state_pool;
 mod community_skills;
+mod platform_webview;
 pub mod native_tools;
 mod runtime_contracts;
 mod system_commands;
@@ -400,6 +401,10 @@ pub fn run() {
             runtime_diagnostic,
             runtime_contract_version,
             notification_show,
+            platform_webview::platform_webview_open,
+            platform_webview::platform_webview_set_bounds,
+            platform_webview::platform_webview_reload,
+            platform_webview::platform_webview_close,
             system_commands::open_external,
             system_commands::open_path,
             system_commands::select_files,

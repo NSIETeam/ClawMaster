@@ -1403,6 +1403,11 @@ export interface ClawMasterBridge {
   onMenu(handler: MenuHandler): () => void;
   /** host-only 命令：用系统浏览器打开外链。 */
   openExternal(url: string): Promise<void>;
+  /** Tauri 原生子 WebView；Electron 兼容壳未实现时由调用方回退系统浏览器。 */
+  platformWebviewOpen?(url: string, bounds: PlatformWebviewBounds): Promise<void>;
+  platformWebviewSetBounds?(bounds: PlatformWebviewBounds): Promise<void>;
+  platformWebviewReload?(): Promise<void>;
+  platformWebviewClose?(): Promise<void>;
   /** host-only 命令：用系统默认程序打开本地路径。 */
   openPath(path: string): Promise<void>;
   /** 检查回答中出现的本地绝对路径；主进程仅返回当前用户目录内的真实文件。 */
@@ -2006,6 +2011,13 @@ export interface ClawMasterBridge {
   parkNativeNotify(title: string, body: string): Promise<boolean>;
   /** 将文本写入系统剪贴板（通过 IPC 调用 main 进程 clipboard 模块，不受 renderer 权限限制）。 */
   writeClipboard(text: string): Promise<boolean>;
+}
+
+export interface PlatformWebviewBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 // ── 退避参数 ──

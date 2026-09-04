@@ -32,6 +32,23 @@ describe('Tauri host bridge', () => {
       command: 'open_external',
       args: { url: 'https://clawmaster.example' },
     });
+    const bounds = { x: 640, y: 80, width: 600, height: 680 };
+    await expect(bridge.platformWebviewOpen?.('https://clawmaster.example', bounds)).resolves.toEqual({
+      command: 'platform_webview_open',
+      args: { url: 'https://clawmaster.example', bounds },
+    });
+    await expect(bridge.platformWebviewSetBounds?.(bounds)).resolves.toEqual({
+      command: 'platform_webview_set_bounds',
+      args: { bounds },
+    });
+    await expect(bridge.platformWebviewReload?.()).resolves.toEqual({
+      command: 'platform_webview_reload',
+      args: undefined,
+    });
+    await expect(bridge.platformWebviewClose?.()).resolves.toEqual({
+      command: 'platform_webview_close',
+      args: undefined,
+    });
     await expect(bridge.themeSet('dark')).resolves.toEqual({
       command: 'theme_set',
       args: { theme: 'dark' },

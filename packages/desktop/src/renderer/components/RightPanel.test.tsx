@@ -64,10 +64,13 @@ describe('RightPanel module workspace boundary', () => {
   });
 
   it('opens a selected business platform directly inside the right sidebar', () => {
-    renderPanel({ layout: layoutWithPlatform });
+    const { container } = renderPanel({ layout: layoutWithPlatform });
     fireEvent(window, new CustomEvent('clawmaster:open-platform', { detail: { id: 'platform-zhifang', label: '知访', url: 'https://47.116.30.60/' } }));
     expect(screen.getByRole('region', { name: '知访平台工作区' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: '知访' }).getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelector('aside')?.classList.contains('claw-right-panel--browser')).toBe(true);
+    fireEvent.click(screen.getByRole('tab', { name: '功能' }));
+    expect(container.querySelector('aside')?.classList.contains('claw-right-panel--browser')).toBe(false);
   });
 
   it('opens endpoint configuration when a platform has no registered URL', () => {

@@ -48,6 +48,24 @@ describe('native-local release contract', () => {
     expect(JSON.stringify(pkg)).not.toMatch(/https?:\/\/(?:\d{1,3}\.){3}\d{1,3}/u);
   });
 
+  it('keeps external child webviews outside the trusted IPC capability', async () => {
+    const capability = await readJson(path.join(
+      desktopRoot,
+      'src-tauri',
+      'capabilities',
+      'default.json',
+    ));
+    expect(capability.webviews).toEqual(['main']);
+    expect(capability).not.toHaveProperty('windows');
+    expect(capability.remote).toBeUndefined();
+  });
+
+  it('limits the macOS HTTP exception to embedded web content', async () => {
+    const plist = await readText(path.join(desktopRoot, 'src-tauri', 'Info.plist'));
+    expect(plist).toContain('<key>NSAllowsArbitraryLoadsInWebContent</key>');
+    expect(plist).not.toMatch(/<key>NSAllowsArbitraryLoads<\/key>/u);
+  });
+
   it('uses the supported platform workflow and requires real acceptance gates', async () => {
     const workflow = await readText(path.join(repoRoot, '.github/workflows/tauri-preview.yml'));
     for (const expected of [
