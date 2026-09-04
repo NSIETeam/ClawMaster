@@ -10,6 +10,13 @@ import { chromium } from 'playwright-core';
 
 const desktopRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const previewRoot = path.join(desktopRoot, 'dist-preview');
+const platformCases = [
+  ['猫头鹰', 'http://8.141.8.31/'],
+  ['穿山甲', 'https://8.140.52.117/'],
+  ['鸿雁知访', 'https://47.116.30.60/'],
+  ['知了猴', 'http://47.116.30.60:18787/'],
+  ['智信鸽', 'http://47.116.30.60:18788/'],
+];
 
 execFileSync(process.execPath, [path.join(desktopRoot, 'build-preview.cjs')], {
   cwd: path.resolve(desktopRoot, '../..'),
@@ -144,6 +151,19 @@ try {
     }
 
     await page.getByRole('button', { name: '关闭添加模块' }).click();
+    for (const [label, url] of platformCases) {
+      await page.getByRole('button', { name: `打开 ${label}` }).click();
+      const workspace = page.getByRole('region', { name: `${label}平台工作区` });
+      await workspace.waitFor();
+      assert.equal(await workspace.getByText(url, { exact: true }).count(), 1);
+      assert.equal(
+        await page.getByRole('tab', { name: label }).getAttribute('aria-selected'),
+        'true',
+      );
+      await workspace.getByRole('button', { name: '关闭平台' }).click();
+      assert.equal(await page.getByRole('tab', { name: label }).count(), 0);
+    }
+
     await page.getByRole('button', { name: '功能组菜单：园区服务' }).click();
     const menuBounds = await page.getByRole('menu', { name: '园区服务设置' }).boundingBox();
     assert.ok(menuBounds, 'group menu is not visible');
@@ -159,4 +179,4 @@ try {
   await new Promise((resolve) => server.close(resolve));
 }
 
-console.log('[product-ui] crown, right rail, marketplace, short viewport and dark theme passed');
+console.log('[product-ui] crown, right rail, five platforms, marketplace, short viewport and dark theme passed');

@@ -83,6 +83,9 @@ describe('desktop visual style contract', () => {
       expect(config).toContain(stylesheet);
     }
     expect(config).toContain("fs.writeFileSync(path.join(outdir, 'main.css'), css)");
+    expect(config).toContain("fs.copyFileSync(path.join(root, 'build', 'icon.png'), path.join(previewBuildDir, 'icon.png'))");
+    expect(config).toContain("format: 'esm'");
+    expect(config).toContain('<script type="module"');
     expect(config).toContain("require.resolve('react/package.json', { paths: [root] })");
     expect(config).toContain("require.resolve('react-dom/package.json', { paths: [root] })");
   });

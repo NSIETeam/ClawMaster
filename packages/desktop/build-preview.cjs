@@ -17,7 +17,9 @@ esbuild.build({
   outfile: path.join(outdir, 'main.js'),
   assetNames: 'assets/[name]-[hash]',
   publicPath: './',
-  format: 'iife',
+  // Keep import.meta.url intact so renderer assets resolve exactly as they do
+  // in the packaged WebView build.
+  format: 'esm',
   jsx: 'automatic',
   target: 'chrome120',
   sourcemap: true,
@@ -48,12 +50,15 @@ esbuild.build({
     .map((relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8'))
     .join('\n');
   fs.writeFileSync(path.join(outdir, 'main.css'), css);
+  const previewBuildDir = path.join(outdir, 'build');
+  fs.mkdirSync(previewBuildDir, { recursive: true });
+  fs.copyFileSync(path.join(root, 'build', 'icon.png'), path.join(previewBuildDir, 'icon.png'));
 
   // 生成预览 HTML：基于 src/renderer/index.html，注入 bundle 引用
   const template = fs.readFileSync(path.join(root, 'src/renderer/index.html'), 'utf8');
   const html = template.replace(
     '</body>',
-    `  <link rel="stylesheet" href="./main.css?v=${Date.now()}" />\n  <script src="./main.js?v=${Date.now()}"></script>\n  </body>`,
+    `  <link rel="stylesheet" href="./main.css?v=${Date.now()}" />\n  <script type="module" src="./main.js?v=${Date.now()}"></script>\n  </body>`,
   );
   fs.writeFileSync(path.join(outdir, 'index.html'), html);
   console.log('PREVIEW_READY ' + outdir);
