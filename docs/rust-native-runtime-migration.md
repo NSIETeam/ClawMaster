@@ -58,10 +58,13 @@ back to the legacy Node sidecar.
   events, per-session cancellation, cancellation-safe partial history, project
   memory, and a bounded eight-step native tool loop. The first executable tool
   set is workspace read/list/search plus confirmation-gated atomic text writes;
-  tool arguments are digest-only in the native audit log.
+  tool arguments are digest-only in the native audit log. Unbound sessions are
+  assigned to a real project root when a message references a path below a
+  `.git`, `Cargo.toml`, `package.json`, or `.agents` marker; explicit workspace
+  choices are never overwritten.
 - Verified locally: 7.22 MiB application bundle and 3.25 MiB compressed macOS
   ARM64 DMG. The bundle contains no Node executable, `.node` addon, or agent
   payload.
 - Remaining before release: native process, browser/RPA, document and MCP tool
-  adapters; project assignment and auto-Skill behavior; enterprise channel
+  adapters; auto-Skill behavior; enterprise channel
   adapters; then installed real-model and destructive-path acceptance.

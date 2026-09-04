@@ -2,7 +2,7 @@ use crate::native_models::{
     stream_complete, system_credential_store, CredentialStore, ModelCompletion, ModelMessage,
     ModelStreamEvent, ModelToolCall, NativeModel, StreamCompletion,
 };
-use crate::{native_agent_tools, native_memory};
+use crate::{native_agent_tools, native_memory, native_projects};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -947,7 +947,7 @@ impl NativeRuntime {
             .map(str::to_owned)
             .unwrap_or_else(|| next_id("user"));
         let assistant_message_id = next_id("assistant");
-        let (model, api_key, model_messages, workspace) = {
+        let (model, api_key, model_messages, workspace, inferred_session) = {
             let mut state = self
                 .state
                 .lock()
@@ -970,6 +970,15 @@ impl NativeRuntime {
                 .ok_or_else(|| "当前模型不可用，请重新选择".to_string())?;
             let api_key = self.credentials.get(&model.credential_id)?;
             let timestamp = now_ms();
+            let inferred_session = if state.sessions[session_index].workspace_path.is_none() {
+                native_projects::infer_from_content(&content).map(|workspace| {
+                    state.sessions[session_index].workspace_path =
+                        Some(workspace.to_string_lossy().into_owned());
+                    state.sessions[session_index].clone()
+                })
+            } else {
+                None
+            };
             state
                 .messages
                 .entry(session_id.clone())
@@ -1001,8 +1010,12 @@ impl NativeRuntime {
                 .collect::<Vec<_>>();
             self.persist(&state)?;
             let workspace = Self::workspace_for_session(&state, Some(&session_id));
-            (model, api_key, history, workspace)
+            (model, api_key, history, workspace, inferred_session)
         };
+
+        if let Some(session) = inferred_session {
+            emit(app, frame("session_upsert", json!({"session":session})))?;
+        }
 
         emit(
             app,
@@ -1241,10 +1254,21 @@ fn text_content(content: &Value) -> String {
                 .pointer("/value/content")
                 .and_then(Value::as_str)
                 .map(str::to_owned),
-            Some("code_reference") => part
-                .pointer("/value/code")
+            Some("code_reference") => part.get("value").and_then(|value| {
+                Some(format!(
+                    "[Code from {}]\n{}",
+                    value.get("filePath")?.as_str()?,
+                    value.get("code")?.as_str()?
+                ))
+            }),
+            Some("file_reference") => part
+                .pointer("/value/filePath")
                 .and_then(Value::as_str)
-                .map(str::to_owned),
+                .map(|path| format!("[Attached file: {path}]")),
+            Some("folder_reference") => part
+                .pointer("/value/folderPath")
+                .and_then(Value::as_str)
+                .map(|path| format!("[Attached folder: {path}]")),
             _ => None,
         })
         .collect::<Vec<_>>()
