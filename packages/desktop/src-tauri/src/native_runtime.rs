@@ -4,7 +4,7 @@ use crate::native_models::{
 };
 use crate::{
     native_agent_tools, native_context, native_diagnostics, native_knowledge, native_mcp,
-    native_memory, native_projects, native_schedule, native_skills, native_todos,
+    native_memory, native_projects, native_schedule, native_skills, native_todos, native_worklog,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -843,6 +843,24 @@ impl NativeRuntime {
             "run_doctor" => vec![frame("doctor_report", native_diagnostics::doctor_report())],
             "get_stats" => vec![frame("stats_snapshot", self.stats_snapshot(&state))],
             "get_todos" => vec![frame("todos_list", json!({"todos":state.todos}))],
+            "work_log_today" => vec![frame(
+                "work_log_today_result",
+                json!({"requestId":payload.get("requestId"),"summary":native_worklog::today(&self.audit_path)}),
+            )],
+            "work_log_recent" => vec![frame(
+                "work_log_recent_result",
+                json!({
+                    "requestId":payload.get("requestId"),
+                    "days":native_worklog::recent(&self.audit_path, payload.get("days").and_then(Value::as_u64).unwrap_or(31))
+                }),
+            )],
+            "work_log_report" => match native_worklog::report(&self.audit_path) {
+                Ok(report) => vec![frame(
+                    "work_log_report_result",
+                    json!({"requestId":payload.get("requestId"),"report":report}),
+                )],
+                Err(message) => vec![error_frame(None, "work_log_failed", &message)],
+            },
             "get_workflows" => vec![frame("workflows_list", json!({"workflows":[]}))],
             "export_conversation" => {
                 let session_id = payload
