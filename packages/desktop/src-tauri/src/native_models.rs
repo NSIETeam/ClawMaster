@@ -1,6 +1,7 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::sync::watch;
 use url::Url;
@@ -32,6 +33,21 @@ pub struct ModelCompletion {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub finish_reason: Option<String>,
+    pub tool_calls: Vec<ModelToolCall>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ModelToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: Value,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ModelToolDefinition {
+    pub name: String,
+    pub description: String,
+    pub parameters: Value,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -52,6 +68,50 @@ struct StreamState {
     input_tokens: u64,
     output_tokens: u64,
     finish_reason: Option<String>,
+    tool_calls: BTreeMap<String, PartialToolCall>,
+}
+
+#[derive(Default)]
+struct PartialToolCall {
+    id: String,
+    name: String,
+    arguments: String,
+}
+
+impl StreamState {
+    fn completion(self, fallback_reason: Option<&str>) -> Result<ModelCompletion, String> {
+        let tool_calls = self
+            .tool_calls
+            .into_iter()
+            .map(|(key, call)| {
+                let arguments = if call.arguments.trim().is_empty() {
+                    json!({})
+                } else {
+                    serde_json::from_str(&call.arguments).map_err(|error| {
+                        format!("工具 {} 的参数不是有效 JSON: {error}", call.name)
+                    })?
+                };
+                Ok(ModelToolCall {
+                    id: if call.id.is_empty() {
+                        format!("call-native-{key}-{}", call.name)
+                    } else {
+                        call.id
+                    },
+                    name: call.name,
+                    arguments,
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        Ok(ModelCompletion {
+            text: self.text,
+            input_tokens: self.input_tokens,
+            output_tokens: self.output_tokens,
+            finish_reason: self
+                .finish_reason
+                .or_else(|| fallback_reason.map(str::to_owned)),
+            tool_calls,
+        })
+    }
 }
 
 fn push_text(events: &mut Vec<ModelStreamEvent>, state: &mut StreamState, value: Option<&str>) {
@@ -195,6 +255,30 @@ fn parse_stream_data(
                 .pointer("/usage/completion_tokens")
                 .and_then(Value::as_u64)
                 .unwrap_or(state.output_tokens);
+            if let Some(calls) = value
+                .pointer("/choices/0/delta/tool_calls")
+                .and_then(Value::as_array)
+            {
+                for call in calls {
+                    let key = call
+                        .get("index")
+                        .and_then(Value::as_u64)
+                        .map(|index| format!("{index:08}"))
+                        .unwrap_or_else(|| "00000000".into());
+                    let partial = state.tool_calls.entry(key).or_default();
+                    if let Some(id) = call.get("id").and_then(Value::as_str) {
+                        partial.id.push_str(id);
+                    }
+                    if let Some(name) = call.pointer("/function/name").and_then(Value::as_str) {
+                        partial.name.push_str(name);
+                    }
+                    if let Some(arguments) =
+                        call.pointer("/function/arguments").and_then(Value::as_str)
+                    {
+                        partial.arguments.push_str(arguments);
+                    }
+                }
+            }
         }
         "openai-responses" => match value.get("type").and_then(Value::as_str) {
             Some("response.output_text.delta") => push_text(
@@ -216,9 +300,85 @@ fn parse_stream_data(
                     .unwrap_or(state.output_tokens);
                 state.finish_reason = Some("stop".into());
             }
+            Some("response.output_item.added")
+                if value.pointer("/item/type").and_then(Value::as_str) == Some("function_call") =>
+            {
+                let key = value
+                    .pointer("/item/id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("0")
+                    .to_string();
+                let partial = state.tool_calls.entry(key).or_default();
+                partial.id = value
+                    .pointer("/item/call_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                partial.name = value
+                    .pointer("/item/name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                partial.arguments = value
+                    .pointer("/item/arguments")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+            }
+            Some("response.function_call_arguments.delta") => {
+                let key = value
+                    .get("item_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("0")
+                    .to_string();
+                if let Some(delta) = value.get("delta").and_then(Value::as_str) {
+                    state
+                        .tool_calls
+                        .entry(key)
+                        .or_default()
+                        .arguments
+                        .push_str(delta);
+                }
+            }
+            Some("response.function_call_arguments.done") => {
+                let key = value
+                    .get("item_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("0")
+                    .to_string();
+                if let Some(arguments) = value.get("arguments").and_then(Value::as_str) {
+                    state.tool_calls.entry(key).or_default().arguments = arguments.to_string();
+                }
+            }
             _ => {}
         },
         "anthropic" => match value.get("type").and_then(Value::as_str) {
+            Some("content_block_start")
+                if value.pointer("/content_block/type").and_then(Value::as_str)
+                    == Some("tool_use") =>
+            {
+                let key = value
+                    .get("index")
+                    .and_then(Value::as_u64)
+                    .map(|index| format!("{index:08}"))
+                    .unwrap_or_else(|| "00000000".into());
+                let partial = state.tool_calls.entry(key).or_default();
+                partial.id = value
+                    .pointer("/content_block/id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                partial.name = value
+                    .pointer("/content_block/name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                if let Some(input) = value.pointer("/content_block/input") {
+                    if input.as_object().is_some_and(|object| !object.is_empty()) {
+                        partial.arguments = input.to_string();
+                    }
+                }
+            }
             Some("content_block_delta") => {
                 match value.pointer("/delta/type").and_then(Value::as_str) {
                     Some("text_delta") => push_text(
@@ -230,6 +390,23 @@ fn parse_stream_data(
                         &mut events,
                         value.pointer("/delta/thinking").and_then(Value::as_str),
                     ),
+                    Some("input_json_delta") => {
+                        let key = value
+                            .get("index")
+                            .and_then(Value::as_u64)
+                            .map(|index| format!("{index:08}"))
+                            .unwrap_or_else(|| "00000000".into());
+                        if let Some(delta) =
+                            value.pointer("/delta/partial_json").and_then(Value::as_str)
+                        {
+                            state
+                                .tool_calls
+                                .entry(key)
+                                .or_default()
+                                .arguments
+                                .push_str(delta);
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -259,6 +436,21 @@ fn parse_stream_data(
             {
                 for part in parts {
                     push_text(&mut events, state, part.get("text").and_then(Value::as_str));
+                    if let Some(call) = part.get("functionCall") {
+                        let name = call.get("name").and_then(Value::as_str).unwrap_or("");
+                        let key = format!("{}-{}", state.tool_calls.len(), name);
+                        state.tool_calls.insert(
+                            key,
+                            PartialToolCall {
+                                id: String::new(),
+                                name: name.to_string(),
+                                arguments: call
+                                    .get("args")
+                                    .map(Value::to_string)
+                                    .unwrap_or_else(|| "{}".into()),
+                            },
+                        );
+                    }
                 }
             }
             state.input_tokens = value
@@ -345,26 +537,41 @@ pub async fn stream_complete<F>(
     model: &NativeModel,
     api_key: &str,
     messages: &[ModelMessage],
+    tools: &[ModelToolDefinition],
     mut cancel: watch::Receiver<bool>,
     mut on_event: F,
 ) -> Result<StreamCompletion, String>
 where
     F: FnMut(ModelStreamEvent) -> Result<(), String>,
 {
+    if *cancel.borrow() {
+        return Ok(StreamCompletion::Cancelled(
+            StreamState::default().completion(Some("cancelled"))?,
+        ));
+    }
+    let openai_tools = tools
+        .iter()
+        .map(|tool| {
+            json!({"type":"function","function":{
+                "name":tool.name,"description":tool.description,"parameters":tool.parameters
+            }})
+        })
+        .collect::<Vec<_>>();
     let response = match model.provider.as_str() {
         "openai" => client
             .post(endpoint(&model.base_url, "chat/completions")?)
             .bearer_auth(api_key)
             .json(&json!({
                 "model":model.model_id,"messages":messages.iter().map(|item| json!({"role":item.role,"content":item.text})).collect::<Vec<_>>(),
-                "stream":true,"stream_options":{"include_usage":true}
+                "stream":true,"stream_options":{"include_usage":true},"tools":openai_tools
             }))
             .send(),
         "openai-responses" => client
             .post(endpoint(&model.base_url, "responses")?)
             .bearer_auth(api_key)
             .json(&json!({
-                "model":model.model_id,"input":messages.iter().map(|item| json!({"role":item.role,"content":item.text})).collect::<Vec<_>>(),"stream":true
+                "model":model.model_id,"input":messages.iter().map(|item| json!({"role":item.role,"content":item.text})).collect::<Vec<_>>(),"stream":true,
+                "tools":tools.iter().map(|tool| json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.parameters,"strict":false})).collect::<Vec<_>>()
             }))
             .send(),
         "anthropic" => client
@@ -373,7 +580,8 @@ where
             .header("anthropic-version", "2023-06-01")
             .json(&json!({
                 "model":model.model_id,"max_tokens":model.max_tokens.unwrap_or(4096).min(32_768),
-                "messages":messages.iter().filter(|item| item.role != "system").map(|item| json!({"role":item.role,"content":item.text})).collect::<Vec<_>>(),"stream":true
+                "messages":messages.iter().filter(|item| item.role != "system").map(|item| json!({"role":item.role,"content":item.text})).collect::<Vec<_>>(),"stream":true,
+                "tools":tools.iter().map(|tool| json!({"name":tool.name,"description":tool.description,"input_schema":tool.parameters})).collect::<Vec<_>>()
             }))
             .send(),
         "gemini" => {
@@ -385,7 +593,7 @@ where
                 .header("x-goog-api-key", api_key)
                 .json(&json!({"contents":messages.iter().map(|item| json!({
                     "role":if item.role == "assistant" { "model" } else { "user" },"parts":[{"text":item.text}]
-                })).collect::<Vec<_>>() }))
+                })).collect::<Vec<_>>(),"tools":[{"functionDeclarations":tools.iter().map(|tool| json!({"name":tool.name,"description":tool.description,"parameters":tool.parameters})).collect::<Vec<_>>()}] }))
                 .send()
         }
         _ => return Err(format!("不支持的原生模型协议: {}", model.provider)),
@@ -406,12 +614,7 @@ where
         tokio::select! {
             changed = cancel.changed() => {
                 if changed.is_ok() && *cancel.borrow() {
-                    return Ok(StreamCompletion::Cancelled(ModelCompletion {
-                        text: state.text,
-                        input_tokens: state.input_tokens,
-                        output_tokens: state.output_tokens,
-                        finish_reason: Some("cancelled".into()),
-                    }));
+                    return Ok(StreamCompletion::Cancelled(state.completion(Some("cancelled"))?));
                 }
             }
             chunk = response.chunk() => {
@@ -429,15 +632,10 @@ where
         buffer.extend_from_slice(b"\n\n");
         consume_sse_bytes(&model.provider, &mut buffer, &mut state, &mut on_event)?;
     }
-    if state.text.is_empty() {
+    if state.text.is_empty() && state.tool_calls.is_empty() {
         return Err("模型流式响应缺少文本内容".into());
     }
-    Ok(StreamCompletion::Completed(ModelCompletion {
-        text: state.text,
-        input_tokens: state.input_tokens,
-        output_tokens: state.output_tokens,
-        finish_reason: state.finish_reason,
-    }))
+    Ok(StreamCompletion::Completed(state.completion(None)?))
 }
 
 #[cfg(test)]
@@ -510,5 +708,73 @@ mod tests {
         .unwrap();
         assert_eq!(state.text, "完成");
         assert_eq!(events, vec![ModelStreamEvent::Text("完成".into())]);
+    }
+
+    #[test]
+    fn assembles_fragmented_tool_calls_for_every_provider() {
+        let cases: [(&str, &[&str]); 4] = [
+            (
+                "openai",
+                &[
+                    r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"read_file","arguments":"{\"pa"}}]}}]}"#,
+                    r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"th\":\"a.txt\"}"}}]},"finish_reason":"tool_calls"}]}"#,
+                ],
+            ),
+            (
+                "openai-responses",
+                &[
+                    r#"{"type":"response.output_item.added","item":{"type":"function_call","id":"item_1","call_id":"call_1","name":"read_file"}}"#,
+                    r#"{"type":"response.function_call_arguments.done","item_id":"item_1","arguments":"{\"path\":\"a.txt\"}"}"#,
+                ],
+            ),
+            (
+                "anthropic",
+                &[
+                    r#"{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"call_1","name":"read_file"}}"#,
+                    r#"{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"path\":\"a.txt\"}"}}"#,
+                ],
+            ),
+            (
+                "gemini",
+                &[
+                    r#"{"candidates":[{"content":{"parts":[{"functionCall":{"name":"read_file","args":{"path":"a.txt"}}}]}}]}"#,
+                ],
+            ),
+        ];
+        for (provider, chunks) in cases {
+            let mut state = StreamState::default();
+            for chunk in chunks {
+                parse_stream_data(provider, chunk, &mut state).unwrap();
+            }
+            let completion = state.completion(None).unwrap();
+            assert_eq!(completion.tool_calls.len(), 1, "{provider}");
+            assert_eq!(completion.tool_calls[0].name, "read_file", "{provider}");
+            assert_eq!(
+                completion.tool_calls[0].arguments["path"], "a.txt",
+                "{provider}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn cancellation_before_dispatch_never_contacts_the_provider() {
+        let (sender, receiver) = watch::channel(false);
+        sender.send_replace(true);
+        let model = NativeModel {
+            id: "test".into(),
+            display_name: "Test".into(),
+            provider: "openai".into(),
+            base_url: "https://unreachable.invalid".into(),
+            model_id: "test".into(),
+            max_tokens: None,
+            enabled: true,
+            credential_id: "none".into(),
+        };
+        let result = stream_complete(&Client::new(), &model, "unused", &[], &[], receiver, |_| {
+            Ok(())
+        })
+        .await
+        .unwrap();
+        assert!(matches!(result, StreamCompletion::Cancelled(_)));
     }
 }

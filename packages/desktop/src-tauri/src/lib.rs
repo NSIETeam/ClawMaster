@@ -9,6 +9,7 @@ mod agent_state_pool;
 mod community_skills;
 mod native_models;
 mod native_memory;
+mod native_agent_tools;
 mod native_runtime;
 pub mod native_tools;
 mod platform_webview;

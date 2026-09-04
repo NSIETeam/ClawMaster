@@ -55,10 +55,13 @@ back to the legacy Node sidecar.
 
 - Completed: packaged Node removal, native session persistence, OS credential
   storage, OpenAI-compatible/Responses/Anthropic/Gemini SSE streaming, reasoning
-  events, per-session cancellation, and cancellation-safe partial history.
+  events, per-session cancellation, cancellation-safe partial history, project
+  memory, and a bounded eight-step native tool loop. The first executable tool
+  set is workspace read/list/search plus confirmation-gated atomic text writes;
+  tool arguments are digest-only in the native audit log.
 - Verified locally: 7.22 MiB application bundle and 3.25 MiB compressed macOS
   ARM64 DMG. The bundle contains no Node executable, `.node` addon, or agent
   payload.
-- Remaining before release: native tool scheduling with confirmation/policy/audit,
-  MCP and browser/RPA execution, project/memory/auto-Skill behavior, enterprise
-  channel adapters, then installed real-model and destructive-path acceptance.
+- Remaining before release: native process, browser/RPA, document and MCP tool
+  adapters; project assignment and auto-Skill behavior; enterprise channel
+  adapters; then installed real-model and destructive-path acceptance.

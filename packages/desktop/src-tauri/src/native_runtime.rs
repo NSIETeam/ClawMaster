@@ -1,14 +1,15 @@
 use crate::native_models::{
-    stream_complete, system_credential_store, CredentialStore, ModelMessage, ModelStreamEvent,
-    NativeModel, StreamCompletion,
+    stream_complete, system_credential_store, CredentialStore, ModelCompletion, ModelMessage,
+    ModelStreamEvent, ModelToolCall, NativeModel, StreamCompletion,
 };
-use crate::{native_memory, native_tools};
+use crate::{native_agent_tools, native_memory};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -80,15 +81,26 @@ struct PersistedState {
 
 pub struct NativeRuntime {
     state_path: PathBuf,
+    audit_path: PathBuf,
     state: Mutex<PersistedState>,
     credentials: Arc<dyn CredentialStore>,
     http: Client,
     active_turns: Mutex<HashMap<String, ActiveTurn>>,
+    pending_confirmations: Mutex<HashMap<String, watch::Sender<Option<String>>>>,
 }
 
 struct ActiveTurn {
     turn_id: String,
     cancel: watch::Sender<bool>,
+}
+
+struct ToolLoopContext<'a> {
+    app: &'a AppHandle,
+    session_id: &'a str,
+    message_id: &'a str,
+    model: &'a NativeModel,
+    api_key: &'a str,
+    workspace: &'a Path,
 }
 
 fn now_ms() -> u64 {
@@ -156,6 +168,7 @@ impl NativeRuntime {
         fs::create_dir_all(app_data_dir)
             .map_err(|error| format!("无法创建 Rust 运行时目录: {error}"))?;
         let state_path = app_data_dir.join(STATE_FILE_NAME);
+        let audit_path = app_data_dir.join("native-audit.jsonl");
         let state = match fs::read(&state_path) {
             Ok(bytes) => serde_json::from_slice(&bytes)
                 .map_err(|error| format!("Rust 运行时状态损坏: {error}"))?,
@@ -167,6 +180,7 @@ impl NativeRuntime {
         };
         Ok(Self {
             state_path,
+            audit_path,
             state: Mutex::new(state),
             credentials,
             http: Client::builder()
@@ -175,6 +189,7 @@ impl NativeRuntime {
                 .build()
                 .map_err(|error| format!("无法初始化 Rust 模型客户端: {error}"))?,
             active_turns: Mutex::new(HashMap::new()),
+            pending_confirmations: Mutex::new(HashMap::new()),
         })
     }
 
@@ -186,6 +201,28 @@ impl NativeRuntime {
             .map_err(|error| format!("无法写入 Rust 运行时状态: {error}"))?;
         fs::rename(&temporary, &self.state_path)
             .map_err(|error| format!("无法提交 Rust 运行时状态: {error}"))
+    }
+
+    fn audit_tool(
+        &self,
+        session_id: &str,
+        call: &ModelToolCall,
+        state: &str,
+        detail: Option<&str>,
+    ) -> Result<(), String> {
+        let mut digest = Sha256::new();
+        digest.update(call.arguments.to_string());
+        let record = json!({
+            "timestamp":now_ms(),"sessionId":session_id,"callId":call.id,
+            "tool":call.name,"state":state,"argumentDigest":format!("{:x}", digest.finalize()),
+            "detail":detail.map(|value| value.chars().take(240).collect::<String>())
+        });
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.audit_path)
+            .map_err(|error| format!("无法打开 Rust 审计日志: {error}"))?;
+        writeln!(file, "{record}").map_err(|error| format!("无法写入 Rust 审计日志: {error}"))
     }
 
     pub fn handle(&self, request: &Value) -> Result<Vec<Value>, String> {
@@ -565,7 +602,7 @@ impl NativeRuntime {
                     .unwrap_or("");
                 vec![frame(
                     "tools_list",
-                    json!({"sessionId":session_id,"tools":native_tools::tool_summaries()}),
+                    json!({"sessionId":session_id,"tools":native_agent_tools::summaries()}),
                 )]
             }
             "get_pending_auto_skills" | "scan_pending_auto_skills" => {
@@ -636,6 +673,19 @@ impl NativeRuntime {
                 }
                 vec![frame("queue_drained", json!({"sessionId":session_id}))]
             }
+            "tool_confirmation_response" => {
+                let call_id = payload.get("callId").and_then(Value::as_str).unwrap_or("");
+                let outcome = payload.get("outcome").and_then(Value::as_str).unwrap_or("");
+                if let Some(sender) = self
+                    .pending_confirmations
+                    .lock()
+                    .map_err(|_| "Rust 工具确认状态锁已损坏".to_string())?
+                    .get(call_id)
+                {
+                    sender.send_replace(Some(outcome.to_string()));
+                }
+                Vec::new()
+            }
             _ => vec![error_frame(
                 payload.get("sessionId").and_then(Value::as_str),
                 "native_migration_incomplete",
@@ -646,6 +696,230 @@ impl NativeRuntime {
             self.persist(&state)?;
         }
         Ok(responses)
+    }
+
+    async fn await_tool_confirmation(
+        &self,
+        app: &AppHandle,
+        session_id: &str,
+        message_id: &str,
+        call: &ModelToolCall,
+        mut cancel: watch::Receiver<bool>,
+    ) -> Result<bool, String> {
+        let (sender, mut decision) = watch::channel(None::<String>);
+        self.pending_confirmations
+            .lock()
+            .map_err(|_| "Rust 工具确认状态锁已损坏".to_string())?
+            .insert(call.id.clone(), sender);
+        let card = json!({
+            "id":call.id,"toolName":call.name,"parameters":call.arguments,
+            "status":"awaiting_approval","startTime":now_ms(),
+            "confirmationDetails":{
+                "type":"edit","title":"确认 Rust 原生工具操作","message":format!("允许 {} 修改当前项目？", call.name),
+                "requiresConfirmation":true,"riskLevel":"high","reversible":false,
+                "filePath":call.arguments.get("path")
+            }
+        });
+        emit(
+            app,
+            frame(
+                "tool_calls_update",
+                json!({"sessionId":session_id,"messageId":message_id,"toolCalls":[card.clone()]}),
+            ),
+        )?;
+        emit(
+            app,
+            frame(
+                "tool_confirmation_request",
+                json!({"sessionId":session_id,"callId":call.id,"toolCall":card}),
+            ),
+        )?;
+        loop {
+            tokio::select! {
+                changed = cancel.changed() => {
+                    if changed.is_ok() && *cancel.borrow() {
+                        self.pending_confirmations.lock().ok().and_then(|mut values| values.remove(&call.id));
+                        return Ok(false);
+                    }
+                }
+                changed = decision.changed() => {
+                    if changed.is_err() {
+                        return Ok(false);
+                    }
+                    if let Some(outcome) = decision.borrow().clone() {
+                        self.pending_confirmations.lock().ok().and_then(|mut values| values.remove(&call.id));
+                        return Ok(matches!(outcome.as_str(), "approved" | "always_approve"));
+                    }
+                }
+            }
+        }
+    }
+
+    async fn run_model_tool_loop(
+        &self,
+        context: ToolLoopContext<'_>,
+        mut messages: Vec<ModelMessage>,
+        cancel: watch::Receiver<bool>,
+    ) -> Result<StreamCompletion, String> {
+        let tools = native_agent_tools::definitions();
+        let mut full_text = String::new();
+        let mut total_input = 0;
+        let mut total_output = 0;
+        for step in 0..8 {
+            let streamed = stream_complete(
+                &self.http,
+                context.model,
+                context.api_key,
+                &messages,
+                &tools,
+                cancel.clone(),
+                |event| match event {
+                    ModelStreamEvent::Text(delta) => emit(
+                        context.app,
+                        frame(
+                            "chat_chunk",
+                            json!({"sessionId":context.session_id,"messageId":context.message_id,"delta":delta}),
+                        ),
+                    ),
+                    ModelStreamEvent::Reasoning(delta) => emit(
+                        context.app,
+                        frame(
+                            "chat_reasoning",
+                            json!({"sessionId":context.session_id,"messageId":context.message_id,"delta":delta}),
+                        ),
+                    ),
+                },
+            )
+            .await?;
+            let mut completion = match streamed {
+                StreamCompletion::Cancelled(mut completion) => {
+                    completion.text = full_text + &completion.text;
+                    return Ok(StreamCompletion::Cancelled(completion));
+                }
+                StreamCompletion::Completed(completion) => completion,
+            };
+            full_text.push_str(&completion.text);
+            total_input += completion.input_tokens;
+            total_output += completion.output_tokens;
+            if completion.tool_calls.is_empty() {
+                completion.text = full_text;
+                completion.input_tokens = total_input;
+                completion.output_tokens = total_output;
+                return Ok(StreamCompletion::Completed(completion));
+            }
+            if step == 7 {
+                return Err("原生工具循环超过 8 轮，已停止以防止失控".into());
+            }
+
+            let calls = completion.tool_calls.clone();
+            let mut cards = calls
+                .iter()
+                .map(|call| {
+                    json!({
+                        "id":call.id,"toolName":call.name,"parameters":call.arguments,
+                        "status":"executing","startTime":now_ms()
+                    })
+                })
+                .collect::<Vec<_>>();
+            emit(
+                context.app,
+                frame(
+                    "tool_calls_update",
+                    json!({"sessionId":context.session_id,"messageId":context.message_id,"toolCalls":cards}),
+                ),
+            )?;
+            let call_summary = calls
+                .iter()
+                .map(|call| format!("{} {}", call.name, call.arguments))
+                .collect::<Vec<_>>()
+                .join("\n");
+            messages.push(ModelMessage {
+                role: "assistant".into(),
+                text: format!(
+                    "{}\n[Requested Rust tools]\n{call_summary}",
+                    completion.text
+                ),
+            });
+            let mut results = Vec::new();
+            for (index, call) in calls.iter().enumerate() {
+                self.audit_tool(context.session_id, call, "requested", None)?;
+                if *cancel.borrow() {
+                    return Ok(StreamCompletion::Cancelled(ModelCompletion {
+                        text: full_text,
+                        input_tokens: total_input,
+                        output_tokens: total_output,
+                        finish_reason: Some("cancelled".into()),
+                        tool_calls: Vec::new(),
+                    }));
+                }
+                let risk = native_agent_tools::risk(&call.name);
+                let approved = if risk == Some(native_agent_tools::ToolRisk::Write) {
+                    self.await_tool_confirmation(
+                        context.app,
+                        context.session_id,
+                        context.message_id,
+                        call,
+                        cancel.clone(),
+                    )
+                    .await?
+                } else {
+                    risk.is_some()
+                };
+                if *cancel.borrow() {
+                    return Ok(StreamCompletion::Cancelled(ModelCompletion {
+                        text: full_text,
+                        input_tokens: total_input,
+                        output_tokens: total_output,
+                        finish_reason: Some("cancelled".into()),
+                        tool_calls: Vec::new(),
+                    }));
+                }
+                let started = now_ms();
+                let result = if approved {
+                    native_agent_tools::execute(call, context.workspace)
+                } else {
+                    Err("用户拒绝或取消了工具操作".into())
+                };
+                self.audit_tool(
+                    context.session_id,
+                    call,
+                    if result.is_ok() {
+                        "completed"
+                    } else if approved {
+                        "failed"
+                    } else {
+                        "rejected"
+                    },
+                    result.as_ref().err().map(String::as_str),
+                )?;
+                cards[index] = match &result {
+                    Ok(value) => json!({
+                        "id":call.id,"toolName":call.name,"parameters":call.arguments,"status":"success",
+                        "startTime":started,"endTime":now_ms(),"result":{"success":true,"data":value,"executionTime":now_ms().saturating_sub(started),"toolName":call.name}
+                    }),
+                    Err(message) => json!({
+                        "id":call.id,"toolName":call.name,"parameters":call.arguments,"status":if approved {"error"} else {"cancelled"},
+                        "startTime":started,"endTime":now_ms(),"result":{"success":false,"error":message,"executionTime":now_ms().saturating_sub(started),"toolName":call.name}
+                    }),
+                };
+                results.push(json!({
+                    "callId":call.id,"tool":call.name,
+                    "result":result.unwrap_or_else(|message| json!({"error":message}))
+                }));
+                emit(
+                    context.app,
+                    frame(
+                        "tool_calls_update",
+                        json!({"sessionId":context.session_id,"messageId":context.message_id,"toolCalls":cards}),
+                    ),
+                )?;
+            }
+            messages.push(ModelMessage {
+                role: "user".into(),
+                text: format!("[Rust tool results]\n{}", Value::Array(results)),
+            });
+        }
+        unreachable!()
     }
 
     pub async fn run_turn(&self, app: &AppHandle, request: &Value) -> Result<(), String> {
@@ -673,7 +947,7 @@ impl NativeRuntime {
             .map(str::to_owned)
             .unwrap_or_else(|| next_id("user"));
         let assistant_message_id = next_id("assistant");
-        let (model, api_key, model_messages) = {
+        let (model, api_key, model_messages, workspace) = {
             let mut state = self
                 .state
                 .lock()
@@ -726,7 +1000,8 @@ impl NativeRuntime {
                 .filter(|message| !message.text.is_empty())
                 .collect::<Vec<_>>();
             self.persist(&state)?;
-            (model, api_key, history)
+            let workspace = Self::workspace_for_session(&state, Some(&session_id));
+            (model, api_key, history, workspace)
         };
 
         emit(
@@ -779,30 +1054,20 @@ impl NativeRuntime {
         if let Some(previous) = previous {
             let _ = previous.cancel.send(true);
         }
-        let streamed = stream_complete(
-            &self.http,
-            &model,
-            &api_key,
-            &model_messages,
-            cancel_receiver,
-            |event| match event {
-                ModelStreamEvent::Text(delta) => emit(
+        let streamed = self
+            .run_model_tool_loop(
+                ToolLoopContext {
                     app,
-                    frame(
-                        "chat_chunk",
-                        json!({"sessionId":session_id,"messageId":assistant_message_id,"delta":delta}),
-                    ),
-                ),
-                ModelStreamEvent::Reasoning(delta) => emit(
-                    app,
-                    frame(
-                        "chat_reasoning",
-                        json!({"sessionId":session_id,"messageId":assistant_message_id,"delta":delta}),
-                    ),
-                ),
-            },
-        )
-        .await;
+                    session_id: &session_id,
+                    message_id: &assistant_message_id,
+                    model: &model,
+                    api_key: &api_key,
+                    workspace: &workspace,
+                },
+                model_messages,
+                cancel_receiver,
+            )
+            .await;
         if let Ok(mut active_turns) = self.active_turns.lock() {
             if active_turns
                 .get(&session_id)
@@ -1150,5 +1415,41 @@ mod tests {
             .unwrap();
         assert_eq!(tools[0]["type"], "tools_list");
         assert!(!tools[0]["payload"]["tools"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn confirmation_response_resolves_the_matching_rust_tool_call() {
+        let (_root, runtime) = runtime();
+        let (sender, mut receiver) = watch::channel(None::<String>);
+        runtime
+            .pending_confirmations
+            .lock()
+            .unwrap()
+            .insert("call-1".into(), sender);
+        let response = runtime
+            .handle(&json!({"type":"tool_confirmation_response","payload":{
+                "sessionId":"session-1","callId":"call-1","outcome":"approved"
+            }}))
+            .unwrap();
+        assert!(response.is_empty());
+        assert!(receiver.has_changed().unwrap());
+        assert_eq!(receiver.borrow_and_update().as_deref(), Some("approved"));
+    }
+
+    #[test]
+    fn tool_audit_records_digests_without_raw_arguments() {
+        let (_root, runtime) = runtime();
+        let call = ModelToolCall {
+            id: "call-1".into(),
+            name: "write_file".into(),
+            arguments: json!({"path":"a.txt","content":"must-not-leak"}),
+        };
+        runtime
+            .audit_tool("session-1", &call, "requested", None)
+            .unwrap();
+        let audit = fs::read_to_string(&runtime.audit_path).unwrap();
+        assert!(audit.contains("argumentDigest"));
+        assert!(audit.contains("write_file"));
+        assert!(!audit.contains("must-not-leak"));
     }
 }
