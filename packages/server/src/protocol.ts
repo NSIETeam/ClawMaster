@@ -1216,6 +1216,8 @@ export interface DoctorCheckInfo {
   version?: string;
   installHint?: string;
   provider?: string;
+  capabilityId?: string;
+  note?: string;
   required?: boolean;
 }
 

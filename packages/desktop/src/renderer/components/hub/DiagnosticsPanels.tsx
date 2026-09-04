@@ -12,11 +12,28 @@
 import React from 'react';
 import type { DesktopRuntimeDiagnostic } from '../../../preload/index.js';
 import type { SessionSummary } from 'clawmaster-server';
+import type { DoctorCheckInfo } from 'clawmaster-server';
 import type { UseSettingsData } from '../../state/useSettingsData.js';
 import { IconCheck, IconClose } from '../icons.js';
 import { Panel, Card, Badge, Empty } from './HubUI.js';
 
 // ── 依赖体检 ──────────────────────────────────────────────────────────────
+
+export function capabilityOrDependencyRows(checks: DoctorCheckInfo[]): DoctorCheckInfo[] {
+  const rows = new Map<string, DoctorCheckInfo>();
+  for (const check of checks) {
+    const key = check.present && check.capabilityId
+      ? `capability:${check.capabilityId}`
+      : `dependency:${check.name}`;
+    if (rows.has(key)) continue;
+    rows.set(key, check.present && check.capabilityId ? {
+      ...check,
+      name: check.capabilityId,
+      category: check.note ?? check.category,
+    } : check);
+  }
+  return [...rows.values()].sort((a, b) => Number(a.present) - Number(b.present));
+}
 
 export function DoctorPanel({ data }: { data: UseSettingsData }): React.JSX.Element {
   const { state, actions } = data;
@@ -33,13 +50,12 @@ export function DoctorPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
     return () => { cancelled = true; };
   }, []);
   // 缺失的排前面：体检的读者关心的是「缺什么」，就绪项只是背景。
-  const checks = report
-    ? [...report.checks].sort((a, b) => Number(a.present) - Number(b.present))
-    : [];
+  const checks = report ? capabilityOrDependencyRows(report.checks) : [];
+  const readyCount = checks.filter((check) => check.present).length;
 
   return (
     <Panel
-      title="依赖体检"
+      title="能力体检"
       desc="检查 Rust 内建能力、随包运行时，以及文档 / 媒体 / 浏览器可选增强。"
       actions={
         <>
@@ -90,8 +106,8 @@ export function DoctorPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
         <>
           <div className="claw-hub__statgrid">
             <div className="claw-hub__stat">
-              <div className="claw-hub__stat-value">{report.presentCount}</div>
-              <div className="claw-hub__stat-label">就绪</div>
+              <div className="claw-hub__stat-value">{readyCount}</div>
+              <div className="claw-hub__stat-label">能力就绪</div>
             </div>
             <div className="claw-hub__stat">
               <div

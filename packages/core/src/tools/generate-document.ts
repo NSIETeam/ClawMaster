@@ -23,6 +23,7 @@ import {
   type DocumentRuntimeResolution,
   type ResolveDocumentRuntimeOptions,
 } from '../services/bundledRuntime.js';
+import { nativeHelperPath, runNativeHelper } from '../services/nativeCapabilities.js';
 
 type ExecFileCallback = (
   error: NodeJS.ErrnoException | null,
@@ -870,9 +871,9 @@ PPTX VISUAL GRAMMAR: Start each slide with <!-- layout: cover|statement|split|ti
 
 PPTX QUALITY BOUNDARY: This deterministic renderer is a speed fallback. For a high-aesthetic or flashy deck, load ppt-creator and build a topic-specific custom HTML/CSS/SVG canvas instead of presenting this fallback as premium work.
 
-ENGINES: PPTX -> deterministic 1920x1080 local HTML -> local browser PNG screenshots -> bundled PptxGenJS packaging. Slide PDF/HTML -> Marp. Other PDF -> Typst or Pandoc. docx/html -> Pandoc.
+ENGINES: DOCX -> Rust-native OpenXML writer. PPTX -> deterministic 1920x1080 local HTML -> local browser PNG screenshots -> bundled PptxGenJS packaging. Slide PDF/HTML -> Marp. Other PDF -> Typst or Pandoc. HTML -> Pandoc.
 
-DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Python. Markdown needs none. Slide PDF/HTML need marp-cli; other formats may need typst or pandoc. External engines run a doctor preflight and fail loud with an install command if missing (never faking output). macOS: brew install typst pandoc; npm i -g @marp-team/marp-cli. Windows: winget install typst pandoc; npm i -g @marp-team/marp-cli.`;
+DEPENDENCIES: Packaged DOCX and Markdown need no external runtime. PPTX needs a local Chrome/Edge/Chromium browser and never runs Python. Slide PDF/HTML need marp-cli; other PDF/HTML formats may need typst or pandoc. External engines run a doctor preflight and fail loud with an install command if missing (never faking output).`;
     super(GenerateDocumentTool.Name, 'GenerateDocument', desc, Icon.Pencil,
       {
         type: Type.OBJECT,
@@ -2020,6 +2021,23 @@ DEPENDENCIES: PPTX needs a local Chrome/Edge/Chromium browser and never runs Pyt
     signal: AbortSignal,
     progress: DocumentProgress,
   ): Promise<void> {
+    if (nativeHelperPath()) {
+      progress.step('preflight', '使用 Rust 原生 DOCX 引擎');
+      progress.step('parse', '解析 Markdown 正文');
+      const requestPath = path.join(tmpDir, 'docx-request.json');
+      fs.writeFileSync(requestPath, JSON.stringify({
+        title,
+        author,
+        department,
+        format,
+        content,
+      }));
+      progress.step('structure', '生成 OpenXML 文档结构');
+      progress.step('body', '写入 Word 正文');
+      await runNativeHelper(['docx-write', outPath, requestPath]);
+      progress.step('export', '导出 DOCX 文件');
+      return;
+    }
     progress.step('preflight', '预检 Python 公文依赖');
     const missing = await this.dependencyPreflight(['python3', 'python-docx', 'jinja2', 'markdown']);
     if (missing) throw new Error('generate_document (' + format + ' -> docx) needs doc-writer runtime: ' + missing);

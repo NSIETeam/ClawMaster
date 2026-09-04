@@ -19,7 +19,15 @@ describe('native capability manifest', () => {
       schemaVersion: 1,
       runtime: 'clawmaster-rust',
       capabilities: [
-        { id: 'pdf.merge', provider: 'rust:lopdf', status: 'ready', description: 'native merge' },
+        {
+          id: 'pdf.merge',
+          provider: 'rust:lopdf',
+          status: 'ready',
+          description: 'native merge',
+          tool: 'convert_document',
+          usage: 'output_format="pdf", merge=true',
+          replaces: ['pdfunite'],
+        },
         { id: 'voice.transcribe', provider: 'optional', status: 'unavailable', description: 'not installed' },
       ],
     }));
@@ -28,6 +36,8 @@ describe('native capability manifest', () => {
     expect(loadNativeCapabilities()).toHaveLength(1);
     const prompt = buildNativeCapabilityPrompt();
     expect(prompt).toContain('pdf.merge [rust:lopdf]');
+    expect(prompt).toContain('调用 convert_document（output_format="pdf", merge=true）');
+    expect(prompt).toContain('替代外部依赖：pdfunite');
     expect(prompt).toContain('不得建议用户重复安装');
     expect(prompt).not.toContain('voice.transcribe');
     fs.rmSync(directory, { recursive: true, force: true });

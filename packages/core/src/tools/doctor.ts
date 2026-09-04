@@ -77,7 +77,9 @@ Read-only and auto-approved. No prerequisites -- uses which/where + --version.`;
       const service = new DoctorService();
       const report = await service.check();
       const text = formatDoctorReport(report);
-      const summary = `doctor OK: ${report.presentCount} ready / ${report.missingCount} missing`;
+      const summary = report.missingCount === 0
+        ? `doctor OK: 基础能力正常；${report.optionalMissingCount} 项按需增强未安装`
+        : `doctor WARN: ${report.missingCount} 项必需能力缺失`;
       return { llmContent: text, returnDisplay: summary };
     } catch (e: unknown) {
       const m = e instanceof Error ? e.message : String(e);

@@ -4,7 +4,21 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { SessionSummary } from 'clawmaster-server';
 import type { UseSettingsData } from '../../state/useSettingsData.js';
-import { ContextPanel } from './DiagnosticsPanels.js';
+import { capabilityOrDependencyRows, ContextPanel } from './DiagnosticsPanels.js';
+
+describe('capabilityOrDependencyRows', () => {
+  it('deduplicates native replacements instead of claiming their CLIs are installed', () => {
+    const rows = capabilityOrDependencyRows([
+      { name: 'python3', category: 'runtime', present: true, provider: 'rust:zip+xml', capabilityId: 'document.docx', note: '原生 DOCX' },
+      { name: 'python-docx', category: 'Word', present: true, provider: 'rust:zip+xml', capabilityId: 'document.docx', note: '原生 DOCX' },
+      { name: 'ffmpeg', category: 'voice', present: false, required: false },
+    ]);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ name: 'ffmpeg', present: false });
+    expect(rows[1]).toMatchObject({ name: 'document.docx', category: '原生 DOCX' });
+    expect(rows.some((row) => row.name === 'python3')).toBe(false);
+  });
+});
 
 describe('ContextPanel', () => {
   it('disables compression when native-local cannot report a context limit', () => {

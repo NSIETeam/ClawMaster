@@ -41,6 +41,8 @@ export interface DoctorCheck {
   note?: string;
   /** 实际提供者。内建能力会标明 Rust/Core provider，而不是伪装成外部 CLI。 */
   provider?: string;
+  /** 内建替代能力 ID；UI 用它去重，不把被替代的 CLI 伪装成已安装。 */
+  capabilityId?: string;
   /** false 表示可选增强，缺失不会锁死对应基础能力。 */
   required?: boolean;
 }
@@ -98,6 +100,8 @@ interface PythonModuleSpec {
   name: string;
   importName: string;
   category: string;
+  nativeCapability?: string;
+  optional?: boolean;
 }
 
 const DEFAULT_TIMEOUT_MS = 5000;
@@ -175,6 +179,8 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'winget install Python.Python.3.12',
       linux: 'sudo apt-get install -y python3',
     },
+    nativeCapability: 'document.docx',
+    optional: true,
   },
   {
     name: 'pandoc',
@@ -241,6 +247,7 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'winget install --id gnuplot.gnuplot',
       linux: 'sudo apt-get install -y gnuplot',
     },
+    nativeCapability: 'chart.svg',
     optional: true,
   },
   {
@@ -252,6 +259,7 @@ const BINARY_SPECS: BinarySpec[] = [
       darwin: 'brew install cliclick',
     },
     nativeCapability: 'desktop.input',
+    optional: true,
   },
   {
     name: 'ffmpeg',
@@ -284,6 +292,7 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'winget install --id ArtifexSoftware.GhostScript',
       linux: 'sudo apt-get install -y ghostscript',
     },
+    nativeCapability: 'pdf.optimize',
     optional: true,
   },
   {
@@ -296,13 +305,14 @@ const BINARY_SPECS: BinarySpec[] = [
       linux: 'sudo apt-get install -y poppler-utils',
     },
     nativeCapability: 'pdf.merge',
+    optional: true,
   },
 ];
 
 const PYTHON_MODULE_SPECS: PythonModuleSpec[] = [
-  { name: 'python-docx', importName: 'docx', category: 'Word 公文生成' },
-  { name: 'jinja2', importName: 'jinja2', category: '公文模板渲染' },
-  { name: 'markdown', importName: 'markdown', category: 'Markdown 正文解析' },
+  { name: 'python-docx', importName: 'docx', category: 'Word 公文生成', nativeCapability: 'document.docx', optional: true },
+  { name: 'jinja2', importName: 'jinja2', category: '公文模板渲染', nativeCapability: 'document.docx', optional: true },
+  { name: 'markdown', importName: 'markdown', category: 'Markdown 正文解析', nativeCapability: 'document.docx', optional: true },
 ];
 
 /** playwright 走 node 模块解析而非 PATH，单列。 */
@@ -361,6 +371,7 @@ export class DoctorService {
         category: spec.category,
         present: true,
         provider: native.provider,
+        capabilityId: native.id,
         required: !spec.optional,
         note: native.description,
       };
@@ -450,16 +461,31 @@ export class DoctorService {
   }
 
   private async probePythonModule(spec: PythonModuleSpec): Promise<DoctorCheck> {
+    const native = spec.nativeCapability
+      ? this.nativeCapabilities().find((capability) => capability.id === spec.nativeCapability)
+      : undefined;
+    if (native) {
+      return {
+        name: spec.name,
+        category: spec.category,
+        present: true,
+        provider: native.provider,
+        capabilityId: native.id,
+        required: !spec.optional,
+        note: native.description,
+      };
+    }
     const python = this.platform === 'win32' ? 'python' : 'python3';
     try {
       await this.runner(`${python} -c "import ${spec.importName}"`, DEFAULT_TIMEOUT_MS);
-      return { name: spec.name, category: spec.category, present: true };
+      return { name: spec.name, category: spec.category, present: true, required: !spec.optional };
     } catch {
       return {
         name: spec.name,
         category: spec.category,
         present: false,
         installHint: `python -m pip install ${spec.name}`,
+        required: !spec.optional,
       };
     }
   }
@@ -522,13 +548,18 @@ export class DoctorService {
 /** 把报告渲染成人类可读文本（供 CLI / 工具复用）。 */
 export function formatDoctorReport(report: DoctorReport): string {
   const lines: string[] = [];
+  const presentByCapability = new Map<string, DoctorCheck>();
+  for (const check of report.checks.filter((item) => item.present)) {
+    presentByCapability.set(check.capabilityId ?? check.name, check);
+  }
+  const present = [...presentByCapability.values()];
   lines.push(
-    `ClawMaster 能力体检（平台：${report.platform}）  就绪 ${report.presentCount} / 必需缺失 ${report.missingCount} / 可选增强未装 ${report.optionalMissingCount}`,
+    `ClawMaster 能力体检（平台：${report.platform}）  能力就绪 ${present.length} / 必需缺失 ${report.missingCount} / 可选增强未装 ${report.optionalMissingCount}`,
   );
   lines.push('');
 
-  const present = report.checks.filter((c) => c.present);
-  const missing = report.checks.filter((c) => !c.present);
+  const requiredMissing = report.checks.filter((c) => !c.present && c.required !== false);
+  const optionalMissing = report.checks.filter((c) => !c.present && c.required === false);
 
   lines.push('就绪：');
   if (present.length === 0) {
@@ -537,17 +568,26 @@ export function formatDoctorReport(report: DoctorReport): string {
     for (const c of present) {
       const ver = c.version ? ` v${c.version}` : c.provider ? '' : '（版本未知）';
       const provider = c.provider ? ` [${c.provider}]` : '';
-      lines.push(`  [OK] ${c.name}${ver}${provider} — ${c.category}`);
+      lines.push(`  [OK] ${c.capabilityId ?? c.name}${ver}${provider} — ${c.note ?? c.category}`);
     }
   }
   lines.push('');
 
-  lines.push('缺失：');
-  if (missing.length === 0) {
-    lines.push('  （无，全部就绪）');
+  if (requiredMissing.length > 0) {
+    lines.push('必须修复：');
+    for (const c of requiredMissing) {
+      lines.push(`  [必需缺失] ${c.name} — 影响：${c.category}`);
+      if (c.installHint) lines.push(`       安装：${c.installHint}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('按需增强（不影响基础对话、文件、DOCX、PDF、图表与桌面操作）：');
+  if (optionalMissing.length === 0) {
+    lines.push('  （无）');
   } else {
-    for (const c of missing) {
-      lines.push(`  [${c.required === false ? '可选' : '缺'}] ${c.name} — ${c.required === false ? '增强' : '影响'}：${c.category}`);
+    for (const c of optionalMissing) {
+      lines.push(`  [可选] ${c.name} — 增强：${c.category}`);
       if (c.installHint) lines.push(`       安装：${c.installHint}`);
     }
   }

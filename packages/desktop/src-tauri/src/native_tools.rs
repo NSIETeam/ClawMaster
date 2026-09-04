@@ -1,8 +1,10 @@
 use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
 use lopdf::{Dictionary, Document, Object, ObjectId};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use zip::write::SimpleFileOptions;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -11,6 +13,9 @@ struct NativeCapability {
     provider: &'static str,
     status: &'static str,
     description: &'static str,
+    tool: &'static str,
+    usage: &'static str,
+    replaces: &'static [&'static str],
 }
 
 pub fn capability_manifest() -> serde_json::Value {
@@ -23,30 +28,54 @@ pub fn capability_manifest() -> serde_json::Value {
                 provider: "rust:enigo",
                 status: "ready",
                 description: "原生键盘、鼠标、拖拽和滚动，无需 cliclick",
+                tool: "desktop_automation",
+                usage: "action=type_text|hotkey|mouse|drag|scroll",
+                replaces: &["cliclick"],
             },
             NativeCapability {
                 id: "pdf.merge",
                 provider: "rust:lopdf",
                 status: "ready",
                 description: "原生无损 PDF 合并，无需 pdfunite",
+                tool: "convert_document",
+                usage: "output_format=\"pdf\", merge=true",
+                replaces: &["pdfunite"],
+            },
+            NativeCapability {
+                id: "pdf.optimize",
+                provider: "rust:lopdf",
+                status: "ready",
+                description: "原生 PDF 对象清理和流压缩；需要图片降采样时再使用 Ghostscript",
+                tool: "convert_document",
+                usage: "output_format=\"pdf\", compress=3",
+                replaces: &["ghostscript（无损优化场景）"],
             },
             NativeCapability {
                 id: "chart.svg",
                 provider: "core:svg",
                 status: "ready",
                 description: "CSV/JSON 柱状图、折线图、散点图、饼图和直方图，无需 gnuplot",
+                tool: "analyze_data",
+                usage: "op=chart",
+                replaces: &["gnuplot（内置图表场景）"],
             },
             NativeCapability {
                 id: "slides.pptx",
                 provider: "core:pptxgenjs",
                 status: "ready",
                 description: "可编辑 PPTX 生成，无需 marp",
+                tool: "generate_document",
+                usage: "output_format=\"pptx\"",
+                replaces: &["marp（PPTX 场景）"],
             },
             NativeCapability {
                 id: "document.docx",
-                provider: "bundled:doc-writer",
+                provider: "rust:zip+xml",
                 status: "ready",
-                description: "DOCX 公文生成，无需 pandoc 或 typst",
+                description: "原生 DOCX 公文生成和 Markdown 基础结构解析，无需 Python、pandoc 或 typst",
+                tool: "generate_document",
+                usage: "output_format=\"docx\"",
+                replaces: &["python3", "python-docx", "jinja2", "markdown"],
             },
         ]
     })
@@ -250,6 +279,112 @@ fn merge_pdfs(output: &Path, inputs: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+fn optimize_pdf(output: &Path, input: &Path) -> Result<(), String> {
+    let mut document =
+        Document::load(input).map_err(|error| format!("load {}: {error}", input.display()))?;
+    document.prune_objects();
+    document.compress();
+    document
+        .save(output)
+        .map_err(|error| format!("save optimized PDF: {error}"))?;
+    Ok(())
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DocxRequest {
+    title: String,
+    author: String,
+    department: String,
+    format: String,
+    content: String,
+}
+
+fn xml_escape(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| {
+            matches!(*character, '\u{9}' | '\u{A}' | '\u{D}') || *character >= '\u{20}'
+        })
+        .collect::<String>()
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
+fn docx_paragraph(text: &str, style: Option<&str>) -> String {
+    let properties = style
+        .map(|name| format!("<w:pPr><w:pStyle w:val=\"{}\"/></w:pPr>", xml_escape(name)))
+        .unwrap_or_default();
+    format!(
+        "<w:p>{properties}<w:r><w:t xml:space=\"preserve\">{}</w:t></w:r></w:p>",
+        xml_escape(text)
+    )
+}
+
+fn markdown_docx_body(content: &str) -> String {
+    content
+        .lines()
+        .map(|line| {
+            let trimmed = line.trim();
+            if let Some(text) = trimmed.strip_prefix("### ") {
+                docx_paragraph(text, Some("Heading3"))
+            } else if let Some(text) = trimmed.strip_prefix("## ") {
+                docx_paragraph(text, Some("Heading2"))
+            } else if let Some(text) = trimmed.strip_prefix("# ") {
+                docx_paragraph(text, Some("Heading1"))
+            } else if let Some(text) = trimmed
+                .strip_prefix("- ")
+                .or_else(|| trimmed.strip_prefix("* "))
+            {
+                docx_paragraph(&format!("• {text}"), Some("ListParagraph"))
+            } else {
+                docx_paragraph(line, None)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+fn write_docx(output: &Path, request_path: &Path) -> Result<(), String> {
+    let request: DocxRequest = serde_json::from_slice(
+        &std::fs::read(request_path).map_err(|error| format!("read DOCX request: {error}"))?,
+    )
+    .map_err(|error| format!("parse DOCX request: {error}"))?;
+    let file = std::fs::File::create(output)
+        .map_err(|error| format!("create {}: {error}", output.display()))?;
+    let mut archive = zip::ZipWriter::new(file);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    let entries = [
+        ("[Content_Types].xml", include_str!("docx/[Content_Types].xml").to_string()),
+        ("_rels/.rels", include_str!("docx/root.rels").to_string()),
+        ("word/_rels/document.xml.rels", include_str!("docx/document.rels").to_string()),
+        ("word/styles.xml", include_str!("docx/styles.xml").to_string()),
+        ("docProps/core.xml", format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><dc:title>{}</dc:title><dc:creator>{}</dc:creator><dc:subject>{}</dc:subject></cp:coreProperties>",
+            xml_escape(&request.title), xml_escape(&request.author), xml_escape(&request.format)
+        )),
+        ("word/document.xml", format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body>{}{}{}<w:sectPr><w:pgSz w:w=\"11906\" w:h=\"16838\"/><w:pgMar w:top=\"1440\" w:right=\"1440\" w:bottom=\"1440\" w:left=\"1440\"/></w:sectPr></w:body></w:document>",
+            docx_paragraph(&request.title, Some("Title")),
+            if request.author.is_empty() && request.department.is_empty() { String::new() } else { docx_paragraph(&format!("{}{}{}", request.department, if request.department.is_empty() || request.author.is_empty() { "" } else { " · " }, request.author), Some("Subtitle")) },
+            markdown_docx_body(&request.content)
+        )),
+    ];
+    for (name, body) in entries {
+        archive
+            .start_file(name, options)
+            .map_err(|error| error.to_string())?;
+        archive
+            .write_all(body.as_bytes())
+            .map_err(|error| error.to_string())?;
+    }
+    archive.finish().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 pub fn dispatch_from_args(args: &[String]) -> Option<Result<(), String>> {
     if args.first().map(String::as_str) != Some("--native-tool") {
         return None;
@@ -266,6 +401,14 @@ pub fn dispatch_from_args(args: &[String]) -> Option<Result<(), String>> {
                 .ok_or_else(|| "pdf merge output is required".to_string());
             output.and_then(|output| merge_pdfs(&output, &args[3..]))
         }
+        Some("pdf-optimize") => match (args.get(2), args.get(3)) {
+            (Some(output), Some(input)) => optimize_pdf(Path::new(output), Path::new(input)),
+            _ => Err("pdf optimize output and input are required".to_string()),
+        },
+        Some("docx-write") => match (args.get(2), args.get(3)) {
+            (Some(output), Some(request)) => write_docx(Path::new(output), Path::new(request)),
+            _ => Err("docx write output and request are required".to_string()),
+        },
         Some(other) => Err(format!("unsupported native tool: {other}")),
         None => Err("native tool name is required".to_string()),
     };
@@ -275,6 +418,7 @@ pub fn dispatch_from_args(args: &[String]) -> Option<Result<(), String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Read;
     use lopdf::{
         content::{Content, Operation},
         dictionary, Stream,
@@ -291,7 +435,9 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(ids.contains(&"desktop.input"));
         assert!(ids.contains(&"pdf.merge"));
+        assert!(ids.contains(&"pdf.optimize"));
         assert!(ids.contains(&"chart.svg"));
+        assert!(ids.contains(&"document.docx"));
     }
 
     fn write_test_pdf(path: &Path, text: &str) {
@@ -358,6 +504,54 @@ mod tests {
         )
         .unwrap();
         assert_eq!(Document::load(&output).unwrap().get_pages().len(), 2);
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn rust_pdf_provider_optimizes_to_a_readable_pdf() {
+        let directory =
+            std::env::temp_dir().join(format!("clawmaster-pdf-optimize-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        let input = directory.join("input.pdf");
+        let output = directory.join("optimized.pdf");
+        write_test_pdf(&input, "optimized");
+        optimize_pdf(&output, &input).unwrap();
+        assert_eq!(Document::load(&output).unwrap().get_pages().len(), 1);
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn rust_docx_provider_writes_openxml_package() {
+        let directory =
+            std::env::temp_dir().join(format!("clawmaster-docx-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        let request = directory.join("request.json");
+        let output = directory.join("report.docx");
+        std::fs::write(
+            &request,
+            serde_json::to_vec(&serde_json::json!({
+                "title": "周报",
+                "author": "林一",
+                "department": "研发部",
+                "format": "report",
+                "content": "# 进展\n\n- <原生&能力>\u{1}",
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        write_docx(&output, &request).unwrap();
+        let mut archive = zip::ZipArchive::new(std::fs::File::open(&output).unwrap()).unwrap();
+        let mut document_xml = String::new();
+        archive
+            .by_name("word/document.xml")
+            .unwrap()
+            .read_to_string(&mut document_xml)
+            .unwrap();
+        assert!(document_xml.contains("&lt;原生&amp;能力&gt;"));
+        assert!(!document_xml.contains('\u{1}'));
+        assert!(archive.by_name("word/styles.xml").is_ok());
         let _ = std::fs::remove_dir_all(&directory);
     }
 }

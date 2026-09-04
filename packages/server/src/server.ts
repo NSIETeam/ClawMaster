@@ -1893,6 +1893,8 @@ export class ClawMasterServer {
           version: c.version,
           installHint: c.installHint,
           provider: c.provider,
+          capabilityId: c.capabilityId,
+          note: c.note,
           required: c.required,
         })),
         presentCount: report.presentCount,

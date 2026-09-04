@@ -214,7 +214,9 @@ describe('DoctorService', () => {
       () => [
         { id: 'desktop.input', provider: 'rust:enigo', status: 'ready', description: 'native input' },
         { id: 'pdf.merge', provider: 'rust:lopdf', status: 'ready', description: 'native PDF merge' },
+        { id: 'pdf.optimize', provider: 'rust:lopdf', status: 'ready', description: 'native PDF optimization' },
         { id: 'chart.svg', provider: 'core:svg', status: 'ready', description: 'built-in SVG charts' },
+        { id: 'document.docx', provider: 'rust:zip+xml', status: 'ready', description: 'native DOCX writer' },
       ],
     ).check();
     expect(report.checks.find((check) => check.name === 'cliclick')).toMatchObject({
@@ -226,9 +228,32 @@ describe('DoctorService', () => {
       provider: 'rust:lopdf',
     });
     expect(report.checks.find((check) => check.name === 'gnuplot')).toMatchObject({
-      present: false,
-      required: false,
+      present: true,
+      provider: 'core:svg',
     });
+    expect(report.checks.find((check) => check.name === 'ghostscript')).toMatchObject({
+      present: true,
+      provider: 'rust:lopdf',
+    });
+    for (const name of ['python3', 'python-docx', 'jinja2', 'markdown']) {
+      expect(report.checks.find((check) => check.name === name)).toMatchObject({
+        present: true,
+        provider: 'rust:zip+xml',
+      });
+    }
+    const text = formatDoctorReport(report);
+    expect(text.match(/\[OK\] document\.docx/g)).toHaveLength(1);
+    expect(text).not.toContain('[OK] python3');
+  });
+
+  it('describes external engines as optional enhancements instead of broken core capabilities', async () => {
+    const report = await new DoctorService(makeRunner({}), NO_MODULES, 'darwin', NO_APP).check();
+    const text = formatDoctorReport(report);
+    expect(report.missingCount).toBe(0);
+    expect(text).toContain('按需增强（不影响基础对话、文件、DOCX、PDF、图表与桌面操作）');
+    expect(text).not.toContain('\n缺失：');
+    expect(text).not.toContain('受影响能力：');
+    expect(report.affectedCapabilities).toEqual([]);
   });
 
   // --- 平台过滤 ---
@@ -257,7 +282,7 @@ describe('DoctorService', () => {
       expect(report.checks.find((c) => c.name === name)!.present).toBe(false);
     }
     expect(report.presentCount).toBe(3);
-    expect(report.affectedCapabilities).toContain('桌面键鼠自动化');
+    expect(report.affectedCapabilities).toEqual([]);
     expect(report.optionalMissingCount).toBeGreaterThan(0);
   });
 });
@@ -277,9 +302,9 @@ describe('formatDoctorReport', () => {
 
   it('renders present, missing, install hints and affected capabilities', () => {
     const text = formatDoctorReport(report);
-    expect(text).toContain('就绪 1 / 必需缺失 1');
+    expect(text).toContain('能力就绪 1 / 必需缺失 1');
     expect(text).toContain('[OK] ffmpeg v7.1');
-    expect(text).toContain('[缺] pandoc');
+    expect(text).toContain('[必需缺失] pandoc');
     expect(text).toContain('brew install pandoc');
     expect(text).toContain('受影响能力：文档转换/生成');
   });

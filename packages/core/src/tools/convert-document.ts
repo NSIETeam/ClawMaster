@@ -72,9 +72,9 @@ export class ConvertDocumentTool extends BaseTool<ConvertDocumentToolParams, Too
 EXAMPLES:
   Single: {input_path:"/path/to/report.docx", output_format:"pdf"}
   Batch: {input_paths:["/a.docx","/b.docx"], output_format:"pdf"}
-  Merge (all PDF, lossless via pdfunite): {input_paths:["/a.pdf","/b.pdf"], output_format:"pdf", merge:true, output_path:"/merged.pdf"}
+  Merge (all PDF, lossless via Rust/lopdf): {input_paths:["/a.pdf","/b.pdf"], output_format:"pdf", merge:true, output_path:"/merged.pdf"}
   Merge (mixed, via pandoc markdown round-trip): {input_paths:["/a.docx","/b.md"], output_format:"pdf", merge:true, output_path:"/merged.pdf"}
-  Compress: {input_path:"/big.pdf", output_format:"pdf", compress:3}
+  Optimize: {input_path:"/big.pdf", output_format:"pdf", compress:3}
   Custom: {input_path:"/doc.md", output_format:"pdf", engine:"pandoc", options:"--toc --number-sections"}
 
 SUPPORTED FORMATS:
@@ -94,7 +94,7 @@ DEPENDENCIES: pandoc + libreoffice. macOS: brew install pandoc libreoffice. Wind
           engine: { type: Type.STRING, enum: ['pandoc','libreoffice','auto'], description: 'Conversion engine. Default: auto (best match)' },
           options: { type: Type.STRING, description: 'Extra CLI flags. pandoc: --toc --number-sections. libreoffice: --infilter=...' },
           merge: { type: Type.BOOLEAN, description: 'If true, merge all input_paths into one output_path. Requires output_path.' },
-          compress: { type: Type.NUMBER, description: 'PDF compression level 1-5 where 1=smallest file, 5=best quality. Uses ghostscript.' },
+          compress: { type: Type.NUMBER, description: 'PDF optimization level 1-5. Packaged desktop uses lossless Rust/lopdf; development fallback uses Ghostscript.' },
         },
         required: ['output_format'],
       },
@@ -282,7 +282,17 @@ DEPENDENCIES: pandoc + libreoffice. macOS: brew install pandoc libreoffice. Wind
   }
 
   private async compressPDF(file: string, level: number): Promise<void> {
-    // Doctor preflight: PDF compression uses ghostscript. Fail loud if missing.
+    if (nativeHelperPath()) {
+      const tmp = file + '.tmp.pdf';
+      await runNativeHelper(['pdf-optimize', tmp, file]);
+      if (!fs.existsSync(tmp) || fs.statSync(tmp).size === 0) {
+        throw new Error('Rust PDF optimizer produced no output');
+      }
+      fs.unlinkSync(file);
+      fs.renameSync(tmp, file);
+      return;
+    }
+    // Source-only fallback supports lossy image resampling through Ghostscript.
     const gsMissing = await preflightBinaries(['ghostscript']);
     if (gsMissing) throw new Error('convert_document compress needs ghostscript: ' + gsMissing);
     const settings = ['/default','/screen','/ebook','/printer','/prepress','/prepress'];

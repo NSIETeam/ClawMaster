@@ -11,6 +11,9 @@ export interface NativeCapability {
   provider: string;
   status: 'ready' | 'unavailable';
   description: string;
+  tool?: string;
+  usage?: string;
+  replaces?: string[];
 }
 
 interface NativeCapabilityManifest {
@@ -30,7 +33,13 @@ export function loadNativeCapabilities(): NativeCapability[] {
         capability &&
         typeof capability.id === 'string' &&
         typeof capability.provider === 'string' &&
-        capability.status === 'ready',
+        capability.status === 'ready' &&
+        (capability.tool === undefined || typeof capability.tool === 'string') &&
+        (capability.usage === undefined || typeof capability.usage === 'string') &&
+        (capability.replaces === undefined || (
+          Array.isArray(capability.replaces)
+          && capability.replaces.every((item) => typeof item === 'string')
+        )),
     );
   } catch {
     return [];
@@ -55,12 +64,17 @@ export function buildNativeCapabilityPrompt(): string {
   if (capabilities.length === 0) return '';
   return [
     '━━━ ClawMaster 本机能力提供者 ━━━',
-    ...capabilities.map(
-      (capability) =>
-        `- ${capability.id} [${capability.provider}]：${capability.description}`,
-    ),
+    ...capabilities.map((capability) => {
+      const route = capability.tool
+        ? `；调用 ${capability.tool}${capability.usage ? `（${capability.usage}）` : ''}`
+        : '';
+      const replaces = capability.replaces?.length
+        ? `；替代外部依赖：${capability.replaces.join('、')}`
+        : '';
+      return `- ${capability.id} [${capability.provider}]：${capability.description}${route}${replaces}`;
+    }),
     '',
-    '能力使用规则：以上能力已经由当前 ClawMaster 运行时提供。不得把对应外部 CLI 当作前置条件，也不得建议用户重复安装；只有请求超出描述范围时，才可把外部组件说明为可选增强。',
+    '能力使用规则：优先按每项标注的工具和参数调用。以上能力已经由当前 ClawMaster 运行时提供，不得把其替代的外部 CLI 当作前置条件，也不得建议用户重复安装；只有请求超出描述范围时，才可把外部组件说明为可选增强。',
   ].join('\n');
 }
 
