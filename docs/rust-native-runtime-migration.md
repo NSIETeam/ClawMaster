@@ -61,10 +61,13 @@ back to the legacy Node sidecar.
   tool arguments are digest-only in the native audit log. Unbound sessions are
   assigned to a real project root when a message references a path below a
   `.git`, `Cargo.toml`, `package.json`, or `.agents` marker; explicit workspace
-  choices are never overwritten.
+  choices are never overwritten. Repeated successful Rust tool paths are staged
+  as privacy-preserving auto-Skill candidates; user confirmation writes an
+  atomic project `.otto/skills/<name>/SKILL.md`, while confirmation and rejection
+  suppression survive restarts.
 - Verified locally: 7.22 MiB application bundle and 3.25 MiB compressed macOS
   ARM64 DMG. The bundle contains no Node executable, `.node` addon, or agent
   payload.
 - Remaining before release: native process, browser/RPA, document and MCP tool
-  adapters; auto-Skill behavior; enterprise channel
-  adapters; then installed real-model and destructive-path acceptance.
+  adapters; enterprise channel adapters; then installed real-model and
+  destructive-path acceptance.

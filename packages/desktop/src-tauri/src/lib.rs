@@ -12,6 +12,7 @@ mod native_memory;
 mod native_agent_tools;
 mod native_projects;
 mod native_runtime;
+mod native_skills;
 pub mod native_tools;
 mod platform_webview;
 mod runtime_contracts;

@@ -2,7 +2,7 @@ use crate::native_models::{
     stream_complete, system_credential_store, CredentialStore, ModelCompletion, ModelMessage,
     ModelStreamEvent, ModelToolCall, NativeModel, StreamCompletion,
 };
-use crate::{native_agent_tools, native_memory, native_projects};
+use crate::{native_agent_tools, native_memory, native_projects, native_skills};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -77,6 +77,7 @@ struct PersistedState {
     current_model: Option<String>,
     authorization_mode: String,
     models: Vec<NativeModel>,
+    handled_auto_skills: Vec<String>,
 }
 
 pub struct NativeRuntime {
@@ -155,6 +156,28 @@ impl NativeRuntime {
                     .map(PathBuf::from)
             })
             .unwrap_or_else(|| PathBuf::from("/"))
+    }
+
+    fn auto_skill_candidates(
+        &self,
+        state: &PersistedState,
+    ) -> Result<Vec<native_skills::AutoSkillCandidate>, String> {
+        let workspaces = state
+            .sessions
+            .iter()
+            .filter_map(|session| {
+                session
+                    .workspace_path
+                    .as_ref()
+                    .map(|workspace| (session.session_id.clone(), PathBuf::from(workspace)))
+            })
+            .collect::<HashMap<_, _>>();
+        let handled = state
+            .handled_auto_skills
+            .iter()
+            .cloned()
+            .collect::<std::collections::HashSet<_>>();
+        native_skills::scan(&self.audit_path, &workspaces, &handled)
     }
 
     pub fn load(app_data_dir: &Path) -> Result<Self, String> {
@@ -605,8 +628,84 @@ impl NativeRuntime {
                     json!({"sessionId":session_id,"tools":native_agent_tools::summaries()}),
                 )]
             }
+            "get_skills" => {
+                let workspace = Self::workspace_for_session(
+                    &state,
+                    payload.get("sessionId").and_then(Value::as_str),
+                );
+                match native_skills::list(&workspace) {
+                    Ok(skills) => vec![frame("skills_list", json!({ "skills": skills }))],
+                    Err(message) => vec![error_frame(None, "get_skills_failed", &message)],
+                }
+            }
             "get_pending_auto_skills" | "scan_pending_auto_skills" => {
-                vec![frame("pending_auto_skills", json!({ "candidates": [] }))]
+                match self.auto_skill_candidates(&state) {
+                    Ok(candidates) => vec![frame(
+                        "pending_auto_skills",
+                        json!({ "candidates": candidates.iter().map(native_skills::AutoSkillCandidate::public_value).collect::<Vec<_>>() }),
+                    )],
+                    Err(message) => vec![error_frame(None, "auto_skill_failed", &message)],
+                }
+            }
+            "confirm_pending_auto_skill" => {
+                let candidate_id = payload
+                    .get("candidateId")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                match self
+                    .auto_skill_candidates(&state)
+                    .and_then(|candidates| {
+                        candidates
+                            .into_iter()
+                            .find(|candidate| candidate.id == candidate_id)
+                            .ok_or_else(|| "自动 Skill 候选不存在或已处理".to_string())
+                    })
+                    .and_then(|candidate| {
+                        let saved_path = native_skills::install(&candidate)?;
+                        state.handled_auto_skills.push(candidate.id.clone());
+                        dirty = true;
+                        let remaining = self.auto_skill_candidates(&state)?;
+                        let skills = native_skills::list(&candidate.workspace)?;
+                        Ok((saved_path, remaining, skills))
+                    }) {
+                    Ok((saved_path, candidates, skills)) => vec![
+                        frame(
+                            "pending_auto_skills",
+                            json!({
+                                "candidates": candidates.iter().map(native_skills::AutoSkillCandidate::public_value).collect::<Vec<_>>(),
+                                "lastAction": { "kind": "confirmed", "candidateId": candidate_id, "savedPath": saved_path }
+                            }),
+                        ),
+                        frame("skills_list", json!({ "skills": skills })),
+                    ],
+                    Err(message) => vec![error_frame(None, "auto_skill_failed", &message)],
+                }
+            }
+            "reject_pending_auto_skill" => {
+                let candidate_id = payload
+                    .get("candidateId")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                match self.auto_skill_candidates(&state).and_then(|candidates| {
+                    if !candidates
+                        .iter()
+                        .any(|candidate| candidate.id == candidate_id)
+                    {
+                        return Err("自动 Skill 候选不存在或已处理".to_string());
+                    }
+                    state.handled_auto_skills.push(candidate_id.to_string());
+                    dirty = true;
+                    self.auto_skill_candidates(&state)
+                }) {
+                    Ok(candidates) => vec![frame(
+                        "pending_auto_skills",
+                        json!({
+                            "candidates": candidates.iter().map(native_skills::AutoSkillCandidate::public_value).collect::<Vec<_>>(),
+                            "lastAction": { "kind": "rejected", "candidateId": candidate_id }
+                        }),
+                    )],
+                    Err(message) => vec![error_frame(None, "auto_skill_failed", &message)],
+                }
             }
             "list_slash_commands" => vec![frame(
                 "slash_commands_list",
@@ -1439,6 +1538,112 @@ mod tests {
             .unwrap();
         assert_eq!(tools[0]["type"], "tools_list");
         assert!(!tools[0]["payload"]["tools"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn confirms_and_persists_a_native_auto_skill() {
+        let (root, runtime) = runtime();
+        let created = runtime
+            .handle(&json!({"type":"create_session","payload":{}}))
+            .unwrap();
+        let session_id = created[0]["payload"]["session"]["sessionId"]
+            .as_str()
+            .unwrap();
+        runtime
+            .handle(&json!({"type":"set_session_workspace","payload":{
+                "sessionId":session_id,"workspacePath":root.path()
+            }}))
+            .unwrap();
+        for index in 0..3 {
+            runtime
+                .audit_tool(
+                    session_id,
+                    &ModelToolCall {
+                        id: format!("call-{index}"),
+                        name: "search_text".into(),
+                        arguments: json!({"query":format!("private-{index}")}),
+                    },
+                    "completed",
+                    None,
+                )
+                .unwrap();
+        }
+        let pending = runtime
+            .handle(&json!({"type":"scan_pending_auto_skills","payload":{}}))
+            .unwrap();
+        let candidate_id = pending[0]["payload"]["candidates"][0]["id"]
+            .as_str()
+            .unwrap();
+        let confirmed = runtime
+            .handle(&json!({"type":"confirm_pending_auto_skill","payload":{
+                "candidateId":candidate_id,"sessionId":session_id
+            }}))
+            .unwrap();
+        assert_eq!(confirmed[0]["payload"]["lastAction"]["kind"], "confirmed");
+        assert_eq!(confirmed[1]["type"], "skills_list");
+        assert!(root
+            .path()
+            .join(".otto/skills/auto-search-text/SKILL.md")
+            .is_file());
+        let persisted = fs::read_to_string(&runtime.state_path).unwrap();
+        assert!(persisted.contains(candidate_id));
+        assert!(!persisted.contains("private-"));
+    }
+
+    #[test]
+    fn rejected_native_auto_skill_stays_suppressed_after_restart() {
+        let (root, runtime) = runtime();
+        let created = runtime
+            .handle(&json!({"type":"create_session","payload":{}}))
+            .unwrap();
+        let session_id = created[0]["payload"]["session"]["sessionId"]
+            .as_str()
+            .unwrap();
+        runtime
+            .handle(&json!({"type":"set_session_workspace","payload":{
+                "sessionId":session_id,"workspacePath":root.path()
+            }}))
+            .unwrap();
+        for index in 0..3 {
+            runtime
+                .audit_tool(
+                    session_id,
+                    &ModelToolCall {
+                        id: format!("call-{index}"),
+                        name: "list_directory".into(),
+                        arguments: json!({"path":"."}),
+                    },
+                    "completed",
+                    None,
+                )
+                .unwrap();
+        }
+        let pending = runtime
+            .handle(&json!({"type":"get_pending_auto_skills","payload":{}}))
+            .unwrap();
+        let candidate_id = pending[0]["payload"]["candidates"][0]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        runtime
+            .handle(&json!({"type":"reject_pending_auto_skill","payload":{
+                "candidateId":candidate_id
+            }}))
+            .unwrap();
+        drop(runtime);
+
+        let restored = NativeRuntime::load_with_credentials(
+            root.path(),
+            Arc::new(MemoryCredentials::default()),
+        )
+        .unwrap();
+        let pending = restored
+            .handle(&json!({"type":"get_pending_auto_skills","payload":{}}))
+            .unwrap();
+        assert!(pending[0]["payload"]["candidates"]
+            .as_array()
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
