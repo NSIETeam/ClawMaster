@@ -175,7 +175,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { id: 'clear', description: '清空当前会话上下文', action: 'local' },
   { id: 'settings', description: '打开设置面板', action: 'local' },
   { id: 'help', description: '查看全部可用命令', action: 'local' },
-  { id: 'doctor', description: '依赖体检（pandoc/ffmpeg 等外部工具）', action: 'local' },
+  { id: 'doctor', description: '原生能力与可选开发依赖体检', action: 'local' },
   // /memory 混合行为：裸调开「记忆」面板（保留旧肌肉记忆）；带 show/add/refresh/list
   // 参数时交给 server 命令层直接执行（对齐 CLI /memory 子命令）。
   {

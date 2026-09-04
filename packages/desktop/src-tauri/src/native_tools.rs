@@ -61,12 +61,12 @@ pub fn capability_manifest() -> serde_json::Value {
             },
             NativeCapability {
                 id: "slides.pptx",
-                provider: "core:pptxgenjs",
+                provider: "rust:zip+xml",
                 status: "ready",
-                description: "可编辑 PPTX 生成，无需 marp",
-                tool: "generate_document",
-                usage: "output_format=\"pptx\"",
-                replaces: &["marp（PPTX 场景）"],
+                description: "原生可编辑 PPTX 生成，无需 Node.js、PptxGenJS、Python 或 Marp",
+                tool: "generate_pptx",
+                usage: "outputPath=\"briefing.pptx\", title=\"标题\", content=\"# 第一页\\n...\\n---\\n# 第二页\"",
+                replaces: &["node", "pptxgenjs", "python-pptx", "marp"],
             },
             NativeCapability {
                 id: "document.docx",
@@ -320,6 +320,15 @@ pub(crate) fn write_docx_content(
     )
 }
 
+pub(crate) fn write_pptx_content(
+    output: &Path,
+    title: &str,
+    author: &str,
+    content: &str,
+) -> Result<(), String> {
+    crate::native_pptx::write_pptx(output, title, author, content)
+}
+
 fn xml_escape(value: &str) -> String {
     value
         .chars()
@@ -433,6 +442,12 @@ pub fn dispatch_from_args(args: &[String]) -> Option<Result<(), String>> {
             (Some(output), Some(request)) => write_docx(Path::new(output), Path::new(request)),
             _ => Err("docx write output and request are required".to_string()),
         },
+        Some("pptx-write") => match (args.get(2), args.get(3), args.get(4), args.get(5)) {
+            (Some(output), Some(title), Some(author), Some(content)) => {
+                write_pptx_content(Path::new(output), title, author, content)
+            }
+            _ => Err("pptx write output, title, author and content are required".to_string()),
+        },
         Some(other) => Err(format!("unsupported native tool: {other}")),
         None => Err("native tool name is required".to_string()),
     };
@@ -461,7 +476,15 @@ mod tests {
         assert!(ids.contains(&"pdf.merge"));
         assert!(ids.contains(&"pdf.optimize"));
         assert!(ids.contains(&"chart.svg"));
+        assert!(ids.contains(&"slides.pptx"));
         assert!(ids.contains(&"document.docx"));
+        let slides = value["capabilities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|capability| capability["id"] == "slides.pptx")
+            .unwrap();
+        assert_eq!(slides["provider"], "rust:zip+xml");
     }
 
     fn write_test_pdf(path: &Path, text: &str) {
@@ -576,6 +599,35 @@ mod tests {
         assert!(document_xml.contains("&lt;原生&amp;能力&gt;"));
         assert!(!document_xml.contains('\u{1}'));
         assert!(archive.by_name("word/styles.xml").is_ok());
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn rust_pptx_provider_writes_editable_openxml_slides() {
+        let directory =
+            std::env::temp_dir().join(format!("clawmaster-pptx-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        let output = directory.join("briefing.pptx");
+        write_pptx_content(
+            &output,
+            "季度进展",
+            "研发部",
+            "# 第一阶段\n\n- Rust 原生能力\n- 可编辑文本\n\n---\n\n# 下一步\n\n完成发布验收",
+        )
+        .unwrap();
+
+        let mut archive = zip::ZipArchive::new(std::fs::File::open(&output).unwrap()).unwrap();
+        let mut first_slide = String::new();
+        archive
+            .by_name("ppt/slides/slide1.xml")
+            .unwrap()
+            .read_to_string(&mut first_slide)
+            .unwrap();
+        assert!(first_slide.contains("第一阶段"));
+        assert!(first_slide.contains("Rust 原生能力"));
+        assert!(archive.by_name("ppt/slides/slide2.xml").is_ok());
+        assert!(archive.by_name("ppt/presentation.xml").is_ok());
         let _ = std::fs::remove_dir_all(&directory);
     }
 }

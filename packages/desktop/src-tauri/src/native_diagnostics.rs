@@ -80,5 +80,10 @@ mod tests {
             check["capabilityId"] == "pdf.merge"
                 && check["note"].as_str().unwrap().contains("pdfunite")
         }));
+        assert!(checks.iter().any(|check| {
+            check["capabilityId"] == "slides.pptx"
+                && check["provider"] == "rust:zip+xml"
+                && check["note"].as_str().unwrap().contains("pptxgenjs")
+        }));
     }
 }

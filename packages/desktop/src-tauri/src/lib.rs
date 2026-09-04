@@ -16,6 +16,7 @@ mod native_mcp;
 mod native_memory;
 mod native_models;
 mod native_process;
+mod native_pptx;
 mod native_projects;
 mod native_runtime;
 mod native_schedule;

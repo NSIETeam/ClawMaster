@@ -64,6 +64,14 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
             },"required":["outputPath","title","content"],"additionalProperties":false}),
         },
         ModelToolDefinition {
+            name: "generate_pptx".into(),
+            description: "Create an editable 16:9 PPTX inside the workspace using Rust OOXML. Separate slides with a line containing ---. No Node.js, PptxGenJS, Python, python-pptx, or Marp is required.".into(),
+            parameters: json!({"type":"object","properties":{
+                "outputPath":{"type":"string"},"title":{"type":"string","maxLength":500},
+                "author":{"type":"string","maxLength":200},"content":{"type":"string","maxLength":1048576}
+            },"required":["outputPath","title","content"],"additionalProperties":false}),
+        },
+        ModelToolDefinition {
             name: "merge_pdfs".into(),
             description: "Merge workspace PDFs using Rust. No pdfunite is required.".into(),
             parameters: json!({"type":"object","properties":{
@@ -136,8 +144,8 @@ pub fn risk(name: &str) -> Option<ToolRisk> {
         | "search_text"
         | "native_capabilities"
         | "check_dependencies" => Some(ToolRisk::ReadOnly),
-        "write_file" | "generate_docx" | "merge_pdfs" | "optimize_pdf" | "desktop_automation"
-        | "run_command" | "open_browser" => Some(ToolRisk::Write),
+        "write_file" | "generate_docx" | "generate_pptx" | "merge_pdfs" | "optimize_pdf"
+        | "desktop_automation" | "run_command" | "open_browser" => Some(ToolRisk::Write),
         _ => None,
     }
 }
@@ -414,6 +422,28 @@ pub fn execute(call: &ModelToolCall, workspace: &Path) -> Result<Value, String> 
             })?;
             Ok(json!({"outputPath":output_value,"created":true,"provider":"rust:zip+xml"}))
         }
+        "generate_pptx" => {
+            let output_value = required_string(&call.arguments, "outputPath")?;
+            let output = writable_path(workspace, output_value)?;
+            require_extension(&output, "pptx")?;
+            let title = required_string(&call.arguments, "title")?;
+            let content = required_string(&call.arguments, "content")?;
+            let author = call
+                .arguments
+                .get("author")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            if title.chars().count() > 500
+                || author.chars().count() > 200
+                || content.len() as u64 > MAX_FILE_BYTES
+            {
+                return Err("PPTX 标题、作者或正文超过大小限制".into());
+            }
+            commit_generated(&output, |temporary| {
+                native_tools::write_pptx_content(temporary, title, author, content)
+            })?;
+            Ok(json!({"outputPath":output_value,"created":true,"provider":"rust:zip+xml"}))
+        }
         "merge_pdfs" => {
             let output_value = required_string(&call.arguments, "outputPath")?;
             let output = writable_path(workspace, output_value)?;
@@ -638,13 +668,14 @@ mod tests {
 
     #[test]
     fn definitions_and_risks_keep_writes_confirmation_gated() {
-        assert_eq!(definitions().len(), 12);
+        assert_eq!(definitions().len(), 13);
         assert_eq!(summaries().as_array().unwrap().len(), definitions().len());
         assert_eq!(risk("read_file"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("write_file"), Some(ToolRisk::Write));
         assert_eq!(risk("native_capabilities"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("check_dependencies"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("generate_docx"), Some(ToolRisk::Write));
+        assert_eq!(risk("generate_pptx"), Some(ToolRisk::Write));
         assert_eq!(risk("desktop_automation"), Some(ToolRisk::Write));
         assert_eq!(risk("run_command"), Some(ToolRisk::Write));
         assert_eq!(risk("open_browser"), Some(ToolRisk::Write));
@@ -679,6 +710,34 @@ mod tests {
             &call(
                 "generate_docx",
                 json!({"outputPath":"../outside.docx","title":"越界","content":"拒绝"}),
+            ),
+            root.path(),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn generates_pptx_with_rust_inside_the_workspace() {
+        let root = tempfile::tempdir().unwrap();
+        let result = execute(
+            &call(
+                "generate_pptx",
+                json!({
+                    "outputPath":"slides/briefing.pptx",
+                    "title":"季度进展",
+                    "author":"ClawMaster",
+                    "content":"# 完成\\n- Rust 原生生成\\n---\\n# 下一步\\n- 发布验收"
+                }),
+            ),
+            root.path(),
+        )
+        .unwrap();
+        assert_eq!(result["provider"], "rust:zip+xml");
+        assert!(root.path().join("slides/briefing.pptx").is_file());
+        assert!(execute(
+            &call(
+                "generate_pptx",
+                json!({"outputPath":"../outside.pptx","title":"越界","content":"拒绝"}),
             ),
             root.path(),
         )
