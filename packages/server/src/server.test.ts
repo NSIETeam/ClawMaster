@@ -361,10 +361,10 @@ describe('ClawMasterServer WS（v1.7 产品工作区）', () => {
     client.close();
   });
 
-  it('自动 Skill 候选可读取并仅在明确确认后写入用户 Skill 目录', async () => {
+  it('自动 Skill 候选可读取并仅在明确确认后写入当前项目 Skill 目录', async () => {
     const userDir = path.join(tmpHome, 'user');
     const pendingPath = path.join(userDir, 'memory', 'worklog', 'pending_skills.json');
-    const savedPath = path.join(userDir, 'skills', 'auto-report', 'SKILL.md');
+    const globalSavedPath = path.join(userDir, 'skills', 'auto-report', 'SKILL.md');
     fs.mkdirSync(path.dirname(pendingPath), { recursive: true });
     fs.writeFileSync(pendingPath, JSON.stringify([{
       id: 'candidate-1',
@@ -376,9 +376,10 @@ describe('ClawMasterServer WS（v1.7 产品工作区）', () => {
       sampleEntries: [],
       skillContent: '---\nname: auto-report\ndescription: 重复报告流程\n---\n',
       reason: '过去三天重复执行',
-      filePath: savedPath,
+      filePath: globalSavedPath,
     }]), 'utf8');
     const workspace = path.join(tmpHome, 'auto-skill-workspace');
+    const savedPath = path.join(workspace, '.otto', 'skills', 'auto-report', 'SKILL.md');
     const projectSkillDir = path.join(workspace, '.otto', 'skills', 'project-only');
     fs.mkdirSync(projectSkillDir, { recursive: true });
     fs.writeFileSync(path.join(projectSkillDir, 'SKILL.md'), [
@@ -412,6 +413,7 @@ describe('ClawMasterServer WS（v1.7 产品工作区）', () => {
     if (confirmed.type !== 'pending_auto_skills') throw new Error('unreachable');
     expect(confirmed.payload.candidates).toHaveLength(0);
     expect(fs.readFileSync(savedPath, 'utf8')).toContain('name: auto-report');
+    expect(fs.existsSync(globalSavedPath)).toBe(false);
     const refreshedSkills = await client.waitFor((frame) => frame.type === 'skills_list'
       && frame.payload.skills.some((skill) => skill.id.includes('project-only')));
     expect(refreshedSkills.type).toBe('skills_list');

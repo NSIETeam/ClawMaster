@@ -210,6 +210,20 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
     expect(await listPendingSkillCandidates()).toEqual([]);
   });
 
+  it('有项目上下文时把确认后的 Skill 安装到项目目录', async () => {
+    const [candidate] = await scanAndStageSkillCandidates(fakeConfig, () => 'user-1');
+    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-auto-skill-project-'));
+    tempDirs.push(projectRoot);
+
+    const savedPath = await confirmPendingSkill(candidate.id, { projectRoot });
+
+    expect(savedPath).toBe(
+      path.join(projectRoot, '.otto', 'skills', candidate.name, 'SKILL.md'),
+    );
+    await expect(fs.readFile(savedPath, 'utf8')).resolves.toContain(`name: ${candidate.name}`);
+    await expect(fs.access(candidate.filePath)).rejects.toThrow();
+  });
+
   it('stores portable pending paths and rehydrates them on another device', async () => {
     const sourceRoot = process.env['CLAWMASTER_USER_DIR']!;
     const [candidate] = await scanAndStageSkillCandidates(fakeConfig, () => 'user-1');

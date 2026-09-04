@@ -3265,7 +3265,13 @@ export class ClawMasterServer {
       }
       case 'confirm_pending_auto_skill': {
         try {
-          const savedPath = await confirmPendingSkill(msg.payload.candidateId);
+          const workspace = this.workspaceForSession(msg.payload.sessionId);
+          const savedPath = await confirmPendingSkill(
+            msg.payload.candidateId,
+            workspace === this.defaultWorkspacePath
+              ? {}
+              : { projectRoot: workspace },
+          );
           const candidates = (await listPendingSkillCandidates()).map(
             publicAutoSkillCandidate,
           );

@@ -105,6 +105,7 @@ export {
 } from './autoSkillGenerator.js';
 export type {
   SkillCandidate,
+  AutoSkillInstallOptions,
   AutoSkillFeishuNotifier,
   AutoSkillScannerOptions,
   PatternDetectionOptions,

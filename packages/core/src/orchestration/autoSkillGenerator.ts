@@ -7,7 +7,7 @@
  * 1. 分析工作日志，发现重复模式（高频操作序列）
  * 2. 用 LLM 将模式提炼为 Skill 指令（SKILL.md 格式）
  * 3. 推送给用户确认（个人决定是否生成）
- * 4. 确认后写入 ~/.otto-user/skills/<auto-skill-name>/SKILL.md
+ * 4. 确认后优先写入当前项目 .otto/skills，缺少项目上下文时回退到用户目录
  * 5. 自动被 Skills 系统加载，成为个人 Agent 工具
  */
 
@@ -34,6 +34,7 @@ import {
   personalKnowledgeStrength,
   type KnowledgeEntry,
 } from '../knowledge/localKnowledgeStore.js';
+import { getProjectSkillsDir } from '../utils/paths.js';
 
 /** 飞书通知接口（用于检测到候选时推送给用户） */
 export interface AutoSkillFeishuNotifier {
@@ -1049,19 +1050,34 @@ async function callLLMForSkillCandidates(
  *
  * 写入后 Skills 系统会在下次加载时自动发现它。
  */
-export async function confirmAndSaveSkill(candidate: SkillCandidate): Promise<string> {
-  const skillsRoot = path.resolve(resolveAutoSkillSkillsDir());
+export interface AutoSkillInstallOptions {
+  /** 已确认候选所属项目；为空时安装为用户全局 Skill。 */
+  projectRoot?: string;
+}
+
+export async function confirmAndSaveSkill(
+  candidate: SkillCandidate,
+  options: AutoSkillInstallOptions = {},
+): Promise<string> {
+  const projectRoot = options.projectRoot?.trim();
+  const skillsRoot = path.resolve(
+    projectRoot ? getProjectSkillsDir(path.resolve(projectRoot)) : resolveAutoSkillSkillsDir(),
+  );
   const installedName = candidate.recommendation === 'enhance'
     && candidate.targetSkillName
     && isSafeSkillDirectoryName(candidate.targetSkillName)
     ? candidate.targetSkillName
     : candidate.name;
-  const safePath = candidate.recommendation === 'enhance'
+  const safePath = projectRoot || candidate.recommendation === 'enhance'
     ? path.resolve(skillsRoot, installedName, 'SKILL.md')
     : path.resolve(candidate.filePath);
   const relative = path.relative(skillsRoot, safePath);
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error('自动 Skill 只能写入用户级 skills 目录');
+    throw new Error(
+      projectRoot
+        ? '自动 Skill 只能写入当前项目 skills 目录'
+        : '自动 Skill 只能写入用户级 skills 目录',
+    );
   }
 
   const skillDir = path.dirname(safePath);
@@ -1156,12 +1172,15 @@ async function removePendingSkill(candidateId: string): Promise<void> {
 /**
  * 用户从待确认区明确点下确认后才调用；成功后移出待确认区。
  */
-export async function confirmPendingSkill(candidateId: string): Promise<string> {
+export async function confirmPendingSkill(
+  candidateId: string,
+  options: AutoSkillInstallOptions = {},
+): Promise<string> {
   const candidate = (await listPendingSkillCandidates()).find(
     (item) => item.id === candidateId,
   );
   if (!candidate) throw new Error('自动 Skill 候选不存在或已处理');
-  const savedPath = await confirmAndSaveSkill(candidate);
+  const savedPath = await confirmAndSaveSkill(candidate, options);
   await removePendingSkill(candidateId);
   return savedPath;
 }
