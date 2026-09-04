@@ -81,6 +81,27 @@ pub fn capability_manifest() -> serde_json::Value {
     })
 }
 
+pub fn tool_summaries() -> serde_json::Value {
+    let mut tools = BTreeMap::new();
+    for capability in capability_manifest()["capabilities"]
+        .as_array()
+        .into_iter()
+        .flatten()
+    {
+        let Some(name) = capability["tool"].as_str() else {
+            continue;
+        };
+        tools.entry(name.to_string()).or_insert_with(|| {
+            serde_json::json!({
+                "name":name,
+                "displayName":capability["id"],
+                "description":capability["description"]
+            })
+        });
+    }
+    serde_json::Value::Array(tools.into_values().collect())
+}
+
 pub fn write_capability_manifest(user_directory: &Path) -> Result<PathBuf, String> {
     let path = user_directory.join("native-capabilities.json");
     let pending = user_directory.join(".native-capabilities.json.tmp");
@@ -438,6 +459,22 @@ mod tests {
         assert!(ids.contains(&"pdf.optimize"));
         assert!(ids.contains(&"chart.svg"));
         assert!(ids.contains(&"document.docx"));
+        let summaries = tool_summaries();
+        assert!(summaries.as_array().is_some_and(|tools| !tools.is_empty()));
+        assert!(summaries[0]["name"].is_string());
+        let names = summaries
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|tool| tool["name"].as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names.len(),
+            names
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+        );
     }
 
     fn write_test_pdf(path: &Path, text: &str) {

@@ -2,6 +2,7 @@ use crate::native_models::{
     stream_complete, system_credential_store, CredentialStore, ModelMessage, ModelStreamEvent,
     NativeModel, StreamCompletion,
 };
+use crate::{native_memory, native_tools};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -126,6 +127,24 @@ fn error_frame(session_id: Option<&str>, code: &str, message: &str) -> Value {
 }
 
 impl NativeRuntime {
+    fn workspace_for_session(state: &PersistedState, session_id: Option<&str>) -> PathBuf {
+        session_id
+            .and_then(|id| {
+                state
+                    .sessions
+                    .iter()
+                    .find(|session| session.session_id == id)
+            })
+            .and_then(|session| session.workspace_path.as_deref())
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME")
+                    .or_else(|| std::env::var_os("USERPROFILE"))
+                    .map(PathBuf::from)
+            })
+            .unwrap_or_else(|| PathBuf::from("/"))
+    }
+
     pub fn load(app_data_dir: &Path) -> Result<Self, String> {
         Self::load_with_credentials(app_data_dir, system_credential_store())
     }
@@ -518,6 +537,37 @@ impl NativeRuntime {
                 "schedules_list",
                 json!({ "schedules": [], "date": payload.get("date") }),
             )],
+            "get_memory" => {
+                let workspace = Self::workspace_for_session(
+                    &state,
+                    payload.get("sessionId").and_then(Value::as_str),
+                );
+                match native_memory::snapshot(&workspace) {
+                    Ok(payload) => vec![frame("memory_snapshot", payload)],
+                    Err(message) => vec![error_frame(None, "get_memory_failed", &message)],
+                }
+            }
+            "add_memory" => {
+                let workspace = Self::workspace_for_session(
+                    &state,
+                    payload.get("sessionId").and_then(Value::as_str),
+                );
+                let fact = payload.get("fact").and_then(Value::as_str).unwrap_or("");
+                match native_memory::add_project_fact(&workspace, fact) {
+                    Ok(payload) => vec![frame("memory_snapshot", payload)],
+                    Err(message) => vec![error_frame(None, "add_memory_failed", &message)],
+                }
+            }
+            "get_tools" => {
+                let session_id = payload
+                    .get("sessionId")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                vec![frame(
+                    "tools_list",
+                    json!({"sessionId":session_id,"tools":native_tools::tool_summaries()}),
+                )]
+            }
             "get_pending_auto_skills" | "scan_pending_auto_skills" => {
                 vec![frame("pending_auto_skills", json!({ "candidates": [] }))]
             }
@@ -1070,5 +1120,35 @@ mod tests {
         assert_eq!(response[0]["type"], "queue_drained");
         assert!(receiver.has_changed().unwrap());
         assert!(*receiver.borrow_and_update());
+    }
+
+    #[test]
+    fn memory_and_tool_frames_use_the_session_workspace() {
+        let (root, runtime) = runtime();
+        let created = runtime
+            .handle(&json!({"type":"create_session","payload":{}}))
+            .unwrap();
+        let session_id = created[0]["payload"]["session"]["sessionId"]
+            .as_str()
+            .unwrap();
+        runtime
+            .handle(&json!({"type":"set_session_workspace","payload":{
+                "sessionId":session_id,"workspacePath":root.path()
+            }}))
+            .unwrap();
+        let memory = runtime
+            .handle(&json!({"type":"add_memory","payload":{
+                "sessionId":session_id,"fact":"保持 Rust 单一路径"
+            }}))
+            .unwrap();
+        assert_eq!(memory[0]["type"], "memory_snapshot");
+        assert!(fs::read_to_string(root.path().join("OTTO.md"))
+            .unwrap()
+            .contains("保持 Rust 单一路径"));
+        let tools = runtime
+            .handle(&json!({"type":"get_tools","payload":{"sessionId":session_id}}))
+            .unwrap();
+        assert_eq!(tools[0]["type"], "tools_list");
+        assert!(!tools[0]["payload"]["tools"].as_array().unwrap().is_empty());
     }
 }
