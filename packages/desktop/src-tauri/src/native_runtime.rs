@@ -5,7 +5,7 @@ use crate::native_models::{
 use crate::{
     native_agent_tools, native_context, native_diagnostics, native_enterprise, native_knowledge,
     native_mcp, native_memory, native_projects, native_schedule, native_skills, native_todos,
-    native_worklog,
+    native_workflows, native_worklog,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -122,6 +122,7 @@ struct PersistedState {
     todos: Vec<native_todos::TodoItem>,
     model_usage: HashMap<String, ModelUsage>,
     enterprise: native_enterprise::EnterpriseState,
+    workflows: Vec<Value>,
 }
 
 pub struct NativeRuntime {
@@ -272,7 +273,7 @@ impl NativeRuntime {
         } else {
             &state_backup
         };
-        let state = match fs::read(state_source) {
+        let mut state = match fs::read(state_source) {
             Ok(bytes) => serde_json::from_slice(&bytes)
                 .map_err(|error| format!("Rust 运行时状态损坏: {error}"))?,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => PersistedState {
@@ -281,6 +282,7 @@ impl NativeRuntime {
             },
             Err(error) => return Err(format!("无法读取 Rust 运行时状态: {error}")),
         };
+        native_workflows::recover_interrupted(&mut state.workflows, now_ms());
         Ok(Self {
             state_path,
             audit_path,
@@ -863,7 +865,10 @@ impl NativeRuntime {
                 )],
                 Err(message) => vec![error_frame(None, "work_log_failed", &message)],
             },
-            "get_workflows" => vec![frame("workflows_list", json!({"workflows":[]}))],
+            "get_workflows" => vec![frame(
+                "workflows_list",
+                json!({"workflows":state.workflows}),
+            )],
             "export_conversation" => {
                 let session_id = payload
                     .get("sessionId")
@@ -1175,6 +1180,7 @@ impl NativeRuntime {
                 tools.extend(native_schedule::summaries());
                 tools.extend(native_todos::summaries());
                 tools.extend(native_skills::summaries());
+                tools.extend(native_workflows::summaries());
                 vec![frame(
                     "tools_list",
                     json!({"sessionId":session_id,"tools":tools}),
@@ -1426,6 +1432,7 @@ impl NativeRuntime {
             definitions.extend(native_schedule::definitions());
             definitions.extend(native_todos::definitions());
             definitions.extend(native_skills::definitions());
+            definitions.extend(native_workflows::definitions());
             definitions.extend(catalog.definitions.clone());
             return Ok(vec![frame(
                 "context_breakdown",
@@ -1447,6 +1454,7 @@ impl NativeRuntime {
         tools.extend(native_schedule::summaries());
         tools.extend(native_todos::summaries());
         tools.extend(native_skills::summaries());
+        tools.extend(native_workflows::summaries());
         tools.extend(catalog.tool_summaries());
         Ok(vec![frame(
             "tools_list",
@@ -1677,6 +1685,108 @@ impl NativeRuntime {
         }
     }
 
+    async fn execute_workflow(
+        &self,
+        context: &ToolLoopContext<'_>,
+        call: &ModelToolCall,
+        cancel: watch::Receiver<bool>,
+    ) -> Result<Value, String> {
+        let (description, tasks) = native_workflows::parse(call)?;
+        let workflow_id = next_id("workflow");
+        let mut workflow = native_workflows::started(&workflow_id, &description, &tasks, now_ms());
+        workflow["sessionId"] = json!(context.session_id);
+        {
+            let mut state = self
+                .state
+                .lock()
+                .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+            state.workflows.insert(0, workflow);
+            state.workflows.truncate(20);
+            self.persist(&state)?;
+            emit(
+                context.app,
+                frame("workflows_list", json!({"workflows":state.workflows})),
+            )?;
+        }
+        let system = native_context::system_prompt(context.workspace, "zh-CN", "concise", &[]);
+        let mut join_set = tokio::task::JoinSet::new();
+        for task in &tasks {
+            let client = self.http.clone();
+            let model = context.model.clone();
+            let api_key = context.api_key.to_string();
+            let agent_id = task.agent_id.clone();
+            let prompt = task.prompt.clone();
+            let system = format!("{system}\n\nYou are a read-only delegated analyst. Do not claim to run tools or modify files. Return concise evidence and recommendations to the parent agent.");
+            let cancel = cancel.clone();
+            join_set.spawn(async move {
+                let messages = vec![
+                    ModelMessage {
+                        role: "system".into(),
+                        text: system,
+                    },
+                    ModelMessage {
+                        role: "user".into(),
+                        text: prompt,
+                    },
+                ];
+                let result =
+                    match stream_complete(&client, &model, &api_key, &messages, &[], cancel, |_| {
+                        Ok(())
+                    })
+                    .await
+                    {
+                        Ok(StreamCompletion::Completed(value)) => Ok((
+                            value.text.chars().take(20_000).collect(),
+                            value.input_tokens,
+                            value.output_tokens,
+                        )),
+                        Ok(StreamCompletion::Cancelled(_)) => Err("子 Agent 已取消".into()),
+                        Err(message) => Err(message),
+                    };
+                (agent_id, result)
+            });
+        }
+        let mut results = Vec::new();
+        while let Some(joined) = join_set.join_next().await {
+            results.push(joined.map_err(|error| format!("子 Agent 任务异常结束: {error}"))?);
+        }
+        let finished = {
+            let mut state = self
+                .state
+                .lock()
+                .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+            let workflow = state
+                .workflows
+                .iter_mut()
+                .find(|value| value["id"] == workflow_id)
+                .ok_or_else(|| "Workflow 状态丢失".to_string())?;
+            native_workflows::finish(workflow, &results, now_ms());
+            let finished = workflow.clone();
+            let usage = state
+                .model_usage
+                .entry(context.model.id.clone())
+                .or_default();
+            usage.requests += results.len() as u64;
+            for (_, result) in &results {
+                if let Ok((_, input, output)) = result {
+                    usage.input_tokens += input;
+                    usage.output_tokens += output;
+                }
+            }
+            self.persist(&state)?;
+            emit(
+                context.app,
+                frame("workflows_list", json!({"workflows":state.workflows})),
+            )?;
+            finished
+        };
+        Ok(
+            json!({"workflowId":workflow_id,"workflow":finished,"results":results.iter().map(|(id,result)| match result {
+            Ok((text,_,_))=>json!({"agentId":id,"ok":true,"text":text}),Err(message)=>json!({"agentId":id,"ok":false,"error":message})
+        }).collect::<Vec<_>>() }),
+        )
+    }
+
     async fn run_model_tool_loop(
         &self,
         context: ToolLoopContext<'_>,
@@ -1702,6 +1812,7 @@ impl NativeRuntime {
         tools.extend(native_schedule::definitions());
         tools.extend(native_todos::definitions());
         tools.extend(native_skills::definitions());
+        tools.extend(native_workflows::definitions());
         tools.extend(mcp_catalog.definitions.clone());
         if !mcp_catalog.notices.is_empty() {
             messages.push(ModelMessage {
@@ -1805,11 +1916,13 @@ impl NativeRuntime {
                 let is_schedule = call.name == "local_schedule";
                 let is_todo = call.name == "todo_write";
                 let is_skill = native_skills::contains(&call.name);
+                let is_workflow = native_workflows::contains(&call.name);
                 let approved = if risk == Some(native_agent_tools::ToolRisk::Write)
                     || is_mcp
                     || native_knowledge::is_write(&call.name)
                     || native_schedule::is_write(call)
                     || is_todo
+                    || is_workflow
                 {
                     self.await_tool_confirmation(
                         context.app,
@@ -1852,6 +1965,8 @@ impl NativeRuntime {
                     })
                 } else if approved && is_skill {
                     native_skills::execute(context.workspace, call)
+                } else if approved && is_workflow {
+                    self.execute_workflow(&context, call, cancel.clone()).await
                 } else if approved {
                     native_agent_tools::execute_model(call, context.workspace, cancel.clone()).await
                 } else {

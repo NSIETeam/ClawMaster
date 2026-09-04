@@ -3,7 +3,6 @@ import { resolveFinalizerRuntime } from './finalize-sqlcipher-native-asset.mjs';
 
 const desktopPackage = {
   build: { electronVersion: '43.2.0' },
-  tauriRuntime: { nodeVersion: '24.20.0' },
 };
 
 describe('SQLCipher finalizer runtime identity', () => {
@@ -15,16 +14,11 @@ describe('SQLCipher finalizer runtime identity', () => {
     })).toEqual({ runtime: 'electron', expectedRuntimeVersion: '43.2.0' });
   });
 
-  it('pins the Tauri Node sidecar ABI source', () => {
-    expect(resolveFinalizerRuntime({
-      runtime: 'node',
-      desktopPackage,
-      versions: { node: '24.20.0' },
-    })).toEqual({ runtime: 'node', expectedRuntimeVersion: '24.20.0' });
+  it('rejects the removed Node sidecar finalization path', () => {
     expect(() => resolveFinalizerRuntime({
       runtime: 'node',
       desktopPackage,
-      versions: { node: '24.19.1' },
-    })).toThrow('node 24.20.0');
+      versions: { node: '24.20.0' },
+    })).toThrow('unsupported SQLCipher runtime: node');
   });
 });

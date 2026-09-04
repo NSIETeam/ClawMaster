@@ -38,21 +38,11 @@ The source-policy job requires the candidate to contain the latest
 `origin/main`. A release tag must exactly equal `v<package.json version>`.
 Formal artifacts are published only after all of these jobs pass:
 
-- the reusable SQLCipher native matrix;
-- the pinned Windows x64 Node runtime;
-- the Windows x64 Tauri build, install, isolated GUI smoke, and formal gate.
+- repository, integration, RPA, and stress preflight checks;
+- Rust-native unit tests on each release platform;
+- the Windows x64 and macOS ARM64 Tauri builds and formal artifact gates;
+- an explicit rejection scan for legacy Node, SQLCipher binding, and agent payload assets.
 
-A successful `v*.*.*` tag run creates the GitHub Release and uploads the
-Windows NSIS installer with its SHA-256 manifest. Manual runs do not publish
-unless `publish_release` is explicitly enabled.
-
-## Reusable native workflows
-
-`.github/workflows/sqlcipher-native.yml` builds pinned SQLCipher bindings and
-records provenance for Linux, macOS, and Windows. The Tauri workflow consumes
-the Node sidecar assets from this matrix.
-
-`.github/workflows/tauri-node-runtime.yml` can build pinned Node `24.20.0`
-sidecars for macOS arm64, macOS x64, and Windows x64. Formal releases invoke it
-in Windows-only mode and verify the official Windows archive checksum before
-packaging it.
+A successful `v*.*.*` tag run creates the GitHub Release and uploads Windows
+x64 and macOS ARM64 artifacts with their SHA-256 manifest. Manual runs do not
+publish unless `publish_release` is explicitly enabled.

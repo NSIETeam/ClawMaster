@@ -117,7 +117,7 @@ flowchart LR
 | Turn lifecycle, tool state, confirmation, audit | \`packages/core\` | \`docs/runtime-kernel-boundary.md\` |
 | Enterprise APIs, tenancy, channels | \`packages/server\` | Server focused tests |
 | GUI and native desktop capabilities | \`packages/desktop/src/renderer\`, \`packages/desktop/src-tauri\` | Desktop and Cargo tests |
-| Tauri runtime provenance | \`packages/desktop/scripts/prepare-tauri-runtime.mjs\`, \`native/node-runtime\` | pinned Node source/ABI, capability probe, SQLCipher verifier, runtime smoke, and bundle verifier |
+| Tauri runtime provenance | \`packages/desktop/src-tauri\`, \`.github/workflows/tauri-preview.yml\` | Rust-native tests, legacy-runtime rejection, artifact size gate, and packaged smoke |
 | Long-running schedules | \`packages/workflow\` | workflow tests and recurring registry |
 | Computer control | \`packages/rpa\` | RPA policy and adapter tests |
 

@@ -218,8 +218,5 @@
   },
   "engines": {
     "node": ">=20"
-  },
-  "tauriRuntime": {
-    "nodeVersion": "24.20.0"
   }
 }

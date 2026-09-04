@@ -133,9 +133,7 @@ function smokeTest(bindingPath) {
 export function resolveFinalizerRuntime({ runtime, desktopPackage, versions }) {
   const expectedRuntimeVersion = runtime === 'electron'
     ? desktopPackage.build.electronVersion
-    : runtime === 'node'
-      ? desktopPackage.tauriRuntime?.nodeVersion
-      : null;
+    : null;
   if (!expectedRuntimeVersion) {
     throw new Error(`unsupported SQLCipher runtime: ${runtime}`);
   }

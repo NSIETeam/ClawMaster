@@ -22,6 +22,7 @@ mod native_schedule;
 mod native_skills;
 mod native_todos;
 mod native_worklog;
+mod native_workflows;
 pub mod native_tools;
 mod platform_webview;
 mod runtime_contracts;
