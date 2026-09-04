@@ -2,7 +2,9 @@ use crate::native_models::{
     stream_complete, system_credential_store, CredentialStore, ModelCompletion, ModelMessage,
     ModelStreamEvent, ModelToolCall, NativeModel, StreamCompletion,
 };
-use crate::{native_agent_tools, native_memory, native_projects, native_skills};
+use crate::{
+    native_agent_tools, native_diagnostics, native_memory, native_projects, native_skills,
+};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -577,6 +579,7 @@ impl NativeRuntime {
                 )]
             }
             "get_settings" => vec![frame("settings", json!(state.settings))],
+            "run_doctor" => vec![frame("doctor_report", native_diagnostics::doctor_report())],
             "get_product_workspace" => vec![frame(
                 "product_workspace",
                 json!({
