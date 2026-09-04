@@ -84,15 +84,9 @@ describe('document runtime packaging guard', () => {
   });
 
   it('keeps optional document runtimes out of the lightweight desktop installer', () => {
-    const packageJson = JSON.parse(
-      readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8'),
-    );
-    const resources = [
-      ...(packageJson.build.mac.extraResources ?? []),
-      ...(packageJson.build.win.extraResources ?? []),
-    ];
-    expect(resources.map((resource) => resource.from).join('\n')).not.toContain(
-      'vendor/runtime',
-    );
+    const tauriConfig = JSON.parse(readFileSync(
+      path.resolve(import.meta.dirname, '../src-tauri/tauri.conf.json'), 'utf8',
+    ));
+    expect(tauriConfig.bundle.resources).toEqual({});
   });
 });

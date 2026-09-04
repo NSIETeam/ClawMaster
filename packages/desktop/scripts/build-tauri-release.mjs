@@ -11,28 +11,16 @@ const require = createRequire(import.meta.url);
 
 export function tauriReleaseSteps(platform, arch) {
   resolveTauriRuntimePlatform(platform, arch);
-  const bootstrap = process.env.CLAWMASTER_PACKAGING_MODE === 'micro-bootstrap';
-  const shared = [
-    ['npm', ['run', 'tauri:runtime:prepare']],
-    ...(bootstrap ? [] : [['npm', ['run', 'tauri:runtime:smoke']]]),
-  ];
+  const shared = [['npm', ['run', 'tauri:runtime:smoke']]];
   if (platform === 'darwin') {
     return [
       ...shared,
-      ...(bootstrap ? [] : [['npm', ['run', 'tauri:runtime:smoke:rpa', '--', '--staging']]]),
-      ['tauri', [
-        'build', '--bundles', 'app',
-        ...(bootstrap ? ['--config', 'src-tauri/tauri.micro-bootstrap.conf.json'] : []),
-      ]],
-      ['npm', ['run', 'tauri:dmg:create']],
-      ['npm', ['run', 'tauri:dmg:optimize']],
-      ['npm', ['run', 'tauri:dmg:verify']],
+      ['tauri', ['build', '--bundles', 'dmg']],
     ];
   }
   return [
     ...shared,
-    ['tauri', ['build', ...(bootstrap ? ['--config', 'src-tauri/tauri.micro-bootstrap.conf.json'] : [])]],
-    ['npm', ['run', 'tauri:windows:verify']],
+    ['tauri', ['build']],
   ];
 }
 

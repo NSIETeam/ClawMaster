@@ -4,7 +4,7 @@ import { evaluateFormalTauriReleaseGate } from './formal-tauri-release-gate.mjs'
 
 const result = evaluateFormalTauriReleaseGate({
   allowPrerelease: true,
-  packagingMode: process.env.CLAWMASTER_PACKAGING_MODE || 'micro-online',
+  packagingMode: process.env.CLAWMASTER_PACKAGING_MODE || 'native-local',
 });
 
 if (result.failures.length) {

@@ -7,13 +7,13 @@
 
 ```mermaid
 flowchart LR
-  p1["Runtime kernel<br/><code>packages/core</code>"]
-  p2["Enterprise server<br/><code>packages/server</code>"]
+  p1["clawmaster-core<br/><code>packages/core</code>"]
+  p2["clawmaster-server<br/><code>packages/server</code>"]
   p3["Desktop / Tauri target<br/><code>packages/desktop</code>"]
-  p4["Native bridge<br/><code>otto-native</code>"]
-  p5["Deterministic evals<br/><code>packages/evals</code>"]
-  p6["Workflow engine<br/><code>packages/workflow</code>"]
-  p7["RPA<br/><code>packages/rpa</code>"]
+  p4["@clawmaster/native<br/><code>clawmaster-native</code>"]
+  p5["clawmaster-evals<br/><code>packages/evals</code>"]
+  p6["clawmaster-workflow<br/><code>packages/workflow</code>"]
+  p7["clawmaster-rpa<br/><code>packages/rpa</code>"]
   p1 --> p7
   p1 --> p6
   p2 --> p1

@@ -43,7 +43,7 @@ export type ModuleActivation =
   | { kind: 'route'; route: 'skill-zone' }
   | { kind: 'agent'; profileId: string; customAgentId?: string }
   | { kind: 'guided-task'; taskId: string; instructions: string }
-  | { kind: 'platform'; platformId: string; url: string; instructions: string }
+  | { kind: 'platform'; platformId: string; url: string | null; instructions: string }
   | { kind: 'customer-module'; moduleId: string; version: string };
 
 export interface ParkModuleAuthorization {
@@ -170,12 +170,12 @@ export const STATIC_MODULE_SPECS: readonly StaticModuleSpec[] = [
     availabilityRule: 'always',
   },
   ...([
-    ['platform-maotouying', '猫头鹰', 'platform-observe', 'http://8.141.8.31/'],
-    ['platform-trace-code', '溯源码', 'platform-trace', 'https://8.140.52.117/'],
-    ['platform-zhifang', '知访', 'platform-visit', 'https://47.116.30.60/'],
-    ['platform-zhiliaohou', '知了猴', 'platform-insight', 'http://47.116.30.60:18787/'],
-    ['platform-zhixin-pigeon', '智信鸽', 'platform-message', 'http://47.116.30.60:18788/'],
-  ] as const).map(([id, label, icon, url]) => ({
+    ['platform-maotouying', '猫头鹰', 'platform-observe'],
+    ['platform-trace-code', '溯源码', 'platform-trace'],
+    ['platform-zhifang', '知访', 'platform-visit'],
+    ['platform-zhiliaohou', '知了猴', 'platform-insight'],
+    ['platform-zhixin-pigeon', '智信鸽', 'platform-message'],
+  ] as const).map(([id, label, icon]) => ({
     id,
     label,
     description: `在 ClawMaster 内授权并操作${label}平台`,
@@ -184,12 +184,27 @@ export const STATIC_MODULE_SPECS: readonly StaticModuleSpec[] = [
     activation: {
       kind: 'platform' as const,
       platformId: id,
-      url,
+      url: configuredPlatformUrl(id),
       instructions: `你正在${label}平台控制工作区。优先复用用户已授权的安全连接器或本机浏览器登录态；如尚未绑定，引导用户在专用授权界面完成，不得让用户把密码、Cookie 或 Token 发进对话。读操作使用当前身份最小权限；发布、删除、修改或对外发送前必须展示最终动作并取得确认，所有外部写入都必须记录幂等键、结果和审计信息。`,
     },
     availabilityRule: 'always' as const,
   })),
 ] as const;
+
+/** Platform endpoints are deployment configuration, never source defaults. */
+export function configuredPlatformUrl(platformId: string): string | null {
+  if (typeof window === 'undefined' || !window.localStorage) return null;
+  const value = window.localStorage.getItem(`clawmaster.platform.${platformId}.url`);
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 const PROFILE_MODULE_IDS: Readonly<Record<string, string>> = {
   'claw-personal': 'agent-personal-clawmaster',

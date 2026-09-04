@@ -88,7 +88,7 @@ export function createTauriDmg({
       { stdio: 'inherit' },
     );
     run('hdiutil', ['verify', output], { stdio: 'inherit' });
-    const size = evaluateDownloadPackageSize(fileSize(output));
+    const size = evaluateDownloadPackageSize(fileSize(output), { format: 'dmg' });
     console.log(
       `[tauri-dmg] created non-interactive image: ${(size.bytes / 1024 / 1024).toFixed(2)} MiB`,
     );

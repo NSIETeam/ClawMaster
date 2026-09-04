@@ -17,9 +17,11 @@ jobs:
         with:
           node-version: '22.13.0'
           cache: npm
-      - name: Install dependencies
-        run: npm install
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Install isolated Chromium runtime
         run: npx playwright install --with-deps chromium
       - name: Verify RPA against a local isolated page
+        env:
+          RUN_RPA_BROWSER_E2E: '1'
         run: npm run test:e2e --workspace=packages/rpa

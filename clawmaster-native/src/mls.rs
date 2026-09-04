@@ -2765,11 +2765,11 @@ fn decode_base64(label: &str, encoded: &str, max_encoded_len: usize) -> Result<V
 }
 
 fn conversation_aad(conversation_id: &str) -> Vec<u8> {
-    format!("otto-mls-v1/{conversation_id}").into_bytes()
+    format!("clawmaster-mls-v1/{conversation_id}").into_bytes()
 }
 
 fn persistence_aad(scope: &str) -> String {
-    format!("otto-mls-state-v1/{scope}")
+    format!("clawmaster-mls-state-v1/{scope}")
 }
 
 fn validate_member_credential(

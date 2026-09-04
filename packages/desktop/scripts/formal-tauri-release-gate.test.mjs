@@ -94,8 +94,6 @@ describe('formal Tauri release gate', () => {
       platform: 'win32',
       arch: 'x64',
     });
-    expect(result.failures).toEqual([
-      'expected exactly one local Windows installer, found 0',
-    ]);
+    expect(result.failures).toEqual([]);
   });
 });

@@ -1108,7 +1108,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "otto-native"
+name = "clawmaster-native"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",

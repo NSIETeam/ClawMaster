@@ -290,6 +290,8 @@ export * from './a2a/federationAtoaProtocol.js';
 
 // 多渠道通知服务
 export { NotificationService, getNotificationService } from './services/notificationService.js';
+export { TaskSupervisor } from './services/taskSupervisor.js';
+export type { SupervisorAttemptContext, SupervisorDecision, TaskSupervisorOptions } from './services/taskSupervisor.js';
 export type { NotificationRecord, NotificationPriority, NotificationChannel, EscalationPolicy, FeishuNotifySender, SmsNotifySender } from './services/notificationService.js';
 export {
   AliyunSmsAuthenticationSender,

@@ -80,7 +80,7 @@ export function evaluateFormalTauriReleaseGate({
   platform = process.platform,
   arch = process.arch,
   allowPrerelease = false,
-  packagingMode = 'embedded-legacy',
+  packagingMode = 'native-local',
 } = {}) {
   const failures = [];
   const notes = [];

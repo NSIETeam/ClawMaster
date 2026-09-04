@@ -49,7 +49,7 @@ describe('non-interactive Tauri DMG creation', () => {
       symlink,
       remove,
       run,
-      fileSize: () => 25 * 1024 * 1024,
+      fileSize: () => 15 * 1024 * 1024,
     });
 
     expect(copy).toHaveBeenCalledWith(
@@ -94,6 +94,6 @@ describe('non-interactive Tauri DMG creation', () => {
       '/tmp/clawmaster-dmg-stage',
       { recursive: true, force: true },
     );
-    expect(result.bytes).toBe(25 * 1024 * 1024);
+    expect(result.bytes).toBe(15 * 1024 * 1024);
   });
 });

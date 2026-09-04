@@ -97,7 +97,7 @@ describe('PrefsPanel 外观与回复', () => {
   });
 
   it('只把当前页面的真实偏好恢复为默认值', async () => {
-    window.localStorage.setItem('otto.pet-widget.enabled', '1');
+    window.localStorage.setItem('clawmaster.pet-widget.enabled', '1');
     const themeSet = vi.fn(async () => undefined);
     (window as unknown as { clawmaster: unknown }).clawmaster = {
       themeGet: async () => 'dark',
@@ -132,7 +132,7 @@ describe('PrefsPanel 外观与回复', () => {
       expect(setSetting).toHaveBeenCalledWith('agentStyle', 'default');
       expect(setSetting).toHaveBeenCalledWith('healthyUse', true);
       expect(setSetting).toHaveBeenCalledWith('preferredLanguage', '');
-      expect(window.localStorage.getItem('otto.pet-widget.enabled')).toBe('0');
+      expect(window.localStorage.getItem('clawmaster.pet-widget.enabled')).toBe('0');
       expect(screen.getByRole('button', { name: '正在恢复…' })).toBeTruthy();
     });
 

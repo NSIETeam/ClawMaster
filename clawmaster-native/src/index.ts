@@ -67,17 +67,17 @@ class NativeProcess extends EventEmitter {
   private findBinary(): string {
     // Check common locations
     const candidates = [
-      path.join(__dirname, '..', 'bin', 'otto-native.exe'),
-      path.join(__dirname, '..', 'bin', 'otto-native'),
-      path.join(__dirname, '..', 'target', 'release', 'otto-native.exe'),
-      path.join(__dirname, '..', 'target', 'release', 'otto-native'),
+      path.join(__dirname, '..', 'bin', 'clawmaster-native.exe'),
+      path.join(__dirname, '..', 'bin', 'clawmaster-native'),
+      path.join(__dirname, '..', 'target', 'release', 'clawmaster-native.exe'),
+      path.join(__dirname, '..', 'target', 'release', 'clawmaster-native'),
       path.join(
         __dirname,
         '..',
         'target',
         'x86_64-pc-windows-gnu',
         'release',
-        'otto-native.exe',
+        'clawmaster-native.exe',
       ),
       path.join(
         __dirname,
@@ -85,7 +85,7 @@ class NativeProcess extends EventEmitter {
         'target',
         'x86_64-unknown-linux-gnu',
         'release',
-        'otto-native',
+        'clawmaster-native',
       ),
       path.join(
         __dirname,
@@ -93,7 +93,7 @@ class NativeProcess extends EventEmitter {
         'target',
         'x86_64-apple-darwin',
         'release',
-        'otto-native',
+        'clawmaster-native',
       ),
     ];
 
@@ -104,7 +104,7 @@ class NativeProcess extends EventEmitter {
     }
 
     // Fall back to PATH
-    return 'otto-native';
+    return 'clawmaster-native';
   }
 
   async start(): Promise<void> {

@@ -5,7 +5,6 @@ use std::{
     sync::Mutex,
 };
 
-use crate::agent_sidecar;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State, Theme, Window};
@@ -224,7 +223,7 @@ pub fn read_file_path(
 
 #[tauri::command]
 pub fn extract_editable_document(
-    app: AppHandle,
+    _app: AppHandle,
     file_path: String,
     state: State<'_, DesktopFileState>,
 ) -> Result<serde_json::Value, String> {
@@ -234,13 +233,9 @@ pub fn extract_editable_document(
         .map_err(|_| "file grant state is unavailable".to_string())?;
     let (resolved, _) = resolve_granted_file(Path::new(&file_path), &grants)?;
     drop(grants);
-    agent_sidecar::run_document_worker(
-        &app,
-        &serde_json::json!({
-            "operation": "extract",
-            "filePath": resolved,
-        }),
-    )
+    let content = fs::read_to_string(&resolved)
+        .map_err(|error| format!("native document extraction supports readable text files: {error}"))?;
+    Ok(serde_json::json!({ "ok": true, "result": { "content": content, "filePath": resolved } }))
 }
 
 #[tauri::command]
@@ -268,16 +263,8 @@ pub fn export_edited_document(
     let Some(out_path) = selected.and_then(|path| path.into_path().ok()) else {
         return Ok(None);
     };
-    agent_sidecar::run_document_worker(
-        &app,
-        &serde_json::json!({
-            "operation": "export",
-            "sourcePath": source,
-            "content": content,
-            "outPath": out_path,
-        }),
-    )
-    .map(Some)
+    fs::write(&out_path, content).map_err(|error| format!("native document export failed: {error}"))?;
+    Ok(Some(serde_json::json!({ "ok": true, "sourcePath": source, "outPath": out_path })))
 }
 
 fn mime_type_for_path(path: &Path) -> &'static str {

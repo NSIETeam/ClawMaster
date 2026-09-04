@@ -1,125 +1,76 @@
 import { describe, expect, it } from 'vitest';
 import {
-  assertTauriNodeVersion,
   assertDownloadPackageTarget,
-  evaluateDownloadPackageSize,
-  evaluateRuntimeSize,
-  summarizeRuntimeComponents,
-  resolveSqlCipherSource,
-  resolveTauriNodeSource,
+  assertNoRuntimeDownload,
+  evaluateAgentPrivateBytes,
+  evaluateArtifactSize,
   resolveTauriRuntimePlatform,
   resolveTauriRuntimeTarget,
   resolveTauriPackagingMode,
+  summarizeRuntimeComponents,
 } from './tauri-runtime-policy.mjs';
 
-describe('Tauri runtime release policy', () => {
-  it('pins the Node sidecar ABI used by packaged native modules', () => {
-    expect(assertTauriNodeVersion('24.20.0', '24.20.0')).toBe('24.20.0');
-    expect(() => assertTauriNodeVersion('24.19.1', '24.20.0')).toThrow(
-      'pinned release toolchain',
-    );
-  });
-
-  it('maps each productized desktop target to its Tauri sidecar contract', () => {
+describe('Tauri native-local release policy', () => {
+  it('supports every required desktop target', () => {
     expect(resolveTauriRuntimeTarget('darwin', 'arm64')).toBe('darwin-arm64');
     expect(resolveTauriRuntimePlatform('darwin', 'x64')).toMatchObject({
       target: 'darwin-x64',
       targetTriple: 'x86_64-apple-darwin',
-      ripgrepExecutable: 'rg',
     });
     expect(resolveTauriRuntimePlatform('win32', 'x64')).toMatchObject({
       target: 'win32-x64',
       targetTriple: 'x86_64-pc-windows-msvc',
       executableSuffix: '.exe',
-      ripgrepExecutable: 'rg.exe',
     });
-    expect(() => resolveTauriRuntimeTarget('linux', 'x64')).toThrow('incomplete shell');
+    expect(resolveTauriRuntimePlatform('linux', 'x64')).toMatchObject({
+      target: 'linux-x64',
+      targetTriple: 'x86_64-unknown-linux-gnu',
+    });
+    expect(() => resolveTauriRuntimeTarget('linux', 'arm64')).toThrow('not packaged');
   });
 
-  it('requires the canonical verified SQLCipher matrix by default', () => {
-    const existing = new Set(['/repo/native/sqlcipher-tauri/darwin-arm64']);
-    expect(resolveSqlCipherSource({
-      repoRoot: '/repo',
-      target: 'darwin-arm64',
-      pathExists: (candidate) => existing.has(candidate),
-    })).toEqual({
-      path: '/repo/native/sqlcipher-tauri/darwin-arm64',
-      provenance: 'verified-native-matrix',
+  it('requires a local runtime and disallows silent runtime downloads', () => {
+    const policy = resolveTauriPackagingMode();
+    expect(policy).toMatchObject({
+      mode: 'native-local',
+      embedsLocalExecution: true,
+      allowsRuntimeDownload: false,
     });
+    expect(assertNoRuntimeDownload(policy)).toBe(policy);
   });
 
-  it('never consumes a native binding from an ignored old installer', () => {
-    const legacy = '/repo/packages/desktop/release/mac-arm64/ClawMaster.app/Contents/Resources/sqlcipher';
-    expect(() => resolveSqlCipherSource({
-      repoRoot: '/repo',
-      target: 'darwin-arm64',
-      pathExists: (candidate) => candidate === legacy,
-    })).toThrow('verified SQLCipher runtime missing');
+  it('enforces format-specific artifact limits', () => {
+    expect(evaluateArtifactSize(9 * 1024 * 1024, 'nsis').withinTarget).toBe(true);
+    expect(evaluateArtifactSize(19 * 1024 * 1024, 'dmg').withinTarget).toBe(false);
+    expect(evaluateArtifactSize(59 * 1024 * 1024, 'appimage').withinTarget).toBe(false);
+    expect(() => evaluateArtifactSize(21 * 1024 * 1024, 'deb')).toThrow('hard limit');
+    const overTarget = evaluateArtifactSize(19 * 1024 * 1024, 'dmg');
+    expect(() => assertDownloadPackageTarget(overTarget)).toThrow('product target');
+    expect(assertDownloadPackageTarget(overTarget, { allowOverTarget: true })).toBe(overTarget);
   });
 
-  it('prefers the verified minimal Node runtime and safely falls back locally', () => {
-    const files = new Set([
-      '/repo/native/node-runtime/darwin-arm64/node',
-      '/repo/native/node-runtime/darwin-arm64/manifest.json',
-    ]);
-    expect(resolveTauriNodeSource({
-      repoRoot: '/repo',
-      target: 'darwin-arm64',
-      hostBinary: '/toolchain/node',
-      pathExists: (candidate) => files.has(candidate),
-    })).toEqual({
-      binary: '/repo/native/node-runtime/darwin-arm64/node',
-      manifest: '/repo/native/node-runtime/darwin-arm64/manifest.json',
-      provenance: 'verified-minimal-node',
-    });
-    expect(resolveTauriNodeSource({
-      repoRoot: '/repo',
-      target: 'win32-x64',
-      hostBinary: 'C:\\node.exe',
-      pathExists: () => false,
-    })).toEqual({
-      binary: 'C:\\node.exe',
-      manifest: null,
-      provenance: 'pinned-release-toolchain',
-    });
+  it('enforces the per-agent private state budget', () => {
+    expect(evaluateAgentPrivateBytes(1024 * 1024).withinLimit).toBe(true);
+    expect(() => evaluateAgentPrivateBytes(1024 * 1024 + 1)).toThrow('hard limit');
   });
 
-  it('uses explicit size gates for the micro and legacy packaging modes', () => {
-    expect(resolveTauriPackagingMode('micro-bootstrap')).toMatchObject({
-      targetBytes: 10 * 1024 * 1024,
-      hardLimitBytes: 12 * 1024 * 1024,
-      embedsLocalExecution: false,
-    });
-    expect(evaluateRuntimeSize(20 * 1024 * 1024).withinTarget).toBe(true);
-    expect(evaluateRuntimeSize(21 * 1024 * 1024).withinTarget).toBe(false);
-    expect(() => evaluateRuntimeSize(25 * 1024 * 1024)).toThrow('hard limit');
-    expect(evaluateRuntimeSize(28 * 1024 * 1024, { mode: 'embedded-legacy' }).withinTarget).toBe(true);
-    expect(() => resolveTauriPackagingMode('unknown')).toThrow('unsupported');
-  });
-
-  it('reports runtime components in descending order for actionable CI output', () => {
+  it('reports components in descending order under the selected format', () => {
     expect(summarizeRuntimeComponents({
-      agent: 3 * 1024 * 1024,
-      node: 12 * 1024 * 1024,
-      sqlcipher: 1024 * 1024,
-    })).toMatchObject({
-      totalBytes: 16 * 1024 * 1024,
+      renderer: 3 * 1024 * 1024,
+      native: 6 * 1024 * 1024,
+      manifest: 1024 * 1024,
+    }, 'nsis')).toMatchObject({
+      totalBytes: 10 * 1024 * 1024,
       withinTarget: true,
       components: [
-        { name: 'node', bytes: 12 * 1024 * 1024 },
-        { name: 'agent', bytes: 3 * 1024 * 1024 },
-        { name: 'sqlcipher', bytes: 1024 * 1024 },
+        { name: 'native', bytes: 6 * 1024 * 1024 },
+        { name: 'renderer', bytes: 3 * 1024 * 1024 },
+        { name: 'manifest', bytes: 1024 * 1024 },
       ],
     });
   });
 
-  it('targets a 31 MiB installer and rejects downloads above 40 MiB', () => {
-    expect(evaluateDownloadPackageSize(30 * 1024 * 1024).withinTarget).toBe(true);
-    expect(evaluateDownloadPackageSize(31 * 1024 * 1024).withinTarget).toBe(true);
-    expect(evaluateDownloadPackageSize(32 * 1024 * 1024).withinTarget).toBe(false);
-    expect(() => evaluateDownloadPackageSize(41 * 1024 * 1024)).toThrow('hard limit');
-    const oversized = evaluateDownloadPackageSize(32 * 1024 * 1024);
-    expect(() => assertDownloadPackageTarget(oversized)).toThrow('product target');
-    expect(assertDownloadPackageTarget(oversized, { allowOverTarget: true })).toBe(oversized);
+  it('rejects unsupported packaging modes', () => {
+    expect(() => resolveTauriPackagingMode('legacy')).toThrow('unsupported');
   });
 });

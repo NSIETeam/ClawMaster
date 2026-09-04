@@ -1,6 +1,6 @@
 {
   "name": "clawmaster-desktop",
-  "version": "0.0.2-beta",
+  "version": "0.0.2-beta.1",
   "description": "ClawMaster Desktop app shell for the ClawMaster agent runtime",
   "author": "NSIETeam",
   "license": "Apache-2.0",
@@ -37,7 +37,7 @@
     "package": "npm run tauri:build",
     "package:legacy:electron": "node scripts/make-delivery-zip.mjs",
     "lint": "eslint . --ext .ts,.tsx",
-    "pretest": "npm run build:native",
+    "pretest": "npm run build --workspace=clawmaster-server && npm run build:native",
     "test": "vitest run",
     "pretypecheck": "npm run build:native",
     "test:coverage": "vitest run --coverage",
@@ -50,7 +50,7 @@
     "release:legacy:gate": "node scripts/release-recovery-gate.mjs"
   },
   "dependencies": {
-    "@clawmaster/native": "0.1.0",
+    "@clawmaster/native": "file:../../clawmaster-native",
     "motion": "^13.1.1",
     "clawmaster-server": "file:../server",
     "react": "^18.3.1",
@@ -77,12 +77,6 @@
     "ws": "^8.21.1"
   },
   "build": {
-    "publish": [
-      {
-        "provider": "generic",
-        "url": "https://59.110.154.44:7777/downloads"
-      }
-    ],
     "appId": "team.nsi.clawmaster.desktop",
     "productName": "ClawMaster",
     "copyright": "Copyright © 2026 NSIETeam",

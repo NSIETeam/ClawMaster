@@ -1,14 +1,14 @@
 {
   "name": "@clawmaster/native",
   "version": "0.1.0",
-  "description": "Rust native bindings for Otto - Session store, encryption, tokenizer, agent pool",
+  "description": "Rust native bindings for ClawMaster - session store, encryption, tokenizer and agent runtime",
   "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "cargo test --bin otto-native",
+    "test": "cargo test --bin clawmaster-native",
     "prepublishOnly": "npm run build"
   },
   "files": [

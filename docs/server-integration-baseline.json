@@ -105,8 +105,8 @@
     ]
   },
   "release": {
-    "clientVersion": "0.0.1",
-    "serverVersion": "0.0.1",
+    "clientVersion": "0.0.2-beta.1",
+    "serverVersion": "0.0.2-beta.1",
     "serverPackageVersion": "0.1.0",
     "apiVersion": 4,
     "enterpriseSchemaVersion": 23,

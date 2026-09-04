@@ -1,6 +1,6 @@
 {
   "name": "clawmaster",
-  "version": "0.0.2-beta",
+  "version": "0.0.2-beta.1",
   "engines": {
     "node": ">=22.16.0"
   },
@@ -9,7 +9,7 @@
     "packages/core",
     "packages/server",
     "packages/desktop",
-    "otto-native",
+    "clawmaster-native",
     "packages/evals",
     "packages/workflow",
     "packages/rpa"
@@ -42,6 +42,7 @@
     "auth": "npm run auth:npm && npm run auth:docker",
     "generate": "node scripts/generate-git-commit-info.js",
     "doctor": "node scripts/doctor.cjs",
+    "release:preflight": "node scripts/release-preflight.mjs",
     "code-map": "node scripts/generate-code-map.mjs",
     "code-map:check": "node scripts/generate-code-map.mjs --check",
     "size:source": "node scripts/source-size-report.mjs",
@@ -81,9 +82,9 @@
     "test:integration:sandbox:docker": "GEMINI_SANDBOX=docker node integration-tests/run-tests.js",
     "test:integration:sandbox:podman": "GEMINI_SANDBOX=podman node integration-tests/run-tests.js",
     "lint": "npm run lint:ci",
-    "lint:fix": "eslint packages/server/src packages/desktop/src otto-native/src/index.ts scripts deployment/enterprise-oneclick start-enterprise.cjs \"packages/desktop/*.{js,mjs,cjs}\" --ext .ts,.tsx,.js,.mjs,.cjs --fix",
+    "lint:fix": "eslint packages/server/src packages/desktop/src clawmaster-native/src/index.ts scripts deployment/enterprise-oneclick start-enterprise.cjs \"packages/desktop/*.{js,mjs,cjs}\" --ext .ts,.tsx,.js,.mjs,.cjs --fix",
     "lint:core:legacy": "eslint packages/core/src --ext .ts,.tsx",
-    "lint:ci": "eslint packages/server/src packages/desktop/src otto-native/src/index.ts scripts deployment/enterprise-oneclick start-enterprise.cjs \"packages/desktop/*.{js,mjs,cjs}\" --ext .ts,.tsx,.js,.mjs,.cjs --max-warnings 0",
+    "lint:ci": "eslint packages/server/src packages/desktop/src clawmaster-native/src/index.ts scripts deployment/enterprise-oneclick start-enterprise.cjs \"packages/desktop/*.{js,mjs,cjs}\" --ext .ts,.tsx,.js,.mjs,.cjs --max-warnings 0",
     "format": "prettier --write .",
     "typecheck": "npm run typecheck --workspace=packages/core --if-present && npm run typecheck --workspace=packages/server --if-present && npm run typecheck --workspace=packages/desktop --if-present && npm run typecheck --workspace=packages/evals --if-present && npm run typecheck --workspace=packages/workflow --if-present && npm run typecheck --workspace=packages/rpa --if-present",
     "preflight": "npm run clean && npm ci && npm run format && npm run lint:ci && npm run build && npm run typecheck && npm run test:ci",

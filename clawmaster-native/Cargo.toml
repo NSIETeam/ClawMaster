@@ -1,10 +1,10 @@
 [package]
-name = "otto-native"
+name = "clawmaster-native"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "otto-native"
+name = "clawmaster-native"
 path = "src/main.rs"
 
 [dependencies]

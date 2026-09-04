@@ -1,240 +1,100 @@
-name: Tauri Release Build
+name: ClawMaster Tauri Release
 
 on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: 'Create or update the GitHub Release for the current package version.'
-        required: false
-        type: boolean
-        default: false
-      draft:
-        description: 'Create or update the release as a draft.'
-        required: false
-        type: boolean
-        default: true
-      prerelease:
-        description: 'Mark the release as a prerelease.'
+        description: Publish only the explicitly authorized beta.1 release.
         required: false
         type: boolean
         default: false
   pull_request:
     paths:
       - '.github/workflows/tauri-preview.yml'
-      - '.github/workflows/tauri-node-runtime.yml'
-      - 'native/node-runtime/**'
-      - 'native/sqlcipher-tauri/**'
+      - '.github/workflows/rpa-browser-e2e.yml'
       - 'packages/core/**'
-      - 'packages/server/**'
+      - 'packages/rpa/**'
       - 'packages/desktop/**'
-      - 'otto-native/**'
+      - 'clawmaster-native/**'
       - 'scripts/**'
-      - 'docs/server-integration-baseline.json'
       - 'package-lock.json'
       - 'package.json'
   push:
-    branches: [main, 'codex/windows-*']
-    tags:
-      - 'v*.*.*'
-    paths:
-      - '.github/workflows/tauri-preview.yml'
-      - '.github/workflows/tauri-node-runtime.yml'
-      - 'native/node-runtime/**'
-      - 'native/sqlcipher-tauri/**'
-      - 'packages/core/**'
-      - 'packages/server/**'
-      - 'packages/desktop/**'
-      - 'otto-native/**'
-      - 'scripts/**'
-      - 'docs/server-integration-baseline.json'
-      - 'package-lock.json'
-      - 'package.json'
+    branches: [main, 'codex/**']
+    tags: ['v0.0.2-beta.1']
 
 permissions:
   contents: read
-  id-token: write
-  attestations: write
 
 jobs:
-  source-policy:
-    name: Validate ClawMaster release source
+  preflight:
+    name: Runtime, schedule, RPA and stress acceptance
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.16.0', cache: npm }
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run build --workspace=packages/core
+      - run: npx playwright install --with-deps chromium
+      - run: npm run release:preflight
+        env: { RUN_RPA_BROWSER_E2E: '1' }
 
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24.20.0
-          package-manager-cache: false
-
-      - name: Validate release metadata and source policy
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
-          git merge-base --is-ancestor origin/main HEAD
-          case "$GITHUB_REF" in
-            refs/heads/main|refs/heads/codex/windows-*|refs/pull/*/merge)
-              ;;
-            refs/tags/v*)
-              version="$(node -p "require('./package.json').version")"
-              test "$GITHUB_REF_NAME" = "v${version}"
-              ;;
-            *)
-              echo "Unsupported release source: $GITHUB_REF" >&2
-              exit 1
-              ;;
-          esac
-          npm run validate:integration-baseline
-
-  native-assets:
-    needs: source-policy
-    uses: ./.github/workflows/sqlcipher-native.yml
-
-  node-runtime:
-    needs: source-policy
-    uses: ./.github/workflows/tauri-node-runtime.yml
-    with:
-      windows_only: true
-
-  windows-x64:
-    name: Windows x64 release
-    needs: [native-assets, node-runtime]
-    runs-on: windows-2022
-    timeout-minutes: 45
+  build:
+    name: Build ${{ matrix.name }}
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows-x64, os: windows-2022, target: x86_64-pc-windows-msvc }
+          - { name: macOS-arm64, os: macos-15, target: aarch64-apple-darwin }
+          - { name: macOS-x64, os: macos-15-intel, target: x86_64-apple-darwin }
+          - { name: Linux-x64, os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24.20.0
-          package-manager-cache: false
-
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.16.0', cache: npm }
       - uses: dtolnay/rust-toolchain@stable
-
-      - uses: msys2/setup-msys2@v2
+        with: { targets: ${{ matrix.target }} }
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run build:renderer --workspace=packages/desktop
+      - run: npm run tauri:build --workspace=packages/desktop
+      - run: npm run release:formal:gate --workspace=packages/desktop
+      - uses: actions/upload-artifact@v4
         with:
-          msystem: UCRT64
-          update: false
-          install: mingw-w64-ucrt-x86_64-binutils
-
-      - name: Install locked dependencies
-        run: npm ci
-
-      - uses: actions/download-artifact@v7
-        with:
-          name: tauri-sqlcipher-win32-x64
-          path: native/sqlcipher-tauri
-
-      - uses: actions/download-artifact@v7
-        with:
-          name: tauri-node-win32-x64
-          path: native/node-runtime/win32-x64
-
-      - name: Verify downloaded Windows runtime assets
-        shell: pwsh
-        run: |
-          node packages/desktop/scripts/verify-tauri-node-runtime.mjs `
-            --asset-directory native/node-runtime/win32-x64 `
-            --target win32-x64 `
-            --node-version 24.20.0
-          $moduleAbi = node -p 'process.versions.modules'
-          node packages/desktop/scripts/verify-tauri-sqlcipher-asset.mjs `
-            --asset-directory native/sqlcipher-tauri/win32-x64 `
-            --target win32-x64 `
-            --node-version 24.20.0 `
-            --module-abi $moduleAbi
-
-      - name: Build and verify Tauri release installer
-        run: npm run tauri:build --workspace=packages/desktop
-
-      - name: Gate formal ClawMaster release artifact
-        run: npm run release:formal:gate --workspace=packages/desktop
-
-      - name: Install and smoke-test Windows release
-        shell: pwsh
-        run: |
-          $installer = Get-ChildItem packages/desktop/src-tauri/target/release/bundle/nsis/*.exe
-          packages/desktop/scripts/smoke-tauri-windows-install.ps1 -Installer $installer.FullName
-
-      - name: Record download checksum
-        shell: pwsh
-        run: |
-          $installer = Get-ChildItem packages/desktop/src-tauri/target/release/bundle/nsis/*.exe
-          Get-FileHash $installer.FullName -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLower())  $($installer.Name)" } |
-            Set-Content packages/desktop/src-tauri/target/release/bundle/nsis/SHA256SUMS
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: ClawMaster-Windows-x64-Tauri-Release
-          path: |
-            packages/desktop/src-tauri/target/release/bundle/nsis/*.exe
-            packages/desktop/src-tauri/target/release/bundle/nsis/SHA256SUMS
+          name: ClawMaster-${{ matrix.name }}
+          path: packages/desktop/src-tauri/target/release/bundle/
           if-no-files-found: error
           retention-days: 14
 
   publish:
-    name: Publish ClawMaster Tauri release
-    needs: windows-x64
+    name: Publish ClawMaster v0.0.2-beta.1
+    needs: build
+    if: github.ref == 'refs/tags/v0.0.2-beta.1' || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
     runs-on: ubuntu-24.04
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24.20.0
-          package-manager-cache: false
-
-      - name: Resolve release metadata
-        id: release
-        shell: bash
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { pattern: ClawMaster-*, path: release-assets, merge-multiple: true }
+      - name: Verify all four release families
         run: |
           set -euo pipefail
-          version="$(node -p "require('./package.json').version")"
-          desktop_version="$(node -p "require('./packages/desktop/package.json').version")"
-          if [ "$version" != "$desktop_version" ]; then
-            echo "Version mismatch: root=$version desktop=$desktop_version" >&2
-            exit 1
-          fi
-          tag="${GITHUB_REF_NAME}"
-          if [[ "$GITHUB_REF" == refs/tags/v* ]] && [[ "$tag" != "v${version}" ]]; then
-            echo "Tag mismatch: tag=$tag package=v${version}" >&2
-            exit 1
-          elif [[ "$GITHUB_REF" != refs/tags/v* ]]; then
-            tag="v${version}"
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/download-artifact@v7
+          test -n "$(find release-assets -type f -name '*.exe' -print -quit)"
+          test -n "$(find release-assets -type f -name '*.dmg' -print -quit)"
+          test -n "$(find release-assets -type f -name '*.AppImage' -print -quit)"
+          test -n "$(find release-assets -type f -name '*.deb' -print -quit)"
+          sha256sum $(find release-assets -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' -o -name '*.deb' \) | sort) > release-assets/SHA256SUMS
+      - uses: softprops/action-gh-release@v2
         with:
-          pattern: ClawMaster-*-Tauri-Release
-          path: release-assets
-          merge-multiple: true
-
-      - name: Verify release assets
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="${{ steps.release.outputs.version }}"
-          test -n "$(find release-assets -maxdepth 1 -type f -name '*.exe' -print -quit)"
-          find release-assets -maxdepth 1 -type f -name '*.exe' \
-            -print0 | sort -z | xargs -0 sha256sum > release-assets/ClawMaster-${version}-SHA256SUMS
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.release.outputs.tag }}
-          name: ClawMaster v${{ steps.release.outputs.version }}
-          draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft != false }}
-          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease == true }}
+          tag_name: v0.0.2-beta.1
+          name: ClawMaster v0.0.2-beta.1
+          prerelease: true
           generate_release_notes: true
-          files: |
-            release-assets/*.exe
-            release-assets/ClawMaster-*-SHA256SUMS
+          files: release-assets/**

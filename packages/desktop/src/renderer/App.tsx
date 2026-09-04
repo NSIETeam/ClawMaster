@@ -1236,6 +1236,13 @@ function ClawMasterWorkspaceApp({
       return;
     }
     if (activation.kind === 'platform') {
+      if (!activation.url) {
+        setMainView('chat');
+        window.dispatchEvent(new CustomEvent('clawmaster:platform-config-required', {
+          detail: { id: activation.platformId, label: module.label },
+        }));
+        return;
+      }
       setMainView('chat');
       window.dispatchEvent(new CustomEvent('clawmaster:open-platform', {
         detail: { id: activation.platformId, label: module.label, url: activation.url },
