@@ -298,7 +298,7 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
   it('v1.7 企业关联和自动 Skill 操作只接受非空链接/候选 ID', () => {
     expect(validateClientPayload({
       type: 'accept_company_link',
-      payload: { link: 'otto://enterprise/join?token=abc' },
+      payload: { link: 'clawmaster://enterprise/join?token=abc' },
     })).toBeNull();
     expect(validateClientPayload({
       type: 'accept_company_link',
@@ -528,7 +528,7 @@ describe('validateClientPayload：v1.7 产品工作区', () => {
     })).toContain('managerName');
     expect(validateClientPayload({
       type: 'join_enterprise',
-      payload: { link: 'otto://enterprise/join?x=1', userId: 'u1', displayName: '林一' },
+      payload: { link: 'clawmaster://enterprise/join?x=1', userId: 'u1', displayName: '林一' },
     })).toBeNull();
     expect(validateClientPayload({
       type: 'join_enterprise',

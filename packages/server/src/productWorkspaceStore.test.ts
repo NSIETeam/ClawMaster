@@ -88,7 +88,7 @@ describe('ProductWorkspaceStore', () => {
       expiresInSeconds: 3600,
     });
 
-    expect(invite.link.startsWith('otto://enterprise/join?')).toBe(true);
+    expect(invite.link.startsWith('clawmaster://enterprise/join?')).toBe(true);
     expect(invite.link).not.toContain('北辰科技');
     const joined = store.acceptInvite(invite.link, {
       userId: 'member-1',
@@ -274,12 +274,12 @@ describe('ProductWorkspaceStore', () => {
     ).toThrow(/中心认证身份/);
     expect(() => store.switchToPersonal()).toThrow(/中心认证身份/);
     expect(() =>
-      store.acceptInvite('otto://enterprise/join', {
+      store.acceptInvite('clawmaster://enterprise/join', {
         userId: 'attacker',
         displayName: '攻击者',
       }),
     ).toThrow(/中心认证身份/);
-    expect(() => store.acceptCompanyLink('otto://enterprise/join')).toThrow(
+    expect(() => store.acceptCompanyLink('clawmaster://enterprise/join')).toThrow(
       /中心认证身份/,
     );
     expect(() => store.issueInvite({ kind: 'company' })).toThrow(/中心认证身份/);

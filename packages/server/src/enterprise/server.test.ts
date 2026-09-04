@@ -1580,7 +1580,7 @@ describe('公网企业引入链接与公开落地页', () => {
     expect(html).toContain('打开 ClawMaster');
     expect(html).toContain('如果按钮没有反应');
     expect(html).toContain(invite.code);
-    expect(html).toContain(`otto://enterprise/join?invite=${invite.code}`);
+    expect(html).toContain(`clawmaster://enterprise/join?invite=${invite.code}`);
     expect(html).not.toContain(secretName);
     expect(html).not.toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
   });
@@ -1614,7 +1614,7 @@ describe('公网企业引入链接与公开落地页', () => {
     );
     expect(expiredResponse.status).toBe(410);
     expect(await expiredResponse.text()).not.toContain(
-      'otto://enterprise/join',
+      'clawmaster://enterprise/join',
     );
 
     const revoked = db.issueOrganizationInvite(organization.id);
@@ -1624,7 +1624,7 @@ describe('公网企业引入链接与公开落地页', () => {
     );
     expect(revokedResponse.status).toBe(410);
     expect(await revokedResponse.text()).not.toContain(
-      'otto://enterprise/join',
+      'clawmaster://enterprise/join',
     );
   });
 });

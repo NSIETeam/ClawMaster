@@ -246,7 +246,7 @@ pub fn issue(
         "{body}.{}",
         URL_SAFE_NO_PAD.encode(pair.sign(body.as_bytes()).as_ref())
     );
-    let mut url = Url::parse("otto://enterprise/join").map_err(|error| error.to_string())?;
+    let mut url = Url::parse("clawmaster://enterprise/join").map_err(|error| error.to_string())?;
     url.query_pairs_mut()
         .append_pair("token", &token)
         .append_pair("key", &URL_SAFE_NO_PAD.encode(pair.public_key().as_ref()));
@@ -257,7 +257,7 @@ pub fn issue(
 
 fn verify_at(link: &str, current_time: u64) -> Result<Claims, String> {
     let url = Url::parse(link).map_err(|_| "企业邀请链接无效".to_string())?;
-    if url.scheme() != "otto" || url.host_str() != Some("enterprise") || url.path() != "/join" {
+    if url.scheme() != "clawmaster" || url.host_str() != Some("enterprise") || url.path() != "/join" {
         return Err("企业邀请链接来源无效".into());
     }
     let params = url

@@ -594,7 +594,7 @@ export class ProductWorkspaceStore {
     const params = new URLSearchParams({ token: signed.token, key: publicDer });
     return {
       kind: claims.kind,
-      link: `otto://enterprise/join?${params.toString()}`,
+      link: `clawmaster://enterprise/join?${params.toString()}`,
       expiresAt: claims.expiresAt,
     };
   }
@@ -672,7 +672,7 @@ export class ProductWorkspaceStore {
     } catch {
       throw new Error('企业链接格式无效');
     }
-    if (url.protocol !== 'otto:' || url.hostname !== 'enterprise' || url.pathname !== '/join') {
+    if (url.protocol !== 'clawmaster:' || url.hostname !== 'enterprise' || url.pathname !== '/join') {
       throw new Error('企业链接格式无效');
     }
     const token = url.searchParams.get('token');

@@ -106,7 +106,7 @@ describe('PPT 内置 Skill 自动路由', () => {
 
     await runtime.run([{ type: 'text', value: '帮我做一份发布会 PPT' }], 'local');
 
-    expect(rules).toContain('<skill_loaded name="ppt-creator" source="otto-builtin">');
+    expect(rules).toContain('<skill_loaded name="ppt-creator" source="clawmaster-builtin">');
     expect(rules).toContain('# 发布会级 PPT 视觉导演');
     expect(refreshSystem).toHaveBeenCalledTimes(1);
   });

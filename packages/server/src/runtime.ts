@@ -559,7 +559,7 @@ export class CoreSessionRuntime implements SessionRuntime {
     const taskText = messageContentToText(input);
     if (messageNeedsBuiltinPptSkill(taskText)) {
       const currentRules = this.config.getBaseUserRules();
-      const marker = '<skill_loaded name="ppt-creator" source="otto-builtin">';
+      const marker = '<skill_loaded name="ppt-creator" source="clawmaster-builtin">';
       if (!currentRules.includes(marker)) {
         const skill = loadBuiltinSkillInstructions('ppt-creator')?.trim();
         if (skill) {

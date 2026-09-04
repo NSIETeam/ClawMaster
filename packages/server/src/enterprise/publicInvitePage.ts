@@ -28,7 +28,7 @@ function renderPublicInvitePage(state: PublicInvitePageState, code?: string, ser
       : '请检查地址是否完整，或联系企业管理员重新发送一条引入链接。';
   const safeCode = code ? escapeHTML(code) : '';
   const deepLink = code
-    ? escapeHTML('otto://enterprise/join?invite=' + encodeURIComponent(code) +
+    ? escapeHTML('clawmaster://enterprise/join?invite=' + encodeURIComponent(code) +
       (serverUrl ? '&server=' + encodeURIComponent(serverUrl) : ''))
     : '';
 
