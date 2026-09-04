@@ -20,4 +20,11 @@ describe('cross-platform Tauri workflow contract', () => {
     expect(workflow).not.toContain('tauri-sqlcipher-${{ matrix.runtime }}');
     expect(workflow).toContain('Reject legacy packaged runtimes');
   });
+
+  it('publishes a manual release only from the exact latest main commit', async () => {
+    const workflow = await readFile(path.join(root, '.github/workflows/tauri-preview.yml'), 'utf8');
+    expect(workflow).toContain("startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)");
+    expect(workflow).toContain('test "$GITHUB_REF" = "refs/heads/main"');
+    expect(workflow).toContain('test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"');
+  });
 });
