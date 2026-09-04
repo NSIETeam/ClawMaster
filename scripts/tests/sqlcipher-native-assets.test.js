@@ -246,7 +246,7 @@ describe('SQLCipher native asset gate', () => {
     ).toThrow(/inconsistent buildCommit/i);
   });
 
-  it('keeps CI source checkout and release consumption commit-bound', () => {
+  it('keeps SQLCipher CI source-bound without coupling native-local Tauri releases to legacy assets', () => {
     const nativeWorkflow = fs.readFileSync(
       path.join(process.cwd(), '.github', 'workflows', 'sqlcipher-native.yml'),
       'utf8',
@@ -262,10 +262,10 @@ describe('SQLCipher native asset gate', () => {
     expect(nativeWorkflow).toContain(
       'subject-path: native/sqlcipher/matrix-manifest.json',
     );
-    expect(tauriWorkflow).toContain(
+    expect(tauriWorkflow).not.toContain(
       'uses: ./.github/workflows/sqlcipher-native.yml',
     );
-    expect(tauriWorkflow).toContain(
+    expect(tauriWorkflow).not.toContain(
       'name: tauri-sqlcipher-win32-x64',
     );
   });

@@ -3,6 +3,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+// The one-click installer still emits OTTO_* compatibility variables. Prefer
+// explicit CLAWMASTER_* values while keeping existing deployments runnable.
+for (const [name, value] of Object.entries(process.env)) {
+  if (!name.startsWith('OTTO_') || value === undefined) continue;
+  const clawmasterName = `CLAWMASTER_${name.slice('OTTO_'.length)}`;
+  process.env[clawmasterName] ??= value;
+}
+
 function required(name) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is required`);

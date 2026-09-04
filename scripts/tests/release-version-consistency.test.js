@@ -28,7 +28,7 @@ const versionDisplays = [
   },
   {
     path: 'packages/server/src/enterprise/bin.ts',
-    expected: [`OTTO_APP_VERSION=${version}`],
+    expected: [`CLAWMASTER_APP_VERSION=${version}`],
   },
 ];
 

@@ -4,15 +4,15 @@ import { parseFederationStagingSmokeConfig } from '../smoke-federation-staging.m
 
 function environment(overrides = {}) {
   return {
-    OTTO_FEDERATION_SMOKE_CONFIRM: 'STAGING_ONLY',
-    OTTO_FEDERATION_SMOKE_GATEWAY_URL: 'https://federation.test',
-    OTTO_FEDERATION_SMOKE_GATEWAY_ADMIN_TOKEN: 'gateway-admin-token',
-    OTTO_FEDERATION_SMOKE_SERVER_A_URL: 'https://server-a.test',
-    OTTO_FEDERATION_SMOKE_SERVER_A_ADMIN_TOKEN: 'server-a-admin-token',
-    OTTO_FEDERATION_SMOKE_SERVER_A_MEMBER_TOKEN: 'server-a-member-token',
-    OTTO_FEDERATION_SMOKE_SERVER_B_URL: 'https://server-b.test',
-    OTTO_FEDERATION_SMOKE_SERVER_B_ADMIN_TOKEN: 'server-b-admin-token',
-    OTTO_FEDERATION_SMOKE_SERVER_B_MEMBER_TOKEN: 'server-b-member-token',
+    CLAWMASTER_FEDERATION_SMOKE_CONFIRM: 'STAGING_ONLY',
+    CLAWMASTER_FEDERATION_SMOKE_GATEWAY_URL: 'https://federation.test',
+    CLAWMASTER_FEDERATION_SMOKE_GATEWAY_ADMIN_TOKEN: 'gateway-admin-token',
+    CLAWMASTER_FEDERATION_SMOKE_SERVER_A_URL: 'https://server-a.test',
+    CLAWMASTER_FEDERATION_SMOKE_SERVER_A_ADMIN_TOKEN: 'server-a-admin-token',
+    CLAWMASTER_FEDERATION_SMOKE_SERVER_A_MEMBER_TOKEN: 'server-a-member-token',
+    CLAWMASTER_FEDERATION_SMOKE_SERVER_B_URL: 'https://server-b.test',
+    CLAWMASTER_FEDERATION_SMOKE_SERVER_B_ADMIN_TOKEN: 'server-b-admin-token',
+    CLAWMASTER_FEDERATION_SMOKE_SERVER_B_MEMBER_TOKEN: 'server-b-member-token',
     ...overrides,
   };
 }
@@ -20,13 +20,13 @@ function environment(overrides = {}) {
 describe('federation staging smoke configuration', () => {
   it('requires an explicit staging-only confirmation', () => {
     expect(() => parseFederationStagingSmokeConfig(environment({
-      OTTO_FEDERATION_SMOKE_CONFIRM: '',
+      CLAWMASTER_FEDERATION_SMOKE_CONFIRM: '',
     }))).toThrow('STAGING_ONLY');
   });
 
   it('accepts three HTTPS origins and keeps credentials out of URLs', () => {
     const config = parseFederationStagingSmokeConfig(environment({
-      OTTO_FEDERATION_SMOKE_SOURCE_COMMIT: '1d8f944',
+      CLAWMASTER_FEDERATION_SMOKE_SOURCE_COMMIT: '1d8f944',
     }));
     expect(config).toMatchObject({
       gatewayUrl: 'https://federation.test',
@@ -36,31 +36,31 @@ describe('federation staging smoke configuration', () => {
       sourceCommit: '1d8f944',
     });
     expect(() => parseFederationStagingSmokeConfig(environment({
-      OTTO_FEDERATION_SMOKE_SERVER_A_URL: 'https://user:secret@server-a.test',
+      CLAWMASTER_FEDERATION_SMOKE_SERVER_A_URL: 'https://user:secret@server-a.test',
     }))).toThrow('without credentials');
   });
 
   it('validates the encrypted attachment acceptance size', () => {
     expect(parseFederationStagingSmokeConfig(environment({
-      OTTO_FEDERATION_SMOKE_ATTACHMENT_BYTES: '12582913',
+      CLAWMASTER_FEDERATION_SMOKE_ATTACHMENT_BYTES: '12582913',
     })).attachmentBytes).toBe(12 * 1024 * 1024 + 1);
     expect(() => parseFederationStagingSmokeConfig(environment({
-      OTTO_FEDERATION_SMOKE_ATTACHMENT_BYTES: '0',
+      CLAWMASTER_FEDERATION_SMOKE_ATTACHMENT_BYTES: '0',
     }))).toThrow('must be an integer');
     expect(() => parseFederationStagingSmokeConfig(environment({
-      OTTO_FEDERATION_SMOKE_ATTACHMENT_BYTES: String(65 * 1024 * 1024),
+      CLAWMASTER_FEDERATION_SMOKE_ATTACHMENT_BYTES: String(65 * 1024 * 1024),
     }))).toThrow('must be an integer');
   });
 
   it('only permits HTTP for an explicitly enabled loopback test', () => {
     expect(() => parseFederationStagingSmokeConfig(environment({
-      OTTO_FEDERATION_SMOKE_GATEWAY_URL: 'http://127.0.0.1:7790',
+      CLAWMASTER_FEDERATION_SMOKE_GATEWAY_URL: 'http://127.0.0.1:7790',
     }))).toThrow('HTTPS origin');
     const config = parseFederationStagingSmokeConfig(environment({
-      OTTO_FEDERATION_SMOKE_ALLOW_HTTP: 'true',
-      OTTO_FEDERATION_SMOKE_GATEWAY_URL: 'http://127.0.0.1:7790',
-      OTTO_FEDERATION_SMOKE_SERVER_A_URL: 'http://localhost:7777',
-      OTTO_FEDERATION_SMOKE_SERVER_B_URL: 'http://127.0.0.1:7778',
+      CLAWMASTER_FEDERATION_SMOKE_ALLOW_HTTP: 'true',
+      CLAWMASTER_FEDERATION_SMOKE_GATEWAY_URL: 'http://127.0.0.1:7790',
+      CLAWMASTER_FEDERATION_SMOKE_SERVER_A_URL: 'http://localhost:7777',
+      CLAWMASTER_FEDERATION_SMOKE_SERVER_B_URL: 'http://127.0.0.1:7778',
     }));
     expect(config).toMatchObject({
       gatewayUrl: 'http://127.0.0.1:7790',

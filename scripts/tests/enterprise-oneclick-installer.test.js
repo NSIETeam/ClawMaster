@@ -164,16 +164,17 @@ describe('enterprise one-click service layout', () => {
     const service = readFileSync(SYSTEMD_SERVICE, 'utf8');
     const installer = readFileSync(INSTALL_SH, 'utf8');
 
-    expect(bundle).toContain('OTTO_LICENSE_PUBLIC_KEYS is required');
+    expect(bundle).toContain('CLAWMASTER_LICENSE_PUBLIC_KEYS is required');
     expect(bundle).toContain(
       "path.join(releaseRoot, 'license-public-keys.json')",
     );
-    expect(runtime).toContain("required('OTTO_LICENSE_TRUST_FILE')");
-    expect(runtime).toContain("process.env.OTTO_LICENSE_ENFORCE = 'true'");
+    expect(runtime).toContain("required('CLAWMASTER_LICENSE_TRUST_FILE')");
+    expect(runtime).toContain("name.startsWith('OTTO_')");
+    expect(runtime).toContain("process.env.CLAWMASTER_LICENSE_ENFORCE = 'true'");
     expect(
       runtime.indexOf("await import('./src/enterprise/db.js')"),
     ).toBeGreaterThan(
-      runtime.indexOf('OTTO_LICENSE_PUBLIC_KEYS = JSON.stringify'),
+      runtime.indexOf('CLAWMASTER_LICENSE_PUBLIC_KEYS = JSON.stringify'),
     );
     expect(service).toContain('Environment=NODE_ENV=production');
     expect(service).toContain('Environment=OTTO_LICENSE_ENFORCE=true');
@@ -272,9 +273,9 @@ describe('enterprise one-click schema contract', () => {
           encoding: 'utf8',
           env: {
             ...process.env,
-            OTTO_BUILD_COMMIT: build,
-            OTTO_ENTERPRISE_ADMIN_TOKEN: adminToken,
-            OTTO_ENTERPRISE_DIR: sandbox,
+            CLAWMASTER_BUILD_COMMIT: build,
+            CLAWMASTER_ENTERPRISE_ADMIN_TOKEN: adminToken,
+            CLAWMASTER_ENTERPRISE_DIR: sandbox,
           },
         },
       );
@@ -306,7 +307,7 @@ describe('enterprise one-click schema contract', () => {
     const exporter = readFileSync(EXPORT_MIGRATION_SH, 'utf8');
 
     expect(bundle).toContain(
-      "const releaseChannel = process.env.OTTO_RELEASE_CHANNEL?.trim() || 'stable'",
+      "const releaseChannel = process.env.CLAWMASTER_RELEASE_CHANNEL?.trim() || 'stable'",
     );
     expect(serverDatabase).toContain(
       `export const ENTERPRISE_SCHEMA_VERSION = ${ENTERPRISE_SCHEMA_VERSION}`,
@@ -367,7 +368,7 @@ describe('enterprise one-click schema contract', () => {
             encoding: 'utf8',
             env: {
               ...process.env,
-              OTTO_EXPECTED_SCHEMA_VERSION: String(ENTERPRISE_SCHEMA_VERSION),
+              CLAWMASTER_EXPECTED_SCHEMA_VERSION: String(ENTERPRISE_SCHEMA_VERSION),
             },
           },
         );
@@ -387,7 +388,7 @@ describe('enterprise one-click schema contract', () => {
           encoding: 'utf8',
           env: {
             ...process.env,
-            OTTO_EXPECTED_SCHEMA_VERSION: String(ENTERPRISE_SCHEMA_VERSION),
+            CLAWMASTER_EXPECTED_SCHEMA_VERSION: String(ENTERPRISE_SCHEMA_VERSION),
           },
         },
       );
@@ -695,7 +696,7 @@ describe('enterprise one-click runtime configuration contract', () => {
       expect(envExample).toMatch(new RegExp(`^${key}=`, 'm'));
       expect(allowlist).toContain(key);
       expect(runtimeEnv).toContain(`  ${key} `);
-      expect(readme).toContain(`\`${key}\``);
+      expect(readme).toContain(`\`${key.replace(/^OTTO_/, 'CLAWMASTER_')}\``);
     }
   });
 
@@ -721,7 +722,7 @@ describe('enterprise one-click runtime configuration contract', () => {
       expect(envExample).toMatch(new RegExp(`^${key}=`, 'm'));
       expect(allowlist).toContain(key);
       expect(runtimeEnv).toContain(`  ${key} "\${${key}:-}"`);
-      expect(readme).toContain(`\`${key}\``);
+      expect(readme).toContain(`\`${key.replace(/^OTTO_/, 'CLAWMASTER_')}\``);
     }
   });
 });
