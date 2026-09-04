@@ -63,6 +63,8 @@ export function ChannelPairingCard({ provider }: { provider: ChannelProvider }):
       } else {
         setError(response?.error ?? '本地连接服务未就绪。');
       }
+    } catch (cause) {
+      setError(`连接服务不可用：${cause instanceof Error ? cause.message : String(cause)}`);
     } finally {
       setBusy(false);
     }

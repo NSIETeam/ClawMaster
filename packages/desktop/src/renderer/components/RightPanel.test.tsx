@@ -49,9 +49,28 @@ describe('RightPanel module workspace boundary', () => {
     expect(screen.getByRole('heading', { name: '日常办公' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '打开 PPT 创作专家' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: '功能' })).toBeTruthy();
-    expect(screen.queryByRole('tab', { name: '文件' })).toBeNull();
+    expect(screen.getByRole('tab', { name: '文件' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: '导图' })).toBeTruthy();
     expect(screen.queryByRole('tab', { name: '专家' })).toBeNull();
     expect(screen.queryByRole('tab', { name: '企业记忆' })).toBeNull();
+  });
+
+  it('opens the file editor directly without a generated artifact', () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('tab', { name: '文件' }));
+    expect(screen.getByRole('region', { name: '文件编辑器' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '选择文件' })).toBeTruthy();
+  });
+
+  it('opens an editable mind map directly and from the module event', () => {
+    const onRequestExpand = vi.fn();
+    renderPanel({ onRequestExpand });
+    fireEvent.click(screen.getByRole('tab', { name: '导图' }));
+    expect(screen.getByRole('region', { name: '思维导图编辑器' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: '功能' }));
+    fireEvent(window, new CustomEvent('clawmaster:open-mind-map'));
+    expect(onRequestExpand).toHaveBeenCalledOnce();
+    expect(screen.getByRole('region', { name: '思维导图编辑器' })).toBeTruthy();
   });
 
   it('reveals the file editor only after a generated file is opened', () => {

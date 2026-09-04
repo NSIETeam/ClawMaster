@@ -2,15 +2,34 @@ use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const MEMORY_FILE: &str = "OTTO.md";
+const MEMORY_FILE: &str = "CLAWMASTER.md";
+const LEGACY_MEMORY_FILE: &str = "OTTO.md";
 const MAX_FACT_CHARS: usize = 2_000;
 
-fn global_memory_path() -> Result<PathBuf, String> {
+fn global_memory_paths() -> Result<(PathBuf, PathBuf), String> {
     let home = std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
         .ok_or_else(|| "无法定位用户目录".to_string())?;
-    Ok(home.join(".otto-user").join("memory").join(MEMORY_FILE))
+    Ok((
+        home.join(".clawmaster-user")
+            .join("memory")
+            .join(MEMORY_FILE),
+        home.join(".otto-user")
+            .join("memory")
+            .join(LEGACY_MEMORY_FILE),
+    ))
+}
+
+fn migrate_if_missing(current: &Path, legacy: &Path) -> Result<(), String> {
+    if current.exists() || !legacy.is_file() {
+        return Ok(());
+    }
+    if let Some(parent) = current.parent() {
+        fs::create_dir_all(parent).map_err(|error| format!("无法创建记忆目录: {error}"))?;
+    }
+    fs::copy(legacy, current).map_err(|error| format!("无法迁移旧版记忆: {error}"))?;
+    Ok(())
 }
 
 fn file_info(scope: &str, path: PathBuf) -> Value {
@@ -32,9 +51,16 @@ pub fn snapshot(workspace: &Path) -> Result<Value, String> {
     if !workspace.is_absolute() {
         return Err("记忆工作目录必须是绝对路径".into());
     }
+    let project = workspace.join(MEMORY_FILE);
+    migrate_if_missing(&project, &workspace.join(LEGACY_MEMORY_FILE))?;
+    let (global, legacy_global) = global_memory_paths()?;
+    #[cfg(not(test))]
+    migrate_if_missing(&global, &legacy_global)?;
+    #[cfg(test)]
+    let _ = legacy_global;
     Ok(json!({"files":[
-        file_info("project", workspace.join(MEMORY_FILE)),
-        file_info("global", global_memory_path()?)
+        file_info("project", project),
+        file_info("global", global)
     ]}))
 }
 
@@ -62,7 +88,7 @@ pub fn add_project_fact(workspace: &Path, fact: &str) -> Result<Value, String> {
     next.push_str("- ");
     next.push_str(&fact.replace('\n', " "));
     next.push('\n');
-    let temporary = workspace.join(".OTTO.md.tmp");
+    let temporary = workspace.join(".CLAWMASTER.md.tmp");
     fs::write(&temporary, next).map_err(|error| format!("无法写入项目记忆: {error}"))?;
     fs::rename(&temporary, &path).map_err(|error| format!("无法提交项目记忆: {error}"))?;
     snapshot(workspace)
@@ -81,7 +107,20 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("- 使用 Rust 原生运行时"));
-        assert!(!root.path().join(".OTTO.md.tmp").exists());
+        assert!(!root.path().join(".CLAWMASTER.md.tmp").exists());
+    }
+
+    #[test]
+    fn migrates_legacy_project_memory_without_deleting_it() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join(LEGACY_MEMORY_FILE), "# Legacy\n").unwrap();
+        let result = snapshot(root.path()).unwrap();
+        assert_eq!(
+            result["files"][0]["path"].as_str(),
+            root.path().join(MEMORY_FILE).to_str()
+        );
+        assert_eq!(result["files"][0]["content"], "# Legacy\n");
+        assert!(root.path().join(LEGACY_MEMORY_FILE).exists());
     }
 
     #[test]

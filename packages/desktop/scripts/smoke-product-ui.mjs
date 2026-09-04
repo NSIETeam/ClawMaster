@@ -164,6 +164,18 @@ try {
       assert.equal(await page.getByRole('tab', { name: label }).count(), 0);
     }
 
+    await page.getByRole('tab', { name: '文件' }).click();
+    await page.getByRole('region', { name: '文件编辑器' }).waitFor();
+    assert.equal(await page.getByRole('button', { name: '选择文件' }).count(), 1);
+
+    await page.getByRole('tab', { name: '导图' }).click();
+    const mindMap = page.getByRole('region', { name: '思维导图编辑器' });
+    await mindMap.waitFor();
+    await mindMap.getByRole('textbox', { name: '思维导图大纲' }).fill('发布\n  候选构建\n  安装验收');
+    assert.equal(await mindMap.getByLabel('思维导图预览').getByText('安装验收').count(), 1);
+
+    await page.getByRole('tab', { name: '功能' }).click();
+
     await page.getByRole('button', { name: '功能组菜单：园区服务' }).click();
     const menuBounds = await page.getByRole('menu', { name: '园区服务设置' }).boundingBox();
     assert.ok(menuBounds, 'group menu is not visible');
@@ -179,4 +191,4 @@ try {
   await new Promise((resolve) => server.close(resolve));
 }
 
-console.log('[product-ui] crown, right rail, five platforms, marketplace, short viewport and dark theme passed');
+console.log('[product-ui] crown, right rail, editor, mind map, five platforms, marketplace, short viewport and dark theme passed');

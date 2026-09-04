@@ -8,6 +8,7 @@ import type {
   DesktopRuntimeDiagnostic,
   ClawMasterBridge,
   PlatformWebviewBounds,
+  UpdateProgressInfo,
 } from '../preload/index.js';
 import type { ClientToServer, ServerToClient } from 'clawmaster-server';
 
@@ -66,6 +67,7 @@ export function createTauriHostBridge(
   let requestSequence = 0;
   const frameHandlers = new Set<(frame: ServerToClient) => void>();
   const connectionHandlers = new Set<(value: boolean) => void>();
+  const updateProgressHandlers = new Set<(value: UpdateProgressInfo) => void>();
   const pendingRequests = new Map<string, {
     expectedType: ServerToClient['type'];
     resolve: (frame: ServerToClient) => void;
@@ -110,6 +112,9 @@ export function createTauriHostBridge(
         listen<boolean>('desktop://connection-change', ({ payload }) =>
           dispatchConnection(payload),
         ),
+        listen<UpdateProgressInfo>('desktop://update-progress', ({ payload }) => {
+          for (const handler of updateProgressHandlers) handler(payload);
+        }),
         listen<{ id: string; label: string; url: string }>(
           'desktop://open-platform',
           ({ payload }) => window.dispatchEvent(new CustomEvent(
@@ -243,6 +248,10 @@ export function createTauriHostBridge(
     saveTextFile: ((suggestedFileName: string, content: string) =>
       invoke<string | null>('save_text_file', { suggestedFileName, content })) as never,
     appVersion: (() => invoke<string>('app_version')) as never,
+    updateCheck: (() => invoke('update_check')) as never,
+    updateDownload: (() => invoke('update_download')) as never,
+    updateCancel: (() => invoke<void>('update_cancel')) as never,
+    updateInstall: (() => invoke('update_install')) as never,
     runtimeDiagnostic: (() =>
       invoke<DesktopRuntimeDiagnostic>('runtime_diagnostic')) as never,
     notificationShow: ((payload: Parameters<ClawMasterBridge['notificationShow']>[0]) =>
@@ -338,10 +347,48 @@ export function createTauriHostBridge(
       headHash: '',
       entries: [],
     })) as never,
+    feishuStatus: (() => Promise.resolve({
+      text: '当前 Rust 本地版尚未配置企业消息连接器。请使用高级配置，或等待管理员部署连接服务。',
+      running: false,
+    })) as never,
+    feishuGetConfig: (() => Promise.resolve({ ok: true, config: null, error: null })) as never,
+    feishuSaveConfig: (() => Promise.resolve({
+      ok: false,
+      config: null,
+      error: '当前 Rust 本地版尚未启用飞书凭证服务，未保存任何凭证。',
+    })) as never,
+    feishuClearConfig: (() => Promise.resolve({ ok: true, config: null, error: null })) as never,
+    feishuStart: (() => Promise.resolve({ text: '当前 Rust 本地版尚未配置飞书连接器。' })) as never,
+    feishuStop: (() => Promise.resolve({ text: '当前没有运行中的飞书连接器。' })) as never,
+    channelPairingBegin: (() => Promise.resolve({
+      ok: false,
+      pairing: null,
+      error: 'channel_connector_unavailable: 当前 Rust 本地版尚未部署扫码连接服务',
+    })) as never,
+    channelPairingStatus: (() => Promise.resolve({
+      ok: false,
+      data: null,
+      error: '当前没有进行中的扫码连接。',
+    })) as never,
+    channelPairingInstall: (() => Promise.resolve({
+      ok: false,
+      data: null,
+      error: '当前没有可安装的消息连接。',
+    })) as never,
+    channelPairingCancel: (() => Promise.resolve({
+      ok: false,
+      data: null,
+      error: '当前没有进行中的扫码连接。',
+    })) as never,
     channelInstallations: (() => Promise.resolve({
       ok: true,
       data: [],
       error: null,
+    })) as never,
+    channelInstallationAction: (() => Promise.resolve({
+      ok: false,
+      data: null,
+      error: '当前 Rust 本地版尚未配置企业消息连接器。',
     })) as never,
     onEnterpriseRegistrationIntent: noopSubscription as never,
     onEnterpriseSessionInvalidated: noopSubscription as never,
@@ -351,7 +398,10 @@ export function createTauriHostBridge(
     // Subscription APIs must stay synchronous even while the capability is
     // unavailable in Tauri. Returning the Proxy's rejected Promise here makes
     // React treat that Promise as an effect cleanup function and crashes the UI.
-    onUpdateProgress: noopSubscription as never,
+    onUpdateProgress: (((handler: (value: UpdateProgressInfo) => void) => {
+      updateProgressHandlers.add(handler);
+      return () => updateProgressHandlers.delete(handler);
+    })) as never,
     onMenu: noopSubscription as never,
     customerModuleInstalledList: (() => Promise.resolve([])) as never,
     communitySkillInstall: ((input: { id: string; source: string; slug: string }) =>

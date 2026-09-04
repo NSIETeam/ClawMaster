@@ -2913,7 +2913,7 @@ mod tests {
             }}))
             .unwrap();
         assert_eq!(memory[0]["type"], "memory_snapshot");
-        assert!(fs::read_to_string(root.path().join("OTTO.md"))
+        assert!(fs::read_to_string(root.path().join("CLAWMASTER.md"))
             .unwrap()
             .contains("保持 Rust 单一路径"));
         let tools = runtime
@@ -2966,7 +2966,7 @@ mod tests {
         assert_eq!(confirmed[1]["type"], "skills_list");
         assert!(root
             .path()
-            .join(".otto/skills/auto-search-text/SKILL.md")
+            .join(".clawmaster/skills/auto-search-text/SKILL.md")
             .is_file());
         let persisted = fs::read_to_string(&runtime.state_path).unwrap();
         assert!(persisted.contains(candidate_id));

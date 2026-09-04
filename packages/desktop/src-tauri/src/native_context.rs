@@ -33,10 +33,18 @@ pub fn system_prompt(
         "You are ClawMaster's Rust-native AI coworker. Work inside {}. Use the provided native tools rather than claiming actions were performed. Read-only tools may run directly; writes, commands, desktop automation, browser opens, schedules, knowledge changes, todos, and MCP tools require the runtime's confirmation gate. Never request or reveal secrets. Report failures truthfully. Preferred language: {}. Response style: {}.",
         workspace.display(), preferred_language, agent_style
     )];
+    let project_memory = workspace.join("CLAWMASTER.md");
+    let legacy_memory = workspace.join("OTTO.md");
     for (label, path) in [
-        ("Project memory", workspace.join("OTTO.md")),
+        (
+            "Project memory",
+            if project_memory.is_file() {
+                project_memory
+            } else {
+                legacy_memory
+            },
+        ),
         ("Project instructions", workspace.join("AGENTS.md")),
-        ("ClawMaster project memory", workspace.join("CLAWMASTER.md")),
     ] {
         let content = read_bounded(&path, MAX_CONTEXT_FILE_BYTES);
         if !content.trim().is_empty() {
@@ -44,7 +52,12 @@ pub fn system_prompt(
         }
     }
     if let Some(home) = home_dir() {
-        let path = home.join(".otto-user/memory/OTTO.md");
+        let current = home.join(".clawmaster-user/memory/CLAWMASTER.md");
+        let path = if current.is_file() {
+            current
+        } else {
+            home.join(".otto-user/memory/OTTO.md")
+        };
         let content = read_bounded(&path, MAX_CONTEXT_FILE_BYTES);
         if !content.trim().is_empty() {
             sections.push(format!("[Global memory: {}]\n{content}", path.display()));
@@ -102,7 +115,7 @@ pub fn breakdown(
         .filter(|message| message.role != "system")
         .map(|message| estimate(&message.text) + 4)
         .sum::<u64>();
-    let memory_files_tokens = ["OTTO.md", "AGENTS.md", "CLAWMASTER.md"]
+    let memory_files_tokens = ["CLAWMASTER.md", "AGENTS.md", "OTTO.md"]
         .iter()
         .map(|name| estimate(&read_bounded(&workspace.join(name), MAX_CONTEXT_FILE_BYTES)))
         .sum::<u64>();

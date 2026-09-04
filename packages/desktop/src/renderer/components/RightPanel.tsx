@@ -5,6 +5,7 @@ import type { ModuleDefinition } from '../moduleCatalog.js';
 import type { ModuleWorkspaceLayout } from '../moduleWorkspace.js';
 import { ModuleWorkspace } from './ModuleWorkspace.js';
 import { ArtifactWorkspace } from './ArtifactWorkspace.js';
+import { MindMapWorkspace } from './MindMapWorkspace.js';
 import { PlatformWorkspace, type PlatformWorkspaceTarget } from './PlatformWorkspace.js';
 
 /** Thin boundary: App owns capabilities, persistence, and business dialogs. */
@@ -39,7 +40,7 @@ export function RightPanel({
   onOpenMarketplace,
   onLayoutChange,
 }: RightPanelProps): React.JSX.Element {
-  const [activeView, setActiveView] = useState<'modules' | 'files' | 'platform'>('modules');
+  const [activeView, setActiveView] = useState<'modules' | 'files' | 'mindmap' | 'platform'>('modules');
   const [filePath, setFilePath] = useState<string | null>(null);
   const [platformTarget, setPlatformTarget] = useState<PlatformWorkspaceTarget | null>(null);
   useEffect(() => {
@@ -52,6 +53,14 @@ export function RightPanel({
     };
     window.addEventListener('clawmaster:edit-local-file', showFiles);
     return () => window.removeEventListener('clawmaster:edit-local-file', showFiles);
+  }, [onRequestExpand]);
+  useEffect(() => {
+    const showMindMap = (): void => {
+      onRequestExpand?.();
+      setActiveView('mindmap');
+    };
+    window.addEventListener('clawmaster:open-mind-map', showMindMap);
+    return () => window.removeEventListener('clawmaster:open-mind-map', showMindMap);
   }, [onRequestExpand]);
   useEffect(() => {
     if (!platformTarget) return;
@@ -91,13 +100,16 @@ export function RightPanel({
     >
       <div className="claw-right-panel__switcher" role="tablist" aria-label="右侧工作区">
         <button type="button" role="tab" aria-selected={activeView === 'modules'} onClick={() => setActiveView('modules')}>功能</button>
-        {filePath ? <button type="button" role="tab" aria-selected={activeView === 'files'} onClick={() => setActiveView('files')}>文件</button> : null}
+        <button type="button" role="tab" aria-selected={activeView === 'files'} onClick={() => setActiveView('files')}>文件</button>
+        <button type="button" role="tab" aria-selected={activeView === 'mindmap'} onClick={() => setActiveView('mindmap')}>导图</button>
         {platformTarget ? <button type="button" role="tab" aria-selected={activeView === 'platform'} onClick={() => setActiveView('platform')}>{platformTarget.label}</button> : null}
       </div>
       {activeView === 'platform' && platformTarget ? (
         <PlatformWorkspace target={platformTarget} onClose={closePlatform} />
-      ) : activeView === 'files' && filePath ? (
-        <ArtifactWorkspace initialPath={filePath} />
+      ) : activeView === 'files' ? (
+        <ArtifactWorkspace initialPath={filePath ?? undefined} />
+      ) : activeView === 'mindmap' ? (
+        <MindMapWorkspace />
       ) : readiness === 'ready' ? (
         <ModuleWorkspace
           presentation={presentation}

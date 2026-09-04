@@ -23,9 +23,10 @@ mod native_runtime;
 mod native_schedule;
 mod native_skills;
 mod native_todos;
+pub mod native_tools;
+mod native_update;
 mod native_worklog;
 mod native_workflows;
-pub mod native_tools;
 mod platform_webview;
 mod runtime_contracts;
 mod system_commands;
@@ -270,6 +271,7 @@ pub fn run() {
         .manage(agent_state_pool::AgentStatePool::default())
         .manage(system_commands::DesktopFileState::default())
         .manage(system_commands::ThemePreference::default())
+        .manage(native_update::NativeUpdateState::default())
         .manage(task_runtime_guard::TaskRuntimeGuard::default())
         .invoke_handler(tauri::generate_handler![
             desktop_connect,
@@ -298,6 +300,10 @@ pub fn run() {
             system_commands::activate_local_path,
             system_commands::save_text_file,
             system_commands::app_version,
+            native_update::update_check,
+            native_update::update_download,
+            native_update::update_cancel,
+            native_update::update_install,
             system_commands::theme_get,
             system_commands::theme_set,
             system_commands::write_clipboard,

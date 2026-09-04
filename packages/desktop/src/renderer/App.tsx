@@ -1259,6 +1259,10 @@ function ClawMasterWorkspaceApp({
     }
     if (activation.kind === 'guided-task') {
       setMainView('chat');
+      if (activation.taskId === 'mind-map') {
+        expandRightPanel();
+        window.dispatchEvent(new CustomEvent('clawmaster:open-mind-map'));
+      }
       setPendingAgent({
         moduleId: module.id,
         title: module.label,
@@ -1276,7 +1280,7 @@ function ClawMasterWorkspaceApp({
       customAgentId: activation.customAgentId,
       icon: module.icon,
     });
-  }, [edition, openModuleModal]);
+  }, [edition, expandRightPanel, openModuleModal]);
 
   const handleToolConfirmation = useCallback(
     (

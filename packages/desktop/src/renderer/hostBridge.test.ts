@@ -69,6 +69,22 @@ describe('Tauri host bridge', () => {
       command: 'save_text_file',
       args: { suggestedFileName: 'report.md', content: '# Report' },
     });
+    await expect(bridge.updateCheck()).resolves.toEqual({
+      command: 'update_check',
+      args: undefined,
+    });
+    await expect(bridge.updateDownload()).resolves.toEqual({
+      command: 'update_download',
+      args: undefined,
+    });
+    await expect(bridge.updateCancel()).resolves.toEqual({
+      command: 'update_cancel',
+      args: undefined,
+    });
+    await expect(bridge.updateInstall()).resolves.toEqual({
+      command: 'update_install',
+      args: undefined,
+    });
     await expect(bridge.runtimeDiagnostic()).resolves.toEqual({
       command: 'runtime_diagnostic',
       args: undefined,
@@ -155,6 +171,14 @@ describe('Tauri host bridge', () => {
       ok: true,
       data: [],
       error: null,
+    });
+    await expect(bridge.feishuStatus()).resolves.toMatchObject({
+      running: false,
+      text: expect.stringContaining('Rust'),
+    });
+    await expect(bridge.channelPairingBegin('feishu')).resolves.toMatchObject({
+      ok: false,
+      error: expect.stringContaining('channel_connector_unavailable'),
     });
   });
 

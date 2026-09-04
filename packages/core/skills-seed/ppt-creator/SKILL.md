@@ -1,7 +1,7 @@
 ---
 name: ppt-creator
-version: 3
-description: 用自定义 HTML/CSS/SVG、真实视觉素材、浏览器逐页渲染与 Node/PptxGenJS 制作炫酷高冲击 PPTX。适用于发布会、路演、汇报、课件与任何拒绝通用模板感的演示；禁止 Python 排版。
+version: 4
+description: 使用 ClawMaster 的 Rust 原生 OOXML 引擎生成可编辑 PPTX，并完成主题化叙事、视觉设计与交付自检。
 ---
 
 # 发布会级 PPT 视觉导演
@@ -13,10 +13,10 @@ description: 用自定义 HTML/CSS/SVG、真实视觉素材、浏览器逐页渲
 ## 不可妥协的结果
 
 - 交付真实可打开的 `.pptx`，不是大纲、Markdown、HTML 代码或几张预览图。
-- HTML 是视觉画布：高审美任务使用自定义 HTML/CSS/SVG → Playwright 或本机 Chromium 逐页渲染 → 逐页 PNG → Node.js + PptxGenJS 组装。
-- 禁止使用 Python、python-pptx、matplotlib、Pillow 或任何 Python 脚本生成、排版、画图或写入 PPTX。
-- `generate_document` 仅作为快速兜底：只有用户明确优先速度，或自定义画布链路确实不可用时才使用；不得把兜底结果冒充高审美成品。
-- 不上传普通 PPT，不依赖 Otto 私有云端 PPT 服务、网页登录或在线编辑器。
+- 必须优先调用 `generate_pptx`，由 ClawMaster 内置 Rust OOXML 引擎生成可编辑文件。
+- 不要求用户安装 Node.js、PptxGenJS、Python、python-pptx、Marp、浏览器渲染器或第三方办公 SDK。
+- 用一行 `---` 分隔幻灯片；每页用标题与短项目符号表达结构。
+- 不上传普通 PPT，不依赖私有云端 PPT 服务、网页登录或在线编辑器。
 - 信息足够就直接完成；缺少会改变方向的关键信息时只问最少问题。
 
 ## 先定义传播任务
@@ -105,7 +105,7 @@ description: 用自定义 HTML/CSS/SVG、真实视觉素材、浏览器逐页渲
 
 ## 素材先于装饰
 
-先列出每页需要的真实素材，再开始写 HTML：
+先列出每页需要的真实素材，再开始整理可编辑源内容：
 
 - 用户已有图片、Logo、截图和数据优先；
 - 有权限且工具可用时，为关键页使用 imagegen 或合规图片搜索；
@@ -114,41 +114,24 @@ description: 用自定义 HTML/CSS/SVG、真实视觉素材、浏览器逐页渲
 - 选图时提前考虑文字放左还是放右、裁切重心和 16:9 构图；
 - 低清图片、拉伸图片和无来源的“装饰照片”必须替换。
 
-## 自定义 HTML/CSS/SVG 画布
+## Rust 原生可编辑画布
 
-使用一个 `deck.html` 承载全部页面，或使用共享视觉系统的逐页 HTML。每页根节点：
+先生成可编辑的逐页 Markdown，再交给 Rust 原生工具。每页结构如下：
 
-```html
-<section class="slide slide--cover" data-slide="1">...</section>
-```
-
-基础约束：
-
-```css
-:root {
-  --ink: #f8fbff;
-  --bg: #070a12;
-  --energy: #51e6ff;
-  --hot: #ff4d7d;
-}
-.slide {
-  position: relative;
-  width: 1920px;
-  height: 1080px;
-  overflow: hidden;
-  isolation: isolate;
-}
+```markdown
+# 一句核心结论
+- 支撑事实
+- 关键数字
+---
+# 下一页结论
+- 行动或证据
 ```
 
 实现要求：
 
-- 用 CSS Grid/Flex 建立主结构，用绝对定位完成必要的艺术化叠放；
-- 至少建立背景、中景、前景三个深度层；不要把所有元素放在一个平面；
-- 用 CSS 变量统一颜色、字体、间距、光晕强度和材质；
-- 动效只用于辅助构图；截图前冻结在最有表现力的一帧；
-- 等待 `document.fonts.ready`、图片 `decode()` 和 SVG 渲染完成后截图；
-- HTML 不出现导航栏、按钮、滚动条、网页容器或后台组件；
-- 非脚注文字不得小于 24px，普通标题通常 54–76px，高潮页标题可达 96–150px；
+- 先让标题和要点在纯文本中形成清晰层级，再调用工具，避免靠排版掩盖内容问题；
+- 每页只保留与结论直接相关的内容，讲者解释放备注或交付说明；
+- 生成后必须用系统演示软件真实打开并检查，而不是仅检查文件存在；
 - 标题不能因为偷懒而意外折成三四行；先改文案或构图，不要先缩字号。
 
 不要先写一个“万能 slide 模板”再给所有页面换文字。共享的只能是视觉 token、字体和材质；构图必须按本页内容重新组织。
@@ -164,18 +147,15 @@ description: 用自定义 HTML/CSS/SVG、真实视觉素材、浏览器逐页渲
 5. 标杆页通过后，再实现其余页面；每页从内容选择构图；
 6. 生成全部逐页 PNG 和缩略图总览；
 7. 逐页 100% 检查并返工；
-8. 最后才用 PptxGenJS 组装 `.pptx` 并真实打开。
+8. 最后调用 Rust `generate_pptx` 生成 `.pptx` 并真实打开。
 
 不要在最终回复里展示内部 deck-spec、生产说明或自我评价；它们只用于执行。
 
-## 浏览器渲染与 PPTX 组装
+## Rust 生成与 PPTX 验收
 
-1. 用 Playwright 或本机 Chrome/Edge/Chromium 打开本地 HTML；
-2. 以精确 1920×1080 视口逐页截图，命名为 `slide-01.png` 等；
-3. 使用 Node.js + PptxGenJS 创建 `LAYOUT_WIDE`；
-4. 每页图片满版放入 `x=0, y=0, w=13.333, h=7.5`，不得变形或留白边；
-5. 讲者备注用 `addNotes()` 写入，不烧进画面；
-6. 写出后检查文件存在、大小合理、页数正确，并用系统演示软件真实打开。
+1. 按故事板生成使用 `---` 分页的 Markdown。
+2. 调用 `generate_pptx`，由 Rust OOXML 引擎创建 16:9 可编辑演示文稿。
+3. 写出后检查文件存在、大小合理、页数正确，并用系统演示软件真实打开。
 
 ## 反偷懒验收
 
@@ -203,6 +183,6 @@ description: 用自定义 HTML/CSS/SVG、真实视觉素材、浏览器逐页渲
 
 ## 交付
 
-- 交付真实 `.pptx`，并保留 HTML 源文件和逐页 PNG 供复核；
+- 交付真实 `.pptx`，并保留生成它的 Markdown 源文件供复核；
 - 数字、引用和图片来源必须可追溯；
 - 失败要附真实错误，不得用占位图、假截图或空壳文件冒充完成。

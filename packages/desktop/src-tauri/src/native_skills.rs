@@ -193,10 +193,10 @@ pub fn install(candidate: &AutoSkillCandidate) -> Result<PathBuf, String> {
         .workspace
         .canonicalize()
         .map_err(|error| format!("自动 Skill 项目目录不可用: {error}"))?;
-    let skills_root = workspace.join(".otto/skills");
+    let skills_root = workspace.join(".clawmaster/skills");
     let path = skills_root.join(&candidate.name).join("SKILL.md");
     if !path.starts_with(&skills_root) {
-        return Err("自动 Skill 只能写入当前项目的 .otto/skills 目录".into());
+        return Err("自动 Skill 只能写入当前项目的 .clawmaster/skills 目录".into());
     }
     if path.exists() {
         return Err("同名 Skill 已存在，已停止以避免覆盖项目内容".into());
@@ -227,11 +227,17 @@ fn frontmatter_value(content: &str, key: &str) -> Option<String> {
 }
 
 pub fn list(workspace: &Path) -> Result<Vec<Value>, String> {
-    let mut roots = vec![(workspace.join(".otto/skills"), "user-project")];
+    let mut roots = vec![
+        (workspace.join(".clawmaster/skills"), "user-project"),
+        (workspace.join(".otto/skills"), "legacy-project"),
+    ];
     if let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) {
-        roots.push((PathBuf::from(home).join(".otto-user/skills"), "user-global"));
+        let home = PathBuf::from(home);
+        roots.push((home.join(".clawmaster-user/skills"), "user-global"));
+        roots.push((home.join(".otto-user/skills"), "legacy-global"));
     }
     let mut skills = Vec::new();
+    let mut seen = HashSet::new();
     for (root, marketplace) in roots {
         let entries = match fs::read_dir(&root) {
             Ok(entries) => entries,
@@ -257,8 +263,19 @@ pub fn list(workspace: &Path) -> Result<Vec<Value>, String> {
                 _ => continue,
             };
             let fallback = entry.file_name().to_string_lossy().into_owned();
+            if !seen.insert(fallback.clone()) {
+                continue;
+            }
             let name = frontmatter_value(&content, "name").unwrap_or_else(|| fallback.clone());
-            let description = frontmatter_value(&content, "description").unwrap_or_default();
+            let mut description = frontmatter_value(&content, "description")
+                .unwrap_or_default()
+                .replace("Otto", "ClawMaster")
+                .replace("otto", "ClawMaster");
+            if fallback == "ppt-creator" {
+                description =
+                    "使用 Rust 原生 OOXML 生成可编辑 PPTX，并按主题完成结构、视觉与交付自检。"
+                        .into();
+            }
             skills.push(json!({
                 "id": format!("{}:{}", marketplace, fallback),
                 "name": name,
@@ -323,8 +340,14 @@ pub fn execute(workspace: &Path, call: &ModelToolCall) -> Result<Value, String> 
         return Err("Skill id 包含非法路径".into());
     }
     let root = match scope {
-        "user-project" => workspace.join(".otto/skills"),
+        "user-project" => workspace.join(".clawmaster/skills"),
+        "legacy-project" => workspace.join(".otto/skills"),
         "user-global" => std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .map(PathBuf::from)
+            .ok_or_else(|| "无法定位用户目录".to_string())?
+            .join(".clawmaster-user/skills"),
+        "legacy-global" => std::env::var_os("HOME")
             .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
             .ok_or_else(|| "无法定位用户目录".to_string())?
@@ -360,7 +383,7 @@ mod tests {
     #[test]
     fn loads_only_an_installed_skill_by_exact_id() {
         let root = tempfile::tempdir().unwrap();
-        let directory = root.path().join(".otto/skills/demo");
+        let directory = root.path().join(".clawmaster/skills/demo");
         fs::create_dir_all(&directory).unwrap();
         fs::write(directory.join("SKILL.md"), "# Safe instructions").unwrap();
         let value = execute(
@@ -445,7 +468,12 @@ mod tests {
             tools: vec!["read_file".into(), "write_file".into()],
         };
         let saved = install(&candidate).unwrap();
-        assert!(saved.starts_with(root.path().canonicalize().unwrap().join(".otto/skills")));
+        assert!(saved.starts_with(
+            root.path()
+                .canonicalize()
+                .unwrap()
+                .join(".clawmaster/skills")
+        ));
         let skills = list(root.path()).unwrap();
         assert!(skills.iter().any(|skill| skill["name"] == candidate.name));
         assert!(!fs::read_to_string(saved).unwrap().contains("secret"));

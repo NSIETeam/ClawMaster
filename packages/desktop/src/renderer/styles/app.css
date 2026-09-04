@@ -9289,6 +9289,26 @@ h6.claw-prose__h {
   color: var(--claw-text-secondary);
   text-align: center;
 }
+.claw-mind-map {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-rows: auto minmax(120px, .8fr) minmax(180px, 1.2fr) auto;
+  gap: 10px;
+  padding: 12px;
+}
+.claw-mind-map header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.claw-mind-map header strong, .claw-mind-map header small { display: block; }
+.claw-mind-map header small, .claw-mind-map__status { color: var(--claw-text-secondary); font-size: 12px; }
+.claw-mind-map button { border: 1px solid var(--claw-border-subtle); border-radius: 8px; color: var(--claw-text-primary); background: var(--claw-surface); }
+.claw-mind-map textarea { min-height: 120px; resize: none; border: 1px solid var(--claw-border-subtle); border-radius: 10px; padding: 12px; color: var(--claw-text-primary); background: var(--claw-surface); font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.claw-mind-map__canvas { min-height: 0; overflow: auto; padding: 16px; border: 1px solid color-mix(in srgb, var(--claw-accent) 22%, var(--claw-border-subtle)); border-radius: 14px; background: radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--claw-accent) 10%, transparent), transparent 45%), var(--claw-surface); }
+.claw-mind-map__canvas ul { margin: 0; padding-left: 22px; list-style: none; }
+.claw-mind-map__canvas > ul { padding-left: 0; }
+.claw-mind-map__canvas li { position: relative; margin: 9px 0; }
+.claw-mind-map__canvas li::before { content: ''; position: absolute; top: 14px; left: -15px; width: 12px; border-top: 1px solid var(--claw-border); }
+.claw-mind-map__canvas > ul > li::before { display: none; }
+.claw-mind-map__canvas li > span { display: inline-block; padding: 6px 9px; border: 1px solid var(--claw-border-subtle); border-radius: 9px; background: var(--claw-bg); font-size: 12px; }
 .claw-wcal__title { display: flex; align-items: center; justify-content: space-between; padding: 0; }
 .claw-wcal__title button { border: 0; background: transparent; color: var(--claw-text-secondary); cursor: pointer; font-size: 17px; }
 
