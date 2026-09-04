@@ -28,7 +28,14 @@ describe('Tauri DMG optimization', () => {
     expect(packageJson.scripts['tauri:build']).toBe(
       'node scripts/build-tauri-release.mjs',
     );
-    expect(orchestrator).toContain("['tauri', ['build', '--bundles', 'dmg']]");
+    const build = orchestrator.indexOf("['tauri', ['build', '--bundles', 'app']]");
+    const create = orchestrator.indexOf("['npm', ['run', 'tauri:dmg:create']]");
+    const optimize = orchestrator.indexOf("['npm', ['run', 'tauri:dmg:optimize']]");
+    const verify = orchestrator.indexOf("['npm', ['run', 'tauri:dmg:verify']]");
+    expect(build).toBeGreaterThan(-1);
+    expect(create).toBeGreaterThan(build);
+    expect(optimize).toBeGreaterThan(create);
+    expect(verify).toBeGreaterThan(optimize);
     expect(packageJson.scripts['tauri:build:local']).toBeUndefined();
     expect(packageJson.scripts['tauri:runtime:prepare:local']).toBeUndefined();
   });

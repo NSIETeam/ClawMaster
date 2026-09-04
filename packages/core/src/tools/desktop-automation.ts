@@ -13,6 +13,7 @@ import { SchemaValidator } from '../utils/schemaValidator.js';
 import { Config, ApprovalMode } from '../config/config.js';
 import { ProcessGuard } from '../utils/process-guard.js';
 import { DoctorService } from '../services/doctor.js';
+import { nativeHelperPath, runNativeHelper } from '../services/nativeCapabilities.js';
 
 const execAsync = promisify(exec);
 
@@ -90,7 +91,7 @@ EXAMPLES:
   wait_for_app: {action:"wait_for_app", app_name:"Safari", timeout_ms:10000}
   get_window_position: {action:"get_window_position", app_name:"Safari"}
 
-DEPENDENCIES: macOS needs cliclick (brew install cliclick). Windows needs nothing extra.`;
+RUNTIME: packaged desktop uses the audited Rust input provider. cliclick is only an optional fallback for development builds without the native helper.`;
     super(DesktopAutomationTool.Name, 'DesktopAutomation', desc, Icon.Terminal,
       {
         type: Type.OBJECT,
@@ -262,6 +263,11 @@ DEPENDENCIES: macOS needs cliclick (brew install cliclick). Windows needs nothin
     return 'Window '+op+': '+app;
   }
   private async macKeys(keys: string, modifiers?: string): Promise<string> {
+    if (nativeHelperPath()) {
+      const value = modifiers ? `${modifiers.replace(/,/g, '+')}+${keys}` : keys;
+      await runNativeHelper(['input', /\+/.test(value) ? 'hotkey' : 'type', value]);
+      return 'Keys: '+value;
+    }
     const combo = modifiers ? modifiers.replace(/\s+/g,'').split(',').filter(Boolean).join(',') : '';
     const isCombo = /^(cmd|ctrl|alt|option|shift|win|meta|command|control)(\+(cmd|ctrl|alt|option|shift|win|meta|command|control))*\+[a-z0-9]$/i.test(keys);
     if (isCombo) {
@@ -272,10 +278,18 @@ DEPENDENCIES: macOS needs cliclick (brew install cliclick). Windows needs nothin
     return 'Keys: '+(modifiers?modifiers+'+':'')+keys;
   }
   private async macTypeText(t: string): Promise<string> {
+    if (nativeHelperPath()) {
+      await runNativeHelper(['input', 'type', t]);
+      return 'Typed: '+t.substring(0,80);
+    }
     await execAsync('cliclick t:"'+t.replace(/"/g,'\\"')+'"');
     return 'Typed: '+t.substring(0,80);
   }
   private async macHotkey(keys: string): Promise<string> {
+    if (nativeHelperPath()) {
+      await runNativeHelper(['input', 'hotkey', keys]);
+      return 'Hotkey: '+keys;
+    }
     const parts=keys.toLowerCase().replace(/\s+/g,'').split('+');
     const key=parts.pop()!;
     const modMap: Record<string,string>={cmd:'command',ctrl:'control',alt:'option',shift:'shift'};
@@ -285,11 +299,19 @@ DEPENDENCIES: macOS needs cliclick (brew install cliclick). Windows needs nothin
     return 'Hotkey: '+keys;
   }
   private async macClick(x:number,y:number,b:string,ct:string): Promise<string> {
+    if (nativeHelperPath()) {
+      await runNativeHelper(['input', 'click', String(x), String(y), b, ct]);
+      return 'Click '+b+' '+ct+' at ('+x+','+y+')';
+    }
     const pre=b==='right'?'rc:':b==='middle'?'mc:':ct==='double'?'dc:':'c:';
     await execAsync('cliclick '+pre+x+','+y);
     return 'Click '+b+' '+ct+' at ('+x+','+y+')';
   }
   private async macDrag(x:number,y:number,tx:number,ty:number,dur:number): Promise<string> {
+    if (nativeHelperPath()) {
+      await runNativeHelper(['input', 'drag', String(x), String(y), String(tx), String(ty)]);
+      return 'Drag ('+x+','+y+') -> ('+tx+','+ty+')';
+    }
     await execAsync('cliclick dd:'+x+','+y);
     const steps=Math.max(Math.ceil(dur/30),5);
     for(let i=1;i<=steps;i++){
@@ -301,6 +323,10 @@ DEPENDENCIES: macOS needs cliclick (brew install cliclick). Windows needs nothin
     return 'Drag ('+x+','+y+') -> ('+tx+','+ty+')';
   }
   private async macScroll(amount: number): Promise<string> {
+    if (nativeHelperPath()) {
+      await runNativeHelper(['input', 'scroll', String(amount)]);
+      return 'Scrolled '+(amount>0?'up':'down')+' '+Math.abs(amount)+' clicks';
+    }
     const dir = amount > 0 ? 'wu:' : 'wd:';
     for (let i=0;i<Math.abs(amount);i++) await execAsync('cliclick '+dir+'0,0');
     return 'Scrolled '+(amount>0?'up':'down')+' '+Math.abs(amount)+' clicks';

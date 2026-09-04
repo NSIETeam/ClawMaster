@@ -4,6 +4,7 @@ import {
   assertNoRuntimeDownload,
   evaluateAgentPrivateBytes,
   evaluateArtifactSize,
+  evaluateRuntimeSize,
   resolveTauriRuntimePlatform,
   resolveTauriRuntimeTarget,
   resolveTauriPackagingMode,
@@ -13,19 +14,13 @@ import {
 describe('Tauri native-local release policy', () => {
   it('supports every required desktop target', () => {
     expect(resolveTauriRuntimeTarget('darwin', 'arm64')).toBe('darwin-arm64');
-    expect(resolveTauriRuntimePlatform('darwin', 'x64')).toMatchObject({
-      target: 'darwin-x64',
-      targetTriple: 'x86_64-apple-darwin',
-    });
     expect(resolveTauriRuntimePlatform('win32', 'x64')).toMatchObject({
       target: 'win32-x64',
       targetTriple: 'x86_64-pc-windows-msvc',
       executableSuffix: '.exe',
     });
-    expect(resolveTauriRuntimePlatform('linux', 'x64')).toMatchObject({
-      target: 'linux-x64',
-      targetTriple: 'x86_64-unknown-linux-gnu',
-    });
+    expect(() => resolveTauriRuntimeTarget('darwin', 'x64')).toThrow('not packaged');
+    expect(() => resolveTauriRuntimeTarget('linux', 'x64')).toThrow('not packaged');
     expect(() => resolveTauriRuntimeTarget('linux', 'arm64')).toThrow('not packaged');
   });
 
@@ -52,6 +47,12 @@ describe('Tauri native-local release policy', () => {
   it('enforces the per-agent private state budget', () => {
     expect(evaluateAgentPrivateBytes(1024 * 1024).withinLimit).toBe(true);
     expect(() => evaluateAgentPrivateBytes(1024 * 1024 + 1)).toThrow('hard limit');
+  });
+
+  it('keeps a temporary hard ceiling while reporting the 20 MiB runtime target', () => {
+    expect(evaluateRuntimeSize(20 * 1024 * 1024).withinTarget).toBe(true);
+    expect(evaluateRuntimeSize(24 * 1024 * 1024).withinTarget).toBe(false);
+    expect(() => evaluateRuntimeSize(33 * 1024 * 1024)).toThrow('hard limit');
   });
 
   it('reports components in descending order under the selected format', () => {

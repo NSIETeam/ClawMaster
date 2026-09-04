@@ -87,6 +87,11 @@ describe('document runtime packaging guard', () => {
     const tauriConfig = JSON.parse(readFileSync(
       path.resolve(import.meta.dirname, '../src-tauri/tauri.conf.json'), 'utf8',
     ));
-    expect(tauriConfig.bundle.resources).toEqual({});
+    expect(tauriConfig.bundle.resources).toEqual({
+      'target/sidecar-staging/runtime/agent': 'runtime/agent',
+      'target/sidecar-staging/runtime/node': 'runtime/node',
+      'target/sidecar-staging/runtime/sqlcipher': 'runtime/sqlcipher',
+    });
+    expect(JSON.stringify(tauriConfig.bundle.resources)).not.toMatch(/python|libreoffice/u);
   });
 });

@@ -133,6 +133,7 @@ import { cacheChatFiles } from './chatFileCache.js';
 import {
   ProjectSettingsManager,
   DoctorService,
+  buildNativeCapabilityPrompt,
   uiTelemetryService,
   todoStore,
   tokenLimit,
@@ -301,6 +302,14 @@ const defaultRuntimeFactory: RuntimeFactory = async (
   }
   if (workspaceContext && !profile?.toolFree) {
     userRules = userRules ? `${userRules}\n\n${workspaceContext}` : workspaceContext;
+  }
+  if (!profile?.toolFree) {
+    const nativeCapabilities = buildNativeCapabilityPrompt();
+    if (nativeCapabilities) {
+      userRules = userRules
+        ? `${userRules}\n\n${nativeCapabilities}`
+        : nativeCapabilities;
+    }
   }
   const config = createCoreConfig({
     sessionId,
@@ -1883,9 +1892,12 @@ export class ClawMasterServer {
           present: c.present,
           version: c.version,
           installHint: c.installHint,
+          provider: c.provider,
+          required: c.required,
         })),
         presentCount: report.presentCount,
         missingCount: report.missingCount,
+        optionalMissingCount: report.optionalMissingCount,
         affectedCapabilities: report.affectedCapabilities,
       };
       this.send(conn.socket, { type: 'doctor_report', payload });

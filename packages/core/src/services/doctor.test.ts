@@ -204,6 +204,33 @@ describe('DoctorService', () => {
     expect(pw.installHint).toContain('npm i playwright');
   });
 
+  it('uses audited native providers instead of reporting replacement CLIs missing', async () => {
+    const report = await new DoctorService(
+      makeRunner({}),
+      NO_MODULES,
+      'darwin',
+      NO_APP,
+      () => undefined,
+      () => [
+        { id: 'desktop.input', provider: 'rust:enigo', status: 'ready', description: 'native input' },
+        { id: 'pdf.merge', provider: 'rust:lopdf', status: 'ready', description: 'native PDF merge' },
+        { id: 'chart.svg', provider: 'core:svg', status: 'ready', description: 'built-in SVG charts' },
+      ],
+    ).check();
+    expect(report.checks.find((check) => check.name === 'cliclick')).toMatchObject({
+      present: true,
+      provider: 'rust:enigo',
+    });
+    expect(report.checks.find((check) => check.name === 'pdfunite')).toMatchObject({
+      present: true,
+      provider: 'rust:lopdf',
+    });
+    expect(report.checks.find((check) => check.name === 'gnuplot')).toMatchObject({
+      present: false,
+      required: false,
+    });
+  });
+
   // --- 平台过滤 ---
   it('probes cliclick only on macOS', async () => {
     const mac = await new DoctorService(makeRunner({}), NO_MODULES, 'darwin', NO_APP).check();
@@ -230,7 +257,8 @@ describe('DoctorService', () => {
       expect(report.checks.find((c) => c.name === name)!.present).toBe(false);
     }
     expect(report.presentCount).toBe(3);
-    expect(report.affectedCapabilities).toContain('文档转换/生成');
+    expect(report.affectedCapabilities).toContain('桌面键鼠自动化');
+    expect(report.optionalMissingCount).toBeGreaterThan(0);
   });
 });
 
@@ -239,6 +267,7 @@ describe('formatDoctorReport', () => {
     platform: 'darwin',
     presentCount: 1,
     missingCount: 1,
+    optionalMissingCount: 0,
     affectedCapabilities: ['文档转换/生成'],
     checks: [
       { name: 'ffmpeg', category: '语音录音', present: true, version: '7.1', path: '/x/ffmpeg' },
@@ -248,7 +277,7 @@ describe('formatDoctorReport', () => {
 
   it('renders present, missing, install hints and affected capabilities', () => {
     const text = formatDoctorReport(report);
-    expect(text).toContain('就绪 1 / 缺失 1');
+    expect(text).toContain('就绪 1 / 必需缺失 1');
     expect(text).toContain('[OK] ffmpeg v7.1');
     expect(text).toContain('[缺] pandoc');
     expect(text).toContain('brew install pandoc');
@@ -260,6 +289,7 @@ describe('formatDoctorReport', () => {
       platform: 'linux',
       presentCount: 1,
       missingCount: 0,
+      optionalMissingCount: 0,
       affectedCapabilities: [],
       checks: [{ name: 'duckdb', category: '数据分析', present: true }],
     };

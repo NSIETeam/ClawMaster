@@ -48,15 +48,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-24.04
-            target: linux-x64
-            shell: bash
-          - runner: ubuntu-24.04-arm
-            target: linux-arm64
-            shell: bash
-          - runner: macos-15-intel
-            target: darwin-x64
-            shell: bash
           - runner: macos-15
             target: darwin-arm64
             shell: bash
@@ -294,49 +285,5 @@ jobs:
         with:
           name: tauri-sqlcipher-${{ matrix.target }}
           path: native/sqlcipher-tauri
-          if-no-files-found: error
-          retention-days: 14
-
-  verify-matrix:
-    needs: build
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
-        with:
-          pattern: sqlcipher-*
-          path: native/sqlcipher
-          merge-multiple: true
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24.20.0
-          package-manager-cache: false
-      - name: Verify and lock the complete native matrix
-        shell: bash
-        run: |
-          node scripts/verify-sqlcipher-native-assets.mjs \
-            --expected-build-commit "$GITHUB_SHA" \
-            --expected-source-revision "$SQLCIPHER_SOURCE_REVISION" \
-            --expected-runtime-version "$ELECTRON_VERSION" \
-            --write-matrix-manifest
-          node scripts/verify-sqlcipher-native-assets.mjs \
-            --expected-build-commit "$GITHUB_SHA" \
-            --expected-source-revision "$SQLCIPHER_SOURCE_REVISION" \
-            --expected-runtime-version "$ELECTRON_VERSION" \
-            --require-matrix-manifest
-      - name: Attest verified native bindings
-        if: github.event.repository.visibility == 'public'
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: native/sqlcipher/*/better_sqlite3.node
-      - name: Attest the matrix manifest that binds metadata and SBOMs
-        if: github.event.repository.visibility == 'public'
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: native/sqlcipher/matrix-manifest.json
-      - uses: actions/upload-artifact@v7
-        with:
-          name: sqlcipher-native-matrix
-          path: native/sqlcipher
           if-no-files-found: error
           retention-days: 14

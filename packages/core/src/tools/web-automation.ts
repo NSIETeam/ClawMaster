@@ -10,6 +10,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { pathToFileURL } from 'url';
 import {
   BaseTool, ToolResult, ToolCallConfirmationDetails,
   Icon, ToolLocation,
@@ -19,6 +20,7 @@ import { SchemaValidator } from '../utils/schemaValidator.js';
 import { Config, ApprovalMode } from '../config/config.js';
 import { ProcessGuard } from '../utils/process-guard.js';
 import { DoctorService } from '../services/doctor.js';
+import { resolveRuntimeModule } from '../services/nativeCapabilities.js';
 
 export interface WebAutomationToolParams {
   action: 'navigate' | 'fill' | 'click' | 'scrape' | 'screenshot' | 'run_script' | 'wait' | 'list_tabs' | 'extract_table';
@@ -68,7 +70,7 @@ EXAMPLES:
   Run JS: {action:"run_script", script:"return document.title"}
   Wait: {action:"wait", selector:"#dashboard", timeout_ms:15000}
 
-DEPENDENCIES: npx playwright install chromium (one-time setup)
+RUNTIME: packaged desktop includes playwright-core and uses an installed Chrome/Edge/Chromium browser.
 CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`;
 
     super(WebAutomationTool.Name, 'WebAutomation', desc, Icon.Globe,
@@ -156,13 +158,15 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`;
 
     try {
       // Write a Node.js script that uses Playwright to perform the action
-      const script = this.buildPlaywrightScript(p);
+      const playwrightEntry = resolveRuntimeModule('playwright-core');
+      const script = this.buildPlaywrightScript(p, playwrightEntry);
       const scriptFile = path.join(os.tmpdir(), 'otto-web-' + Date.now() + '.mjs');
 
       fs.writeFileSync(scriptFile, script);
 
+      const nodeBinary = process.env['CLAWMASTER_NODE_BINARY'] || process.execPath;
       const result = await ProcessGuard.exec({
-        command: 'node "' + scriptFile + '"',
+        command: JSON.stringify(nodeBinary) + ' ' + JSON.stringify(scriptFile),
         timeoutMs: (p.timeout_ms || 10000) + 30000,
         maxBuffer: 20 * 1024 * 1024,
       });
@@ -235,7 +239,7 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`;
     );
   }
 
-  private buildPlaywrightScript(p: WebAutomationToolParams): string {
+  private buildPlaywrightScript(p: WebAutomationToolParams, playwrightEntry: string): string {
     const timeout = p.timeout_ms || 10000;
     const stateFile = path.join(os.tmpdir(), 'otto-web-state.json');
 
@@ -332,7 +336,7 @@ CROSS-PLATFORM: Works identically on macOS, Windows, Linux.`;
         body = `result = { error: 'Unknown action: ${escape(p.action)}' };`;
     }
 
-    return `import { chromium } from 'playwright';
+    return `import { chromium } from ${JSON.stringify(pathToFileURL(playwrightEntry).href)};
 
 const STATE_FILE = '${escape(stateFile).replace(/\\\\/g, '/')}';
 

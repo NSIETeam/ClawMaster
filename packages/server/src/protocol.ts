@@ -1215,6 +1215,8 @@ export interface DoctorCheckInfo {
   present: boolean;
   version?: string;
   installHint?: string;
+  provider?: string;
+  required?: boolean;
 }
 
 export interface DoctorReportInfo {
@@ -1222,6 +1224,7 @@ export interface DoctorReportInfo {
   checks: DoctorCheckInfo[];
   presentCount: number;
   missingCount: number;
+  optionalMissingCount: number;
   affectedCapabilities: string[];
 }
 

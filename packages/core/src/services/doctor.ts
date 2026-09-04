@@ -17,6 +17,11 @@
 import { exec } from 'child_process';
 import { existsSync } from 'fs';
 import { createRequire } from 'module';
+import {
+  loadNativeCapabilities,
+  resolveRuntimeModule,
+  type NativeCapability,
+} from './nativeCapabilities.js';
 
 /** 一次探测的结果。 */
 export interface DoctorCheck {
@@ -34,6 +39,10 @@ export interface DoctorCheck {
   installHint?: string;
   /** 若探测过程本身出错（非「未安装」，而是超时/异常），记录原因。 */
   note?: string;
+  /** 实际提供者。内建能力会标明 Rust/Core provider，而不是伪装成外部 CLI。 */
+  provider?: string;
+  /** false 表示可选增强，缺失不会锁死对应基础能力。 */
+  required?: boolean;
 }
 
 /** 整体体检报告。 */
@@ -42,6 +51,7 @@ export interface DoctorReport {
   checks: DoctorCheck[];
   presentCount: number;
   missingCount: number;
+  optionalMissingCount: number;
   /** 缺失依赖影响到的能力去重列表。 */
   affectedCapabilities: string[];
 }
@@ -60,6 +70,7 @@ export type BrowserExecutableResolver = (
   moduleName: string,
   platform: NodeJS.Platform,
   pathExists: PathChecker,
+  modulePath?: string,
 ) => string | undefined;
 
 /** 路径存在性判断（用于 mac .app 兜底）。可注入以便测试。 */
@@ -79,6 +90,8 @@ interface BinarySpec {
   macAppFallback?: string;
   /** 安装命令：按平台给。 */
   hints: Partial<Record<'darwin' | 'win32' | 'linux', string>>;
+  nativeCapability?: string;
+  optional?: boolean;
 }
 
 interface PythonModuleSpec {
@@ -119,17 +132,17 @@ const defaultRunner: CommandRunner = (command, timeoutMs) =>
 
 /** 默认模块解析器：相对本文件所在包解析。 */
 const defaultResolver: ModuleResolver = (moduleName) => {
-  const req = createRequire(__filename);
-  return req.resolve(moduleName);
+  return resolveRuntimeModule(moduleName);
 };
 
 const defaultBrowserExecutableResolver: BrowserExecutableResolver = (
   moduleName,
   platform,
   pathExists,
+  modulePath,
 ) => {
-  const req = createRequire(__filename);
-  const playwright = req(moduleName) as {
+  const req = createRequire(modulePath ?? __filename);
+  const playwright = req(modulePath ?? moduleName) as {
     chromium?: { executablePath?: () => string };
   };
   const managed = playwright.chromium?.executablePath?.();
@@ -172,6 +185,7 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'winget install --id JohnMacFarlane.Pandoc',
       linux: 'sudo apt-get install -y pandoc',
     },
+    optional: true,
   },
   {
     name: 'libreoffice',
@@ -183,6 +197,7 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'winget install --id TheDocumentFoundation.LibreOffice',
       linux: 'sudo apt-get install -y libreoffice',
     },
+    optional: true,
   },
   {
     name: 'typst',
@@ -193,6 +208,7 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'winget install --id Typst.Typst',
       linux: 'cargo install typst-cli',
     },
+    optional: true,
   },
   {
     name: 'marp',
@@ -203,6 +219,7 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'npm i -g @marp-team/marp-cli',
       linux: 'npm i -g @marp-team/marp-cli',
     },
+    optional: true,
   },
   {
     name: 'duckdb',
@@ -213,6 +230,7 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'winget install --id DuckDB.cli',
       linux: 'curl https://install.duckdb.org | sh',
     },
+    optional: true,
   },
   {
     name: 'gnuplot',
@@ -223,6 +241,7 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'winget install --id gnuplot.gnuplot',
       linux: 'sudo apt-get install -y gnuplot',
     },
+    optional: true,
   },
   {
     name: 'cliclick',
@@ -232,6 +251,7 @@ const BINARY_SPECS: BinarySpec[] = [
     hints: {
       darwin: 'brew install cliclick',
     },
+    nativeCapability: 'desktop.input',
   },
   {
     name: 'ffmpeg',
@@ -242,6 +262,7 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'winget install --id Gyan.FFmpeg',
       linux: 'sudo apt-get install -y ffmpeg',
     },
+    optional: true,
   },
   {
     name: 'whisper',
@@ -252,6 +273,7 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'pip install -U openai-whisper',
       linux: 'pip install -U openai-whisper',
     },
+    optional: true,
   },
   {
     name: 'ghostscript',
@@ -262,6 +284,7 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'winget install --id ArtifexSoftware.GhostScript',
       linux: 'sudo apt-get install -y ghostscript',
     },
+    optional: true,
   },
   {
     name: 'pdfunite',
@@ -272,6 +295,7 @@ const BINARY_SPECS: BinarySpec[] = [
       win32: 'winget install --id oschwartz10612.Poppler',
       linux: 'sudo apt-get install -y poppler-utils',
     },
+    nativeCapability: 'pdf.merge',
   },
 ];
 
@@ -292,6 +316,7 @@ export class DoctorService {
     private readonly pathExists: PathChecker = existsSync,
     private readonly browserExecutableResolver: BrowserExecutableResolver =
       defaultBrowserExecutableResolver,
+    private readonly nativeCapabilities: () => NativeCapability[] = loadNativeCapabilities,
   ) {}
 
   /** 跑一次全量体检。 */
@@ -309,7 +334,8 @@ export class DoctorService {
     );
 
     const checks = [...binaryChecks, playwrightCheck, ...pythonModuleChecks];
-    const missing = checks.filter((c) => !c.present);
+    const missing = checks.filter((c) => !c.present && c.required !== false);
+    const optionalMissing = checks.filter((c) => !c.present && c.required === false);
     const affectedCapabilities = Array.from(
       new Set(missing.map((c) => c.category)),
     );
@@ -317,14 +343,28 @@ export class DoctorService {
     return {
       platform: this.platform,
       checks,
-      presentCount: checks.length - missing.length,
+      presentCount: checks.filter((check) => check.present).length,
       missingCount: missing.length,
+      optionalMissingCount: optionalMissing.length,
       affectedCapabilities,
     };
   }
 
   /** 探测单个二进制：先 PATH，再 mac .app 兜底。拿不到版本也如实报 present。 */
   private async probeBinary(spec: BinarySpec): Promise<DoctorCheck> {
+    const native = spec.nativeCapability
+      ? this.nativeCapabilities().find((capability) => capability.id === spec.nativeCapability)
+      : undefined;
+    if (native) {
+      return {
+        name: spec.name,
+        category: spec.category,
+        present: true,
+        provider: native.provider,
+        required: !spec.optional,
+        note: native.description,
+      };
+    }
     const versionArg = spec.versionArg ?? '--version';
 
     for (const bin of spec.bins) {
@@ -339,6 +379,8 @@ export class DoctorService {
         present: true,
         version,
         path: resolvedPath,
+        provider: 'external-cli',
+        required: !spec.optional,
       };
     }
 
@@ -350,6 +392,8 @@ export class DoctorService {
           category: spec.category,
           present: true,
           path: spec.macAppFallback,
+          provider: 'external-app',
+          required: !spec.optional,
         };
       }
     }
@@ -359,6 +403,7 @@ export class DoctorService {
       category: spec.category,
       present: false,
       installHint: this.hintFor(spec),
+      required: !spec.optional,
     };
   }
 
@@ -371,12 +416,14 @@ export class DoctorService {
           mod,
           this.platform,
           this.pathExists,
+          modulePath,
         );
         if (!browserPath || !this.pathExists(browserPath)) {
           return {
             name: 'playwright',
             category: '浏览器自动化',
             present: false,
+            required: false,
             note: `Playwright 模块已就绪：${modulePath}；浏览器运行环境缺失`,
             installHint: '安装 Chrome、Edge 或 Chromium，或运行 npx playwright install chromium',
           };
@@ -385,6 +432,7 @@ export class DoctorService {
           name: 'playwright',
           category: '浏览器自动化',
           present: true,
+          required: false,
           path: browserPath,
           note: `Playwright 模块：${modulePath}`,
         };
@@ -396,6 +444,7 @@ export class DoctorService {
       name: 'playwright',
       category: '浏览器自动化',
       present: false,
+      required: false,
       installHint: 'npm i playwright   (然后 npx playwright install)',
     };
   }
@@ -474,7 +523,7 @@ export class DoctorService {
 export function formatDoctorReport(report: DoctorReport): string {
   const lines: string[] = [];
   lines.push(
-    `ClawMaster 依赖体检（平台：${report.platform}）  就绪 ${report.presentCount} / 缺失 ${report.missingCount}`,
+    `ClawMaster 能力体检（平台：${report.platform}）  就绪 ${report.presentCount} / 必需缺失 ${report.missingCount} / 可选增强未装 ${report.optionalMissingCount}`,
   );
   lines.push('');
 
@@ -486,8 +535,9 @@ export function formatDoctorReport(report: DoctorReport): string {
     lines.push('  （无）');
   } else {
     for (const c of present) {
-      const ver = c.version ? ` v${c.version}` : '（版本未知）';
-      lines.push(`  [OK] ${c.name}${ver} — ${c.category}`);
+      const ver = c.version ? ` v${c.version}` : c.provider ? '' : '（版本未知）';
+      const provider = c.provider ? ` [${c.provider}]` : '';
+      lines.push(`  [OK] ${c.name}${ver}${provider} — ${c.category}`);
     }
   }
   lines.push('');
@@ -497,7 +547,7 @@ export function formatDoctorReport(report: DoctorReport): string {
     lines.push('  （无，全部就绪）');
   } else {
     for (const c of missing) {
-      lines.push(`  [缺] ${c.name} — 影响：${c.category}`);
+      lines.push(`  [${c.required === false ? '可选' : '缺'}] ${c.name} — ${c.required === false ? '增强' : '影响'}：${c.category}`);
       if (c.installHint) lines.push(`       安装：${c.installHint}`);
     }
   }
@@ -505,7 +555,7 @@ export function formatDoctorReport(report: DoctorReport): string {
   if (report.affectedCapabilities.length > 0) {
     lines.push('');
     lines.push(
-      `受影响能力：${report.affectedCapabilities.join('、')}（装齐上述依赖后自动解锁）`,
+      `受影响能力：${report.affectedCapabilities.join('、')}（只需补齐必需项；可选增强不阻塞基础能力）`,
     );
   }
 

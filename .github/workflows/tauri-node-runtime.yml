@@ -29,8 +29,6 @@ jobs:
         include:
           - runner: macos-15
             target: darwin-arm64
-          - runner: macos-15-intel
-            target: darwin-x64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
     steps:

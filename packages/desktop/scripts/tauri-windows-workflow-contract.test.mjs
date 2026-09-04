@@ -14,7 +14,9 @@ describe('cross-platform Tauri workflow contract', () => {
     expect(workflow).not.toContain('name: Linux-x64');
     expect(workflow).not.toContain('x86_64-apple-darwin');
     expect(workflow).not.toContain('x86_64-unknown-linux-gnu');
-    expect(workflow).not.toContain('tauri-node-runtime.yml');
-    expect(workflow).not.toContain('sqlcipher-native.yml');
+    expect(workflow).toContain('tauri-node-runtime.yml');
+    expect(workflow).toContain('sqlcipher-native.yml');
+    expect(workflow).toContain('tauri-node-${{ matrix.runtime }}');
+    expect(workflow).toContain('tauri-sqlcipher-${{ matrix.runtime }}');
   });
 });

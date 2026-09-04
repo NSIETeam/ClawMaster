@@ -11,6 +11,7 @@ const EMPTY_DOCTOR_REPORT: DoctorReport = {
   checks: [],
   presentCount: 0,
   missingCount: 0,
+  optionalMissingCount: 0,
   affectedCapabilities: [],
 };
 

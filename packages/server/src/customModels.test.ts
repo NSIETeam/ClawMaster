@@ -61,6 +61,17 @@ describe('customModelsFilePath', () => {
       path.join(tmpHome, '.otto-user', 'custom-models.json'),
     );
   });
+
+  it('桌面 sidecar 使用 CLAWMASTER_USER_DIR 隔离模型配置和密钥', () => {
+    const isolated = path.join(tmpHome, '.clawmaster-user');
+    vi.stubEnv('CLAWMASTER_USER_DIR', isolated);
+    expect(customModelsFilePath()).toBe(path.join(isolated, 'custom-models.json'));
+
+    saveCustomModel(VALID_MODEL);
+    const config = fs.readFileSync(path.join(isolated, 'custom-models.json'), 'utf8');
+    expect(config).not.toContain(VALID_MODEL.apiKey);
+    expect(fs.readdirSync(path.join(isolated, 'secrets'))).toHaveLength(1);
+  });
 });
 
 describe('loadCustomModels', () => {

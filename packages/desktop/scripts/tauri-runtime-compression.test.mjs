@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 describe('native-local runtime contract', () => {
-  it('does not ship or download a Node runtime capsule', async () => {
+  it('ships the verified local sidecar without runtime downloads', async () => {
     const [policy, config, smoke] = await Promise.all([
       readFile(path.join(root, 'scripts/tauri-runtime-policy.mjs'), 'utf8'),
       readFile(path.join(root, 'src-tauri/tauri.conf.json'), 'utf8'),
@@ -13,7 +13,10 @@ describe('native-local runtime contract', () => {
     ]);
     expect(policy).toContain("'native-local'");
     expect(policy).toContain('allowsRuntimeDownload: false');
-    expect(config).toContain('"resources": {}');
-    expect(smoke).toContain('in-process native-local');
+    expect(config).toContain('sidecar-staging/runtime/agent');
+    expect(config).toContain('sidecar-staging/runtime/node');
+    expect(config).toContain('sidecar-staging/runtime/sqlcipher');
+    expect(smoke).toContain('slash command discovery timed out');
+    expect(smoke).toContain("['plan', 'goal', 'system', 'init']");
   });
 });

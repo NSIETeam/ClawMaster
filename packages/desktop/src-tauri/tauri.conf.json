@@ -30,7 +30,11 @@
   },
   "bundle": {
     "active": true,
-    "resources": {},
+    "resources": {
+      "target/sidecar-staging/runtime/agent": "runtime/agent",
+      "target/sidecar-staging/runtime/node": "runtime/node",
+      "target/sidecar-staging/runtime/sqlcipher": "runtime/sqlcipher"
+    },
     "category": "DeveloperTool",
     "copyright": "Copyright © 2026 NSIETeam",
     "icon": [

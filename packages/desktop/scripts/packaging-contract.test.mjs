@@ -46,7 +46,9 @@ describe('native-local release contract', () => {
     for (const expected of [
       'windows-2022', 'macos-15',
       'release:preflight',
-      'cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml native_runtime --lib',
+      'cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib',
+      'tauri-node-${{ matrix.runtime }}',
+      'tauri-sqlcipher-${{ matrix.runtime }}',
       'softprops/action-gh-release',
       'bundle/nsis/*.exe',
       'bundle/msi/*.msi',
@@ -54,9 +56,18 @@ describe('native-local release contract', () => {
     ]) expect(workflow).toContain(expected);
     expect(await readText(path.join(repoRoot, 'scripts/release-preflight.mjs')))
       .toContain('low-resource-multi-agent-benchmark.mjs');
-    expect(workflow).not.toContain('tauri-node-runtime.yml');
-    expect(workflow).not.toContain('sqlcipher-native.yml');
+    expect(workflow).toContain('tauri-node-runtime.yml');
+    expect(workflow).toContain('sqlcipher-native.yml');
     expect(workflow).not.toContain('path: packages/desktop/src-tauri/target/release/bundle/');
+    const assetWorkflows = await Promise.all([
+      readText(path.join(repoRoot, '.github/workflows/tauri-node-runtime.yml')),
+      readText(path.join(repoRoot, '.github/workflows/sqlcipher-native.yml')),
+    ]);
+    for (const assetWorkflow of assetWorkflows) {
+      expect(assetWorkflow).not.toContain('runner: macos-15-intel');
+      expect(assetWorkflow).not.toContain('target: darwin-x64');
+      expect(assetWorkflow).not.toContain('target: linux-x64');
+    }
   });
 
   it('makes the browser RPA E2E non-optional in CI', async () => {

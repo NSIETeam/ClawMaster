@@ -36,9 +36,14 @@ const SETTINGS_DIR_NAME = '.otto-user';
 const CUSTOM_MODELS_FILE = 'custom-models.json';
 const SECRETS_DIR_NAME = 'secrets';
 
+function settingsDirectory(): string {
+  return process.env['CLAWMASTER_USER_DIR']?.trim()
+    || path.join(os.homedir(), SETTINGS_DIR_NAME);
+}
+
 /** 自定义模型配置文件路径（与 CLI 同一约定）。 */
 export function customModelsFilePath(): string {
-  return path.join(os.homedir(), SETTINGS_DIR_NAME, CUSTOM_MODELS_FILE);
+  return path.join(settingsDirectory(), CUSTOM_MODELS_FILE);
 }
 
 /** 已是 `{file:...}` / `{env:...}` / `$VAR` / `${VAR}` 引用形态的 key。 */
@@ -59,7 +64,7 @@ function isKeyReference(key: string): boolean {
  * 新 secret、再原子切换配置引用时，即使配置提交失败也绝不污染旧引用指向的内容。
  */
 function writeApiKeySecret(displayName: string, key: string): string {
-  const dir = path.join(os.homedir(), SETTINGS_DIR_NAME, SECRETS_DIR_NAME);
+  const dir = path.join(settingsDirectory(), SECRETS_DIR_NAME);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   // mode 选项只对新建文件/目录生效；旧版若已以 0755/0644 存在，
   // 必须显式 chmod 才能真正收紧。

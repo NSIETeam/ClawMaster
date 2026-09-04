@@ -51,9 +51,9 @@ const nodeCapsuleRoot = path.join(runtimeRoot, 'node');
 const binariesRoot = path.join(stagingRoot, 'binaries');
 const runtimePlatform = resolveTauriRuntimePlatform(process.platform, process.arch);
 const runtimeTarget = runtimePlatform.target;
-const packagingMode = process.env.CLAWMASTER_PACKAGING_MODE || 'embedded-legacy';
+const packagingMode = process.env.CLAWMASTER_PACKAGING_MODE || 'native-local';
 const packagingPolicy = resolveTauriPackagingMode(packagingMode);
-if (packagingMode !== 'embedded-legacy') {
+if (!packagingPolicy.embedsLocalExecution) {
   rmSync(runtimeRoot, { recursive: true, force: true });
   mkdirSync(runtimeRoot, { recursive: true });
   writeFileSync(

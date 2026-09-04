@@ -13,6 +13,7 @@ import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { Config, ApprovalMode } from '../config/config.js';
 import { DoctorService, CommandRunner } from '../services/doctor.js';
+import { nativeHelperPath, runNativeHelper } from '../services/nativeCapabilities.js';
 import { resolveDocumentRuntime } from '../services/bundledRuntime.js';
 
 const execAsync = promisify(exec);
@@ -232,17 +233,20 @@ DEPENDENCIES: pandoc + libreoffice. macOS: brew install pandoc libreoffice. Wind
     const allPdf = inputs.every((f) => path.extname(f).toLowerCase() === '.pdf');
     const wantPdf = p.output_format.trim().toLowerCase() === 'pdf';
 
-    // Lossless path: all inputs are PDF and target is PDF -> merge with pdfunite.
+    // Lossless path: packaged desktop uses Rust/lopdf; source builds may fall back to pdfunite.
     // This preserves tables, images and styling instead of round-tripping through markdown.
     if (allPdf && wantPdf) {
-      if (!(await this.hasBinary('pdfunite'))) {
+      if (nativeHelperPath()) {
+        await runNativeHelper(['pdf-merge', p.output_path!, ...inputs]);
+      } else if (!(await this.hasBinary('pdfunite'))) {
         return {
           llmContent: 'convert_document FAIL: merging PDFs needs pdfunite (from poppler), which is not installed. macOS: brew install poppler. Linux: apt install poppler-utils.',
           returnDisplay: 'convert_document FAIL: pdfunite not installed',
         };
+      } else {
+        const args = inputs.map((f) => `"${f}"`).join(' ');
+        await execAsync(`pdfunite ${args} "${p.output_path}"`, { maxBuffer: 100 * 1024 * 1024 });
       }
-      const args = inputs.map((f) => `"${f}"`).join(' ');
-      await execAsync(`pdfunite ${args} "${p.output_path}"`, { maxBuffer: 100 * 1024 * 1024 });
       const sz = fs.existsSync(p.output_path!) ? fs.statSync(p.output_path!).size : 0;
       if (sz === 0) throw new Error('pdfunite produced no output');
       const label = inputs.length + ' PDFs merged -> ' + path.basename(p.output_path!) + ' (' + sz + ' bytes, lossless)';

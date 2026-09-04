@@ -26,6 +26,8 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
 
 jobs:
   preflight:
@@ -56,20 +58,28 @@ jobs:
       - run: npm run release:preflight
         env: { RUN_RPA_BROWSER_E2E: '1' }
 
+  native-assets:
+    needs: preflight
+    uses: ./.github/workflows/sqlcipher-native.yml
+
+  node-runtime:
+    needs: preflight
+    uses: ./.github/workflows/tauri-node-runtime.yml
+
   build:
     name: Build ${{ matrix.name }}
-    needs: preflight
+    needs: [preflight, native-assets, node-runtime]
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: Windows-x64, os: windows-2022, target: x86_64-pc-windows-msvc }
-          - { name: macOS-arm64, os: macos-15, target: aarch64-apple-darwin }
+          - { name: Windows-x64, os: windows-2022, target: x86_64-pc-windows-msvc, runtime: win32-x64 }
+          - { name: macOS-arm64, os: macos-15, target: aarch64-apple-darwin, runtime: darwin-arm64 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22.16.0', cache: npm }
+        with: { node-version: '24.20.0', cache: npm }
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -77,8 +87,17 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Install locked dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - uses: actions/download-artifact@v7
+        with:
+          name: tauri-node-${{ matrix.runtime }}
+          path: native/node-runtime/${{ matrix.runtime }}
+      - uses: actions/download-artifact@v7
+        with:
+          name: tauri-sqlcipher-${{ matrix.runtime }}
+          path: native/sqlcipher-tauri
       - run: npm run build:renderer --workspace=packages/desktop
-      - run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml native_runtime --lib
+      - run: npm run tauri:runtime:prepare --workspace=packages/desktop
+      - run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib
       - run: npm run tauri:build --workspace=packages/desktop
       - run: npm run release:beta:gate --workspace=packages/desktop
       - uses: actions/upload-artifact@v4

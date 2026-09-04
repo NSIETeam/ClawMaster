@@ -202,7 +202,10 @@ fn try_materialize_ripgrep_capsule(
     if !capsule_root.join("rg.br").is_file() && !capsule_root.join("rg-manifest.json").is_file() {
         return Ok(None);
     }
-    Ok(Some(materialize_ripgrep_capsule(resources, user_directory)?))
+    Ok(Some(materialize_ripgrep_capsule(
+        resources,
+        user_directory,
+    )?))
 }
 
 fn endpoint_belongs_to_pid(raw: &str, pid: u32) -> bool {
@@ -338,6 +341,8 @@ pub fn spawn(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let error_log = log.try_clone()?;
     let port = allocate_loopback_port()?;
     let endpoint_path = user_directory.join("server-endpoint.json");
+    let native_capabilities = crate::native_tools::write_capability_manifest(&user_directory)?;
+    let native_helper = std::env::current_exe()?;
     let mut command = Command::new(sidecar);
     command
         .arg(server)
@@ -355,10 +360,15 @@ pub fn spawn(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .env("CLAWMASTER_RESOURCES_PATH", &resources)
         .env("CLAWMASTER_SQLCIPHER_NATIVE_BINDING", &sqlcipher)
         .env("CLAWMASTER_DATABASE_ENCRYPTION_KEY_FILE", custody_key)
-        .env("CLAWMASTER_DATABASE_ENCRYPTION_KEY_ID", "desktop-local-custody")
+        .env(
+            "CLAWMASTER_DATABASE_ENCRYPTION_KEY_ID",
+            "desktop-local-custody",
+        )
         .env("CLAWMASTER_SERVER_PORT", port.to_string())
         .env("CLAWMASTER_USER_DIR", &user_directory)
-        .env("CLAWMASTER_USER_DIR", product_user_directory(&home))
+        .env("CLAWMASTER_NATIVE_CAPABILITIES_FILE", native_capabilities)
+        .env("CLAWMASTER_NATIVE_HELPER", native_helper)
+        .env("CLAWMASTER_NODE_BINARY", &document_runtime)
         .env("CLAWMASTER_PARENT_PIPE", "1")
         .env("CLAWMASTER_PARENT_PID", std::process::id().to_string())
         // Keep the write end alive inside Child. If the desktop exits for any

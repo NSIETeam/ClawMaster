@@ -25,15 +25,14 @@ export class DoctorTool extends BaseTool<DoctorToolParams, ToolResult> {
   static readonly Name: string = 'doctor';
 
   constructor(_config: Config) {
-    const desc = `Health-check all external dependencies that ClawMaster's capabilities rely on.
+    const desc = `Health-check ClawMaster capability providers, including Rust-native, packaged, and optional external components.
 
 EXAMPLES:
   Run full check: {action:"check"}
 
-Probes: pandoc, libreoffice, typst, marp, duckdb, gnuplot, cliclick (mac),
-ffmpeg, whisper, ghostscript, pdfunite, and playwright (node module).
-Reports which are ready, which are missing, the per-platform install command,
-and which ClawMaster capability each one powers.
+Reports which capabilities are ready through Rust/Core providers, which required
+runtime is genuinely missing, and which external tools are optional enhancements.
+Never recommend installing every optional component as a prerequisite.
 
 Read-only and auto-approved. No prerequisites -- uses which/where + --version.`;
     super(DoctorTool.Name, 'Doctor', desc, Icon.Wrench, {

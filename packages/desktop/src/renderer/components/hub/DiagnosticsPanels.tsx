@@ -40,7 +40,7 @@ export function DoctorPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
   return (
     <Panel
       title="依赖体检"
-      desc="检查文档 / 媒体 / 浏览器等能力所需的外部依赖是否就绪。"
+      desc="检查 Rust 内建能力、随包运行时，以及文档 / 媒体 / 浏览器可选增强。"
       actions={
         <>
           <button
@@ -85,7 +85,7 @@ export function DoctorPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
         </div>
       </Card>
       {!report ? (
-        <Empty>点击「开始体检」检查 pandoc / libreoffice / ffmpeg / playwright 等外部依赖。</Empty>
+        <Empty>点击「开始体检」检查内建 Rust 能力、随包运行时与可选外部增强。</Empty>
       ) : (
         <>
           <div className="claw-hub__statgrid">
@@ -103,6 +103,10 @@ export function DoctorPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
                 {report.missingCount}
               </div>
               <div className="claw-hub__stat-label">缺失</div>
+            </div>
+            <div className="claw-hub__stat">
+              <div className="claw-hub__stat-value">{report.optionalMissingCount}</div>
+              <div className="claw-hub__stat-label">可选增强</div>
             </div>
             <div className="claw-hub__stat">
               <div className="claw-hub__stat-value claw-hub__stat-value--text">
@@ -124,10 +128,10 @@ export function DoctorPanel({ data }: { data: UseSettingsData }): React.JSX.Elem
                 <span className="claw-hub__row-name">{c.name}</span>
                 <span className="claw-hub__row-detail">
                   {c.present
-                    ? c.version
-                      ? 'v' + c.version
-                      : '已就绪'
-                    : (c.installHint ?? '未安装')}
+                    ? c.provider ?? (c.version ? 'v' + c.version : '已就绪')
+                    : c.required === false
+                      ? '可选 · ' + (c.installHint ?? '未安装')
+                      : (c.installHint ?? '未安装')}
                 </span>
                 <Badge>{c.category}</Badge>
               </div>

@@ -5,7 +5,7 @@ const MIB = 1024 * 1024;
 export const TAURI_PACKAGING_MODES = Object.freeze({
   'native-local': Object.freeze({
     targetBytes: 20 * MIB,
-    hardLimitBytes: 20 * MIB,
+    hardLimitBytes: 32 * MIB,
     embedsLocalExecution: true,
     allowsRuntimeDownload: false,
   }),
@@ -26,9 +26,7 @@ export function resolveTauriPackagingMode(mode = 'native-local') {
 
 const RUNTIME_PLATFORMS = new Map([
   ['darwin-arm64', { target: 'darwin-arm64', targetTriple: 'aarch64-apple-darwin', binaryArch: 'arm64', executableSuffix: '', ripgrepExecutable: 'rg' }],
-  ['darwin-x64', { target: 'darwin-x64', targetTriple: 'x86_64-apple-darwin', binaryArch: 'x86_64', executableSuffix: '', ripgrepExecutable: 'rg' }],
   ['win32-x64', { target: 'win32-x64', targetTriple: 'x86_64-pc-windows-msvc', binaryArch: 'x64', executableSuffix: '.exe', ripgrepExecutable: 'rg.exe' }],
-  ['linux-x64', { target: 'linux-x64', targetTriple: 'x86_64-unknown-linux-gnu', binaryArch: 'x86_64', executableSuffix: '', ripgrepExecutable: 'rg' }],
 ]);
 
 export function resolveTauriRuntimePlatform(platform, arch) {
@@ -39,6 +37,44 @@ export function resolveTauriRuntimePlatform(platform, arch) {
 
 export function resolveTauriRuntimeTarget(platform, arch) {
   return resolveTauriRuntimePlatform(platform, arch).target;
+}
+
+export function assertTauriNodeVersion(actual, expected) {
+  if (actual !== expected) {
+    throw new Error(`ClawMaster Tauri runtime requires Node ${expected}; got ${actual}`);
+  }
+  return actual;
+}
+
+export function resolveSqlCipherSource({ repoRoot, target, pathExists }) {
+  const canonical = path.join(repoRoot, 'native', 'sqlcipher-tauri', target);
+  if (pathExists(canonical)) return { path: canonical, provenance: 'verified-native-matrix' };
+  throw new Error(`verified SQLCipher runtime missing: ${canonical}`);
+}
+
+export function resolveTauriNodeSource({ repoRoot, target, hostBinary, pathExists }) {
+  const directory = path.join(repoRoot, 'native', 'node-runtime', target);
+  const binary = path.join(directory, target.startsWith('win32-') ? 'node.exe' : 'node');
+  const manifest = path.join(directory, 'manifest.json');
+  if (pathExists(binary) && pathExists(manifest)) {
+    return { binary, manifest, provenance: 'verified-minimal-node' };
+  }
+  return { binary: hostBinary, manifest: null, provenance: 'pinned-release-toolchain' };
+}
+
+export function evaluateRuntimeSize(bytes, { mode = 'native-local' } = {}) {
+  if (!Number.isSafeInteger(bytes) || bytes < 0) throw new Error('runtime size is invalid');
+  const policy = resolveTauriPackagingMode(mode);
+  if (bytes > policy.hardLimitBytes) {
+    throw new Error(`Tauri runtime exceeds the ${policy.hardLimitBytes} byte hard limit: ${bytes}`);
+  }
+  return {
+    bytes,
+    mode,
+    withinTarget: bytes <= policy.targetBytes,
+    targetBytes: policy.targetBytes,
+    hardLimitBytes: policy.hardLimitBytes,
+  };
 }
 
 export function evaluateArtifactSize(bytes, format) {
@@ -75,13 +111,16 @@ export function assertNoRuntimeDownload(policy = resolveTauriPackagingMode()) {
   return policy;
 }
 
-export function summarizeRuntimeComponents(componentBytes, format = 'nsis') {
+export function summarizeRuntimeComponents(componentBytes, formatOrOptions = 'nsis') {
   const components = Object.entries(componentBytes).map(([name, bytes]) => {
     if (!name || !Number.isSafeInteger(bytes) || bytes < 0) throw new Error('runtime component size is invalid');
     return { name, bytes };
   }).sort((left, right) => right.bytes - left.bytes || left.name.localeCompare(right.name));
   const totalBytes = components.reduce((total, component) => total + component.bytes, 0);
-  return { ...evaluateArtifactSize(totalBytes, format), totalBytes, components };
+  const size = typeof formatOrOptions === 'string'
+    ? evaluateArtifactSize(totalBytes, formatOrOptions)
+    : evaluateRuntimeSize(totalBytes, formatOrOptions);
+  return { ...size, totalBytes, components };
 }
 
 export function resolveCapabilityManifestPath(repoRoot) {

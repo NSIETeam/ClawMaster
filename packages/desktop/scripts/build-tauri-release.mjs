@@ -11,11 +11,17 @@ const require = createRequire(import.meta.url);
 
 export function tauriReleaseSteps(platform, arch) {
   resolveTauriRuntimePlatform(platform, arch);
-  const shared = [['npm', ['run', 'tauri:runtime:smoke']]];
+  const shared = [
+    ['npm', ['run', 'tauri:runtime:prepare']],
+    ['npm', ['run', 'tauri:runtime:smoke']],
+  ];
   if (platform === 'darwin') {
     return [
       ...shared,
-      ['tauri', ['build', '--bundles', 'dmg']],
+      ['tauri', ['build', '--bundles', 'app']],
+      ['npm', ['run', 'tauri:dmg:create']],
+      ['npm', ['run', 'tauri:dmg:optimize']],
+      ['npm', ['run', 'tauri:dmg:verify']],
     ];
   }
   if (platform === 'win32') {
