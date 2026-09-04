@@ -1,9 +1,16 @@
 use serde::Deserialize;
-use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, WebviewBuilder, WebviewUrl};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use tauri::{
+    webview::PageLoadEvent, AppHandle, LogicalPosition, LogicalSize, Manager, WebviewBuilder,
+    WebviewUrl,
+};
+use tokio::sync::oneshot;
 use url::Url;
 
 const PLATFORM_WEBVIEW_LABEL: &str = "platform-browser";
 const MAX_WEBVIEW_EDGE: f64 = 16_384.0;
+const PLATFORM_LOAD_TIMEOUT: Duration = Duration::from_secs(20);
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -68,16 +75,38 @@ pub async fn platform_webview_open(
     let window = app
         .get_window("main")
         .ok_or_else(|| "ClawMaster 主窗口不可用".to_string())?;
+    let (loaded_tx, loaded_rx) = oneshot::channel();
+    let loaded_tx = Arc::new(Mutex::new(Some(loaded_tx)));
     let builder = WebviewBuilder::new(PLATFORM_WEBVIEW_LABEL, WebviewUrl::External(url))
-        .on_navigation(|candidate| validate_url(candidate.as_str()).is_ok());
-    window
+        .on_navigation(|candidate| validate_url(candidate.as_str()).is_ok())
+        .on_page_load(move |_webview, payload| {
+            if payload.event() != PageLoadEvent::Finished {
+                return;
+            }
+            if let Ok(mut sender) = loaded_tx.lock() {
+                if let Some(sender) = sender.take() {
+                    let _ = sender.send(());
+                }
+            }
+        });
+    let webview = window
         .add_child(
             builder,
             LogicalPosition::new(bounds.x, bounds.y),
             LogicalSize::new(bounds.width, bounds.height),
         )
         .map_err(|error| format!("无法创建内置浏览器: {error}"))?;
-    Ok(())
+    match tokio::time::timeout(PLATFORM_LOAD_TIMEOUT, loaded_rx).await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(_)) => {
+            let _ = webview.close();
+            Err("内置浏览器在页面加载完成前意外关闭".into())
+        }
+        Err(_) => {
+            let _ = webview.close();
+            Err("内置浏览器加载超时，已回退系统浏览器".into())
+        }
+    }
 }
 
 #[tauri::command]

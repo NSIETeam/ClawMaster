@@ -15,6 +15,7 @@ export interface RightPanelProps {
   ready: boolean;
   readiness?: 'loading' | 'ready' | 'failed';
   onRetryCapabilities?: () => void;
+  onRequestExpand?: () => void;
   scopeKey: string;
   layout: ModuleWorkspaceLayout;
   modules: readonly ModuleDefinition[];
@@ -30,6 +31,7 @@ export function RightPanel({
   ready,
   readiness = ready ? 'ready' : 'loading',
   onRetryCapabilities,
+  onRequestExpand,
   scopeKey,
   layout,
   modules,
@@ -44,12 +46,13 @@ export function RightPanel({
     const showFiles = (event: Event): void => {
       const path = (event as CustomEvent<{ path?: unknown }>).detail?.path;
       if (typeof path !== 'string' || !path) return;
+      onRequestExpand?.();
       setFilePath(path);
       setActiveView('files');
     };
     window.addEventListener('clawmaster:edit-local-file', showFiles);
     return () => window.removeEventListener('clawmaster:edit-local-file', showFiles);
-  }, []);
+  }, [onRequestExpand]);
   useEffect(() => {
     if (!platformTarget) return;
     const installed = layout.groups.some((group) => group.moduleIds.includes(platformTarget.id));
@@ -71,12 +74,13 @@ export function RightPanel({
         typeof detail.label !== 'string' ||
         (detail.url !== null && typeof detail.url !== 'string')
       ) return;
+      onRequestExpand?.();
       setPlatformTarget(detail);
       setActiveView('platform');
     };
     window.addEventListener('clawmaster:open-platform', showPlatform);
     return () => window.removeEventListener('clawmaster:open-platform', showPlatform);
-  }, []);
+  }, [onRequestExpand]);
   const hidden = presentation === 'panel' && collapsed;
   return (
     <aside

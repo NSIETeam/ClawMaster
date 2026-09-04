@@ -880,6 +880,13 @@ function ClawMasterWorkspaceApp({
       return { key: rightPanelPreferenceKey, collapsed: next };
     });
   }, [rightPanelPreferenceKey, uiModeScope]);
+  const expandRightPanel = useCallback((): void => {
+    writeRightPanelCollapsed(uiModeScope, false);
+    setRightPanelPreference({
+      key: rightPanelPreferenceKey,
+      collapsed: false,
+    });
+  }, [rightPanelPreferenceKey, uiModeScope]);
   const [organizationRefreshRevision, setOrganizationRefreshRevision] = useState(0);
   const [enterpriseDirectChatOpenRequest, setEnterpriseDirectChatOpenRequest] = useState<{
     peerAccountId: string;
@@ -1519,6 +1526,7 @@ function ClawMasterWorkspaceApp({
               ready={moduleWorkspace.ready}
               readiness={moduleCapabilities.status}
               onRetryCapabilities={moduleCapabilities.retry}
+              onRequestExpand={expandRightPanel}
               scopeKey={moduleWorkspaceScopeKey}
               layout={moduleWorkspace.visibleLayout}
               modules={moduleCapabilities.modules}

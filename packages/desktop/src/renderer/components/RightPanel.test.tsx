@@ -55,8 +55,10 @@ describe('RightPanel module workspace boundary', () => {
   });
 
   it('reveals the file editor only after a generated file is opened', () => {
-    renderPanel();
+    const onRequestExpand = vi.fn();
+    renderPanel({ onRequestExpand });
     fireEvent(window, new CustomEvent('clawmaster:edit-local-file', { detail: { path: '/tmp/方案.md' } }));
+    expect(onRequestExpand).toHaveBeenCalledOnce();
     expect(screen.getByRole('region', { name: '文件编辑器' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: '文件' })).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: '功能' }));
@@ -64,8 +66,10 @@ describe('RightPanel module workspace boundary', () => {
   });
 
   it('opens a selected business platform directly inside the right sidebar', () => {
-    const { container } = renderPanel({ layout: layoutWithPlatform });
+    const onRequestExpand = vi.fn();
+    const { container } = renderPanel({ layout: layoutWithPlatform, onRequestExpand });
     fireEvent(window, new CustomEvent('clawmaster:open-platform', { detail: { id: 'platform-zhifang', label: '知访', url: 'https://47.116.30.60/' } }));
+    expect(onRequestExpand).toHaveBeenCalledOnce();
     expect(screen.getByRole('region', { name: '知访平台工作区' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: '知访' }).getAttribute('aria-selected')).toBe('true');
     expect(container.querySelector('aside')?.classList.contains('claw-right-panel--browser')).toBe(true);
