@@ -975,7 +975,7 @@ impl NativeRuntime {
                 }
                 let started = now_ms();
                 let result = if approved {
-                    native_agent_tools::execute(call, context.workspace)
+                    native_agent_tools::execute_model(call, context.workspace, cancel.clone()).await
                 } else {
                     Err("用户拒绝或取消了工具操作".into())
                 };

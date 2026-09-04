@@ -67,9 +67,13 @@ back to the legacy Node sidecar.
   suppression survive restarts. The model tool catalog now exposes the existing
   Rust DOCX writer, PDF merge/optimization engine, native input automation, and
   a capability manifest that identifies the external dependencies they replace.
-- Verified locally: 7.22 MiB application bundle and 3.25 MiB compressed macOS
-  ARM64 DMG. The bundle contains no Node executable, `.node` addon, or agent
-  payload.
-- Remaining before release: native process, browser/RPA, remaining document and
-  MCP tool adapters; enterprise channel adapters; then installed real-model and
+  A no-shell Rust process runner adds PATH dependency checks, sanitized child
+  environments, bounded output, timeout/cancellation, and confirmation-gated
+  executable-plus-argv execution.
+- Verified locally after the native process migration: 7.42 MiB stripped ARM64
+  release executable. The last packaged check produced a 7.22 MiB application
+  bundle and 3.25 MiB compressed macOS ARM64 DMG with no Node executable,
+  `.node` addon, or agent payload.
+- Remaining before release: browser/RPA, remaining document and MCP tool
+  adapters; enterprise channel adapters; then installed real-model and
   destructive-path acceptance.

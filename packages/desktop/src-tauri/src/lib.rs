@@ -11,6 +11,7 @@ mod native_models;
 mod native_memory;
 mod native_agent_tools;
 mod native_projects;
+mod native_process;
 mod native_runtime;
 mod native_skills;
 pub mod native_tools;

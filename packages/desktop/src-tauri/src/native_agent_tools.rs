@@ -1,8 +1,10 @@
 use crate::native_models::{ModelToolCall, ModelToolDefinition};
+use crate::native_process;
 use crate::native_tools;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use tokio::sync::watch;
 
 const MAX_FILE_BYTES: u64 = 1_048_576;
 const MAX_DIRECTORY_ENTRIES: usize = 200;
@@ -85,6 +87,22 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
                 "doubleClick":{"type":"boolean"}
             },"required":["action"],"additionalProperties":false}),
         },
+        ModelToolDefinition {
+            name: "check_dependencies".into(),
+            description: "Check whether executable dependencies are available on PATH. Also use native_capabilities to find built-in Rust replacements.".into(),
+            parameters: json!({"type":"object","properties":{
+                "names":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":30}
+            },"required":["names"],"additionalProperties":false}),
+        },
+        ModelToolDefinition {
+            name: "run_command".into(),
+            description: "Run one executable with an argument array in the workspace through the bounded Rust process runner. It does not invoke a shell and requires user confirmation.".into(),
+            parameters: json!({"type":"object","properties":{
+                "executable":{"type":"string"},"args":{"type":"array","items":{"type":"string"},"maxItems":100},
+                "directory":{"type":"string"},"timeoutSeconds":{"type":"integer","minimum":1,"maximum":300},
+                "description":{"type":"string","maxLength":500}
+            },"required":["executable"],"additionalProperties":false}),
+        },
     ]
 }
 
@@ -105,12 +123,13 @@ pub fn summaries() -> Value {
 
 pub fn risk(name: &str) -> Option<ToolRisk> {
     match name {
-        "read_file" | "list_directory" | "search_text" | "native_capabilities" => {
-            Some(ToolRisk::ReadOnly)
-        }
-        "write_file" | "generate_docx" | "merge_pdfs" | "optimize_pdf" | "desktop_automation" => {
-            Some(ToolRisk::Write)
-        }
+        "read_file"
+        | "list_directory"
+        | "search_text"
+        | "native_capabilities"
+        | "check_dependencies" => Some(ToolRisk::ReadOnly),
+        "write_file" | "generate_docx" | "merge_pdfs" | "optimize_pdf" | "desktop_automation"
+        | "run_command" => Some(ToolRisk::Write),
         _ => None,
     }
 }
@@ -481,8 +500,79 @@ pub fn execute(call: &ModelToolCall, workspace: &Path) -> Result<Value, String> 
             native_tools::input_tool(&args)?;
             Ok(json!({"action":action,"completed":true,"provider":"rust:enigo"}))
         }
+        "check_dependencies" => {
+            let names = call
+                .arguments
+                .get("names")
+                .and_then(Value::as_array)
+                .ok_or_else(|| "names 必须是依赖名称数组".to_string())?
+                .iter()
+                .map(|value| {
+                    value
+                        .as_str()
+                        .map(str::to_owned)
+                        .ok_or_else(|| "依赖名称必须是字符串".to_string())
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            let mut status = native_process::check_dependencies(&names)?;
+            status["nativeCapabilities"] =
+                native_tools::capability_manifest()["capabilities"].clone();
+            Ok(status)
+        }
         _ => Err(format!("未知 Rust 原生工具: {}", call.name)),
     }
+}
+
+pub async fn execute_model(
+    call: &ModelToolCall,
+    workspace: &Path,
+    cancel: watch::Receiver<bool>,
+) -> Result<Value, String> {
+    if call.name != "run_command" {
+        return execute(call, workspace);
+    }
+    let executable_value = required_string(&call.arguments, "executable")?;
+    let executable = if executable_value.contains('/') || executable_value.contains('\\') {
+        let path = existing_path(workspace, executable_value)?;
+        if !path.is_file() {
+            return Err("命令可执行文件不是普通文件".into());
+        }
+        path
+    } else {
+        native_process::resolve_executable(executable_value)?
+    };
+    let directory_value = call
+        .arguments
+        .get("directory")
+        .and_then(Value::as_str)
+        .unwrap_or(".");
+    let directory = existing_path(workspace, directory_value)?;
+    if !directory.is_dir() {
+        return Err("命令工作目录不是文件夹".into());
+    }
+    let args = call
+        .arguments
+        .get("args")
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .map(|value| {
+                    value
+                        .as_str()
+                        .map(str::to_owned)
+                        .ok_or_else(|| "命令参数必须是字符串".to_string())
+                })
+                .collect::<Result<Vec<_>, String>>()
+        })
+        .transpose()?
+        .unwrap_or_default();
+    let timeout_seconds = call
+        .arguments
+        .get("timeoutSeconds")
+        .and_then(Value::as_u64)
+        .unwrap_or(120);
+    native_process::run(&executable, &args, &directory, timeout_seconds, cancel).await
 }
 
 #[cfg(test)]
@@ -527,13 +617,15 @@ mod tests {
 
     #[test]
     fn definitions_and_risks_keep_writes_confirmation_gated() {
-        assert_eq!(definitions().len(), 9);
+        assert_eq!(definitions().len(), 11);
         assert_eq!(summaries().as_array().unwrap().len(), definitions().len());
         assert_eq!(risk("read_file"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("write_file"), Some(ToolRisk::Write));
         assert_eq!(risk("native_capabilities"), Some(ToolRisk::ReadOnly));
+        assert_eq!(risk("check_dependencies"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("generate_docx"), Some(ToolRisk::Write));
         assert_eq!(risk("desktop_automation"), Some(ToolRisk::Write));
+        assert_eq!(risk("run_command"), Some(ToolRisk::Write));
         assert_eq!(risk("unknown"), None);
     }
 
@@ -569,5 +661,27 @@ mod tests {
             root.path(),
         )
         .is_err());
+    }
+
+    #[tokio::test]
+    async fn runs_a_single_argv_command_without_a_shell() {
+        let root = tempfile::tempdir().unwrap();
+        #[cfg(windows)]
+        let (executable, args) = ("cmd", json!(["/d", "/s", "/c", "echo native"]));
+        #[cfg(not(windows))]
+        let (executable, args) = ("printf", json!(["native"]));
+        let (_sender, cancel) = watch::channel(false);
+        let result = execute_model(
+            &call(
+                "run_command",
+                json!({"executable":executable,"args":args,"timeoutSeconds":5}),
+            ),
+            root.path(),
+            cancel,
+        )
+        .await
+        .unwrap();
+        assert_eq!(result["success"], true);
+        assert!(result["stdout"].as_str().unwrap().contains("native"));
     }
 }
