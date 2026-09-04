@@ -1,5 +1,10 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { tauriReleaseSteps } from './build-tauri-release.mjs';
+
+const desktopRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('Tauri release orchestration', () => {
   it('prepares and smokes the packaged sidecar before every supported bundle', () => {
@@ -17,5 +22,15 @@ describe('Tauri release orchestration', () => {
     }
     expect(() => tauriReleaseSteps('darwin', 'x64')).toThrow('not packaged');
     expect(() => tauriReleaseSteps('linux', 'x64')).toThrow('not packaged');
+  });
+
+  it('does not let direct Tauri commands bypass runtime preparation and smoke', () => {
+    const config = JSON.parse(readFileSync(
+      path.join(desktopRoot, 'src-tauri', 'tauri.conf.json'),
+      'utf8',
+    ));
+    expect(config.build.beforeDevCommand).toContain('tauri:runtime:prepare');
+    expect(config.build.beforeBuildCommand).toContain('tauri:runtime:prepare');
+    expect(config.build.beforeBuildCommand).toContain('tauri:runtime:smoke');
   });
 });

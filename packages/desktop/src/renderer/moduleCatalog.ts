@@ -72,6 +72,14 @@ export interface ModuleDefinition {
   disabledReason?: string;
 }
 
+export const DEFAULT_PLATFORM_URLS = Object.freeze({
+  'platform-zhifang': 'https://47.116.30.60/',
+  'platform-trace-code': 'https://8.140.52.117/',
+  'platform-zhiliaohou': 'http://47.116.30.60:18787/',
+  'platform-zhixin-pigeon': 'http://47.116.30.60:18788/',
+  'platform-maotouying': 'http://8.141.8.31/',
+} satisfies Record<string, string>);
+
 type StaticAvailabilityRule =
   | 'park'
   | 'park-statistics'
@@ -170,15 +178,15 @@ export const STATIC_MODULE_SPECS: readonly StaticModuleSpec[] = [
     availabilityRule: 'always',
   },
   ...([
-    ['platform-maotouying', '猫头鹰', 'platform-observe'],
-    ['platform-trace-code', '溯源码', 'platform-trace'],
-    ['platform-zhifang', '知访', 'platform-visit'],
-    ['platform-zhiliaohou', '知了猴', 'platform-insight'],
-    ['platform-zhixin-pigeon', '智信鸽', 'platform-message'],
-  ] as const).map(([id, label, icon]) => ({
+    ['platform-maotouying', '猫头鹰', '控价助手', 'platform-observe'],
+    ['platform-trace-code', '穿山甲', '溯源大师', 'platform-trace'],
+    ['platform-zhifang', '鸿雁知访', '外勤系统', 'platform-visit'],
+    ['platform-zhiliaohou', '知了猴', '电商经营', 'platform-insight'],
+    ['platform-zhixin-pigeon', '智信鸽', '全能 AI 客服', 'platform-message'],
+  ] as const).map(([id, label, description, icon]) => ({
     id,
     label,
-    description: `在 ClawMaster 内授权并操作${label}平台`,
+    description,
     category: 'platform' as const,
     icon,
     activation: {
@@ -191,18 +199,20 @@ export const STATIC_MODULE_SPECS: readonly StaticModuleSpec[] = [
   })),
 ] as const;
 
-/** Platform endpoints are deployment configuration, never source defaults. */
+/** Approved product endpoints are defaults; a validated local setting may override them. */
 export function configuredPlatformUrl(platformId: string): string | null {
-  if (typeof window === 'undefined' || !window.localStorage) return null;
-  const value = window.localStorage.getItem(`clawmaster.platform.${platformId}.url`);
-  if (!value) return null;
+  const fallback = DEFAULT_PLATFORM_URLS[platformId as keyof typeof DEFAULT_PLATFORM_URLS] ?? null;
+  const value = typeof window !== 'undefined' && window.localStorage
+    ? window.localStorage.getItem(`clawmaster.platform.${platformId}.url`)
+    : null;
+  if (!value) return fallback;
   try {
     const url = new URL(value);
     return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password
       ? url.toString()
-      : null;
+      : fallback;
   } catch {
-    return null;
+    return fallback;
   }
 }
 

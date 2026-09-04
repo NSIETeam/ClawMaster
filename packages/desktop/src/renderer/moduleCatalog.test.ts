@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { EnterpriseOrganizationFeatures } from '../preload/index.js';
 import {
@@ -9,6 +9,8 @@ import {
 } from './agents/departmentAgents.js';
 import {
   buildModuleCatalog,
+  configuredPlatformUrl,
+  DEFAULT_PLATFORM_URLS,
   STATIC_MODULE_SPECS,
   type ModuleCatalogContext,
 } from './moduleCatalog.js';
@@ -40,7 +42,37 @@ function enterpriseContext(
   };
 }
 
+beforeEach(() => window.localStorage.clear());
+
 describe('static module catalog', () => {
+  it('ships the five approved platform endpoints while allowing a local override', () => {
+    expect(DEFAULT_PLATFORM_URLS).toEqual({
+      'platform-zhifang': 'https://47.116.30.60/',
+      'platform-trace-code': 'https://8.140.52.117/',
+      'platform-zhiliaohou': 'http://47.116.30.60:18787/',
+      'platform-zhixin-pigeon': 'http://47.116.30.60:18788/',
+      'platform-maotouying': 'http://8.141.8.31/',
+    });
+    expect(configuredPlatformUrl('platform-zhifang')).toBe('https://47.116.30.60/');
+    window.localStorage.setItem('clawmaster.platform.platform-zhifang.url', 'https://example.com/work/');
+    expect(configuredPlatformUrl('platform-zhifang')).toBe('https://example.com/work/');
+    window.localStorage.setItem('clawmaster.platform.platform-zhifang.url', 'file:///tmp/unsafe');
+    expect(configuredPlatformUrl('platform-zhifang')).toBe('https://47.116.30.60/');
+  });
+
+  it('uses the customer-facing platform names and subtitles', () => {
+    expect(STATIC_MODULE_SPECS.filter((module) => module.category === 'platform').map((module) => ({
+      label: module.label,
+      description: module.description,
+    }))).toEqual([
+      { label: '猫头鹰', description: '控价助手' },
+      { label: '穿山甲', description: '溯源大师' },
+      { label: '鸿雁知访', description: '外勤系统' },
+      { label: '知了猴', description: '电商经营' },
+      { label: '智信鸽', description: '全能 AI 客服' },
+    ]);
+  });
+
   it('uses unique IDs and complete metadata without organization/contact entries', () => {
     const ids = STATIC_MODULE_SPECS.map((module) => module.id);
 

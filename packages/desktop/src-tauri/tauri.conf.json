@@ -4,8 +4,8 @@
   "version": "0.0.2-beta.1",
   "identifier": "team.nsi.clawmaster.desktop",
   "build": {
-    "beforeDevCommand": "npm run build:renderer",
-    "beforeBuildCommand": "npm run build:renderer",
+    "beforeDevCommand": "npm run tauri:runtime:prepare && npm run build:renderer",
+    "beforeBuildCommand": "npm run tauri:runtime:prepare && npm run tauri:runtime:smoke && npm run build:renderer",
     "frontendDist": "../dist/renderer"
   },
   "app": {

@@ -20,7 +20,7 @@ describe('native-local release contract', () => {
     expect(tauri.version).toBe(root.version);
   });
 
-  it('contains no production URL or runtime download in the base desktop package', async () => {
+  it('allows only the approved platform endpoints and no runtime download', async () => {
     const [config, catalog, policy] = await Promise.all([
       readText(path.join(desktopRoot, 'src-tauri/tauri.conf.json')),
       readText(path.join(desktopRoot, 'src/renderer/moduleCatalog.ts')),
@@ -28,7 +28,14 @@ describe('native-local release contract', () => {
     ]);
     expect(config).not.toMatch(/8\.14[01]\./u);
     expect(config).not.toMatch(/47\.116\./u);
-    expect(catalog).not.toMatch(/https?:\/\/(?:\d{1,3}\.){3}\d{1,3}/u);
+    expect(catalog.match(/https?:\/\/(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\//gu)?.sort())
+      .toEqual([
+        'http://47.116.30.60:18787/',
+        'http://47.116.30.60:18788/',
+        'http://8.141.8.31/',
+        'https://47.116.30.60/',
+        'https://8.140.52.117/',
+      ]);
     expect(policy).toContain("'native-local'");
     expect(policy).toContain('assertNoRuntimeDownload');
   });

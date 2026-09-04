@@ -99,6 +99,7 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
     const mark = screen.getByRole('img', { name: 'ClawMaster 皇冠标志' });
     expect(mark.tagName.toLowerCase()).toBe('img');
     expect(mark.getAttribute('src')).toContain('icon');
+    expect(mark.classList.contains('clawmaster-brand-icon')).toBe(true);
     expect(screen.queryByText('ClawMaster')).toBeNull();
     expect(screen.queryByText('otto')).toBeNull();
   });
@@ -187,8 +188,8 @@ describe('Sidebar：布局（工具区已迁右侧面板）', () => {
 
     const identity = screen.getByRole('button', { name: 'Felix，个人空间' });
     const avatar = identity.querySelector('.claw-sidebar-account__avatar');
-    expect(avatar?.textContent?.trim()).toBe('👤');
-    expect(avatar?.querySelector('svg')).toBeNull();
+    expect(avatar?.textContent?.trim()).toBe('☺︎');
+    expect(avatar?.querySelector('img, svg')).toBeNull();
   });
 
   it('企业管理员在我的工作下方看到企业管理，并可打开和高亮该页面', () => {

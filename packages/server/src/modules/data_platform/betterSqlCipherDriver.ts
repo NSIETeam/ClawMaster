@@ -170,7 +170,9 @@ function exportDatabase(input: {
 export function sqlCipherModuleRequireBase(
   moduleUrl: string,
   resourcesPath = process.env.CLAWMASTER_RESOURCES_PATH,
+  agentRoot = process.env.CLAWMASTER_AGENT_ROOT,
 ): string {
+  if (agentRoot?.trim()) return path.join(agentRoot, 'server.mjs');
   return resourcesPath?.trim()
     ? path.join(resourcesPath, 'agent', 'server.mjs')
     : moduleUrl;

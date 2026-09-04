@@ -19,8 +19,14 @@ it('anchors packaged native dependencies to the signed Tauri runtime', () => {
   expect(sqlCipherModuleRequireBase(
     'file:///tmp/cache/agent.mjs',
     '/Applications/ClawMaster.app/Contents/Resources/runtime',
+    '/Users/operator/.clawmaster-user/runtime-cache/agent-verified',
+  )).toBe('/Users/operator/.clawmaster-user/runtime-cache/agent-verified/server.mjs');
+  expect(sqlCipherModuleRequireBase(
+    'file:///tmp/cache/agent.mjs',
+    '/Applications/ClawMaster.app/Contents/Resources/runtime',
+    '',
   )).toBe('/Applications/ClawMaster.app/Contents/Resources/runtime/agent/server.mjs');
-  expect(sqlCipherModuleRequireBase('file:///workspace/server.js', '')).toBe(
+  expect(sqlCipherModuleRequireBase('file:///workspace/server.js', '', '')).toBe(
     'file:///workspace/server.js',
   );
 });

@@ -132,7 +132,7 @@ export function IconUserAvatar({ size = 28, className }: IconProps): React.JSX.E
       aria-hidden
       style={{ fontSize: size * 0.72 }}
     >
-      👤
+      ☺︎
     </span>
   );
 }
@@ -521,7 +521,7 @@ export function ClawMasterCrown({ size = 56, className }: IconProps): React.JSX.
       alt="ClawMaster 皇冠标志"
       width={size}
       height={size}
-      className={className}
+      className={['clawmaster-brand-icon', className].filter(Boolean).join(' ')}
       style={{
         display: 'block',
         width: size,
