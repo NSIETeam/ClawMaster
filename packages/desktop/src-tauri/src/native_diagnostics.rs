@@ -76,6 +76,12 @@ mod tests {
                 && check["provider"] == "rust:zip+xml"
                 && check["present"] == true
         }));
+        assert!(checks.iter().all(|check| {
+            check["category"] != "native-capability"
+                || check["provider"]
+                    .as_str()
+                    .is_some_and(|provider| provider.starts_with("rust:"))
+        }));
         assert!(checks.iter().any(|check| {
             check["capabilityId"] == "pdf.merge"
                 && check["note"].as_str().unwrap().contains("pdfunite")

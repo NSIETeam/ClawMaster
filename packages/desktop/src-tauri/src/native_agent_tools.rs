@@ -72,6 +72,16 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
             },"required":["outputPath","title","content"],"additionalProperties":false}),
         },
         ModelToolDefinition {
+            name: "generate_chart".into(),
+            description: "Create an editable SVG bar or line chart inside the workspace using Rust. No Node.js, Python, or gnuplot is required.".into(),
+            parameters: json!({"type":"object","properties":{
+                "outputPath":{"type":"string"},"title":{"type":"string","maxLength":500},
+                "chartType":{"type":"string","enum":["bar","line"]},
+                "labels":{"type":"array","items":{"type":"string","maxLength":100},"minItems":1,"maxItems":50},
+                "values":{"type":"array","items":{"type":"number"},"minItems":1,"maxItems":50}
+            },"required":["outputPath","title","chartType","labels","values"],"additionalProperties":false}),
+        },
+        ModelToolDefinition {
             name: "merge_pdfs".into(),
             description: "Merge workspace PDFs using Rust. No pdfunite is required.".into(),
             parameters: json!({"type":"object","properties":{
@@ -144,8 +154,10 @@ pub fn risk(name: &str) -> Option<ToolRisk> {
         | "search_text"
         | "native_capabilities"
         | "check_dependencies" => Some(ToolRisk::ReadOnly),
-        "write_file" | "generate_docx" | "generate_pptx" | "merge_pdfs" | "optimize_pdf"
-        | "desktop_automation" | "run_command" | "open_browser" => Some(ToolRisk::Write),
+        "write_file" | "generate_docx" | "generate_pptx" | "generate_chart" | "merge_pdfs"
+        | "optimize_pdf" | "desktop_automation" | "run_command" | "open_browser" => {
+            Some(ToolRisk::Write)
+        }
         _ => None,
     }
 }
@@ -444,6 +456,42 @@ pub fn execute(call: &ModelToolCall, workspace: &Path) -> Result<Value, String> 
             })?;
             Ok(json!({"outputPath":output_value,"created":true,"provider":"rust:zip+xml"}))
         }
+        "generate_chart" => {
+            let output_value = required_string(&call.arguments, "outputPath")?;
+            let output = writable_path(workspace, output_value)?;
+            require_extension(&output, "svg")?;
+            let title = required_string(&call.arguments, "title")?;
+            let chart_type = required_string(&call.arguments, "chartType")?;
+            let labels = call
+                .arguments
+                .get("labels")
+                .and_then(Value::as_array)
+                .ok_or_else(|| "图表 labels 必须是字符串数组".to_string())?
+                .iter()
+                .map(|value| {
+                    value
+                        .as_str()
+                        .map(str::to_owned)
+                        .ok_or_else(|| "图表标签必须是字符串".to_string())
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let values = call
+                .arguments
+                .get("values")
+                .and_then(Value::as_array)
+                .ok_or_else(|| "图表 values 必须是数字数组".to_string())?
+                .iter()
+                .map(|value| value.as_f64().ok_or_else(|| "图表值必须是数字".to_string()))
+                .collect::<Result<Vec<_>, _>>()?;
+            if title.chars().count() > 500 || labels.iter().any(|label| label.chars().count() > 100)
+            {
+                return Err("图表标题或标签超过大小限制".into());
+            }
+            commit_generated(&output, |temporary| {
+                crate::native_chart::write_chart(temporary, title, chart_type, &labels, &values)
+            })?;
+            Ok(json!({"outputPath":output_value,"created":true,"provider":"rust:svg"}))
+        }
         "merge_pdfs" => {
             let output_value = required_string(&call.arguments, "outputPath")?;
             let output = writable_path(workspace, output_value)?;
@@ -668,7 +716,7 @@ mod tests {
 
     #[test]
     fn definitions_and_risks_keep_writes_confirmation_gated() {
-        assert_eq!(definitions().len(), 13);
+        assert_eq!(definitions().len(), 14);
         assert_eq!(summaries().as_array().unwrap().len(), definitions().len());
         assert_eq!(risk("read_file"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("write_file"), Some(ToolRisk::Write));
@@ -676,6 +724,7 @@ mod tests {
         assert_eq!(risk("check_dependencies"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("generate_docx"), Some(ToolRisk::Write));
         assert_eq!(risk("generate_pptx"), Some(ToolRisk::Write));
+        assert_eq!(risk("generate_chart"), Some(ToolRisk::Write));
         assert_eq!(risk("desktop_automation"), Some(ToolRisk::Write));
         assert_eq!(risk("run_command"), Some(ToolRisk::Write));
         assert_eq!(risk("open_browser"), Some(ToolRisk::Write));
@@ -738,6 +787,40 @@ mod tests {
             &call(
                 "generate_pptx",
                 json!({"outputPath":"../outside.pptx","title":"越界","content":"拒绝"}),
+            ),
+            root.path(),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn generates_svg_chart_with_rust_inside_the_workspace() {
+        let root = tempfile::tempdir().unwrap();
+        let result = execute(
+            &call(
+                "generate_chart",
+                json!({
+                    "outputPath":"charts/growth.svg",
+                    "title":"季度增长",
+                    "chartType":"bar",
+                    "labels":["Q1","Q2"],
+                    "values":[12.5,18.0]
+                }),
+            ),
+            root.path(),
+        )
+        .unwrap();
+        assert_eq!(result["provider"], "rust:svg");
+        let svg = fs::read_to_string(root.path().join("charts/growth.svg")).unwrap();
+        assert!(svg.contains("季度增长"));
+        assert!(svg.contains("<rect"));
+        assert!(execute(
+            &call(
+                "generate_chart",
+                json!({
+                    "outputPath":"../outside.svg","title":"越界","chartType":"bar",
+                    "labels":["Q1"],"values":[1]
+                }),
             ),
             root.path(),
         )

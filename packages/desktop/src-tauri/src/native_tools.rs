@@ -52,11 +52,11 @@ pub fn capability_manifest() -> serde_json::Value {
             },
             NativeCapability {
                 id: "chart.svg",
-                provider: "core:svg",
+                provider: "rust:svg",
                 status: "ready",
-                description: "CSV/JSON 柱状图、折线图、散点图、饼图和直方图，无需 gnuplot",
-                tool: "analyze_data",
-                usage: "op=chart",
+                description: "原生可编辑 SVG 柱状图和折线图，无需 Node.js、Python 或 gnuplot",
+                tool: "generate_chart",
+                usage: "chartType=\"bar|line\", labels=[...], values=[...]",
                 replaces: &["gnuplot（内置图表场景）"],
             },
             NativeCapability {
@@ -485,6 +485,13 @@ mod tests {
             .find(|capability| capability["id"] == "slides.pptx")
             .unwrap();
         assert_eq!(slides["provider"], "rust:zip+xml");
+        let chart = value["capabilities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|capability| capability["id"] == "chart.svg")
+            .unwrap();
+        assert_eq!(chart["provider"], "rust:svg");
     }
 
     fn write_test_pdf(path: &Path, text: &str) {
