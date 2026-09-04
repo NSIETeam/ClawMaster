@@ -41,10 +41,10 @@ describe('native-local release contract', () => {
     expect(JSON.stringify(pkg)).not.toMatch(/https?:\/\/(?:\d{1,3}\.){3}\d{1,3}/u);
   });
 
-  it('uses the four-platform workflow and requires real acceptance gates', async () => {
+  it('uses the supported platform workflow and requires real acceptance gates', async () => {
     const workflow = await readText(path.join(repoRoot, '.github/workflows/tauri-preview.yml'));
     for (const expected of [
-      'windows-2022', 'macos-15', 'macos-15-intel', 'ubuntu-24.04',
+      'windows-2022', 'macos-15',
       'release:preflight',
       'softprops/action-gh-release',
     ]) expect(workflow).toContain(expected);
