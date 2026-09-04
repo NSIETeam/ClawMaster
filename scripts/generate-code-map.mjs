@@ -66,18 +66,16 @@ Arrows mean “imports or depends on”. The runtime kernel does not depend on D
 \`\`\`mermaid
 sequenceDiagram
   participant UI as Tauri / channel UI
-  participant Sidecar as Local Agent sidecar
+  participant Native as Embedded Rust runtime
   participant Server as Enterprise server
-  participant Core as Runtime kernel
   participant Policy as Confirmation + policy + audit
   participant Tool as Tool / workflow / RPA
-  UI->>Sidecar: loopback WebSocket request
-  Sidecar->>Core: turn + model routing contract
-  Core->>Policy: proposed high-risk action
-  Policy-->>Core: allow / deny / cancel
-  Core->>Tool: bounded execution
-  Tool-->>Core: progress + result events
-  Core-->>UI: user-visible typed events
+  UI->>Native: in-process Tauri command
+  Native->>Policy: proposed high-risk action
+  Policy-->>Native: allow / deny / cancel
+  Native->>Tool: bounded execution
+  Tool-->>Native: progress + result events
+  Native-->>UI: user-visible typed events
   UI->>Server: authenticated enterprise operations
 \`\`\`
 
@@ -86,17 +84,12 @@ sequenceDiagram
 \`\`\`mermaid
 flowchart LR
   Renderer[React renderer] --> Bridge[Validated host bridge]
-  Bridge --> Rust[Tauri commands]
-  Rust --> Sidecar[Signed Node Agent sidecar]
-  Rust -. parent-owned stdin pipe .-> Sidecar
-  Sidecar --> Core[Runtime kernel]
-  Node[Balanced minimal Node<br/><code>native/node-runtime</code>] --> Stage[Runtime staging]
-  SQL[Attested Tauri SQLCipher<br/><code>native/sqlcipher-tauri</code>] --> Stage[Runtime staging]
-  RG[Platform ripgrep] --> Stage
-  Core --> Stage
-  Stage --> Bundle[Tauri bundle]
-  NodeCI[Node source pin + capability probe<br/><code>tauri-node-runtime.yml</code>] --> Node
-  Bundle --> Verify[Runtime, signature, provenance and size gates]
+  Bridge --> Rust[Embedded Rust runtime]
+  Rust --> Model[Native HTTPS model adapters]
+  Rust --> Vault[macOS Keychain / Windows Credential Manager]
+  Rust --> Tools[Native tools and document providers]
+  Rust --> Bundle[Tauri bundle]
+  Bundle --> Verify[Native tests, signature and size gates]
 \`\`\`
 
 The Electron main/preload tree is a temporary compatibility baseline. New desktop capabilities target Tauri and must not silently depend on ignored Electron build output.

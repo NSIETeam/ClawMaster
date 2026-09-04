@@ -7,11 +7,10 @@ import { tauriReleaseSteps } from './build-tauri-release.mjs';
 const desktopRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('Tauri release orchestration', () => {
-  it('prepares and smokes the packaged sidecar before every supported bundle', () => {
+  it('verifies the Rust runtime before every supported bundle', () => {
     for (const [platform, arch] of [['darwin', 'arm64'], ['win32', 'x64']]) {
       const steps = tauriReleaseSteps(platform, arch);
-      expect(steps[0]).toEqual(['npm', ['run', 'tauri:runtime:prepare']]);
-      expect(steps[1]).toEqual(['npm', ['run', 'tauri:runtime:smoke']]);
+      expect(steps[0]).toEqual(['npm', ['run', 'tauri:native:verify']]);
       expect(steps.some(([command, args]) => command === 'tauri' && args.includes('build'))).toBe(true);
       if (platform === 'darwin') {
         expect(steps).toContainEqual(['tauri', ['build', '--bundles', 'app']]);
@@ -24,13 +23,13 @@ describe('Tauri release orchestration', () => {
     expect(() => tauriReleaseSteps('linux', 'x64')).toThrow('not packaged');
   });
 
-  it('does not let direct Tauri commands bypass runtime preparation and smoke', () => {
+  it('does not let direct Tauri commands bypass native runtime tests', () => {
     const config = JSON.parse(readFileSync(
       path.join(desktopRoot, 'src-tauri', 'tauri.conf.json'),
       'utf8',
     ));
-    expect(config.build.beforeDevCommand).toContain('tauri:runtime:prepare');
-    expect(config.build.beforeBuildCommand).toContain('tauri:runtime:prepare');
-    expect(config.build.beforeBuildCommand).toContain('tauri:runtime:smoke');
+    expect(config.build.beforeDevCommand).not.toContain('runtime:prepare');
+    expect(config.build.beforeBuildCommand).toContain('tauri:native:verify');
+    expect(JSON.stringify(config.bundle.resources)).not.toMatch(/node|agent-payload|sqlcipher/iu);
   });
 });

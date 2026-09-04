@@ -39,29 +39,6 @@ export function resolveTauriRuntimeTarget(platform, arch) {
   return resolveTauriRuntimePlatform(platform, arch).target;
 }
 
-export function assertTauriNodeVersion(actual, expected) {
-  if (actual !== expected) {
-    throw new Error(`ClawMaster Tauri runtime requires Node ${expected}; got ${actual}`);
-  }
-  return actual;
-}
-
-export function resolveSqlCipherSource({ repoRoot, target, pathExists }) {
-  const canonical = path.join(repoRoot, 'native', 'sqlcipher-tauri', target);
-  if (pathExists(canonical)) return { path: canonical, provenance: 'verified-native-matrix' };
-  throw new Error(`verified SQLCipher runtime missing: ${canonical}`);
-}
-
-export function resolveTauriNodeSource({ repoRoot, target, hostBinary, pathExists }) {
-  const directory = path.join(repoRoot, 'native', 'node-runtime', target);
-  const binary = path.join(directory, target.startsWith('win32-') ? 'node.exe' : 'node');
-  const manifest = path.join(directory, 'manifest.json');
-  if (pathExists(binary) && pathExists(manifest)) {
-    return { binary, manifest, provenance: 'verified-minimal-node' };
-  }
-  return { binary: hostBinary, manifest: null, provenance: 'pinned-release-toolchain' };
-}
-
 export function evaluateRuntimeSize(bytes, { mode = 'native-local' } = {}) {
   if (!Number.isSafeInteger(bytes) || bytes < 0) throw new Error('runtime size is invalid');
   const policy = resolveTauriPackagingMode(mode);

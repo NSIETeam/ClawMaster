@@ -4,8 +4,8 @@
   "version": "0.0.2-beta.1",
   "identifier": "team.nsi.clawmaster.desktop",
   "build": {
-    "beforeDevCommand": "npm run tauri:runtime:prepare && npm run build:renderer",
-    "beforeBuildCommand": "npm run tauri:runtime:prepare && npm run tauri:runtime:smoke && npm run build:renderer",
+    "beforeDevCommand": "npm run build:renderer",
+    "beforeBuildCommand": "npm run tauri:native:verify && npm run build:renderer",
     "frontendDist": "../dist/renderer"
   },
   "app": {
@@ -30,11 +30,7 @@
   },
   "bundle": {
     "active": true,
-    "resources": {
-      "target/sidecar-staging/runtime/agent": "runtime/agent",
-      "target/sidecar-staging/runtime/node": "runtime/node",
-      "target/sidecar-staging/runtime/sqlcipher": "runtime/sqlcipher"
-    },
+    "resources": {},
     "category": "DeveloperTool",
     "copyright": "Copyright © 2026 NSIETeam",
     "icon": [

@@ -4,22 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/** SetupPanel 交互单测：「复制 custom-models.json」不把明文 key 写进剪贴板。 */
+/** SetupPanel security contract: secrets go only to the native credential store. */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, fireEvent, screen } from '@testing-library/react';
 import { SetupPanel } from './SetupPanel.js';
-
-const writeText = vi.fn(async (_text: string) => {});
-
-beforeEach(() => {
-  writeText.mockClear();
-  // jsdom 无 navigator.clipboard，按需注入可覆盖的 mock。
-  Object.defineProperty(navigator, 'clipboard', {
-    value: { writeText, readText: async () => '' },
-    configurable: true,
-  });
-});
 
 function renderPanel(): ReturnType<typeof render> {
   return render(
@@ -27,40 +16,18 @@ function renderPanel(): ReturnType<typeof render> {
   );
 }
 
-describe('SetupPanel 复制路径', () => {
+describe('SetupPanel credential storage', () => {
   it('uses the compact ClawMaster crown without a legacy wordmark', () => {
     renderPanel();
     expect(screen.getByRole('img', { name: 'ClawMaster 皇冠标志' })).toBeTruthy();
     expect(screen.queryByText(/^otto$/i)).toBeNull();
   });
 
-  it('复制 custom-models.json：剪贴板内容用占位符代替明文 key', async () => {
-    const { getByText, getByPlaceholderText } = renderPanel();
-    fireEvent.change(getByPlaceholderText('sk-...'), {
-      target: { value: 'sk-real-secret-123' },
-    });
-    // 模型输入框占位符现含「回车或点添加」（多选批量后）；输入的待添加项也算进 effectiveModelIds。
-    fireEvent.change(getByPlaceholderText(/回车或点添加/), {
-      target: { value: 'gpt-5.1' },
-    });
-
-    // 离线兜底默认折叠，先展开「高级：手动落盘方式」才见复制按钮。
-    fireEvent.click(getByText('高级：手动落盘方式'));
-    const btn = getByText('复制 custom-models.json') as HTMLButtonElement;
-    expect(btn.disabled).toBe(false);
-    fireEvent.click(btn);
-
-    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    const text = writeText.mock.calls[0][0];
-    expect(text).toContain('<你的API_KEY>');
-    expect(text).not.toContain('sk-real-secret-123');
-  });
-
-  it('复制按钮旁展示占位符提示', () => {
-    const { getByText } = renderPanel();
-    // 展开高级块后才显示复制路径及其占位符提示。
-    fireEvent.click(getByText('高级：手动落盘方式'));
-    expect(getByText('已用占位符代替 API Key，粘贴后请自行填入。')).toBeTruthy();
+  it('describes the operating-system credential store and removes plaintext export', () => {
+    renderPanel();
+    expect(screen.getByText(/API key 仅保存到本机系统凭据库/)).toBeTruthy();
+    expect(screen.queryByText('高级：手动落盘方式')).toBeNull();
+    expect(screen.queryByText('复制 custom-models.json')).toBeNull();
   });
 });
 

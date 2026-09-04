@@ -11,10 +11,7 @@ const require = createRequire(import.meta.url);
 
 export function tauriReleaseSteps(platform, arch) {
   resolveTauriRuntimePlatform(platform, arch);
-  const shared = [
-    ['npm', ['run', 'tauri:runtime:prepare']],
-    ['npm', ['run', 'tauri:runtime:smoke']],
-  ];
+  const shared = [['npm', ['run', 'tauri:native:verify']]];
   if (platform === 'darwin') {
     return [
       ...shared,

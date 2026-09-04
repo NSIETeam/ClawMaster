@@ -8,16 +8,15 @@
  * setup / BYO-key 图形引导（Issue #7）。
  *
  * 真实向导：品牌供应商下拉 → API key（掩码 + 粘贴）→ 模型 id → 显示名，
- * 本地实时校验，产出与 CLI/server 完全一致的 CustomModelConfig
- * （落盘 `~/.claw-user/custom-models.json`，结构 `{ models, _metadata }`）。
+ * 本地实时校验后提交给 Rust runtime。模型元数据原子落盘，API key 只进入
+ * macOS Keychain 或 Windows Credential Manager。
  *
  * 落盘闭环（固定契约，protocol.ts SaveCustomModelMsg）：
  *   submit() → 上层 onSave(payload) 发 `save_custom_model` 帧 →
- *   server 校验 + 原子写盘 → 广播最新 `models_list`（=成功，App 关面板）
+ *   Rust 校验 + 凭据库写入 → 广播最新 `models_list`（=成功，App 关面板）
  *   或广播 `error(save_failed)`（=失败，App 把文案经 saveError 传回，面板内提示）。
  *   面板本身只负责采集 + 校验 + 提交 + 反映 saving/saveError 态，不直接碰 transport。
  *
- * 仍保留「复制 custom-models.json / 复制 CLI 命令」作为离线兜底路径（不依赖 server）。
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -43,7 +42,6 @@ import {
   buildSavePayload,
   validateForm,
   effectiveModelIds,
-  buildModelsFileJson,
   type CustomModelProvider,
   type SetupFormState,
   type SaveCustomModelPayload,
@@ -94,9 +92,6 @@ export function SetupPanel({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [revealKey, setRevealKey] = useState(false);
-  const [copied, setCopied] = useState<'json' | null>(null);
-  /** 「离线兜底」高级块折叠态：默认收起（对新手是噪音），点击展开。 */
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   /** 「本地测试模式」块折叠态：默认收起；面向开发者，折叠对普通用户无干扰。 */
   const [localTestOpen, setLocalTestOpen] = useState(false);
   /**
@@ -259,16 +254,6 @@ export function SetupPanel({
     } catch {
       // 剪贴板权限被拒：聚焦输入框让用户手动 Cmd+V。
       keyRef.current?.focus();
-    }
-  };
-
-  const copyJson = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(buildModelsFileJson(cfg));
-      setCopied('json');
-      window.setTimeout(() => setCopied(null), 1600);
-    } catch {
-      // 复制失败静默；用户仍可手动选中文本框。
     }
   };
 
@@ -510,7 +495,7 @@ export function SetupPanel({
             <p className="claw-setup__err">{showErr('apiKey')}</p>
           ) : (
             <p className="claw-setup__hint">
-              {form.replaceId ? '留空会保留当前 API Key；输入新值才替换。' : 'key 仅写入本机 `~/.claw-user`，不上传任何服务器。'}
+              {form.replaceId ? '留空会保留系统凭据库中的当前 API Key；输入新值才替换。' : 'API key 仅保存到本机系统凭据库，不写入配置文件，也不上传 ClawMaster 服务器。'}
             </p>
           )}
 
@@ -776,48 +761,6 @@ export function SetupPanel({
                   应用后下次对话请求将通过本地引擎（而非连接远程组织服务器）。清除即可恢复默认。
                 </p>
               )}
-            </div>
-          ) : null}
-        </div>
-
-        {/* —— 离线兜底：默认折叠成一行「高级」，对新手隐去噪音；展开才露两条复制路径 —— */}
-        <div className="claw-setup__advanced">
-          <button
-            type="button"
-            className="claw-setup__advanced-toggle"
-            onClick={() => setAdvancedOpen((v) => !v)}
-            aria-expanded={advancedOpen}
-          >
-            <IconChevron
-              size={13}
-              className={
-                'claw-setup__advanced-chev' +
-                (advancedOpen ? ' claw-setup__advanced-chev--open' : '')
-              }
-            />
-            高级：手动落盘方式
-          </button>
-          {advancedOpen ? (
-            <div className="claw-setup__persist">
-              <p className="claw-setup__persist-body">
-                「完成配置」会直接写入
-                <code>~/.claw-user/custom-models.json</code>。若需在别处手动落盘，也可复制：
-              </p>
-              <div className="claw-setup__copyrow">
-                <button
-                  type="button"
-                  className="claw-setup__copybtn"
-                  disabled={!valid}
-                  onClick={() => void copyJson()}
-                >
-                  {copied === 'json' ? (
-                    <><span>已复制 JSON</span><IconCheck size={12} /></>
-                  ) : '复制 custom-models.json'}
-                </button>
-              </div>
-              <p className="claw-setup__hint">
-                已用占位符代替 API Key，粘贴后请自行填入。
-              </p>
             </div>
           ) : null}
         </div>

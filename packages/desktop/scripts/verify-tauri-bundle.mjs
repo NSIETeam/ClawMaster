@@ -1,154 +1,44 @@
 #!/usr/bin/env node
 
-import {
-  chmodSync,
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { resolveTauriRuntimePlatform } from './tauri-runtime-policy.mjs';
-import { evaluateAgentBundleLayout } from './agent-bundle-layout.mjs';
-import { readVerifiedBinaryCapsule } from './binary-capsule.mjs';
-import {
-  materializeDirectoryCapsule,
-  readVerifiedDirectoryCapsule,
-} from './directory-capsule.mjs';
-import { assertNoTauriRuntimePackageManagers } from './tauri-runtime-forbidden.mjs';
 
 const desktopRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const repoRoot = path.resolve(desktopRoot, '../..');
-const runtimePlatform = resolveTauriRuntimePlatform(process.platform, process.arch);
 const bundle = path.resolve(process.argv[2] ?? path.join(
   desktopRoot, 'src-tauri', 'target', 'release', 'bundle', 'macos', 'ClawMaster.app',
 ));
-const contents = path.join(bundle, 'Contents');
-const resources = process.platform === 'win32'
-  ? path.join(bundle, 'runtime')
-  : path.join(contents, 'Resources', 'runtime');
-if (process.env.CLAWMASTER_PACKAGING_MODE === 'micro-bootstrap') {
-  if (!existsSync(bundle)) throw new Error(`Tauri bootstrap bundle is missing: ${bundle}`);
-  if (existsSync(resources)) {
-    throw new Error(`micro-bootstrap bundle must not contain runtime resources: ${resources}`);
-  }
-  console.log('[tauri-bundle] verified micro-bootstrap shell without embedded runtime');
-  process.exit(0);
-}
-const nodeCapsule = path.join(resources, 'node', 'node.br');
-const nodeManifestPath = path.join(resources, 'node', 'node-manifest.json');
-const required = [
-  nodeCapsule,
-  nodeManifestPath,
-  path.join(resources, 'agent', 'bootstrap.mjs'),
-  path.join(resources, 'agent', 'directory-capsule.mjs'),
-  path.join(resources, 'agent', 'agent.br'),
-  path.join(resources, 'agent', 'agent-manifest.json'),
-  path.join(resources, 'agent', 'agent-bundle-meta.json'),
-  path.join(resources, 'sqlcipher', 'better_sqlite3.node'),
-  path.join(resources, 'sqlcipher', 'manifest.json'),
-];
-const missing = required.filter((candidate) => !existsSync(candidate));
-if (missing.length) throw new Error(`Tauri bundle is an incomplete shell; missing:\n${missing.join('\n')}`);
+const forbidden = /(?:^|[/\\])(?:node(?:[.]exe)?|better_sqlite3[.]node|agent-payload|server-endpoint[.]json)(?:$|[/\\])/iu;
 
-function listPackagedRuntimePaths(root) {
-  const paths = [];
-  const visit = (directory, prefix = '') => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
-      paths.push(relative);
-      if (entry.isDirectory()) visit(path.join(directory, entry.name), relative);
-    }
-  };
-  visit(root);
-  return paths;
+if (!existsSync(bundle)) throw new Error(`Tauri bundle is missing: ${bundle}`);
+
+let totalBytes = 0;
+const packagedPaths = [];
+const visit = (entry) => {
+  const stat = statSync(entry);
+  if (stat.isDirectory()) {
+    for (const child of readdirSync(entry)) visit(path.join(entry, child));
+    return;
+  }
+  totalBytes += stat.size;
+  packagedPaths.push(path.relative(bundle, entry));
+};
+visit(bundle);
+
+const legacy = packagedPaths.filter((entry) => forbidden.test(entry));
+if (legacy.length) {
+  throw new Error(`Rust-native bundle contains legacy runtime files:\n${legacy.join('\n')}`);
 }
 
-const manifest = JSON.parse(readFileSync(required.at(-1), 'utf8'));
-if (manifest.target !== runtimePlatform.target) {
-  throw new Error(`wrong SQLCipher target: ${manifest.target}`);
+const executable = process.platform === 'win32'
+  ? path.join(bundle, 'ClawMaster.exe')
+  : path.join(bundle, 'Contents', 'MacOS', 'clawmaster-desktop');
+if (!existsSync(executable)) throw new Error(`native executable is missing: ${executable}`);
+if (statSync(executable).size < 1_000_000) throw new Error('native executable is unexpectedly small');
+
+if (process.platform === 'darwin') {
+  execFileSync('codesign', ['--verify', '--deep', '--strict', bundle], { stdio: 'inherit' });
 }
-if (manifest.runtime !== 'node') throw new Error(`wrong SQLCipher runtime: ${manifest.runtime}`);
-const { manifest: agentManifest } = readVerifiedDirectoryCapsule({
-  capsulePath: path.join(resources, 'agent', 'agent.br'),
-  manifestPath: path.join(resources, 'agent', 'agent-manifest.json'),
-  target: runtimePlatform.target,
-});
-assertNoTauriRuntimePackageManagers(listPackagedRuntimePaths(resources), {
-  label: 'Tauri runtime resources',
-});
-assertNoTauriRuntimePackageManagers(agentManifest.files.map((entry) => entry.path), {
-  label: 'Tauri Agent capsule',
-});
-evaluateAgentBundleLayout(
-  agentManifest,
-  JSON.parse(readFileSync(path.join(resources, 'agent', 'agent-bundle-meta.json'), 'utf8')),
-);
-const { bytes: nodeExecutable } = readVerifiedBinaryCapsule({
-  capsulePath: nodeCapsule,
-  manifestPath: nodeManifestPath,
-  target: runtimePlatform.target,
-  minimumBytes: 1_000_000,
-});
-const probeRoot = mkdtempSync(path.join(tmpdir(), 'clawmaster-node-probe-'));
-const sidecar = path.join(probeRoot, `node${runtimePlatform.executableSuffix}`);
-try {
-  console.log('[tauri-bundle] probing packaged SQLCipher');
-  const agentRoot = materializeDirectoryCapsule({
-    capsulePath: path.join(resources, 'agent', 'agent.br'),
-    manifestPath: path.join(resources, 'agent', 'agent-manifest.json'),
-    target: runtimePlatform.target,
-    targetDirectory: path.join(probeRoot, 'agent'),
-  });
-  writeFileSync(sidecar, nodeExecutable);
-  chmodSync(sidecar, 0o700);
-  execFileSync(sidecar, [
-    path.join(desktopRoot, 'scripts', 'probe-packaged-sqlcipher.mjs'),
-    '--binding', path.join(resources, 'sqlcipher', 'better_sqlite3.node'),
-    '--module-root', agentRoot,
-  ], {
-    cwd: repoRoot,
-    stdio: 'inherit',
-    timeout: 60_000,
-  });
-  const documentSource = path.join(probeRoot, 'document-smoke.md');
-  const documentOutput = path.join(probeRoot, 'document-smoke-edited.md');
-  writeFileSync(documentSource, '# ClawMaster document smoke\n');
-  const runDocumentWorker = (request) => {
-    console.log(`[tauri-bundle] probing document worker: ${request.operation}`);
-    const output = execFileSync(sidecar, [
-      path.join(resources, 'agent', 'bootstrap.mjs'),
-      'document',
-    ], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      input: JSON.stringify(request),
-      env: { ...process.env, CLAWMASTER_USER_DIR: path.join(probeRoot, 'document-user') },
-      timeout: 120_000,
-    });
-    const response = JSON.parse(output);
-    if (response.ok !== true) throw new Error(response.error ?? 'document worker smoke failed');
-    return response.result;
-  };
-  const extracted = runDocumentWorker({ operation: 'extract', filePath: documentSource });
-  if (!String(extracted.content).includes('ClawMaster document smoke')) {
-    throw new Error('document worker extract smoke returned the wrong content');
-  }
-  runDocumentWorker({
-    operation: 'export',
-    sourcePath: documentSource,
-    content: '# ClawMaster document smoke passed\n',
-    outPath: documentOutput,
-  });
-  if (!readFileSync(documentOutput, 'utf8').includes('smoke passed')) {
-    throw new Error('document worker export smoke did not persist the edit');
-  }
-} finally {
-  rmSync(probeRoot, { recursive: true, force: true });
-}
-console.log(`[tauri-bundle] complete Agent runtime verified: ${bundle}`);
+
+console.log(`[tauri-bundle] Rust-native bundle verified: ${(totalBytes / 1024 / 1024).toFixed(2)} MiB`);
