@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::State;
 
-pub const MAX_AGENT_STATE_BYTES: usize = 1 * 1024 * 1024;
+pub const MAX_AGENT_STATE_BYTES: usize = 1024 * 1024;
 
 #[derive(Default)]
 pub struct AgentStatePool {

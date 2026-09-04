@@ -3,8 +3,8 @@ use crate::native_models::{
     ModelStreamEvent, ModelToolCall, NativeModel, StreamCompletion,
 };
 use crate::{
-    native_agent_tools, native_diagnostics, native_mcp, native_memory, native_projects,
-    native_skills,
+    native_agent_tools, native_diagnostics, native_knowledge, native_mcp, native_memory,
+    native_projects, native_schedule, native_skills, native_todos,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -71,6 +71,14 @@ impl Default for Settings {
     }
 }
 
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(default, rename_all = "camelCase")]
+struct ModelUsage {
+    requests: u64,
+    input_tokens: u64,
+    output_tokens: u64,
+}
+
 #[derive(Default, Deserialize, Serialize)]
 #[serde(default, rename_all = "camelCase")]
 struct PersistedState {
@@ -82,11 +90,15 @@ struct PersistedState {
     models: Vec<NativeModel>,
     handled_auto_skills: Vec<String>,
     mcp_servers: Vec<native_mcp::McpServerConfig>,
+    todos: Vec<native_todos::TodoItem>,
+    model_usage: HashMap<String, ModelUsage>,
 }
 
 pub struct NativeRuntime {
     state_path: PathBuf,
     audit_path: PathBuf,
+    knowledge_path: PathBuf,
+    schedule_path: PathBuf,
     state: Mutex<PersistedState>,
     credentials: Arc<dyn CredentialStore>,
     http: Client,
@@ -185,18 +197,52 @@ impl NativeRuntime {
     }
 
     pub fn load(app_data_dir: &Path) -> Result<Self, String> {
-        Self::load_with_credentials(app_data_dir, system_credential_store())
+        let user_dir = std::env::var_os("CLAWMASTER_USER_DIR")
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME")
+                    .or_else(|| std::env::var_os("USERPROFILE"))
+                    .map(|home| PathBuf::from(home).join(".otto-user"))
+            })
+            .unwrap_or_else(|| app_data_dir.to_path_buf());
+        Self::load_with_paths(
+            app_data_dir,
+            user_dir.join("knowledge/entries.jsonl"),
+            user_dir.join("schedules.json"),
+            system_credential_store(),
+        )
     }
 
+    #[cfg(test)]
     fn load_with_credentials(
         app_data_dir: &Path,
+        credentials: Arc<dyn CredentialStore>,
+    ) -> Result<Self, String> {
+        Self::load_with_paths(
+            app_data_dir,
+            app_data_dir.join("knowledge/entries.jsonl"),
+            app_data_dir.join("schedules.json"),
+            credentials,
+        )
+    }
+
+    fn load_with_paths(
+        app_data_dir: &Path,
+        knowledge_path: PathBuf,
+        schedule_path: PathBuf,
         credentials: Arc<dyn CredentialStore>,
     ) -> Result<Self, String> {
         fs::create_dir_all(app_data_dir)
             .map_err(|error| format!("无法创建 Rust 运行时目录: {error}"))?;
         let state_path = app_data_dir.join(STATE_FILE_NAME);
+        let state_backup = state_path.with_extension("json.bak");
         let audit_path = app_data_dir.join("native-audit.jsonl");
-        let state = match fs::read(&state_path) {
+        let state_source = if state_path.exists() || !state_backup.exists() {
+            &state_path
+        } else {
+            &state_backup
+        };
+        let state = match fs::read(state_source) {
             Ok(bytes) => serde_json::from_slice(&bytes)
                 .map_err(|error| format!("Rust 运行时状态损坏: {error}"))?,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => PersistedState {
@@ -208,6 +254,8 @@ impl NativeRuntime {
         Ok(Self {
             state_path,
             audit_path,
+            knowledge_path,
+            schedule_path,
             state: Mutex::new(state),
             credentials,
             http: Client::builder()
@@ -224,10 +272,37 @@ impl NativeRuntime {
         let bytes = serde_json::to_vec_pretty(state)
             .map_err(|error| format!("无法编码 Rust 运行时状态: {error}"))?;
         let temporary = self.state_path.with_extension("json.tmp");
-        fs::write(&temporary, bytes)
+        let mut output = fs::File::create(&temporary)
+            .map_err(|error| format!("无法创建 Rust 运行时临时状态: {error}"))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&temporary, fs::Permissions::from_mode(0o600))
+                .map_err(|error| format!("无法保护 Rust 运行时状态: {error}"))?;
+        }
+        output
+            .write_all(&bytes)
+            .and_then(|_| output.sync_all())
             .map_err(|error| format!("无法写入 Rust 运行时状态: {error}"))?;
-        fs::rename(&temporary, &self.state_path)
-            .map_err(|error| format!("无法提交 Rust 运行时状态: {error}"))
+        let backup = self.state_path.with_extension("json.bak");
+        if self.state_path.exists() {
+            let _ = fs::remove_file(&backup);
+            fs::rename(&self.state_path, &backup)
+                .map_err(|error| format!("无法备份 Rust 运行时状态: {error}"))?;
+        }
+        match fs::rename(&temporary, &self.state_path) {
+            Ok(()) => {
+                let _ = fs::remove_file(backup);
+                Ok(())
+            }
+            Err(error) => {
+                if backup.exists() {
+                    let _ = fs::rename(&backup, &self.state_path);
+                }
+                let _ = fs::remove_file(temporary);
+                Err(format!("无法提交 Rust 运行时状态: {error}"))
+            }
+        }
     }
 
     fn audit_tool(
@@ -250,6 +325,65 @@ impl NativeRuntime {
             .open(&self.audit_path)
             .map_err(|error| format!("无法打开 Rust 审计日志: {error}"))?;
         writeln!(file, "{record}").map_err(|error| format!("无法写入 Rust 审计日志: {error}"))
+    }
+
+    fn stats_snapshot(&self, state: &PersistedState) -> Value {
+        let models = state
+            .model_usage
+            .iter()
+            .map(|(name, usage)| {
+                (
+                    name.clone(),
+                    json!({
+                        "requests":usage.requests,"inputTokens":usage.input_tokens,
+                        "outputTokens":usage.output_tokens,
+                        "totalTokens":usage.input_tokens + usage.output_tokens
+                    }),
+                )
+            })
+            .collect::<serde_json::Map<_, _>>();
+        let mut by_name = serde_json::Map::new();
+        let mut total_calls = 0_u64;
+        let mut total_success = 0_u64;
+        let mut total_fail = 0_u64;
+        if fs::metadata(&self.audit_path).is_ok_and(|metadata| metadata.len() <= 16 * 1024 * 1024) {
+            if let Ok(raw) = fs::read_to_string(&self.audit_path) {
+                for value in raw
+                    .lines()
+                    .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+                {
+                    let status = value.get("state").and_then(Value::as_str).unwrap_or("");
+                    if !matches!(status, "completed" | "failed" | "rejected") {
+                        continue;
+                    }
+                    let name = value
+                        .get("tool")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown");
+                    total_calls += 1;
+                    let success = u64::from(status == "completed");
+                    let fail = u64::from(status != "completed");
+                    total_success += success;
+                    total_fail += fail;
+                    let entry = by_name
+                        .entry(name.to_string())
+                        .or_insert_with(|| json!({"count":0,"success":0,"fail":0}));
+                    entry["count"] = json!(entry["count"].as_u64().unwrap_or(0) + 1);
+                    entry["success"] = json!(entry["success"].as_u64().unwrap_or(0) + success);
+                    entry["fail"] = json!(entry["fail"].as_u64().unwrap_or(0) + fail);
+                }
+            }
+        }
+        let active = state
+            .sessions
+            .iter()
+            .filter(|session| matches!(session.status.as_str(), "thinking" | "streaming"))
+            .count();
+        json!({
+            "models":models,
+            "tools":{"totalCalls":total_calls,"totalSuccess":total_success,"totalFail":total_fail,"byName":by_name},
+            "sessions":{"total":state.sessions.len(),"active":active,"idle":state.sessions.len().saturating_sub(active),"archived":0,"frozen":0}
+        })
     }
 
     pub fn handle(&self, request: &Value) -> Result<Vec<Value>, String> {
@@ -582,6 +716,16 @@ impl NativeRuntime {
             }
             "get_settings" => vec![frame("settings", json!(state.settings))],
             "run_doctor" => vec![frame("doctor_report", native_diagnostics::doctor_report())],
+            "get_stats" => vec![frame("stats_snapshot", self.stats_snapshot(&state))],
+            "get_todos" => vec![frame("todos_list", json!({"todos":state.todos}))],
+            "get_workflows" => vec![frame("workflows_list", json!({"workflows":[]}))],
+            "get_ide_status" => vec![frame(
+                "ide_status",
+                json!({
+                    "status":"not_applicable",
+                    "details":"IDE 伴生状态仅适用于终端内 CLI；Rust 原生桌面端不适用。"
+                }),
+            )],
             "mcp_list" => vec![frame(
                 "mcp_servers",
                 json!({ "servers": native_mcp::public_servers(&state.mcp_servers) }),
@@ -682,10 +826,48 @@ impl NativeRuntime {
                     "credits": { "balance": 0, "frozen": 0, "status": "design-preview" }
                 }),
             )],
-            "get_schedules" => vec![frame(
-                "schedules_list",
-                json!({ "schedules": [], "date": payload.get("date") }),
-            )],
+            "get_schedules" => match native_schedule::list(
+                &self.schedule_path,
+                payload.get("date").and_then(Value::as_str),
+                payload.get("timezone").and_then(Value::as_str),
+            ) {
+                Ok(schedules) => vec![frame(
+                    "schedules_list",
+                    json!({"schedules":schedules,"date":payload.get("date"),"timezone":payload.get("timezone")}),
+                )],
+                Err(message) => vec![error_frame(None, "schedule_failed", &message)],
+            },
+            "create_schedule" => {
+                match native_schedule::create(&self.schedule_path, &payload, "user") {
+                    Ok(_) => match native_schedule::list(&self.schedule_path, None, None) {
+                        Ok(schedules) => {
+                            vec![frame("schedules_list", json!({"schedules":schedules}))]
+                        }
+                        Err(message) => vec![error_frame(None, "schedule_failed", &message)],
+                    },
+                    Err(message) => vec![error_frame(None, "schedule_failed", &message)],
+                }
+            }
+            "update_schedule" => match native_schedule::update(&self.schedule_path, &payload) {
+                Ok(_) => match native_schedule::list(&self.schedule_path, None, None) {
+                    Ok(schedules) => vec![frame("schedules_list", json!({"schedules":schedules}))],
+                    Err(message) => vec![error_frame(None, "schedule_failed", &message)],
+                },
+                Err(message) => vec![error_frame(None, "schedule_failed", &message)],
+            },
+            "delete_schedule" => {
+                let id = payload.get("id").and_then(Value::as_str).unwrap_or("");
+                match native_schedule::remove(&self.schedule_path, id) {
+                    Ok(true) => match native_schedule::list(&self.schedule_path, None, None) {
+                        Ok(schedules) => {
+                            vec![frame("schedules_list", json!({"schedules":schedules}))]
+                        }
+                        Err(message) => vec![error_frame(None, "schedule_failed", &message)],
+                    },
+                    Ok(false) => vec![error_frame(None, "schedule_failed", "未找到要删除的日程")],
+                    Err(message) => vec![error_frame(None, "schedule_failed", &message)],
+                }
+            }
             "get_memory" => {
                 let workspace = Self::workspace_for_session(
                     &state,
@@ -694,6 +876,62 @@ impl NativeRuntime {
                 match native_memory::snapshot(&workspace) {
                     Ok(payload) => vec![frame("memory_snapshot", payload)],
                     Err(message) => vec![error_frame(None, "get_memory_failed", &message)],
+                }
+            }
+            "get_knowledge" => {
+                let limit = payload
+                    .get("limit")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(50)
+                    .clamp(1, 100) as usize;
+                match native_knowledge::list(&self.knowledge_path, limit) {
+                    Ok(entries) => vec![frame(
+                        "knowledge_data",
+                        json!({"entries":entries,"action":"list"}),
+                    )],
+                    Err(message) => vec![error_frame(None, "knowledge_error", &message)],
+                }
+            }
+            "search_knowledge" => {
+                let query = payload.get("query").and_then(Value::as_str).unwrap_or("");
+                let category = payload.get("category").and_then(Value::as_str);
+                match native_knowledge::search(&self.knowledge_path, query, category, 20) {
+                    Ok(entries) => vec![frame(
+                        "knowledge_data",
+                        json!({"entries":entries,"action":"search","query":query}),
+                    )],
+                    Err(message) => vec![error_frame(None, "knowledge_error", &message)],
+                }
+            }
+            "add_knowledge" => {
+                let content = payload.get("content").and_then(Value::as_str).unwrap_or("");
+                let category = payload.get("category").and_then(Value::as_str);
+                let tags = match payload.get("tags") {
+                    None => Ok(Vec::new()),
+                    Some(Value::Array(values)) => values
+                        .iter()
+                        .map(|value| {
+                            value
+                                .as_str()
+                                .map(str::to_owned)
+                                .ok_or_else(|| "知识标签必须是字符串".to_string())
+                        })
+                        .collect::<Result<Vec<_>, _>>(),
+                    Some(_) => Err("知识标签必须是数组".into()),
+                };
+                match tags.and_then(|tags| {
+                    native_knowledge::add(&self.knowledge_path, content, category, &tags)
+                }) {
+                    Ok(entry) => vec![frame("knowledge_added", json!({"entry":entry}))],
+                    Err(message) => vec![error_frame(None, "knowledge_error", &message)],
+                }
+            }
+            "remove_knowledge" => {
+                let id = payload.get("id").and_then(Value::as_str).unwrap_or("");
+                match native_knowledge::remove(&self.knowledge_path, id) {
+                    Ok(true) => vec![frame("knowledge_removed", json!({"id":id}))],
+                    Ok(false) => vec![error_frame(None, "knowledge_error", "知识条目不存在")],
+                    Err(message) => vec![error_frame(None, "knowledge_error", &message)],
                 }
             }
             "add_memory" => {
@@ -712,9 +950,16 @@ impl NativeRuntime {
                     .get("sessionId")
                     .and_then(Value::as_str)
                     .unwrap_or("");
+                let mut tools = native_agent_tools::summaries()
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default();
+                tools.extend(native_knowledge::summaries());
+                tools.extend(native_schedule::summaries());
+                tools.extend(native_todos::summaries());
                 vec![frame(
                     "tools_list",
-                    json!({"sessionId":session_id,"tools":native_agent_tools::summaries()}),
+                    json!({"sessionId":session_id,"tools":tools}),
                 )]
             }
             "get_skills" => {
@@ -913,6 +1158,9 @@ impl NativeRuntime {
             .as_array()
             .cloned()
             .unwrap_or_default();
+        tools.extend(native_knowledge::summaries());
+        tools.extend(native_schedule::summaries());
+        tools.extend(native_todos::summaries());
         tools.extend(catalog.tool_summaries());
         Ok(vec![frame(
             "tools_list",
@@ -998,6 +1246,9 @@ impl NativeRuntime {
             ),
         )?;
         let mut tools = native_agent_tools::definitions();
+        tools.extend(native_knowledge::definitions());
+        tools.extend(native_schedule::definitions());
+        tools.extend(native_todos::definitions());
         tools.extend(mcp_catalog.definitions.clone());
         if !mcp_catalog.notices.is_empty() {
             messages.push(ModelMessage {
@@ -1097,7 +1348,15 @@ impl NativeRuntime {
                 }
                 let risk = native_agent_tools::risk(&call.name);
                 let is_mcp = mcp_catalog.contains(&call.name);
-                let approved = if risk == Some(native_agent_tools::ToolRisk::Write) || is_mcp {
+                let is_knowledge = native_knowledge::contains(&call.name);
+                let is_schedule = call.name == "local_schedule";
+                let is_todo = call.name == "todo_write";
+                let approved = if risk == Some(native_agent_tools::ToolRisk::Write)
+                    || is_mcp
+                    || native_knowledge::is_write(&call.name)
+                    || native_schedule::is_write(call)
+                    || is_todo
+                {
                     self.await_tool_confirmation(
                         context.app,
                         context.session_id,
@@ -1107,7 +1366,7 @@ impl NativeRuntime {
                     )
                     .await?
                 } else {
-                    risk.is_some()
+                    risk.is_some() || is_knowledge || is_schedule || is_todo
                 };
                 if *cancel.borrow() {
                     return Ok(StreamCompletion::Cancelled(ModelCompletion {
@@ -1123,6 +1382,20 @@ impl NativeRuntime {
                     mcp_catalog
                         .execute(call, self.credentials.as_ref(), cancel.clone())
                         .await
+                } else if approved && is_knowledge {
+                    native_knowledge::execute(&self.knowledge_path, call)
+                } else if approved && is_schedule {
+                    native_schedule::execute(&self.schedule_path, call)
+                } else if approved && is_todo {
+                    native_todos::parse(call).and_then(|todos| {
+                        let mut state = self
+                            .state
+                            .lock()
+                            .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+                        state.todos = todos;
+                        self.persist(&state)?;
+                        Ok(json!({"todos":state.todos}))
+                    })
                 } else if approved {
                     native_agent_tools::execute_model(call, context.workspace, cancel.clone()).await
                 } else {
@@ -1224,6 +1497,11 @@ impl NativeRuntime {
                 .cloned()
                 .ok_or_else(|| "当前模型不可用，请重新选择".to_string())?;
             let api_key = self.credentials.get(&model.credential_id)?;
+            state
+                .model_usage
+                .entry(model.id.clone())
+                .or_default()
+                .requests += 1;
             let timestamp = now_ms();
             let inferred_session = if state.sessions[session_index].workspace_path.is_none() {
                 native_projects::infer_from_content(&content).map(|workspace| {
@@ -1374,6 +1652,9 @@ impl NativeRuntime {
                         session.updated_at = now_ms();
                         session.message_count += 1;
                     }
+                    let usage = state.model_usage.entry(model.id.clone()).or_default();
+                    usage.input_tokens += completion.input_tokens;
+                    usage.output_tokens += completion.output_tokens;
                     self.persist(&state)?;
                 }
                 emit(
@@ -1432,6 +1713,9 @@ impl NativeRuntime {
                             session.message_count += 1;
                         }
                     }
+                    let usage = state.model_usage.entry(model.id.clone()).or_default();
+                    usage.input_tokens += completion.input_tokens;
+                    usage.output_tokens += completion.output_tokens;
                     let _ = self.persist(&state);
                 }
                 emit(
@@ -1668,6 +1952,108 @@ mod tests {
             .handle(&json!({"type":"mcp_remove","payload":{"name":"workspace-files"}}))
             .expect("remove mcp");
         assert_eq!(removed[0]["payload"]["servers"], json!([]));
+    }
+
+    #[test]
+    fn knowledge_frames_share_the_native_jsonl_store() {
+        let (_root, runtime) = runtime();
+        let added = runtime
+            .handle(&json!({"type":"add_knowledge","payload":{
+                "content":"Rust knowledge", "category":"runtime", "tags":["native"]
+            }}))
+            .expect("add knowledge");
+        let id = added[0]["payload"]["entry"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let found = runtime
+            .handle(&json!({"type":"search_knowledge","payload":{"query":"Rust"}}))
+            .expect("search knowledge");
+        assert_eq!(found[0]["payload"]["entries"][0]["id"], id);
+        let removed = runtime
+            .handle(&json!({"type":"remove_knowledge","payload":{"id":id}}))
+            .expect("remove knowledge");
+        assert_eq!(removed[0]["type"], "knowledge_removed");
+    }
+
+    #[test]
+    fn schedule_frames_share_the_native_schedule_store() {
+        let (_root, runtime) = runtime();
+        let created = runtime
+            .handle(&json!({"type":"create_schedule","payload":{
+                "title":"Rust review", "startAt":"2026-09-05T01:00:00Z"
+            }}))
+            .expect("create schedule");
+        let id = created[0]["payload"]["schedules"][0]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let updated = runtime
+            .handle(&json!({"type":"update_schedule","payload":{
+                "id":id, "notes":"native"
+            }}))
+            .expect("update schedule");
+        assert_eq!(updated[0]["payload"]["schedules"][0]["notes"], "native");
+        let removed = runtime
+            .handle(&json!({"type":"delete_schedule","payload":{"id":id}}))
+            .expect("delete schedule");
+        assert_eq!(removed[0]["payload"]["schedules"], json!([]));
+    }
+
+    #[test]
+    fn todo_and_stats_frames_use_native_persisted_state_and_audit() {
+        let (_root, runtime) = runtime();
+        let todos = native_todos::parse(&ModelToolCall {
+            id: "todo-call".into(),
+            name: "todo_write".into(),
+            arguments: json!({"todos":[{
+                "id":"migration","content":"Finish Rust migration",
+                "status":"in_progress","priority":"high"
+            }]}),
+        })
+        .unwrap();
+        {
+            let mut state = runtime.state.lock().unwrap();
+            state.todos = todos;
+            runtime.persist(&state).unwrap();
+        }
+        let call = ModelToolCall {
+            id: "read-call".into(),
+            name: "read_file".into(),
+            arguments: json!({"path":"README.md"}),
+        };
+        runtime
+            .audit_tool("session", &call, "completed", None)
+            .unwrap();
+        let todo_frame = runtime
+            .handle(&json!({"type":"get_todos","payload":{}}))
+            .unwrap();
+        assert_eq!(todo_frame[0]["payload"]["todos"][0]["id"], "migration");
+        let stats = runtime
+            .handle(&json!({"type":"get_stats","payload":{}}))
+            .unwrap();
+        assert_eq!(stats[0]["payload"]["tools"]["totalCalls"], 1);
+        assert_eq!(stats[0]["payload"]["tools"]["totalSuccess"], 1);
+    }
+
+    #[test]
+    fn restores_runtime_state_from_an_interrupted_commit_backup() {
+        let (root, runtime) = runtime();
+        runtime
+            .handle(&json!({"type":"create_session","payload":{"title":"recover"}}))
+            .unwrap();
+        let state_path = runtime.state_path.clone();
+        drop(runtime);
+        fs::rename(&state_path, state_path.with_extension("json.bak")).unwrap();
+        let restored = NativeRuntime::load_with_credentials(
+            root.path(),
+            Arc::new(MemoryCredentials::default()),
+        )
+        .unwrap();
+        let sessions = restored
+            .handle(&json!({"type":"list_sessions","payload":{}}))
+            .unwrap();
+        assert_eq!(sessions[0]["payload"]["sessions"][0]["title"], "recover");
     }
 
     #[test]
