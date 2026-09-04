@@ -29,11 +29,10 @@ function makeFixture({ version = '0.0.1', dmgBytes = 1024 } = {}) {
   writeFileSync(
     path.join(root, '.github', 'workflows', 'tauri-preview.yml'),
     `
-name: Tauri Release Build
-tags:
-      - 'v*.*.*'
-name: Publish ClawMaster Tauri release
-npm run release:formal:gate --workspace=packages/desktop
+name: ClawMaster Tauri Release
+tags: ['v0.0.2-beta.1']
+name: Publish ClawMaster v0.0.2-beta.1
+npm run release:beta:gate --workspace=packages/desktop
 `,
     'utf8',
   );

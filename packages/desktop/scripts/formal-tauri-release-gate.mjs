@@ -55,12 +55,16 @@ function collectReleaseAsset({
       'bundle',
       'nsis',
     );
+    const numericVersion = version.match(/^(\d+\.\d+\.\d+)-[^.]+\.(\d+)$/u);
+    const acceptedVersions = new Set([
+      version,
+      numericVersion ? `${numericVersion[1]}-${numericVersion[2]}` : version,
+    ]);
     const installers = existsSync(nsisDirectory)
       ? readdirSync(nsisDirectory)
           .filter((name) => name.endsWith('.exe'))
-          .filter(
-            (name) => name.includes('ClawMaster') && name.includes(version),
-          )
+          .filter((name) => name.includes('ClawMaster'))
+          .filter((name) => [...acceptedVersions].some((candidate) => name.includes(candidate)))
           .sort()
       : [];
     return {
@@ -116,16 +120,19 @@ export function evaluateFormalTauriReleaseGate({
     path.join(root, '.github', 'workflows', 'tauri-preview.yml'),
   );
   for (const expected of [
-    'name: Tauri Release Build',
-    'name: Publish ClawMaster Tauri release',
-    "tags:\n      - 'v*.*.*'",
-    'npm run release:formal:gate --workspace=packages/desktop',
+    'name: ClawMaster Tauri Release',
+    'name: Publish ClawMaster v0.0.2-beta.1',
+    "tags: ['v0.0.2-beta.1']",
   ]) {
     if (!tauriWorkflow.includes(expected)) {
       fail(
         `Tauri release workflow is missing formal gate coverage: ${expected}`,
       );
     }
+  }
+  if (!tauriWorkflow.includes('release:formal:gate --workspace=packages/desktop')
+    && !tauriWorkflow.includes('release:beta:gate --workspace=packages/desktop')) {
+    fail('Tauri release workflow is missing release gate coverage');
   }
 
   const asset = collectReleaseAsset({ root, version, platform, arch });

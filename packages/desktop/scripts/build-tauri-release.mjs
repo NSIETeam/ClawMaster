@@ -18,6 +18,17 @@ export function tauriReleaseSteps(platform, arch) {
       ['tauri', ['build', '--bundles', 'dmg']],
     ];
   }
+  if (platform === 'win32') {
+    const version = process.env.npm_package_version ?? '0.0.0';
+    const numericPrerelease = version.match(/^(\d+\.\d+\.\d+)-[^.]+\.(\d+)$/u);
+    const msiVersion = numericPrerelease
+      ? `${numericPrerelease[1]}-${numericPrerelease[2]}`
+      : version;
+    return [
+      ...shared,
+      ['tauri', ['build', '--config', JSON.stringify({ version: msiVersion })]],
+    ];
+  }
   return [
     ...shared,
     ['tauri', ['build']],

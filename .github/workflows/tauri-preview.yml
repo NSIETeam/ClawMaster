@@ -65,7 +65,7 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run build:renderer --workspace=packages/desktop
       - run: npm run tauri:build --workspace=packages/desktop
-      - run: npm run release:formal:gate --workspace=packages/desktop
+      - run: npm run release:beta:gate --workspace=packages/desktop
       - uses: actions/upload-artifact@v4
         with:
           name: ClawMaster-${{ matrix.name }}
