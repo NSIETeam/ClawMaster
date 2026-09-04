@@ -90,18 +90,17 @@ commit, verifies the attestations, and copies the matching target outside
 `app.asar`. Packaged-runtime checks revalidate the target, architecture,
 Electron version, source identities, notices, SBOM and binding digest.
 
-Formal installers fail closed unless Windows Authenticode, macOS Developer ID
-and Apple notarization credentials are present. The release validates the
-stapled notarization ticket and Gatekeeper status of each macOS application,
-the signed DMGs, both final macOS runtimes, and the Windows Authenticode chain
-before an installer can reach the update mirror or leave draft state. On a
-Windows runner the signed installer is then silently installed and its copied
-binding is loaded by the installed Electron runtime for a real encrypted
-create, reopen and integrity probe. The enterprise archive likewise requires
-an Ed25519 detached signature verified
-against the separately configured release public key; the formal workflow no
-longer enables the unsigned local-build override. A workflow definition alone
-is not delivery evidence: all five matrix jobs and the aggregate job must
-complete successfully for the release commit.
+The current ClawMaster `v0.0.1` delivery path is Windows x64 Tauri only. It
+verifies the packaged SQLCipher binding, silently installs the NSIS artifact,
+and runs an installed-runtime and fresh-GUI smoke test. It does not currently
+run Windows Authenticode signing, macOS Developer ID signing, Apple
+notarization, or a signed update-mirror gate. Release communication must state
+that the Windows installer is unsigned and can trigger SmartScreen. The
+verified release record and next-release checklist are in
+[ClawMaster v0.0.1 Windows Release Record](../releases/clawmaster-0.0.1.md).
+
+A workflow definition alone is not delivery evidence: the relevant native
+matrix, installer, installed-runtime, and GUI smoke jobs must complete for the
+exact release commit.
 
 Third-party notices are in `native/sqlcipher/THIRD_PARTY_NOTICES.md`.

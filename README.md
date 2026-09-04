@@ -100,6 +100,7 @@ npm --workspace packages/desktop run release
 - [Skills 使用说明](docs/skills-usage.md)
 - [MCP 响应防护](docs/mcp-response-guard.md)
 - [自定义模型快速开始](docs/custom-models-quickstart.md)
+- [ClawMaster v0.0.1 Windows 发布记录](docs/releases/clawmaster-0.0.1.md)
 - [贡献指南](docs/CONTRIBUTING.md)
 
 ## 维护原则
