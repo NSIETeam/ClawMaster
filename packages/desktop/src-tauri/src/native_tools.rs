@@ -33,6 +33,15 @@ pub fn capability_manifest() -> serde_json::Value {
                 replaces: &["cliclick"],
             },
             NativeCapability {
+                id: "desktop.snapshot",
+                provider: "rust:active-window+enigo",
+                status: "ready",
+                description: "原生读取前台窗口、边界、主屏尺寸和鼠标位置，优先用文本定位而不是截图猜测",
+                tool: "desktop_snapshot",
+                usage: "读取后根据 activeWindow.bounds 规划 desktop_automation 坐标",
+                replaces: &["全屏截图识别（窗口定位场景）"],
+            },
+            NativeCapability {
                 id: "pdf.merge",
                 provider: "rust:lopdf",
                 status: "ready",
@@ -91,6 +100,48 @@ pub fn write_capability_manifest(user_directory: &Path) -> Result<PathBuf, Strin
     std::fs::rename(&pending, &path)
         .map_err(|error| format!("publish native capabilities: {error}"))?;
     Ok(path)
+}
+
+fn bounded_label(value: &str, max_chars: usize) -> String {
+    value
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(max_chars)
+        .collect()
+}
+
+pub(crate) fn desktop_snapshot() -> Result<serde_json::Value, String> {
+    let enigo = Enigo::new(&Settings::default())
+        .map_err(|error| format!("initialize desktop snapshot: {error}"))?;
+    let (display_width, display_height) = enigo
+        .main_display()
+        .map_err(|error| format!("read main display: {error}"))?;
+    let (cursor_x, cursor_y) = enigo
+        .location()
+        .map_err(|error| format!("read cursor location: {error}"))?;
+    let active_window = active_win_pos_rs::get_active_window()
+        .map_err(|_| "read active window metadata failed".to_string())?;
+
+    Ok(serde_json::json!({
+        "provider": "rust:active-window+enigo",
+        "coordinateSpace": "enigo-absolute",
+        "mainDisplay": {"width": display_width, "height": display_height},
+        "cursor": {"x": cursor_x, "y": cursor_y},
+        "activeWindow": {
+            "id": bounded_label(&active_window.window_id, 128),
+            "app": bounded_label(&active_window.app_name, 200),
+            "title": bounded_label(&active_window.title, 500),
+            "processId": active_window.process_id,
+            "bounds": {
+                "x": active_window.position.x,
+                "y": active_window.position.y,
+                "width": active_window.position.width,
+                "height": active_window.position.height
+            }
+        },
+        "visionRequired": false,
+        "hint": "Use activeWindow.bounds as the native coordinate reference for confirmed physical mouse actions. Request vision only when text metadata cannot identify the target."
+    }))
 }
 
 pub(crate) fn input_tool(args: &[String]) -> Result<(), String> {
@@ -462,6 +513,11 @@ mod tests {
         dictionary, Stream,
     };
     use std::io::Read;
+
+    #[test]
+    fn bounds_desktop_labels_without_control_characters() {
+        assert_eq!(bounded_label("Claw\nMaster\0title", 10), "ClawMaster");
+    }
 
     #[test]
     fn manifest_declares_real_native_replacements() {

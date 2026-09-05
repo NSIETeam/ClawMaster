@@ -107,6 +107,11 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
             },"required":["action"],"additionalProperties":false}),
         },
         ModelToolDefinition {
+            name: "desktop_snapshot".into(),
+            description: "Read the active desktop window title, app, bounds, main display size, and cursor position through native Rust APIs. Prefer this compact text snapshot before requesting visual screenshots. Requires user confirmation because window titles may be sensitive.".into(),
+            parameters: json!({"type":"object","properties":{},"additionalProperties":false}),
+        },
+        ModelToolDefinition {
             name: "check_dependencies".into(),
             description: "Check whether executable dependencies are available on PATH. Also use native_capabilities to find built-in Rust replacements.".into(),
             parameters: json!({"type":"object","properties":{
@@ -168,8 +173,8 @@ pub fn risk(name: &str) -> Option<ToolRisk> {
         | "native_capabilities"
         | "check_dependencies" => Some(ToolRisk::ReadOnly),
         "write_file" | "generate_docx" | "generate_pptx" | "generate_chart" | "merge_pdfs"
-        | "optimize_pdf" | "desktop_automation" | "run_command" | "open_browser"
-        | "browser_snapshot" | "browser_action" => Some(ToolRisk::Write),
+        | "optimize_pdf" | "desktop_automation" | "desktop_snapshot" | "run_command"
+        | "open_browser" | "browser_snapshot" | "browser_action" => Some(ToolRisk::Write),
         _ => None,
     }
 }
@@ -598,6 +603,7 @@ pub fn execute(call: &ModelToolCall, workspace: &Path) -> Result<Value, String> 
             native_tools::input_tool(&args)?;
             Ok(json!({"action":action,"completed":true,"provider":"rust:enigo"}))
         }
+        "desktop_snapshot" => native_tools::desktop_snapshot(),
         "check_dependencies" => {
             let names = call
                 .arguments
@@ -730,11 +736,12 @@ mod tests {
 
     #[test]
     fn definitions_and_risks_keep_writes_confirmation_gated() {
-        assert_eq!(definitions().len(), 16);
+        assert_eq!(definitions().len(), 17);
         assert_eq!(summaries().as_array().unwrap().len(), definitions().len());
         assert_eq!(risk("read_file"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("write_file"), Some(ToolRisk::Write));
         assert_eq!(risk("native_capabilities"), Some(ToolRisk::ReadOnly));
+        assert_eq!(risk("desktop_snapshot"), Some(ToolRisk::Write));
         assert_eq!(risk("check_dependencies"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("generate_docx"), Some(ToolRisk::Write));
         assert_eq!(risk("generate_pptx"), Some(ToolRisk::Write));
