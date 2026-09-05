@@ -159,10 +159,9 @@ RUNTIME: packaged desktop uses the audited Rust input provider. cliclick is only
     const err = this.validateToolParams(p);
     if (err) { console.timeEnd(logLabel); return fail(p.action, err); }
 
-    // 执行前依赖体检（fail-loud，只读复用 DoctorService）：仅键鼠/输入类动作在
-    // macOS 上需要 cliclick；窗口类走 osascript 的动作不查，避免过度拦截。
+    // Rust helper 已提供原生输入时不再检查兼容依赖；只有开发环境回退路径才需要 cliclick。
     const isMac = os.platform()==='darwin';
-    if (isMac && CLICLICK_ACTIONS.has(p.action)) {
+    if (isMac && CLICLICK_ACTIONS.has(p.action) && !nativeHelperPath()) {
       const depErr = await this.preflightCliclick();
       if (depErr) { console.timeEnd(logLabel); return fail(p.action, depErr); }
     }

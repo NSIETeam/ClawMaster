@@ -216,8 +216,7 @@ fn collect_desktop_elements(
 }
 
 pub(crate) fn desktop_snapshot() -> Result<serde_json::Value, String> {
-    let app = App::foreground(Duration::ZERO)
-        .map_err(|error| format!("read foreground accessibility tree: {error}"))?;
+    let app = App::foreground(Duration::ZERO).map_err(desktop_snapshot_error)?;
     let root = app.as_element();
     let mut tree = DesktopTreeState::default();
     collect_desktop_elements(&root, 0, None, &mut tree);
@@ -239,6 +238,16 @@ pub(crate) fn desktop_snapshot() -> Result<serde_json::Value, String> {
         "visionRequired": false,
         "hint": "Use element bounds centers as the native coordinate reference for confirmed physical mouse actions. Re-snapshot after the UI changes. Request vision only when the accessibility tree cannot identify the target."
     }))
+}
+
+fn desktop_snapshot_error(error: xa11y::Error) -> String {
+    let detail = error.to_string();
+    if detail.to_ascii_lowercase().contains("permission denied") {
+        return format!(
+            "桌面语义快照不可用：系统尚未授权辅助功能。macOS 请在“系统设置 → 隐私与安全性 → 辅助功能”中启用 ClawMaster 后重新启动应用；Windows 请避免让目标窗口以高于 ClawMaster 的管理员权限运行。原始错误：{detail}"
+        );
+    }
+    format!("读取前台辅助功能树失败：{detail}")
 }
 
 pub(crate) fn input_tool(args: &[String]) -> Result<(), String> {
@@ -647,6 +656,17 @@ mod tests {
         assert_eq!(key, Key::Char('k'));
         assert_eq!(modifiers, vec![Key::Ctrl, Key::Shift]);
         assert!(scroll_point(Some(&"10".into()), None).is_err());
+    }
+
+    #[test]
+    fn explains_how_to_recover_missing_desktop_accessibility_permission() {
+        let message = desktop_snapshot_error(xa11y::Error::PermissionDenied {
+            instructions: "Enable Accessibility".into(),
+        });
+        assert!(message.contains("辅助功能"));
+        assert!(message.contains("ClawMaster"));
+        assert!(message.contains("重新启动"));
+        assert!(!message.contains("cliclick"));
     }
 
     #[test]

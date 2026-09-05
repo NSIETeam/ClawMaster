@@ -196,6 +196,25 @@ describe('DesktopAutomationTool', () => {
     expect(String(r.llmContent)).toContain('cliclick');
   });
 
+  it.runIf(isMac)('does not require cliclick when the Rust native helper is available', async () => {
+    const previousHelper = process.env['CLAWMASTER_NATIVE_HELPER'];
+    process.env['CLAWMASTER_NATIVE_HELPER'] = process.execPath;
+    const doctor = new DoctorService(makeRunner(new Set()), NO_MODULES, 'darwin', () => false);
+    const spy = vi.spyOn(doctor, 'check');
+    const t = new DesktopAutomationTool(createMockConfig(), doctor);
+    try {
+      const r = await t.execute(
+        { action: 'mouse', x: 10, y: 10 },
+        new AbortController().signal,
+      );
+      expect(spy).not.toHaveBeenCalled();
+      expect(String(r.llmContent)).not.toContain('cliclick');
+    } finally {
+      if (previousHelper === undefined) delete process.env['CLAWMASTER_NATIVE_HELPER'];
+      else process.env['CLAWMASTER_NATIVE_HELPER'] = previousHelper;
+    }
+  });
+
   it.runIf(isMac)('does NOT run cliclick preflight for window_manager (osascript path)', async () => {
     // 窗口类走 osascript，不应触发 cliclick 前置体检。用 spy 断言 doctor.check
     // 对 window_manager 未被调用（若被调用即说明误拦），同时对 keyboard 会被调用。
