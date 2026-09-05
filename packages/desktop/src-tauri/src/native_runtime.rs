@@ -5,7 +5,9 @@ use crate::native_models::{
     system_credential_store, CredentialStore, ModelCompletion, ModelMessage, ModelStreamEvent,
     ModelToolCall, NativeModel, StreamCompletion,
 };
-use crate::native_state_store::NativeStateStore;
+use crate::native_state_store::{
+    NativeStateStore, StateStoreError, TREE_EVENTS, TREE_INDEX, TREE_SESSIONS,
+};
 use crate::{
     native_agent_tools, native_checkpoints, native_context, native_diagnostics, native_enterprise,
     native_knowledge, native_mcp, native_memory, native_projects, native_schedule, native_skills,
@@ -23,7 +25,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::watch;
 
-const STATE_FILE_NAME: &str = "native-runtime.json";
+const RUNTIME_INDEX_ID: &str = "native-runtime-index-v1";
+const LEGACY_STATE_FILE_NAME: &str = "native-runtime.json";
 const DEFAULT_TITLE: &str = "新会话";
 const MAX_TITLE_CHARS: usize = 120;
 const COMPRESSION_THRESHOLD_CHARS: usize = 16_000;
@@ -128,15 +131,83 @@ struct PersistedState {
     workflows: Vec<Value>,
 }
 
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(default, rename_all = "camelCase")]
+struct RuntimeIndex {
+    session_ids: Vec<String>,
+    message_keys: Vec<String>,
+    settings: Settings,
+    search_config: SearchConfig,
+    current_model: Option<String>,
+    authorization_mode: String,
+    models: Vec<NativeModel>,
+    handled_auto_skills: Vec<String>,
+    mcp_servers: Vec<native_mcp::McpServerConfig>,
+    todos: Vec<native_todos::TodoItem>,
+    model_usage: HashMap<String, ModelUsage>,
+    enterprise: native_enterprise::EnterpriseState,
+    workflows: Vec<Value>,
+}
+
+impl RuntimeIndex {
+    fn from_state(state: &PersistedState) -> Self {
+        Self {
+            session_ids: state
+                .sessions
+                .iter()
+                .map(|item| item.session_id.clone())
+                .collect(),
+            message_keys: state
+                .messages
+                .values()
+                .flatten()
+                .map(message_storage_key)
+                .collect(),
+            settings: state.settings.clone(),
+            search_config: state.search_config.clone(),
+            current_model: state.current_model.clone(),
+            authorization_mode: state.authorization_mode.clone(),
+            models: state.models.clone(),
+            handled_auto_skills: state.handled_auto_skills.clone(),
+            mcp_servers: state.mcp_servers.clone(),
+            todos: state.todos.clone(),
+            model_usage: state.model_usage.clone(),
+            enterprise: state.enterprise.clone(),
+            workflows: state.workflows.clone(),
+        }
+    }
+
+    fn into_state(self) -> PersistedState {
+        PersistedState {
+            sessions: Vec::new(),
+            messages: HashMap::new(),
+            settings: self.settings,
+            search_config: self.search_config,
+            current_model: self.current_model,
+            authorization_mode: self.authorization_mode,
+            models: self.models,
+            handled_auto_skills: self.handled_auto_skills,
+            mcp_servers: self.mcp_servers,
+            todos: self.todos,
+            model_usage: self.model_usage,
+            enterprise: self.enterprise,
+            workflows: self.workflows,
+        }
+    }
+}
+
+fn message_storage_key(message: &StoredMessage) -> String {
+    format!("{}:{}", message.session_id, message.id)
+}
+
 pub struct NativeRuntime {
-    state_path: PathBuf,
     audit_path: PathBuf,
     knowledge_path: PathBuf,
     schedule_path: PathBuf,
     checkpoint_root: PathBuf,
     state: Mutex<PersistedState>,
     credentials: Arc<dyn CredentialStore>,
-    _state_store: NativeStateStore,
+    state_store: NativeStateStore,
     model_gateway: ModelInvocationGateway,
     active_turns: Mutex<HashMap<String, ActiveTurn>>,
     pending_confirmations: Mutex<HashMap<String, watch::Sender<Option<String>>>>,
@@ -426,83 +497,112 @@ impl NativeRuntime {
     ) -> Result<Self, String> {
         fs::create_dir_all(app_data_dir)
             .map_err(|error| format!("无法创建 Rust 运行时目录: {error}"))?;
-        let state_path = app_data_dir.join(STATE_FILE_NAME);
-        let state_backup = state_path.with_extension("json.bak");
         let audit_path = app_data_dir.join("native-audit.jsonl");
         let checkpoint_root = app_data_dir.join("file-checkpoints");
-        let state_source = if state_path.exists() || !state_backup.exists() {
-            &state_path
-        } else {
-            &state_backup
-        };
-        let mut state = match fs::read(state_source) {
-            Ok(bytes) => serde_json::from_slice(&bytes)
-                .map_err(|error| format!("Rust 运行时状态损坏: {error}"))?,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => PersistedState {
-                authorization_mode: "manual".into(),
-                ..PersistedState::default()
-            },
-            Err(error) => return Err(format!("无法读取 Rust 运行时状态: {error}")),
-        };
-        native_workflows::recover_interrupted(&mut state.workflows, now_ms());
         let state_store = match state_store {
             Some(store) => store,
             None => NativeStateStore::open(app_data_dir).map_err(|error| error.to_string())?,
         };
+        let stored_index = match state_store.get::<RuntimeIndex>(TREE_INDEX, RUNTIME_INDEX_ID) {
+            Ok(record) => record,
+            Err(StateStoreError::CorruptRecord { .. }) => None,
+            Err(error) => return Err(error.to_string()),
+        };
+        let importing_legacy = stored_index.is_none();
+        let mut state = if let Some(record) = stored_index {
+            let session_ids = record.payload.session_ids.clone();
+            let message_keys = record.payload.message_keys.clone();
+            let mut state = record.payload.into_state();
+            for session_id in session_ids {
+                match state_store.get::<Session>(TREE_SESSIONS, &session_id) {
+                    Ok(Some(record)) => state.sessions.push(record.payload),
+                    Ok(None) | Err(StateStoreError::CorruptRecord { .. }) => {}
+                    Err(error) => return Err(error.to_string()),
+                }
+            }
+            for message_key in message_keys {
+                match state_store.get::<StoredMessage>(TREE_EVENTS, &message_key) {
+                    Ok(Some(record)) => state
+                        .messages
+                        .entry(record.payload.session_id.clone())
+                        .or_default()
+                        .push(record.payload),
+                    Ok(None) | Err(StateStoreError::CorruptRecord { .. }) => {}
+                    Err(error) => return Err(error.to_string()),
+                }
+            }
+            state
+        } else {
+            let legacy = app_data_dir.join(LEGACY_STATE_FILE_NAME);
+            let backup = legacy.with_extension("json.bak");
+            let source = if legacy.exists() || !backup.exists() {
+                legacy
+            } else {
+                backup
+            };
+            match fs::read(source) {
+                Ok(bytes) => serde_json::from_slice(&bytes)
+                    .map_err(|error| format!("旧版 Rust 运行时状态损坏: {error}"))?,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => PersistedState {
+                    authorization_mode: "manual".into(),
+                    ..PersistedState::default()
+                },
+                Err(error) => return Err(format!("无法读取旧版 Rust 运行时状态: {error}")),
+            }
+        };
+        native_workflows::recover_interrupted(&mut state.workflows, now_ms());
         let model_gateway = ModelInvocationGateway::with_usage_ledger(
             credentials.clone(),
             Arc::new(state_store.clone()),
         )?;
-        Ok(Self {
-            state_path,
+        let runtime = Self {
             audit_path,
             knowledge_path,
             schedule_path,
             checkpoint_root,
             state: Mutex::new(state),
             credentials,
-            _state_store: state_store,
+            state_store,
             model_gateway,
             active_turns: Mutex::new(HashMap::new()),
             pending_confirmations: Mutex::new(HashMap::new()),
-        })
+        };
+        if importing_legacy {
+            let state = runtime
+                .state
+                .lock()
+                .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+            runtime.persist(&state)?;
+        }
+        Ok(runtime)
     }
 
     fn persist(&self, state: &PersistedState) -> Result<(), String> {
-        let bytes = serde_json::to_vec_pretty(state)
-            .map_err(|error| format!("无法编码 Rust 运行时状态: {error}"))?;
-        let temporary = self.state_path.with_extension("json.tmp");
-        let mut output = fs::File::create(&temporary)
-            .map_err(|error| format!("无法创建 Rust 运行时临时状态: {error}"))?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(&temporary, fs::Permissions::from_mode(0o600))
-                .map_err(|error| format!("无法保护 Rust 运行时状态: {error}"))?;
+        let index = RuntimeIndex::from_state(state);
+        for session in &state.sessions {
+            self.state_store
+                .put_latest(
+                    TREE_SESSIONS,
+                    &session.session_id,
+                    &session.source,
+                    session.clone(),
+                )
+                .map_err(|error| error.to_string())?;
         }
-        output
-            .write_all(&bytes)
-            .and_then(|_| output.sync_all())
-            .map_err(|error| format!("无法写入 Rust 运行时状态: {error}"))?;
-        let backup = self.state_path.with_extension("json.bak");
-        if self.state_path.exists() {
-            let _ = fs::remove_file(&backup);
-            fs::rename(&self.state_path, &backup)
-                .map_err(|error| format!("无法备份 Rust 运行时状态: {error}"))?;
+        for message in state.messages.values().flatten() {
+            self.state_store
+                .put_latest(
+                    TREE_EVENTS,
+                    &message_storage_key(message),
+                    &message.source,
+                    message.clone(),
+                )
+                .map_err(|error| error.to_string())?;
         }
-        match fs::rename(&temporary, &self.state_path) {
-            Ok(()) => {
-                let _ = fs::remove_file(backup);
-                Ok(())
-            }
-            Err(error) => {
-                if backup.exists() {
-                    let _ = fs::rename(&backup, &self.state_path);
-                }
-                let _ = fs::remove_file(temporary);
-                Err(format!("无法提交 Rust 运行时状态: {error}"))
-            }
-        }
+        self.state_store
+            .put_latest(TREE_INDEX, RUNTIME_INDEX_ID, "native-runtime", index)
+            .map_err(|error| error.to_string())?;
+        self.state_store.flush().map_err(|error| error.to_string())
     }
 
     fn audit_tool(
@@ -1740,21 +1840,23 @@ impl NativeRuntime {
             ModelMessage { role: "user".into(), text: transcript },
         ];
         let compression_turn_id = next_id("compression");
-        let completion = match self.model_gateway.invoke(
-            InvocationRequest {
-                model: &model,
-                messages: &messages,
-                tools: &[],
-                context: InvocationContext::new(
-                    &session_id,
-                    &compression_turn_id,
-                    InvocationPurpose::Compression,
-                ),
-            },
-            cancel,
-            |_| Ok(()),
-        )
-        .await
+        let completion = match self
+            .model_gateway
+            .invoke(
+                InvocationRequest {
+                    model: &model,
+                    messages: &messages,
+                    tools: &[],
+                    context: InvocationContext::new(
+                        &session_id,
+                        &compression_turn_id,
+                        InvocationPurpose::Compression,
+                    ),
+                },
+                cancel,
+                |_| Ok(()),
+            )
+            .await
         {
             Ok(StreamCompletion::Completed(value)) if !value.text.trim().is_empty() => value,
             Ok(StreamCompletion::Completed(_)) => {
@@ -1772,8 +1874,7 @@ impl NativeRuntime {
             }
             Err(error) => {
                 let mut frame = model_gateway_error_frame(Some(&session_id), &error);
-                frame["payload"]["message"] =
-                    json!(format!("压缩失败，原历史已保留：{error}"));
+                frame["payload"]["message"] = json!(format!("压缩失败，原历史已保留：{error}"));
                 return Ok(vec![frame]);
             }
         };
@@ -1949,14 +2050,14 @@ impl NativeRuntime {
                     )
                     .await
                 {
-                        Ok(StreamCompletion::Completed(value)) => Ok((
-                            value.text.chars().take(20_000).collect(),
-                            value.input_tokens,
-                            value.output_tokens,
-                        )),
-                        Ok(StreamCompletion::Cancelled(_)) => Err("子 Agent 已取消".into()),
-                        Err(error) => Err(error.to_string()),
-                    };
+                    Ok(StreamCompletion::Completed(value)) => Ok((
+                        value.text.chars().take(20_000).collect(),
+                        value.input_tokens,
+                        value.output_tokens,
+                    )),
+                    Ok(StreamCompletion::Cancelled(_)) => Err("子 Agent 已取消".into()),
+                    Err(error) => Err(error.to_string()),
+                };
                 (agent_id, result)
             });
         }
@@ -2149,10 +2250,8 @@ impl NativeRuntime {
                 {
                     let mut confirmation_call = call.clone();
                     if call.name == "restore_file_checkpoint" {
-                        if let Some(checkpoint_id) = call
-                            .arguments
-                            .get("checkpointId")
-                            .and_then(Value::as_str)
+                        if let Some(checkpoint_id) =
+                            call.arguments.get("checkpointId").and_then(Value::as_str)
                         {
                             if let Ok(checkpoint) = native_checkpoints::describe(
                                 &self.checkpoint_root,
@@ -2610,10 +2709,8 @@ impl NativeRuntime {
                     )?;
                     match result {
                         Ok(value) => {
-                            let checkpoints = native_checkpoints::list(
-                                &self.checkpoint_root,
-                                &workspace,
-                            )?;
+                            let checkpoints =
+                                native_checkpoints::list(&self.checkpoint_root, &workspace)?;
                             emit(
                                 app,
                                 frame(
@@ -2621,10 +2718,7 @@ impl NativeRuntime {
                                     json!({"sessionId":session_id,"checkpoints":checkpoints}),
                                 ),
                             )?;
-                            let path = value
-                                .get("path")
-                                .and_then(Value::as_str)
-                                .unwrap_or("文件");
+                            let path = value.get("path").and_then(Value::as_str).unwrap_or("文件");
                             if let Some(warning) = value.get("warning").and_then(Value::as_str) {
                                 (true, format!("已恢复 `{path}`。\n\n**警告：** {warning}"))
                             } else {
@@ -2757,11 +2851,13 @@ impl NativeRuntime {
                     .iter()
                     .filter_map(|session| session.workspace_path.as_ref().map(PathBuf::from))
                     .collect::<Vec<_>>();
-                native_projects::infer_from_known_projects(&content, &known_projects).map(|workspace| {
-                    state.sessions[session_index].workspace_path =
-                        Some(workspace.to_string_lossy().into_owned());
-                    state.sessions[session_index].clone()
-                })
+                native_projects::infer_from_known_projects(&content, &known_projects).map(
+                    |workspace| {
+                        state.sessions[session_index].workspace_path =
+                            Some(workspace.to_string_lossy().into_owned());
+                        state.sessions[session_index].clone()
+                    },
+                )
             } else {
                 None
             };
@@ -3143,6 +3239,22 @@ mod tests {
         (root, runtime)
     }
 
+    fn store_contains(root: &Path, needle: &str) -> bool {
+        fn visit(path: &Path, needle: &[u8]) -> bool {
+            if path.is_dir() {
+                return fs::read_dir(path)
+                    .into_iter()
+                    .flatten()
+                    .flatten()
+                    .any(|entry| visit(&entry.path(), needle));
+            }
+            fs::read(path)
+                .map(|bytes| bytes.windows(needle.len()).any(|window| window == needle))
+                .unwrap_or(false)
+        }
+        visit(&root.join("runtime-store-v1"), needle.as_bytes())
+    }
+
     #[test]
     fn creates_persists_and_restores_a_session() {
         let (root, runtime) = runtime();
@@ -3164,6 +3276,56 @@ mod tests {
             sessions[0]["payload"]["sessions"].as_array().unwrap().len(),
             1
         );
+    }
+
+    #[test]
+    fn isolates_one_corrupt_message_without_hiding_healthy_sessions() {
+        let (root, runtime) = runtime();
+        let timestamp = now_ms();
+        {
+            let mut state = runtime.state.lock().unwrap();
+            for session_id in ["session-a", "session-b"] {
+                state.sessions.push(Session {
+                    session_id: session_id.into(),
+                    source: "local".into(),
+                    title: session_id.into(),
+                    status: "idle".into(),
+                    model: None,
+                    workspace_path: None,
+                    created_at: timestamp,
+                    updated_at: timestamp,
+                    last_message_preview: String::new(),
+                    message_count: 1,
+                });
+                state.messages.insert(
+                    session_id.into(),
+                    vec![StoredMessage {
+                        id: "same-client-id".into(),
+                        session_id: session_id.into(),
+                        role: "user".into(),
+                        content: json!([{"type":"text","value":session_id}]),
+                        timestamp,
+                        source: "local".into(),
+                    }],
+                );
+            }
+            runtime.persist(&state).unwrap();
+        }
+        runtime
+            .state_store
+            .inject_corrupt_record(TREE_EVENTS, "session-a:same-client-id");
+        runtime.state_store.flush().unwrap();
+        drop(runtime);
+
+        let restored = NativeRuntime::load_with_credentials(
+            root.path(),
+            Arc::new(MemoryCredentials::default()),
+        )
+        .unwrap();
+        let state = restored.state.lock().unwrap();
+        assert_eq!(state.sessions.len(), 2);
+        assert!(state.messages.get("session-a").is_none());
+        assert_eq!(state.messages["session-b"][0].id, "same-client-id");
     }
 
     #[test]
@@ -3290,9 +3452,9 @@ mod tests {
                 .count(),
             MAX_TITLE_CHARS
         );
-        let persisted = fs::read_to_string(&runtime.state_path).expect("state file");
-        assert!(!persisted.contains("must-not-persist"));
-        assert!(!persisted.contains("apiKey"));
+        runtime.state_store.flush().unwrap();
+        assert!(!store_contains(_root.path(), "must-not-persist"));
+        assert!(!store_contains(_root.path(), "apiKey"));
     }
 
     #[test]
@@ -3309,9 +3471,9 @@ mod tests {
             response[0]["payload"]["models"][0]["displayName"],
             "DeepSeek"
         );
-        let persisted = fs::read_to_string(root.path().join(STATE_FILE_NAME)).unwrap();
-        assert!(!persisted.contains("secret-value"));
-        assert!(!persisted.contains("apiKey"));
+        runtime.state_store.flush().unwrap();
+        assert!(!store_contains(root.path(), "secret-value"));
+        assert!(!store_contains(root.path(), "apiKey"));
     }
 
     #[test]
@@ -3326,10 +3488,18 @@ mod tests {
             .expect("add mcp");
         assert_eq!(added[0]["type"], "mcp_servers");
         assert_eq!(added[0]["payload"]["servers"][0]["status"], "disconnected");
-        let persisted = fs::read_to_string(&runtime.state_path).expect("state file");
-        assert!(!persisted.contains("secret-value"));
-        assert!(!persisted.contains("MCP_TOKEN"));
-        assert!(persisted.contains("mcp-credential"));
+        let index = runtime
+            .state_store
+            .get::<RuntimeIndex>(TREE_INDEX, RUNTIME_INDEX_ID)
+            .unwrap()
+            .unwrap();
+        assert!(index.payload.mcp_servers[0]
+            .credential_id
+            .as_deref()
+            .is_some_and(|value| value.starts_with("mcp-credential-")));
+        runtime.state_store.flush().unwrap();
+        assert!(!store_contains(_root.path(), "secret-value"));
+        assert!(!store_contains(_root.path(), "MCP_TOKEN"));
 
         let removed = runtime
             .handle(&json!({"type":"mcp_remove","payload":{"name":"workspace-files"}}))
@@ -3420,14 +3590,35 @@ mod tests {
     }
 
     #[test]
-    fn restores_runtime_state_from_an_interrupted_commit_backup() {
-        let (root, runtime) = runtime();
-        runtime
-            .handle(&json!({"type":"create_session","payload":{"title":"recover"}}))
-            .unwrap();
-        let state_path = runtime.state_path.clone();
+    fn imports_legacy_state_without_modifying_the_beta_file() {
+        let root = tempfile::tempdir().unwrap();
+        let legacy_path = root.path().join(LEGACY_STATE_FILE_NAME);
+        let timestamp = now_ms();
+        let legacy = PersistedState {
+            sessions: vec![Session {
+                session_id: "legacy-session".into(),
+                source: "local".into(),
+                title: "recover".into(),
+                status: "idle".into(),
+                model: None,
+                workspace_path: None,
+                created_at: timestamp,
+                updated_at: timestamp,
+                last_message_preview: String::new(),
+                message_count: 0,
+            }],
+            authorization_mode: "manual".into(),
+            ..PersistedState::default()
+        };
+        let legacy_bytes = serde_json::to_vec_pretty(&legacy).unwrap();
+        fs::write(&legacy_path, &legacy_bytes).unwrap();
+        let runtime = NativeRuntime::load_with_credentials(
+            root.path(),
+            Arc::new(MemoryCredentials::default()),
+        )
+        .unwrap();
         drop(runtime);
-        fs::rename(&state_path, state_path.with_extension("json.bak")).unwrap();
+        assert_eq!(fs::read(&legacy_path).unwrap(), legacy_bytes);
         let restored = NativeRuntime::load_with_credentials(
             root.path(),
             Arc::new(MemoryCredentials::default()),
@@ -3539,7 +3730,10 @@ mod tests {
             .handle(&json!({"type":"get_file_checkpoints","payload":{"sessionId":session_id}}))
             .unwrap();
         assert_eq!(checkpoints[0]["type"], "file_checkpoints");
-        assert_eq!(checkpoints[0]["payload"]["checkpoints"][0]["path"], "recover.txt");
+        assert_eq!(
+            checkpoints[0]["payload"]["checkpoints"][0]["path"],
+            "recover.txt"
+        );
         let missing = runtime
             .handle(&json!({"type":"get_file_checkpoints","payload":{"sessionId":"missing"}}))
             .unwrap();
@@ -3591,9 +3785,17 @@ mod tests {
             .path()
             .join(".clawmaster/skills/auto-search-text/SKILL.md")
             .is_file());
-        let persisted = fs::read_to_string(&runtime.state_path).unwrap();
-        assert!(persisted.contains(candidate_id));
-        assert!(!persisted.contains("private-"));
+        let index = runtime
+            .state_store
+            .get::<RuntimeIndex>(TREE_INDEX, RUNTIME_INDEX_ID)
+            .unwrap()
+            .unwrap();
+        assert!(index
+            .payload
+            .handled_auto_skills
+            .contains(&candidate_id.to_string()));
+        runtime.state_store.flush().unwrap();
+        assert!(!store_contains(root.path(), "private-"));
     }
 
     #[test]

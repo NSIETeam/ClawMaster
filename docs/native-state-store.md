@@ -4,12 +4,16 @@
 
 `NativeStateStore` is the encrypted Rust persistence owner for the Tauri
 runtime. It lives at `runtime-store-v1` under the application data directory,
-which is deliberately separate from beta JSON/JSONL and `.otto*` paths. Opening
-the store never reads, migrates, rewrites, or deletes those legacy files.
+which is deliberately separate from beta JSON/JSONL and `.otto*` paths. On the
+first launch only, the runtime may read a legacy `native-runtime.json` and copy
+its state into the encrypted store. It never rewrites or deletes that beta file.
 
-The first production integration stores model invocation usage in this shared
-database. Session, memory, checkpoint, and artifact callers migrate tree by
-tree; Issue #7 remains open until those legacy owners are removed and installed
+Production model usage, runtime metadata, sessions, and individual messages use
+the shared database. A manifest in the index tree names the active records;
+removal updates the manifest while old encrypted records remain recoverable.
+Message keys combine session and message IDs so client IDs cannot collide across
+sessions. Memory, checkpoint, and artifact callers still migrate tree by tree;
+Issue #7 remains open until those legacy owners are removed and installed
 recovery acceptance is complete.
 
 ## Security And Ownership
@@ -31,6 +35,8 @@ recovery acceptance is complete.
 - Large output uses encrypted content-addressed artifacts and returns only a
   hash/length reference. The store has no plaintext cache or polling task, and
   disables sled periodic flushes.
+- Runtime mutations and model usage explicitly flush after durable writes;
+  periodic background flushing remains disabled.
 
 Every structured record carries schema version, revision, created/updated
 timestamps, source ID, and payload. The model gateway updates `started` and
@@ -44,7 +50,7 @@ npm run validate:boundaries
 npm run test:scripts
 ```
 
-The focused suite covers same-path singleton ownership, plaintext-at-rest
+The focused suites cover same-path singleton ownership, plaintext-at-rest
 search, 100 replay attempts, concurrent CAS conflicts, cross-tree transaction
-abort, corrupt-record isolation, 2 MiB artifact integrity, and byte-for-byte
-protection of beta paths.
+abort, per-message corrupt-record isolation, cross-session message IDs, restart
+recovery, 2 MiB artifact integrity, and byte-for-byte protection of beta paths.

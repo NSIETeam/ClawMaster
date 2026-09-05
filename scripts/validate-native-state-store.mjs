@@ -43,6 +43,17 @@ if (!runtime.includes('NativeStateStore::open')) {
 if (!runtime.includes('ModelInvocationGateway::with_usage_ledger')) {
   violations.push('native_runtime.rs: model usage does not use the shared state store');
 }
+for (const required of [
+  'RuntimeIndex::from_state', 'TREE_SESSIONS', 'TREE_EVENTS',
+  'message_storage_key', 'LEGACY_STATE_FILE_NAME',
+]) {
+  if (!runtime.includes(required)) {
+    violations.push(`native_runtime.rs: encrypted session migration is missing ${required}`);
+  }
+}
+if (/File::create\([^)]*(?:native-runtime|LEGACY_STATE_FILE_NAME)/u.test(runtime)) {
+  violations.push('native_runtime.rs: writes the legacy plaintext runtime state');
+}
 
 console.log('ClawMaster native state store validation');
 if (violations.length > 0) {

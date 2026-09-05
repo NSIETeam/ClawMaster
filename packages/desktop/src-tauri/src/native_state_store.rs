@@ -422,6 +422,29 @@ impl NativeStateStore {
         map_transaction(result)
     }
 
+    pub fn put_latest<T>(
+        &self,
+        tree_name: &str,
+        id: &str,
+        source_id: &str,
+        payload: T,
+    ) -> Result<StateRecord<T>, StateStoreError>
+    where
+        T: Clone + DeserializeOwned + Serialize,
+    {
+        for _ in 0..4 {
+            let revision = self
+                .get::<T>(tree_name, id)?
+                .map_or(0, |record| record.revision);
+            match self.put_cas(tree_name, id, source_id, revision, payload.clone()) {
+                Ok(record) => return Ok(record),
+                Err(StateStoreError::RevisionConflict { .. }) => continue,
+                Err(error) => return Err(error),
+            }
+        }
+        Err(StateStoreError::Database("记录并发更新超过重试上限".into()))
+    }
+
     pub fn upsert_usage(
         &self,
         invocation_id: &str,
@@ -438,7 +461,10 @@ impl NativeStateStore {
                 revision,
                 value.clone(),
             ) {
-                Ok(record) => return Ok(record),
+                Ok(record) => {
+                    self.flush()?;
+                    return Ok(record);
+                }
                 Err(StateStoreError::RevisionConflict { .. }) => continue,
                 Err(error) => return Err(error),
             }
@@ -631,7 +657,7 @@ impl NativeStateStore {
     }
 
     #[cfg(test)]
-    fn inject_corrupt_record(&self, tree_name: &str, id: &str) {
+    pub(crate) fn inject_corrupt_record(&self, tree_name: &str, id: &str) {
         self.inner
             .trees
             .get(tree_name)
