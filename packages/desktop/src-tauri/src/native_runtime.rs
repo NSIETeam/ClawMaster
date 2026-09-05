@@ -551,6 +551,13 @@ impl NativeRuntime {
                 Err(error) => return Err(format!("无法读取旧版 Rust 运行时状态: {error}")),
             }
         };
+        for session in &mut state.sessions {
+            session.message_count = state.messages.get(&session.session_id).map_or(0, Vec::len);
+            if matches!(session.status.as_str(), "thinking" | "streaming") {
+                session.status = "idle".into();
+                session.updated_at = now_ms();
+            }
+        }
         native_workflows::recover_interrupted(&mut state.workflows, now_ms());
         let model_gateway = ModelInvocationGateway::with_usage_ledger(
             credentials.clone(),
@@ -1473,11 +1480,8 @@ impl NativeRuntime {
                     payload.get("sessionId").and_then(Value::as_str),
                 );
                 let fact = payload.get("fact").and_then(Value::as_str).unwrap_or("");
-                match native_encrypted_memory::add_project_fact(
-                    &self.state_store,
-                    &workspace,
-                    fact,
-                ) {
+                match native_encrypted_memory::add_project_fact(&self.state_store, &workspace, fact)
+                {
                     Ok(payload) => vec![frame("memory_snapshot", payload)],
                     Err(message) => vec![error_frame(None, "add_memory_failed", &message)],
                 }
@@ -3360,6 +3364,55 @@ mod tests {
         assert_eq!(state.sessions.len(), 2);
         assert!(state.messages.get("session-a").is_none());
         assert_eq!(state.messages["session-b"][0].id, "same-client-id");
+    }
+
+    #[test]
+    fn restart_reconciles_message_counts_and_interrupted_status() {
+        let (root, runtime) = runtime();
+        let created = runtime
+            .handle(&json!({"type":"create_session","payload":{"title":"interrupted"}}))
+            .unwrap();
+        let session_id = created[0]["payload"]["session"]["sessionId"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        {
+            let mut state = runtime.state.lock().unwrap();
+            let session = state
+                .sessions
+                .iter_mut()
+                .find(|value| value.session_id == session_id)
+                .unwrap();
+            session.status = "streaming".into();
+            session.message_count = 99;
+            state.messages.insert(
+                session_id.clone(),
+                vec![StoredMessage {
+                    id: "message-1".into(),
+                    session_id: session_id.clone(),
+                    role: "user".into(),
+                    content: json!([{"type":"text","value":"durable"}]),
+                    timestamp: now_ms(),
+                    source: "local".into(),
+                }],
+            );
+            runtime.persist(&state).unwrap();
+        }
+        drop(runtime);
+
+        let restored = NativeRuntime::load_with_credentials(
+            root.path(),
+            Arc::new(MemoryCredentials::default()),
+        )
+        .unwrap();
+        let state = restored.state.lock().unwrap();
+        let session = state
+            .sessions
+            .iter()
+            .find(|value| value.session_id == session_id)
+            .unwrap();
+        assert_eq!(session.status, "idle");
+        assert_eq!(session.message_count, 1);
     }
 
     #[test]

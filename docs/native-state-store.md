@@ -18,8 +18,10 @@ Message keys combine session and message IDs so client IDs cannot collide across
 sessions. Legacy knowledge JSONL is imported once without modification.
 Checkpoint creation atomically commits its event, while before-images are
 encrypted, content-addressed, deduplicated, and bounded by count and byte
-budgets. Issue #7 remains open until forced-process-termination recovery and
-installed acceptance are complete.
+budgets. Five forced-process-termination points verify that the database
+reopens without partial ciphertext and remains writable; startup also
+reconciles interrupted session status and message counts. Issue #7 remains open
+until installed acceptance is complete.
 
 ## Security And Ownership
 
@@ -59,3 +61,5 @@ The focused suites cover same-path singleton ownership, plaintext-at-rest
 search, 100 replay attempts, concurrent CAS conflicts, cross-tree transaction
 abort, per-message corrupt-record isolation, cross-session message IDs, restart
 recovery, 2 MiB artifact integrity, and byte-for-byte protection of beta paths.
+The crash suite launches isolated writer processes, terminates them after write
+points 0, 3, 17, 63, and 99, then reopens and writes through the same database.

@@ -31,7 +31,7 @@ for (const tree of [
 for (const required of [
   'SystemMasterKeyProvider', 'Aes256Gcm', 'put_cas', 'put_once',
   'commit_checkpoint_event', 'put_artifact', 'quarantine',
-  '.flush_every_ms(None)',
+  '.flush_every_ms(None)', 'forced_process_exit_recovers_valid_records',
 ]) {
   if (!store.includes(required)) violations.push(`${owner}: missing ${required}`);
 }
@@ -45,7 +45,7 @@ if (!runtime.includes('ModelInvocationGateway::with_usage_ledger')) {
 }
 for (const required of [
   'RuntimeIndex::from_state', 'TREE_SESSIONS', 'TREE_EVENTS',
-  'message_storage_key', 'LEGACY_STATE_FILE_NAME',
+  'message_storage_key', 'LEGACY_STATE_FILE_NAME', 'message_count = state',
 ]) {
   if (!runtime.includes(required)) {
     violations.push(`native_runtime.rs: encrypted session migration is missing ${required}`);

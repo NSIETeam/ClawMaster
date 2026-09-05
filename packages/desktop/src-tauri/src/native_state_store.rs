@@ -800,6 +800,7 @@ mod tests {
     use super::*;
     use serde_json::json;
     use std::fs;
+    use std::process::Command;
     use std::sync::Barrier;
 
     struct FixedKey([u8; 32]);
@@ -1035,5 +1036,70 @@ mod tests {
         store.flush().unwrap();
         assert_eq!(fs::read(&beta_state).unwrap(), before_state);
         assert_eq!(fs::read(&beta_otto).unwrap(), before_otto);
+    }
+
+    #[test]
+    #[ignore = "subprocess helper"]
+    fn forced_exit_writer_helper() {
+        let Some(root) = std::env::var_os("CLAWMASTER_CRASH_STORE") else {
+            return;
+        };
+        let crash_at = std::env::var("CLAWMASTER_CRASH_AT")
+            .unwrap()
+            .parse::<usize>()
+            .unwrap();
+        let store = NativeStateStore::open_for_test(Path::new(&root), [61; 32]).unwrap();
+        for index in 0..100 {
+            store
+                .put_latest(
+                    TREE_SESSIONS,
+                    &format!("session-{index}"),
+                    "crash-writer",
+                    json!({"index":index,"content":format!("message-{index}")}),
+                )
+                .unwrap();
+            if index % 7 == 0 {
+                store.flush().unwrap();
+            }
+            if index == crash_at {
+                std::process::exit(91);
+            }
+        }
+    }
+
+    #[test]
+    fn forced_process_exit_recovers_valid_records() {
+        for crash_at in [0, 3, 17, 63, 99] {
+            let root = tempfile::tempdir().unwrap();
+            let status = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "native_state_store::tests::forced_exit_writer_helper",
+                    "--ignored",
+                ])
+                .env("CLAWMASTER_CRASH_STORE", root.path())
+                .env("CLAWMASTER_CRASH_AT", crash_at.to_string())
+                .status()
+                .unwrap();
+            assert_eq!(status.code(), Some(91));
+
+            let store = NativeStateStore::open_for_test(root.path(), [61; 32]).unwrap();
+            let recovered = store.scan::<serde_json::Value>(TREE_SESSIONS).unwrap();
+            assert!(recovered.corruptions.is_empty());
+            assert!(recovered.records.len() <= crash_at + 1);
+            store
+                .put_latest(
+                    TREE_SESSIONS,
+                    "after-recovery",
+                    "recovery-test",
+                    json!({"recovered":true}),
+                )
+                .unwrap();
+            store.flush().unwrap();
+            assert!(store
+                .get::<serde_json::Value>(TREE_SESSIONS, "after-recovery")
+                .unwrap()
+                .is_some());
+        }
     }
 }
