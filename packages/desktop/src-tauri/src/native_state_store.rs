@@ -869,7 +869,10 @@ mod tests {
             .put_artifact("tool-source", b"plaintext-large-artifact")
             .unwrap();
         store.flush().unwrap();
-        let disk = read_files(store.path());
+        let store_path = store.path().to_path_buf();
+        // Windows keeps sled files exclusively locked until the final DB handle is released.
+        drop(store);
+        let disk = read_files(&store_path);
         for forbidden in [
             b"plaintext-message-secret".as_slice(),
             b"plaintext-tool-output".as_slice(),
