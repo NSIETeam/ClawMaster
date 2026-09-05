@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="ClawMaster 是桌面优先的 AI 智能操作中台，把 Agent、项目记忆、Skill、企业协作与真实桌面操作放进一个本地工作台。"
+    />
+    <meta name="theme-color" content="#f4f0e8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta property="og:title" content="ClawMaster | AI 智能操作中台" />
+    <meta
+      property="og:description"
+      content="让会话归入项目，让经验沉淀为 Skill，让复杂工作生长为模块。"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="assets/share-card.svg" />
+    <title>ClawMaster | AI 智能操作中台</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="ClawMaster 首页">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>ClawMaster</span>
+      </a>
+      <nav aria-label="页面导航">
+        <a href="#capabilities">能力</a>
+        <a href="#workspace">工作区</a>
+        <a href="#download">下载</a>
+      </nav>
+      <a
+        class="header-link"
+        href="https://github.com/NSIETeam/ClawMaster"
+        target="_blank"
+        rel="noreferrer"
+      >GitHub <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="hero-copy reveal">
+          <p class="eyebrow"><span></span> DESKTOP AGENT PLATFORM · BETA</p>
+          <h1>让工作经验<br />成为企业<br /><span>真正的能力。</span></h1>
+          <p class="hero-lede">
+            ClawMaster 把 Agent 执行、项目记忆、Skill 沉淀、企业协作与真实桌面操作，
+            收进一个可审计、可扩展的本地工作台。
+          </p>
+          <div class="hero-actions">
+            <a
+              class="button button-primary js-primary-download"
+              href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-2_x64-setup.exe"
+            >下载 Windows x64 <span aria-hidden="true">↓</span></a>
+            <a class="button button-secondary" href="#download">查看全部版本</a>
+          </div>
+          <p class="release-note">v0.0.2-beta.2 · 原生 Rust/Tauri · 安装后无需 Node.js</p>
+        </div>
+
+        <div class="hero-system reveal" aria-label="ClawMaster 工作沉淀流程示意图">
+          <div class="system-head">
+            <span>WORKFLOW / 03</span>
+            <span class="live-dot">LOCAL FIRST</span>
+          </div>
+          <div class="flow-line">
+            <article class="flow-card flow-card-active">
+              <span class="flow-index">01</span>
+              <p>未归类会话</p>
+              <strong>识别项目上下文</strong>
+            </article>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <article class="flow-card">
+              <span class="flow-index">02</span>
+              <p>重复工作路径</p>
+              <strong>固化为 Skill</strong>
+            </article>
+          </div>
+          <article class="module-draft">
+            <div>
+              <span class="flow-index">03</span>
+              <p>超出 Skill 边界</p>
+              <strong>生成功能模块候选</strong>
+            </div>
+            <button type="button" disabled>待确认</button>
+          </article>
+          <div class="system-foot">
+            <span>有证据才归档</span>
+            <span>确认后才写入</span>
+            <span>全程可审计</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="signal-strip" aria-label="产品特征">
+        <span>LOCAL-FIRST</span><i></i>
+        <span>REAL MOUSE RPA</span><i></i>
+        <span>PROJECT MEMORY</span><i></i>
+        <span>HUMAN CONFIRMATION</span><i></i>
+        <span>RUST NATIVE</span>
+      </section>
+
+      <section class="section capabilities" id="capabilities">
+        <div class="section-heading reveal">
+          <p class="section-kicker">01 / 核心能力</p>
+          <h2>不是另一个聊天窗口。<br />是工作真正发生的地方。</h2>
+          <p>从一次任务，到可重复的组织能力，每一步都有清晰边界。</p>
+        </div>
+
+        <div class="capability-grid">
+          <article class="capability-card card-wide reveal">
+            <span class="card-number">01</span>
+            <div class="card-symbol memory-symbol" aria-hidden="true"><i></i><i></i><i></i></div>
+            <h3>项目记忆自动归位</h3>
+            <p>依据明确路径和唯一上下文，将遗落会话归入项目。证据不足时保持待确认，不猜测。</p>
+            <span class="card-tag">PROJECT ROUTING</span>
+          </article>
+          <article class="capability-card reveal">
+            <span class="card-number">02</span>
+            <div class="card-symbol skill-symbol" aria-hidden="true">S+</div>
+            <h3>经验沉淀为 Skill</h3>
+            <p>识别可追溯的重复工作路径，生成候选并经确认写入项目目录。</p>
+            <span class="card-tag">REUSABLE KNOWLEDGE</span>
+          </article>
+          <article class="capability-card reveal">
+            <span class="card-number">03</span>
+            <div class="card-symbol rpa-symbol" aria-hidden="true"><i></i></div>
+            <h3>真实桌面 RPA</h3>
+            <p>读取有界语义树，再由 Rust 执行真实鼠标键盘操作；高风险动作必须确认。</p>
+            <span class="card-tag">NATIVE AUTOMATION</span>
+          </article>
+          <article class="capability-card card-accent reveal">
+            <span class="card-number">04</span>
+            <div class="card-symbol audit-symbol" aria-hidden="true">✓</div>
+            <h3>策略、确认与审计</h3>
+            <p>允许、拒绝、取消和超时都是明确结果。用户看得到，系统也留得下证据。</p>
+            <span class="card-tag">SAFE BY DEFAULT</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="section workspace" id="workspace">
+        <div class="workspace-frame reveal">
+          <div class="mock-sidebar">
+            <div class="mini-brand"><span class="brand-mark small"><i></i><i></i><i></i></span></div>
+            <button class="mock-nav active" type="button" aria-label="会话"><span></span></button>
+            <button class="mock-nav" type="button" aria-label="项目"><span></span></button>
+            <button class="mock-nav" type="button" aria-label="Skills"><span></span></button>
+            <div class="mock-spacer"></div>
+            <button class="mock-nav" type="button" aria-label="设置"><span></span></button>
+          </div>
+          <div class="mock-main">
+            <div class="mock-topbar"><span>市场分析 / 新任务</span><i></i></div>
+            <div class="mock-thread">
+              <span class="message-chip">分析本季度主要竞品的价格变化</span>
+              <article class="agent-card">
+                <p>我会先核对数据来源，再生成竞品矩阵与行动建议。</p>
+                <div class="progress-row"><span></span><b>正在检索已授权数据源</b><em>3 / 5</em></div>
+              </article>
+            </div>
+          </div>
+          <aside class="mock-panel">
+            <div class="panel-head"><span>分析报告</span><button type="button">×</button></div>
+            <div class="panel-tabs"><b>预览</b><span>来源</span><span>版本</span></div>
+            <div class="report-block hero-block"><small>MARKET SIGNAL</small><strong>机会窗口正在打开</strong></div>
+            <div class="report-bars"><i></i><i></i><i></i><i></i></div>
+            <div class="report-lines"><i></i><i></i><i></i></div>
+          </aside>
+        </div>
+        <div class="workspace-copy reveal">
+          <p class="section-kicker">02 / 按需工作区</p>
+          <h2>需要时出现，<br />不用时消失。</h2>
+          <p>
+            文件、浏览器、思维导图、模型设置和任务模块统一在右侧按需打开。
+            主界面只保留当前工作，不让工具抢占注意力。
+          </p>
+          <ul>
+            <li><span>01</span>文本、代码与常用办公格式预览</li>
+            <li><span>02</span>受策略保护的内置浏览器</li>
+            <li><span>03</span>模块化思维导图与业务工作台</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section enterprise">
+        <div class="section-heading reveal">
+          <p class="section-kicker">03 / 从个人到企业</p>
+          <h2>同一个内核，承接不同<br />行业的专业应用。</h2>
+        </div>
+        <div class="enterprise-grid">
+          <article class="enterprise-card reveal">
+            <p>协作入口</p>
+            <h3>飞书 · 钉钉 · 企业微信</h3>
+            <span>原生消息链路 / 自动重连 / 钥匙串凭据</span>
+          </article>
+          <article class="enterprise-card reveal">
+            <p>业务模块</p>
+            <h3>OA · 经营 · 客服 · 营销</h3>
+            <span>模块目录扩展 / 不侵入运行时内核</span>
+          </article>
+          <article class="enterprise-card reveal">
+            <p>安全边界</p>
+            <h3>本地优先 · 明确授权</h3>
+            <span>系统钥匙串 / 策略确认 / 审计事件</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="section download" id="download">
+        <div class="download-intro reveal">
+          <p class="section-kicker">04 / 下载 Beta</p>
+          <h2>小体积，<br />完整的本地工作台。</h2>
+          <p>
+            当前为公开测试版本。安装后不携带 Node.js 运行时，正式发行矩阵仅保留
+            Windows x64 与 macOS ARM64。
+          </p>
+          <div class="beta-warning">
+            <strong>Beta 提示</strong>
+            <span>尚未完成正式代码签名与 macOS 公证，请仅从本页或 GitHub Release 下载并核对 SHA-256。</span>
+          </div>
+        </div>
+
+        <div class="download-list">
+          <article class="download-card reveal">
+            <div class="platform-line"><span class="platform-icon">W</span><div><p>推荐安装包</p><h3>Windows x64</h3></div></div>
+            <dl><div><dt>格式</dt><dd>NSIS .exe</dd></div><div><dt>大小</dt><dd>3.77 MiB</dd></div><div><dt>版本</dt><dd>0.0.2-beta.2</dd></div></dl>
+            <a class="button button-primary" href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-2_x64-setup.exe">下载 EXE <span aria-hidden="true">↓</span></a>
+            <details>
+              <summary>SHA-256 与其他格式</summary>
+              <code>faf044c3c747f8ae4bebad59771b6c1c92c39fcb8badbbb4066458118f2bcb1d</code>
+              <button class="copy-button" type="button" data-copy="faf044c3c747f8ae4bebad59771b6c1c92c39fcb8badbbb4066458118f2bcb1d">复制校验值</button>
+              <a class="text-link" href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-2_x64_en-US.msi">下载 MSI（4.99 MiB）</a>
+            </details>
+          </article>
+
+          <article class="download-card reveal">
+            <div class="platform-line"><span class="platform-icon apple">A</span><div><p>Apple Silicon</p><h3>macOS ARM64</h3></div></div>
+            <dl><div><dt>格式</dt><dd>DMG</dd></div><div><dt>大小</dt><dd>4.60 MiB</dd></div><div><dt>版本</dt><dd>0.0.2-beta.2</dd></div></dl>
+            <a class="button button-dark" href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-beta.2_aarch64.dmg">下载 DMG <span aria-hidden="true">↓</span></a>
+            <details>
+              <summary>SHA-256</summary>
+              <code>f7131d334e60839636987e36cb936d2eac61852809ceaeb4019c21f16c5e382e</code>
+              <button class="copy-button" type="button" data-copy="f7131d334e60839636987e36cb936d2eac61852809ceaeb4019c21f16c5e382e">复制校验值</button>
+            </details>
+          </article>
+
+          <p class="checksum-link reveal">
+            想批量验证？
+            <a href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/SHA256SUMS">下载 SHA256SUMS</a>
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-brand">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <strong>ClawMaster</strong>
+      </div>
+      <p>AI 智能操作中台，从一次任务到组织能力。</p>
+      <div class="footer-links">
+        <a href="https://github.com/NSIETeam/ClawMaster/releases/tag/v0.0.2-beta.2">发行说明</a>
+        <a href="https://github.com/NSIETeam/ClawMaster">源代码</a>
+        <span>© <span id="year">2026</span> NSIETeam</span>
+      </div>
+    </footer>
+  </body>
+</html>
