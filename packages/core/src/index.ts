@@ -40,6 +40,7 @@ export {
 // Export extended types
 export * from './types/extendedContent.js';
 export * from './types/customModel.js';
+export * as runtimeContractsV2 from '@clawmaster/runtime-contracts';
 
 // Export Core Logic
 export * from './core/client.js';

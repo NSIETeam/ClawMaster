@@ -537,11 +537,11 @@ describe('CoreSessionRuntime 流式落库与收口对账', () => {
     }
     expect(frames).toContainEqual(expect.objectContaining({
       type: 'runtime_activity',
-      payload: expect.objectContaining({ contractVersion: 1, kind: 'turn', state: 'started' }),
+      payload: expect.objectContaining({ contractVersion: 2, kind: 'turn', state: 'started' }),
     }));
     expect(frames).toContainEqual(expect.objectContaining({
       type: 'runtime_activity',
-      payload: expect.objectContaining({ contractVersion: 1, kind: 'turn', state: 'completed' }),
+      payload: expect.objectContaining({ contractVersion: 2, kind: 'turn', state: 'completed' }),
     }));
 
     // ③ 定稿后 store 里正文完整、isStreaming=false。

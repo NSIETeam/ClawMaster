@@ -47,6 +47,7 @@
   },
   "dependencies": {
     "@clawmaster/native": "file:../../clawmaster-native",
+    "@clawmaster/runtime-contracts": "file:../runtime-contracts",
     "motion": "^13.1.1",
     "clawmaster-server": "file:../server",
     "react": "^18.3.1",

@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clawmaster.dev/schemas/runtime/v2/runtime-contract.schema.json",
+  "title": "ClawMaster Runtime Contract v2",
+  "description": "The single protocol source for ClawMaster runtime requests and streamed events.",
+  "oneOf": [
+    { "$ref": "#/$defs/RuntimeRequestEnvelope" },
+    { "$ref": "#/$defs/RuntimeEventEnvelope" }
+  ],
+  "$defs": {
+    "Id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "ProtocolVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["major", "minor", "patch"],
+      "properties": {
+        "major": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "minor": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "patch": { "type": "integer", "minimum": 0, "maximum": 65535 }
+      }
+    },
+    "Actor": {
+      "type": "string",
+      "enum": ["user", "assistant", "system", "tool", "runtime"]
+    },
+    "ApprovalDecision": {
+      "type": "string",
+      "enum": ["allow", "deny", "cancel", "timeout"]
+    },
+    "ToolStatus": {
+      "type": "string",
+      "enum": ["proposed", "waitingApproval", "running", "succeeded", "failed", "cancelled", "unknownOutcome"]
+    },
+    "ErrorCode": {
+      "type": "string",
+      "enum": [
+        "RUNTIME_INVALID_ENVELOPE",
+        "RUNTIME_INVALID_SEQUENCE",
+        "RUNTIME_DUPLICATE_EVENT_CONFLICT",
+        "RUNTIME_UNSUPPORTED_PROTOCOL_MAJOR",
+        "RUNTIME_UNKNOWN_REQUIRED_EVENT",
+        "RUNTIME_INVALID_ENUM",
+        "RUNTIME_INTERNAL_ERROR",
+        "RUNTIME_PROVIDER_ERROR"
+      ]
+    },
+    "RuntimeError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "$ref": "#/$defs/ErrorCode" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "retryable": { "type": "boolean" },
+        "details": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "InitializeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "clientVersion", "supportedProtocolVersions", "capabilities"],
+      "properties": {
+        "type": { "const": "initialize" },
+        "clientVersion": { "type": "string", "minLength": 1 },
+        "supportedProtocolVersions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ProtocolVersion" } },
+        "capabilities": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "CapabilityNegotiationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "capabilities"],
+      "properties": {
+        "type": { "const": "capabilityNegotiation" },
+        "capabilities": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "SessionListRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": { "type": { "const": "sessionList" } }
+    },
+    "SessionCreateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": { "type": { "const": "sessionCreate" }, "title": { "type": "string", "maxLength": 512 } }
+    },
+    "SessionResumeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "targetSessionId"],
+      "properties": { "type": { "const": "sessionResume" }, "targetSessionId": { "$ref": "#/$defs/Id" } }
+    },
+    "SessionCloseRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "targetSessionId"],
+      "properties": { "type": { "const": "sessionClose" }, "targetSessionId": { "$ref": "#/$defs/Id" } }
+    },
+    "SessionForkRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "targetSessionId"],
+      "properties": { "type": { "const": "sessionFork" }, "targetSessionId": { "$ref": "#/$defs/Id" } }
+    },
+    "PromptRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "content", "stream"],
+      "properties": {
+        "type": { "const": "prompt" },
+        "content": { "type": "string", "minLength": 1 },
+        "stream": { "type": "boolean" }
+      }
+    },
+    "CancelRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": { "type": { "const": "cancel" }, "reason": { "type": "string", "maxLength": 1024 } }
+    },
+    "ApprovalRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "approvalId", "decision"],
+      "properties": {
+        "type": { "const": "approval" },
+        "approvalId": { "$ref": "#/$defs/Id" },
+        "decision": { "$ref": "#/$defs/ApprovalDecision" },
+        "reason": { "type": "string", "maxLength": 1024 }
+      }
+    },
+    "MemoryRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "operation"],
+      "properties": {
+        "type": { "const": "memory" },
+        "operation": { "type": "string", "enum": ["query", "put", "delete"] },
+        "key": { "type": "string", "maxLength": 1024 },
+        "value": {}
+      }
+    },
+    "WorkspaceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "operation"],
+      "properties": {
+        "type": { "const": "workspace" },
+        "operation": { "type": "string", "enum": ["open", "read", "write", "list"] },
+        "path": { "type": "string", "maxLength": 4096 },
+        "content": { "type": "string" }
+      }
+    },
+    "UsageQueryRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "scope"],
+      "properties": {
+        "type": { "const": "usageQuery" },
+        "scope": { "type": "string", "enum": ["session", "project", "account"] }
+      }
+    },
+    "RuntimeRequestPayload": {
+      "oneOf": [
+        { "$ref": "#/$defs/InitializeRequest" },
+        { "$ref": "#/$defs/CapabilityNegotiationRequest" },
+        { "$ref": "#/$defs/SessionListRequest" },
+        { "$ref": "#/$defs/SessionCreateRequest" },
+        { "$ref": "#/$defs/SessionResumeRequest" },
+        { "$ref": "#/$defs/SessionCloseRequest" },
+        { "$ref": "#/$defs/SessionForkRequest" },
+        { "$ref": "#/$defs/PromptRequest" },
+        { "$ref": "#/$defs/CancelRequest" },
+        { "$ref": "#/$defs/ApprovalRequest" },
+        { "$ref": "#/$defs/MemoryRequest" },
+        { "$ref": "#/$defs/WorkspaceRequest" },
+        { "$ref": "#/$defs/UsageQueryRequest" }
+      ]
+    },
+    "ContentDeltaEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type", "delta"],
+      "properties": { "type": { "const": "contentDelta" }, "delta": { "type": "string" } }
+    },
+    "ToolProposedEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type", "toolCallId", "toolName", "arguments"],
+      "properties": { "type": { "const": "toolProposed" }, "toolCallId": { "$ref": "#/$defs/Id" }, "toolName": { "type": "string", "minLength": 1 }, "arguments": {} }
+    },
+    "ToolStatusEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type", "toolCallId", "status"],
+      "properties": { "type": { "const": "toolStatus" }, "toolCallId": { "$ref": "#/$defs/Id" }, "status": { "$ref": "#/$defs/ToolStatus" }, "message": { "type": "string", "maxLength": 2048 } }
+    },
+    "ToolResultEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type", "toolCallId", "status", "result"],
+      "properties": { "type": { "const": "toolResult" }, "toolCallId": { "$ref": "#/$defs/Id" }, "status": { "$ref": "#/$defs/ToolStatus" }, "result": {} }
+    },
+    "ApprovalRequestedEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type", "approvalId", "message"],
+      "properties": { "type": { "const": "approvalRequested" }, "approvalId": { "$ref": "#/$defs/Id" }, "message": { "type": "string", "minLength": 1 }, "risk": { "type": "string" } }
+    },
+    "ApprovalResolvedEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type", "approvalId", "decision"],
+      "properties": { "type": { "const": "approvalResolved" }, "approvalId": { "$ref": "#/$defs/Id" }, "decision": { "$ref": "#/$defs/ApprovalDecision" }, "reason": { "type": "string" } }
+    },
+    "CancelledEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type"],
+      "properties": { "type": { "const": "cancelled" }, "reason": { "type": "string" } }
+    },
+    "ErrorEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type", "error"],
+      "properties": { "type": { "const": "error" }, "error": { "$ref": "#/$defs/RuntimeError" } }
+    },
+    "MemoryContextEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type", "items"],
+      "properties": { "type": { "const": "memoryContext" }, "items": { "type": "array", "items": {} } }
+    },
+    "ContextCompressedEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type", "beforeTokens", "afterTokens"],
+      "properties": { "type": { "const": "contextCompressed" }, "beforeTokens": { "type": "integer", "minimum": 0 }, "afterTokens": { "type": "integer", "minimum": 0 } }
+    },
+    "CheckpointEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type", "checkpointId"],
+      "properties": { "type": { "const": "checkpoint" }, "checkpointId": { "$ref": "#/$defs/Id" }, "label": { "type": "string" } }
+    },
+    "UsageEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type", "inputTokens", "outputTokens"],
+      "properties": { "type": { "const": "usage" }, "inputTokens": { "type": "integer", "minimum": 0 }, "outputTokens": { "type": "integer", "minimum": 0 }, "costUsd": { "type": "number", "minimum": 0 } }
+    },
+    "FinishedEvent": {
+      "type": "object", "additionalProperties": false, "required": ["type", "reason"],
+      "properties": { "type": { "const": "finished" }, "reason": { "type": "string", "enum": ["complete", "cancelled", "error"] } }
+    },
+    "RuntimeEventPayload": {
+      "oneOf": [
+        { "$ref": "#/$defs/ContentDeltaEvent" },
+        { "$ref": "#/$defs/ToolProposedEvent" },
+        { "$ref": "#/$defs/ToolStatusEvent" },
+        { "$ref": "#/$defs/ToolResultEvent" },
+        { "$ref": "#/$defs/ApprovalRequestedEvent" },
+        { "$ref": "#/$defs/ApprovalResolvedEvent" },
+        { "$ref": "#/$defs/CancelledEvent" },
+        { "$ref": "#/$defs/ErrorEvent" },
+        { "$ref": "#/$defs/MemoryContextEvent" },
+        { "$ref": "#/$defs/ContextCompressedEvent" },
+        { "$ref": "#/$defs/CheckpointEvent" },
+        { "$ref": "#/$defs/UsageEvent" },
+        { "$ref": "#/$defs/FinishedEvent" }
+      ]
+    },
+    "RuntimeRequestEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "requestId", "sessionId", "turnId", "stepId", "traceId", "eventId", "sequence", "timestamp", "schemaVersion", "actor", "payload"],
+      "properties": {
+        "kind": { "const": "request" },
+        "requestId": { "$ref": "#/$defs/Id" }, "sessionId": { "$ref": "#/$defs/Id" },
+        "turnId": { "$ref": "#/$defs/Id" }, "stepId": { "$ref": "#/$defs/Id" },
+        "traceId": { "$ref": "#/$defs/Id" }, "eventId": { "$ref": "#/$defs/Id" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "schemaVersion": { "const": "2.0.0" },
+        "actor": { "$ref": "#/$defs/Actor" },
+        "payload": { "$ref": "#/$defs/RuntimeRequestPayload" }
+      }
+    },
+    "RuntimeEventEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "requestId", "sessionId", "turnId", "stepId", "traceId", "eventId", "sequence", "timestamp", "schemaVersion", "actor", "ignorable", "payload"],
+      "properties": {
+        "kind": { "const": "event" },
+        "requestId": { "$ref": "#/$defs/Id" }, "sessionId": { "$ref": "#/$defs/Id" },
+        "turnId": { "$ref": "#/$defs/Id" }, "stepId": { "$ref": "#/$defs/Id" },
+        "traceId": { "$ref": "#/$defs/Id" }, "eventId": { "$ref": "#/$defs/Id" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "schemaVersion": { "const": "2.0.0" },
+        "actor": { "$ref": "#/$defs/Actor" },
+        "ignorable": { "type": "boolean" },
+        "payload": { "$ref": "#/$defs/RuntimeEventPayload" }
+      }
+    },
+    "RuntimeContractStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "schemaVersion", "v1AdapterUses"],
+      "properties": {
+        "protocol": { "$ref": "#/$defs/ProtocolVersion" },
+        "schemaVersion": { "const": "2.0.0" },
+        "v1AdapterUses": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -23,6 +23,7 @@
  */
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
+import type { RuntimeContractStatus } from '@clawmaster/runtime-contracts';
 import type {
   ClientToServer,
   ChannelPairingPublic,
@@ -149,7 +150,7 @@ export type IncrementalUpdateCheckResult =
   | { status: 'check-failed'; appVersion: string; message: string };
 
 export interface DesktopRuntimeDiagnostic {
-  contractVersion: 1;
+  contractVersion: 2;
   server: {
     status: 'ready' | 'starting' | 'unavailable';
     ownership?: 'discovered' | 'detached' | 'embedded';
@@ -162,14 +163,7 @@ export interface DesktopRuntimeDiagnostic {
   };
 }
 
-export interface RuntimeContractVersion {
-  protocol: {
-    major: number;
-    minor: number;
-    patch: number;
-  };
-  eventSchema: number;
-}
+export type RuntimeContractVersion = RuntimeContractStatus;
 
 export type SelfModificationState =
   | 'draft' | 'editing' | 'verifying' | 'verification_failed' | 'review_required'

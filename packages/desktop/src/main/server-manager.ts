@@ -216,7 +216,7 @@ export interface EnsuredServer {
  * tokens, filesystem paths, or raw exception stacks.
  */
 export interface DesktopRuntimeDiagnostic {
-  contractVersion: 1;
+  contractVersion: 2;
   server: {
     status: 'ready' | 'starting' | 'unavailable';
     ownership?: ServerOwnership;
@@ -364,16 +364,16 @@ export class ServerManager {
         : { mode, status: 'not_probed' as const, message: '未在桌面启动阶段探测原生热路径；auto 模式会在不可用时使用 TypeScript fallback。' };
     if (this.currentEndpointRecord) {
       return {
-        contractVersion: 1,
+        contractVersion: 2,
         server: { status: 'ready', ownership: this.ownership, message: '本地服务已就绪。' },
         nativeCore,
       };
     }
     if (this.mainEnsurePromise) {
-      return { contractVersion: 1, server: { status: 'starting', message: '本地服务正在启动。' }, nativeCore };
+      return { contractVersion: 2, server: { status: 'starting', message: '本地服务正在启动。' }, nativeCore };
     }
     return {
-      contractVersion: 1,
+      contractVersion: 2,
       server: { status: 'unavailable', message: this.lastEnsureError ?? '本地服务尚未启动。' },
       nativeCore,
     };

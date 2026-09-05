@@ -11,6 +11,7 @@
  */
 
 export * from './protocol.js';
+export * as runtimeContractsV2 from '@clawmaster/runtime-contracts';
 export * from './workLogService.js';
 export * from './sessions.js';
 export * from './sessions-persistent.js';

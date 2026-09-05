@@ -81,6 +81,7 @@ if (!existsSync(join(root, 'node_modules'))) {
 
 // Build workspaces in specific order
 const allWorkspaces = [
+  { path: 'packages/runtime-contracts', name: 'runtime-contracts' },
   { path: 'packages/workflow', name: 'workflow' },
   { path: 'packages/rpa', name: 'rpa' },
   { path: 'packages/core', name: 'core' },
@@ -102,7 +103,7 @@ const workspaces =
 const results = [];
 
 // Determine which packages are required (critical) for build success
-const criticalPackages = new Set(['workflow', 'rpa', 'core', 'server']);
+const criticalPackages = new Set(['runtime-contracts', 'workflow', 'rpa', 'core', 'server']);
 
 printHeader('Building workspaces');
 
@@ -170,7 +171,7 @@ printSummary(results);
 
 function printSummary(workspaceResults) {
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-  const criticalPackages = new Set(['workflow', 'rpa', 'core', 'server']);
+  const criticalPackages = new Set(['runtime-contracts', 'workflow', 'rpa', 'core', 'server']);
 
   console.log(
     `\n${COLORS.bright}${COLORS.blue}----------------------- Build Summary -----------------------${COLORS.reset}`,
