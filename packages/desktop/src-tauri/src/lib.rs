@@ -280,9 +280,10 @@ pub fn run() {
                 native_runtime::NativeRuntime::load(&directory).map_err(std::io::Error::other)?;
             let channels = native_channels::NativeChannelState::load(&directory)
                 .map_err(std::io::Error::other)?;
-            channels.start_configured();
             app.manage(runtime);
             app.manage(channels);
+            app.state::<native_channels::NativeChannelState>()
+                .start_configured(app.handle().clone());
             Ok(())
         })
         .manage(DesktopConnection::default())

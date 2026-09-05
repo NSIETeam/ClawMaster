@@ -227,6 +227,111 @@ impl NativeRuntime {
         native_skills::scan(&self.audit_path, &workspaces, &handled)
     }
 
+    fn channel_session(&self, provider: &str, chat_id: &str) -> Result<String, String> {
+        let source = format!("channel:{provider}:{chat_id}");
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+        if let Some(session) = state
+            .sessions
+            .iter()
+            .find(|session| session.source == source)
+        {
+            return Ok(session.session_id.clone());
+        }
+        let timestamp = now_ms();
+        let session = Session {
+            session_id: next_id("session"),
+            source,
+            title: bounded_title(Some(&format!("{provider} {chat_id}"))),
+            status: "idle".into(),
+            model: state.current_model.clone(),
+            workspace_path: None,
+            created_at: timestamp,
+            updated_at: timestamp,
+            last_message_preview: String::new(),
+            message_count: 0,
+        };
+        let session_id = session.session_id.clone();
+        state.sessions.insert(0, session);
+        self.persist(&state)?;
+        Ok(session_id)
+    }
+
+    pub async fn run_channel_turn(
+        &self,
+        app: &AppHandle,
+        provider: &str,
+        chat_id: &str,
+        message_id: &str,
+        text: &str,
+    ) -> Result<String, String> {
+        let session_id = self.channel_session(provider, chat_id)?;
+        let session = {
+            let state = self
+                .state
+                .lock()
+                .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+            state
+                .sessions
+                .iter()
+                .find(|session| session.session_id == session_id)
+                .cloned()
+                .ok_or_else(|| "通道会话不存在".to_string())?
+        };
+        emit(app, frame("session_upsert", json!({"session":session})))?;
+        self.run_turn_result(
+            app,
+            &json!({
+                "type":"send_user_message",
+                "payload":{
+                    "sessionId":session_id,
+                    "source":provider,
+                    "clientMessageId":message_id,
+                    "content":[{"type":"text","value":text}]
+                }
+            }),
+        )
+        .await?
+        .filter(|reply| !reply.trim().is_empty())
+        .ok_or_else(|| "模型本轮未产生可回发文本".to_string())
+    }
+
+    pub fn cancel_channel_turns(&self, provider: &str) -> Result<(), String> {
+        let prefix = format!("channel:{provider}:");
+        let session_ids = self
+            .state
+            .lock()
+            .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?
+            .sessions
+            .iter()
+            .filter(|session| session.source.starts_with(&prefix))
+            .map(|session| session.session_id.clone())
+            .collect::<Vec<_>>();
+        let active_turns = self
+            .active_turns
+            .lock()
+            .map_err(|_| "Rust 运行时取消状态锁已损坏".to_string())?;
+        for session_id in session_ids {
+            if let Some(active) = active_turns.get(&session_id) {
+                let _ = active.cancel.send(true);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_channel_message(&self, provider: &str, message_id: &str) -> Result<bool, String> {
+        Ok(self
+            .state
+            .lock()
+            .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?
+            .messages
+            .values()
+            .flatten()
+            .any(|message| message.source == provider && message.id == message_id))
+    }
+
     pub fn load(app_data_dir: &Path) -> Result<Self, String> {
         let user_dir = std::env::var_os("CLAWMASTER_USER_DIR")
             .map(PathBuf::from)
@@ -2251,6 +2356,14 @@ impl NativeRuntime {
     }
 
     pub async fn run_turn(&self, app: &AppHandle, request: &Value) -> Result<(), String> {
+        self.run_turn_result(app, request).await.map(drop)
+    }
+
+    async fn run_turn_result(
+        &self,
+        app: &AppHandle,
+        request: &Value,
+    ) -> Result<Option<String>, String> {
         let payload = request
             .get("payload")
             .ok_or_else(|| "消息请求缺少 payload".to_string())?;
@@ -2435,6 +2548,7 @@ impl NativeRuntime {
 
         match streamed {
             Ok(StreamCompletion::Completed(completion)) => {
+                let reply = completion.text.clone();
                 let message = StoredMessage {
                     id: assistant_message_id.clone(),
                     session_id: session_id.clone(),
@@ -2494,7 +2608,8 @@ impl NativeRuntime {
                             "contractVersion":1,"sessionId":session_id,"kind":"turn","state":"completed","timestamp":now_ms()
                         }),
                     ),
-                )
+                )?;
+                Ok(Some(reply))
             }
             Ok(StreamCompletion::Cancelled(completion)) => {
                 if let Ok(mut state) = self.state.lock() {
@@ -2553,7 +2668,8 @@ impl NativeRuntime {
                             "contractVersion":1,"sessionId":session_id,"kind":"turn","state":"cancelled","timestamp":now_ms()
                         }),
                     ),
-                )
+                )?;
+                Ok(None)
             }
             Err(message) => {
                 if let Ok(mut state) = self.state.lock() {
@@ -2586,7 +2702,8 @@ impl NativeRuntime {
                             "contractVersion":1,"sessionId":session_id,"kind":"turn","state":"failed","detail":message,"timestamp":now_ms()
                         }),
                     ),
-                )
+                )?;
+                Ok(None)
             }
         }
     }
@@ -2687,6 +2804,79 @@ mod tests {
             sessions[0]["payload"]["sessions"].as_array().unwrap().len(),
             1
         );
+    }
+
+    #[test]
+    fn reuses_a_persisted_session_for_each_channel_chat() {
+        let (_root, runtime) = runtime();
+        let first = runtime
+            .channel_session("feishu", "oc_chat_1")
+            .expect("first channel session");
+        let repeated = runtime
+            .channel_session("feishu", "oc_chat_1")
+            .expect("repeated channel session");
+        let other = runtime
+            .channel_session("feishu", "oc_chat_2")
+            .expect("other channel session");
+
+        assert_eq!(first, repeated);
+        assert_ne!(first, other);
+        let sessions = runtime
+            .handle(&json!({"type":"list_sessions","payload":{}}))
+            .expect("list sessions");
+        assert_eq!(
+            sessions[0]["payload"]["sessions"].as_array().unwrap().len(),
+            2
+        );
+        runtime
+            .state
+            .lock()
+            .unwrap()
+            .messages
+            .entry(first)
+            .or_default()
+            .push(StoredMessage {
+                id: "om_persisted".into(),
+                session_id: repeated,
+                role: "user".into(),
+                content: json!([{"type":"text","value":"hello"}]),
+                timestamp: 1,
+                source: "feishu".into(),
+            });
+        assert!(runtime
+            .has_channel_message("feishu", "om_persisted")
+            .unwrap());
+        assert!(!runtime.has_channel_message("lark", "om_persisted").unwrap());
+    }
+
+    #[test]
+    fn cancellation_targets_only_the_requested_channel_provider() {
+        let (_root, runtime) = runtime();
+        let feishu = runtime.channel_session("feishu", "chat-1").unwrap();
+        let lark = runtime.channel_session("lark", "chat-2").unwrap();
+        let (feishu_tx, feishu_rx) = watch::channel(false);
+        let (lark_tx, lark_rx) = watch::channel(false);
+        runtime.active_turns.lock().unwrap().insert(
+            feishu,
+            ActiveTurn {
+                turn_id: "turn-feishu".into(),
+                cancel: feishu_tx,
+            },
+        );
+        runtime.active_turns.lock().unwrap().insert(
+            lark,
+            ActiveTurn {
+                turn_id: "turn-lark".into(),
+                cancel: lark_tx,
+            },
+        );
+
+        runtime
+            .cancel_channel_turns("feishu")
+            .expect("cancel Feishu");
+
+        assert!(*feishu_rx.borrow());
+        assert!(!*lark_rx.borrow());
     }
 
     #[tokio::test]

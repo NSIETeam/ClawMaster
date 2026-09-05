@@ -86,12 +86,17 @@ back to the legacy Node sidecar.
   establishes the long connection, follows server heartbeat/reconnect policy,
   ACKs inbound events promptly, restores configured connections on launch, and
   exposes honest connection/error/last-event status in settings. Inbound events
-  are not yet routed into model sessions or replied to automatically.
-- Verified locally after the browser DOM snapshot migration: 10.28 MiB stripped
-  ARM64 release executable. The packaged check produced a 10.24 MiB application
-  bundle and 4.94 MiB compressed macOS ARM64 DMG with no Node executable,
-  `.node` addon, or agent payload.
+  enter a bounded, deduplicated queue after ACK: private user text and group text
+  that explicitly mentions the verified bot reuse a persistent per-chat native
+  session, run through the Rust model/tool loop, and reply to the originating
+  chat. Existing saved credentials backfill bot identity on reconnect. This path
+  is code-complete but still requires real Feishu/Lark credentials and a selected
+  model for end-to-end acceptance.
+- Verified locally after the native Feishu/Lark event-stream migration:
+  10,880,080-byte stripped ARM64 release executable, 10.53 MiB complete
+  application bundle, and 4,630,076-byte (4.42 MiB) UDBZ macOS ARM64 DMG. The
+  packaged checks found no Node executable, `.node` addon, or agent payload.
 - Remaining before release: browser screenshots and post-action navigation
-  stabilization for reliable RPA, remaining document adapters, Feishu/Lark
-  inbound model routing and replies, plus WeCom/DingTalk inbound streams; then
-  installed real-model and destructive-path acceptance.
+  stabilization for reliable RPA, remaining document adapters, real-credential
+  Feishu/Lark acceptance, plus WeCom/DingTalk inbound streams; then installed
+  real-model and destructive-path acceptance.

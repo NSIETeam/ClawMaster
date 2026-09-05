@@ -1,25 +1,35 @@
 use crate::native_models::{system_credential_store, CredentialStore};
+use crate::native_runtime::NativeRuntime;
 use lark_channel::lark_openapi::{
     TokioTungsteniteWebSocketTransport, WebSocketClientConfig, WebSocketConnection,
     WebSocketEndpoint, WebSocketEventAck,
 };
-use lark_channel::{Error as LarkError, EventLoop, EventLoopOptions, EventStreamConnector};
+use lark_channel::{
+    ChannelEvent, Error as LarkError, EventLoop, EventLoopOptions, EventStreamConnector,
+    MessageChatType, MessageSenderType,
+};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use tauri::{AppHandle, Manager};
+use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
 const MAX_ID_CHARS: usize = 200;
+const INBOUND_QUEUE_CAPACITY: usize = 32;
+const SEEN_MESSAGE_CAPACITY: usize = 1024;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChannelConfig {
     provider: String,
     app_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bot_open_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     agent_id: Option<String>,
     verified_at: String,
@@ -40,7 +50,21 @@ pub struct NativeChannelState {
     credentials: Arc<dyn CredentialStore>,
     http: Client,
     statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
-    tasks: Mutex<HashMap<String, JoinHandle<()>>>,
+    tasks: Mutex<HashMap<String, ChannelTasks>>,
+}
+
+struct ChannelTasks {
+    event: JoinHandle<()>,
+    _worker: JoinHandle<()>,
+    shutdown: watch::Sender<bool>,
+}
+
+#[derive(Debug)]
+struct InboundMessage {
+    provider: String,
+    chat_id: String,
+    message_id: String,
+    text: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -70,6 +94,7 @@ struct FeishuConnector {
     provider: String,
     app_id: String,
     app_secret: String,
+    bot_open_id: Arc<Mutex<Option<String>>>,
     statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
     client_config: Option<WebSocketClientConfig>,
 }
@@ -95,6 +120,22 @@ impl EventStreamConnector for FeishuConnector {
             feishu_websocket_endpoint(&self.http, &self.provider, &self.app_id, &self.app_secret)
                 .await
                 .map_err(LarkError::Transport)?;
+        let needs_bot_identity = self
+            .bot_open_id
+            .lock()
+            .map(|value| value.is_none())
+            .unwrap_or(false);
+        if needs_bot_identity {
+            let token = access_token(&self.http, &self.provider, &self.app_id, &self.app_secret)
+                .await
+                .map_err(LarkError::Transport)?;
+            let open_id = feishu_bot_open_id(&self.http, &self.provider, &token)
+                .await
+                .map_err(LarkError::Transport)?;
+            if let Ok(mut value) = self.bot_open_id.lock() {
+                *value = Some(open_id);
+            }
+        }
         self.client_config = endpoint.client_config().copied();
         let connection = TokioTungsteniteWebSocketTransport::new()
             .connect(&endpoint)
@@ -136,6 +177,62 @@ fn clean_message(value: &str) -> Result<String, String> {
         Err("消息内容为空、超过 4000 字符或包含空字符".into())
     } else {
         Ok(value.to_string())
+    }
+}
+
+fn bounded_reply(value: &str) -> String {
+    if value.chars().count() <= 4000 {
+        return value.to_string();
+    }
+    let mut result = value.chars().take(3988).collect::<String>();
+    result.push_str("\n\n[回复已截断]");
+    result
+}
+
+fn inbound_message(
+    provider: &str,
+    bot_open_id: Option<&str>,
+    event: &ChannelEvent,
+) -> Result<Option<InboundMessage>, String> {
+    let ChannelEvent::Message(message) = event else {
+        return Ok(None);
+    };
+    if message.sender.sender_type == MessageSenderType::Bot {
+        return Ok(None);
+    }
+    if message.chat_type == MessageChatType::Group
+        && !bot_open_id.is_some_and(|open_id| message.mentions_bot(open_id))
+    {
+        return Ok(None);
+    }
+    if message.message_type != "text" {
+        return Ok(None);
+    }
+    Ok(Some(InboundMessage {
+        provider: provider.to_string(),
+        chat_id: clean(&message.chat_id, "飞书 Chat ID")?,
+        message_id: clean(&message.message_id, "飞书 Message ID")?,
+        text: clean_message(&message.text)?,
+    }))
+}
+
+fn mark_message_seen(seen: &Arc<Mutex<VecDeque<String>>>, message_id: &str) -> bool {
+    let Ok(mut values) = seen.lock() else {
+        return false;
+    };
+    if values.iter().any(|value| value == message_id) {
+        return false;
+    }
+    values.push_back(message_id.to_string());
+    if values.len() > SEEN_MESSAGE_CAPACITY {
+        values.pop_front();
+    }
+    true
+}
+
+fn forget_message(seen: &Arc<Mutex<VecDeque<String>>>, message_id: &str) {
+    if let Ok(mut values) = seen.lock() {
+        values.retain(|value| value != message_id);
     }
 }
 
@@ -213,6 +310,38 @@ async fn access_token(
     parse_token(provider, &body)
 }
 
+async fn feishu_bot_open_id(http: &Client, provider: &str, token: &str) -> Result<String, String> {
+    let host = if provider == "lark" {
+        "https://open.larksuite.com"
+    } else {
+        "https://open.feishu.cn"
+    };
+    let response = http
+        .get(format!("{host}/open-apis/bot/v3/info/"))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(|error| format!("获取飞书机器人身份失败: {error}"))?;
+    let status = response.status();
+    let body: Value = response
+        .json()
+        .await
+        .map_err(|error| format!("飞书机器人身份响应无效: {error}"))?;
+    if !status.is_success() {
+        return Err(format!("飞书机器人身份服务返回 HTTP {status}"));
+    }
+    parse_feishu_bot_open_id(&body)
+}
+
+fn parse_feishu_bot_open_id(body: &Value) -> Result<String, String> {
+    platform_result(body)?;
+    let open_id = body
+        .pointer("/bot/open_id")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    clean(open_id, "飞书机器人 Open ID")
+}
+
 fn platform_result(body: &Value) -> Result<(), String> {
     let failed_code = body
         .get("code")
@@ -229,6 +358,42 @@ fn platform_result(body: &Value) -> Result<(), String> {
         .and_then(Value::as_str)
         .unwrap_or("平台拒绝发送消息");
     Err(format!("消息发送失败：{message}"))
+}
+
+async fn send_feishu_text(
+    http: &Client,
+    config: &ChannelConfig,
+    app_secret: &str,
+    receive_id_type: &str,
+    target: &str,
+    text: &str,
+) -> Result<(), String> {
+    let token = access_token(http, &config.provider, &config.app_id, app_secret).await?;
+    let host = if config.provider == "lark" {
+        "https://open.larksuite.com"
+    } else {
+        "https://open.feishu.cn"
+    };
+    let response = http
+        .post(format!(
+            "{host}/open-apis/im/v1/messages?receive_id_type={receive_id_type}"
+        ))
+        .bearer_auth(token)
+        .json(&json!({
+            "receive_id":target,
+            "msg_type":"text",
+            "content":serde_json::to_string(&json!({"text":text}))
+                .map_err(|error| error.to_string())?
+        }))
+        .send()
+        .await
+        .map_err(|error| format!("飞书消息发送请求失败: {error}"))?;
+    let status = response.status();
+    let body: Value = response.json().await.unwrap_or_else(|_| json!({}));
+    if !status.is_success() {
+        return Err(format!("飞书平台返回 HTTP {status}"));
+    }
+    platform_result(&body)
 }
 
 fn parse_feishu_endpoint(body: &Value) -> Result<WebSocketEndpoint, String> {
@@ -285,6 +450,70 @@ async fn feishu_websocket_endpoint(
     parse_feishu_endpoint(&body)
 }
 
+fn record_channel_error(
+    statuses: &Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    provider: &str,
+    error: String,
+) {
+    if let Ok(mut values) = statuses.lock() {
+        let status = values
+            .entry(provider.to_string())
+            .or_insert_with(|| ChannelStatus::new(provider, "connected"));
+        status.last_error = Some(error);
+    }
+}
+
+async fn run_inbound_worker(
+    app: AppHandle,
+    http: Client,
+    config: ChannelConfig,
+    app_secret: String,
+    statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    mut receiver: mpsc::Receiver<InboundMessage>,
+    mut shutdown: watch::Receiver<bool>,
+) {
+    loop {
+        let message = tokio::select! {
+            changed = shutdown.changed() => {
+                if changed.is_err() || *shutdown.borrow() {
+                    break;
+                }
+                continue;
+            }
+            message = receiver.recv() => {
+                let Some(message) = message else { break; };
+                message
+            }
+        };
+        let result = async {
+            let runtime = app.state::<NativeRuntime>();
+            let reply = runtime
+                .run_channel_turn(
+                    &app,
+                    &message.provider,
+                    &message.chat_id,
+                    &message.message_id,
+                    &message.text,
+                )
+                .await?;
+            let reply = bounded_reply(&reply);
+            send_feishu_text(
+                &http,
+                &config,
+                &app_secret,
+                "chat_id",
+                &message.chat_id,
+                &reply,
+            )
+            .await
+        }
+        .await;
+        if let Err(error) = result {
+            record_channel_error(&statuses, &message.provider, error);
+        }
+    }
+}
+
 impl NativeChannelState {
     pub fn load(app_data_dir: &Path) -> Result<Self, String> {
         let path = app_data_dir.join("channels.json");
@@ -319,28 +548,47 @@ impl NativeChannelState {
         &self,
         config: ChannelConfig,
         app_secret: String,
+        app: AppHandle,
     ) -> Result<(), String> {
         let provider = config.provider.clone();
         let mut tasks = self
             .tasks
             .lock()
             .map_err(|_| "企业消息任务锁不可用".to_string())?;
-        if let Some(task) = tasks.remove(&provider) {
-            task.abort();
+        if let Some(tasks) = tasks.remove(&provider) {
+            let _ = app.state::<NativeRuntime>().cancel_channel_turns(&provider);
+            let _ = tasks.shutdown.send(true);
+            tasks.event.abort();
         }
         let statuses = Arc::clone(&self.statuses);
         let task_statuses = Arc::clone(&statuses);
         let task_provider = provider.clone();
+        let bot_open_id = Arc::new(Mutex::new(config.bot_open_id.clone()));
+        let worker_config = config.clone();
+        let worker_secret = app_secret.clone();
         let connector = FeishuConnector {
             http: self.http.clone(),
             provider: provider.clone(),
             app_id: config.app_id,
             app_secret,
+            bot_open_id: Arc::clone(&bot_open_id),
             statuses: Arc::clone(&statuses),
             client_config: None,
         };
         set_channel_status(&statuses, ChannelStatus::new(&provider, "connecting"));
-        let task = tokio::spawn(async move {
+        let (sender, receiver) = mpsc::channel(INBOUND_QUEUE_CAPACITY);
+        let (shutdown, shutdown_receiver) = watch::channel(false);
+        let event_app = app.clone();
+        let worker = tokio::spawn(run_inbound_worker(
+            app,
+            self.http.clone(),
+            worker_config,
+            worker_secret,
+            Arc::clone(&statuses),
+            receiver,
+            shutdown_receiver,
+        ));
+        let event = tokio::spawn(async move {
             let mut event_loop = EventLoop::with_options(
                 connector,
                 EventLoopOptions::new()
@@ -349,12 +597,46 @@ impl NativeChannelState {
             );
             let event_statuses = Arc::clone(&task_statuses);
             let event_provider = task_provider.clone();
+            let seen = Arc::new(Mutex::new(VecDeque::new()));
             let result = event_loop
-                .run(move |_event| {
+                .run(move |event| {
                     let mut status = ChannelStatus::new(&event_provider, "connected");
                     status.last_event_at = Some(chrono::Utc::now().to_rfc3339());
                     set_channel_status(&event_statuses, status);
-                    async { Ok(WebSocketEventAck::ok()) }
+                    let current_bot_open_id =
+                        bot_open_id.lock().ok().and_then(|value| value.clone());
+                    let ack = match inbound_message(
+                        &event_provider,
+                        current_bot_open_id.as_deref(),
+                        &event.event,
+                    ) {
+                        Ok(Some(message))
+                            if !event_app
+                                .state::<NativeRuntime>()
+                                .has_channel_message(&event_provider, &message.message_id)
+                                .unwrap_or(false)
+                                && mark_message_seen(&seen, &message.message_id) =>
+                        {
+                            let message_id = message.message_id.clone();
+                            match sender.try_send(message) {
+                                Ok(()) => WebSocketEventAck::ok(),
+                                Err(mpsc::error::TrySendError::Full(_)) => {
+                                    forget_message(&seen, &message_id);
+                                    WebSocketEventAck::internal_server_error()
+                                }
+                                Err(mpsc::error::TrySendError::Closed(_)) => {
+                                    forget_message(&seen, &message_id);
+                                    WebSocketEventAck::internal_server_error()
+                                }
+                            }
+                        }
+                        Ok(Some(_)) | Ok(None) => WebSocketEventAck::ok(),
+                        Err(error) => {
+                            record_channel_error(&event_statuses, &event_provider, error);
+                            WebSocketEventAck::internal_server_error()
+                        }
+                    };
+                    async move { Ok(ack) }
                 })
                 .await;
             let mut status = ChannelStatus::new(&task_provider, "failed");
@@ -364,11 +646,18 @@ impl NativeChannelState {
             });
             set_channel_status(&task_statuses, status);
         });
-        tasks.insert(provider, task);
+        tasks.insert(
+            provider,
+            ChannelTasks {
+                event,
+                _worker: worker,
+                shutdown,
+            },
+        );
         Ok(())
     }
 
-    pub fn start_configured(&self) {
+    pub fn start_configured(&self, app: AppHandle) {
         let configs = self
             .configs
             .lock()
@@ -380,7 +669,7 @@ impl NativeChannelState {
             }
             match self.credentials.get(&secret_id(&config.provider)) {
                 Ok(secret) => {
-                    let _ = self.start_feishu_connector(config, secret);
+                    let _ = self.start_feishu_connector(config, secret, app.clone());
                 }
                 Err(error) => {
                     let mut status = ChannelStatus::new(&config.provider, "failed");
@@ -391,14 +680,17 @@ impl NativeChannelState {
         }
     }
 
-    fn stop_connector(&self, provider: &str) -> Result<(), String> {
-        if let Some(task) = self
+    fn stop_connector(&self, provider: &str, app: &AppHandle) -> Result<(), String> {
+        if let Some(tasks) = self
             .tasks
             .lock()
             .map_err(|_| "企业消息任务锁不可用".to_string())?
             .remove(provider)
         {
-            task.abort();
+            app.state::<NativeRuntime>()
+                .cancel_channel_turns(provider)?;
+            let _ = tasks.shutdown.send(true);
+            tasks.event.abort();
         }
         set_channel_status(&self.statuses, ChannelStatus::new(provider, "idle"));
         Ok(())
@@ -440,6 +732,7 @@ pub fn channel_status_get(
 #[tauri::command]
 pub async fn channel_config_save(
     input: SaveRequest,
+    app: AppHandle,
     state: tauri::State<'_, NativeChannelState>,
 ) -> Result<ChannelConfig, String> {
     let provider = validate_provider(&input.provider)?.to_string();
@@ -453,14 +746,18 @@ pub async fn channel_config_save(
     if provider == "wecom" && agent_id.is_none() {
         return Err("企业微信需要 Agent ID".into());
     }
-    access_token(&state.http, &provider, &app_id, &app_secret).await?;
-    if matches!(provider.as_str(), "feishu" | "lark") {
+    let token = access_token(&state.http, &provider, &app_id, &app_secret).await?;
+    let bot_open_id = if matches!(provider.as_str(), "feishu" | "lark") {
         feishu_websocket_endpoint(&state.http, &provider, &app_id, &app_secret).await?;
-    }
+        Some(feishu_bot_open_id(&state.http, &provider, &token).await?)
+    } else {
+        None
+    };
     state.credentials.set(&secret_id(&provider), &app_secret)?;
     let config = ChannelConfig {
         provider: provider.clone(),
         app_id,
+        bot_open_id,
         agent_id,
         verified_at: chrono::Utc::now().to_rfc3339(),
     };
@@ -472,7 +769,7 @@ pub async fn channel_config_save(
     state.persist(&configs)?;
     drop(configs);
     if matches!(config.provider.as_str(), "feishu" | "lark") {
-        state.start_feishu_connector(config.clone(), app_secret)?;
+        state.start_feishu_connector(config.clone(), app_secret, app)?;
     }
     Ok(config)
 }
@@ -536,10 +833,11 @@ pub async fn channel_send_test(
 #[tauri::command]
 pub fn channel_config_clear(
     provider: String,
+    app: AppHandle,
     state: tauri::State<'_, NativeChannelState>,
 ) -> Result<(), String> {
     let provider = validate_provider(&provider)?.to_string();
-    state.stop_connector(&provider)?;
+    state.stop_connector(&provider, &app)?;
     state.credentials.delete(&secret_id(&provider))?;
     let mut configs = state
         .configs
@@ -553,6 +851,37 @@ pub fn channel_config_clear(
 mod tests {
     use super::*;
 
+    fn message_event(chat_type: &str, sender_type: &str, mentions: Value) -> ChannelEvent {
+        lark_channel::parse_lark_event_payload(
+            &serde_json::to_vec(&json!({
+                "schema":"2.0",
+                "header":{
+                    "event_id":"event-1",
+                    "event_type":"im.message.receive_v1",
+                    "create_time":"1",
+                    "tenant_key":"tenant"
+                },
+                "event":{
+                    "sender":{
+                        "sender_id":{"open_id":"ou_sender"},
+                        "sender_type":sender_type,
+                        "tenant_key":"tenant"
+                    },
+                    "message":{
+                        "message_id":"om_message_1",
+                        "chat_id":"oc_chat_1",
+                        "chat_type":chat_type,
+                        "message_type":"text",
+                        "content":"{\"text\":\"hello\"}",
+                        "mentions":mentions
+                    }
+                }
+            }))
+            .expect("message payload"),
+        )
+        .expect("message event")
+    }
+
     #[test]
     fn accepts_only_supported_providers_and_real_tokens() {
         assert!(validate_provider("dingtalk").is_ok());
@@ -563,6 +892,12 @@ mod tests {
         assert!(parse_token("wecom", &json!({"errcode":40013,"errmsg":"invalid corpid"})).is_err());
         assert!(platform_result(&json!({"errcode": 0})).is_ok());
         assert!(platform_result(&json!({"errcode": 40013, "errmsg": "invalid"})).is_err());
+        assert_eq!(
+            parse_feishu_bot_open_id(&json!({"code":0,"bot":{"open_id":"ou_bot"}}))
+                .expect("bot identity"),
+            "ou_bot"
+        );
+        assert!(parse_feishu_bot_open_id(&json!({"code":0,"bot":{}})).is_err());
     }
 
     #[test]
@@ -600,5 +935,73 @@ mod tests {
             "data": {"URL": "https://example.com/not-a-websocket"}
         }))
         .is_err());
+    }
+
+    #[test]
+    fn queues_only_user_text_from_private_or_mentioned_group_chats() {
+        assert!(inbound_message(
+            "feishu",
+            Some("ou_bot"),
+            &message_event("p2p", "user", json!([]))
+        )
+        .expect("private message")
+        .is_some());
+        assert!(inbound_message(
+            "feishu",
+            Some("ou_bot"),
+            &message_event("group", "user", json!([]))
+        )
+        .expect("unmentioned group")
+        .is_none());
+        assert!(inbound_message(
+            "feishu",
+            Some("ou_bot"),
+            &message_event(
+                "group",
+                "user",
+                json!([{"key":"@_user_1","id":{"open_id":"ou_bot"}}])
+            )
+        )
+        .expect("mentioned group")
+        .is_some());
+        assert!(inbound_message(
+            "feishu",
+            Some("ou_bot"),
+            &message_event(
+                "group",
+                "user",
+                json!([{"key":"@_user_1","id":{"open_id":"ou_someone_else"}}])
+            )
+        )
+        .expect("other mention")
+        .is_none());
+        assert!(inbound_message(
+            "feishu",
+            Some("ou_bot"),
+            &message_event("p2p", "bot", json!([]))
+        )
+        .expect("bot message")
+        .is_none());
+    }
+
+    #[test]
+    fn bounds_the_in_memory_message_deduplication_window() {
+        let seen = Arc::new(Mutex::new(VecDeque::new()));
+        assert!(mark_message_seen(&seen, "message-1"));
+        assert!(!mark_message_seen(&seen, "message-1"));
+        forget_message(&seen, "message-1");
+        assert!(mark_message_seen(&seen, "message-1"));
+        for index in 0..=SEEN_MESSAGE_CAPACITY {
+            assert!(mark_message_seen(&seen, &format!("message-{index}-next")));
+        }
+        assert_eq!(seen.lock().unwrap().len(), SEEN_MESSAGE_CAPACITY);
+    }
+
+    #[test]
+    fn bounds_outbound_model_replies_for_feishu_text_messages() {
+        assert_eq!(bounded_reply("short"), "short");
+        let bounded = bounded_reply(&"字".repeat(5000));
+        assert!(bounded.ends_with("[回复已截断]"));
+        assert!(bounded.chars().count() <= 4000);
     }
 }

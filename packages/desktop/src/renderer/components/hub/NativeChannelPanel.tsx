@@ -89,6 +89,7 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
       {config && (provider === 'feishu' || provider === 'lark') ? <p className="claw-hub__field-hint">
         长连接：{status?.state === 'connected' ? '已连接' : status?.state === 'connecting' ? '连接中' : status?.state === 'failed' ? `失败：${status.lastError ?? '未知错误'}` : '未启动'}
         {status?.lastEventAt ? `；最近事件：${new Date(status.lastEventAt).toLocaleString('zh-CN')}` : ''}
+        {status?.state === 'connected' && status.lastError ? `；最近处理错误：${status.lastError}` : ''}
       </p> : null}
     </Card>
     <Card><div className="claw-hub__setting claw-hub__setting--stack">
