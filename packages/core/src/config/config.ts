@@ -55,6 +55,7 @@ import { LarkCliTool } from '../tools/lark-cli.js';
 import { KnowledgeBaseTool } from '../tools/knowledge-base.js';
 import { DelegateToAgentTool } from '../tools/delegate-agent.js';
 import { CheckDelegateStatusTool } from '../tools/delegate-status.js';
+import { hasAnyLocalAgent } from '../acp-client/localAgentDetection.js';
 import { ProjectSettingsManager } from './projectSettings.js';
 import { generateCustomModelId } from '../types/customModel.js';
 import { ClawMasterClient } from '../core/client.js';
@@ -1480,10 +1481,12 @@ export class Config {
     await registerLazyCoreTool('VoiceBridgeTool', 'voice_bridge', async () => (await import('../tools/voice-bridge.js')).VoiceBridgeTool, this); // 语音输入（录音→转写→润色成指令）
     await registerLazyCoreTool('DoctorTool', 'doctor', async () => (await import('../tools/doctor.js')).DoctorTool, this); // 依赖体检（一次性自检上述能力所需的外部二进制/模块）
 
-    // Delegate-to-external-agent (ACP client). Drives the user's local Claude
-    // Code; gracefully reports a readable error if the bridge isn't installed.
-    registerCoreTool(DelegateToAgentTool, this);
-    registerCoreTool(CheckDelegateStatusTool, this);
+    // Do not advertise delegation when this machine cannot launch any target.
+    // The execution path probes again in case availability changes mid-session.
+    if (await hasAnyLocalAgent()) {
+      registerCoreTool(DelegateToAgentTool, this);
+      registerCoreTool(CheckDelegateStatusTool, this);
+    }
 
     // TaskTool (SubAgent) is available in both CLI and VSCode environments
     registerCoreTool(TaskTool, this, registry);

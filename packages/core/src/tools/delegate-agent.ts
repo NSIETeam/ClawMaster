@@ -9,6 +9,7 @@ import { BaseTool, Icon, type ToolResult } from './tools.js';
 import { type Config } from '../config/config.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { runDelegatedTask } from '../acp-client/acpAgentClient.js';
+import { isAgentAvailable } from '../acp-client/localAgentDetection.js';
 import {
   EXTERNAL_AGENT_TYPES,
   isExternalAgentType,
@@ -211,6 +212,30 @@ export class DelegateToAgentTool extends BaseTool<
     const agent: ExternalAgentType = params.agent ?? DEFAULT_AGENT;
     const mode: DelegateMode = params.mode ?? DEFAULT_MODE;
     const label = resolveExternalAgentSpec(agent).label;
+
+    if (!(await isAgentAvailable(agent))) {
+      const overrideName =
+        agent === 'codex'
+          ? 'CLAWMASTER_CODEX_ACP_CMD'
+          : 'CLAWMASTER_CLAUDE_CODE_ACP_CMD';
+      const message =
+        `${label} 当前不可用，任务未执行。ClawMaster 没有创建后台任务，` +
+        `也不会把本次请求标记为已派发。请安装并登录 ${label}，确保桥接启动器可用，` +
+        `或通过 ${overrideName} 配置可执行的 ACP 桥。`;
+      return {
+        status: 'failed',
+        llmContent: JSON.stringify({
+          status: 'failed',
+          dispatched: false,
+          agent,
+          error: `${label} is not available on this machine`,
+          guidance:
+            'Tell the user delegation did not happen, then handle the task locally when possible.',
+        }),
+        returnDisplay: message,
+        summary: `${label} unavailable; not dispatched`,
+      };
+    }
 
     // 多 agent 并行冲突检测：resumeSessionId 场景是"回到同一个已有会话继续"，
     // 本质是同一个逻辑任务的延续而非新开一个并行任务，不做互斥检查（否则

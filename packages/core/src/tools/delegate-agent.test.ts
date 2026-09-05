@@ -12,14 +12,19 @@ import {
 } from './delegate-agent.js';
 import type { Config } from '../config/config.js';
 import * as acpClient from '../acp-client/acpAgentClient.js';
+import { isAgentAvailable } from '../acp-client/localAgentDetection.js';
 import { getBackgroundTaskManager } from '../services/backgroundTaskManager.js';
 import type { RunTaskOptions } from '../acp-client/acpAgentClient.js';
 
 vi.mock('../acp-client/acpAgentClient.js', () => ({
   runDelegatedTask: vi.fn(),
 }));
+vi.mock('../acp-client/localAgentDetection.js', () => ({
+  isAgentAvailable: vi.fn(),
+}));
 
 const runDelegatedTask = vi.mocked(acpClient.runDelegatedTask);
+const mockedIsAgentAvailable = vi.mocked(isAgentAvailable);
 
 function makeTool(targetDir = '/proj') {
   const config = {
@@ -31,6 +36,7 @@ function makeTool(targetDir = '/proj') {
 describe('DelegateToAgentTool', () => {
   beforeEach(() => {
     runDelegatedTask.mockReset();
+    mockedIsAgentAvailable.mockResolvedValue(true);
     // Clear the singleton between tests so tasks don't accumulate.
     const mgr = getBackgroundTaskManager();
     mgr.clearAllTasks();
@@ -41,6 +47,23 @@ describe('DelegateToAgentTool', () => {
     const res = await tool.execute({ task: '   ' }, new AbortController().signal);
     expect(res.status).toBe('failed');
     expect(runDelegatedTask).not.toHaveBeenCalled();
+  });
+
+  it('fails explicitly without dispatching when the selected agent disappeared', async () => {
+    mockedIsAgentAvailable.mockResolvedValue(false);
+    const tool = makeTool();
+
+    const res = await tool.execute(
+      { task: 'implement the feature', agent: 'codex' },
+      new AbortController().signal,
+    );
+
+    expect(res.status).toBe('failed');
+    expect(runDelegatedTask).not.toHaveBeenCalled();
+    expect(getBackgroundTaskManager().getAllTasks()).toEqual([]);
+    expect(res.returnDisplay).toContain('Codex');
+    expect(res.returnDisplay).toContain('未执行');
+    expect(res.llmContent).toContain('"dispatched":false');
   });
 
   it('returns immediately with a Task ID (async mode)', async () => {
