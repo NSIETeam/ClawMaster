@@ -85,7 +85,7 @@ const ENTERPRISE_DEFAULT_GROUPS: readonly ModuleGroupLayout[] = [
     id: 'intelligent-capture',
     name: '智能沉淀',
     rows: 2,
-    moduleIds: ['auto-skill', 'skill-zone'],
+    moduleIds: ['ecommerce-market-analysis', 'auto-skill', 'skill-zone'],
   },
 ] as const;
 
@@ -119,7 +119,7 @@ const PERSONAL_DEFAULT_GROUPS: readonly ModuleGroupLayout[] = [
     id: 'intelligent-capture',
     name: '智能沉淀',
     rows: 2,
-    moduleIds: ['auto-skill', 'skill-zone'],
+    moduleIds: ['ecommerce-market-analysis', 'auto-skill', 'skill-zone'],
   },
 ] as const;
 

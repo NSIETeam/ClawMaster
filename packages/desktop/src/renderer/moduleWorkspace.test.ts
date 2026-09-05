@@ -37,6 +37,7 @@ const enterpriseCapabilities: ModuleWorkspaceCapabilities = {
     'enterprise-memory',
     'auto-skill',
     'skill-zone',
+    'ecommerce-market-analysis',
     'platform-maotouying',
     'platform-trace-code',
     'platform-zhifang',
@@ -48,7 +49,7 @@ const enterpriseCapabilities: ModuleWorkspaceCapabilities = {
 const personalCapabilities: ModuleWorkspaceCapabilities = {
   edition: 'personal',
   availableModuleIds: [
-    'agent-personal-otto', 'auto-skill', 'skill-zone',
+    'agent-personal-otto', 'auto-skill', 'skill-zone', 'ecommerce-market-analysis',
     'agent-word', 'agent-excel', 'agent-ppt', 'agent-pdf', 'agent-meeting', 'mind-map',
     'platform-maotouying', 'platform-trace-code', 'platform-zhifang',
     'platform-zhiliaohou', 'platform-zhixin-pigeon',
@@ -120,7 +121,7 @@ describe('module workspace defaults', () => {
           id: 'intelligent-capture',
           name: '智能沉淀',
           rows: 2,
-          moduleIds: ['auto-skill', 'skill-zone'],
+          moduleIds: ['ecommerce-market-analysis', 'auto-skill', 'skill-zone'],
         },
       ],
     });
@@ -150,7 +151,7 @@ describe('module workspace defaults', () => {
         id: 'intelligent-capture',
         name: '智能沉淀',
         rows: 2,
-        moduleIds: ['auto-skill', 'skill-zone'],
+        moduleIds: ['ecommerce-market-analysis', 'auto-skill', 'skill-zone'],
       },
     ]);
     expect(moduleIds.some((id) => id.startsWith('park-'))).toBe(false);
@@ -177,7 +178,7 @@ describe('module workspace defaults', () => {
         id: 'intelligent-capture',
         name: '智能沉淀',
         rows: 2,
-        moduleIds: ['auto-skill', 'skill-zone'],
+        moduleIds: ['ecommerce-market-analysis', 'auto-skill', 'skill-zone'],
       },
     ]);
   });

@@ -69,6 +69,8 @@ export const FEATURED_COMMUNITY_SKILLS: readonly CommunitySkillCatalogItem[] = [
   skill('anthropics/skills/pdf', 187_700, 'office', '读取、生成与检查 PDF'),
   skill('anthropics/skills/docx', 180_100, 'office', '创建和编辑 Word 文档'),
   skill('anthropics/skills/xlsx', 160_700, 'office', '创建和分析电子表格'),
+  skill('coreyhaines31/marketingskills/customer-research', 89_100, 'research', '提炼客户需求、原话、痛点与购买动机'),
+  skill('coreyhaines31/marketingskills/competitor-profiling', 69_700, 'research', '建立可追溯的竞品画像与对比证据'),
 ] as const;
 
 export function filterCommunitySkills(

@@ -171,6 +171,19 @@ export const STATIC_MODULE_SPECS: readonly StaticModuleSpec[] = [
     availabilityRule: 'skill-zone',
   },
   {
+    id: 'ecommerce-market-analysis',
+    label: '电商市场分析',
+    description: '基于高安装量开源营销 Skill 方法生成可追溯报告',
+    category: 'capability',
+    icon: 'generated:agent-marketing-research',
+    activation: {
+      kind: 'guided-task',
+      taskId: 'ecommerce-market-analysis',
+      instructions: '你正在电商市场分析工作区。先读取当前项目已安装的 customer-research 与 competitor-profiling Skill；如未安装，明确提示来源缺失但继续采用可追溯方法。结合用户授权的数据和五大业务平台，分离事实、推断与建议，禁止编造销量、价格、份额、评价或来源。至少交付：研究范围、客户洞察、3 个以上竞品矩阵、渠道与价格分析、机会缺口、风险、30/60/90 天行动计划、来源清单；优先生成可编辑 Markdown 与 CSV，并允许用户在右侧文件工作区继续编辑。任何平台发布、修改或对外发送必须再次确认。',
+    },
+    availabilityRule: 'always',
+  },
+  {
     id: 'mind-map', label: '思维导图', category: 'common', icon: 'office-dataviz',
     activation: {
       kind: 'guided-task', taskId: 'mind-map',
