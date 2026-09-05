@@ -280,6 +280,7 @@ pub fn run() {
                 native_runtime::NativeRuntime::load(&directory).map_err(std::io::Error::other)?;
             let channels = native_channels::NativeChannelState::load(&directory)
                 .map_err(std::io::Error::other)?;
+            channels.start_configured();
             app.manage(runtime);
             app.manage(channels);
             Ok(())
@@ -303,6 +304,7 @@ pub fn run() {
             runtime_contract_version,
             notification_show,
             native_channels::channel_config_get,
+            native_channels::channel_status_get,
             native_channels::channel_config_save,
             native_channels::channel_config_clear,
             native_channels::channel_send_test,

@@ -12,6 +12,7 @@ import type {
   EnterpriseSkillMarketItem,
   LocalSkillShareCandidate,
   NativeChannelConfig,
+  NativeChannelStatus,
   NativeChannelProvider,
   PlatformWebviewBounds,
   UpdateProgressInfo,
@@ -218,6 +219,8 @@ export function createTauriHostBridge(
   const migrated: Partial<Record<keyof ClawMasterBridge, (...args: never[]) => unknown>> = {
     nativeChannelConfigGet: ((provider: NativeChannelProvider) =>
       invoke<NativeChannelConfig | null>('channel_config_get', { provider })) as never,
+    nativeChannelStatusGet: ((provider: NativeChannelProvider) =>
+      invoke<NativeChannelStatus>('channel_status_get', { provider })) as never,
     nativeChannelConfigSave: ((input: {
       provider: NativeChannelProvider; appId: string; appSecret: string; agentId?: string;
     }) => invoke<NativeChannelConfig>('channel_config_save', { input })) as never,

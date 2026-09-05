@@ -92,6 +92,9 @@ describe('Tauri host bridge', () => {
     await expect(bridge.nativeChannelConfigGet?.('dingtalk')).resolves.toEqual({
       command: 'channel_config_get', args: { provider: 'dingtalk' },
     });
+    await expect(bridge.nativeChannelStatusGet?.('feishu')).resolves.toEqual({
+      command: 'channel_status_get', args: { provider: 'feishu' },
+    });
     await expect(bridge.nativeChannelConfigSave?.({
       provider: 'wecom', appId: 'corp', appSecret: 'secret', agentId: '1001',
     })).resolves.toEqual({

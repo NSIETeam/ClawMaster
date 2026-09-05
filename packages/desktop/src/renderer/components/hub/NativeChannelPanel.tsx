@@ -1,7 +1,7 @@
 /** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
 import React, { useEffect, useState } from 'react';
-import type { NativeChannelConfig, NativeChannelProvider } from '../../../preload/index.js';
+import type { NativeChannelConfig, NativeChannelProvider, NativeChannelStatus } from '../../../preload/index.js';
 import { Card, Panel } from './HubUI.js';
 
 const LABEL: Record<NativeChannelProvider, string> = {
@@ -10,6 +10,7 @@ const LABEL: Record<NativeChannelProvider, string> = {
 
 export function NativeChannelPanel({ provider }: { provider: NativeChannelProvider }): React.JSX.Element {
   const [config, setConfig] = useState<NativeChannelConfig | null>(null);
+  const [status, setStatus] = useState<NativeChannelStatus | null>(null);
   const [appId, setAppId] = useState('');
   const [appSecret, setAppSecret] = useState('');
   const [agentId, setAgentId] = useState('');
@@ -27,6 +28,19 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
     }).catch((error: unknown) => setMessage(error instanceof Error ? error.message : String(error)));
   }, [provider]);
 
+  useEffect(() => {
+    if (!window.clawmaster.nativeChannelStatusGet) return;
+    let active = true;
+    const refresh = (): void => {
+      void window.clawmaster.nativeChannelStatusGet?.(provider).then((value) => {
+        if (active) setStatus(value);
+      }).catch(() => undefined);
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 2000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [provider]);
+
   const save = async (): Promise<void> => {
     if (!window.clawmaster.nativeChannelConfigSave || busy) return;
     setBusy(true); setMessage('');
@@ -36,7 +50,9 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
         ...(agentId.trim() ? { agentId: agentId.trim() } : {}),
       });
       setConfig(next); setAppSecret('');
-      setMessage('官方鉴权通过，凭据已保存到系统钥匙串。消息流连接尚未启用。');
+      setMessage(provider === 'feishu' || provider === 'lark'
+        ? '官方鉴权与长连接端点验证通过，Rust 正在建立消息流。'
+        : '官方鉴权通过，凭据已保存到系统钥匙串。入站消息流尚未启用。');
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   };
@@ -70,6 +86,10 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
     <Card className="claw-hub__card--pad">
       <div className="claw-hub__row-name">{config ? '凭据已验证' : '尚未验证凭据'}</div>
       <p className="claw-hub__field-hint">{config ? `最近验证：${new Date(config.verifiedAt).toLocaleString('zh-CN')}` : 'Secret 不会写入配置文件或发送给模型。'}</p>
+      {config && (provider === 'feishu' || provider === 'lark') ? <p className="claw-hub__field-hint">
+        长连接：{status?.state === 'connected' ? '已连接' : status?.state === 'connecting' ? '连接中' : status?.state === 'failed' ? `失败：${status.lastError ?? '未知错误'}` : '未启动'}
+        {status?.lastEventAt ? `；最近事件：${new Date(status.lastEventAt).toLocaleString('zh-CN')}` : ''}
+      </p> : null}
     </Card>
     <Card><div className="claw-hub__setting claw-hub__setting--stack">
       <input className="claw-hub__input" aria-label={`${label} App ID`} placeholder={provider === 'wecom' ? 'Corp ID' : 'App ID / App Key'} value={appId} onChange={(event) => setAppId(event.target.value)} />

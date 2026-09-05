@@ -81,11 +81,17 @@ back to the legacy Node sidecar.
   timeouts, response bounds, and namespaced tool routing.
   Desktop diagnostics now come from the same Rust capability manifest, so
   replaced binaries are not reported as required dependencies.
+  Feishu/Lark credentials now validate both the official access-token API and
+  the official WebSocket endpoint before being stored. A Rust-native event loop
+  establishes the long connection, follows server heartbeat/reconnect policy,
+  ACKs inbound events promptly, restores configured connections on launch, and
+  exposes honest connection/error/last-event status in settings. Inbound events
+  are not yet routed into model sessions or replied to automatically.
 - Verified locally after the browser DOM snapshot migration: 10.28 MiB stripped
   ARM64 release executable. The packaged check produced a 10.24 MiB application
   bundle and 4.94 MiB compressed macOS ARM64 DMG with no Node executable,
   `.node` addon, or agent payload.
 - Remaining before release: browser screenshots and post-action navigation
-  stabilization for reliable RPA, remaining document adapters, and enterprise
-  channel inbound streams; then installed real-model and destructive-path
-  acceptance.
+  stabilization for reliable RPA, remaining document adapters, Feishu/Lark
+  inbound model routing and replies, plus WeCom/DingTalk inbound streams; then
+  installed real-model and destructive-path acceptance.

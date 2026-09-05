@@ -1,4 +1,9 @@
 use crate::native_models::{system_credential_store, CredentialStore};
+use lark_channel::lark_openapi::{
+    TokioTungsteniteWebSocketTransport, WebSocketClientConfig, WebSocketConnection,
+    WebSocketEndpoint, WebSocketEventAck,
+};
+use lark_channel::{Error as LarkError, EventLoop, EventLoopOptions, EventStreamConnector};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -6,6 +11,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use tokio::task::JoinHandle;
 
 const MAX_ID_CHARS: usize = 200;
 
@@ -33,6 +39,76 @@ pub struct NativeChannelState {
     configs: Mutex<HashMap<String, ChannelConfig>>,
     credentials: Arc<dyn CredentialStore>,
     http: Client,
+    statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    tasks: Mutex<HashMap<String, JoinHandle<()>>>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelStatus {
+    provider: String,
+    state: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_event_at: Option<String>,
+}
+
+impl ChannelStatus {
+    fn new(provider: &str, state: &str) -> Self {
+        Self {
+            provider: provider.to_string(),
+            state: state.to_string(),
+            last_error: None,
+            last_event_at: None,
+        }
+    }
+}
+
+struct FeishuConnector {
+    http: Client,
+    provider: String,
+    app_id: String,
+    app_secret: String,
+    statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    client_config: Option<WebSocketClientConfig>,
+}
+
+fn set_channel_status(
+    statuses: &Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    status: ChannelStatus,
+) {
+    if let Ok(mut values) = statuses.lock() {
+        values.insert(status.provider.clone(), status);
+    }
+}
+
+impl EventStreamConnector for FeishuConnector {
+    type Connection = WebSocketConnection;
+
+    async fn connect_event_stream(&mut self) -> lark_channel::Result<Self::Connection> {
+        set_channel_status(
+            &self.statuses,
+            ChannelStatus::new(&self.provider, "connecting"),
+        );
+        let endpoint =
+            feishu_websocket_endpoint(&self.http, &self.provider, &self.app_id, &self.app_secret)
+                .await
+                .map_err(LarkError::Transport)?;
+        self.client_config = endpoint.client_config().copied();
+        let connection = TokioTungsteniteWebSocketTransport::new()
+            .connect(&endpoint)
+            .await?;
+        set_channel_status(
+            &self.statuses,
+            ChannelStatus::new(&self.provider, "connected"),
+        );
+        Ok(connection)
+    }
+
+    fn websocket_client_config(&self) -> Option<WebSocketClientConfig> {
+        self.client_config
+    }
 }
 
 fn validate_provider(value: &str) -> Result<&str, String> {
@@ -117,11 +193,12 @@ async fn access_token(
                 .append_pair("corpsecret", app_secret);
             http.get(endpoint).send().await
         }
-        "dingtalk" => http
-            .post("https://api.dingtalk.com/v1.0/oauth2/accessToken")
-            .json(&json!({"appKey":app_id,"appSecret":app_secret}))
-            .send()
-            .await,
+        "dingtalk" => {
+            http.post("https://api.dingtalk.com/v1.0/oauth2/accessToken")
+                .json(&json!({"appKey":app_id,"appSecret":app_secret}))
+                .send()
+                .await
+        }
         _ => return Err("不支持的企业消息平台".into()),
     }
     .map_err(|error| format!("连接平台失败: {error}"))?;
@@ -154,6 +231,60 @@ fn platform_result(body: &Value) -> Result<(), String> {
     Err(format!("消息发送失败：{message}"))
 }
 
+fn parse_feishu_endpoint(body: &Value) -> Result<WebSocketEndpoint, String> {
+    let code = body.get("code").and_then(Value::as_i64).unwrap_or(-1);
+    if code != 0 {
+        let message = body
+            .get("msg")
+            .and_then(Value::as_str)
+            .unwrap_or("平台未返回错误说明");
+        return Err(format!("飞书长连接端点获取失败：{message}"));
+    }
+    let url = body
+        .pointer("/data/URL")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "飞书长连接端点响应缺少 URL".to_string())?;
+    let client_config = body
+        .pointer("/data/ClientConfig")
+        .cloned()
+        .map(serde_json::from_value::<WebSocketClientConfig>)
+        .transpose()
+        .map_err(|error| format!("飞书长连接配置无效: {error}"))?;
+    let url = url::Url::parse(url).map_err(|error| format!("飞书长连接端点无效: {error}"))?;
+    WebSocketEndpoint::new(url, client_config)
+        .map_err(|error| format!("飞书长连接端点无效: {error}"))
+}
+
+async fn feishu_websocket_endpoint(
+    http: &Client,
+    provider: &str,
+    app_id: &str,
+    app_secret: &str,
+) -> Result<WebSocketEndpoint, String> {
+    let host = if provider == "lark" {
+        "https://open.larksuite.com"
+    } else {
+        "https://open.feishu.cn"
+    };
+    let response = http
+        .post(format!("{host}/callback/ws/endpoint"))
+        .header("locale", "zh")
+        .json(&json!({"AppID": app_id, "AppSecret": app_secret}))
+        .send()
+        .await
+        .map_err(|error| format!("连接飞书长连接服务失败: {error}"))?;
+    let status = response.status();
+    let body: Value = response
+        .json()
+        .await
+        .map_err(|error| format!("飞书长连接端点响应无效: {error}"))?;
+    if !status.is_success() {
+        return Err(format!("飞书长连接服务返回 HTTP {status}"));
+    }
+    parse_feishu_endpoint(&body)
+}
+
 impl NativeChannelState {
     pub fn load(app_data_dir: &Path) -> Result<Self, String> {
         let path = app_data_dir.join("channels.json");
@@ -172,6 +303,8 @@ impl NativeChannelState {
                 .timeout(std::time::Duration::from_secs(15))
                 .build()
                 .map_err(|error| format!("无法初始化消息平台 HTTPS 客户端: {error}"))?,
+            statuses: Arc::new(Mutex::new(HashMap::new())),
+            tasks: Mutex::new(HashMap::new()),
         })
     }
 
@@ -180,6 +313,95 @@ impl NativeChannelState {
         let temporary = self.path.with_extension("json.tmp");
         fs::write(&temporary, bytes).map_err(|error| format!("无法写入消息配置: {error}"))?;
         fs::rename(&temporary, &self.path).map_err(|error| format!("无法提交消息配置: {error}"))
+    }
+
+    fn start_feishu_connector(
+        &self,
+        config: ChannelConfig,
+        app_secret: String,
+    ) -> Result<(), String> {
+        let provider = config.provider.clone();
+        let mut tasks = self
+            .tasks
+            .lock()
+            .map_err(|_| "企业消息任务锁不可用".to_string())?;
+        if let Some(task) = tasks.remove(&provider) {
+            task.abort();
+        }
+        let statuses = Arc::clone(&self.statuses);
+        let task_statuses = Arc::clone(&statuses);
+        let task_provider = provider.clone();
+        let connector = FeishuConnector {
+            http: self.http.clone(),
+            provider: provider.clone(),
+            app_id: config.app_id,
+            app_secret,
+            statuses: Arc::clone(&statuses),
+            client_config: None,
+        };
+        set_channel_status(&statuses, ChannelStatus::new(&provider, "connecting"));
+        let task = tokio::spawn(async move {
+            let mut event_loop = EventLoop::with_options(
+                connector,
+                EventLoopOptions::new()
+                    .with_unlimited_reconnects()
+                    .with_server_reconnect_config(true),
+            );
+            let event_statuses = Arc::clone(&task_statuses);
+            let event_provider = task_provider.clone();
+            let result = event_loop
+                .run(move |_event| {
+                    let mut status = ChannelStatus::new(&event_provider, "connected");
+                    status.last_event_at = Some(chrono::Utc::now().to_rfc3339());
+                    set_channel_status(&event_statuses, status);
+                    async { Ok(WebSocketEventAck::ok()) }
+                })
+                .await;
+            let mut status = ChannelStatus::new(&task_provider, "failed");
+            status.last_error = Some(match result {
+                Ok(exit) => format!("飞书长连接已停止: {exit:?}"),
+                Err(error) => error.to_string(),
+            });
+            set_channel_status(&task_statuses, status);
+        });
+        tasks.insert(provider, task);
+        Ok(())
+    }
+
+    pub fn start_configured(&self) {
+        let configs = self
+            .configs
+            .lock()
+            .map(|values| values.values().cloned().collect::<Vec<_>>())
+            .unwrap_or_default();
+        for config in configs {
+            if !matches!(config.provider.as_str(), "feishu" | "lark") {
+                continue;
+            }
+            match self.credentials.get(&secret_id(&config.provider)) {
+                Ok(secret) => {
+                    let _ = self.start_feishu_connector(config, secret);
+                }
+                Err(error) => {
+                    let mut status = ChannelStatus::new(&config.provider, "failed");
+                    status.last_error = Some(error);
+                    set_channel_status(&self.statuses, status);
+                }
+            }
+        }
+    }
+
+    fn stop_connector(&self, provider: &str) -> Result<(), String> {
+        if let Some(task) = self
+            .tasks
+            .lock()
+            .map_err(|_| "企业消息任务锁不可用".to_string())?
+            .remove(provider)
+        {
+            task.abort();
+        }
+        set_channel_status(&self.statuses, ChannelStatus::new(provider, "idle"));
+        Ok(())
     }
 }
 
@@ -201,6 +423,21 @@ pub fn channel_config_get(
 }
 
 #[tauri::command]
+pub fn channel_status_get(
+    provider: String,
+    state: tauri::State<'_, NativeChannelState>,
+) -> Result<ChannelStatus, String> {
+    let provider = validate_provider(&provider)?;
+    Ok(state
+        .statuses
+        .lock()
+        .map_err(|_| "企业消息状态锁不可用".to_string())?
+        .get(provider)
+        .cloned()
+        .unwrap_or_else(|| ChannelStatus::new(provider, "idle")))
+}
+
+#[tauri::command]
 pub async fn channel_config_save(
     input: SaveRequest,
     state: tauri::State<'_, NativeChannelState>,
@@ -208,16 +445,35 @@ pub async fn channel_config_save(
     let provider = validate_provider(&input.provider)?.to_string();
     let app_id = clean(&input.app_id, "App ID / Corp ID")?;
     let app_secret = clean(&input.app_secret, "App Secret")?;
-    let agent_id = input.agent_id.as_deref().map(|value| clean(value, "Agent ID")).transpose()?;
+    let agent_id = input
+        .agent_id
+        .as_deref()
+        .map(|value| clean(value, "Agent ID"))
+        .transpose()?;
     if provider == "wecom" && agent_id.is_none() {
         return Err("企业微信需要 Agent ID".into());
     }
     access_token(&state.http, &provider, &app_id, &app_secret).await?;
+    if matches!(provider.as_str(), "feishu" | "lark") {
+        feishu_websocket_endpoint(&state.http, &provider, &app_id, &app_secret).await?;
+    }
     state.credentials.set(&secret_id(&provider), &app_secret)?;
-    let config = ChannelConfig { provider: provider.clone(), app_id, agent_id, verified_at: chrono::Utc::now().to_rfc3339() };
-    let mut configs = state.configs.lock().map_err(|_| "企业消息配置锁不可用".to_string())?;
+    let config = ChannelConfig {
+        provider: provider.clone(),
+        app_id,
+        agent_id,
+        verified_at: chrono::Utc::now().to_rfc3339(),
+    };
+    let mut configs = state
+        .configs
+        .lock()
+        .map_err(|_| "企业消息配置锁不可用".to_string())?;
     configs.insert(provider, config.clone());
     state.persist(&configs)?;
+    drop(configs);
+    if matches!(config.provider.as_str(), "feishu" | "lark") {
+        state.start_feishu_connector(config.clone(), app_secret)?;
+    }
     Ok(config)
 }
 
@@ -270,7 +526,9 @@ pub async fn channel_send_test(
     }.map_err(|error| format!("消息发送请求失败: {error}"))?;
     let status = response.status();
     let body: Value = response.json().await.unwrap_or_else(|_| json!({}));
-    if !status.is_success() { return Err(format!("平台返回 HTTP {status}")); }
+    if !status.is_success() {
+        return Err(format!("平台返回 HTTP {status}"));
+    }
     platform_result(&body)?;
     Ok(json!({"ok":true,"provider":provider,"targetId":target}))
 }
@@ -281,8 +539,12 @@ pub fn channel_config_clear(
     state: tauri::State<'_, NativeChannelState>,
 ) -> Result<(), String> {
     let provider = validate_provider(&provider)?.to_string();
+    state.stop_connector(&provider)?;
     state.credentials.delete(&secret_id(&provider))?;
-    let mut configs = state.configs.lock().map_err(|_| "企业消息配置锁不可用".to_string())?;
+    let mut configs = state
+        .configs
+        .lock()
+        .map_err(|_| "企业消息配置锁不可用".to_string())?;
     configs.remove(&provider);
     state.persist(&configs)
 }
@@ -301,5 +563,42 @@ mod tests {
         assert!(parse_token("wecom", &json!({"errcode":40013,"errmsg":"invalid corpid"})).is_err());
         assert!(platform_result(&json!({"errcode": 0})).is_ok());
         assert!(platform_result(&json!({"errcode": 40013, "errmsg": "invalid"})).is_err());
+    }
+
+    #[test]
+    fn accepts_only_successful_valid_feishu_websocket_endpoints() {
+        let valid = json!({
+            "code": 0,
+            "msg": "success",
+            "data": {
+                "URL": "wss://example.com/ws?device_id=test&service_id=42",
+                "ClientConfig": {"PingInterval": 30, "ReconnectCount": 3}
+            }
+        });
+        let endpoint = parse_feishu_endpoint(&valid).expect("valid endpoint");
+        assert_eq!(endpoint.device_id(), "test");
+        assert_eq!(endpoint.service_id(), 42);
+        assert_eq!(
+            endpoint
+                .client_config()
+                .and_then(|config| config.ping_interval),
+            Some(30)
+        );
+
+        let rejected = parse_feishu_endpoint(&json!({"code": 1000040343, "msg": "invalid app"}))
+            .expect_err("a rejected endpoint must fail");
+        assert!(rejected.contains("invalid app"));
+
+        assert!(parse_feishu_endpoint(&json!({"code": 0, "data": {}})).is_err());
+        assert!(parse_feishu_endpoint(&json!({
+            "code": 0,
+            "data": {"URL": "wss://example.com/ws?device_id=test"}
+        }))
+        .is_err());
+        assert!(parse_feishu_endpoint(&json!({
+            "code": 0,
+            "data": {"URL": "https://example.com/not-a-websocket"}
+        }))
+        .is_err());
     }
 }

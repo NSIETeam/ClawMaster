@@ -72,6 +72,12 @@ export interface NativeChannelConfig {
   agentId?: string;
   verifiedAt: string;
 }
+export interface NativeChannelStatus {
+  provider: NativeChannelProvider;
+  state: 'idle' | 'connecting' | 'connected' | 'failed';
+  lastError?: string;
+  lastEventAt?: string;
+}
 
 export interface ChannelPairingResult {
   ok: boolean;
@@ -1393,6 +1399,7 @@ type MenuHandler = (action: string) => void;
 /** preload 暴露给 renderer 的 API 形状（renderer 据此声明 window.clawmaster 类型）。 */
 export interface ClawMasterBridge {
   nativeChannelConfigGet?(provider: NativeChannelProvider): Promise<NativeChannelConfig | null>;
+  nativeChannelStatusGet?(provider: NativeChannelProvider): Promise<NativeChannelStatus>;
   nativeChannelConfigSave?(input: {
     provider: NativeChannelProvider;
     appId: string;
