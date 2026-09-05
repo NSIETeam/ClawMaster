@@ -148,6 +148,27 @@ The kernel owns these lifecycle-critical concerns:
 - `SCENE_MODEL_MAPPING` — maps each scene to a cost-appropriate model.
 - `SceneManager.getModelForScene()` is the **single entry point** for model selection.
 
+### 7a. Native Model Invocation Gateway
+
+- **File**: `packages/desktop/src-tauri/src/native_model_gateway.rs`
+- The signed Tauri product routes main-agent, compression, workflow/sub-agent,
+  title, and optional rerank invocations through `ModelInvocationGateway`.
+- The gateway owns system-credential lookup, one bounded `reqwest` connection
+  pool, deadlines, cancellation, retry policy, trace identity, and the
+  session/turn/purpose usage ledger. API keys never enter `NativeRuntime` tool
+  or session contexts.
+- **Wire adapters**: `packages/desktop/src-tauri/src/native_models.rs` converts
+  OpenAI-compatible, OpenAI Responses, Anthropic Messages, and Gemini streaming
+  frames into provider-neutral model events. It does not own retry or usage
+  policy.
+- Automatic retry is allowed only before the first user-visible delta. A
+  timeout or transport failure after output begins is
+  `model_stream_interrupted`, is marked uncertain, and is never replayed.
+- `scripts/validate-native-model-gateway.mjs` fails CI if native production
+  code bypasses this boundary. The TypeScript custom-model clients remain a
+  non-packaged compatibility baseline until R11 removes the legacy runtime;
+  they are not part of the native Tauri release path.
+
 ### 8. Content Generation Abstraction
 
 - **File**: `packages/core/src/core/contentGenerator.ts`

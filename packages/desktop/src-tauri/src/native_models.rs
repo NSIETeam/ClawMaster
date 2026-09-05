@@ -32,6 +32,7 @@ pub struct ModelCompletion {
     pub text: String,
     pub input_tokens: u64,
     pub output_tokens: u64,
+    pub cache_tokens: u64,
     pub finish_reason: Option<String>,
     pub tool_calls: Vec<ModelToolCall>,
 }
@@ -67,6 +68,7 @@ struct StreamState {
     text: String,
     input_tokens: u64,
     output_tokens: u64,
+    cache_tokens: u64,
     finish_reason: Option<String>,
     tool_calls: BTreeMap<String, PartialToolCall>,
 }
@@ -106,6 +108,7 @@ impl StreamState {
             text: self.text,
             input_tokens: self.input_tokens,
             output_tokens: self.output_tokens,
+            cache_tokens: self.cache_tokens,
             finish_reason: self
                 .finish_reason
                 .or_else(|| fallback_reason.map(str::to_owned)),
@@ -202,18 +205,148 @@ fn endpoint(base_url: &str, suffix: &str) -> Result<Url, String> {
 
 async fn checked_json(response: reqwest::Response) -> Result<Value, String> {
     let status = response.status();
-    let value = response
-        .json::<Value>()
+    let bytes = response
+        .bytes()
         .await
-        .map_err(|error| format!("无法解析模型响应: {error}"))?;
+        .map_err(|error| format!("无法读取模型响应: {error}"))?;
+    let value = serde_json::from_slice::<Value>(&bytes);
     if status.is_success() {
-        return Ok(value);
+        return value.map_err(|error| format!("无法解析模型响应: {error}"));
     }
     let message = value
-        .pointer("/error/message")
-        .and_then(Value::as_str)
-        .unwrap_or("模型服务请求失败");
+        .ok()
+        .and_then(|value| {
+            value
+                .pointer("/error/message")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+        .unwrap_or_else(|| "模型服务请求失败".to_string());
     Err(format!("模型服务返回 {}: {message}", status.as_u16()))
+}
+
+fn bounded_output_tokens(model: &NativeModel) -> u32 {
+    model.max_tokens.unwrap_or(4096).clamp(1, 32_768)
+}
+
+fn message_values(messages: &[ModelMessage]) -> Vec<Value> {
+    messages
+        .iter()
+        .map(|item| json!({"role":item.role,"content":item.text}))
+        .collect()
+}
+
+fn openai_tools(tools: &[ModelToolDefinition]) -> Vec<Value> {
+    tools
+        .iter()
+        .map(|tool| {
+            json!({"type":"function","function":{
+                "name":tool.name,"description":tool.description,"parameters":tool.parameters
+            }})
+        })
+        .collect()
+}
+
+fn openai_chat_body(
+    model: &NativeModel,
+    messages: &[ModelMessage],
+    tools: &[ModelToolDefinition],
+) -> Value {
+    let mut body = json!({
+        "model":model.model_id,
+        "messages":message_values(messages),
+        "stream":true,
+        "stream_options":{"include_usage":true},
+        "max_tokens":bounded_output_tokens(model)
+    });
+    if !tools.is_empty() {
+        body["tools"] = json!(openai_tools(tools));
+    }
+    body
+}
+
+fn openai_responses_body(
+    model: &NativeModel,
+    messages: &[ModelMessage],
+    tools: &[ModelToolDefinition],
+) -> Value {
+    let mut body = json!({
+        "model":model.model_id,
+        "input":message_values(messages),
+        "stream":true,
+        "max_output_tokens":bounded_output_tokens(model)
+    });
+    if !tools.is_empty() {
+        body["tools"] = json!(tools
+            .iter()
+            .map(|tool| json!({
+                "type":"function","name":tool.name,"description":tool.description,
+                "parameters":tool.parameters,"strict":false
+            }))
+            .collect::<Vec<_>>());
+    }
+    body
+}
+
+fn anthropic_body(
+    model: &NativeModel,
+    messages: &[ModelMessage],
+    tools: &[ModelToolDefinition],
+) -> Value {
+    let system = messages
+        .iter()
+        .filter(|item| item.role == "system")
+        .map(|item| item.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let mut body = json!({
+        "model":model.model_id,
+        "max_tokens":bounded_output_tokens(model),
+        "messages":messages.iter().filter(|item| item.role != "system")
+            .map(|item| json!({"role":item.role,"content":item.text})).collect::<Vec<_>>(),
+        "stream":true
+    });
+    if !system.is_empty() {
+        body["system"] = json!(system);
+    }
+    if !tools.is_empty() {
+        body["tools"] = json!(tools
+            .iter()
+            .map(|tool| json!({
+                "name":tool.name,"description":tool.description,"input_schema":tool.parameters
+            }))
+            .collect::<Vec<_>>());
+    }
+    body
+}
+
+fn gemini_body(
+    model: &NativeModel,
+    messages: &[ModelMessage],
+    tools: &[ModelToolDefinition],
+) -> Value {
+    let system = messages
+        .iter()
+        .filter(|item| item.role == "system")
+        .map(|item| item.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let mut body = json!({
+        "contents":messages.iter().filter(|item| item.role != "system").map(|item| json!({
+            "role":if item.role == "assistant" { "model" } else { "user" },
+            "parts":[{"text":item.text}]
+        })).collect::<Vec<_>>(),
+        "generationConfig":{"maxOutputTokens":bounded_output_tokens(model)}
+    });
+    if !system.is_empty() {
+        body["systemInstruction"] = json!({"parts":[{"text":system}]});
+    }
+    if !tools.is_empty() {
+        body["tools"] = json!([{"functionDeclarations":tools.iter().map(|tool| json!({
+            "name":tool.name,"description":tool.description,"parameters":tool.parameters
+        })).collect::<Vec<_>>()}]);
+    }
+    body
 }
 
 fn parse_stream_data(
@@ -255,6 +388,10 @@ fn parse_stream_data(
                 .pointer("/usage/completion_tokens")
                 .and_then(Value::as_u64)
                 .unwrap_or(state.output_tokens);
+            state.cache_tokens = value
+                .pointer("/usage/prompt_tokens_details/cached_tokens")
+                .and_then(Value::as_u64)
+                .unwrap_or(state.cache_tokens);
             if let Some(calls) = value
                 .pointer("/choices/0/delta/tool_calls")
                 .and_then(Value::as_array)
@@ -298,6 +435,10 @@ fn parse_stream_data(
                     .pointer("/response/usage/output_tokens")
                     .and_then(Value::as_u64)
                     .unwrap_or(state.output_tokens);
+                state.cache_tokens = value
+                    .pointer("/response/usage/input_tokens_details/cached_tokens")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(state.cache_tokens);
                 state.finish_reason = Some("stop".into());
             }
             Some("response.output_item.added")
@@ -415,6 +556,10 @@ fn parse_stream_data(
                     .pointer("/message/usage/input_tokens")
                     .and_then(Value::as_u64)
                     .unwrap_or(state.input_tokens);
+                state.cache_tokens = value
+                    .pointer("/message/usage/cache_read_input_tokens")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(state.cache_tokens);
             }
             Some("message_delta") => {
                 state.output_tokens = value
@@ -461,6 +606,10 @@ fn parse_stream_data(
                 .pointer("/usageMetadata/candidatesTokenCount")
                 .and_then(Value::as_u64)
                 .unwrap_or(state.output_tokens);
+            state.cache_tokens = value
+                .pointer("/usageMetadata/cachedContentTokenCount")
+                .and_then(Value::as_u64)
+                .unwrap_or(state.cache_tokens);
             state.finish_reason = value
                 .pointer("/candidates/0/finishReason")
                 .and_then(Value::as_str)
@@ -549,40 +698,22 @@ where
             StreamState::default().completion(Some("cancelled"))?,
         ));
     }
-    let openai_tools = tools
-        .iter()
-        .map(|tool| {
-            json!({"type":"function","function":{
-                "name":tool.name,"description":tool.description,"parameters":tool.parameters
-            }})
-        })
-        .collect::<Vec<_>>();
     let response = match model.provider.as_str() {
         "openai" => client
             .post(endpoint(&model.base_url, "chat/completions")?)
             .bearer_auth(api_key)
-            .json(&json!({
-                "model":model.model_id,"messages":messages.iter().map(|item| json!({"role":item.role,"content":item.text})).collect::<Vec<_>>(),
-                "stream":true,"stream_options":{"include_usage":true},"tools":openai_tools
-            }))
+            .json(&openai_chat_body(model, messages, tools))
             .send(),
         "openai-responses" => client
             .post(endpoint(&model.base_url, "responses")?)
             .bearer_auth(api_key)
-            .json(&json!({
-                "model":model.model_id,"input":messages.iter().map(|item| json!({"role":item.role,"content":item.text})).collect::<Vec<_>>(),"stream":true,
-                "tools":tools.iter().map(|tool| json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.parameters,"strict":false})).collect::<Vec<_>>()
-            }))
+            .json(&openai_responses_body(model, messages, tools))
             .send(),
         "anthropic" => client
             .post(endpoint(&model.base_url, "v1/messages")?)
             .header("x-api-key", api_key)
             .header("anthropic-version", "2023-06-01")
-            .json(&json!({
-                "model":model.model_id,"max_tokens":model.max_tokens.unwrap_or(4096).min(32_768),
-                "messages":messages.iter().filter(|item| item.role != "system").map(|item| json!({"role":item.role,"content":item.text})).collect::<Vec<_>>(),"stream":true,
-                "tools":tools.iter().map(|tool| json!({"name":tool.name,"description":tool.description,"input_schema":tool.parameters})).collect::<Vec<_>>()
-            }))
+            .json(&anthropic_body(model, messages, tools))
             .send(),
         "gemini" => {
             let suffix = format!("v1beta/models/{}:streamGenerateContent", model.model_id);
@@ -591,9 +722,7 @@ where
             client
                 .post(url)
                 .header("x-goog-api-key", api_key)
-                .json(&json!({"contents":messages.iter().map(|item| json!({
-                    "role":if item.role == "assistant" { "model" } else { "user" },"parts":[{"text":item.text}]
-                })).collect::<Vec<_>>(),"tools":[{"functionDeclarations":tools.iter().map(|tool| json!({"name":tool.name,"description":tool.description,"parameters":tool.parameters})).collect::<Vec<_>>()}] }))
+                .json(&gemini_body(model, messages, tools))
                 .send()
         }
         _ => return Err(format!("不支持的原生模型协议: {}", model.provider)),
@@ -612,7 +741,7 @@ where
     let mut state = StreamState::default();
     loop {
         tokio::select! {
-            changed = cancel.changed() => {
+            changed = cancel.changed(), if cancel.has_changed().is_ok() => {
                 if changed.is_ok() && *cancel.borrow() {
                     return Ok(StreamCompletion::Cancelled(state.completion(Some("cancelled"))?));
                 }
@@ -642,6 +771,19 @@ where
 mod tests {
     use super::*;
 
+    fn configured_model(provider: &str) -> NativeModel {
+        NativeModel {
+            id: "test".into(),
+            display_name: "Test".into(),
+            provider: provider.into(),
+            base_url: "https://example.com".into(),
+            model_id: "model-1".into(),
+            max_tokens: Some(99_999),
+            enabled: true,
+            credential_id: "credential".into(),
+        }
+    }
+
     #[test]
     fn accepts_only_secure_credential_free_model_urls() {
         assert_eq!(
@@ -652,6 +794,43 @@ mod tests {
         );
         assert!(endpoint("http://api.example.com", "chat/completions").is_err());
         assert!(endpoint("https://user:key@example.com", "chat/completions").is_err());
+    }
+
+    #[test]
+    fn provider_bodies_preserve_system_instructions_and_token_budgets() {
+        let messages = vec![
+            ModelMessage {
+                role: "system".into(),
+                text: "Follow policy".into(),
+            },
+            ModelMessage {
+                role: "user".into(),
+                text: "Hello".into(),
+            },
+        ];
+        let openai = openai_chat_body(&configured_model("openai"), &messages, &[]);
+        assert_eq!(openai["max_tokens"], 32_768);
+        assert_eq!(openai["messages"][0]["role"], "system");
+        assert!(openai.get("tools").is_none());
+
+        let responses =
+            openai_responses_body(&configured_model("openai-responses"), &messages, &[]);
+        assert_eq!(responses["max_output_tokens"], 32_768);
+        assert!(responses.get("tools").is_none());
+
+        let anthropic = anthropic_body(&configured_model("anthropic"), &messages, &[]);
+        assert_eq!(anthropic["system"], "Follow policy");
+        assert_eq!(anthropic["messages"].as_array().unwrap().len(), 1);
+        assert!(anthropic.get("tools").is_none());
+
+        let gemini = gemini_body(&configured_model("gemini"), &messages, &[]);
+        assert_eq!(
+            gemini["systemInstruction"]["parts"][0]["text"],
+            "Follow policy"
+        );
+        assert_eq!(gemini["generationConfig"]["maxOutputTokens"], 32_768);
+        assert_eq!(gemini["contents"].as_array().unwrap().len(), 1);
+        assert!(gemini.get("tools").is_none());
     }
 
     #[test]
@@ -683,6 +862,48 @@ mod tests {
             let events = parse_stream_data(provider, data, &mut state).unwrap();
             assert_eq!(state.text, expected);
             assert!(events.contains(&ModelStreamEvent::Text(expected.into())));
+        }
+    }
+
+    #[test]
+    fn recorded_provider_fixtures_normalize_to_the_same_event_sequence() {
+        let fixtures = [
+            (
+                "openai",
+                include_str!("../fixtures/model-streams/openai-compatible.sse"),
+            ),
+            (
+                "anthropic",
+                include_str!("../fixtures/model-streams/anthropic.sse"),
+            ),
+            (
+                "gemini",
+                include_str!("../fixtures/model-streams/gemini.sse"),
+            ),
+        ];
+        for (provider, fixture) in fixtures {
+            let mut state = StreamState::default();
+            let mut buffer = fixture.to_string();
+            buffer.push_str("\n\n");
+            let mut events = Vec::new();
+            consume_sse_buffer(provider, &mut buffer, &mut state, &mut |event| {
+                events.push(event);
+                Ok(())
+            })
+            .unwrap();
+            assert_eq!(
+                events,
+                vec![
+                    ModelStreamEvent::Text("Claw".into()),
+                    ModelStreamEvent::Text("Master".into()),
+                ],
+                "{provider}"
+            );
+            let completion = state.completion(None).unwrap();
+            assert_eq!(completion.text, "ClawMaster", "{provider}");
+            assert_eq!(completion.input_tokens, 7, "{provider}");
+            assert_eq!(completion.output_tokens, 2, "{provider}");
+            assert_eq!(completion.cache_tokens, 3, "{provider}");
         }
     }
 

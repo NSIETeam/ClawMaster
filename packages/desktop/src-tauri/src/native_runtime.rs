@@ -1,13 +1,15 @@
+use crate::native_model_gateway::{
+    GatewayError, InvocationContext, InvocationPurpose, InvocationRequest, ModelInvocationGateway,
+};
 use crate::native_models::{
-    stream_complete, system_credential_store, CredentialStore, ModelCompletion, ModelMessage,
-    ModelStreamEvent, ModelToolCall, NativeModel, StreamCompletion,
+    system_credential_store, CredentialStore, ModelCompletion, ModelMessage, ModelStreamEvent,
+    ModelToolCall, NativeModel, StreamCompletion,
 };
 use crate::{
     native_agent_tools, native_checkpoints, native_context, native_diagnostics, native_enterprise,
     native_knowledge, native_mcp, native_memory, native_projects, native_schedule, native_skills,
     native_todos, native_workflows, native_worklog, platform_webview,
 };
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -133,7 +135,7 @@ pub struct NativeRuntime {
     checkpoint_root: PathBuf,
     state: Mutex<PersistedState>,
     credentials: Arc<dyn CredentialStore>,
-    http: Client,
+    model_gateway: ModelInvocationGateway,
     active_turns: Mutex<HashMap<String, ActiveTurn>>,
     pending_confirmations: Mutex<HashMap<String, watch::Sender<Option<String>>>>,
 }
@@ -148,8 +150,40 @@ struct ToolLoopContext<'a> {
     session_id: &'a str,
     message_id: &'a str,
     model: &'a NativeModel,
-    api_key: &'a str,
+    turn_id: &'a str,
     workspace: &'a Path,
+}
+
+enum ModelLoopError {
+    Gateway(GatewayError),
+    Runtime(String),
+}
+
+impl From<GatewayError> for ModelLoopError {
+    fn from(error: GatewayError) -> Self {
+        Self::Gateway(error)
+    }
+}
+
+impl From<String> for ModelLoopError {
+    fn from(error: String) -> Self {
+        Self::Runtime(error)
+    }
+}
+
+impl From<&str> for ModelLoopError {
+    fn from(error: &str) -> Self {
+        Self::Runtime(error.to_string())
+    }
+}
+
+impl std::fmt::Display for ModelLoopError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Gateway(error) => error.fmt(formatter),
+            Self::Runtime(error) => formatter.write_str(error),
+        }
+    }
 }
 
 fn now_ms() -> u64 {
@@ -390,6 +424,10 @@ impl NativeRuntime {
             Err(error) => return Err(format!("无法读取 Rust 运行时状态: {error}")),
         };
         native_workflows::recover_interrupted(&mut state.workflows, now_ms());
+        let model_gateway = ModelInvocationGateway::new(
+            credentials.clone(),
+            &app_data_dir.join("model-usage.jsonl"),
+        )?;
         Ok(Self {
             state_path,
             audit_path,
@@ -398,11 +436,7 @@ impl NativeRuntime {
             checkpoint_root,
             state: Mutex::new(state),
             credentials,
-            http: Client::builder()
-                .https_only(true)
-                .timeout(std::time::Duration::from_secs(120))
-                .build()
-                .map_err(|error| format!("无法初始化 Rust 模型客户端: {error}"))?,
+            model_gateway,
             active_turns: Mutex::new(HashMap::new()),
             pending_confirmations: Mutex::new(HashMap::new()),
         })
@@ -1617,7 +1651,7 @@ impl NativeRuntime {
                 json!({"sessionId":session_id,"compressed":false,"message":"会话正在生成回复，请结束当前回复后再压缩。"}),
             )]);
         }
-        let (model, api_key, transcript, original_tokens) = {
+        let (model, transcript, original_tokens) = {
             let state = self
                 .state
                 .lock()
@@ -1669,8 +1703,7 @@ impl NativeRuntime {
                     "上下文超过 Rust 压缩安全上限，原历史已保留",
                 )]);
             }
-            let key = self.credentials.get(&model.credential_id)?;
-            (model, key, transcript, chars.div_ceil(4) as u64)
+            (model, transcript, chars.div_ceil(4) as u64)
         };
         let (_, cancel) = watch::channel(false);
         let messages = vec![
@@ -1680,12 +1713,18 @@ impl NativeRuntime {
             },
             ModelMessage { role: "user".into(), text: transcript },
         ];
-        let completion = match stream_complete(
-            &self.http,
-            &model,
-            &api_key,
-            &messages,
-            &[],
+        let compression_turn_id = next_id("compression");
+        let completion = match self.model_gateway.invoke(
+            InvocationRequest {
+                model: &model,
+                messages: &messages,
+                tools: &[],
+                context: InvocationContext::new(
+                    &session_id,
+                    &compression_turn_id,
+                    InvocationPurpose::Compression,
+                ),
+            },
             cancel,
             |_| Ok(()),
         )
@@ -1705,11 +1744,11 @@ impl NativeRuntime {
                     json!({"sessionId":session_id,"compressed":false,"message":"压缩已取消，原历史已保留。"}),
                 )])
             }
-            Err(message) => {
+            Err(error) => {
                 return Ok(vec![error_frame(
                     Some(&session_id),
-                    "compression_failed",
-                    &format!("压缩失败，原历史已保留：{message}"),
+                    error.code(),
+                    &format!("压缩失败，原历史已保留：{error}"),
                 )])
             }
         };
@@ -1849,13 +1888,14 @@ impl NativeRuntime {
         let system = native_context::system_prompt(context.workspace, "zh-CN", "concise", &[]);
         let mut join_set = tokio::task::JoinSet::new();
         for task in &tasks {
-            let client = self.http.clone();
+            let model_gateway = self.model_gateway.clone();
             let model = context.model.clone();
-            let api_key = context.api_key.to_string();
             let agent_id = task.agent_id.clone();
             let prompt = task.prompt.clone();
             let system = format!("{system}\n\nYou are a read-only delegated analyst. Do not claim to run tools or modify files. Return concise evidence and recommendations to the parent agent.");
             let cancel = cancel.clone();
+            let session_id = context.session_id.to_string();
+            let turn_id = format!("{}:{}", context.turn_id, agent_id);
             join_set.spawn(async move {
                 let messages = vec![
                     ModelMessage {
@@ -1867,19 +1907,30 @@ impl NativeRuntime {
                         text: prompt,
                     },
                 ];
-                let result =
-                    match stream_complete(&client, &model, &api_key, &messages, &[], cancel, |_| {
-                        Ok(())
-                    })
+                let result = match model_gateway
+                    .invoke(
+                        InvocationRequest {
+                            model: &model,
+                            messages: &messages,
+                            tools: &[],
+                            context: InvocationContext::new(
+                                &session_id,
+                                &turn_id,
+                                InvocationPurpose::SubAgent,
+                            ),
+                        },
+                        cancel,
+                        |_| Ok(()),
+                    )
                     .await
-                    {
+                {
                         Ok(StreamCompletion::Completed(value)) => Ok((
                             value.text.chars().take(20_000).collect(),
                             value.input_tokens,
                             value.output_tokens,
                         )),
                         Ok(StreamCompletion::Cancelled(_)) => Err("子 Agent 已取消".into()),
-                        Err(message) => Err(message),
+                        Err(error) => Err(error.to_string()),
                     };
                 (agent_id, result)
             });
@@ -1930,7 +1981,7 @@ impl NativeRuntime {
         context: ToolLoopContext<'_>,
         mut messages: Vec<ModelMessage>,
         cancel: watch::Receiver<bool>,
-    ) -> Result<StreamCompletion, String> {
+    ) -> Result<StreamCompletion, ModelLoopError> {
         let mcp_configs = self
             .state
             .lock()
@@ -1963,12 +2014,17 @@ impl NativeRuntime {
         let mut total_input = 0;
         let mut total_output = 0;
         for step in 0..8 {
-            let streamed = stream_complete(
-                &self.http,
-                context.model,
-                context.api_key,
-                &messages,
-                &tools,
+            let streamed = self.model_gateway.invoke(
+                InvocationRequest {
+                    model: context.model,
+                    messages: &messages,
+                    tools: &tools,
+                    context: InvocationContext::new(
+                        context.session_id,
+                        context.turn_id,
+                        InvocationPurpose::Agent,
+                    ),
+                },
                 cancel.clone(),
                 |event| match event {
                     ModelStreamEvent::Text(delta) => emit(
@@ -2045,6 +2101,7 @@ impl NativeRuntime {
                         text: full_text,
                         input_tokens: total_input,
                         output_tokens: total_output,
+                        cache_tokens: 0,
                         finish_reason: Some("cancelled".into()),
                         tool_calls: Vec::new(),
                     }));
@@ -2103,6 +2160,7 @@ impl NativeRuntime {
                         text: full_text,
                         input_tokens: total_input,
                         output_tokens: total_output,
+                        cache_tokens: 0,
                         finish_reason: Some("cancelled".into()),
                         tool_calls: Vec::new(),
                     }));
@@ -2641,7 +2699,7 @@ impl NativeRuntime {
             .map(str::to_owned)
             .unwrap_or_else(|| next_id("user"));
         let assistant_message_id = next_id("assistant");
-        let (model, api_key, model_messages, workspace, inferred_session) = {
+        let (model, model_messages, workspace, inferred_session) = {
             let mut state = self
                 .state
                 .lock()
@@ -2662,7 +2720,6 @@ impl NativeRuntime {
                 .find(|item| item.id == model_id && item.enabled)
                 .cloned()
                 .ok_or_else(|| "当前模型不可用，请重新选择".to_string())?;
-            let api_key = self.credentials.get(&model.credential_id)?;
             state
                 .model_usage
                 .entry(model.id.clone())
@@ -2724,7 +2781,7 @@ impl NativeRuntime {
             );
             self.persist(&state)?;
             let workspace = Self::workspace_for_session(&state, Some(&session_id));
-            (model, api_key, history, workspace, inferred_session)
+            (model, history, workspace, inferred_session)
         };
 
         if let Some(session) = inferred_session {
@@ -2788,7 +2845,7 @@ impl NativeRuntime {
                     session_id: &session_id,
                     message_id: &assistant_message_id,
                     model: &model,
-                    api_key: &api_key,
+                    turn_id: &turn_id,
                     workspace: &workspace,
                 },
                 model_messages,
@@ -2929,7 +2986,12 @@ impl NativeRuntime {
                 )?;
                 Ok(None)
             }
-            Err(message) => {
+            Err(error) => {
+                let message = error.to_string();
+                let code = match &error {
+                    ModelLoopError::Gateway(gateway) => gateway.code(),
+                    ModelLoopError::Runtime(_) => "model_runtime_failed",
+                };
                 if let Ok(mut state) = self.state.lock() {
                     if let Some(session) = state
                         .sessions
@@ -2943,7 +3005,7 @@ impl NativeRuntime {
                 }
                 emit(
                     app,
-                    error_frame(Some(&session_id), "model_request_failed", &message),
+                    error_frame(Some(&session_id), code, &message),
                 )?;
                 emit(
                     app,

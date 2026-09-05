@@ -1,0 +1,8 @@
+data: {"type":"message_start","message":{"usage":{"input_tokens":7,"cache_read_input_tokens":3}}}
+
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Claw"}}
+
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Master"}}
+
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}
+

@@ -85,8 +85,10 @@ sequenceDiagram
 flowchart LR
   Renderer[React renderer] --> Bridge[Validated host bridge]
   Bridge --> Rust[Embedded Rust runtime]
-  Rust --> Model[Native HTTPS model adapters]
-  Rust --> Vault[macOS Keychain / Windows Credential Manager]
+  Rust --> Gateway[ModelInvocationGateway]
+  Gateway --> Model[OpenAI compatible / Anthropic / Gemini adapters]
+  Gateway --> Vault[macOS Keychain / Windows Credential Manager]
+  Gateway --> Ledger[Purpose and turn scoped usage ledger]
   Rust --> Tools[Native tools and document providers]
   Rust --> Bundle[Tauri bundle]
   Bundle --> Verify[Native tests, signature and size gates]
@@ -117,6 +119,7 @@ flowchart LR
 | Turn lifecycle, tool state, confirmation, audit | \`packages/core\` | \`docs/runtime-kernel-boundary.md\` |
 | Enterprise APIs, tenancy, channels | \`packages/server\` | Server focused tests |
 | GUI and native desktop capabilities | \`packages/desktop/src/renderer\`, \`packages/desktop/src-tauri\` | Desktop and Cargo tests |
+| Native model invocation, credentials, retry, cancellation, usage | \`packages/desktop/src-tauri/src/native_model_gateway.rs\` | Recorded provider fixtures and \`npm run validate:boundaries\` |
 | Tauri runtime provenance | \`packages/desktop/src-tauri\`, \`.github/workflows/tauri-preview.yml\` | Rust-native tests, legacy-runtime rejection, artifact size gate, and packaged smoke |
 | Long-running schedules | \`packages/workflow\` | workflow tests and recurring registry |
 | Computer control | \`packages/rpa\` | RPA policy and adapter tests |

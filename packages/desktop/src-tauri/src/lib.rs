@@ -17,6 +17,7 @@ mod native_enterprise;
 mod native_knowledge;
 mod native_mcp;
 mod native_memory;
+mod native_model_gateway;
 mod native_models;
 mod native_process;
 mod native_pptx;
