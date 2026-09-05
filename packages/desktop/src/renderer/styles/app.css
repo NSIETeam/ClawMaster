@@ -9403,7 +9403,7 @@ h6.claw-prose__h {
 .claw-agenda__card::before { content: ''; position: absolute; left: -12px; top: 19px; width: 9px; height: 9px; border-radius: 50%; background: var(--claw-accent); box-shadow: 0 0 0 4px var(--claw-bg); }
 .claw-agenda__card-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .claw-agenda__source { font-size: 9px; border-radius: 999px; padding: 3px 7px; color: var(--claw-text-tertiary); background: var(--claw-code-bg); }
-.claw-agenda__source.is-otto { background: var(--claw-accent-soft); color: var(--claw-accent); }
+.claw-agenda__source.is-agent { background: var(--claw-accent-soft); color: var(--claw-accent); }
 .claw-agenda__card p, .claw-agenda__reason { color: var(--claw-text-secondary); font-size: 11px; margin: 8px 0 0; }
 .claw-agenda__reason { color: var(--claw-accent); }
 .claw-agenda__delete { margin-top: 9px; border: 0; background: transparent; color: var(--claw-danger, #ef4444); font-size: 9px; cursor: pointer; padding: 0; }

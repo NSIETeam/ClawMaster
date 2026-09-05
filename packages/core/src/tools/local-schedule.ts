@@ -15,7 +15,7 @@ import type { Config } from '../config/config.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { BaseTool, Icon, type ToolResult } from './tools.js';
 
-export type LocalScheduleSource = 'user' | 'otto';
+export type LocalScheduleSource = 'user' | 'agent';
 
 export interface LocalScheduleItem {
   id: string;
@@ -65,24 +65,29 @@ function readScheduleFile(): ScheduleFile {
     if (!Array.isArray(raw.schedules)) return { version: 1, schedules: [] };
     return {
       version: 1,
-      schedules: raw.schedules.filter(isScheduleItem),
+      schedules: raw.schedules
+        .map(normalizeScheduleItem)
+        .filter((item): item is LocalScheduleItem => item !== null),
     };
   } catch {
     return { version: 1, schedules: [] };
   }
 }
 
-function isScheduleItem(value: unknown): value is LocalScheduleItem {
-  if (!value || typeof value !== 'object') return false;
-  const item = value as Partial<LocalScheduleItem>;
-  return (
+function normalizeScheduleItem(value: unknown): LocalScheduleItem | null {
+  if (!value || typeof value !== 'object') return null;
+  const item = value as Omit<Partial<LocalScheduleItem>, 'source'> & { source?: unknown };
+  // Older releases persisted the previous product name as the autonomous source.
+  const source = item.source === 'otto' ? 'agent' : item.source;
+  if (!(
     typeof item.id === 'string' &&
     typeof item.title === 'string' &&
     typeof item.startAt === 'string' &&
-    (item.source === 'user' || item.source === 'otto') &&
+    (source === 'user' || source === 'agent') &&
     typeof item.createdAt === 'string' &&
     typeof item.updatedAt === 'string'
-  );
+  )) return null;
+  return { ...item, source } as LocalScheduleItem;
 }
 
 function writeScheduleFile(file: ScheduleFile): void {
@@ -230,7 +235,7 @@ export type LocalScheduleToolParams =
     }
   | { action: 'delete'; id: string };
 
-/** ClawMaster 可主动调用的本地日程工具。所有创建项都标记 source=otto。 */
+/** ClawMaster 可主动调用的本地日程工具。所有新创建项都标记 source=agent。 */
 export class LocalScheduleTool extends BaseTool<LocalScheduleToolParams, ToolResult> {
   static readonly Name = 'local_schedule';
 
@@ -302,7 +307,7 @@ export class LocalScheduleTool extends BaseTool<LocalScheduleToolParams, ToolRes
           endAt: params.endAt,
           notes: params.notes,
           reason: params.reason,
-          source: 'otto',
+          source: 'agent',
         });
       } else if (params.action === 'list') {
         result = listLocalSchedules(params.date, params.timezone);

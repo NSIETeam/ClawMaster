@@ -126,10 +126,18 @@ fn read(path: &Path) -> Result<ScheduleFile, String> {
         return Err("日程文件超过 4 MiB 安全上限".into());
     }
     let file = fs::File::open(source).map_err(|error| format!("无法读取日程文件: {error}"))?;
-    let value: ScheduleFile =
+    let mut value: ScheduleFile =
         serde_json::from_reader(file).map_err(|error| format!("日程文件损坏: {error}"))?;
     if value.version != 1 || value.schedules.len() > MAX_SCHEDULES {
         return Err("日程文件版本或条目数量无效".into());
+    }
+    for item in &mut value.schedules {
+        match item.source.as_str() {
+            "user" | "agent" => {}
+            // Normalize schedules written by pre-ClawMaster releases at the storage boundary.
+            "otto" => item.source = "agent".into(),
+            _ => return Err("日程来源无效".into()),
+        }
     }
     Ok(value)
 }
@@ -350,7 +358,7 @@ pub fn execute(path: &Path, call: &ModelToolCall) -> Result<Value, String> {
         "list" => Ok(
             json!({"schedules":list(path, call.arguments.get("date").and_then(Value::as_str), call.arguments.get("timezone").and_then(Value::as_str))?}),
         ),
-        "create" => Ok(json!({"schedule":create(path, &call.arguments, "otto")?})),
+        "create" => Ok(json!({"schedule":create(path, &call.arguments, "agent")?})),
         "update" => Ok(json!({"schedule":update(path, &call.arguments)?})),
         "delete" => Ok(
             json!({"deleted":remove(path, call.arguments.get("id").and_then(Value::as_str).unwrap_or(""))?}),
@@ -404,5 +412,40 @@ mod tests {
             "user"
         )
         .is_err());
+    }
+
+    #[test]
+    fn model_created_schedules_use_the_clawmaster_agent_source() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("schedules.json");
+        let result = execute(
+            &path,
+            &ModelToolCall {
+                id: "schedule-call".into(),
+                name: "local_schedule".into(),
+                arguments: json!({
+                    "action":"create",
+                    "title":"复盘",
+                    "startAt":"2026-09-05T01:00:00Z"
+                }),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result["schedule"]["source"], "agent");
+    }
+
+    #[test]
+    fn normalizes_legacy_schedule_sources_at_the_storage_boundary() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("schedules.json");
+        fs::write(
+            &path,
+            r#"{"version":1,"schedules":[{"id":"legacy","title":"历史日程","startAt":"2026-09-05T01:00:00Z","source":"otto","createdAt":"2026-09-01T00:00:00Z","updatedAt":"2026-09-01T00:00:00Z"}]}"#,
+        )
+        .unwrap();
+
+        let schedules = list(&path, None, None).unwrap();
+        assert_eq!(schedules[0].source, "agent");
     }
 }

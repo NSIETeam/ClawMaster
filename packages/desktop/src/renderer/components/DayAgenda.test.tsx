@@ -28,7 +28,7 @@ describe('DayAgenda', () => {
           id: 'schedule-1',
           title: '整理竞品调研',
           startAt: '2026-07-12T01:00:00.000Z',
-          source: 'otto',
+          source: 'agent',
           reason: '调研报告已完成，需要安排复盘',
           createdAt: '2026-07-11T00:00:00.000Z',
           updatedAt: '2026-07-11T00:00:00.000Z',

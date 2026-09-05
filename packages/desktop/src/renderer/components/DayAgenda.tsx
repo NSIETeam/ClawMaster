@@ -162,8 +162,8 @@ export function DayAgenda({
               <div className="claw-agenda__card">
                 <div className="claw-agenda__card-title">
                   <strong>{item.title}</strong>
-                  <span className={'claw-agenda__source ' + (item.source === 'otto' ? 'is-otto' : '')}>
-                    {item.source === 'otto' ? 'ClawMaster 自主创建' : '手动创建'}
+                  <span className={'claw-agenda__source ' + (item.source !== 'user' ? 'is-agent' : '')}>
+                    {item.source !== 'user' ? 'ClawMaster 自主创建' : '手动创建'}
                   </span>
                 </div>
                 {item.notes ? <p>{item.notes}</p> : null}

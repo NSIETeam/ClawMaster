@@ -686,7 +686,7 @@ export interface ScheduleItemInfo {
   startAt: string;
   endAt?: string;
   notes?: string;
-  source: 'user' | 'otto';
+  source: 'user' | 'agent';
   reason?: string;
   createdAt: string;
   updatedAt: string;

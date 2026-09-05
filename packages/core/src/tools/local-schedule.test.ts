@@ -32,7 +32,7 @@ describe('本地日程数据层', () => {
       title: '竞品调研复盘',
       startAt: '2026-07-12T01:30:00.000Z',
       endAt: '2026-07-12T02:00:00.000Z',
-      source: 'otto',
+      source: 'agent',
       reason: '调研报告已经完成，安排复盘',
     });
 
@@ -40,7 +40,7 @@ describe('本地日程数据层', () => {
     expect(listLocalSchedules('2026-07-12', 'Asia/Shanghai')).toEqual([
       expect.objectContaining({
         title: '竞品调研复盘',
-        source: 'otto',
+        source: 'agent',
         reason: '调研报告已经完成，安排复盘',
       }),
     ]);
@@ -70,6 +70,24 @@ describe('本地日程数据层', () => {
     expect(deleteLocalSchedule(created.id)).toBe(true);
     expect(deleteLocalSchedule(created.id)).toBe(false);
   });
+
+  it('继续读取旧版本写入的 Otto 来源日程', () => {
+    fs.writeFileSync(process.env['CLAWMASTER_SCHEDULE_FILE']!, JSON.stringify({
+      version: 1,
+      schedules: [{
+        id: 'legacy',
+        title: '历史日程',
+        startAt: '2026-07-12T01:30:00.000Z',
+        source: 'otto',
+        createdAt: '2026-07-11T00:00:00.000Z',
+        updatedAt: '2026-07-11T00:00:00.000Z',
+      }],
+    }));
+
+    expect(listLocalSchedules()).toEqual([
+      expect.objectContaining({ id: 'legacy', source: 'agent' }),
+    ]);
+  });
 });
 
 describe('local_schedule 工具', () => {
@@ -90,7 +108,7 @@ describe('local_schedule 工具', () => {
 
     expect(result.llmContent).toContain('客户访谈准备');
     expect(listLocalSchedules('2026-07-12', 'Asia/Shanghai')[0]).toMatchObject({
-      source: 'otto',
+      source: 'agent',
       reason: '访谈前需要整理问题清单',
     });
   });

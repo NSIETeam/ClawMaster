@@ -85,7 +85,7 @@ describe('productWorkspaceReducer', () => {
               id: 's1',
               title: '复盘',
               startAt: '2026-07-12T01:00:00.000Z',
-              source: 'otto',
+              source: 'agent',
               reason: '报告完成',
               createdAt: '2026-07-11T00:00:00.000Z',
               updatedAt: '2026-07-11T00:00:00.000Z',
@@ -96,7 +96,7 @@ describe('productWorkspaceReducer', () => {
     });
 
     expect(scheduleState.lastInvite?.kind).toBe('position');
-    expect(scheduleState.schedules[0]).toMatchObject({ source: 'otto', reason: '报告完成' });
+    expect(scheduleState.schedules[0]).toMatchObject({ source: 'agent', reason: '报告完成' });
     expect(scheduleState.selectedDate).toBe('2026-07-12');
   });
 
