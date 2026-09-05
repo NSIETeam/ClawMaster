@@ -38,6 +38,7 @@ vi.mock('./hub/WorkspacePanels.js', () => ({
   MemoryPanel: () => 'memory-panel',
   SkillsPanel: () => 'skills-panel',
   ToolsPanel: () => 'tools-panel',
+  UserDirectoryPanel: () => 'user-directory-panel',
 }));
 vi.mock('./hub/ProductWorkspacePanels.js', () => ({
   EnterpriseModelsPanel: () => 'models-panel',
@@ -121,6 +122,7 @@ describe('SettingsHubPage internal-test navigation', () => {
       'refreshMcpServers',
       'refreshSearchConfig',
       'refreshContextBreakdown',
+      'refreshUserDirectory',
       'refreshTodos',
       'refreshMemory',
       'refreshSkills',
@@ -181,7 +183,7 @@ describe('SettingsHubPage internal-test navigation', () => {
         'button.claw-hub__nav-item',
       ),
     );
-    expect(navButtons).toHaveLength(20);
+    expect(navButtons).toHaveLength(21);
 
     const expectedPanels = [
       'prefs-panel',
@@ -200,6 +202,7 @@ describe('SettingsHubPage internal-test navigation', () => {
       'doctor-panel',
       'context-panel',
       'workflows-panel',
+      'user-directory-panel',
       'todos-panel',
       'memory-panel',
       'skills-panel',
@@ -213,6 +216,7 @@ describe('SettingsHubPage internal-test navigation', () => {
     expect(actions.refreshSearchConfig).toHaveBeenCalledOnce();
     expect(markBadgeSeen).toHaveBeenCalledOnce();
     expect(actions.refreshContextBreakdown).toHaveBeenCalledWith('session-1');
+    expect(actions.refreshUserDirectory).toHaveBeenCalledOnce();
     expect(actions.refreshTodos).toHaveBeenCalledOnce();
     expect(actions.refreshMemory).toHaveBeenCalledOnce();
     expect(actions.refreshSkills).toHaveBeenCalledOnce();
