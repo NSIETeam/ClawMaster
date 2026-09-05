@@ -1,6 +1,6 @@
 /** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlatformWorkspace } from './PlatformWorkspace.js';
 
@@ -26,9 +26,9 @@ describe('PlatformWorkspace', () => {
     };
   });
 
-  it('asks for an endpoint without claiming HTTP deployments are invalid', () => {
+  it('requires an encrypted endpoint', () => {
     render(<PlatformWorkspace target={{ id: 'maotouying', label: '猫头鹰', url: null }} />);
-    expect(screen.getByRole('textbox', { name: '平台地址（优先 HTTPS）' })).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: 'HTTPS 平台地址' })).toBeTruthy();
   });
 
   it('embeds the registered production endpoint in a native child webview', async () => {
@@ -44,14 +44,25 @@ describe('PlatformWorkspace', () => {
       { x: 640, y: 80, width: 600, height: 680 },
     ));
     expect(openExternal).not.toHaveBeenCalled();
-    expect(screen.getByText('已在 ClawMaster 内打开 知访。')).toBeTruthy();
+    expect(screen.getByText(/加密连接已建立/u)).toBeTruthy();
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
-  it('shows an explicit transport warning and falls back for a legacy shell', async () => {
+  it('blocks an insecure remote endpoint without opening either browser', async () => {
     render(<PlatformWorkspace target={{ id: 'maotouying', label: '猫头鹰', url: 'http://8.141.8.31/' }} />);
-    await waitFor(() => expect(openExternal).toHaveBeenCalledWith('http://8.141.8.31/'));
-    expect(screen.getByRole('alert').textContent).toContain('传输未加密');
-    expect(screen.getByText(/不支持内置浏览器/u)).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain('已阻止');
+    expect(openExternal).not.toHaveBeenCalled();
+    expect(platformWebviewOpen).not.toHaveBeenCalled();
+    expect((screen.getByRole('button', { name: '系统浏览器' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('textbox', { name: 'HTTPS 平台地址' })).toBeTruthy();
+  });
+
+  it('does not save an insecure remote endpoint', () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    render(<PlatformWorkspace target={{ id: 'maotouying', label: '猫头鹰', url: null }} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'HTTPS 平台地址' }), { target: { value: 'http://example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存并连接' }));
+    expect(screen.getByRole('alert').textContent).toContain('必须使用 HTTPS');
+    expect(setItem).not.toHaveBeenCalled();
   });
 });

@@ -26,11 +26,18 @@ pub struct PlatformWebviewBounds {
 
 fn validate_url(value: &str) -> Result<Url, String> {
     let url = Url::parse(value).map_err(|_| "平台地址无效".to_string())?;
-    if !matches!(url.scheme(), "http" | "https")
-        || !url.username().is_empty()
-        || url.password().is_some()
-    {
-        return Err("平台地址必须是没有内嵌凭据的 HTTP 或 HTTPS 地址".into());
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err("平台地址不得包含账号或密码".into());
+    }
+    let loopback = url.host_str().is_some_and(|host| {
+        let host = host.trim_matches(['[', ']']);
+        host.eq_ignore_ascii_case("localhost")
+            || host
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback())
+    });
+    if url.scheme() != "https" && !(url.scheme() == "http" && loopback) {
+        return Err("远程平台必须使用 HTTPS；HTTP 仅允许本机开发地址".into());
     }
     Ok(url)
 }
@@ -81,6 +88,8 @@ pub async fn platform_webview_open(
     let (loaded_tx, loaded_rx) = oneshot::channel();
     let loaded_tx = Arc::new(Mutex::new(Some(loaded_tx)));
     let builder = WebviewBuilder::new(PLATFORM_WEBVIEW_LABEL, WebviewUrl::External(url))
+        // Authentication state lives only for this child WebView lifetime.
+        .incognito(true)
         .on_navigation(|candidate| validate_url(candidate.as_str()).is_ok())
         .on_page_load(move |_webview, payload| {
             if payload.event() != PageLoadEvent::Finished {
@@ -284,9 +293,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn accepts_only_credential_free_web_urls() {
+    fn accepts_only_encrypted_remote_or_loopback_web_urls() {
         assert!(validate_url("https://example.com/login").is_ok());
         assert!(validate_url("http://127.0.0.1:8080/").is_ok());
+        assert!(validate_url("http://localhost:3000/").is_ok());
+        assert!(validate_url("http://[::1]:5173/").is_ok());
+        assert!(validate_url("http://8.141.8.31/").is_err());
+        assert!(validate_url("http://example.com/").is_err());
         assert!(validate_url("file:///tmp/private").is_err());
         assert!(validate_url("https://user:secret@example.com/").is_err());
     }

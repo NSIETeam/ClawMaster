@@ -222,12 +222,18 @@ export function configuredPlatformUrl(platformId: string): string | null {
   if (!value) return fallback;
   try {
     const url = new URL(value);
-    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password
+    return isSecurePlatformUrl(url) && !url.username && !url.password
       ? url.toString()
       : fallback;
   } catch {
     return fallback;
   }
+}
+
+export function isSecurePlatformUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  const loopback = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+  return url.protocol === 'https:' || (url.protocol === 'http:' && loopback);
 }
 
 const PROFILE_MODULE_IDS: Readonly<Record<string, string>> = {
