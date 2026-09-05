@@ -93,18 +93,6 @@ pub fn capability_manifest() -> serde_json::Value {
     })
 }
 
-pub fn write_capability_manifest(user_directory: &Path) -> Result<PathBuf, String> {
-    let path = user_directory.join("native-capabilities.json");
-    let pending = user_directory.join(".native-capabilities.json.tmp");
-    let bytes = serde_json::to_vec_pretty(&capability_manifest())
-        .map_err(|error| format!("serialize native capabilities: {error}"))?;
-    std::fs::write(&pending, bytes)
-        .map_err(|error| format!("write native capabilities: {error}"))?;
-    std::fs::rename(&pending, &path)
-        .map_err(|error| format!("publish native capabilities: {error}"))?;
-    Ok(path)
-}
-
 fn bounded_label(value: &str, max_chars: usize) -> String {
     value
         .chars()
