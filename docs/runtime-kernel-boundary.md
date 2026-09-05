@@ -169,6 +169,20 @@ The kernel owns these lifecycle-critical concerns:
   non-packaged compatibility baseline until R11 removes the legacy runtime;
   they are not part of the native Tauri release path.
 
+### 7b. Native State Store
+
+- **File**: `packages/desktop/src-tauri/src/native_state_store.rs`
+- The Tauri runtime opens one process-shared sled handle at the isolated
+  `runtime-store-v1` path. Named trees, AES-256-GCM, system-keystore master-key
+  ownership, CAS revisions, idempotency, corruption quarantine, transactional
+  checkpoint/event writes, and content-addressed artifacts belong here.
+- Callers own domain projections and retrieval policy, but must not open a
+  second database, create private trees, accept a configuration master key, or
+  persist sensitive payloads outside this boundary.
+- `scripts/validate-native-state-store.mjs` guards this ownership rule. The
+  current production integration owns model usage; Issue #7 remains open while
+  session, memory, checkpoint, and artifact metadata migration continues.
+
 ### 8. Content Generation Abstraction
 
 - **File**: `packages/core/src/core/contentGenerator.ts`

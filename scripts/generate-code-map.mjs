@@ -88,7 +88,8 @@ flowchart LR
   Rust --> Gateway[ModelInvocationGateway]
   Gateway --> Model[OpenAI compatible / Anthropic / Gemini adapters]
   Gateway --> Vault[macOS Keychain / Windows Credential Manager]
-  Gateway --> Ledger[Purpose and turn scoped usage ledger]
+  Gateway --> Store[Encrypted NativeStateStore]
+  Store --> Ledger[Purpose and turn scoped usage tree]
   Rust --> Tools[Native tools and document providers]
   Rust --> Bundle[Tauri bundle]
   Bundle --> Verify[Native tests, signature and size gates]
@@ -120,6 +121,7 @@ flowchart LR
 | Enterprise APIs, tenancy, channels | \`packages/server\` | Server focused tests |
 | GUI and native desktop capabilities | \`packages/desktop/src/renderer\`, \`packages/desktop/src-tauri\` | Desktop and Cargo tests |
 | Native model invocation, credentials, retry, cancellation, usage | \`packages/desktop/src-tauri/src/native_model_gateway.rs\` | Recorded provider fixtures and \`npm run validate:boundaries\` |
+| Encrypted native state, CAS, idempotency, artifacts | \`packages/desktop/src-tauri/src/native_state_store.rs\` | Native StateStore tests and ownership validator |
 | Tauri runtime provenance | \`packages/desktop/src-tauri\`, \`.github/workflows/tauri-preview.yml\` | Rust-native tests, legacy-runtime rejection, artifact size gate, and packaged smoke |
 | Long-running schedules | \`packages/workflow\` | workflow tests and recurring registry |
 | Computer control | \`packages/rpa\` | RPA policy and adapter tests |

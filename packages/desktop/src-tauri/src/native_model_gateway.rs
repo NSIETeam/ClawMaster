@@ -2,6 +2,7 @@ use crate::native_models::{
     stream_complete, CredentialStore, ModelCompletion, ModelMessage, ModelStreamEvent,
     ModelToolDefinition, NativeModel, StreamCompletion,
 };
+use crate::native_state_store::NativeStateStore;
 use reqwest::Client;
 use serde::Serialize;
 use std::fs::{self, OpenOptions};
@@ -176,6 +177,18 @@ impl UsageLedger for JsonlUsageLedger {
     }
 }
 
+impl UsageLedger for NativeStateStore {
+    fn append(&self, value: &serde_json::Value) -> Result<(), String> {
+        let invocation_id = value
+            .get("invocationId")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| "模型用量记录缺少 invocationId".to_string())?;
+        self.upsert_usage(invocation_id, value.clone())
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+}
+
 #[derive(Clone)]
 pub struct ModelInvocationGateway {
     client: Client,
@@ -185,6 +198,16 @@ pub struct ModelInvocationGateway {
 
 impl ModelInvocationGateway {
     pub fn new(credentials: Arc<dyn CredentialStore>, ledger_path: &Path) -> Result<Self, String> {
+        Self::with_usage_ledger(
+            credentials,
+            Arc::new(JsonlUsageLedger::new(ledger_path.to_path_buf())?),
+        )
+    }
+
+    pub fn with_usage_ledger(
+        credentials: Arc<dyn CredentialStore>,
+        ledger: Arc<dyn UsageLedger>,
+    ) -> Result<Self, String> {
         let mut builder = Client::builder()
             .https_only(true)
             .connect_timeout(Duration::from_secs(15))
@@ -207,7 +230,7 @@ impl ModelInvocationGateway {
         Ok(Self {
             client,
             credentials,
-            ledger: Arc::new(JsonlUsageLedger::new(ledger_path.to_path_buf())?),
+            ledger,
         })
     }
 
@@ -743,6 +766,37 @@ mod tests {
         );
         assert!(validated_proxy_url("socks5://127.0.0.1:7890").is_err());
         assert!(validated_proxy_url("https://user:secret@proxy.example.com").is_err());
+    }
+
+    #[test]
+    fn native_state_usage_ledger_updates_one_logical_invocation() {
+        let root = tempfile::tempdir().unwrap();
+        let store = NativeStateStore::open_for_test(root.path(), [19; 32]).unwrap();
+        UsageLedger::append(
+            &store,
+            &serde_json::json!({
+                "invocationId":"invocation-1","phase":"started","inputTokens":0
+            }),
+        )
+        .unwrap();
+        UsageLedger::append(
+            &store,
+            &serde_json::json!({
+                "invocationId":"invocation-1","phase":"finished","inputTokens":12
+            }),
+        )
+        .unwrap();
+        assert_eq!(
+            store.count(crate::native_state_store::TREE_USAGE).unwrap(),
+            1
+        );
+        let record = store
+            .get::<serde_json::Value>(crate::native_state_store::TREE_USAGE, "invocation-1")
+            .unwrap()
+            .unwrap();
+        assert_eq!(record.revision, 2);
+        assert_eq!(record.payload["phase"], "finished");
+        assert_eq!(record.payload["inputTokens"], 12);
     }
 
     #[tokio::test]

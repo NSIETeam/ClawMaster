@@ -5,6 +5,7 @@ use crate::native_models::{
     system_credential_store, CredentialStore, ModelCompletion, ModelMessage, ModelStreamEvent,
     ModelToolCall, NativeModel, StreamCompletion,
 };
+use crate::native_state_store::NativeStateStore;
 use crate::{
     native_agent_tools, native_checkpoints, native_context, native_diagnostics, native_enterprise,
     native_knowledge, native_mcp, native_memory, native_projects, native_schedule, native_skills,
@@ -135,6 +136,7 @@ pub struct NativeRuntime {
     checkpoint_root: PathBuf,
     state: Mutex<PersistedState>,
     credentials: Arc<dyn CredentialStore>,
+    _state_store: NativeStateStore,
     model_gateway: ModelInvocationGateway,
     active_turns: Mutex<HashMap<String, ActiveTurn>>,
     pending_confirmations: Mutex<HashMap<String, watch::Sender<Option<String>>>>,
@@ -394,6 +396,7 @@ impl NativeRuntime {
             user_dir.join("knowledge/entries.jsonl"),
             user_dir.join("schedules.json"),
             system_credential_store(),
+            None,
         )
     }
 
@@ -407,6 +410,10 @@ impl NativeRuntime {
             app_data_dir.join("knowledge/entries.jsonl"),
             app_data_dir.join("schedules.json"),
             credentials,
+            Some(
+                NativeStateStore::open_for_test(app_data_dir, [11; 32])
+                    .map_err(|error| error.to_string())?,
+            ),
         )
     }
 
@@ -415,6 +422,7 @@ impl NativeRuntime {
         knowledge_path: PathBuf,
         schedule_path: PathBuf,
         credentials: Arc<dyn CredentialStore>,
+        state_store: Option<NativeStateStore>,
     ) -> Result<Self, String> {
         fs::create_dir_all(app_data_dir)
             .map_err(|error| format!("无法创建 Rust 运行时目录: {error}"))?;
@@ -437,9 +445,13 @@ impl NativeRuntime {
             Err(error) => return Err(format!("无法读取 Rust 运行时状态: {error}")),
         };
         native_workflows::recover_interrupted(&mut state.workflows, now_ms());
-        let model_gateway = ModelInvocationGateway::new(
+        let state_store = match state_store {
+            Some(store) => store,
+            None => NativeStateStore::open(app_data_dir).map_err(|error| error.to_string())?,
+        };
+        let model_gateway = ModelInvocationGateway::with_usage_ledger(
             credentials.clone(),
-            &app_data_dir.join("model-usage.jsonl"),
+            Arc::new(state_store.clone()),
         )?;
         Ok(Self {
             state_path,
@@ -449,6 +461,7 @@ impl NativeRuntime {
             checkpoint_root,
             state: Mutex::new(state),
             credentials,
+            _state_store: state_store,
             model_gateway,
             active_turns: Mutex::new(HashMap::new()),
             pending_confirmations: Mutex::new(HashMap::new()),
