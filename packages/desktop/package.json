@@ -8,7 +8,7 @@
   "scripts": {
     "build:native": "npm run build --workspace=@clawmaster/native",
     "build:renderer": "webpack-cli --config webpack.config.cjs --mode production && node --test scripts/renderer-static-css.check.mjs",
-    "build": "npm run tauri:native:verify && npm run build:renderer",
+    "build": "npm run build:renderer && npm run tauri:native:verify",
     "tauri:dev": "tauri dev",
     "tauri:native:verify": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
     "ui:smoke": "node scripts/smoke-product-ui.mjs",

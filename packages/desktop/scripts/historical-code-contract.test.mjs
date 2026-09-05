@@ -31,9 +31,18 @@ describe('historical desktop code contract', () => {
 
   it('keeps Electron compatibility out of the supported desktop commands', () => {
     const packageJson = JSON.parse(readFileSync(path.join(desktopRoot, 'package.json'), 'utf8'));
+    const tauriConfig = JSON.parse(
+      readFileSync(path.join(desktopRoot, 'src-tauri', 'tauri.conf.json'), 'utf8'),
+    );
     expect(packageJson.main).toBeUndefined();
     expect(packageJson.scripts.start).toBe('npm run tauri:dev');
     expect(packageJson.scripts.build).toContain('tauri:native:verify');
+    expect(packageJson.scripts.build.indexOf('build:renderer')).toBeLessThan(
+      packageJson.scripts.build.indexOf('tauri:native:verify'),
+    );
+    expect(tauriConfig.build.beforeBuildCommand.indexOf('build:renderer')).toBeLessThan(
+      tauriConfig.build.beforeBuildCommand.indexOf('tauri:native:verify'),
+    );
     expect(packageJson.scripts.dist).toBe('npm run tauri:build');
     expect(packageJson.scripts['dist:dmg:x64']).toBeUndefined();
     expect(packageJson.scripts['legacy:start']).toContain('electron');

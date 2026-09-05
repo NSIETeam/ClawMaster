@@ -5,7 +5,7 @@
   "identifier": "team.nsi.clawmaster.desktop",
   "build": {
     "beforeDevCommand": "npm run build:renderer",
-    "beforeBuildCommand": "npm run tauri:native:verify && npm run build:renderer",
+    "beforeBuildCommand": "npm run build:renderer && npm run tauri:native:verify",
     "frontendDist": "../dist/renderer"
   },
   "app": {
