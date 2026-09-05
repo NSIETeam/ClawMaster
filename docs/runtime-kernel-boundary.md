@@ -1,7 +1,7 @@
 # ClawMaster Runtime Kernel Boundary
 
 > **Status**: Living document — update when kernel modules change.
-> **Last updated**: 2026-07-26 (updated for A2A protocol and optional video editor boundaries)
+> **Last updated**: 2026-09-06 (updated for Runtime Contract v2)
 
 ## Purpose
 
@@ -95,6 +95,25 @@ The kernel owns these lifecycle-critical concerns:
 - Defines the typed A2A message prefixes, payloads, parsing, rendering helpers, and context-source constants shared by desktop and enterprise tests.
 - Rule: desktop and server code must consume A2A protocol types/constants through this shared module or public package exports; server must not import `packages/desktop/src`.
 - Rule: this module is pure protocol/data logic only. It must not import Electron, HTTP server code, UI components, storage, or provider adapters.
+
+### 3e. Runtime Contract Boundary
+
+- **Source of truth**: `packages/runtime-contracts/schema/v2/runtime-contract.schema.json`
+- **Generated TypeScript**: `packages/runtime-contracts/src/generated.ts`
+- **Generated Rust**: `packages/runtime-contracts/generated/runtime_contract_v2.rs`
+- **Runtime validation**: `packages/runtime-contracts/src/runtime.ts` and
+  `packages/desktop/src-tauri/src/runtime_contracts.rs`
+- Rule: lifecycle requests and events crossing a process or language boundary
+  must use the generated v2 envelope. Core, server, desktop, and Tauri must not
+  create competing handwritten definitions.
+- Rule: provider adapters translate provider data into the contract outside the
+  kernel. UI projections may simplify a validated envelope but must not become
+  a second state owner.
+- Rule: run `npm run runtime-contracts:generate` after schema changes and commit
+  both generated artifacts. CI rejects generated drift.
+- Rule: protocol-major mismatches and unknown mandatory events fail closed.
+  Minor features are capability-negotiated; identical event replay is
+  idempotent and sequence rollback is rejected.
 
 ### 4. Central Policy Gate
 

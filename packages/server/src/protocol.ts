@@ -1035,7 +1035,7 @@ export type SessionStatusMsg = Envelope<
 export type RuntimeActivityMsg = Envelope<
   'runtime_activity',
   {
-    contractVersion: 1;
+    contractVersion: 2;
     sessionId: string;
     kind: 'agent' | 'tool' | 'turn';
     state: 'started' | 'streaming' | 'awaiting_confirmation' | 'completed' | 'cancelled' | 'failed';

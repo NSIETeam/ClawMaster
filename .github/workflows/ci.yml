@@ -36,6 +36,8 @@ jobs:
         run: |
           npm run doctor
           git diff --check
+          npm run runtime-contracts:generate
+          git diff --exit-code -- packages/runtime-contracts/src/generated.ts packages/runtime-contracts/generated/runtime_contract_v2.rs
           npm run validate:integration-baseline
           npm run validate:boundaries
           npm run code-map:check

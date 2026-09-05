@@ -1,0 +1,18 @@
+{
+  "kind": "request",
+  "requestId": "req-2",
+  "sessionId": "session-1",
+  "turnId": "turn-2",
+  "stepId": "step-1",
+  "traceId": "trace-2",
+  "eventId": "command-1",
+  "sequence": 2,
+  "timestamp": "2026-09-06T00:00:01.000Z",
+  "schemaVersion": "2.0.0",
+  "actor": "user",
+  "payload": {
+    "type": "prompt",
+    "content": "Inspect the project",
+    "stream": true
+  }
+}

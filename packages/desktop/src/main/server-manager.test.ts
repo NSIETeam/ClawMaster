@@ -210,7 +210,7 @@ describe('ServerManager desktop runtime diagnostics', () => {
     await manager.ensure();
 
     expect(manager.getDesktopRuntimeDiagnostic()).toMatchObject({
-      contractVersion: 1,
+      contractVersion: 2,
       server: { status: 'ready', ownership: 'discovered' },
       nativeCore: { mode: 'auto', status: 'not_probed' },
     });

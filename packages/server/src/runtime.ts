@@ -496,7 +496,7 @@ export class CoreSessionRuntime implements SessionRuntime {
   ): void {
     this.store.publish(this.sessionId, {
       type: 'runtime_activity',
-      payload: { contractVersion: 1, sessionId: this.sessionId, kind, state, detail, timestamp: Date.now() },
+      payload: { contractVersion: 2, sessionId: this.sessionId, kind, state, detail, timestamp: Date.now() },
     });
   }
 

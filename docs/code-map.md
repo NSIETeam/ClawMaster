@@ -10,16 +10,20 @@ flowchart LR
   p1["clawmaster-core<br/><code>packages/core</code>"]
   p2["clawmaster-server<br/><code>packages/server</code>"]
   p3["Desktop / Tauri target<br/><code>packages/desktop</code>"]
-  p4["Native bridge<br/><code>clawmaster-native</code>"]
-  p5["clawmaster-evals<br/><code>packages/evals</code>"]
-  p6["clawmaster-workflow<br/><code>packages/workflow</code>"]
-  p7["clawmaster-rpa<br/><code>packages/rpa</code>"]
+  p4["@clawmaster/runtime-contracts<br/><code>packages/runtime-contracts</code>"]
+  p5["Native bridge<br/><code>clawmaster-native</code>"]
+  p6["clawmaster-evals<br/><code>packages/evals</code>"]
+  p7["clawmaster-workflow<br/><code>packages/workflow</code>"]
+  p8["clawmaster-rpa<br/><code>packages/rpa</code>"]
+  p1 --> p4
+  p1 --> p8
   p1 --> p7
-  p1 --> p6
+  p2 --> p4
   p2 --> p1
+  p3 --> p5
   p3 --> p4
   p3 --> p2
-  p5 --> p1
+  p6 --> p1
 ```
 
 Arrows mean “imports or depends on”. The runtime kernel does not depend on Desktop or Server product surfaces.

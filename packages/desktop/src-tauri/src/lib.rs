@@ -176,7 +176,7 @@ fn runtime_diagnostic_payload(transport_connected: bool) -> DesktopRuntimeDiagno
         }
     };
     DesktopRuntimeDiagnostic {
-        contract_version: 1,
+        contract_version: 2,
         server,
         native_core: RuntimeNativeCoreDiagnostic {
             mode: "required",
@@ -187,8 +187,8 @@ fn runtime_diagnostic_payload(transport_connected: bool) -> DesktopRuntimeDiagno
 }
 
 #[tauri::command]
-fn runtime_contract_version() -> runtime_contracts::RuntimeContractVersion {
-    runtime_contracts::RuntimeContractVersion::CURRENT
+fn runtime_contract_version() -> runtime_contracts::RuntimeContractStatus {
+    runtime_contracts::RuntimeContractStatus::current()
 }
 
 #[tauri::command]
@@ -364,14 +364,15 @@ mod tests {
         assert_eq!(ready.native_core.mode, "required");
         assert_eq!(ready.native_core.status, "ready");
         let serialized = serde_json::to_value(&ready).unwrap();
-        assert_eq!(serialized["contractVersion"], 1);
+        assert_eq!(serialized["contractVersion"], 2);
         assert_eq!(serialized["nativeCore"]["status"], "ready");
 
         let contract = runtime_contract_version();
-        assert_eq!(contract.protocol.major, 1);
+        assert_eq!(contract.protocol.major, 2);
         assert_eq!(contract.protocol.minor, 0);
         assert_eq!(contract.protocol.patch, 0);
-        assert_eq!(contract.event_schema, 1);
+        assert_eq!(contract.schema_version, "2.0.0");
+        assert_eq!(contract.v1_adapter_uses, runtime_contracts::v1_adapter_uses());
 
         let unavailable = runtime_diagnostic_payload(false);
         assert_eq!(unavailable.server.status, "unavailable");
