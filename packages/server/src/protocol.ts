@@ -1047,7 +1047,14 @@ export type RuntimeActivityMsg = Envelope<
 /** 错误帧。 */
 export type ErrorMsg = Envelope<
   'error',
-  { sessionId?: string; requestId?: string; code: string; message: string }
+  {
+    sessionId?: string;
+    requestId?: string;
+    code: string;
+    message: string;
+    retryable?: boolean;
+    uncertain?: boolean;
+  }
 >;
 
 /** 企业服务器通知桌面端检查补丁 / 内核 / 组件增量更新。 */

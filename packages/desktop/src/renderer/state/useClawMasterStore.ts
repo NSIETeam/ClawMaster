@@ -278,6 +278,16 @@ function isToolCallInFlight(status: ToolCallStatus): boolean {
   );
 }
 
+function actionableErrorMessage(payload: Extract<ServerToClient, { type: 'error' }>['payload']): string {
+  if (payload.uncertain) {
+    return `${payload.message}\n结果状态不确定，ClawMaster 未自动重试，以避免重复执行或计费。`;
+  }
+  if (payload.retryable) {
+    return `${payload.message}\n尚未产生模型输出，可以安全重试。`;
+  }
+  return payload.message;
+}
+
 /** 取消终态把仍在执行/等待的卡片一并收口，避免按钮恢复后卡片继续永久转圈。 */
 function maybeShowChatNotification(
   frame: ServerToClient,
@@ -678,13 +688,13 @@ function applyFrame(state: ClawMasterState, frame: ServerToClient): ClawMasterSt
               state,
               frame.payload.sessionId,
               null,
-              frame.payload.message,
+              actionableErrorMessage(frame.payload),
             ),
             frame.payload.sessionId,
           )
         : {
             ...settleInFlight(state, frame.payload.sessionId),
-            lastError: frame.payload.message,
+            lastError: actionableErrorMessage(frame.payload),
           };
 
     case 'feishu_push_result':

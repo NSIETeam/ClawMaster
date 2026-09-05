@@ -221,6 +221,19 @@ fn error_frame(session_id: Option<&str>, code: &str, message: &str) -> Value {
     )
 }
 
+fn model_gateway_error_frame(session_id: Option<&str>, error: &GatewayError) -> Value {
+    frame(
+        "error",
+        json!({
+            "sessionId": session_id,
+            "code": error.code(),
+            "message": error.message,
+            "retryable": error.retryable,
+            "uncertain": error.uncertain,
+        }),
+    )
+}
+
 impl NativeRuntime {
     fn workspace_for_session(state: &PersistedState, session_id: Option<&str>) -> PathBuf {
         session_id
@@ -1745,11 +1758,10 @@ impl NativeRuntime {
                 )])
             }
             Err(error) => {
-                return Ok(vec![error_frame(
-                    Some(&session_id),
-                    error.code(),
-                    &format!("压缩失败，原历史已保留：{error}"),
-                )])
+                let mut frame = model_gateway_error_frame(Some(&session_id), &error);
+                frame["payload"]["message"] =
+                    json!(format!("压缩失败，原历史已保留：{error}"));
+                return Ok(vec![frame]);
             }
         };
         let new_tokens = completion
@@ -2988,9 +3000,13 @@ impl NativeRuntime {
             }
             Err(error) => {
                 let message = error.to_string();
-                let code = match &error {
-                    ModelLoopError::Gateway(gateway) => gateway.code(),
-                    ModelLoopError::Runtime(_) => "model_runtime_failed",
+                let failure_frame = match &error {
+                    ModelLoopError::Gateway(gateway) => {
+                        model_gateway_error_frame(Some(&session_id), gateway)
+                    }
+                    ModelLoopError::Runtime(_) => {
+                        error_frame(Some(&session_id), "model_runtime_failed", &message)
+                    }
                 };
                 if let Ok(mut state) = self.state.lock() {
                     if let Some(session) = state
@@ -3003,10 +3019,7 @@ impl NativeRuntime {
                     }
                     let _ = self.persist(&state);
                 }
-                emit(
-                    app,
-                    error_frame(Some(&session_id), code, &message),
-                )?;
+                emit(app, failure_frame)?;
                 emit(
                     app,
                     frame(
@@ -3070,6 +3083,20 @@ fn emit(app: &AppHandle, value: Value) -> Result<(), String> {
 mod tests {
     use super::*;
     use std::sync::Mutex as TestMutex;
+
+    #[test]
+    fn model_gateway_errors_expose_retry_and_uncertainty_to_the_ui() {
+        let error = GatewayError {
+            kind: crate::native_model_gateway::GatewayErrorKind::StreamInterrupted,
+            message: "stream stopped".into(),
+            retryable: false,
+            uncertain: true,
+        };
+        let frame = model_gateway_error_frame(Some("session-1"), &error);
+        assert_eq!(frame["payload"]["code"], "model_stream_interrupted");
+        assert_eq!(frame["payload"]["retryable"], false);
+        assert_eq!(frame["payload"]["uncertain"], true);
+    }
 
     #[derive(Default)]
     struct MemoryCredentials(TestMutex<HashMap<String, String>>);

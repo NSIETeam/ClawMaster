@@ -921,6 +921,35 @@ describe('applyFrame 各帧分支', () => {
     expect(view.result.current.state.lastError).toBe('模型报错');
   });
 
+  it('error：向用户区分可重试与不确定的模型结果', () => {
+    const retryable = setup();
+    retryable.push({
+      type: 'error',
+      payload: {
+        sessionId: 's1',
+        code: 'model_rate_limited',
+        message: '服务限流',
+        retryable: true,
+        uncertain: false,
+      },
+    });
+    expect(retryable.view.result.current.state.lastError).toContain('可以安全重试');
+
+    const uncertain = setup();
+    uncertain.push({
+      type: 'error',
+      payload: {
+        sessionId: 's1',
+        code: 'model_stream_interrupted',
+        message: '输出中断',
+        retryable: false,
+        uncertain: true,
+      },
+    });
+    expect(uncertain.view.result.current.state.lastError).toContain('结果状态不确定');
+    expect(uncertain.view.result.current.state.lastError).toContain('未自动重试');
+  });
+
   it('error：无 sessionId 时兜底收口全部会话的在途消息', () => {
     const { view, push } = setup();
     push({
