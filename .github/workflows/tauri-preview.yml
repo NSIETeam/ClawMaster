@@ -34,9 +34,9 @@ jobs:
     name: Runtime, schedule, RPA and stress acceptance
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: '22.16.0', cache: npm }
       - name: Validate authorized release source
         if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
@@ -71,8 +71,8 @@ jobs:
           - { name: macOS-arm64, os: macos-15, target: aarch64-apple-darwin }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: '24.20.0', cache: npm }
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -89,7 +89,7 @@ jobs:
           ! grep -R -E 'clawmaster-node|better_sqlite3[.]node|agent-payload' packages/desktop/src-tauri/tauri.conf.json packages/desktop/src-tauri/src
       - run: npm run tauri:build --workspace=packages/desktop
       - run: npm run release:beta:gate --workspace=packages/desktop
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ClawMaster-${{ matrix.name }}
           path: |
@@ -107,8 +107,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with: { pattern: ClawMaster-*, path: release-assets, merge-multiple: true }
       - name: Verify Windows and macOS ARM64 release assets
         run: |

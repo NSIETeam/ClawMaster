@@ -5,6 +5,22 @@ import { describe, expect, it } from 'vitest';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 describe('cross-platform Tauri workflow contract', () => {
+  it('uses Node 24-native official GitHub Actions throughout CI and release workflows', async () => {
+    const workflows = await Promise.all([
+      'ci.yml',
+      'tauri-preview.yml',
+      'rpa-browser-e2e.yml',
+    ].map((name) => readFile(path.join(root, '.github/workflows', name), 'utf8')));
+    const source = workflows.join('\n');
+    expect(source).not.toMatch(/actions\/(?:checkout|setup-node)@v[1-6]\b/u);
+    expect(source).not.toMatch(/actions\/(?:upload-artifact|download-artifact)@v[1-4]\b/u);
+    expect(source).not.toContain("node-version: '22.13.0'");
+    expect(source).toContain('actions/checkout@v7');
+    expect(source).toContain('actions/setup-node@v7');
+    expect(source).toContain('actions/upload-artifact@v7');
+    expect(source).toContain('actions/download-artifact@v8');
+  });
+
   it('builds the supported matrix only after shared acceptance', async () => {
     const workflow = await readFile(path.join(root, '.github/workflows/tauri-preview.yml'), 'utf8');
     expect(workflow).toContain('needs: preflight');
