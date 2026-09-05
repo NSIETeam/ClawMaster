@@ -85,8 +85,8 @@ const allWorkspaces = [
   { path: 'packages/rpa', name: 'rpa' },
   { path: 'packages/core', name: 'core' },
   { path: 'packages/server', name: 'server' },
-  // 注意: packages/desktop 刻意不进主链 (独立 electron/webpack 构建)。
-  // 用 `npm run build --workspace=packages/desktop` 单独构建, 避免 electron native 拖垮 core/server/CI 主链。
+  // Desktop is built separately because its Rust/Tauri toolchain is platform-specific.
+  // `npm run build --workspace=packages/desktop` verifies Rust and the production renderer.
 ];
 
 // Filter workspaces based on NPM_PUBLISH_MODE

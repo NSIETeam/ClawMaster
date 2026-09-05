@@ -29,10 +29,15 @@ describe('historical desktop code contract', () => {
     expect(deleted.filter((relative) => existsSync(path.join(desktopRoot, relative)))).toEqual([]);
   });
 
-  it('keeps the supported Electron compatibility shell explicit', () => {
+  it('keeps Electron compatibility out of the supported desktop commands', () => {
     const packageJson = JSON.parse(readFileSync(path.join(desktopRoot, 'package.json'), 'utf8'));
-    expect(packageJson.main).toBe('dist/main/index.js');
-    expect(packageJson.scripts.start).toBe('electron .');
+    expect(packageJson.main).toBeUndefined();
+    expect(packageJson.scripts.start).toBe('npm run tauri:dev');
+    expect(packageJson.scripts.build).toContain('tauri:native:verify');
+    expect(packageJson.scripts.dist).toBe('npm run tauri:build');
+    expect(packageJson.scripts['dist:dmg:x64']).toBeUndefined();
+    expect(packageJson.scripts['legacy:start']).toContain('electron');
+    expect(packageJson.scripts['legacy:build']).toContain('legacy:build:main');
     expect(packageJson.scripts['dist:green']).toBeUndefined();
     expect(packageJson.scripts['dist:all']).toBeUndefined();
     expect(packageJson.devDependencies['css-loader']).toBeUndefined();
