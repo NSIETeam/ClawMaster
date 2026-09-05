@@ -31,6 +31,7 @@ brotli = "8"
 arboard = { version = "3.6.1", default-features = false, features = ["wayland-data-control"] }
 chrono = "0.4"
 chrono-tz = "0.10"
+futures-util = "0.3"
 sha2 = "0.10"
 tauri = { version = "2", features = ["unstable"] }
 tauri-plugin-dialog = "2"
@@ -40,6 +41,7 @@ zip = { version = "2.2", default-features = false, features = ["deflate"] }
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-single-instance = "2"
 tokio = { version = "1", features = ["io-util", "macros", "process", "sync", "time"] }
+tokio-tungstenite = { version = "0.26.2", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
 time = { version = "0.3", features = ["formatting"] }
 
 [dev-dependencies]

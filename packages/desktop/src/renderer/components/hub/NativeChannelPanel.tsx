@@ -50,7 +50,7 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
         ...(agentId.trim() ? { agentId: agentId.trim() } : {}),
       });
       setConfig(next); setAppSecret('');
-      setMessage(provider === 'feishu' || provider === 'lark'
+      setMessage(provider === 'feishu' || provider === 'lark' || provider === 'dingtalk'
         ? '官方鉴权与长连接端点验证通过，Rust 正在建立消息流。'
         : '官方鉴权通过，凭据已保存到系统钥匙串。入站消息流尚未启用。');
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
@@ -86,7 +86,7 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
     <Card className="claw-hub__card--pad">
       <div className="claw-hub__row-name">{config ? '凭据已验证' : '尚未验证凭据'}</div>
       <p className="claw-hub__field-hint">{config ? `最近验证：${new Date(config.verifiedAt).toLocaleString('zh-CN')}` : 'Secret 不会写入配置文件或发送给模型。'}</p>
-      {config && (provider === 'feishu' || provider === 'lark') ? <p className="claw-hub__field-hint">
+      {config && (provider === 'feishu' || provider === 'lark' || provider === 'dingtalk') ? <p className="claw-hub__field-hint">
         长连接：{status?.state === 'connected' ? '已连接' : status?.state === 'connecting' ? '连接中' : status?.state === 'failed' ? `失败：${status.lastError ?? '未知错误'}` : '未启动'}
         {status?.lastEventAt ? `；最近事件：${new Date(status.lastEventAt).toLocaleString('zh-CN')}` : ''}
         {status?.state === 'connected' && status.lastError ? `；最近处理错误：${status.lastError}` : ''}

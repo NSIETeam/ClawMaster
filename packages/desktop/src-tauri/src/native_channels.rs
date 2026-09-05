@@ -1,5 +1,6 @@
 use crate::native_models::{system_credential_store, CredentialStore};
 use crate::native_runtime::NativeRuntime;
+use futures_util::{SinkExt, StreamExt};
 use lark_channel::lark_openapi::{
     TokioTungsteniteWebSocketTransport, WebSocketClientConfig, WebSocketConnection,
     WebSocketEndpoint, WebSocketEventAck,
@@ -18,10 +19,15 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
+use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 const MAX_ID_CHARS: usize = 200;
 const INBOUND_QUEUE_CAPACITY: usize = 32;
 const SEEN_MESSAGE_CAPACITY: usize = 1024;
+const DINGTALK_CALLBACK_TOPIC: &str = "/v1.0/im/bot/messages/get";
+const DINGTALK_STREAM_ENDPOINT: &str = "https://api.dingtalk.com/v1.0/gateway/connections/open";
+const DINGTALK_KEEPALIVE_IDLE_SECONDS: u64 = 120;
+const DINGTALK_PONG_TIMEOUT_SECONDS: u64 = 5;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,6 +71,23 @@ struct InboundMessage {
     chat_id: String,
     message_id: String,
     text: String,
+    reply_webhook: Option<url::Url>,
+}
+
+#[derive(Debug)]
+struct DingTalkEndpoint {
+    endpoint: url::Url,
+    ticket: String,
+}
+
+impl DingTalkEndpoint {
+    fn websocket_url(&self) -> Result<url::Url, String> {
+        let mut endpoint = self.endpoint.clone();
+        endpoint
+            .query_pairs_mut()
+            .append_pair("ticket", &self.ticket);
+        Ok(endpoint)
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -213,6 +236,143 @@ fn inbound_message(
         chat_id: clean(&message.chat_id, "飞书 Chat ID")?,
         message_id: clean(&message.message_id, "飞书 Message ID")?,
         text: clean_message(&message.text)?,
+        reply_webhook: None,
+    }))
+}
+
+fn is_dingtalk_host(host: Option<&str>) -> bool {
+    host.is_some_and(|host| host == "dingtalk.com" || host.ends_with(".dingtalk.com"))
+}
+
+fn dingtalk_connection_request(app_id: &str, app_secret: &str) -> Value {
+    json!({
+        "clientId": app_id,
+        "clientSecret": app_secret,
+        "subscriptions": [{"type": "CALLBACK", "topic": DINGTALK_CALLBACK_TOPIC}],
+        "ua": format!("ClawMaster/{}", env!("CARGO_PKG_VERSION"))
+    })
+}
+
+fn parse_dingtalk_endpoint(body: &Value) -> Result<DingTalkEndpoint, String> {
+    let endpoint = body
+        .get("endpoint")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "钉钉长连接响应缺少 endpoint".to_string())?;
+    let ticket = body
+        .get("ticket")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+    if ticket.is_empty() || ticket.len() > 4096 || ticket.chars().any(char::is_control) {
+        return Err("钉钉长连接 Ticket 为空、过长或包含控制字符".into());
+    }
+    let endpoint =
+        url::Url::parse(endpoint).map_err(|error| format!("钉钉长连接 endpoint 无效: {error}"))?;
+    if endpoint.scheme() != "wss"
+        || !is_dingtalk_host(endpoint.host_str())
+        || !endpoint.username().is_empty()
+        || endpoint.password().is_some()
+    {
+        return Err("钉钉长连接 endpoint 必须是官方 WSS 地址".into());
+    }
+    Ok(DingTalkEndpoint {
+        endpoint,
+        ticket: ticket.to_string(),
+    })
+}
+
+fn dingtalk_inbound_message(
+    frame: &Value,
+    now_millis: i64,
+) -> Result<Option<InboundMessage>, String> {
+    if frame.get("type").and_then(Value::as_str) != Some("CALLBACK")
+        || frame.pointer("/headers/topic").and_then(Value::as_str) != Some(DINGTALK_CALLBACK_TOPIC)
+    {
+        return Ok(None);
+    }
+    let data = frame
+        .get("data")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "钉钉回调缺少 data".to_string())?;
+    let callback: Value =
+        serde_json::from_str(data).map_err(|error| format!("钉钉机器人回调无效: {error}"))?;
+    if callback.get("msgtype").and_then(Value::as_str) != Some("text") {
+        return Ok(None);
+    }
+    let conversation_type = callback
+        .get("conversationType")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if conversation_type == "2"
+        && !callback
+            .get("isInAtList")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    {
+        return Ok(None);
+    }
+    if !matches!(conversation_type, "1" | "2") {
+        return Ok(None);
+    }
+    let expires_at = callback
+        .get("sessionWebhookExpiredTime")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    if expires_at <= now_millis {
+        return Err("钉钉会话回复地址已过期".into());
+    }
+    let reply_webhook = url::Url::parse(
+        callback
+            .get("sessionWebhook")
+            .and_then(Value::as_str)
+            .unwrap_or(""),
+    )
+    .map_err(|error| format!("钉钉会话回复地址无效: {error}"))?;
+    if reply_webhook.scheme() != "https"
+        || !is_dingtalk_host(reply_webhook.host_str())
+        || !reply_webhook.username().is_empty()
+        || reply_webhook.password().is_some()
+        || reply_webhook.port().is_some_and(|port| port != 443)
+    {
+        return Err("钉钉会话回复地址不是官方 HTTPS 地址".into());
+    }
+    Ok(Some(InboundMessage {
+        provider: "dingtalk".into(),
+        chat_id: clean(
+            callback
+                .get("conversationId")
+                .and_then(Value::as_str)
+                .unwrap_or(""),
+            "钉钉 Conversation ID",
+        )?,
+        message_id: clean(
+            callback.get("msgId").and_then(Value::as_str).unwrap_or(""),
+            "钉钉 Message ID",
+        )?,
+        text: clean_message(
+            callback
+                .pointer("/text/content")
+                .and_then(Value::as_str)
+                .unwrap_or(""),
+        )?,
+        reply_webhook: Some(reply_webhook),
+    }))
+}
+
+fn dingtalk_ack(frame: &Value, code: u16, message: &str, data: &str) -> Result<Value, String> {
+    let message_id = clean(
+        frame
+            .pointer("/headers/messageId")
+            .and_then(Value::as_str)
+            .unwrap_or(""),
+        "钉钉 Stream Message ID",
+    )?;
+    Ok(json!({
+        "code": code,
+        "headers": {"messageId": message_id, "contentType": "application/json"},
+        "message": message,
+        "data": data
     }))
 }
 
@@ -396,6 +556,24 @@ async fn send_feishu_text(
     platform_result(&body)
 }
 
+async fn send_dingtalk_session_text(
+    http: &Client,
+    webhook: &url::Url,
+    text: &str,
+) -> Result<(), String> {
+    let response = http
+        .post(webhook.clone())
+        .json(&json!({"msgtype": "text", "text": {"content": text}}))
+        .send()
+        .await
+        .map_err(|error| format!("钉钉会话回复请求失败: {error}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!("钉钉会话回复返回 HTTP {status}"));
+    }
+    Ok(())
+}
+
 fn parse_feishu_endpoint(body: &Value) -> Result<WebSocketEndpoint, String> {
     let code = body.get("code").and_then(Value::as_i64).unwrap_or(-1);
     if code != 0 {
@@ -450,6 +628,32 @@ async fn feishu_websocket_endpoint(
     parse_feishu_endpoint(&body)
 }
 
+async fn dingtalk_websocket_endpoint(
+    http: &Client,
+    app_id: &str,
+    app_secret: &str,
+) -> Result<DingTalkEndpoint, String> {
+    let response = http
+        .post(DINGTALK_STREAM_ENDPOINT)
+        .json(&dingtalk_connection_request(app_id, app_secret))
+        .send()
+        .await
+        .map_err(|error| format!("连接钉钉 Stream 服务失败: {error}"))?;
+    let status = response.status();
+    let body: Value = response
+        .json()
+        .await
+        .map_err(|error| format!("钉钉 Stream 接入点响应无效: {error}"))?;
+    if !status.is_success() {
+        let message = body
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or("平台未返回错误说明");
+        return Err(format!("钉钉 Stream 服务返回 HTTP {status}: {message}"));
+    }
+    parse_dingtalk_endpoint(&body)
+}
+
 fn record_channel_error(
     statuses: &Arc<Mutex<HashMap<String, ChannelStatus>>>,
     provider: &str,
@@ -497,20 +701,185 @@ async fn run_inbound_worker(
                 )
                 .await?;
             let reply = bounded_reply(&reply);
-            send_feishu_text(
-                &http,
-                &config,
-                &app_secret,
-                "chat_id",
-                &message.chat_id,
-                &reply,
-            )
-            .await
+            if let Some(webhook) = message.reply_webhook.as_ref() {
+                send_dingtalk_session_text(&http, webhook, &reply).await
+            } else {
+                send_feishu_text(
+                    &http,
+                    &config,
+                    &app_secret,
+                    "chat_id",
+                    &message.chat_id,
+                    &reply,
+                )
+                .await
+            }
         }
         .await;
         if let Err(error) = result {
             record_channel_error(&statuses, &message.provider, error);
         }
+    }
+}
+
+async fn wait_for_reconnect(shutdown: &mut watch::Receiver<bool>, delay_seconds: u64) -> bool {
+    tokio::select! {
+        changed = shutdown.changed() => changed.is_err() || *shutdown.borrow(),
+        _ = tokio::time::sleep(std::time::Duration::from_secs(delay_seconds)) => false,
+    }
+}
+
+async fn run_dingtalk_stream(
+    app: AppHandle,
+    http: Client,
+    config: ChannelConfig,
+    app_secret: String,
+    statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    sender: mpsc::Sender<InboundMessage>,
+    mut shutdown: watch::Receiver<bool>,
+) {
+    let provider = config.provider.clone();
+    let seen = Arc::new(Mutex::new(VecDeque::new()));
+    let mut retry_seconds = 3_u64;
+    loop {
+        if *shutdown.borrow() {
+            return;
+        }
+        set_channel_status(&statuses, ChannelStatus::new(&provider, "connecting"));
+        let connection = async {
+            let endpoint = dingtalk_websocket_endpoint(&http, &config.app_id, &app_secret).await?;
+            let websocket_url = endpoint.websocket_url()?;
+            connect_async(websocket_url.as_str())
+                .await
+                .map(|(socket, _)| socket)
+                .map_err(|error| format!("钉钉 WebSocket 连接失败: {error}"))
+        }
+        .await;
+        let mut socket = match connection {
+            Ok(socket) => socket,
+            Err(error) => {
+                let mut status = ChannelStatus::new(&provider, "failed");
+                status.last_error = Some(error);
+                set_channel_status(&statuses, status);
+                if wait_for_reconnect(&mut shutdown, retry_seconds).await {
+                    return;
+                }
+                retry_seconds = (retry_seconds * 2).min(60);
+                continue;
+            }
+        };
+        retry_seconds = 3;
+        set_channel_status(&statuses, ChannelStatus::new(&provider, "connected"));
+        let disconnect_reason = loop {
+            let incoming = tokio::select! {
+                changed = shutdown.changed() => {
+                    if changed.is_err() || *shutdown.borrow() {
+                        let _ = socket.close(None).await;
+                        return;
+                    }
+                    continue;
+                }
+                incoming = socket.next() => incoming,
+                _ = tokio::time::sleep(std::time::Duration::from_secs(DINGTALK_KEEPALIVE_IDLE_SECONDS)) => {
+                    if let Err(error) = socket.send(Message::Ping(Vec::new().into())).await {
+                        break format!("钉钉 WebSocket 心跳发送失败: {error}");
+                    }
+                    tokio::select! {
+                        changed = shutdown.changed() => {
+                            if changed.is_err() || *shutdown.borrow() {
+                                let _ = socket.close(None).await;
+                                return;
+                            }
+                            continue;
+                        }
+                        result = tokio::time::timeout(
+                            std::time::Duration::from_secs(DINGTALK_PONG_TIMEOUT_SECONDS),
+                            socket.next(),
+                        ) => match result {
+                            Ok(incoming) => incoming,
+                            Err(_) => break "钉钉 WebSocket 心跳超时".into(),
+                        },
+                    }
+                },
+            };
+            let frame = match incoming {
+                Some(Ok(Message::Text(text))) => serde_json::from_str::<Value>(text.as_str()),
+                Some(Ok(Message::Binary(bytes))) => serde_json::from_slice::<Value>(&bytes),
+                Some(Ok(Message::Ping(data))) => {
+                    if let Err(error) = socket.send(Message::Pong(data)).await {
+                        break format!("钉钉 WebSocket 心跳回复失败: {error}");
+                    }
+                    continue;
+                }
+                Some(Ok(Message::Close(_))) | None => break "钉钉 WebSocket 已关闭".into(),
+                Some(Ok(_)) => continue,
+                Some(Err(error)) => break format!("钉钉 WebSocket 读取失败: {error}"),
+            };
+            let frame = match frame {
+                Ok(frame) => frame,
+                Err(error) => {
+                    record_channel_error(
+                        &statuses,
+                        &provider,
+                        format!("钉钉 Stream 帧无效: {error}"),
+                    );
+                    continue;
+                }
+            };
+            let is_disconnect = frame.get("type").and_then(Value::as_str) == Some("SYSTEM")
+                && frame.pointer("/headers/topic").and_then(Value::as_str) == Some("disconnect");
+            let now_millis = chrono::Utc::now().timestamp_millis();
+            let result = dingtalk_inbound_message(&frame, now_millis);
+            let ack = match result {
+                Ok(Some(message))
+                    if !app
+                        .state::<NativeRuntime>()
+                        .has_channel_message(&provider, &message.message_id)
+                        .unwrap_or(false)
+                        && mark_message_seen(&seen, &message.message_id) =>
+                {
+                    let message_id = message.message_id.clone();
+                    match sender.try_send(message) {
+                        Ok(()) => dingtalk_ack(&frame, 200, "ok", ""),
+                        Err(mpsc::error::TrySendError::Full(_))
+                        | Err(mpsc::error::TrySendError::Closed(_)) => {
+                            forget_message(&seen, &message_id);
+                            dingtalk_ack(&frame, 500, "ClawMaster inbound queue unavailable", "")
+                        }
+                    }
+                }
+                Ok(Some(_)) | Ok(None) => dingtalk_ack(&frame, 200, "ok", ""),
+                Err(error) => {
+                    record_channel_error(&statuses, &provider, error.clone());
+                    dingtalk_ack(&frame, 500, &error, "")
+                }
+            };
+            let ack = match ack
+                .and_then(|value| serde_json::to_string(&value).map_err(|error| error.to_string()))
+            {
+                Ok(ack) => ack,
+                Err(error) => {
+                    record_channel_error(&statuses, &provider, error);
+                    continue;
+                }
+            };
+            if let Err(error) = socket.send(Message::Text(ack.into())).await {
+                break format!("钉钉 Stream ACK 发送失败: {error}");
+            }
+            let mut status = ChannelStatus::new(&provider, "connected");
+            status.last_event_at = Some(chrono::Utc::now().to_rfc3339());
+            set_channel_status(&statuses, status);
+            if is_disconnect {
+                break "钉钉 Stream 服务要求重新连接".into();
+            }
+        };
+        let mut status = ChannelStatus::new(&provider, "connecting");
+        status.last_error = Some(disconnect_reason);
+        set_channel_status(&statuses, status);
+        if wait_for_reconnect(&mut shutdown, retry_seconds).await {
+            return;
+        }
+        retry_seconds = (retry_seconds * 2).min(60);
     }
 }
 
@@ -529,6 +898,7 @@ impl NativeChannelState {
             credentials: system_credential_store(),
             http: Client::builder()
                 .https_only(true)
+                .redirect(reqwest::redirect::Policy::none())
                 .timeout(std::time::Duration::from_secs(15))
                 .build()
                 .map_err(|error| format!("无法初始化消息平台 HTTPS 客户端: {error}"))?,
@@ -657,6 +1027,55 @@ impl NativeChannelState {
         Ok(())
     }
 
+    fn start_dingtalk_connector(
+        &self,
+        config: ChannelConfig,
+        app_secret: String,
+        app: AppHandle,
+    ) -> Result<(), String> {
+        let provider = config.provider.clone();
+        let mut tasks = self
+            .tasks
+            .lock()
+            .map_err(|_| "企业消息任务锁不可用".to_string())?;
+        if let Some(tasks) = tasks.remove(&provider) {
+            let _ = app.state::<NativeRuntime>().cancel_channel_turns(&provider);
+            let _ = tasks.shutdown.send(true);
+            tasks.event.abort();
+        }
+        let statuses = Arc::clone(&self.statuses);
+        set_channel_status(&statuses, ChannelStatus::new(&provider, "connecting"));
+        let (sender, receiver) = mpsc::channel(INBOUND_QUEUE_CAPACITY);
+        let (shutdown, shutdown_receiver) = watch::channel(false);
+        let worker = tokio::spawn(run_inbound_worker(
+            app.clone(),
+            self.http.clone(),
+            config.clone(),
+            app_secret.clone(),
+            Arc::clone(&statuses),
+            receiver,
+            shutdown_receiver.clone(),
+        ));
+        let event = tokio::spawn(run_dingtalk_stream(
+            app,
+            self.http.clone(),
+            config,
+            app_secret,
+            statuses,
+            sender,
+            shutdown_receiver,
+        ));
+        tasks.insert(
+            provider,
+            ChannelTasks {
+                event,
+                _worker: worker,
+                shutdown,
+            },
+        );
+        Ok(())
+    }
+
     pub fn start_configured(&self, app: AppHandle) {
         let configs = self
             .configs
@@ -664,12 +1083,22 @@ impl NativeChannelState {
             .map(|values| values.values().cloned().collect::<Vec<_>>())
             .unwrap_or_default();
         for config in configs {
-            if !matches!(config.provider.as_str(), "feishu" | "lark") {
+            if !matches!(config.provider.as_str(), "feishu" | "lark" | "dingtalk") {
                 continue;
             }
-            match self.credentials.get(&secret_id(&config.provider)) {
+            let provider = config.provider.clone();
+            match self.credentials.get(&secret_id(&provider)) {
                 Ok(secret) => {
-                    let _ = self.start_feishu_connector(config, secret, app.clone());
+                    let result = if config.provider == "dingtalk" {
+                        self.start_dingtalk_connector(config, secret, app.clone())
+                    } else {
+                        self.start_feishu_connector(config, secret, app.clone())
+                    };
+                    if let Err(error) = result {
+                        let mut status = ChannelStatus::new(&provider, "failed");
+                        status.last_error = Some(error);
+                        set_channel_status(&self.statuses, status);
+                    }
                 }
                 Err(error) => {
                     let mut status = ChannelStatus::new(&config.provider, "failed");
@@ -687,10 +1116,10 @@ impl NativeChannelState {
             .map_err(|_| "企业消息任务锁不可用".to_string())?
             .remove(provider)
         {
-            app.state::<NativeRuntime>()
-                .cancel_channel_turns(provider)?;
+            let cancel_result = app.state::<NativeRuntime>().cancel_channel_turns(provider);
             let _ = tasks.shutdown.send(true);
             tasks.event.abort();
+            cancel_result?;
         }
         set_channel_status(&self.statuses, ChannelStatus::new(provider, "idle"));
         Ok(())
@@ -747,11 +1176,16 @@ pub async fn channel_config_save(
         return Err("企业微信需要 Agent ID".into());
     }
     let token = access_token(&state.http, &provider, &app_id, &app_secret).await?;
-    let bot_open_id = if matches!(provider.as_str(), "feishu" | "lark") {
-        feishu_websocket_endpoint(&state.http, &provider, &app_id, &app_secret).await?;
-        Some(feishu_bot_open_id(&state.http, &provider, &token).await?)
-    } else {
-        None
+    let bot_open_id = match provider.as_str() {
+        "feishu" | "lark" => {
+            feishu_websocket_endpoint(&state.http, &provider, &app_id, &app_secret).await?;
+            Some(feishu_bot_open_id(&state.http, &provider, &token).await?)
+        }
+        "dingtalk" => {
+            dingtalk_websocket_endpoint(&state.http, &app_id, &app_secret).await?;
+            None
+        }
+        _ => None,
     };
     state.credentials.set(&secret_id(&provider), &app_secret)?;
     let config = ChannelConfig {
@@ -768,8 +1202,14 @@ pub async fn channel_config_save(
     configs.insert(provider, config.clone());
     state.persist(&configs)?;
     drop(configs);
-    if matches!(config.provider.as_str(), "feishu" | "lark") {
-        state.start_feishu_connector(config.clone(), app_secret, app)?;
+    match config.provider.as_str() {
+        "feishu" | "lark" => {
+            state.start_feishu_connector(config.clone(), app_secret, app)?;
+        }
+        "dingtalk" => {
+            state.start_dingtalk_connector(config.clone(), app_secret, app)?;
+        }
+        _ => {}
     }
     Ok(config)
 }
@@ -1003,5 +1443,107 @@ mod tests {
         let bounded = bounded_reply(&"字".repeat(5000));
         assert!(bounded.ends_with("[回复已截断]"));
         assert!(bounded.chars().count() <= 4000);
+    }
+
+    fn dingtalk_callback_frame(conversation_type: &str, mentioned: bool) -> Value {
+        json!({
+            "specVersion": "1.0",
+            "type": "CALLBACK",
+            "headers": {
+                "messageId": "stream-message-1",
+                "topic": "/v1.0/im/bot/messages/get"
+            },
+            "data": serde_json::to_string(&json!({
+                "conversationId": "cid-example",
+                "conversationType": conversation_type,
+                "msgId": "chat-message-1",
+                "msgtype": "text",
+                "senderStaffId": "user-1",
+                "isInAtList": mentioned,
+                "sessionWebhook": "https://oapi.dingtalk.com/robot/sendBySession?session=opaque",
+                "sessionWebhookExpiredTime": 4_102_444_800_000_i64,
+                "text": {"content": "  hello ClawMaster  "}
+            })).expect("callback data")
+        })
+    }
+
+    #[test]
+    fn validates_dingtalk_stream_endpoint_and_subscription_request() {
+        let endpoint = parse_dingtalk_endpoint(&json!({
+            "endpoint": "wss://wss-open-connection.dingtalk.com/connect",
+            "ticket": "ticket-1"
+        }))
+        .expect("valid endpoint");
+        assert_eq!(
+            endpoint.websocket_url().expect("websocket url").as_str(),
+            "wss://wss-open-connection.dingtalk.com/connect?ticket=ticket-1"
+        );
+        assert!(parse_dingtalk_endpoint(&json!({
+            "endpoint": "https://example.com/not-websocket",
+            "ticket": "ticket-1"
+        }))
+        .is_err());
+        assert!(parse_dingtalk_endpoint(&json!({"endpoint": "wss://example.com"})).is_err());
+
+        let request = dingtalk_connection_request("app-key", "app-secret");
+        assert_eq!(request["clientId"], "app-key");
+        assert_eq!(request["clientSecret"], "app-secret");
+        assert_eq!(request["subscriptions"][0]["type"], "CALLBACK");
+        assert_eq!(
+            request["subscriptions"][0]["topic"],
+            "/v1.0/im/bot/messages/get"
+        );
+    }
+
+    #[test]
+    fn parses_private_and_mentioned_dingtalk_text_messages() {
+        let private = dingtalk_inbound_message(&dingtalk_callback_frame("1", false), 0)
+            .expect("private callback")
+            .expect("private message");
+        assert_eq!(private.provider, "dingtalk");
+        assert_eq!(private.chat_id, "cid-example");
+        assert_eq!(private.message_id, "chat-message-1");
+        assert_eq!(private.text, "hello ClawMaster");
+        assert_eq!(
+            private.reply_webhook.expect("reply webhook").host_str(),
+            Some("oapi.dingtalk.com")
+        );
+
+        assert!(
+            dingtalk_inbound_message(&dingtalk_callback_frame("2", false), 0)
+                .expect("unmentioned group")
+                .is_none()
+        );
+        assert!(
+            dingtalk_inbound_message(&dingtalk_callback_frame("2", true), 0)
+                .expect("mentioned group")
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn rejects_unsafe_or_expired_dingtalk_reply_webhooks() {
+        let mut unsafe_frame = dingtalk_callback_frame("1", false);
+        let mut data: Value = serde_json::from_str(unsafe_frame["data"].as_str().unwrap()).unwrap();
+        data["sessionWebhook"] = json!("https://attacker.example/steal");
+        unsafe_frame["data"] = json!(serde_json::to_string(&data).unwrap());
+        assert!(dingtalk_inbound_message(&unsafe_frame, 0).is_err());
+
+        assert!(dingtalk_inbound_message(
+            &dingtalk_callback_frame("1", false),
+            4_102_444_800_001_i64
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn acknowledges_dingtalk_frames_with_the_source_message_id() {
+        let frame = dingtalk_callback_frame("1", true);
+        let ack = dingtalk_ack(&frame, 200, "ok", "").expect("acknowledgement");
+        assert_eq!(ack["code"], 200);
+        assert_eq!(ack["headers"]["messageId"], "stream-message-1");
+        assert_eq!(ack["headers"]["contentType"], "application/json");
+        assert_eq!(ack["message"], "ok");
+        assert_eq!(ack["data"], "");
     }
 }
