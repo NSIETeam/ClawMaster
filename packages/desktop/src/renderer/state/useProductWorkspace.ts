@@ -36,6 +36,7 @@ export interface ProductWorkspaceState {
   workspace: ProductWorkspaceSnapshot | null;
   schedules: ScheduleItemInfo[];
   pendingAutoSkills: AutoSkillCandidateInfo[];
+  realtimePatterns: Array<Extract<ServerToClient, { type: 'realtime_pattern' }>['payload']>;
   lastAutoSkillAction: {
     kind: 'confirmed' | 'rejected';
     candidateId: string;
@@ -55,6 +56,7 @@ export const initialProductWorkspaceState: ProductWorkspaceState = {
   workspace: null,
   schedules: [],
   pendingAutoSkills: [],
+  realtimePatterns: [],
   lastAutoSkillAction: null,
   selectedDate: null,
   lastInvite: null,
@@ -97,6 +99,16 @@ export function productWorkspaceReducer(
       ...state,
       pendingAutoSkills: frame.payload.candidates,
       lastAutoSkillAction: frame.payload.lastAction ?? null,
+      error: null,
+    };
+  }
+  if (frame.type === 'realtime_pattern') {
+    const withoutOlderCopy = state.realtimePatterns.filter(
+      (item) => item.pattern !== frame.payload.pattern,
+    );
+    return {
+      ...state,
+      realtimePatterns: [...withoutOlderCopy, frame.payload].slice(-5),
       error: null,
     };
   }

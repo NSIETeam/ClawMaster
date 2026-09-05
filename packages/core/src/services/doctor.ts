@@ -135,9 +135,7 @@ const defaultRunner: CommandRunner = (command, timeoutMs) =>
   });
 
 /** 默认模块解析器：相对本文件所在包解析。 */
-const defaultResolver: ModuleResolver = (moduleName) => {
-  return resolveRuntimeModule(moduleName);
-};
+const defaultResolver: ModuleResolver = (moduleName) => resolveRuntimeModule(moduleName);
 
 const defaultBrowserExecutableResolver: BrowserExecutableResolver = (
   moduleName,

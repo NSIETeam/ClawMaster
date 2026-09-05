@@ -273,6 +273,28 @@ describe('InMemorySessionStore', () => {
       }).createSession().workspacePath).toBe('/Users/tester');
     });
 
+    it('记录默认、手动与自动工作目录归类来源', () => {
+      const scoped = new InMemorySessionStore({ defaultWorkspacePath: '/Users/tester' });
+      const created = scoped.createSession();
+      expect(created.workspaceAssignment?.mode).toBe('default');
+
+      scoped.patchSessionWorkspace(created.sessionId, '/Users/tester/project');
+      expect(scoped.getSession(created.sessionId)?.workspaceAssignment?.mode).toBe('manual');
+
+      scoped.patchSessionWorkspace(created.sessionId, '/Users/tester/other', {
+        mode: 'automatic',
+        confidence: 0.92,
+        matchedBy: 'project_name',
+        assignedAt: 42,
+      });
+      expect(scoped.getSession(created.sessionId)?.workspaceAssignment).toEqual({
+        mode: 'automatic',
+        confidence: 0.92,
+        matchedBy: 'project_name',
+        assignedAt: 42,
+      });
+    });
+
     it('对不存在 session 调 setStatus 不抛、不广播', () => {
       expect(() => store.setStatus('no', 'error')).not.toThrow();
     });

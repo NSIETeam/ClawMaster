@@ -60,6 +60,8 @@ export interface SkillCandidate {
   reason: string;
   /** 建议的文件路径 */
   filePath: string;
+  /** 全部有效证据来自同一项目时保留该项目。 */
+  projectRoot?: string;
   /** 确定性质量门禁评分，避免把模型的自我评价当事实。 */
   qualityScore?: number;
   /** 基于跨天次数和相关样本量计算的置信度。 */
@@ -139,6 +141,18 @@ function portablePendingCandidate(candidate: SkillCandidate): SkillCandidate {
       'SKILL.md',
     ),
   };
+}
+
+function inferCandidateProjectRoot(entries: readonly WorkLogEntry[]): string | undefined {
+  const rooted = entries
+    .map((entry) => entry.projectRoot?.trim())
+    .filter((value): value is string => Boolean(value))
+    .map((value) => path.resolve(value));
+  if (rooted.length < 2) return undefined;
+  const normalized = new Set(rooted.map((value) => (
+    process.platform === 'win32' ? value.toLocaleLowerCase() : value
+  )));
+  return normalized.size === 1 ? rooted[0] : undefined;
 }
 
 function pendingCandidatesPath(): string {
@@ -414,6 +428,7 @@ export async function generateSkillCandidates(
       skillContent,
       reason: `检测到你在过去 ${count} 天中重复执行"${pattern}"，出现 ${count} 次。生成此 Skill 后，ClawMaster 会在你说"${steps[0]}"时自动按此流程执行。`,
       filePath,
+      projectRoot: inferCandidateProjectRoot(entries),
       knowledgeEvidence,
     });
   }
@@ -545,6 +560,9 @@ async function generateWorkResultSkillCandidates(
       skillContent,
       reason: `检测到你最近多次让 ClawMaster 完成「${title}」类成果，跨 ${dates.size} 天出现 ${samples.length} 次。生成 Skill 后，ClawMaster 会复用你的常见输入、交付格式和验收步骤。`,
       filePath,
+      projectRoot: inferCandidateProjectRoot(
+        relatedSamples.slice(-8).map((sample) => sample.entry),
+      ),
       knowledgeEvidence: selectRelevantKnowledgeEvidence(
         `${title} ${sortedSamples.map((sample) => sample.entry.userInput || '').join(' ')}`,
         personalKnowledge,
@@ -1038,6 +1056,7 @@ async function callLLMForSkillCandidates(
       skillContent: fullSkillContent,
       reason: s.occurrenceNote || `ClawMaster 从你的工作习惯中发现了模式"${s.title || skillName}"`,
       filePath,
+      projectRoot: inferCandidateProjectRoot(evidence.entries),
       knowledgeEvidence,
     });
   }
@@ -1180,7 +1199,10 @@ export async function confirmPendingSkill(
     (item) => item.id === candidateId,
   );
   if (!candidate) throw new Error('自动 Skill 候选不存在或已处理');
-  const savedPath = await confirmAndSaveSkill(candidate, options);
+  const savedPath = await confirmAndSaveSkill(candidate, {
+    ...options,
+    ...(candidate.projectRoot ? { projectRoot: candidate.projectRoot } : {}),
+  });
   await removePendingSkill(candidateId);
   return savedPath;
 }
@@ -1276,6 +1298,8 @@ function isSkillCandidate(value: unknown): value is SkillCandidate {
     && typeof item.skillContent === 'string'
     && typeof item.reason === 'string'
     && typeof item.filePath === 'string'
+    && (item.projectRoot === undefined
+      || (typeof item.projectRoot === 'string' && path.isAbsolute(item.projectRoot)))
     && (item.qualityScore === undefined || typeof item.qualityScore === 'number')
     && (item.confidence === undefined || typeof item.confidence === 'number')
     && (item.evidence === undefined

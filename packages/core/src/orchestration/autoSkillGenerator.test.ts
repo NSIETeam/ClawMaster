@@ -54,7 +54,12 @@ function repeatedPatternLogs(): Record<string, WorkLogEntry[]> {
   };
 }
 
-function workResult(title: string, day: number, userInput: string): WorkLogEntry {
+function workResult(
+  title: string,
+  day: number,
+  userInput: string,
+  projectRoot?: string,
+): WorkLogEntry {
   return {
     timestamp: `2026-07-${String(day).padStart(2, '0')}T10:00:00.000Z`,
     toolName: 'otto_work_result',
@@ -65,6 +70,7 @@ function workResult(title: string, day: number, userInput: string): WorkLogEntry
     taskTitle: title,
     userInput,
     details: `已完成 ${title}`,
+    projectRoot,
   };
 }
 
@@ -222,6 +228,25 @@ describe('AutoSkillGenerator 个人 Skill 候选闭环', () => {
     );
     await expect(fs.readFile(savedPath, 'utf8')).resolves.toContain(`name: ${candidate.name}`);
     await expect(fs.access(candidate.filePath)).rejects.toThrow();
+  });
+
+  it('重复成果来自同一项目时自动保留归属并默认安装到该项目', async () => {
+    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'otto-auto-skill-source-project-'));
+    tempDirs.push(projectRoot);
+    workLogMock.readDateRange.mockResolvedValueOnce({
+      '2026-07-08': [workResult('品牌营销方案', 8, '写营销方案', projectRoot)],
+      '2026-07-09': [workResult('品牌营销方案', 9, '继续营销方案', projectRoot)],
+      '2026-07-10': [workResult('品牌营销方案', 10, '完成营销方案', projectRoot)],
+    });
+
+    const candidate = (await scanAndStageSkillCandidates(fakeConfig, () => 'user-1'))
+      .find((item) => item.name === 'auto-copywriting');
+    expect(candidate?.projectRoot).toBe(projectRoot);
+
+    const savedPath = await confirmPendingSkill(candidate!.id);
+    expect(savedPath).toBe(
+      path.join(projectRoot, '.otto', 'skills', 'auto-copywriting', 'SKILL.md'),
+    );
   });
 
   it('stores portable pending paths and rehydrates them on another device', async () => {

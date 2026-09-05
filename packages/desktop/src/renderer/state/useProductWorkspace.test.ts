@@ -140,4 +140,24 @@ describe('productWorkspaceReducer', () => {
     expect(state.pendingAutoSkills).toHaveLength(1);
     expect(state.lastAutoSkillAction).toMatchObject({ kind: 'confirmed' });
   });
+
+  it('把纯本地实时模式保留为自动 Skill 提案', () => {
+    const state = productWorkspaceReducer(initialProductWorkspaceState, {
+      kind: 'frame',
+      frame: {
+        type: 'realtime_pattern',
+        payload: {
+          pattern: '生成市场报告',
+          count: 3,
+          samples: [],
+          suggestion: '建议沉淀为 Skill',
+          timestamp: '2026-09-05T00:00:00.000Z',
+        },
+      },
+    });
+
+    expect(state.realtimePatterns).toEqual([
+      expect.objectContaining({ pattern: '生成市场报告', count: 3 }),
+    ]);
+  });
 });

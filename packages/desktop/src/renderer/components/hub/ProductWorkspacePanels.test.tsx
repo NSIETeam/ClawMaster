@@ -27,6 +27,7 @@ function product(workspace: ProductWorkspaceSnapshot) {
         workspace,
         schedules: [],
         pendingAutoSkills: [],
+        realtimePatterns: [],
         lastAutoSkillAction: null,
         selectedDate: null,
         lastInvite: null,

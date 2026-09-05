@@ -109,6 +109,7 @@ import {
   savePreferredModel,
 } from './customModels.js';
 import { externalInboundNotificationFromFrame } from './externalInboundNotification.js';
+import { inferProjectWorkspace } from './projectSessionRouter.js';
 import { WorkLogService } from './workLogService.js';
 import type {
   ChannelConnectorV1,
@@ -172,7 +173,6 @@ import {
   LocalKnowledgeStore,
   KnowledgeCapture,
   type SimpleMessage,
-  getSessionManager,
   getAutoMemoryEngine,
   RecurringTaskRegistry,
   loadBuiltinSkillInstructions,
@@ -255,6 +255,7 @@ function publicAutoSkillCandidate(
     knowledgeEvidenceCount: candidate.knowledgeEvidence?.length,
     recommendation: candidate.recommendation,
     targetSkillName: candidate.targetSkillName,
+    projectName: candidate.projectRoot ? path.basename(candidate.projectRoot) : undefined,
   };
 }
 
@@ -589,15 +590,6 @@ export class ClawMasterServer {
       // skills 系统可选。
     }
 
-    // 初始化 session 管理器（自动路由 / 分割 / 话题推断）
-    try {
-      const sessionMgr = getSessionManager();
-      await sessionMgr.initialize();
-      console.log('[Server] ClawMasterSessionManager initialized');
-    } catch (e) {
-      console.warn('[Server] ClawMasterSessionManager init failed (non-fatal):', e);
-    }
-
     // 自动 Skill 只分析本地工作日志并暂存“待确认候选”，不会直接写 SKILL.md。
     // 延迟首扫 15 秒，避免与桌面首屏初始化争抢磁盘；定时器 unref，不阻塞进程退出。
     try {
@@ -622,6 +614,9 @@ export class ClawMasterServer {
         });
       });
       this.backgroundRealtimeWatcher = realtimeWatcher;
+      // Repetition detection is local, deterministic, and free. Keep it on by
+      // default; only the scheduled LLM analysis remains opt-in below.
+      setRealtimeWatcher(realtimeWatcher);
       // 习惯分析引擎只有在用户明确开启后台付费分析后才登记任务。
       const habitAnalyzer = getHabitAnalyzer();
       habitAnalyzer.setConfig(scannerConfig);
@@ -634,9 +629,8 @@ export class ClawMasterServer {
       if (this.backgroundServicesEnabled) {
         this.startBackgroundServices();
       } else {
-        setRealtimeWatcher(null);
         habitAnalyzer.setBackgroundModelCallsEnabled(false);
-        console.log('[Server] Background intelligence disabled (default)');
+        console.log('[Server] Local workflow detection enabled; paid background analysis disabled');
       }
     } catch (error) {
       console.warn(
@@ -759,7 +753,7 @@ export class ClawMasterServer {
       this.autoSkillScannerStarted = false;
     }
     getHabitAnalyzer().setBackgroundModelCallsEnabled(false);
-    setRealtimeWatcher(null);
+    setRealtimeWatcher(this.backgroundRealtimeWatcher ?? null);
     try { getProactiveService().stopScheduler(); } catch { /* ignore */ }
     this.backgroundServicesActive = false;
   }
@@ -778,6 +772,7 @@ export class ClawMasterServer {
       this.enterpriseLeaseTimer = undefined;
     }
     this.stopBackgroundServices();
+    setRealtimeWatcher(null);
     this.workflowUnsub?.();
     this.workflowUnsub = undefined;
     this.scheduleUnsub?.();
@@ -1451,6 +1446,41 @@ export class ClawMasterServer {
   }
 
   /**
+   * A brand-new default-scoped session may reuse a project the user selected
+   * in another session. Ambiguous names, stale paths, and manual selections
+   * are deliberately left untouched.
+   */
+  private async autoAssignProjectWorkspace(
+    sessionId: string,
+    content: MessageContent,
+  ): Promise<void> {
+    const session = this.store.getSession(sessionId);
+    if (!session || session.messageCount !== 0) return;
+    const current = path.resolve(session.workspacePath ?? this.defaultWorkspacePath);
+    if (current !== path.resolve(this.defaultWorkspacePath)) return;
+    if (session.workspaceAssignment?.mode && session.workspaceAssignment.mode !== 'default') return;
+    const match = inferProjectWorkspace({
+      content,
+      sessions: this.visibleSessions(),
+      currentSessionId: sessionId,
+      defaultWorkspacePath: this.defaultWorkspacePath,
+    });
+    if (!match) return;
+    try {
+      const canonical = await fs.realpath(match.workspacePath);
+      if (!(await fs.stat(canonical)).isDirectory()) return;
+      this.store.patchSessionWorkspace(sessionId, canonical, {
+        mode: 'automatic',
+        confidence: match.confidence,
+        matchedBy: match.matchedBy,
+        assignedAt: Date.now(),
+      });
+    } catch {
+      // A stale project remembered by an older session is not a routing signal.
+    }
+  }
+
+  /**
    * 删除会话（delete_session 帧，不可逆）：
    *   校验会话存在 → 取消该会话正在跑的轮次（止损，别让删掉的会话继续烧 token）
    *   → store.deleteSession（内部 dispose runtime + 清 feishuIndex + 从表移除）
@@ -1853,14 +1883,18 @@ export class ClawMasterServer {
     for (const [name, t] of Object.entries(metrics.tools.byName)) {
       byName[name] = { count: t.count, success: t.success, fail: t.fail };
     }
-    // 合并 session 管理器统计
-    let sessionStats = { total: 0, active: 0, idle: 0, archived: 0, frozen: 0 };
-    try {
-      const sessionMgr = getSessionManager();
-      sessionStats = sessionMgr.getStats();
-    } catch {
-      /* 非关键 */
-    }
+    const sessions = this.visibleSessions();
+    const sessionStats = {
+      total: sessions.length,
+      active: sessions.filter((session) => (
+        session.status === 'thinking' || session.status === 'streaming'
+      )).length,
+      idle: sessions.filter((session) => (
+        session.status === 'idle' || session.status === 'error'
+      )).length,
+      archived: 0,
+      frozen: 0,
+    };
 
     return {
       models,
@@ -3701,7 +3735,7 @@ export class ClawMasterServer {
   ): Promise<void> {
     const { sessionId, source, clientMessageId, authorizedContext } = msg.payload;
     let { content } = msg.payload;
-    const session = this.store.getSession(sessionId);
+    let session = this.store.getSession(sessionId);
     if (!session) {
       return this.send(
         conn.socket,
@@ -3718,6 +3752,10 @@ export class ClawMasterServer {
         errorFrame(sessionId, 'forbidden_agent_profile', denied),
       );
     }
+
+    await this.autoAssignProjectWorkspace(sessionId, content);
+    session = this.store.getSession(sessionId);
+    if (!session) return;
 
     // 会话正忙（thinking/streaming）：走消息队列而非直接拒绝。
     if (session.status === 'thinking' || session.status === 'streaming') {
@@ -3850,28 +3888,6 @@ export class ClawMasterServer {
       );
     }
     const shouldGenerateTitle = firstUserMessage !== undefined;
-
-    // ── ClawMasterSessionManager ──
-    try {
-      const sessionMgr = getSessionManager();
-      sessionMgr.touchSession(sessionId);
-      const text = plainTextOf(content);
-      if (text) {
-        const topics = sessionMgr.inferTopics(text);
-        for (const t of topics) {
-          sessionMgr.addTopic(sessionId, t).catch(() => undefined);
-        }
-      }
-      if (sessionMgr.shouldSplit(sessionId)) {
-        sessionMgr
-          .splitSession(sessionId, 'by_topic')
-          .catch((e: unknown) =>
-            console.warn('[Server] Auto-split session failed:', e),
-          );
-      }
-    } catch {
-      // session manager 非关键路径，静默降级
-    }
 
     const userMsg = this.store.appendMessage(sessionId, {
       role: 'user',

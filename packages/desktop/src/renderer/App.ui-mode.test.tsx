@@ -101,6 +101,7 @@ vi.mock('./state/useProductWorkspace.js', () => ({
       workspace: null,
       schedules: [],
       pendingAutoSkills: [],
+      realtimePatterns: [],
       lastAutoSkillAction: null,
       selectedDate: '2026-08-11',
       error: null,

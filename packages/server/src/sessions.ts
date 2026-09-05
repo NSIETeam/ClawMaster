@@ -110,7 +110,11 @@ export interface SessionStore {
   /** 更新会话选定模型（懒构建 runtime 时按此取模型）。 */
   patchSessionModel(sessionId: string, model: string): void;
   /** 更新会话真实工作目录；调用方须先完成路径授权和目录校验。 */
-  patchSessionWorkspace(sessionId: string, workspacePath: string): void;
+  patchSessionWorkspace(
+    sessionId: string,
+    workspacePath: string,
+    assignment?: SessionSummary['workspaceAssignment'],
+  ): void;
   /**
    * 重命名会话：改 title、刷新 updatedAt，并广播 session_upsert。
    * 返回更新后的摘要；会话不存在返回 undefined。
@@ -263,6 +267,12 @@ export class InMemorySessionStore implements SessionStore {
       status: 'idle',
       model: init.model,
       workspacePath: init.workspacePath ?? this.defaultWorkspacePath,
+      workspaceAssignment: init.workspaceAssignment ?? {
+        mode: init.workspacePath && init.workspacePath !== this.defaultWorkspacePath
+          ? 'manual'
+          : 'default',
+        assignedAt: now,
+      },
       agentProfileId: init.agentProfileId,
       agentProfileName: init.agentProfileName,
       productEdition: init.productEdition,
@@ -397,10 +407,22 @@ export class InMemorySessionStore implements SessionStore {
     });
   }
 
-  patchSessionWorkspace(sessionId: string, workspacePath: string): void {
+  patchSessionWorkspace(
+    sessionId: string,
+    workspacePath: string,
+    assignment: SessionSummary['workspaceAssignment'] = {
+      mode: 'manual',
+      assignedAt: Date.now(),
+    },
+  ): void {
     const s = this.sessions.get(sessionId);
     if (!s) return;
-    s.summary = { ...s.summary, workspacePath, updatedAt: Date.now() };
+    s.summary = {
+      ...s.summary,
+      workspacePath,
+      workspaceAssignment: assignment,
+      updatedAt: Date.now(),
+    };
     this.publish(sessionId, {
       type: 'session_upsert',
       payload: { session: s.summary },
@@ -502,6 +524,10 @@ export class InMemorySessionStore implements SessionStore {
    */
   protected hydrate(summary: SessionSummary, messages: ClawMasterMessage[]): void {
     summary.workspacePath ??= this.defaultWorkspacePath;
+    summary.workspaceAssignment ??= {
+      mode: summary.workspacePath === this.defaultWorkspacePath ? 'default' : 'manual',
+      assignedAt: summary.updatedAt,
+    };
     this.sessions.set(summary.sessionId, {
       summary,
       messages,

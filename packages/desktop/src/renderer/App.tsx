@@ -299,16 +299,22 @@ function ClawMasterWorkspaceApp({
     })),
   });
   const workspaceModules = useMemo(
-    () => moduleCapabilities.modules.map((module) => (
-      module.id === 'auto-skill' && product.state.pendingAutoSkills.length > 0
+    () => moduleCapabilities.modules.map((module) => {
+      const proposalCount = product.state.pendingAutoSkills.length
+        + product.state.realtimePatterns.length;
+      return module.id === 'auto-skill' && proposalCount > 0
         ? {
             ...module,
-            proposalCount: product.state.pendingAutoSkills.length,
-            description: `${product.state.pendingAutoSkills.length} 个工作路径等待确认沉淀`,
+            proposalCount,
+            description: `${proposalCount} 个工作路径等待确认沉淀`,
           }
-        : module
-    )),
-    [moduleCapabilities.modules, product.state.pendingAutoSkills.length],
+        : module;
+    }),
+    [
+      moduleCapabilities.modules,
+      product.state.pendingAutoSkills.length,
+      product.state.realtimePatterns.length,
+    ],
   );
   const availableModuleIds = useMemo(
     () => moduleCapabilities.modules.filter((module) => module.availability === 'available').map((module) => module.id),
@@ -1624,6 +1630,7 @@ function ClawMasterWorkspaceApp({
         key={`${moduleWorkspaceScopeKey}:auto-skill`}
         open={moduleModal?.kind === 'auto-skill'}
         candidates={product.state.pendingAutoSkills}
+        realtimePatterns={product.state.realtimePatterns}
         lastAction={product.state.lastAutoSkillAction}
         onRefresh={product.actions.refreshPendingAutoSkills}
         onConfirm={product.actions.confirmPendingAutoSkill}

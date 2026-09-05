@@ -252,6 +252,13 @@ export interface SessionSummary {
   model?: string;
   /** 此会话工具、命令与文件操作使用的真实工作目录。旧会话缺失时回退用户主目录。 */
   workspacePath?: string;
+  /** 工作目录来源，自动归类只允许覆盖 default，不覆盖用户手动选择。 */
+  workspaceAssignment?: {
+    mode: 'default' | 'manual' | 'automatic';
+    confidence?: number;
+    matchedBy?: 'path_reference' | 'project_name';
+    assignedAt: number;
+  };
   /** 受服务端白名单验证的会话 Agent profile；不携带可注入 prompt。 */
   agentProfileId?: string;
   agentProfileName?: string;
@@ -654,6 +661,7 @@ export interface AutoSkillCandidateInfo {
   knowledgeEvidenceCount?: number;
   recommendation?: 'create' | 'enhance';
   targetSkillName?: string;
+  projectName?: string;
 }
 export type GetPendingAutoSkillsMsg = Envelope<
   'get_pending_auto_skills',

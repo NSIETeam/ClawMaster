@@ -272,6 +272,8 @@ interface ComposerProps {
   onSetModel: (model: string) => void;
   /** 当前会话真实工作目录（server 会话摘要的权威值）。 */
   workspacePath?: string;
+  /** 工作目录由高置信项目匹配自动归类时显示来源。 */
+  workspaceAssignmentMode?: 'default' | 'manual' | 'automatic';
   /** 最近使用目录；未传时组件从原生主进程读取。 */
   recentWorkspacePaths?: string[];
   /** 切换当前会话工作目录。 */
@@ -331,6 +333,7 @@ export function Composer({
   onCancel,
   onSetModel,
   workspacePath,
+  workspaceAssignmentMode,
   recentWorkspacePaths,
   onSetWorkspace,
   draft,
@@ -1233,6 +1236,7 @@ export function Composer({
           >
             <IconFolder size={16} />
             <span>{workspacePath ? workspaceName(workspacePath) : '个人目录'}</span>
+            {workspaceAssignmentMode === 'automatic' ? <small>自动归类</small> : null}
             <IconChevronDown size={14} />
           </button>
           {openPopover === 'workspace' && !disabled ? (

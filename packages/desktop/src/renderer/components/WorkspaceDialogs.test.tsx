@@ -137,6 +137,28 @@ describe('WorkspaceDialogs', () => {
     expect(onReject).toHaveBeenCalledWith('candidate-1');
   });
 
+  it('自动 Skill 弹窗展示本机实时检测到的重复工作', () => {
+    render(<AutoSkillDialog
+      open
+      candidates={[]}
+      realtimePatterns={[{
+        pattern: '生成市场报告',
+        count: 3,
+        samples: [],
+        suggestion: '建议沉淀为 Skill',
+        timestamp: '2026-09-05T00:00:00.000Z',
+      }]}
+      lastAction={null}
+      onRefresh={vi.fn()}
+      onConfirm={vi.fn()}
+      onReject={vi.fn()}
+      onClose={vi.fn()}
+    />);
+
+    expect(screen.getByRole('region', { name: '刚检测到的重复工作' })).toBeTruthy();
+    expect(screen.getByText('本机实时检测 · 3 次重复')).toBeTruthy();
+  });
+
   it('自定义专家草稿在关闭后清空', async () => {
     const props = {
       agents: [], onCreate: vi.fn(), onDelete: vi.fn(), onUpdateIcon: vi.fn(), onClose: vi.fn(),

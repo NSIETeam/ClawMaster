@@ -2181,6 +2181,65 @@ describe('ClawMasterServer runtimeFactory（非 mock 路径）', () => {
     client.close();
   });
 
+  it('新会话首条消息提到唯一已知项目时自动归类并用该 cwd 启动 runtime', async () => {
+    const defaultWorkspace = path.join(tmpHome, 'personal');
+    const project = path.join(tmpHome, 'ClawMaster');
+    fs.mkdirSync(defaultWorkspace);
+    fs.mkdirSync(project);
+    const captured: string[] = [];
+    const runCompleted = vi.fn();
+    const store = new InMemorySessionStore({ defaultWorkspacePath: defaultWorkspace });
+    store.createSession({ workspacePath: project, title: '已有项目会话' });
+    const target = store.createSession();
+    const factory: RuntimeFactory = async (
+      runtimeStore,
+      sessionId,
+      _model,
+      _workspaceContext,
+      _documentIdentity,
+      workspacePath,
+    ) => ({
+      async run() {
+        captured.push(workspacePath ?? '');
+        runtimeStore.setStatus(sessionId, 'idle');
+        runCompleted();
+      },
+      cancel() {},
+      setModel() {},
+      getConfig() { return undefined; },
+      async dispose() {},
+    });
+    server = new ClawMasterServer({
+      port: 0,
+      mock: false,
+      runtimeFactory: factory,
+      store,
+      defaultWorkspacePath: defaultWorkspace,
+    });
+    baseUrl = await startServer(server);
+    const client = await connectWs(baseUrl);
+    await client.waitFor((frame) => frame.type === 'welcome');
+    client.send({ type: 'subscribe', payload: { sessionId: target.sessionId } });
+    await client.waitFor((frame) => frame.type === 'history');
+    client.send({
+      type: 'send_user_message',
+      payload: {
+        sessionId: target.sessionId,
+        source: 'local',
+        content: [{ type: 'text', value: '继续处理 ClawMaster 的发布' }],
+      },
+    });
+
+    await vi.waitFor(() => expect(runCompleted).toHaveBeenCalledOnce());
+    expect(captured).toEqual([fs.realpathSync(project)]);
+    expect(store.getSession(target.sessionId)?.workspaceAssignment).toMatchObject({
+      mode: 'automatic',
+      confidence: 0.92,
+      matchedBy: 'project_name',
+    });
+    client.close();
+  });
+
   it('运行时初始化期间拒绝切换目录，不丢失已接收的用户消息', async () => {
     const first = path.join(tmpHome, 'workspace-race-one');
     const second = path.join(tmpHome, 'workspace-race-two');

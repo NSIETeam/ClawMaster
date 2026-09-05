@@ -324,6 +324,7 @@ export function ChatView({
         onCancel={onCancel}
         onSetModel={onSetModel}
         workspacePath={session?.workspacePath}
+        workspaceAssignmentMode={session?.workspaceAssignment?.mode}
         onSetWorkspace={onSetWorkspace}
         onManageModels={onOpenSetup}
         // 斜杠命令接线：/new /clear 走 App 回调，/settings 复用打开设置。

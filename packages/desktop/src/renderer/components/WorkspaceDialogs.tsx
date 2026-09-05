@@ -236,13 +236,14 @@ export function EnterpriseMemoryDialog({ open, role, onClose }: {
   </DialogFrame>;
 }
 
-export function AutoSkillDialog({ open, candidates, lastAction, onRefresh, onConfirm, onReject, onClose }: {
+export function AutoSkillDialog({ open, candidates, realtimePatterns = [], lastAction, onRefresh, onConfirm, onReject, onClose }: {
   open: boolean; candidates: AutoSkillCandidateInfo[];
+  realtimePatterns?: Array<Extract<import('clawmaster-server').ServerToClient, { type: 'realtime_pattern' }>['payload']>;
   lastAction: { kind: 'confirmed' | 'rejected'; candidateId: string; savedPath?: string } | null;
   onRefresh(): void; onConfirm(id: string): void; onReject(id: string): void; onClose(): void;
 }): React.JSX.Element | null {
   if (!open) return null;
-  return <DialogFrame title="自动 Skill 候选" onClose={onClose}><div className="claw-workspace-dialog__toolbar"><p>从重复工作成果中沉淀可复用流程。</p><button type="button" onClick={onRefresh}>立即分析</button></div>{lastAction?.kind === 'confirmed' ? <p role="status">Skill 已生成{lastAction.savedPath ? `：${lastAction.savedPath}` : ''}</p> : null}<div className="claw-workspace-dialog__list">{candidates.length ? candidates.map((candidate) => <article key={candidate.id}><h3>{candidate.name}</h3><p>{candidate.description}</p><small>{candidate.detectedPattern} · {candidate.occurrenceCount} 次重复</small><footer><button type="button" onClick={() => onConfirm(candidate.id)}>{candidate.recommendation === 'enhance' ? '确认增强' : '确认生成'}</button><button type="button" onClick={() => onReject(candidate.id)}>不再建议</button></footer></article>) : <p>暂无候选。点击“立即分析”扫描最近成果。</p>}</div></DialogFrame>;
+  return <DialogFrame title="自动 Skill 候选" onClose={onClose}><div className="claw-workspace-dialog__toolbar"><p>从重复工作成果中沉淀可复用流程。</p><button type="button" onClick={onRefresh}>立即分析</button></div>{lastAction?.kind === 'confirmed' ? <p role="status">Skill 已生成{lastAction.savedPath ? `：${lastAction.savedPath}` : ''}</p> : null}{realtimePatterns.length ? <section aria-label="刚检测到的重复工作">{realtimePatterns.map((pattern) => <article key={pattern.pattern}><h3>{pattern.pattern}</h3><p>{pattern.suggestion}</p><small>本机实时检测 · {pattern.count} 次重复</small></article>)}</section> : null}<div className="claw-workspace-dialog__list">{candidates.length ? candidates.map((candidate) => <article key={candidate.id}><h3>{candidate.name}</h3><p>{candidate.description}</p><small>{candidate.detectedPattern} · {candidate.occurrenceCount} 次重复{candidate.projectName ? ` · 项目：${candidate.projectName}` : ''}</small><footer><button type="button" onClick={() => onConfirm(candidate.id)}>{candidate.recommendation === 'enhance' ? '确认增强' : '确认生成'}</button><button type="button" onClick={() => onReject(candidate.id)}>不再建议</button></footer></article>) : <p>暂无已分析候选。点击“立即分析”把实时模式整理成可确认的 Skill。</p>}</div></DialogFrame>;
 }
 
 export function CustomAgentManagerDialog({

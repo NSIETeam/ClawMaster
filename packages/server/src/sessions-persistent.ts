@@ -134,8 +134,11 @@ export class PersistentSessionStore extends InMemorySessionStore {
     if (!this.isEphemeralSession(sessionId)) this.writeNow(sessionId);
   }
 
-  override patchSessionWorkspace(sessionId: string, workspacePath: string): void {
-    super.patchSessionWorkspace(sessionId, workspacePath);
+  override patchSessionWorkspace(
+    ...args: Parameters<InMemorySessionStore['patchSessionWorkspace']>
+  ): void {
+    const [sessionId] = args;
+    super.patchSessionWorkspace(...args);
     if (!this.isEphemeralSession(sessionId)) this.writeNow(sessionId);
   }
 
