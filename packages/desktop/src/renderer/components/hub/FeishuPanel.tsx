@@ -31,6 +31,7 @@ import { IconExternalLink } from '../icons.js';
 import { Panel, Card, Badge, Empty } from './HubUI.js';
 import { ChannelPairingCard } from './ChannelPairingCard.js';
 import { ChannelInstallationList } from './ChannelInstallationList.js';
+import { NativeChannelPanel } from './NativeChannelPanel.js';
 
 /** 状态轮询周期：面板打开时用户正在等连接结果，比常驻徽标（5s）稍勤。 */
 const POLL_INTERVAL_MS = 3_000;
@@ -41,6 +42,12 @@ const DOMAIN_OPTIONS: Array<{ id: 'feishu' | 'lark'; label: string }> = [
 ];
 
 export function FeishuPanel(): React.JSX.Element {
+  return window.clawmaster.nativeChannelConfigSave
+    ? <NativeChannelPanel provider="feishu" />
+    : <LegacyFeishuPanel />;
+}
+
+function LegacyFeishuPanel(): React.JSX.Element {
   // ── 真实连接状态（轮询）──
   const [status, setStatus] = useState<FeishuStatusResult | null>(null);
   // ── 凭证脱敏视图 + 表单草稿 ──

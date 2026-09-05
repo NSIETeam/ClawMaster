@@ -25,6 +25,7 @@ import { Panel } from './hub/HubUI.js';
 import { PrefsPanel, McpPanel, ExtensionsPanel, IdePanel } from './hub/SettingsPanels.js';
 import { FeishuPanel } from './hub/FeishuPanel.js';
 import { WeComPanel } from './hub/WeComPanel.js';
+import { NativeChannelPanel } from './hub/NativeChannelPanel.js';
 import { LocalAgentPanel } from './hub/LocalAgentPanel.js';
 import {
   DoctorPanel,
@@ -55,6 +56,7 @@ export type TabId =
   | 'search'
   | 'feishu'
   | 'wecom'
+  | 'dingtalk'
   | 'local-agent'
   | 'mcp'
   | 'context'
@@ -101,6 +103,7 @@ const TAB_LABEL: Record<TabId, string> = {
   search: '联网搜索',
   feishu: '飞书接入',
   wecom: '企业微信接入',
+  dingtalk: '钉钉接入',
   'local-agent': '接入企业',
   mcp: '外部工具（MCP）',
   context: '上下文详情',
@@ -122,7 +125,7 @@ const TAB_LABEL: Record<TabId, string> = {
  */
 const SIMPLE_NAV_GROUPS: Array<{ label: string; tabs: TabId[] }> = [
   { label: '常用', tabs: ['prefs', 'search', 'update'] },
-  { label: '账号与连接', tabs: ['organization', 'usage', 'privacy', 'feishu', 'wecom', 'local-agent'] },
+  { label: '账号与连接', tabs: ['organization', 'usage', 'privacy', 'feishu', 'wecom', 'dingtalk', 'local-agent'] },
 ];
 
 const ADVANCED_NAV_GROUPS: Array<{ label: string; tabs: TabId[] }> = [
@@ -299,6 +302,7 @@ export function SettingsHubPage({
             {tab === 'search' ? <SearchPanel data={data} /> : null}
             {tab === 'feishu' ? <FeishuPanel /> : null}
             {tab === 'wecom' ? <WeComPanel /> : null}
+            {tab === 'dingtalk' ? <NativeChannelPanel provider="dingtalk" /> : null}
             {tab === 'local-agent' && isSettingsTabVisible(tab) ? <LocalAgentPanel /> : null}
             {tab === 'mcp' ? <McpPanel data={data} /> : null}
             {tab === 'context' ? (

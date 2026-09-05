@@ -24,6 +24,7 @@ vi.mock('./hub/SettingsPanels.js', () => ({
 }));
 vi.mock('./hub/FeishuPanel.js', () => ({ FeishuPanel: () => 'feishu-panel' }));
 vi.mock('./hub/WeComPanel.js', () => ({ WeComPanel: () => 'wecom-panel' }));
+vi.mock('./hub/NativeChannelPanel.js', () => ({ NativeChannelPanel: ({ provider }: { provider: string }) => `${provider}-panel` }));
 vi.mock('./hub/LocalAgentPanel.js', () => ({
   LocalAgentPanel: () => 'local-agent-panel',
 }));
@@ -180,7 +181,7 @@ describe('SettingsHubPage internal-test navigation', () => {
         'button.claw-hub__nav-item',
       ),
     );
-    expect(navButtons).toHaveLength(19);
+    expect(navButtons).toHaveLength(20);
 
     const expectedPanels = [
       'prefs-panel',
@@ -191,6 +192,7 @@ describe('SettingsHubPage internal-test navigation', () => {
       'privacy-panel',
       'feishu-panel',
       'wecom-panel',
+      'dingtalk-panel',
       'models-panel',
       'mcp-panel',
       'extensions-panel',

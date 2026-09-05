@@ -7,6 +7,7 @@ import { IconExternalLink } from '../icons.js';
 import { Card, Panel } from './HubUI.js';
 import { ChannelPairingCard } from './ChannelPairingCard.js';
 import { ChannelInstallationList } from './ChannelInstallationList.js';
+import { NativeChannelPanel } from './NativeChannelPanel.js';
 
 export const WECOM_ADMIN_URL = 'https://work.weixin.qq.com/wework_admin/frame#apps';
 export const WECOM_API_GUIDE_URL = 'https://developer.work.weixin.qq.com/document/path/90665';
@@ -27,6 +28,8 @@ async function openWeComDestination(destination: WeComDestination): Promise<void
 export function WeComPanel(): React.JSX.Element {
   const [opening, setOpening] = useState<WeComDestination | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  if (window.clawmaster.nativeChannelConfigSave) return <NativeChannelPanel provider="wecom" />;
 
   const open = async (destination: WeComDestination): Promise<void> => {
     if (opening) return;

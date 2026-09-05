@@ -65,6 +65,14 @@ export type { FeishuConfigPublic, FeishuConfigSaveRequest };
 export type { ChannelPairingPublic, ChannelProvider };
 export type { ChannelInstallation, ChannelHealth };
 
+export type NativeChannelProvider = ChannelProvider | 'dingtalk';
+export interface NativeChannelConfig {
+  provider: NativeChannelProvider;
+  appId: string;
+  agentId?: string;
+  verifiedAt: string;
+}
+
 export interface ChannelPairingResult {
   ok: boolean;
   pairing: ChannelPairingPublic | null;
@@ -1384,6 +1392,14 @@ type MenuHandler = (action: string) => void;
 
 /** preload 暴露给 renderer 的 API 形状（renderer 据此声明 window.clawmaster 类型）。 */
 export interface ClawMasterBridge {
+  nativeChannelConfigGet?(provider: NativeChannelProvider): Promise<NativeChannelConfig | null>;
+  nativeChannelConfigSave?(input: {
+    provider: NativeChannelProvider;
+    appId: string;
+    appSecret: string;
+    agentId?: string;
+  }): Promise<NativeChannelConfig>;
+  nativeChannelConfigClear?(provider: NativeChannelProvider): Promise<void>;
   /** 连接到本地 server（解析端点后建 WS）。返回是否连上。 */
   connect(): Promise<boolean>;
   /** 主动断开（不自动重连，直到下次 connect()）。 */

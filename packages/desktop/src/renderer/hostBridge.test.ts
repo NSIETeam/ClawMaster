@@ -89,6 +89,15 @@ describe('Tauri host bridge', () => {
       command: 'runtime_diagnostic',
       args: undefined,
     });
+    await expect(bridge.nativeChannelConfigGet?.('dingtalk')).resolves.toEqual({
+      command: 'channel_config_get', args: { provider: 'dingtalk' },
+    });
+    await expect(bridge.nativeChannelConfigSave?.({
+      provider: 'wecom', appId: 'corp', appSecret: 'secret', agentId: '1001',
+    })).resolves.toEqual({
+      command: 'channel_config_save',
+      args: { input: { provider: 'wecom', appId: 'corp', appSecret: 'secret', agentId: '1001' } },
+    });
     await expect(bridge.notificationShow({
       sessionId: 'session-1',
       source: 'park',

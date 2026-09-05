@@ -11,6 +11,8 @@ import type {
   EnterpriseSkillLeaderboard,
   EnterpriseSkillMarketItem,
   LocalSkillShareCandidate,
+  NativeChannelConfig,
+  NativeChannelProvider,
   PlatformWebviewBounds,
   UpdateProgressInfo,
 } from '../preload/index.js';
@@ -214,6 +216,13 @@ export function createTauriHostBridge(
   };
 
   const migrated: Partial<Record<keyof ClawMasterBridge, (...args: never[]) => unknown>> = {
+    nativeChannelConfigGet: ((provider: NativeChannelProvider) =>
+      invoke<NativeChannelConfig | null>('channel_config_get', { provider })) as never,
+    nativeChannelConfigSave: ((input: {
+      provider: NativeChannelProvider; appId: string; appSecret: string; agentId?: string;
+    }) => invoke<NativeChannelConfig>('channel_config_save', { input })) as never,
+    nativeChannelConfigClear: ((provider: NativeChannelProvider) =>
+      invoke<void>('channel_config_clear', { provider })) as never,
     connect: connectDesktop as never,
     disconnect: (() => {
       connected = false;

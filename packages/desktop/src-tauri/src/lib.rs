@@ -8,6 +8,7 @@ use tauri_plugin_notification::NotificationExt;
 mod agent_state_pool;
 mod community_skills;
 mod native_chart;
+mod native_channels;
 mod native_agent_tools;
 mod native_context;
 mod native_diagnostics;
@@ -277,7 +278,10 @@ pub fn run() {
             let directory = app.path().app_data_dir()?;
             let runtime =
                 native_runtime::NativeRuntime::load(&directory).map_err(std::io::Error::other)?;
+            let channels = native_channels::NativeChannelState::load(&directory)
+                .map_err(std::io::Error::other)?;
             app.manage(runtime);
+            app.manage(channels);
             Ok(())
         })
         .manage(DesktopConnection::default())
@@ -298,6 +302,9 @@ pub fn run() {
             runtime_diagnostic,
             runtime_contract_version,
             notification_show,
+            native_channels::channel_config_get,
+            native_channels::channel_config_save,
+            native_channels::channel_config_clear,
             platform_webview::platform_webview_open,
             platform_webview::platform_webview_set_bounds,
             platform_webview::platform_webview_reload,
