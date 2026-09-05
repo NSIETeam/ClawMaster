@@ -9,9 +9,10 @@ use crate::native_state_store::{
     NativeStateStore, StateStoreError, TREE_EVENTS, TREE_INDEX, TREE_SESSIONS,
 };
 use crate::{
-    native_agent_tools, native_checkpoints, native_context, native_diagnostics, native_enterprise,
-    native_knowledge, native_mcp, native_memory, native_projects, native_schedule, native_skills,
-    native_todos, native_workflows, native_worklog, platform_webview,
+    native_agent_tools, native_context, native_diagnostics, native_encrypted_checkpoints,
+    native_enterprise, native_knowledge, native_mcp, native_memory, native_projects,
+    native_schedule, native_skills, native_todos, native_workflows, native_worklog,
+    platform_webview,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -1381,7 +1382,11 @@ impl NativeRuntime {
                     vec![error_frame(Some(session_id), "no_session", "会话不存在")]
                 } else {
                     let workspace = Self::workspace_for_session(&state, Some(session_id));
-                    match native_checkpoints::list(&self.checkpoint_root, &workspace) {
+                    match native_encrypted_checkpoints::list(
+                        &self.state_store,
+                        &self.checkpoint_root,
+                        &workspace,
+                    ) {
                         Ok(checkpoints) => vec![frame(
                             "file_checkpoints",
                             json!({"sessionId":session_id,"checkpoints":checkpoints}),
@@ -1482,7 +1487,7 @@ impl NativeRuntime {
                     .as_array()
                     .cloned()
                     .unwrap_or_default();
-                tools.extend(native_checkpoints::summaries());
+                tools.extend(native_encrypted_checkpoints::summaries());
                 tools.extend(native_knowledge::summaries());
                 tools.extend(native_schedule::summaries());
                 tools.extend(native_todos::summaries());
@@ -1736,7 +1741,7 @@ impl NativeRuntime {
                 .or(state.current_model.as_deref())
                 .and_then(|id| state.models.iter().find(|item| item.id == id));
             let mut definitions = native_agent_tools::definitions();
-            definitions.extend(native_checkpoints::definitions());
+            definitions.extend(native_encrypted_checkpoints::definitions());
             definitions.extend(native_knowledge::definitions());
             definitions.extend(native_schedule::definitions());
             definitions.extend(native_todos::definitions());
@@ -1759,7 +1764,7 @@ impl NativeRuntime {
             .as_array()
             .cloned()
             .unwrap_or_default();
-        tools.extend(native_checkpoints::summaries());
+        tools.extend(native_encrypted_checkpoints::summaries());
         tools.extend(native_knowledge::summaries());
         tools.extend(native_schedule::summaries());
         tools.extend(native_todos::summaries());
@@ -2135,7 +2140,7 @@ impl NativeRuntime {
             ),
         )?;
         let mut tools = native_agent_tools::definitions();
-        tools.extend(native_checkpoints::definitions());
+        tools.extend(native_encrypted_checkpoints::definitions());
         tools.extend(native_knowledge::definitions());
         tools.extend(native_schedule::definitions());
         tools.extend(native_todos::definitions());
@@ -2246,7 +2251,7 @@ impl NativeRuntime {
                 }
                 let risk = native_agent_tools::risk(&call.name);
                 let is_mcp = mcp_catalog.contains(&call.name);
-                let is_checkpoint = native_checkpoints::contains(&call.name);
+                let is_checkpoint = native_encrypted_checkpoints::contains(&call.name);
                 let is_knowledge = native_knowledge::contains(&call.name);
                 let is_schedule = call.name == "local_schedule";
                 let is_todo = call.name == "todo_write";
@@ -2254,7 +2259,7 @@ impl NativeRuntime {
                 let is_workflow = native_workflows::contains(&call.name);
                 let approved = if risk == Some(native_agent_tools::ToolRisk::Write)
                     || is_mcp
-                    || native_checkpoints::is_write(&call.name)
+                    || native_encrypted_checkpoints::is_write(&call.name)
                     || native_knowledge::is_write(&call.name)
                     || native_schedule::is_write(call)
                     || is_todo
@@ -2265,7 +2270,8 @@ impl NativeRuntime {
                         if let Some(checkpoint_id) =
                             call.arguments.get("checkpointId").and_then(Value::as_str)
                         {
-                            if let Ok(checkpoint) = native_checkpoints::describe(
+                            if let Ok(checkpoint) = native_encrypted_checkpoints::describe(
+                                &self.state_store,
                                 &self.checkpoint_root,
                                 context.workspace,
                                 checkpoint_id,
@@ -2305,7 +2311,8 @@ impl NativeRuntime {
                 let mut checkpoint_id = None;
                 let checkpoint_error = if approved {
                     native_agent_tools::mutation_target(call).and_then(|relative_path| {
-                        match native_checkpoints::capture(
+                        match native_encrypted_checkpoints::capture(
+                            &self.state_store,
                             &self.checkpoint_root,
                             context.workspace,
                             context.session_id,
@@ -2331,7 +2338,8 @@ impl NativeRuntime {
                         .execute(call, self.credentials.as_ref(), cancel.clone())
                         .await
                 } else if approved && is_checkpoint {
-                    native_checkpoints::execute(
+                    native_encrypted_checkpoints::execute(
+                        &self.state_store,
                         &self.checkpoint_root,
                         context.workspace,
                         context.session_id,
@@ -2384,7 +2392,8 @@ impl NativeRuntime {
                 }
                 if let Some(id) = checkpoint_id.as_deref() {
                     if result.is_ok() {
-                        match native_checkpoints::finalize(
+                        match native_encrypted_checkpoints::finalize(
+                            &self.state_store,
                             &self.checkpoint_root,
                             context.workspace,
                             id,
@@ -2396,7 +2405,7 @@ impl NativeRuntime {
                                 }
                             }
                             Err(error) => {
-                                native_checkpoints::discard(&self.checkpoint_root, id);
+                                native_encrypted_checkpoints::discard(&self.state_store, id);
                                 if let Ok(Value::Object(payload)) = &mut result {
                                     payload.insert("recoveryAvailable".into(), Value::Bool(false));
                                     payload.insert(
@@ -2407,7 +2416,7 @@ impl NativeRuntime {
                             }
                         }
                     } else {
-                        native_checkpoints::discard(&self.checkpoint_root, id);
+                        native_encrypted_checkpoints::discard(&self.state_store, id);
                     }
                 }
                 self.audit_tool(
@@ -2628,7 +2637,11 @@ impl NativeRuntime {
                     Self::workspace_for_session(&state, Some(&session_id))
                 };
                 if args.trim().is_empty() {
-                    match native_checkpoints::list(&self.checkpoint_root, &workspace) {
+                    match native_encrypted_checkpoints::list(
+                        &self.state_store,
+                        &self.checkpoint_root,
+                        &workspace,
+                    ) {
                         Ok(values) if values.is_empty() => {
                             (true, "当前项目还没有可用的文件恢复点。".into())
                         }
@@ -2663,7 +2676,8 @@ impl NativeRuntime {
                     }
                 } else {
                     let checkpoint_id = args.trim();
-                    let checkpoint = match native_checkpoints::describe(
+                    let checkpoint = match native_encrypted_checkpoints::describe(
+                        &self.state_store,
                         &self.checkpoint_root,
                         &workspace,
                         checkpoint_id,
@@ -2698,7 +2712,8 @@ impl NativeRuntime {
                         .await_tool_confirmation(app, &session_id, &message_id, &call, cancel)
                         .await?;
                     let result = if approved {
-                        native_checkpoints::execute(
+                        native_encrypted_checkpoints::execute(
+                            &self.state_store,
                             &self.checkpoint_root,
                             &workspace,
                             &session_id,
@@ -2721,8 +2736,11 @@ impl NativeRuntime {
                     )?;
                     match result {
                         Ok(value) => {
-                            let checkpoints =
-                                native_checkpoints::list(&self.checkpoint_root, &workspace)?;
+                            let checkpoints = native_encrypted_checkpoints::list(
+                                &self.state_store,
+                                &self.checkpoint_root,
+                                &workspace,
+                            )?;
                             emit(
                                 app,
                                 frame(
@@ -3727,7 +3745,8 @@ mod tests {
             .any(|command| command.get("name").and_then(Value::as_str) == Some("restore")));
 
         fs::write(root.path().join("recover.txt"), "before").unwrap();
-        let checkpoint_id = native_checkpoints::capture(
+        let checkpoint_id = native_encrypted_checkpoints::capture(
+            &runtime.state_store,
             &runtime.checkpoint_root,
             root.path(),
             session_id,
@@ -3736,8 +3755,13 @@ mod tests {
         )
         .unwrap();
         fs::write(root.path().join("recover.txt"), "after").unwrap();
-        native_checkpoints::finalize(&runtime.checkpoint_root, root.path(), &checkpoint_id)
-            .unwrap();
+        native_encrypted_checkpoints::finalize(
+            &runtime.state_store,
+            &runtime.checkpoint_root,
+            root.path(),
+            &checkpoint_id,
+        )
+        .unwrap();
         let checkpoints = runtime
             .handle(&json!({"type":"get_file_checkpoints","payload":{"sessionId":session_id}}))
             .unwrap();

@@ -181,8 +181,9 @@ The kernel owns these lifecycle-critical concerns:
   persist sensitive payloads outside this boundary.
 - `scripts/validate-native-state-store.mjs` guards this ownership rule. The
   production integration owns model usage, runtime metadata, sessions,
-  individual messages, and personal knowledge. Issue #7 remains open while project memory, checkpoint, and
-  artifact metadata migration plus installed crash-recovery acceptance continue.
+  individual messages, personal knowledge, checkpoints, and encrypted
+  before-image artifacts. Issue #7 remains open while project memory migration
+  and installed crash-recovery acceptance continue.
 
 ### 8. Content Generation Abstraction
 

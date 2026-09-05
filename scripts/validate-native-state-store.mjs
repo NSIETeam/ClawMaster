@@ -63,6 +63,21 @@ for (const required of ['NativeStateStore', 'TREE_MEMORY', 'IMPORT_MARKER_ID']) 
 if (/fn\s+write\s*\([^)]*KnowledgeEntry/u.test(knowledge)) {
   violations.push('native_knowledge.rs: retains a plaintext knowledge writer');
 }
+const checkpoints = readFileSync(path.join(sourceRoot, 'native_encrypted_checkpoints.rs'), 'utf8');
+for (const required of [
+  'commit_checkpoint_event', 'put_artifact', 'read_artifact',
+  'MAX_STORED_BYTES', 'IMPORT_MARKER',
+]) {
+  if (!checkpoints.includes(required)) {
+    violations.push(`native_encrypted_checkpoints.rs: missing ${required}`);
+  }
+}
+if (!runtime.includes('native_encrypted_checkpoints::capture')) {
+  violations.push('native_runtime.rs: file recovery does not use encrypted checkpoints');
+}
+if (readdirSync(sourceRoot).includes('native_checkpoints.rs')) {
+  violations.push('native_checkpoints.rs: obsolete plaintext checkpoint owner still exists');
+}
 
 console.log('ClawMaster native state store validation');
 if (violations.length > 0) {

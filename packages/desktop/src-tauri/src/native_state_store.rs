@@ -124,7 +124,7 @@ pub struct ArtifactMetadata {
     pub byte_length: u64,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct ArtifactRef {
     pub sha256: String,
     pub byte_length: u64,

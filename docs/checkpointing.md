@@ -11,7 +11,8 @@ file-writing tool runs. Users can inspect these points in the right-side
 standard high-risk confirmation.
 
 The implementation is owned by
-`packages/desktop/src-tauri/src/native_checkpoints.rs` and has these invariants:
+`packages/desktop/src-tauri/src/native_encrypted_checkpoints.rs` and the shared
+`native_state_store.rs`, with these invariants:
 
 - Only ordinary files inside the current canonical workspace are eligible.
   Absolute paths, parent traversal and symbolic-link targets are rejected.
@@ -23,8 +24,11 @@ The implementation is owned by
 - A successful restore creates another checkpoint first, providing an undo
   path. If that undo point cannot be finalized, the file remains restored and
   the UI reports the reduced recovery guarantee explicitly.
-- Checkpoint payloads are private local app data. On Unix they are written with
-  mode `0600`; metadata exposes only a workspace digest and relative path.
+- Metadata and before-image bytes are AES-256-GCM encrypted. Before-images are
+  content-addressed and deduplicated; logical IDs are not stored as plaintext
+  sled keys. The master key remains in the system credential store.
+- Checkpoint metadata and its capture event commit in one sled transaction.
+  Legacy beta files may be copied in once, but are never modified or deleted.
 - Files larger than 32 MiB are rejected. Storage is pruned to at most 200
   checkpoints and 256 MiB, while the checkpoint currently being created is
   preserved. The UI shows the newest 100 points.
