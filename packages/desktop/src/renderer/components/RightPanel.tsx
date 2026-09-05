@@ -1,6 +1,6 @@
 /** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { ModuleDefinition } from '../moduleCatalog.js';
 import type { ModuleWorkspaceLayout } from '../moduleWorkspace.js';
 import type { FileCheckpointSummary } from 'clawmaster-server';
@@ -56,6 +56,7 @@ export function RightPanel({
   const hasSettingsWorkspace = Boolean(settingsWorkspace);
   const [filePath, setFilePath] = useState<string | null>(null);
   const [platformTarget, setPlatformTarget] = useState<PlatformWorkspaceTarget | null>(null);
+  const previousScopeKey = useRef(scopeKey);
   useEffect(() => {
     if (settingsOpen && hasSettingsWorkspace) {
       onRequestExpand?.();
@@ -101,6 +102,18 @@ export function RightPanel({
       setActiveView((view) => view === 'platform' ? 'modules' : view);
     }
   }, [layout, platformTarget]);
+  useEffect(() => {
+    const scopeChanged = previousScopeKey.current !== scopeKey;
+    previousScopeKey.current = scopeKey;
+    if (settingsOpen || (!collapsed && !scopeChanged)) return;
+    setFilePath(null);
+    setPlatformTarget(null);
+    setActiveView('modules');
+  }, [collapsed, scopeKey, settingsOpen]);
+  const closeTransientView = (): void => {
+    setFilePath(null);
+    setActiveView('modules');
+  };
   const closePlatform = (): void => {
     setPlatformTarget(null);
     setActiveView('modules');
@@ -132,7 +145,7 @@ export function RightPanel({
       {activeView !== 'modules' && activeView !== 'platform' && activeView !== 'settings' ? (
         <header className="claw-right-panel__context-head">
           <strong>{activeView === 'files' ? '文件' : activeView === 'mindmap' ? '思维导图' : '文件版本'}</strong>
-          <button type="button" onClick={() => setActiveView('modules')}>返回功能</button>
+          <button type="button" onClick={closeTransientView}>返回功能</button>
         </header>
       ) : null}
       {activeView === 'platform' && platformTarget ? (

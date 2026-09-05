@@ -121,6 +121,29 @@ describe('RightPanel module workspace boundary', () => {
     expect(screen.getByRole('heading', { name: '日常办公' })).toBeTruthy();
   });
 
+  it('discards temporary workspaces when the panel is collapsed', () => {
+    const { rerender, props } = renderPanel();
+    fireEvent(window, new CustomEvent('clawmaster:edit-local-file', { detail: { path: '/tmp/方案.md' } }));
+    expect(screen.getByRole('region', { name: '文件编辑器' })).toBeTruthy();
+
+    rerender(<RightPanel {...props} collapsed />);
+    rerender(<RightPanel {...props} collapsed={false} />);
+
+    expect(screen.queryByRole('region', { name: '文件编辑器' })).toBeNull();
+    expect(screen.getByRole('heading', { name: '日常办公' })).toBeTruthy();
+  });
+
+  it('discards temporary workspaces when the active session changes', () => {
+    const { rerender, props } = renderPanel();
+    fireEvent(window, new CustomEvent('clawmaster:open-mind-map'));
+    expect(screen.getByRole('region', { name: '思维导图编辑器' })).toBeTruthy();
+
+    rerender(<RightPanel {...props} scopeKey="another-session" />);
+
+    expect(screen.queryByRole('region', { name: '思维导图编辑器' })).toBeNull();
+    expect(screen.getByRole('heading', { name: '日常办公' })).toBeTruthy();
+  });
+
   it('opens a selected business platform directly inside the right sidebar', () => {
     const onRequestExpand = vi.fn();
     const { container } = renderPanel({ layout: layoutWithPlatform, onRequestExpand });
