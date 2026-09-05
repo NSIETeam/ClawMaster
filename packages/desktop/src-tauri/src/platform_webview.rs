@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use serde_json::Value;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{
@@ -11,6 +12,8 @@ use url::Url;
 const PLATFORM_WEBVIEW_LABEL: &str = "platform-browser";
 const MAX_WEBVIEW_EDGE: f64 = 16_384.0;
 const PLATFORM_LOAD_TIMEOUT: Duration = Duration::from_secs(20);
+const PLATFORM_SNAPSHOT_TIMEOUT: Duration = Duration::from_secs(5);
+const MAX_SNAPSHOT_BYTES: usize = 256 * 1024;
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -141,6 +144,81 @@ pub fn platform_webview_close(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+fn decode_snapshot(raw: &str) -> Result<Value, String> {
+    if raw.len() > MAX_SNAPSHOT_BYTES {
+        return Err("浏览器 DOM 摘要超过 256 KiB 安全上限".into());
+    }
+    let outer: Value =
+        serde_json::from_str(raw).map_err(|error| format!("无法解析浏览器 DOM 摘要: {error}"))?;
+    let value = match outer {
+        Value::String(inner) => serde_json::from_str(&inner)
+            .map_err(|error| format!("无法解析浏览器 DOM 内容: {error}"))?,
+        value => value,
+    };
+    if let Some(error) = value.get("error").and_then(Value::as_str) {
+        return Err(format!("无法读取浏览器 DOM: {error}"));
+    }
+    Ok(value)
+}
+
+pub async fn platform_webview_snapshot(app: &AppHandle) -> Result<Value, String> {
+    let webview = app
+        .get_webview(PLATFORM_WEBVIEW_LABEL)
+        .ok_or_else(|| "内置浏览器尚未启动".to_string())?;
+    let (snapshot_tx, snapshot_rx) = oneshot::channel();
+    let snapshot_tx = Arc::new(Mutex::new(Some(snapshot_tx)));
+    webview
+        .eval_with_callback(
+            r#"(() => {
+              try {
+                const cleanUrl = (value) => {
+                  try { const url = new URL(value, location.href); return url.origin + url.pathname; }
+                  catch { return ''; }
+                };
+                const visible = (element) => {
+                  const style = getComputedStyle(element);
+                  const rect = element.getBoundingClientRect();
+                  return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+                };
+                const elements = Array.from(document.querySelectorAll('a,button,input,select,textarea,[role="button"],[role="link"]'))
+                  .filter(visible)
+                  .slice(0, 200)
+                  .map((element, index) => ({
+                    index,
+                    tag: element.tagName.toLowerCase(),
+                    type: element.getAttribute('type') || '',
+                    text: (element.innerText || '').trim().slice(0, 300),
+                    ariaLabel: (element.getAttribute('aria-label') || '').slice(0, 300),
+                    placeholder: (element.getAttribute('placeholder') || '').slice(0, 300),
+                    href: element.tagName === 'A' ? cleanUrl(element.href) : ''
+                  }));
+                return JSON.stringify({
+                  url: cleanUrl(location.href),
+                  title: document.title.slice(0, 500),
+                  text: (document.body?.innerText || '').slice(0, 20000),
+                  elements,
+                  truncated: elements.length === 200 || (document.body?.innerText || '').length > 20000
+                });
+              } catch (error) {
+                return JSON.stringify({ error: String(error) });
+              }
+            })()"#,
+            move |raw| {
+                if let Ok(mut sender) = snapshot_tx.lock() {
+                    if let Some(sender) = sender.take() {
+                        let _ = sender.send(raw);
+                    }
+                }
+            },
+        )
+        .map_err(|error| format!("无法请求浏览器 DOM 摘要: {error}"))?;
+    let raw = tokio::time::timeout(PLATFORM_SNAPSHOT_TIMEOUT, snapshot_rx)
+        .await
+        .map_err(|_| "浏览器 DOM 摘要读取超时".to_string())?
+        .map_err(|_| "浏览器 DOM 摘要通道意外关闭".to_string())?;
+    decode_snapshot(&raw)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -177,5 +255,14 @@ mod tests {
             ..valid
         })
         .is_err());
+    }
+
+    #[test]
+    fn decodes_direct_and_json_string_snapshot_results() {
+        let direct = decode_snapshot(r#"{"title":"Example","text":"Hello"}"#).unwrap();
+        assert_eq!(direct["title"], "Example");
+        let encoded = serde_json::to_string(r#"{"title":"Encoded"}"#).unwrap();
+        assert_eq!(decode_snapshot(&encoded).unwrap()["title"], "Encoded");
+        assert!(decode_snapshot(r#"{"error":"denied"}"#).is_err());
     }
 }

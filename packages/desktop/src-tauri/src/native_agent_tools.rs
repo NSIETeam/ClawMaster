@@ -129,6 +129,11 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
                 "url":{"type":"string"},"label":{"type":"string","maxLength":120}
             },"required":["url"],"additionalProperties":false}),
         },
+        ModelToolDefinition {
+            name: "browser_snapshot".into(),
+            description: "Read a bounded DOM snapshot from the currently open ClawMaster native WebView. Returns title, visible text, and interactive element metadata without form values or URL query parameters. Requires user confirmation.".into(),
+            parameters: json!({"type":"object","properties":{},"additionalProperties":false}),
+        },
     ]
 }
 
@@ -155,9 +160,8 @@ pub fn risk(name: &str) -> Option<ToolRisk> {
         | "native_capabilities"
         | "check_dependencies" => Some(ToolRisk::ReadOnly),
         "write_file" | "generate_docx" | "generate_pptx" | "generate_chart" | "merge_pdfs"
-        | "optimize_pdf" | "desktop_automation" | "run_command" | "open_browser" => {
-            Some(ToolRisk::Write)
-        }
+        | "optimize_pdf" | "desktop_automation" | "run_command" | "open_browser"
+        | "browser_snapshot" => Some(ToolRisk::Write),
         _ => None,
     }
 }
@@ -618,6 +622,7 @@ pub fn execute(call: &ModelToolCall, workspace: &Path) -> Result<Value, String> 
             }
             Ok(json!({"id":"platform-agent-browser","label":label,"url":url}))
         }
+        "browser_snapshot" => Err("浏览器 DOM 摘要必须由桌面运行时执行".into()),
         _ => Err(format!("未知 Rust 原生工具: {}", call.name)),
     }
 }
@@ -716,7 +721,7 @@ mod tests {
 
     #[test]
     fn definitions_and_risks_keep_writes_confirmation_gated() {
-        assert_eq!(definitions().len(), 14);
+        assert_eq!(definitions().len(), 15);
         assert_eq!(summaries().as_array().unwrap().len(), definitions().len());
         assert_eq!(risk("read_file"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("write_file"), Some(ToolRisk::Write));
@@ -728,6 +733,7 @@ mod tests {
         assert_eq!(risk("desktop_automation"), Some(ToolRisk::Write));
         assert_eq!(risk("run_command"), Some(ToolRisk::Write));
         assert_eq!(risk("open_browser"), Some(ToolRisk::Write));
+        assert_eq!(risk("browser_snapshot"), Some(ToolRisk::Write));
         assert_eq!(risk("unknown"), None);
     }
 

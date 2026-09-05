@@ -72,12 +72,17 @@ back to the legacy Node sidecar.
   executable-plus-argv execution. Confirmed model requests can also open a
   credential-free HTTP(S) URL in the existing right-side Tauri child WebView;
   the Rust runtime emits the activation event instead of falling back to Node.
+  A separately confirmed DOM snapshot reads bounded visible text and interactive
+  element metadata from that live WebView while excluding form values and URL
+  query parameters. Native MCP discovery and invocation support stdio and
+  streamable HTTP transports with credential-store isolation, cancellation,
+  timeouts, response bounds, and namespaced tool routing.
   Desktop diagnostics now come from the same Rust capability manifest, so
   replaced binaries are not reported as required dependencies.
-- Verified locally after the native process migration: 7.42 MiB stripped ARM64
-  release executable. The last packaged check produced a 7.22 MiB application
-  bundle and 3.25 MiB compressed macOS ARM64 DMG with no Node executable,
+- Verified locally after the browser DOM snapshot migration: 10.28 MiB stripped
+  ARM64 release executable. The packaged check produced a 10.24 MiB application
+  bundle and 4.94 MiB compressed macOS ARM64 DMG with no Node executable,
   `.node` addon, or agent payload.
-- Remaining before release: browser visual/DOM feedback for reliable RPA,
-  remaining document and MCP tool adapters; enterprise channel adapters; then
-  installed real-model and destructive-path acceptance.
+- Remaining before release: browser screenshots and selector-targeted actions
+  for reliable RPA, remaining document adapters, and enterprise channel inbound
+  streams; then installed real-model and destructive-path acceptance.

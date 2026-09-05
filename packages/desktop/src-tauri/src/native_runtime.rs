@@ -5,7 +5,7 @@ use crate::native_models::{
 use crate::{
     native_agent_tools, native_context, native_diagnostics, native_enterprise, native_knowledge,
     native_mcp, native_memory, native_projects, native_schedule, native_skills, native_todos,
-    native_workflows, native_worklog,
+    native_workflows, native_worklog, platform_webview,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -1967,6 +1967,8 @@ impl NativeRuntime {
                     native_skills::execute(context.workspace, call)
                 } else if approved && is_workflow {
                     self.execute_workflow(&context, call, cancel.clone()).await
+                } else if approved && call.name == "browser_snapshot" {
+                    platform_webview::platform_webview_snapshot(context.app).await
                 } else if approved {
                     native_agent_tools::execute_model(call, context.workspace, cancel.clone()).await
                 } else {
