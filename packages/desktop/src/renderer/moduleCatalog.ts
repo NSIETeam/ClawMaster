@@ -70,6 +70,7 @@ export interface ModuleDefinition {
   activation: ModuleActivation;
   availability: ModuleAvailability;
   disabledReason?: string;
+  proposalCount?: number;
 }
 
 export const DEFAULT_PLATFORM_URLS = Object.freeze({

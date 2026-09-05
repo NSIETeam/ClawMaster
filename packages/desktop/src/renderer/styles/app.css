@@ -12880,6 +12880,27 @@ h6.claw-prose__h {
   height: 100%;
 }
 
+.claw-module-tile.is-proposal {
+  border-color: color-mix(in srgb, var(--claw-accent) 64%, transparent);
+  border-style: dashed;
+  background: color-mix(in srgb, var(--claw-accent) 7%, transparent);
+}
+
+.claw-module-tile__badge {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--claw-accent);
+  color: var(--claw-accent-contrast, white);
+  font-size: 11px;
+  line-height: 19px;
+  text-align: center;
+}
+
 .claw-module-workspace--panel .claw-module-tile {
   min-height: 68px;
   gap: 4px;

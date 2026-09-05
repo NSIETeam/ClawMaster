@@ -2417,7 +2417,12 @@ impl NativeRuntime {
                 .requests += 1;
             let timestamp = now_ms();
             let inferred_session = if state.sessions[session_index].workspace_path.is_none() {
-                native_projects::infer_from_content(&content).map(|workspace| {
+                let known_projects = state
+                    .sessions
+                    .iter()
+                    .filter_map(|session| session.workspace_path.as_ref().map(PathBuf::from))
+                    .collect::<Vec<_>>();
+                native_projects::infer_from_known_projects(&content, &known_projects).map(|workspace| {
                     state.sessions[session_index].workspace_path =
                         Some(workspace.to_string_lossy().into_owned());
                     state.sessions[session_index].clone()

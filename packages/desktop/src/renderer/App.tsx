@@ -298,6 +298,18 @@ function ClawMasterWorkspaceApp({
       iconSrc: module.iconDataUrl,
     })),
   });
+  const workspaceModules = useMemo(
+    () => moduleCapabilities.modules.map((module) => (
+      module.id === 'auto-skill' && product.state.pendingAutoSkills.length > 0
+        ? {
+            ...module,
+            proposalCount: product.state.pendingAutoSkills.length,
+            description: `${product.state.pendingAutoSkills.length} 个工作路径等待确认沉淀`,
+          }
+        : module
+    )),
+    [moduleCapabilities.modules, product.state.pendingAutoSkills.length],
+  );
   const availableModuleIds = useMemo(
     () => moduleCapabilities.modules.filter((module) => module.availability === 'available').map((module) => module.id),
     [moduleCapabilities.modules],
@@ -1456,7 +1468,7 @@ function ClawMasterWorkspaceApp({
             onRetryCapabilities={moduleCapabilities.retry}
             scopeKey={moduleWorkspaceScopeKey}
             layout={moduleWorkspace.visibleLayout}
-            modules={moduleCapabilities.modules}
+            modules={workspaceModules}
             onActivate={activateModule}
             onOpenMarketplace={(groupId) => openModuleModal({ kind: 'marketplace', groupId })}
             onLayoutChange={moduleWorkspace.setVisibleLayout}
@@ -1534,7 +1546,7 @@ function ClawMasterWorkspaceApp({
               onRequestExpand={expandRightPanel}
               scopeKey={moduleWorkspaceScopeKey}
               layout={moduleWorkspace.visibleLayout}
-              modules={moduleCapabilities.modules}
+              modules={workspaceModules}
               onActivate={activateModule}
               onOpenMarketplace={(groupId) => openModuleModal({ kind: 'marketplace', groupId })}
               onLayoutChange={moduleWorkspace.setVisibleLayout}

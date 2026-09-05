@@ -57,6 +57,41 @@ pub fn infer_from_content(content: &Value) -> Option<PathBuf> {
     None
 }
 
+fn content_text(content: &Value) -> String {
+    content
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|part| part.get("value").and_then(Value::as_str))
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+/// Resolve an unassigned session only when one previously used, real project
+/// has a uniquely mentioned directory name. Ambiguous names fail closed.
+pub fn infer_from_known_projects(content: &Value, known_projects: &[PathBuf]) -> Option<PathBuf> {
+    if let Some(project) = infer_from_content(content) {
+        return Some(project);
+    }
+    let text = content_text(content);
+    let mut matches = known_projects
+        .iter()
+        .filter_map(|project| {
+            let canonical = project.canonicalize().ok()?;
+            if !project_marker(&canonical) {
+                return None;
+            }
+            let name = canonical.file_name()?.to_string_lossy().to_lowercase();
+            let minimum = if name.is_ascii() { 4 } else { 2 };
+            (name.chars().count() >= minimum && text.contains(name.as_str())).then_some(canonical)
+        })
+        .collect::<Vec<_>>();
+    matches.sort();
+    matches.dedup();
+    (matches.len() == 1).then(|| matches.remove(0))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -83,5 +118,40 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let content = json!([{"type":"text","value":root.path().display().to_string()}]);
         assert!(infer_from_content(&content).is_none());
+    }
+
+    #[test]
+    fn infers_a_unique_known_project_from_its_directory_name() {
+        let root = tempfile::tempdir().unwrap();
+        let alpha = root.path().join("clawmaster-sales");
+        let beta = root.path().join("clawmaster-support");
+        fs::create_dir_all(&alpha).unwrap();
+        fs::create_dir_all(&beta).unwrap();
+        fs::write(alpha.join("Cargo.toml"), "[package]").unwrap();
+        fs::write(beta.join("package.json"), "{}").unwrap();
+
+        let content = json!([{"type":"text","value":"继续处理 clawmaster-sales 的发布"}]);
+        assert_eq!(
+            infer_from_known_projects(&content, &[alpha.clone(), beta]),
+            alpha.canonicalize().ok(),
+        );
+    }
+
+    #[test]
+    fn refuses_an_ambiguous_or_unmarked_known_project_name() {
+        let root = tempfile::tempdir().unwrap();
+        let first = root.path().join("sales");
+        let second = root.path().join("nested/sales");
+        let unmarked = root.path().join("support");
+        fs::create_dir_all(&first).unwrap();
+        fs::create_dir_all(&second).unwrap();
+        fs::create_dir_all(&unmarked).unwrap();
+        fs::write(first.join("Cargo.toml"), "[package]").unwrap();
+        fs::write(second.join("package.json"), "{}").unwrap();
+
+        let sales = json!([{"type":"text","value":"继续 sales 项目"}]);
+        assert!(infer_from_known_projects(&sales, &[first, second]).is_none());
+        let support = json!([{"type":"text","value":"继续 support 项目"}]);
+        assert!(infer_from_known_projects(&support, &[unmarked]).is_none());
     }
 }

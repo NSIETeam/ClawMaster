@@ -624,8 +624,8 @@ export function ModuleWorkspace({
                   >
                     <button
                       type="button"
-                      className="claw-module-tile"
-                      aria-label={`打开 ${module.label}`}
+                      className={`claw-module-tile${module.proposalCount ? ' is-proposal' : ''}`}
+                      aria-label={`打开 ${module.label}${module.proposalCount ? `，${module.proposalCount} 个候选待确认` : ''}`}
                       disabled={disabled}
                       title={disabled ? module.disabledReason : editing ? '拖动调整模块顺序' : module.description}
                       onClick={() => {
@@ -653,6 +653,11 @@ export function ModuleWorkspace({
                         size={presentation === 'panel' ? 26 : 28}
                       />
                       <span>{module.label}</span>
+                      {module.proposalCount ? (
+                        <strong className="claw-module-tile__badge" aria-hidden>
+                          {module.proposalCount}
+                        </strong>
+                      ) : null}
                     </button>
                     {editing ? (
                         <button

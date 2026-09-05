@@ -2,7 +2,7 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-const MODULE_WORKSPACE_SCHEMA_VERSION = 2 as const;
+const MODULE_WORKSPACE_SCHEMA_VERSION = 3 as const;
 const MODULE_GROUP_NAME_MAX_LENGTH = 40;
 
 export type ModuleWorkspaceEdition = 'personal' | 'enterprise';
@@ -20,8 +20,8 @@ export interface ModuleGroupLayout {
 }
 
 export interface ModuleWorkspaceLayout {
-  /** v1 is accepted only as a legacy in-memory/input shape; persistence upgrades it to v2. */
-  version: 1 | typeof MODULE_WORKSPACE_SCHEMA_VERSION;
+  /** Older shapes are accepted only for migration; persistence upgrades them to v3. */
+  version: 1 | 2 | typeof MODULE_WORKSPACE_SCHEMA_VERSION;
   groups: ModuleGroupLayout[];
 }
 
@@ -81,6 +81,12 @@ const ENTERPRISE_DEFAULT_GROUPS: readonly ModuleGroupLayout[] = [
       'platform-zhixin-pigeon',
     ],
   },
+  {
+    id: 'intelligent-capture',
+    name: '智能沉淀',
+    rows: 2,
+    moduleIds: ['auto-skill', 'skill-zone'],
+  },
 ] as const;
 
 const PERSONAL_DEFAULT_GROUPS: readonly ModuleGroupLayout[] = [
@@ -108,6 +114,12 @@ const PERSONAL_DEFAULT_GROUPS: readonly ModuleGroupLayout[] = [
       'platform-zhiliaohou',
       'platform-zhixin-pigeon',
     ],
+  },
+  {
+    id: 'intelligent-capture',
+    name: '智能沉淀',
+    rows: 2,
+    moduleIds: ['auto-skill', 'skill-zone'],
   },
 ] as const;
 
@@ -212,7 +224,7 @@ export function parseModuleWorkspace(
     if (!Array.isArray(parsed.groups)) {
       return createDefaultModuleWorkspace(capabilities);
     }
-    if (parsed.version === 1) {
+    if (parsed.version === 1 || parsed.version === 2) {
       const legacy = normalizeModuleWorkspace(parsed);
       const defaults = createDefaultModuleWorkspace(capabilities);
       const legacyPersonalIds = new Set(['agent-personal-otto', 'auto-skill']);
@@ -220,11 +232,14 @@ export function parseModuleWorkspace(
       for (const expected of defaults.groups) {
         const current = groups.find((group) => group.id === expected.id);
         if (!current) {
-          groups.push(cloneGroup(expected));
+          if (parsed.version === 1 || expected.id === 'intelligent-capture') {
+            groups.push(cloneGroup(expected));
+          }
           continue;
         }
         if (
-          capabilities.edition === 'personal'
+          parsed.version === 1
+          && capabilities.edition === 'personal'
           && current.id === 'daily-office'
           && current.moduleIds.every((moduleId) => legacyPersonalIds.has(moduleId))
         ) {
