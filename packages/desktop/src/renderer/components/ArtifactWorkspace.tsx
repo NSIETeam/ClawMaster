@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 interface EditableArtifact {
   filePath: string;
   fileName: string;
-  sourceFormat: 'text' | 'markdown' | 'docx' | 'pdf';
+  sourceFormat: 'text' | 'markdown' | 'docx' | 'pdf' | 'pptx' | 'xlsx';
   content: string;
   message: string;
 }
@@ -111,7 +111,7 @@ export function ArtifactWorkspace({ initialPath }: ArtifactWorkspaceProps): Reac
           </button>
         </>
       ) : (
-        <div className="claw-artifact-workspace__empty">支持 Markdown、Mermaid、文本；完整桌面桥可转换 Word 与 PDF。</div>
+        <div className="claw-artifact-workspace__empty">支持文本、代码、Markdown、DOCX、PDF、PPTX 与 XLSX；二进制原件不会被覆盖。</div>
       )}
       <div className="claw-artifact-workspace__status" role="status">{busy ? '正在处理…' : status}</div>
     </section>

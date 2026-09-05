@@ -1,6 +1,7 @@
 use std::{
     collections::HashSet,
     fs,
+    io::Read,
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -22,6 +23,96 @@ pub struct DesktopFileState {
 
 const MAX_READ_FILE_BYTES: u64 = 50 * 1024 * 1024;
 const MAX_TEXT_EXPORT_BYTES: usize = 10 * 1024 * 1024;
+
+fn decode_xml_text(value: &str) -> String {
+    value
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&amp;", "&")
+}
+
+fn extract_xml_text(xml: &str, text_tags: &[&str], break_tags: &[&str]) -> String {
+    let mut output = String::new();
+    let mut cursor = 0;
+    while let Some(relative) = xml[cursor..].find('<') {
+        let start = cursor + relative;
+        let Some(close_relative) = xml[start..].find('>') else { break };
+        let close = start + close_relative;
+        let tag = xml[start + 1..close].trim();
+        if break_tags.iter().any(|candidate| tag == format!("/{candidate}")) {
+            if !output.ends_with('\n') { output.push('\n'); }
+        } else {
+            let name = tag.split_whitespace().next().unwrap_or("").trim_end_matches('/');
+            if text_tags.contains(&name) {
+                let value_start = close + 1;
+                let value_end = xml[value_start..]
+                    .find('<')
+                    .map(|offset| value_start + offset)
+                    .unwrap_or(xml.len());
+                output.push_str(&decode_xml_text(&xml[value_start..value_end]));
+            }
+        }
+        cursor = close + 1;
+    }
+    output.lines().map(str::trim_end).collect::<Vec<_>>().join("\n").trim().to_string()
+}
+
+fn zip_entries_text(path: &Path, prefixes: &[&str], exact: &[&str]) -> Result<String, String> {
+    let file = fs::File::open(path).map_err(|error| format!("无法打开 OOXML 文档: {error}"))?;
+    let mut archive = zip::ZipArchive::new(file)
+        .map_err(|error| format!("OOXML 文档结构无效: {error}"))?;
+    let mut names = (0..archive.len())
+        .filter_map(|index| archive.by_index(index).ok().map(|entry| entry.name().to_string()))
+        .filter(|name| exact.contains(&name.as_str()) || prefixes.iter().any(|prefix| name.starts_with(prefix)))
+        .collect::<Vec<_>>();
+    names.sort();
+    let mut parts = Vec::new();
+    for name in names {
+        let mut entry = archive.by_name(&name)
+            .map_err(|error| format!("无法读取 OOXML 内容 {name}: {error}"))?;
+        if entry.size() > MAX_TEXT_EXPORT_BYTES as u64 { return Err("OOXML 文本内容超过 10 MiB".into()); }
+        let mut xml = String::new();
+        entry.read_to_string(&mut xml)
+            .map_err(|error| format!("OOXML 文本不是有效 UTF-8: {error}"))?;
+        let text = extract_xml_text(
+            &xml,
+            &["w:t", "a:t", "t", "v"],
+            &["w:p", "a:p", "row"],
+        );
+        if !text.is_empty() { parts.push(text); }
+    }
+    if parts.is_empty() { Err("文档中没有可编辑文本".into()) } else { Ok(parts.join("\n\n")) }
+}
+
+fn editable_document(path: &Path) -> Result<(&'static str, String, &'static str), String> {
+    let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("").to_ascii_lowercase();
+    match extension.as_str() {
+        "docx" => zip_entries_text(path, &[], &["word/document.xml"])
+            .map(|content| ("docx", content, "已提取 Word 文本，可编辑后另存为新文件。")),
+        "pptx" => zip_entries_text(path, &["ppt/slides/slide"], &[])
+            .map(|content| ("pptx", content, "已提取 PPT 文本，可编辑后另存为新文件。")),
+        "xlsx" => zip_entries_text(path, &["xl/worksheets/sheet"], &["xl/sharedStrings.xml"])
+            .map(|content| ("xlsx", content, "已提取 Excel 单元格文本，可编辑后另存为新文件。")),
+        "pdf" => {
+            let document = lopdf::Document::load(path)
+                .map_err(|error| format!("无法解析 PDF: {error}"))?;
+            let pages = document.get_pages().keys().copied().collect::<Vec<_>>();
+            let content = document.extract_text(&pages)
+                .map_err(|error| format!("无法提取 PDF 文本: {error}"))?;
+            if content.trim().is_empty() { return Err("PDF 没有可提取文本，可能是扫描件".into()); }
+            Ok(("pdf", content, "已提取 PDF 文本，可编辑后另存为新文件。"))
+        }
+        "md" | "markdown" | "mermaid" | "mmd" => fs::read_to_string(path)
+            .map(|content| ("markdown", content, "已在本地打开可编辑 Markdown。"))
+            .map_err(|error| format!("无法读取文本文件: {error}")),
+        "txt" | "csv" | "json" | "xml" | "log" | "yaml" | "yml" | "toml" | "rs" | "ts" | "tsx" | "js" | "jsx" | "css" | "html" | "sql" => fs::read_to_string(path)
+            .map(|content| ("text", content, "已在本地打开可编辑文本。"))
+            .map_err(|error| format!("无法读取文本文件: {error}")),
+        _ => Err("该格式暂不支持安全文本编辑；支持文本、代码、Markdown、DOCX、PDF、PPTX 与 XLSX".into()),
+    }
+}
 
 #[derive(Clone, Copy, Default)]
 enum ThemeChoice {
@@ -90,7 +181,8 @@ pub fn select_files(app: AppHandle, state: State<'_, DesktopFileState>) -> Vec<S
             "Supported files",
             &[
                 "png", "jpg", "jpeg", "gif", "webp", "bmp", "pdf", "doc", "docx", "xls", "xlsx",
-                "ppt", "pptx", "txt", "csv", "json", "xml", "md", "zip", "log",
+                "ppt", "pptx", "txt", "csv", "json", "xml", "md", "markdown", "mermaid", "mmd",
+                "yaml", "yml", "toml", "rs", "ts", "tsx", "js", "jsx", "css", "html", "sql", "log",
             ],
         )
         .blocking_pick_files()
@@ -233,9 +325,15 @@ pub fn extract_editable_document(
         .map_err(|_| "file grant state is unavailable".to_string())?;
     let (resolved, _) = resolve_granted_file(Path::new(&file_path), &grants)?;
     drop(grants);
-    let content = fs::read_to_string(&resolved)
-        .map_err(|error| format!("native document extraction supports readable text files: {error}"))?;
-    Ok(serde_json::json!({ "ok": true, "result": { "content": content, "filePath": resolved } }))
+    let file_name = resolved.file_name().and_then(|value| value.to_str()).unwrap_or("document");
+    let (source_format, content, message) = editable_document(&resolved)?;
+    Ok(serde_json::json!({
+        "filePath": resolved,
+        "fileName": file_name,
+        "sourceFormat": source_format,
+        "content": content,
+        "message": message
+    }))
 }
 
 #[tauri::command]
@@ -264,7 +362,11 @@ pub fn export_edited_document(
         return Ok(None);
     };
     fs::write(&out_path, content).map_err(|error| format!("native document export failed: {error}"))?;
-    Ok(Some(serde_json::json!({ "ok": true, "sourcePath": source, "outPath": out_path })))
+    Ok(Some(serde_json::json!({
+        "sourcePath": source,
+        "outPath": out_path,
+        "message": format!("已保存编辑稿：{}", out_path.display())
+    })))
 }
 
 fn mime_type_for_path(path: &Path) -> &'static str {
@@ -522,9 +624,9 @@ fn is_executable_path(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        inspect_user_local_path, is_executable_path, mime_type_for_path, resolve_granted_file,
-        safe_suggested_file_name, validate_external_url, validate_open_path, workspace_directories,
-        ThemeChoice,
+        editable_document, extract_xml_text, inspect_user_local_path, is_executable_path,
+        mime_type_for_path, resolve_granted_file, safe_suggested_file_name,
+        validate_external_url, validate_open_path, workspace_directories, ThemeChoice,
     };
     use std::{collections::HashSet, fs, path::Path};
 
@@ -621,5 +723,25 @@ mod tests {
             mime_type_for_path(Path::new("archive.unknown")),
             "application/octet-stream"
         );
+    }
+
+    #[test]
+    fn office_xml_extraction_preserves_text_entities_and_paragraphs() {
+        let xml = "<w:p><w:t>销售 &amp; 市场</w:t></w:p><w:p><w:t>第二段</w:t></w:p>";
+        assert_eq!(extract_xml_text(xml, &["w:t"], &["w:p"]), "销售 & 市场\n第二段");
+    }
+
+    #[test]
+    fn editable_text_contract_reports_a_flat_safe_format() {
+        let path = std::env::temp_dir().join(format!(
+            "clawmaster-editable-{}.toml",
+            std::process::id()
+        ));
+        fs::write(&path, "name = \"ClawMaster\"").unwrap();
+        let (format, content, message) = editable_document(&path).unwrap();
+        assert_eq!(format, "text");
+        assert_eq!(content, "name = \"ClawMaster\"");
+        assert!(message.contains("可编辑文本"));
+        let _ = fs::remove_file(path);
     }
 }
