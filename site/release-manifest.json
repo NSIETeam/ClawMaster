@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "version": "0.0.2-beta.2",
+  "tagName": "v0.0.2-beta.2",
+  "releaseUrl": "https://github.com/NSIETeam/ClawMaster/releases/tag/v0.0.2-beta.2",
+  "checksumsUrl": "https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/SHA256SUMS",
+  "assets": {
+    "windows": {
+      "name": "ClawMaster_0.0.2-2_x64-setup.exe",
+      "bytes": 3955854,
+      "size": "3.77 MiB",
+      "sha256": "faf044c3c747f8ae4bebad59771b6c1c92c39fcb8badbbb4066458118f2bcb1d",
+      "url": "https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-2_x64-setup.exe"
+    },
+    "windowsMsi": {
+      "name": "ClawMaster_0.0.2-2_x64_en-US.msi",
+      "bytes": 5234688,
+      "size": "4.99 MiB",
+      "sha256": "80210b897cdf77762b2baaebc58c4d460d0e4db20c73427fdeca875d0dd0c3b8",
+      "url": "https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-2_x64_en-US.msi"
+    },
+    "mac": {
+      "name": "ClawMaster_0.0.2-beta.2_aarch64.dmg",
+      "bytes": 4825137,
+      "size": "4.60 MiB",
+      "sha256": "f7131d334e60839636987e36cb936d2eac61852809ceaeb4019c21f16c5e382e",
+      "url": "https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-beta.2_aarch64.dmg"
+    }
+  }
+}

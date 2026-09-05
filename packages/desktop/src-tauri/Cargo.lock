@@ -611,7 +611,7 @@ dependencies = [
 
 [[package]]
 name = "clawmaster-desktop"
-version = "0.0.2-beta.2"
+version = "0.0.2-beta.3"
 dependencies = [
  "aes-gcm",
  "arboard",

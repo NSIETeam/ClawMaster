@@ -30,10 +30,12 @@ jobs:
           test -f site/index.html
           test -f site/styles.css
           test -f site/app.js
+          test -f site/release-manifest.json
           test -f site/.nojekyll
           grep -q 'v0.0.2-beta.2' site/index.html
           grep -q 'ClawMaster_0.0.2-2_x64-setup.exe' site/index.html
           grep -q 'ClawMaster_0.0.2-beta.2_aarch64.dmg' site/index.html
+          node -e "const m=require('./site/release-manifest.json'); if(m.schemaVersion!==1||!m.assets.windows||!m.assets.windowsMsi||!m.assets.mac) process.exit(1)"
           if grep -R -E 'sk-[[:alnum:]_-]{20,}' site; then
             echo 'site contains a credential-like value' >&2
             exit 1

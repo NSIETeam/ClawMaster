@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#f4f0e8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <meta property="og:title" content="ClawMaster | AI 智能操作中台" />
     <meta
@@ -61,7 +61,7 @@
             >下载 Windows x64 <span aria-hidden="true">↓</span></a>
             <a class="button button-secondary" href="#download">查看全部版本</a>
           </div>
-          <p class="release-note">v0.0.2-beta.2 · 原生 Rust/Tauri · 安装后无需 Node.js</p>
+          <p class="release-note">v<span data-release-version>0.0.2-beta.2</span> · 原生 Rust/Tauri · 安装后无需 Node.js</p>
         </div>
 
         <div class="hero-system reveal" aria-label="ClawMaster 工作沉淀流程示意图">
@@ -229,30 +229,30 @@
         <div class="download-list">
           <article class="download-card reveal">
             <div class="platform-line"><span class="platform-icon">W</span><div><p>推荐安装包</p><h3>Windows x64</h3></div></div>
-            <dl><div><dt>格式</dt><dd>NSIS .exe</dd></div><div><dt>大小</dt><dd>3.77 MiB</dd></div><div><dt>版本</dt><dd>0.0.2-beta.2</dd></div></dl>
-            <a class="button button-primary" href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-2_x64-setup.exe">下载 EXE <span aria-hidden="true">↓</span></a>
+            <dl><div><dt>格式</dt><dd>NSIS .exe</dd></div><div><dt>大小</dt><dd data-release-size="windows">3.77 MiB</dd></div><div><dt>版本</dt><dd data-release-version>0.0.2-beta.2</dd></div></dl>
+            <a class="button button-primary" data-release-link="windows" href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-2_x64-setup.exe">下载 EXE <span aria-hidden="true">↓</span></a>
             <details>
               <summary>SHA-256 与其他格式</summary>
-              <code>faf044c3c747f8ae4bebad59771b6c1c92c39fcb8badbbb4066458118f2bcb1d</code>
-              <button class="copy-button" type="button" data-copy="faf044c3c747f8ae4bebad59771b6c1c92c39fcb8badbbb4066458118f2bcb1d">复制校验值</button>
-              <a class="text-link" href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-2_x64_en-US.msi">下载 MSI（4.99 MiB）</a>
+              <code data-release-sha="windows">faf044c3c747f8ae4bebad59771b6c1c92c39fcb8badbbb4066458118f2bcb1d</code>
+              <button class="copy-button" type="button" data-release-copy="windows" data-copy="faf044c3c747f8ae4bebad59771b6c1c92c39fcb8badbbb4066458118f2bcb1d">复制校验值</button>
+              <a class="text-link" data-release-link="msi" href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-2_x64_en-US.msi">下载 MSI（4.99 MiB）</a>
             </details>
           </article>
 
           <article class="download-card reveal">
             <div class="platform-line"><span class="platform-icon apple">A</span><div><p>Apple Silicon</p><h3>macOS ARM64</h3></div></div>
-            <dl><div><dt>格式</dt><dd>DMG</dd></div><div><dt>大小</dt><dd>4.60 MiB</dd></div><div><dt>版本</dt><dd>0.0.2-beta.2</dd></div></dl>
-            <a class="button button-dark" href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-beta.2_aarch64.dmg">下载 DMG <span aria-hidden="true">↓</span></a>
+            <dl><div><dt>格式</dt><dd>DMG</dd></div><div><dt>大小</dt><dd data-release-size="mac">4.60 MiB</dd></div><div><dt>版本</dt><dd data-release-version>0.0.2-beta.2</dd></div></dl>
+            <a class="button button-dark" data-release-link="mac" href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/ClawMaster_0.0.2-beta.2_aarch64.dmg">下载 DMG <span aria-hidden="true">↓</span></a>
             <details>
               <summary>SHA-256</summary>
-              <code>f7131d334e60839636987e36cb936d2eac61852809ceaeb4019c21f16c5e382e</code>
-              <button class="copy-button" type="button" data-copy="f7131d334e60839636987e36cb936d2eac61852809ceaeb4019c21f16c5e382e">复制校验值</button>
+              <code data-release-sha="mac">f7131d334e60839636987e36cb936d2eac61852809ceaeb4019c21f16c5e382e</code>
+              <button class="copy-button" type="button" data-release-copy="mac" data-copy="f7131d334e60839636987e36cb936d2eac61852809ceaeb4019c21f16c5e382e">复制校验值</button>
             </details>
           </article>
 
           <p class="checksum-link reveal">
             想批量验证？
-            <a href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/SHA256SUMS">下载 SHA256SUMS</a>
+            <a data-release-link="checksums" href="https://github.com/NSIETeam/ClawMaster/releases/download/v0.0.2-beta.2/SHA256SUMS">下载 SHA256SUMS</a>
           </p>
         </div>
       </section>
@@ -265,7 +265,7 @@
       </div>
       <p>AI 智能操作中台，从一次任务到组织能力。</p>
       <div class="footer-links">
-        <a href="https://github.com/NSIETeam/ClawMaster/releases/tag/v0.0.2-beta.2">发行说明</a>
+        <a data-release-link="notes" href="https://github.com/NSIETeam/ClawMaster/releases/tag/v0.0.2-beta.2">发行说明</a>
         <a href="https://github.com/NSIETeam/ClawMaster">源代码</a>
         <span>© <span id="year">2026</span> NSIETeam</span>
       </div>

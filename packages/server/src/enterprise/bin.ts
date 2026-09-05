@@ -11,7 +11,7 @@
  *   node dist/enterprise/bin.js --seed          # 先灌一批演示数据（看板立刻有东西看）
  *   CLAWMASTER_ENTERPRISE_HOST=0.0.0.0 \
  *   CLAWMASTER_ENTERPRISE_PUBLIC_URL=https://your-public-host \
- *   CLAWMASTER_APP_VERSION=0.0.2-beta.2 \
+ *   CLAWMASTER_APP_VERSION=0.0.2-beta.3 \
  *   CLAWMASTER_BUILD_COMMIT=<完整的40位Git-SHA> \
  *   CLAWMASTER_ENTERPRISE_ADMIN_TOKEN=xxx node dist/enterprise/bin.js   # 局域网 + 鉴权
  */
