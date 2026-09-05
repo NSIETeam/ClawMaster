@@ -122,7 +122,7 @@ describe('capability-driven availability', () => {
     expect(catalog.find((module) => module.id === 'park-announcement')?.availability).toBe('available');
   });
 
-  it('unlocks enterprise services for personal users without fabricating park authorization', () => {
+  it('unlocks enterprise service entry points for personal users without fabricating data', () => {
     const catalog = buildModuleCatalog({
       edition: 'personal',
       profiles: BASE_AGENT_PROFILES,
@@ -156,8 +156,7 @@ describe('capability-driven availability', () => {
     expect(availableIds).toContain('enterprise-memory');
     expect(availableIds).toContain('skill-zone');
     expect(catalog.filter((module) => module.id.startsWith('park-')).every((module) => (
-      module.availability === 'disabled'
-      && module.disabledReason === '请先在“企业与身份”中建立真实企业及园区上下文'
+      module.availability === 'available' && module.disabledReason === undefined
     ))).toBe(true);
   });
 
