@@ -33,15 +33,15 @@ export function CustomerModuleMarketDialog({
   if (!open) return null;
   return createPortal(
     <div className="claw-module-marketplace-overlay" onMouseDown={modal.onBackdropMouseDown}>
-      <div ref={modal.dialogRef} className="claw-module-marketplace" role="dialog" aria-modal="true" aria-label="客户模块市场" onKeyDown={modal.onKeyDown}>
+      <div ref={modal.dialogRef} className="claw-module-marketplace claw-customer-module-market" role="dialog" aria-modal="true" aria-label="客户模块市场" onKeyDown={modal.onKeyDown}>
         <header className="claw-module-marketplace__header">
           <div><h2>客户模块市场</h2><p>公开审核通过的 WASM 模块</p></div>
           <button ref={modal.closeRef} type="button" aria-label="关闭客户模块市场" disabled={busy} onClick={onClose}>×</button>
         </header>
         <div className="claw-module-marketplace__catalog">
-          {installed.length > 0 ? <section aria-label="已安装客户模块"><h3>已安装</h3>{installed.map((module) => <article key={module.id} className="claw-module-marketplace__module">
+          {installed.length > 0 ? <section className="claw-customer-module-market__section" aria-label="已安装客户模块"><h3>已安装</h3>{installed.map((module) => <article key={module.id} className="claw-customer-module-market__card">
             <span className="claw-module-marketplace__module-copy"><strong>{module.name}</strong><small>{module.version} · {module.riskStatus ? `风险状态：${module.riskStatus}` : module.enabled ? '已启用' : '已禁用'}</small></span>
-            <span>
+            <span className="claw-customer-module-market__actions">
               <button type="button" onClick={() => void window.clawmaster.customerModuleSetEnabled(module.id, !module.enabled).then((record) => onInstalledChanged(installed.map((item) => item.id === record.id ? record : item))).catch((error) => setStatus(error instanceof Error ? error.message : String(error)))}>{module.enabled ? '禁用' : '启用'}</button>
               {module.permissions.some((permission) => permission.kind === 'background') ? <button type="button" onClick={() => {
                 const next = !module.backgroundEnabled;
@@ -62,7 +62,7 @@ export function CustomerModuleMarketDialog({
           {modules.map((module) => {
             const manifest = module.manifest;
             const alreadyInstalled = installed.some((item) => item.id === manifest.id && item.version === manifest.version);
-            return <article key={`${manifest.id}@${manifest.version}`} className="claw-module-marketplace__module">
+            return <article key={`${manifest.id}@${manifest.version}`} className="claw-customer-module-market__card">
               <span className="claw-module-marketplace__module-copy">
                 <strong>{manifest.name}</strong>
                 <small>{manifest.id}@{manifest.version} · {module.publisherId} · 安装 {module.installCount}</small>
@@ -71,7 +71,7 @@ export function CustomerModuleMarketDialog({
             </article>;
           })}
           {modules.length === 0 && !status ? <p>暂无公开客户模块</p> : null}
-          {selected ? <section aria-label="安装权限确认">
+          {selected ? <section className="claw-customer-module-market__review" aria-label="安装权限确认">
             <h3>安装 {selected.manifest.name}</h3>
             <p>版本：{selected.manifest.version}</p>
             <p>发布者：{selected.publisherId} · 审核状态：{selected.status} · 签名：{selected.manifest.signature ? '平台签名有效待本机校验' : '未签名'}</p>

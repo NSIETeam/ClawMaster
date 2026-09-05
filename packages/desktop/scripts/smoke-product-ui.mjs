@@ -104,8 +104,8 @@ try {
     // pointer interception that force-click or DOM dispatch would conceal.
     await page.getByRole('button', { name: '向园区服务添加模块' }).click();
     await page.getByRole('button', { name: /社区插件/u }).click();
-    assert.equal(await page.locator('.claw-community-skill-card').count(), 41);
-    assert.equal(await page.getByRole('img', { name: /插件$/u }).count(), 41);
+    assert.equal(await page.locator('.claw-community-skill-card').count(), 43);
+    assert.equal(await page.getByRole('img', { name: /插件$/u }).count(), 43);
     await page.waitForFunction(() => [...document.querySelectorAll('img[src]')]
       .every((image) => image.complete));
     const brokenImages = await page.locator('img[src]').evaluateAll((images) => images
@@ -151,6 +151,46 @@ try {
     }
 
     await page.getByRole('button', { name: '关闭添加模块' }).click();
+
+    await page.getByRole('button', { name: '向园区服务添加模块' }).click();
+    await page.getByRole('button', { name: '包装客户模块' }).click();
+    const studioGeometry = await page.evaluate(() => {
+      const dialog = document.querySelector('.claw-module-studio');
+      const rail = document.querySelector('.claw-module-studio__rail');
+      const fields = [...document.querySelectorAll('.claw-module-studio__form-grid > label')];
+      const controls = [...document.querySelectorAll('.claw-module-studio__form-grid input, .claw-module-studio__form-grid textarea')];
+      if (!dialog || !rail || fields.length !== 5 || controls.length !== 5) {
+        throw new Error('module studio identity layout is incomplete');
+      }
+      const dialogBox = dialog.getBoundingClientRect();
+      const controlBoxes = controls.map((control) => control.getBoundingClientRect());
+      return {
+        dialogFits: dialogBox.left >= 0 && dialogBox.top >= 0
+          && dialogBox.right <= innerWidth && dialogBox.bottom <= innerHeight,
+        fieldsStacked: fields.every((field, index) => {
+          const fieldBox = field.getBoundingClientRect();
+          const controlBox = controlBoxes[index];
+          return controlBox.left >= fieldBox.left - 1 && controlBox.right <= fieldBox.right + 1
+            && controlBox.width > 120 && controlBox.height >= 41;
+        }),
+        controlsDoNotOverlap: controlBoxes.every((box, index) => controlBoxes.every((other, otherIndex) => (
+          index === otherIndex || box.right <= other.left || other.right <= box.left
+          || box.bottom <= other.top || other.bottom <= box.top
+        ))),
+        compactRail: innerWidth <= 720 ? rail.getBoundingClientRect().height < 70 : true,
+        fieldMetrics: fields.map((field, index) => {
+          const fieldBox = field.getBoundingClientRect();
+          const controlBox = controlBoxes[index];
+          return { fieldWidth: fieldBox.width, controlWidth: controlBox.width, controlHeight: controlBox.height };
+        }),
+      };
+    });
+    assert.equal(studioGeometry.dialogFits, true);
+    assert.equal(studioGeometry.fieldsStacked, true, JSON.stringify(studioGeometry.fieldMetrics));
+    assert.equal(studioGeometry.controlsDoNotOverlap, true);
+    assert.equal(studioGeometry.compactRail, true);
+    await page.getByRole('button', { name: '关闭创建模块' }).click();
+
     for (const [label, url] of platformCases) {
       await page.getByRole('button', { name: `打开 ${label}` }).click();
       const workspace = page.getByRole('region', { name: `${label}平台工作区` });

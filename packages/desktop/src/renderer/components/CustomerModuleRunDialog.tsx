@@ -37,20 +37,20 @@ export function CustomerModuleRunDialog({
   const mayUsePaidModel = permissions.some((permission) => permission.kind === 'model' && permission.paid === true);
   return createPortal(
     <div className="claw-module-marketplace-overlay" onMouseDown={modal.onBackdropMouseDown}>
-      <div ref={modal.dialogRef} className="claw-module-marketplace" role="dialog" aria-modal="true" aria-label={`运行${name}`} onKeyDown={modal.onKeyDown}>
+      <div ref={modal.dialogRef} className="claw-module-marketplace claw-customer-module-runner" role="dialog" aria-modal="true" aria-label={`运行${name}`} onKeyDown={modal.onKeyDown}>
         <header className="claw-module-marketplace__header">
           <div><h2>{name}</h2><p>版本 {version}</p></div>
           <button ref={modal.closeRef} type="button" aria-label="关闭客户模块" onClick={requestClose}>×</button>
         </header>
-        <div className="claw-module-marketplace__catalog">
+        <div className="claw-module-marketplace__catalog claw-customer-module-runner__form">
           {properties.map(([key, raw]) => {
             const property = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
             const label = typeof property.title === 'string' ? property.title : key;
-            if (property.type === 'boolean') return <label key={key}><input type="checkbox" checked={values[key] === true} onChange={(event) => setValues({ ...values, [key]: event.target.checked })} />{label}</label>;
-            return <label key={key}>{label}<input aria-label={label} type={property.type === 'number' || property.type === 'integer' ? 'number' : 'text'} value={String(values[key] ?? '')} onChange={(event) => setValues({ ...values, [key]: property.type === 'number' || property.type === 'integer' ? Number(event.target.value) : event.target.value })} required={inputSchema.required?.includes(key)} /></label>;
+            if (property.type === 'boolean') return <label className="claw-customer-module-runner__checkline" key={key}><input type="checkbox" checked={values[key] === true} onChange={(event) => setValues({ ...values, [key]: event.target.checked })} /><span>{label}</span></label>;
+            return <label className="claw-customer-module-runner__field" key={key}><span>{label}{inputSchema.required?.includes(key) ? <b>必填</b> : null}</span><input aria-label={label} type={property.type === 'number' || property.type === 'integer' ? 'number' : 'text'} value={String(values[key] ?? '')} onChange={(event) => setValues({ ...values, [key]: property.type === 'number' || property.type === 'integer' ? Number(event.target.value) : event.target.value })} required={inputSchema.required?.includes(key)} /></label>;
           })}
           {properties.length === 0 ? <p>此模块不需要输入参数。</p> : null}
-          {mayUsePaidModel ? <label><input type="checkbox" checked={costApproved} onChange={(event) => setCostApproved(event.target.checked)} />我确认本次前台运行可能产生模型 Token 费用（最多 4 次模型调用）</label> : null}
+          {mayUsePaidModel ? <label className="claw-customer-module-runner__checkline is-cost"><input type="checkbox" checked={costApproved} onChange={(event) => setCostApproved(event.target.checked)} /><span>我确认本次前台运行可能产生模型 Token 费用（最多 4 次模型调用）</span></label> : null}
           <button type="button" className="claw-module-marketplace__confirm" disabled={busy} onClick={() => {
             const missing = (inputSchema.required ?? []).filter((key) => {
               const value = values[key];

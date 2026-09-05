@@ -1,11 +1,11 @@
 /**
  * @license
- * Copyright 2025 Otto
+ * Copyright 2025 ClawMaster
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /*
- * Otto Desktop 渲染层设计 token（浅色主题 + amber 强调）。
+ * ClawMaster Desktop 渲染层设计 token（浅色主题 + amber 强调）。
  * 唯一基准：docs/claw-desktop-ui-spec.md。
  * 所有组件只引用这些变量，不硬编码颜色 / 间距 / 圆角。
  */
@@ -39,6 +39,14 @@
   --claw-accent-gradient: var(--claw-accent);
   --claw-accent-contrast: #ffffff;
   --claw-amber: var(--claw-accent);
+
+  /* Module Studio uses a warm drafting-desk palette instead of the legacy
+   * monochrome marketplace treatment. */
+  --claw-studio-accent: #c9572d;
+  --claw-studio-accent-hover: #aa4320;
+  --claw-studio-soft: #f8eee8;
+  --claw-studio-rail: #f3f0e9;
+  --claw-studio-ink: #27322b;
 
   /* —— 语义来源徽章 —— */
   --claw-feishu-fg: #0284c7;
@@ -141,6 +149,11 @@
     --claw-accent-hover: #409cff;
     --claw-accent-soft: rgba(10, 132, 255, 0.18);
     --claw-accent-gradient: var(--claw-accent);
+    --claw-studio-accent: #f08a5d;
+    --claw-studio-accent-hover: #ff9d73;
+    --claw-studio-soft: #3b2d28;
+    --claw-studio-rail: #242925;
+    --claw-studio-ink: #f2eee5;
 
     /* —— 语义来源徽章（暗底低饱和底 + 提亮前景）—— */
     --claw-feishu-fg: #7dd3fc;
@@ -272,6 +285,11 @@ button {
   --claw-accent-soft: rgba(0, 122, 255, 0.1);
   --claw-accent-gradient: var(--claw-accent);
   --claw-accent-contrast: #ffffff;
+  --claw-studio-accent: #c9572d;
+  --claw-studio-accent-hover: #aa4320;
+  --claw-studio-soft: #f8eee8;
+  --claw-studio-rail: #f3f0e9;
+  --claw-studio-ink: #27322b;
   --claw-success: #4b5563;
   --claw-danger: #4b5563;
   --claw-running: #0284c7;
@@ -307,6 +325,11 @@ button {
   --claw-accent-soft: rgba(10, 132, 255, 0.18);
   --claw-accent-gradient: var(--claw-accent);
   --claw-accent-contrast: #ffffff;
+  --claw-studio-accent: #f08a5d;
+  --claw-studio-accent-hover: #ff9d73;
+  --claw-studio-soft: #3b2d28;
+  --claw-studio-rail: #242925;
+  --claw-studio-ink: #f2eee5;
   --claw-success: #a3a29d;
   --claw-danger: #a3a29d;
   --claw-running: #7dd3fc;
