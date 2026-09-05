@@ -1969,6 +1969,19 @@ impl NativeRuntime {
                     self.execute_workflow(&context, call, cancel.clone()).await
                 } else if approved && call.name == "browser_snapshot" {
                     platform_webview::platform_webview_snapshot(context.app).await
+                } else if approved && call.name == "browser_action" {
+                    let action = call
+                        .arguments
+                        .get("action")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    let index = call
+                        .arguments
+                        .get("index")
+                        .and_then(Value::as_u64)
+                        .and_then(|value| usize::try_from(value).ok())
+                        .unwrap_or(usize::MAX);
+                    platform_webview::platform_webview_action(context.app, action, index).await
                 } else if approved {
                     native_agent_tools::execute_model(call, context.workspace, cancel.clone()).await
                 } else {

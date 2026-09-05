@@ -74,7 +74,9 @@ back to the legacy Node sidecar.
   the Rust runtime emits the activation event instead of falling back to Node.
   A separately confirmed DOM snapshot reads bounded visible text and interactive
   element metadata from that live WebView while excluding form values and URL
-  query parameters. Native MCP discovery and invocation support stdio and
+  query parameters. Confirmed index actions can click, focus, or scroll those
+  elements without evaluating model-provided JavaScript. Native MCP discovery
+  and invocation support stdio and
   streamable HTTP transports with credential-store isolation, cancellation,
   timeouts, response bounds, and namespaced tool routing.
   Desktop diagnostics now come from the same Rust capability manifest, so
@@ -83,6 +85,7 @@ back to the legacy Node sidecar.
   ARM64 release executable. The packaged check produced a 10.24 MiB application
   bundle and 4.94 MiB compressed macOS ARM64 DMG with no Node executable,
   `.node` addon, or agent payload.
-- Remaining before release: browser screenshots and selector-targeted actions
-  for reliable RPA, remaining document adapters, and enterprise channel inbound
-  streams; then installed real-model and destructive-path acceptance.
+- Remaining before release: browser screenshots and post-action navigation
+  stabilization for reliable RPA, remaining document adapters, and enterprise
+  channel inbound streams; then installed real-model and destructive-path
+  acceptance.

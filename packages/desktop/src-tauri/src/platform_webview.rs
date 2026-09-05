@@ -161,15 +161,32 @@ fn decode_snapshot(raw: &str) -> Result<Value, String> {
     Ok(value)
 }
 
+async fn evaluate_json(webview: &tauri::Webview, script: String) -> Result<Value, String> {
+    let (snapshot_tx, snapshot_rx) = oneshot::channel();
+    let snapshot_tx = Arc::new(Mutex::new(Some(snapshot_tx)));
+    webview
+        .eval_with_callback(script, move |raw| {
+            if let Ok(mut sender) = snapshot_tx.lock() {
+                if let Some(sender) = sender.take() {
+                    let _ = sender.send(raw);
+                }
+            }
+        })
+        .map_err(|error| format!("无法请求浏览器 DOM 操作: {error}"))?;
+    let raw = tokio::time::timeout(PLATFORM_SNAPSHOT_TIMEOUT, snapshot_rx)
+        .await
+        .map_err(|_| "浏览器 DOM 操作超时".to_string())?
+        .map_err(|_| "浏览器 DOM 操作通道意外关闭".to_string())?;
+    decode_snapshot(&raw)
+}
+
 pub async fn platform_webview_snapshot(app: &AppHandle) -> Result<Value, String> {
     let webview = app
         .get_webview(PLATFORM_WEBVIEW_LABEL)
         .ok_or_else(|| "内置浏览器尚未启动".to_string())?;
-    let (snapshot_tx, snapshot_rx) = oneshot::channel();
-    let snapshot_tx = Arc::new(Mutex::new(Some(snapshot_tx)));
-    webview
-        .eval_with_callback(
-            r#"(() => {
+    evaluate_json(
+        &webview,
+        r#"(() => {
               try {
                 const cleanUrl = (value) => {
                   try { const url = new URL(value, location.href); return url.origin + url.pathname; }
@@ -202,21 +219,64 @@ pub async fn platform_webview_snapshot(app: &AppHandle) -> Result<Value, String>
               } catch (error) {
                 return JSON.stringify({ error: String(error) });
               }
-            })()"#,
-            move |raw| {
-                if let Ok(mut sender) = snapshot_tx.lock() {
-                    if let Some(sender) = sender.take() {
-                        let _ = sender.send(raw);
-                    }
-                }
-            },
-        )
-        .map_err(|error| format!("无法请求浏览器 DOM 摘要: {error}"))?;
-    let raw = tokio::time::timeout(PLATFORM_SNAPSHOT_TIMEOUT, snapshot_rx)
-        .await
-        .map_err(|_| "浏览器 DOM 摘要读取超时".to_string())?
-        .map_err(|_| "浏览器 DOM 摘要通道意外关闭".to_string())?;
-    decode_snapshot(&raw)
+            })()"#
+            .to_string(),
+    )
+    .await
+}
+
+fn validate_browser_action(action: &str, index: usize) -> Result<(), String> {
+    if !matches!(action, "click" | "focus" | "scroll") {
+        return Err("浏览器动作仅支持 click、focus 或 scroll".into());
+    }
+    if index >= 200 {
+        return Err("浏览器元素索引必须在 0 到 199 之间".into());
+    }
+    Ok(())
+}
+
+pub async fn platform_webview_action(
+    app: &AppHandle,
+    action: &str,
+    index: usize,
+) -> Result<Value, String> {
+    validate_browser_action(action, index)?;
+    let webview = app
+        .get_webview(PLATFORM_WEBVIEW_LABEL)
+        .ok_or_else(|| "内置浏览器尚未启动".to_string())?;
+    let script = r#"(() => {
+      try {
+        const action = __ACTION__;
+        const index = __INDEX__;
+        const visible = (element) => {
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+        };
+        const elements = Array.from(document.querySelectorAll('a,button,input,select,textarea,[role="button"],[role="link"]'))
+          .filter(visible)
+          .slice(0, 200);
+        const element = elements[index];
+        if (!element) return JSON.stringify({ error: 'element index is no longer available; take a new snapshot' });
+        if (action === 'click') element.click();
+        if (action === 'focus') element.focus({ preventScroll: false });
+        if (action === 'scroll') element.scrollIntoView({ block: 'center', inline: 'center' });
+        return JSON.stringify({
+          completed: true,
+          action,
+          index,
+          tag: element.tagName.toLowerCase(),
+          type: element.getAttribute('type') || '',
+          text: (element.innerText || '').trim().slice(0, 300),
+          ariaLabel: (element.getAttribute('aria-label') || '').slice(0, 300)
+        });
+      } catch (error) {
+        return JSON.stringify({ error: String(error) });
+      }
+    })()"#
+        .replace("__ACTION__", &serde_json::to_string(action).unwrap_or_else(|_| "\"\"".into()))
+        .replace("__INDEX__", &index.to_string());
+    evaluate_json(&webview, script).await
 }
 
 #[cfg(test)]
@@ -264,5 +324,14 @@ mod tests {
         let encoded = serde_json::to_string(r#"{"title":"Encoded"}"#).unwrap();
         assert_eq!(decode_snapshot(&encoded).unwrap()["title"], "Encoded");
         assert!(decode_snapshot(r#"{"error":"denied"}"#).is_err());
+    }
+
+    #[test]
+    fn browser_actions_are_allowlisted_and_bounded() {
+        assert!(validate_browser_action("click", 0).is_ok());
+        assert!(validate_browser_action("focus", 199).is_ok());
+        assert!(validate_browser_action("scroll", 3).is_ok());
+        assert!(validate_browser_action("script", 0).is_err());
+        assert!(validate_browser_action("click", 200).is_err());
     }
 }
