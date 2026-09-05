@@ -60,10 +60,10 @@ describe('native-local release contract', () => {
     expect(capability.remote).toBeUndefined();
   });
 
-  it('limits the macOS HTTP exception to embedded web content', async () => {
+  it('allows local development traffic without disabling ATS for web content', async () => {
     const plist = await readText(path.join(desktopRoot, 'src-tauri', 'Info.plist'));
-    expect(plist).toContain('<key>NSAllowsArbitraryLoadsInWebContent</key>');
-    expect(plist).not.toMatch(/<key>NSAllowsArbitraryLoads<\/key>/u);
+    expect(plist).toContain('<key>NSAllowsLocalNetworking</key>');
+    expect(plist).not.toMatch(/<key>NSAllowsArbitraryLoads(?:InWebContent)?<\/key>/u);
   });
 
   it('uses the supported platform workflow and requires real acceptance gates', async () => {
