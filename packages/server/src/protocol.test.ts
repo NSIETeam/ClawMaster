@@ -295,6 +295,22 @@ describe('validateClientPayload 形状校验（第二道闸）', () => {
     ).not.toBeNull();
   });
 
+  it('用户目录回退只接受受控文件和明确批准', () => {
+    expect(validateClientPayload({ type: 'get_user_directory', payload: {} })).toBeNull();
+    expect(validateClientPayload({
+      type: 'rollback_user_control',
+      payload: { path: 'core.md', requestId: 'rollback-1', approved: true },
+    })).toBeNull();
+    expect(validateClientPayload({
+      type: 'rollback_user_control',
+      payload: { path: '../core.md', requestId: 'rollback-1', approved: true },
+    })).not.toBeNull();
+    expect(validateClientPayload({
+      type: 'rollback_user_control',
+      payload: { path: 'core.md', requestId: 'rollback-1', approved: false },
+    })).toContain('明确批准');
+  });
+
   it('v1.7 企业关联和自动 Skill 操作只接受非空链接/候选 ID', () => {
     expect(validateClientPayload({
       type: 'accept_company_link',

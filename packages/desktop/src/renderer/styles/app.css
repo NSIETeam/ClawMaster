@@ -6049,6 +6049,52 @@ h6.claw-prose__h {
   white-space: nowrap;
 }
 
+.claw-hub__user-file + .claw-hub__user-file {
+  border-top: 1px solid var(--claw-border);
+}
+.claw-hub__user-file-main,
+.claw-hub__user-file-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  font-size: 12.5px;
+}
+.claw-hub__user-file-revision {
+  margin-left: auto;
+  color: var(--claw-text-tertiary);
+  font-family: var(--claw-font-mono);
+  font-size: 11px;
+}
+.claw-hub__user-file-error {
+  justify-content: space-between;
+  border-top: 1px solid color-mix(in srgb, var(--claw-danger) 18%, transparent);
+  background: color-mix(in srgb, var(--claw-danger) 7%, transparent);
+  color: var(--claw-danger);
+}
+.claw-hub__user-file-error span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.claw-hub__user-file-error-detail {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+.claw-hub__user-file-error-detail pre {
+  max-height: 180px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--claw-danger) 6%, var(--claw-surface));
+  color: var(--claw-text-secondary);
+  font-family: var(--claw-font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
 /* 设置行：说明在左、控件在右；--stack 变体上下堆叠（chip 组等宽控件）。 */
 .claw-hub__setting {
   display: flex;

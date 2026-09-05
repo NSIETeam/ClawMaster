@@ -27,6 +27,7 @@ mod native_schedule;
 mod native_skills;
 mod native_state_store;
 mod native_todos;
+mod native_user_directory;
 pub mod native_tools;
 mod native_update;
 mod native_worklog;

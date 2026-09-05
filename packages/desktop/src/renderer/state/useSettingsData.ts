@@ -43,6 +43,7 @@ import type {
   ServerToClient,
   StatsSnapshot,
   KnowledgeItem,
+  UserDirectorySnapshotInfo,
 } from 'clawmaster-server';
 
 export interface SettingsDataState {
@@ -67,6 +68,7 @@ export interface SettingsDataState {
   ideStatus: { status: IdeConnectionStatusValue; details?: string } | null;
   statsSnapshot: StatsSnapshot | null;
   knowledgeEntries: KnowledgeItem[];
+  userDirectory: UserDirectorySnapshotInfo | null;
   lastError: string | null;
 }
 
@@ -91,6 +93,7 @@ const initialState: SettingsDataState = {
   ideStatus: null,
   statsSnapshot: null,
   knowledgeEntries: [],
+  userDirectory: null,
   lastError: null,
 };
 
@@ -163,6 +166,8 @@ function reducer(state: SettingsDataState, action: Action): SettingsDataState {
               (e) => e.id !== frame.payload.id,
             ),
           };
+        case 'user_directory_status':
+          return { ...state, userDirectory: frame.payload, lastError: null };
         case 'error':
           // 仅拦截本面板相关的错误码，避免抢主聊天 toast 的错误展示。
           if (
@@ -175,7 +180,8 @@ function reducer(state: SettingsDataState, action: Action): SettingsDataState {
             frame.payload.code === 'add_memory_failed' ||
             frame.payload.code === 'get_skills_failed' ||
             frame.payload.code === 'get_tools_failed' ||
-            frame.payload.code === 'compress_failed'
+            frame.payload.code === 'compress_failed' ||
+            frame.payload.code === 'rollback_user_control_failed'
           ) {
             return {
               ...state,
@@ -246,6 +252,8 @@ export interface SettingsDataActions {
   addKnowledge(content: string, category?: string, tags?: string[]): void;
   removeKnowledge(id: string): void;
   refreshIdeStatus(): void;
+  refreshUserDirectory(): void;
+  rollbackUserControl(path: 'core.md' | 'soul.md' | 'project.md' | 'memory.md'): void;
   clearError(): void;
 }
 
@@ -385,6 +393,17 @@ export function useSettingsData(activeSessionId?: string | null): UseSettingsDat
     transport.send({ type: 'get_ide_status', payload: {} });
   }, []);
 
+  const refreshUserDirectory = useCallback(() => {
+    transport.send({ type: 'get_user_directory', payload: {} });
+  }, []);
+
+  const rollbackUserControl = useCallback<SettingsDataActions['rollbackUserControl']>((path) => {
+    transport.send({
+      type: 'rollback_user_control',
+      payload: { path, requestId: `rollback-${Date.now()}`, approved: true },
+    });
+  }, []);
+
   const refreshStats = useCallback(() => {
     transport.send({ type: 'get_stats', payload: {} });
   }, []);
@@ -432,6 +451,8 @@ export function useSettingsData(activeSessionId?: string | null): UseSettingsDat
       refreshWorkflows,
       refreshExtensions,
       refreshIdeStatus,
+      refreshUserDirectory,
+      rollbackUserControl,
       refreshStats,
       refreshKnowledge,
       searchKnowledge,

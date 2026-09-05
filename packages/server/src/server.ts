@@ -3542,6 +3542,16 @@ export class ClawMasterServer {
           type: 'settings',
           payload: this.settingsSnapshot(),
         });
+      case 'get_user_directory':
+      case 'rollback_user_control':
+        return this.send(
+          conn.socket,
+          errorFrame(
+            undefined,
+            'native_runtime_required',
+            'ClawMaster 用户目录仅由 Rust 原生桌面运行时提供',
+          ),
+        );
       case 'set_setting':
         return this.handleSetSetting(conn, msg);
       case 'get_search_config':

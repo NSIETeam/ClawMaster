@@ -37,6 +37,7 @@ import {
   MemoryPanel,
   SkillsPanel,
   ToolsPanel,
+  UserDirectoryPanel,
 } from './hub/WorkspacePanels.js';
 import { IconSettings, IconChevron, IconClose } from './icons.js';
 import type { UseProductWorkspace } from '../state/useProductWorkspace.js';
@@ -66,6 +67,7 @@ export type TabId =
   | 'memory'
   | 'skills'
   | 'tools'
+  | 'user-directory'
   | 'workflows'
   | 'extensions'
   | 'ide';
@@ -113,6 +115,7 @@ const TAB_LABEL: Record<TabId, string> = {
   memory: '记忆',
   skills: '技能库',
   tools: '工具清单',
+  'user-directory': '用户目录',
   workflows: '自动流程',
   extensions: '扩展',
   ide: 'IDE 伴生',
@@ -131,7 +134,7 @@ const SIMPLE_NAV_GROUPS: Array<{ label: string; tabs: TabId[] }> = [
 const ADVANCED_NAV_GROUPS: Array<{ label: string; tabs: TabId[] }> = [
   { label: '高级连接', tabs: ['models', 'mcp', 'extensions', 'ide'] },
   { label: '排查问题', tabs: ['doctor', 'context', 'workflows'] },
-  { label: '数据与能力', tabs: ['todos', 'memory', 'skills', 'tools'] },
+  { label: '数据与能力', tabs: ['user-directory', 'todos', 'memory', 'skills', 'tools'] },
 ];
 
 const ADVANCED_TABS = new Set(
@@ -193,7 +196,8 @@ export function SettingsHubPage({
     else if (tab === 'skills') actions.refreshSkills();
     else if (tab === 'tools' && activeSession) {
       actions.refreshTools(activeSession.sessionId);
-    } else if (tab === 'workflows') actions.refreshWorkflows();
+    } else if (tab === 'user-directory') actions.refreshUserDirectory();
+    else if (tab === 'workflows') actions.refreshWorkflows();
     else if (tab === 'extensions') actions.refreshExtensions();
     else if (tab === 'ide') actions.refreshIdeStatus();
     // 软件更新 tab 不自动发起检查（手动检查才展示完整结果），只把入口小圆点熄灭。
@@ -318,6 +322,7 @@ export function SettingsHubPage({
             {tab === 'memory' ? <MemoryPanel data={data} /> : null}
             {tab === 'skills' ? <SkillsPanel data={data} /> : null}
             {tab === 'tools' ? <ToolsPanel data={data} activeSession={activeSession} /> : null}
+            {tab === 'user-directory' ? <UserDirectoryPanel data={data} /> : null}
             {tab === 'workflows' ? <WorkflowsPanel data={data} /> : null}
             {tab === 'extensions' ? <ExtensionsPanel data={data} /> : null}
             {tab === 'ide' ? <IdePanel data={data} /> : null}

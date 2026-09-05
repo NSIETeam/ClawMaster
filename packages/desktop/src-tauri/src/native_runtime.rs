@@ -8,6 +8,7 @@ use crate::native_models::{
 use crate::native_state_store::{
     NativeStateStore, StateStoreError, TREE_EVENTS, TREE_INDEX, TREE_SESSIONS,
 };
+use crate::native_user_directory::UserDirectory;
 use crate::{
     native_agent_tools, native_context, native_diagnostics, native_encrypted_checkpoints,
     native_encrypted_memory, native_enterprise, native_knowledge, native_mcp, native_projects,
@@ -206,6 +207,7 @@ pub struct NativeRuntime {
     knowledge_path: PathBuf,
     schedule_path: PathBuf,
     checkpoint_root: PathBuf,
+    user_directory: UserDirectory,
     state: Mutex<PersistedState>,
     credentials: Arc<dyn CredentialStore>,
     state_store: NativeStateStore,
@@ -226,6 +228,7 @@ struct ToolLoopContext<'a> {
     model: &'a NativeModel,
     turn_id: &'a str,
     workspace: &'a Path,
+    enabled_capabilities: Option<&'a [String]>,
 }
 
 enum ModelLoopError {
@@ -455,18 +458,17 @@ impl NativeRuntime {
     }
 
     pub fn load(app_data_dir: &Path) -> Result<Self, String> {
-        let user_dir = std::env::var_os("CLAWMASTER_USER_DIR")
+        let home = std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
-            .or_else(|| {
-                std::env::var_os("HOME")
-                    .or_else(|| std::env::var_os("USERPROFILE"))
-                    .map(|home| PathBuf::from(home).join(".otto-user"))
-            })
-            .unwrap_or_else(|| app_data_dir.to_path_buf());
+            .ok_or_else(|| "无法确定用户主目录，ClawMaster 用户目录未初始化".to_string())?;
+        let user_directory = UserDirectory::initialize(&home)?;
+        let user_state = user_directory.root().join(".state");
         Self::load_with_paths(
             app_data_dir,
-            user_dir.join("knowledge/entries.jsonl"),
-            user_dir.join("schedules.json"),
+            user_state.join("legacy-knowledge.jsonl"),
+            user_state.join("schedules.json"),
+            user_directory,
             system_credential_store(),
             None,
         )
@@ -477,10 +479,13 @@ impl NativeRuntime {
         app_data_dir: &Path,
         credentials: Arc<dyn CredentialStore>,
     ) -> Result<Self, String> {
+        let user_directory = UserDirectory::initialize(app_data_dir)?;
+        let user_state = user_directory.root().join(".state");
         Self::load_with_paths(
             app_data_dir,
-            app_data_dir.join("knowledge/entries.jsonl"),
-            app_data_dir.join("schedules.json"),
+            user_state.join("legacy-knowledge.jsonl"),
+            user_state.join("schedules.json"),
+            user_directory,
             credentials,
             Some(
                 NativeStateStore::open_for_test(app_data_dir, [11; 32])
@@ -493,6 +498,7 @@ impl NativeRuntime {
         app_data_dir: &Path,
         knowledge_path: PathBuf,
         schedule_path: PathBuf,
+        user_directory: UserDirectory,
         credentials: Arc<dyn CredentialStore>,
         state_store: Option<NativeStateStore>,
     ) -> Result<Self, String> {
@@ -568,6 +574,7 @@ impl NativeRuntime {
             knowledge_path,
             schedule_path,
             checkpoint_root,
+            user_directory,
             state: Mutex::new(state),
             credentials,
             state_store,
@@ -730,6 +737,39 @@ impl NativeRuntime {
                 "sessions_list",
                 json!({ "sessions": state.sessions }),
             )],
+            "get_user_directory" => vec![frame(
+                "user_directory_status",
+                serde_json::to_value(self.user_directory.snapshot_at_turn_boundary())
+                    .map_err(|error| format!("无法序列化用户目录状态: {error}"))?,
+            )],
+            "rollback_user_control" => {
+                let path = payload.get("path").and_then(Value::as_str).unwrap_or("");
+                let request_id = payload
+                    .get("requestId")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let approved = payload
+                    .get("approved")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                match self.user_directory.rollback_to_last_known_good(
+                    request_id,
+                    path,
+                    "desktop-settings",
+                    approved,
+                ) {
+                    Ok(_) => vec![frame(
+                        "user_directory_status",
+                        serde_json::to_value(self.user_directory.snapshot_at_turn_boundary())
+                            .map_err(|error| format!("无法序列化用户目录状态: {error}"))?,
+                    )],
+                    Err(error) => vec![error_frame(
+                        None,
+                        "rollback_user_control_failed",
+                        &error,
+                    )],
+                }
+            }
             "create_session" => {
                 let timestamp = now_ms();
                 let session = Session {
@@ -2155,6 +2195,9 @@ impl NativeRuntime {
         tools.extend(native_skills::definitions());
         tools.extend(native_workflows::definitions());
         tools.extend(mcp_catalog.definitions.clone());
+        if let Some(enabled) = context.enabled_capabilities {
+            tools.retain(|tool| enabled.iter().any(|name| name == &tool.name));
+        }
         if !mcp_catalog.notices.is_empty() {
             messages.push(ModelMessage {
                 role: "system".into(),
@@ -2265,6 +2308,7 @@ impl NativeRuntime {
                 let is_todo = call.name == "todo_write";
                 let is_skill = native_skills::contains(&call.name);
                 let is_workflow = native_workflows::contains(&call.name);
+                let mut user_write_preview = None;
                 let approved = if risk == Some(native_agent_tools::ToolRisk::Write)
                     || is_mcp
                     || native_encrypted_checkpoints::is_write(&call.name)
@@ -2274,6 +2318,15 @@ impl NativeRuntime {
                     || is_workflow
                 {
                     let mut confirmation_call = call.clone();
+                    if call.name == "update_user_control" {
+                        let relative_path = call.arguments.get("path").and_then(Value::as_str).unwrap_or("");
+                        let content = call.arguments.get("content").and_then(Value::as_str).unwrap_or("");
+                        let preview = self.user_directory.preview_agent_write(&call.id, relative_path, content)?;
+                        confirmation_call.arguments["diff"] = Value::String(preview.diff.clone());
+                        confirmation_call.arguments["previousRevision"] = Value::String(preview.previous_revision.clone());
+                        confirmation_call.arguments["nextRevision"] = Value::String(preview.next_revision.clone());
+                        user_write_preview = Some(preview);
+                    }
                     if call.name == "restore_file_checkpoint" {
                         if let Some(checkpoint_id) =
                             call.arguments.get("checkpointId").and_then(Value::as_str)
@@ -2317,7 +2370,7 @@ impl NativeRuntime {
                 }
                 let started = now_ms();
                 let mut checkpoint_id = None;
-                let checkpoint_error = if approved {
+                let checkpoint_error = if approved && call.name != "update_user_control" {
                     native_agent_tools::mutation_target(call).and_then(|relative_path| {
                         match native_encrypted_checkpoints::capture(
                             &self.state_store,
@@ -2341,6 +2394,17 @@ impl NativeRuntime {
                 };
                 let mut result = if let Some(error) = checkpoint_error {
                     Err(error)
+                } else if call.name == "update_user_control" {
+                    let preview = user_write_preview.as_ref().ok_or_else(|| "控制文件修改缺少审批预览".to_string())?;
+                    let content = call.arguments.get("content").and_then(Value::as_str).unwrap_or("");
+                    self.user_directory
+                        .apply_agent_write(
+                            preview,
+                            content,
+                            &format!("{}:{}", context.session_id, context.turn_id),
+                            approved,
+                        )
+                        .and_then(|document| serde_json::to_value(document).map_err(|error| error.to_string()))
                 } else if approved && is_mcp {
                     mcp_catalog
                         .execute(call, self.credentials.as_ref(), cancel.clone())
@@ -2850,6 +2914,8 @@ impl NativeRuntime {
         if prompt.trim().is_empty() {
             return Err("消息内容不能为空".into());
         }
+        let user_directory_snapshot = self.user_directory.snapshot_at_turn_boundary();
+        let core_overrides = UserDirectory::core_overrides(&user_directory_snapshot);
         let user_message_id = payload
             .get("clientMessageId")
             .and_then(Value::as_str)
@@ -2866,17 +2932,23 @@ impl NativeRuntime {
                 .iter()
                 .position(|item| item.session_id == session_id)
                 .ok_or_else(|| "会话不存在".to_string())?;
-            let model_id = state.sessions[session_index]
+            let model_id = core_overrides
                 .model
                 .clone()
+                .or_else(|| state.sessions[session_index]
+                .model
+                .clone())
                 .or_else(|| state.current_model.clone())
                 .ok_or_else(|| "请先配置并选择模型".to_string())?;
-            let model = state
+            let mut model = state
                 .models
                 .iter()
                 .find(|item| item.id == model_id && item.enabled)
                 .cloned()
                 .ok_or_else(|| "当前模型不可用，请重新选择".to_string())?;
+            if let Some(max_output_tokens) = core_overrides.max_output_tokens {
+                model.max_tokens = Some(max_output_tokens);
+            }
             state
                 .model_usage
                 .entry(model.id.clone())
@@ -2928,15 +3000,26 @@ impl NativeRuntime {
                 })
                 .filter(|message| !message.text.is_empty())
                 .collect::<Vec<_>>();
+            let mut system_prompt = native_context::system_prompt(
+                &Self::workspace_for_session(&state, Some(&session_id)),
+                &state.settings.preferred_language,
+                &state.settings.agent_style,
+                &native_skills::list(&Self::workspace_for_session(&state, Some(&session_id)))
+                    .unwrap_or_default(),
+            );
+            let user_context = UserDirectory::prompt_context(&user_directory_snapshot);
+            if !user_context.is_empty() {
+                system_prompt.push_str("\n\n");
+                system_prompt.push_str(&user_context);
+            }
+            if let Some(policy_default) = &core_overrides.policy_default {
+                system_prompt.push_str(&format!(
+                    "\n\n[ClawMaster policy default: {policy_default}] Hard approval, audit, and path-isolation rules still take precedence."
+                ));
+            }
             native_context::prepend_system_message(
                 &mut history,
-                native_context::system_prompt(
-                    &Self::workspace_for_session(&state, Some(&session_id)),
-                    &state.settings.preferred_language,
-                    &state.settings.agent_style,
-                    &native_skills::list(&Self::workspace_for_session(&state, Some(&session_id)))
-                        .unwrap_or_default(),
-                ),
+                system_prompt,
             );
             self.persist(&state)?;
             let workspace = Self::workspace_for_session(&state, Some(&session_id));
@@ -2945,6 +3028,17 @@ impl NativeRuntime {
 
         if let Some(session) = inferred_session {
             emit(app, frame("session_upsert", json!({"session":session})))?;
+        }
+
+        for error in user_directory_snapshot.errors.iter().take(3) {
+            emit(
+                app,
+                error_frame(
+                    Some(&session_id),
+                    "user_directory_invalid",
+                    &format!("{}:{}:{} {}。本轮继续使用 last-known-good。", error.path, error.line, error.column, error.message),
+                ),
+            )?;
         }
 
         emit(
@@ -3006,6 +3100,7 @@ impl NativeRuntime {
                     model: &model,
                     turn_id: &turn_id,
                     workspace: &workspace,
+                    enabled_capabilities: core_overrides.enabled_capabilities.as_deref(),
                 },
                 model_messages,
                 cancel_receiver,
@@ -3314,6 +3409,33 @@ mod tests {
             sessions[0]["payload"]["sessions"].as_array().unwrap().len(),
             1
         );
+    }
+
+    #[test]
+    fn exposes_and_rolls_back_the_native_user_directory() {
+        let (_root, runtime) = runtime();
+        let status = runtime
+            .handle(&json!({"type":"get_user_directory","payload":{}}))
+            .unwrap();
+        assert_eq!(status[0]["type"], "user_directory_status");
+        assert_eq!(status[0]["payload"]["documents"].as_array().unwrap().len(), 7);
+
+        fs::write(runtime.user_directory.root().join("core.md"), "broken").unwrap();
+        let rejected = runtime
+            .handle(&json!({
+                "type":"rollback_user_control",
+                "payload":{"path":"core.md","requestId":"rollback-1","approved":false}
+            }))
+            .unwrap();
+        assert_eq!(rejected[0]["payload"]["code"], "rollback_user_control_failed");
+        let restored = runtime
+            .handle(&json!({
+                "type":"rollback_user_control",
+                "payload":{"path":"core.md","requestId":"rollback-2","approved":true}
+            }))
+            .unwrap();
+        assert_eq!(restored[0]["type"], "user_directory_status");
+        assert!(restored[0]["payload"]["errors"].as_array().unwrap().is_empty());
     }
 
     #[test]

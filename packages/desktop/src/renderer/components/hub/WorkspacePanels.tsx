@@ -195,3 +195,74 @@ export function ToolsPanel({
     </Panel>
   );
 }
+
+// ── 用户目录 ──────────────────────────────────────────────────────────────
+
+const ROLLBACK_PATHS = new Set(['core.md', 'soul.md', 'project.md', 'memory.md']);
+
+export function UserDirectoryPanel({ data }: { data: UseSettingsData }): React.JSX.Element {
+  const { state, actions } = data;
+  const snapshot = state.userDirectory;
+  const rollback = (path: string): void => {
+    if (!ROLLBACK_PATHS.has(path)) return;
+    if (!window.confirm(`把 ${path} 恢复到最近一次验证通过的版本？\n\n当前内容会先保存到 .history，并写入审计记录。`)) return;
+    actions.rollbackUserControl(path as 'core.md' | 'soul.md' | 'project.md' | 'memory.md');
+  };
+
+  return (
+    <Panel
+      title="用户目录"
+      desc="每轮对话开始时读取的 ClawMaster 控制文件与连接配置。无效修改不会进入运行时。"
+      actions={
+        <div className="claw-hub__toolbar">
+          {snapshot ? (
+            <button type="button" className="claw-hub__btn" onClick={() => void window.clawmaster.openPath(snapshot.root)}>
+              打开目录
+            </button>
+          ) : null}
+          <button type="button" className="claw-hub__btn" onClick={actions.refreshUserDirectory}>
+            重新检查
+          </button>
+        </div>
+      }
+    >
+      {!snapshot ? (
+        <Empty>正在检查用户目录…</Empty>
+      ) : (
+        <>
+          <Caption>目录 <span className="claw-hub__caption-detail">{snapshot.root}</span></Caption>
+          <Card>
+            {snapshot.documents.map((document) => {
+              const error = snapshot.errors.find((item) => item.path === document.path);
+              return (
+                <div key={document.path} className="claw-hub__user-file">
+                  <div className="claw-hub__user-file-main">
+                    <Dot tone={error ? 'err' : 'on'} />
+                    <span className="claw-hub__row-name">{document.path}</span>
+                    <Badge tone={error ? 'danger' : undefined}>
+                      {document.fromLastKnownGood ? '使用安全版本' : '已验证'}
+                    </Badge>
+                    <code className="claw-hub__user-file-revision">{document.revision.slice(0, 12)}</code>
+                  </div>
+                  {error ? (
+                    <div className="claw-hub__user-file-error" role="alert">
+                      <div className="claw-hub__user-file-error-detail">
+                        <span>{error.path}:{error.line}:{error.column} {error.message}</span>
+                        {error.diff ? <pre>{error.diff}</pre> : null}
+                      </div>
+                      {ROLLBACK_PATHS.has(error.path) ? (
+                          <button type="button" className="claw-hub__btn" onClick={() => rollback(error.path)}>
+                            恢复安全版本
+                          </button>
+                        ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </Card>
+        </>
+      )}
+    </Panel>
+  );
+}

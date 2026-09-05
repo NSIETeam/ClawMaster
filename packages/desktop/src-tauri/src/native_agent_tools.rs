@@ -50,6 +50,14 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
             },"required":["path","content"],"additionalProperties":false}),
         },
         ModelToolDefinition {
+            name: "update_user_control".into(),
+            description: "Propose an update to one ClawMaster user control file. The runtime shows the exact diff and revision hashes, requires confirmation, writes atomically, and records history and audit evidence.".into(),
+            parameters: json!({"type":"object","properties":{
+                "path":{"type":"string","enum":["core.md","soul.md","project.md","memory.md"]},
+                "content":{"type":"string","maxLength":262144}
+            },"required":["path","content"],"additionalProperties":false}),
+        },
+        ModelToolDefinition {
             name: "native_capabilities".into(),
             description: "List built-in capability providers and the external dependencies they replace. Prefer providers whose name starts with rust:.".into(),
             parameters: json!({"type":"object","properties":{},"additionalProperties":false}),
@@ -172,7 +180,7 @@ pub fn risk(name: &str) -> Option<ToolRisk> {
         | "search_text"
         | "native_capabilities"
         | "check_dependencies" => Some(ToolRisk::ReadOnly),
-        "write_file" | "generate_docx" | "generate_pptx" | "generate_chart" | "merge_pdfs"
+        "write_file" | "update_user_control" | "generate_docx" | "generate_pptx" | "generate_chart" | "merge_pdfs"
         | "optimize_pdf" | "desktop_automation" | "desktop_snapshot" | "run_command"
         | "open_browser" | "browser_snapshot" | "browser_action" => Some(ToolRisk::Write),
         _ => None,
@@ -760,10 +768,11 @@ mod tests {
 
     #[test]
     fn definitions_and_risks_keep_writes_confirmation_gated() {
-        assert_eq!(definitions().len(), 17);
+        assert_eq!(definitions().len(), 18);
         assert_eq!(summaries().as_array().unwrap().len(), definitions().len());
         assert_eq!(risk("read_file"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("write_file"), Some(ToolRisk::Write));
+        assert_eq!(risk("update_user_control"), Some(ToolRisk::Write));
         assert_eq!(risk("native_capabilities"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("desktop_snapshot"), Some(ToolRisk::Write));
         assert_eq!(risk("check_dependencies"), Some(ToolRisk::ReadOnly));
@@ -785,6 +794,13 @@ mod tests {
         );
         assert_eq!(
             mutation_target(&call("run_command", json!({"executable":"git"}))),
+            None
+        );
+        assert_eq!(
+            mutation_target(&call(
+                "update_user_control",
+                json!({"path":"core.md","content":"x"})
+            )),
             None
         );
     }

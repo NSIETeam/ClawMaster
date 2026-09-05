@@ -641,7 +641,9 @@ dependencies = [
  "time",
  "tokio",
  "tokio-tungstenite",
+ "toml 0.8.2",
  "url",
+ "windows-sys 0.61.2",
  "xa11y",
  "zip",
 ]

@@ -451,6 +451,18 @@ export type SaveCustomModelMsg = Envelope<
  */
 export type GetSettingsMsg = Envelope<'get_settings', Record<string, never>>;
 
+/** Rust 桌面运行时的可写 ClawMaster 用户目录状态。 */
+export type GetUserDirectoryMsg = Envelope<
+  'get_user_directory',
+  Record<string, never>
+>;
+
+/** 用户明确确认后，把无效控制文件恢复到最近一次已验证版本。 */
+export type RollbackUserControlMsg = Envelope<
+  'rollback_user_control',
+  { path: 'core.md' | 'soul.md' | 'project.md' | 'memory.md'; requestId: string; approved: true }
+>;
+
 export type SearchProvider = 'bing' | 'bocha' | 'gemini' | 'volcengine';
 
 /** 读取联网搜索配置；密钥只返回 hasApiKey，绝不回传原文。 */
@@ -749,6 +761,8 @@ export type ClientToServer =
   | DeleteSessionMsg
   | RenameSessionMsg
   | GetSettingsMsg
+  | GetUserDirectoryMsg
+  | RollbackUserControlMsg
   | SetSettingMsg
   | GetSearchConfigMsg
   | SaveSearchConfigMsg
@@ -1121,6 +1135,33 @@ export interface SettingsSnapshot {
 }
 
 export type SettingsMsg = Envelope<'settings', SettingsSnapshot>;
+
+export interface UserDirectoryErrorInfo {
+  path: string;
+  line: number;
+  column: number;
+  message: string;
+  diff?: string;
+}
+
+export interface UserDirectoryDocumentInfo {
+  path: string;
+  kind: string;
+  revision: string;
+  content: string;
+  fromLastKnownGood: boolean;
+}
+
+export interface UserDirectorySnapshotInfo {
+  root: string;
+  documents: UserDirectoryDocumentInfo[];
+  errors: UserDirectoryErrorInfo[];
+}
+
+export type UserDirectoryStatusMsg = Envelope<
+  'user_directory_status',
+  UserDirectorySnapshotInfo
+>;
 
 export interface SearchConfigSnapshot {
   provider: SearchProvider;
@@ -1519,6 +1560,7 @@ export type ServerToClient =
   | ModelsListMsg
   | FeishuPushResultMsg
   | SettingsMsg
+  | UserDirectoryStatusMsg
   | SearchConfigMsg
   | McpServersMsg
   | ContextBreakdownMsg
@@ -1997,6 +2039,7 @@ export function validateClientPayload(msg: {
       return null;
     }
     case 'get_settings':
+    case 'get_user_directory':
     case 'get_search_config':
     case 'mcp_list':
     case 'get_stats':
@@ -2014,6 +2057,13 @@ export function validateClientPayload(msg: {
     case 'get_pending_auto_skills':
     case 'scan_pending_auto_skills':
       return isPlainObject(p) ? null : `${msg.type} payload 必须是对象`;
+    case 'rollback_user_control': {
+      if (!isPlainObject(p)) return 'rollback_user_control payload 必须是对象';
+      if (!['core.md', 'soul.md', 'project.md', 'memory.md'].includes(String(p['path'])))
+        return 'path 必须是受控 Markdown 文件';
+      if (!isNonEmptyString(p['requestId'])) return 'requestId 必须是非空字符串';
+      return p['approved'] === true ? null : '回退必须经过用户明确批准';
+    }
     case 'get_memory':
     case 'get_skills':
     case 'get_extensions':
