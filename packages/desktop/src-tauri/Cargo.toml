@@ -31,6 +31,7 @@ brotli = "8"
 arboard = { version = "3.6.1", default-features = false, features = ["wayland-data-control"] }
 chrono = "0.4"
 chrono-tz = "0.10"
+clawmaster-runtime-kernel = { path = "../../runtime-kernel-rs" }
 futures-util = "0.3"
 sha2 = "0.10"
 sled = "0.34"

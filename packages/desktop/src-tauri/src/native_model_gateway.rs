@@ -611,7 +611,10 @@ fn next_invocation_id() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
+    use clawmaster_runtime_kernel::{
+        KernelEvent, KernelStore, RuntimeKernel, ToolState, TurnRecord, TurnState,
+    };
+    use std::collections::{BTreeMap, BTreeSet, HashMap};
 
     #[derive(Default)]
     struct MemoryCredentials(Mutex<HashMap<String, String>>);
@@ -648,6 +651,66 @@ mod tests {
             self.0.lock().unwrap().push(value.clone());
             Ok(())
         }
+    }
+
+    #[derive(Clone, Default)]
+    struct KernelMemoryStore {
+        turns: Arc<Mutex<BTreeMap<String, TurnRecord>>>,
+        events: Arc<Mutex<Vec<KernelEvent>>>,
+        completed: Arc<Mutex<BTreeSet<String>>>,
+    }
+
+    impl KernelStore for KernelMemoryStore {
+        fn load_turn(&self, turn_id: &str) -> Result<Option<TurnRecord>, String> {
+            Ok(self.turns.lock().unwrap().get(turn_id).cloned())
+        }
+        fn list_turn_ids(&self) -> Result<BTreeSet<String>, String> {
+            Ok(self.turns.lock().unwrap().keys().cloned().collect())
+        }
+        fn commit_turn_event(&self, turn: &TurnRecord, event: &KernelEvent) -> Result<(), String> {
+            self.turns
+                .lock()
+                .unwrap()
+                .insert(turn.turn_id.clone(), turn.clone());
+            self.events.lock().unwrap().push(event.clone());
+            Ok(())
+        }
+        fn append_event(&self, event: &KernelEvent) -> Result<(), String> {
+            self.events.lock().unwrap().push(event.clone());
+            Ok(())
+        }
+        fn completed_idempotency_keys(&self) -> Result<BTreeSet<String>, String> {
+            Ok(self.completed.lock().unwrap().clone())
+        }
+        fn mark_idempotency_completed(&self, key: &str) -> Result<(), String> {
+            self.completed.lock().unwrap().insert(key.into());
+            Ok(())
+        }
+    }
+
+    async fn serve_openai_tool_then_summary() -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            for response_body in [
+                concat!(
+                    "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-1\",\"function\":{\"name\":\"read_file\",\"arguments\":\"{\\\"path\\\":\\\"note.txt\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n"
+                ),
+                "data: {\"choices\":[{\"delta\":{\"content\":\"文件内容是 alpha\"},\"finish_reason\":\"stop\"}]}\n\n",
+            ] {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut request = vec![0_u8; 8192];
+                let _ = socket.read(&mut request).await.unwrap();
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    response_body.len(),
+                    response_body
+                );
+                socket.write_all(response.as_bytes()).await.unwrap();
+            }
+        });
+        format!("http://{address}/v1")
     }
 
     fn test_model() -> NativeModel {
@@ -729,6 +792,135 @@ mod tests {
         let records = ledger.0.lock().unwrap();
         assert_eq!(records.len(), 2);
         assert_eq!(records[1]["outcome"], "cancelled");
+    }
+
+    #[tokio::test]
+    async fn streams_readonly_tool_and_model_summary_through_the_rust_kernel() {
+        let base_url = serve_openai_tool_then_summary().await;
+        let credentials = Arc::new(MemoryCredentials::default());
+        credentials.set("credential-test", "test-secret").unwrap();
+        let gateway =
+            ModelInvocationGateway::with_ledger(credentials, Arc::new(MemoryLedger::default()));
+        let model = NativeModel {
+            base_url,
+            ..test_model()
+        };
+        let store = KernelMemoryStore::default();
+        let kernel = RuntimeKernel::new(store.clone());
+        let mut turn = kernel
+            .create_turn_for_session("turn-1", Some("session-1"), 1)
+            .unwrap();
+        kernel
+            .transition_turn(&mut turn, TurnState::Planning, "planning", 2)
+            .unwrap();
+        let messages = vec![ModelMessage {
+            role: "user".into(),
+            text: "读取 note.txt 并总结".into(),
+        }];
+        let tools = crate::native_agent_tools::definitions();
+        let (_, cancel) = watch::channel(false);
+        let first = gateway
+            .invoke(
+                InvocationRequest {
+                    model: &model,
+                    messages: &messages,
+                    tools: &tools,
+                    context: InvocationContext::new(
+                        "session-1",
+                        "turn-1",
+                        InvocationPurpose::Agent,
+                    ),
+                },
+                cancel.clone(),
+                |_| Ok(()),
+            )
+            .await
+            .unwrap();
+        let StreamCompletion::Completed(first) = first else {
+            panic!("first model turn cancelled")
+        };
+        let call = first.tool_calls.first().expect("model tool call");
+        let arguments = serde_json::to_vec(&call.arguments).unwrap();
+        kernel
+            .register_tool(
+                &mut turn,
+                &call.id,
+                &call.name,
+                &arguments,
+                "revision-1",
+                "turn-1:call-1",
+                false,
+                3,
+            )
+            .unwrap();
+        kernel
+            .transition_tool(&mut turn, &call.id, ToolState::Scheduled, "validated", 4)
+            .unwrap();
+        kernel
+            .transition_tool(&mut turn, &call.id, ToolState::Executing, "executing", 5)
+            .unwrap();
+        kernel
+            .transition_turn(&mut turn, TurnState::ExecutingTool, "executing", 6)
+            .unwrap();
+        let workspace = tempfile::tempdir().unwrap();
+        std::fs::write(workspace.path().join("note.txt"), "alpha").unwrap();
+        let result = crate::native_agent_tools::execute(call, workspace.path()).unwrap();
+        kernel
+            .transition_tool(&mut turn, &call.id, ToolState::Success, "success", 7)
+            .unwrap();
+        kernel
+            .transition_turn(&mut turn, TurnState::ObservingResult, "observed", 8)
+            .unwrap();
+        kernel
+            .transition_turn(&mut turn, TurnState::Planning, "continue model", 9)
+            .unwrap();
+        let summary_messages = vec![
+            messages[0].clone(),
+            ModelMessage {
+                role: "user".into(),
+                text: format!("[Rust tool result]\n{result}"),
+            },
+        ];
+        let mut deltas = Vec::new();
+        let second = gateway
+            .invoke(
+                InvocationRequest {
+                    model: &model,
+                    messages: &summary_messages,
+                    tools: &tools,
+                    context: InvocationContext::new(
+                        "session-1",
+                        "turn-1",
+                        InvocationPurpose::Agent,
+                    ),
+                },
+                cancel,
+                |event| {
+                    if let ModelStreamEvent::Text(delta) = event {
+                        deltas.push(delta);
+                    }
+                    Ok(())
+                },
+            )
+            .await
+            .unwrap();
+        let StreamCompletion::Completed(second) = second else {
+            panic!("summary model turn cancelled")
+        };
+        kernel
+            .transition_turn(&mut turn, TurnState::WritingMemory, "memory", 10)
+            .unwrap();
+        kernel
+            .transition_turn(&mut turn, TurnState::Checkpointing, "checkpoint", 11)
+            .unwrap();
+        kernel
+            .transition_turn(&mut turn, TurnState::Completed, "complete", 12)
+            .unwrap();
+        assert_eq!(result["content"], "alpha");
+        assert_eq!(second.text, "文件内容是 alpha");
+        assert_eq!(deltas, vec!["文件内容是 alpha"]);
+        assert_eq!(turn.state, TurnState::Completed);
+        assert_eq!(turn.tools["call-1"].state, ToolState::Success);
     }
 
     #[tokio::test]

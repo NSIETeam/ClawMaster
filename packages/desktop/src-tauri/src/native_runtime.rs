@@ -15,10 +15,14 @@ use crate::{
     native_schedule, native_skills, native_todos, native_workflows, native_worklog,
     platform_webview,
 };
+use clawmaster_runtime_kernel::{
+    ApprovalOutcome, CentralPolicy, KernelEvent, KernelStore, PolicyDecision, PolicyRisk,
+    RuntimeKernel, ToolState, TurnRecord, TurnState,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -33,6 +37,86 @@ const DEFAULT_TITLE: &str = "新会话";
 const MAX_TITLE_CHARS: usize = 120;
 const COMPRESSION_THRESHOLD_CHARS: usize = 16_000;
 const MAX_COMPRESSION_INPUT_CHARS: usize = 2_000_000;
+const KERNEL_IDEMPOTENCY_INDEX_ID: &str = "runtime-kernel-idempotency";
+const KERNEL_TURN_INDEX_ID: &str = "runtime-kernel-turns";
+const TOOL_APPROVAL_TIMEOUT_MS: u64 = 5 * 60 * 1_000;
+
+#[derive(Clone)]
+struct NativeKernelStore {
+    state_store: NativeStateStore,
+}
+
+impl KernelStore for NativeKernelStore {
+    fn load_turn(&self, turn_id: &str) -> Result<Option<TurnRecord>, String> {
+        self.state_store
+            .get::<TurnRecord>(TREE_INDEX, &format!("kernel-turn-{turn_id}"))
+            .map(|record| record.map(|record| record.payload))
+            .map_err(|error| error.to_string())
+    }
+
+    fn list_turn_ids(&self) -> Result<BTreeSet<String>, String> {
+        self.state_store
+            .get::<BTreeSet<String>>(TREE_INDEX, KERNEL_TURN_INDEX_ID)
+            .map(|record| record.map_or_else(BTreeSet::new, |record| record.payload))
+            .map_err(|error| error.to_string())
+    }
+
+    fn commit_turn_event(&self, turn: &TurnRecord, event: &KernelEvent) -> Result<(), String> {
+        let reason_digest = format!("{:x}", Sha256::digest(event.reason.as_bytes()));
+        let event_id = format!(
+            "kernel-event-{}-{}-{}",
+            event.turn_id,
+            event.sequence,
+            &reason_digest[..12]
+        );
+        self.state_store
+            .commit_latest_index_event(
+                &format!("kernel-turn-{}", turn.turn_id),
+                KERNEL_TURN_INDEX_ID,
+                &turn.turn_id,
+                &event_id,
+                "runtime-kernel",
+                turn,
+                event,
+            )
+            .map_err(|error| error.to_string())
+    }
+
+    fn append_event(&self, event: &KernelEvent) -> Result<(), String> {
+        let reason_digest = format!("{:x}", Sha256::digest(event.reason.as_bytes()));
+        let id = format!(
+            "kernel-event-{}-{}-{}",
+            event.turn_id,
+            event.sequence,
+            &reason_digest[..12]
+        );
+        self.state_store
+            .put_once(TREE_EVENTS, &id, "runtime-kernel", event.clone())
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+
+    fn completed_idempotency_keys(&self) -> Result<BTreeSet<String>, String> {
+        self.state_store
+            .get::<BTreeSet<String>>(TREE_INDEX, KERNEL_IDEMPOTENCY_INDEX_ID)
+            .map(|record| record.map_or_else(BTreeSet::new, |record| record.payload))
+            .map_err(|error| error.to_string())
+    }
+
+    fn mark_idempotency_completed(&self, key: &str) -> Result<(), String> {
+        let mut completed = self.completed_idempotency_keys()?;
+        completed.insert(key.to_string());
+        self.state_store
+            .put_latest(
+                TREE_INDEX,
+                KERNEL_IDEMPOTENCY_INDEX_ID,
+                "runtime-kernel",
+                completed,
+            )
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+}
 const SEARCH_CREDENTIAL_ID: &str = "native-search-api-key";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -212,6 +296,8 @@ pub struct NativeRuntime {
     credentials: Arc<dyn CredentialStore>,
     state_store: NativeStateStore,
     model_gateway: ModelInvocationGateway,
+    runtime_kernel: RuntimeKernel<NativeKernelStore>,
+    recovery_notices: Mutex<Vec<Value>>,
     active_turns: Mutex<HashMap<String, ActiveTurn>>,
     pending_confirmations: Mutex<HashMap<String, watch::Sender<Option<String>>>>,
 }
@@ -569,6 +655,29 @@ impl NativeRuntime {
             credentials.clone(),
             Arc::new(state_store.clone()),
         )?;
+        let runtime_kernel = RuntimeKernel::new(NativeKernelStore {
+            state_store: state_store.clone(),
+        });
+        let recovery_notices = runtime_kernel
+            .recover_all(now_ms())
+            .map_err(|error| error.to_string())?
+            .into_iter()
+            .filter_map(|turn| {
+                let uncertain_calls = turn
+                    .tools
+                    .values()
+                    .filter(|tool| tool.state == ToolState::UnknownOutcome)
+                    .map(|tool| tool.call_id.clone())
+                    .collect::<Vec<_>>();
+                (!uncertain_calls.is_empty()).then(|| {
+                    json!({
+                        "sessionId": turn.session_id,
+                        "turnId": turn.turn_id,
+                        "callIds": uncertain_calls,
+                    })
+                })
+            })
+            .collect();
         let runtime = Self {
             audit_path,
             knowledge_path,
@@ -579,6 +688,8 @@ impl NativeRuntime {
             credentials,
             state_store,
             model_gateway,
+            runtime_kernel,
+            recovery_notices: Mutex::new(recovery_notices),
             active_turns: Mutex::new(HashMap::new()),
             pending_confirmations: Mutex::new(HashMap::new()),
         };
@@ -729,10 +840,41 @@ impl NativeRuntime {
             .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
         let mut dirty = false;
         let responses = match request_type {
-            "hello" => vec![frame(
-                "welcome",
-                json!({ "protocolVersion": "1", "serverVersion": "rust-native-0.1" }),
-            )],
+            "hello" => {
+                let mut frames = vec![frame(
+                    "welcome",
+                    json!({ "protocolVersion": "2", "serverVersion": "rust-native-0.2" }),
+                )];
+                let notices = self
+                    .recovery_notices
+                    .lock()
+                    .map_err(|_| "Rust 运行时恢复通知锁已损坏".to_string())?
+                    .drain(..)
+                    .collect::<Vec<_>>();
+                for notice in notices {
+                    let session_id = notice.get("sessionId").and_then(Value::as_str);
+                    frames.push(error_frame(
+                        session_id,
+                        "unknown_outcome",
+                        "外部工具在应用退出时仍在执行，结果无法确认；为避免重复副作用，ClawMaster 未自动重试。请人工核对后再继续。",
+                    ));
+                    if let Some(frame) = frames.last_mut() {
+                        frame["payload"]["uncertain"] = Value::Bool(true);
+                        frame["payload"]["turnId"] = notice["turnId"].clone();
+                        frame["payload"]["callIds"] = notice["callIds"].clone();
+                    }
+                    if let Some(session_id) = session_id {
+                        frames.push(frame(
+                            "runtime_activity",
+                            json!({
+                                "contractVersion":2,"sessionId":session_id,"kind":"tool","state":"failed",
+                                "detail":"unknown_outcome","timestamp":now_ms()
+                            }),
+                        ));
+                    }
+                }
+                frames
+            }
             "list_sessions" => vec![frame(
                 "sessions_list",
                 json!({ "sessions": state.sessions }),
@@ -763,11 +905,7 @@ impl NativeRuntime {
                         serde_json::to_value(self.user_directory.snapshot_at_turn_boundary())
                             .map_err(|error| format!("无法序列化用户目录状态: {error}"))?,
                     )],
-                    Err(error) => vec![error_frame(
-                        None,
-                        "rollback_user_control_failed",
-                        &error,
-                    )],
+                    Err(error) => vec![error_frame(None, "rollback_user_control_failed", &error)],
                 }
             }
             "create_session" => {
@@ -2000,10 +2138,9 @@ impl NativeRuntime {
         &self,
         app: &AppHandle,
         session_id: &str,
-        message_id: &str,
         call: &ModelToolCall,
         mut cancel: watch::Receiver<bool>,
-    ) -> Result<bool, String> {
+    ) -> Result<ApprovalOutcome, String> {
         let (sender, mut decision) = watch::channel(None::<String>);
         self.pending_confirmations
             .lock()
@@ -2021,32 +2158,33 @@ impl NativeRuntime {
         emit(
             app,
             frame(
-                "tool_calls_update",
-                json!({"sessionId":session_id,"messageId":message_id,"toolCalls":[card.clone()]}),
-            ),
-        )?;
-        emit(
-            app,
-            frame(
                 "tool_confirmation_request",
                 json!({"sessionId":session_id,"callId":call.id,"toolCall":card}),
             ),
         )?;
         loop {
             tokio::select! {
+                _ = tokio::time::sleep(std::time::Duration::from_millis(TOOL_APPROVAL_TIMEOUT_MS)) => {
+                    self.pending_confirmations.lock().ok().and_then(|mut values| values.remove(&call.id));
+                    return Ok(ApprovalOutcome::TimedOut);
+                }
                 changed = cancel.changed() => {
                     if changed.is_ok() && *cancel.borrow() {
                         self.pending_confirmations.lock().ok().and_then(|mut values| values.remove(&call.id));
-                        return Ok(false);
+                        return Ok(ApprovalOutcome::Cancelled);
                     }
                 }
                 changed = decision.changed() => {
                     if changed.is_err() {
-                        return Ok(false);
+                        return Ok(ApprovalOutcome::Cancelled);
                     }
                     if let Some(outcome) = decision.borrow().clone() {
                         self.pending_confirmations.lock().ok().and_then(|mut values| values.remove(&call.id));
-                        return Ok(matches!(outcome.as_str(), "approved" | "always_approve"));
+                        return Ok(if matches!(outcome.as_str(), "approved" | "always_approve") {
+                            ApprovalOutcome::Approved
+                        } else {
+                            ApprovalOutcome::Rejected
+                        });
                     }
                 }
             }
@@ -2172,6 +2310,7 @@ impl NativeRuntime {
         context: ToolLoopContext<'_>,
         mut messages: Vec<ModelMessage>,
         cancel: watch::Receiver<bool>,
+        kernel_turn: &mut TurnRecord,
     ) -> Result<StreamCompletion, ModelLoopError> {
         let mcp_configs = self
             .state
@@ -2195,6 +2334,10 @@ impl NativeRuntime {
         tools.extend(native_skills::definitions());
         tools.extend(native_workflows::definitions());
         tools.extend(mcp_catalog.definitions.clone());
+        let known_capabilities = tools
+            .iter()
+            .map(|tool| tool.name.clone())
+            .collect::<BTreeSet<_>>();
         if let Some(enabled) = context.enabled_capabilities {
             tools.retain(|tool| enabled.iter().any(|name| name == &tool.name));
         }
@@ -2259,12 +2402,39 @@ impl NativeRuntime {
             }
 
             let calls = completion.tool_calls.clone();
+            for call in &calls {
+                let argument_bytes = serde_json::to_vec(&call.arguments)
+                    .map_err(|error| format!("无法序列化工具参数: {error}"))?;
+                let argument_revision = format!("{:x}", Sha256::digest(&argument_bytes));
+                self.runtime_kernel
+                    .register_tool(
+                        kernel_turn,
+                        &call.id,
+                        &call.name,
+                        &argument_bytes,
+                        &argument_revision,
+                        &format!("{}:{}", context.turn_id, call.id),
+                        mcp_catalog.contains(&call.name)
+                            || matches!(call.name.as_str(), "open_browser" | "browser_action"),
+                        now_ms(),
+                    )
+                    .map_err(|error| error.to_string())?;
+                self.runtime_kernel
+                    .transition_tool(
+                        kernel_turn,
+                        &call.id,
+                        ToolState::Scheduled,
+                        "tool validated",
+                        now_ms(),
+                    )
+                    .map_err(|error| error.to_string())?;
+            }
             let mut cards = calls
                 .iter()
                 .map(|call| {
                     json!({
                         "id":call.id,"toolName":call.name,"parameters":call.arguments,
-                        "status":"executing","startTime":now_ms()
+                        "status":"scheduled","startTime":now_ms()
                     })
                 })
                 .collect::<Vec<_>>();
@@ -2291,6 +2461,9 @@ impl NativeRuntime {
             for (index, call) in calls.iter().enumerate() {
                 self.audit_tool(context.session_id, call, "requested", None)?;
                 if *cancel.borrow() {
+                    self.runtime_kernel
+                        .cancel_open_tools(kernel_turn, "turn cancelled", now_ms())
+                        .map_err(|error| error.to_string())?;
                     return Ok(StreamCompletion::Cancelled(ModelCompletion {
                         text: full_text,
                         input_tokens: total_input,
@@ -2308,23 +2481,81 @@ impl NativeRuntime {
                 let is_todo = call.name == "todo_write";
                 let is_skill = native_skills::contains(&call.name);
                 let is_workflow = native_workflows::contains(&call.name);
-                let mut user_write_preview = None;
-                let approved = if risk == Some(native_agent_tools::ToolRisk::Write)
+                let high_risk = risk == Some(native_agent_tools::ToolRisk::Write)
                     || is_mcp
                     || native_encrypted_checkpoints::is_write(&call.name)
                     || native_knowledge::is_write(&call.name)
                     || native_schedule::is_write(call)
                     || is_todo
-                    || is_workflow
-                {
+                    || is_workflow;
+                let capability_enabled = context
+                    .enabled_capabilities
+                    .is_none_or(|enabled| enabled.iter().any(|name| name == &call.name));
+                let policy_decision = CentralPolicy::evaluate(
+                    known_capabilities.contains(&call.name),
+                    capability_enabled,
+                    if high_risk {
+                        PolicyRisk::High
+                    } else {
+                        PolicyRisk::ReadOnly
+                    },
+                );
+                let requires_confirmation = policy_decision == PolicyDecision::RequireApproval;
+                let external_side_effect =
+                    is_mcp || matches!(call.name.as_str(), "open_browser" | "browser_action");
+                let argument_bytes = serde_json::to_vec(&call.arguments)
+                    .map_err(|error| format!("无法序列化工具参数: {error}"))?;
+                let argument_revision = format!("{:x}", Sha256::digest(&argument_bytes));
+                let mut user_write_preview = None;
+                let approved = if requires_confirmation {
+                    cards[index]["status"] = Value::String("awaiting_approval".into());
+                    emit(
+                        context.app,
+                        frame(
+                            "tool_calls_update",
+                            json!({"sessionId":context.session_id,"messageId":context.message_id,"toolCalls":cards}),
+                        ),
+                    )?;
+                    self.runtime_kernel
+                        .transition_turn(
+                            kernel_turn,
+                            TurnState::AwaitingPermission,
+                            "tool approval requested",
+                            now_ms(),
+                        )
+                        .map_err(|error| error.to_string())?;
+                    let approval_request_id = format!("approval-{}", call.id);
+                    self.runtime_kernel
+                        .request_approval(
+                            kernel_turn,
+                            &call.id,
+                            &approval_request_id,
+                            now_ms().saturating_add(TOOL_APPROVAL_TIMEOUT_MS),
+                            now_ms(),
+                        )
+                        .map_err(|error| error.to_string())?;
                     let mut confirmation_call = call.clone();
                     if call.name == "update_user_control" {
-                        let relative_path = call.arguments.get("path").and_then(Value::as_str).unwrap_or("");
-                        let content = call.arguments.get("content").and_then(Value::as_str).unwrap_or("");
-                        let preview = self.user_directory.preview_agent_write(&call.id, relative_path, content)?;
+                        let relative_path = call
+                            .arguments
+                            .get("path")
+                            .and_then(Value::as_str)
+                            .unwrap_or("");
+                        let content = call
+                            .arguments
+                            .get("content")
+                            .and_then(Value::as_str)
+                            .unwrap_or("");
+                        let preview = self.user_directory.preview_agent_write(
+                            &call.id,
+                            relative_path,
+                            content,
+                        )?;
                         confirmation_call.arguments["diff"] = Value::String(preview.diff.clone());
-                        confirmation_call.arguments["previousRevision"] = Value::String(preview.previous_revision.clone());
-                        confirmation_call.arguments["nextRevision"] = Value::String(preview.next_revision.clone());
+                        confirmation_call.arguments["previousRevision"] =
+                            Value::String(preview.previous_revision.clone());
+                        confirmation_call.arguments["nextRevision"] =
+                            Value::String(preview.next_revision.clone());
                         user_write_preview = Some(preview);
                     }
                     if call.name == "restore_file_checkpoint" {
@@ -2342,23 +2573,90 @@ impl NativeRuntime {
                             }
                         }
                     }
-                    self.await_tool_confirmation(
-                        context.app,
-                        context.session_id,
-                        context.message_id,
-                        &confirmation_call,
-                        cancel.clone(),
-                    )
-                    .await?
+                    let outcome = self
+                        .await_tool_confirmation(
+                            context.app,
+                            context.session_id,
+                            &confirmation_call,
+                            cancel.clone(),
+                        )
+                        .await?;
+                    let approved = self
+                        .runtime_kernel
+                        .resolve_approval(
+                            kernel_turn,
+                            &call.id,
+                            &approval_request_id,
+                            &argument_bytes,
+                            &argument_revision,
+                            outcome,
+                            now_ms(),
+                        )
+                        .map_err(|error| error.to_string())?;
+                    self.runtime_kernel
+                        .transition_turn(
+                            kernel_turn,
+                            if approved {
+                                TurnState::ExecutingTool
+                            } else {
+                                TurnState::ObservingResult
+                            },
+                            if approved {
+                                "tool approved"
+                            } else {
+                                "tool not approved"
+                            },
+                            now_ms(),
+                        )
+                        .map_err(|error| error.to_string())?;
+                    approved
                 } else {
-                    risk.is_some()
-                        || is_checkpoint
-                        || is_knowledge
-                        || is_schedule
-                        || is_todo
-                        || is_skill
+                    let approved = policy_decision == PolicyDecision::Allow;
+                    if approved {
+                        self.runtime_kernel
+                            .transition_tool(
+                                kernel_turn,
+                                &call.id,
+                                ToolState::Executing,
+                                "read-only tool scheduled",
+                                now_ms(),
+                            )
+                            .map_err(|error| error.to_string())?;
+                        self.runtime_kernel
+                            .transition_turn(
+                                kernel_turn,
+                                TurnState::ExecutingTool,
+                                "tool executing",
+                                now_ms(),
+                            )
+                            .map_err(|error| error.to_string())?;
+                    } else {
+                        self.runtime_kernel
+                            .transition_tool(
+                                kernel_turn,
+                                &call.id,
+                                ToolState::Error,
+                                "unknown tool denied",
+                                now_ms(),
+                            )
+                            .map_err(|error| error.to_string())?;
+                    }
+                    approved
                 };
+                if approved {
+                    cards[index]["status"] = Value::String("executing".into());
+                    emit(
+                        context.app,
+                        frame(
+                            "tool_calls_update",
+                            json!({"sessionId":context.session_id,"messageId":context.message_id,"toolCalls":cards}),
+                        ),
+                    )?;
+                }
                 if *cancel.borrow() {
+                    self.runtime_kernel
+                        .cancel_open_tools(kernel_turn, "turn cancelled", now_ms())
+                        .map_err(|error| error.to_string())?;
                     return Ok(StreamCompletion::Cancelled(ModelCompletion {
                         text: full_text,
                         input_tokens: total_input,
@@ -2369,6 +2667,13 @@ impl NativeRuntime {
                     }));
                 }
                 let started = now_ms();
+                let execute_external = if approved && external_side_effect {
+                    self.runtime_kernel
+                        .begin_external_side_effect(kernel_turn, &call.id, now_ms())
+                        .map_err(|error| error.to_string())?
+                } else {
+                    true
+                };
                 let mut checkpoint_id = None;
                 let checkpoint_error = if approved && call.name != "update_user_control" {
                     native_agent_tools::mutation_target(call).and_then(|relative_path| {
@@ -2392,11 +2697,19 @@ impl NativeRuntime {
                 } else {
                     None
                 };
-                let mut result = if let Some(error) = checkpoint_error {
+                let mut result = if !execute_external {
+                    Ok(json!({"idempotentReplaySuppressed":true}))
+                } else if let Some(error) = checkpoint_error {
                     Err(error)
                 } else if call.name == "update_user_control" {
-                    let preview = user_write_preview.as_ref().ok_or_else(|| "控制文件修改缺少审批预览".to_string())?;
-                    let content = call.arguments.get("content").and_then(Value::as_str).unwrap_or("");
+                    let preview = user_write_preview
+                        .as_ref()
+                        .ok_or_else(|| "控制文件修改缺少审批预览".to_string())?;
+                    let content = call
+                        .arguments
+                        .get("content")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
                     self.user_directory
                         .apply_agent_write(
                             preview,
@@ -2404,7 +2717,9 @@ impl NativeRuntime {
                             &format!("{}:{}", context.session_id, context.turn_id),
                             approved,
                         )
-                        .and_then(|document| serde_json::to_value(document).map_err(|error| error.to_string()))
+                        .and_then(|document| {
+                            serde_json::to_value(document).map_err(|error| error.to_string())
+                        })
                 } else if approved && is_mcp {
                     mcp_catalog
                         .execute(call, self.credentials.as_ref(), cancel.clone())
@@ -2491,6 +2806,54 @@ impl NativeRuntime {
                         native_encrypted_checkpoints::discard(&self.state_store, id);
                     }
                 }
+                if approved && execute_external {
+                    if external_side_effect && result.is_ok() {
+                        self.runtime_kernel
+                            .complete_external_side_effect(kernel_turn, &call.id, now_ms())
+                            .map_err(|error| error.to_string())?;
+                    } else {
+                        let terminal = if result.is_ok() {
+                            ToolState::Success
+                        } else if external_side_effect && *cancel.borrow() {
+                            ToolState::UnknownOutcome
+                        } else {
+                            ToolState::Error
+                        };
+                        self.runtime_kernel
+                            .transition_tool(
+                                kernel_turn,
+                                &call.id,
+                                terminal,
+                                if terminal == ToolState::UnknownOutcome {
+                                    "external result uncertain after cancellation"
+                                } else if result.is_ok() {
+                                    "tool completed"
+                                } else {
+                                    "tool failed"
+                                },
+                                now_ms(),
+                            )
+                            .map_err(|error| error.to_string())?;
+                    }
+                }
+                if kernel_turn.state != TurnState::ObservingResult {
+                    self.runtime_kernel
+                        .transition_turn(
+                            kernel_turn,
+                            TurnState::ObservingResult,
+                            "tool result observed",
+                            now_ms(),
+                        )
+                        .map_err(|error| error.to_string())?;
+                }
+                self.runtime_kernel
+                    .transition_turn(
+                        kernel_turn,
+                        TurnState::Planning,
+                        "continue model planning",
+                        now_ms(),
+                    )
+                    .map_err(|error| error.to_string())?;
                 self.audit_tool(
                     context.session_id,
                     call,
@@ -2777,12 +3140,12 @@ impl NativeRuntime {
                             "path":checkpoint.get("path").cloned().unwrap_or(Value::Null)
                         }),
                     };
-                    let message_id = next_id("restore-message");
                     let (_cancel_tx, cancel) = watch::channel(false);
                     self.audit_tool(&session_id, &call, "requested", None)?;
-                    let approved = self
-                        .await_tool_confirmation(app, &session_id, &message_id, &call, cancel)
+                    let approval_outcome = self
+                        .await_tool_confirmation(app, &session_id, &call, cancel)
                         .await?;
+                    let approved = approval_outcome == ApprovalOutcome::Approved;
                     let result = if approved {
                         native_encrypted_checkpoints::execute(
                             &self.state_store,
@@ -2935,9 +3298,7 @@ impl NativeRuntime {
             let model_id = core_overrides
                 .model
                 .clone()
-                .or_else(|| state.sessions[session_index]
-                .model
-                .clone())
+                .or_else(|| state.sessions[session_index].model.clone())
                 .or_else(|| state.current_model.clone())
                 .ok_or_else(|| "请先配置并选择模型".to_string())?;
             let mut model = state
@@ -3017,10 +3378,7 @@ impl NativeRuntime {
                     "\n\n[ClawMaster policy default: {policy_default}] Hard approval, audit, and path-isolation rules still take precedence."
                 ));
             }
-            native_context::prepend_system_message(
-                &mut history,
-                system_prompt,
-            );
+            native_context::prepend_system_message(&mut history, system_prompt);
             self.persist(&state)?;
             let workspace = Self::workspace_for_session(&state, Some(&session_id));
             (model, history, workspace, inferred_session)
@@ -3036,7 +3394,10 @@ impl NativeRuntime {
                 error_frame(
                     Some(&session_id),
                     "user_directory_invalid",
-                    &format!("{}:{}:{} {}。本轮继续使用 last-known-good。", error.path, error.line, error.column, error.message),
+                    &format!(
+                        "{}:{}:{} {}。本轮继续使用 last-known-good。",
+                        error.path, error.line, error.column, error.message
+                    ),
                 ),
             )?;
         }
@@ -3053,7 +3414,7 @@ impl NativeRuntime {
             frame(
                 "runtime_activity",
                 json!({
-                    "contractVersion":1,"sessionId":session_id,"kind":"turn","state":"started","timestamp":now_ms()
+                    "contractVersion":2,"sessionId":session_id,"kind":"turn","state":"started","timestamp":now_ms()
                 }),
             ),
         )?;
@@ -3076,6 +3437,18 @@ impl NativeRuntime {
         )?;
 
         let turn_id = next_id("turn");
+        let mut kernel_turn = self
+            .runtime_kernel
+            .create_turn_for_session(&turn_id, Some(&session_id), now_ms())
+            .map_err(|error| error.to_string())?;
+        self.runtime_kernel
+            .transition_turn(
+                &mut kernel_turn,
+                TurnState::Planning,
+                "model planning",
+                now_ms(),
+            )
+            .map_err(|error| error.to_string())?;
         let (cancel_sender, cancel_receiver) = watch::channel(false);
         let previous = self
             .active_turns
@@ -3104,6 +3477,7 @@ impl NativeRuntime {
                 },
                 model_messages,
                 cancel_receiver,
+                &mut kernel_turn,
             )
             .await;
         if let Ok(mut active_turns) = self.active_turns.lock() {
@@ -3150,6 +3524,30 @@ impl NativeRuntime {
                     usage.output_tokens += completion.output_tokens;
                     self.persist(&state)?;
                 }
+                self.runtime_kernel
+                    .transition_turn(
+                        &mut kernel_turn,
+                        TurnState::WritingMemory,
+                        "assistant result persisted",
+                        now_ms(),
+                    )
+                    .map_err(|error| error.to_string())?;
+                self.runtime_kernel
+                    .transition_turn(
+                        &mut kernel_turn,
+                        TurnState::Checkpointing,
+                        "turn checkpoint persisted",
+                        now_ms(),
+                    )
+                    .map_err(|error| error.to_string())?;
+                self.runtime_kernel
+                    .transition_turn(
+                        &mut kernel_turn,
+                        TurnState::Completed,
+                        "turn completed",
+                        now_ms(),
+                    )
+                    .map_err(|error| error.to_string())?;
                 emit(
                     app,
                     frame(
@@ -3174,7 +3572,7 @@ impl NativeRuntime {
                     frame(
                         "runtime_activity",
                         json!({
-                            "contractVersion":1,"sessionId":session_id,"kind":"turn","state":"completed","timestamp":now_ms()
+                            "contractVersion":2,"sessionId":session_id,"kind":"turn","state":"completed","timestamp":now_ms()
                         }),
                     ),
                 )?;
@@ -3212,6 +3610,14 @@ impl NativeRuntime {
                     usage.output_tokens += completion.output_tokens;
                     let _ = self.persist(&state);
                 }
+                self.runtime_kernel
+                    .transition_turn(
+                        &mut kernel_turn,
+                        TurnState::Cancelled,
+                        "turn cancelled",
+                        now_ms(),
+                    )
+                    .map_err(|error| error.to_string())?;
                 emit(
                     app,
                     frame(
@@ -3234,7 +3640,7 @@ impl NativeRuntime {
                     frame(
                         "runtime_activity",
                         json!({
-                            "contractVersion":1,"sessionId":session_id,"kind":"turn","state":"cancelled","timestamp":now_ms()
+                            "contractVersion":2,"sessionId":session_id,"kind":"turn","state":"cancelled","timestamp":now_ms()
                         }),
                     ),
                 )?;
@@ -3261,6 +3667,9 @@ impl NativeRuntime {
                     }
                     let _ = self.persist(&state);
                 }
+                self.runtime_kernel
+                    .transition_turn(&mut kernel_turn, TurnState::Failed, "turn failed", now_ms())
+                    .map_err(|error| error.to_string())?;
                 emit(app, failure_frame)?;
                 emit(
                     app,
@@ -3274,7 +3683,7 @@ impl NativeRuntime {
                     frame(
                         "runtime_activity",
                         json!({
-                            "contractVersion":1,"sessionId":session_id,"kind":"turn","state":"failed","detail":message,"timestamp":now_ms()
+                            "contractVersion":2,"sessionId":session_id,"kind":"turn","state":"failed","detail":message,"timestamp":now_ms()
                         }),
                     ),
                 )?;
@@ -3412,13 +3821,135 @@ mod tests {
     }
 
     #[test]
+    fn rust_kernel_uses_the_same_encrypted_native_store_across_restart() {
+        let (root, runtime) = runtime();
+        let mut turn = runtime
+            .runtime_kernel
+            .create_turn("kernel-turn-1", 1)
+            .unwrap();
+        runtime
+            .runtime_kernel
+            .transition_turn(
+                &mut turn,
+                clawmaster_runtime_kernel::TurnState::Planning,
+                "planning",
+                2,
+            )
+            .unwrap();
+        drop(runtime);
+
+        let restored = NativeRuntime::load_with_credentials(
+            root.path(),
+            Arc::new(MemoryCredentials::default()),
+        )
+        .unwrap();
+        let recovered = restored
+            .runtime_kernel
+            .recover("kernel-turn-1", 3)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            recovered.state,
+            clawmaster_runtime_kernel::TurnState::Planning
+        );
+        assert!(restored
+            .state_store
+            .get::<TurnRecord>(TREE_INDEX, "kernel-turn-kernel-turn-1")
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn restart_exposes_unknown_external_outcome_once_via_v2_frames() {
+        let (root, runtime) = runtime();
+        let mut turn = runtime
+            .runtime_kernel
+            .create_turn_for_session("kernel-turn-1", Some("session-1"), 1)
+            .unwrap();
+        runtime
+            .runtime_kernel
+            .transition_turn(&mut turn, TurnState::Planning, "planning", 2)
+            .unwrap();
+        runtime
+            .runtime_kernel
+            .register_tool(
+                &mut turn,
+                "call-1",
+                "browser_action",
+                b"{}",
+                "revision-1",
+                "idempotency-1",
+                true,
+                3,
+            )
+            .unwrap();
+        runtime
+            .runtime_kernel
+            .transition_tool(&mut turn, "call-1", ToolState::Scheduled, "validated", 4)
+            .unwrap();
+        runtime
+            .runtime_kernel
+            .request_approval(&mut turn, "call-1", "approval-1", 100, 5)
+            .unwrap();
+        runtime
+            .runtime_kernel
+            .resolve_approval(
+                &mut turn,
+                "call-1",
+                "approval-1",
+                b"{}",
+                "revision-1",
+                ApprovalOutcome::Approved,
+                6,
+            )
+            .unwrap();
+        runtime
+            .runtime_kernel
+            .transition_turn(
+                &mut turn,
+                TurnState::ExecutingTool,
+                "executing external tool",
+                7,
+            )
+            .unwrap();
+        runtime
+            .runtime_kernel
+            .begin_external_side_effect(&mut turn, "call-1", 8)
+            .unwrap();
+        drop(runtime);
+
+        let restored = NativeRuntime::load_with_credentials(
+            root.path(),
+            Arc::new(MemoryCredentials::default()),
+        )
+        .unwrap();
+        let first = restored.handle(&json!({"type":"hello"})).unwrap();
+        assert_eq!(first[0]["payload"]["protocolVersion"], "2");
+        assert!(first.iter().any(|frame| {
+            frame["type"] == "error"
+                && frame["payload"]["code"] == "unknown_outcome"
+                && frame["payload"]["uncertain"] == true
+        }));
+        assert!(first.iter().any(|frame| {
+            frame["type"] == "runtime_activity"
+                && frame["payload"]["contractVersion"] == 2
+                && frame["payload"]["detail"] == "unknown_outcome"
+        }));
+        let second = restored.handle(&json!({"type":"hello"})).unwrap();
+        assert_eq!(second.len(), 1);
+    }
+
+    #[test]
     fn exposes_and_rolls_back_the_native_user_directory() {
         let (_root, runtime) = runtime();
         let status = runtime
             .handle(&json!({"type":"get_user_directory","payload":{}}))
             .unwrap();
         assert_eq!(status[0]["type"], "user_directory_status");
-        assert_eq!(status[0]["payload"]["documents"].as_array().unwrap().len(), 7);
+        assert_eq!(
+            status[0]["payload"]["documents"].as_array().unwrap().len(),
+            7
+        );
 
         fs::write(runtime.user_directory.root().join("core.md"), "broken").unwrap();
         let rejected = runtime
@@ -3427,7 +3958,10 @@ mod tests {
                 "payload":{"path":"core.md","requestId":"rollback-1","approved":false}
             }))
             .unwrap();
-        assert_eq!(rejected[0]["payload"]["code"], "rollback_user_control_failed");
+        assert_eq!(
+            rejected[0]["payload"]["code"],
+            "rollback_user_control_failed"
+        );
         let restored = runtime
             .handle(&json!({
                 "type":"rollback_user_control",
@@ -3435,7 +3969,10 @@ mod tests {
             }))
             .unwrap();
         assert_eq!(restored[0]["type"], "user_directory_status");
-        assert!(restored[0]["payload"]["errors"].as_array().unwrap().is_empty());
+        assert!(restored[0]["payload"]["errors"]
+            .as_array()
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

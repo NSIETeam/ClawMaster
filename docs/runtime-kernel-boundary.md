@@ -5,7 +5,20 @@
 
 ## Purpose
 
-This document defines the **minimal runtime kernel** — the set of modules that form the irreducible core of Otto's agent runtime. Everything outside this boundary is optional, replaceable, or UI-specific.
+This document defines the **minimal runtime kernel**: the modules that form ClawMaster's irreducible agent lifecycle. Everything outside this boundary is optional, replaceable, or UI-specific.
+
+The signed Tauri product's lifecycle owner is `packages/runtime-kernel-rs`. It
+contains the enforced turn/tool state machines, CentralPolicy decision contract,
+approval binding, cancellation, audit events, idempotency, and crash recovery.
+`packages/desktop/src-tauri/src/native_runtime.rs` is its Tauri host adapter;
+`packages/server/src/runtimeKernelRustTestAdapter.test.ts` exercises the same
+crate through the CLI/server test adapter. Provider wire formats, concrete tool
+implementations, UI rendering, connector logic, and storage implementation stay
+outside the crate.
+
+The TypeScript lifecycle under `packages/core` remains a compatibility baseline
+until R11 removes the legacy runtime. It is not a second lifecycle owner for the
+native Tauri path, and new native lifecycle rules must not be implemented there.
 
 For AtomCode-informed changes, also follow [AtomCode Reuse Boundary](./atomcode-reuse-boundary.md). It prevents architecture reference work from becoming a kernel replacement or a second state owner.
 
@@ -14,6 +27,14 @@ For AtomCode-informed changes, also follow [AtomCode Reuse Boundary](./atomcode-
 The kernel owns these lifecycle-critical concerns:
 
 ### 1. Turn Lifecycle & State Machine
+
+- **Native production owner**: `packages/runtime-kernel-rs/src/lib.rs`
+- Persists every accepted state change together with its typed audit event via
+  the host-provided `KernelStore` transaction boundary.
+- Discovers interrupted turns on restart. An external action interrupted after
+  its side effect starts becomes `unknown_outcome`, is never replayed
+  automatically, and produces a user-visible reconciliation notice.
+- The TypeScript files below document the legacy compatibility baseline only.
 
 - **File**: `packages/core/src/core/turn.ts`
 - Defines `Turn` — the state machine for a single LLM round-trip (request → stream → tool calls → response).
@@ -116,6 +137,13 @@ The kernel owns these lifecycle-critical concerns:
   idempotent and sequence rollback is rejected.
 
 ### 4. Central Policy Gate
+
+- **Native production owner**: `packages/runtime-kernel-rs::CentralPolicy`.
+- Unknown and disabled capabilities are denied by default. Known high-risk
+  capabilities require an approval bound to request ID, argument digest,
+  revision, and expiry; known read-only capabilities may execute directly.
+- Tauri supplies capability discovery and executes the approved outer tool, but
+  cannot override a kernel denial.
 
 - **File**: `packages/core/src/policy/centralPolicy.ts`
 - `CentralPolicy.canExecute(toolName, context)` — the **single policy decision point** for all risky behavior.

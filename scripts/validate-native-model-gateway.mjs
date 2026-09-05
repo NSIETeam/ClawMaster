@@ -31,6 +31,17 @@ const runtime = readFileSync(path.join(sourceRoot, 'native_runtime.rs'), 'utf8')
 if (/\breqwest::Client\b/.test(runtime)) {
   violations.push('native_runtime.rs: private model HTTP client');
 }
+for (const fixedReply of ['已接收你的消息', '已收到你的消息', 'Rust runtime received']) {
+  if (runtime.includes(fixedReply)) {
+    violations.push(`native_runtime.rs: production fixed acknowledgement ${fixedReply}`);
+  }
+}
+if (/"contractVersion"\s*:\s*1\b/.test(runtime)) {
+  violations.push('native_runtime.rs: Runtime Contract v1 event emission');
+}
+if (!runtime.includes('.run_model_tool_loop(')) {
+  violations.push('native_runtime.rs: real model-tool loop is not connected');
+}
 for (const purpose of ['InvocationPurpose::Agent', 'InvocationPurpose::Compression', 'InvocationPurpose::SubAgent']) {
   if (!runtime.includes(purpose)) {
     violations.push(`native_runtime.rs: missing gateway purpose ${purpose}`);

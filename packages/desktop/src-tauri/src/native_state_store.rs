@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sled::transaction::{ConflictableTransactionError, TransactionError, Transactional};
 use sled::{Db, Tree};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
@@ -553,6 +553,89 @@ impl NativeStateStore {
         map_transaction(result)
     }
 
+    pub fn commit_latest_index_event<T, E>(
+        &self,
+        index_id: &str,
+        registry_id: &str,
+        registry_member: &str,
+        event_id: &str,
+        source_id: &str,
+        index_payload: &T,
+        event_payload: &E,
+    ) -> Result<(), StateStoreError>
+    where
+        T: Clone + DeserializeOwned + Serialize,
+        E: Clone + DeserializeOwned + Serialize,
+    {
+        validate_identity(index_id)?;
+        validate_identity(registry_id)?;
+        validate_identity(registry_member)?;
+        validate_identity(event_id)?;
+        validate_identity(source_id)?;
+        let index_key = record_key(index_id);
+        let registry_key = record_key(registry_id);
+        let event_key = record_key(event_id);
+        let now = now_ms();
+        let cipher = &self.inner.cipher;
+        let result =
+            (&self.inner.trees.index, &self.inner.trees.events).transaction(|(index, events)| {
+                if events.get(event_key.as_slice())?.is_some() {
+                    return Err(ConflictableTransactionError::Abort(
+                        StateStoreError::IdempotencyConflict,
+                    ));
+                }
+                let (revision, created_at) = match index.get(index_key.as_slice())? {
+                    Some(bytes) => {
+                        let current: StateRecord<T> =
+                            decrypt_json(cipher, TREE_INDEX, &index_key, &bytes)
+                                .map_err(ConflictableTransactionError::Abort)?;
+                        (current.revision + 1, current.created_at)
+                    }
+                    None => (1, now),
+                };
+                let index_record = StateRecord {
+                    schema_version: SCHEMA_VERSION,
+                    revision,
+                    created_at,
+                    updated_at: now,
+                    source_id: source_id.to_string(),
+                    payload: index_payload.clone(),
+                };
+                let event_record = new_record(source_id, event_payload.clone(), now);
+                let (registry_revision, registry_created_at, mut registry_payload) =
+                    match index.get(registry_key.as_slice())? {
+                        Some(bytes) => {
+                            let current: StateRecord<BTreeSet<String>> =
+                                decrypt_json(cipher, TREE_INDEX, &registry_key, &bytes)
+                                    .map_err(ConflictableTransactionError::Abort)?;
+                            (current.revision + 1, current.created_at, current.payload)
+                        }
+                        None => (1, now, BTreeSet::new()),
+                    };
+                registry_payload.insert(registry_member.to_string());
+                let registry_record = StateRecord {
+                    schema_version: SCHEMA_VERSION,
+                    revision: registry_revision,
+                    created_at: registry_created_at,
+                    updated_at: now,
+                    source_id: source_id.to_string(),
+                    payload: registry_payload,
+                };
+                let index_bytes = encrypt_json(cipher, TREE_INDEX, &index_key, &index_record)
+                    .map_err(ConflictableTransactionError::Abort)?;
+                let event_bytes = encrypt_json(cipher, TREE_EVENTS, &event_key, &event_record)
+                    .map_err(ConflictableTransactionError::Abort)?;
+                let registry_bytes =
+                    encrypt_json(cipher, TREE_INDEX, &registry_key, &registry_record)
+                        .map_err(ConflictableTransactionError::Abort)?;
+                index.insert(index_key.as_slice(), index_bytes)?;
+                index.insert(registry_key.as_slice(), registry_bytes)?;
+                events.insert(event_key.as_slice(), event_bytes)?;
+                Ok(())
+            });
+        map_transaction(result)
+    }
+
     pub fn put_artifact(
         &self,
         source_id: &str,
@@ -904,6 +987,60 @@ mod tests {
         }
         assert_eq!(store.count(TREE_EVENTS).unwrap(), 1);
         assert_eq!(store.count(TREE_USAGE).unwrap(), 1);
+    }
+
+    #[test]
+    fn kernel_turn_registry_and_event_commit_atomically() {
+        let root = tempfile::tempdir().unwrap();
+        let store = store(root.path());
+        store
+            .commit_latest_index_event(
+                "kernel-turn-turn-1",
+                "runtime-kernel-turns",
+                "turn-1",
+                "kernel-event-turn-1-1",
+                "runtime-kernel",
+                &json!({"turnId":"turn-1","sequence":1}),
+                &json!({"turnId":"turn-1","sequence":1,"state":"created"}),
+            )
+            .unwrap();
+        assert_eq!(
+            store
+                .get::<serde_json::Value>(TREE_INDEX, "kernel-turn-turn-1")
+                .unwrap()
+                .unwrap()
+                .payload["sequence"],
+            1
+        );
+        assert!(store
+            .get::<BTreeSet<String>>(TREE_INDEX, "runtime-kernel-turns")
+            .unwrap()
+            .unwrap()
+            .payload
+            .contains("turn-1"));
+        assert!(store
+            .get::<serde_json::Value>(TREE_EVENTS, "kernel-event-turn-1-1")
+            .unwrap()
+            .is_some());
+
+        let replay = store.commit_latest_index_event(
+            "kernel-turn-turn-1",
+            "runtime-kernel-turns",
+            "turn-1",
+            "kernel-event-turn-1-1",
+            "runtime-kernel",
+            &json!({"turnId":"turn-1","sequence":2}),
+            &json!({"turnId":"turn-1","sequence":2,"state":"planning"}),
+        );
+        assert_eq!(replay.unwrap_err(), StateStoreError::IdempotencyConflict);
+        assert_eq!(
+            store
+                .get::<serde_json::Value>(TREE_INDEX, "kernel-turn-turn-1")
+                .unwrap()
+                .unwrap()
+                .payload["sequence"],
+            1
+        );
     }
 
     #[test]

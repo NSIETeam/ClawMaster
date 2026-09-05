@@ -58,6 +58,7 @@ packages/*/webview/vitest.config.js
 # 构建缓存文件
 .build-cache.json
 **/.build-cache.json
+packages/runtime-kernel-rs/target/
 
 # Docker folder to help skip auth refreshes
 .docker

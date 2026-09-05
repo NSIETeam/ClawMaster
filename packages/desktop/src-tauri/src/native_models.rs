@@ -188,7 +188,13 @@ pub fn system_credential_store() -> Arc<dyn CredentialStore> {
 
 fn endpoint(base_url: &str, suffix: &str) -> Result<Url, String> {
     let mut base = Url::parse(base_url).map_err(|_| "模型 API 地址无效".to_string())?;
-    if base.scheme() != "https" || !base.username().is_empty() || base.password().is_some() {
+    let test_loopback = cfg!(test)
+        && base.scheme() == "http"
+        && matches!(base.host_str(), Some("127.0.0.1" | "localhost" | "::1"));
+    if (base.scheme() != "https" && !test_loopback)
+        || !base.username().is_empty()
+        || base.password().is_some()
+    {
         return Err("模型 API 必须使用不含内嵌凭据的 HTTPS 地址".into());
     }
     if base.path().ends_with(suffix) {

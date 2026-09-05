@@ -619,6 +619,7 @@ dependencies = [
  "brotli",
  "chrono",
  "chrono-tz",
+ "clawmaster-runtime-kernel",
  "futures-util",
  "getrandom 0.2.17",
  "keyring",
@@ -646,6 +647,15 @@ dependencies = [
  "windows-sys 0.61.2",
  "xa11y",
  "zip",
+]
+
+[[package]]
+name = "clawmaster-runtime-kernel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]

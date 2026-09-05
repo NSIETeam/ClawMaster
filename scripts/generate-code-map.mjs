@@ -10,6 +10,7 @@ const displayNames = {
   '@clawmaster/native': 'Native bridge',
   'otto-core': 'Runtime kernel',
   'clawmaster-desktop': 'Desktop / Tauri target',
+  'clawmaster-runtime-kernel': 'Rust runtime kernel',
   'otto-evals': 'Deterministic evals',
   'otto-rpa': 'RPA',
   'otto-server': 'Enterprise server',
@@ -24,7 +25,7 @@ function nodeId(name) {
 
 async function loadWorkspaces() {
   const rootPackage = JSON.parse(await readFile(path.join(rootDir, 'package.json'), 'utf8'));
-  return Promise.all((rootPackage.workspaces ?? []).map(async (workspace) => {
+  const packages = await Promise.all((rootPackage.workspaces ?? []).map(async (workspace) => {
     const manifest = JSON.parse(await readFile(path.join(rootDir, workspace, 'package.json'), 'utf8'));
     return {
       name: manifest.name,
@@ -32,6 +33,14 @@ async function loadWorkspaces() {
       dependencies: { ...manifest.dependencies, ...manifest.devDependencies },
     };
   }));
+  packages.push({
+    name: 'clawmaster-runtime-kernel',
+    path: 'packages/runtime-kernel-rs',
+    dependencies: {},
+  });
+  const desktop = packages.find((pkg) => pkg.name === 'clawmaster-desktop');
+  if (desktop) desktop.dependencies['clawmaster-runtime-kernel'] = 'path';
+  return packages;
 }
 
 function renderWorkspaceGraph(packages) {
@@ -45,6 +54,11 @@ function renderWorkspaceGraph(packages) {
     .filter((dependency) => names.has(dependency))
     .sort()
     .map((dependency) => `  ${nodeId(pkg.name)} --> ${nodeId(dependency)}`));
+  const server = packages.find((pkg) => pkg.name === 'clawmaster-server');
+  const rustKernel = packages.find((pkg) => pkg.name === 'clawmaster-runtime-kernel');
+  if (server && rustKernel) {
+    edges.push(`  ${nodeId(server.name)} -. test adapter .-> ${nodeId(rustKernel.name)}`);
+  }
   return ['```mermaid', 'flowchart LR', ...nodes, ...edges, '```'].join('\n');
 }
 
@@ -85,7 +99,8 @@ sequenceDiagram
 flowchart LR
   Renderer[React renderer] --> Bridge[Validated host bridge]
   Bridge --> Rust[Embedded Rust runtime]
-  Rust --> Gateway[ModelInvocationGateway]
+  Rust --> Kernel[Rust runtime kernel]
+  Kernel --> Gateway[ModelInvocationGateway]
   Gateway --> Model[OpenAI compatible / Anthropic / Gemini adapters]
   Gateway --> Vault[macOS Keychain / Windows Credential Manager]
   Gateway --> Store[Encrypted NativeStateStore]
@@ -117,7 +132,7 @@ flowchart LR
 
 | Need | Start here | Boundary / evidence |
 | --- | --- | --- |
-| Turn lifecycle, tool state, confirmation, audit | \`packages/core\` | \`docs/runtime-kernel-boundary.md\` |
+| Turn lifecycle, tool state, confirmation, audit | \`packages/runtime-kernel-rs\` | Rust kernel tests, Tauri integration tests, and CLI/server test adapter |
 | Enterprise APIs, tenancy, channels | \`packages/server\` | Server focused tests |
 | GUI and native desktop capabilities | \`packages/desktop/src/renderer\`, \`packages/desktop/src-tauri\` | Desktop and Cargo tests |
 | Native model invocation, credentials, retry, cancellation, usage | \`packages/desktop/src-tauri/src/native_model_gateway.rs\` | Recorded provider fixtures and \`npm run validate:boundaries\` |

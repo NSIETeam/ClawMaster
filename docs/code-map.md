@@ -15,6 +15,7 @@ flowchart LR
   p6["clawmaster-evals<br/><code>packages/evals</code>"]
   p7["clawmaster-workflow<br/><code>packages/workflow</code>"]
   p8["clawmaster-rpa<br/><code>packages/rpa</code>"]
+  p9["Rust runtime kernel<br/><code>packages/runtime-kernel-rs</code>"]
   p1 --> p4
   p1 --> p8
   p1 --> p7
@@ -22,8 +23,10 @@ flowchart LR
   p2 --> p1
   p3 --> p5
   p3 --> p4
+  p3 --> p9
   p3 --> p2
   p6 --> p1
+  p2 -. test adapter .-> p9
 ```
 
 Arrows mean “imports or depends on”. The runtime kernel does not depend on Desktop or Server product surfaces.
@@ -52,7 +55,8 @@ sequenceDiagram
 flowchart LR
   Renderer[React renderer] --> Bridge[Validated host bridge]
   Bridge --> Rust[Embedded Rust runtime]
-  Rust --> Gateway[ModelInvocationGateway]
+  Rust --> Kernel[Rust runtime kernel]
+  Kernel --> Gateway[ModelInvocationGateway]
   Gateway --> Model[OpenAI compatible / Anthropic / Gemini adapters]
   Gateway --> Vault[macOS Keychain / Windows Credential Manager]
   Gateway --> Store[Encrypted NativeStateStore]
@@ -84,7 +88,7 @@ flowchart LR
 
 | Need | Start here | Boundary / evidence |
 | --- | --- | --- |
-| Turn lifecycle, tool state, confirmation, audit | `packages/core` | `docs/runtime-kernel-boundary.md` |
+| Turn lifecycle, tool state, confirmation, audit | `packages/runtime-kernel-rs` | Rust kernel tests, Tauri integration tests, and CLI/server test adapter |
 | Enterprise APIs, tenancy, channels | `packages/server` | Server focused tests |
 | GUI and native desktop capabilities | `packages/desktop/src/renderer`, `packages/desktop/src-tauri` | Desktop and Cargo tests |
 | Native model invocation, credentials, retry, cancellation, usage | `packages/desktop/src-tauri/src/native_model_gateway.rs` | Recorded provider fixtures and `npm run validate:boundaries` |
