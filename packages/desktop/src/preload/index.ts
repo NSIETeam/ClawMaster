@@ -70,6 +70,7 @@ export interface NativeChannelConfig {
   provider: NativeChannelProvider;
   appId: string;
   agentId?: string;
+  connectionMode?: 'bot' | 'agent';
   verifiedAt: string;
 }
 export interface NativeChannelStatus {
@@ -1405,6 +1406,7 @@ export interface ClawMasterBridge {
     appId: string;
     appSecret: string;
     agentId?: string;
+    connectionMode?: 'bot' | 'agent';
   }): Promise<NativeChannelConfig>;
   nativeChannelConfigClear?(provider: NativeChannelProvider): Promise<void>;
   nativeChannelSendTest?(input: {

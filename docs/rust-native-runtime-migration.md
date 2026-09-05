@@ -91,12 +91,17 @@ back to the legacy Node sidecar.
   session, run through the Rust model/tool loop, and reply to the originating
   chat. Existing saved credentials backfill bot identity on reconnect. This path
   is code-complete but still requires real Feishu/Lark credentials and a selected
-  model for end-to-end acceptance.
+  model for end-to-end acceptance. DingTalk Stream Mode and the WeCom AI Bot
+  WebSocket protocol are also implemented directly in Rust with authenticated
+  connections, bounded queues, message deduplication, application heartbeats,
+  reconnect control and platform-acknowledged replies. WeCom keeps its legacy
+  self-built application mode for proactive notifications. Both new paths still
+  require real platform credentials and a selected model for end-to-end acceptance.
 - Verified locally after the native Feishu/Lark event-stream migration:
   10,880,080-byte stripped ARM64 release executable, 10.53 MiB complete
   application bundle, and 4,630,076-byte (4.42 MiB) UDBZ macOS ARM64 DMG. The
   packaged checks found no Node executable, `.node` addon, or agent payload.
 - Remaining before release: browser screenshots and post-action navigation
   stabilization for reliable RPA, remaining document adapters, real-credential
-  Feishu/Lark acceptance, plus WeCom/DingTalk inbound streams; then installed
-  real-model and destructive-path acceptance.
+  Feishu/Lark, WeCom and DingTalk acceptance, then installed real-model and
+  destructive-path acceptance.

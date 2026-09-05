@@ -45,4 +45,25 @@ describe('NativeChannelPanel', () => {
     }));
     expect(screen.getByRole('status').textContent).toContain('Rust 正在建立消息流');
   });
+
+  it('defaults WeCom to the recommended bot websocket mode', async () => {
+    configGet.mockImplementationOnce(async () => null as never);
+    render(<NativeChannelPanel provider="wecom" />);
+
+    expect((screen.getByLabelText('企业微信连接模式') as HTMLSelectElement).value).toBe('bot');
+    fireEvent.change(screen.getByLabelText('企业微信 Bot ID'), {
+      target: { value: 'bot-id' },
+    });
+    fireEvent.change(screen.getByLabelText('企业微信 Bot Secret'), {
+      target: { value: 'bot-secret' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存并验证' }));
+
+    await waitFor(() => expect(configSave).toHaveBeenCalledWith({
+      provider: 'wecom',
+      appId: 'bot-id',
+      appSecret: 'bot-secret',
+      connectionMode: 'bot',
+    }));
+  });
 });

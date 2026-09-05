@@ -15,11 +15,12 @@ use serde_json::{json, Value};
 use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
-use tokio::sync::{mpsc, watch};
+use tokio::sync::{mpsc, oneshot, watch};
 use tokio::task::JoinHandle;
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
 const MAX_ID_CHARS: usize = 200;
 const INBOUND_QUEUE_CAPACITY: usize = 32;
@@ -28,6 +29,11 @@ const DINGTALK_CALLBACK_TOPIC: &str = "/v1.0/im/bot/messages/get";
 const DINGTALK_STREAM_ENDPOINT: &str = "https://api.dingtalk.com/v1.0/gateway/connections/open";
 const DINGTALK_KEEPALIVE_IDLE_SECONDS: u64 = 120;
 const DINGTALK_PONG_TIMEOUT_SECONDS: u64 = 5;
+const WECOM_WEBSOCKET_ENDPOINT: &str = "wss://openws.work.weixin.qq.com";
+const WECOM_HEARTBEAT_SECONDS: u64 = 30;
+const WECOM_MAX_MISSED_HEARTBEATS: u8 = 2;
+static REQUEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+type NativeWebSocket = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +44,8 @@ pub struct ChannelConfig {
     bot_open_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     agent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    connection_mode: Option<String>,
     verified_at: String,
 }
 
@@ -48,6 +56,7 @@ pub struct SaveRequest {
     app_id: String,
     app_secret: String,
     agent_id: Option<String>,
+    connection_mode: Option<String>,
 }
 
 pub struct NativeChannelState {
@@ -57,6 +66,7 @@ pub struct NativeChannelState {
     http: Client,
     statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
     tasks: Mutex<HashMap<String, ChannelTasks>>,
+    wecom_outbound: Mutex<HashMap<String, mpsc::Sender<WeComOutbound>>>,
 }
 
 struct ChannelTasks {
@@ -72,6 +82,13 @@ struct InboundMessage {
     message_id: String,
     text: String,
     reply_webhook: Option<url::Url>,
+    reply_request_id: Option<String>,
+}
+
+struct WeComOutbound {
+    request_id: String,
+    frame: Value,
+    completion: oneshot::Sender<Result<(), String>>,
 }
 
 #[derive(Debug)]
@@ -182,6 +199,38 @@ fn validate_provider(value: &str) -> Result<&str, String> {
     }
 }
 
+fn configured_wecom_mode(config: &ChannelConfig) -> &str {
+    config
+        .connection_mode
+        .as_deref()
+        .unwrap_or(if config.agent_id.is_some() {
+            "agent"
+        } else {
+            "bot"
+        })
+}
+
+fn validate_connection_mode(
+    provider: &str,
+    requested: Option<&str>,
+    agent_id: Option<&str>,
+) -> Result<Option<String>, String> {
+    if provider != "wecom" {
+        return Ok(None);
+    }
+    let mode = requested.unwrap_or(if agent_id.is_some() { "agent" } else { "bot" });
+    if !matches!(mode, "bot" | "agent") {
+        return Err("企业微信连接模式必须是 bot 或 agent".into());
+    }
+    if mode == "agent" && agent_id.is_none() {
+        return Err("企业微信自建应用模式需要 Agent ID".into());
+    }
+    if mode == "bot" && agent_id.is_some() {
+        return Err("企业微信智能机器人模式不使用 Agent ID".into());
+    }
+    Ok(Some(mode.to_string()))
+}
+
 fn clean(value: &str, field: &str) -> Result<String, String> {
     let value = value.trim();
     if value.is_empty()
@@ -237,7 +286,213 @@ fn inbound_message(
         message_id: clean(&message.message_id, "飞书 Message ID")?,
         text: clean_message(&message.text)?,
         reply_webhook: None,
+        reply_request_id: None,
     }))
+}
+
+fn wecom_request_id(prefix: &str) -> String {
+    let sequence = REQUEST_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    format!(
+        "{prefix}_{}_{}",
+        chrono::Utc::now().timestamp_millis(),
+        sequence
+    )
+}
+
+fn wecom_auth_frame(bot_id: &str, secret: &str, request_id: &str) -> Value {
+    json!({
+        "cmd": "aibot_subscribe",
+        "headers": {"req_id": request_id},
+        "body": {"secret": secret, "bot_id": bot_id}
+    })
+}
+
+fn parse_wecom_ack(frame: &Value, request_id: &str) -> Result<bool, String> {
+    if frame.pointer("/headers/req_id").and_then(Value::as_str) != Some(request_id) {
+        return Ok(false);
+    }
+    let code = frame
+        .get("errcode")
+        .and_then(Value::as_i64)
+        .ok_or_else(|| "企业微信回执缺少 errcode".to_string())?;
+    if code == 0 {
+        return Ok(true);
+    }
+    let message = frame
+        .get("errmsg")
+        .and_then(Value::as_str)
+        .unwrap_or("平台未返回错误说明");
+    Err(format!("企业微信回执失败 ({code}): {message}"))
+}
+
+fn wecom_message_text(body: &Value) -> Result<Option<String>, String> {
+    let content = match body.get("msgtype").and_then(Value::as_str) {
+        Some("text") => body
+            .pointer("/text/content")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        Some("voice") => body
+            .pointer("/voice/content")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        Some("mixed") => {
+            let parts = body
+                .pointer("/mixed/msg_item")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter(|item| item.get("msgtype").and_then(Value::as_str) == Some("text"))
+                .filter_map(|item| item.pointer("/text/content").and_then(Value::as_str))
+                .map(str::trim)
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>();
+            (!parts.is_empty()).then(|| parts.join("\n"))
+        }
+        _ => None,
+    };
+    content.map(|content| clean_message(&content)).transpose()
+}
+
+fn wecom_inbound_message(frame: &Value, bot_id: &str) -> Result<Option<InboundMessage>, String> {
+    if frame.get("cmd").and_then(Value::as_str) != Some("aibot_msg_callback") {
+        return Ok(None);
+    }
+    let body = frame
+        .get("body")
+        .ok_or_else(|| "企业微信回调缺少 body".to_string())?;
+    if body.get("aibotid").and_then(Value::as_str) != Some(bot_id) {
+        return Err("企业微信回调的 Bot ID 与当前连接不匹配".into());
+    }
+    let Some(text) = wecom_message_text(body)? else {
+        return Ok(None);
+    };
+    let chat_type = body.get("chattype").and_then(Value::as_str).unwrap_or("");
+    let chat_id = match chat_type {
+        "single" => body
+            .pointer("/from/userid")
+            .and_then(Value::as_str)
+            .unwrap_or(""),
+        "group" => body.get("chatid").and_then(Value::as_str).unwrap_or(""),
+        _ => return Ok(None),
+    };
+    Ok(Some(InboundMessage {
+        provider: "wecom".into(),
+        chat_id: clean(chat_id, "企业微信 Chat ID")?,
+        message_id: clean(
+            body.get("msgid").and_then(Value::as_str).unwrap_or(""),
+            "企业微信 Message ID",
+        )?,
+        text,
+        reply_webhook: None,
+        reply_request_id: Some(clean(
+            frame
+                .pointer("/headers/req_id")
+                .and_then(Value::as_str)
+                .unwrap_or(""),
+            "企业微信 Request ID",
+        )?),
+    }))
+}
+
+fn wecom_stream_reply(request_id: &str, stream_id: &str, text: &str) -> Value {
+    json!({
+        "cmd": "aibot_respond_msg",
+        "headers": {"req_id": request_id},
+        "body": {
+            "msgtype": "stream",
+            "stream": {"id": stream_id, "finish": true, "content": text}
+        }
+    })
+}
+
+fn wecom_active_message(request_id: &str, chat_id: &str, text: &str) -> Value {
+    json!({
+        "cmd": "aibot_send_msg",
+        "headers": {"req_id": request_id},
+        "body": {"chatid": chat_id, "msgtype": "markdown", "markdown": {"content": text}}
+    })
+}
+
+async fn connect_wecom_bot(bot_id: &str, secret: &str) -> Result<NativeWebSocket, String> {
+    connect_wecom_bot_at(WECOM_WEBSOCKET_ENDPOINT, bot_id, secret).await
+}
+
+async fn connect_wecom_bot_at(
+    endpoint: &str,
+    bot_id: &str,
+    secret: &str,
+) -> Result<NativeWebSocket, String> {
+    let (mut socket, _) = connect_async(endpoint)
+        .await
+        .map_err(|error| format!("企业微信 WebSocket 连接失败: {error}"))?;
+    let request_id = wecom_request_id("aibot_subscribe");
+    let auth = serde_json::to_string(&wecom_auth_frame(bot_id, secret, &request_id))
+        .map_err(|error| error.to_string())?;
+    socket
+        .send(Message::Text(auth.into()))
+        .await
+        .map_err(|error| format!("企业微信认证帧发送失败: {error}"))?;
+    let authentication = async {
+        loop {
+            match socket.next().await {
+                Some(Ok(Message::Text(text))) => {
+                    let frame: Value = serde_json::from_str(text.as_str())
+                        .map_err(|error| format!("企业微信认证响应无效: {error}"))?;
+                    if parse_wecom_ack(&frame, &request_id)? {
+                        return Ok(());
+                    }
+                }
+                Some(Ok(Message::Binary(bytes))) => {
+                    let frame: Value = serde_json::from_slice(&bytes)
+                        .map_err(|error| format!("企业微信认证响应无效: {error}"))?;
+                    if parse_wecom_ack(&frame, &request_id)? {
+                        return Ok(());
+                    }
+                }
+                Some(Ok(Message::Ping(data))) => socket
+                    .send(Message::Pong(data))
+                    .await
+                    .map_err(|error| format!("企业微信认证心跳回复失败: {error}"))?,
+                Some(Ok(Message::Close(_))) | None => {
+                    return Err("企业微信在认证完成前关闭了连接".into());
+                }
+                Some(Ok(_)) => {}
+                Some(Err(error)) => return Err(format!("企业微信认证响应读取失败: {error}")),
+            }
+        }
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(10), authentication)
+        .await
+        .map_err(|_| "企业微信机器人认证超时".to_string())??;
+    Ok(socket)
+}
+
+async fn verify_wecom_bot(bot_id: &str, secret: &str) -> Result<(), String> {
+    let mut socket = connect_wecom_bot(bot_id, secret).await?;
+    socket
+        .close(None)
+        .await
+        .map_err(|error| format!("企业微信验证连接关闭失败: {error}"))
+}
+
+async fn send_wecom_outbound(
+    sender: &mpsc::Sender<WeComOutbound>,
+    request_id: String,
+    frame: Value,
+) -> Result<(), String> {
+    let (completion, receiver) = oneshot::channel();
+    sender
+        .send(WeComOutbound {
+            request_id,
+            frame,
+            completion,
+        })
+        .await
+        .map_err(|_| "企业微信长连接当前不可用".to_string())?;
+    tokio::time::timeout(std::time::Duration::from_secs(5), receiver)
+        .await
+        .map_err(|_| "企业微信消息回执超时".to_string())?
+        .map_err(|_| "企业微信消息回执通道已关闭".to_string())?
 }
 
 fn is_dingtalk_host(host: Option<&str>) -> bool {
@@ -357,6 +612,7 @@ fn dingtalk_inbound_message(
                 .unwrap_or(""),
         )?,
         reply_webhook: Some(reply_webhook),
+        reply_request_id: None,
     }))
 }
 
@@ -673,6 +929,7 @@ async fn run_inbound_worker(
     config: ChannelConfig,
     app_secret: String,
     statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    wecom_outbound: Option<mpsc::Sender<WeComOutbound>>,
     mut receiver: mpsc::Receiver<InboundMessage>,
     mut shutdown: watch::Receiver<bool>,
 ) {
@@ -701,7 +958,18 @@ async fn run_inbound_worker(
                 )
                 .await?;
             let reply = bounded_reply(&reply);
-            if let Some(webhook) = message.reply_webhook.as_ref() {
+            if let Some(request_id) = message.reply_request_id.as_ref() {
+                let sender = wecom_outbound
+                    .as_ref()
+                    .ok_or_else(|| "企业微信回复通道未启动".to_string())?;
+                let stream_id = wecom_request_id("stream");
+                send_wecom_outbound(
+                    sender,
+                    request_id.clone(),
+                    wecom_stream_reply(request_id, &stream_id, &reply),
+                )
+                .await
+            } else if let Some(webhook) = message.reply_webhook.as_ref() {
                 send_dingtalk_session_text(&http, webhook, &reply).await
             } else {
                 send_feishu_text(
@@ -883,6 +1151,190 @@ async fn run_dingtalk_stream(
     }
 }
 
+fn fail_wecom_pending(
+    pending: &mut HashMap<String, oneshot::Sender<Result<(), String>>>,
+    reason: &str,
+) {
+    for (_, completion) in pending.drain() {
+        let _ = completion.send(Err(reason.to_string()));
+    }
+}
+
+async fn run_wecom_stream(
+    app: AppHandle,
+    config: ChannelConfig,
+    app_secret: String,
+    statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    sender: mpsc::Sender<InboundMessage>,
+    mut outbound: mpsc::Receiver<WeComOutbound>,
+    mut shutdown: watch::Receiver<bool>,
+) {
+    let provider = config.provider.clone();
+    let seen = Arc::new(Mutex::new(VecDeque::new()));
+    let mut retry_seconds = 1_u64;
+    loop {
+        if *shutdown.borrow() {
+            return;
+        }
+        set_channel_status(&statuses, ChannelStatus::new(&provider, "connecting"));
+        let mut socket = match connect_wecom_bot(&config.app_id, &app_secret).await {
+            Ok(socket) => socket,
+            Err(error) => {
+                let mut status = ChannelStatus::new(&provider, "failed");
+                status.last_error = Some(error);
+                set_channel_status(&statuses, status);
+                if wait_for_reconnect(&mut shutdown, retry_seconds).await {
+                    return;
+                }
+                retry_seconds = (retry_seconds * 2).min(30);
+                continue;
+            }
+        };
+        retry_seconds = 1;
+        set_channel_status(&statuses, ChannelStatus::new(&provider, "connected"));
+        let heartbeat_period = std::time::Duration::from_secs(WECOM_HEARTBEAT_SECONDS);
+        let mut heartbeat = tokio::time::interval_at(
+            tokio::time::Instant::now() + heartbeat_period,
+            heartbeat_period,
+        );
+        heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut missed_heartbeats = 0_u8;
+        let mut pending = HashMap::<String, oneshot::Sender<Result<(), String>>>::new();
+        let disconnect_reason = loop {
+            tokio::select! {
+                changed = shutdown.changed() => {
+                    if changed.is_err() || *shutdown.borrow() {
+                        fail_wecom_pending(&mut pending, "企业微信连接已停止");
+                        let _ = socket.close(None).await;
+                        return;
+                    }
+                }
+                _ = heartbeat.tick() => {
+                    pending.retain(|_, completion| !completion.is_closed());
+                    if missed_heartbeats >= WECOM_MAX_MISSED_HEARTBEATS {
+                        break "企业微信连续两次心跳无回执".to_string();
+                    }
+                    let request_id = wecom_request_id("ping");
+                    let frame = json!({"cmd":"ping", "headers":{"req_id":request_id}});
+                    let encoded = match serde_json::to_string(&frame) {
+                        Ok(encoded) => encoded,
+                        Err(error) => break error.to_string(),
+                    };
+                    if let Err(error) = socket.send(Message::Text(encoded.into())).await {
+                        break format!("企业微信心跳发送失败: {error}");
+                    }
+                    missed_heartbeats = missed_heartbeats.saturating_add(1);
+                }
+                outbound_message = outbound.recv() => {
+                    let Some(outbound_message) = outbound_message else {
+                        break "企业微信回复队列已关闭".to_string();
+                    };
+                    if outbound_message.completion.is_closed() {
+                        continue;
+                    }
+                    let encoded = match serde_json::to_string(&outbound_message.frame) {
+                        Ok(encoded) => encoded,
+                        Err(error) => {
+                            let _ = outbound_message.completion.send(Err(error.to_string()));
+                            continue;
+                        }
+                    };
+                    if pending.contains_key(&outbound_message.request_id) {
+                        let _ = outbound_message.completion.send(Err("企业微信同一请求仍有回复等待回执".into()));
+                        continue;
+                    }
+                    if let Err(error) = socket.send(Message::Text(encoded.into())).await {
+                        let reason = format!("企业微信回复发送失败: {error}");
+                        let _ = outbound_message.completion.send(Err(reason.clone()));
+                        break reason;
+                    }
+                    pending.insert(outbound_message.request_id, outbound_message.completion);
+                }
+                incoming = socket.next() => {
+                    let frame = match incoming {
+                        Some(Ok(Message::Text(text))) => serde_json::from_str::<Value>(text.as_str()),
+                        Some(Ok(Message::Binary(bytes))) => serde_json::from_slice::<Value>(&bytes),
+                        Some(Ok(Message::Ping(data))) => {
+                            if let Err(error) = socket.send(Message::Pong(data)).await {
+                                break format!("企业微信 WebSocket Pong 发送失败: {error}");
+                            }
+                            continue;
+                        }
+                        Some(Ok(Message::Pong(_))) => {
+                            missed_heartbeats = 0;
+                            continue;
+                        }
+                        Some(Ok(Message::Close(_))) | None => break "企业微信 WebSocket 已关闭".to_string(),
+                        Some(Ok(_)) => continue,
+                        Some(Err(error)) => break format!("企业微信 WebSocket 读取失败: {error}"),
+                    };
+                    let frame = match frame {
+                        Ok(frame) => frame,
+                        Err(error) => {
+                            record_channel_error(&statuses, &provider, format!("企业微信消息帧无效: {error}"));
+                            continue;
+                        }
+                    };
+                    let request_id = frame.pointer("/headers/req_id").and_then(Value::as_str).unwrap_or("");
+                    if frame.get("cmd").is_none() && request_id.starts_with("ping_") {
+                        match parse_wecom_ack(&frame, request_id) {
+                            Ok(true) => missed_heartbeats = 0,
+                            Ok(false) => {}
+                            Err(error) => record_channel_error(&statuses, &provider, error),
+                        }
+                        continue;
+                    }
+                    if let Some(completion) = pending.remove(request_id) {
+                        let result = parse_wecom_ack(&frame, request_id).and_then(|matched| {
+                            matched.then_some(()).ok_or_else(|| "企业微信回复回执 ID 不匹配".to_string())
+                        });
+                        let _ = completion.send(result);
+                        continue;
+                    }
+                    let is_server_disconnect = frame.get("cmd").and_then(Value::as_str) == Some("aibot_event_callback")
+                        && frame.pointer("/body/event/eventtype").and_then(Value::as_str) == Some("disconnected_event");
+                    if is_server_disconnect {
+                        fail_wecom_pending(&mut pending, "企业微信检测到另一实例登录");
+                        let mut status = ChannelStatus::new(&provider, "failed");
+                        status.last_error = Some("企业微信机器人已在另一实例建立连接；为避免互相踢线，本机停止自动重连".into());
+                        set_channel_status(&statuses, status);
+                        let _ = socket.close(None).await;
+                        return;
+                    }
+                    let parsed = wecom_inbound_message(&frame, &config.app_id);
+                    let mut status = ChannelStatus::new(&provider, "connected");
+                    status.last_event_at = Some(chrono::Utc::now().to_rfc3339());
+                    set_channel_status(&statuses, status);
+                    match parsed {
+                        Ok(Some(message))
+                            if !app.state::<NativeRuntime>()
+                                .has_channel_message(&provider, &message.message_id)
+                                .unwrap_or(false)
+                                && mark_message_seen(&seen, &message.message_id) =>
+                        {
+                            let message_id = message.message_id.clone();
+                            if sender.try_send(message).is_err() {
+                                forget_message(&seen, &message_id);
+                                record_channel_error(&statuses, &provider, "企业微信入站队列已满".into());
+                            }
+                        }
+                        Ok(Some(_)) | Ok(None) => {}
+                        Err(error) => record_channel_error(&statuses, &provider, error),
+                    }
+                }
+            }
+        };
+        fail_wecom_pending(&mut pending, &disconnect_reason);
+        let mut status = ChannelStatus::new(&provider, "connecting");
+        status.last_error = Some(disconnect_reason);
+        set_channel_status(&statuses, status);
+        if wait_for_reconnect(&mut shutdown, retry_seconds).await {
+            return;
+        }
+        retry_seconds = (retry_seconds * 2).min(30);
+    }
+}
+
 impl NativeChannelState {
     pub fn load(app_data_dir: &Path) -> Result<Self, String> {
         let path = app_data_dir.join("channels.json");
@@ -904,6 +1356,7 @@ impl NativeChannelState {
                 .map_err(|error| format!("无法初始化消息平台 HTTPS 客户端: {error}"))?,
             statuses: Arc::new(Mutex::new(HashMap::new())),
             tasks: Mutex::new(HashMap::new()),
+            wecom_outbound: Mutex::new(HashMap::new()),
         })
     }
 
@@ -955,6 +1408,7 @@ impl NativeChannelState {
             worker_config,
             worker_secret,
             Arc::clone(&statuses),
+            None,
             receiver,
             shutdown_receiver,
         ));
@@ -1053,6 +1507,7 @@ impl NativeChannelState {
             config.clone(),
             app_secret.clone(),
             Arc::clone(&statuses),
+            None,
             receiver,
             shutdown_receiver.clone(),
         ));
@@ -1076,6 +1531,63 @@ impl NativeChannelState {
         Ok(())
     }
 
+    fn start_wecom_bot_connector(
+        &self,
+        config: ChannelConfig,
+        app_secret: String,
+        app: AppHandle,
+    ) -> Result<(), String> {
+        let provider = config.provider.clone();
+        let mut tasks = self
+            .tasks
+            .lock()
+            .map_err(|_| "企业消息任务锁不可用".to_string())?;
+        let mut outbound_senders = self
+            .wecom_outbound
+            .lock()
+            .map_err(|_| "企业微信回复通道锁不可用".to_string())?;
+        if let Some(tasks) = tasks.remove(&provider) {
+            let _ = app.state::<NativeRuntime>().cancel_channel_turns(&provider);
+            let _ = tasks.shutdown.send(true);
+            tasks.event.abort();
+        }
+        outbound_senders.remove(&provider);
+        let statuses = Arc::clone(&self.statuses);
+        set_channel_status(&statuses, ChannelStatus::new(&provider, "connecting"));
+        let (sender, receiver) = mpsc::channel(INBOUND_QUEUE_CAPACITY);
+        let (outbound_sender, outbound_receiver) = mpsc::channel(INBOUND_QUEUE_CAPACITY);
+        let (shutdown, shutdown_receiver) = watch::channel(false);
+        let worker = tokio::spawn(run_inbound_worker(
+            app.clone(),
+            self.http.clone(),
+            config.clone(),
+            app_secret.clone(),
+            Arc::clone(&statuses),
+            Some(outbound_sender.clone()),
+            receiver,
+            shutdown_receiver.clone(),
+        ));
+        let event = tokio::spawn(run_wecom_stream(
+            app,
+            config,
+            app_secret,
+            statuses,
+            sender,
+            outbound_receiver,
+            shutdown_receiver,
+        ));
+        outbound_senders.insert(provider.clone(), outbound_sender);
+        tasks.insert(
+            provider,
+            ChannelTasks {
+                event,
+                _worker: worker,
+                shutdown,
+            },
+        );
+        Ok(())
+    }
+
     pub fn start_configured(&self, app: AppHandle) {
         let configs = self
             .configs
@@ -1083,16 +1595,19 @@ impl NativeChannelState {
             .map(|values| values.values().cloned().collect::<Vec<_>>())
             .unwrap_or_default();
         for config in configs {
-            if !matches!(config.provider.as_str(), "feishu" | "lark" | "dingtalk") {
+            let is_wecom_bot =
+                config.provider == "wecom" && configured_wecom_mode(&config) == "bot";
+            if !matches!(config.provider.as_str(), "feishu" | "lark" | "dingtalk") && !is_wecom_bot
+            {
                 continue;
             }
             let provider = config.provider.clone();
             match self.credentials.get(&secret_id(&provider)) {
                 Ok(secret) => {
-                    let result = if config.provider == "dingtalk" {
-                        self.start_dingtalk_connector(config, secret, app.clone())
-                    } else {
-                        self.start_feishu_connector(config, secret, app.clone())
+                    let result = match config.provider.as_str() {
+                        "dingtalk" => self.start_dingtalk_connector(config, secret, app.clone()),
+                        "wecom" => self.start_wecom_bot_connector(config, secret, app.clone()),
+                        _ => self.start_feishu_connector(config, secret, app.clone()),
                     };
                     if let Err(error) = result {
                         let mut status = ChannelStatus::new(&provider, "failed");
@@ -1121,6 +1636,10 @@ impl NativeChannelState {
             tasks.event.abort();
             cancel_result?;
         }
+        self.wecom_outbound
+            .lock()
+            .map_err(|_| "企业微信回复通道锁不可用".to_string())?
+            .remove(provider);
         set_channel_status(&self.statuses, ChannelStatus::new(provider, "idle"));
         Ok(())
     }
@@ -1172,10 +1691,17 @@ pub async fn channel_config_save(
         .as_deref()
         .map(|value| clean(value, "Agent ID"))
         .transpose()?;
-    if provider == "wecom" && agent_id.is_none() {
-        return Err("企业微信需要 Agent ID".into());
-    }
-    let token = access_token(&state.http, &provider, &app_id, &app_secret).await?;
+    let connection_mode = validate_connection_mode(
+        &provider,
+        input.connection_mode.as_deref(),
+        agent_id.as_deref(),
+    )?;
+    let token = if connection_mode.as_deref() == Some("bot") {
+        verify_wecom_bot(&app_id, &app_secret).await?;
+        String::new()
+    } else {
+        access_token(&state.http, &provider, &app_id, &app_secret).await?
+    };
     let bot_open_id = match provider.as_str() {
         "feishu" | "lark" => {
             feishu_websocket_endpoint(&state.http, &provider, &app_id, &app_secret).await?;
@@ -1193,6 +1719,7 @@ pub async fn channel_config_save(
         app_id,
         bot_open_id,
         agent_id,
+        connection_mode,
         verified_at: chrono::Utc::now().to_rfc3339(),
     };
     let mut configs = state
@@ -1209,7 +1736,10 @@ pub async fn channel_config_save(
         "dingtalk" => {
             state.start_dingtalk_connector(config.clone(), app_secret, app)?;
         }
-        _ => {}
+        "wecom" if config.connection_mode.as_deref() == Some("bot") => {
+            state.start_wecom_bot_connector(config.clone(), app_secret, app)?;
+        }
+        _ => state.stop_connector(&config.provider, &app)?,
     }
     Ok(config)
 }
@@ -1238,6 +1768,23 @@ pub async fn channel_send_test(
         .cloned()
         .ok_or_else(|| "请先保存并验证平台凭据".to_string())?;
     let secret = state.credentials.get(&secret_id(&provider))?;
+    if provider == "wecom" && configured_wecom_mode(&config) == "bot" {
+        let sender = state
+            .wecom_outbound
+            .lock()
+            .map_err(|_| "企业微信回复通道锁不可用".to_string())?
+            .get(&provider)
+            .cloned()
+            .ok_or_else(|| "企业微信机器人长连接尚未启动".to_string())?;
+        let request_id = wecom_request_id("aibot_send_msg");
+        send_wecom_outbound(
+            &sender,
+            request_id.clone(),
+            wecom_active_message(&request_id, &target, &text),
+        )
+        .await?;
+        return Ok(json!({"ok":true,"provider":provider,"targetId":target}));
+    }
     let token = access_token(&state.http, &provider, &config.app_id, &secret).await?;
     let response = match provider.as_str() {
         "feishu" | "lark" => {
@@ -1545,5 +2092,174 @@ mod tests {
         assert_eq!(ack["headers"]["contentType"], "application/json");
         assert_eq!(ack["message"], "ok");
         assert_eq!(ack["data"], "");
+    }
+
+    fn wecom_text_frame(chat_type: &str) -> Value {
+        json!({
+            "cmd": "aibot_msg_callback",
+            "headers": {"req_id": "callback-request-1"},
+            "body": {
+                "msgid": "wecom-message-1",
+                "aibotid": "bot-1",
+                "chatid": "group-chat-1",
+                "chattype": chat_type,
+                "from": {"userid": "user-1"},
+                "msgtype": "text",
+                "text": {"content": "  hello from WeCom  "}
+            }
+        })
+    }
+
+    #[test]
+    fn builds_and_validates_wecom_bot_authentication_frames() {
+        let frame = wecom_auth_frame("bot-1", "secret-1", "aibot_subscribe_1");
+        assert_eq!(frame["cmd"], "aibot_subscribe");
+        assert_eq!(frame["headers"]["req_id"], "aibot_subscribe_1");
+        assert_eq!(frame["body"]["bot_id"], "bot-1");
+        assert_eq!(frame["body"]["secret"], "secret-1");
+        assert_eq!(
+            parse_wecom_ack(
+                &json!({"headers":{"req_id":"aibot_subscribe_1"},"errcode":0,"errmsg":"ok"}),
+                "aibot_subscribe_1"
+            )
+            .expect("successful auth ack"),
+            true
+        );
+        assert!(parse_wecom_ack(
+            &json!({"headers":{"req_id":"aibot_subscribe_1"},"errcode":400,"errmsg":"bad secret"}),
+            "aibot_subscribe_1"
+        )
+        .is_err());
+        assert!(!parse_wecom_ack(
+            &json!({"headers":{"req_id":"another-request"},"errcode":0}),
+            "aibot_subscribe_1"
+        )
+        .expect("unrelated ack"));
+    }
+
+    #[test]
+    fn preserves_legacy_wecom_agent_configs_and_defaults_new_configs_to_bot_mode() {
+        assert_eq!(
+            validate_connection_mode("wecom", None, None)
+                .unwrap()
+                .as_deref(),
+            Some("bot")
+        );
+        assert_eq!(
+            validate_connection_mode("wecom", None, Some("1001"))
+                .unwrap()
+                .as_deref(),
+            Some("agent")
+        );
+        assert!(validate_connection_mode("wecom", Some("agent"), None).is_err());
+        assert!(validate_connection_mode("wecom", Some("bot"), Some("1001")).is_err());
+
+        let legacy: ChannelConfig = serde_json::from_value(json!({
+            "provider": "wecom",
+            "appId": "corp-id",
+            "agentId": "1001",
+            "verifiedAt": "2026-09-05T00:00:00Z"
+        }))
+        .expect("legacy config");
+        assert_eq!(configured_wecom_mode(&legacy), "agent");
+    }
+
+    #[test]
+    fn parses_wecom_bot_text_for_single_and_group_chats() {
+        let single = wecom_inbound_message(&wecom_text_frame("single"), "bot-1")
+            .expect("single message")
+            .expect("accepted single message");
+        assert_eq!(single.chat_id, "user-1");
+        assert_eq!(single.message_id, "wecom-message-1");
+        assert_eq!(single.text, "hello from WeCom");
+        assert_eq!(
+            single.reply_request_id.as_deref(),
+            Some("callback-request-1")
+        );
+
+        let group = wecom_inbound_message(&wecom_text_frame("group"), "bot-1")
+            .expect("group message")
+            .expect("accepted group message");
+        assert_eq!(group.chat_id, "group-chat-1");
+        assert!(wecom_inbound_message(&wecom_text_frame("single"), "another-bot").is_err());
+    }
+
+    #[test]
+    fn extracts_wecom_voice_and_mixed_text_without_inventing_media_content() {
+        let mut voice = wecom_text_frame("single");
+        voice["body"]["msgtype"] = json!("voice");
+        voice["body"].as_object_mut().unwrap().remove("text");
+        voice["body"]["voice"] = json!({"content": "voice transcript"});
+        assert_eq!(
+            wecom_inbound_message(&voice, "bot-1")
+                .unwrap()
+                .unwrap()
+                .text,
+            "voice transcript"
+        );
+
+        let mut mixed = wecom_text_frame("group");
+        mixed["body"]["msgtype"] = json!("mixed");
+        mixed["body"].as_object_mut().unwrap().remove("text");
+        mixed["body"]["mixed"] = json!({"msg_item": [
+            {"msgtype":"image", "image":{"url":"https://example.invalid/image"}},
+            {"msgtype":"text", "text":{"content":"first"}},
+            {"msgtype":"text", "text":{"content":"second"}}
+        ]});
+        assert_eq!(
+            wecom_inbound_message(&mixed, "bot-1")
+                .unwrap()
+                .unwrap()
+                .text,
+            "first\nsecond"
+        );
+    }
+
+    #[test]
+    fn builds_final_wecom_stream_reply_with_callback_request_id() {
+        let outbound = wecom_stream_reply("callback-request-1", "stream-1", "finished");
+        assert_eq!(outbound["cmd"], "aibot_respond_msg");
+        assert_eq!(outbound["headers"]["req_id"], "callback-request-1");
+        assert_eq!(outbound["body"]["msgtype"], "stream");
+        assert_eq!(outbound["body"]["stream"]["id"], "stream-1");
+        assert_eq!(outbound["body"]["stream"]["finish"], true);
+        assert_eq!(outbound["body"]["stream"]["content"], "finished");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn authenticates_on_a_real_wecom_websocket_before_becoming_ready() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("local listener");
+        let endpoint = format!("ws://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("connection");
+            let mut socket = tokio_tungstenite::accept_async(stream)
+                .await
+                .expect("websocket handshake");
+            let Message::Text(auth) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected text authentication frame");
+            };
+            let auth: Value = serde_json::from_str(auth.as_str()).unwrap();
+            assert_eq!(auth["cmd"], "aibot_subscribe");
+            assert_eq!(auth["body"]["bot_id"], "bot-test");
+            assert_eq!(auth["body"]["secret"], "secret-test");
+            let request_id = auth["headers"]["req_id"].as_str().unwrap();
+            socket
+                .send(Message::Text(
+                    json!({"headers":{"req_id":request_id},"errcode":0,"errmsg":"ok"})
+                        .to_string()
+                        .into(),
+                ))
+                .await
+                .unwrap();
+            let _ = socket.next().await;
+        });
+
+        let mut socket = connect_wecom_bot_at(&endpoint, "bot-test", "secret-test")
+            .await
+            .expect("authenticated websocket");
+        socket.close(None).await.unwrap();
+        server.await.unwrap();
     }
 }

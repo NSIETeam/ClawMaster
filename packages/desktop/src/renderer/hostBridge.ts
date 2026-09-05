@@ -223,6 +223,7 @@ export function createTauriHostBridge(
       invoke<NativeChannelStatus>('channel_status_get', { provider })) as never,
     nativeChannelConfigSave: ((input: {
       provider: NativeChannelProvider; appId: string; appSecret: string; agentId?: string;
+      connectionMode?: 'bot' | 'agent';
     }) => invoke<NativeChannelConfig>('channel_config_save', { input })) as never,
     nativeChannelConfigClear: ((provider: NativeChannelProvider) =>
       invoke<void>('channel_config_clear', { provider })) as never,
