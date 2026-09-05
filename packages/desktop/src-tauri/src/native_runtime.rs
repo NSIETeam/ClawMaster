@@ -10,7 +10,7 @@ use crate::native_state_store::{
 };
 use crate::{
     native_agent_tools, native_context, native_diagnostics, native_encrypted_checkpoints,
-    native_enterprise, native_knowledge, native_mcp, native_memory, native_projects,
+    native_encrypted_memory, native_enterprise, native_knowledge, native_mcp, native_projects,
     native_schedule, native_skills, native_todos, native_workflows, native_worklog,
     platform_webview,
 };
@@ -1364,7 +1364,7 @@ impl NativeRuntime {
                     &state,
                     payload.get("sessionId").and_then(Value::as_str),
                 );
-                match native_memory::snapshot(&workspace) {
+                match native_encrypted_memory::snapshot(&self.state_store, &workspace) {
                     Ok(payload) => vec![frame("memory_snapshot", payload)],
                     Err(message) => vec![error_frame(None, "get_memory_failed", &message)],
                 }
@@ -1473,7 +1473,11 @@ impl NativeRuntime {
                     payload.get("sessionId").and_then(Value::as_str),
                 );
                 let fact = payload.get("fact").and_then(Value::as_str).unwrap_or("");
-                match native_memory::add_project_fact(&workspace, fact) {
+                match native_encrypted_memory::add_project_fact(
+                    &self.state_store,
+                    &workspace,
+                    fact,
+                ) {
                     Ok(payload) => vec![frame("memory_snapshot", payload)],
                     Err(message) => vec![error_frame(None, "add_memory_failed", &message)],
                 }
@@ -2520,7 +2524,7 @@ impl NativeRuntime {
                         .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
                     Self::workspace_for_session(&state, Some(&session_id))
                 };
-                match native_memory::snapshot(&workspace) {
+                match native_encrypted_memory::snapshot(&self.state_store, &workspace) {
                     Ok(value) => (
                         true,
                         format!(
@@ -3699,9 +3703,11 @@ mod tests {
             }}))
             .unwrap();
         assert_eq!(memory[0]["type"], "memory_snapshot");
-        assert!(fs::read_to_string(root.path().join("CLAWMASTER.md"))
+        assert!(memory[0]["payload"]["files"][0]["content"]
+            .as_str()
             .unwrap()
             .contains("保持 Rust 单一路径"));
+        assert!(!root.path().join("CLAWMASTER.md").exists());
         let tools = runtime
             .handle(&json!({"type":"get_tools","payload":{"sessionId":session_id}}))
             .unwrap();

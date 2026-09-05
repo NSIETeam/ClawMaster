@@ -10,14 +10,16 @@ its state into the encrypted store. It never rewrites or deletes that beta file.
 
 Production model usage, runtime metadata, sessions, individual messages, and
 personal knowledge entries, file checkpoints, and checkpoint artifacts use the
-shared database. A manifest in the index tree names the active records;
+shared database. Project and global memory documents are isolated encrypted
+records; their legacy Markdown files are read once and left untouched. A
+manifest in the index tree names the active runtime records;
 removal updates the manifest while old encrypted records remain recoverable.
 Message keys combine session and message IDs so client IDs cannot collide across
-sessions. Legacy knowledge JSONL is imported once without modification. Project
-memory still needs migration. Checkpoint creation atomically commits its event,
-while before-images are encrypted, content-addressed, deduplicated, and bounded
-by count and byte budgets. Issue #7 remains open until project memory migrates
-and installed crash-recovery acceptance is complete.
+sessions. Legacy knowledge JSONL is imported once without modification.
+Checkpoint creation atomically commits its event, while before-images are
+encrypted, content-addressed, deduplicated, and bounded by count and byte
+budgets. Issue #7 remains open until forced-process-termination recovery and
+installed acceptance are complete.
 
 ## Security And Ownership
 

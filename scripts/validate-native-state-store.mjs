@@ -55,7 +55,7 @@ if (/File::create\([^)]*(?:native-runtime|LEGACY_STATE_FILE_NAME)/u.test(runtime
   violations.push('native_runtime.rs: writes the legacy plaintext runtime state');
 }
 const knowledge = readFileSync(path.join(sourceRoot, 'native_knowledge.rs'), 'utf8');
-for (const required of ['NativeStateStore', 'TREE_MEMORY', 'IMPORT_MARKER_ID']) {
+for (const required of ['NativeStateStore', 'TREE_MEMORY', 'KNOWLEDGE_INDEX_ID']) {
   if (!knowledge.includes(required)) {
     violations.push(`native_knowledge.rs: encrypted knowledge migration is missing ${required}`);
   }
@@ -77,6 +77,18 @@ if (!runtime.includes('native_encrypted_checkpoints::capture')) {
 }
 if (readdirSync(sourceRoot).includes('native_checkpoints.rs')) {
   violations.push('native_checkpoints.rs: obsolete plaintext checkpoint owner still exists');
+}
+const memory = readFileSync(path.join(sourceRoot, 'native_encrypted_memory.rs'), 'utf8');
+for (const required of ['NativeStateStore', 'TREE_MEMORY', 'project_id', 'load_or_import']) {
+  if (!memory.includes(required)) {
+    violations.push(`native_encrypted_memory.rs: missing ${required}`);
+  }
+}
+if (!runtime.includes('native_encrypted_memory::snapshot')) {
+  violations.push('native_runtime.rs: project memory does not use encrypted storage');
+}
+if (readdirSync(sourceRoot).includes('native_memory.rs')) {
+  violations.push('native_memory.rs: obsolete plaintext memory owner still exists');
 }
 
 console.log('ClawMaster native state store validation');

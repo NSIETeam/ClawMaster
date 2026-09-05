@@ -10,7 +10,7 @@ use time::OffsetDateTime;
 const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_ENTRIES: usize = 10_000;
 const MAX_CONTENT_CHARS: usize = 16_000;
-const IMPORT_MARKER_ID: &str = "knowledge-import-v1";
+const KNOWLEDGE_INDEX_ID: &str = "knowledge-index-v1";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -136,29 +136,40 @@ fn read_legacy(path: &Path) -> Result<Vec<KnowledgeEntry>, String> {
 }
 
 fn read(store: &NativeStateStore, legacy_path: &Path) -> Result<Vec<KnowledgeEntry>, String> {
-    if store
-        .get::<bool>(TREE_INDEX, IMPORT_MARKER_ID)
+    let ids = if let Some(record) = store
+        .get::<Vec<String>>(TREE_INDEX, KNOWLEDGE_INDEX_ID)
         .map_err(|error| error.to_string())?
-        .is_none()
     {
+        record.payload
+    } else {
+        let mut ids = Vec::new();
         for entry in read_legacy(legacy_path)? {
             let id = entry.id.clone();
             store
                 .put_latest(TREE_MEMORY, &id, "legacy-knowledge", entry)
                 .map_err(|error| error.to_string())?;
+            ids.push(id);
         }
         store
-            .put_latest(TREE_INDEX, IMPORT_MARKER_ID, "native-knowledge", true)
+            .put_latest(
+                TREE_INDEX,
+                KNOWLEDGE_INDEX_ID,
+                "native-knowledge",
+                ids.clone(),
+            )
             .map_err(|error| error.to_string())?;
         store.flush().map_err(|error| error.to_string())?;
+        ids
+    };
+    let mut entries = Vec::new();
+    for id in ids {
+        match store.get::<KnowledgeEntry>(TREE_MEMORY, &id) {
+            Ok(Some(record)) => entries.push(record.payload),
+            Ok(None) | Err(crate::native_state_store::StateStoreError::CorruptRecord { .. }) => {}
+            Err(error) => return Err(error.to_string()),
+        }
     }
-    Ok(store
-        .scan::<KnowledgeEntry>(TREE_MEMORY)
-        .map_err(|error| error.to_string())?
-        .records
-        .into_iter()
-        .map(|record| record.payload)
-        .collect())
+    Ok(entries)
 }
 
 fn now() -> String {
@@ -285,6 +296,15 @@ pub fn add(
     store
         .put_latest(TREE_MEMORY, &entry.id, "native-knowledge", entry.clone())
         .map_err(|error| error.to_string())?;
+    let mut ids = store
+        .get::<Vec<String>>(TREE_INDEX, KNOWLEDGE_INDEX_ID)
+        .map_err(|error| error.to_string())?
+        .map(|record| record.payload)
+        .unwrap_or_default();
+    ids.push(entry.id.clone());
+    store
+        .put_latest(TREE_INDEX, KNOWLEDGE_INDEX_ID, "native-knowledge", ids)
+        .map_err(|error| error.to_string())?;
     store.flush().map_err(|error| error.to_string())?;
     Ok(entry)
 }
@@ -298,6 +318,15 @@ pub fn remove(store: &NativeStateStore, legacy_path: &Path, id: &str) -> Result<
     {
         return Ok(false);
     }
+    let mut ids = store
+        .get::<Vec<String>>(TREE_INDEX, KNOWLEDGE_INDEX_ID)
+        .map_err(|error| error.to_string())?
+        .map(|record| record.payload)
+        .unwrap_or_default();
+    ids.retain(|value| value != &id);
+    store
+        .put_latest(TREE_INDEX, KNOWLEDGE_INDEX_ID, "native-knowledge", ids)
+        .map_err(|error| error.to_string())?;
     store.flush().map_err(|error| error.to_string())?;
     Ok(true)
 }
