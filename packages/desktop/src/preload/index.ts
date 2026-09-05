@@ -25,13 +25,10 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type {
   ClientToServer,
-  FeishuConfigPublic,
-  FeishuConfigSaveRequest,
   ChannelPairingPublic,
   ChannelProvider,
   ChannelInstallation,
   ChannelHealth,
-  HealthInfo,
   ServerEndpoint,
   ServerToClient,
   WorkLogDay,
@@ -49,19 +46,6 @@ import {
   sendAuthorizedFileFrame,
 } from './outbound-file-authorization.js';
 
-/**
- * 飞书守护状态（main 从 server /health 透传；renderer 徽标据此渲染）。
- * 即 HealthInfo 里的 feishu 字段：enabled/connected + 守护详情 status。
- */
-export type FeishuStatusDetail = HealthInfo['feishu'];
-
-/** 飞书凭证配置操作的统一返回：config 为脱敏视图（绝无 appSecret）。 */
-export interface FeishuConfigResult {
-  ok: boolean;
-  config: FeishuConfigPublic | null;
-  error: string | null;
-}
-export type { FeishuConfigPublic, FeishuConfigSaveRequest };
 export type { ChannelPairingPublic, ChannelProvider };
 export type { ChannelInstallation, ChannelHealth };
 
@@ -1327,12 +1311,6 @@ const IPC = {
   enterpriseTicketSubmit: 'clawmaster:enterprise-ticket-submit',
   enterpriseTicketRead: 'clawmaster:enterprise-ticket-read',
   enterpriseTicketAction: 'clawmaster:enterprise-ticket-action',
-  feishuStart: 'clawmaster:feishu-start',
-  feishuStop: 'clawmaster:feishu-stop',
-  feishuStatus: 'clawmaster:feishu-status',
-  feishuGetConfig: 'clawmaster:feishu-get-config',
-  feishuSaveConfig: 'clawmaster:feishu-save-config',
-  feishuClearConfig: 'clawmaster:feishu-clear-config',
   channelPairingBegin: 'clawmaster:channel-pairing-begin',
   channelPairingStatus: 'clawmaster:channel-pairing-status',
   channelPairingInstall: 'clawmaster:channel-pairing-install',
@@ -1514,28 +1492,6 @@ export interface ClawMasterBridge {
     suggestedFileName: string,
     content: string,
   ): Promise<string | null>;
-  feishuStart(): Promise<{ text: string; pid?: number }>;
-  feishuStop(): Promise<{ text: string }>;
-  /**
-   * 飞书守护状态查询（main 真查 server /health）。
-   * text 为人话说明；running=守护是否在跑；feishu 为结构化守护详情
-   * （connected / 重连第 N 次 / 下次重试时间 / 锁冲突持有者 pid），
-   * server 未就绪时缺省。
-   */
-  feishuStatus(): Promise<{
-    text: string;
-    running: boolean;
-    feishu?: FeishuStatusDetail;
-  }>;
-  /**
-   * 飞书凭证配置（「飞书接入」面板）。config 是脱敏视图：
-   * 只有 appId / domain / 授权人等元信息，appSecret 永不回传。
-   */
-  feishuGetConfig(): Promise<FeishuConfigResult>;
-  /** 保存凭证并让守护立即用上（server 侧 stop→start 重读凭证）。 */
-  feishuSaveConfig(body: FeishuConfigSaveRequest): Promise<FeishuConfigResult>;
-  /** 停守护 + 清除凭证（对应 CLI /feishu logout）。 */
-  feishuClearConfig(): Promise<FeishuConfigResult>;
   channelPairingBegin(provider: ChannelProvider): Promise<ChannelPairingResult>;
   channelPairingStatus(pairingId: string): Promise<ChannelPairingActionResult<ChannelPairingPublic>>;
   channelPairingInstall(pairingId: string): Promise<ChannelPairingActionResult>;
@@ -2476,42 +2432,6 @@ const bridge: ClawMasterBridge = {
       suggestedFileName,
       content,
     ) as Promise<string | null>;
-  },
-  feishuStart(): Promise<{ text: string; pid?: number }> {
-    return ipcRenderer.invoke('clawmaster:feishu-start') as Promise<{
-      text: string;
-      pid?: number;
-    }>;
-  },
-  feishuStop(): Promise<{ text: string }> {
-    return ipcRenderer.invoke('clawmaster:feishu-stop') as Promise<{ text: string }>;
-  },
-  feishuStatus(): Promise<{
-    text: string;
-    running: boolean;
-    feishu?: FeishuStatusDetail;
-  }> {
-    return ipcRenderer.invoke('clawmaster:feishu-status') as Promise<{
-      text: string;
-      running: boolean;
-      feishu?: FeishuStatusDetail;
-    }>;
-  },
-  feishuGetConfig(): Promise<FeishuConfigResult> {
-    return ipcRenderer.invoke(
-      'clawmaster:feishu-get-config',
-    ) as Promise<FeishuConfigResult>;
-  },
-  feishuSaveConfig(body: FeishuConfigSaveRequest): Promise<FeishuConfigResult> {
-    return ipcRenderer.invoke(
-      'clawmaster:feishu-save-config',
-      body,
-    ) as Promise<FeishuConfigResult>;
-  },
-  feishuClearConfig(): Promise<FeishuConfigResult> {
-    return ipcRenderer.invoke(
-      'clawmaster:feishu-clear-config',
-    ) as Promise<FeishuConfigResult>;
   },
   channelPairingBegin(provider: ChannelProvider): Promise<ChannelPairingResult> {
     return ipcRenderer.invoke('clawmaster:channel-pairing-begin', provider) as Promise<ChannelPairingResult>;

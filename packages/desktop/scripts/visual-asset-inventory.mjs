@@ -15,7 +15,6 @@ const SURFACES = [
   { file: 'src/renderer/components/ModuleMarketplaceDialog.tsx', context: 'module-launcher' },
   { file: 'src/renderer/components/WorkspaceDialogs.tsx', context: 'expert-card' },
   { file: 'src/renderer/components/CustomAgentIconPicker.tsx', context: 'icon-editor' },
-  { file: 'src/renderer/components/FeishuStatusBadge.tsx', context: 'connection-card' },
   { file: 'src/renderer/components/hub/ChannelPairingCard.tsx', context: 'connection-card' },
 ];
 

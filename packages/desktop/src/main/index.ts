@@ -55,7 +55,6 @@ import * as path from 'node:path';
 import type {
   ChannelPairingPublic,
   ChannelProvider,
-  HealthInfo,
   ServerEndpoint,
 } from 'clawmaster-server';
 import {
@@ -83,22 +82,6 @@ function ignoreBrokenPipe(stream: NodeJS.WriteStream): void {
 
 ignoreBrokenPipe(process.stdout);
 ignoreBrokenPipe(process.stderr);
-
-/** 脱敏后的飞书配置视图（不含 secret）。 */
-interface FeishuConfigPublic {
-  appId: string;
-  appSecret: string;
-  verificationToken: string | null;
-  encryptKey: string | null;
-}
-
-/** 客户端保存飞书配置的请求体。 */
-interface FeishuConfigSaveRequest {
-  appId: string;
-  appSecret: string;
-  verificationToken?: string | null;
-  encryptKey?: string | null;
-}
 
 interface ChannelPairingResult {
   ok: boolean;
@@ -551,12 +534,6 @@ const IPC = {
   readClipboardText: 'clawmaster:read-clipboard-text',
   saveTextFile: 'clawmaster:save-text-file',
   openVideoEditor: 'clawmaster:open-video-editor',
-  feishuStart: 'clawmaster:feishu-start',
-  feishuStop: 'clawmaster:feishu-stop',
-  feishuStatus: 'clawmaster:feishu-status',
-  feishuGetConfig: 'clawmaster:feishu-get-config',
-  feishuSaveConfig: 'clawmaster:feishu-save-config',
-  feishuClearConfig: 'clawmaster:feishu-clear-config',
   channelPairingBegin: 'clawmaster:channel-pairing-begin',
   channelPairingStatus: 'clawmaster:channel-pairing-status',
   channelPairingInstall: 'clawmaster:channel-pairing-install',
@@ -1339,140 +1316,7 @@ function resetEnterpriseModuleUpdateState(): void {
   enterpriseModuleUpdateFingerprint = '';
 }
 
-/**
- * 飞书状态/启停在桌面端的通路（诚实原则，全部真实）。
- *
- * 状态（feishuStatus）：桌面端连接的 server（内嵌或发现的）在 /health 里带出
- * 飞书守护详情（connected / 重连第 N 次 / 下次重试 / 锁被哪个 pid 持有），
- * 这里直接查询透传——绝不假报「已连接」；锁被别的进程（如 CLI daemon）拿着时
- * 如实说「另一进程持有」。
- *
- * 启停（feishuStart/feishuStop）：真调 server 的运行期端点
- * POST /feishu/start、POST /feishu/stop：
- *   - start：server 未启用（含运行期才配好凭证）→ 现场注册并启动守护；
- *     已在跑 → 幂等返回当前状态；无凭证 → server 诚实报错（ok:false），
- *     桌面端原样透传，不谎报「已启动」。
- *   - stop：有意停止，之后不自动重连，直到再次 start。
- * 每次操作后附最新真实状态文案。
- */
-
-/** /health 单次查询超时（ms）。 */
-const FEISHU_HEALTH_TIMEOUT_MS = 1500;
-/** 启停端点超时（ms）：start 含 registerFeishu（不阻塞等建连），给宽一点。 */
-const FEISHU_OP_TIMEOUT_MS = 5000;
-
-/**
- * POST 一个 server 端点（无 body），解析 ApiResponse 信封。
- * 网络失败/超时/server 未就绪 → 返回 null（调用方给「未就绪」诚实文案）。
- */
-function postServerEndpoint(
-  routePath: string,
-): Promise<{ ok: boolean; data: unknown; error: string | null } | null> {
-  const ep = endpoint;
-  if (!ep) return Promise.resolve(null);
-  return new Promise((resolve) => {
-    const req = http.request(
-      {
-        host: ep.host,
-        port: ep.port,
-        path: routePath,
-        method: 'POST',
-        timeout: FEISHU_OP_TIMEOUT_MS,
-      },
-      (res) => {
-        let body = '';
-        res.setEncoding('utf8');
-        res.on('data', (chunk: string) => {
-          body += chunk;
-        });
-        res.on('end', () => {
-          try {
-            resolve(
-              JSON.parse(body) as {
-                ok: boolean;
-                data: unknown;
-                error: string | null;
-              },
-            );
-          } catch {
-            resolve(null);
-          }
-        });
-        res.on('error', () => resolve(null));
-      },
-    );
-    req.on('timeout', () => {
-      req.destroy();
-      resolve(null);
-    });
-    req.on('error', () => resolve(null));
-    req.end();
-  });
-}
-
-/**
- * 请求 /feishu/config（GET/POST/DELETE），解析 ApiResponse 信封。
- * 网络失败/超时/server 未就绪 → null。POST body 里含 appSecret，
- * 只走回环 HTTP 到本机 server，不落任何日志。
- */
-function requestFeishuConfig(
-  method: 'GET' | 'POST' | 'DELETE',
-  body?: FeishuConfigSaveRequest,
-): Promise<{
-  ok: boolean;
-  data: FeishuConfigPublic | null;
-  error: string | null;
-} | null> {
-  const ep = endpoint;
-  if (!ep) return Promise.resolve(null);
-  const payload = body !== undefined ? JSON.stringify(body) : undefined;
-  return new Promise((resolve) => {
-    const req = http.request(
-      {
-        host: ep.host,
-        port: ep.port,
-        path: '/feishu/config',
-        method,
-        timeout: FEISHU_OP_TIMEOUT_MS,
-        ...(payload !== undefined
-          ? {
-              headers: {
-                'content-type': 'application/json',
-                'content-length': Buffer.byteLength(payload),
-              },
-            }
-          : {}),
-      },
-      (res) => {
-        let text = '';
-        res.setEncoding('utf8');
-        res.on('data', (chunk: string) => {
-          text += chunk;
-        });
-        res.on('end', () => {
-          try {
-            resolve(
-              JSON.parse(text) as {
-                ok: boolean;
-                data: FeishuConfigPublic | null;
-                error: string | null;
-              },
-            );
-          } catch {
-            resolve(null);
-          }
-        });
-        res.on('error', () => resolve(null));
-      },
-    );
-    req.on('timeout', () => {
-      req.destroy();
-      resolve(null);
-    });
-    req.on('error', () => resolve(null));
-    req.end(payload);
-  });
-}
+const CHANNEL_PAIRING_TIMEOUT_MS = 5000;
 
 function requestChannelPairing(
   method: 'GET' | 'POST' | 'DELETE',
@@ -1489,7 +1333,7 @@ function requestChannelPairing(
         port: ep.port,
         path: requestPath,
         method,
-        timeout: FEISHU_OP_TIMEOUT_MS,
+        timeout: CHANNEL_PAIRING_TIMEOUT_MS,
         headers: {
           authorization: `Bearer ${ep.controlToken}`,
           ...(payload === undefined
@@ -1521,82 +1365,6 @@ function requestChannelPairing(
     req.on('error', () => resolve(null));
     req.end(payload);
   });
-}
-
-/** 查询当前 server 的 /health（信封 {ok,data,error}），失败/未就绪返回 null。 */
-function fetchServerHealth(): Promise<HealthInfo | null> {
-  const ep = endpoint;
-  if (!ep) return Promise.resolve(null);
-  return new Promise((resolve) => {
-    const req = http.get(
-      {
-        host: ep.host,
-        port: ep.port,
-        path: '/health',
-        timeout: FEISHU_HEALTH_TIMEOUT_MS,
-      },
-      (res) => {
-        let body = '';
-        res.setEncoding('utf8');
-        res.on('data', (chunk: string) => {
-          body += chunk;
-        });
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(body) as {
-              ok?: boolean;
-              data?: HealthInfo | null;
-            };
-            resolve(parsed.ok && parsed.data ? parsed.data : null);
-          } catch {
-            resolve(null);
-          }
-        });
-        res.on('error', () => resolve(null));
-      },
-    );
-    req.on('timeout', () => {
-      req.destroy();
-      resolve(null);
-    });
-    req.on('error', () => resolve(null));
-  });
-}
-
-/** 把 /health 的飞书守护状态渲染成给用户看的一句人话（状态必须诚实）。 */
-function renderFeishuStatusText(feishu: HealthInfo['feishu']): string {
-  const st = feishu.status;
-  if (!feishu.enabled || !st) {
-    return (
-      '本地 server 未启用飞书网关（未检测到飞书凭证）。\n' +
-      '到「设置与诊断 → 飞书接入」填写 App ID / App Secret 即可启用。'
-    );
-  }
-  if (!st.configured) {
-    return '飞书凭证缺失或损坏（~/.otto-user/feishu-credentials.json），网关未启动。';
-  }
-  if (st.connected) {
-    return '飞书已连接（WS 长连接就绪，断线自动重连守护中）。';
-  }
-  if (st.lockHeldByOtherPid != null) {
-    return (
-      `飞书连接被另一进程持有（pid ${st.lockHeldByOtherPid}，可能是旧版 CLI 守护进程）。\n` +
-      '本进程未连接（避免同一消息被处理两遍），对方退出后将自动接管。'
-    );
-  }
-  if (st.reconnecting) {
-    const eta = st.nextRetryAt
-      ? Math.max(0, Math.round((st.nextRetryAt - Date.now()) / 1000))
-      : null;
-    return (
-      `飞书重连中（第 ${st.reconnectAttempts} 次${eta !== null ? `，约 ${eta}s 后重试` : ''}）` +
-      `${st.lastDisconnectReason ? `：${st.lastDisconnectReason}` : ''}。`
-    );
-  }
-  if (!st.running) {
-    return '飞书守护未在运行。';
-  }
-  return `飞书离线${st.lastDisconnectReason ? `：${st.lastDisconnectReason}` : ''}。`;
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -4057,85 +3825,6 @@ function registerIpc(): void {
       return shell.openExternal(url);
     }
     return Promise.resolve();
-  });
-  // 飞书状态：真查当前 server 的 /health 并透传守护详情（见文件上方说明）。
-  // 状态诚实：server 未就绪 / 查询失败一律如实报告，绝不假报「已连接/运行中」。
-  ipcMain.handle(IPC.feishuStatus, async () => {
-    const health = await fetchServerHealth();
-    if (!health) {
-      return {
-        text: '本地 server 未就绪，暂时无法查询飞书状态。',
-        running: false,
-      };
-    }
-    return {
-      text: renderFeishuStatusText(health.feishu),
-      // running = server 启用了飞书且守护在跑（≠已连接；连接态看 feishu.connected）。
-      running:
-        health.feishu.enabled && (health.feishu.status?.running ?? false),
-      feishu: health.feishu,
-    };
-  });
-  // 启停：真调 server 运行期端点 POST /feishu/start | /feishu/stop，
-  // 透传真实结果（失败原样报错，不谎报动作已执行），并附最新守护状态。
-  ipcMain.handle(IPC.feishuStart, async () => {
-    const r = await postServerEndpoint('/feishu/start');
-    if (!r) {
-      return { text: '本地 server 未就绪，无法启动飞书守护，请稍后重试。' };
-    }
-    if (!r.ok) {
-      // server 诚实报错（典型：凭证未配置），原样透传。
-      return { text: `飞书守护启动失败：${r.error ?? '未知原因'}` };
-    }
-    const health = await fetchServerHealth();
-    return {
-      text:
-        '飞书守护已启动（断线自动重连，连上一次后绝不永久断开）。\n' +
-        (health ? renderFeishuStatusText(health.feishu) : ''),
-    };
-  });
-  ipcMain.handle(IPC.feishuStop, async () => {
-    const r = await postServerEndpoint('/feishu/stop');
-    if (!r) {
-      return { text: '本地 server 未就绪，无法执行停止操作。' };
-    }
-    if (!r.ok) {
-      return { text: `飞书守护停止失败：${r.error ?? '未知原因'}` };
-    }
-    return {
-      text:
-        '飞书守护已停止（有意停止：不会自动重连，再次启动即恢复守护）。\n' +
-        '注：若另有旧版 CLI 守护进程在跑，请在终端单独停止。',
-    };
-  });
-  // 飞书凭证配置（「飞书接入」面板）：转发 server /feishu/config。
-  // GET 返回的本来就是脱敏视图（appSecret 只进不出，见 server 端约定）。
-  ipcMain.handle(IPC.feishuGetConfig, async () => {
-    const r = await requestFeishuConfig('GET');
-    if (!r) return { ok: false, config: null, error: '本地 server 未就绪。' };
-    return { ok: r.ok, config: r.data, error: r.error };
-  });
-  ipcMain.handle(IPC.feishuSaveConfig, async (_e, body: unknown) => {
-    // 形状粗校验后转发；细校验（appId/domain/secret 规则）由 server 端负责。
-    if (typeof body !== 'object' || body === null) {
-      return { ok: false, config: null, error: '配置格式不合法。' };
-    }
-    const r = await requestFeishuConfig(
-      'POST',
-      body as FeishuConfigSaveRequest,
-    );
-    if (!r)
-      return {
-        ok: false,
-        config: null,
-        error: '本地 server 未就绪，凭证未保存。',
-      };
-    return { ok: r.ok, config: r.data, error: r.error };
-  });
-  ipcMain.handle(IPC.feishuClearConfig, async () => {
-    const r = await requestFeishuConfig('DELETE');
-    if (!r) return { ok: false, config: null, error: '本地 server 未就绪。' };
-    return { ok: r.ok, config: r.data, error: r.error };
   });
   const channelScopes: Record<ChannelProvider, readonly string[]> = {
     feishu: ['im:message', 'contact:user.base:readonly'],

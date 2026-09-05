@@ -190,10 +190,6 @@ describe('Tauri host bridge', () => {
       data: [],
       error: null,
     });
-    await expect(bridge.feishuStatus()).resolves.toMatchObject({
-      running: false,
-      text: expect.stringContaining('Rust'),
-    });
     await expect(bridge.channelPairingBegin('feishu')).resolves.toMatchObject({
       ok: false,
       error: expect.stringContaining('channel_connector_unavailable'),

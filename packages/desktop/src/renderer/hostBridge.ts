@@ -463,19 +463,6 @@ export function createTauriHostBridge(
         generatedAt: new Date().toISOString(),
       };
     }) as never,
-    feishuStatus: (() => Promise.resolve({
-      text: '当前 Rust 本地版尚未配置企业消息连接器。请使用高级配置，或等待管理员部署连接服务。',
-      running: false,
-    })) as never,
-    feishuGetConfig: (() => Promise.resolve({ ok: true, config: null, error: null })) as never,
-    feishuSaveConfig: (() => Promise.resolve({
-      ok: false,
-      config: null,
-      error: '当前 Rust 本地版尚未启用飞书凭证服务，未保存任何凭证。',
-    })) as never,
-    feishuClearConfig: (() => Promise.resolve({ ok: true, config: null, error: null })) as never,
-    feishuStart: (() => Promise.resolve({ text: '当前 Rust 本地版尚未配置飞书连接器。' })) as never,
-    feishuStop: (() => Promise.resolve({ text: '当前没有运行中的飞书连接器。' })) as never,
     channelPairingBegin: (() => Promise.resolve({
       ok: false,
       pairing: null,
