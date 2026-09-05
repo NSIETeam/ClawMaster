@@ -1,6 +1,6 @@
 [package]
 name = "clawmaster-desktop"
-version = "0.0.2-beta.1"
+version = "0.0.2-beta.2"
 description = "ClawMaster desktop shell"
 authors = ["NSIETeam"]
 license = "Apache-2.0"

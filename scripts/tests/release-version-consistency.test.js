@@ -33,6 +33,30 @@ const versionDisplays = [
 ];
 
 describe('release version displays', () => {
+  it('keeps npm, Tauri, Cargo and README release identities aligned', () => {
+    const desktopPackage = JSON.parse(
+      readFileSync(path.resolve('packages/desktop/package.json'), 'utf8'),
+    );
+    const tauriConfig = JSON.parse(
+      readFileSync(path.resolve('packages/desktop/src-tauri/tauri.conf.json'), 'utf8'),
+    );
+    const cargoManifest = readFileSync(
+      path.resolve('packages/desktop/src-tauri/Cargo.toml'),
+      'utf8',
+    );
+    const cargoLock = readFileSync(
+      path.resolve('packages/desktop/src-tauri/Cargo.lock'),
+      'utf8',
+    );
+    const readme = readFileSync(path.resolve('README.md'), 'utf8');
+
+    expect(desktopPackage.version).toBe(version);
+    expect(tauriConfig.version).toBe(version);
+    expect(cargoManifest).toMatch(new RegExp(`^version = "${version.replaceAll('.', '\\.') }"$`, 'mu'));
+    expect(cargoLock).toContain(`name = "clawmaster-desktop"\nversion = "${version}"`);
+    expect(readme).toContain(`当前版本：\`${version}\``);
+  });
+
   it.each(versionDisplays)(
     'keeps $path aligned with package.json',
     ({ path: sourcePath, expected }) => {

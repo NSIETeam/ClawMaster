@@ -363,7 +363,7 @@ if (!previewWindow.clawmaster) {
     notificationShow: () => Promise.resolve(),
     notificationMarkRead: () => Promise.resolve(),
     notificationGetUnread: () => Promise.resolve([]),
-    appVersion: () => Promise.resolve('0.0.2-beta.1-browser-preview'),
+    appVersion: () => Promise.resolve('0.0.2-beta.2-browser-preview'),
     getWorkspaceDirectories: () => Promise.resolve({
       defaultPath: '/Users/demo',
       recentPaths: ['/Users/demo'],
@@ -386,7 +386,7 @@ if (!previewWindow.clawmaster) {
     updateCheck: () =>
       Promise.resolve({
         status: 'up-to-date',
-        currentVersion: '0.0.2-beta.1',
+        currentVersion: '0.0.2-beta.2',
         latestVersion: null,
       }),
     updateDownload: () =>
