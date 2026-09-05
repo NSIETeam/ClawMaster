@@ -1422,6 +1422,7 @@ function ClawMasterWorkspaceApp({
           onClose={closeSetup}
           onSave={handleSaveModel}
           onDeleteModel={handleDeleteModel}
+          onOpenChannelSettings={(provider) => openHub(provider)}
         />
       ) : mainView === 'accounts' && edition === 'enterprise' && account.isAdmin ? (
         <AccountManagementPage

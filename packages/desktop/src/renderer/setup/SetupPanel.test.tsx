@@ -29,6 +29,31 @@ describe('SetupPanel credential storage', () => {
     expect(screen.queryByText('高级：手动落盘方式')).toBeNull();
     expect(screen.queryByText('复制 custom-models.json')).toBeNull();
   });
+
+  it('routes enterprise messaging to the native Rust settings without legacy Node controls', () => {
+    const onOpenChannelSettings = vi.fn();
+    render(
+      <SetupPanel
+        models={[]}
+        onClose={() => {}}
+        onSave={() => {}}
+        onOpenChannelSettings={onOpenChannelSettings}
+      />,
+    );
+
+    expect(screen.queryByText('飞书双向控制与常驻守护')).toBeNull();
+    expect(screen.queryByText('本地测试模式（开发者）')).toBeNull();
+    expect(screen.queryByText(/node packages\/server/)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: '配置飞书' }));
+    fireEvent.click(screen.getByRole('button', { name: '配置企业微信' }));
+    fireEvent.click(screen.getByRole('button', { name: '配置钉钉' }));
+    expect(onOpenChannelSettings.mock.calls).toEqual([
+      ['feishu'],
+      ['wecom'],
+      ['dingtalk'],
+    ]);
+  });
 });
 
 describe('SetupPanel 编辑模型', () => {

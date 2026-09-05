@@ -21,8 +21,6 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ModelInfo } from 'clawmaster-server';
-import { FeishuStatusBadge } from '../components/FeishuStatusBadge.js';
-import { GeneratedIcon } from '../components/GeneratedIcon.js';
 import { VoiceSettings } from '../components/VoiceSettings.js';
 import {
   ClawMasterCrown,
@@ -32,7 +30,6 @@ import {
   IconEye,
   IconEyeOff,
   IconWarning,
-  IconChevron,
 } from '../components/icons.js';
 import {
   PROVIDER_PRESETS,
@@ -61,6 +58,8 @@ export interface SetupPanelProps {
   onSave: (payload: SaveCustomModelPayload) => void;
   /** 删除一个已配置模型（发 `delete_custom_model` 帧；成功后 models_list 广播刷新列表）。 */
   onDeleteModel?: (id: string) => void;
+  /** 打开 Rust 原生企业消息凭据页。 */
+  onOpenChannelSettings?: (provider: 'feishu' | 'wecom' | 'dingtalk') => void;
 }
 
 const DEFAULT_PRESET = PROVIDER_PRESETS[0];
@@ -86,70 +85,16 @@ export function SetupPanel({
   onClose,
   onSave,
   onDeleteModel,
+  onOpenChannelSettings,
 }: SetupPanelProps): React.JSX.Element {
   const [form, setForm] = useState<SetupFormState>(initialForm);
   // 删除二次确认：记录「已点过一次删除」的模型 id，再点同一个才真删。
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [revealKey, setRevealKey] = useState(false);
-  /** 「本地测试模式」块折叠态：默认收起；面向开发者，折叠对普通用户无干扰。 */
-  const [localTestOpen, setLocalTestOpen] = useState(false);
-  /**
-   * 本地测试代理地址（不落盘，仅当前会话生效）。
-   * 用途：无需连接组织服务器，直接把 customProxyServerUrl 指向本机 localhost claw-server
-   * 的 HTTP 端口，配合 BYO-key 自定义模型本地测试整条链路。
-   *
-   * 使用步骤：
-   *   1. 先在终端起本地 server：  CLAWMASTER_SERVER_MOCK=1 node packages/server/dist/bin.js start
-   *      （或用真实 BYO-key 不加 MOCK=1 也可）
-   *   2. 在此处填入 http://127.0.0.1:7637  并点「应用本地地址」
-   *   3. 重新打开对话，请求将走本地 server 而非远程组织服务器
-   *   4. 测试完毕后点「清除」即可恢复默认
-   */
-  const [localTestUrl, setLocalTestUrl] = useState<string>(() => {
-    try {
-      return sessionStorage.getItem('clawmaster:local-test-url') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [localTestApplied, setLocalTestApplied] = useState<boolean>(() => {
-    try {
-      return sessionStorage.getItem('clawmaster:local-test-applied') === '1';
-    } catch {
-      return false;
-    }
-  });
   const keyRef = useRef<HTMLInputElement>(null);
 
   const preset = findPreset(form.presetId) ?? DEFAULT_PRESET;
-
-  // ── 飞书连接状态 + 一键启停（真实通路）──
-  // 状态由 FeishuStatusBadge 轮询驱动（main 真查 server /health → adapter 守护
-  // 状态），长文案承接它上抛的结果。启停按钮真调 server 运行期端点
-  // （POST /feishu/start|stop，经 preload→main），结果原样展示，不谎报。
-  const [fsStatus, setFsStatus] = useState<string>('正在查询飞书连接状态…');
-  const [fsRunning, setFsRunning] = useState<boolean>(false);
-  const [fsBusy, setFsBusy] = useState<boolean>(false);
-
-  /** 一键启停：running 时停止（之后不自动重连），否则启动/恢复守护。 */
-  const toggleFeishu = async (): Promise<void> => {
-    if (fsBusy) return;
-    setFsBusy(true);
-    try {
-      const res = fsRunning
-        ? await window.clawmaster?.feishuStop()
-        : await window.clawmaster?.feishuStart();
-      if (res?.text) setFsStatus(res.text);
-      // running 不在这里猜——由徽标下一轮轮询的真实 /health 驱动更新。
-    } catch (e) {
-      setFsStatus(
-        `飞书操作失败：${e instanceof Error ? e.message : String(e)}`,
-      );
-    } finally {
-      setFsBusy(false);
-    }
-  };
 
   const errors = useMemo(() => validateForm(form), [form]);
   const valid = Object.keys(errors).length === 0;
@@ -273,33 +218,6 @@ export function SetupPanel({
     if (!valid || saving) return;
     // 按固定契约发 `save_custom_model` 帧；成功/失败由上层监听 models_list / error 裁决。
     onSave(buildSavePayload(form));
-  };
-
-  /** 应用本地测试地址：通知 app→server 用 customProxyServerUrl 郤盖默认连接。 */
-  const applyLocalTestUrl = (): void => {
-    const url = localTestUrl.trim().replace(/\/+$/, '');
-    if (!url || !/^https?:\/\//i.test(url)) return;
-    try {
-      sessionStorage.setItem('clawmaster:local-test-url', url);
-      sessionStorage.setItem('clawmaster:local-test-applied', '1');
-    } catch {
-      /* storage 不可用时静默 */
-    }
-    setLocalTestApplied(true);
-    // 通过 IPC 通知主进程把 customProxyServerUrl 和 CLAWMASTER_SERVER_URL 郤盖到 localTestUrl
-    void window.clawmaster?.setLocalTestUrl?.(url);
-  };
-
-  /** 清除本地测试：恢复默认连接。 */
-  const clearLocalTestUrl = (): void => {
-    try {
-      sessionStorage.removeItem('clawmaster:local-test-url');
-      sessionStorage.removeItem('clawmaster:local-test-applied');
-    } catch {
-      /* storage 不可用时静默 */
-    }
-    setLocalTestApplied(false);
-    void window.clawmaster?.setLocalTestUrl?.('');
   };
 
   const showErr = (field: string): string | undefined =>
@@ -634,135 +552,29 @@ export function SetupPanel({
         <VoiceSettings />
 
 
-        {/* —— 飞书连接状态与常驻守护（状态真实：徽标轮询 server /health）—— */}
+        {/* 企业消息统一进入 Rust 原生凭据页，避免暴露旧 Electron 守护入口。 */}
         <div className="claw-setup__section" style={{ marginTop: '24px', padding: '16px', background: 'var(--claw-sidebar-bg)', borderRadius: 'var(--claw-radius)' }}>
-          <label className="claw-setup__label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span>飞书双向控制与常驻守护</span>
-            <FeishuStatusBadge
-              onStatus={(res) => {
-                setFsStatus(res.text);
-                setFsRunning(res.running);
-              }}
-            />
-          </label>
+          <div className="claw-setup__label" style={{ marginBottom: '8px' }}>企业消息连接</div>
           <p className="claw-setup__hint" style={{ marginBottom: '14px', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
-            {fsStatus}
+            凭据由 Rust 直接验证，Secret 只保存在系统凭据库。选择平台后完成配置与真实消息测试。
           </p>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              type="button"
-              disabled={fsBusy}
-              className="claw-setup__btn claw-setup__btn--ghost"
-              title="调用 ClawMaster 本地引擎的运行期启停端点：启动后断线自动重连；停止属有意停止，不会自动重连"
-              style={{ flex: 1, padding: '10px', height: '38px', borderRadius: 'var(--claw-radius-sm)', fontWeight: 600, fontSize: '12px', opacity: fsBusy ? 0.6 : 1, cursor: fsBusy ? 'wait' : 'pointer' }}
-              onClick={() => void toggleFeishu()}
-            >
-              {fsBusy ? '处理中…' : fsRunning ? '停止飞书守护' : '启动飞书守护'}
-            </button>
-            <button
-              type="button"
-              className="claw-setup__btn claw-setup__btn--ghost"
-              style={{ flex: 1, padding: '10px', height: '38px', borderRadius: 'var(--claw-radius-sm)', fontWeight: 600, fontSize: '12px' }}
-              onClick={() => void window.clawmaster?.openExternal('https://open.feishu.cn')}
-            >
-              <span>飞书开发者平台</span>
-              <IconExternalLink size={12} />
-            </button>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px' }}>
+            {([
+              ['feishu', '飞书'],
+              ['wecom', '企业微信'],
+              ['dingtalk', '钉钉'],
+            ] as const).map(([provider, label]) => (
+              <button
+                key={provider}
+                type="button"
+                className="claw-setup__btn claw-setup__btn--ghost"
+                style={{ minWidth: 0, padding: '10px 6px', height: '38px', borderRadius: 'var(--claw-radius-sm)', fontWeight: 600, fontSize: '12px' }}
+                onClick={() => onOpenChannelSettings?.(provider)}
+              >
+                配置{label}
+              </button>
+            ))}
           </div>
-        </div>
-
-        {/* ——「本地测试模式」区块：默认折叠，面向开发者 —— */}
-        <div className="claw-setup__advanced" style={{ marginTop: '8px' }}>
-          <button
-            type="button"
-            className="claw-setup__advanced-toggle"
-            onClick={() => setLocalTestOpen((v) => !v)}
-            aria-expanded={localTestOpen}
-          >
-            <IconChevron
-              size={13}
-              className={
-                'claw-setup__advanced-chev' +
-                (localTestOpen ? ' claw-setup__advanced-chev--open' : '')
-              }
-            />
-            本地测试模式（开发者）
-            {localTestApplied ? (
-              <span style={{ marginLeft: '6px', fontSize: '11px', color: 'var(--claw-accent)', fontWeight: 700 }}>
-                • 已应用
-              </span>
-            ) : null}
-          </button>
-          {localTestOpen ? (
-            <div className="claw-setup__persist" style={{ marginTop: '8px' }}>
-              <p className="claw-setup__persist-body" style={{ marginBottom: '10px', lineHeight: '1.6' }}>
-                无需连接远程组织服务器，把请求指向本机运行的 ClawMaster 引擎。
-                <br />
-                <span style={{ color: 'var(--claw-text-secondary)', fontSize: '11px' }}>
-                  先在终端启动 ClawMaster 本地引擎：
-                  <code style={{ fontFamily: 'var(--claw-font-mono)', fontSize: '10.5px', background: 'var(--claw-surface)', padding: '1px 4px', borderRadius: '3px' }}>
-                    CLAWMASTER_SERVER_MOCK=1 node packages/server/dist/bin.js start
-                  </code>
-                </span>
-                <br />
-                <span style={{ color: 'var(--claw-text-secondary)', fontSize: '11px' }}>
-                  单配了 BYO-key 模型时去掉
-                  <code style={{ fontFamily: 'var(--claw-font-mono)', fontSize: '10.5px', background: 'var(--claw-surface)', padding: '1px 4px', borderRadius: '3px' }}>
-                    CLAWMASTER_SERVER_MOCK=1
-                  </code>
-                  可测真实推理。
-                </span>
-              </p>
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <input
-                  className="claw-setup__input"
-                  type="text"
-                  value={localTestUrl}
-                  placeholder="本地引擎地址，如 http://127.0.0.1:7637"
-                  spellCheck={false}
-                  autoCapitalize="off"
-                  autoCorrect="off"
-                  onChange={(e) => {
-                    setLocalTestUrl(e.target.value);
-                    if (localTestApplied) setLocalTestApplied(false);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); applyLocalTestUrl(); }
-                  }}
-                  style={{ flex: 1, fontSize: '12px' }}
-                />
-                <button
-                  type="button"
-                  className="claw-setup__iconbtn"
-                  onClick={applyLocalTestUrl}
-                  disabled={!localTestUrl.trim()}
-                  style={{ whiteSpace: 'nowrap', fontSize: '12px' }}
-                >
-                  应用地址
-                </button>
-                {localTestApplied ? (
-                  <button
-                    type="button"
-                    className="claw-setup__iconbtn"
-                    onClick={clearLocalTestUrl}
-                    style={{ whiteSpace: 'nowrap', fontSize: '12px', color: 'var(--claw-text-secondary)' }}
-                  >
-                    清除
-                  </button>
-                ) : null}
-              </div>
-              {localTestApplied ? (
-                <p className="claw-setup__hint claw-generated-icon-label" style={{ marginTop: '8px', color: 'var(--claw-accent)' }}>
-                  <GeneratedIcon name="status-success" size={15} />
-                  <span>已应用本地测试地址：{localTestUrl}，下次对话请求将走本地引擎。</span>
-                </p>
-              ) : (
-                <p className="claw-setup__hint" style={{ marginTop: '6px' }}>
-                  应用后下次对话请求将通过本地引擎（而非连接远程组织服务器）。清除即可恢复默认。
-                </p>
-              )}
-            </div>
-          ) : null}
         </div>
 
         <footer className="claw-setup__foot">
