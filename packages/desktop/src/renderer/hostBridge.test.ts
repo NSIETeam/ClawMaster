@@ -98,6 +98,12 @@ describe('Tauri host bridge', () => {
       command: 'channel_config_save',
       args: { input: { provider: 'wecom', appId: 'corp', appSecret: 'secret', agentId: '1001' } },
     });
+    await expect(bridge.nativeChannelSendTest?.({
+      provider: 'dingtalk', targetId: 'user-1', text: 'hello',
+    })).resolves.toEqual({
+      command: 'channel_send_test',
+      args: { input: { provider: 'dingtalk', targetId: 'user-1', text: 'hello' } },
+    });
     await expect(bridge.notificationShow({
       sessionId: 'session-1',
       source: 'park',

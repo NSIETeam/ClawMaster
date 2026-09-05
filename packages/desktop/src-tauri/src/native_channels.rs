@@ -54,11 +54,20 @@ fn clean(value: &str, field: &str) -> Result<String, String> {
     }
 }
 
+fn clean_message(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value.is_empty() || value.chars().count() > 4000 || value.chars().any(|c| c == '\0') {
+        Err("消息内容为空、超过 4000 字符或包含空字符".into())
+    } else {
+        Ok(value.to_string())
+    }
+}
+
 fn secret_id(provider: &str) -> String {
     format!("native-channel-{provider}-app-secret")
 }
 
-fn parse_token(provider: &str, body: &Value) -> Result<(), String> {
+fn parse_token(provider: &str, body: &Value) -> Result<String, String> {
     let token = match provider {
         "feishu" | "lark" => body.get("tenant_access_token"),
         "wecom" => body.get("access_token"),
@@ -68,7 +77,7 @@ fn parse_token(provider: &str, body: &Value) -> Result<(), String> {
     .and_then(Value::as_str)
     .unwrap_or("");
     if !token.is_empty() {
-        return Ok(());
+        return Ok(token.to_string());
     }
     let detail = body
         .get("msg")
@@ -77,6 +86,72 @@ fn parse_token(provider: &str, body: &Value) -> Result<(), String> {
         .and_then(Value::as_str)
         .unwrap_or("平台未返回 access token");
     Err(format!("凭据验证失败：{detail}"))
+}
+
+async fn access_token(
+    http: &Client,
+    provider: &str,
+    app_id: &str,
+    app_secret: &str,
+) -> Result<String, String> {
+    let response = match provider {
+        "feishu" | "lark" => {
+            let host = if provider == "lark" {
+                "https://open.larksuite.com"
+            } else {
+                "https://open.feishu.cn"
+            };
+            http.post(format!(
+                "{host}/open-apis/auth/v3/tenant_access_token/internal"
+            ))
+            .json(&json!({"app_id":app_id,"app_secret":app_secret}))
+            .send()
+            .await
+        }
+        "wecom" => {
+            let mut endpoint = url::Url::parse("https://qyapi.weixin.qq.com/cgi-bin/gettoken")
+                .map_err(|error| format!("企业微信鉴权地址无效: {error}"))?;
+            endpoint
+                .query_pairs_mut()
+                .append_pair("corpid", app_id)
+                .append_pair("corpsecret", app_secret);
+            http.get(endpoint).send().await
+        }
+        "dingtalk" => http
+            .post("https://api.dingtalk.com/v1.0/oauth2/accessToken")
+            .json(&json!({"appKey":app_id,"appSecret":app_secret}))
+            .send()
+            .await,
+        _ => return Err("不支持的企业消息平台".into()),
+    }
+    .map_err(|error| format!("连接平台失败: {error}"))?;
+    let status = response.status();
+    let body: Value = response
+        .json()
+        .await
+        .map_err(|error| format!("平台响应无效: {error}"))?;
+    if !status.is_success() {
+        return Err(format!("平台返回 HTTP {status}"));
+    }
+    parse_token(provider, &body)
+}
+
+fn platform_result(body: &Value) -> Result<(), String> {
+    let failed_code = body
+        .get("code")
+        .or_else(|| body.get("errcode"))
+        .and_then(Value::as_i64)
+        .is_some_and(|code| code != 0);
+    if !failed_code {
+        return Ok(());
+    }
+    let message = body
+        .get("msg")
+        .or_else(|| body.get("errmsg"))
+        .or_else(|| body.get("message"))
+        .and_then(Value::as_str)
+        .unwrap_or("平台拒绝发送消息");
+    Err(format!("消息发送失败：{message}"))
 }
 
 impl NativeChannelState {
@@ -137,33 +212,67 @@ pub async fn channel_config_save(
     if provider == "wecom" && agent_id.is_none() {
         return Err("企业微信需要 Agent ID".into());
     }
-    let response = match provider.as_str() {
-        "feishu" | "lark" => {
-            let host = if provider == "lark" { "https://open.larksuite.com" } else { "https://open.feishu.cn" };
-            state.http.post(format!("{host}/open-apis/auth/v3/tenant_access_token/internal"))
-                .json(&json!({"app_id":app_id,"app_secret":app_secret})).send().await
-        }
-        "wecom" => {
-            let mut endpoint = url::Url::parse("https://qyapi.weixin.qq.com/cgi-bin/gettoken")
-                .map_err(|error| format!("企业微信鉴权地址无效: {error}"))?;
-            endpoint.query_pairs_mut().append_pair("corpid", &app_id)
-                .append_pair("corpsecret", &app_secret);
-            state.http.get(endpoint).send().await
-        },
-        "dingtalk" => state.http.post("https://api.dingtalk.com/v1.0/oauth2/accessToken")
-            .json(&json!({"appKey":app_id,"appSecret":app_secret})).send().await,
-        _ => unreachable!(),
-    }.map_err(|error| format!("连接平台失败: {error}"))?;
-    let status = response.status();
-    let body: Value = response.json().await.map_err(|error| format!("平台响应无效: {error}"))?;
-    if !status.is_success() { return Err(format!("平台返回 HTTP {status}")); }
-    parse_token(&provider, &body)?;
+    access_token(&state.http, &provider, &app_id, &app_secret).await?;
     state.credentials.set(&secret_id(&provider), &app_secret)?;
     let config = ChannelConfig { provider: provider.clone(), app_id, agent_id, verified_at: chrono::Utc::now().to_rfc3339() };
     let mut configs = state.configs.lock().map_err(|_| "企业消息配置锁不可用".to_string())?;
     configs.insert(provider, config.clone());
     state.persist(&configs)?;
     Ok(config)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendRequest {
+    provider: String,
+    target_id: String,
+    text: String,
+}
+
+#[tauri::command]
+pub async fn channel_send_test(
+    input: SendRequest,
+    state: tauri::State<'_, NativeChannelState>,
+) -> Result<Value, String> {
+    let provider = validate_provider(&input.provider)?.to_string();
+    let target = clean(&input.target_id, "接收方 ID")?;
+    let text = clean_message(&input.text)?;
+    let config = state
+        .configs
+        .lock()
+        .map_err(|_| "企业消息配置锁不可用".to_string())?
+        .get(&provider)
+        .cloned()
+        .ok_or_else(|| "请先保存并验证平台凭据".to_string())?;
+    let secret = state.credentials.get(&secret_id(&provider))?;
+    let token = access_token(&state.http, &provider, &config.app_id, &secret).await?;
+    let response = match provider.as_str() {
+        "feishu" | "lark" => {
+            let host = if provider == "lark" { "https://open.larksuite.com" } else { "https://open.feishu.cn" };
+            state.http.post(format!("{host}/open-apis/im/v1/messages?receive_id_type=open_id"))
+                .bearer_auth(&token)
+                .json(&json!({"receive_id":target,"msg_type":"text","content":serde_json::to_string(&json!({"text":text})).map_err(|error| error.to_string())?}))
+                .send().await
+        }
+        "wecom" => {
+            let mut endpoint = url::Url::parse("https://qyapi.weixin.qq.com/cgi-bin/message/send")
+                .map_err(|error| error.to_string())?;
+            endpoint.query_pairs_mut().append_pair("access_token", &token);
+            let agent = config.agent_id.as_deref().ok_or_else(|| "企业微信缺少 Agent ID".to_string())?
+                .parse::<u64>().map_err(|_| "企业微信 Agent ID 必须是数字".to_string())?;
+            state.http.post(endpoint).json(&json!({"touser":target,"msgtype":"text","agentid":agent,"text":{"content":text},"safe":0})).send().await
+        }
+        "dingtalk" => state.http.post("https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend")
+            .header("x-acs-dingtalk-access-token", &token)
+            .json(&json!({"robotCode":config.app_id,"userIds":[target],"msgKey":"sampleText","msgParam":serde_json::to_string(&json!({"content":text})).map_err(|error| error.to_string())?}))
+            .send().await,
+        _ => unreachable!(),
+    }.map_err(|error| format!("消息发送请求失败: {error}"))?;
+    let status = response.status();
+    let body: Value = response.json().await.unwrap_or_else(|_| json!({}));
+    if !status.is_success() { return Err(format!("平台返回 HTTP {status}")); }
+    platform_result(&body)?;
+    Ok(json!({"ok":true,"provider":provider,"targetId":target}))
 }
 
 #[tauri::command]
@@ -190,5 +299,7 @@ mod tests {
         assert!(parse_token("wecom", &json!({"access_token":"token"})).is_ok());
         assert!(parse_token("dingtalk", &json!({"accessToken":"token"})).is_ok());
         assert!(parse_token("wecom", &json!({"errcode":40013,"errmsg":"invalid corpid"})).is_err());
+        assert!(platform_result(&json!({"errcode": 0})).is_ok());
+        assert!(platform_result(&json!({"errcode": 40013, "errmsg": "invalid"})).is_err());
     }
 }

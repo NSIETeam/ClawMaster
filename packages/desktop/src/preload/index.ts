@@ -1400,6 +1400,11 @@ export interface ClawMasterBridge {
     agentId?: string;
   }): Promise<NativeChannelConfig>;
   nativeChannelConfigClear?(provider: NativeChannelProvider): Promise<void>;
+  nativeChannelSendTest?(input: {
+    provider: NativeChannelProvider;
+    targetId: string;
+    text: string;
+  }): Promise<{ ok: true; provider: NativeChannelProvider; targetId: string }>;
   /** 连接到本地 server（解析端点后建 WS）。返回是否连上。 */
   connect(): Promise<boolean>;
   /** 主动断开（不自动重连，直到下次 connect()）。 */

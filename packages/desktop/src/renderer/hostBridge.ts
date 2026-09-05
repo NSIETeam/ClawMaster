@@ -223,6 +223,9 @@ export function createTauriHostBridge(
     }) => invoke<NativeChannelConfig>('channel_config_save', { input })) as never,
     nativeChannelConfigClear: ((provider: NativeChannelProvider) =>
       invoke<void>('channel_config_clear', { provider })) as never,
+    nativeChannelSendTest: ((input: {
+      provider: NativeChannelProvider; targetId: string; text: string;
+    }) => invoke('channel_send_test', { input })) as never,
     connect: connectDesktop as never,
     disconnect: (() => {
       connected = false;

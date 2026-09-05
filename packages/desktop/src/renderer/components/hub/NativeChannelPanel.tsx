@@ -15,6 +15,8 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
   const [agentId, setAgentId] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [targetId, setTargetId] = useState('');
+  const [testText, setTestText] = useState('ClawMaster 连接测试');
   const label = LABEL[provider];
 
   useEffect(() => {
@@ -50,6 +52,19 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
     finally { setBusy(false); }
   };
 
+  const sendTest = async (): Promise<void> => {
+    if (!window.clawmaster.nativeChannelSendTest || busy) return;
+    const target = targetId.trim();
+    const text = testText.trim();
+    if (!target || !text || !window.confirm(`确认通过${label}向 ${target} 发送：\n\n${text}`)) return;
+    setBusy(true); setMessage('');
+    try {
+      await window.clawmaster.nativeChannelSendTest({ provider, targetId: target, text });
+      setMessage(`平台确认消息已发送给 ${target}。`);
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  };
+
   const complete = appId.trim() && appSecret.trim() && (provider !== 'wecom' || agentId.trim());
   return <Panel title={`${label}接入`} desc={`使用 ${label} 企业自建应用凭据，由 Rust 直接完成官方鉴权验证。`}>
     <Card className="claw-hub__card--pad">
@@ -65,6 +80,12 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
         {config ? <button type="button" className="claw-hub__btn claw-hub__btn--danger" disabled={busy} onClick={() => void clear()}>清除凭据</button> : null}
       </div>
     </div></Card>
+    {config ? <Card><div className="claw-hub__setting claw-hub__setting--stack">
+      <div className="claw-hub__row-name">发送真实测试消息</div>
+      <input className="claw-hub__input" aria-label={`${label} 接收方 ID`} placeholder={provider === 'feishu' || provider === 'lark' ? '接收方 open_id' : '接收方用户 ID'} value={targetId} onChange={(event) => setTargetId(event.target.value)} />
+      <textarea className="claw-hub__input" aria-label={`${label} 测试消息`} value={testText} onChange={(event) => setTestText(event.target.value)} />
+      <button type="button" className="claw-hub__btn" disabled={busy || !targetId.trim() || !testText.trim()} onClick={() => void sendTest()}>确认后发送测试消息</button>
+    </div></Card> : null}
     {message ? <div className="claw-hub__feishu-message" role="status">{message}</div> : null}
   </Panel>;
 }

@@ -305,6 +305,7 @@ pub fn run() {
             native_channels::channel_config_get,
             native_channels::channel_config_save,
             native_channels::channel_config_clear,
+            native_channels::channel_send_test,
             platform_webview::platform_webview_open,
             platform_webview::platform_webview_set_bounds,
             platform_webview::platform_webview_reload,
