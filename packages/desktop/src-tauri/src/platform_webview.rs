@@ -74,6 +74,7 @@ pub async fn platform_webview_open(
     app: AppHandle,
     url: String,
     bounds: PlatformWebviewBounds,
+    remember_login: bool,
 ) -> Result<(), String> {
     let url = validate_url(&url)?;
     let bounds = validate_bounds(bounds)?;
@@ -88,8 +89,10 @@ pub async fn platform_webview_open(
     let (loaded_tx, loaded_rx) = oneshot::channel();
     let loaded_tx = Arc::new(Mutex::new(Some(loaded_tx)));
     let builder = WebviewBuilder::new(PLATFORM_WEBVIEW_LABEL, WebviewUrl::External(url))
-        // Authentication state lives only for this child WebView lifetime.
-        .incognito(true)
+        // Keep credentials out of ClawMaster: the platform WebView owns its
+        // cookie jar. Incognito is used when the user did not opt in to a
+        // persistent login; otherwise the platform session survives restarts.
+        .incognito(!remember_login)
         .on_navigation(|candidate| validate_url(candidate.as_str()).is_ok())
         .on_page_load(move |_webview, payload| {
             if payload.event() != PageLoadEvent::Finished {

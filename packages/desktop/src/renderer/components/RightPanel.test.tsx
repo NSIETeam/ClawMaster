@@ -62,6 +62,32 @@ describe('RightPanel module workspace boundary', () => {
     expect(screen.getByRole('button', { name: '选择文件' })).toBeTruthy();
   });
 
+  it('shows Rust file versions and delegates confirmed recovery', () => {
+    const refresh = vi.fn();
+    const restore = vi.fn();
+    renderPanel({
+      fileCheckpoints: [{
+        id: 'cp-1', sessionId: 's1', path: 'docs/plan.md', toolName: 'write_file',
+        createdAt: Date.UTC(2026, 8, 5, 1, 2), beforeExisted: true,
+        beforeBytes: 128, ready: true,
+      }],
+      onRefreshFileCheckpoints: refresh,
+      onRestoreFileCheckpoint: restore,
+    });
+    fireEvent.click(screen.getByRole('tab', { name: '版本' }));
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(screen.getByRole('region', { name: '文件版本与恢复' })).toBeTruthy();
+    expect(screen.getByText('docs/plan.md')).toBeTruthy();
+    expect(screen.getByText(/拒绝覆盖/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '恢复此版本' }));
+    expect(restore).toHaveBeenCalledWith('cp-1');
+  });
+
+  it('does not expose recovery UI without a native recovery connection', () => {
+    renderPanel();
+    expect(screen.queryByRole('tab', { name: '版本' })).toBeNull();
+  });
+
   it('opens an editable mind map directly and from the module event', () => {
     const onRequestExpand = vi.fn();
     renderPanel({ onRequestExpand });

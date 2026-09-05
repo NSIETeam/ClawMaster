@@ -20,6 +20,7 @@ EasyCode package or Node.js runtime is added to the desktop distribution.
 | Skill script executor | Reject. It depends on Python/Bash/Node, builds shell command strings from arguments, and its upstream tests are skipped. | ClawMaster Skills remain behind existing tool, policy and confirmation paths. |
 | Default `im:message.send_as_user` exclusion | Reject as written. Excluding a scope outside the requested Lark domain can make domain login fail. | `packages/core/src/tools/lark-cli.ts` and its domain-login regression tests |
 | Electron updater, Mermaid and desktop theme changes | Do not port. ClawMaster uses Tauri/Rust and already owns its renderer workspace. | `packages/desktop/src-tauri`, release gates |
+| File rollback and checkpoint UX | Adopt the user-facing advantage, but not a shadow Git repository or repository-wide cleanup. Use bounded Rust per-file snapshots, post-write conflict detection, standard confirmation and audit, plus a visible Versions workspace. | `packages/desktop/src-tauri/src/native_checkpoints.rs`, `packages/desktop/src/renderer/components/FileRecoveryWorkspace.tsx`, `docs/checkpointing.md` |
 
 ## Adopted External-Agent Contract
 

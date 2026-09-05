@@ -9,6 +9,7 @@ mod agent_state_pool;
 mod community_skills;
 mod native_chart;
 mod native_channels;
+mod native_checkpoints;
 mod native_agent_tools;
 mod native_context;
 mod native_diagnostics;

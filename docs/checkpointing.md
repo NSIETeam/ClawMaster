@@ -1,101 +1,69 @@
-# Checkpointing
+# Checkpointing and File Recovery
 
-> Otto-specific checkpointing. This document supersedes the inherited Gemini CLI
-> command examples below; Otto does not expose Gemini's `/restore` command or
-> use `~/.gemini` storage.
+ClawMaster has three independent recovery mechanisms. They solve different
+failure modes and must not be presented as interchangeable.
 
-## Otto Runtime Checkpoints
+## Rust-Native File Recovery
 
-Otto persists two independent recovery records under `~/.otto-user/checkpoints/`:
+The Tauri runtime creates a private, per-file checkpoint before a direct
+file-writing tool runs. Users can inspect these points in the right-side
+**Versions** workspace or with `/restore`, then restore one only after the
+standard high-risk confirmation.
 
-1. `turn-{turnId}.json` is a crash-recovery record owned by
-   `TurnCheckpointManager`. It contains the active turn state, completed tools,
-   result summaries, and replay classification. `NEVER_REPLAYED` actions are
-   skipped after recovery; a checkpoint never authorizes repeating an
-   irreversible action.
-2. `{sessionId}.cp.json` is a session-resume record owned by
-   `SessionCheckpointService`. It contains the session summary, context summary,
-   project/channel metadata, and pending-task signal.
+The implementation is owned by
+`packages/desktop/src-tauri/src/native_checkpoints.rs` and has these invariants:
 
-File-edit history is separate: `GitService` keeps an isolated shadow Git
-repository under `~/.otto-user/history/<project-hash>`. It must never mutate
-the user's repository or be treated as automatic rollback permission.
+- Only ordinary files inside the current canonical workspace are eligible.
+  Absolute paths, parent traversal and symbolic-link targets are rejected.
+- A checkpoint records the pre-write bytes and the post-write digest. Restore
+  proceeds only when the current digest still equals the post-write digest, so
+  later user edits are never overwritten.
+- Restore affects one file. It does not run `git clean`, reset the repository,
+  restore conversation history or repeat the original tool call.
+- A successful restore creates another checkpoint first, providing an undo
+  path. If that undo point cannot be finalized, the file remains restored and
+  the UI reports the reduced recovery guarantee explicitly.
+- Checkpoint payloads are private local app data. On Unix they are written with
+  mode `0600`; metadata exposes only a workspace digest and relative path.
+- Files larger than 32 MiB are rejected. Storage is pruned to at most 200
+  checkpoints and 256 MiB, while the checkpoint currently being created is
+  preserved. The UI shows the newest 100 points.
+- Failed writes discard their unfinished checkpoint. Temporary replacement
+  files are cleaned up, and replacement uses a backup swap so Windows does not
+  depend on Unix overwrite semantics.
 
-For the runtime ownership and non-migration rules, see
-[AtomCode Reuse Boundary](./atomcode-reuse-boundary.md).
+Direct tools currently covered are `write_file`, `generate_docx`,
+`generate_pptx`, `generate_chart`, `merge_pdfs` and `optimize_pdf`.
+`run_command` is deliberately excluded because an arbitrary process can mutate
+multiple files and external systems; claiming complete rollback would be
+false.
 
-## Historical Gemini CLI Reference
+## Runtime Continuity
 
-The Gemini CLI includes a Checkpointing feature that automatically saves a snapshot of your project's state before any file modifications are made by AI-powered tools. This allows you to safely experiment with and apply code changes, knowing you can instantly revert back to the state before the tool was run.
+The inherited TypeScript runtime keeps two records under
+`~/.otto-user/checkpoints/` while that compatibility runtime remains:
 
-## How It Works
+- `turn-{turnId}.json` protects turn execution and replay classification.
+  `NEVER_REPLAYED` actions remain skipped after recovery.
+- `{sessionId}.cp.json` stores resumable session summaries and pending-task
+  signals.
 
-When you approve a tool that modifies the file system (like `write_file` or `replace`), the CLI automatically creates a "checkpoint." This checkpoint includes:
+These records do not authorize filesystem restoration and are not the source
+for the desktop Versions workspace.
 
-1.  **A Git Snapshot:** A commit is made in a special, shadow Git repository located in your home directory (`~/.gemini/history/<project_hash>`). This snapshot captures the complete state of your project files at that moment. It does **not** interfere with your own project's Git repository.
-2.  **Conversation History:** The entire conversation you've had with the agent up to that point is saved.
-3.  **The Tool Call:** The specific tool call that was about to be executed is also stored.
+## Rejected Shadow-Git Design
 
-If you want to undo the change or simply go back, you can use the `/restore` command. Restoring a checkpoint will:
+The old `GitService` shadow repository under
+`~/.otto-user/history/<project-hash>` is not the production recovery path. Its
+restore flow can apply repository-wide operations such as `git clean -fd`,
+which cannot distinguish Agent changes from unrelated user work. ClawMaster
+therefore uses bounded Rust-native file snapshots instead of reviving that
+design in the packaged desktop runtime.
 
-- Revert all files in your project to the state captured in the snapshot.
-- Restore the conversation history in the CLI.
-- Re-propose the original tool call, allowing you to run it again, modify it, or simply ignore it.
+## Verification
 
-All checkpoint data, including the Git snapshot and conversation history, is stored locally on your machine. The Git snapshot is stored in the shadow repository while the conversation history and tool calls are saved in a JSON file in your project's temporary directory, typically located at `~/.gemini/tmp/<project_hash>/checkpoints`.
-
-## Enabling the Feature
-
-The Checkpointing feature is disabled by default. To enable it, you can either use a command-line flag or edit your `settings.json` file.
-
-### Using the Command-Line Flag
-
-You can enable checkpointing for the current session by using the `--checkpointing` flag when starting the Gemini CLI:
-
-```bash
-gemini --checkpointing
-```
-
-### Using the `settings.json` File
-
-To enable checkpointing by default for all sessions, you need to edit your `settings.json` file.
-
-Add the following key to your `settings.json`:
-
-```json
-{
-  "checkpointing": {
-    "enabled": true
-  }
-}
-```
-
-## Using the `/restore` Command
-
-Once enabled, checkpoints are created automatically. To manage them, you use the `/restore` command.
-
-### List Available Checkpoints
-
-To see a list of all saved checkpoints for the current project, simply run:
-
-```
-/restore
-```
-
-The CLI will display a list of available checkpoint files. These file names are typically composed of a timestamp, the name of the file being modified, and the name of the tool that was about to be run (e.g., `2025-06-22T10-00-00_000Z-my-file.txt-write_file`).
-
-### Restore a Specific Checkpoint
-
-To restore your project to a specific checkpoint, use the checkpoint file from the list:
-
-```
-/restore <checkpoint_file>
-```
-
-For example:
-
-```
-/restore 2025-06-22T10-00-00_000Z-my-file.txt-write_file
-```
-
-After running the command, your files and conversation will be immediately restored to the state they were in when the checkpoint was created, and the original tool prompt will reappear.
+Required checks include Rust capture/finalize/restore tests, conflict and path
+escape tests, retention tests, protocol validation, renderer state tests and
+the right-panel recovery interaction test. A packaged candidate must also prove
+that the confirmation card shows the resolved relative path and that a real
+restore refreshes the visible timeline.

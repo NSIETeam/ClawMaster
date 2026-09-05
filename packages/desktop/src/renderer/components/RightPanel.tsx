@@ -3,10 +3,12 @@
 import React, { useEffect, useState } from 'react';
 import type { ModuleDefinition } from '../moduleCatalog.js';
 import type { ModuleWorkspaceLayout } from '../moduleWorkspace.js';
+import type { FileCheckpointSummary } from 'clawmaster-server';
 import { ModuleWorkspace } from './ModuleWorkspace.js';
 import { ArtifactWorkspace } from './ArtifactWorkspace.js';
 import { MindMapWorkspace } from './MindMapWorkspace.js';
 import { PlatformWorkspace, type PlatformWorkspaceTarget } from './PlatformWorkspace.js';
+import { FileRecoveryWorkspace } from './FileRecoveryWorkspace.js';
 
 /** Thin boundary: App owns capabilities, persistence, and business dialogs. */
 export interface RightPanelProps {
@@ -20,6 +22,9 @@ export interface RightPanelProps {
   scopeKey: string;
   layout: ModuleWorkspaceLayout;
   modules: readonly ModuleDefinition[];
+  fileCheckpoints?: readonly FileCheckpointSummary[];
+  onRefreshFileCheckpoints?: () => void;
+  onRestoreFileCheckpoint?: (checkpointId: string) => void;
   onActivate(module: ModuleDefinition): void;
   onOpenMarketplace(groupId: string): void;
   onLayoutChange(next: ModuleWorkspaceLayout): void;
@@ -36,11 +41,14 @@ export function RightPanel({
   scopeKey,
   layout,
   modules,
+  fileCheckpoints,
+  onRefreshFileCheckpoints,
+  onRestoreFileCheckpoint,
   onActivate,
   onOpenMarketplace,
   onLayoutChange,
 }: RightPanelProps): React.JSX.Element {
-  const [activeView, setActiveView] = useState<'modules' | 'files' | 'mindmap' | 'platform'>('modules');
+  const [activeView, setActiveView] = useState<'modules' | 'files' | 'mindmap' | 'recovery' | 'platform'>('modules');
   const [filePath, setFilePath] = useState<string | null>(null);
   const [platformTarget, setPlatformTarget] = useState<PlatformWorkspaceTarget | null>(null);
   useEffect(() => {
@@ -102,14 +110,31 @@ export function RightPanel({
         <button type="button" role="tab" aria-selected={activeView === 'modules'} onClick={() => setActiveView('modules')}>功能</button>
         <button type="button" role="tab" aria-selected={activeView === 'files'} onClick={() => setActiveView('files')}>文件</button>
         <button type="button" role="tab" aria-selected={activeView === 'mindmap'} onClick={() => setActiveView('mindmap')}>导图</button>
+        {onRefreshFileCheckpoints && onRestoreFileCheckpoint ? (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeView === 'recovery'}
+            onClick={() => {
+              setActiveView('recovery');
+              onRefreshFileCheckpoints();
+            }}
+          >版本</button>
+        ) : null}
         {platformTarget ? <button type="button" role="tab" aria-selected={activeView === 'platform'} onClick={() => setActiveView('platform')}>{platformTarget.label}</button> : null}
       </div>
       {activeView === 'platform' && platformTarget ? (
-        <PlatformWorkspace target={platformTarget} onClose={closePlatform} />
+        <PlatformWorkspace key={platformTarget.id} target={platformTarget} onClose={closePlatform} />
       ) : activeView === 'files' ? (
         <ArtifactWorkspace initialPath={filePath ?? undefined} />
       ) : activeView === 'mindmap' ? (
         <MindMapWorkspace />
+      ) : activeView === 'recovery' && onRefreshFileCheckpoints && onRestoreFileCheckpoint ? (
+        <FileRecoveryWorkspace
+          checkpoints={fileCheckpoints}
+          onRefresh={onRefreshFileCheckpoints}
+          onRestore={onRestoreFileCheckpoint}
+        />
       ) : readiness === 'ready' ? (
         <ModuleWorkspace
           presentation={presentation}

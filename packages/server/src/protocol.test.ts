@@ -350,6 +350,17 @@ describe('HTTP_ROUTES 与常量', () => {
 });
 
 describe('validateClientPayload：斜杠命令帧（P3）', () => {
+  it('文件恢复点列表必须绑定有效会话', () => {
+    expect(validateClientPayload({
+      type: 'get_file_checkpoints',
+      payload: { sessionId: 's1' },
+    })).toBeNull();
+    expect(validateClientPayload({
+      type: 'get_file_checkpoints',
+      payload: { sessionId: '' },
+    })).toContain('sessionId');
+  });
+
   it('run_slash_command 合法 payload 通过', () => {
     expect(
       validateClientPayload({

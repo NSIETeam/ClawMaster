@@ -3548,6 +3548,15 @@ export class ClawMasterServer {
         return this.handleGetSkills(conn, msg);
       case 'get_tools':
         return this.handleGetTools(conn, msg);
+      case 'get_file_checkpoints':
+        return this.send(
+          conn.socket,
+          errorFrame(
+            msg.payload.sessionId,
+            'native_runtime_required',
+            '文件恢复点仅由 Rust 原生桌面运行时提供',
+          ),
+        );
       case 'compress_context':
         return this.handleCompressContext(conn, msg);
       case 'export_conversation':

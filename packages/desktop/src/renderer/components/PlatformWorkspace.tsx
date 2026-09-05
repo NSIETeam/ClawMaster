@@ -10,6 +10,10 @@ export interface PlatformWorkspaceTarget {
   url: string | null;
 }
 
+function rememberLoginKey(platformId: string): string {
+  return `clawmaster.platform.${platformId}.remember-login`;
+}
+
 export function PlatformWorkspace({
   target,
   onClose,
@@ -18,6 +22,7 @@ export function PlatformWorkspace({
   onClose?: () => void;
 }): React.JSX.Element {
   const [configuredUrl, setConfiguredUrl] = useState(target.url ?? '');
+  const [rememberLogin, setRememberLogin] = useState(() => window.localStorage.getItem(rememberLoginKey(target.id)) === 'true');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [browserState, setBrowserState] = useState<'idle' | 'loading' | 'embedded' | 'external' | 'failed'>('idle');
   const browserHostRef = useRef<HTMLDivElement>(null);
@@ -53,7 +58,7 @@ export function PlatformWorkspace({
     const initialBounds = measure();
     if (!initialBounds) return undefined;
     setBrowserState('loading');
-    void openEmbedded(url, initialBounds).then(() => {
+    void openEmbedded(url, initialBounds, rememberLogin).then(() => {
       opened = true;
       if (disposed) {
         void bridge.platformWebviewClose?.();
@@ -82,7 +87,12 @@ export function PlatformWorkspace({
       window.removeEventListener('resize', updateBounds);
       void bridge.platformWebviewClose?.();
     };
-  }, [insecure, target.id, target.url]);
+  }, [insecure, rememberLogin, target.id, target.url]);
+
+  const updateRememberLogin = (value: boolean): void => {
+    setRememberLogin(value);
+    window.localStorage.setItem(rememberLoginKey(target.id), String(value));
+  };
 
   const saveEndpoint = (): void => {
     try {
@@ -106,6 +116,11 @@ export function PlatformWorkspace({
         </div>
       </header>
       <code className="claw-platform-workspace__url">{target.url ?? '尚未配置平台地址'}</code>
+      {target.url && !insecure ? <label className="claw-platform-workspace__remember-login">
+        <input type="checkbox" checked={rememberLogin} onChange={(event) => updateRememberLogin(event.target.checked)} />
+        保持登录
+        <small>仅保留该平台自己的登录 Cookie，不会读取或保存明文密码</small>
+      </label> : null}
       {!target.url || insecure ? <div className="claw-platform-workspace__config" role="group" aria-label="平台地址配置">
         <label>HTTPS 平台地址<input value={configuredUrl} onChange={(event) => { setConfiguredUrl(event.target.value); setValidationError(null); }} placeholder="https://your-platform.example" /></label>
         <button type="button" onClick={saveEndpoint}>保存并连接</button>

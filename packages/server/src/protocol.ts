@@ -525,6 +525,12 @@ export type GetSkillsMsg = Envelope<'get_skills', { sessionId?: string }>;
 /** 拉取当前会话可用工具清单（内置 + MCP，对齐 CLI /tools）。 */
 export type GetToolsMsg = Envelope<'get_tools', { sessionId: string }>;
 
+/** 拉取当前会话工作目录中由 Rust 写入工具创建的文件恢复点。 */
+export type GetFileCheckpointsMsg = Envelope<
+  'get_file_checkpoints',
+  { sessionId: string }
+>;
+
 /** 手动压缩某会话的上下文（对齐 CLI /compress）。 */
 export type CompressContextMsg = Envelope<
   'compress_context',
@@ -749,6 +755,7 @@ export type ClientToServer =
   | AddMemoryMsg
   | GetSkillsMsg
   | GetToolsMsg
+  | GetFileCheckpointsMsg
   | CompressContextMsg
   | ExportConversationMsg
   | GetWorkflowsMsg
@@ -1287,6 +1294,22 @@ export type ToolsListMsg = Envelope<
   { sessionId: string; tools: ToolSummary[] }
 >;
 
+export interface FileCheckpointSummary {
+  id: string;
+  sessionId: string;
+  path: string;
+  toolName: string;
+  createdAt: number;
+  beforeExisted: boolean;
+  beforeBytes: number;
+  ready: boolean;
+}
+
+export type FileCheckpointsMsg = Envelope<
+  'file_checkpoints',
+  { sessionId: string; checkpoints: FileCheckpointSummary[] }
+>;
+
 /** 压缩结果：成功携带前后 token 数，失败/无需压缩时 compressed=false。 */
 export type CompressResultMsg = Envelope<
   'compress_result',
@@ -1490,6 +1513,7 @@ export type ServerToClient =
   | MemorySnapshotMsg
   | SkillsListMsg
   | ToolsListMsg
+  | FileCheckpointsMsg
   | CompressResultMsg
   | ExportResultMsg
   | WorkflowsListMsg
@@ -2217,6 +2241,7 @@ export function validateClientPayload(msg: {
     }
     case 'get_context_breakdown':
     case 'get_tools':
+    case 'get_file_checkpoints':
     case 'compress_context':
     case 'export_conversation': {
       if (!isPlainObject(p)) return `${msg.type} payload 必须是对象`;

@@ -179,6 +179,17 @@ pub fn risk(name: &str) -> Option<ToolRisk> {
     }
 }
 
+pub fn mutation_target(call: &ModelToolCall) -> Option<&str> {
+    let argument = match call.name.as_str() {
+        "write_file" => "path",
+        "generate_docx" | "generate_pptx" | "generate_chart" | "merge_pdfs" | "optimize_pdf" => {
+            "outputPath"
+        }
+        _ => return None,
+    };
+    call.arguments.get(argument).and_then(Value::as_str)
+}
+
 fn clean_relative(value: &str) -> Result<PathBuf, String> {
     let path = Path::new(value);
     if path.as_os_str().is_empty()
@@ -765,6 +776,17 @@ mod tests {
         assert_eq!(risk("browser_snapshot"), Some(ToolRisk::Write));
         assert_eq!(risk("browser_action"), Some(ToolRisk::Write));
         assert_eq!(risk("unknown"), None);
+        assert_eq!(
+            mutation_target(&call(
+                "write_file",
+                json!({"path":"src/main.rs","content":"x"})
+            )),
+            Some("src/main.rs")
+        );
+        assert_eq!(
+            mutation_target(&call("run_command", json!({"executable":"git"}))),
+            None
+        );
     }
 
     #[test]

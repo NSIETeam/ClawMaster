@@ -3,9 +3,9 @@ use crate::native_models::{
     ModelStreamEvent, ModelToolCall, NativeModel, StreamCompletion,
 };
 use crate::{
-    native_agent_tools, native_context, native_diagnostics, native_enterprise, native_knowledge,
-    native_mcp, native_memory, native_projects, native_schedule, native_skills, native_todos,
-    native_workflows, native_worklog, platform_webview,
+    native_agent_tools, native_checkpoints, native_context, native_diagnostics, native_enterprise,
+    native_knowledge, native_mcp, native_memory, native_projects, native_schedule, native_skills,
+    native_todos, native_workflows, native_worklog, platform_webview,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -130,6 +130,7 @@ pub struct NativeRuntime {
     audit_path: PathBuf,
     knowledge_path: PathBuf,
     schedule_path: PathBuf,
+    checkpoint_root: PathBuf,
     state: Mutex<PersistedState>,
     credentials: Arc<dyn CredentialStore>,
     http: Client,
@@ -373,6 +374,7 @@ impl NativeRuntime {
         let state_path = app_data_dir.join(STATE_FILE_NAME);
         let state_backup = state_path.with_extension("json.bak");
         let audit_path = app_data_dir.join("native-audit.jsonl");
+        let checkpoint_root = app_data_dir.join("file-checkpoints");
         let state_source = if state_path.exists() || !state_backup.exists() {
             &state_path
         } else {
@@ -393,6 +395,7 @@ impl NativeRuntime {
             audit_path,
             knowledge_path,
             schedule_path,
+            checkpoint_root,
             state: Mutex::new(state),
             credentials,
             http: Client::builder()
@@ -1205,6 +1208,32 @@ impl NativeRuntime {
                     Err(message) => vec![error_frame(None, "get_memory_failed", &message)],
                 }
             }
+            "get_file_checkpoints" => {
+                let session_id = payload
+                    .get("sessionId")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                if !state
+                    .sessions
+                    .iter()
+                    .any(|session| session.session_id == session_id)
+                {
+                    vec![error_frame(Some(session_id), "no_session", "会话不存在")]
+                } else {
+                    let workspace = Self::workspace_for_session(&state, Some(session_id));
+                    match native_checkpoints::list(&self.checkpoint_root, &workspace) {
+                        Ok(checkpoints) => vec![frame(
+                            "file_checkpoints",
+                            json!({"sessionId":session_id,"checkpoints":checkpoints}),
+                        )],
+                        Err(message) => vec![error_frame(
+                            Some(session_id),
+                            "file_checkpoints_failed",
+                            &message,
+                        )],
+                    }
+                }
+            }
             "get_knowledge" => {
                 let limit = payload
                     .get("limit")
@@ -1281,6 +1310,7 @@ impl NativeRuntime {
                     .as_array()
                     .cloned()
                     .unwrap_or_default();
+                tools.extend(native_checkpoints::summaries());
                 tools.extend(native_knowledge::summaries());
                 tools.extend(native_schedule::summaries());
                 tools.extend(native_todos::summaries());
@@ -1381,6 +1411,7 @@ impl NativeRuntime {
                     {"name":"memory","description":"查看项目与全局记忆"},
                     {"name":"skills","description":"查看已安装 Skill"},
                     {"name":"doctor","description":"检查原生运行时"},
+                    {"name":"restore","description":"查看或确认恢复 Rust 原生文件恢复点"},
                     {"name":"compress","description":"使用当前模型压缩会话上下文"},
                     {"name":"init","description":"分析当前目录并生成项目记忆"}
                 ]}),
@@ -1533,6 +1564,7 @@ impl NativeRuntime {
                 .or(state.current_model.as_deref())
                 .and_then(|id| state.models.iter().find(|item| item.id == id));
             let mut definitions = native_agent_tools::definitions();
+            definitions.extend(native_checkpoints::definitions());
             definitions.extend(native_knowledge::definitions());
             definitions.extend(native_schedule::definitions());
             definitions.extend(native_todos::definitions());
@@ -1555,6 +1587,7 @@ impl NativeRuntime {
             .as_array()
             .cloned()
             .unwrap_or_default();
+        tools.extend(native_checkpoints::summaries());
         tools.extend(native_knowledge::summaries());
         tools.extend(native_schedule::summaries());
         tools.extend(native_todos::summaries());
@@ -1913,6 +1946,7 @@ impl NativeRuntime {
             ),
         )?;
         let mut tools = native_agent_tools::definitions();
+        tools.extend(native_checkpoints::definitions());
         tools.extend(native_knowledge::definitions());
         tools.extend(native_schedule::definitions());
         tools.extend(native_todos::definitions());
@@ -2017,6 +2051,7 @@ impl NativeRuntime {
                 }
                 let risk = native_agent_tools::risk(&call.name);
                 let is_mcp = mcp_catalog.contains(&call.name);
+                let is_checkpoint = native_checkpoints::contains(&call.name);
                 let is_knowledge = native_knowledge::contains(&call.name);
                 let is_schedule = call.name == "local_schedule";
                 let is_todo = call.name == "todo_write";
@@ -2024,21 +2059,44 @@ impl NativeRuntime {
                 let is_workflow = native_workflows::contains(&call.name);
                 let approved = if risk == Some(native_agent_tools::ToolRisk::Write)
                     || is_mcp
+                    || native_checkpoints::is_write(&call.name)
                     || native_knowledge::is_write(&call.name)
                     || native_schedule::is_write(call)
                     || is_todo
                     || is_workflow
                 {
+                    let mut confirmation_call = call.clone();
+                    if call.name == "restore_file_checkpoint" {
+                        if let Some(checkpoint_id) = call
+                            .arguments
+                            .get("checkpointId")
+                            .and_then(Value::as_str)
+                        {
+                            if let Ok(checkpoint) = native_checkpoints::describe(
+                                &self.checkpoint_root,
+                                context.workspace,
+                                checkpoint_id,
+                            ) {
+                                confirmation_call.arguments["path"] =
+                                    checkpoint.get("path").cloned().unwrap_or(Value::Null);
+                            }
+                        }
+                    }
                     self.await_tool_confirmation(
                         context.app,
                         context.session_id,
                         context.message_id,
-                        call,
+                        &confirmation_call,
                         cancel.clone(),
                     )
                     .await?
                 } else {
-                    risk.is_some() || is_knowledge || is_schedule || is_todo || is_skill
+                    risk.is_some()
+                        || is_checkpoint
+                        || is_knowledge
+                        || is_schedule
+                        || is_todo
+                        || is_skill
                 };
                 if *cancel.borrow() {
                     return Ok(StreamCompletion::Cancelled(ModelCompletion {
@@ -2050,10 +2108,41 @@ impl NativeRuntime {
                     }));
                 }
                 let started = now_ms();
-                let mut result = if approved && is_mcp {
+                let mut checkpoint_id = None;
+                let checkpoint_error = if approved {
+                    native_agent_tools::mutation_target(call).and_then(|relative_path| {
+                        match native_checkpoints::capture(
+                            &self.checkpoint_root,
+                            context.workspace,
+                            context.session_id,
+                            &call.name,
+                            relative_path,
+                        ) {
+                            Ok(id) => {
+                                checkpoint_id = Some(id);
+                                None
+                            }
+                            Err(error) => {
+                                Some(format!("无法在写入前创建安全恢复点，操作已停止: {error}"))
+                            }
+                        }
+                    })
+                } else {
+                    None
+                };
+                let mut result = if let Some(error) = checkpoint_error {
+                    Err(error)
+                } else if approved && is_mcp {
                     mcp_catalog
                         .execute(call, self.credentials.as_ref(), cancel.clone())
                         .await
+                } else if approved && is_checkpoint {
+                    native_checkpoints::execute(
+                        &self.checkpoint_root,
+                        context.workspace,
+                        context.session_id,
+                        call,
+                    )
                 } else if approved && is_knowledge {
                     native_knowledge::execute(&self.knowledge_path, call)
                 } else if approved && is_schedule {
@@ -2097,6 +2186,34 @@ impl NativeRuntime {
                         if let Err(error) = context.app.emit("desktop://open-platform", payload) {
                             result = Err(format!("无法打开右侧浏览器: {error}"));
                         }
+                    }
+                }
+                if let Some(id) = checkpoint_id.as_deref() {
+                    if result.is_ok() {
+                        match native_checkpoints::finalize(
+                            &self.checkpoint_root,
+                            context.workspace,
+                            id,
+                        ) {
+                            Ok(()) => {
+                                if let Ok(Value::Object(payload)) = &mut result {
+                                    payload.insert("checkpointId".into(), Value::String(id.into()));
+                                    payload.insert("recoveryAvailable".into(), Value::Bool(true));
+                                }
+                            }
+                            Err(error) => {
+                                native_checkpoints::discard(&self.checkpoint_root, id);
+                                if let Ok(Value::Object(payload)) = &mut result {
+                                    payload.insert("recoveryAvailable".into(), Value::Bool(false));
+                                    payload.insert(
+                                        "checkpointWarning".into(),
+                                        Value::String(error.chars().take(240).collect()),
+                                    );
+                                }
+                            }
+                        }
+                    } else {
+                        native_checkpoints::discard(&self.checkpoint_root, id);
                     }
                 }
                 self.audit_tool(
@@ -2307,6 +2424,142 @@ impl NativeRuntime {
                     .unwrap_or("压缩未返回结果")
                     .to_string();
                 (ok, markdown)
+            }
+            "restore" => {
+                let workspace = {
+                    let state = self
+                        .state
+                        .lock()
+                        .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+                    Self::workspace_for_session(&state, Some(&session_id))
+                };
+                if args.trim().is_empty() {
+                    match native_checkpoints::list(&self.checkpoint_root, &workspace) {
+                        Ok(values) if values.is_empty() => {
+                            (true, "当前项目还没有可用的文件恢复点。".into())
+                        }
+                        Ok(values) => {
+                            let markdown = values
+                                .iter()
+                                .filter(|value| {
+                                    value.get("ready").and_then(Value::as_bool) == Some(true)
+                                })
+                                .filter_map(|value| {
+                                    Some(format!(
+                                        "- `{}` · `{}` · {}",
+                                        value.get("id")?.as_str()?,
+                                        value.get("path")?.as_str()?,
+                                        value.get("toolName")?.as_str()?
+                                    ))
+                                })
+                                .collect::<Vec<_>>()
+                                .join("\n");
+                            if markdown.is_empty() {
+                                (true, "当前项目还没有已完成的文件恢复点。".into())
+                            } else {
+                                (
+                                    true,
+                                    format!(
+                                        "### 文件恢复点\n\n{markdown}\n\n输入 `/restore <恢复点ID>` 后仍需在确认卡片中批准。"
+                                    ),
+                                )
+                            }
+                        }
+                        Err(message) => (false, message),
+                    }
+                } else {
+                    let checkpoint_id = args.trim();
+                    let checkpoint = match native_checkpoints::describe(
+                        &self.checkpoint_root,
+                        &workspace,
+                        checkpoint_id,
+                    ) {
+                        Ok(checkpoint) => checkpoint,
+                        Err(message) => {
+                            emit(
+                                app,
+                                frame(
+                                    "slash_command_result",
+                                    json!({
+                                        "sessionId":session_id,"name":name,"args":args,
+                                        "ok":false,"markdown":message
+                                    }),
+                                ),
+                            )?;
+                            return Ok(());
+                        }
+                    };
+                    let call = ModelToolCall {
+                        id: next_id("restore"),
+                        name: "restore_file_checkpoint".into(),
+                        arguments: json!({
+                            "checkpointId":checkpoint_id,
+                            "path":checkpoint.get("path").cloned().unwrap_or(Value::Null)
+                        }),
+                    };
+                    let message_id = next_id("restore-message");
+                    let (_cancel_tx, cancel) = watch::channel(false);
+                    self.audit_tool(&session_id, &call, "requested", None)?;
+                    let approved = self
+                        .await_tool_confirmation(app, &session_id, &message_id, &call, cancel)
+                        .await?;
+                    let result = if approved {
+                        native_checkpoints::execute(
+                            &self.checkpoint_root,
+                            &workspace,
+                            &session_id,
+                            &call,
+                        )
+                    } else {
+                        Err("用户拒绝或取消了文件恢复".into())
+                    };
+                    self.audit_tool(
+                        &session_id,
+                        &call,
+                        if result.is_ok() {
+                            "completed"
+                        } else if approved {
+                            "failed"
+                        } else {
+                            "rejected"
+                        },
+                        result.as_ref().err().map(String::as_str),
+                    )?;
+                    match result {
+                        Ok(value) => {
+                            let checkpoints = native_checkpoints::list(
+                                &self.checkpoint_root,
+                                &workspace,
+                            )?;
+                            emit(
+                                app,
+                                frame(
+                                    "file_checkpoints",
+                                    json!({"sessionId":session_id,"checkpoints":checkpoints}),
+                                ),
+                            )?;
+                            let path = value
+                                .get("path")
+                                .and_then(Value::as_str)
+                                .unwrap_or("文件");
+                            if let Some(warning) = value.get("warning").and_then(Value::as_str) {
+                                (true, format!("已恢复 `{path}`。\n\n**警告：** {warning}"))
+                            } else {
+                                (
+                                    true,
+                                    format!(
+                                        "已恢复 `{path}`，并创建撤销恢复点 `{}`。",
+                                        value
+                                            .get("safetyCheckpointId")
+                                            .and_then(Value::as_str)
+                                            .unwrap_or("unknown")
+                                    ),
+                                )
+                            }
+                        }
+                        Err(message) => (false, message),
+                    }
+                }
             }
             "init" => {
                 let workspace = {
@@ -3131,6 +3384,64 @@ mod tests {
             .unwrap();
         assert_eq!(tools[0]["type"], "tools_list");
         assert!(!tools[0]["payload"]["tools"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn exposes_rust_file_recovery_in_tools_and_slash_commands() {
+        let (root, runtime) = runtime();
+        let created = runtime
+            .handle(&json!({"type":"create_session","payload":{}}))
+            .unwrap();
+        let session_id = created[0]["payload"]["session"]["sessionId"]
+            .as_str()
+            .unwrap();
+        runtime
+            .handle(&json!({"type":"set_session_workspace","payload":{
+                "sessionId":session_id,"workspacePath":root.path()
+            }}))
+            .unwrap();
+        let tools = runtime
+            .handle(&json!({"type":"get_tools","payload":{"sessionId":session_id}}))
+            .unwrap();
+        let names = tools[0]["payload"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|tool| tool.get("name").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        assert!(names.contains(&"list_file_checkpoints"));
+        assert!(names.contains(&"restore_file_checkpoint"));
+
+        let commands = runtime
+            .handle(&json!({"type":"list_slash_commands","payload":{}}))
+            .unwrap();
+        assert!(commands[0]["payload"]["commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|command| command.get("name").and_then(Value::as_str) == Some("restore")));
+
+        fs::write(root.path().join("recover.txt"), "before").unwrap();
+        let checkpoint_id = native_checkpoints::capture(
+            &runtime.checkpoint_root,
+            root.path(),
+            session_id,
+            "write_file",
+            "recover.txt",
+        )
+        .unwrap();
+        fs::write(root.path().join("recover.txt"), "after").unwrap();
+        native_checkpoints::finalize(&runtime.checkpoint_root, root.path(), &checkpoint_id)
+            .unwrap();
+        let checkpoints = runtime
+            .handle(&json!({"type":"get_file_checkpoints","payload":{"sessionId":session_id}}))
+            .unwrap();
+        assert_eq!(checkpoints[0]["type"], "file_checkpoints");
+        assert_eq!(checkpoints[0]["payload"]["checkpoints"][0]["path"], "recover.txt");
+        let missing = runtime
+            .handle(&json!({"type":"get_file_checkpoints","payload":{"sessionId":"missing"}}))
+            .unwrap();
+        assert_eq!(missing[0]["payload"]["code"], "no_session");
     }
 
     #[test]

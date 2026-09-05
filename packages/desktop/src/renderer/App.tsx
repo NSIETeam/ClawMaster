@@ -1469,6 +1469,11 @@ function ClawMasterWorkspaceApp({
             scopeKey={moduleWorkspaceScopeKey}
             layout={moduleWorkspace.visibleLayout}
             modules={workspaceModules}
+            fileCheckpoints={state.activeSessionId
+              ? state.fileCheckpoints?.[state.activeSessionId]
+              : []}
+            onRefreshFileCheckpoints={actions.refreshFileCheckpoints}
+            onRestoreFileCheckpoint={(checkpointId) => actions.runSlashCommand('restore', checkpointId)}
             onActivate={activateModule}
             onOpenMarketplace={(groupId) => openModuleModal({ kind: 'marketplace', groupId })}
             onLayoutChange={moduleWorkspace.setVisibleLayout}
@@ -1547,6 +1552,11 @@ function ClawMasterWorkspaceApp({
               scopeKey={moduleWorkspaceScopeKey}
               layout={moduleWorkspace.visibleLayout}
               modules={workspaceModules}
+              fileCheckpoints={state.activeSessionId
+                ? state.fileCheckpoints?.[state.activeSessionId]
+                : []}
+              onRefreshFileCheckpoints={actions.refreshFileCheckpoints}
+              onRestoreFileCheckpoint={(checkpointId) => actions.runSlashCommand('restore', checkpointId)}
               onActivate={activateModule}
               onOpenMarketplace={(groupId) => openModuleModal({ kind: 'marketplace', groupId })}
               onLayoutChange={moduleWorkspace.setVisibleLayout}

@@ -9279,6 +9279,9 @@ h6.claw-prose__h {
 .claw-platform-workspace input { min-width: 0; flex: 1; padding: 0 9px; }
 .claw-platform-workspace button { padding: 0 10px; cursor: pointer; }
 .claw-platform-workspace__url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--claw-text-secondary); }
+.claw-platform-workspace__remember-login { display: flex; align-items: center; gap: 7px; color: var(--claw-text-primary); font-size: 13px; }
+.claw-platform-workspace__remember-login input { flex: 0 0 auto; min-height: 16px; width: 16px; }
+.claw-platform-workspace__remember-login small { color: var(--claw-text-secondary); font-size: 11px; }
 .claw-platform-workspace__warning { padding: 8px 10px; border-radius: 8px; color: var(--claw-warning); background: var(--claw-warning-soft); font-size: 12px; }
 .claw-platform-workspace__browser {
   display: grid;
@@ -9305,6 +9308,35 @@ h6.claw-prose__h {
   background: var(--claw-surface);
   box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
+
+.claw-recovery-workspace {
+  overflow: auto;
+}
+.claw-recovery-workspace > header span { color: var(--claw-accent); font-size: 9px; font-weight: 800; letter-spacing: .14em; }
+.claw-recovery-workspace__safety {
+  padding: 8px;
+  border-left: 2px solid var(--claw-accent);
+  color: var(--claw-text-secondary);
+  font-size: 11px;
+}
+.claw-recovery-workspace__timeline { margin: 0; padding: 0; list-style: none; }
+.claw-recovery-workspace__timeline > li { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 8px; margin-bottom: 9px; }
+.claw-recovery-workspace__marker { height: 7px; margin-top: 13px; border-radius: 50%; background: var(--claw-accent); }
+.claw-recovery-workspace__timeline article {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--claw-border-subtle);
+  border-radius: 10px;
+}
+.claw-recovery-workspace__meta { display: flex; justify-content: space-between; color: var(--claw-text-tertiary); font-size: 9px; }
+.claw-recovery-workspace__timeline article > strong {
+  display: block;
+  margin: 6px 0 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.claw-recovery-workspace__timeline article > button { margin-top: 8px; }
 
 .claw-artifact-workspace {
   display: flex;

@@ -1278,4 +1278,27 @@ describe('Agent profile 启动动作', () => {
       && (frame as { payload?: { sessionId?: string } }).payload?.sessionId === 'new-ppt'
     ))).toBe(true);
   });
+
+  it('保存 Rust 文件恢复点并可刷新当前会话列表', () => {
+    const { view, push } = setup();
+    push({ type: 'sessions_list', payload: { sessions: [makeSession()] } });
+    push({
+      type: 'file_checkpoints',
+      payload: {
+        sessionId: 's1',
+        checkpoints: [{
+          id: 'cp-1', sessionId: 's1', path: 'README.md', toolName: 'write_file',
+          createdAt: 1, beforeExisted: true, beforeBytes: 12, ready: true,
+        }],
+      },
+    });
+    expect(view.result.current.state.fileCheckpoints?.s1?.[0]?.path).toBe('README.md');
+
+    sendSpy.mockClear();
+    act(() => view.result.current.actions.refreshFileCheckpoints());
+    expect(sendSpy).toHaveBeenCalledWith({
+      type: 'get_file_checkpoints',
+      payload: { sessionId: 's1' },
+    });
+  });
 });

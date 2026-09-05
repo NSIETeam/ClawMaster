@@ -26,6 +26,7 @@ import type {
   ModelInfo,
   MessageSource,
   SlashCommandInfo,
+  FileCheckpointSummary,
   ToolConfirmationResponsePayload,
 } from 'clawmaster-server';
 import { getEnterpriseOrganizationFeatures } from './enterpriseOrganizationFeatures.js';
@@ -84,6 +85,8 @@ export interface ClawMasterState {
    * 可选：老的完整 state 字面量（如单测）未提供时按空清单处理。
    */
   slashCommands?: SlashCommandInfo[];
+  /** 按会话保存的当前工作目录文件恢复点；由 Rust 原生运行时提供。 */
+  fileCheckpoints?: Record<string, FileCheckpointSummary[]>;
   /** 末次错误（toast 用）。 */
   lastError: string | null;
   /** 各会话当前排队消息数（message_queued/queue_drained 帧更新）。 */
@@ -118,6 +121,7 @@ const initialState: ClawMasterState = {
   sessionsLoaded: false,
   currentModel: null,
   slashCommands: [],
+  fileCheckpoints: {},
   lastError: null,
   queuedCounts: {},
   pendingCreateRequestId: null,
@@ -696,6 +700,15 @@ function applyFrame(state: ClawMasterState, frame: ServerToClient): ClawMasterSt
       // server 侧命令清单（面板经 mergeServerCommands 合并展示）。
       return { ...state, slashCommands: frame.payload.commands };
 
+    case 'file_checkpoints':
+      return {
+        ...state,
+        fileCheckpoints: {
+          ...(state.fileCheckpoints ?? {}),
+          [frame.payload.sessionId]: frame.payload.checkpoints,
+        },
+      };
+
     case 'slash_command_result': {
       // 斜杠命令回执 → 追加一条 **ephemeral** 系统气泡（role:'system'）。
       // 有意不落库（见 server handleRunSlashCommand 注释）：它是即时查询回执，
@@ -789,6 +802,8 @@ export interface ClawMasterActions {
    * 回来，渲染成 ephemeral 系统气泡（不落库，见 applyFrame 对应分支注释）。
    */
   runSlashCommand(name: string, args: string): void;
+  /** 刷新当前会话工作目录的 Rust 原生文件恢复点。 */
+  refreshFileCheckpoints(): void;
   /**
    * 在当前会话本地插入一条系统提示气泡（如 /help 的命令总览）。
    * 纯前端、不发帧不落库——与 slash_command_result 同样的 ephemeral 语义。
@@ -1357,6 +1372,19 @@ export function useClawMasterStore(
     });
   }, []);
 
+  const refreshFileCheckpoints = useCallback(() => {
+    const sessionId = activeRef.current;
+    if (!sessionId) return;
+    if (connectionRef.current !== 'connected') {
+      dispatch({ kind: 'local_error', message: '未连接，无法读取文件恢复点' });
+      return;
+    }
+    transport.send({
+      type: 'get_file_checkpoints',
+      payload: { sessionId },
+    });
+  }, []);
+
   const postSystemNote = useCallback((markdown: string) => {
     if (!markdown.trim()) return;
     dispatch({ kind: 'system_note', markdown });
@@ -1383,6 +1411,7 @@ export function useClawMasterStore(
       cancel,
       respondToolConfirmation,
       runSlashCommand,
+      refreshFileCheckpoints,
       postSystemNote,
       clearError,
     },
