@@ -57,7 +57,7 @@ const personalCapabilities: ModuleWorkspaceCapabilities = {
 };
 
 const sampleLayout = (): ModuleWorkspaceLayout => ({
-  version: 3,
+  version: 4,
   groups: [
     {
       id: 'park-services',
@@ -77,7 +77,7 @@ const sampleLayout = (): ModuleWorkspaceLayout => ({
 describe('module workspace defaults', () => {
   it('creates the enterprise service, office, and business-platform defaults', () => {
     expect(createDefaultModuleWorkspace(enterpriseCapabilities)).toEqual({
-      version: 3,
+      version: 4,
       groups: [
         {
           id: 'park-services',
@@ -171,7 +171,7 @@ describe('module workspace defaults', () => {
       groups: [{ id: 'custom', name: '我的布局', rows: 2, moduleIds: ['agent-word'] }],
     }), personalCapabilities);
 
-    expect(migrated.version).toBe(3);
+    expect(migrated.version).toBe(4);
     expect(migrated.groups).toEqual([
       { id: 'custom', name: '我的布局', rows: 2, moduleIds: ['agent-word'] },
       {
@@ -180,6 +180,22 @@ describe('module workspace defaults', () => {
         rows: 2,
         moduleIds: ['ecommerce-market-analysis', 'auto-skill', 'skill-zone'],
       },
+    ]);
+  });
+
+  it('moves duplicate capture modules into the intelligent group during v3 migration', () => {
+    const migrated = parseModuleWorkspace(JSON.stringify({
+      version: 3,
+      groups: [
+        { id: 'daily-office', name: '日常办公', rows: 3, moduleIds: ['agent-word', 'auto-skill'] },
+        { id: 'intelligent-capture', name: '智能沉淀', rows: 2, moduleIds: ['auto-skill', 'skill-zone'] },
+      ],
+    }), personalCapabilities);
+
+    expect(migrated.version).toBe(4);
+    expect(migrated.groups[0].moduleIds).toEqual(['agent-word']);
+    expect(migrated.groups[1].moduleIds).toEqual([
+      'ecommerce-market-analysis', 'auto-skill', 'skill-zone',
     ]);
   });
 });
@@ -284,7 +300,7 @@ describe('module workspace layout operations', () => {
   });
 
   it('protects the last group and migrates deleted group modules to the nearest group', () => {
-    const oneGroup = { version: 3 as const, groups: [sampleLayout().groups[0]] };
+    const oneGroup = { version: 4 as const, groups: [sampleLayout().groups[0]] };
     expect(deleteModuleGroup(oneGroup, 'park-services')).toEqual(oneGroup);
 
     const next = deleteModuleGroup(sampleLayout(), 'park-services');

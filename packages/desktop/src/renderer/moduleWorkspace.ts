@@ -2,7 +2,7 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-const MODULE_WORKSPACE_SCHEMA_VERSION = 3 as const;
+const MODULE_WORKSPACE_SCHEMA_VERSION = 4 as const;
 const MODULE_GROUP_NAME_MAX_LENGTH = 40;
 
 export type ModuleWorkspaceEdition = 'personal' | 'enterprise';
@@ -20,8 +20,8 @@ export interface ModuleGroupLayout {
 }
 
 export interface ModuleWorkspaceLayout {
-  /** Older shapes are accepted only for migration; persistence upgrades them to v3. */
-  version: 1 | 2 | typeof MODULE_WORKSPACE_SCHEMA_VERSION;
+  /** Older shapes are accepted only for migration; persistence upgrades them to v4. */
+  version: 1 | 2 | 3 | typeof MODULE_WORKSPACE_SCHEMA_VERSION;
   groups: ModuleGroupLayout[];
 }
 
@@ -224,7 +224,7 @@ export function parseModuleWorkspace(
     if (!Array.isArray(parsed.groups)) {
       return createDefaultModuleWorkspace(capabilities);
     }
-    if (parsed.version === 1 || parsed.version === 2) {
+    if (parsed.version === 1 || parsed.version === 2 || parsed.version === 3) {
       const legacy = normalizeModuleWorkspace(parsed);
       const defaults = createDefaultModuleWorkspace(capabilities);
       const legacyPersonalIds = new Set(['agent-personal-otto', 'auto-skill']);
@@ -232,7 +232,7 @@ export function parseModuleWorkspace(
       for (const expected of defaults.groups) {
         const current = groups.find((group) => group.id === expected.id);
         if (!current) {
-          if (parsed.version === 1 || expected.id === 'intelligent-capture') {
+          if (parsed.version === 1) {
             groups.push(cloneGroup(expected));
           }
           continue;
@@ -245,6 +245,23 @@ export function parseModuleWorkspace(
         ) {
           current.rows = expected.rows;
           current.moduleIds = [...expected.moduleIds];
+        }
+      }
+      if (parsed.version !== 1) {
+        const capture = defaults.groups.find((group) => group.id === 'intelligent-capture');
+        if (capture) {
+          const captureIds = new Set(capture.moduleIds);
+          for (const group of groups) {
+            group.moduleIds = group.moduleIds.filter((moduleId) => !captureIds.has(moduleId));
+          }
+          const existing = groups.find((group) => group.id === capture.id);
+          if (existing) {
+            existing.name = capture.name;
+            existing.rows = capture.rows;
+            existing.moduleIds = [...capture.moduleIds];
+          } else {
+            groups.push(cloneGroup(capture));
+          }
         }
       }
       return { version: MODULE_WORKSPACE_SCHEMA_VERSION, groups };
