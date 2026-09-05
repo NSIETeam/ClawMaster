@@ -1400,7 +1400,7 @@ impl NativeRuntime {
                     .and_then(Value::as_u64)
                     .unwrap_or(50)
                     .clamp(1, 100) as usize;
-                match native_knowledge::list(&self.knowledge_path, limit) {
+                match native_knowledge::list(&self.state_store, &self.knowledge_path, limit) {
                     Ok(entries) => vec![frame(
                         "knowledge_data",
                         json!({"entries":entries,"action":"list"}),
@@ -1411,7 +1411,13 @@ impl NativeRuntime {
             "search_knowledge" => {
                 let query = payload.get("query").and_then(Value::as_str).unwrap_or("");
                 let category = payload.get("category").and_then(Value::as_str);
-                match native_knowledge::search(&self.knowledge_path, query, category, 20) {
+                match native_knowledge::search(
+                    &self.state_store,
+                    &self.knowledge_path,
+                    query,
+                    category,
+                    20,
+                ) {
                     Ok(entries) => vec![frame(
                         "knowledge_data",
                         json!({"entries":entries,"action":"search","query":query}),
@@ -1436,7 +1442,13 @@ impl NativeRuntime {
                     Some(_) => Err("知识标签必须是数组".into()),
                 };
                 match tags.and_then(|tags| {
-                    native_knowledge::add(&self.knowledge_path, content, category, &tags)
+                    native_knowledge::add(
+                        &self.state_store,
+                        &self.knowledge_path,
+                        content,
+                        category,
+                        &tags,
+                    )
                 }) {
                     Ok(entry) => vec![frame("knowledge_added", json!({"entry":entry}))],
                     Err(message) => vec![error_frame(None, "knowledge_error", &message)],
@@ -1444,7 +1456,7 @@ impl NativeRuntime {
             }
             "remove_knowledge" => {
                 let id = payload.get("id").and_then(Value::as_str).unwrap_or("");
-                match native_knowledge::remove(&self.knowledge_path, id) {
+                match native_knowledge::remove(&self.state_store, &self.knowledge_path, id) {
                     Ok(true) => vec![frame("knowledge_removed", json!({"id":id}))],
                     Ok(false) => vec![error_frame(None, "knowledge_error", "知识条目不存在")],
                     Err(message) => vec![error_frame(None, "knowledge_error", &message)],
@@ -2326,7 +2338,7 @@ impl NativeRuntime {
                         call,
                     )
                 } else if approved && is_knowledge {
-                    native_knowledge::execute(&self.knowledge_path, call)
+                    native_knowledge::execute(&self.state_store, &self.knowledge_path, call)
                 } else if approved && is_schedule {
                     native_schedule::execute(&self.schedule_path, call)
                 } else if approved && is_todo {
@@ -3508,7 +3520,7 @@ mod tests {
     }
 
     #[test]
-    fn knowledge_frames_share_the_native_jsonl_store() {
+    fn knowledge_frames_share_the_encrypted_native_store() {
         let (_root, runtime) = runtime();
         let added = runtime
             .handle(&json!({"type":"add_knowledge","payload":{

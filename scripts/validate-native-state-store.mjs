@@ -54,6 +54,15 @@ for (const required of [
 if (/File::create\([^)]*(?:native-runtime|LEGACY_STATE_FILE_NAME)/u.test(runtime)) {
   violations.push('native_runtime.rs: writes the legacy plaintext runtime state');
 }
+const knowledge = readFileSync(path.join(sourceRoot, 'native_knowledge.rs'), 'utf8');
+for (const required of ['NativeStateStore', 'TREE_MEMORY', 'IMPORT_MARKER_ID']) {
+  if (!knowledge.includes(required)) {
+    violations.push(`native_knowledge.rs: encrypted knowledge migration is missing ${required}`);
+  }
+}
+if (/fn\s+write\s*\([^)]*KnowledgeEntry/u.test(knowledge)) {
+  violations.push('native_knowledge.rs: retains a plaintext knowledge writer');
+}
 
 console.log('ClawMaster native state store validation');
 if (violations.length > 0) {

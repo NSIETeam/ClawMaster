@@ -1,8 +1,8 @@
 use crate::native_models::{ModelToolCall, ModelToolDefinition};
+use crate::native_state_store::{NativeStateStore, TREE_INDEX, TREE_MEMORY};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
-use std::io::Write;
 use std::path::Path;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -10,6 +10,7 @@ use time::OffsetDateTime;
 const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_ENTRIES: usize = 10_000;
 const MAX_CONTENT_CHARS: usize = 16_000;
+const IMPORT_MARKER_ID: &str = "knowledge-import-v1";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -104,7 +105,7 @@ fn clean_text(value: &str, field: &str, max: usize) -> Result<String, String> {
     Ok(value.to_string())
 }
 
-fn read(path: &Path) -> Result<Vec<KnowledgeEntry>, String> {
+fn read_legacy(path: &Path) -> Result<Vec<KnowledgeEntry>, String> {
     let backup = path.with_extension("jsonl.bak");
     let source = if path.exists() || !backup.exists() {
         path
@@ -134,52 +135,30 @@ fn read(path: &Path) -> Result<Vec<KnowledgeEntry>, String> {
     Ok(entries)
 }
 
-fn write(path: &Path, entries: &[KnowledgeEntry]) -> Result<(), String> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| "知识库路径缺少父目录".to_string())?;
-    fs::create_dir_all(parent).map_err(|error| format!("无法创建知识库目录: {error}"))?;
-    #[cfg(unix)]
+fn read(store: &NativeStateStore, legacy_path: &Path) -> Result<Vec<KnowledgeEntry>, String> {
+    if store
+        .get::<bool>(TREE_INDEX, IMPORT_MARKER_ID)
+        .map_err(|error| error.to_string())?
+        .is_none()
     {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(parent, fs::Permissions::from_mode(0o700))
-            .map_err(|error| format!("无法保护知识库目录: {error}"))?;
-    }
-    let temporary = path.with_extension("jsonl.tmp");
-    let mut file =
-        fs::File::create(&temporary).map_err(|error| format!("无法创建知识库临时文件: {error}"))?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&temporary, fs::Permissions::from_mode(0o600))
-            .map_err(|error| format!("无法保护知识库临时文件: {error}"))?;
-    }
-    for entry in entries {
-        serde_json::to_writer(&mut file, entry)
-            .map_err(|error| format!("无法编码知识条目: {error}"))?;
-        file.write_all(b"\n")
-            .map_err(|error| format!("无法写入知识库: {error}"))?;
-    }
-    file.sync_all()
-        .map_err(|error| format!("无法同步知识库: {error}"))?;
-    let backup = path.with_extension("jsonl.bak");
-    if path.exists() {
-        let _ = fs::remove_file(&backup);
-        fs::rename(path, &backup).map_err(|error| format!("无法备份知识库: {error}"))?;
-    }
-    match fs::rename(&temporary, path) {
-        Ok(()) => {
-            let _ = fs::remove_file(backup);
-            Ok(())
+        for entry in read_legacy(legacy_path)? {
+            let id = entry.id.clone();
+            store
+                .put_latest(TREE_MEMORY, &id, "legacy-knowledge", entry)
+                .map_err(|error| error.to_string())?;
         }
-        Err(error) => {
-            if backup.exists() {
-                let _ = fs::rename(&backup, path);
-            }
-            let _ = fs::remove_file(temporary);
-            Err(format!("无法提交知识库: {error}"))
-        }
+        store
+            .put_latest(TREE_INDEX, IMPORT_MARKER_ID, "native-knowledge", true)
+            .map_err(|error| error.to_string())?;
+        store.flush().map_err(|error| error.to_string())?;
     }
+    Ok(store
+        .scan::<KnowledgeEntry>(TREE_MEMORY)
+        .map_err(|error| error.to_string())?
+        .records
+        .into_iter()
+        .map(|record| record.payload)
+        .collect())
 }
 
 fn now() -> String {
@@ -198,15 +177,20 @@ fn next_id() -> String {
     )
 }
 
-pub fn list(path: &Path, limit: usize) -> Result<Vec<KnowledgeEntry>, String> {
-    let mut entries = read(path)?;
+pub fn list(
+    store: &NativeStateStore,
+    legacy_path: &Path,
+    limit: usize,
+) -> Result<Vec<KnowledgeEntry>, String> {
+    let mut entries = read(store, legacy_path)?;
     entries.sort_by(|left, right| right.created_at.cmp(&left.created_at));
     entries.truncate(limit.clamp(1, 100));
     Ok(entries)
 }
 
 pub fn search(
-    path: &Path,
+    store: &NativeStateStore,
+    legacy_path: &Path,
     query: &str,
     category: Option<&str>,
     limit: usize,
@@ -216,7 +200,7 @@ pub fn search(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_lowercase);
-    let mut scored = read(path)?
+    let mut scored = read(store, legacy_path)?
         .into_iter()
         .filter(|entry| {
             category
@@ -260,12 +244,13 @@ pub fn search(
 }
 
 pub fn add(
-    path: &Path,
+    store: &NativeStateStore,
+    legacy_path: &Path,
     content: &str,
     category: Option<&str>,
     tags: &[String],
 ) -> Result<KnowledgeEntry, String> {
-    let mut entries = read(path)?;
+    let entries = read(store, legacy_path)?;
     if entries.len() >= MAX_ENTRIES {
         return Err("知识库条目已达到 10000 条上限".into());
     }
@@ -297,27 +282,35 @@ pub fn add(
         last_used_at: None,
         fingerprint: None,
     };
-    entries.push(entry.clone());
-    write(path, &entries)?;
+    store
+        .put_latest(TREE_MEMORY, &entry.id, "native-knowledge", entry.clone())
+        .map_err(|error| error.to_string())?;
+    store.flush().map_err(|error| error.to_string())?;
     Ok(entry)
 }
 
-pub fn remove(path: &Path, id: &str) -> Result<bool, String> {
+pub fn remove(store: &NativeStateStore, legacy_path: &Path, id: &str) -> Result<bool, String> {
     let id = clean_text(id, "知识 ID", 160)?;
-    let mut entries = read(path)?;
-    let before = entries.len();
-    entries.retain(|entry| entry.id != id);
-    if entries.len() == before {
+    let _ = read(store, legacy_path)?;
+    if !store
+        .delete(TREE_MEMORY, &id)
+        .map_err(|error| error.to_string())?
+    {
         return Ok(false);
     }
-    write(path, &entries)?;
+    store.flush().map_err(|error| error.to_string())?;
     Ok(true)
 }
 
-pub fn execute(path: &Path, call: &ModelToolCall) -> Result<Value, String> {
+pub fn execute(
+    store: &NativeStateStore,
+    legacy_path: &Path,
+    call: &ModelToolCall,
+) -> Result<Value, String> {
     match call.name.as_str() {
         "knowledge_search" => Ok(json!({"entries": search(
-            path,
+            store,
+            legacy_path,
             call.arguments.get("query").and_then(Value::as_str).unwrap_or(""),
             call.arguments.get("category").and_then(Value::as_str),
             call.arguments.get("limit").and_then(Value::as_u64).unwrap_or(20) as usize,
@@ -337,14 +330,16 @@ pub fn execute(path: &Path, call: &ModelToolCall) -> Result<Value, String> {
                 Some(_) => return Err("知识标签必须是数组".into()),
             };
             Ok(json!({"entry": add(
-                path,
+                store,
+                legacy_path,
                 call.arguments.get("content").and_then(Value::as_str).unwrap_or(""),
                 call.arguments.get("category").and_then(Value::as_str),
                 &tags,
             )?}))
         }
         "knowledge_remove" => Ok(json!({"removed": remove(
-            path,
+            store,
+            legacy_path,
             call.arguments.get("id").and_then(Value::as_str).unwrap_or(""),
         )?})),
         _ => Err("未知 Rust 知识库工具".into()),
@@ -355,36 +350,73 @@ pub fn execute(path: &Path, call: &ModelToolCall) -> Result<Value, String> {
 mod tests {
     use super::*;
 
+    fn entry(id: &str, content: &str) -> KnowledgeEntry {
+        KnowledgeEntry {
+            id: id.into(),
+            category: "runtime".into(),
+            content: content.into(),
+            tags: vec!["rust".into()],
+            created_at: "2026-09-05T00:00:00Z".into(),
+            confidence: None,
+            updated_at: None,
+            reinforcement_count: None,
+            last_reinforced_at: None,
+            source_session_ids: Vec::new(),
+            use_count: None,
+            last_used_at: None,
+            fingerprint: None,
+        }
+    }
+
     #[test]
     fn preserves_jsonl_compatibility_and_supports_search_and_remove() {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("knowledge/entries.jsonl");
-        let entry = add(&path, "Rust 原生知识库", Some("runtime"), &["rust".into()]).unwrap();
-        fs::OpenOptions::new()
-            .append(true)
-            .open(&path)
-            .unwrap()
-            .write_all(b"broken line\n")
-            .unwrap();
-        assert_eq!(search(&path, "Rust", None, 20).unwrap()[0].id, entry.id);
-        assert!(remove(&path, &entry.id).unwrap());
-        assert!(list(&path, 20).unwrap().is_empty());
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let legacy = format!(
+            "{}\nbroken line\n",
+            serde_json::to_string(&entry("legacy", "Rust 旧知识")).unwrap()
+        );
+        fs::write(&path, legacy.as_bytes()).unwrap();
+        let store = NativeStateStore::open_for_test(root.path(), [21; 32]).unwrap();
+        assert_eq!(list(&store, &path, 20).unwrap()[0].id, "legacy");
+        let added = add(
+            &store,
+            &path,
+            "Rust 原生知识库",
+            Some("runtime"),
+            &["rust".into()],
+        )
+        .unwrap();
+        assert_eq!(
+            search(&store, &path, "原生", None, 20).unwrap()[0].id,
+            added.id
+        );
+        assert!(remove(&store, &path, &added.id).unwrap());
+        assert_eq!(list(&store, &path, 20).unwrap().len(), 1);
+        assert_eq!(fs::read(&path).unwrap(), legacy.as_bytes());
     }
 
     #[test]
     fn bounds_user_controlled_knowledge_fields() {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("entries.jsonl");
-        assert!(add(&path, "", None, &[]).is_err());
-        assert!(add(&path, "fact", None, &vec!["tag".into(); 21]).is_err());
+        let store = NativeStateStore::open_for_test(root.path(), [22; 32]).unwrap();
+        assert!(add(&store, &path, "", None, &[]).is_err());
+        assert!(add(&store, &path, "fact", None, &vec!["tag".into(); 21]).is_err());
     }
 
     #[test]
     fn recovers_the_last_complete_file_when_commit_was_interrupted() {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("entries.jsonl");
-        let entry = add(&path, "recoverable", None, &[]).unwrap();
-        fs::rename(&path, path.with_extension("jsonl.bak")).unwrap();
-        assert_eq!(list(&path, 20).unwrap()[0].id, entry.id);
+        let recoverable = entry("recoverable", "recoverable");
+        fs::write(
+            path.with_extension("jsonl.bak"),
+            format!("{}\n", serde_json::to_string(&recoverable).unwrap()),
+        )
+        .unwrap();
+        let store = NativeStateStore::open_for_test(root.path(), [23; 32]).unwrap();
+        assert_eq!(list(&store, &path, 20).unwrap()[0].id, recoverable.id);
     }
 }

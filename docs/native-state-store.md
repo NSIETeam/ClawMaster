@@ -8,12 +8,13 @@ which is deliberately separate from beta JSON/JSONL and `.otto*` paths. On the
 first launch only, the runtime may read a legacy `native-runtime.json` and copy
 its state into the encrypted store. It never rewrites or deletes that beta file.
 
-Production model usage, runtime metadata, sessions, and individual messages use
-the shared database. A manifest in the index tree names the active records;
+Production model usage, runtime metadata, sessions, individual messages, and
+personal knowledge entries use the shared database. A manifest in the index tree names the active records;
 removal updates the manifest while old encrypted records remain recoverable.
 Message keys combine session and message IDs so client IDs cannot collide across
-sessions. Memory, checkpoint, and artifact callers still migrate tree by tree;
-Issue #7 remains open until those legacy owners are removed and installed
+sessions. Legacy knowledge JSONL is imported once without modification. Project
+memory, checkpoint, and artifact callers still migrate tree by tree; Issue #7
+remains open until those legacy owners are removed and installed
 recovery acceptance is complete.
 
 ## Security And Ownership

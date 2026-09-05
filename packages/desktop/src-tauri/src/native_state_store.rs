@@ -445,6 +445,16 @@ impl NativeStateStore {
         Err(StateStoreError::Database("记录并发更新超过重试上限".into()))
     }
 
+    pub fn delete(&self, tree_name: &str, id: &str) -> Result<bool, StateStoreError> {
+        validate_identity(id)?;
+        self.inner
+            .trees
+            .get(tree_name)?
+            .remove(record_key(id))
+            .map(|value| value.is_some())
+            .map_err(|error| StateStoreError::Database(error.to_string()))
+    }
+
     pub fn upsert_usage(
         &self,
         invocation_id: &str,
