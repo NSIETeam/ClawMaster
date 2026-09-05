@@ -155,7 +155,7 @@ import {
   getModuleWorkspaceStorageKey,
   type ModuleWorkspaceLayout,
 } from './moduleWorkspace.js';
-import type { ModuleDefinition } from './moduleCatalog.js';
+import { isSecurePlatformUrl, type ModuleDefinition } from './moduleCatalog.js';
 import type { ModuleModalState } from './moduleModal.js';
 
 /** 启动后静默检查更新的延迟：让 server 连接 / 首屏渲染先跑完，不抢启动窗口。 */
@@ -164,8 +164,8 @@ const SILENT_UPDATE_CHECK_DELAY_MS = 15_000;
 const ENTERPRISE_UNREAD_POLL_INTERVAL_MS = 5_000;
 const ENTERPRISE_PRESENCE_HEARTBEAT_MS = 20_000;
 
-/** 主内容区当前视图：对话 / 专家 / 工作台 / 组织架构 / 我的消息 / 我的工作 / 设置——均为整页。 */
-type MainView = 'chat' | 'agents' | 'workspace' | 'settings' | 'hub' | 'agenda' | 'skillzone' | 'accounts'
+/** 主内容区当前视图；临时工具和设置统一在右侧工作区按需打开。 */
+type MainView = 'chat' | 'agents' | 'workspace' | 'agenda' | 'skillzone' | 'accounts'
   | 'organization' | 'inbox' | 'work';
 
 type PendingToolConsult = {
@@ -942,49 +942,44 @@ function ClawMasterWorkspaceApp({
   );
   // 打开「设置与诊断中心」时默认停在哪个 tab（斜杠命令 /doctor /memory /skills 直达用）。
   const [hubInitialTab, setHubInitialTab] = useState<HubTabId>('prefs');
+  const [hubOpen, setHubOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
   const openHub = (tab: HubTabId = 'prefs'): void => {
     hideParkServices();
     setModuleModal(null);
+    setSetupOpen(false);
     setHubInitialTab(tab);
-    setMainView('hub');
+    setMainView('chat');
+    setHubOpen(true);
+    expandRightPanel();
   };
   useEffect(() => {
-    if (mainView !== 'hub') return;
+    if (!hubOpen) return;
     const closeOnEscape = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
-      setMainView('chat');
+      setHubOpen(false);
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [mainView]);
-  const setupOpen = mainView === 'settings';
+  }, [hubOpen]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const autoFloated = useRef(false);
-  const [exemptActive, setExemptActive] = useState(false);
-  useEffect(() => {
-    try {
-      const exempt = localStorage.getItem('clawmaster_exempt_code');
-      if (exempt === 'CLAWMASTER-DEV-2026') {
-        setExemptActive(true);
-      }
-    } catch {
-    }
-  }, []);
   useEffect(() => {
     if (
       !autoFloated.current &&
-      !exemptActive &&
       state.connection === 'connected' &&
       state.modelsLoaded &&
       state.models.length === 0
     ) {
       autoFloated.current = true;
-      setMainView('settings');
+      setMainView('chat');
+      setSetupOpen(true);
+      expandRightPanel();
     }
   }, [
-    exemptActive,
+    expandRightPanel,
     state.connection,
     state.modelsLoaded,
     state.models.length,
@@ -997,7 +992,7 @@ function ClawMasterWorkspaceApp({
       if (frame.type === 'models_list') {
         setSaving(false);
         setSaveError(null);
-        setMainView('chat');
+        setSetupOpen(false);
       } else if (
         frame.type === 'error' &&
         frame.payload.code === 'save_failed'
@@ -1010,7 +1005,7 @@ function ClawMasterWorkspaceApp({
   }, [setupOpen, saving]);
 
   const closeSetup = (): void => {
-    setMainView('chat');
+    setSetupOpen(false);
     setSaving(false);
     setSaveError(null);
   };
@@ -1055,11 +1050,14 @@ function ClawMasterWorkspaceApp({
       } else if (action === 'open-settings') {
         closeParkServices();
         setModuleModal(null);
-        setMainView('settings');
+        setMainView('chat');
+        setHubOpen(false);
+        setSetupOpen(true);
+        expandRightPanel();
       }
     });
     return off;
-  }, [actions, edition]);
+  }, [actions, edition, expandRightPanel]);
 
   const sessions = useMemo(() => selectSortedSessions(state), [state]);
 
@@ -1156,6 +1154,8 @@ function ClawMasterWorkspaceApp({
   };
 
   const handleNewChat = (): void => {
+    setHubOpen(false);
+    setSetupOpen(false);
     setMainView('chat');
     const empty = state.sessionIds
       .map((id) => state.sessions[id])
@@ -1266,6 +1266,11 @@ function ClawMasterWorkspaceApp({
         detail: { id: activation.platformId, label: module.label, url: activation.url },
       }));
       if (!activation.url) return;
+      try {
+        if (!isSecurePlatformUrl(new URL(activation.url))) return;
+      } catch {
+        return;
+      }
       setPendingAgent({
         moduleId: module.id,
         title: module.label,
@@ -1339,7 +1344,10 @@ function ClawMasterWorkspaceApp({
   const openModelSettings = (): void => {
     closeParkServices();
     setModuleModal(null);
-    setMainView('settings');
+    setMainView('chat');
+    setHubOpen(false);
+    setSetupOpen(true);
+    expandRightPanel();
   };
 
   const selectedDate = product.state.selectedDate ?? localDateKey();
@@ -1368,20 +1376,30 @@ function ClawMasterWorkspaceApp({
         sessions={sessions}
         preferenceScope={uiModeScope}
         activeSessionId={state.activeSessionId}
-        hubActive={mainView === 'hub'}
+        hubActive={hubOpen}
         activeView={mainView}
         accountManagementActive={mainView === 'accounts'}
         updateBadge={softwareUpdate.state.badgeVisible}
         onSelect={(id) => {
+          setHubOpen(false);
+          setSetupOpen(false);
           setMainView('chat');
           actions.selectSession(id);
         }}
         onNewChat={handleNewChat}
         onOpenHub={() => openHub('prefs')}
-        onOpenAccounts={() => setMainView('accounts')}
+        onOpenAccounts={() => {
+          setHubOpen(false);
+          setSetupOpen(false);
+          setMainView('accounts');
+        }}
         onNavigate={(view) => {
           if (view === 'hub') openHub('prefs');
-          else setMainView(view);
+          else {
+            setHubOpen(false);
+            setSetupOpen(false);
+            setMainView(view);
+          }
         }}
         onViewAll={() => setAllConvOpen(true)}
         onRename={actions.renameSession}
@@ -1431,16 +1449,6 @@ function ClawMasterWorkspaceApp({
           onCreateSchedule={product.actions.createSchedule}
           onDeleteSchedule={product.actions.deleteSchedule}
           onBack={() => setMainView('chat')}
-        />
-      ) : mainView === 'settings' ? (
-        <SetupPanel
-          models={state.models}
-          saving={saving}
-          saveError={saveError}
-          onClose={closeSetup}
-          onSave={handleSaveModel}
-          onDeleteModel={handleDeleteModel}
-          onOpenChannelSettings={(provider) => openHub(provider)}
         />
       ) : mainView === 'accounts' && edition === 'enterprise' && account.isAdmin ? (
         <AccountManagementPage
@@ -1547,10 +1555,10 @@ function ClawMasterWorkspaceApp({
               }}
             />
           )}
-          {(mainView === 'chat' || mainView === 'hub') && uiMode === 'work' ? (
+          {mainView === 'chat' && (uiMode === 'work' || setupOpen || hubOpen) ? (
             <RightPanel
               busy={busy}
-              collapsed={rightPanelCollapsed}
+              collapsed={setupOpen || hubOpen ? false : rightPanelCollapsed}
               ready={moduleWorkspace.ready}
               readiness={moduleCapabilities.status}
               onRetryCapabilities={moduleCapabilities.retry}
@@ -1563,6 +1571,39 @@ function ClawMasterWorkspaceApp({
                 : []}
               onRefreshFileCheckpoints={actions.refreshFileCheckpoints}
               onRestoreFileCheckpoint={(checkpointId) => actions.runSlashCommand('restore', checkpointId)}
+              settingsOpen={setupOpen || hubOpen}
+              settingsWorkspace={setupOpen ? (
+                <SetupPanel
+                  presentation="panel"
+                  models={state.models}
+                  saving={saving}
+                  saveError={saveError}
+                  onClose={closeSetup}
+                  onSave={handleSaveModel}
+                  onDeleteModel={handleDeleteModel}
+                  onOpenChannelSettings={(provider) => {
+                    setSetupOpen(false);
+                    openHub(provider);
+                  }}
+                />
+              ) : hubOpen ? (
+                <SettingsHubPage
+                  data={settingsData}
+                  update={softwareUpdate}
+                  activeSession={activeSession}
+                  onBack={() => setHubOpen(false)}
+                  initialTab={hubInitialTab}
+                  product={product}
+                  models={state.models}
+                  enterpriseAccount={account}
+                  uiMode={uiMode}
+                  onUiModeChange={selectUiMode}
+                  onManageAccounts={account.isAdmin ? () => {
+                    setHubOpen(false);
+                    setMainView('accounts');
+                  } : undefined}
+                />
+              ) : null}
               onActivate={activateModule}
               onOpenMarketplace={(groupId) => openModuleModal({ kind: 'marketplace', groupId })}
               onLayoutChange={moduleWorkspace.setVisibleLayout}
@@ -1692,34 +1733,6 @@ function ClawMasterWorkspaceApp({
           message={product.state.error}
           onClose={product.actions.clearError}
         />
-      ) : null}
-
-      {mainView === 'hub' ? (
-        <div
-          className="claw-hubfloat-overlay"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setMainView('chat');
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setMainView('chat');
-          }}
-        >
-          <div className="claw-hubfloat" role="dialog" aria-modal="true" aria-label="设置与诊断中心">
-            <SettingsHubPage
-              data={settingsData}
-              update={softwareUpdate}
-              activeSession={activeSession}
-              onBack={() => setMainView('chat')}
-              initialTab={hubInitialTab}
-              product={product}
-              models={state.models}
-              enterpriseAccount={account}
-              uiMode={uiMode}
-              onUiModeChange={selectUiMode}
-              onManageAccounts={account.isAdmin ? () => setMainView('accounts') : undefined}
-            />
-          </div>
-        </div>
       ) : null}
 
       {pendingAtoaPermission ? (

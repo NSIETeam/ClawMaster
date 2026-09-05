@@ -46,6 +46,7 @@ import {
 } from './presets.js';
 
 export interface SetupPanelProps {
+  presentation?: 'page' | 'panel';
   /** server 已知的现有模型（get_models 回包），用于展示「已配置」态。 */
   models: ModelInfo[];
   /** 落盘进行中（已发帧、等 models_list / error 裁决）。 */
@@ -79,6 +80,7 @@ function initialForm(): SetupFormState {
 }
 
 export function SetupPanel({
+  presentation = 'page',
   models,
   saving = false,
   saveError = null,
@@ -224,7 +226,7 @@ export function SetupPanel({
     touched[field] ? errors[field] : undefined;
 
   return (
-    <section className="claw-setup-page" aria-label="配置你的模型">
+    <section className={`claw-setup-page claw-setup-page--${presentation}`} aria-label="配置你的模型">
       <div className="claw-setup">
         <header className="claw-setup__head">
           <div className="claw-setup__brand">
@@ -233,7 +235,7 @@ export function SetupPanel({
           <div className="claw-setup__titles">
             <h2 className="claw-setup__title">配置你的模型</h2>
             <p className="claw-setup__subtitle">
-              ClawMaster 自带密钥（BYO-key）：选供应商、粘贴 API key、填模型即可。
+              选择供应商，粘贴密钥，再选择模型。
             </p>
           </div>
           <button
@@ -336,28 +338,22 @@ export function SetupPanel({
           ) : null}
 
           {/* —— base URL —— */}
-          <label className="claw-setup__label">
-            接口地址 (base URL)
-            {preset.baseUrlLocked ? (
-              <span className="claw-setup__locked">官方端点 · 已锁定</span>
-            ) : null}
-          </label>
-          <input
-            className={
-              'claw-setup__input' + (showErr('baseUrl') ? ' is-error' : '')
-            }
-            type="text"
-            value={form.baseUrl}
-            placeholder="https://api.example.com/v1"
-            readOnly={preset.baseUrlLocked && !form.replaceId}
-            spellCheck={false}
-            autoCapitalize="off"
-            autoCorrect="off"
-            onChange={(e) => patch({ baseUrl: e.target.value })}
-            onBlur={() => markTouched('baseUrl')}
-          />
-          {showErr('baseUrl') ? (
-            <p className="claw-setup__err">{showErr('baseUrl')}</p>
+          {!preset.baseUrlLocked || Boolean(form.replaceId) ? (
+            <>
+              <label className="claw-setup__label">接口地址 (base URL)</label>
+              <input
+                className={'claw-setup__input' + (showErr('baseUrl') ? ' is-error' : '')}
+                type="text"
+                value={form.baseUrl}
+                placeholder="https://api.example.com/v1"
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                onChange={(e) => patch({ baseUrl: e.target.value })}
+                onBlur={() => markTouched('baseUrl')}
+              />
+              {showErr('baseUrl') ? <p className="claw-setup__err">{showErr('baseUrl')}</p> : null}
+            </>
           ) : null}
 
           {/* —— API key（掩码 + 粘贴 + 显隐）—— */}
@@ -549,33 +545,30 @@ export function SetupPanel({
           </div>
         ) : null}
 
-        <VoiceSettings />
-
-
-        {/* 企业消息统一进入 Rust 原生凭据页，避免暴露旧 Electron 守护入口。 */}
-        <div className="claw-setup__section" style={{ marginTop: '24px', padding: '16px', background: 'var(--claw-sidebar-bg)', borderRadius: 'var(--claw-radius)' }}>
-          <div className="claw-setup__label" style={{ marginBottom: '8px' }}>企业消息连接</div>
-          <p className="claw-setup__hint" style={{ marginBottom: '14px', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
-            凭据由 Rust 直接验证，Secret 只保存在系统凭据库。选择平台后完成配置与真实消息测试。
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px' }}>
-            {([
-              ['feishu', '飞书'],
-              ['wecom', '企业微信'],
-              ['dingtalk', '钉钉'],
-            ] as const).map(([provider, label]) => (
-              <button
-                key={provider}
-                type="button"
-                className="claw-setup__btn claw-setup__btn--ghost"
-                style={{ minWidth: 0, padding: '10px 6px', height: '38px', borderRadius: 'var(--claw-radius-sm)', fontWeight: 600, fontSize: '12px' }}
-                onClick={() => onOpenChannelSettings?.(provider)}
-              >
-                配置{label}
-              </button>
-            ))}
+        <details className="claw-setup__advanced">
+          <summary className="claw-setup__advanced-toggle">语音与企业消息</summary>
+          <VoiceSettings />
+          <div className="claw-setup__body">
+            <div className="claw-setup__label">企业消息连接</div>
+            <p className="claw-setup__hint">凭据由 Rust 验证，Secret 仅保存在系统凭据库。</p>
+            <div className="claw-setup__presets">
+              {([
+                ['feishu', '飞书'],
+                ['wecom', '企业微信'],
+                ['dingtalk', '钉钉'],
+              ] as const).map(([provider, label]) => (
+                <button
+                  key={provider}
+                  type="button"
+                  className="claw-setup__btn claw-setup__btn--ghost"
+                  onClick={() => onOpenChannelSettings?.(provider)}
+                >
+                  配置{label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        </details>
 
         <footer className="claw-setup__foot">
           <button
@@ -584,23 +577,6 @@ export function SetupPanel({
             onClick={form.replaceId ? cancelEdit : onClose}
           >
             {form.replaceId ? '取消编辑' : '稍后'}
-          </button>
-          <button
-            type="button"
-            className="claw-setup__btn"
-            onClick={() => {
-              const code = prompt('请输入豁免码：');
-              if (code === 'CLAWMASTER-DEV-2026') {
-                try { localStorage.setItem('clawmaster_exempt_code', code); } catch {}
-                alert('豁免码验证成功！即将跳过配置直接使用。');
-                window.location.reload();
-              } else if (code) {
-                alert('豁免码无效。');
-              }
-            }}
-            title="使用豁免码跳过配置"
-          >
-            使用豁免码
           </button>
           <button
             type="button"

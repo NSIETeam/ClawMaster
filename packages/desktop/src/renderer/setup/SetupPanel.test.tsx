@@ -45,6 +45,7 @@ describe('SetupPanel credential storage', () => {
     expect(screen.queryByText('本地测试模式（开发者）')).toBeNull();
     expect(screen.queryByText(/node packages\/server/)).toBeNull();
 
+    fireEvent.click(screen.getByText('语音与企业消息'));
     fireEvent.click(screen.getByRole('button', { name: '配置飞书' }));
     fireEvent.click(screen.getByRole('button', { name: '配置企业微信' }));
     fireEvent.click(screen.getByRole('button', { name: '配置钉钉' }));
@@ -53,6 +54,16 @@ describe('SetupPanel credential storage', () => {
       ['wecom'],
       ['dingtalk'],
     ]);
+  });
+
+  it('renders as a compact right workspace and exposes no developer bypass', () => {
+    const { container } = render(
+      <SetupPanel presentation="panel" models={[]} onClose={() => {}} onSave={() => {}} />,
+    );
+
+    expect(container.querySelector('.claw-setup-page--panel')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '使用豁免码' })).toBeNull();
+    expect(screen.queryByText('接口地址 (base URL)')).toBeNull();
   });
 });
 

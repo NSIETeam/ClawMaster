@@ -8272,46 +8272,7 @@ h6.claw-prose__h {
   padding-top: 4px;
 }
 
-/* ── 设置中心：沿用主工作区的原生表面，同时保持原有模态交互边界。─────────── */
-.claw-hubfloat-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 70;
-  box-sizing: border-box;
-  padding: 8px 8px 8px 264px;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: claw-setup-fade var(--claw-dur-fast) var(--claw-ease);
-}
-.claw-hubfloat {
-  width: 100%;
-  height: 100%;
-  border-radius: 14px;
-  background: var(--claw-bg);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--claw-border) 70%, transparent);
-  overflow: hidden;
-  display: flex;
-  animation: claw-setup-fade var(--claw-dur-fast) var(--claw-ease);
-}
-/* 浮窗内的中心页占满容器（原整页布局在窗内继续成立）。 */
-.claw-hubfloat > * {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-}
-
 @media (max-width: 760px) {
-  .claw-hubfloat-overlay {
-    padding: 0 0 0 220px;
-  }
-
-  .claw-hubfloat {
-    border-radius: 0;
-    box-shadow: none;
-  }
-
   .claw-hub__nav {
     width: 190px;
   }

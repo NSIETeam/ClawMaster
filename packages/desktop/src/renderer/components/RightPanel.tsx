@@ -25,6 +25,8 @@ export interface RightPanelProps {
   fileCheckpoints?: readonly FileCheckpointSummary[];
   onRefreshFileCheckpoints?: () => void;
   onRestoreFileCheckpoint?: (checkpointId: string) => void;
+  settingsWorkspace?: React.ReactNode;
+  settingsOpen?: boolean;
   onActivate(module: ModuleDefinition): void;
   onOpenMarketplace(groupId: string): void;
   onLayoutChange(next: ModuleWorkspaceLayout): void;
@@ -44,13 +46,24 @@ export function RightPanel({
   fileCheckpoints,
   onRefreshFileCheckpoints,
   onRestoreFileCheckpoint,
+  settingsWorkspace,
+  settingsOpen = false,
   onActivate,
   onOpenMarketplace,
   onLayoutChange,
 }: RightPanelProps): React.JSX.Element {
-  const [activeView, setActiveView] = useState<'modules' | 'files' | 'mindmap' | 'recovery' | 'platform'>('modules');
+  const [activeView, setActiveView] = useState<'modules' | 'files' | 'mindmap' | 'recovery' | 'platform' | 'settings'>('modules');
+  const hasSettingsWorkspace = Boolean(settingsWorkspace);
   const [filePath, setFilePath] = useState<string | null>(null);
   const [platformTarget, setPlatformTarget] = useState<PlatformWorkspaceTarget | null>(null);
+  useEffect(() => {
+    if (settingsOpen && hasSettingsWorkspace) {
+      onRequestExpand?.();
+      setActiveView('settings');
+      return;
+    }
+    setActiveView((view) => view === 'settings' ? 'modules' : view);
+  }, [hasSettingsWorkspace, onRequestExpand, settingsOpen]);
   useEffect(() => {
     const showFiles = (event: Event): void => {
       const path = (event as CustomEvent<{ path?: unknown }>).detail?.path;
@@ -111,12 +124,12 @@ export function RightPanel({
   const hidden = presentation === 'panel' && collapsed;
   return (
     <aside
-      className={`claw-right-panel claw-right-panel--${presentation}${activeView === 'platform' ? ' claw-right-panel--browser' : ''}${hidden ? ' claw-right-panel--collapsed' : ''}`}
+      className={`claw-right-panel claw-right-panel--${presentation}${activeView === 'platform' || activeView === 'settings' ? ' claw-right-panel--browser' : ''}${hidden ? ' claw-right-panel--collapsed' : ''}`}
       aria-label="功能组"
       aria-busy={busy || readiness === 'loading'}
       aria-hidden={hidden || undefined}
     >
-      {activeView !== 'modules' && activeView !== 'platform' ? (
+      {activeView !== 'modules' && activeView !== 'platform' && activeView !== 'settings' ? (
         <header className="claw-right-panel__context-head">
           <strong>{activeView === 'files' ? '文件' : activeView === 'mindmap' ? '思维导图' : '文件版本'}</strong>
           <button type="button" onClick={() => setActiveView('modules')}>返回功能</button>
@@ -124,6 +137,8 @@ export function RightPanel({
       ) : null}
       {activeView === 'platform' && platformTarget ? (
         <PlatformWorkspace key={platformTarget.id} target={platformTarget} onClose={closePlatform} />
+      ) : activeView === 'settings' && settingsWorkspace ? (
+        settingsWorkspace
       ) : activeView === 'files' ? (
         <ArtifactWorkspace initialPath={filePath ?? undefined} />
       ) : activeView === 'mindmap' ? (

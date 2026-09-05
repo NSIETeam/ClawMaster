@@ -100,6 +100,17 @@ describe('RightPanel module workspace boundary', () => {
     expect(screen.queryByRole('region', { name: '思维导图编辑器' })).toBeNull();
   });
 
+  it('mounts model settings as an on-demand right workspace', () => {
+    const { rerender, props } = renderPanel({
+      settingsWorkspace: <section aria-label="模型设置工作区" />,
+      settingsOpen: false,
+    });
+    expect(screen.queryByRole('region', { name: '模型设置工作区' })).toBeNull();
+
+    rerender(<RightPanel {...props} settingsWorkspace={<section aria-label="模型设置工作区" />} settingsOpen />);
+    expect(screen.getByRole('region', { name: '模型设置工作区' })).toBeTruthy();
+  });
+
   it('reveals the file editor only after a generated file is opened', () => {
     const onRequestExpand = vi.fn();
     renderPanel({ onRequestExpand });

@@ -129,8 +129,18 @@ vi.mock('./components/EnterpriseLoginPage.js', () => ({
 }));
 
 vi.mock('./components/Sidebar.js', () => ({
-  Sidebar: ({ onOpenHub }: { onOpenHub: () => void }) => (
-    <button type="button" onClick={onOpenHub}>open-preferences</button>
+  Sidebar: ({
+    onOpenHub,
+    onNavigate,
+  }: {
+    onOpenHub: () => void;
+    onNavigate: (view: 'chat' | 'workspace') => void;
+  }) => (
+    <>
+      <button type="button" onClick={onOpenHub}>open-preferences</button>
+      <button type="button" onClick={() => onNavigate('workspace')}>open-workspace</button>
+      <button type="button" onClick={() => onNavigate('chat')}>return-chat</button>
+    </>
   ),
 }));
 
@@ -139,13 +149,16 @@ vi.mock('./components/ChatView.js', () => ({
     rightPanelCollapsed,
     onToggleRightPanel,
     pendingAgent,
+    onOpenSetup,
   }: {
     rightPanelCollapsed?: boolean;
     onToggleRightPanel?: () => void;
     pendingAgent?: { title: string } | null;
+    onOpenSetup?: () => void;
   }) => (
     <main data-testid="chat-view">
       {pendingAgent ? <span data-testid="pending-agent">{pendingAgent.title}</span> : null}
+      {onOpenSetup ? <button type="button" onClick={onOpenSetup}>open-model-settings</button> : null}
       {onToggleRightPanel ? (
         <button
           type="button"
@@ -163,8 +176,12 @@ vi.mock('./components/RightPanel.js', () => ({
   RightPanel: ({
     collapsed,
     onActivate,
+    settingsWorkspace,
+    settingsOpen,
   }: {
     collapsed?: boolean;
+    settingsWorkspace?: React.ReactNode;
+    settingsOpen?: boolean;
     onActivate?: (module: {
       id: string;
       label: string;
@@ -175,10 +192,12 @@ vi.mock('./components/RightPanel.js', () => ({
         | { kind: 'agent'; profileId: string }
         | { kind: 'dialog'; dialog: 'park'; target: 'announcement' }
         | { kind: 'dialog'; dialog: 'enterprise-memory' }
-        | { kind: 'route'; route: 'skillzone' };
+        | { kind: 'route'; route: 'skillzone' }
+        | { kind: 'platform'; platformId: string; url: string; instructions: string };
     }) => void;
   }) => (
     <aside data-testid="work-panel" data-collapsed={collapsed ? 'true' : 'false'}>
+      {settingsOpen ? settingsWorkspace : null}
       <button type="button" onClick={() => onActivate?.({
         id: 'park-announcement', label: '园区公告', category: 'common', icon: 'agent',
         availability: 'available', activation: { kind: 'dialog', dialog: 'park', target: 'announcement' },
@@ -195,6 +214,18 @@ vi.mock('./components/RightPanel.js', () => ({
         id: 'agent-ppt', label: 'PPT 创作专家', category: 'common', icon: 'agent',
         availability: 'available', activation: { kind: 'agent', profileId: 'ppt' },
       })}>activate-agent</button>
+      <button type="button" onClick={() => onActivate?.({
+        id: 'platform-http', label: '不安全平台', category: 'common', icon: 'agent',
+        availability: 'available', activation: {
+          kind: 'platform', platformId: 'platform-http', url: 'http://example.com', instructions: 'blocked',
+        },
+      })}>activate-insecure-platform</button>
+      <button type="button" onClick={() => onActivate?.({
+        id: 'platform-https', label: '安全平台', category: 'common', icon: 'agent',
+        availability: 'available', activation: {
+          kind: 'platform', platformId: 'platform-https', url: 'https://example.com', instructions: 'enabled',
+        },
+      })}>activate-secure-platform</button>
     </aside>
   ),
 }));
@@ -232,13 +263,16 @@ vi.mock('./components/SettingsHubPage.js', () => ({
   SettingsHubPage: ({
     uiMode,
     onUiModeChange,
+    onBack,
   }: {
     uiMode: 'conversational' | 'work';
     onUiModeChange: (mode: 'conversational' | 'work') => void;
+    onBack: () => void;
   }) => (
     <section data-testid="settings-hub" data-ui-mode={uiMode}>
       <button type="button" onClick={() => onUiModeChange('conversational')}>settings-conversational</button>
       <button type="button" onClick={() => onUiModeChange('work')}>settings-work</button>
+      <button type="button" onClick={onBack}>close-settings</button>
     </section>
   ),
 }));
@@ -383,6 +417,8 @@ describe('App UI mode integration', () => {
     expect(screen.getByTestId('work-panel').dataset.collapsed).toBe('false');
 
     fireEvent.click(screen.getByRole('button', { name: 'settings-conversational' }));
+    expect(screen.getByTestId('settings-hub').dataset.uiMode).toBe('conversational');
+    fireEvent.click(screen.getByRole('button', { name: 'close-settings' }));
     expect(screen.queryByTestId('work-panel')).toBeNull();
     expect(screen.queryByRole('button', { name: /右侧栏/ })).toBeNull();
     expect(localStorage.getItem(preferenceKey(accountA))).toBe('conversational');
@@ -405,7 +441,40 @@ describe('App UI mode integration', () => {
     expect(screen.getByRole('button', { name: '展开右侧栏' })).toBeTruthy();
   });
 
-  it('keeps a collapsed right panel mounted while the settings hub is open', () => {
+  it('opens model configuration in the right workspace without replacing chat', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'open-model-settings' }));
+
+    expect(screen.getByTestId('chat-view')).toBeTruthy();
+    expect(screen.getByTestId('work-panel').dataset.collapsed).toBe('false');
+    expect(screen.getByRole('region', { name: '配置你的模型' })).toBeTruthy();
+  });
+
+  it('opens system settings in the right workspace in conversational mode', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'open-preferences' }));
+
+    expect(screen.getByTestId('chat-view')).toBeTruthy();
+    expect(screen.getByTestId('settings-hub')).toBeTruthy();
+    expect(screen.getByTestId('work-panel').dataset.collapsed).toBe('false');
+  });
+
+  it('closes temporary settings when sidebar navigation leaves the chat', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'open-preferences' }));
+    expect(screen.getByTestId('settings-hub')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'open-workspace' }));
+    fireEvent.click(screen.getByRole('button', { name: 'return-chat' }));
+
+    expect(screen.queryByTestId('settings-hub')).toBeNull();
+    expect(screen.queryByTestId('work-panel')).toBeNull();
+  });
+
+  it('expands a collapsed right panel when system settings open', () => {
     localStorage.setItem(preferenceKey(accountA), 'work');
     localStorage.setItem(rightPanelPreferenceKey(accountA), 'collapsed');
     render(<App />);
@@ -414,7 +483,7 @@ describe('App UI mode integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'open-preferences' }));
 
     expect(screen.getByTestId('settings-hub')).toBeTruthy();
-    expect(screen.getByTestId('work-panel').dataset.collapsed).toBe('true');
+    expect(screen.getByTestId('work-panel').dataset.collapsed).toBe('false');
   });
 
   it('routes workspace modules through the existing App-level activation chains', () => {
@@ -433,6 +502,17 @@ describe('App UI mode integration', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'activate-skill-zone' }));
     expect(screen.getByTestId('skill-zone-page')).toBeTruthy();
+  });
+
+  it('does not enable a platform agent until its endpoint is encrypted', () => {
+    localStorage.setItem(preferenceKey(accountA), 'work');
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'activate-insecure-platform' }));
+    expect(screen.queryByTestId('pending-agent')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'activate-secure-platform' }));
+    expect(screen.getByTestId('pending-agent').textContent).toBe('安全平台');
   });
 
   it('uses the next account right-panel preference on the account-switch render', () => {
