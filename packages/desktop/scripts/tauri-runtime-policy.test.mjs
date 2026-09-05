@@ -35,11 +35,15 @@ describe('Tauri native-local release policy', () => {
   });
 
   it('enforces format-specific artifact limits', () => {
-    expect(evaluateArtifactSize(9 * 1024 * 1024, 'nsis').withinTarget).toBe(true);
-    expect(evaluateArtifactSize(19 * 1024 * 1024, 'dmg').withinTarget).toBe(false);
+    for (const format of ['nsis', 'dmg']) {
+      expect(evaluateArtifactSize(10 * 1024 * 1024, format).withinTarget).toBe(true);
+      expect(evaluateArtifactSize(10 * 1024 * 1024 + 1, format).withinTarget).toBe(false);
+      expect(evaluateArtifactSize(15 * 1024 * 1024, format).withinTarget).toBe(false);
+      expect(() => evaluateArtifactSize(15 * 1024 * 1024 + 1, format)).toThrow('hard limit');
+    }
     expect(evaluateArtifactSize(59 * 1024 * 1024, 'appimage').withinTarget).toBe(false);
     expect(() => evaluateArtifactSize(21 * 1024 * 1024, 'deb')).toThrow('hard limit');
-    const overTarget = evaluateArtifactSize(19 * 1024 * 1024, 'dmg');
+    const overTarget = evaluateArtifactSize(11 * 1024 * 1024, 'dmg');
     expect(() => assertDownloadPackageTarget(overTarget)).toThrow('product target');
     expect(assertDownloadPackageTarget(overTarget, { allowOverTarget: true })).toBe(overTarget);
   });

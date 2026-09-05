@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, 'codex/windows-*']
+    branches: [main, 'codex/windows-*', 'codex/0.0.2-release']
 
 permissions:
   contents: read

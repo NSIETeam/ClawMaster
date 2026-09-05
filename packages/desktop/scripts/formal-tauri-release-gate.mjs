@@ -121,7 +121,8 @@ export function evaluateFormalTauriReleaseGate({
   );
   for (const expected of [
     'name: ClawMaster Tauri Release',
-    'name: Publish ClawMaster v0.0.2-beta.1',
+    'name: Publish ClawMaster ${{ github.ref_name }}',
+    'tag_name: ${{ github.ref_name }}',
     "- 'v*.*.*'",
   ]) {
     if (!tauriWorkflow.includes(expected)) {
@@ -129,6 +130,11 @@ export function evaluateFormalTauriReleaseGate({
         `Tauri release workflow is missing formal gate coverage: ${expected}`,
       );
     }
+  }
+  if (/Publish ClawMaster v\d+\.\d+\.\d+/u.test(tauriWorkflow)
+    || /tag_name:\s*v\d+\.\d+\.\d+/u.test(tauriWorkflow)
+    || tauriWorkflow.includes('prerelease: true')) {
+    fail('Tauri release workflow must derive release identity from github.ref_name');
   }
   if (!tauriWorkflow.includes('release:formal:gate --workspace=packages/desktop')
     && !tauriWorkflow.includes('release:beta:gate --workspace=packages/desktop')) {

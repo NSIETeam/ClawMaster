@@ -52,8 +52,8 @@ describe('release version displays', () => {
       'utf8',
     );
 
-    expect(workflow).toContain('git merge-base --is-ancestor origin/main HEAD');
-    expect(workflow).toContain("branches: [main, 'codex/windows-*']");
+    expect(workflow).toContain('test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"');
+    expect(workflow).toContain("branches: [main, 'codex/windows-*', 'codex/0.0.2-release']");
     expect(workflow).toContain('test "$GITHUB_REF_NAME" = "v${version}"');
     expect(workflow).toContain('npm run validate:integration-baseline');
     expect(workflow).toMatch(/Install locked dependencies\n\s+run: npm ci/g);

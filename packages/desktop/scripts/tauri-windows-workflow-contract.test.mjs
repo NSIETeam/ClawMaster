@@ -37,10 +37,14 @@ describe('cross-platform Tauri workflow contract', () => {
     expect(workflow).toContain('Reject legacy packaged runtimes');
   });
 
-  it('publishes a manual release only from the exact latest main commit', async () => {
+  it('publishes only a version-matched tag from the exact latest main commit', async () => {
     const workflow = await readFile(path.join(root, '.github/workflows/tauri-preview.yml'), 'utf8');
-    expect(workflow).toContain("startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)");
-    expect(workflow).toContain('test "$GITHUB_REF" = "refs/heads/main"');
+    expect(workflow).toContain("if: startsWith(github.ref, 'refs/tags/v')");
+    expect(workflow).toContain('test "$GITHUB_REF_NAME" = "v${version}"');
     expect(workflow).toContain('test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"');
+    expect(workflow).toContain('tag_name: ${{ github.ref_name }}');
+    expect(workflow).toContain('name: ClawMaster ${{ github.ref_name }}');
+    expect(workflow).not.toContain('inputs.publish_release');
+    expect(workflow).not.toContain('prerelease: true');
   });
 });

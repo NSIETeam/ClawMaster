@@ -12,8 +12,8 @@ export const TAURI_PACKAGING_MODES = Object.freeze({
 });
 
 export const PACKAGE_SIZE_LIMITS = Object.freeze({
-  nsis: Object.freeze({ targetBytes: 10 * MIB, hardLimitBytes: 20 * MIB }),
-  dmg: Object.freeze({ targetBytes: 10 * MIB, hardLimitBytes: 20 * MIB }),
+  nsis: Object.freeze({ targetBytes: 10 * MIB, hardLimitBytes: 15 * MIB }),
+  dmg: Object.freeze({ targetBytes: 10 * MIB, hardLimitBytes: 15 * MIB }),
   deb: Object.freeze({ targetBytes: 10 * MIB, hardLimitBytes: 20 * MIB }),
   appimage: Object.freeze({ targetBytes: 20 * MIB, hardLimitBytes: 60 * MIB }),
 });

@@ -620,7 +620,7 @@ export function validateServerIntegrationBaseline({
   }
 
   const tracksCurrentReleaseBranches = workflow.includes(
-    "branches: [main, 'codex/windows-*']",
+    "branches: [main, 'codex/windows-*', 'codex/0.0.2-release']",
   );
   const restrictsVersionTags = workflow.includes("- 'v*.*.*'");
   if (!(tracksCurrentReleaseBranches && restrictsVersionTags)) {

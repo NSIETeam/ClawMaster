@@ -15,7 +15,7 @@ describe('native-local release contract', () => {
     const root = await readJson(path.join(repoRoot, 'package.json'));
     const desktop = await readJson(path.join(desktopRoot, 'package.json'));
     const tauri = await readJson(path.join(desktopRoot, 'src-tauri/tauri.conf.json'));
-    expect(root.version).toBe('0.0.2-beta.1');
+    expect(root.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u);
     expect(desktop.version).toBe(root.version);
     expect(tauri.version).toBe(root.version);
   });
