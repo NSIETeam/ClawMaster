@@ -98,6 +98,7 @@ import {
 } from './feishu/vendor/credentials.js';
 import { createCoreConfig, resolveDefaultCwd } from './coreConfig.js';
 import { createCoreSessionRuntime } from './runtime.js';
+import { runtimeToolExclusionsForEdition } from './sessionRuntimePolicy.js';
 import { executeSlashCommand, listSlashCommands } from './commands/index.js';
 import {
   deleteCustomModel,
@@ -311,6 +312,9 @@ const defaultRuntimeFactory: RuntimeFactory = async (
         : nativeCapabilities;
     }
   }
+  const editionToolExclusions = runtimeToolExclusionsForEdition(
+    summary?.productEdition,
+  );
   const config = createCoreConfig({
     sessionId,
     // 内部测试阶段一律 BYOK。旧企业会话可能持有 otto:*，交给 coreConfig
@@ -327,18 +331,8 @@ const defaultRuntimeFactory: RuntimeFactory = async (
     disableMcpDiscovery: profile?.toolFree === true,
     disableEnvironmentContext: profile?.toolFree === true,
     disableTools: profile?.toolFree === true,
-    ...(summary?.productEdition !== 'enterprise'
-      ? {
-          excludeTools: [
-            'multi_channel',
-            'memory_manager',
-            'feishu_project_collab',
-            'delegate_to_agent',
-            'check_delegate_status',
-            'task',
-            'workflow',
-          ],
-        }
+    ...(editionToolExclusions.length > 0
+      ? { excludeTools: editionToolExclusions }
       : {}),
   });
   return createCoreSessionRuntime(store, sessionId, config, {
