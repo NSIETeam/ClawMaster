@@ -185,6 +185,32 @@ describe('输入区工具布局与弹层', () => {
   });
 });
 
+describe('飞书斜杠命令', () => {
+  it('只保留打开 Rust 原生接入面板的命令，不再暴露旧网关启停动作', () => {
+    const onOpenFeishu = vi.fn();
+    render(
+      <Composer
+        models={[]}
+        currentModel={null}
+        sessionId="s1"
+        onSend={vi.fn()}
+        onSetModel={vi.fn()}
+        onOpenFeishu={onOpenFeishu}
+      />,
+    );
+    const textarea = document.querySelector('.claw-composer__textarea') as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: '/feishu-' } });
+    expect(screen.getByText('查看飞书连接状态')).toBeTruthy();
+    expect(screen.queryByText('启动飞书网关（立即执行）')).toBeNull();
+    expect(screen.queryByText('停止飞书网关（立即执行）')).toBeNull();
+
+    fireEvent.change(textarea, { target: { value: '/feishu-status' } });
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
+    expect(onOpenFeishu).toHaveBeenCalledOnce();
+  });
+});
+
 describe('专家提示词草稿', () => {
   it('填入后不自动发送，用户可修改再发送', () => {
     const onSend = vi.fn();
