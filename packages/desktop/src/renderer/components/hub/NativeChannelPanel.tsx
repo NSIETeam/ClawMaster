@@ -53,9 +53,26 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
         ...(provider === 'wecom' ? { connectionMode: wecomMode } : {}),
       });
       setConfig(next); setAppSecret('');
+      if (provider === 'feishu' || provider === 'lark' || provider === 'dingtalk'
+        || (provider === 'wecom' && wecomMode === 'bot')) {
+        setStatus({ provider, state: 'connecting' });
+      }
       setMessage(provider === 'feishu' || provider === 'lark' || provider === 'dingtalk' || (provider === 'wecom' && wecomMode === 'bot')
         ? '官方鉴权与长连接端点验证通过，Rust 正在建立消息流。'
         : '官方鉴权通过，凭据已保存到系统钥匙串。入站消息流尚未启用。');
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  };
+
+  const setConnection = async (connected: boolean): Promise<void> => {
+    if (!window.clawmaster.nativeChannelConnectionSet || busy) return;
+    setBusy(true); setMessage('');
+    try {
+      const next = await window.clawmaster.nativeChannelConnectionSet(provider, connected);
+      setStatus(next);
+      setMessage(connected
+        ? `正在重新建立${label}长连接，将继续使用系统钥匙串中的凭据。`
+        : `${label}长连接已停止，凭据仍保留，可随时一键重连。`);
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   };
@@ -67,6 +84,7 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
       await window.clawmaster.nativeChannelConfigClear(provider);
       setConfig(null); setAppId(''); setAppSecret(''); setAgentId('');
       setWecomMode('bot');
+      setStatus({ provider, state: 'idle' });
       setMessage('凭据已从系统钥匙串清除。');
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
@@ -101,6 +119,15 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
         {status?.lastEventAt ? `；最近事件：${new Date(status.lastEventAt).toLocaleString('zh-CN')}` : ''}
         {status?.state === 'connected' && status.lastError ? `；最近处理错误：${status.lastError}` : ''}
       </p> : null}
+      {config && hasLongConnection ? <div className="claw-hub__feishu-actions">
+        {status?.state === 'connected' ? (
+          <button type="button" className="claw-hub__btn" disabled={busy} onClick={() => void setConnection(false)}>停止连接</button>
+        ) : (
+          <button type="button" className="claw-hub__btn claw-hub__btn--primary" disabled={busy || status?.state === 'connecting'} onClick={() => void setConnection(true)}>
+            {status?.state === 'connecting' ? '连接中…' : status?.state === 'failed' ? '一键重连' : '一键连接'}
+          </button>
+        )}
+      </div> : null}
     </Card>
     <Card><div className="claw-hub__setting claw-hub__setting--stack">
       {provider === 'wecom' ? <select className="claw-hub__input" aria-label="企业微信连接模式" value={wecomMode} onChange={(event) => {

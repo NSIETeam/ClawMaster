@@ -1379,6 +1379,10 @@ type MenuHandler = (action: string) => void;
 export interface ClawMasterBridge {
   nativeChannelConfigGet?(provider: NativeChannelProvider): Promise<NativeChannelConfig | null>;
   nativeChannelStatusGet?(provider: NativeChannelProvider): Promise<NativeChannelStatus>;
+  nativeChannelConnectionSet?(
+    provider: NativeChannelProvider,
+    connected: boolean,
+  ): Promise<NativeChannelStatus>;
   nativeChannelConfigSave?(input: {
     provider: NativeChannelProvider;
     appId: string;

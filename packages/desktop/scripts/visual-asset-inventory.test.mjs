@@ -16,12 +16,4 @@ describe('desktop visual asset inventory', () => {
       ['right-rail', 'module-launcher', 'expert-card'].includes(asset.context)
         && !asset.themeAware)).toEqual([]);
   });
-
-  it('classifies the pairing QR as functional data rather than a decorative icon', async () => {
-    const inventory = await buildVisualAssetInventory();
-    expect(inventory.assets).toContainEqual(expect.objectContaining({
-      file: 'src/renderer/components/hub/ChannelPairingCard.tsx',
-      classification: 'functional-qr',
-    }));
-  });
 });

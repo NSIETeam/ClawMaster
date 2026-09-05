@@ -210,6 +210,22 @@ fn configured_wecom_mode(config: &ChannelConfig) -> &str {
         })
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ConnectorKind {
+    Feishu,
+    DingTalk,
+    WeComBot,
+}
+
+fn connector_kind(config: &ChannelConfig) -> Option<ConnectorKind> {
+    match config.provider.as_str() {
+        "feishu" | "lark" => Some(ConnectorKind::Feishu),
+        "dingtalk" => Some(ConnectorKind::DingTalk),
+        "wecom" if configured_wecom_mode(config) == "bot" => Some(ConnectorKind::WeComBot),
+        _ => None,
+    }
+}
+
 fn validate_connection_mode(
     provider: &str,
     requested: Option<&str>,
@@ -1588,6 +1604,22 @@ impl NativeChannelState {
         Ok(())
     }
 
+    fn start_connector(
+        &self,
+        config: ChannelConfig,
+        app_secret: String,
+        app: AppHandle,
+    ) -> Result<(), String> {
+        match connector_kind(&config) {
+            Some(ConnectorKind::Feishu) => self.start_feishu_connector(config, app_secret, app),
+            Some(ConnectorKind::DingTalk) => self.start_dingtalk_connector(config, app_secret, app),
+            Some(ConnectorKind::WeComBot) => {
+                self.start_wecom_bot_connector(config, app_secret, app)
+            }
+            None => Err("当前连接模式不提供入站长连接".into()),
+        }
+    }
+
     pub fn start_configured(&self, app: AppHandle) {
         let configs = self
             .configs
@@ -1595,20 +1627,13 @@ impl NativeChannelState {
             .map(|values| values.values().cloned().collect::<Vec<_>>())
             .unwrap_or_default();
         for config in configs {
-            let is_wecom_bot =
-                config.provider == "wecom" && configured_wecom_mode(&config) == "bot";
-            if !matches!(config.provider.as_str(), "feishu" | "lark" | "dingtalk") && !is_wecom_bot
-            {
+            if connector_kind(&config).is_none() {
                 continue;
             }
             let provider = config.provider.clone();
             match self.credentials.get(&secret_id(&provider)) {
                 Ok(secret) => {
-                    let result = match config.provider.as_str() {
-                        "dingtalk" => self.start_dingtalk_connector(config, secret, app.clone()),
-                        "wecom" => self.start_wecom_bot_connector(config, secret, app.clone()),
-                        _ => self.start_feishu_connector(config, secret, app.clone()),
-                    };
+                    let result = self.start_connector(config, secret, app.clone());
                     if let Err(error) = result {
                         let mut status = ChannelStatus::new(&provider, "failed");
                         status.last_error = Some(error);
@@ -1675,6 +1700,36 @@ pub fn channel_status_get(
         .get(provider)
         .cloned()
         .unwrap_or_else(|| ChannelStatus::new(provider, "idle")))
+}
+
+#[tauri::command]
+pub fn channel_connection_set(
+    provider: String,
+    connected: bool,
+    app: AppHandle,
+    state: tauri::State<'_, NativeChannelState>,
+) -> Result<ChannelStatus, String> {
+    let provider = validate_provider(&provider)?.to_string();
+    if connected {
+        let config = state
+            .configs
+            .lock()
+            .map_err(|_| "企业消息配置锁不可用".to_string())?
+            .get(&provider)
+            .cloned()
+            .ok_or_else(|| "请先保存并验证平台凭据".to_string())?;
+        let secret = state.credentials.get(&secret_id(&provider))?;
+        state.start_connector(config, secret, app)?;
+    } else {
+        state.stop_connector(&provider, &app)?;
+    }
+    Ok(state
+        .statuses
+        .lock()
+        .map_err(|_| "企业消息状态锁不可用".to_string())?
+        .get(&provider)
+        .cloned()
+        .unwrap_or_else(|| ChannelStatus::new(&provider, "idle")))
 }
 
 #[tauri::command]
@@ -1837,6 +1892,41 @@ pub fn channel_config_clear(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn channel_config(provider: &str, connection_mode: Option<&str>) -> ChannelConfig {
+        ChannelConfig {
+            provider: provider.into(),
+            app_id: "app-id".into(),
+            bot_open_id: None,
+            agent_id: (connection_mode == Some("agent")).then(|| "1001".into()),
+            connection_mode: connection_mode.map(str::to_string),
+            verified_at: "2026-09-05T00:00:00Z".into(),
+        }
+    }
+
+    #[test]
+    fn selects_only_real_native_long_connection_modes() {
+        assert_eq!(
+            connector_kind(&channel_config("feishu", None)),
+            Some(ConnectorKind::Feishu)
+        );
+        assert_eq!(
+            connector_kind(&channel_config("lark", None)),
+            Some(ConnectorKind::Feishu)
+        );
+        assert_eq!(
+            connector_kind(&channel_config("dingtalk", None)),
+            Some(ConnectorKind::DingTalk)
+        );
+        assert_eq!(
+            connector_kind(&channel_config("wecom", Some("bot"))),
+            Some(ConnectorKind::WeComBot)
+        );
+        assert_eq!(
+            connector_kind(&channel_config("wecom", Some("agent"))),
+            None
+        );
+    }
 
     fn message_event(chat_type: &str, sender_type: &str, mentions: Value) -> ChannelEvent {
         lark_channel::parse_lark_event_payload(

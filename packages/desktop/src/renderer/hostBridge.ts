@@ -221,6 +221,8 @@ export function createTauriHostBridge(
       invoke<NativeChannelConfig | null>('channel_config_get', { provider })) as never,
     nativeChannelStatusGet: ((provider: NativeChannelProvider) =>
       invoke<NativeChannelStatus>('channel_status_get', { provider })) as never,
+    nativeChannelConnectionSet: ((provider: NativeChannelProvider, connected: boolean) =>
+      invoke<NativeChannelStatus>('channel_connection_set', { provider, connected })) as never,
     nativeChannelConfigSave: ((input: {
       provider: NativeChannelProvider; appId: string; appSecret: string; agentId?: string;
       connectionMode?: 'bot' | 'agent';
@@ -463,36 +465,6 @@ export function createTauriHostBridge(
         generatedAt: new Date().toISOString(),
       };
     }) as never,
-    channelPairingBegin: (() => Promise.resolve({
-      ok: false,
-      pairing: null,
-      error: 'channel_connector_unavailable: 当前 Rust 本地版尚未部署扫码连接服务',
-    })) as never,
-    channelPairingStatus: (() => Promise.resolve({
-      ok: false,
-      data: null,
-      error: '当前没有进行中的扫码连接。',
-    })) as never,
-    channelPairingInstall: (() => Promise.resolve({
-      ok: false,
-      data: null,
-      error: '当前没有可安装的消息连接。',
-    })) as never,
-    channelPairingCancel: (() => Promise.resolve({
-      ok: false,
-      data: null,
-      error: '当前没有进行中的扫码连接。',
-    })) as never,
-    channelInstallations: (() => Promise.resolve({
-      ok: true,
-      data: [],
-      error: null,
-    })) as never,
-    channelInstallationAction: (() => Promise.resolve({
-      ok: false,
-      data: null,
-      error: '当前 Rust 本地版尚未配置企业消息连接器。',
-    })) as never,
     onEnterpriseRegistrationIntent: noopSubscription as never,
     onEnterpriseSessionInvalidated: noopSubscription as never,
     onEnterpriseAccountUpdated: noopSubscription as never,

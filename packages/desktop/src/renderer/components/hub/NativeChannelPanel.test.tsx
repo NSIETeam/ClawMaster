@@ -2,6 +2,7 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { NativeChannelStatus } from '../../../preload/index.js';
 import { NativeChannelPanel } from './NativeChannelPanel.js';
 
 describe('NativeChannelPanel', () => {
@@ -11,21 +12,27 @@ describe('NativeChannelPanel', () => {
     verifiedAt: '2026-09-05T00:00:00Z',
   };
   const configGet = vi.fn(async () => config);
-  const statusGet = vi.fn(async () => ({
+  const statusGet = vi.fn(async (): Promise<NativeChannelStatus> => ({
     provider: 'dingtalk' as const,
     state: 'connected',
     lastEventAt: '2026-09-05T00:01:00Z',
   }));
   const configSave = vi.fn(async () => config);
+  const connectionSet = vi.fn(async (_provider: string, connected: boolean) => ({
+    provider: 'dingtalk' as const,
+    state: connected ? 'connecting' as const : 'idle' as const,
+  }));
 
   beforeEach(() => {
     configGet.mockClear();
     statusGet.mockClear();
     configSave.mockClear();
+    connectionSet.mockClear();
     (window as unknown as { clawmaster: Record<string, unknown> }).clawmaster = {
       nativeChannelConfigGet: configGet,
       nativeChannelStatusGet: statusGet,
       nativeChannelConfigSave: configSave,
+      nativeChannelConnectionSet: connectionSet,
     };
   });
 
@@ -33,6 +40,10 @@ describe('NativeChannelPanel', () => {
     render(<NativeChannelPanel provider="dingtalk" />);
 
     expect(await screen.findByText(/长连接：已连接/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '停止连接' }));
+    await waitFor(() => expect(connectionSet).toHaveBeenCalledWith('dingtalk', false));
+    expect(screen.getByRole('status').textContent).toContain('凭据仍保留');
+
     fireEvent.change(screen.getByLabelText('钉钉 App Secret'), {
       target: { value: 'secret-value' },
     });
@@ -44,6 +55,20 @@ describe('NativeChannelPanel', () => {
       appSecret: 'secret-value',
     }));
     expect(screen.getByRole('status').textContent).toContain('Rust 正在建立消息流');
+  });
+
+  it('reconnects from the keychain without asking for the secret again', async () => {
+    statusGet.mockImplementation(async () => ({
+      provider: 'dingtalk' as const,
+      state: 'failed' as const,
+      lastError: 'temporary disconnect',
+    }));
+    render(<NativeChannelPanel provider="dingtalk" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '一键重连' }));
+
+    await waitFor(() => expect(connectionSet).toHaveBeenCalledWith('dingtalk', true));
+    expect(screen.getByRole('status').textContent).toContain('正在重新建立钉钉长连接');
   });
 
   it('defaults WeCom to the recommended bot websocket mode', async () => {

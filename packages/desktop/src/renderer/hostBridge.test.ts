@@ -95,6 +95,9 @@ describe('Tauri host bridge', () => {
     await expect(bridge.nativeChannelStatusGet?.('feishu')).resolves.toEqual({
       command: 'channel_status_get', args: { provider: 'feishu' },
     });
+    await expect(bridge.nativeChannelConnectionSet?.('feishu', true)).resolves.toEqual({
+      command: 'channel_connection_set', args: { provider: 'feishu', connected: true },
+    });
     await expect(bridge.nativeChannelConfigSave?.({
       provider: 'wecom', appId: 'corp', appSecret: 'secret', agentId: '1001',
     })).resolves.toEqual({
@@ -162,7 +165,7 @@ describe('Tauri host bridge', () => {
     expect(bridge.onMenu(vi.fn())).toEqual(expect.any(Function));
   });
 
-  it('provides honest empty snapshots for local-only settings pages', async () => {
+  it('provides honest local snapshots for migrated enterprise settings', async () => {
     const bridge = createTauriHostBridge(vi.fn() as unknown as TauriInvoke);
 
     await expect(bridge.enterpriseUsageProfile(7)).resolves.toMatchObject({
@@ -184,15 +187,6 @@ describe('Tauri host bridge', () => {
       accountId: 'tauri-local-user',
       headSequence: 0,
       entries: [],
-    });
-    await expect(bridge.channelInstallations()).resolves.toEqual({
-      ok: true,
-      data: [],
-      error: null,
-    });
-    await expect(bridge.channelPairingBegin('feishu')).resolves.toMatchObject({
-      ok: false,
-      error: expect.stringContaining('channel_connector_unavailable'),
     });
   });
 

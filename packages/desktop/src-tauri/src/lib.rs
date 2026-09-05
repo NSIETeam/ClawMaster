@@ -306,6 +306,7 @@ pub fn run() {
             notification_show,
             native_channels::channel_config_get,
             native_channels::channel_status_get,
+            native_channels::channel_connection_set,
             native_channels::channel_config_save,
             native_channels::channel_config_clear,
             native_channels::channel_send_test,

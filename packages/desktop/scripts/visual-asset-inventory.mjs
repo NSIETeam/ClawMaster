@@ -15,21 +15,16 @@ const SURFACES = [
   { file: 'src/renderer/components/ModuleMarketplaceDialog.tsx', context: 'module-launcher' },
   { file: 'src/renderer/components/WorkspaceDialogs.tsx', context: 'expert-card' },
   { file: 'src/renderer/components/CustomAgentIconPicker.tsx', context: 'icon-editor' },
-  { file: 'src/renderer/components/hub/ChannelPairingCard.tsx', context: 'connection-card' },
 ];
 
-const FUNCTIONAL_INLINE_SVG = new Map([
-  ['src/renderer/components/hub/ChannelPairingCard.tsx', 'functional-qr'],
-]);
-
-function classify(component, file) {
+function classify(component) {
   if (component === 'QrCode') return 'functional-qr';
   if (component === 'ModuleIcon' || /^Icon[A-Z]/u.test(component)) {
     return 'registered-semantic-svg';
   }
   if (component === 'GeneratedIcon') return 'generated-raster';
   if (component === 'img') return 'raster-image';
-  if (component === 'svg') return FUNCTIONAL_INLINE_SVG.get(file) ?? 'inline-unregistered-svg';
+  if (component === 'svg') return 'inline-unregistered-svg';
   return 'unclassified';
 }
 
@@ -46,7 +41,7 @@ export async function buildVisualAssetInventory() {
           line: index + 1,
           context: surface.context,
           component,
-          classification: classify(component, surface.file),
+          classification: classify(component),
           themeAware: component !== 'GeneratedIcon' && component !== 'img',
         });
       }
