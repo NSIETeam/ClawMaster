@@ -16,9 +16,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-active-win-pos-rs = "0.11.0"
 getrandom = "0.2"
-enigo = "0.2.1"
 lopdf = { version = "0.34", default-features = false, features = ["nom_parser"] }
 keyring = { version = "3.6.3", default-features = false, features = ["apple-native", "windows-native"] }
 lark-channel = { version = "=0.6.0", default-features = false, features = ["websocket"] }
@@ -44,6 +42,7 @@ tauri-plugin-single-instance = "2"
 tokio = { version = "1", features = ["io-util", "macros", "net", "process", "sync", "time"] }
 tokio-tungstenite = { version = "0.26.2", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
 time = { version = "0.3", features = ["formatting"] }
+xa11y = "=0.13.0"
 
 [dev-dependencies]
 tempfile = "3"

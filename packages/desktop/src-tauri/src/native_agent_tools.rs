@@ -108,7 +108,7 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
         },
         ModelToolDefinition {
             name: "desktop_snapshot".into(),
-            description: "Read the active desktop window title, app, bounds, main display size, and cursor position through native Rust APIs. Prefer this compact text snapshot before requesting visual screenshots. Requires user confirmation because window titles may be sensitive.".into(),
+            description: "Read a bounded semantic accessibility tree for the foreground desktop app through Windows UI Automation or macOS AX, including element roles, labels, actions and click coordinates. Prefer this compact text snapshot before visual screenshots. Requires user confirmation because desktop text may be sensitive.".into(),
             parameters: json!({"type":"object","properties":{},"additionalProperties":false}),
         },
         ModelToolDefinition {
@@ -575,7 +575,20 @@ pub fn execute(call: &ModelToolCall, workspace: &Path) -> Result<Value, String> 
                     action.into(),
                     required_string(&call.arguments, "hotkey")?.to_string(),
                 ],
-                "scroll" => vec![action.into(), integer("amount")?],
+                "scroll" => vec![
+                    action.into(),
+                    integer("amount")?,
+                    call.arguments
+                        .get("x")
+                        .and_then(Value::as_i64)
+                        .map(|value| value.to_string())
+                        .unwrap_or_default(),
+                    call.arguments
+                        .get("y")
+                        .and_then(Value::as_i64)
+                        .map(|value| value.to_string())
+                        .unwrap_or_default(),
+                ],
                 "click" => vec![
                     action.into(),
                     integer("x")?,
@@ -601,7 +614,7 @@ pub fn execute(call: &ModelToolCall, workspace: &Path) -> Result<Value, String> 
                 _ => return Err("不支持的桌面自动化动作".into()),
             };
             native_tools::input_tool(&args)?;
-            Ok(json!({"action":action,"completed":true,"provider":"rust:enigo"}))
+            Ok(json!({"action":action,"completed":true,"provider":"rust:xa11y-input"}))
         }
         "desktop_snapshot" => native_tools::desktop_snapshot(),
         "check_dependencies" => {

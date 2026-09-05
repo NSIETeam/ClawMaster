@@ -1,9 +1,12 @@
-use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
 use lopdf::{Dictionary, Document, Object, ObjectId};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
+use xa11y::{
+    App, AppExt, ClickOptions, ClickTarget, Element, Key, MouseButton, Point, Role, ScrollDelta,
+};
 use zip::write::SimpleFileOptions;
 
 #[derive(Serialize)]
@@ -25,21 +28,21 @@ pub fn capability_manifest() -> serde_json::Value {
         "capabilities": [
             NativeCapability {
                 id: "desktop.input",
-                provider: "rust:enigo",
+                provider: "rust:xa11y-input",
                 status: "ready",
-                description: "原生键盘、鼠标、拖拽和滚动，无需 cliclick",
+                description: "通过 macOS CGEvent 或 Windows SendInput 执行真实键盘、鼠标、拖拽和滚动",
                 tool: "desktop_automation",
                 usage: "action=type|hotkey|click|drag|scroll",
-                replaces: &["cliclick"],
+                replaces: &["cliclick", "enigo"],
             },
             NativeCapability {
                 id: "desktop.snapshot",
-                provider: "rust:active-window+enigo",
+                provider: "rust:xa11y",
                 status: "ready",
-                description: "原生读取前台窗口、边界、主屏尺寸和鼠标位置，优先用文本定位而不是截图猜测",
+                description: "通过 Windows UIA 或 macOS AX 读取有界语义控件树、边界和动作，优先文本定位而不是截图猜测",
                 tool: "desktop_snapshot",
-                usage: "读取后根据 activeWindow.bounds 规划 desktop_automation 坐标",
-                replaces: &["全屏截图识别（窗口定位场景）"],
+                usage: "读取 elements 的 role/name/bounds 后规划 desktop_automation 坐标",
+                replaces: &["全屏截图识别（可访问控件定位场景）"],
             },
             NativeCapability {
                 id: "pdf.merge",
@@ -110,37 +113,131 @@ fn bounded_label(value: &str, max_chars: usize) -> String {
         .collect()
 }
 
+const MAX_DESKTOP_ELEMENTS: usize = 200;
+const MAX_DESKTOP_DEPTH: usize = 8;
+
+#[derive(Default)]
+struct DesktopTreeState {
+    elements: Vec<serde_json::Value>,
+    truncated: bool,
+    unreadable_subtrees: usize,
+}
+
+fn exposes_text_value(role: Role, editable: bool) -> bool {
+    !editable && !matches!(role, Role::TextField | Role::TextArea)
+}
+
+fn meaningful_element(element: &Element) -> bool {
+    let has_semantics = element.name.as_ref().is_some_and(|value| !value.is_empty())
+        || !element.actions.is_empty()
+        || element.states.focusable
+        || element.states.editable;
+    match element.role {
+        Role::Unknown => false,
+        Role::Application | Role::Group => has_semantics,
+        _ => true,
+    }
+}
+
+fn collect_desktop_elements(
+    element: &Element,
+    depth: usize,
+    parent_ref: Option<&str>,
+    state: &mut DesktopTreeState,
+) {
+    if state.elements.len() >= MAX_DESKTOP_ELEMENTS {
+        state.truncated = true;
+        return;
+    }
+
+    let mut next_parent = parent_ref.map(str::to_owned);
+    if meaningful_element(element) {
+        let element_ref = format!("@e{}", state.elements.len() + 1);
+        let editable = element.states.editable;
+        let value = exposes_text_value(element.role, editable)
+            .then(|| {
+                element
+                    .value
+                    .as_deref()
+                    .map(|value| bounded_label(value, 500))
+            })
+            .flatten();
+        let bounds = element.bounds.map(|bounds| {
+            serde_json::json!({
+                "x": bounds.x,
+                "y": bounds.y,
+                "width": bounds.width,
+                "height": bounds.height,
+                "centerX": i64::from(bounds.x) + i64::from(bounds.width) / 2,
+                "centerY": i64::from(bounds.y) + i64::from(bounds.height) / 2
+            })
+        });
+        state.elements.push(serde_json::json!({
+            "ref": element_ref,
+            "parentRef": parent_ref,
+            "depth": depth,
+            "role": element.role.to_snake_case(),
+            "name": element.name.as_deref().map(|value| bounded_label(value, 300)),
+            "value": value,
+            "valueRedacted": !exposes_text_value(element.role, editable) && element.value.is_some(),
+            "description": element.description.as_deref().map(|value| bounded_label(value, 300)),
+            "stableId": element.stable_id.as_deref().map(|value| bounded_label(value, 200)),
+            "bounds": bounds,
+            "actions": element.actions.iter().take(16).map(|value| bounded_label(value, 80)).collect::<Vec<_>>(),
+            "states": {
+                "enabled": element.states.enabled,
+                "visible": element.states.visible,
+                "focused": element.states.focused,
+                "active": element.states.active,
+                "selected": element.states.selected,
+                "editable": editable,
+                "focusable": element.states.focusable
+            }
+        }));
+        next_parent = Some(element_ref);
+    }
+
+    if depth >= MAX_DESKTOP_DEPTH {
+        state.truncated = true;
+        return;
+    }
+    match element.children() {
+        Ok(children) => {
+            for child in children {
+                collect_desktop_elements(&child, depth + 1, next_parent.as_deref(), state);
+                if state.elements.len() >= MAX_DESKTOP_ELEMENTS {
+                    state.truncated = true;
+                    break;
+                }
+            }
+        }
+        Err(_) => state.unreadable_subtrees += 1,
+    }
+}
+
 pub(crate) fn desktop_snapshot() -> Result<serde_json::Value, String> {
-    let enigo = Enigo::new(&Settings::default())
-        .map_err(|error| format!("initialize desktop snapshot: {error}"))?;
-    let (display_width, display_height) = enigo
-        .main_display()
-        .map_err(|error| format!("read main display: {error}"))?;
-    let (cursor_x, cursor_y) = enigo
-        .location()
-        .map_err(|error| format!("read cursor location: {error}"))?;
-    let active_window = active_win_pos_rs::get_active_window()
-        .map_err(|_| "read active window metadata failed".to_string())?;
+    let app = App::foreground(Duration::ZERO)
+        .map_err(|error| format!("read foreground accessibility tree: {error}"))?;
+    let root = app.as_element();
+    let mut tree = DesktopTreeState::default();
+    collect_desktop_elements(&root, 0, None, &mut tree);
 
     Ok(serde_json::json!({
-        "provider": "rust:active-window+enigo",
-        "coordinateSpace": "enigo-absolute",
-        "mainDisplay": {"width": display_width, "height": display_height},
-        "cursor": {"x": cursor_x, "y": cursor_y},
+        "provider": "rust:xa11y",
+        "coordinateSpace": "logical-desktop-top-left",
         "activeWindow": {
-            "id": bounded_label(&active_window.window_id, 128),
-            "app": bounded_label(&active_window.app_name, 200),
-            "title": bounded_label(&active_window.title, 500),
-            "processId": active_window.process_id,
-            "bounds": {
-                "x": active_window.position.x,
-                "y": active_window.position.y,
-                "width": active_window.position.width,
-                "height": active_window.position.height
-            }
+            "app": bounded_label(&app.name, 200),
+            "title": app.data.name.as_deref().map(|value| bounded_label(value, 500)),
+            "processId": app.pid,
+            "bounds": app.data.bounds
         },
+        "elements": tree.elements,
+        "truncated": tree.truncated,
+        "unreadableSubtrees": tree.unreadable_subtrees,
+        "limits": {"maxElements": MAX_DESKTOP_ELEMENTS, "maxDepth": MAX_DESKTOP_DEPTH},
+        "referenceScope": "this-snapshot-only",
         "visionRequired": false,
-        "hint": "Use activeWindow.bounds as the native coordinate reference for confirmed physical mouse actions. Request vision only when text metadata cannot identify the target."
+        "hint": "Use element bounds centers as the native coordinate reference for confirmed physical mouse actions. Re-snapshot after the UI changes. Request vision only when the accessibility tree cannot identify the target."
     }))
 }
 
@@ -149,57 +246,62 @@ pub(crate) fn input_tool(args: &[String]) -> Result<(), String> {
         .first()
         .map(String::as_str)
         .ok_or("native input action is required")?;
-    let mut enigo = Enigo::new(&Settings::default())
-        .map_err(|error| format!("initialize native input: {error}"))?;
+    let input = xa11y::input_sim().map_err(|error| format!("initialize native input: {error}"))?;
     match action {
-        "type" => enigo
-            .text(args.get(1).ok_or("native input text is required")?)
+        "type" => input
+            .keyboard()
+            .type_text(args.get(1).ok_or("native input text is required")?)
             .map_err(|error| error.to_string()),
         "click" => {
             let x = parse_i32(args.get(1), "x")?;
             let y = parse_i32(args.get(2), "y")?;
             let button = match args.get(3).map(String::as_str).unwrap_or("left") {
-                "right" => Button::Right,
-                "middle" => Button::Middle,
-                _ => Button::Left,
+                "right" => MouseButton::Right,
+                "middle" => MouseButton::Middle,
+                _ => MouseButton::Left,
             };
             let count = if args.get(4).map(String::as_str) == Some("double") {
                 2
             } else {
                 1
             };
-            enigo
-                .move_mouse(x, y, Coordinate::Abs)
-                .map_err(|error| error.to_string())?;
-            for _ in 0..count {
-                enigo
-                    .button(button, Direction::Click)
-                    .map_err(|error| error.to_string())?;
-            }
-            Ok(())
+            input
+                .mouse()
+                .click_with(
+                    ClickTarget::Point(Point::new(x, y)),
+                    ClickOptions {
+                        button,
+                        count,
+                        ..ClickOptions::default()
+                    },
+                )
+                .map_err(|error| error.to_string())
         }
         "drag" => {
             let x = parse_i32(args.get(1), "x")?;
             let y = parse_i32(args.get(2), "y")?;
             let to_x = parse_i32(args.get(3), "to_x")?;
             let to_y = parse_i32(args.get(4), "to_y")?;
-            enigo
-                .move_mouse(x, y, Coordinate::Abs)
-                .map_err(|error| error.to_string())?;
-            enigo
-                .button(Button::Left, Direction::Press)
-                .map_err(|error| error.to_string())?;
-            enigo
-                .move_mouse(to_x, to_y, Coordinate::Abs)
-                .map_err(|error| error.to_string())?;
-            enigo
-                .button(Button::Left, Direction::Release)
+            input
+                .mouse()
+                .drag(Point::new(x, y), Point::new(to_x, to_y))
                 .map_err(|error| error.to_string())
         }
-        "scroll" => enigo
-            .scroll(parse_i32(args.get(1), "amount")?, Axis::Vertical)
-            .map_err(|error| error.to_string()),
-        "hotkey" => hotkey(&mut enigo, args.get(1).ok_or("hotkey is required")?),
+        "scroll" => {
+            let amount = parse_i32(args.get(1), "amount")?;
+            let point = scroll_point(args.get(2), args.get(3))?;
+            input
+                .mouse()
+                .scroll(point, ScrollDelta::vertical(amount))
+                .map_err(|error| error.to_string())
+        }
+        "hotkey" => {
+            let (key, modifiers) = parse_hotkey(args.get(1).ok_or("hotkey is required")?)?;
+            input
+                .keyboard()
+                .chord(key, &modifiers)
+                .map_err(|error| error.to_string())
+        }
         _ => Err(format!("unsupported native input action: {action}")),
     }
 }
@@ -211,7 +313,7 @@ fn parse_i32(value: Option<&String>, label: &str) -> Result<i32, String> {
         .map_err(|_| format!("{label} must be an integer"))
 }
 
-fn hotkey(enigo: &mut Enigo, value: &str) -> Result<(), String> {
+fn parse_hotkey(value: &str) -> Result<(Key, Vec<Key>), String> {
     let mut parts = value
         .split('+')
         .map(str::trim)
@@ -222,34 +324,46 @@ fn hotkey(enigo: &mut Enigo, value: &str) -> Result<(), String> {
         .iter()
         .map(|part| match part.to_ascii_lowercase().as_str() {
             "cmd" | "command" | "meta" | "win" => Ok(Key::Meta),
-            "ctrl" | "control" => Ok(Key::Control),
+            "ctrl" | "control" => Ok(Key::Ctrl),
             "alt" | "option" => Ok(Key::Alt),
             "shift" => Ok(Key::Shift),
             other => Err(format!("unsupported hotkey modifier: {other}")),
         })
         .collect::<Result<Vec<_>, _>>()?;
     let key = match key.to_ascii_lowercase().as_str() {
-        "enter" | "return" => Key::Return,
+        "enter" | "return" => Key::Enter,
         "tab" => Key::Tab,
         "escape" | "esc" => Key::Escape,
         "space" => Key::Space,
-        value if value.chars().count() == 1 => Key::Unicode(value.chars().next().unwrap()),
+        value if value.chars().count() == 1 => Key::Char(value.chars().next().unwrap()),
         other => return Err(format!("unsupported hotkey key: {other}")),
     };
-    for modifier in &modifiers {
-        enigo
-            .key(*modifier, Direction::Press)
-            .map_err(|error| error.to_string())?;
+    Ok((key, modifiers))
+}
+
+fn scroll_point(x: Option<&String>, y: Option<&String>) -> Result<Point, String> {
+    match (
+        x.filter(|value| !value.is_empty()),
+        y.filter(|value| !value.is_empty()),
+    ) {
+        (Some(x), Some(y)) => Ok(Point::new(
+            parse_i32(Some(x), "x")?,
+            parse_i32(Some(y), "y")?,
+        )),
+        (None, None) => {
+            let app = App::foreground(Duration::ZERO)
+                .map_err(|error| format!("read foreground window for scroll: {error}"))?;
+            let bounds = app
+                .data
+                .bounds
+                .ok_or("foreground window has no scroll coordinates")?;
+            Ok(Point::new(
+                bounds.x + bounds.width as i32 / 2,
+                bounds.y + bounds.height as i32 / 2,
+            ))
+        }
+        _ => Err("scroll x and y must be provided together".into()),
     }
-    enigo
-        .key(key, Direction::Click)
-        .map_err(|error| error.to_string())?;
-    for modifier in modifiers.iter().rev() {
-        enigo
-            .key(*modifier, Direction::Release)
-            .map_err(|error| error.to_string())?;
-    }
-    Ok(())
 }
 
 pub(crate) fn merge_pdfs(output: &Path, inputs: &[String]) -> Result<(), String> {
@@ -477,6 +591,11 @@ pub fn dispatch_from_args(args: &[String]) -> Option<Result<(), String>> {
         Some("capabilities") => serde_json::to_string(&capability_manifest())
             .map_err(|error| error.to_string())
             .map(|json| println!("{json}")),
+        Some("desktop-snapshot") => desktop_snapshot()
+            .and_then(|snapshot| {
+                serde_json::to_string(&snapshot).map_err(|error| error.to_string())
+            })
+            .map(|json| println!("{json}")),
         Some("input") => input_tool(&args[2..]),
         Some("pdf-merge") => {
             let output = args
@@ -517,6 +636,17 @@ mod tests {
     #[test]
     fn bounds_desktop_labels_without_control_characters() {
         assert_eq!(bounded_label("Claw\nMaster\0title", 10), "ClawMaster");
+    }
+
+    #[test]
+    fn redacts_editable_values_and_parses_cross_platform_hotkeys() {
+        assert!(!exposes_text_value(Role::TextField, true));
+        assert!(!exposes_text_value(Role::TextArea, false));
+        assert!(exposes_text_value(Role::StaticText, false));
+        let (key, modifiers) = parse_hotkey("Ctrl+Shift+K").unwrap();
+        assert_eq!(key, Key::Char('k'));
+        assert_eq!(modifiers, vec![Key::Ctrl, Key::Shift]);
+        assert!(scroll_point(Some(&"10".into()), None).is_err());
     }
 
     #[test]
