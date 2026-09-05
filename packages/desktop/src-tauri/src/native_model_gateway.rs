@@ -744,4 +744,71 @@ mod tests {
         assert!(validated_proxy_url("socks5://127.0.0.1:7890").is_err());
         assert!(validated_proxy_url("https://user:secret@proxy.example.com").is_err());
     }
+
+    #[tokio::test]
+    #[ignore = "requires explicit opt-in, public provider access, and a system-keyring credential"]
+    async fn completes_real_provider_smoke_from_the_system_keyring() {
+        assert_eq!(
+            std::env::var("CLAWMASTER_REAL_MODEL_SMOKE").as_deref(),
+            Ok("1"),
+            "set CLAWMASTER_REAL_MODEL_SMOKE=1 only when a real provider call is intended"
+        );
+        let config_path = std::env::var_os("CLAWMASTER_REAL_MODEL_SMOKE_CONFIG")
+            .map(PathBuf::from)
+            .expect(
+                "set CLAWMASTER_REAL_MODEL_SMOKE_CONFIG to a secret-free NativeModel JSON file",
+            );
+        let model: NativeModel = serde_json::from_slice(
+            &fs::read(config_path).expect("read secret-free real model smoke config"),
+        )
+        .expect("parse real model smoke config");
+        assert!(model.enabled, "real model smoke route must be enabled");
+
+        let temp = tempfile::tempdir().expect("create smoke ledger directory");
+        let gateway = ModelInvocationGateway::new(
+            crate::native_models::system_credential_store(),
+            &temp.path().join("model-usage.jsonl"),
+        )
+        .expect("create real model gateway");
+        let messages = vec![ModelMessage {
+            role: "user".into(),
+            text: "Reply with exactly: ClawMaster provider smoke passed".into(),
+        }];
+        let (_, cancel) = watch::channel(false);
+        let mut text_delta_count = 0usize;
+        let completion = gateway
+            .invoke(
+                InvocationRequest {
+                    model: &model,
+                    messages: &messages,
+                    tools: &[],
+                    context: InvocationContext::new(
+                        "provider-smoke-session",
+                        "provider-smoke-turn",
+                        InvocationPurpose::Agent,
+                    ),
+                },
+                cancel,
+                |event| {
+                    if matches!(event, ModelStreamEvent::Text(_)) {
+                        text_delta_count += 1;
+                    }
+                    Ok(())
+                },
+            )
+            .await
+            .expect("real provider invocation failed");
+        let StreamCompletion::Completed(completion) = completion else {
+            panic!("real provider invocation was cancelled");
+        };
+        assert!(text_delta_count > 0, "provider produced no text delta");
+        assert!(
+            !completion.text.trim().is_empty(),
+            "provider produced no complete reply"
+        );
+        let ledger = fs::read_to_string(temp.path().join("model-usage.jsonl"))
+            .expect("read real provider usage ledger");
+        assert!(ledger.contains("\"phase\":\"finished\""));
+        assert!(ledger.contains("\"outcome\":\"success\""));
+    }
 }

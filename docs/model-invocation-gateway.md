@@ -70,3 +70,20 @@ contracts.
 An opt-in installed-app provider smoke remains a release acceptance step. It
 must use the system credential store and must never put a key in command-line
 arguments, environment snapshots, fixtures, logs, issues, or artifacts.
+
+For a repeatable gateway-level smoke, save one `NativeModel` JSON object without
+an API key to a temporary file. Its `credentialId` must already exist in the
+ClawMaster system keyring. Then run the ignored test explicitly:
+
+```bash
+CLAWMASTER_REAL_MODEL_SMOKE=1 \
+CLAWMASTER_REAL_MODEL_SMOKE_CONFIG=/absolute/path/to/model-route.json \
+cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml \
+  native_model_gateway::tests::completes_real_provider_smoke_from_the_system_keyring \
+  -- --ignored --exact
+```
+
+The environment contains only the opt-in flag and the path to secret-free
+routing metadata. Passing this test proves a real first text delta, complete
+reply, and terminal UsageLedger record. Release acceptance still repeats the
+same path through the installed application's model settings and chat UI.
