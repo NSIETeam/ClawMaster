@@ -31,6 +31,7 @@
  */
 
 import type { ProductWorkspaceSnapshot } from './productWorkspaceStore.js';
+import type { RuntimeEventEnvelope } from '@clawmaster/runtime-contracts';
 import type {
   WorkLogDay,
   WorkLogReportResult,
@@ -1058,6 +1059,12 @@ export type RuntimeActivityMsg = Envelope<
   }
 >;
 
+/** Validated Runtime Contract v2 lifecycle event from the native kernel. */
+export type RuntimeEventMsg = Envelope<
+  'runtime_event',
+  { event: RuntimeEventEnvelope }
+>;
+
 /** 错误帧。 */
 export type ErrorMsg = Envelope<
   'error',
@@ -1555,6 +1562,7 @@ export type ServerToClient =
   | ToolConfirmationRequestMsg
   | SessionStatusMsg
   | RuntimeActivityMsg
+  | RuntimeEventMsg
   | ErrorMsg
   | IncrementalUpdateAvailableMsg
   | ModelsListMsg

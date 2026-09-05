@@ -9,6 +9,10 @@ use crate::native_state_store::{
     NativeStateStore, StateStoreError, TREE_EVENTS, TREE_INDEX, TREE_SESSIONS,
 };
 use crate::native_user_directory::UserDirectory;
+use crate::runtime_contracts::{
+    decode_runtime_event, Actor, ApprovalDecision, DecodedRuntimeEvent, ErrorCode, RuntimeError,
+    RuntimeEventEnvelope, RuntimeEventPayload, ToolStatus, RUNTIME_SCHEMA_VERSION,
+};
 use crate::{
     native_agent_tools, native_context, native_diagnostics, native_encrypted_checkpoints,
     native_encrypted_memory, native_enterprise, native_knowledge, native_mcp, native_projects,
@@ -26,6 +30,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
@@ -40,6 +45,7 @@ const MAX_COMPRESSION_INPUT_CHARS: usize = 2_000_000;
 const KERNEL_IDEMPOTENCY_INDEX_ID: &str = "runtime-kernel-idempotency";
 const KERNEL_TURN_INDEX_ID: &str = "runtime-kernel-turns";
 const TOOL_APPROVAL_TIMEOUT_MS: u64 = 5 * 60 * 1_000;
+static RUNTIME_EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone)]
 struct NativeKernelStore {
@@ -375,6 +381,77 @@ fn bounded_title(value: Option<&str>) -> String {
 
 fn frame(frame_type: &str, payload: Value) -> Value {
     json!({ "type": frame_type, "payload": payload })
+}
+
+fn runtime_event_frame(
+    session_id: &str,
+    turn_id: &str,
+    step_id: &str,
+    actor: Actor,
+    payload: RuntimeEventPayload,
+) -> Result<Value, String> {
+    let sequence = RUNTIME_EVENT_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let timestamp = time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .map_err(|error| format!("无法格式化 Runtime Contract v2 时间: {error}"))?;
+    let envelope = RuntimeEventEnvelope {
+        kind: "event".into(),
+        request_id: format!("request:{turn_id}"),
+        session_id: session_id.into(),
+        turn_id: turn_id.into(),
+        step_id: step_id.into(),
+        trace_id: format!("trace:{turn_id}"),
+        event_id: format!("runtime-event:{sequence}"),
+        sequence,
+        timestamp,
+        schema_version: RUNTIME_SCHEMA_VERSION.into(),
+        actor,
+        ignorable: false,
+        payload,
+    };
+    let encoded = serde_json::to_string(&envelope)
+        .map_err(|error| format!("无法序列化 Runtime Contract v2 事件: {error}"))?;
+    match decode_runtime_event(&encoded).map_err(|error| error.message)? {
+        DecodedRuntimeEvent::Event(validated) => {
+            Ok(frame("runtime_event", json!({ "event": validated })))
+        }
+        DecodedRuntimeEvent::Ignored { .. } => Err("Runtime Contract v2 必需事件被错误忽略".into()),
+    }
+}
+
+fn emit_runtime_event(
+    app: &AppHandle,
+    session_id: &str,
+    turn_id: &str,
+    step_id: &str,
+    actor: Actor,
+    payload: RuntimeEventPayload,
+) -> Result<(), String> {
+    emit(
+        app,
+        runtime_event_frame(session_id, turn_id, step_id, actor, payload)?,
+    )
+}
+
+fn contract_tool_status(state: ToolState) -> ToolStatus {
+    match state {
+        ToolState::Validating | ToolState::Scheduled => ToolStatus::Proposed,
+        ToolState::AwaitingApproval => ToolStatus::WaitingApproval,
+        ToolState::Executing => ToolStatus::Running,
+        ToolState::Success => ToolStatus::Succeeded,
+        ToolState::Error => ToolStatus::Failed,
+        ToolState::Cancelled => ToolStatus::Cancelled,
+        ToolState::UnknownOutcome => ToolStatus::UnknownOutcome,
+    }
+}
+
+fn contract_approval_decision(outcome: ApprovalOutcome) -> ApprovalDecision {
+    match outcome {
+        ApprovalOutcome::Approved => ApprovalDecision::Allow,
+        ApprovalOutcome::Rejected => ApprovalDecision::Deny,
+        ApprovalOutcome::Cancelled => ApprovalDecision::Cancel,
+        ApprovalOutcome::TimedOut => ApprovalDecision::Timeout,
+    }
 }
 
 fn error_frame(session_id: Option<&str>, code: &str, message: &str) -> Value {
@@ -853,24 +930,31 @@ impl NativeRuntime {
                     .collect::<Vec<_>>();
                 for notice in notices {
                     let session_id = notice.get("sessionId").and_then(Value::as_str);
-                    frames.push(error_frame(
-                        session_id,
-                        "unknown_outcome",
-                        "外部工具在应用退出时仍在执行，结果无法确认；为避免重复副作用，ClawMaster 未自动重试。请人工核对后再继续。",
-                    ));
-                    if let Some(frame) = frames.last_mut() {
-                        frame["payload"]["uncertain"] = Value::Bool(true);
-                        frame["payload"]["turnId"] = notice["turnId"].clone();
-                        frame["payload"]["callIds"] = notice["callIds"].clone();
-                    }
                     if let Some(session_id) = session_id {
-                        frames.push(frame(
-                            "runtime_activity",
-                            json!({
-                                "contractVersion":2,"sessionId":session_id,"kind":"tool","state":"failed",
-                                "detail":"unknown_outcome","timestamp":now_ms()
-                            }),
-                        ));
+                        let turn_id = notice
+                            .get("turnId")
+                            .and_then(Value::as_str)
+                            .unwrap_or("recovered-turn");
+                        for call_id in notice["callIds"]
+                            .as_array()
+                            .into_iter()
+                            .flatten()
+                            .filter_map(Value::as_str)
+                        {
+                            frames.push(runtime_event_frame(
+                                session_id,
+                                turn_id,
+                                call_id,
+                                Actor::Runtime,
+                                RuntimeEventPayload::ToolStatus {
+                                    tool_call_id: call_id.into(),
+                                    status: ToolStatus::UnknownOutcome,
+                                    message: Some(
+                                        "外部工具在应用退出时仍在执行，结果无法确认；为避免重复副作用，ClawMaster 未自动重试。请人工核对后再继续。".into(),
+                                    ),
+                                },
+                            )?);
+                        }
                     }
                 }
                 frames
@@ -2351,36 +2435,36 @@ impl NativeRuntime {
         let mut total_input = 0;
         let mut total_output = 0;
         for step in 0..8 {
-            let streamed = self.model_gateway.invoke(
-                InvocationRequest {
-                    model: context.model,
-                    messages: &messages,
-                    tools: &tools,
-                    context: InvocationContext::new(
-                        context.session_id,
-                        context.turn_id,
-                        InvocationPurpose::Agent,
-                    ),
-                },
-                cancel.clone(),
-                |event| match event {
-                    ModelStreamEvent::Text(delta) => emit(
-                        context.app,
-                        frame(
-                            "chat_chunk",
-                            json!({"sessionId":context.session_id,"messageId":context.message_id,"delta":delta}),
+            let streamed = self
+                .model_gateway
+                .invoke(
+                    InvocationRequest {
+                        model: context.model,
+                        messages: &messages,
+                        tools: &tools,
+                        context: InvocationContext::new(
+                            context.session_id,
+                            context.turn_id,
+                            InvocationPurpose::Agent,
                         ),
-                    ),
-                    ModelStreamEvent::Reasoning(delta) => emit(
-                        context.app,
-                        frame(
-                            "chat_reasoning",
-                            json!({"sessionId":context.session_id,"messageId":context.message_id,"delta":delta}),
+                    },
+                    cancel.clone(),
+                    |event| match event {
+                        ModelStreamEvent::Text(delta) => emit_runtime_event(
+                            context.app,
+                            context.session_id,
+                            context.turn_id,
+                            context.message_id,
+                            Actor::Assistant,
+                            RuntimeEventPayload::ContentDelta {
+                                delta: delta.clone(),
+                            },
                         ),
-                    ),
-                },
-            )
-            .await?;
+                        // Runtime Contract v2 intentionally has no hidden-reasoning event.
+                        ModelStreamEvent::Reasoning(_) => Ok(()),
+                    },
+                )
+                .await?;
             let mut completion = match streamed {
                 StreamCompletion::Cancelled(mut completion) => {
                     completion.text = full_text + &completion.text;
@@ -2406,6 +2490,10 @@ impl NativeRuntime {
                 let argument_bytes = serde_json::to_vec(&call.arguments)
                     .map_err(|error| format!("无法序列化工具参数: {error}"))?;
                 let argument_revision = format!("{:x}", Sha256::digest(&argument_bytes));
+                let idempotency_key = format!(
+                    "tool:{:x}",
+                    Sha256::digest(format!("{}:{}", context.turn_id, call.id).as_bytes())
+                );
                 self.runtime_kernel
                     .register_tool(
                         kernel_turn,
@@ -2413,7 +2501,7 @@ impl NativeRuntime {
                         &call.name,
                         &argument_bytes,
                         &argument_revision,
-                        &format!("{}:{}", context.turn_id, call.id),
+                        &idempotency_key,
                         mcp_catalog.contains(&call.name)
                             || matches!(call.name.as_str(), "open_browser" | "browser_action"),
                         now_ms(),
@@ -2428,23 +2516,19 @@ impl NativeRuntime {
                         now_ms(),
                     )
                     .map_err(|error| error.to_string())?;
+                emit_runtime_event(
+                    context.app,
+                    context.session_id,
+                    context.turn_id,
+                    context.message_id,
+                    Actor::Assistant,
+                    RuntimeEventPayload::ToolProposed {
+                        tool_call_id: call.id.clone(),
+                        tool_name: call.name.clone(),
+                        arguments: call.arguments.clone(),
+                    },
+                )?;
             }
-            let mut cards = calls
-                .iter()
-                .map(|call| {
-                    json!({
-                        "id":call.id,"toolName":call.name,"parameters":call.arguments,
-                        "status":"scheduled","startTime":now_ms()
-                    })
-                })
-                .collect::<Vec<_>>();
-            emit(
-                context.app,
-                frame(
-                    "tool_calls_update",
-                    json!({"sessionId":context.session_id,"messageId":context.message_id,"toolCalls":cards}),
-                ),
-            )?;
             let call_summary = calls
                 .iter()
                 .map(|call| format!("{} {}", call.name, call.arguments))
@@ -2458,12 +2542,28 @@ impl NativeRuntime {
                 ),
             });
             let mut results = Vec::new();
-            for (index, call) in calls.iter().enumerate() {
+            for call in &calls {
                 self.audit_tool(context.session_id, call, "requested", None)?;
                 if *cancel.borrow() {
                     self.runtime_kernel
                         .cancel_open_tools(kernel_turn, "turn cancelled", now_ms())
                         .map_err(|error| error.to_string())?;
+                    for queued in &calls {
+                        if let Some(tool) = kernel_turn.tools.get(&queued.id) {
+                            emit_runtime_event(
+                                context.app,
+                                context.session_id,
+                                context.turn_id,
+                                context.message_id,
+                                Actor::Runtime,
+                                RuntimeEventPayload::ToolStatus {
+                                    tool_call_id: queued.id.clone(),
+                                    status: contract_tool_status(tool.state),
+                                    message: Some("turn cancelled".into()),
+                                },
+                            )?;
+                        }
+                    }
                     return Ok(StreamCompletion::Cancelled(ModelCompletion {
                         text: full_text,
                         input_tokens: total_input,
@@ -2508,14 +2608,6 @@ impl NativeRuntime {
                 let argument_revision = format!("{:x}", Sha256::digest(&argument_bytes));
                 let mut user_write_preview = None;
                 let approved = if requires_confirmation {
-                    cards[index]["status"] = Value::String("awaiting_approval".into());
-                    emit(
-                        context.app,
-                        frame(
-                            "tool_calls_update",
-                            json!({"sessionId":context.session_id,"messageId":context.message_id,"toolCalls":cards}),
-                        ),
-                    )?;
                     self.runtime_kernel
                         .transition_turn(
                             kernel_turn,
@@ -2534,6 +2626,30 @@ impl NativeRuntime {
                             now_ms(),
                         )
                         .map_err(|error| error.to_string())?;
+                    emit_runtime_event(
+                        context.app,
+                        context.session_id,
+                        context.turn_id,
+                        context.message_id,
+                        Actor::Runtime,
+                        RuntimeEventPayload::ToolStatus {
+                            tool_call_id: call.id.clone(),
+                            status: ToolStatus::WaitingApproval,
+                            message: None,
+                        },
+                    )?;
+                    emit_runtime_event(
+                        context.app,
+                        context.session_id,
+                        context.turn_id,
+                        context.message_id,
+                        Actor::Runtime,
+                        RuntimeEventPayload::ApprovalRequested {
+                            approval_id: approval_request_id.clone(),
+                            message: format!("允许 {} 执行高风险操作？", call.name),
+                            risk: Some("high".into()),
+                        },
+                    )?;
                     let mut confirmation_call = call.clone();
                     if call.name == "update_user_control" {
                         let relative_path = call
@@ -2593,6 +2709,18 @@ impl NativeRuntime {
                             now_ms(),
                         )
                         .map_err(|error| error.to_string())?;
+                    emit_runtime_event(
+                        context.app,
+                        context.session_id,
+                        context.turn_id,
+                        context.message_id,
+                        Actor::User,
+                        RuntimeEventPayload::ApprovalResolved {
+                            approval_id: approval_request_id,
+                            decision: contract_approval_decision(outcome),
+                            reason: None,
+                        },
+                    )?;
                     self.runtime_kernel
                         .transition_turn(
                             kernel_turn,
@@ -2641,22 +2769,56 @@ impl NativeRuntime {
                             )
                             .map_err(|error| error.to_string())?;
                     }
+                    let tool = kernel_turn.tools.get(&call.id).expect("registered tool");
+                    emit_runtime_event(
+                        context.app,
+                        context.session_id,
+                        context.turn_id,
+                        context.message_id,
+                        Actor::Runtime,
+                        RuntimeEventPayload::ToolStatus {
+                            tool_call_id: call.id.clone(),
+                            status: contract_tool_status(tool.state),
+                            message: (!approved).then(|| "capability denied by policy".into()),
+                        },
+                    )?;
                     approved
                 };
                 if approved {
-                    cards[index]["status"] = Value::String("executing".into());
-                    emit(
+                    let tool = kernel_turn.tools.get(&call.id).expect("registered tool");
+                    emit_runtime_event(
                         context.app,
-                        frame(
-                            "tool_calls_update",
-                            json!({"sessionId":context.session_id,"messageId":context.message_id,"toolCalls":cards}),
-                        ),
+                        context.session_id,
+                        context.turn_id,
+                        context.message_id,
+                        Actor::Runtime,
+                        RuntimeEventPayload::ToolStatus {
+                            tool_call_id: call.id.clone(),
+                            status: contract_tool_status(tool.state),
+                            message: None,
+                        },
                     )?;
                 }
                 if *cancel.borrow() {
                     self.runtime_kernel
                         .cancel_open_tools(kernel_turn, "turn cancelled", now_ms())
                         .map_err(|error| error.to_string())?;
+                    for queued in &calls {
+                        if let Some(tool) = kernel_turn.tools.get(&queued.id) {
+                            emit_runtime_event(
+                                context.app,
+                                context.session_id,
+                                context.turn_id,
+                                context.message_id,
+                                Actor::Runtime,
+                                RuntimeEventPayload::ToolStatus {
+                                    tool_call_id: queued.id.clone(),
+                                    status: contract_tool_status(tool.state),
+                                    message: Some("turn cancelled".into()),
+                                },
+                            )?;
+                        }
+                    }
                     return Ok(StreamCompletion::Cancelled(ModelCompletion {
                         text: full_text,
                         input_tokens: total_input,
@@ -2666,7 +2828,6 @@ impl NativeRuntime {
                         tool_calls: Vec::new(),
                     }));
                 }
-                let started = now_ms();
                 let execute_external = if approved && external_side_effect {
                     self.runtime_kernel
                         .begin_external_side_effect(kernel_turn, &call.id, now_ms())
@@ -2836,6 +2997,22 @@ impl NativeRuntime {
                             .map_err(|error| error.to_string())?;
                     }
                 }
+                let tool = kernel_turn.tools.get(&call.id).expect("registered tool");
+                emit_runtime_event(
+                    context.app,
+                    context.session_id,
+                    context.turn_id,
+                    context.message_id,
+                    Actor::Tool,
+                    RuntimeEventPayload::ToolResult {
+                        tool_call_id: call.id.clone(),
+                        status: contract_tool_status(tool.state),
+                        result: result
+                            .as_ref()
+                            .cloned()
+                            .unwrap_or_else(|message| json!({ "error": message })),
+                    },
+                )?;
                 if kernel_turn.state != TurnState::ObservingResult {
                     self.runtime_kernel
                         .transition_turn(
@@ -2866,27 +3043,10 @@ impl NativeRuntime {
                     },
                     result.as_ref().err().map(String::as_str),
                 )?;
-                cards[index] = match &result {
-                    Ok(value) => json!({
-                        "id":call.id,"toolName":call.name,"parameters":call.arguments,"status":"success",
-                        "startTime":started,"endTime":now_ms(),"result":{"success":true,"data":value,"executionTime":now_ms().saturating_sub(started),"toolName":call.name}
-                    }),
-                    Err(message) => json!({
-                        "id":call.id,"toolName":call.name,"parameters":call.arguments,"status":if approved {"error"} else {"cancelled"},
-                        "startTime":started,"endTime":now_ms(),"result":{"success":false,"error":message,"executionTime":now_ms().saturating_sub(started),"toolName":call.name}
-                    }),
-                };
                 results.push(json!({
                     "callId":call.id,"tool":call.name,
                     "result":result.unwrap_or_else(|message| json!({"error":message}))
                 }));
-                emit(
-                    context.app,
-                    frame(
-                        "tool_calls_update",
-                        json!({"sessionId":context.session_id,"messageId":context.message_id,"toolCalls":cards}),
-                    ),
-                )?;
             }
             messages.push(ModelMessage {
                 role: "user".into(),
@@ -3412,15 +3572,6 @@ impl NativeRuntime {
         emit(
             app,
             frame(
-                "runtime_activity",
-                json!({
-                    "contractVersion":2,"sessionId":session_id,"kind":"turn","state":"started","timestamp":now_ms()
-                }),
-            ),
-        )?;
-        emit(
-            app,
-            frame(
                 "message_start",
                 json!({"message":{
                     "id":assistant_message_id,"sessionId":session_id,"role":"assistant",
@@ -3548,32 +3699,33 @@ impl NativeRuntime {
                         now_ms(),
                     )
                     .map_err(|error| error.to_string())?;
-                emit(
+                emit_runtime_event(
                     app,
-                    frame(
-                        "chat_complete",
-                        json!({
-                            "sessionId":session_id,"messageId":assistant_message_id,"text":completion.text,
-                            "finishReason":completion.finish_reason.unwrap_or_else(|| "stop".into()),
-                            "tokenUsage":{"inputTokens":completion.input_tokens,"outputTokens":completion.output_tokens,
-                            "totalTokens":completion.input_tokens + completion.output_tokens,"model":model.id}
-                        }),
-                    ),
+                    &session_id,
+                    &turn_id,
+                    &assistant_message_id,
+                    Actor::Runtime,
+                    RuntimeEventPayload::Usage {
+                        input_tokens: completion.input_tokens,
+                        output_tokens: completion.output_tokens,
+                        cost_usd: None,
+                    },
+                )?;
+                emit_runtime_event(
+                    app,
+                    &session_id,
+                    &turn_id,
+                    &assistant_message_id,
+                    Actor::Runtime,
+                    RuntimeEventPayload::Finished {
+                        reason: "complete".into(),
+                    },
                 )?;
                 emit(
                     app,
                     frame(
                         "session_status",
                         json!({"sessionId":session_id,"status":"idle"}),
-                    ),
-                )?;
-                emit(
-                    app,
-                    frame(
-                        "runtime_activity",
-                        json!({
-                            "contractVersion":2,"sessionId":session_id,"kind":"turn","state":"completed","timestamp":now_ms()
-                        }),
                     ),
                 )?;
                 Ok(Some(reply))
@@ -3618,15 +3770,25 @@ impl NativeRuntime {
                         now_ms(),
                     )
                     .map_err(|error| error.to_string())?;
-                emit(
+                emit_runtime_event(
                     app,
-                    frame(
-                        "chat_complete",
-                        json!({
-                            "sessionId":session_id,"messageId":assistant_message_id,
-                            "text":completion.text,"finishReason":"cancelled"
-                        }),
-                    ),
+                    &session_id,
+                    &turn_id,
+                    &assistant_message_id,
+                    Actor::Runtime,
+                    RuntimeEventPayload::Cancelled {
+                        reason: Some("user cancelled".into()),
+                    },
+                )?;
+                emit_runtime_event(
+                    app,
+                    &session_id,
+                    &turn_id,
+                    &assistant_message_id,
+                    Actor::Runtime,
+                    RuntimeEventPayload::Finished {
+                        reason: "cancelled".into(),
+                    },
                 )?;
                 emit(
                     app,
@@ -3635,26 +3797,13 @@ impl NativeRuntime {
                         json!({"sessionId":session_id,"status":"idle"}),
                     ),
                 )?;
-                emit(
-                    app,
-                    frame(
-                        "runtime_activity",
-                        json!({
-                            "contractVersion":2,"sessionId":session_id,"kind":"turn","state":"cancelled","timestamp":now_ms()
-                        }),
-                    ),
-                )?;
                 Ok(None)
             }
             Err(error) => {
                 let message = error.to_string();
-                let failure_frame = match &error {
-                    ModelLoopError::Gateway(gateway) => {
-                        model_gateway_error_frame(Some(&session_id), gateway)
-                    }
-                    ModelLoopError::Runtime(_) => {
-                        error_frame(Some(&session_id), "model_runtime_failed", &message)
-                    }
+                let contract_error_code = match &error {
+                    ModelLoopError::Gateway(_) => ErrorCode::RuntimeProviderError,
+                    ModelLoopError::Runtime(_) => ErrorCode::RuntimeInternalError,
                 };
                 if let Ok(mut state) = self.state.lock() {
                     if let Some(session) = state
@@ -3670,21 +3819,36 @@ impl NativeRuntime {
                 self.runtime_kernel
                     .transition_turn(&mut kernel_turn, TurnState::Failed, "turn failed", now_ms())
                     .map_err(|error| error.to_string())?;
-                emit(app, failure_frame)?;
+                emit_runtime_event(
+                    app,
+                    &session_id,
+                    &turn_id,
+                    &assistant_message_id,
+                    Actor::Runtime,
+                    RuntimeEventPayload::Error {
+                        error: RuntimeError {
+                            code: contract_error_code,
+                            message: message.clone(),
+                            retryable: Some(false),
+                            details: None,
+                        },
+                    },
+                )?;
+                emit_runtime_event(
+                    app,
+                    &session_id,
+                    &turn_id,
+                    &assistant_message_id,
+                    Actor::Runtime,
+                    RuntimeEventPayload::Finished {
+                        reason: "error".into(),
+                    },
+                )?;
                 emit(
                     app,
                     frame(
                         "session_status",
                         json!({"sessionId":session_id,"status":"error"}),
-                    ),
-                )?;
-                emit(
-                    app,
-                    frame(
-                        "runtime_activity",
-                        json!({
-                            "contractVersion":2,"sessionId":session_id,"kind":"turn","state":"failed","detail":message,"timestamp":now_ms()
-                        }),
                     ),
                 )?;
                 Ok(None)
@@ -3926,14 +4090,9 @@ mod tests {
         let first = restored.handle(&json!({"type":"hello"})).unwrap();
         assert_eq!(first[0]["payload"]["protocolVersion"], "2");
         assert!(first.iter().any(|frame| {
-            frame["type"] == "error"
-                && frame["payload"]["code"] == "unknown_outcome"
-                && frame["payload"]["uncertain"] == true
-        }));
-        assert!(first.iter().any(|frame| {
-            frame["type"] == "runtime_activity"
-                && frame["payload"]["contractVersion"] == 2
-                && frame["payload"]["detail"] == "unknown_outcome"
+            frame["type"] == "runtime_event"
+                && frame["payload"]["event"]["payload"]["type"] == "toolStatus"
+                && frame["payload"]["event"]["payload"]["status"] == "unknownOutcome"
         }));
         let second = restored.handle(&json!({"type":"hello"})).unwrap();
         assert_eq!(second.len(), 1);

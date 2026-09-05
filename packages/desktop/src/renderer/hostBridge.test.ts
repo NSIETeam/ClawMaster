@@ -5,6 +5,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { RuntimeEventEnvelope } from '@clawmaster/runtime-contracts';
 import {
   HostBridgeUnavailableError,
   TauriBridgeUnsupportedError,
@@ -13,6 +14,27 @@ import {
   installTauriHostBridge,
   type TauriInvoke,
 } from './hostBridge.js';
+
+function runtimeEvent(
+  sequence: number,
+  payload: RuntimeEventEnvelope['payload'] = { type: 'contentDelta', delta: 'hello' },
+): RuntimeEventEnvelope {
+  return {
+    kind: 'event',
+    requestId: 'request-1',
+    sessionId: 'session-1',
+    turnId: 'turn-1',
+    stepId: 'message-1',
+    traceId: 'trace-1',
+    eventId: `event-${sequence}`,
+    sequence,
+    timestamp: '2026-09-05T00:00:00.000Z',
+    schemaVersion: '2.0.0',
+    actor: 'runtime',
+    ignorable: false,
+    payload,
+  };
+}
 
 afterEach(() => {
   Reflect.deleteProperty(window, 'clawmaster');
@@ -262,6 +284,46 @@ describe('Tauri host bridge', () => {
       id: 'platform-agent-browser', label: 'Example', url: 'https://example.com/',
     });
     window.removeEventListener('clawmaster:open-platform', openPlatform);
+  });
+
+  it('accepts Runtime Contract v2 events once and fails closed on invalid order', async () => {
+    const eventHandlers = new Map<string, (event: { payload: unknown }) => void>();
+    const listen = vi.fn(async (event: string, handler: (event: { payload: unknown }) => void) => {
+      eventHandlers.set(event, handler);
+      return vi.fn();
+    });
+    const bridge = createTauriHostBridge(
+      vi.fn(async () => true) as unknown as TauriInvoke,
+      listen as never,
+    );
+    const frames = vi.fn();
+    bridge.onFrame(frames);
+    await bridge.connect();
+
+    const first = { type: 'runtime_event' as const, payload: { event: runtimeEvent(1) } };
+    eventHandlers.get('desktop://server-frame')?.({ payload: first });
+    eventHandlers.get('desktop://server-frame')?.({ payload: first });
+    eventHandlers.get('desktop://server-frame')?.({
+      payload: { type: 'runtime_event', payload: { event: runtimeEvent(3) } },
+    });
+    eventHandlers.get('desktop://server-frame')?.({
+      payload: { type: 'runtime_event', payload: { event: runtimeEvent(2) } },
+    });
+    eventHandlers.get('desktop://server-frame')?.({
+      payload: { type: 'runtime_event', payload: { event: { payload: {} } } },
+    });
+
+    expect(frames).toHaveBeenCalledTimes(4);
+    expect(frames.mock.calls[0]?.[0]).toEqual(first);
+    expect(frames.mock.calls[1]?.[0]).toMatchObject({
+      type: 'runtime_event', payload: { event: { sequence: 3 } },
+    });
+    expect(frames.mock.calls[2]?.[0]).toMatchObject({
+      type: 'error', payload: { code: 'RUNTIME_INVALID_SEQUENCE', retryable: false },
+    });
+    expect(frames.mock.calls[3]?.[0]).toMatchObject({
+      type: 'error', payload: { code: 'RUNTIME_INVALID_ENVELOPE', retryable: false },
+    });
   });
 
   it('serves work logs through the shared local Server instead of a Tauri copy', async () => {

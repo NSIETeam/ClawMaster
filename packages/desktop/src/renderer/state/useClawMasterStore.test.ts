@@ -20,6 +20,7 @@ import type {
   SessionSummary,
   ClawMasterMessage,
 } from 'clawmaster-server';
+import type { RuntimeEventEnvelope } from '@clawmaster/runtime-contracts';
 
 // ── mock transport：捕获 frame / connection handler，connect 立即 resolve(true) ──
 let capturedHandler: ((f: ServerToClient) => void) | null = null;
@@ -91,6 +92,29 @@ function makeMsg(over: Partial<ClawMasterMessage> = {}): ClawMasterMessage {
     content: [{ type: 'text', value: '' }],
     timestamp: 1000,
     source: 'local',
+    ...over,
+  };
+}
+
+function runtimeEvent(
+  sequence: number,
+  payload: RuntimeEventEnvelope['payload'],
+  over: Partial<RuntimeEventEnvelope> = {},
+): RuntimeEventEnvelope {
+  return {
+    kind: 'event',
+    requestId: 'request-1',
+    sessionId: 's1',
+    turnId: 'turn-1',
+    stepId: 'm1',
+    traceId: 'trace-1',
+    eventId: `event-${sequence}`,
+    sequence,
+    timestamp: '2026-09-05T00:00:00.000Z',
+    schemaVersion: '2.0.0',
+    actor: 'runtime',
+    ignorable: false,
+    payload,
     ...over,
   };
 }
@@ -620,6 +644,91 @@ describe('applyFrame 各帧分支', () => {
       payload: { sessionId: 's1', toolCalls: [{ id: 't1', toolName: 'x', parameters: {}, status: 'success' as never }] },
     });
     expect(view.result.current.state.messages['s1']).toBe(before); // 引用不变 = 原样
+  });
+
+  it('Runtime Contract v2 是正文、工具和终态的唯一渲染权威', () => {
+    const { view, push } = setup();
+    push({
+      type: 'message_start',
+      payload: { message: makeMsg({ id: 'm1', isStreaming: true }) },
+    });
+    push({ type: 'runtime_event', payload: { event: runtimeEvent(1, { type: 'contentDelta', delta: 'v2 text' }) } });
+    push({
+      type: 'runtime_event',
+      payload: { event: runtimeEvent(2, {
+        type: 'toolProposed', toolCallId: 'tool-1', toolName: 'read_file', arguments: { path: 'README.md' },
+      }) },
+    });
+    push({
+      type: 'runtime_event',
+      payload: { event: runtimeEvent(3, { type: 'toolStatus', toolCallId: 'tool-1', status: 'running' }) },
+    });
+    push({
+      type: 'runtime_event',
+      payload: { event: runtimeEvent(4, {
+        type: 'toolResult', toolCallId: 'tool-1', status: 'succeeded', result: { bytes: 12 },
+      }) },
+    });
+    push({
+      type: 'runtime_event',
+      payload: { event: runtimeEvent(5, { type: 'usage', inputTokens: 7, outputTokens: 5 }) },
+    });
+
+    // Native compatibility frames arriving after v2 must not duplicate or overwrite UI state.
+    push({ type: 'chat_chunk', payload: { sessionId: 's1', messageId: 'm1', delta: ' legacy' } });
+    push({
+      type: 'tool_calls_update',
+      payload: { sessionId: 's1', messageId: 'm1', toolCalls: [] },
+    });
+    push({
+      type: 'runtime_activity',
+      payload: { contractVersion: 2, sessionId: 's1', kind: 'turn', state: 'failed', timestamp: 1 },
+    });
+    push({
+      type: 'chat_complete',
+      payload: { sessionId: 's1', messageId: 'm1', text: 'legacy final' },
+    });
+    push({
+      type: 'runtime_event',
+      payload: { event: runtimeEvent(6, { type: 'finished', reason: 'complete' }) },
+    });
+
+    const message = view.result.current.state.messages['s1'][0];
+    expect(message.content).toEqual([{ type: 'text', value: 'v2 text' }]);
+    expect(message.associatedToolCalls).toEqual([
+      expect.objectContaining({
+        id: 'tool-1', toolName: 'read_file', parameters: { path: 'README.md' }, status: 'success',
+        result: expect.objectContaining({ success: true, data: { bytes: 12 } }),
+      }),
+    ]);
+    expect(message.tokenUsage).toMatchObject({ inputTokens: 7, outputTokens: 5, totalTokens: 12 });
+    expect(usageSpy).toHaveBeenCalledWith(expect.objectContaining({
+      sessionId: 's1', messageId: 'm1', inputTokens: 7, outputTokens: 5, totalTokens: 12,
+    }));
+    expect(message.isStreaming).toBe(false);
+    expect(message.isProcessingTools).toBe(false);
+    expect(view.result.current.state.runtimeActivity).toMatchObject({ state: 'completed' });
+  });
+
+  it('Runtime Contract v2 将 unknownOutcome 显示为不可自动重试的失败', () => {
+    const { view, push } = setup();
+    push({ type: 'message_start', payload: { message: makeMsg({ id: 'm1' }) } });
+    push({
+      type: 'runtime_event',
+      payload: { event: runtimeEvent(1, {
+        type: 'toolStatus', toolCallId: 'external-1', status: 'unknownOutcome',
+        message: 'manual reconciliation required',
+      }) },
+    });
+
+    expect(view.result.current.state.lastError).toContain('未自动重试');
+    expect(view.result.current.state.runtimeActivity).toMatchObject({
+      kind: 'tool', state: 'failed', detail: 'unknown_outcome',
+    });
+    expect(view.result.current.state.messages['s1'][0].associatedToolCalls?.[0]).toMatchObject({
+      id: 'external-1', status: 'error',
+      result: { success: false, error: 'manual reconciliation required' },
+    });
   });
 
   it('session_status：更新已存在 session', () => {

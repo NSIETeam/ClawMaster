@@ -30,6 +30,7 @@ import type {
   ToolConfirmationResponsePayload,
 } from 'clawmaster-server';
 import { getEnterpriseOrganizationFeatures } from './enterpriseOrganizationFeatures.js';
+import type { RuntimeEventEnvelope } from '@clawmaster/runtime-contracts';
 
 // ── 状态形状 ──────────────────────────────────────────────────────────────
 
@@ -108,6 +109,10 @@ export interface ClawMasterState {
   };
   /** Latest versioned lifecycle event; the protocol is the source of truth. */
   runtimeActivity?: Extract<ServerToClient, { type: 'runtime_activity' }>['payload'];
+  /** Latest host-validated Runtime Contract v2 event. */
+  runtimeEvent?: RuntimeEventEnvelope;
+  /** Sessions whose rendering authority has switched to Runtime Contract v2. */
+  runtimeEventSessions?: Record<string, true>;
 }
 
 const initialState: ClawMasterState = {
@@ -288,12 +293,205 @@ function actionableErrorMessage(payload: Extract<ServerToClient, { type: 'error'
   return payload.message;
 }
 
+function runtimeActivityFromEvent(
+  event: RuntimeEventEnvelope,
+): ClawMasterState['runtimeActivity'] {
+  const payload = event.payload;
+  const timestamp = Date.parse(event.timestamp);
+  if (payload.type === 'approvalRequested') {
+    return { contractVersion: 2, sessionId: event.sessionId, kind: 'tool', state: 'awaiting_confirmation', timestamp };
+  }
+  if (payload.type === 'toolProposed' || payload.type === 'toolStatus' || payload.type === 'toolResult') {
+    const status = 'status' in payload ? payload.status : 'proposed';
+    const state = status === 'waitingApproval'
+      ? 'awaiting_confirmation'
+      : status === 'running' || status === 'proposed'
+        ? 'streaming'
+        : status === 'succeeded'
+          ? 'completed'
+          : status === 'cancelled'
+            ? 'cancelled'
+            : 'failed';
+    return { contractVersion: 2, sessionId: event.sessionId, kind: 'tool', state, detail: status === 'unknownOutcome' ? 'unknown_outcome' : undefined, timestamp };
+  }
+  if (payload.type === 'finished') {
+    return {
+      contractVersion: 2,
+      sessionId: event.sessionId,
+      kind: 'turn',
+      state: payload.reason === 'complete' ? 'completed' : payload.reason === 'cancelled' ? 'cancelled' : 'failed',
+      timestamp,
+    };
+  }
+  if (payload.type === 'cancelled') {
+    return { contractVersion: 2, sessionId: event.sessionId, kind: 'turn', state: 'cancelled', timestamp };
+  }
+  if (payload.type === 'error') {
+    return { contractVersion: 2, sessionId: event.sessionId, kind: 'turn', state: 'failed', detail: payload.error.message, timestamp };
+  }
+  return { contractVersion: 2, sessionId: event.sessionId, kind: 'turn', state: 'streaming', timestamp };
+}
+
+function contractToolStatus(status: Extract<RuntimeEventEnvelope['payload'], { type: 'toolStatus' }>['status']): ToolCallStatus {
+  switch (status) {
+    case 'proposed': return 'scheduled' as ToolCallStatus;
+    case 'waitingApproval': return 'awaiting_approval' as ToolCallStatus;
+    case 'running': return 'executing' as ToolCallStatus;
+    case 'succeeded': return 'success' as ToolCallStatus;
+    case 'failed':
+    case 'unknownOutcome':
+      return 'error' as ToolCallStatus;
+    case 'cancelled': return 'cancelled' as ToolCallStatus;
+    default: return 'error' as ToolCallStatus;
+  }
+}
+
+function patchRuntimeTool(
+  state: ClawMasterState,
+  event: RuntimeEventEnvelope,
+): ClawMasterState {
+  const payload = event.payload;
+  if (
+    payload.type !== 'toolProposed'
+    && payload.type !== 'toolStatus'
+    && payload.type !== 'toolResult'
+  ) return state;
+  const toolCallId = payload.toolCallId;
+  const timestamp = Date.parse(event.timestamp);
+  return patchMessage(state, event.sessionId, event.stepId, (message) => {
+    const existing = message.associatedToolCalls ?? [];
+    const current = existing.find((toolCall) => toolCall.id === toolCallId);
+    const status = payload.type === 'toolProposed'
+      ? 'scheduled' as ToolCallStatus
+      : contractToolStatus(payload.status);
+    const toolName = payload.type === 'toolProposed'
+      ? payload.toolName
+      : current?.toolName ?? 'unknown_tool';
+    const parameters = payload.type === 'toolProposed'
+      && payload.arguments
+      && typeof payload.arguments === 'object'
+      && !Array.isArray(payload.arguments)
+      ? payload.arguments as Record<string, unknown>
+      : current?.parameters ?? {};
+    const result = payload.type === 'toolResult'
+      ? {
+          success: payload.status === 'succeeded',
+          ...(payload.status === 'succeeded'
+            ? { data: payload.result }
+            : { error: typeof payload.result === 'string' ? payload.result : JSON.stringify(payload.result) }),
+          executionTime: current?.startTime ? Math.max(0, timestamp - current.startTime) : 0,
+          toolName,
+        }
+      : payload.type === 'toolStatus' && payload.status === 'unknownOutcome'
+        ? {
+            success: false,
+            error: payload.message ?? '外部工具结果未知，未自动重试。',
+            executionTime: current?.startTime ? Math.max(0, timestamp - current.startTime) : 0,
+            toolName,
+          }
+        : current?.result;
+    const nextTool = {
+      ...current,
+      id: toolCallId,
+      toolName,
+      parameters,
+      status,
+      result,
+      startTime: current?.startTime ?? timestamp,
+      ...(!isToolCallInFlight(status) ? { endTime: timestamp } : {}),
+    };
+    const toolCalls = current
+      ? existing.map((toolCall) => toolCall.id === toolCallId ? nextTool : toolCall)
+      : [...existing, nextTool];
+    const processing = toolCalls.some((toolCall) => isToolCallInFlight(toolCall.status));
+    return {
+      ...message,
+      associatedToolCalls: toolCalls,
+      isProcessingTools: processing,
+      toolsCompleted: !processing,
+    };
+  });
+}
+
+function applyRuntimeEvent(
+  state: ClawMasterState,
+  event: RuntimeEventEnvelope,
+): ClawMasterState {
+  const payload = event.payload;
+  const error = payload.type === 'error'
+    ? payload.error.message
+    : payload.type === 'toolStatus' && payload.status === 'unknownOutcome'
+      ? '外部工具结果未知，ClawMaster 未自动重试。'
+      : state.lastError;
+  let next: ClawMasterState = {
+    ...state,
+    runtimeEvent: event,
+    runtimeEventSessions: { ...state.runtimeEventSessions, [event.sessionId]: true },
+    runtimeActivity: runtimeActivityFromEvent(event),
+    lastError: error,
+  };
+  if (payload.type === 'contentDelta') {
+    return patchMessage(next, event.sessionId, event.stepId, (message) => ({
+      ...message,
+      isStreaming: true,
+      content: mergeTextDelta(message.content, payload.delta),
+    }));
+  }
+  if (payload.type === 'toolProposed' || payload.type === 'toolStatus' || payload.type === 'toolResult') {
+    return patchRuntimeTool(next, event);
+  }
+  if (payload.type === 'usage') {
+    return patchMessage(next, event.sessionId, event.stepId, (message) => ({
+      ...message,
+      tokenUsage: {
+        inputTokens: payload.inputTokens,
+        outputTokens: payload.outputTokens,
+        totalTokens: payload.inputTokens + payload.outputTokens,
+      },
+    }));
+  }
+  if (payload.type === 'cancelled') {
+    next = patchMessage(next, event.sessionId, event.stepId, (message) => ({
+      ...message,
+      associatedToolCalls: cancelInFlightToolCalls(message.associatedToolCalls),
+    }));
+    return settleInFlight(next, event.sessionId);
+  }
+  if (payload.type === 'error' || payload.type === 'finished') {
+    return settleInFlight(next, event.sessionId);
+  }
+  return next;
+}
+
 /** 取消终态把仍在执行/等待的卡片一并收口，避免按钮恢复后卡片继续永久转圈。 */
 function maybeShowChatNotification(
   frame: ServerToClient,
   activeSessionId: string | null,
   sessions: Record<string, SessionSummary>,
 ): void {
+  if (frame.type === 'runtime_event') {
+    const event = frame.payload.event;
+    if (event.sessionId === activeSessionId) return;
+    const session = sessions[event.sessionId];
+    if (event.payload.type === 'finished' && event.payload.reason === 'complete') {
+      void window.clawmaster.notificationShow?.({
+        messageId: `runtime-finished:${event.eventId}`,
+        sessionId: event.sessionId,
+        source: 'local',
+        title: session?.title || 'ClawMaster 对话已完成',
+        preview: 'ClawMaster 已完成后台对话。',
+      }).catch(() => undefined);
+    } else if (event.payload.type === 'error') {
+      void window.clawmaster.notificationShow?.({
+        messageId: `runtime-error:${event.eventId}`,
+        sessionId: event.sessionId,
+        source: 'local',
+        title: session?.title || 'ClawMaster 对话需要注意',
+        preview: event.payload.error.message,
+      }).catch(() => undefined);
+    }
+    return;
+  }
   if (frame.type === 'chat_complete') {
     const { sessionId, messageId, text, finishReason } = frame.payload;
     if (finishReason === 'cancelled') return;
@@ -546,6 +744,7 @@ function applyFrame(state: ClawMasterState, frame: ServerToClient): ClawMasterSt
 
     case 'chat_chunk': {
       const { sessionId, messageId, delta } = frame.payload;
+      if (state.runtimeEventSessions?.[sessionId]) return state;
       return patchMessage(state, sessionId, messageId, (m) => ({
         ...m,
         isStreaming: true,
@@ -564,6 +763,7 @@ function applyFrame(state: ClawMasterState, frame: ServerToClient): ClawMasterSt
 
     case 'chat_complete': {
       const { sessionId, messageId, tokenUsage, text, finishReason } = frame.payload;
+      if (state.runtimeEventSessions?.[sessionId]) return state;
       return patchMessage(state, sessionId, messageId, (m) => ({
         ...m,
         // 帧带定稿全文时用它覆盖本地 content 对账：切走（退订）期间丢失的
@@ -590,6 +790,7 @@ function applyFrame(state: ClawMasterState, frame: ServerToClient): ClawMasterSt
 
     case 'tool_calls_update': {
       const { sessionId, messageId, toolCalls } = frame.payload;
+      if (state.runtimeEventSessions?.[sessionId]) return state;
       const list = state.messages[sessionId];
       if (!list) return state;
       // 优先挂到指定 messageId；否则挂到最后一条 assistant 消息。
@@ -623,7 +824,14 @@ function applyFrame(state: ClawMasterState, frame: ServerToClient): ClawMasterSt
     }
 
     case 'runtime_activity':
-      return { ...state, runtimeActivity: frame.payload };
+      // Native lifecycle authority is Runtime Contract v2. Keep this legacy
+      // projection only for the TypeScript server compatibility path.
+      return state.runtimeEventSessions?.[frame.payload.sessionId]
+        ? state
+        : { ...state, runtimeActivity: frame.payload };
+
+    case 'runtime_event':
+      return applyRuntimeEvent(state, frame.payload.event);
 
     case 'models_list': {
       const pending = state.pendingModelSwitch;
@@ -929,6 +1137,23 @@ export function useClawMasterStore(
           }).catch(() => undefined);
         } catch {
           // preload 桥在异常启动阶段不可用时同样保持聊天主链路可用。
+        }
+      }
+      if (frame.type === 'runtime_event' && frame.payload.event.payload.type === 'usage') {
+        const event = frame.payload.event;
+        const usage = event.payload;
+        if (usage.type !== 'usage') return;
+        try {
+          void window.clawmaster.enterpriseUsageRecord({
+            sessionId: event.sessionId,
+            messageId: event.stepId,
+            model: sessionsRef.current[event.sessionId]?.model ?? currentModelRef.current,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            totalTokens: usage.inputTokens + usage.outputTokens,
+          }).catch(() => undefined);
+        } catch {
+          // Usage reporting is telemetry and must never break the native turn.
         }
       }
       if (frame.type === 'session_created') {

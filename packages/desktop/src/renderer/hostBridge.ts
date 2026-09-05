@@ -18,6 +18,11 @@ import type {
   UpdateProgressInfo,
 } from '../preload/index.js';
 import type { ClientToServer, ServerToClient } from 'clawmaster-server';
+import {
+  RuntimeContractViolation,
+  RuntimeEventSequence,
+  decodeRuntimeEvent,
+} from '@clawmaster/runtime-contracts';
 
 export type TauriInvoke = <T>(
   command: string,
@@ -81,8 +86,32 @@ export function createTauriHostBridge(
     reject: (error: Error) => void;
     timer: ReturnType<typeof setTimeout>;
   }>();
+  const runtimeSequence = new RuntimeEventSequence();
 
-  const dispatchFrame = (frame: ServerToClient): void => {
+  const dispatchFrame = (incoming: ServerToClient): void => {
+    let frame = incoming;
+    if (frame.type === 'runtime_event') {
+      try {
+        const decoded = decodeRuntimeEvent(frame.payload.event);
+        if (decoded.kind === 'ignored') return;
+        if (runtimeSequence.accept(decoded.envelope) === 'duplicate') return;
+      } catch (error) {
+        const violation = error instanceof RuntimeContractViolation
+          ? error
+          : new RuntimeContractViolation(
+              'RUNTIME_INVALID_ENVELOPE',
+              'Native runtime event validation failed',
+            );
+        frame = {
+          type: 'error',
+          payload: {
+            code: violation.code,
+            message: violation.message,
+            retryable: false,
+          },
+        };
+      }
+    }
     const requestId = 'payload' in frame
       && frame.payload
       && 'requestId' in frame.payload

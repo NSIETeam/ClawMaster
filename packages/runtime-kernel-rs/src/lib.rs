@@ -690,9 +690,9 @@ fn state_name<T: Serialize>(state: T) -> String {
 
 fn validate_id(value: &str) -> Result<(), KernelError> {
     if value.is_empty()
-        || value.len() > 160
+        || value.len() > 128
         || !value.chars().all(|character| {
-            character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | ':')
+            character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | ':' | '.')
         })
     {
         return Err(KernelError::Denied("invalid runtime identifier".into()));
@@ -768,6 +768,17 @@ mod tests {
         kernel
             .transition_tool(turn, "call-1", ToolState::Scheduled, "validated", 4)
             .unwrap();
+    }
+
+    #[test]
+    fn runtime_ids_match_the_contract_v2_boundary() {
+        let store = MemoryStore::default();
+        let kernel = RuntimeKernel::new(store);
+        assert!(kernel.create_turn("turn.with-dots:1", 1).is_ok());
+        assert!(matches!(
+            kernel.create_turn(&"x".repeat(129), 1),
+            Err(KernelError::Denied(_))
+        ));
     }
 
     #[test]
