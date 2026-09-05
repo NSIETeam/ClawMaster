@@ -44,22 +44,23 @@ describe('RightPanel module workspace boundary', () => {
     };
   });
 
-  it('renders functional groups instead of legacy tabs', () => {
+  it('renders functional groups without idle workspace tabs', () => {
     renderPanel();
     expect(screen.getByRole('heading', { name: '日常办公' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '打开 PPT 创作专家' })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: '功能' })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: '文件' })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: '导图' })).toBeTruthy();
+    expect(screen.queryByRole('tablist', { name: '右侧工作区' })).toBeNull();
+    expect(screen.queryByText('文件')).toBeNull();
+    expect(screen.queryByText('导图')).toBeNull();
+    expect(screen.queryByText('版本')).toBeNull();
     expect(screen.queryByRole('tab', { name: '专家' })).toBeNull();
     expect(screen.queryByRole('tab', { name: '企业记忆' })).toBeNull();
   });
 
-  it('opens the file editor directly without a generated artifact', () => {
+  it('opens the file editor only when a generated file requests it', () => {
     renderPanel();
-    fireEvent.click(screen.getByRole('tab', { name: '文件' }));
+    fireEvent(window, new CustomEvent('clawmaster:edit-local-file', { detail: { path: '/tmp/方案.md' } }));
     expect(screen.getByRole('region', { name: '文件编辑器' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '选择文件' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '返回功能' })).toBeTruthy();
   });
 
   it('shows Rust file versions and delegates confirmed recovery', () => {
@@ -74,7 +75,7 @@ describe('RightPanel module workspace boundary', () => {
       onRefreshFileCheckpoints: refresh,
       onRestoreFileCheckpoint: restore,
     });
-    fireEvent.click(screen.getByRole('tab', { name: '版本' }));
+    fireEvent(window, new CustomEvent('clawmaster:open-file-recovery'));
     expect(refresh).toHaveBeenCalledOnce();
     expect(screen.getByRole('region', { name: '文件版本与恢复' })).toBeTruthy();
     expect(screen.getByText('docs/plan.md')).toBeTruthy();
@@ -85,18 +86,18 @@ describe('RightPanel module workspace boundary', () => {
 
   it('does not expose recovery UI without a native recovery connection', () => {
     renderPanel();
-    expect(screen.queryByRole('tab', { name: '版本' })).toBeNull();
+    fireEvent(window, new CustomEvent('clawmaster:open-file-recovery'));
+    expect(screen.queryByRole('region', { name: '文件版本与恢复' })).toBeNull();
   });
 
   it('opens an editable mind map directly and from the module event', () => {
     const onRequestExpand = vi.fn();
     renderPanel({ onRequestExpand });
-    fireEvent.click(screen.getByRole('tab', { name: '导图' }));
-    expect(screen.getByRole('region', { name: '思维导图编辑器' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('tab', { name: '功能' }));
     fireEvent(window, new CustomEvent('clawmaster:open-mind-map'));
     expect(onRequestExpand).toHaveBeenCalledOnce();
     expect(screen.getByRole('region', { name: '思维导图编辑器' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '返回功能' }));
+    expect(screen.queryByRole('region', { name: '思维导图编辑器' })).toBeNull();
   });
 
   it('reveals the file editor only after a generated file is opened', () => {
@@ -105,8 +106,7 @@ describe('RightPanel module workspace boundary', () => {
     fireEvent(window, new CustomEvent('clawmaster:edit-local-file', { detail: { path: '/tmp/方案.md' } }));
     expect(onRequestExpand).toHaveBeenCalledOnce();
     expect(screen.getByRole('region', { name: '文件编辑器' })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: '文件' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('tab', { name: '功能' }));
+    fireEvent.click(screen.getByRole('button', { name: '返回功能' }));
     expect(screen.getByRole('heading', { name: '日常办公' })).toBeTruthy();
   });
 
@@ -116,9 +116,8 @@ describe('RightPanel module workspace boundary', () => {
     fireEvent(window, new CustomEvent('clawmaster:open-platform', { detail: { id: 'platform-zhifang', label: '知访', url: 'https://47.116.30.60/' } }));
     expect(onRequestExpand).toHaveBeenCalledOnce();
     expect(screen.getByRole('region', { name: '知访平台工作区' })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: '知访' }).getAttribute('aria-selected')).toBe('true');
     expect(container.querySelector('aside')?.classList.contains('claw-right-panel--browser')).toBe(true);
-    fireEvent.click(screen.getByRole('tab', { name: '功能' }));
+    fireEvent.click(screen.getByRole('button', { name: '关闭平台' }));
     expect(container.querySelector('aside')?.classList.contains('claw-right-panel--browser')).toBe(false);
   });
 
@@ -135,11 +134,11 @@ describe('RightPanel module workspace boundary', () => {
     const { rerender, props } = renderPanel({ layout: layoutWithPlatform });
     fireEvent(window, new CustomEvent('clawmaster:open-platform', { detail: { id: 'platform-zhifang', label: '知访', url: 'https://47.116.30.60/' } }));
     fireEvent.click(screen.getByRole('button', { name: '关闭平台' }));
-    expect(screen.queryByRole('tab', { name: '知访' })).toBeNull();
+    expect(screen.queryByRole('region', { name: '知访平台工作区' })).toBeNull();
 
     fireEvent(window, new CustomEvent('clawmaster:open-platform', { detail: { id: 'platform-zhifang', label: '知访', url: 'https://47.116.30.60/' } }));
     rerender(<RightPanel {...props} layout={layout} />);
-    expect(screen.queryByRole('tab', { name: '知访' })).toBeNull();
+    expect(screen.queryByRole('region', { name: '知访平台工作区' })).toBeNull();
   });
 
   it('delegates module activation and marketplace opening', () => {

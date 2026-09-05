@@ -9240,15 +9240,29 @@ h6.claw-prose__h {
   min-width: clamp(520px, 55vw, 820px);
 }
 
-.claw-right-panel__switcher {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  gap: 4px;
-  margin: 10px 12px 0;
-  padding: 3px;
-  border: 1px solid var(--claw-border-subtle);
-  border-radius: 10px;
+.claw-right-panel__context-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 43px;
+  margin: 0 12px;
+  border-bottom: 1px solid var(--claw-border-subtle);
+}
+.claw-right-panel__context-head strong {
+  color: var(--claw-text-primary);
+  font-size: 12px;
+}
+.claw-right-panel__context-head button {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--claw-text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+.claw-right-panel__context-head button:hover {
+  color: var(--claw-text-primary);
   background: var(--claw-bg-secondary);
 }
 
@@ -9293,20 +9307,6 @@ h6.claw-prose__h {
   border-radius: 10px;
   color: var(--claw-text-secondary);
   text-align: center;
-}
-
-.claw-right-panel__switcher button {
-  min-height: 28px;
-  border: 0;
-  border-radius: 7px;
-  color: var(--claw-text-secondary);
-  background: transparent;
-}
-
-.claw-right-panel__switcher button[aria-selected='true'] {
-  color: var(--claw-text-primary);
-  background: var(--claw-surface);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
 .claw-recovery-workspace {

@@ -71,6 +71,16 @@ export function RightPanel({
     return () => window.removeEventListener('clawmaster:open-mind-map', showMindMap);
   }, [onRequestExpand]);
   useEffect(() => {
+    if (!onRefreshFileCheckpoints || !onRestoreFileCheckpoint) return;
+    const showRecovery = (): void => {
+      onRequestExpand?.();
+      setActiveView('recovery');
+      onRefreshFileCheckpoints();
+    };
+    window.addEventListener('clawmaster:open-file-recovery', showRecovery);
+    return () => window.removeEventListener('clawmaster:open-file-recovery', showRecovery);
+  }, [onRefreshFileCheckpoints, onRequestExpand, onRestoreFileCheckpoint]);
+  useEffect(() => {
     if (!platformTarget) return;
     const installed = layout.groups.some((group) => group.moduleIds.includes(platformTarget.id));
     if (!installed) {
@@ -106,23 +116,12 @@ export function RightPanel({
       aria-busy={busy || readiness === 'loading'}
       aria-hidden={hidden || undefined}
     >
-      <div className="claw-right-panel__switcher" role="tablist" aria-label="右侧工作区">
-        <button type="button" role="tab" aria-selected={activeView === 'modules'} onClick={() => setActiveView('modules')}>功能</button>
-        <button type="button" role="tab" aria-selected={activeView === 'files'} onClick={() => setActiveView('files')}>文件</button>
-        <button type="button" role="tab" aria-selected={activeView === 'mindmap'} onClick={() => setActiveView('mindmap')}>导图</button>
-        {onRefreshFileCheckpoints && onRestoreFileCheckpoint ? (
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeView === 'recovery'}
-            onClick={() => {
-              setActiveView('recovery');
-              onRefreshFileCheckpoints();
-            }}
-          >版本</button>
-        ) : null}
-        {platformTarget ? <button type="button" role="tab" aria-selected={activeView === 'platform'} onClick={() => setActiveView('platform')}>{platformTarget.label}</button> : null}
-      </div>
+      {activeView !== 'modules' && activeView !== 'platform' ? (
+        <header className="claw-right-panel__context-head">
+          <strong>{activeView === 'files' ? '文件' : activeView === 'mindmap' ? '思维导图' : '文件版本'}</strong>
+          <button type="button" onClick={() => setActiveView('modules')}>返回功能</button>
+        </header>
+      ) : null}
       {activeView === 'platform' && platformTarget ? (
         <PlatformWorkspace key={platformTarget.id} target={platformTarget} onClose={closePlatform} />
       ) : activeView === 'files' ? (
