@@ -156,7 +156,7 @@ describe('capability-driven availability', () => {
     expect(availableIds).toContain('enterprise-memory');
     expect(availableIds).toContain('skill-zone');
     expect(catalog.filter((module) => module.id.startsWith('park-')).every((module) => (
-      module.availability === 'available' && module.disabledReason === undefined
+      module.availability === 'disabled'
     ))).toBe(true);
   });
 

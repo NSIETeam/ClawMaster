@@ -257,7 +257,7 @@ function staticAvailability(
   if (rule === 'always') return 'available';
   if (rule === 'auto-skill') return 'available';
   if (context.edition !== 'enterprise') {
-    return 'available';
+    return rule.startsWith('park') ? 'disabled' : 'available';
   }
 
   if (rule === 'enterprise-memory') {
