@@ -67,6 +67,32 @@ export interface ComposerAuthorizationContext {
   scope: 'session' | 'all';
 }
 
+const GLOBAL_AUTO_PREFERENCE = 'clawmaster.authorization.global-auto';
+const LEGACY_GLOBAL_AUTO_PREFERENCE = 'otto.authorization.global-auto';
+
+function readGlobalAutoPreference(): boolean {
+  try {
+    const current = localStorage.getItem(GLOBAL_AUTO_PREFERENCE);
+    if (current !== null) return current === '1';
+    const legacy = localStorage.getItem(LEGACY_GLOBAL_AUTO_PREFERENCE);
+    if (legacy === null) return false;
+    localStorage.setItem(GLOBAL_AUTO_PREFERENCE, legacy === '1' ? '1' : '0');
+    localStorage.removeItem(LEGACY_GLOBAL_AUTO_PREFERENCE);
+    return legacy === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeGlobalAutoPreference(enabled: boolean): void {
+  try {
+    localStorage.setItem(GLOBAL_AUTO_PREFERENCE, enabled ? '1' : '0');
+    localStorage.removeItem(LEGACY_GLOBAL_AUTO_PREFERENCE);
+  } catch {
+    // Storage failures remain fail-closed through the in-memory default.
+  }
+}
+
 async function blobToWav(blob: Blob): Promise<Uint8Array> {
   const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   const context = new AudioCtx();
@@ -340,9 +366,7 @@ export function Composer({
     recentPaths: string[];
   }>({ defaultPath: '', recentPaths: [] });
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
-  const [globalAuto, setGlobalAuto] = useState(
-    () => localStorage.getItem('otto.authorization.global-auto') === '1',
-  );
+  const [globalAuto, setGlobalAuto] = useState(readGlobalAutoPreference);
   const [sessionAuthorization, setSessionAuthorization] = useState<Record<string, 'manual' | 'auto'>>({});
   const authorizationStateRef = useRef({ globalAuto, sessionAuthorization });
   authorizationStateRef.current = { globalAuto, sessionAuthorization };
@@ -508,7 +532,7 @@ export function Composer({
     } else {
       // Missing and invalid preferences are fail-closed. Also clear a stale
       // server-side auto mode left by an older desktop release.
-      localStorage.setItem('otto.authorization.global-auto', '0');
+      writeGlobalAutoPreference(false);
       transport.send({
         type: 'set_authorization_mode',
         payload: { sessionId, mode: 'manual', scope: 'all' },
@@ -534,13 +558,13 @@ export function Composer({
   const pickAuthorization = (kind: 'manual' | 'session' | 'global'): void => {
     if (!sessionId) return;
     if (kind === 'global') {
-      localStorage.setItem('otto.authorization.global-auto', '1');
+      writeGlobalAutoPreference(true);
       setGlobalAuto(true);
       setSessionAuthorization({});
       transport.send({ type: 'set_authorization_mode', payload: { sessionId, mode: 'auto', scope: 'all' } });
     } else if (kind === 'session') {
       const wasGlobal = globalAuto;
-      localStorage.setItem('otto.authorization.global-auto', '0');
+      writeGlobalAutoPreference(false);
       setGlobalAuto(false);
       if (wasGlobal) {
         transport.send({
@@ -552,7 +576,7 @@ export function Composer({
       transport.send({ type: 'set_authorization_mode', payload: { sessionId, mode: 'auto', scope: 'session' } });
     } else {
       const wasGlobal = globalAuto;
-      localStorage.setItem('otto.authorization.global-auto', '0');
+      writeGlobalAutoPreference(false);
       setGlobalAuto(false);
       setSessionAuthorization((prev) => ({ ...prev, [sessionId]: 'manual' }));
       transport.send({

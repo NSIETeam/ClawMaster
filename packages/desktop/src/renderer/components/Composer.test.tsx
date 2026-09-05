@@ -376,7 +376,7 @@ describe('执行授权菜单', () => {
     expect(document.querySelector('.claw-authorization__option-icon--session path[d="M8 12h.01M12 12h.01M16 12h.01"]')).toBeTruthy();
     expect(document.querySelector('.claw-authorization__option-icon--global path[d="m9 12 2 2 4-4"]')).toBeTruthy();
     fireEvent.click(screen.getByRole('menuitemradio', { name: /自动授权（仅当前会话）/ }));
-    expect(localStorage.getItem('otto.authorization.global-auto')).toBe('0');
+    expect(localStorage.getItem('clawmaster.authorization.global-auto')).toBe('0');
     expect(send.mock.calls.slice(-2).map(([message]) => message)).toEqual([
       {
         type: 'set_authorization_mode',
@@ -403,7 +403,7 @@ describe('执行授权菜单', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '执行授权：手动授权' }));
     fireEvent.click(screen.getByRole('menuitemradio', { name: /自动授权（所有会话）/ }));
-    expect(localStorage.getItem('otto.authorization.global-auto')).toBe('1');
+    expect(localStorage.getItem('clawmaster.authorization.global-auto')).toBe('1');
     expect(send).toHaveBeenLastCalledWith({
       type: 'set_authorization_mode',
       payload: { sessionId: 's1', mode: 'auto', scope: 'all' },
@@ -412,7 +412,7 @@ describe('执行授权菜单', () => {
 
   it('离开仅当前会话自动的会话时在服务端 fail closed 回手动', () => {
     const send = vi.spyOn(transport, 'send').mockImplementation(() => {});
-    localStorage.setItem('otto.authorization.global-auto', '0');
+    localStorage.setItem('clawmaster.authorization.global-auto', '0');
     const props = {
       models: [] as ModelInfo[],
       currentModel: null,
@@ -432,6 +432,23 @@ describe('执行授权菜单', () => {
       payload: { sessionId: 's1', mode: 'manual', scope: 'session' },
     });
     expect(screen.getByRole('button', { name: '执行授权：手动授权' })).toBeTruthy();
+  });
+
+  it('migrates the legacy Otto authorization preference once and writes only ClawMaster state', () => {
+    const send = vi.spyOn(transport, 'send').mockImplementation(() => {});
+    localStorage.clear();
+    localStorage.setItem('otto.authorization.global-auto', '1');
+
+    renderComposer([], null);
+
+    expect(screen.getByRole('button', { name: '执行授权：所有会话自动' })).toBeTruthy();
+    expect(localStorage.getItem('clawmaster.authorization.global-auto')).toBe('1');
+    expect(localStorage.getItem('otto.authorization.global-auto')).toBeNull();
+    expect(send).toHaveBeenCalledWith({
+      type: 'set_authorization_mode',
+      payload: { sessionId: 's1', mode: 'auto', scope: 'all' },
+    });
+    localStorage.clear();
   });
 });
 

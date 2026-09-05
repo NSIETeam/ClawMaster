@@ -90,7 +90,7 @@ export function ProactiveToast(): React.ReactElement | null {
             maxWidth: '380px',
             boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
             pointerEvents: 'auto',
-            animation: 'ottoToastIn 0.35s ease-out',
+            animation: 'clawToastIn 0.35s ease-out',
             cursor: 'pointer',
           }}
           onClick={() =>
@@ -126,7 +126,7 @@ export function ProactiveToast(): React.ReactElement | null {
         </div>
       ))}
       <style>{`
-        @keyframes ottoToastIn {
+        @keyframes clawToastIn {
           from { opacity: 0; transform: translateY(16px); }
           to { opacity: 1; transform: translateY(0); }
         }
