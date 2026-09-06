@@ -222,7 +222,6 @@ function startKeepAliveProcess(artifactPath: string, port: number, userDataPath:
         res.setHeader('Content-Type', 'application/json');
         res.end(payload);
       });
-      const keepAliveTimer = setInterval(() => {}, 60_000);
       if (!socketPath) process.exit(1);
       try { rmSync(socketPath, { force: true }); } catch {}
       server.on('error', () => {
@@ -230,11 +229,9 @@ function startKeepAliveProcess(artifactPath: string, port: number, userDataPath:
       });
       server.listen(socketPath);
       process.on('SIGTERM', () => {
-        clearInterval(keepAliveTimer);
         server.close(() => process.exit(0));
       });
       process.on('SIGINT', () => {
-        clearInterval(keepAliveTimer);
         server.close(() => process.exit(0));
       });
     `;
