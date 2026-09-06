@@ -257,7 +257,8 @@ pub fn issue(
 
 fn verify_at(link: &str, current_time: u64) -> Result<Claims, String> {
     let url = Url::parse(link).map_err(|_| "企业邀请链接无效".to_string())?;
-    if url.scheme() != "clawmaster" || url.host_str() != Some("enterprise") || url.path() != "/join" {
+    if url.scheme() != "clawmaster" || url.host_str() != Some("enterprise") || url.path() != "/join"
+    {
         return Err("企业邀请链接来源无效".into());
     }
     let params = url

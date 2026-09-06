@@ -7,31 +7,33 @@ use tauri_plugin_notification::NotificationExt;
 
 mod agent_state_pool;
 mod community_skills;
-mod native_chart;
-mod native_channels;
 mod native_agent_tools;
+mod native_channels;
+mod native_chart;
 mod native_context;
 mod native_diagnostics;
-mod native_enterprise;
 mod native_encrypted_checkpoints;
 mod native_encrypted_memory;
+mod native_enterprise;
 mod native_knowledge;
 mod native_mcp;
+mod native_memory_engine;
 mod native_model_gateway;
 mod native_models;
-mod native_process;
 mod native_pptx;
+mod native_process;
 mod native_projects;
 mod native_runtime;
 mod native_schedule;
 mod native_skills;
+mod native_state_capsule;
 mod native_state_store;
 mod native_todos;
-mod native_user_directory;
 pub mod native_tools;
 mod native_update;
-mod native_worklog;
+mod native_user_directory;
 mod native_workflows;
+mod native_worklog;
 mod platform_webview;
 mod runtime_contracts;
 mod system_commands;
@@ -375,7 +377,10 @@ mod tests {
         assert_eq!(contract.protocol.minor, 0);
         assert_eq!(contract.protocol.patch, 0);
         assert_eq!(contract.schema_version, "2.0.0");
-        assert_eq!(contract.v1_adapter_uses, runtime_contracts::v1_adapter_uses());
+        assert_eq!(
+            contract.v1_adapter_uses,
+            runtime_contracts::v1_adapter_uses()
+        );
 
         let unavailable = runtime_diagnostic_payload(false);
         assert_eq!(unavailable.server.status, "unavailable");

@@ -86,7 +86,10 @@ mod tests {
     #[test]
     fn replaces_reads_and_removes_state() {
         let pool = AgentStatePool::default();
-        assert_eq!(pool.replace("agent-1".to_string(), vec![1; 64]).unwrap(), 64);
+        assert_eq!(
+            pool.replace("agent-1".to_string(), vec![1; 64]).unwrap(),
+            64
+        );
         assert_eq!(pool.bytes("agent-1").unwrap(), 64);
         assert!(pool.remove("agent-1").unwrap());
         assert_eq!(pool.bytes("agent-1").unwrap(), 0);

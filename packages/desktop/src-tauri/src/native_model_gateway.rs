@@ -974,7 +974,9 @@ mod tests {
         UsageLedger::append(
             &store,
             &serde_json::json!({
-                "invocationId":"invocation-1","phase":"finished","inputTokens":12
+                "invocationId":"invocation-1","phase":"finished","inputTokens":12,
+                "sessionId":"session-1","turnId":"turn-1","purpose":"agent",
+                "provider":"openai-compatible","model":"deepseek-chat"
             }),
         )
         .unwrap();
@@ -989,6 +991,11 @@ mod tests {
         assert_eq!(record.revision, 2);
         assert_eq!(record.payload["phase"], "finished");
         assert_eq!(record.payload["inputTokens"], 12);
+        assert_eq!(record.payload["sessionId"], "session-1");
+        assert_eq!(record.payload["turnId"], "turn-1");
+        assert_eq!(record.payload["purpose"], "agent");
+        assert_eq!(record.payload["provider"], "openai-compatible");
+        assert_eq!(record.payload["model"], "deepseek-chat");
     }
 
     #[tokio::test]

@@ -44,7 +44,7 @@ pub struct ModelToolCall {
     pub arguments: Value,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ModelToolDefinition {
     pub name: String,
     pub description: String,

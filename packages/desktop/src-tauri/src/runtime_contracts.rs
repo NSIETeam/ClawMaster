@@ -85,7 +85,10 @@ fn required_id(
     object: &serde_json::Map<String, Value>,
     field: &str,
 ) -> Result<String, RuntimeContractViolation> {
-    let value = object.get(field).and_then(Value::as_str).unwrap_or_default();
+    let value = object
+        .get(field)
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if !valid_id(value) {
         return Err(RuntimeContractViolation::new(
             ErrorCode::RuntimeInvalidEnvelope,
@@ -115,7 +118,12 @@ fn validate_meta(
     ] {
         required_id(object, field)?;
     }
-    if object.get("sequence").and_then(Value::as_u64).unwrap_or_default() == 0 {
+    if object
+        .get("sequence")
+        .and_then(Value::as_u64)
+        .unwrap_or_default()
+        == 0
+    {
         return Err(RuntimeContractViolation::new(
             ErrorCode::RuntimeInvalidSequence,
             "sequence must be a positive integer",
@@ -151,7 +159,10 @@ fn validate_meta(
             format!("schemaVersion {schema_version} was not negotiated for this connection"),
         ));
     }
-    let actor = object.get("actor").and_then(Value::as_str).unwrap_or_default();
+    let actor = object
+        .get("actor")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if !["user", "assistant", "system", "tool", "runtime"].contains(&actor) {
         return Err(RuntimeContractViolation::new(
             ErrorCode::RuntimeInvalidEnum,
@@ -164,9 +175,15 @@ fn validate_meta(
 fn validate_payload_enums(
     payload: &serde_json::Map<String, Value>,
 ) -> Result<(), RuntimeContractViolation> {
-    let payload_type = payload.get("type").and_then(Value::as_str).unwrap_or_default();
+    let payload_type = payload
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if matches!(payload_type, "toolStatus" | "toolResult") {
-        let status = payload.get("status").and_then(Value::as_str).unwrap_or_default();
+        let status = payload
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
         if ![
             "proposed",
             "waitingApproval",
@@ -197,7 +214,10 @@ fn validate_payload_enums(
         }
     }
     if payload_type == "finished" {
-        let reason = payload.get("reason").and_then(Value::as_str).unwrap_or_default();
+        let reason = payload
+            .get("reason")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
         if !["complete", "cancelled", "error"].contains(&reason) {
             return Err(RuntimeContractViolation::new(
                 ErrorCode::RuntimeInvalidEnum,
@@ -217,29 +237,40 @@ pub fn decode_runtime_event(input: &str) -> Result<DecodedRuntimeEvent, RuntimeC
     })?;
     let object = as_object(&value, "runtime event envelope")?;
     validate_meta(object, "event")?;
-    let ignorable = object.get("ignorable").and_then(Value::as_bool).ok_or_else(|| {
-        RuntimeContractViolation::new(
-            ErrorCode::RuntimeInvalidEnvelope,
-            "ignorable must be boolean",
-        )
-    })?;
+    let ignorable = object
+        .get("ignorable")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| {
+            RuntimeContractViolation::new(
+                ErrorCode::RuntimeInvalidEnvelope,
+                "ignorable must be boolean",
+            )
+        })?;
     let payload = as_object(
         object.get("payload").unwrap_or(&Value::Null),
         "runtime event payload",
     )?;
-    let event_type = payload.get("type").and_then(Value::as_str).unwrap_or_default();
+    let event_type = payload
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if !RUNTIME_EVENT_TYPES.contains(&event_type) {
         if ignorable && !event_type.is_empty() {
             return Ok(DecodedRuntimeEvent::Ignored {
                 event_id: required_id(object, "eventId")?,
-                sequence: object.get("sequence").and_then(Value::as_u64).unwrap_or_default(),
+                sequence: object
+                    .get("sequence")
+                    .and_then(Value::as_u64)
+                    .unwrap_or_default(),
             });
         }
         return Err(RuntimeContractViolation::new(
             ErrorCode::RuntimeUnknownRequiredEvent,
             "runtime sent an unknown mandatory event",
         )
-        .with_details(json!({ "eventType": if event_type.is_empty() { "<missing>" } else { event_type } })));
+        .with_details(
+            json!({ "eventType": if event_type.is_empty() { "<missing>" } else { event_type } }),
+        ));
     }
     validate_payload_enums(payload)?;
     let envelope = serde_json::from_value(value).map_err(|error| {
@@ -251,7 +282,9 @@ pub fn decode_runtime_event(input: &str) -> Result<DecodedRuntimeEvent, RuntimeC
     Ok(DecodedRuntimeEvent::Event(envelope))
 }
 
-pub fn decode_runtime_request(input: &str) -> Result<RuntimeRequestEnvelope, RuntimeContractViolation> {
+pub fn decode_runtime_request(
+    input: &str,
+) -> Result<RuntimeRequestEnvelope, RuntimeContractViolation> {
     let value: Value = serde_json::from_str(input).map_err(|_| {
         RuntimeContractViolation::new(
             ErrorCode::RuntimeInvalidEnvelope,
@@ -264,7 +297,10 @@ pub fn decode_runtime_request(input: &str) -> Result<RuntimeRequestEnvelope, Run
         object.get("payload").unwrap_or(&Value::Null),
         "runtime request payload",
     )?;
-    let request_type = payload.get("type").and_then(Value::as_str).unwrap_or_default();
+    let request_type = payload
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if !RUNTIME_REQUEST_TYPES.contains(&request_type) {
         return Err(RuntimeContractViolation::new(
             ErrorCode::RuntimeInvalidEnum,
@@ -389,10 +425,15 @@ pub fn v1_adapter_uses() -> u64 {
 }
 
 /// Temporary R02 compatibility boundary. Remove in R11 after one stable release at zero uses.
-pub fn adapt_v1_event(input: V1RuntimeEvent) -> Result<RuntimeEventEnvelope, RuntimeContractViolation> {
+pub fn adapt_v1_event(
+    input: V1RuntimeEvent,
+) -> Result<RuntimeEventEnvelope, RuntimeContractViolation> {
     V1_ADAPTER_USES.fetch_add(1, Ordering::Relaxed);
     let payload = as_object(&input.payload, "v1 event payload")?;
-    let event_type = payload.get("type").and_then(Value::as_str).unwrap_or_default();
+    let event_type = payload
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     let payload = match event_type {
         "userMessage" => json!({
             "type": "contentDelta",
@@ -413,16 +454,21 @@ pub fn adapt_v1_event(input: V1RuntimeEvent) -> Result<RuntimeEventEnvelope, Run
             ))
         }
     };
-    let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(i128::from(input.timestamp_ms) * 1_000_000)
-        .map_err(|_| RuntimeContractViolation::new(
-            ErrorCode::RuntimeInvalidEnvelope,
-            "v1 timestamp is outside the supported range",
-        ))?
-        .format(&time::format_description::well_known::Rfc3339)
-        .map_err(|_| RuntimeContractViolation::new(
-            ErrorCode::RuntimeInvalidEnvelope,
-            "v1 timestamp could not be formatted",
-        ))?;
+    let timestamp =
+        time::OffsetDateTime::from_unix_timestamp_nanos(i128::from(input.timestamp_ms) * 1_000_000)
+            .map_err(|_| {
+                RuntimeContractViolation::new(
+                    ErrorCode::RuntimeInvalidEnvelope,
+                    "v1 timestamp is outside the supported range",
+                )
+            })?
+            .format(&time::format_description::well_known::Rfc3339)
+            .map_err(|_| {
+                RuntimeContractViolation::new(
+                    ErrorCode::RuntimeInvalidEnvelope,
+                    "v1 timestamp could not be formatted",
+                )
+            })?;
     let event_id = input.event_id;
     let value = json!({
         "kind": "event",
@@ -472,7 +518,8 @@ mod tests {
             "/../../runtime-contracts/golden/prompt.v2.json"
         )))
         .expect("golden request must be valid JSON");
-        let request = decode_runtime_request(&request_value.to_string()).expect("request should decode");
+        let request =
+            decode_runtime_request(&request_value.to_string()).expect("request should decode");
         assert_eq!(serde_json::to_value(request).unwrap(), request_value);
     }
 
@@ -480,16 +527,28 @@ mod tests {
     fn invalid_ids_sequence_enum_and_major_are_rejected() {
         let mut value = golden_event_value();
         value.as_object_mut().unwrap().remove("turnId");
-        assert_eq!(decode_runtime_event(&value.to_string()).unwrap_err().code, ErrorCode::RuntimeInvalidEnvelope);
+        assert_eq!(
+            decode_runtime_event(&value.to_string()).unwrap_err().code,
+            ErrorCode::RuntimeInvalidEnvelope
+        );
         let mut value = golden_event_value();
         value["sequence"] = json!(0);
-        assert_eq!(decode_runtime_event(&value.to_string()).unwrap_err().code, ErrorCode::RuntimeInvalidSequence);
+        assert_eq!(
+            decode_runtime_event(&value.to_string()).unwrap_err().code,
+            ErrorCode::RuntimeInvalidSequence
+        );
         let mut value = golden_event_value();
         value["actor"] = json!("operator");
-        assert_eq!(decode_runtime_event(&value.to_string()).unwrap_err().code, ErrorCode::RuntimeInvalidEnum);
+        assert_eq!(
+            decode_runtime_event(&value.to_string()).unwrap_err().code,
+            ErrorCode::RuntimeInvalidEnum
+        );
         let mut value = golden_event_value();
         value["schemaVersion"] = json!("3.0.0");
-        assert_eq!(decode_runtime_event(&value.to_string()).unwrap_err().code, ErrorCode::RuntimeUnsupportedProtocolMajor);
+        assert_eq!(
+            decode_runtime_event(&value.to_string()).unwrap_err().code,
+            ErrorCode::RuntimeUnsupportedProtocolMajor
+        );
     }
 
     #[test]
@@ -497,25 +556,47 @@ mod tests {
         let mut value = golden_event_value();
         value["payload"] = json!({ "type": "futureTelemetry", "sample": 1 });
         value["ignorable"] = json!(true);
-        assert!(matches!(decode_runtime_event(&value.to_string()).unwrap(), DecodedRuntimeEvent::Ignored { .. }));
+        assert!(matches!(
+            decode_runtime_event(&value.to_string()).unwrap(),
+            DecodedRuntimeEvent::Ignored { .. }
+        ));
         value["ignorable"] = json!(false);
-        assert_eq!(decode_runtime_event(&value.to_string()).unwrap_err().code, ErrorCode::RuntimeUnknownRequiredEvent);
+        assert_eq!(
+            decode_runtime_event(&value.to_string()).unwrap_err().code,
+            ErrorCode::RuntimeUnknownRequiredEvent
+        );
     }
 
     #[test]
     fn sequence_is_monotonic_and_replay_is_idempotent() {
-        let DecodedRuntimeEvent::Event(event) = decode_runtime_event(&golden_event_value().to_string()).unwrap() else {
+        let DecodedRuntimeEvent::Event(event) =
+            decode_runtime_event(&golden_event_value().to_string()).unwrap()
+        else {
             panic!("known event should decode")
         };
         let mut sequence = RuntimeEventSequence::default();
-        assert_eq!(sequence.accept(&event).unwrap(), RuntimeSequenceResult::Accepted);
-        assert_eq!(sequence.accept(&event).unwrap(), RuntimeSequenceResult::Duplicate);
+        assert_eq!(
+            sequence.accept(&event).unwrap(),
+            RuntimeSequenceResult::Accepted
+        );
+        assert_eq!(
+            sequence.accept(&event).unwrap(),
+            RuntimeSequenceResult::Duplicate
+        );
         let mut rollback = event.clone();
         rollback.event_id = "event-2".to_string();
-        assert_eq!(sequence.accept(&rollback).unwrap_err().code, ErrorCode::RuntimeInvalidSequence);
+        assert_eq!(
+            sequence.accept(&rollback).unwrap_err().code,
+            ErrorCode::RuntimeInvalidSequence
+        );
         let mut conflict = event.clone();
-        conflict.payload = RuntimeEventPayload::ContentDelta { delta: "changed".to_string() };
-        assert_eq!(sequence.accept(&conflict).unwrap_err().code, ErrorCode::RuntimeDuplicateEventConflict);
+        conflict.payload = RuntimeEventPayload::ContentDelta {
+            delta: "changed".to_string(),
+        };
+        assert_eq!(
+            sequence.accept(&conflict).unwrap_err().code,
+            ErrorCode::RuntimeDuplicateEventConflict
+        );
     }
 
     #[test]
@@ -531,8 +612,12 @@ mod tests {
             actor: Actor::Assistant,
             trace_id: None,
             payload: json!({ "type": "userMessage", "content": "legacy content" }),
-        }).expect("supported v1 event should adapt");
-        assert!(matches!(adapted.payload, RuntimeEventPayload::ContentDelta { .. }));
+        })
+        .expect("supported v1 event should adapt");
+        assert!(matches!(
+            adapted.payload,
+            RuntimeEventPayload::ContentDelta { .. }
+        ));
         assert_eq!(v1_adapter_uses(), before + 1);
         assert_eq!(RuntimeContractStatus::current().v1_adapter_uses, before + 1);
     }

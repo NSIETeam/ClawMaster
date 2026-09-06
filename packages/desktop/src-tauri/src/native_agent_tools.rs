@@ -180,9 +180,19 @@ pub fn risk(name: &str) -> Option<ToolRisk> {
         | "search_text"
         | "native_capabilities"
         | "check_dependencies" => Some(ToolRisk::ReadOnly),
-        "write_file" | "update_user_control" | "generate_docx" | "generate_pptx" | "generate_chart" | "merge_pdfs"
-        | "optimize_pdf" | "desktop_automation" | "desktop_snapshot" | "run_command"
-        | "open_browser" | "browser_snapshot" | "browser_action" => Some(ToolRisk::Write),
+        "write_file"
+        | "update_user_control"
+        | "generate_docx"
+        | "generate_pptx"
+        | "generate_chart"
+        | "merge_pdfs"
+        | "optimize_pdf"
+        | "desktop_automation"
+        | "desktop_snapshot"
+        | "run_command"
+        | "open_browser"
+        | "browser_snapshot"
+        | "browser_action" => Some(ToolRisk::Write),
         _ => None,
     }
 }

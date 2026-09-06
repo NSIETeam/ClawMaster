@@ -15,9 +15,9 @@ use crate::runtime_contracts::{
 };
 use crate::{
     native_agent_tools, native_context, native_diagnostics, native_encrypted_checkpoints,
-    native_encrypted_memory, native_enterprise, native_knowledge, native_mcp, native_projects,
-    native_schedule, native_skills, native_todos, native_workflows, native_worklog,
-    platform_webview,
+    native_encrypted_memory, native_enterprise, native_knowledge, native_mcp, native_memory_engine,
+    native_projects, native_schedule, native_skills, native_state_capsule, native_todos,
+    native_workflows, native_worklog, platform_webview,
 };
 use clawmaster_runtime_kernel::{
     ApprovalOutcome, CentralPolicy, KernelEvent, KernelStore, PolicyDecision, PolicyRisk,
@@ -41,7 +41,7 @@ const LEGACY_STATE_FILE_NAME: &str = "native-runtime.json";
 const DEFAULT_TITLE: &str = "新会话";
 const MAX_TITLE_CHARS: usize = 120;
 const COMPRESSION_THRESHOLD_CHARS: usize = 16_000;
-const MAX_COMPRESSION_INPUT_CHARS: usize = 2_000_000;
+const MAX_COMPRESSION_CONTEXT_CHARS: usize = 32_000;
 const KERNEL_IDEMPOTENCY_INDEX_ID: &str = "runtime-kernel-idempotency";
 const KERNEL_TURN_INDEX_ID: &str = "runtime-kernel-turns";
 const TOOL_APPROVAL_TIMEOUT_MS: u64 = 5 * 60 * 1_000;
@@ -301,6 +301,7 @@ pub struct NativeRuntime {
     state: Mutex<PersistedState>,
     credentials: Arc<dyn CredentialStore>,
     state_store: NativeStateStore,
+    memory_engine: native_memory_engine::NativeMemoryEngine,
     model_gateway: ModelInvocationGateway,
     runtime_kernel: RuntimeKernel<NativeKernelStore>,
     recovery_notices: Mutex<Vec<Value>>,
@@ -452,6 +453,60 @@ fn contract_approval_decision(outcome: ApprovalOutcome) -> ApprovalDecision {
         ApprovalOutcome::Cancelled => ApprovalDecision::Cancel,
         ApprovalOutcome::TimedOut => ApprovalDecision::Timeout,
     }
+}
+
+fn capsule_tool_status(state: ToolState) -> &'static str {
+    match state {
+        ToolState::Validating | ToolState::Scheduled => "proposed",
+        ToolState::AwaitingApproval => "waitingApproval",
+        ToolState::Executing => "running",
+        ToolState::Success => "succeeded",
+        ToolState::Error => "failed",
+        ToolState::Cancelled => "cancelled",
+        ToolState::UnknownOutcome => "unknownOutcome",
+    }
+}
+
+fn capsule_approval_status(outcome: ApprovalOutcome) -> &'static str {
+    match outcome {
+        ApprovalOutcome::Approved => "approved",
+        ApprovalOutcome::Rejected => "rejected",
+        ApprovalOutcome::Cancelled => "cancelled",
+        ApprovalOutcome::TimedOut => "timeout",
+    }
+}
+
+fn bounded_tool_result(value: &Value) -> Value {
+    let serialized = value.to_string();
+    let preview = serialized.chars().take(480).collect::<String>();
+    json!({
+        "ok": value.get("error").is_none(),
+        "preview": preview,
+        "truncated": serialized.chars().count() > 480,
+    })
+}
+
+fn archive_tool_result(
+    store: &NativeStateStore,
+    tool_call_id: &str,
+    value: &Value,
+) -> Result<Value, String> {
+    let artifact_bytes =
+        serde_json::to_vec(value).map_err(|error| format!("无法序列化工具结果: {error}"))?;
+    let source_digest = format!("{:x}", Sha256::digest(tool_call_id.as_bytes()));
+    let artifact = store
+        .put_artifact(
+            &format!("tool-result-{}", &source_digest[..32]),
+            &artifact_bytes,
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(json!({
+        "summary": bounded_tool_result(value),
+        "artifact": {
+            "sha256": artifact.sha256,
+            "byteLength": artifact.byte_length,
+        },
+    }))
 }
 
 fn error_frame(session_id: Option<&str>, code: &str, message: &str) -> Value {
@@ -735,6 +790,7 @@ impl NativeRuntime {
         let runtime_kernel = RuntimeKernel::new(NativeKernelStore {
             state_store: state_store.clone(),
         });
+        let memory_engine = native_memory_engine::NativeMemoryEngine::open(state_store.clone())?;
         let recovery_notices = runtime_kernel
             .recover_all(now_ms())
             .map_err(|error| error.to_string())?
@@ -764,6 +820,7 @@ impl NativeRuntime {
             state: Mutex::new(state),
             credentials,
             state_store,
+            memory_engine,
             model_gateway,
             runtime_kernel,
             recovery_notices: Mutex::new(recovery_notices),
@@ -1742,10 +1799,54 @@ impl NativeRuntime {
                     payload.get("sessionId").and_then(Value::as_str),
                 );
                 let fact = payload.get("fact").and_then(Value::as_str).unwrap_or("");
-                match native_encrypted_memory::add_project_fact(&self.state_store, &workspace, fact)
-                {
+                let source_event_id = payload
+                    .get("sourceEventId")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| {
+                        format!("manual:{:x}", Sha256::digest(fact.trim().as_bytes()))
+                    });
+                let result = self
+                    .memory_engine
+                    .remember(native_memory_engine::NewMemoryRecord {
+                        scope: native_memory_engine::scope(
+                            "project",
+                            native_memory_engine::project_scope_id(&workspace)?,
+                        ),
+                        kind: "fact".into(),
+                        content: fact.into(),
+                        source_event_id,
+                        evidence: vec!["desktop:add_memory".into()],
+                        confidence: 1.0,
+                        sensitivity: "internal".into(),
+                        expiry: None,
+                        supersedes: None,
+                        manual: true,
+                    })
+                    .and_then(|_| {
+                        native_encrypted_memory::add_project_fact(
+                            &self.state_store,
+                            &workspace,
+                            fact,
+                        )
+                    });
+                match result {
                     Ok(payload) => vec![frame("memory_snapshot", payload)],
                     Err(message) => vec![error_frame(None, "add_memory_failed", &message)],
+                }
+            }
+            "forget_memory" => {
+                let id = payload.get("id").and_then(Value::as_str).unwrap_or("");
+                let source_event_id = payload
+                    .get("sourceEventId")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                match self.memory_engine.forget(id, source_event_id) {
+                    Ok(forgotten) => vec![frame(
+                        "memory_forgotten",
+                        json!({"id":id,"forgotten":forgotten}),
+                    )],
+                    Err(message) => vec![error_frame(None, "forget_memory_failed", &message)],
                 }
             }
             "get_tools" => {
@@ -1989,10 +2090,13 @@ impl NativeRuntime {
                 )]);
             };
             let workspace = Self::workspace_for_session(&state, Some(session_id));
-            let prompt = native_context::system_prompt(
+            let prompt = native_context::runtime_system_prompt(
                 &workspace,
                 &state.settings.preferred_language,
                 &state.settings.agent_style,
+                "",
+                "",
+                "",
                 &native_skills::list(&workspace).unwrap_or_default(),
             );
             let messages = state
@@ -2091,31 +2195,35 @@ impl NativeRuntime {
                 .find(|item| item.id == model_id && item.enabled)
                 .cloned()
                 .ok_or_else(|| "当前模型不可用，请重新选择".to_string())?;
-            let transcript = state
+            let history = state
                 .messages
                 .get(&session_id)
                 .into_iter()
                 .flatten()
                 .filter_map(|message| {
                     let text = text_content(&message.content);
-                    (!text.trim().is_empty()).then(|| format!("{}: {}", message.role, text))
+                    (!text.trim().is_empty()).then(|| ModelMessage {
+                        role: message.role.clone(),
+                        text,
+                    })
                 })
-                .collect::<Vec<_>>()
-                .join("\n\n");
-            let chars = transcript.chars().count();
+                .collect::<Vec<_>>();
+            let chars = history
+                .iter()
+                .map(|message| message.text.chars().count())
+                .sum::<usize>();
             if chars < COMPRESSION_THRESHOLD_CHARS {
                 return Ok(vec![frame(
                     "compress_result",
                     json!({"sessionId":session_id,"compressed":false,"message":"当前上下文较小，无需压缩。"}),
                 )]);
             }
-            if chars > MAX_COMPRESSION_INPUT_CHARS {
-                return Ok(vec![error_frame(
-                    Some(&session_id),
-                    "compression_input_too_large",
-                    "上下文超过 Rust 压缩安全上限，原历史已保留",
-                )]);
-            }
+            let transcript =
+                native_context::bounded_recent_history(history, MAX_COMPRESSION_CONTEXT_CHARS)
+                    .into_iter()
+                    .map(|message| format!("{}: {}", message.role, message.text))
+                    .collect::<Vec<_>>()
+                    .join("\n\n");
             (model, transcript, chars.div_ceil(4) as u64)
         };
         let (_, cancel) = watch::channel(false);
@@ -2298,7 +2406,15 @@ impl NativeRuntime {
                 frame("workflows_list", json!({"workflows":state.workflows})),
             )?;
         }
-        let system = native_context::system_prompt(context.workspace, "zh-CN", "concise", &[]);
+        let system = native_context::runtime_system_prompt(
+            context.workspace,
+            "zh-CN",
+            "concise",
+            "",
+            "",
+            "",
+            &[],
+        );
         let mut join_set = tokio::task::JoinSet::new();
         for task in &tasks {
             let model_gateway = self.model_gateway.clone();
@@ -2410,20 +2526,20 @@ impl NativeRuntime {
                 json!({ "servers": mcp_catalog.public_servers(&mcp_configs) }),
             ),
         )?;
-        let mut tools = native_agent_tools::definitions();
-        tools.extend(native_encrypted_checkpoints::definitions());
-        tools.extend(native_knowledge::definitions());
-        tools.extend(native_schedule::definitions());
-        tools.extend(native_todos::definitions());
-        tools.extend(native_skills::definitions());
-        tools.extend(native_workflows::definitions());
-        tools.extend(mcp_catalog.definitions.clone());
-        let known_capabilities = tools
+        let mut available_tools = native_agent_tools::definitions();
+        available_tools.extend(native_encrypted_checkpoints::definitions());
+        available_tools.extend(native_knowledge::definitions());
+        available_tools.extend(native_schedule::definitions());
+        available_tools.extend(native_todos::definitions());
+        available_tools.extend(native_skills::definitions());
+        available_tools.extend(native_workflows::definitions());
+        available_tools.extend(mcp_catalog.definitions.clone());
+        let known_capabilities = available_tools
             .iter()
             .map(|tool| tool.name.clone())
             .collect::<BTreeSet<_>>();
         if let Some(enabled) = context.enabled_capabilities {
-            tools.retain(|tool| enabled.iter().any(|name| name == &tool.name));
+            available_tools.retain(|tool| enabled.iter().any(|name| name == &tool.name));
         }
         if !mcp_catalog.notices.is_empty() {
             messages.push(ModelMessage {
@@ -2435,6 +2551,8 @@ impl NativeRuntime {
         let mut total_input = 0;
         let mut total_output = 0;
         for step in 0..8 {
+            let tools =
+                native_context::select_tools_for_context(&available_tools, &messages, 1_200);
             let streamed = self
                 .model_gateway
                 .invoke(
@@ -2528,6 +2646,13 @@ impl NativeRuntime {
                         arguments: call.arguments.clone(),
                     },
                 )?;
+                native_state_capsule::record_tool(
+                    &self.state_store,
+                    context.session_id,
+                    &call.id,
+                    "proposed",
+                    now_ms(),
+                )?;
             }
             let call_summary = calls
                 .iter()
@@ -2550,6 +2675,13 @@ impl NativeRuntime {
                         .map_err(|error| error.to_string())?;
                     for queued in &calls {
                         if let Some(tool) = kernel_turn.tools.get(&queued.id) {
+                            native_state_capsule::record_tool(
+                                &self.state_store,
+                                context.session_id,
+                                &queued.id,
+                                capsule_tool_status(tool.state),
+                                now_ms(),
+                            )?;
                             emit_runtime_event(
                                 context.app,
                                 context.session_id,
@@ -2638,6 +2770,13 @@ impl NativeRuntime {
                             message: None,
                         },
                     )?;
+                    native_state_capsule::record_approval(
+                        &self.state_store,
+                        context.session_id,
+                        &approval_request_id,
+                        "waiting",
+                        now_ms(),
+                    )?;
                     emit_runtime_event(
                         context.app,
                         context.session_id,
@@ -2709,6 +2848,13 @@ impl NativeRuntime {
                             now_ms(),
                         )
                         .map_err(|error| error.to_string())?;
+                    native_state_capsule::record_approval(
+                        &self.state_store,
+                        context.session_id,
+                        &approval_request_id,
+                        capsule_approval_status(outcome),
+                        now_ms(),
+                    )?;
                     emit_runtime_event(
                         context.app,
                         context.session_id,
@@ -2997,7 +3143,24 @@ impl NativeRuntime {
                             .map_err(|error| error.to_string())?;
                     }
                 }
-                let tool = kernel_turn.tools.get(&call.id).expect("registered tool");
+                let tool_state = kernel_turn
+                    .tools
+                    .get(&call.id)
+                    .expect("registered tool")
+                    .state;
+                native_state_capsule::record_tool(
+                    &self.state_store,
+                    context.session_id,
+                    &call.id,
+                    capsule_tool_status(tool_state),
+                    now_ms(),
+                )?;
+                let result_value = result
+                    .as_ref()
+                    .cloned()
+                    .unwrap_or_else(|message| json!({ "error": message }));
+                let result_reference =
+                    archive_tool_result(&self.state_store, &call.id, &result_value)?;
                 emit_runtime_event(
                     context.app,
                     context.session_id,
@@ -3006,11 +3169,8 @@ impl NativeRuntime {
                     Actor::Tool,
                     RuntimeEventPayload::ToolResult {
                         tool_call_id: call.id.clone(),
-                        status: contract_tool_status(tool.state),
-                        result: result
-                            .as_ref()
-                            .cloned()
-                            .unwrap_or_else(|message| json!({ "error": message })),
+                        status: contract_tool_status(tool_state),
+                        result: result_reference.clone(),
                     },
                 )?;
                 if kernel_turn.state != TurnState::ObservingResult {
@@ -3045,7 +3205,7 @@ impl NativeRuntime {
                 )?;
                 results.push(json!({
                     "callId":call.id,"tool":call.name,
-                    "result":result.unwrap_or_else(|message| json!({"error":message}))
+                    "result":result_reference
                 }));
             }
             messages.push(ModelMessage {
@@ -3509,7 +3669,8 @@ impl NativeRuntime {
             session.updated_at = timestamp;
             session.message_count += 1;
             session.last_message_preview = prompt.chars().take(120).collect();
-            let mut history = state
+            let workspace = Self::workspace_for_session(&state, Some(&session_id));
+            let history = state
                 .messages
                 .get(&session_id)
                 .into_iter()
@@ -3521,26 +3682,48 @@ impl NativeRuntime {
                 })
                 .filter(|message| !message.text.is_empty())
                 .collect::<Vec<_>>();
-            let mut system_prompt = native_context::system_prompt(
-                &Self::workspace_for_session(&state, Some(&session_id)),
-                &state.settings.preferred_language,
-                &state.settings.agent_style,
-                &native_skills::list(&Self::workspace_for_session(&state, Some(&session_id)))
-                    .unwrap_or_default(),
-            );
-            let user_context = UserDirectory::prompt_context(&user_directory_snapshot);
-            if !user_context.is_empty() {
-                system_prompt.push_str("\n\n");
-                system_prompt.push_str(&user_context);
-            }
+            let mut history = native_context::bounded_recent_history(history, 8_000);
+            let memory_scopes = vec![
+                native_memory_engine::scope("user", "local-user"),
+                native_memory_engine::scope(
+                    "project",
+                    native_memory_engine::project_scope_id(&workspace)?,
+                ),
+                native_memory_engine::scope("session", session_id.clone()),
+            ];
+            let (memory_context, memory_ids) =
+                self.memory_engine
+                    .prompt_context(&prompt, &memory_scopes, 512, timestamp)?;
+            let capsule = native_state_capsule::record_goal(
+                &self.state_store,
+                &session_id,
+                &prompt,
+                memory_ids,
+                timestamp,
+            )?;
+            let capsule_context = native_state_capsule::prompt(&capsule);
+            let mut user_context = UserDirectory::prompt_context(&user_directory_snapshot);
             if let Some(policy_default) = &core_overrides.policy_default {
-                system_prompt.push_str(&format!(
+                user_context.push_str(&format!(
                     "\n\n[ClawMaster policy default: {policy_default}] Hard approval, audit, and path-isolation rules still take precedence."
                 ));
             }
+            let system_prompt = native_context::runtime_system_prompt(
+                &workspace,
+                &state.settings.preferred_language,
+                &state.settings.agent_style,
+                &user_context,
+                &capsule_context,
+                "",
+                &[],
+            );
             native_context::prepend_system_message(&mut history, system_prompt);
+            native_context::append_retrieved_context(
+                &mut history,
+                &memory_context,
+                &native_skills::list(&workspace).unwrap_or_default(),
+            );
             self.persist(&state)?;
-            let workspace = Self::workspace_for_session(&state, Some(&session_id));
             (model, history, workspace, inferred_session)
         };
 
@@ -3897,6 +4080,7 @@ fn emit(app: &AppHandle, value: Value) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::native_state_store::ArtifactRef;
     use std::sync::Mutex as TestMutex;
 
     #[test]
@@ -3911,6 +4095,31 @@ mod tests {
         assert_eq!(frame["payload"]["code"], "model_stream_interrupted");
         assert_eq!(frame["payload"]["retryable"], false);
         assert_eq!(frame["payload"]["uncertain"], true);
+    }
+
+    #[test]
+    fn large_tool_results_are_encrypted_artifacts_not_model_context() {
+        let root = tempfile::tempdir().unwrap();
+        let store = NativeStateStore::open_for_test(root.path(), [64; 32]).unwrap();
+        let marker = "private-tail-marker";
+        let value = json!({"rows": "x".repeat(20_000), "tail": marker});
+        let reference = archive_tool_result(&store, "call-large-output", &value).unwrap();
+        let model_context = reference.to_string();
+        assert!(!model_context.contains(marker));
+        assert!(model_context.len() < 1_200);
+
+        let artifact = ArtifactRef {
+            sha256: reference["artifact"]["sha256"]
+                .as_str()
+                .unwrap()
+                .to_string(),
+            byte_length: reference["artifact"]["byteLength"].as_u64().unwrap(),
+        };
+        let restored: Value =
+            serde_json::from_slice(&store.read_artifact(&artifact).unwrap()).unwrap();
+        assert_eq!(restored, value);
+        store.flush().unwrap();
+        assert!(!store_contains(root.path(), marker));
     }
 
     #[derive(Default)]
