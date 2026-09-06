@@ -19,9 +19,17 @@ packs loaded only for an active invocation.
 - `capability_install` requires an explicit approval flag and independently
   verifies signature, SHA-256, API version, platform, architecture, dependency,
   runtime version, size, WASM structure, and imported permissions.
-- Installation uses a staging directory and atomic rename. Startup removes
-  abandoned staging directories. Each version has an independent directory and
-  the previous complete version remains available for rollback.
+- Installation writes and syncs both the entrypoint and manifest inside a
+  staging directory before health and permission checks, then commits the
+  complete directory with one atomic rename. Startup reconciles disk state
+  against the encrypted registry, removes staging and unreferenced versions,
+  and preserves only the active and recorded previous complete versions.
+- Package roots, version directories, manifests, and entrypoints must be direct
+  canonical children and may not be symlinks. An existing version is immutable;
+  reusing its version number with different bytes is rejected.
+- Rollback revalidates identity, compiled trust-root signature, hash, platform,
+  API compatibility, WASM health, imports, and permissions before changing the
+  registry. A failed rollback leaves the current version active.
 - Uninstall also requires explicit approval. Registry data is encrypted by the
   native state store.
 
@@ -47,4 +55,3 @@ Issue #14 must remain open until the desktop UI renders the pre-download plan,
 shows loading/install-required states, and installed Windows x64 and macOS ARM64
 runs demonstrate worker reclamation, RSS reduction, and no orphan process. The
 pack size gates also need to run against actual first-party capability packs.
-
