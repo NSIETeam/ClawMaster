@@ -16,8 +16,8 @@
       "number": 1,
       "status": "implemented_needs_evidence",
       "closable": false,
-      "evidence": ["Tauri v2 is the production build path", "Windows x64 and macOS ARM64 are the only release targets"],
-      "remaining": ["Complete installed capability-parity evidence", "Verify signed macOS ARM64 package integrity", "Retire Electron compatibility code only after parity is proven"]
+      "evidence": ["Tauri v2 is the production build path", "Windows x64 and macOS ARM64 are the only release targets", "The macOS ARM64 DMG passed checksum, bundle-integrity, isolated-copy, launch, and clean-exit checks at candidate 4b0c39bd"],
+      "remaining": ["Complete installed capability-parity evidence", "Replace the ad-hoc macOS signature with Developer ID signing, notarization, and stapling", "Retire Electron compatibility code only after parity is proven"]
     },
     {
       "number": 2,
@@ -58,8 +58,8 @@
       "number": 10,
       "status": "in_progress",
       "closable": false,
-      "evidence": ["7698691e removed a redundant candidate timer", "3b265b2f reduced Windows output to NSIS only", "Rust ResourceGovernor test runs 8 agents through 500 lease cycles each and requires zero remaining agents, queue entries, workers, or loaded implementations", "Synthetic JavaScript allocation diagnostics are explicitly excluded from release evidence"],
-      "remaining": ["Replace the synthetic JavaScript benchmark with installed Rust-runtime evidence", "Run the same task set against the beta baseline and report success and token deltas", "Run 8 agents for 500 turns and prove worker cleanup and RSS growth", "Produce installed process-tree CPU, memory, startup, size, and top-component reports on both platforms", "Delete legacy production paths only after parity evidence exists"]
+      "evidence": ["7698691e removed a redundant candidate timer", "3b265b2f reduced Windows output to NSIS only", "Rust ResourceGovernor test runs 8 agents through 500 lease cycles each and requires zero remaining agents, queue entries, workers, or loaded implementations", "Synthetic JavaScript allocation diagnostics are explicitly excluded from release evidence", "macOS candidate 4b0c39bd produced a verified 5.30 MiB DMG and 12.54 MiB app; the installed process used 20,944 KiB RSS and 1.1% CPU at 34 seconds, had zero children, and exited without an orphan"],
+      "remaining": ["Run the same task set against the beta baseline and report success and token deltas", "Measure installed-process RSS growth while 8 agents run 500 turns", "Produce equivalent installed CPU, memory, startup, size, signing, and top-component evidence on Windows x64", "Delete legacy production paths only after parity evidence exists"]
     },
     {
       "number": 11,
