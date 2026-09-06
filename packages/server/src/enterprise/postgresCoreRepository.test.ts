@@ -155,6 +155,20 @@ describe('PostgreSQL enterprise core authority', () => {
     );
   });
 
+  it('installs tenant-bound durable CompanyOS events and receipts', () => {
+    const migration = ENTERPRISE_POSTGRES_MIGRATIONS.find(
+      (candidate) => candidate.version === 15,
+    );
+    expect(migration).toMatchObject({
+      version: 15,
+      name: 'companyos-durable-events',
+    });
+    expect(migration!.sql).toContain('CREATE TABLE companyos_events');
+    expect(migration!.sql).toContain('CREATE TABLE companyos_event_receipts');
+    expect(migration!.sql).toContain('UNIQUE (organization_id, idempotency_key)');
+    expect(migration!.sql).toContain('REFERENCES organizations(id)');
+  });
+
   it('requires an exact policy hash before PostgreSQL reports current consent', async () => {
     const references = currentLegalDocumentReferences();
     const pool: PostgresPoolLike = {

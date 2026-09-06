@@ -204,3 +204,6 @@ export function buildCeoBrief(organizationId: string, profit: ProfitResult, acti
 export function createCanonicalEvent(input: Omit<CanonicalEvent, 'id'> & { id?: string }): CanonicalEvent {
   return { ...input, id: input.id ?? `${input.organizationId}:${input.idempotencyKey}` };
 }
+
+export * from './companyOsSchema.js';
+export * from './durableEventBus.js';

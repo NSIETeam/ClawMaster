@@ -925,6 +925,42 @@ CREATE INDEX attachment_objects_mls_message
   ) WHERE mls_conversation_id IS NOT NULL;
 `,
   },
+  {
+    version: 15,
+    name: 'companyos-durable-events',
+    sql: `
+CREATE TABLE companyos_events (
+  cursor BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  event_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  source TEXT NOT NULL,
+  source_revision TEXT NOT NULL,
+  observed_at TIMESTAMPTZ NOT NULL,
+  correlation_id TEXT NOT NULL,
+  causation_id TEXT,
+  idempotency_key TEXT NOT NULL,
+  fact_fingerprint TEXT NOT NULL CHECK (fact_fingerprint ~ '^[0-9a-f]{64}$'),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (organization_id, event_id),
+  UNIQUE (organization_id, idempotency_key)
+);
+
+CREATE TABLE companyos_event_receipts (
+  consumer_id TEXT NOT NULL,
+  event_cursor BIGINT NOT NULL REFERENCES companyos_events(cursor) ON DELETE CASCADE,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  processed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (consumer_id, event_cursor)
+);
+
+CREATE INDEX companyos_events_organization_cursor
+  ON companyos_events(organization_id, cursor);
+CREATE INDEX companyos_receipts_organization
+  ON companyos_event_receipts(organization_id, consumer_id, event_cursor);
+`,
+  },
 ];
 
 export const ENTERPRISE_POSTGRES_SCHEMA_VERSION =
