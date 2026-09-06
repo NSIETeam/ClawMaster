@@ -7328,136 +7328,6 @@ h6.claw-prose__h {
   background: color-mix(in srgb, var(--claw-success) 13%, transparent);
   color: var(--claw-success);
 }
-.claw-park-demo__summary {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 15px;
-  padding: 14px 16px;
-  border: 1px solid var(--claw-border);
-  border-radius: var(--claw-radius);
-  background: color-mix(in srgb, var(--claw-accent-soft) 55%, var(--claw-surface));
-}
-.claw-park-demo__eyebrow {
-  color: var(--claw-accent-hover);
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: .02em;
-}
-.claw-park-demo__summary h3 {
-  margin: 4px 0 3px;
-  color: var(--claw-text);
-  font-size: 15px;
-  font-weight: 650;
-}
-.claw-park-demo__summary p {
-  margin: 0;
-  color: var(--claw-text-secondary);
-  font-size: 11.5px;
-}
-.claw-park-demo__chat {
-  flex: 0 0 auto;
-  margin-top: 4px;
-}
-.claw-park-demo__timeline {
-  display: grid;
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.claw-park-demo__timeline li {
-  position: relative;
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 10px;
-  min-height: 62px;
-  color: var(--claw-text-tertiary);
-}
-.claw-park-demo__timeline li:not(:last-child)::before {
-  position: absolute;
-  top: 26px;
-  bottom: 0;
-  left: 12px;
-  width: 2px;
-  background: var(--claw-border);
-  content: '';
-}
-.claw-park-demo__marker {
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--claw-border);
-  border-radius: 50%;
-  background: var(--claw-surface);
-  font-size: 11px;
-  font-weight: 650;
-}
-.claw-park-demo__step {
-  padding: 2px 0 14px;
-}
-.claw-park-demo__step > div {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-.claw-park-demo__step strong {
-  color: var(--claw-text);
-  font-size: 12.5px;
-  font-weight: 650;
-}
-.claw-park-demo__step span {
-  border-radius: var(--claw-radius-pill);
-  background: color-mix(in srgb, var(--claw-text-secondary) 10%, transparent);
-  color: var(--claw-text-secondary);
-  font-size: 10.5px;
-  padding: 2px 6px;
-}
-.claw-park-demo__step p {
-  margin: 3px 0 0;
-  color: inherit;
-  font-size: 11.5px;
-  line-height: 1.45;
-}
-.claw-park-demo__timeline em {
-  margin-top: 5px;
-  color: inherit;
-  font-size: 10.5px;
-  font-style: normal;
-  white-space: nowrap;
-}
-.claw-park-demo__timeline li.is-current {
-  color: var(--claw-text-secondary);
-}
-.claw-park-demo__timeline li.is-current .claw-park-demo__marker {
-  border-color: var(--claw-accent);
-  color: var(--claw-accent-hover);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--claw-accent) 13%, transparent);
-}
-.claw-park-demo__timeline li.is-complete {
-  color: var(--claw-text-secondary);
-}
-.claw-park-demo__timeline li.is-complete .claw-park-demo__marker {
-  border-color: var(--claw-success);
-  background: var(--claw-success);
-  color: var(--claw-bg);
-}
-.claw-park-demo__timeline li.is-complete:not(:last-child)::before {
-  background: var(--claw-success);
-}
-.claw-park-demo__actions {
-  display: flex;
-  gap: 9px;
-  margin-top: 3px;
-  padding-top: 14px;
-  border-top: 1px solid var(--claw-border);
-}
 .claw-park-demo__primary {
   border: 1px solid var(--claw-accent);
   border-radius: var(--claw-radius-sm);
@@ -7535,20 +7405,6 @@ h6.claw-prose__h {
   margin: 0;
   color: var(--claw-text-secondary);
   font-size: 11px;
-}
-.claw-park-receiver__state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 148px;
-  border: 1px dashed var(--claw-border);
-  border-radius: var(--claw-radius);
-  background: color-mix(in srgb, var(--claw-accent-soft) 34%, transparent);
-  color: var(--claw-text-secondary);
-  font-size: 12px;
-  line-height: 1.5;
-  text-align: center;
-  padding: 14px;
 }
 .claw-park-announcement-detail {
   margin-top: 12px;
@@ -7630,124 +7486,19 @@ h6.claw-prose__h {
   resize: vertical;
   min-height: 82px;
 }
-.claw-park-survey__result {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  color: var(--claw-text-secondary);
-  font-size: 12px;
-}
-.claw-park-survey__result strong {
-  color: var(--claw-success);
-  font-weight: 650;
-}
-
-/* 客户报修双设备演示：报修人聊天引导 + 维修人员待处理工单。 */
 .claw-park-repair__roles { display: flex; gap: 6px; }
 .claw-park-repair__roles button {
   border: 1px solid var(--claw-border); border-radius: var(--claw-radius-pill);
   background: var(--claw-surface); color: var(--claw-text-secondary); cursor: pointer; font-size: 11px; padding: 7px 10px;
 }
 .claw-park-repair__roles button.is-active { border-color: var(--claw-accent); background: var(--claw-accent-soft); color: var(--claw-accent-hover); font-weight: 650; }
-.claw-park-repair__chat, .claw-park-repair__technician {
-  border: 1px solid var(--claw-border); border-radius: var(--claw-radius); background: var(--claw-surface); overflow: hidden;
-}
-.claw-park-repair__chathead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--claw-border); }
-.claw-park-repair__chathead strong { color: var(--claw-text); font-size: 13px; }
-.claw-park-repair__chathead span { color: var(--claw-text-tertiary); font-size: 10.5px; }
-.claw-park-repair__messages { display: grid; gap: 8px; max-height: 230px; overflow: auto; padding: 14px; }
-.claw-park-repair__message { max-width: 78%; border-radius: 11px; padding: 9px 11px; color: var(--claw-text-secondary); font-size: 12px; line-height: 1.5; }
-.claw-park-repair__message.is-otto { justify-self: start; background: var(--claw-bg); border: 1px solid var(--claw-border); }
-.claw-park-repair__message.is-user { justify-self: end; background: var(--claw-accent-soft); color: var(--claw-text); }
-.claw-park-repair__input { display: flex; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--claw-border); }
-.claw-park-repair__input input { min-width: 0; flex: 1; border: 1px solid var(--claw-border); border-radius: var(--claw-radius-sm); background: var(--claw-bg); color: var(--claw-text); font: inherit; font-size: 12px; padding: 9px 10px; }
-.claw-park-repair__confirm { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 14px; border-top: 1px solid var(--claw-border); }
-.claw-park-repair__confirm div { display: grid; gap: 3px; }
-.claw-park-repair__confirm strong { color: var(--claw-text); font-size: 12px; }
-.claw-park-repair__confirm span { color: var(--claw-text-tertiary); font-size: 10.5px; }
 .claw-park-repair__empty { padding: 36px 16px; color: var(--claw-text-secondary); font-size: 12px; text-align: center; }
-.claw-park-repair__ticket { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 14px; }
-.claw-park-repair__ticket div { display: grid; gap: 3px; padding: 8px; border-radius: var(--claw-radius-sm); background: var(--claw-bg); }
-.claw-park-repair__ticket span { color: var(--claw-text-tertiary); font-size: 10px; }
-.claw-park-repair__ticket strong { color: var(--claw-text); font-size: 11.5px; font-weight: 600; }
-.claw-park-repair__technician .claw-park-demo__actions { margin: 0 14px 14px; padding-top: 12px; }
-.claw-park-repair__reply { margin: 0 14px 14px; padding: 11px 12px; border: 1px solid var(--claw-border); border-radius: var(--claw-radius-sm); background: color-mix(in srgb, var(--claw-accent-soft) 30%, var(--claw-surface)); }
-.claw-park-repair__replytitle { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.claw-park-repair__replytitle strong { color: var(--claw-text); font-size: 11.5px; }
-.claw-park-repair__replytitle span { color: var(--claw-text-tertiary); font-size: 10px; }
-.claw-park-repair__reply .claw-park-repair__input { padding: 9px 0 0; border-top: 0; }
-.claw-park-repair__quick,
-.claw-park-workflow-chat__quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
-.claw-park-repair__quick button,
-.claw-park-workflow-chat__quick button { border: 1px solid var(--claw-border); border-radius: var(--claw-radius-pill); background: var(--claw-bg); color: var(--claw-text-secondary); cursor: pointer; font-size: 10.5px; padding: 6px 8px; }
-.claw-park-repair__quick button:hover,
-.claw-park-workflow-chat__quick button:hover { border-color: var(--claw-accent); color: var(--claw-accent-hover); }
 .claw-park-request-form,
 .claw-park-technician-form,
 .claw-park-response-form { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--claw-border); border-radius: var(--claw-radius); background: var(--claw-surface); }
 .claw-park-form__guide { display: grid; gap: 3px; padding: 10px 11px; border-radius: var(--claw-radius-sm); background: color-mix(in srgb, var(--claw-accent-soft) 42%, var(--claw-surface)); }
 .claw-park-form__guide strong { color: var(--claw-text); font-size: 14px; }
 .claw-park-form__guide span { color: var(--claw-text-secondary); font-size: 12.5px; line-height: 1.55; }
-.claw-park-resource-note {
-  display: grid;
-  gap: 4px;
-  padding: 11px 12px;
-  border: 1px solid color-mix(in srgb, var(--claw-accent) 25%, var(--claw-border));
-  border-radius: var(--claw-radius-sm);
-  background: color-mix(in srgb, var(--claw-accent-soft) 38%, var(--claw-surface));
-}
-.claw-park-resource-note strong { color: var(--claw-text); font-size: 12px; }
-.claw-park-resource-note span { color: var(--claw-text-secondary); font-size: 11px; }
-.claw-park-room-picker {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-.claw-park-room-picker > button {
-  min-width: 0;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--claw-border);
-  border-radius: var(--claw-radius);
-  background: var(--claw-bg);
-  color: var(--claw-text);
-  cursor: pointer;
-  text-align: left;
-  transition: border-color var(--claw-dur-fast) var(--claw-ease), box-shadow var(--claw-dur-fast) var(--claw-ease);
-}
-.claw-park-room-picker > button:hover {
-  border-color: var(--claw-accent);
-}
-.claw-park-room-picker > button.is-selected {
-  border-color: var(--claw-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--claw-accent) 14%, transparent);
-}
-.claw-park-room-picker img {
-  width: 100%;
-  aspect-ratio: 16 / 8.5;
-  display: block;
-  object-fit: cover;
-}
-.claw-park-room-picker button > span {
-  display: grid;
-  gap: 3px;
-  padding: 10px 11px 11px;
-}
-.claw-park-room-picker strong {
-  color: var(--claw-text);
-  font-size: 12.5px;
-}
-.claw-park-room-picker em,
-.claw-park-room-picker small {
-  overflow: hidden;
-  color: var(--claw-text-secondary);
-  font-size: 10.5px;
-  font-style: normal;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .claw-park-meeting-booking { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 10px; align-items: start; }
 .claw-park-meeting-room-detail {
   grid-row: span 2;
@@ -7845,19 +7596,6 @@ h6.claw-prose__h {
 .claw-park-meeting-legend .is-booked::before { background: var(--claw-danger); }
 .claw-park-meeting-legend .is-selected::before { background: var(--claw-warning); }
 .claw-park-meeting-legend .is-closed::before { background: var(--claw-text-tertiary); }
-.claw-park-meeting-success {
-  display: grid;
-  gap: 8px;
-  padding: 18px;
-  border: 1px solid color-mix(in srgb, var(--claw-success) 40%, var(--claw-border));
-  border-radius: var(--claw-radius);
-  background: color-mix(in srgb, var(--claw-success) 10%, var(--claw-surface));
-}
-.claw-park-meeting-success > span { width: fit-content; padding: 4px 8px; border-radius: var(--claw-radius-pill); background: var(--claw-success); color: var(--claw-accent-contrast); font-size: 10px; }
-.claw-park-meeting-success h3,
-.claw-park-meeting-success p { margin: 0; }
-.claw-park-meeting-success h3 { color: var(--claw-text); font-size: 15px; }
-.claw-park-meeting-success p { color: var(--claw-text-secondary); font-size: 11px; }
 .claw-park-form__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .claw-park-form__field.is-wide { grid-column: 1 / -1; }
 .claw-park-form__field { display: grid; gap: 6px; color: var(--claw-accent-hover); font-size: 14px; font-weight: 700; }
@@ -7868,32 +7606,6 @@ h6.claw-prose__h {
 .claw-park-form__field input:disabled { opacity: .7; }
 .claw-park-form__field small { color: var(--claw-text-tertiary); font-size: 11px; }
 .claw-park-form__field small.is-error { color: var(--claw-danger); }
-.claw-park-repair-actions { display: grid; gap: 10px; }
-.claw-park-repair-actions__modes {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: 3px;
-  border: 1px solid var(--claw-border);
-  border-radius: var(--claw-radius-sm);
-  background: var(--claw-bg);
-}
-.claw-park-repair-actions__modes button {
-  min-height: 34px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--claw-text-secondary);
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
-}
-.claw-park-repair-actions__modes button.is-active {
-  background: var(--claw-surface);
-  color: var(--claw-text);
-  box-shadow: var(--claw-shadow-sm);
-  font-weight: 650;
-}
-.claw-park-transfer-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .claw-park-form__receipt { color: var(--claw-success); font-size: 11px; }
 .claw-park-request-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .claw-park-request-summary .is-wide { grid-column: 1 / -1; }
@@ -7951,109 +7663,12 @@ h6.claw-prose__h {
 .claw-park-ticket-history__meta time { color: var(--claw-text-tertiary); font-size: 9.5px; }
 .claw-park-ticket-history p { margin: 3px 0 0; overflow-wrap: anywhere; color: var(--claw-text-secondary); font-size: 10.5px; line-height: 1.45; }
 .claw-park-ticket-history p b { color: var(--claw-text); font-weight: 600; }
-.claw-park-workflow-form { display: grid; gap: 10px; margin-top: 12px; }
-.claw-park-notice__reply { margin: 14px 0 0; background: var(--claw-surface); }
-.claw-park-workflow-chat { margin-top: 13px; border: 1px solid var(--claw-border); border-radius: var(--claw-radius); background: var(--claw-surface); overflow: hidden; }
-.claw-park-workflow-chat .claw-park-repair__chathead { padding: 10px 12px; }
-.claw-park-workflow-chat .claw-park-repair__messages { max-height: 120px; padding: 11px 12px; }
-.claw-park-workflow-chat > .claw-park-repair__input { padding: 9px 12px 11px; border-top: 1px solid var(--claw-border); }
-.claw-park-workflow-chat__quick { padding: 0 12px; }
-
 @media (max-width: 700px) {
-  .claw-park-room-picker,
   .claw-park-meeting-booking,
   .claw-park-form__grid {
     grid-template-columns: 1fr;
   }
   .claw-park-meeting-room-detail { grid-row: auto; }
-}
-
-/* 每个责任人收到的 Otto 待处理弹窗。演示时可明确看到渠道接力和兜底动作。 */
-.claw-park-notice-overlay {
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  z-index: 120;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  width: min(440px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
-  padding: 0;
-  pointer-events: none;
-  animation: claw-setup-fade var(--claw-dur-fast) var(--claw-ease);
-}
-.claw-park-notice {
-  width: 100%;
-  max-height: calc(100vh - 36px);
-  overflow: auto;
-  pointer-events: auto;
-  padding: 20px 22px 18px;
-  border: 1px solid color-mix(in srgb, var(--claw-accent) 28%, var(--claw-border));
-  border-radius: var(--claw-radius-lg);
-  background: var(--claw-bg);
-  box-shadow: var(--claw-shadow-pop);
-  animation: claw-park-pop var(--claw-dur) var(--claw-ease);
-}
-.claw-park-notice__eyebrow {
-  color: var(--claw-accent-hover);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: .02em;
-}
-.claw-park-notice h3 {
-  margin: 7px 0 5px;
-  color: var(--claw-text);
-  font-size: 16px;
-  font-weight: 650;
-}
-.claw-park-notice__owner,
-.claw-park-notice__detail {
-  margin: 0;
-  color: var(--claw-text-secondary);
-  font-size: 12px;
-  line-height: 1.5;
-}
-.claw-park-notice__owner strong { color: var(--claw-text); }
-.claw-park-notice__detail { margin-top: 7px; }
-.claw-park-notice__channels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 14px;
-}
-.claw-park-notice__channels span {
-  padding: 4px 7px;
-  border-radius: var(--claw-radius-pill);
-  background: color-mix(in srgb, var(--claw-text-secondary) 9%, transparent);
-  color: var(--claw-text-secondary);
-  font-size: 10.5px;
-}
-.claw-park-notice__channels span.is-active {
-  background: color-mix(in srgb, var(--claw-accent) 13%, transparent);
-  color: var(--claw-accent-hover);
-}
-.claw-park-notice__feishu-toggle {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 13px;
-  color: var(--claw-text-secondary);
-  font-size: 11px;
-  cursor: pointer;
-}
-.claw-park-notice__feishu-toggle input { accent-color: var(--claw-accent); }
-.claw-park-notice__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 17px;
-}
-.claw-park-notice__hint {
-  margin-top: 11px;
-  color: var(--claw-text-tertiary);
-  font-size: 10.5px;
-  line-height: 1.45;
 }
 
 @media (max-width: 880px) {
@@ -8077,19 +7692,11 @@ h6.claw-prose__h {
   .claw-park-statistics__organization > button { grid-template-columns: minmax(110px, 1fr) 58px 18px; gap: 8px; }
   .claw-park-staff-history__controls { grid-template-columns: 1fr; }
   .claw-park-dialog__grid { grid-template-columns: 1fr; }
-  .claw-park-demo__summary { display: block; }
-  .claw-park-demo__chat { margin-top: 11px; }
   .claw-park-receiver,
   .claw-park-survey { grid-template-columns: 1fr; }
   .claw-park-toast-stack { right: 12px; bottom: 12px; width: calc(100vw - 24px); }
-  .claw-park-notice-overlay { right: 12px; bottom: 12px; width: calc(100vw - 24px); max-height: calc(100vh - 24px); }
-  .claw-park-notice { max-height: calc(100vh - 24px); }
-  .claw-park-repair__confirm { align-items: stretch; flex-direction: column; }
-  .claw-park-repair__ticket { grid-template-columns: 1fr; }
-  .claw-park-repair__replytitle { align-items: flex-start; flex-direction: column; }
   .claw-park-form__grid,
-  .claw-park-request-summary,
-  .claw-park-transfer-grid { grid-template-columns: 1fr; }
+  .claw-park-request-summary { grid-template-columns: 1fr; }
 }
 
 /* ── setup 已配置模型列表（v1.6.1：可删除 + 真实厂商）─────────────────── */

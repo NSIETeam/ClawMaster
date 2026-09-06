@@ -15,7 +15,7 @@ test('production renderer embeds the complete CSS before Tauri packages it', asy
   assert.ok(Buffer.byteLength(stylesheet) > 10_000, 'renderer CSS is unexpectedly small');
   assert.ok(
     Buffer.byteLength(stylesheet) < 370_000,
-    `production renderer CSS must be minified: ${Buffer.byteLength(stylesheet)} bytes`,
+    `production renderer CSS exceeds the 370 KB budget: ${Buffer.byteLength(stylesheet)} bytes`,
   );
   assert.doesNotMatch(
     stylesheet,
@@ -24,6 +24,11 @@ test('production renderer embeds the complete CSS before Tauri packages it', asy
   );
   assert.match(stylesheet, /\.claw-app\s*\{/);
   assert.match(stylesheet, /--claw-bg\s*:/);
+  assert.doesNotMatch(
+    stylesheet,
+    /\.claw-park-(?:demo__timeline|repair__message|notice-overlay)\b/,
+    'retired Otto park-demo surfaces must not ship in the production renderer',
+  );
 
   const entryScript = html.match(/<script[^>]+src=["']([^"']+)["'][^>]*>/i)?.[1];
   assert.match(
