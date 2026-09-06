@@ -5,7 +5,6 @@ import { buildReleaseManifest } from '../render-release-site.mjs';
 
 const files = [
   { name: 'ClawMaster_0.0.2-3_x64-setup.exe', size: 4_000_000 },
-  { name: 'ClawMaster_0.0.2-3_x64_en-US.msi', size: 5_000_000 },
   { name: 'ClawMaster_0.0.2-beta.3_aarch64.dmg', size: 6_000_000 },
 ];
 const checksumSource = files
@@ -21,7 +20,7 @@ describe('release site manifest', () => {
     });
 
     expect(manifest.version).toBe('0.0.2-beta.3');
-    expect(Object.keys(manifest.assets)).toEqual(['windows', 'windowsMsi', 'mac']);
+    expect(Object.keys(manifest.assets)).toEqual(['windows', 'mac']);
     expect(manifest.assets.windows.url).toContain('ClawMaster_0.0.2-3_x64-setup.exe');
     expect(manifest.assets.mac.size).toBe('5.72 MiB');
   });

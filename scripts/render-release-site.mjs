@@ -47,7 +47,6 @@ export function buildReleaseManifest({ tagName, files, checksumSource }) {
 
   const checksums = parseChecksums(checksumSource);
   const windows = selectAsset(files, /_x64-setup\.exe$/i, 'Windows NSIS');
-  const windowsMsi = selectAsset(files, /_x64_en-US\.msi$/i, 'Windows MSI');
   const mac = selectAsset(files, /_aarch64\.dmg$/i, 'macOS ARM64');
 
   return {
@@ -58,7 +57,6 @@ export function buildReleaseManifest({ tagName, files, checksumSource }) {
     checksumsUrl: `https://github.com/${REPOSITORY}/releases/download/${encodeURIComponent(tagName)}/SHA256SUMS`,
     assets: {
       windows: releaseAsset(tagName, windows, checksums),
-      windowsMsi: releaseAsset(tagName, windowsMsi, checksums),
       mac: releaseAsset(tagName, mac, checksums),
     },
   };

@@ -18,10 +18,6 @@ function applyManifest(manifest) {
   document.querySelectorAll('[data-release-version]').forEach((node) => { node.textContent = manifest.version; });
   document.querySelectorAll('[data-release-link="windows"]').forEach((link) => { link.href = manifest.assets.windows.url; });
   document.querySelectorAll('[data-release-link="mac"]').forEach((link) => { link.href = manifest.assets.mac.url; });
-  document.querySelectorAll('[data-release-link="msi"]').forEach((link) => {
-    link.href = manifest.assets.windowsMsi.url;
-    link.textContent = `下载 MSI（${manifest.assets.windowsMsi.size}）`;
-  });
   document.querySelectorAll('[data-release-link="checksums"]').forEach((link) => { link.href = manifest.checksumsUrl; });
   document.querySelectorAll('[data-release-link="notes"]').forEach((link) => { link.href = manifest.releaseUrl; });
   document.querySelector('[data-release-size="windows"]').textContent = manifest.assets.windows.size;
