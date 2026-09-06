@@ -24,6 +24,7 @@
     "enterprise:postgres:promote": "node dist/src/enterprise/postgresPromotionCli.js",
     "enterprise:infrastructure:check": "node dist/src/modules/data_platform/enterpriseInfrastructureCli.js",
     "enterprise:data-protection": "node dist/src/modules/data_platform/dataProtectionCli.js",
+    "pretypecheck": "npm run build",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",
     "test": "vitest run",
