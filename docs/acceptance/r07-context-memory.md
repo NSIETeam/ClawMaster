@@ -31,13 +31,18 @@ Run from `packages/desktop/src-tauri`:
 
 ```text
 cargo test --lib
-163 passed; 0 failed; 3 ignored
+195 passed; 0 failed; 3 ignored
 ```
 
 The ignored tests are explicit opt-in checks for public GitHub access, a real
 provider credential, and a subprocess helper. The two localhost WebSocket/SSE
 tests fail inside the filesystem sandbox because listener creation is denied;
 the same full command passes outside that sandbox.
+
+This result was repeated on 2026-09-06 after the NativeRpa recovery hardening.
+The frozen 50K corpus, 10,000-query isolation loop, forget/supersede/replay
+checks, context bounds, artifact recovery, and StateCapsule restart checks all
+ran in that suite rather than being inferred from source inspection.
 
 Focused gates cover:
 

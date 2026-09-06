@@ -65,8 +65,8 @@
       "number": 11,
       "status": "implemented_needs_evidence",
       "closable": false,
-      "evidence": ["bce9ab6c bounded native context memory"],
-      "remaining": ["Run the frozen 50K memory quality dataset", "Prove Recall@5, Precision@5, latency, forget, supersede, and 10,000-query isolation thresholds", "Publish beta-comparable token and task-success reports"]
+      "evidence": ["bce9ab6c bounded native context memory", "The 2026-09-06 full Rust suite ran the frozen 50K Recall@5, Precision@5, cold/warm latency gate, forget, supersede, replay, and 10,000-query scope-isolation checks as part of 195 passing tests with zero failures and three explicit opt-in skips"],
+      "remaining": ["Run the fixed 61ce7eb8 baseline and candidate against the same successful installed-provider task corpus", "Publish median input-token reduction and task-success deltas, requiring at least 40 percent fewer median input tokens and no more than a two-point success-rate decrease; share this one real-provider run with Issue 8"]
     },
     {
       "number": 12,
