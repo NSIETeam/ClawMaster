@@ -169,6 +169,57 @@ pub fn profile_path(root: &Path, tenant_id: &str, platform_id: &str, browser: &s
         .join(browser)
 }
 
+pub fn ensure_profile_path(
+    root: &Path,
+    tenant_id: &str,
+    platform_id: &str,
+    browser: &str,
+) -> Result<PathBuf, String> {
+    validate_directory(root, root, "RPA profile 根")?;
+    let profile = profile_path(root, tenant_id, platform_id, browser);
+    let platform = profile
+        .parent()
+        .ok_or_else(|| "RPA browser profile 缺少父目录".to_string())?
+        .to_path_buf();
+    let tenant = platform
+        .parent()
+        .ok_or_else(|| "RPA platform profile 缺少父目录".to_string())?
+        .to_path_buf();
+    ensure_direct_child(root, &tenant, "RPA tenant profile")?;
+    ensure_direct_child(&tenant, &platform, "RPA platform profile")?;
+    ensure_direct_child(&platform, &profile, "RPA browser profile")?;
+    Ok(profile)
+}
+
+fn ensure_direct_child(parent: &Path, path: &Path, label: &str) -> Result<(), String> {
+    match std::fs::symlink_metadata(path) {
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            std::fs::create_dir(path).map_err(|error| format!("无法创建{label}: {error}"))?;
+        }
+        Err(error) => return Err(format!("无法检查{label}: {error}")),
+    }
+    validate_directory(parent, path, label)
+}
+
+fn validate_directory(parent: &Path, path: &Path, label: &str) -> Result<(), String> {
+    let metadata =
+        std::fs::symlink_metadata(path).map_err(|error| format!("无法检查{label}: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(format!("{label}必须是非符号链接目录"));
+    }
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|error| format!("无法解析{label}父目录: {error}"))?;
+    let canonical_path = path
+        .canonicalize()
+        .map_err(|error| format!("无法解析{label}: {error}"))?;
+    if path != parent && canonical_path.parent() != Some(canonical_parent.as_path()) {
+        return Err(format!("{label}逃逸 profile 根目录"));
+    }
+    Ok(())
+}
+
 pub fn spawn(candidate: &Candidate, profile: &Path, url: &str) -> Result<OwnedBrowser, String> {
     let mut command = Command::new(&candidate.executable);
     command
@@ -212,6 +263,25 @@ mod tests {
         assert!(validate_navigation_url("https://example.com/path").is_ok());
         assert!(validate_navigation_url("http://example.com/path").is_err());
         assert!(validate_navigation_url("https://user:secret@example.com/").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn profile_creation_rejects_symlinked_roots_and_components() {
+        use std::os::unix::fs::symlink;
+
+        let temporary = tempfile::tempdir().unwrap();
+        let real_root = temporary.path().join("real");
+        std::fs::create_dir(&real_root).unwrap();
+        let linked_root = temporary.path().join("linked");
+        symlink(&real_root, &linked_root).unwrap();
+        assert!(ensure_profile_path(&linked_root, "tenant", "platform", "chrome").is_err());
+
+        let tenant = real_root.join(safe_segment("tenant"));
+        let outside = temporary.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        symlink(&outside, &tenant).unwrap();
+        assert!(ensure_profile_path(&real_root, "tenant", "platform", "chrome").is_err());
     }
 
     #[cfg(target_os = "macos")]

@@ -261,8 +261,16 @@ impl NativeRpa {
     pub fn open(root: &Path, store: NativeStateStore) -> Result<Self, String> {
         std::fs::create_dir_all(root)
             .map_err(|error| format!("无法创建 RPA profile 目录: {error}"))?;
+        let metadata = std::fs::symlink_metadata(root)
+            .map_err(|error| format!("无法检查 RPA profile 目录: {error}"))?;
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err("RPA profile 根必须是非符号链接目录".into());
+        }
+        let root = root
+            .canonicalize()
+            .map_err(|error| format!("无法解析 RPA profile 目录: {error}"))?;
         let controller = Self {
-            root: root.to_path_buf(),
+            root,
             store,
             owned_browsers: Mutex::new(BTreeMap::new()),
         };
@@ -298,18 +306,15 @@ impl NativeRpa {
         validate_id(tenant_id, "tenant")?;
         validate_id(platform_id, "platform")?;
         browser::validate_navigation_url(url)?;
-        if self.load(run_id)?.is_some() {
-            return Err("RPA run ID 已存在".into());
-        }
+        let rejected_placeholder = reusable_rejected_placeholder(self.load(run_id)?)?;
         let candidate = browser::select(browser)?;
         if candidate.webdriver_contract {
             return Err(
                 "Safari 只提供系统 WebDriver adapter，不能作为 xa11y owned Chrome 会话启动".into(),
             );
         }
-        let profile = browser::profile_path(&self.root, tenant_id, platform_id, candidate.id);
-        std::fs::create_dir_all(&profile)
-            .map_err(|error| format!("无法创建隔离浏览器 profile: {error}"))?;
+        let profile =
+            browser::ensure_profile_path(&self.root, tenant_id, platform_id, candidate.id)?;
         let child = browser::spawn(&candidate, &profile, url)?;
         let timestamp = now_ms();
         let run = RpaRun {
@@ -320,8 +325,12 @@ impl NativeRpa {
             profile_path: profile.to_string_lossy().into_owned(),
             state: RpaRunState::Running,
             current_step_id: None,
-            receipts: Vec::new(),
-            created_at: timestamp,
+            receipts: rejected_placeholder
+                .as_ref()
+                .map_or_else(Vec::new, |run| run.receipts.clone()),
+            created_at: rejected_placeholder
+                .as_ref()
+                .map_or(timestamp, |run| run.created_at),
             updated_at: timestamp,
         };
         self.save(&run)?;
@@ -481,12 +490,7 @@ impl NativeRpa {
             "left".into(),
             "single".into(),
         ]);
-        match result {
-            Ok(()) => complete_receipt(&mut run, receipt_index, None),
-            Err(error) => fail_receipt(&mut run, receipt_index, &error, false),
-        }
-        self.save(&run)?;
-        Ok(run)
+        self.persist_input_result(run, receipt_index, result, external_side_effect)
     }
 
     pub fn extract(
@@ -540,7 +544,7 @@ impl NativeRpa {
             step_id,
             "desktop.fill",
             target_summary,
-            false,
+            true,
             approval_id,
         )?;
         let select_all = if cfg!(target_os = "macos") {
@@ -557,12 +561,7 @@ impl NativeRpa {
         ])
         .and_then(|_| native_tools::input_tool(&["hotkey".into(), select_all.into()]))
         .and_then(|_| native_tools::input_tool(&["type".into(), text.into()]));
-        match result {
-            Ok(()) => complete_receipt(&mut run, receipt_index, None),
-            Err(error) => fail_receipt(&mut run, receipt_index, &error, false),
-        }
-        self.save(&run)?;
-        Ok(run)
+        self.persist_input_result(run, receipt_index, result, true)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -967,6 +966,27 @@ impl NativeRpa {
         Ok(run.receipts.len() - 1)
     }
 
+    fn persist_input_result(
+        &self,
+        mut run: RpaRun,
+        receipt_index: usize,
+        result: Result<(), String>,
+        outcome_uncertain: bool,
+    ) -> Result<RpaRun, String> {
+        match result {
+            Ok(()) => {
+                complete_receipt(&mut run, receipt_index, None);
+                self.save(&run)?;
+                Ok(run)
+            }
+            Err(error) => {
+                fail_receipt(&mut run, receipt_index, &error, outcome_uncertain);
+                self.save(&run)?;
+                Err(error)
+            }
+        }
+    }
+
     fn reject_step(
         &self,
         mut run: RpaRun,
@@ -994,8 +1014,6 @@ impl NativeRpa {
             started_at: now_ms(),
             completed_at: Some(now_ms()),
         });
-        run.state = RpaRunState::AwaitingApproval;
-        run.current_step_id = Some(step_id.into());
         self.save(&run)?;
         Ok(run)
     }
@@ -1090,6 +1108,22 @@ fn validate_id(value: &str, label: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn reusable_rejected_placeholder(existing: Option<RpaRun>) -> Result<Option<RpaRun>, String> {
+    match existing {
+        Some(run)
+            if run.profile_path.is_empty()
+                && !run.receipts.is_empty()
+                && run.receipts.iter().all(|receipt| {
+                    receipt.state == RpaStepState::Rejected && receipt.attempt == 0
+                }) =>
+        {
+            Ok(Some(run))
+        }
+        Some(_) => Err("RPA run ID 已存在".into()),
+        None => Ok(None),
+    }
+}
+
 fn bounded_coordinate(arguments: &Value, name: &str) -> Result<i32, String> {
     let value = arguments
         .get(name)
@@ -1110,9 +1144,9 @@ fn complete_receipt(run: &mut RpaRun, index: usize, artifact: Option<&ArtifactRe
     run.updated_at = now_ms();
 }
 
-fn fail_receipt(run: &mut RpaRun, index: usize, error: &str, interrupted: bool) {
+fn fail_receipt(run: &mut RpaRun, index: usize, error: &str, outcome_uncertain: bool) {
     let receipt = &mut run.receipts[index];
-    receipt.state = if interrupted && receipt.external_side_effect {
+    receipt.state = if outcome_uncertain {
         RpaStepState::UnknownOutcome
     } else {
         RpaStepState::Failed
@@ -1222,11 +1256,61 @@ mod tests {
                 true,
             )
             .unwrap();
-        assert_eq!(rejected.state, RpaRunState::AwaitingApproval);
+        assert_eq!(rejected.state, RpaRunState::Running);
+        assert_eq!(rejected.current_step_id, None);
         assert_eq!(rejected.receipts[0].state, RpaStepState::Rejected);
         assert!(rejected.receipts[0]
             .idempotency_key
             .starts_with("rejected:"));
+    }
+
+    #[test]
+    fn rejected_start_placeholder_can_be_reused_after_later_approval() {
+        let (_root, controller) = controller();
+        let call = ModelToolCall {
+            id: "call-start".into(),
+            name: "rpa_start".into(),
+            arguments: json!({
+                "runId":"retry-start",
+                "tenantId":"tenant-a",
+                "platformId":"platform-a",
+                "url":"https://example.com"
+            }),
+        };
+        controller.record_rejection(&call, "user rejected").unwrap();
+        let placeholder = controller.get("retry-start").unwrap().unwrap();
+        assert_eq!(placeholder.state, RpaRunState::Pending);
+        assert_eq!(placeholder.receipts[0].state, RpaStepState::Rejected);
+        assert!(placeholder.profile_path.is_empty());
+
+        let reusable = reusable_rejected_placeholder(Some(placeholder))
+            .unwrap()
+            .unwrap();
+        assert_eq!(reusable.id, "retry-start");
+        let mut non_reusable = reusable;
+        non_reusable.profile_path = "/owned/profile".into();
+        assert!(reusable_rejected_placeholder(Some(non_reusable)).is_err());
+    }
+
+    #[test]
+    fn uncertain_native_input_failure_is_persisted_and_returned_as_error() {
+        let (_root, controller) = controller();
+        let mut current = run("input-failure", true);
+        current.receipts[0].external_side_effect = true;
+        controller.save(&current).unwrap();
+
+        let error = controller
+            .persist_input_result(
+                current,
+                0,
+                Err("native input transport failed".into()),
+                true,
+            )
+            .unwrap_err();
+        assert_eq!(error, "native input transport failed");
+        let persisted = controller.get("input-failure").unwrap().unwrap();
+        assert_eq!(persisted.state, RpaRunState::UnknownOutcome);
+        assert_eq!(persisted.receipts[0].state, RpaStepState::UnknownOutcome);
     }
 
     #[test]

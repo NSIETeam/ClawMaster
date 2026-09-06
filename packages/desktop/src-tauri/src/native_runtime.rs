@@ -470,6 +470,16 @@ fn contract_tool_status(state: ToolState) -> ToolStatus {
     }
 }
 
+fn tool_result_terminal_state(external_side_effect: bool, result_ok: bool) -> ToolState {
+    if result_ok {
+        ToolState::Success
+    } else if external_side_effect {
+        ToolState::UnknownOutcome
+    } else {
+        ToolState::Error
+    }
+}
+
 fn contract_approval_decision(outcome: ApprovalOutcome) -> ApprovalDecision {
     match outcome {
         ApprovalOutcome::Approved => ApprovalDecision::Allow,
@@ -2879,6 +2889,7 @@ impl NativeRuntime {
                 let requires_confirmation = policy_decision == PolicyDecision::RequireApproval;
                 let external_side_effect = is_mcp
                     || matches!(call.name.as_str(), "open_browser" | "browser_action")
+                    || call.name == "rpa_fill"
                     || (call.name == "rpa_click"
                         && call
                             .arguments
@@ -3286,20 +3297,15 @@ impl NativeRuntime {
                             .complete_external_side_effect(kernel_turn, &call.id, now_ms())
                             .map_err(|error| error.to_string())?;
                     } else {
-                        let terminal = if result.is_ok() {
-                            ToolState::Success
-                        } else if external_side_effect && *cancel.borrow() {
-                            ToolState::UnknownOutcome
-                        } else {
-                            ToolState::Error
-                        };
+                        let terminal =
+                            tool_result_terminal_state(external_side_effect, result.is_ok());
                         self.runtime_kernel
                             .transition_tool(
                                 kernel_turn,
                                 &call.id,
                                 terminal,
                                 if terminal == ToolState::UnknownOutcome {
-                                    "external result uncertain after cancellation"
+                                    "external result uncertain after dispatch"
                                 } else if result.is_ok() {
                                     "tool completed"
                                 } else {
@@ -4260,6 +4266,16 @@ mod tests {
     use super::*;
     use crate::native_state_store::ArtifactRef;
     use std::sync::Mutex as TestMutex;
+
+    #[test]
+    fn dispatched_external_error_is_unknown_instead_of_retryable_failure() {
+        assert_eq!(
+            tool_result_terminal_state(true, false),
+            ToolState::UnknownOutcome
+        );
+        assert_eq!(tool_result_terminal_state(false, false), ToolState::Error);
+        assert_eq!(tool_result_terminal_state(true, true), ToolState::Success);
+    }
 
     #[test]
     fn model_gateway_errors_expose_retry_and_uncertainty_to_the_ui() {
