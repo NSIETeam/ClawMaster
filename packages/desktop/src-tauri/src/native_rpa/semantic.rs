@@ -132,7 +132,11 @@ fn resolve<'a>(
     let apps = App::list().map_err(map_accessibility_error)?;
     let app = apps
         .into_iter()
-        .find(|app| app.pid == selected.process_id && app.name == selected.app)
+        .find(|app| {
+            app.pid == selected.process_id
+                && app.name == selected.app
+                && (!selected.root || element_matches(&app.as_element(), selected))
+        })
         .ok_or_else(|| "RPA 目标窗口所属应用已关闭".to_string())?;
     let root = resolve_root(&app, selected)?;
     Ok((app, root, selected))
@@ -145,17 +149,21 @@ fn resolve_root(app: &App, selected: &WindowEntry) -> Result<Element, String> {
     app.children()
         .map_err(map_accessibility_error)?
         .into_iter()
-        .find(|element| {
-            matches!(element.role, Role::Window | Role::Dialog)
-                && element.name == selected.title
-                && element.bounds.map(|bounds| WindowBounds {
-                    x: bounds.x,
-                    y: bounds.y,
-                    width: bounds.width,
-                    height: bounds.height,
-                }) == selected.bounds
-        })
+        .find(|element| element_matches(element, selected))
         .ok_or_else(|| "RPA 目标窗口已变化，请重新获取窗口清单".to_string())
+}
+
+fn element_matches(element: &Element, selected: &WindowEntry) -> bool {
+    matches!(
+        element.role,
+        Role::Window | Role::Dialog | Role::Application
+    ) && element.name == selected.title
+        && element.bounds.map(|bounds| WindowBounds {
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+        }) == selected.bounds
 }
 
 fn map_accessibility_error(error: xa11y::Error) -> String {
