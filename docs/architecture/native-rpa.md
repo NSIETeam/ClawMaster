@@ -32,10 +32,14 @@ produces a fresh encrypted semantic artifact rather than reusing stale bounds.
 RPA profiles are hashed by tenant and platform and never share cookies. URLs
 must be HTTPS except for loopback tests and cannot contain credentials. Secret
 text is rejected from the current fill contract; secret entry must use a future
-system-keychain reference. External side effects require approval and carry an
-idempotency key. A crash during an external action produces `unknown_outcome`
-and is not automatically replayed, while interrupted read-only steps may return
-to pending.
+system-keychain reference. Every existing profile path component is verified as
+a real directory rather than a symbolic link before a browser starts. External
+side effects require approval and carry an idempotency key. A rejected approval
+is durably receipted without freezing the run, so a later separately approved
+attempt can proceed. Once native input or another external action has begun,
+both an interrupted action and an adapter error produce `unknown_outcome` and
+are not automatically replayed; interrupted read-only steps may return to
+pending.
 
 ## Remaining release evidence
 
@@ -49,3 +53,12 @@ The macOS process-tree regression launches a parent and background child and
 confirms both PIDs disappear through the production termination path. The
 Windows Job Object path has an isolated `x86_64-pc-windows-msvc` compile check;
 its behavioral evidence must come from the Windows runner.
+
+Commit `34ebe3cf` closes three pre-installation safety gaps: rejected starts are
+reusable after later approval, native input failures are returned to the model
+instead of being serialized as successful tool results, and uncertain dispatched
+external failures remain `unknown_outcome` at both receipt and kernel layers.
+The complete macOS Rust library suite passed 195 tests with zero failures and
+three explicit opt-in skips. A local Windows cross-check could not compile
+`aws-lc-sys` because macOS has no MSVC/Windows SDK headers; this is environment
+evidence, not a waived Windows acceptance result.

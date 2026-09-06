@@ -93,8 +93,8 @@
       "number": 15,
       "status": "implemented_needs_evidence",
       "closable": false,
-      "evidence": ["986d2de1 NativeRpa", "b2650acb exact browser window targeting", "10c0c9d0 process-tree ownership", "b15f67a6 cancellation-aware semantic wait"],
-      "remaining": ["Run a real installed system-browser mouse click on Windows and macOS", "Capture matching encrypted snapshot, approval, audit, receipt, checkpoint, and recovery evidence", "Prove cancellation and crash leave no orphan browser or driver", "Retire Playwright release evidence only after native parity is proven"]
+      "evidence": ["986d2de1 NativeRpa", "b2650acb exact browser window targeting", "10c0c9d0 process-tree ownership", "b15f67a6 cancellation-aware semantic wait", "34ebe3cf keeps rejected runs recoverable, rejects symlinked profile paths, returns native input failures, and preserves unknown_outcome after external dispatch; the macOS Rust suite passes 195 tests with zero failures and three explicit opt-in skips"],
+      "remaining": ["Run a real installed system-browser mouse click on Windows and macOS", "Capture matching encrypted snapshot, approval, audit, receipt, checkpoint, and recovery evidence", "Prove cancellation and crash leave no orphan browser or driver", "Run the Windows compile and behavioral path on a host with MSVC and the Windows SDK; the macOS cross-check stops in aws-lc-sys because windows.h is unavailable", "Retire Playwright release evidence only after native parity is proven"]
     },
     {
       "number": 16,
