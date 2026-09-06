@@ -184,6 +184,30 @@ export function createDefaultModuleWorkspace(
   };
 }
 
+export function appendDynamicModules(
+  layout: ModuleWorkspaceLayout,
+  moduleIds: readonly string[],
+): ModuleWorkspaceLayout {
+  const placed = new Set(layout.groups.flatMap((group) => group.moduleIds));
+  const missing = [...new Set(moduleIds.map((id) => id.trim()).filter(Boolean))]
+    .filter((id) => !placed.has(id));
+  if (!missing.length) return layout;
+  if (!layout.groups.length) {
+    return {
+      version: MODULE_WORKSPACE_SCHEMA_VERSION,
+      groups: [{ id: 'intelligent-capture', name: '智能沉淀', rows: 2, moduleIds: missing }],
+    };
+  }
+  const preferred = layout.groups.findIndex((group) => group.id === 'intelligent-capture');
+  const target = preferred >= 0 ? preferred : layout.groups.length - 1;
+  return {
+    ...layout,
+    groups: layout.groups.map((group, index) => index === target
+      ? { ...group, moduleIds: [...group.moduleIds, ...missing] }
+      : group),
+  };
+}
+
 export function normalizeModuleWorkspace(value: unknown): ModuleWorkspaceLayout {
   const record = value && typeof value === 'object'
     ? value as { groups?: unknown }

@@ -152,6 +152,7 @@ import {
 import { useModuleWorkspaceCapabilities } from './state/useModuleWorkspaceCapabilities.js';
 import { useModuleWorkspace } from './state/useModuleWorkspace.js';
 import {
+  appendDynamicModules,
   getModuleWorkspaceStorageKey,
   type ModuleWorkspaceLayout,
 } from './moduleWorkspace.js';
@@ -302,19 +303,31 @@ function ClawMasterWorkspaceApp({
       enabled: module.enabled,
       iconSrc: module.iconDataUrl,
     })),
+    projectModules: product.state.projectModules,
   });
   const workspaceModules = useMemo(
-    () => moduleCapabilities.modules.map((module) => {
-      const proposalCount = product.state.pendingAutoSkills.length
-        + product.state.realtimePatterns.length;
-      return module.id === 'auto-skill' && proposalCount > 0
-        ? {
-            ...module,
-            proposalCount,
-            description: `${proposalCount} 个工作路径等待确认沉淀`,
-          }
-        : module;
-    }),
+    () => {
+      const installed = moduleCapabilities.modules.map((module) => {
+        const proposalCount = product.state.pendingAutoSkills.length
+          + product.state.realtimePatterns.length;
+        return module.id === 'auto-skill' && proposalCount > 0
+          ? { ...module, proposalCount, description: `${proposalCount} 个工作路径等待确认沉淀` }
+          : module;
+      });
+      const proposals = product.state.pendingAutoSkills
+        .filter((candidate) => candidate.proposalKind === 'module')
+        .map((candidate) => ({
+          id: `module-proposal:${candidate.id}`,
+          label: candidate.name,
+          description: candidate.description,
+          category: 'capability' as const,
+          icon: 'self-development' as const,
+          activation: { kind: 'dialog' as const, dialog: 'auto-skill' as const },
+          availability: 'available' as const,
+          proposalCount: 1,
+        }));
+      return [...installed, ...proposals];
+    },
     [
       moduleCapabilities.modules,
       product.state.pendingAutoSkills.length,
@@ -322,12 +335,12 @@ function ClawMasterWorkspaceApp({
     ],
   );
   const availableModuleIds = useMemo(
-    () => moduleCapabilities.modules.filter((module) => module.availability === 'available').map((module) => module.id),
-    [moduleCapabilities.modules],
+    () => workspaceModules.filter((module) => module.availability === 'available').map((module) => module.id),
+    [workspaceModules],
   );
   const visibleModuleIds = useMemo(
-    () => moduleCapabilities.modules.filter((module) => module.availability !== 'hidden').map((module) => module.id),
-    [moduleCapabilities.modules],
+    () => workspaceModules.filter((module) => module.availability !== 'hidden').map((module) => module.id),
+    [workspaceModules],
   );
   const moduleWorkspaceScope = useMemo(() => ({
     serverUrl: serverUrl || 'local',
@@ -345,6 +358,12 @@ function ClawMasterWorkspaceApp({
     visibleModuleIds,
     ready: moduleCapabilities.ready,
   });
+  const moduleWorkspaceDisplayLayout = useMemo(() => {
+    const dynamicIds = workspaceModules
+      .map((module) => module.id)
+      .filter((id) => id.startsWith('module-proposal:') || id.startsWith('project-module:'));
+    return appendDynamicModules(moduleWorkspace.visibleLayout, dynamicIds);
+  }, [moduleWorkspace.visibleLayout, workspaceModules]);
   const [moduleModal, setModuleModal] = useState<ModuleModalState>(null);
   const [pendingAgent, setPendingAgent] = useState<PendingAgentSelection | null>(null);
   const { cancelPendingAgentLaunches } = actions;
@@ -1488,7 +1507,7 @@ function ClawMasterWorkspaceApp({
             readiness={moduleCapabilities.status}
             onRetryCapabilities={moduleCapabilities.retry}
             scopeKey={moduleWorkspaceScopeKey}
-            layout={moduleWorkspace.visibleLayout}
+            layout={moduleWorkspaceDisplayLayout}
             modules={workspaceModules}
             fileCheckpoints={state.activeSessionId
               ? state.fileCheckpoints?.[state.activeSessionId]
@@ -1571,7 +1590,7 @@ function ClawMasterWorkspaceApp({
               onRetryCapabilities={moduleCapabilities.retry}
               onRequestExpand={expandRightPanel}
               scopeKey={moduleWorkspaceScopeKey}
-              layout={moduleWorkspace.visibleLayout}
+              layout={moduleWorkspaceDisplayLayout}
               modules={workspaceModules}
               fileCheckpoints={state.activeSessionId
                 ? state.fileCheckpoints?.[state.activeSessionId]

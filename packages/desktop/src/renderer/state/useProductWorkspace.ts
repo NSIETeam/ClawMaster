@@ -9,6 +9,7 @@ import { useEffect, useMemo, useReducer } from 'react';
 import type {
   AutoSkillCandidateInfo,
   ClientToServer,
+  ProjectModuleInfo,
   ProductWorkspaceSnapshot,
   ScheduleItemInfo,
   ServerToClient,
@@ -36,11 +37,13 @@ export interface ProductWorkspaceState {
   workspace: ProductWorkspaceSnapshot | null;
   schedules: ScheduleItemInfo[];
   pendingAutoSkills: AutoSkillCandidateInfo[];
+  projectModules: ProjectModuleInfo[];
   realtimePatterns: Array<Extract<ServerToClient, { type: 'realtime_pattern' }>['payload']>;
   lastAutoSkillAction: {
     kind: 'confirmed' | 'rejected';
     candidateId: string;
     savedPath?: string;
+    proposalKind?: 'skill' | 'module';
   } | null;
   selectedDate: string | null;
   lastInvite: {
@@ -56,6 +59,7 @@ export const initialProductWorkspaceState: ProductWorkspaceState = {
   workspace: null,
   schedules: [],
   pendingAutoSkills: [],
+  projectModules: [],
   realtimePatterns: [],
   lastAutoSkillAction: null,
   selectedDate: null,
@@ -98,6 +102,7 @@ export function productWorkspaceReducer(
     return {
       ...state,
       pendingAutoSkills: frame.payload.candidates,
+      projectModules: frame.payload.projectModules ?? [],
       lastAutoSkillAction: frame.payload.lastAction ?? null,
       error: null,
     };
@@ -192,6 +197,15 @@ export function useProductWorkspace(activeSessionId?: string | null): UseProduct
     };
   }, []);
 
+  useEffect(() => {
+    if (activeSessionId) {
+      transport.send({
+        type: 'get_pending_auto_skills',
+        payload: { sessionId: activeSessionId },
+      });
+    }
+  }, [activeSessionId]);
+
   const actions = useMemo<ProductWorkspaceActions>(() => ({
     refresh: () => transport.send({ type: 'get_product_workspace', payload: {} }),
     configureEnterprise: (input) =>
@@ -214,7 +228,7 @@ export function useProductWorkspace(activeSessionId?: string | null): UseProduct
     refreshPendingAutoSkills: () =>
       transport.send({
         type: 'scan_pending_auto_skills' as never,
-        payload: {},
+        payload: activeSessionId ? { sessionId: activeSessionId } : {},
       }),
     confirmPendingAutoSkill: (candidateId) =>
       transport.send({
@@ -225,7 +239,10 @@ export function useProductWorkspace(activeSessionId?: string | null): UseProduct
         },
       }),
     rejectPendingAutoSkill: (candidateId) =>
-      transport.send({ type: 'reject_pending_auto_skill', payload: { candidateId } }),
+      transport.send({
+        type: 'reject_pending_auto_skill',
+        payload: { candidateId, ...(activeSessionId ? { sessionId: activeSessionId } : {}) },
+      }),
     selectDate: (date, timezone) => {
       dispatch({ kind: 'select_date', date });
       transport.send({

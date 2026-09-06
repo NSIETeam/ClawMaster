@@ -3,6 +3,7 @@
  */
 
 import type { EnterpriseOrganizationFeatures } from '../preload/index.js';
+import type { ProjectModuleInfo } from 'clawmaster-server';
 import {
   COMMON_EXPERT_PROFILES,
   type AgentProfile,
@@ -59,6 +60,7 @@ export interface ModuleCatalogContext {
   parkAuthorization: ParkModuleAuthorization;
   customAgents: readonly CustomAgentDefinition[];
   customerModules?: readonly InstalledCustomerModuleSummary[];
+  projectModules?: readonly ProjectModuleInfo[];
 }
 
 export interface ModuleDefinition {
@@ -388,12 +390,34 @@ function customerModules(context: ModuleCatalogContext): ModuleDefinition[] {
   }));
 }
 
+function projectModules(context: ModuleCatalogContext): ModuleDefinition[] {
+  return (context.projectModules ?? []).map((module) => ({
+    id: module.id,
+    label: module.name,
+    description: module.description,
+    category: 'capability',
+    icon: 'self-development',
+    activation: {
+      kind: 'guided-task',
+      taskId: module.id,
+      instructions: module.instructions,
+    },
+    availability: 'available',
+  }));
+}
+
 export function buildModuleCatalog(context: ModuleCatalogContext): ModuleDefinition[] {
   const staticModules = STATIC_MODULE_SPECS.map(({ availabilityRule, ...module }) => ({
     ...module,
     availability: staticAvailability(availabilityRule, context),
   }));
-  const result = [...staticModules, ...agentModules(context), ...customAgentModules(context), ...customerModules(context)];
+  const result = [
+    ...staticModules,
+    ...agentModules(context),
+    ...customAgentModules(context),
+    ...customerModules(context),
+    ...projectModules(context),
+  ];
   const seen = new Set<string>();
   return result.filter((module) => {
     if (seen.has(module.id)) return false;

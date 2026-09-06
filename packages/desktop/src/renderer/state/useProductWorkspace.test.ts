@@ -127,7 +127,9 @@ describe('productWorkspaceReducer', () => {
             detectedPattern: '整理数据 → 生成报告',
             occurrenceCount: 3,
             reason: '连续三天出现',
+            proposalKind: 'module',
           }],
+          projectModules: [{ schemaVersion: 1, id: 'project-module:c1', name: 'auto-report', description: '项目报告模块', status: 'ready', sourcePattern: 'render_report', instructions: '安全生成项目报告' }],
           lastAction: {
             kind: 'confirmed',
             candidateId: 'old-candidate',
@@ -138,6 +140,7 @@ describe('productWorkspaceReducer', () => {
     });
 
     expect(state.pendingAutoSkills).toHaveLength(1);
+    expect(state.projectModules).toHaveLength(1);
     expect(state.lastAutoSkillAction).toMatchObject({ kind: 'confirmed' });
   });
 

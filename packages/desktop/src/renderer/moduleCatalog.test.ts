@@ -184,6 +184,18 @@ describe('capability-driven availability', () => {
     expect(catalog.find((module) => module.id === 'agent-ppt')?.availability).toBe('available');
     expect(catalog.find((module) => module.id === 'agent-enterprise-work')?.availability).not.toBe('available');
   });
+
+  it('loads confirmed project modules as guided tasks', () => {
+    const catalog = buildModuleCatalog({
+      edition: 'personal', profiles: BASE_AGENT_PROFILES, organizationFeatures: enabledFeatures,
+      parkAuthorization: { hasParkContext: false, canViewStatistics: false, canViewStaffTasks: false },
+      customAgents: [],
+      projectModules: [{ schemaVersion: 1, id: 'project-module:cad', name: 'CAD 渲染', description: '项目能力', status: 'ready', sourcePattern: 'render_cad', instructions: '先验证能力，再执行渲染。' }],
+    });
+    expect(catalog.find((module) => module.id === 'project-module:cad')?.activation).toEqual({
+      kind: 'guided-task', taskId: 'project-module:cad', instructions: '先验证能力，再执行渲染。',
+    });
+  });
 });
 
 describe('custom expert modules', () => {

@@ -7,6 +7,7 @@ import { buildModuleCatalog, type InstalledCustomerModuleSummary, type ModuleDef
 import { normalizeServerUrlForStorage } from '../moduleWorkspace.js';
 import { getEnterpriseOrganizationFeatures } from './enterpriseOrganizationFeatures.js';
 import type { EnterpriseOrganizationFeatures } from '../../preload/index.js';
+import type { ProjectModuleInfo } from 'clawmaster-server';
 
 interface CapabilityState {
   key: string;
@@ -57,6 +58,7 @@ export function useModuleWorkspaceCapabilities(input: {
   profiles: readonly AgentProfile[];
   customAgents: readonly CustomAgentDefinition[];
   customerModules?: readonly InstalledCustomerModuleSummary[];
+  projectModules?: readonly ProjectModuleInfo[];
 }): {
   status: CapabilityState['status'];
   ready: boolean;
@@ -149,7 +151,8 @@ export function useModuleWorkspaceCapabilities(input: {
     parkAuthorization: current.park,
     customAgents: input.customAgents,
     customerModules: input.customerModules,
-  }), [current.features, current.park, input.customAgents, input.customerModules, input.edition, input.profiles]);
+    projectModules: input.projectModules,
+  }), [current.features, current.park, input.customAgents, input.customerModules, input.edition, input.profiles, input.projectModules]);
   const retry = useCallback(() => setRetryRevision((value) => value + 1), []);
   return { status: current.status, ready: current.status === 'ready', modules, retry };
 }

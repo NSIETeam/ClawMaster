@@ -594,6 +594,19 @@ impl NativeRuntime {
         native_skills::scan(&self.audit_path, &workspaces, &handled)
     }
 
+    fn project_modules(&self, state: &PersistedState, session_id: Option<&str>) -> Vec<Value> {
+        let Some(workspace) = session_id.and_then(|id| {
+            state
+                .sessions
+                .iter()
+                .find(|session| session.session_id == id)
+                .and_then(|session| session.workspace_path.as_deref())
+        }) else {
+            return Vec::new();
+        };
+        native_skills::list_project_modules(Path::new(workspace)).unwrap_or_default()
+    }
+
     fn channel_session(&self, provider: &str, chat_id: &str) -> Result<String, String> {
         let source = format!("channel:{provider}:{chat_id}");
         let mut state = self
@@ -1997,10 +2010,14 @@ impl NativeRuntime {
                 }
             }
             "get_pending_auto_skills" | "scan_pending_auto_skills" => {
+                let session_id = payload.get("sessionId").and_then(Value::as_str);
                 match self.auto_skill_candidates(&state) {
                     Ok(candidates) => vec![frame(
                         "pending_auto_skills",
-                        json!({ "candidates": candidates.iter().map(native_skills::AutoSkillCandidate::public_value).collect::<Vec<_>>() }),
+                        json!({
+                            "candidates": candidates.iter().map(native_skills::AutoSkillCandidate::public_value).collect::<Vec<_>>(),
+                            "projectModules": self.project_modules(&state, session_id)
+                        }),
                     )],
                     Err(message) => vec![error_frame(None, "auto_skill_failed", &message)],
                 }
@@ -2020,18 +2037,24 @@ impl NativeRuntime {
                     })
                     .and_then(|candidate| {
                         let saved_path = native_skills::install(&candidate)?;
+                        let proposal_kind = match candidate.kind {
+                            native_skills::AutoCandidateKind::Skill => "skill",
+                            native_skills::AutoCandidateKind::Module => "module",
+                        };
                         state.handled_auto_skills.push(candidate.id.clone());
                         dirty = true;
                         let remaining = self.auto_skill_candidates(&state)?;
                         let skills = native_skills::list(&candidate.workspace)?;
-                        Ok((saved_path, remaining, skills))
+                        let modules = native_skills::list_project_modules(&candidate.workspace)?;
+                        Ok((saved_path, proposal_kind, remaining, skills, modules))
                     }) {
-                    Ok((saved_path, candidates, skills)) => vec![
+                    Ok((saved_path, proposal_kind, candidates, skills, modules)) => vec![
                         frame(
                             "pending_auto_skills",
                             json!({
                                 "candidates": candidates.iter().map(native_skills::AutoSkillCandidate::public_value).collect::<Vec<_>>(),
-                                "lastAction": { "kind": "confirmed", "candidateId": candidate_id, "savedPath": saved_path }
+                                "projectModules": modules,
+                                "lastAction": { "kind": "confirmed", "candidateId": candidate_id, "savedPath": saved_path, "proposalKind": proposal_kind }
                             }),
                         ),
                         frame("skills_list", json!({ "skills": skills })),
@@ -2059,6 +2082,7 @@ impl NativeRuntime {
                         "pending_auto_skills",
                         json!({
                             "candidates": candidates.iter().map(native_skills::AutoSkillCandidate::public_value).collect::<Vec<_>>(),
+                            "projectModules": self.project_modules(&state, payload.get("sessionId").and_then(Value::as_str)),
                             "lastAction": { "kind": "rejected", "candidateId": candidate_id }
                         }),
                     )],
@@ -5072,6 +5096,69 @@ mod tests {
             .contains(&candidate_id.to_string()));
         runtime.state_store.flush().unwrap();
         assert!(!store_contains(root.path(), "private-"));
+    }
+
+    #[test]
+    fn confirms_a_repeated_capability_gap_as_a_project_module() {
+        let (root, runtime) = runtime();
+        let created = runtime
+            .handle(&json!({"type":"create_session","payload":{}}))
+            .unwrap();
+        let session_id = created[0]["payload"]["session"]["sessionId"]
+            .as_str()
+            .unwrap();
+        runtime
+            .handle(&json!({"type":"set_session_workspace","payload":{
+                "sessionId":session_id,"workspacePath":root.path()
+            }}))
+            .unwrap();
+        for index in 0..3 {
+            runtime
+                .audit_tool(
+                    session_id,
+                    &ModelToolCall {
+                        id: format!("missing-{index}"),
+                        name: "render_cad".into(),
+                        arguments: json!({}),
+                    },
+                    "failed",
+                    Some("capability missing: cad"),
+                )
+                .unwrap();
+        }
+        let pending = runtime
+            .handle(&json!({"type":"scan_pending_auto_skills","payload":{
+                "sessionId":session_id
+            }}))
+            .unwrap();
+        let candidate_id = pending[0]["payload"]["candidates"][0]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            pending[0]["payload"]["candidates"][0]["proposalKind"],
+            "module"
+        );
+        let confirmed = runtime
+            .handle(&json!({"type":"confirm_pending_auto_skill","payload":{
+                "candidateId":candidate_id,"sessionId":session_id
+            }}))
+            .unwrap();
+        assert_eq!(
+            confirmed[0]["payload"]["lastAction"]["proposalKind"],
+            "module"
+        );
+        assert_eq!(
+            confirmed[0]["payload"]["projectModules"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(root
+            .path()
+            .join(".clawmaster/modules/auto-render-cad/module.json")
+            .is_file());
     }
 
     #[test]

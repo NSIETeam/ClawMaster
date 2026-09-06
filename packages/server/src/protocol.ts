@@ -675,14 +675,15 @@ export interface AutoSkillCandidateInfo {
   recommendation?: 'create' | 'enhance';
   targetSkillName?: string;
   projectName?: string;
+  proposalKind?: 'skill' | 'module';
 }
 export type GetPendingAutoSkillsMsg = Envelope<
   'get_pending_auto_skills',
-  Record<string, never>
+  { sessionId?: string }
 >;
 export type ScanPendingAutoSkillsMsg = Envelope<
   'scan_pending_auto_skills',
-  Record<string, never>
+  { sessionId?: string }
 >;
 export type ConfirmPendingAutoSkillMsg = Envelope<
   'confirm_pending_auto_skill',
@@ -690,8 +691,18 @@ export type ConfirmPendingAutoSkillMsg = Envelope<
 >;
 export type RejectPendingAutoSkillMsg = Envelope<
   'reject_pending_auto_skill',
-  { candidateId: string }
+  { candidateId: string; sessionId?: string }
 >;
+
+export interface ProjectModuleInfo {
+  schemaVersion: 1;
+  id: string;
+  name: string;
+  description: string;
+  status: 'ready';
+  sourcePattern: string;
+  instructions: string;
+}
 
 export interface ScheduleItemInfo {
   id: string;
@@ -1540,10 +1551,12 @@ export type PendingAutoSkillsMsg = Envelope<
   'pending_auto_skills',
   {
     candidates: AutoSkillCandidateInfo[];
+    projectModules?: ProjectModuleInfo[];
     lastAction?: {
       kind: 'confirmed' | 'rejected';
       candidateId: string;
       savedPath?: string;
+      proposalKind?: 'skill' | 'module';
     };
   }
 >;
@@ -2064,7 +2077,10 @@ export function validateClientPayload(msg: {
     case 'switch_to_personal':
     case 'get_pending_auto_skills':
     case 'scan_pending_auto_skills':
-      return isPlainObject(p) ? null : `${msg.type} payload 必须是对象`;
+      if (!isPlainObject(p)) return `${msg.type} payload 必须是对象`;
+      return p['sessionId'] === undefined || isNonEmptyString(p['sessionId'])
+        ? null
+        : 'sessionId 必须是非空字符串';
     case 'rollback_user_control': {
       if (!isPlainObject(p)) return 'rollback_user_control payload 必须是对象';
       if (!['core.md', 'soul.md', 'project.md', 'memory.md'].includes(String(p['path'])))

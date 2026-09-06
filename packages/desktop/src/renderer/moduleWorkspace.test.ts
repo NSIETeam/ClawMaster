@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   addOrMoveModules,
+  appendDynamicModules,
   createModuleGroup,
   createDefaultModuleWorkspace,
   deleteModuleGroup,
@@ -329,6 +330,14 @@ describe('module workspace layout operations', () => {
       rows: 3,
       moduleIds: ['agent-word', 'agent-ppt'],
     });
+  });
+
+  it('keeps project module proposals visible after the preferred group was removed', () => {
+    const withoutCapture = { version: 4 as const, groups: [sampleLayout().groups[0], sampleLayout().groups[1]] };
+    const next = appendDynamicModules(withoutCapture, ['module-proposal:cad', 'project-module:report', 'module-proposal:cad']);
+    expect(next.groups.at(-1)?.moduleIds).toEqual([
+      'agent-ppt', 'agent-word', 'module-proposal:cad', 'project-module:report',
+    ]);
   });
 });
 

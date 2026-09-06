@@ -130,11 +130,23 @@ describe('WorkspaceDialogs', () => {
       detectedPattern: '重复周报', occurrenceCount: 3, reason: '存在稳定重复流程', recommendation: 'create',
     }]} lastAction={null} onRefresh={onRefresh} onConfirm={onConfirm} onReject={onReject} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '立即分析' }));
-    fireEvent.click(screen.getByRole('button', { name: '确认生成' }));
+    fireEvent.click(screen.getByRole('button', { name: '确认生成 Skill' }));
     fireEvent.click(screen.getByRole('button', { name: '不再建议' }));
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(onConfirm).toHaveBeenCalledWith('candidate-1');
     expect(onReject).toHaveBeenCalledWith('candidate-1');
+  });
+
+  it('能力缺口候选明确生成项目模块而不是伪装成 Skill', () => {
+    const onConfirm = vi.fn();
+    render(<AutoSkillDialog open candidates={[{
+      id: 'module-1', name: 'CAD 渲染', description: '补齐 CAD 能力',
+      detectedPattern: 'render_cad', occurrenceCount: 3, reason: '能力反复缺失',
+      recommendation: 'create', proposalKind: 'module',
+    }]} lastAction={null} onRefresh={vi.fn()} onConfirm={onConfirm} onReject={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByText(/项目模块提案/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '确认生成模块' }));
+    expect(onConfirm).toHaveBeenCalledWith('module-1');
   });
 
   it('自动 Skill 弹窗展示本机实时检测到的重复工作', () => {
