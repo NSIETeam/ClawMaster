@@ -958,6 +958,19 @@ CREATE TABLE companyos_event_receipts (
     REFERENCES companyos_events(cursor, organization_id) ON DELETE CASCADE
 );
 
+CREATE TABLE companyos_event_claims (
+  consumer_id TEXT NOT NULL,
+  event_cursor BIGINT NOT NULL,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  owner_id TEXT NOT NULL,
+  fence_token BIGINT NOT NULL CHECK (fence_token > 0),
+  claimed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  lease_expires_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (consumer_id, event_cursor),
+  FOREIGN KEY (event_cursor, organization_id)
+    REFERENCES companyos_events(cursor, organization_id) ON DELETE CASCADE
+);
+
 CREATE TABLE companyos_actions (
   action_id TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -991,6 +1004,8 @@ CREATE INDEX companyos_events_organization_cursor
   ON companyos_events(organization_id, cursor);
 CREATE INDEX companyos_receipts_organization
   ON companyos_event_receipts(organization_id, consumer_id, event_cursor);
+CREATE INDEX companyos_claims_expiry
+  ON companyos_event_claims(lease_expires_at, consumer_id, event_cursor);
 CREATE INDEX companyos_actions_organization
   ON companyos_actions(organization_id, status, created_at, action_id);
 `,

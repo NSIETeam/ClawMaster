@@ -170,7 +170,7 @@ describe('旧账号会话迁移', () => {
     const db = await freshDb();
     expect(db.getDatabaseReadiness()).toEqual({
       ready: true,
-      schemaVersion: 24,
+      schemaVersion: 25,
     });
     const sessionColumns = db
       .getDB()
@@ -209,7 +209,7 @@ describe('数据库 readiness', () => {
     const db = await freshDb();
     expect(db.getDatabaseReadiness()).toEqual({
       ready: true,
-      schemaVersion: 24,
+      schemaVersion: 25,
     });
   });
 
@@ -255,7 +255,7 @@ describe('数据库 readiness', () => {
     const reopened: DbModule = await import('./db.js');
     expect(reopened.getDatabaseReadiness()).toEqual({
       ready: true,
-      schemaVersion: 24,
+      schemaVersion: 25,
     });
     const tableSql = (
       reopened
@@ -326,7 +326,7 @@ describe('数据库 readiness', () => {
     try {
       expect(reopened.getDatabaseReadiness()).toEqual({
         ready: true,
-        schemaVersion: 24,
+        schemaVersion: 25,
       });
       const migrated = reopened.getTicketForAccount(
         legacyTicket.id,
@@ -406,7 +406,7 @@ describe('数据库 readiness', () => {
     try {
       expect(reopened.getDatabaseReadiness()).toEqual({
         ready: true,
-        schemaVersion: 24,
+        schemaVersion: 25,
       });
       const organizationColumns = reopened
         .getDB()
@@ -553,12 +553,12 @@ describe('数据库 readiness', () => {
     future.exec(`
       CREATE TABLE future_only (id TEXT PRIMARY KEY);
       INSERT INTO future_only (id) VALUES ('preserve-me');
-      PRAGMA user_version = 25;
+      PRAGMA user_version = 26;
     `);
     future.close();
 
     const db = await freshDb();
-    expect(() => db.getDB()).toThrow(/schema version 25.*current version 24/i);
+    expect(() => db.getDB()).toThrow(/schema version 26.*current version 25/i);
 
     const reopened = new Database(path.join(tmpDir, 'data.db'));
     try {
@@ -568,7 +568,7 @@ describe('数据库 readiness', () => {
             user_version: number;
           }
         ).user_version,
-      ).toBe(25);
+      ).toBe(26);
       expect(
         (reopened.prepare('SELECT id FROM future_only').get() as { id: string })
           .id,

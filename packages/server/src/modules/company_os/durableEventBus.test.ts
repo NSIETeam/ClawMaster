@@ -47,9 +47,73 @@ describe('durable CompanyOS event bus', () => {
     expect(tables.map((row) => row.name)).toEqual([
       'companyos_actions',
       'companyos_audit',
+      'companyos_event_claims',
       'companyos_event_receipts',
       'companyos_events',
     ]);
+  });
+
+  it('allows only one worker to hold an active event lease', () => {
+    const db = database();
+    const store = { db: () => db, now: () => 1_000 };
+    const first = new DurableCompanyOsEventBus(store, { workerId: 'worker-1' });
+    const second = new DurableCompanyOsEventBus(store, { workerId: 'worker-2' });
+    first.publish(event());
+
+    expect(first.consume('watchdog', (_item, lease) => {
+      expect(lease.fenceToken).toBe(1);
+      expect(second.consume('watchdog', () => undefined)).toBe(0);
+      lease.assertActive();
+    })).toBe(1);
+    expect(db.prepare('SELECT COUNT(*) AS count FROM companyos_event_claims').get())
+      .toEqual({ count: 0 });
+  });
+
+  it('takes over an expired lease with a higher fence token', () => {
+    const db = database();
+    let now = 5_000;
+    const store = { db: () => db, now: () => now };
+    const bus = new DurableCompanyOsEventBus(store, {
+      workerId: 'worker-new', leaseDurationMs: 1_000,
+    });
+    bus.publish(event());
+    db.prepare(
+      `INSERT INTO companyos_event_claims
+        (consumer_id, event_cursor, organization_id, owner_id, fence_token,
+         claimed_at_ms, lease_expires_at_ms)
+       VALUES ('watchdog', 1, 'org-1', 'worker-dead', 7, 1_000, 2_000)`,
+    ).run();
+
+    expect(bus.consume('watchdog', (_item, lease) => {
+      expect(lease.ownerId).toBe('worker-new');
+      expect(lease.fenceToken).toBe(8);
+      expect(lease.leaseExpiresAtMs).toBe(6_000);
+      now = 5_500;
+      lease.assertActive();
+    })).toBe(1);
+  });
+
+  it('rejects a stale worker after another worker takes over its lease', () => {
+    const db = database();
+    let now = 1_000;
+    const store = { db: () => db, now: () => now };
+    const first = new DurableCompanyOsEventBus(store, {
+      workerId: 'worker-1', leaseDurationMs: 1_000,
+    });
+    const second = new DurableCompanyOsEventBus(store, {
+      workerId: 'worker-2', leaseDurationMs: 1_000,
+    });
+    first.publish(event());
+
+    expect(() => first.consume('watchdog', (_item, staleLease) => {
+      now = 2_001;
+      expect(second.consume('watchdog', (_takenOver, currentLease) => {
+        currentLease.assertActive();
+      })).toBe(1);
+      expect(() => staleLease.assertActive()).toThrow('consumer_lease_lost');
+    })).toThrow('consumer_lease_lost');
+    expect(db.prepare('SELECT COUNT(*) AS count FROM companyos_event_receipts').get())
+      .toEqual({ count: 1 });
   });
 
   it('persists receipts across bus instances and replays only unacknowledged events', () => {

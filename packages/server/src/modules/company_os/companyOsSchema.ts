@@ -35,6 +35,19 @@ export const COMPANY_OS_SCHEMA_CONTRIBUTOR: DatabaseSchemaContributor = {
           REFERENCES companyos_events(cursor, organization_id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS companyos_event_claims (
+        consumer_id TEXT NOT NULL,
+        event_cursor INTEGER NOT NULL,
+        organization_id TEXT NOT NULL,
+        owner_id TEXT NOT NULL,
+        fence_token INTEGER NOT NULL CHECK(fence_token > 0),
+        claimed_at_ms INTEGER NOT NULL,
+        lease_expires_at_ms INTEGER NOT NULL,
+        PRIMARY KEY(consumer_id, event_cursor),
+        FOREIGN KEY(event_cursor, organization_id)
+          REFERENCES companyos_events(cursor, organization_id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS companyos_actions (
         action_id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
@@ -69,6 +82,8 @@ export const COMPANY_OS_SCHEMA_CONTRIBUTOR: DatabaseSchemaContributor = {
         ON companyos_events(organization_id, cursor);
       CREATE INDEX IF NOT EXISTS idx_companyos_receipts_organization
         ON companyos_event_receipts(organization_id, consumer_id, event_cursor);
+      CREATE INDEX IF NOT EXISTS idx_companyos_claims_expiry
+        ON companyos_event_claims(lease_expires_at_ms, consumer_id, event_cursor);
       CREATE INDEX IF NOT EXISTS idx_companyos_actions_organization
         ON companyos_actions(organization_id, status, created_at_ms, action_id);
     `);

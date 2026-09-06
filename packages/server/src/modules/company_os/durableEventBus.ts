@@ -1,6 +1,6 @@
 /** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Database } from '../data_platform/index.js';
 import type { Action, AuditEntry, CanonicalEvent } from './index.js';
 import { COMPANY_OS_SCHEMA_CONTRIBUTOR } from './companyOsSchema.js';
@@ -23,6 +23,21 @@ interface EventRow {
 export interface CompanyOsEventStore {
   db(): Database;
   now(): number;
+}
+
+export interface CompanyOsConsumerLease {
+  readonly consumerId: string;
+  readonly eventCursor: number;
+  readonly organizationId: string;
+  readonly ownerId: string;
+  readonly fenceToken: number;
+  readonly leaseExpiresAtMs: number;
+  assertActive(): void;
+}
+
+interface ClaimRow extends EventRow {
+  fence_token: number;
+  lease_expires_at_ms: number;
 }
 
 function required(value: string, field: string): string {
@@ -78,8 +93,21 @@ function eventFromRow(row: EventRow): CanonicalEvent {
 }
 
 export class DurableCompanyOsEventBus {
-  constructor(private readonly store: CompanyOsEventStore) {
+  private readonly workerId: string;
+  private readonly leaseDurationMs: number;
+
+  constructor(
+    private readonly store: CompanyOsEventStore,
+    options: { workerId?: string; leaseDurationMs?: number } = {},
+  ) {
     COMPANY_OS_SCHEMA_CONTRIBUTOR.apply(store.db());
+    this.workerId = required(options.workerId ?? randomUUID(), 'worker_id');
+    this.leaseDurationMs = options.leaseDurationMs ?? 30_000;
+    if (
+      !Number.isSafeInteger(this.leaseDurationMs)
+      || this.leaseDurationMs < 1_000
+      || this.leaseDurationMs > 60 * 60 * 1_000
+    ) throw new Error('invalid_lease_duration_ms');
   }
 
   publish(event: CanonicalEvent): CanonicalEvent {
@@ -122,35 +150,152 @@ export class DurableCompanyOsEventBus {
 
   consume(
     consumerId: string,
-    handler: (event: CanonicalEvent) => void,
+    handler: (event: CanonicalEvent, lease: CompanyOsConsumerLease) => void,
     organizationId?: string,
   ): number {
     required(consumerId, 'consumer_id');
     if (organizationId !== undefined) required(organizationId, 'organization_id');
-    const database = this.store.db();
-    const rows = database.prepare(
-      `SELECT event.cursor, event.organization_id, event.event_id, event.event_type,
-              event.payload_json, event.source, event.source_revision,
-              event.observed_at, event.correlation_id, event.causation_id,
-              event.idempotency_key, event.fact_fingerprint
-         FROM companyos_events event
-         LEFT JOIN companyos_event_receipts receipt
-           ON receipt.consumer_id = ? AND receipt.event_cursor = event.cursor
-        WHERE receipt.event_cursor IS NULL
-          AND (? IS NULL OR event.organization_id = ?)
-        ORDER BY event.cursor ASC`,
-    ).all(consumerId, organizationId ?? null, organizationId ?? null) as unknown as EventRow[];
     let count = 0;
-    for (const row of rows) {
-      handler(eventFromRow(row));
-      database.prepare(
-        `INSERT OR IGNORE INTO companyos_event_receipts
-          (consumer_id, event_cursor, organization_id, processed_at_ms)
-         VALUES (?, ?, ?, ?)`,
-      ).run(consumerId, row.cursor, row.organization_id, this.store.now());
+    while (true) {
+      const claimed = this.claimNext(consumerId, organizationId);
+      if (!claimed) return count;
+      const lease = this.consumerLease(consumerId, claimed);
+      try {
+        handler(eventFromRow(claimed), lease);
+        this.acknowledge(lease);
+      } catch (error) {
+        this.release(lease);
+        throw error;
+      }
       count++;
     }
-    return count;
+  }
+
+  private claimNext(consumerId: string, organizationId?: string): ClaimRow | null {
+    const database = this.store.db();
+    const now = this.store.now();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      const event = database.prepare(
+        `SELECT event.cursor, event.organization_id, event.event_id, event.event_type,
+                event.payload_json, event.source, event.source_revision,
+                event.observed_at, event.correlation_id, event.causation_id,
+                event.idempotency_key, event.fact_fingerprint
+           FROM companyos_events event
+           LEFT JOIN companyos_event_receipts receipt
+             ON receipt.consumer_id = ? AND receipt.event_cursor = event.cursor
+           LEFT JOIN companyos_event_claims claim
+             ON claim.consumer_id = ? AND claim.event_cursor = event.cursor
+          WHERE receipt.event_cursor IS NULL
+            AND (? IS NULL OR event.organization_id = ?)
+            AND (claim.event_cursor IS NULL OR claim.lease_expires_at_ms <= ?)
+          ORDER BY event.cursor ASC
+          LIMIT 1`,
+      ).get(
+        consumerId, consumerId, organizationId ?? null, organizationId ?? null, now,
+      ) as EventRow | undefined;
+      if (!event) {
+        database.exec('COMMIT');
+        return null;
+      }
+      database.prepare(
+        `INSERT INTO companyos_event_claims
+          (consumer_id, event_cursor, organization_id, owner_id, fence_token,
+           claimed_at_ms, lease_expires_at_ms)
+         VALUES (?, ?, ?, ?, 1, ?, ?)
+         ON CONFLICT(consumer_id, event_cursor) DO UPDATE SET
+           organization_id = excluded.organization_id,
+           owner_id = excluded.owner_id,
+           fence_token = companyos_event_claims.fence_token + 1,
+           claimed_at_ms = excluded.claimed_at_ms,
+           lease_expires_at_ms = excluded.lease_expires_at_ms`,
+      ).run(
+        consumerId, event.cursor, event.organization_id, this.workerId,
+        now, now + this.leaseDurationMs,
+      );
+      const claim = database.prepare(
+        `SELECT fence_token, lease_expires_at_ms
+           FROM companyos_event_claims
+          WHERE consumer_id = ? AND event_cursor = ? AND owner_id = ?`,
+      ).get(consumerId, event.cursor, this.workerId) as {
+        fence_token: number;
+        lease_expires_at_ms: number;
+      } | undefined;
+      if (!claim) throw new Error('consumer_claim_failed');
+      database.exec('COMMIT');
+      return { ...event, ...claim };
+    } catch (error) {
+      if (database.inTransaction) database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  private consumerLease(consumerId: string, claim: ClaimRow): CompanyOsConsumerLease {
+    const lease: CompanyOsConsumerLease = {
+      consumerId,
+      eventCursor: claim.cursor,
+      organizationId: claim.organization_id,
+      ownerId: this.workerId,
+      fenceToken: claim.fence_token,
+      leaseExpiresAtMs: claim.lease_expires_at_ms,
+      assertActive: () => {
+        if (!this.isActive(lease)) throw new Error('consumer_lease_lost');
+      },
+    };
+    return lease;
+  }
+
+  private isActive(lease: CompanyOsConsumerLease): boolean {
+    const row = this.store.db().prepare(
+      `SELECT 1 AS active
+         FROM companyos_event_claims claim
+         LEFT JOIN companyos_event_receipts receipt
+           ON receipt.consumer_id = claim.consumer_id
+          AND receipt.event_cursor = claim.event_cursor
+        WHERE claim.consumer_id = ? AND claim.event_cursor = ?
+          AND claim.organization_id = ? AND claim.owner_id = ?
+          AND claim.fence_token = ? AND claim.lease_expires_at_ms > ?
+          AND receipt.event_cursor IS NULL`,
+    ).get(
+      lease.consumerId, lease.eventCursor, lease.organizationId,
+      lease.ownerId, lease.fenceToken, this.store.now(),
+    ) as { active: number } | undefined;
+    return row?.active === 1;
+  }
+
+  private acknowledge(lease: CompanyOsConsumerLease): void {
+    const database = this.store.db();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      lease.assertActive();
+      database.prepare(
+        `INSERT INTO companyos_event_receipts
+          (consumer_id, event_cursor, organization_id, processed_at_ms)
+         VALUES (?, ?, ?, ?)`,
+      ).run(
+        lease.consumerId, lease.eventCursor, lease.organizationId, this.store.now(),
+      );
+      this.deleteClaim(lease);
+      database.exec('COMMIT');
+    } catch (error) {
+      if (database.inTransaction) database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  private release(lease: CompanyOsConsumerLease): void {
+    this.deleteClaim(lease);
+  }
+
+  private deleteClaim(lease: CompanyOsConsumerLease): void {
+    this.store.db().prepare(
+      `DELETE FROM companyos_event_claims
+        WHERE consumer_id = ? AND event_cursor = ? AND organization_id = ?
+          AND owner_id = ? AND fence_token = ?`,
+    ).run(
+      lease.consumerId, lease.eventCursor, lease.organizationId,
+      lease.ownerId, lease.fenceToken,
+    );
   }
 }
 
@@ -179,13 +324,13 @@ export class DurableBrandWatchdog {
   }
 
   private inspectEvents(organizationId?: string): number {
-    return this.bus.consume('brand-watchdog-v1', (event) => {
+    return this.bus.consume('brand-watchdog-v1', (event, lease) => {
       if (![
         'owl.price.anomaly',
         'zhilemon.gmv.anomaly',
         'zhilemon.refund.anomaly',
       ].includes(event.type)) return;
-      this.projectRecommendation(event);
+      this.projectRecommendation(event, lease);
     }, organizationId);
   }
 
@@ -234,7 +379,10 @@ export class DurableBrandWatchdog {
     }));
   }
 
-  private projectRecommendation(event: CanonicalEvent): void {
+  private projectRecommendation(
+    event: CanonicalEvent,
+    lease: CompanyOsConsumerLease,
+  ): void {
     const database = this.store.db();
     const actionId = `action-${createHash('sha256')
       .update(`${event.organizationId}\0${event.id}`)
@@ -248,6 +396,7 @@ export class DurableBrandWatchdog {
     const evidence = JSON.stringify([event.id]);
     database.exec('BEGIN IMMEDIATE');
     try {
+      lease.assertActive();
       database.prepare(
         `INSERT OR IGNORE INTO companyos_actions
           (action_id, organization_id, source_event_id, title, reason, status,
