@@ -25,6 +25,8 @@ describe('CompanyOS route authorization', () => {
       expect(isAdminRoute(path)).toBe(true);
       expect(isMemberRoute(path)).toBe(false);
     }
+    expect(isAdminRoute('/enterprise/companyos/tasks/task-1/decision')).toBe(true);
+    expect(isMemberRoute('/enterprise/companyos/tasks/task-1/decision')).toBe(false);
   });
 
   it('allows signed-in members to read their tenant actions', () => {

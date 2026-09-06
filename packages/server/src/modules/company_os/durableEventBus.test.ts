@@ -214,4 +214,46 @@ describe('durable CompanyOS event bus', () => {
     expect(watchdog.listActions('org-1')).toEqual([]);
     expect(watchdog.listAudit('org-1')).toEqual([]);
   });
+
+  it('queues an approved task once and records human audit evidence', () => {
+    const db = database();
+    const store = { db: () => db, now: () => Date.parse('2026-09-06T03:00:00.000Z') };
+    const bus = new DurableCompanyOsEventBus(store);
+    bus.publish(event());
+    const watchdog = new DurableBrandWatchdog(store, bus);
+    watchdog.inspect();
+    const task = watchdog.listTasks('org-1')[0]!;
+
+    expect(watchdog.decideTask('org-1', task.id, 'approve')).toMatchObject({
+      id: task.id, status: 'approved',
+    });
+    expect(watchdog.decideTask('org-1', task.id, 'approve')).toMatchObject({
+      id: task.id, status: 'approved',
+    });
+    expect(watchdog.listActions('org-1')[0]).toMatchObject({ status: 'queued' });
+    expect(watchdog.listAudit('org-1')).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        action: 'watchdog.task.approved', status: 'approved', actor: 'human',
+        evidenceEventIds: ['org-1:price-1'],
+      }),
+    ]));
+    expect(() => watchdog.decideTask('org-1', task.id, 'reject'))
+      .toThrow('task_already_decided');
+  });
+
+  it('rejects a task without exposing it across tenants', () => {
+    const db = database();
+    const store = { db: () => db, now: () => 1 };
+    const bus = new DurableCompanyOsEventBus(store);
+    bus.publish(event());
+    const watchdog = new DurableBrandWatchdog(store, bus);
+    watchdog.inspect();
+    const task = watchdog.listTasks('org-1')[0]!;
+    expect(() => watchdog.decideTask('org-2', task.id, 'reject'))
+      .toThrow('task_not_found');
+    expect(watchdog.decideTask('org-1', task.id, 'reject')).toMatchObject({
+      status: 'rejected',
+    });
+    expect(watchdog.listActions('org-1')[0]).toMatchObject({ status: 'rejected' });
+  });
 });

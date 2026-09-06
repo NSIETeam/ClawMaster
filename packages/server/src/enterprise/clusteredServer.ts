@@ -724,6 +724,33 @@ export function createClusteredEnterpriseServer(
         return;
       }
 
+      const companyOsDecision = /^\/enterprise\/companyos\/tasks\/([^/]+)\/decision$/u.exec(path);
+      if (companyOsDecision && method === 'POST') {
+        const principal = await requireAdministrator({
+          repository, req, res, adminToken, sharedState: options.sharedState,
+        });
+        if (!principal) return;
+        try {
+          const body = await readJsonBody(req);
+          if (body.decision !== 'approve' && body.decision !== 'reject') {
+            throw new Error('invalid_decision');
+          }
+          const task = await repository.decideCompanyOsTask({
+            organizationId: principal.organizationId,
+            taskId: decodeURIComponent(companyOsDecision[1]!),
+            decision: body.decision,
+          });
+          sendJson(res, 200, { task });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          const status = message === 'task_not_found'
+            ? 404
+            : message === 'task_already_decided' ? 409 : 400;
+          sendJson(res, status, { error: message });
+        }
+        return;
+      }
+
       if (
         path === '/enterprise/companyos/watchdog/inspect'
         && method === 'POST'

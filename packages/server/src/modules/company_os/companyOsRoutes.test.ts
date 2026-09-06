@@ -152,4 +152,34 @@ describe('CompanyOS authenticated routes', () => {
       data: { tasks: [expect.objectContaining({ id: 't1', organizationId: 'org-1' })] },
     }]);
   });
+
+  it('requires an administrator to explicitly approve a decision task', async () => {
+    const member = harness({
+      path: '/enterprise/companyos/tasks/t1/decision', method: 'POST',
+      memberOrganizationId: 'org-1', body: { decision: 'approve' },
+    });
+    expect(await handleCompanyOsRoute(member.deps)).toBe(true);
+    expect(member.responses).toEqual([{
+      status: 403, data: { error: 'CompanyOS 管理员权限不足' },
+    }]);
+
+    const admin = harness({
+      path: '/enterprise/companyos/tasks/t1/decision', method: 'POST',
+      adminOrganizationId: 'org-1', body: { decision: 'approve' },
+    });
+    admin.database.exec(`
+      INSERT INTO companyos_actions
+        (action_id, organization_id, source_event_id, title, reason, status,
+         evidence_event_ids_json, created_at_ms, updated_at_ms)
+      VALUES ('a1', 'org-1', 'e1', '调查异常', 'reason', 'recommended', '["e1"]', 1, 1);
+      INSERT INTO companyos_tasks
+        (task_id, organization_id, action_id, title, status,
+         evidence_event_ids_json, created_at_ms, updated_at_ms)
+      VALUES ('t1', 'org-1', 'a1', '人工决策', 'pending_decision', '["e1"]', 1, 1);
+    `);
+    expect(await handleCompanyOsRoute(admin.deps)).toBe(true);
+    expect(admin.responses).toEqual([{
+      status: 200, data: { task: expect.objectContaining({ id: 't1', status: 'approved' }) },
+    }]);
+  });
 });

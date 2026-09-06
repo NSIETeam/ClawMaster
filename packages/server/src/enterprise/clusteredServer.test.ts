@@ -256,6 +256,11 @@ function repository(
     listCompanyOsActions: vi.fn(async () => []),
     listCompanyOsTasks: vi.fn(async () => []),
     listCompanyOsAudit: vi.fn(async () => []),
+    decideCompanyOsTask: vi.fn(async (input) => ({
+      id: input.taskId, organizationId: input.organizationId,
+      actionId: 'action-1', title: '人工决策', status: 'approved' as const,
+      evidenceEventIds: ['event-1'],
+    })),
   } as unknown as PostgresEnterpriseCoreRepository;
 }
 
@@ -345,6 +350,19 @@ describe('clustered PostgreSQL enterprise server', () => {
     });
     expect(denied.status).toBe(403);
     expect(repo.listCompanyOsAudit).not.toHaveBeenCalled();
+
+    const approved = await fetch(`${baseUrl}/enterprise/companyos/tasks/task-1/decision`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer clustered-session-token',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ decision: 'approve' }),
+    });
+    expect(approved.status).toBe(200);
+    expect(repo.decideCompanyOsTask).toHaveBeenCalledWith({
+      organizationId: 'org_default', taskId: 'task-1', decision: 'approve',
+    });
   });
 
   it('publishes PostgreSQL authority readiness without touching SQLite', async () => {

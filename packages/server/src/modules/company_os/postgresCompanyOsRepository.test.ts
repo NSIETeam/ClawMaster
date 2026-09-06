@@ -161,4 +161,35 @@ describe('PostgreSQL CompanyOS authority', () => {
     expect(sql).not.toContain('INSERT INTO companyos_tasks');
     expect(sql).not.toContain('INSERT INTO companyos_audit');
   });
+
+  it('atomically approves a task into the action queue with human audit', async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('FROM companyos_tasks') && sql.includes('FOR UPDATE')) {
+        return result([{
+          task_id: 'task-1', organization_id: 'org-1', action_id: 'action-1',
+          title: '人工决策', status: 'pending_decision', evidence_event_ids: ['event-1'],
+        }]);
+      }
+      if (sql.startsWith('UPDATE companyos_tasks')) return { rows: [], rowCount: 1 };
+      return result([]);
+    });
+    const client = { query, release: vi.fn() } as unknown as PostgresClientLike;
+    const repository = createPostgresCompanyOsRepository({
+      pool: { connect: vi.fn(async () => client) } as unknown as PostgresPoolLike,
+      now: () => new Date('2026-09-06T03:00:00.000Z'),
+    });
+    await expect(repository.decideCompanyOsTask({
+      organizationId: 'org-1', taskId: 'task-1', decision: 'approve',
+    })).resolves.toMatchObject({ id: 'task-1', status: 'approved' });
+    const sql = query.mock.calls.map((call) => call[0]).join('\n');
+    const actionUpdate = query.mock.calls.find((call) => (
+      call[0].includes('UPDATE companyos_actions')
+    ));
+    expect(actionUpdate?.[1]).toEqual([
+      'org-1', 'action-1', 'queued', '2026-09-06T03:00:00.000Z',
+    ]);
+    expect(sql).toContain('INSERT INTO companyos_audit');
+    expect(sql).toContain("'human'");
+    expect(query.mock.calls.at(-1)![0]).toBe('COMMIT');
+  });
 });

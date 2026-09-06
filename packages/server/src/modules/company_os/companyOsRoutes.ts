@@ -41,6 +41,32 @@ export async function handleCompanyOsRoute(input: CompanyOsRouteInput): Promise<
   if (!input.path.startsWith('/enterprise/companyos/')) return false;
   const bus = new DurableCompanyOsEventBus(input.store);
   const watchdog = new DurableBrandWatchdog(input.store, bus);
+  const decisionMatch = /^\/enterprise\/companyos\/tasks\/([^/]+)\/decision$/u.exec(input.path);
+
+  if (decisionMatch && input.method === 'POST') {
+    const organizationId = adminOrganization(input);
+    if (!organizationId) {
+      input.sendJSON(input.res, 403, { error: 'CompanyOS 管理员权限不足' });
+      return true;
+    }
+    try {
+      const taskId = decodeURIComponent(decisionMatch[1]!);
+      const body = await input.readBody(input.req);
+      if (body.decision !== 'approve' && body.decision !== 'reject') {
+        throw new Error('invalid_decision');
+      }
+      input.sendJSON(input.res, 200, {
+        task: watchdog.decideTask(organizationId, taskId, body.decision),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = message === 'task_not_found'
+        ? 404
+        : message === 'task_already_decided' ? 409 : 400;
+      input.sendJSON(input.res, status, { error: message });
+    }
+    return true;
+  }
 
   if (input.path === '/enterprise/companyos/events' && input.method === 'POST') {
     const organizationId = adminOrganization(input);

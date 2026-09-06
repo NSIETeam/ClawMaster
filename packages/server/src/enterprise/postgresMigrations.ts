@@ -978,7 +978,7 @@ CREATE TABLE companyos_actions (
   title TEXT NOT NULL,
   reason TEXT NOT NULL,
   status TEXT NOT NULL CHECK(status IN (
-    'recommended', 'queued', 'executed', 'failed', 'unknown_outcome'
+    'recommended', 'queued', 'rejected', 'executed', 'failed', 'unknown_outcome'
   )),
   evidence_event_ids JSONB NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1005,7 +1005,7 @@ CREATE TABLE companyos_audit (
   action_id TEXT NOT NULL REFERENCES companyos_actions(action_id) ON DELETE CASCADE,
   action TEXT NOT NULL,
   status TEXT NOT NULL CHECK(status IN (
-    'recommended', 'executed', 'failed', 'unknown_outcome'
+    'recommended', 'approved', 'rejected', 'executed', 'failed', 'unknown_outcome'
   )),
   actor TEXT NOT NULL,
   evidence_event_ids JSONB NOT NULL,

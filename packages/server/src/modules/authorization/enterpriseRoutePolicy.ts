@@ -93,6 +93,7 @@ export function isAdminRoute(path: string): boolean {
     path.startsWith('/enterprise/park-meeting-rooms/') ||
     path.startsWith('/enterprise/platform/organizations/') ||
     path.startsWith('/enterprise/platform/customer-modules/') ||
+    (path.startsWith('/enterprise/companyos/tasks/') && path.endsWith('/decision')) ||
     path.startsWith('/enterprise/federation/admin/')
   );
 }

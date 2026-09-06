@@ -425,6 +425,76 @@ export function createPostgresCompanyOsRepository(input: {
     }));
   }
 
+  async function decideCompanyOsTask(raw: {
+    organizationId: string;
+    taskId: string;
+    decision: 'approve' | 'reject';
+  }): Promise<CompanyOsTask> {
+    const organizationId = required(raw.organizationId, 'organization_id');
+    const taskId = required(raw.taskId, 'task_id');
+    return transaction(input.pool, async (client) => {
+      const selected = await client.query<Record<string, unknown>>(
+        `SELECT task_id, organization_id, action_id, title, status,
+                evidence_event_ids
+           FROM companyos_tasks
+          WHERE organization_id = $1 AND task_id = $2
+          FOR UPDATE`,
+        [organizationId, taskId],
+      );
+      const row = selected.rows[0];
+      if (!row) throw new Error('task_not_found');
+      const desiredTaskStatus = raw.decision === 'approve' ? 'approved' : 'rejected';
+      if (row.status !== 'pending_decision' && row.status !== desiredTaskStatus) {
+        throw new Error('task_already_decided');
+      }
+      if (row.status === 'pending_decision') {
+        const actionStatus = raw.decision === 'approve' ? 'queued' : 'rejected';
+        const decidedAt = now().toISOString();
+        const updated = await client.query(
+          `UPDATE companyos_tasks
+              SET status = $3, updated_at = $4::timestamptz
+            WHERE organization_id = $1 AND task_id = $2
+              AND status = 'pending_decision'`,
+          [organizationId, taskId, desiredTaskStatus, decidedAt],
+        );
+        if (updated.rowCount !== undefined && updated.rowCount !== 1) {
+          throw new Error('task_already_decided');
+        }
+        await client.query(
+          `UPDATE companyos_actions
+              SET status = $3, updated_at = $4::timestamptz
+            WHERE organization_id = $1 AND action_id = $2`,
+          [organizationId, row.action_id, actionStatus, decidedAt],
+        );
+        const auditAction = `watchdog.task.${desiredTaskStatus}`;
+        const auditId = `audit-${createHash('sha256')
+          .update(`${String(row.action_id)}\0${auditAction}`)
+          .digest('hex')
+          .slice(0, 24)}`;
+        await client.query(
+          `INSERT INTO companyos_audit
+            (audit_id, organization_id, action_id, action, status, actor,
+             evidence_event_ids, created_at)
+           VALUES ($1, $2, $3, $4, $5, 'human', $6::jsonb, $7::timestamptz)
+           ON CONFLICT (organization_id, action_id, action) DO NOTHING`,
+          [
+            auditId, organizationId, row.action_id, auditAction,
+            desiredTaskStatus, JSON.stringify(json(row.evidence_event_ids)), decidedAt,
+          ],
+        );
+        row.status = desiredTaskStatus;
+      }
+      return {
+        id: String(row.task_id),
+        organizationId: String(row.organization_id),
+        actionId: String(row.action_id),
+        title: String(row.title),
+        status: row.status as CompanyOsTask['status'],
+        evidenceEventIds: json(row.evidence_event_ids) as string[],
+      };
+    });
+  }
+
   return {
     publishCompanyOsEvent,
     claimNextCompanyOsEvent,
@@ -433,6 +503,7 @@ export function createPostgresCompanyOsRepository(input: {
     listCompanyOsActions,
     listCompanyOsTasks,
     listCompanyOsAudit,
+    decideCompanyOsTask,
   };
 }
 

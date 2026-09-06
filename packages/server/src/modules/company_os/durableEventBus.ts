@@ -411,6 +411,72 @@ export class DurableBrandWatchdog {
     }));
   }
 
+  decideTask(
+    organizationId: string,
+    taskId: string,
+    decision: 'approve' | 'reject',
+  ): CompanyOsTask {
+    required(organizationId, 'organization_id');
+    required(taskId, 'task_id');
+    const database = this.store.db();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      const row = database.prepare(
+        `SELECT task_id, organization_id, action_id, title, status,
+                evidence_event_ids_json
+           FROM companyos_tasks
+          WHERE organization_id = ? AND task_id = ?`,
+      ).get(organizationId, taskId) as TaskRow | undefined;
+      if (!row) throw new Error('task_not_found');
+      const desiredTaskStatus = decision === 'approve' ? 'approved' : 'rejected';
+      if (row.status !== 'pending_decision' && row.status !== desiredTaskStatus) {
+        throw new Error('task_already_decided');
+      }
+      if (row.status === 'pending_decision') {
+        const actionStatus = decision === 'approve' ? 'queued' : 'rejected';
+        const at = this.store.now();
+        database.prepare(
+          `UPDATE companyos_tasks
+              SET status = ?, updated_at_ms = ?
+            WHERE organization_id = ? AND task_id = ?
+              AND status = 'pending_decision'`,
+        ).run(desiredTaskStatus, at, organizationId, taskId);
+        database.prepare(
+          `UPDATE companyos_actions
+              SET status = ?, updated_at_ms = ?
+            WHERE organization_id = ? AND action_id = ?`,
+        ).run(actionStatus, at, organizationId, row.action_id);
+        const auditAction = `watchdog.task.${desiredTaskStatus}`;
+        const auditId = `audit-${createHash('sha256')
+          .update(`${row.action_id}\0${auditAction}`)
+          .digest('hex')
+          .slice(0, 24)}`;
+        database.prepare(
+          `INSERT OR IGNORE INTO companyos_audit
+            (audit_id, organization_id, action_id, action, status, actor,
+             evidence_event_ids_json, created_at_ms)
+           VALUES (?, ?, ?, ?, ?, 'human', ?, ?)`,
+        ).run(
+          auditId, organizationId, row.action_id, auditAction,
+          desiredTaskStatus, row.evidence_event_ids_json, at,
+        );
+        row.status = desiredTaskStatus;
+      }
+      database.exec('COMMIT');
+      return {
+        id: row.task_id,
+        organizationId: row.organization_id,
+        actionId: row.action_id,
+        title: row.title,
+        status: row.status,
+        evidenceEventIds: JSON.parse(row.evidence_event_ids_json) as string[],
+      };
+    } catch (error) {
+      if (database.inTransaction) database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
   private projectRecommendation(
     event: CanonicalEvent,
     lease: CompanyOsConsumerLease,

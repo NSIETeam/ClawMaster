@@ -55,7 +55,7 @@ export const COMPANY_OS_SCHEMA_CONTRIBUTOR: DatabaseSchemaContributor = {
         title TEXT NOT NULL,
         reason TEXT NOT NULL,
         status TEXT NOT NULL CHECK(status IN (
-          'recommended', 'queued', 'executed', 'failed', 'unknown_outcome'
+          'recommended', 'queued', 'rejected', 'executed', 'failed', 'unknown_outcome'
         )),
         evidence_event_ids_json TEXT NOT NULL,
         created_at_ms INTEGER NOT NULL,
@@ -83,7 +83,7 @@ export const COMPANY_OS_SCHEMA_CONTRIBUTOR: DatabaseSchemaContributor = {
         action_id TEXT NOT NULL,
         action TEXT NOT NULL,
         status TEXT NOT NULL CHECK(status IN (
-          'recommended', 'executed', 'failed', 'unknown_outcome'
+          'recommended', 'approved', 'rejected', 'executed', 'failed', 'unknown_outcome'
         )),
         actor TEXT NOT NULL,
         evidence_event_ids_json TEXT NOT NULL,

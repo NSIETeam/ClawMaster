@@ -54,7 +54,7 @@ export type AuditEntry = {
   id: string;
   organizationId: string;
   action: string;
-  status: 'recommended' | 'executed' | 'failed' | 'unknown_outcome';
+  status: 'recommended' | 'approved' | 'rejected' | 'executed' | 'failed' | 'unknown_outcome';
   actor: 'brand-ceo-agent' | 'human';
   evidenceEventIds: string[];
   at: string;
@@ -65,7 +65,7 @@ export type Action = {
   organizationId: string;
   title: string;
   reason: string;
-  status: 'recommended' | 'queued' | 'executed' | 'failed' | 'unknown_outcome';
+  status: 'recommended' | 'queued' | 'rejected' | 'executed' | 'failed' | 'unknown_outcome';
   evidenceEventIds: string[];
 };
 
