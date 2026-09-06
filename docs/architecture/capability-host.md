@@ -51,7 +51,15 @@ rejected even if it passed installation verification.
 
 ## Release evidence still required
 
-Issue #14 must remain open until the desktop UI renders the pre-download plan,
-shows loading/install-required states, and installed Windows x64 and macOS ARM64
-runs demonstrate worker reclamation, RSS reduction, and no orphan process. The
-pack size gates also need to run against actual first-party capability packs.
+Issue #14 must remain open until the production trust root signs a real
+first-party package and installed Windows x64 and macOS ARM64 runs demonstrate
+worker reclamation, RSS reduction, cancellation, rollback, no silent download,
+and no orphan process. The pack size gates also need to run against actual
+first-party capability packs.
+
+Commit `5d7136c3` connects the existing Rust plan/install boundary to an explicit
+desktop flow. A user must select exactly one `manifest.json` and one WASM file,
+review source, size, permissions, dependencies and replacement impact, then
+confirm again before installation. Zero trusted keys still renders every heavy
+capability unavailable, and the install path rechecks payload hash and WASM
+health after the signed manifest plan.

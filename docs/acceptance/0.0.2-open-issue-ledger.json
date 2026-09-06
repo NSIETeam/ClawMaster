@@ -86,8 +86,8 @@
       "number": 14,
       "status": "implemented_needs_evidence",
       "closable": false,
-      "evidence": ["a29a76c2 signed capability host", "a6546dc2 makes capability install, restart reconciliation, path isolation, immutable versions, and verified rollback crash-safe", "a9266756 exposes the compiled trust-root count and visibly marks Office, OCR, speech, video, and complex analysis unavailable when no trusted first-party key is present; the complete Rust suite passes 191 tests with zero failures and three explicit opt-in skips"],
-      "remaining": ["Provision the production first-party trust root and install a real signed first-party capability package through the final app", "Add and verify the pre-download plan and explicit installation UI; the current dialog only lists installed packages and resources", "Verify installed size, worker RSS reclamation, cancellation, crash, rollback, and no-silent-download behavior on Windows x64 and macOS ARM64", "Verify an unavailable heavy capability remains visibly unavailable"]
+      "evidence": ["a29a76c2 signed capability host", "a6546dc2 makes capability install, restart reconciliation, path isolation, immutable versions, and verified rollback crash-safe", "a9266756 exposes the compiled trust-root count and visibly marks Office, OCR, speech, video, and complex analysis unavailable when no trusted first-party key is present", "5d7136c3 adds a user-selected manifest plus WASM flow that verifies the signed plan before rendering source, size, permissions, dependencies, and replacement impact, then requires separate confirmation before Rust revalidates and installs; renderer build, UI tests, typecheck, doctor, code-map, and the 195/0/3 Rust suite pass"],
+      "remaining": ["Provision the production first-party trust root and install a real signed first-party capability package through the final app", "Verify installed size, worker RSS reclamation, cancellation, crash, rollback, and no-silent-download behavior on Windows x64 and macOS ARM64", "Verify an unavailable heavy capability remains visibly unavailable in the final installed packages"]
     },
     {
       "number": 15,
