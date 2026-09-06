@@ -80,6 +80,14 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run build:renderer --workspace=packages/desktop
       - run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib
+      - name: Verify approved native browser click
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          CLAWMASTER_REAL_RPA_SMOKE: '1'
+          CLAWMASTER_REAL_RPA_BROWSER: edge
+          CLAWMASTER_REAL_RPA_SMOKE_EVIDENCE: ${{ github.workspace }}/packages/desktop/src-tauri/target/release/windows-rpa-smoke.json
+        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib completes_real_browser_click_with_encrypted_semantic_receipts -- --ignored --nocapture
       - name: Reject legacy packaged runtimes
         shell: bash
         run: |
@@ -105,6 +113,7 @@ jobs:
             packages/desktop/src-tauri/target/release/bundle/nsis/*.exe
             packages/desktop/src-tauri/target/release/bundle/dmg/*_aarch64.dmg
             packages/desktop/src-tauri/target/release/windows-installed-smoke.json
+            packages/desktop/src-tauri/target/release/windows-rpa-smoke.json
           if-no-files-found: error
           retention-days: 14
 

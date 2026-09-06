@@ -1636,6 +1636,10 @@ mod tests {
         });
         println!("CLAWMASTER_REAL_RPA_EVIDENCE={evidence}");
         if let Some(path) = std::env::var_os("CLAWMASTER_REAL_RPA_SMOKE_EVIDENCE") {
+            let path = PathBuf::from(path);
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
             std::fs::write(path, serde_json::to_vec_pretty(&evidence).unwrap()).unwrap();
         }
     }
