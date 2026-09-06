@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -26,5 +26,23 @@ describe('Tauri Windows installer verification', () => {
     expect(resolveSingleWindowsInstaller(directory)).toBe(installer);
     expect(verifyTauriWindowsInstaller(installer, { testArchive }).withinTarget).toBe(true);
     expect(testArchive).toHaveBeenCalledWith(installer);
+  });
+
+  it('keeps installed startup, graceful exit, and orphan checks in release CI', () => {
+    const smoke = readFileSync(
+      path.join(import.meta.dirname, 'smoke-tauri-windows-install.ps1'),
+      'utf8',
+    );
+    const workflow = readFileSync(
+      path.resolve(import.meta.dirname, '../../../.github/workflows/tauri-preview.yml'),
+      'utf8',
+    );
+
+    expect(smoke).toContain('$env:CLAWMASTER_USER_DIR = $userRoot');
+    expect(smoke).toContain('$appProcess.CloseMainWindow()');
+    expect(smoke).toContain('orphanProcessCount');
+    expect(smoke).not.toContain('$env:OTTO_USER_DIR');
+    expect(workflow).toContain('smoke-tauri-windows-install.ps1');
+    expect(workflow).toContain('windows-installed-smoke.json');
   });
 });
