@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import type { MlsKeyPackage } from '@clawmaster/native';
+import type { OperatingBrief } from 'clawmaster-server';
 
 import {
   buildAtoaResponse,
@@ -2852,6 +2853,13 @@ export class EnterpriseClient {
         '/enterprise/organization/features',
       )
     ).features;
+  }
+
+  async getCompanyOsBrief(): Promise<OperatingBrief> {
+    if (!this.token) throw new Error('登录已失效，请重新登录');
+    return (
+      await this.request<{ brief: OperatingBrief }>('/enterprise/companyos/brief')
+    ).brief;
   }
 
   async getModuleUpdates(): Promise<EnterpriseModuleUpdateManifest> {

@@ -617,6 +617,7 @@ const IPC = {
   enterprisePresenceHeartbeat: 'clawmaster:enterprise-presence-heartbeat',
   enterpriseOrganizationFeaturesGet:
     'clawmaster:enterprise-organization-features-get',
+  enterpriseCompanyOsBrief: 'clawmaster:enterprise-companyos-brief',
   enterpriseOrganizationFeaturesUpdate:
     'clawmaster:enterprise-organization-features-update',
   enterpriseOrganizationDepartments: 'clawmaster:enterprise-organization-departments',
@@ -2898,6 +2899,10 @@ function registerIpc(): void {
   ipcMain.handle(IPC.enterpriseOrganizationFeaturesGet, async () => {
     loadEnterpriseSession();
     return enterpriseClient.getOrganizationFeatures();
+  });
+  ipcMain.handle(IPC.enterpriseCompanyOsBrief, async () => {
+    loadEnterpriseSession();
+    return enterpriseClient.getCompanyOsBrief();
   });
   ipcMain.handle(
     IPC.enterpriseOrganizationFeaturesUpdate,

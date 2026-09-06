@@ -176,6 +176,21 @@ if (!previewWindow.clawmaster) {
       knowledge: true,
       skill_market: true,
     }),
+    enterpriseCompanyOsBrief: async () => ({
+      organizationId: account.organizationId,
+      generatedAt: '2026-09-06T08:00:00.000Z',
+      status: 'partial' as const,
+      metrics: {
+        revenue: { status: 'known' as const, stale: false, amount: { currency: 'CNY', minorUnits: '126800000' }, evidenceRefs: ['preview-revenue'], sources: [] },
+        margin: { status: 'known' as const, stale: false, amount: { currency: 'CNY', minorUnits: '35400000' }, basisPoints: 2792, evidenceRefs: ['preview-margin'], sources: [] },
+        inventory: { status: 'partial' as const, stale: false, value: { currency: 'CNY', minorUnits: '48600000' }, daysCover: 42, evidenceRefs: ['preview-inventory'], sources: [] },
+        cash: { status: 'known' as const, stale: false, balance: { currency: 'CNY', minorUnits: '82000000' }, netWorkingCapital: { currency: 'CNY', minorUnits: '76300000' }, runwayDays: 96, overdueReceivablesBps: 840, evidenceRefs: ['preview-cash'], sources: [] },
+        growth: { status: 'partial' as const, stale: false, revenueGrowthBps: 1230, contributionGrowthBps: null, attribution: 'hypothesis' as const, attributionAssumptions: ['preview only'], evidenceRefs: ['preview-growth'], sources: [] },
+      },
+      missing: ['growth'], risks: ['增长贡献利润事实不完整'], opportunities: [],
+      evidenceRefs: [], invalidEvidenceRefs: [], recommendedActions: [],
+      executedActions: [], decisionsRequired: [],
+    }),
     enterpriseParkView: async () => ({
       id: 'preview-park',
       name: '北控宏创科技园',

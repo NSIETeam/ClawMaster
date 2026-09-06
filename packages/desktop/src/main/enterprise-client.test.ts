@@ -1474,6 +1474,28 @@ describe('EnterpriseClient', () => {
     });
   });
 
+  it('经营简报只通过 main 内的企业会话令牌读取', async () => {
+    const operatingBrief = {
+      organizationId: 'org_acme', generatedAt: '2026-09-06T08:00:00.000Z',
+      status: 'unknown', metrics: {}, missing: ['profit'], risks: [],
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, API_V2_HEALTH))
+      .mockResolvedValueOnce(jsonResponse(200, {
+        account: ACCOUNT, token: 'session-token', expiresAt: '2099-01-01',
+      }))
+      .mockResolvedValueOnce(jsonResponse(200, { brief: operatingBrief }));
+    const client = new EnterpriseClient(fetchMock as typeof fetch);
+    await client.loginWithPassword('https://enterprise.otto.test', 'staff01', 'password');
+
+    await expect(client.getCompanyOsBrief()).resolves.toEqual(operatingBrief);
+    expect(fetchMock.mock.calls[2]?.[0])
+      .toBe('https://enterprise.otto.test/enterprise/companyos/brief');
+    expect((fetchMock.mock.calls[2]?.[1] as RequestInit).headers).toMatchObject({
+      authorization: 'Bearer session-token',
+    });
+  });
+
   it('企业在线心跳使用成员会话并要求服务端支持 presence capability', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(200, API_V2_HEALTH))

@@ -416,6 +416,9 @@ export function createTauriHostBridge(
       },
     })) as never,
     enterpriseRegistrationIntent: (() => Promise.resolve(null)) as never,
+    enterpriseCompanyOsBrief: (() => Promise.reject(
+      new Error('本地个人模式没有企业经营数据。'),
+    )) as never,
     enterpriseUsageProfile: ((periodDays = 30) => Promise.resolve({
       accountId: 'tauri-local-user',
       periodDays,

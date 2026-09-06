@@ -40,7 +40,7 @@ export type ParkModuleTarget =
 
 export type ModuleActivation =
   | { kind: 'dialog'; dialog: 'park'; target: ParkModuleTarget }
-  | { kind: 'dialog'; dialog: 'enterprise-memory' | 'auto-skill' | 'capability-host' }
+  | { kind: 'dialog'; dialog: 'enterprise-memory' | 'auto-skill' | 'capability-host' | 'companyos-brief' }
   | { kind: 'route'; route: 'skill-zone' }
   | { kind: 'agent'; profileId: string; customAgentId?: string }
   | { kind: 'guided-task'; taskId: string; instructions: string }
@@ -88,6 +88,7 @@ type StaticAvailabilityRule =
   | 'park-statistics'
   | 'park-staff'
   | 'enterprise-memory'
+  | 'enterprise-only'
   | 'auto-skill'
   | 'always'
   | 'skill-zone';
@@ -97,6 +98,12 @@ interface StaticModuleSpec extends Omit<ModuleDefinition, 'availability' | 'disa
 }
 
 export const STATIC_MODULE_SPECS: readonly StaticModuleSpec[] = [
+  {
+    id: 'companyos-brief', label: '经营简报', category: 'capability', icon: 'office-dataviz',
+    description: '收入、利润、库存、现金与增长的证据化经营视图',
+    activation: { kind: 'dialog', dialog: 'companyos-brief' },
+    availabilityRule: 'enterprise-only',
+  },
   {
     id: 'park-overview', label: '园区服务统计', category: 'park', icon: 'park-overview',
     activation: { kind: 'dialog', dialog: 'park', target: 'overview' },
@@ -276,8 +283,11 @@ function staticAvailability(
   if (rule === 'always') return 'available';
   if (rule === 'auto-skill') return 'available';
   if (context.edition !== 'enterprise') {
+    if (rule === 'enterprise-only') return 'hidden';
     return rule.startsWith('park') ? 'disabled' : 'available';
   }
+
+  if (rule === 'enterprise-only') return 'available';
 
   if (rule === 'enterprise-memory') {
     return context.organizationFeatures?.knowledge ? 'available' : 'hidden';

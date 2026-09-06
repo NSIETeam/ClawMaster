@@ -46,6 +46,7 @@ export * from './modules/data_platform/index.js';
 export * from './modules/authorization/index.js';
 export * from './modules/identity_organization/index.js';
 export * from './modules/data_governance/index.js';
+export type { OperatingBrief } from './modules/company_os/operatingBrief.js';
 export type {
   ChannelInstallation,
   ChannelHealth,

@@ -46,6 +46,13 @@ function enterpriseContext(
 beforeEach(() => window.localStorage.clear());
 
 describe('static module catalog', () => {
+  it('shows CompanyOS brief only in enterprise edition', () => {
+    expect(buildModuleCatalog(enterpriseContext()).find((item) => item.id === 'companyos-brief'))
+      .toMatchObject({ availability: 'available' });
+    expect(buildModuleCatalog({ ...enterpriseContext(), edition: 'personal' })
+      .find((item) => item.id === 'companyos-brief'))
+      .toMatchObject({ availability: 'hidden' });
+  });
   it('ships the five approved platform endpoints while allowing a local override', () => {
     expect(DEFAULT_PLATFORM_URLS).toEqual({
       'platform-zhifang': 'https://47.116.30.60/',

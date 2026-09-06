@@ -163,6 +163,7 @@ import {
 } from './moduleCatalog.js';
 import type { ModuleModalState } from './moduleModal.js';
 import { CapabilityHostDialog } from './components/CapabilityHostDialog.js';
+import { OperatingBriefDialog } from './components/OperatingBriefDialog.js';
 
 /** 启动后静默检查更新的延迟：让 server 连接 / 首屏渲染先跑完，不抢启动窗口。 */
 const SILENT_UPDATE_CHECK_DELAY_MS = 15_000;
@@ -1706,6 +1707,11 @@ function ClawMasterWorkspaceApp({
       />
       <CapabilityHostDialog
         open={moduleModal?.kind === 'capability-host'}
+        onClose={() => setModuleModal(null)}
+      />
+      <OperatingBriefDialog
+        open={moduleModal?.kind === 'companyos-brief'}
+        organizationName={account.organizationName}
         onClose={() => setModuleModal(null)}
       />
       <CustomAgentManagerDialog

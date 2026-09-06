@@ -35,7 +35,9 @@ import type {
   WorkLogDay,
   WorkLogReportResult,
   WorkLogSummary,
+  OperatingBrief,
 } from 'clawmaster-server';
+export type { OperatingBrief } from 'clawmaster-server';
 import {
   serverEndpointChanged,
   serverWebSocketUrl,
@@ -1280,6 +1282,7 @@ const IPC = {
   enterprisePresenceHeartbeat: 'clawmaster:enterprise-presence-heartbeat',
   enterpriseOrganizationFeaturesGet:
     'clawmaster:enterprise-organization-features-get',
+  enterpriseCompanyOsBrief: 'clawmaster:enterprise-companyos-brief',
   enterpriseOrganizationFeaturesUpdate:
     'clawmaster:enterprise-organization-features-update',
   enterpriseOrganizationDepartments: 'clawmaster:enterprise-organization-departments',
@@ -1865,6 +1868,7 @@ export interface ClawMasterBridge {
   ): Promise<EnterpriseOrganizationView>;
   enterprisePresenceHeartbeat(): Promise<void>;
   enterpriseOrganizationFeaturesGet(): Promise<EnterpriseOrganizationFeatures>;
+  enterpriseCompanyOsBrief(): Promise<OperatingBrief>;
   enterpriseOrganizationFeaturesUpdate(
     patch: Partial<EnterpriseOrganizationFeatures>,
   ): Promise<EnterpriseOrganizationFeatures>;
@@ -3070,6 +3074,9 @@ const bridge: ClawMasterBridge = {
     return ipcRenderer.invoke(
       IPC.enterpriseOrganizationFeaturesGet,
     ) as Promise<EnterpriseOrganizationFeatures>;
+  },
+  enterpriseCompanyOsBrief(): Promise<OperatingBrief> {
+    return ipcRenderer.invoke(IPC.enterpriseCompanyOsBrief) as Promise<OperatingBrief>;
   },
   enterpriseOrganizationFeaturesUpdate(
     patch: Partial<EnterpriseOrganizationFeatures>,

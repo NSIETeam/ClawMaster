@@ -10,6 +10,7 @@ export type ModuleModalState =
   | { kind: 'enterprise-memory' }
   | { kind: 'auto-skill' }
   | { kind: 'capability-host' }
+  | { kind: 'companyos-brief' }
   | { kind: 'custom-expert'; expertId?: string }
   | { kind: 'customer-module'; moduleId: string; version: string }
   | { kind: 'customer-module-authoring' }

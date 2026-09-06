@@ -33,6 +33,7 @@
 - 三个经营引擎都拒绝跨组织、跨币种、负数经营输入，聚合 source/sourceRevision/observedAt/evidenceRefs，并将过期数据标成 stale 风险。
 - 本地 SQLite 与 clustered PostgreSQL 都提供认证的 `/enterprise/companyos/brief`；只读取当前成员组织的版本化持久经营事件，使用最新业务事实生成 Revenue/Margin/Inventory/Cash/Growth 五指标。
 - Brief 金额统一输出十进制字符串以避免 JSON/JavaScript 精度损失；缺失不归零、过期时整体降级、坏事实隔离并暴露 evidence id，历史查询超过 10,000 条时 fail closed，等待后续持久 projection 压缩。
+- 共享 desktop renderer 增加企业专属、按需打开的经营简报工作页，并通过 preload IPC 与 main 进程企业客户端读取 Brief；会话令牌不进入 renderer，个人版隐藏该模块，加载失败不伪造指标。
 - 覆盖租户隔离、重复/冲突事件、缺成本、价格/GMV 异常和持久化重放的确定性测试。
 
 本地交付提交：`9002108a` 恢复原 PR #19 纵切，`932a3641` 补齐上述租户与幂等完整性门禁。
@@ -41,7 +42,8 @@
 
 - 在真实 PostgreSQL 实例执行 migration、并发多副本 claim/超时接管与重启恢复验收；当前 mock SQL 测试不替代真实集群证据。
 - 猫头鹰/知了猴真实 API adapter、HTTPS、租户授权、secret provider 与 live readiness/sync cursor，以及 queued Action 到真实外部动作的 policy/confirmation、执行回执、`unknown_outcome` 对账与恢复。
-- 将认证 Brief API 接到 Desktop CEO 首页，并用持久 projection 替代 10,000 条事件查询上限；当前服务端用户路径不等于最终安装包首页验收。
+- 将经营简报接入 Tauri/Rust 企业认证通道并完成最终安装包用户路径；当前 Electron compatibility main/preload 桥不等于 Tauri 发布验收。
+- 用持久 projection 替代 10,000 条事件查询上限。
 - 预测校准、真实猫头鹰/知了猴 OAuth/API 连接。
 - Desktop 首页与真实 Design Partner 验收；当前 fixture 和纯领域测试不替代 live/production 证据。
 - 下一阶段应在真实 PostgreSQL 上验收异步 repository，再把 action 执行接到 policy/approval/workflow/audit 的真实持久路径。
