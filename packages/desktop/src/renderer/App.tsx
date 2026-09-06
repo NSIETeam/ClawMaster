@@ -331,7 +331,7 @@ function ClawMasterWorkspaceApp({
     },
     [
       moduleCapabilities.modules,
-      product.state.pendingAutoSkills.length,
+      product.state.pendingAutoSkills,
       product.state.realtimePatterns.length,
     ],
   );
