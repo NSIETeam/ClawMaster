@@ -9,6 +9,7 @@ import {
   DurableCompanyOsEventBus,
   type CompanyOsEventStore,
 } from './durableEventBus.js';
+import { buildOperatingBrief, OPERATING_EVENT_TYPES } from './operatingBrief.js';
 
 export interface CompanyOsRouteInput {
   path: string;
@@ -116,6 +117,23 @@ export async function handleCompanyOsRoute(input: CompanyOsRouteInput): Promise<
       return true;
     }
     input.sendJSON(input.res, 200, { actions: watchdog.listActions(organizationId) });
+    return true;
+  }
+
+  if (input.path === '/enterprise/companyos/brief' && input.method === 'GET') {
+    const organizationId = readableOrganization(input);
+    if (!organizationId) {
+      input.sendJSON(input.res, 401, { error: 'CompanyOS 账号会话无效' });
+      return true;
+    }
+    input.sendJSON(input.res, 200, {
+      brief: buildOperatingBrief({
+        organizationId,
+        events: bus.listEvents(organizationId, OPERATING_EVENT_TYPES),
+        actions: watchdog.listActions(organizationId),
+        asOf: new Date(input.store.now()).toISOString(),
+      }),
+    });
     return true;
   }
 

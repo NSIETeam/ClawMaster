@@ -40,7 +40,11 @@ import {
   isOrganizationInviteCode,
   resolveEnterprisePublicBaseUrl,
 } from '../modules/identity_organization/index.js';
-import { createCanonicalEvent } from '../modules/company_os/index.js';
+import {
+  buildOperatingBrief,
+  createCanonicalEvent,
+  OPERATING_EVENT_TYPES,
+} from '../modules/company_os/index.js';
 import { listBuiltInBusinessConnectorReadiness } from '../modules/integration_adapters/index.js';
 import {
   buildNodePostgresPoolConfig,
@@ -773,6 +777,22 @@ export function createClusteredEnterpriseServer(
         if (!account) return;
         sendJson(res, 200, {
           actions: await repository.listCompanyOsActions(account.organizationId),
+        });
+        return;
+      }
+
+      if (path === '/enterprise/companyos/brief' && method === 'GET') {
+        const account = await requireMember(repository, req, res, options.sharedState);
+        if (!account) return;
+        sendJson(res, 200, {
+          brief: buildOperatingBrief({
+            organizationId: account.organizationId,
+            events: await repository.listCompanyOsEvents(
+              account.organizationId, OPERATING_EVENT_TYPES,
+            ),
+            actions: await repository.listCompanyOsActions(account.organizationId),
+            asOf: new Date().toISOString(),
+          }),
         });
         return;
       }

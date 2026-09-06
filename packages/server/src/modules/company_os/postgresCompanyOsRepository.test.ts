@@ -23,6 +23,25 @@ const event = createCanonicalEvent({
 });
 
 describe('PostgreSQL CompanyOS authority', () => {
+  it('lists only requested operating events for one tenant', async () => {
+    const query = vi.fn().mockResolvedValueOnce(result([{
+      cursor: 1, organization_id: event.organizationId, event_id: event.id,
+      event_type: event.type, payload: event.payload, source: event.source,
+      source_revision: event.sourceRevision, observed_at: event.observedAt,
+      correlation_id: event.correlationId, causation_id: null,
+      idempotency_key: event.idempotencyKey,
+    }]));
+    const repository = createPostgresCompanyOsRepository({
+      pool: { query } as unknown as PostgresPoolLike,
+    });
+    await expect(repository.listCompanyOsEvents('org-1', ['owl.price.anomaly']))
+      .resolves.toEqual([event]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('organization_id = $1 AND event_type = ANY($2::text[])'),
+      ['org-1', ['owl.price.anomaly']],
+    );
+  });
+
   it('returns the canonical event inserted into PostgreSQL', async () => {
     const query = vi.fn().mockResolvedValueOnce(result([{
       cursor: 1, organization_id: event.organizationId, event_id: event.id,

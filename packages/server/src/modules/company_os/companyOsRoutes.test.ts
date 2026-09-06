@@ -198,4 +198,42 @@ describe('CompanyOS authenticated routes', () => {
       data: { connectors: [{ connectorId: 'owl-pricing-v1', state: 'blocked' }] },
     }]);
   });
+
+  it('builds a tenant-scoped JSON-safe operating brief from durable events', async () => {
+    const { deps, responses } = harness({
+      path: '/enterprise/companyos/events', method: 'POST', adminOrganizationId: 'org-1',
+      body: {
+        type: 'companyos.cash.snapshot.v1',
+        payload: {
+          cash: { currency: 'CNY', minorUnits: '3000000' },
+          receivables: { currency: 'CNY', minorUnits: '1000000' },
+          overdueReceivables: { currency: 'CNY', minorUnits: '400000' },
+          payables: { currency: 'CNY', minorUnits: '800000' },
+          trailing30DayOperatingOutflow: { currency: 'CNY', minorUnits: '1500000' },
+        },
+        source: 'finance-test', sourceRevision: 'r1',
+        observedAt: '2026-09-06T01:59:00.000Z', correlationId: 'cash-1',
+        idempotencyKey: 'cash-1',
+      },
+    });
+    await handleCompanyOsRoute(deps);
+    responses.length = 0;
+    expect(await handleCompanyOsRoute({
+      ...deps, path: '/enterprise/companyos/brief', method: 'GET',
+      memberAccount: { id: 'member-1', organizationId: 'org-1' } as never,
+      adminPrincipal: null,
+    })).toBe(true);
+    expect(responses).toEqual([{
+      status: 200,
+      data: { brief: expect.objectContaining({
+        organizationId: 'org-1', status: 'partial',
+        metrics: expect.objectContaining({
+          cash: expect.objectContaining({
+            balance: { currency: 'CNY', minorUnits: '3000000' }, runwayDays: 60,
+          }),
+        }),
+      }) },
+    }]);
+    expect(() => JSON.stringify(responses[0]!.data)).not.toThrow();
+  });
 });

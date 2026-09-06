@@ -153,6 +153,24 @@ export class DurableCompanyOsEventBus {
     return event;
   }
 
+  listEvents(organizationId: string, eventTypes: readonly string[]): CanonicalEvent[] {
+    const normalizedOrganizationId = required(organizationId, 'organization_id');
+    if (!eventTypes.length || eventTypes.length > 50) throw new Error('invalid_event_types');
+    const normalizedTypes = [...new Set(eventTypes.map((type) => required(type, 'event_type')))];
+    const placeholders = normalizedTypes.map(() => '?').join(', ');
+    const rows = this.store.db().prepare(
+      `SELECT cursor, organization_id, event_id, event_type, payload_json, source,
+              source_revision, observed_at, correlation_id, causation_id,
+              idempotency_key, fact_fingerprint
+         FROM companyos_events
+        WHERE organization_id = ? AND event_type IN (${placeholders})
+        ORDER BY cursor DESC
+        LIMIT 10001`,
+    ).all(normalizedOrganizationId, ...normalizedTypes) as unknown as EventRow[];
+    if (rows.length > 10_000) throw new Error('operating_event_limit_exceeded');
+    return rows.map(eventFromRow).reverse();
+  }
+
   consume(
     consumerId: string,
     handler: (event: CanonicalEvent, lease: CompanyOsConsumerLease) => void,

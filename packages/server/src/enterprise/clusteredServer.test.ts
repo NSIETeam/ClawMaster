@@ -253,6 +253,7 @@ function repository(
     listOrganizationStructure: vi.fn(async () => []),
     publishCompanyOsEvent: vi.fn(async (event) => event),
     inspectCompanyOsWatchdog: vi.fn(async () => 1),
+    listCompanyOsEvents: vi.fn(async () => []),
     listCompanyOsActions: vi.fn(async () => []),
     listCompanyOsTasks: vi.fn(async () => []),
     listCompanyOsAudit: vi.fn(async () => []),
@@ -344,6 +345,17 @@ describe('clustered PostgreSQL enterprise server', () => {
     });
     expect(tasks.status).toBe(200);
     expect(repo.listCompanyOsTasks).toHaveBeenCalledWith('org_default');
+
+    const brief = await fetch(`${baseUrl}/enterprise/companyos/brief`, {
+      headers: { authorization: 'Bearer peer-session-token' },
+    });
+    expect(brief.status).toBe(200);
+    expect(await brief.json()).toMatchObject({
+      brief: { organizationId: 'org_default', status: 'unknown' },
+    });
+    expect(repo.listCompanyOsEvents).toHaveBeenCalledWith(
+      'org_default', expect.arrayContaining(['companyos.cash.snapshot.v1']),
+    );
 
     const connectors = await fetch(`${baseUrl}/enterprise/companyos/connectors`, {
       headers: { authorization: 'Bearer peer-session-token' },

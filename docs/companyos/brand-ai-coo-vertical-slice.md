@@ -31,6 +31,8 @@
 - Cash Engine 以整数金额计算净营运资本、现金 runway 和逾期应收比例；缺经营流出或流出为零时不生成有限 runway，负现金作为风险显式呈现。
 - Growth Engine 分开计算收入与贡献利润增长，并保留归因假设；收入上涨但贡献利润下降时只报告风险，不包装成健康增长。
 - 三个经营引擎都拒绝跨组织、跨币种、负数经营输入，聚合 source/sourceRevision/observedAt/evidenceRefs，并将过期数据标成 stale 风险。
+- 本地 SQLite 与 clustered PostgreSQL 都提供认证的 `/enterprise/companyos/brief`；只读取当前成员组织的版本化持久经营事件，使用最新业务事实生成 Revenue/Margin/Inventory/Cash/Growth 五指标。
+- Brief 金额统一输出十进制字符串以避免 JSON/JavaScript 精度损失；缺失不归零、过期时整体降级、坏事实隔离并暴露 evidence id，历史查询超过 10,000 条时 fail closed，等待后续持久 projection 压缩。
 - 覆盖租户隔离、重复/冲突事件、缺成本、价格/GMV 异常和持久化重放的确定性测试。
 
 本地交付提交：`9002108a` 恢复原 PR #19 纵切，`932a3641` 补齐上述租户与幂等完整性门禁。
@@ -39,7 +41,7 @@
 
 - 在真实 PostgreSQL 实例执行 migration、并发多副本 claim/超时接管与重启恢复验收；当前 mock SQL 测试不替代真实集群证据。
 - 猫头鹰/知了猴真实 API adapter、HTTPS、租户授权、secret provider 与 live readiness/sync cursor，以及 queued Action 到真实外部动作的 policy/confirmation、执行回执、`unknown_outcome` 对账与恢复。
-- 将 Inventory/Cash/Growth Engine 接到持久 canonical 数据、认证查询 API 和 Desktop CEO 首页；当前纯领域测试不等于真实用户路径。
+- 将认证 Brief API 接到 Desktop CEO 首页，并用持久 projection 替代 10,000 条事件查询上限；当前服务端用户路径不等于最终安装包首页验收。
 - 预测校准、真实猫头鹰/知了猴 OAuth/API 连接。
 - Desktop 首页与真实 Design Partner 验收；当前 fixture 和纯领域测试不替代 live/production 证据。
 - 下一阶段应在真实 PostgreSQL 上验收异步 repository，再把 action 执行接到 policy/approval/workflow/audit 的真实持久路径。

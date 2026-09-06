@@ -390,6 +390,27 @@ export function createPostgresCompanyOsRepository(input: {
     }));
   }
 
+  async function listCompanyOsEvents(
+    organizationId: string,
+    eventTypes: readonly string[],
+  ): Promise<CanonicalEvent[]> {
+    const normalizedOrganizationId = required(organizationId, 'organization_id');
+    if (!eventTypes.length || eventTypes.length > 50) throw new Error('invalid_event_types');
+    const normalizedTypes = [...new Set(eventTypes.map((type) => required(type, 'event_type')))];
+    const rows = await input.pool.query<EventRow>(
+      `SELECT cursor, organization_id, event_id, event_type, payload, source,
+              source_revision, observed_at, correlation_id, causation_id,
+              idempotency_key
+         FROM companyos_events
+        WHERE organization_id = $1 AND event_type = ANY($2::text[])
+        ORDER BY cursor DESC
+        LIMIT 10001`,
+      [normalizedOrganizationId, normalizedTypes],
+    );
+    if (rows.rows.length > 10_000) throw new Error('operating_event_limit_exceeded');
+    return rows.rows.map(eventFromRow).reverse();
+  }
+
   async function listCompanyOsTasks(organizationId: string): Promise<CompanyOsTask[]> {
     const rows = await input.pool.query<Record<string, unknown>>(
       `SELECT task_id, organization_id, action_id, title, status,
@@ -500,6 +521,7 @@ export function createPostgresCompanyOsRepository(input: {
     claimNextCompanyOsEvent,
     completeCompanyOsWatchdogClaim,
     inspectCompanyOsWatchdog,
+    listCompanyOsEvents,
     listCompanyOsActions,
     listCompanyOsTasks,
     listCompanyOsAudit,
