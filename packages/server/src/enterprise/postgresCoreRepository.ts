@@ -60,6 +60,7 @@ import {
   identitySecretMatches,
   isAcceptableAccountPassword,
 } from '../modules/identity_organization/index.js';
+import { createPostgresCompanyOsRepository } from '../modules/company_os/index.js';
 import {
   CURRENT_LEGAL_DOCUMENTS,
   dataGovernanceConfiguration,
@@ -3880,6 +3881,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
     pool: input.pool,
     accountSyncKeyProvider: input.accountSyncKeyProvider,
   });
+  const companyOs = createPostgresCompanyOsRepository({ pool: input.pool });
 
   return {
     defaultOrganizationId,
@@ -3933,6 +3935,7 @@ export function createPostgresEnterpriseCoreRepository(input: {
     completeExpiredUnboundAttachment,
     listUnreadE2eeNotifications,
     ...business,
+    ...companyOs,
     ...registration,
   };
 }

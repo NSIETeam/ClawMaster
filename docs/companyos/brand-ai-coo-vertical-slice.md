@@ -22,14 +22,16 @@
 - SQLite 持久化 Watchdog Action/Task/Audit 投影，Task 只进入 `pending_decision`，事务提交后的重放依靠稳定 ID 和唯一约束保持幂等。
 - SQLite consumer 原子领取单条事件；活跃租约阻止并发 worker 重复处理，过期租约允许更高 fence token 接管，旧 worker 不能再确认或提交 Watchdog 投影。
 - 认证 HTTP 路由支持事件写入、租户级 Watchdog 检查、Action/Task 查询和管理员 Audit 查询；管理员触发检查不会处理其他租户事件。
+- 集群模式使用独立异步 PostgreSQL authority，不回退 SQLite；通过 `FOR UPDATE OF event SKIP LOCKED` 领取事件，并在独立事务内重新校验 owner/fence/租约后原子写入 Action/Task/Audit/Receipt。
+- clustered server 挂载与本地模式同等的 CompanyOS 认证路由，组织范围来自 PostgreSQL 会话或管理员 principal。
 - 覆盖租户隔离、重复/冲突事件、缺成本、价格/GMV 异常和持久化重放的确定性测试。
 
 本地交付提交：`9002108a` 恢复原 PR #19 纵切，`932a3641` 补齐上述租户与幂等完整性门禁。
 
 ## 未完成与下一步
 
-- 集群 PostgreSQL repository、真实 Connector readiness/sync cursor。
-- PostgreSQL 异步 consumer 的原子 claim/lease/fencing 实现，以及 Task 决策到 action 执行的 policy/approval/workflow 接线。
+- 在真实 PostgreSQL 实例执行 migration、并发多副本 claim/超时接管与重启恢复验收；当前 mock SQL 测试不替代真实集群证据。
+- 真实 Connector readiness/sync cursor，以及 Task 决策到 action 执行的 policy/approval/workflow 接线。
 - Inventory/Cash/Growth Engine、预测校准、真实猫头鹰/知了猴 OAuth/API 连接。
 - Desktop 首页与真实 Design Partner 验收；当前测试不替代 live/production 证据。
-- 下一阶段应实现 PostgreSQL 异步 repository 与其租约消费路径，再把 action 执行接到 policy/approval/workflow/audit 的真实持久路径。
+- 下一阶段应在真实 PostgreSQL 上验收异步 repository，再把 action 执行接到 policy/approval/workflow/audit 的真实持久路径。

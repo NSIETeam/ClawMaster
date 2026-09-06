@@ -251,6 +251,11 @@ function repository(
       organizationId === account.organizationId ? [account, peerAccount] : [],
     ),
     listOrganizationStructure: vi.fn(async () => []),
+    publishCompanyOsEvent: vi.fn(async (event) => event),
+    inspectCompanyOsWatchdog: vi.fn(async () => 1),
+    listCompanyOsActions: vi.fn(async () => []),
+    listCompanyOsTasks: vi.fn(async () => []),
+    listCompanyOsAudit: vi.fn(async () => []),
   } as unknown as PostgresEnterpriseCoreRepository;
 }
 
@@ -300,6 +305,48 @@ async function listen(
 }
 
 describe('clustered PostgreSQL enterprise server', () => {
+  it('mounts tenant-scoped CompanyOS routes on the PostgreSQL authority', async () => {
+    const repo = repository();
+    const { baseUrl } = await listen(repo);
+    const published = await fetch(`${baseUrl}/enterprise/companyos/events`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer clustered-session-token',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        organizationId: 'org-spoofed', type: 'owl.price.anomaly',
+        payload: { skuId: 'sku-1' }, source: 'owl', sourceRevision: 'r1',
+        observedAt: '2026-09-06T02:00:00.000Z', correlationId: 'correlation-1',
+        idempotencyKey: 'price-1',
+      }),
+    });
+    expect(published.status).toBe(201);
+    expect(repo.publishCompanyOsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: 'org_default' }),
+    );
+
+    const inspected = await fetch(`${baseUrl}/enterprise/companyos/watchdog/inspect`, {
+      method: 'POST', headers: { authorization: 'Bearer clustered-session-token' },
+    });
+    expect(inspected.status).toBe(200);
+    expect(repo.inspectCompanyOsWatchdog).toHaveBeenCalledWith({
+      organizationId: 'org_default',
+    });
+
+    const tasks = await fetch(`${baseUrl}/enterprise/companyos/tasks`, {
+      headers: { authorization: 'Bearer peer-session-token' },
+    });
+    expect(tasks.status).toBe(200);
+    expect(repo.listCompanyOsTasks).toHaveBeenCalledWith('org_default');
+
+    const denied = await fetch(`${baseUrl}/enterprise/companyos/audit`, {
+      headers: { authorization: 'Bearer peer-session-token' },
+    });
+    expect(denied.status).toBe(403);
+    expect(repo.listCompanyOsAudit).not.toHaveBeenCalled();
+  });
+
   it('publishes PostgreSQL authority readiness without touching SQLite', async () => {
     const { baseUrl } = await listen();
     const response = await fetch(`${baseUrl}/enterprise/health`);

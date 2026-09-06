@@ -217,3 +217,4 @@ export function createCanonicalEvent(input: Omit<CanonicalEvent, 'id'> & { id?: 
 export * from './companyOsSchema.js';
 export * from './durableEventBus.js';
 export * from './companyOsRoutes.js';
+export * from './postgresCompanyOsRepository.js';

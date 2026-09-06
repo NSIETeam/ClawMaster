@@ -40,6 +40,7 @@ import {
   isOrganizationInviteCode,
   resolveEnterprisePublicBaseUrl,
 } from '../modules/identity_organization/index.js';
+import { createCanonicalEvent } from '../modules/company_os/index.js';
 import {
   buildNodePostgresPoolConfig,
   ciphertextSha256,
@@ -161,6 +162,17 @@ function bearerToken(req: IncomingMessage): string {
   const authorization = req.headers.authorization?.trim() || '';
   const match = /^Bearer\s+(.+)$/i.exec(authorization);
   return match?.[1]?.trim() || '';
+}
+
+function companyOsText(
+  body: JsonBody,
+  key: string,
+  optional = false,
+): string | undefined {
+  const value = body[key];
+  if (optional && value === undefined) return undefined;
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`invalid_${key}`);
+  return value.trim();
 }
 
 function constantTimeTokenEqual(left: string, right: string): boolean {
@@ -667,6 +679,7 @@ export function createClusteredEnterpriseServer(
             'enterprise_park_services_v1',
             'enterprise_ticketing_v1',
             'commercial_control_v1',
+            'companyos_postgresql_v1',
             'modular_update_push_v1',
             'signed_update_policy_v1',
             'privacy_export_delete_v1',
@@ -680,6 +693,84 @@ export function createClusteredEnterpriseServer(
             ...(options.sharedState ? ['redis_shared_state_v1'] : []),
           ],
         });
+        return;
+      }
+
+      if (path === '/enterprise/companyos/events' && method === 'POST') {
+        const principal = await requireAdministrator({
+          repository, req, res, adminToken, sharedState: options.sharedState,
+        });
+        if (!principal) return;
+        try {
+          const body = await readJsonBody(req);
+          const idempotencyKey = companyOsText(body, 'idempotencyKey')!;
+          const event = await repository.publishCompanyOsEvent(createCanonicalEvent({
+            id: companyOsText(body, 'id', true),
+            organizationId: principal.organizationId,
+            type: companyOsText(body, 'type')!,
+            payload: body.payload ?? null,
+            source: companyOsText(body, 'source')!,
+            sourceRevision: companyOsText(body, 'sourceRevision')!,
+            observedAt: companyOsText(body, 'observedAt')!,
+            correlationId: companyOsText(body, 'correlationId')!,
+            causationId: companyOsText(body, 'causationId', true),
+            idempotencyKey,
+          }));
+          sendJson(res, 201, { event });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          sendJson(res, message === 'idempotency_conflict' ? 409 : 400, { error: message });
+        }
+        return;
+      }
+
+      if (
+        path === '/enterprise/companyos/watchdog/inspect'
+        && method === 'POST'
+      ) {
+        const principal = await requireAdministrator({
+          repository, req, res, adminToken, sharedState: options.sharedState,
+        });
+        if (!principal) return;
+        sendJson(res, 200, {
+          processed: await repository.inspectCompanyOsWatchdog({
+            organizationId: principal.organizationId,
+          }),
+        });
+        return;
+      }
+
+      if (path === '/enterprise/companyos/actions' && method === 'GET') {
+        const account = await requireMember(repository, req, res, options.sharedState);
+        if (!account) return;
+        sendJson(res, 200, {
+          actions: await repository.listCompanyOsActions(account.organizationId),
+        });
+        return;
+      }
+
+      if (path === '/enterprise/companyos/tasks' && method === 'GET') {
+        const account = await requireMember(repository, req, res, options.sharedState);
+        if (!account) return;
+        sendJson(res, 200, {
+          tasks: await repository.listCompanyOsTasks(account.organizationId),
+        });
+        return;
+      }
+
+      if (path === '/enterprise/companyos/audit' && method === 'GET') {
+        const principal = await requireAdministrator({
+          repository, req, res, adminToken, sharedState: options.sharedState,
+        });
+        if (!principal) return;
+        sendJson(res, 200, {
+          audit: await repository.listCompanyOsAudit(principal.organizationId),
+        });
+        return;
+      }
+
+      if (path.startsWith('/enterprise/companyos/')) {
+        sendJson(res, 405, { error: 'CompanyOS route or method is unsupported' });
         return;
       }
 
