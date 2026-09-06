@@ -65,6 +65,14 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
             },"required":["runId","stepId","windowsArtifactId","windowRef"],"additionalProperties":false}),
         },
         ModelToolDefinition {
+            name: "rpa_focus".into(),
+            description: "Focus one bound system window through its accessibility element without accepting a process ID or coordinate. Requires approval.".into(),
+            parameters: json!({"type":"object","properties":{
+                "runId":{"type":"string"},"stepId":{"type":"string"},"windowsArtifactId":{"type":"string"},
+                "windowRef":{"type":"string","pattern":"^@w[1-9][0-9]*$"},"targetSummary":{"type":"string","maxLength":500}
+            },"required":["runId","stepId","windowsArtifactId","windowRef","targetSummary"],"additionalProperties":false}),
+        },
+        ModelToolDefinition {
             name: "rpa_click".into(),
             description: "Perform a real OS mouse click bound to a prior semantic snapshot artifact. External submit/publish/delete actions require approval and are never blindly replayed.".into(),
             parameters: json!({"type":"object","properties":{
@@ -82,6 +90,15 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
             },"required":["runId","stepId","snapshotArtifactId","elementRef"],"additionalProperties":false}),
         },
         ModelToolDefinition {
+            name: "rpa_drag".into(),
+            description: "Perform a real OS drag between two visible elements from the same bound encrypted semantic snapshot. The model never supplies coordinates. Requires approval.".into(),
+            parameters: json!({"type":"object","properties":{
+                "runId":{"type":"string"},"stepId":{"type":"string"},"snapshotArtifactId":{"type":"string"},
+                "fromElementRef":{"type":"string","pattern":"^@e[1-9][0-9]*$"},"toElementRef":{"type":"string","pattern":"^@e[1-9][0-9]*$"},
+                "targetSummary":{"type":"string","maxLength":500}
+            },"required":["runId","stepId","snapshotArtifactId","fromElementRef","toElementRef","targetSummary"],"additionalProperties":false}),
+        },
+        ModelToolDefinition {
             name: "rpa_fill".into(),
             description: "Focus a semantic text element with a real OS mouse click, select its current value, and type non-secret text through native keyboard input. Secrets must use a future keychain reference and are rejected here.".into(),
             parameters: json!({"type":"object","properties":{
@@ -89,6 +106,15 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
                 "elementRef":{"type":"string","pattern":"^@e[1-9][0-9]*$"},"text":{"type":"string","maxLength":2000},
                 "targetSummary":{"type":"string","maxLength":500},"sensitive":{"type":"boolean","const":false}
             },"required":["runId","stepId","snapshotArtifactId","elementRef","text","targetSummary","sensitive"],"additionalProperties":false}),
+        },
+        ModelToolDefinition {
+            name: "rpa_scroll".into(),
+            description: "Scroll inside one bound system window through native input without accepting model-provided coordinates. Requires approval and a window reference from an encrypted rpa_windows artifact.".into(),
+            parameters: json!({"type":"object","properties":{
+                "runId":{"type":"string"},"stepId":{"type":"string"},"windowsArtifactId":{"type":"string"},
+                "windowRef":{"type":"string","pattern":"^@w[1-9][0-9]*$"},"amount":{"type":"integer","minimum":-100,"maximum":100,"description":"Signed wheel ticks: negative moves the viewport down; positive moves it up."},
+                "targetSummary":{"type":"string","maxLength":500}
+            },"required":["runId","stepId","windowsArtifactId","windowRef","amount","targetSummary"],"additionalProperties":false}),
         },
         ModelToolDefinition {
             name: "rpa_wait".into(),
@@ -121,9 +147,12 @@ pub fn contains(name: &str) -> bool {
             | "rpa_windows"
             | "rpa_snapshot"
             | "rpa_screenshot"
+            | "rpa_focus"
             | "rpa_click"
             | "rpa_extract"
+            | "rpa_drag"
             | "rpa_fill"
+            | "rpa_scroll"
             | "rpa_wait"
             | "rpa_status"
             | "rpa_cancel"
@@ -453,6 +482,40 @@ impl NativeRpa {
     }
 
     #[allow(clippy::too_many_arguments)]
+    pub fn focus(
+        &self,
+        run_id: &str,
+        step_id: &str,
+        windows_artifact_id: &str,
+        window_ref: &str,
+        target_summary: &str,
+        approval_id: Option<&str>,
+    ) -> Result<RpaRun, String> {
+        let mut run = self.required_run(run_id)?;
+        if approval_id.is_none() {
+            return self.reject_step(
+                run,
+                step_id,
+                "desktop.focus",
+                target_summary,
+                "窗口聚焦缺少 approval binding",
+            );
+        }
+        self.require_bound_artifact(&run, windows_artifact_id, "窗口清单")?;
+        let inventory: semantic::WindowInventory = self.read_artifact(windows_artifact_id)?;
+        let receipt_index = self.start_step(
+            &mut run,
+            step_id,
+            "desktop.focus",
+            target_summary,
+            false,
+            approval_id,
+        )?;
+        let result = semantic::focus_window(&inventory, window_ref);
+        self.persist_input_result(run, receipt_index, result, false)
+    }
+
+    #[allow(clippy::too_many_arguments)]
     pub fn click(
         &self,
         run_id: &str,
@@ -491,6 +554,48 @@ impl NativeRpa {
             "single".into(),
         ]);
         self.persist_input_result(run, receipt_index, result, external_side_effect)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn drag(
+        &self,
+        run_id: &str,
+        step_id: &str,
+        snapshot_artifact_id: &str,
+        from_element_ref: &str,
+        to_element_ref: &str,
+        target_summary: &str,
+        approval_id: Option<&str>,
+    ) -> Result<RpaRun, String> {
+        let mut run = self.required_run(run_id)?;
+        if approval_id.is_none() {
+            return self.reject_step(
+                run,
+                step_id,
+                "desktop.drag",
+                target_summary,
+                "原生拖拽缺少 approval binding",
+            );
+        }
+        self.require_bound_artifact(&run, snapshot_artifact_id, "语义快照")?;
+        let (from_x, from_y) = self.resolve_element(snapshot_artifact_id, from_element_ref)?;
+        let (to_x, to_y) = self.resolve_element(snapshot_artifact_id, to_element_ref)?;
+        let receipt_index = self.start_step(
+            &mut run,
+            step_id,
+            "desktop.drag",
+            target_summary,
+            true,
+            approval_id,
+        )?;
+        let result = native_tools::input_tool(&[
+            "drag".into(),
+            from_x.to_string(),
+            from_y.to_string(),
+            to_x.to_string(),
+            to_y.to_string(),
+        ]);
+        self.persist_input_result(run, receipt_index, result, true)
     }
 
     pub fn extract(
@@ -537,6 +642,15 @@ impl NativeRpa {
             return Err("RPA 输入文本超过 2000 字符上限".into());
         }
         let mut run = self.required_run(run_id)?;
+        if approval_id.is_none() {
+            return self.reject_step(
+                run,
+                step_id,
+                "desktop.fill",
+                target_summary,
+                "原生文本输入缺少 approval binding",
+            );
+        }
         self.require_bound_artifact(&run, snapshot_artifact_id, "语义快照")?;
         let (x, y) = self.resolve_element(snapshot_artifact_id, element_ref)?;
         let receipt_index = self.start_step(
@@ -562,6 +676,50 @@ impl NativeRpa {
         .and_then(|_| native_tools::input_tool(&["hotkey".into(), select_all.into()]))
         .and_then(|_| native_tools::input_tool(&["type".into(), text.into()]));
         self.persist_input_result(run, receipt_index, result, true)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn scroll(
+        &self,
+        run_id: &str,
+        step_id: &str,
+        windows_artifact_id: &str,
+        window_ref: &str,
+        amount: i64,
+        target_summary: &str,
+        approval_id: Option<&str>,
+    ) -> Result<RpaRun, String> {
+        if amount == 0 || !(-100..=100).contains(&amount) {
+            return Err("RPA scroll amount 必须为 -100 到 100 之间的非零滚轮刻度".into());
+        }
+        let mut run = self.required_run(run_id)?;
+        if approval_id.is_none() {
+            return self.reject_step(
+                run,
+                step_id,
+                "desktop.scroll",
+                target_summary,
+                "原生滚动缺少 approval binding",
+            );
+        }
+        self.require_bound_artifact(&run, windows_artifact_id, "窗口清单")?;
+        let inventory: semantic::WindowInventory = self.read_artifact(windows_artifact_id)?;
+        let (x, y) = semantic::window_center(&inventory, window_ref)?;
+        let receipt_index = self.start_step(
+            &mut run,
+            step_id,
+            "desktop.scroll",
+            target_summary,
+            false,
+            approval_id,
+        )?;
+        let result = native_tools::input_tool(&[
+            "scroll".into(),
+            amount.to_string(),
+            x.to_string(),
+            y.to_string(),
+        ]);
+        self.persist_input_result(run, receipt_index, result, false)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -704,14 +862,44 @@ impl NativeRpa {
     }
 
     fn resolve_element(&self, artifact_id: &str, element_ref: &str) -> Result<(i32, i32), String> {
-        let element = self.resolve_element_record(artifact_id, element_ref)?;
+        let snapshot: Value = self.read_artifact(artifact_id)?;
+        let element = snapshot
+            .get("elements")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .find(|element| element.get("ref").and_then(Value::as_str) == Some(element_ref))
+            .ok_or_else(|| "RPA 元素引用不属于绑定快照".to_string())?;
         let bounds = element
             .get("bounds")
             .ok_or_else(|| "RPA 元素没有可点击边界".to_string())?;
-        Ok((
+        let center = (
             bounded_coordinate(bounds, "centerX")?,
             bounded_coordinate(bounds, "centerY")?,
-        ))
+        );
+        let element_width = bounded_coordinate(bounds, "width")?;
+        let element_height = bounded_coordinate(bounds, "height")?;
+        if element_width <= 0 || element_height <= 0 {
+            return Err("RPA 元素没有可点击的可视面积，请滚动并重新获取快照".into());
+        }
+        let window = snapshot
+            .pointer("/activeWindow/bounds")
+            .ok_or_else(|| "RPA 快照缺少绑定窗口边界".to_string())?;
+        let left = i64::from(bounded_coordinate(window, "x")?);
+        let top = i64::from(bounded_coordinate(window, "y")?);
+        let window_width = bounded_coordinate(window, "width")?;
+        let window_height = bounded_coordinate(window, "height")?;
+        if window_width <= 0 || window_height <= 0 {
+            return Err("RPA 快照中的绑定窗口没有可用面积".into());
+        }
+        let right = left + i64::from(window_width);
+        let bottom = top + i64::from(window_height);
+        if !(left..right).contains(&i64::from(center.0))
+            || !(top..bottom).contains(&i64::from(center.1))
+        {
+            return Err("RPA 元素位于绑定窗口可视边界之外，请滚动并重新获取快照".into());
+        }
+        Ok(center)
     }
 
     fn resolve_element_record(
@@ -808,6 +996,15 @@ impl NativeRpa {
                 text("windowRef")?,
             )?)
             .map_err(|error| error.to_string()),
+            "rpa_focus" => serde_json::to_value(self.focus(
+                text("runId")?,
+                text("stepId")?,
+                text("windowsArtifactId")?,
+                text("windowRef")?,
+                text("targetSummary")?,
+                approval_id,
+            )?)
+            .map_err(|error| error.to_string()),
             "rpa_click" => serde_json::to_value(
                 self.click(
                     text("runId")?,
@@ -829,6 +1026,16 @@ impl NativeRpa {
                 text("snapshotArtifactId")?,
                 text("elementRef")?,
             ),
+            "rpa_drag" => serde_json::to_value(self.drag(
+                text("runId")?,
+                text("stepId")?,
+                text("snapshotArtifactId")?,
+                text("fromElementRef")?,
+                text("toElementRef")?,
+                text("targetSummary")?,
+                approval_id,
+            )?)
+            .map_err(|error| error.to_string()),
             "rpa_fill" => serde_json::to_value(
                 self.fill(
                     text("runId")?,
@@ -841,6 +1048,21 @@ impl NativeRpa {
                         .get("sensitive")
                         .and_then(Value::as_bool)
                         .unwrap_or(true),
+                    approval_id,
+                )?,
+            )
+            .map_err(|error| error.to_string()),
+            "rpa_scroll" => serde_json::to_value(
+                self.scroll(
+                    text("runId")?,
+                    text("stepId")?,
+                    text("windowsArtifactId")?,
+                    text("windowRef")?,
+                    call.arguments
+                        .get("amount")
+                        .and_then(Value::as_i64)
+                        .unwrap_or(0),
+                    text("targetSummary")?,
                     approval_id,
                 )?,
             )
@@ -1232,7 +1454,7 @@ mod tests {
             let stop = Arc::new(AtomicBool::new(false));
             let worker_stop = Arc::clone(&stop);
             let worker = thread::spawn(move || {
-                let body = br#"<!doctype html><html><head><title>ClawMaster RPA Acceptance</title></head><body><main><h1>ClawMaster RPA Acceptance</h1><button onclick="this.textContent='ClawMaster RPA clicked'">Run ClawMaster RPA click</button></main></body></html>"#;
+                let body = br#"<!doctype html><html><head><title>ClawMaster RPA Acceptance</title></head><body><main><h1>ClawMaster RPA Acceptance</h1><label>Acceptance text <input aria-label="ClawMaster RPA input" oninput="document.getElementById('status').textContent='ClawMaster RPA typed'"></label><p id="status">Waiting for native input</p><div style="height:1200px"></div><button onclick="this.textContent='ClawMaster RPA clicked'">Run ClawMaster RPA click</button><button id="drag-source">ClawMaster drag source</button><button id="drag-target">ClawMaster drag target</button></main><script>let dragging=false;document.getElementById('drag-source').addEventListener('mousedown',()=>dragging=true);document.getElementById('drag-target').addEventListener('mouseup',()=>{if(dragging)document.getElementById('status').textContent='ClawMaster RPA dragged';dragging=false});</script></body></html>"#;
                 while !worker_stop.load(Ordering::Acquire) {
                     match listener.accept() {
                         Ok((mut stream, _)) => {
@@ -1306,6 +1528,43 @@ mod tests {
         }
     }
 
+    fn named_element_ref(snapshot: &Value, expected: &str) -> String {
+        snapshot["elements"]
+            .as_array()
+            .and_then(|elements| {
+                elements.iter().find(|element| {
+                    ["name", "description"].into_iter().any(|field| {
+                        element[field]
+                            .as_str()
+                            .is_some_and(|value| value.contains(expected))
+                    })
+                })
+            })
+            .and_then(|element| element["ref"].as_str())
+            .map(str::to_owned)
+            .unwrap_or_else(|| {
+                let elements = snapshot["elements"].as_array().cloned().unwrap_or_default();
+                let summary = elements
+                    .iter()
+                    .take(30)
+                    .map(|element| {
+                        format!(
+                            "{}:{:?}:{:?}",
+                            element["role"].as_str().unwrap_or("unknown"),
+                            element["name"].as_str().unwrap_or(""),
+                            element["description"].as_str().unwrap_or("")
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                panic!(
+                    "find bounded element {expected:?} (elements={}, truncated={}, summary={summary})",
+                    elements.len(),
+                    snapshot["truncated"].as_bool().unwrap_or(false)
+                )
+            })
+    }
+
     #[test]
     fn recovery_retries_readonly_but_never_replays_external_steps() {
         let (root, controller) = controller();
@@ -1348,6 +1607,92 @@ mod tests {
         assert!(rejected.receipts[0]
             .idempotency_key
             .starts_with("rejected:"));
+    }
+
+    #[test]
+    fn computer_use_writes_require_approval_before_native_input() {
+        let (_root, controller) = controller();
+        for run_id in [
+            "fill-rejected",
+            "scroll-rejected",
+            "focus-rejected",
+            "drag-rejected",
+        ] {
+            let mut current = run(run_id, false);
+            current.current_step_id = None;
+            current.receipts.clear();
+            controller.save(&current).unwrap();
+        }
+
+        let fill = controller
+            .fill(
+                "fill-rejected",
+                "fill",
+                &"0".repeat(64),
+                "@e1",
+                "safe text",
+                "acceptance field",
+                false,
+                None,
+            )
+            .unwrap();
+        let scroll = controller
+            .scroll(
+                "scroll-rejected",
+                "scroll",
+                &"0".repeat(64),
+                "@w1",
+                -30,
+                "acceptance page",
+                None,
+            )
+            .unwrap();
+        let focus = controller
+            .focus(
+                "focus-rejected",
+                "focus",
+                &"0".repeat(64),
+                "@w1",
+                "acceptance window",
+                None,
+            )
+            .unwrap();
+        let drag = controller
+            .drag(
+                "drag-rejected",
+                "drag",
+                &"0".repeat(64),
+                "@e1",
+                "@e2",
+                "acceptance drag",
+                None,
+            )
+            .unwrap();
+
+        assert_eq!(fill.receipts[0].state, RpaStepState::Rejected);
+        assert_eq!(scroll.receipts[0].state, RpaStepState::Rejected);
+        assert_eq!(focus.receipts[0].state, RpaStepState::Rejected);
+        assert_eq!(drag.receipts[0].state, RpaStepState::Rejected);
+        assert!(fill.receipts[0]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("approval"));
+        assert!(scroll.receipts[0]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("approval"));
+        assert!(focus.receipts[0]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("approval"));
+        assert!(drag.receipts[0]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("approval"));
     }
 
     #[test]
@@ -1427,9 +1772,10 @@ mod tests {
     #[test]
     fn resolves_coordinates_only_from_the_bound_semantic_snapshot() {
         let (_root, controller) = controller();
-        let snapshot = json!({"elements":[
-            {"ref":"@e1","name":"提交","bounds":{"centerX":120,"centerY":240}},
-            {"ref":"@e2","name":"纯文本","bounds":null}
+        let snapshot = json!({"activeWindow":{"bounds":{"x":0,"y":0,"width":500,"height":500}},"elements":[
+            {"ref":"@e1","name":"提交","bounds":{"centerX":120,"centerY":240,"width":80,"height":30}},
+            {"ref":"@e2","name":"纯文本","bounds":null},
+            {"ref":"@e3","name":"裁剪按钮","bounds":{"centerX":120,"centerY":500,"width":100,"height":0}}
         ]});
         let bytes = serde_json::to_vec(&snapshot).unwrap();
         let artifact = controller
@@ -1444,6 +1790,7 @@ mod tests {
             .resolve_element(&artifact.sha256, "@e999")
             .is_err());
         assert!(controller.resolve_element(&artifact.sha256, "@e2").is_err());
+        assert!(controller.resolve_element(&artifact.sha256, "@e3").is_err());
         assert!(controller.resolve_element(&"0".repeat(64), "@e1").is_err());
     }
 
@@ -1506,7 +1853,7 @@ mod tests {
 
     #[tokio::test]
     #[ignore = "requires explicit opt-in, an installed Chrome/Edge, desktop accessibility, and screen-capture permission"]
-    async fn completes_real_browser_click_with_encrypted_semantic_receipts() {
+    async fn completes_real_browser_computer_use_with_encrypted_receipts() {
         assert_eq!(
             std::env::var("CLAWMASTER_REAL_RPA_SMOKE").as_deref(),
             Ok("1"),
@@ -1558,31 +1905,90 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(250)).await;
         };
 
+        let focused = controller
+            .focus(
+                "real-browser-click",
+                "approved-focus",
+                &windows.artifact.sha256,
+                &window_ref,
+                "loopback acceptance window",
+                Some("approval-real-rpa-focus"),
+            )
+            .expect("focus the approved bounded browser window");
+        assert_eq!(
+            focused.receipts.last().unwrap().approval_id.as_deref(),
+            Some("approval-real-rpa-focus")
+        );
+
         let snapshot = controller
+            .snapshot(
+                "real-browser-click",
+                "snapshot-before-input",
+                &windows.artifact.sha256,
+                &window_ref,
+            )
+            .expect("capture encrypted semantic snapshot");
+        let input_ref = named_element_ref(&snapshot.snapshot, "ClawMaster RPA input");
+        let filled = controller
+            .fill(
+                "real-browser-click",
+                "approved-input",
+                &snapshot.artifact.sha256,
+                &input_ref,
+                "native input accepted",
+                "loopback acceptance field",
+                false,
+                Some("approval-real-rpa-input"),
+            )
+            .expect("perform approved native text input");
+        assert_eq!(
+            filled.receipts.last().unwrap().approval_id.as_deref(),
+            Some("approval-real-rpa-input")
+        );
+
+        let (_input_cancel_sender, input_cancel_receiver) = watch::channel(false);
+        controller
+            .wait(
+                "real-browser-click",
+                "wait-input-result",
+                &windows.artifact.sha256,
+                &window_ref,
+                "ClawMaster RPA typed",
+                10_000,
+                input_cancel_receiver,
+            )
+            .await
+            .expect("observe native text input through a fresh semantic snapshot");
+        let scrolled = controller
+            .scroll(
+                "real-browser-click",
+                "approved-scroll",
+                &windows.artifact.sha256,
+                &window_ref,
+                -30,
+                "loopback acceptance page",
+                Some("approval-real-rpa-scroll"),
+            )
+            .expect("perform approved native window scroll");
+        assert_eq!(
+            scrolled.receipts.last().unwrap().approval_id.as_deref(),
+            Some("approval-real-rpa-scroll")
+        );
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        let click_snapshot = controller
             .snapshot(
                 "real-browser-click",
                 "snapshot-before-click",
                 &windows.artifact.sha256,
                 &window_ref,
             )
-            .expect("capture encrypted semantic snapshot");
-        let element_ref = snapshot.snapshot["elements"]
-            .as_array()
-            .and_then(|elements| {
-                elements.iter().find(|element| {
-                    element["name"]
-                        .as_str()
-                        .is_some_and(|name| name.contains("Run ClawMaster RPA click"))
-                })
-            })
-            .and_then(|element| element["ref"].as_str())
-            .expect("find the bounded button element")
-            .to_string();
+            .expect("capture post-scroll encrypted semantic snapshot");
+        let element_ref = named_element_ref(&click_snapshot.snapshot, "Run ClawMaster RPA click");
         let clicked = controller
             .click(
                 "real-browser-click",
                 "approved-click",
-                &snapshot.artifact.sha256,
+                &click_snapshot.artifact.sha256,
                 &element_ref,
                 "loopback acceptance button",
                 Some("approval-real-rpa-smoke"),
@@ -1607,6 +2013,36 @@ mod tests {
             )
             .await
             .expect("observe the click result through a fresh semantic snapshot");
+        let drag_from_ref = named_element_ref(&changed.snapshot, "ClawMaster drag source");
+        let drag_to_ref = named_element_ref(&changed.snapshot, "ClawMaster drag target");
+        let dragged = controller
+            .drag(
+                "real-browser-click",
+                "approved-drag",
+                &changed.artifact.sha256,
+                &drag_from_ref,
+                &drag_to_ref,
+                "loopback acceptance drag",
+                Some("approval-real-rpa-drag"),
+            )
+            .expect("perform approved semantic drag");
+        assert_eq!(
+            dragged.receipts.last().unwrap().approval_id.as_deref(),
+            Some("approval-real-rpa-drag")
+        );
+        let (_drag_cancel_sender, drag_cancel_receiver) = watch::channel(false);
+        let drag_result = controller
+            .wait(
+                "real-browser-click",
+                "wait-drag-result",
+                &windows.artifact.sha256,
+                &window_ref,
+                "ClawMaster RPA dragged",
+                10_000,
+                drag_cancel_receiver,
+            )
+            .await
+            .expect("observe semantic drag through a fresh semantic snapshot");
         let screenshot = controller
             .screenshot(
                 "real-browser-click",
@@ -1627,10 +2063,17 @@ mod tests {
             "architecture": std::env::consts::ARCH,
             "browser": browser,
             "windowRef": window_ref,
+            "inputRef": input_ref,
             "elementRef": element_ref,
-            "semanticArtifact": changed.artifact.sha256,
+            "dragFromRef": drag_from_ref,
+            "dragToRef": drag_to_ref,
+            "semanticArtifact": drag_result.artifact.sha256,
             "screenshotArtifact": screenshot.artifact.sha256,
+            "approvedFocus": true,
             "approvedClick": true,
+            "approvedInput": true,
+            "approvedScroll": true,
+            "approvedDrag": true,
             "cancelled": true,
             "receiptCount": cancelled.receipts.len()
         });

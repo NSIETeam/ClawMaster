@@ -45,6 +45,7 @@ describe('Tauri Windows installer verification', () => {
     expect(workflow).toContain('smoke-tauri-windows-install.ps1');
     expect(workflow).toContain('windows-installed-smoke.json');
     expect(workflow).toContain('CLAWMASTER_REAL_RPA_BROWSER: edge');
+    expect(workflow).toContain('completes_real_browser_computer_use_with_encrypted_receipts');
     expect(workflow).toContain('windows-rpa-smoke.json');
   });
 });

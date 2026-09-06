@@ -120,6 +120,23 @@ pub fn screenshot_png(inventory: &WindowInventory, window_ref: &str) -> Result<V
         .map_err(|error| format!("截取目标窗口失败：{error}"))
 }
 
+pub fn window_center(inventory: &WindowInventory, window_ref: &str) -> Result<(i64, i64), String> {
+    let (_app, root, _selected) = resolve(inventory, window_ref)?;
+    let bounds = root
+        .bounds
+        .ok_or_else(|| "RPA 目标窗口没有可用的滚动坐标".to_string())?;
+    Ok((
+        i64::from(bounds.x) + i64::from(bounds.width) / 2,
+        i64::from(bounds.y) + i64::from(bounds.height) / 2,
+    ))
+}
+
+pub fn focus_window(inventory: &WindowInventory, window_ref: &str) -> Result<(), String> {
+    let (_app, root, _selected) = resolve(inventory, window_ref)?;
+    root.focus()
+        .map_err(|error| format!("聚焦 RPA 目标窗口失败：{error}"))
+}
+
 pub fn contains_text(snapshot: &serde_json::Value, expected: &str) -> bool {
     let expected = expected.trim().to_lowercase();
     if expected.is_empty() {

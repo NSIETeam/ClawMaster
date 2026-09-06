@@ -234,17 +234,22 @@ fn validate_directory(parent: &Path, path: &Path, label: &str) -> Result<(), Str
 
 pub fn spawn(candidate: &Candidate, profile: &Path, url: &str) -> Result<OwnedBrowser, String> {
     let mut command = Command::new(&candidate.executable);
+    configure_browser_command(&mut command, profile, url);
+    spawn_owned(command).map_err(|error| format!("无法启动系统浏览器 {}: {error}", candidate.label))
+}
+
+fn configure_browser_command(command: &mut Command, profile: &Path, url: &str) {
     command
         .arg(format!("--user-data-dir={}", profile.display()))
         .arg("--no-first-run")
         .arg("--no-default-browser-check")
         .arg("--disable-background-mode")
+        .arg("--force-renderer-accessibility=complete")
         .arg("--new-window")
         .arg(url)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    spawn_owned(command).map_err(|error| format!("无法启动系统浏览器 {}: {error}", candidate.label))
 }
 
 fn spawn_owned(command: Command) -> Result<OwnedBrowser, std::io::Error> {
@@ -265,6 +270,17 @@ fn safe_segment(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn owned_browser_enables_the_complete_accessibility_tree() {
+        let mut command = Command::new("browser");
+        configure_browser_command(&mut command, Path::new("profile"), "https://example.com");
+        let arguments = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert!(arguments.contains(&"--force-renderer-accessibility=complete".to_string()));
+    }
 
     #[test]
     fn profiles_are_tenant_and_platform_isolated_without_plaintext_names() {

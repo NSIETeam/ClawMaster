@@ -15,9 +15,11 @@ Python, Chromium or Playwright.
   references, resolves one selected window and captures its bounded semantic
   tree or PNG.
 - `native_rpa.rs` owns durable runs, approval-bound receipts, encrypted artifact
-  bindings, recovery and high-level action dispatch.
-- `native_tools.rs` is the low-level OS adapter for physical mouse and keyboard
-  input and bounded accessibility serialization.
+  bindings, recovery and high-level focus, input, scroll, click, drag and wait
+  dispatch.
+- `native_tools.rs` is the internal low-level OS adapter for physical mouse and
+  keyboard input and bounded accessibility serialization. It is not exposed to
+  the production model as a raw-coordinate tool.
 
 The model never supplies a PID or coordinate. It selects a window reference and
 an element reference from immutable encrypted artifacts. Rust verifies both
@@ -50,16 +52,18 @@ and receipts are demonstrated on one run. Fixture and component tests do not
 replace this installed evidence.
 
 The Rust component path has an explicit opt-in smoke that starts a loopback-only
-test page in an installed Chrome or Edge profile, discovers the browser through
+test page in an installed Chrome or Edge profile, forces Chromium to expose its
+complete accessibility tree, discovers the browser through
 bounded `@wN` references, captures an encrypted semantic snapshot, resolves a
-button through `@eN`, performs an approval-bound physical click, waits for the
-result through a fresh snapshot, stores an encrypted screenshot, and cancels
-the owned browser:
+input and action elements through `@eN`, performs approval-bound focus, native
+text input, chunked scrolling, physical click and semantic drag, waits for each
+result through fresh snapshots, stores an encrypted screenshot, and cancels the
+owned browser:
 
 ```bash
 CLAWMASTER_REAL_RPA_SMOKE=1 \
   cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib \
-  completes_real_browser_click_with_encrypted_semantic_receipts \
+  completes_real_browser_computer_use_with_encrypted_receipts \
   -- --ignored --nocapture
 ```
 
@@ -72,10 +76,23 @@ terminal `browser.cancel` receipt, waits for the owned process-tree leader after
 issuing termination, and persists `unknown_outcome` instead of claiming success
 if termination cannot be confirmed.
 
-On the 2026-09-07 macOS acceptance host, the opt-in smoke stopped before any
-desktop input because neither Chrome nor Edge was installed. That is truthful
-environment evidence, not a passed click test and not a reason to substitute
-Playwright or a bundled browser.
+On the 2026-09-07 macOS ARM64 acceptance host, the opt-in smoke passed against
+the installed, Google-signed and Apple-notarized Chrome 152.0.7977.83 after the
+host explicitly granted Accessibility permission. It selected window `@w1`
+and semantic input/action references, performed approval-bound focus, native
+input, scroll, click and drag, observed each changed state through fresh
+semantic snapshots, stored encrypted semantic and PNG artifacts, wrote 14
+receipts, confirmed approved cancellation, and left no Chrome descendant
+process. The secret-free evidence contains only bounded references, platform
+metadata, booleans, receipt count, and artifact digests. Detailed evidence is
+recorded in `docs/acceptance/macos-computer-use.md`.
+
+The real run exposed two Chromium compatibility requirements now enforced by
+the production browser adapter: `--force-renderer-accessibility=complete`, a
+bounded semantic depth of 16, chunked wheel events after pointer placement, and
+a coordinate-correct Quartz drag sequence. The global 200-element limit and
+selected-window scope remain unchanged. This component-level result does not replace the final
+DMG-installed application entry-point run required by release gate #21.
 
 The macOS process-tree regression launches a parent and background child and
 confirms both PIDs disappear through the production termination path. The
@@ -86,7 +103,7 @@ Commit `34ebe3cf` closes three pre-installation safety gaps: rejected starts are
 reusable after later approval, native input failures are returned to the model
 instead of being serialized as successful tool results, and uncertain dispatched
 external failures remain `unknown_outcome` at both receipt and kernel layers.
-The complete macOS Rust library suite passed 195 tests with zero failures and
-three explicit opt-in skips. A local Windows cross-check could not compile
+The complete macOS Rust library suite passed 206 tests with zero failures and
+six explicit opt-in skips. A local Windows cross-check could not compile
 `aws-lc-sys` because macOS has no MSVC/Windows SDK headers; this is environment
 evidence, not a waived Windows acceptance result.

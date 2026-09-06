@@ -1,0 +1,20 @@
+{
+  "approvedClick": true,
+  "approvedDrag": true,
+  "approvedFocus": true,
+  "approvedInput": true,
+  "approvedScroll": true,
+  "architecture": "aarch64",
+  "browser": "chrome",
+  "cancelled": true,
+  "dragFromRef": "@e33",
+  "dragToRef": "@e34",
+  "elementRef": "@e32",
+  "inputRef": "@e29",
+  "platform": "macos",
+  "receiptCount": 14,
+  "schemaVersion": 1,
+  "screenshotArtifact": "c2f47eea50490a766524b7291656d25591b694aa1a34c891ba961e7217b1abf8",
+  "semanticArtifact": "99df04778ed0f3112c0db21e2ea0be5574cab95a9cccce7b1037a99cef6476d2",
+  "windowRef": "@w2"
+}

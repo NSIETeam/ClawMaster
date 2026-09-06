@@ -104,17 +104,6 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
             },"required":["outputPath","inputPath"],"additionalProperties":false}),
         },
         ModelToolDefinition {
-            name: "desktop_automation".into(),
-            description: "Control native mouse and keyboard input through Rust. Always requires user confirmation.".into(),
-            parameters: json!({"type":"object","properties":{
-                "action":{"type":"string","enum":["type","click","drag","scroll","hotkey"]},
-                "text":{"type":"string","maxLength":10000},"hotkey":{"type":"string","maxLength":100},
-                "x":{"type":"integer"},"y":{"type":"integer"},"toX":{"type":"integer"},"toY":{"type":"integer"},
-                "amount":{"type":"integer"},"button":{"type":"string","enum":["left","right","middle"]},
-                "doubleClick":{"type":"boolean"}
-            },"required":["action"],"additionalProperties":false}),
-        },
-        ModelToolDefinition {
             name: "desktop_snapshot".into(),
             description: "Read a bounded semantic accessibility tree for the foreground desktop app through Windows UI Automation or macOS AX, including element roles, labels, actions and click coordinates. Prefer this compact text snapshot before visual screenshots. Requires user confirmation because desktop text may be sensitive.".into(),
             parameters: json!({"type":"object","properties":{},"additionalProperties":false}),
@@ -187,7 +176,6 @@ pub fn risk(name: &str) -> Option<ToolRisk> {
         | "generate_chart"
         | "merge_pdfs"
         | "optimize_pdf"
-        | "desktop_automation"
         | "desktop_snapshot"
         | "run_command"
         | "open_browser"
@@ -586,65 +574,6 @@ pub fn execute(call: &ModelToolCall, workspace: &Path) -> Result<Value, String> 
             })?;
             Ok(json!({"outputPath":output_value,"created":true,"provider":"rust:lopdf"}))
         }
-        "desktop_automation" => {
-            let action = required_string(&call.arguments, "action")?;
-            let integer = |name: &str| {
-                call.arguments
-                    .get(name)
-                    .and_then(Value::as_i64)
-                    .map(|value| value.to_string())
-                    .ok_or_else(|| format!("桌面操作缺少整数参数 {name}"))
-            };
-            let args = match action {
-                "type" => vec![
-                    action.into(),
-                    required_string(&call.arguments, "text")?.to_string(),
-                ],
-                "hotkey" => vec![
-                    action.into(),
-                    required_string(&call.arguments, "hotkey")?.to_string(),
-                ],
-                "scroll" => vec![
-                    action.into(),
-                    integer("amount")?,
-                    call.arguments
-                        .get("x")
-                        .and_then(Value::as_i64)
-                        .map(|value| value.to_string())
-                        .unwrap_or_default(),
-                    call.arguments
-                        .get("y")
-                        .and_then(Value::as_i64)
-                        .map(|value| value.to_string())
-                        .unwrap_or_default(),
-                ],
-                "click" => vec![
-                    action.into(),
-                    integer("x")?,
-                    integer("y")?,
-                    call.arguments
-                        .get("button")
-                        .and_then(Value::as_str)
-                        .unwrap_or("left")
-                        .to_string(),
-                    if call.arguments.get("doubleClick").and_then(Value::as_bool) == Some(true) {
-                        "double".into()
-                    } else {
-                        "single".into()
-                    },
-                ],
-                "drag" => vec![
-                    action.into(),
-                    integer("x")?,
-                    integer("y")?,
-                    integer("toX")?,
-                    integer("toY")?,
-                ],
-                _ => return Err("不支持的桌面自动化动作".into()),
-            };
-            native_tools::input_tool(&args)?;
-            Ok(json!({"action":action,"completed":true,"provider":"rust:xa11y-input"}))
-        }
         "desktop_snapshot" => native_tools::desktop_snapshot(),
         "check_dependencies" => {
             let names = call
@@ -778,7 +707,7 @@ mod tests {
 
     #[test]
     fn definitions_and_risks_keep_writes_confirmation_gated() {
-        assert_eq!(definitions().len(), 18);
+        assert_eq!(definitions().len(), 17);
         assert_eq!(summaries().as_array().unwrap().len(), definitions().len());
         assert_eq!(risk("read_file"), Some(ToolRisk::ReadOnly));
         assert_eq!(risk("write_file"), Some(ToolRisk::Write));
@@ -789,7 +718,7 @@ mod tests {
         assert_eq!(risk("generate_docx"), Some(ToolRisk::Write));
         assert_eq!(risk("generate_pptx"), Some(ToolRisk::Write));
         assert_eq!(risk("generate_chart"), Some(ToolRisk::Write));
-        assert_eq!(risk("desktop_automation"), Some(ToolRisk::Write));
+        assert_eq!(risk("desktop_automation"), None);
         assert_eq!(risk("run_command"), Some(ToolRisk::Write));
         assert_eq!(risk("open_browser"), Some(ToolRisk::Write));
         assert_eq!(risk("browser_snapshot"), Some(ToolRisk::Write));

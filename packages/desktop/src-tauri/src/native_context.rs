@@ -221,7 +221,7 @@ fn tool_aliases(name: &str) -> &'static [&'static str] {
         "write_file" => &["写文件", "修改代码", "编辑文件", "write"],
         "run_command" => &["命令", "测试", "构建", "运行", "command"],
         "open_browser" | "browser_snapshot" | "browser_action" => &["浏览器", "网页", "browser"],
-        "desktop_automation" | "desktop_snapshot" => &["桌面", "鼠标", "点击", "rpa"],
+        "desktop_snapshot" => &["桌面", "鼠标", "点击", "rpa"],
         "generate_docx" => &["word", "docx", "文档"],
         "generate_pptx" => &["ppt", "pptx", "演示"],
         "generate_chart" => &["图表", "chart"],

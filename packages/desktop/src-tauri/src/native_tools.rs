@@ -31,8 +31,8 @@ pub fn capability_manifest() -> serde_json::Value {
                 provider: "rust:xa11y-input",
                 status: "ready",
                 description: "通过 macOS CGEvent 或 Windows SendInput 执行真实键盘、鼠标、拖拽和滚动",
-                tool: "desktop_automation",
-                usage: "action=type|hotkey|click|drag|scroll",
+                tool: "rpa_click",
+                usage: "先获取加密 @wN/@eN 引用，再经审批执行原生输入",
                 replaces: &["cliclick", "enigo"],
             },
             NativeCapability {
@@ -41,7 +41,7 @@ pub fn capability_manifest() -> serde_json::Value {
                 status: "ready",
                 description: "通过 Windows UIA 或 macOS AX 读取有界语义控件树、边界和动作，优先文本定位而不是截图猜测",
                 tool: "desktop_snapshot",
-                usage: "读取 elements 的 role/name/bounds 后规划 desktop_automation 坐标",
+                usage: "读取 elements 的 role/name/description，由 RPA 控制器解析绑定坐标",
                 replaces: &["全屏截图识别（可访问控件定位场景）"],
             },
             NativeCapability {
@@ -102,7 +102,8 @@ fn bounded_label(value: &str, max_chars: usize) -> String {
 }
 
 const MAX_DESKTOP_ELEMENTS: usize = 200;
-const MAX_DESKTOP_DEPTH: usize = 8;
+// Chromium places document controls below several browser-chrome containers.
+const MAX_DESKTOP_DEPTH: usize = 16;
 
 #[derive(Default)]
 struct DesktopTreeState {
@@ -289,18 +290,24 @@ pub(crate) fn input_tool(args: &[String]) -> Result<(), String> {
             let y = parse_i32(args.get(2), "y")?;
             let to_x = parse_i32(args.get(3), "to_x")?;
             let to_y = parse_i32(args.get(4), "to_y")?;
-            input
-                .mouse()
-                .drag(Point::new(x, y), Point::new(to_x, to_y))
-                .map_err(|error| error.to_string())
+            native_drag(&input, Point::new(x, y), Point::new(to_x, to_y))
         }
         "scroll" => {
             let amount = parse_i32(args.get(1), "amount")?;
             let point = scroll_point(args.get(2), args.get(3))?;
             input
                 .mouse()
-                .scroll(point, ScrollDelta::vertical(amount))
-                .map_err(|error| error.to_string())
+                .move_to(point)
+                .map_err(|error| error.to_string())?;
+            std::thread::sleep(Duration::from_millis(50));
+            for step in scroll_steps(amount)? {
+                input
+                    .mouse()
+                    .scroll(point, ScrollDelta::vertical(step))
+                    .map_err(|error| error.to_string())?;
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Ok(())
         }
         "hotkey" => {
             let (key, modifiers) = parse_hotkey(args.get(1).ok_or("hotkey is required")?)?;
@@ -311,6 +318,89 @@ pub(crate) fn input_tool(args: &[String]) -> Result<(), String> {
         }
         _ => Err(format!("unsupported native input action: {action}")),
     }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn native_drag(input: &xa11y::InputSim, from: Point, to: Point) -> Result<(), String> {
+    input
+        .mouse()
+        .drag(from, to)
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn native_drag(_input: &xa11y::InputSim, from: Point, to: Point) -> Result<(), String> {
+    use std::ffi::c_void;
+
+    const CG_HID_EVENT_TAP: u32 = 0;
+    const CG_LEFT_MOUSE_DOWN: u32 = 1;
+    const CG_LEFT_MOUSE_UP: u32 = 2;
+    const CG_MOUSE_MOVED: u32 = 5;
+    const CG_LEFT_MOUSE_DRAGGED: u32 = 6;
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct CgPoint {
+        x: f64,
+        y: f64,
+    }
+
+    #[link(name = "ApplicationServices", kind = "framework")]
+    unsafe extern "C" {
+        fn CGEventCreateMouseEvent(
+            source: *const c_void,
+            mouse_type: u32,
+            mouse_cursor_position: CgPoint,
+            mouse_button: u32,
+        ) -> *mut c_void;
+        fn CGEventPost(tap: u32, event: *mut c_void);
+    }
+
+    #[link(name = "CoreFoundation", kind = "framework")]
+    unsafe extern "C" {
+        fn CFRelease(value: *const c_void);
+    }
+
+    fn post(mouse_type: u32, point: Point) -> Result<(), String> {
+        // Quartz owns the event after creation only until it is posted and released here.
+        let event = unsafe {
+            CGEventCreateMouseEvent(
+                std::ptr::null(),
+                mouse_type,
+                CgPoint {
+                    x: f64::from(point.x),
+                    y: f64::from(point.y),
+                },
+                0,
+            )
+        };
+        if event.is_null() {
+            return Err("create macOS native drag event failed".into());
+        }
+        unsafe {
+            CGEventPost(CG_HID_EVENT_TAP, event);
+            CFRelease(event);
+        }
+        Ok(())
+    }
+
+    post(CG_MOUSE_MOVED, from)?;
+    std::thread::sleep(Duration::from_millis(30));
+    post(CG_LEFT_MOUSE_DOWN, from)?;
+    for step in 1..=12 {
+        let x = from.x + (to.x - from.x) * step / 12;
+        let y = from.y + (to.y - from.y) * step / 12;
+        post(CG_LEFT_MOUSE_DRAGGED, Point::new(x, y))?;
+        std::thread::sleep(Duration::from_millis(16));
+    }
+    post(CG_LEFT_MOUSE_UP, to)
+}
+
+fn scroll_steps(amount: i32) -> Result<Vec<i32>, String> {
+    if amount == 0 || !(-100..=100).contains(&amount) {
+        return Err("scroll amount must be a non-zero value between -100 and 100".into());
+    }
+    Ok(std::iter::repeat_n(amount.signum(), amount.unsigned_abs() as usize).collect())
 }
 
 fn parse_i32(value: Option<&String>, label: &str) -> Result<i32, String> {
@@ -654,6 +744,9 @@ mod tests {
         assert_eq!(key, Key::Char('k'));
         assert_eq!(modifiers, vec![Key::Ctrl, Key::Shift]);
         assert!(scroll_point(Some(&"10".into()), None).is_err());
+        assert_eq!(scroll_steps(-3).unwrap(), vec![-1, -1, -1]);
+        assert!(scroll_steps(0).is_err());
+        assert!(scroll_steps(101).is_err());
     }
 
     #[test]

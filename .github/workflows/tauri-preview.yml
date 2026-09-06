@@ -87,7 +87,7 @@ jobs:
           CLAWMASTER_REAL_RPA_SMOKE: '1'
           CLAWMASTER_REAL_RPA_BROWSER: edge
           CLAWMASTER_REAL_RPA_SMOKE_EVIDENCE: ${{ github.workspace }}/packages/desktop/src-tauri/target/release/windows-rpa-smoke.json
-        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib completes_real_browser_click_with_encrypted_semantic_receipts -- --ignored --nocapture
+        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib completes_real_browser_computer_use_with_encrypted_receipts -- --ignored --nocapture
       - name: Reject legacy packaged runtimes
         shell: bash
         run: |

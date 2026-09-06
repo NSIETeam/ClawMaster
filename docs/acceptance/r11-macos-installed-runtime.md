@@ -72,8 +72,12 @@ This is candidate evidence, not release acceptance:
   shutdown, process-tree, size, and hash evidence from the same final commit.
 - A real provider round trip must be verified after a replacement API key is
   saved through the application into the operating-system credential store.
-- Installed Native RPA still needs a visible, bounded click acceptance on
-  macOS and Windows. The Playwright release preflight is not a substitute.
+- The production Rust Native RPA path has completed visible, bounded,
+  approval-bound Chrome focus, input, scroll, click and drag on this macOS host
+  with encrypted artifacts, 14 auditable receipts, confirmed cancellation, and
+  no orphan process. The final rebuilt DMG still needs the same path invoked through the installed
+  application entry point; Windows needs its corresponding installed run. The
+  Playwright release preflight is not a substitute.
 - Final version bump, Pages links, downloaded-artifact hashes, and release notes
   must all agree before the one consolidated push and beta tag.
 
