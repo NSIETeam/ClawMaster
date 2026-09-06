@@ -1,65 +1,79 @@
-# R11 macOS Installed Runtime Acceptance
+# macOS Installed Runtime Acceptance
 
-Issue: #10
+Release gate: #21
 
-Candidate commit: `4b0c39bd`
+Candidate commit: `197383c3`
 
-Platform: macOS 26.5.1, Apple ARM64
+Platform: macOS 26.5.1 (25F80), Apple ARM64
 
 Artifact:
 `ClawMaster_0.0.2-beta.3_aarch64.dmg`
 
 ## Build and artifact evidence
 
-- The complete release build passed twice with 185 Rust tests passing, zero
+- The complete Tauri release build passed with 204 Rust tests passing, zero
   failures, and three explicit opt-in tests ignored.
-- The production renderer gate passed after retired, unreferenced Otto park
-  demo styles were removed. The generated `index.html` is 359,400 bytes.
-- The optimized DMG is 5,561,936 bytes (5.30 MiB), below the 10 MiB download
+- Desktop typecheck, lint, renderer tests, server tests, repository doctor,
+  boundary validation, code-map validation, and release preflight passed.
+- The optimized DMG is 5,636,190 bytes (5.38 MiB), below the 20 MiB beta
   target. SHA-256:
-  `7e5e7b70f92e8c58fa1a82af3c053ea146601a70f3013f05463d5a405cdaf51e`.
-- `hdiutil verify` accepted the final UDBZ image. The verified application
-  bundle is 12.54 MiB.
-- The bundled executable is 12,948,976 bytes and the icon is 199,254 bytes.
-  No Node, Electron, sidecar, or helper executable is present in the bundle.
+  `4f2af02bfa0fe392d55c1312623046e9a062d34fb295de043e0610a4aa4d0bff`.
+- `hdiutil verify` accepted the final image. The application bundle is 12.68
+  MiB and contains a thin ARM64 executable with hardened-runtime flags.
+- `codesign --verify --deep --strict` accepted both the built bundle and the
+  copy installed from the mounted DMG.
 
-## Isolated installed-app smoke
+## Installed-app smoke
 
 The final DMG was mounted read-only, copied with `ditto` to a fresh temporary
-installation directory, and verified with `codesign --verify --deep --strict`.
-The copied app launched from that directory rather than from the build tree.
+installation directory, and verified again with `codesign`. The copied app was
+then launched directly from that directory, with `CLAWMASTER_USER_DIR` routed
+to a fresh temporary directory. The application used the signed-in user's real
+macOS Keychain for its encrypted native state.
 
 macOS accessibility inspection observed a standard `ClawMaster` window backed
-by `tauri://localhost`. The visible tree included the conversation list,
-workspace controls, manual-approval selector, composer, and model setup. The
-model setup stated that API credentials are stored only in the operating-system
-credential store.
+by `tauri://localhost`. The visible tree included the task list, workbench,
+working-directory and manual-approval controls, composer, provider selection,
+and API-key secure text field. No Electron or sidecar process was present.
 
-At 34 seconds after launch, the single application process reported:
+At 54 seconds after launch, the single application process reported:
 
 | Metric | Observed |
 | --- | ---: |
-| CPU | 1.1% |
-| RSS | 20,944 KiB |
+| CPU | 0.0% |
+| RSS | 14,800 KiB |
 | Child processes | 0 |
 
-After `SIGTERM`, the application PID disappeared and no child process remained.
-The mounted DMG was then ejected.
+The application received a normal application quit request and exited with
+status 0. Its PID disappeared, no child process remained, and the DMG was
+ejected.
+
+## Keychain failure-path finding
+
+An additional launch with an artificial isolated `HOME` and no default macOS
+Keychain failed closed before opening a window. No unencrypted fallback was
+used, but Tauri surfaced the secure-storage setup error as a Rust panic:
+
+`NativeStateStore system key error: a default keychain could not be found`
+
+This does not invalidate the real-profile installed smoke, but the panic is not
+a mature user-facing failure state. It must be converted into a recoverable,
+visible setup error before #21 is complete.
 
 ## Remaining release blockers
 
 This is candidate evidence, not release acceptance:
 
-- The application is ad-hoc signed. `spctl --assess --type execute` rejects it,
-  and the build did not notarize or staple it. A Developer ID signed,
-  hardened-runtime, notarized artifact remains mandatory.
-- Windows x64 needs the same installed process-tree, CPU, RSS, startup, size,
-  signing, and cleanup evidence.
-- The fixed beta baseline and candidate still need the same successful task
-  corpus with task-success and token deltas.
-- The 8-agent, 500-turn Rust cleanup test passes, but installed-process RSS
-  growth across that workload has not yet been measured.
-- Real-provider, capability-package, native-RPA, and cross-platform acceptance
-  are tracked by their own open issues and cannot be inferred from this smoke.
+- The bundle is ad-hoc signed rather than Developer ID signed and notarized.
+  That remains a stable-release requirement; #21 permits it for this beta only
+  when the limitation is disclosed.
+- Windows x64 still needs CI-built installer provenance plus installed startup,
+  shutdown, process-tree, size, and hash evidence from the same final commit.
+- A real provider round trip must be verified after a replacement API key is
+  saved through the application into the operating-system credential store.
+- Installed Native RPA still needs a visible, bounded click acceptance on
+  macOS and Windows. The Playwright release preflight is not a substitute.
+- Final version bump, Pages links, downloaded-artifact hashes, and release notes
+  must all agree before the one consolidated push and beta tag.
 
-Issue #10 must remain open until these gaps are closed.
+Keep #21 open until these gaps are closed.

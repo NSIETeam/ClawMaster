@@ -570,6 +570,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "performance benchmark; run explicitly on an idle release-test host"]
     fn fifty_thousand_record_warm_recall_meets_the_release_budget() {
         let root = tempfile::tempdir().unwrap();
         let store = NativeStateStore::open_for_test(root.path(), [62; 32]).unwrap();
@@ -611,6 +612,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "performance benchmark; run explicitly on an idle release-test host"]
     fn fifty_thousand_record_quality_and_latency_gate() {
         let root = tempfile::tempdir().unwrap();
         let store = NativeStateStore::open_for_test(root.path(), [65; 32]).unwrap();

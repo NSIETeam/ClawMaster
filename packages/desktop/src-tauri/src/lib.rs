@@ -52,6 +52,10 @@ struct DesktopConnection {
     connected: AtomicBool,
 }
 
+struct StartupFailure {
+    message: &'static str,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DesktopRuntimeDiagnostic {
@@ -210,6 +214,26 @@ fn emit_connection(app: &AppHandle, connected: bool) {
     let _ = app.emit(CONNECTION_EVENT, connected);
 }
 
+fn startup_failure_message(error: &str) -> &'static str {
+    let error = error.to_ascii_lowercase();
+    if error.contains("keychain") || error.contains("secure storage") || error.contains("系统密钥")
+    {
+        "系统钥匙串当前不可用，ClawMaster 无法解锁本地加密数据。\n\n应用已安全停止，未写入未加密数据。请先修复或解锁系统钥匙串，然后重新打开 ClawMaster。"
+    } else {
+        "ClawMaster 无法初始化安全运行时。\n\n应用已安全停止，未降低加密或权限保护。请确认应用数据目录可写，然后重新打开 ClawMaster。"
+    }
+}
+
+fn startup_failure_script(message: &str) -> String {
+    let message = serde_json::to_string(message).expect("startup message must serialize");
+    format!(
+        r#"document.title = 'ClawMaster - 安全启动失败';
+document.documentElement.style.colorScheme = 'light';
+document.body.innerHTML = `<main style="min-height:100vh;box-sizing:border-box;display:grid;place-items:center;margin:0;padding:32px;background:radial-gradient(circle at 20% 15%,#fff3c4 0,transparent 38%),linear-gradient(145deg,#f7f4eb,#e8eee8);font-family:'Songti SC','STSong',serif;color:#17231b"><section style="width:min(620px,100%);box-sizing:border-box;padding:42px;border:1px solid #bac5b9;border-radius:28px;background:rgba(255,255,255,.86);box-shadow:0 28px 80px rgba(24,44,31,.14)"><div style="width:46px;height:6px;border-radius:999px;background:#d59626;margin-bottom:28px"></div><h1 style="margin:0 0 16px;font-size:30px;line-height:1.2">安全运行时未能启动</h1><p id="startup-failure-message" style="margin:0;white-space:pre-line;font-family:'PingFang SC','Hiragino Sans GB',sans-serif;font-size:16px;line-height:1.8;color:#455249"></p><p style="margin:28px 0 0;font-family:'PingFang SC','Hiragino Sans GB',sans-serif;font-size:13px;color:#778078">关闭此窗口，完成修复后重新打开即可。ClawMaster 没有降低加密保护。</p></section></main>`;
+document.getElementById('startup-failure-message').textContent = {message};"#
+    )
+}
+
 #[tauri::command]
 async fn desktop_connect(
     app: AppHandle,
@@ -349,23 +373,36 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .on_page_load(|window, _| {
+            if let Some(failure) = window.try_state::<StartupFailure>() {
+                let _ = window.eval(startup_failure_script(failure.message));
+            }
+        })
         .setup(|app| {
-            let directory = app.path().app_data_dir()?;
-            let runtime =
-                native_runtime::NativeRuntime::load(&directory).map_err(std::io::Error::other)?;
-            let channels = native_channels::NativeChannelState::load(&directory)
-                .map_err(std::io::Error::other)?;
-            let self_modification =
-                native_self_modification::NativeSelfModification::open(&directory)
-                    .map_err(std::io::Error::other)?;
-            let enterprise_remote = native_enterprise_remote::NativeEnterpriseRemote::system()
-                .map_err(std::io::Error::other)?;
-            app.manage(runtime);
-            app.manage(channels);
-            app.manage(self_modification);
-            app.manage(enterprise_remote);
-            app.state::<native_channels::NativeChannelState>()
-                .start_configured(app.handle().clone());
+            let initialization = (|| -> Result<(), String> {
+                let directory = app
+                    .path()
+                    .app_data_dir()
+                    .map_err(|error| error.to_string())?;
+                let runtime = native_runtime::NativeRuntime::load(&directory)?;
+                let channels = native_channels::NativeChannelState::load(&directory)?;
+                let self_modification =
+                    native_self_modification::NativeSelfModification::open(&directory)?;
+                let enterprise_remote = native_enterprise_remote::NativeEnterpriseRemote::system()?;
+                app.manage(runtime);
+                app.manage(channels);
+                app.manage(self_modification);
+                app.manage(enterprise_remote);
+                app.state::<native_channels::NativeChannelState>()
+                    .start_configured(app.handle().clone());
+                Ok(())
+            })();
+
+            if let Err(error) = initialization {
+                app.manage(StartupFailure {
+                    message: startup_failure_message(&error),
+                });
+            }
             Ok(())
         })
         .manage(DesktopConnection::default())
@@ -494,5 +531,25 @@ mod tests {
             "后台任务完成"
         );
         assert!(compact_notification_text(&"长".repeat(200), 80).ends_with('…'));
+    }
+
+    #[test]
+    fn startup_failure_message_keeps_secure_storage_fail_closed() {
+        let keychain = startup_failure_message(
+            "NativeStateStore 系统密钥错误: Platform secure storage failure: keychain missing",
+        );
+        assert!(keychain.contains("系统钥匙串当前不可用"));
+        assert!(keychain.contains("未写入未加密数据"));
+        assert!(!keychain.contains("NativeStateStore"));
+
+        let generic = startup_failure_message("permission denied: /private/example");
+        assert!(generic.contains("无法初始化安全运行时"));
+        assert!(generic.contains("未降低加密或权限保护"));
+        assert!(!generic.contains("/private/example"));
+
+        let script = startup_failure_script(keychain);
+        assert!(script.contains("startup-failure-message"));
+        assert!(script.contains("系统钥匙串当前不可用"));
+        assert!(!script.contains("NativeStateStore"));
     }
 }
