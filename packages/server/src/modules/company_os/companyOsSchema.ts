@@ -63,6 +63,20 @@ export const COMPANY_OS_SCHEMA_CONTRIBUTOR: DatabaseSchemaContributor = {
         UNIQUE(organization_id, source_event_id)
       );
 
+      CREATE TABLE IF NOT EXISTS companyos_tasks (
+        task_id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        action_id TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN (
+          'pending_decision', 'approved', 'rejected', 'completed', 'cancelled'
+        )),
+        evidence_event_ids_json TEXT NOT NULL,
+        created_at_ms INTEGER NOT NULL,
+        updated_at_ms INTEGER NOT NULL,
+        FOREIGN KEY(action_id) REFERENCES companyos_actions(action_id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS companyos_audit (
         audit_id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
@@ -86,6 +100,8 @@ export const COMPANY_OS_SCHEMA_CONTRIBUTOR: DatabaseSchemaContributor = {
         ON companyos_event_claims(lease_expires_at_ms, consumer_id, event_cursor);
       CREATE INDEX IF NOT EXISTS idx_companyos_actions_organization
         ON companyos_actions(organization_id, status, created_at_ms, action_id);
+      CREATE INDEX IF NOT EXISTS idx_companyos_tasks_organization
+        ON companyos_tasks(organization_id, status, created_at_ms, task_id);
     `);
   },
 };

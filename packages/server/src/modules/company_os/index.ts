@@ -69,6 +69,15 @@ export type Action = {
   evidenceEventIds: string[];
 };
 
+export type CompanyOsTask = {
+  id: string;
+  organizationId: string;
+  actionId: string;
+  title: string;
+  status: 'pending_decision' | 'approved' | 'rejected' | 'completed' | 'cancelled';
+  evidenceEventIds: string[];
+};
+
 function add(a: Money, b: Money): Money {
   if (a.currency !== b.currency) throw new Error('currency_mismatch');
   return { currency: a.currency, minorUnits: a.minorUnits + b.minorUnits };

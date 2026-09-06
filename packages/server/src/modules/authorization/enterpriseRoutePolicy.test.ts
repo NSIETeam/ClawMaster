@@ -30,5 +30,7 @@ describe('CompanyOS route authorization', () => {
   it('allows signed-in members to read their tenant actions', () => {
     expect(isMemberRoute('/enterprise/companyos/actions')).toBe(true);
     expect(isAdminRoute('/enterprise/companyos/actions')).toBe(false);
+    expect(isMemberRoute('/enterprise/companyos/tasks')).toBe(true);
+    expect(isAdminRoute('/enterprise/companyos/tasks')).toBe(false);
   });
 });

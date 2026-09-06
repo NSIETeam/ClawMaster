@@ -50,6 +50,7 @@ describe('durable CompanyOS event bus', () => {
       'companyos_event_claims',
       'companyos_event_receipts',
       'companyos_events',
+      'companyos_tasks',
     ]);
   });
 
@@ -188,11 +189,19 @@ describe('durable CompanyOS event bus', () => {
         evidenceEventIds: ['org-1:price-1'],
       }),
     ]);
+    expect(watchdog.listTasks('org-1')).toEqual([
+      expect.objectContaining({
+        organizationId: 'org-1',
+        status: 'pending_decision',
+        evidenceEventIds: ['org-1:price-1'],
+      }),
+    ]);
 
     db.prepare("DELETE FROM companyos_event_receipts WHERE consumer_id = 'brand-watchdog-v1'").run();
     expect(new DurableBrandWatchdog(store, bus).inspect()).toBe(1);
     expect(watchdog.listActions('org-1')).toHaveLength(1);
     expect(watchdog.listAudit('org-1')).toHaveLength(1);
+    expect(watchdog.listTasks('org-1')).toHaveLength(1);
   });
 
   it('acknowledges non-actionable facts without creating fake actions', () => {

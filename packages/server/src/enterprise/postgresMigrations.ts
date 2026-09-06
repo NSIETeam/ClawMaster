@@ -986,6 +986,19 @@ CREATE TABLE companyos_actions (
   UNIQUE (organization_id, source_event_id)
 );
 
+CREATE TABLE companyos_tasks (
+  task_id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  action_id TEXT NOT NULL UNIQUE REFERENCES companyos_actions(action_id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN (
+    'pending_decision', 'approved', 'rejected', 'completed', 'cancelled'
+  )),
+  evidence_event_ids JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE companyos_audit (
   audit_id TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -1008,6 +1021,8 @@ CREATE INDEX companyos_claims_expiry
   ON companyos_event_claims(lease_expires_at, consumer_id, event_cursor);
 CREATE INDEX companyos_actions_organization
   ON companyos_actions(organization_id, status, created_at, action_id);
+CREATE INDEX companyos_tasks_organization
+  ON companyos_tasks(organization_id, status, created_at, task_id);
 `,
   },
 ];

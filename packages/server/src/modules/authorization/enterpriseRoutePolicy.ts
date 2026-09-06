@@ -79,6 +79,7 @@ const MEMBER_ROUTES = new Set([
   '/enterprise/privacy/account',
   '/enterprise/usage/profile',
   '/enterprise/companyos/actions',
+  '/enterprise/companyos/tasks',
 ]);
 
 export const FEATURE_ADMIN_PREFIX = '/admin/features';

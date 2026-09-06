@@ -92,6 +92,16 @@ export async function handleCompanyOsRoute(input: CompanyOsRouteInput): Promise<
     return true;
   }
 
+  if (input.path === '/enterprise/companyos/tasks' && input.method === 'GET') {
+    const organizationId = readableOrganization(input);
+    if (!organizationId) {
+      input.sendJSON(input.res, 401, { error: 'CompanyOS 账号会话无效' });
+      return true;
+    }
+    input.sendJSON(input.res, 200, { tasks: watchdog.listTasks(organizationId) });
+    return true;
+  }
+
   if (input.path === '/enterprise/companyos/audit' && input.method === 'GET') {
     const organizationId = adminOrganization(input);
     if (!organizationId) {

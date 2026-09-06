@@ -127,4 +127,29 @@ describe('CompanyOS authenticated routes', () => {
       data: { actions: [expect.objectContaining({ id: 'a1', organizationId: 'org-1' })] },
     }]);
   });
+
+  it('lists only decision tasks owned by the member tenant', async () => {
+    const { deps, responses, database } = harness({
+      path: '/enterprise/companyos/tasks', method: 'GET', memberOrganizationId: 'org-1',
+    });
+    database.exec(`
+      INSERT INTO companyos_actions
+        (action_id, organization_id, source_event_id, title, reason, status,
+         evidence_event_ids_json, created_at_ms, updated_at_ms)
+      VALUES
+        ('a1', 'org-1', 'e1', '本组织', 'reason', 'recommended', '[]', 1, 1),
+        ('a2', 'org-2', 'e2', '其他组织', 'reason', 'recommended', '[]', 1, 1);
+      INSERT INTO companyos_tasks
+        (task_id, organization_id, action_id, title, status,
+         evidence_event_ids_json, created_at_ms, updated_at_ms)
+      VALUES
+        ('t1', 'org-1', 'a1', '本组织任务', 'pending_decision', '[]', 1, 1),
+        ('t2', 'org-2', 'a2', '其他组织任务', 'pending_decision', '[]', 1, 1);
+    `);
+    expect(await handleCompanyOsRoute(deps)).toBe(true);
+    expect(responses).toEqual([{
+      status: 200,
+      data: { tasks: [expect.objectContaining({ id: 't1', organizationId: 'org-1' })] },
+    }]);
+  });
 });

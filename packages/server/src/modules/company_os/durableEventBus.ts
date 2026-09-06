@@ -2,7 +2,12 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import type { Database } from '../data_platform/index.js';
-import type { Action, AuditEntry, CanonicalEvent } from './index.js';
+import type {
+  Action,
+  AuditEntry,
+  CanonicalEvent,
+  CompanyOsTask,
+} from './index.js';
 import { COMPANY_OS_SCHEMA_CONTRIBUTOR } from './companyOsSchema.js';
 
 interface EventRow {
@@ -308,6 +313,15 @@ interface ActionRow {
   evidence_event_ids_json: string;
 }
 
+interface TaskRow {
+  task_id: string;
+  organization_id: string;
+  action_id: string;
+  title: string;
+  status: CompanyOsTask['status'];
+  evidence_event_ids_json: string;
+}
+
 export class DurableBrandWatchdog {
   constructor(
     private readonly store: CompanyOsEventStore,
@@ -347,6 +361,24 @@ export class DurableBrandWatchdog {
       organizationId: row.organization_id,
       title: row.title,
       reason: row.reason,
+      status: row.status,
+      evidenceEventIds: JSON.parse(row.evidence_event_ids_json) as string[],
+    }));
+  }
+
+  listTasks(organizationId: string): CompanyOsTask[] {
+    required(organizationId, 'organization_id');
+    return (this.store.db().prepare(
+      `SELECT task_id, organization_id, action_id, title, status,
+              evidence_event_ids_json
+         FROM companyos_tasks
+        WHERE organization_id = ?
+        ORDER BY created_at_ms DESC, task_id DESC`,
+    ).all(organizationId) as unknown as TaskRow[]).map((row) => ({
+      id: row.task_id,
+      organizationId: row.organization_id,
+      actionId: row.action_id,
+      title: row.title,
       status: row.status,
       evidenceEventIds: JSON.parse(row.evidence_event_ids_json) as string[],
     }));
@@ -392,6 +424,10 @@ export class DurableBrandWatchdog {
       .update(`${actionId}\0watchdog.recommendation.created`)
       .digest('hex')
       .slice(0, 24)}`;
+    const taskId = `task-${createHash('sha256')
+      .update(`${actionId}\0human-decision`)
+      .digest('hex')
+      .slice(0, 24)}`;
     const at = this.store.now();
     const evidence = JSON.stringify([event.id]);
     database.exec('BEGIN IMMEDIATE');
@@ -408,6 +444,20 @@ export class DurableBrandWatchdog {
         event.id,
         `调查${event.type}`,
         '平台事件显示经营异常，需调查后再执行副作用动作',
+        evidence,
+        at,
+        at,
+      );
+      database.prepare(
+        `INSERT OR IGNORE INTO companyos_tasks
+          (task_id, organization_id, action_id, title, status,
+           evidence_event_ids_json, created_at_ms, updated_at_ms)
+         VALUES (?, ?, ?, ?, 'pending_decision', ?, ?, ?)`,
+      ).run(
+        taskId,
+        event.organizationId,
+        actionId,
+        `人工决策：调查${event.type}`,
         evidence,
         at,
         at,
