@@ -50,6 +50,19 @@ describe('Tauri host bridge', () => {
     }));
     const bridge = createTauriHostBridge(invoke as unknown as TauriInvoke);
 
+    await expect(bridge.capabilityList?.()).resolves.toEqual({
+      command: 'capability_list',
+      args: undefined,
+    });
+    await expect(bridge.capabilityResources?.()).resolves.toEqual({
+      command: 'capability_resources',
+      args: undefined,
+    });
+    await expect(bridge.capabilityUninstall?.('team.nsi.office', true)).resolves.toEqual({
+      command: 'capability_uninstall',
+      args: { id: 'team.nsi.office', approved: true },
+    });
+
     await expect(bridge.openExternal('https://clawmaster.example')).resolves.toEqual({
       command: 'open_external',
       args: { url: 'https://clawmaster.example' },

@@ -39,7 +39,7 @@ export type ParkModuleTarget =
 
 export type ModuleActivation =
   | { kind: 'dialog'; dialog: 'park'; target: ParkModuleTarget }
-  | { kind: 'dialog'; dialog: 'enterprise-memory' | 'auto-skill' }
+  | { kind: 'dialog'; dialog: 'enterprise-memory' | 'auto-skill' | 'capability-host' }
   | { kind: 'route'; route: 'skill-zone' }
   | { kind: 'agent'; profileId: string; customAgentId?: string }
   | { kind: 'guided-task'; taskId: string; instructions: string }
@@ -164,6 +164,12 @@ export const STATIC_MODULE_SPECS: readonly StaticModuleSpec[] = [
     id: 'auto-skill', label: '自动 Skill', category: 'capability', icon: 'auto-skill',
     activation: { kind: 'dialog', dialog: 'auto-skill' },
     availabilityRule: 'auto-skill',
+  },
+  {
+    id: 'capability-host', label: '能力运行时', category: 'capability', icon: 'office-dataviz',
+    description: '查看 Dawn 按需能力、资源预算与完整版本回滚',
+    activation: { kind: 'dialog', dialog: 'capability-host' },
+    availabilityRule: 'always',
   },
   {
     id: 'skill-zone', label: 'Skill 专区', category: 'capability', icon: 'skill-zone',

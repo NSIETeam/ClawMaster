@@ -165,6 +165,51 @@ export interface DesktopRuntimeDiagnostic {
 
 export type RuntimeContractVersion = RuntimeContractStatus;
 
+export interface NativeCapabilityManifest {
+  schemaVersion: number;
+  id: string;
+  version: string;
+  apiVersion: string;
+  platforms: string[];
+  architectures: string[];
+  entrypoint: string;
+  permissions: string[];
+  dependencies: Array<{ id: string; minimumVersion: string }>;
+  compressedSize: number;
+  installedSize: number;
+  sha256: string;
+  minimumRuntimeVersion: string;
+  signature: { keyId: string; value: string };
+}
+
+export interface NativeInstalledCapability {
+  manifest: NativeCapabilityManifest;
+  enabled: boolean;
+  installedAt: number;
+  previousVersion?: string;
+}
+
+export interface NativeCapabilityResources {
+  activeAgents: number;
+  queuedAgents: number;
+  activeWorkers: number;
+  loadedImplementations: number;
+  maxOutputBytes: number;
+  maxEventQueue: number;
+  maxTimeoutSeconds: number;
+}
+
+export interface NativeCapabilityInstallPlan {
+  id: string;
+  version: string;
+  source: string;
+  compressedSize: number;
+  installedSize: number;
+  permissions: string[];
+  dependencies: Array<{ id: string; minimumVersion: string }>;
+  replacesVersion?: string;
+}
+
 export type SelfModificationState =
   | 'draft' | 'editing' | 'verifying' | 'verification_failed' | 'review_required'
   | 'approved' | 'building' | 'build_failed' | 'candidate_running' | 'candidate_failed'
@@ -1371,6 +1416,19 @@ type MenuHandler = (action: string) => void;
 
 /** preload 暴露给 renderer 的 API 形状（renderer 据此声明 window.clawmaster 类型）。 */
 export interface ClawMasterBridge {
+  capabilityList?(): Promise<NativeInstalledCapability[]>;
+  capabilityResources?(): Promise<NativeCapabilityResources>;
+  capabilityPlanInstall?(
+    manifest: NativeCapabilityManifest,
+    source: string,
+  ): Promise<NativeCapabilityInstallPlan>;
+  capabilityInstall?(
+    manifest: NativeCapabilityManifest,
+    payloadBase64: string,
+    approved: boolean,
+  ): Promise<NativeInstalledCapability>;
+  capabilityRollback?(id: string): Promise<NativeInstalledCapability>;
+  capabilityUninstall?(id: string, approved: boolean): Promise<void>;
   nativeChannelConfigGet?(provider: NativeChannelProvider): Promise<NativeChannelConfig | null>;
   nativeChannelStatusGet?(provider: NativeChannelProvider): Promise<NativeChannelStatus>;
   nativeChannelConnectionSet?(

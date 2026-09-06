@@ -1,3 +1,7 @@
+use crate::native_capability_host::{
+    wasm_health_check, AgentAdmission, CapabilityHost, CapabilityInstallPlan, CapabilityManifest,
+    InstalledCapability, ResourceSnapshot,
+};
 use crate::native_model_gateway::{
     GatewayError, InvocationContext, InvocationPurpose, InvocationRequest, ModelInvocationGateway,
 };
@@ -26,8 +30,8 @@ use clawmaster_runtime_kernel::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeSet, HashMap};
-use std::fs;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -43,6 +47,24 @@ const MAX_TITLE_CHARS: usize = 120;
 const COMPRESSION_THRESHOLD_CHARS: usize = 16_000;
 const MAX_COMPRESSION_CONTEXT_CHARS: usize = 32_000;
 const KERNEL_IDEMPOTENCY_INDEX_ID: &str = "runtime-kernel-idempotency";
+
+fn trusted_capability_keys() -> Result<BTreeMap<String, Vec<u8>>, String> {
+    let Some(raw) = option_env!("CLAWMASTER_CAPABILITY_PUBLIC_KEYS_JSON") else {
+        return Ok(BTreeMap::new());
+    };
+    let encoded = serde_json::from_str::<BTreeMap<String, String>>(raw)
+        .map_err(|error| format!("编译期能力公钥配置无效: {error}"))?;
+    encoded
+        .into_iter()
+        .map(|(id, value)| {
+            use base64::Engine as _;
+            base64::engine::general_purpose::STANDARD
+                .decode(value)
+                .map(|key| (id, key))
+                .map_err(|_| "编译期能力公钥不是有效 Base64".to_string())
+        })
+        .collect()
+}
 const KERNEL_TURN_INDEX_ID: &str = "runtime-kernel-turns";
 const TOOL_APPROVAL_TIMEOUT_MS: u64 = 5 * 60 * 1_000;
 static RUNTIME_EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(1);
@@ -301,6 +323,7 @@ pub struct NativeRuntime {
     state: Mutex<PersistedState>,
     credentials: Arc<dyn CredentialStore>,
     state_store: NativeStateStore,
+    capability_host: CapabilityHost,
     memory_engine: native_memory_engine::NativeMemoryEngine,
     model_gateway: ModelInvocationGateway,
     runtime_kernel: RuntimeKernel<NativeKernelStore>,
@@ -791,6 +814,11 @@ impl NativeRuntime {
             state_store: state_store.clone(),
         });
         let memory_engine = native_memory_engine::NativeMemoryEngine::open(state_store.clone())?;
+        let capability_host = CapabilityHost::open(
+            &app_data_dir.join("capability-packs-v1"),
+            state_store.clone(),
+            trusted_capability_keys()?,
+        )?;
         let recovery_notices = runtime_kernel
             .recover_all(now_ms())
             .map_err(|error| error.to_string())?
@@ -820,6 +848,7 @@ impl NativeRuntime {
             state: Mutex::new(state),
             credentials,
             state_store,
+            capability_host,
             memory_engine,
             model_gateway,
             runtime_kernel,
@@ -835,6 +864,88 @@ impl NativeRuntime {
             runtime.persist(&state)?;
         }
         Ok(runtime)
+    }
+
+    pub fn capability_list(&self) -> Result<Vec<InstalledCapability>, String> {
+        self.capability_host.list()
+    }
+
+    pub fn capability_resources(&self) -> Result<ResourceSnapshot, String> {
+        self.capability_host.resource_snapshot()
+    }
+
+    pub fn capability_plan_install(
+        &self,
+        manifest: &CapabilityManifest,
+        source: &str,
+    ) -> Result<CapabilityInstallPlan, String> {
+        self.capability_host.plan_install(manifest, source)
+    }
+
+    pub fn capability_install(
+        &self,
+        manifest: CapabilityManifest,
+        payload: &[u8],
+        approved: bool,
+    ) -> Result<InstalledCapability, String> {
+        let installed = self.capability_host.install(
+            manifest,
+            payload,
+            approved,
+            now_ms(),
+            wasm_health_check,
+        )?;
+        self.audit_capability(
+            "install",
+            &installed.manifest.id,
+            &installed.manifest.version,
+        )?;
+        Ok(installed)
+    }
+
+    pub fn capability_rollback(&self, id: &str) -> Result<InstalledCapability, String> {
+        let installed = self.capability_host.rollback(id)?;
+        self.audit_capability("rollback", id, &installed.manifest.version)?;
+        Ok(installed)
+    }
+
+    pub fn capability_uninstall(&self, id: &str, approved: bool) -> Result<(), String> {
+        self.capability_host.uninstall(id, approved)?;
+        self.audit_capability("uninstall", id, "")
+    }
+
+    pub fn capability_invoke(&self, id: &str, input: &[u8]) -> Result<Vec<u8>, String> {
+        let output = self.capability_host.invoke(id, input)?;
+        let version = self
+            .capability_host
+            .list()?
+            .into_iter()
+            .find(|item| item.manifest.id == id)
+            .map(|item| item.manifest.version)
+            .unwrap_or_default();
+        self.audit_capability("invoke", id, &version)?;
+        Ok(output)
+    }
+
+    fn audit_capability(&self, operation: &str, id: &str, version: &str) -> Result<(), String> {
+        let mut output = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.audit_path)
+            .map_err(|error| format!("无法打开能力审计日志: {error}"))?;
+        writeln!(
+            output,
+            "{}",
+            json!({
+                "at": now_ms(),
+                "actor": "desktop-user",
+                "category": "capability-host",
+                "operation": operation,
+                "capabilityId": id,
+                "version": version,
+            })
+        )
+        .map_err(|error| format!("无法写入能力审计日志: {error}"))
     }
 
     fn persist(&self, state: &PersistedState) -> Result<(), String> {
@@ -3597,6 +3708,18 @@ impl NativeRuntime {
         if prompt.trim().is_empty() {
             return Err("消息内容不能为空".into());
         }
+        let turn_id = next_id("turn");
+        let admission = self.capability_host.admit_agent(&turn_id)?;
+        if admission == AgentAdmission::Queued {
+            emit(
+                app,
+                frame(
+                    "session_status",
+                    json!({"sessionId":session_id,"status":"queued"}),
+                ),
+            )?;
+        }
+        let _agent_lease = self.capability_host.wait_for_agent(&turn_id).await?;
         let user_directory_snapshot = self.user_directory.snapshot_at_turn_boundary();
         let core_overrides = UserDirectory::core_overrides(&user_directory_snapshot);
         let user_message_id = payload
@@ -3770,7 +3893,6 @@ impl NativeRuntime {
             ),
         )?;
 
-        let turn_id = next_id("turn");
         let mut kernel_turn = self
             .runtime_kernel
             .create_turn_for_session(&turn_id, Some(&session_id), now_ms())

@@ -157,6 +157,7 @@ import {
 } from './moduleWorkspace.js';
 import { isSecurePlatformUrl, type ModuleDefinition } from './moduleCatalog.js';
 import type { ModuleModalState } from './moduleModal.js';
+import { CapabilityHostDialog } from './components/CapabilityHostDialog.js';
 
 /** 启动后静默检查更新的延迟：让 server 连接 / 首屏渲染先跑完，不抢启动窗口。 */
 const SILENT_UPDATE_CHECK_DELAY_MS = 15_000;
@@ -1676,6 +1677,10 @@ function ClawMasterWorkspaceApp({
         onRefresh={product.actions.refreshPendingAutoSkills}
         onConfirm={product.actions.confirmPendingAutoSkill}
         onReject={product.actions.rejectPendingAutoSkill}
+        onClose={() => setModuleModal(null)}
+      />
+      <CapabilityHostDialog
+        open={moduleModal?.kind === 'capability-host'}
         onClose={() => setModuleModal(null)}
       />
       <CustomAgentManagerDialog

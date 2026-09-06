@@ -9,6 +9,7 @@ export type ModuleModalState =
   | { kind: 'park'; target: ParkModuleTarget }
   | { kind: 'enterprise-memory' }
   | { kind: 'auto-skill' }
+  | { kind: 'capability-host' }
   | { kind: 'custom-expert'; expertId?: string }
   | { kind: 'customer-module'; moduleId: string; version: string }
   | { kind: 'customer-module-authoring' }

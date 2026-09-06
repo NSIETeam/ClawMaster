@@ -11,6 +11,10 @@ import type {
   EnterpriseSkillLeaderboard,
   EnterpriseSkillMarketItem,
   LocalSkillShareCandidate,
+  NativeCapabilityInstallPlan,
+  NativeCapabilityManifest,
+  NativeCapabilityResources,
+  NativeInstalledCapability,
   NativeChannelConfig,
   NativeChannelStatus,
   NativeChannelProvider,
@@ -246,6 +250,27 @@ export function createTauriHostBridge(
   };
 
   const migrated: Partial<Record<keyof ClawMasterBridge, (...args: never[]) => unknown>> = {
+    capabilityList: (() => invoke<NativeInstalledCapability[]>('capability_list')) as never,
+    capabilityResources: (() => invoke<NativeCapabilityResources>('capability_resources')) as never,
+    capabilityPlanInstall: ((manifest: NativeCapabilityManifest, source: string) =>
+      invoke<NativeCapabilityInstallPlan>('capability_plan_install', { manifest, source })) as never,
+    capabilityInstall: ((
+      manifest: NativeCapabilityManifest,
+      payloadBase64: string,
+      approved: boolean,
+    ) => invoke<NativeInstalledCapability>('capability_install', {
+      manifest,
+      payloadBase64,
+      approved,
+    })) as never,
+    capabilityRollback: ((id: string) => invoke<NativeInstalledCapability>(
+      'capability_rollback',
+      { id },
+    )) as never,
+    capabilityUninstall: ((id: string, approved: boolean) => invoke<void>(
+      'capability_uninstall',
+      { id, approved },
+    )) as never,
     nativeChannelConfigGet: ((provider: NativeChannelProvider) =>
       invoke<NativeChannelConfig | null>('channel_config_get', { provider })) as never,
     nativeChannelStatusGet: ((provider: NativeChannelProvider) =>

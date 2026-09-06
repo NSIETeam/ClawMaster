@@ -1,3 +1,4 @@
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -8,6 +9,7 @@ use tauri_plugin_notification::NotificationExt;
 mod agent_state_pool;
 mod community_skills;
 mod native_agent_tools;
+mod native_capability_host;
 mod native_channels;
 mod native_chart;
 mod native_context;
@@ -262,6 +264,70 @@ async fn desktop_request(
 }
 
 #[tauri::command]
+fn capability_list(
+    runtime: State<'_, native_runtime::NativeRuntime>,
+) -> Result<Vec<native_capability_host::InstalledCapability>, String> {
+    runtime.capability_list()
+}
+
+#[tauri::command]
+fn capability_resources(
+    runtime: State<'_, native_runtime::NativeRuntime>,
+) -> Result<native_capability_host::ResourceSnapshot, String> {
+    runtime.capability_resources()
+}
+
+#[tauri::command]
+fn capability_plan_install(
+    manifest: native_capability_host::CapabilityManifest,
+    source: String,
+    runtime: State<'_, native_runtime::NativeRuntime>,
+) -> Result<native_capability_host::CapabilityInstallPlan, String> {
+    runtime.capability_plan_install(&manifest, &source)
+}
+
+#[tauri::command]
+fn capability_install(
+    manifest: native_capability_host::CapabilityManifest,
+    payload_base64: String,
+    approved: bool,
+    runtime: State<'_, native_runtime::NativeRuntime>,
+) -> Result<native_capability_host::InstalledCapability, String> {
+    let payload = base64::engine::general_purpose::STANDARD
+        .decode(payload_base64)
+        .map_err(|_| "能力包不是有效 Base64".to_string())?;
+    runtime.capability_install(manifest, &payload, approved)
+}
+
+#[tauri::command]
+fn capability_rollback(
+    id: String,
+    runtime: State<'_, native_runtime::NativeRuntime>,
+) -> Result<native_capability_host::InstalledCapability, String> {
+    runtime.capability_rollback(&id)
+}
+
+#[tauri::command]
+fn capability_uninstall(
+    id: String,
+    approved: bool,
+    runtime: State<'_, native_runtime::NativeRuntime>,
+) -> Result<(), String> {
+    runtime.capability_uninstall(&id, approved)
+}
+
+#[tauri::command]
+fn capability_invoke(
+    id: String,
+    input: Value,
+    runtime: State<'_, native_runtime::NativeRuntime>,
+) -> Result<Value, String> {
+    let input = serde_json::to_vec(&input).map_err(|error| format!("能力输入无效: {error}"))?;
+    let output = runtime.capability_invoke(&id, &input)?;
+    serde_json::from_slice(&output).map_err(|error| format!("能力输出不是有效 JSON: {error}"))
+}
+
+#[tauri::command]
 fn desktop_is_connected(state: State<'_, DesktopConnection>) -> bool {
     state.connected.load(Ordering::Acquire)
 }
@@ -304,6 +370,13 @@ pub fn run() {
             desktop_send,
             desktop_request,
             desktop_is_connected,
+            capability_list,
+            capability_resources,
+            capability_plan_install,
+            capability_install,
+            capability_rollback,
+            capability_uninstall,
+            capability_invoke,
             agent_state_pool::agent_state_replace,
             agent_state_pool::agent_state_bytes,
             agent_state_pool::agent_state_remove,
