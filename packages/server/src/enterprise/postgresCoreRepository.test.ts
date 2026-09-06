@@ -165,7 +165,10 @@ describe('PostgreSQL enterprise core authority', () => {
     });
     expect(migration!.sql).toContain('CREATE TABLE companyos_events');
     expect(migration!.sql).toContain('CREATE TABLE companyos_event_receipts');
+    expect(migration!.sql).toContain('CREATE TABLE companyos_actions');
+    expect(migration!.sql).toContain('CREATE TABLE companyos_audit');
     expect(migration!.sql).toContain('UNIQUE (organization_id, idempotency_key)');
+    expect(migration!.sql).toContain('FOREIGN KEY (event_cursor, organization_id)');
     expect(migration!.sql).toContain('REFERENCES organizations(id)');
   });
 

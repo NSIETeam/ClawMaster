@@ -2,7 +2,7 @@
 
 import { createHash } from 'node:crypto';
 import type { Database } from '../data_platform/index.js';
-import type { CanonicalEvent } from './index.js';
+import type { Action, AuditEntry, CanonicalEvent } from './index.js';
 import { COMPANY_OS_SCHEMA_CONTRIBUTOR } from './companyOsSchema.js';
 
 interface EventRow {
@@ -120,8 +120,13 @@ export class DurableCompanyOsEventBus {
     return event;
   }
 
-  consume(consumerId: string, handler: (event: CanonicalEvent) => void): number {
+  consume(
+    consumerId: string,
+    handler: (event: CanonicalEvent) => void,
+    organizationId?: string,
+  ): number {
     required(consumerId, 'consumer_id');
+    if (organizationId !== undefined) required(organizationId, 'organization_id');
     const database = this.store.db();
     const rows = database.prepare(
       `SELECT event.cursor, event.organization_id, event.event_id, event.event_type,
@@ -132,8 +137,9 @@ export class DurableCompanyOsEventBus {
          LEFT JOIN companyos_event_receipts receipt
            ON receipt.consumer_id = ? AND receipt.event_cursor = event.cursor
         WHERE receipt.event_cursor IS NULL
+          AND (? IS NULL OR event.organization_id = ?)
         ORDER BY event.cursor ASC`,
-    ).all(consumerId) as unknown as EventRow[];
+    ).all(consumerId, organizationId ?? null, organizationId ?? null) as unknown as EventRow[];
     let count = 0;
     for (const row of rows) {
       handler(eventFromRow(row));
@@ -145,5 +151,129 @@ export class DurableCompanyOsEventBus {
       count++;
     }
     return count;
+  }
+}
+
+interface ActionRow {
+  action_id: string;
+  organization_id: string;
+  title: string;
+  reason: string;
+  status: Action['status'];
+  evidence_event_ids_json: string;
+}
+
+export class DurableBrandWatchdog {
+  constructor(
+    private readonly store: CompanyOsEventStore,
+    private readonly bus = new DurableCompanyOsEventBus(store),
+  ) {}
+
+  inspect(): number {
+    return this.inspectEvents();
+  }
+
+  inspectOrganization(organizationId: string): number {
+    required(organizationId, 'organization_id');
+    return this.inspectEvents(organizationId);
+  }
+
+  private inspectEvents(organizationId?: string): number {
+    return this.bus.consume('brand-watchdog-v1', (event) => {
+      if (![
+        'owl.price.anomaly',
+        'zhilemon.gmv.anomaly',
+        'zhilemon.refund.anomaly',
+      ].includes(event.type)) return;
+      this.projectRecommendation(event);
+    }, organizationId);
+  }
+
+  listActions(organizationId: string): Action[] {
+    required(organizationId, 'organization_id');
+    return (this.store.db().prepare(
+      `SELECT action_id, organization_id, title, reason, status,
+              evidence_event_ids_json
+         FROM companyos_actions
+        WHERE organization_id = ?
+        ORDER BY created_at_ms DESC, action_id DESC`,
+    ).all(organizationId) as unknown as ActionRow[]).map((row) => ({
+      id: row.action_id,
+      organizationId: row.organization_id,
+      title: row.title,
+      reason: row.reason,
+      status: row.status,
+      evidenceEventIds: JSON.parse(row.evidence_event_ids_json) as string[],
+    }));
+  }
+
+  listAudit(organizationId: string): AuditEntry[] {
+    required(organizationId, 'organization_id');
+    return (this.store.db().prepare(
+      `SELECT audit_id, organization_id, action, status, actor,
+              evidence_event_ids_json, created_at_ms
+         FROM companyos_audit
+        WHERE organization_id = ?
+        ORDER BY created_at_ms DESC, audit_id DESC`,
+    ).all(organizationId) as unknown as Array<{
+      audit_id: string;
+      organization_id: string;
+      action: string;
+      status: AuditEntry['status'];
+      actor: AuditEntry['actor'];
+      evidence_event_ids_json: string;
+      created_at_ms: number;
+    }>).map((row) => ({
+      id: row.audit_id,
+      organizationId: row.organization_id,
+      action: row.action,
+      status: row.status,
+      actor: row.actor,
+      evidenceEventIds: JSON.parse(row.evidence_event_ids_json) as string[],
+      at: new Date(row.created_at_ms).toISOString(),
+    }));
+  }
+
+  private projectRecommendation(event: CanonicalEvent): void {
+    const database = this.store.db();
+    const actionId = `action-${createHash('sha256')
+      .update(`${event.organizationId}\0${event.id}`)
+      .digest('hex')
+      .slice(0, 24)}`;
+    const auditId = `audit-${createHash('sha256')
+      .update(`${actionId}\0watchdog.recommendation.created`)
+      .digest('hex')
+      .slice(0, 24)}`;
+    const at = this.store.now();
+    const evidence = JSON.stringify([event.id]);
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      database.prepare(
+        `INSERT OR IGNORE INTO companyos_actions
+          (action_id, organization_id, source_event_id, title, reason, status,
+           evidence_event_ids_json, created_at_ms, updated_at_ms)
+         VALUES (?, ?, ?, ?, ?, 'recommended', ?, ?, ?)`,
+      ).run(
+        actionId,
+        event.organizationId,
+        event.id,
+        `调查${event.type}`,
+        '平台事件显示经营异常，需调查后再执行副作用动作',
+        evidence,
+        at,
+        at,
+      );
+      database.prepare(
+        `INSERT OR IGNORE INTO companyos_audit
+          (audit_id, organization_id, action_id, action, status, actor,
+           evidence_event_ids_json, created_at_ms)
+         VALUES (?, ?, ?, 'watchdog.recommendation.created', 'recommended',
+                 'brand-ceo-agent', ?, ?)`,
+      ).run(auditId, event.organizationId, actionId, evidence, at);
+      database.exec('COMMIT');
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
   }
 }

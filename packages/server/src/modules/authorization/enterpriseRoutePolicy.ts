@@ -41,6 +41,9 @@ const ADMIN_ROUTES = new Set([
   '/enterprise/modules/updates',
   '/enterprise/organizations',
   '/enterprise/platform/customer-modules',
+  '/enterprise/companyos/events',
+  '/enterprise/companyos/watchdog/inspect',
+  '/enterprise/companyos/audit',
 ]);
 
 /** 会读取或写入企业内部数据的成员路由，必须使用账号会话。 */
@@ -75,6 +78,7 @@ const MEMBER_ROUTES = new Set([
   '/enterprise/privacy/export',
   '/enterprise/privacy/account',
   '/enterprise/usage/profile',
+  '/enterprise/companyos/actions',
 ]);
 
 export const FEATURE_ADMIN_PREFIX = '/admin/features';

@@ -14,3 +14,21 @@ describe('customer module route authorization', () => {
     expect(isMemberRoute(review)).toBe(false);
   });
 });
+
+describe('CompanyOS route authorization', () => {
+  it('reserves ingestion, watchdog execution and audit for administrators', () => {
+    for (const path of [
+      '/enterprise/companyos/events',
+      '/enterprise/companyos/watchdog/inspect',
+      '/enterprise/companyos/audit',
+    ]) {
+      expect(isAdminRoute(path)).toBe(true);
+      expect(isMemberRoute(path)).toBe(false);
+    }
+  });
+
+  it('allows signed-in members to read their tenant actions', () => {
+    expect(isMemberRoute('/enterprise/companyos/actions')).toBe(true);
+    expect(isAdminRoute('/enterprise/companyos/actions')).toBe(false);
+  });
+});

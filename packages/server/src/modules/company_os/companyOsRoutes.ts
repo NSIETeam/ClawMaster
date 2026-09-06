@@ -1,0 +1,107 @@
+/** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
+
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { AccountView } from '../../enterprise/db.js';
+import type { AdminPrincipal } from '../../enterprise/enterpriseRouteDispatcher.js';
+import type { CanonicalEvent } from './index.js';
+import {
+  DurableBrandWatchdog,
+  DurableCompanyOsEventBus,
+  type CompanyOsEventStore,
+} from './durableEventBus.js';
+
+export interface CompanyOsRouteInput {
+  path: string;
+  method: string;
+  req: IncomingMessage;
+  res: ServerResponse;
+  memberAccount: AccountView | null;
+  adminPrincipal: AdminPrincipal | null;
+  store: CompanyOsEventStore;
+  readBody(req: IncomingMessage, maxLength?: number): Promise<Record<string, unknown>>;
+  sendJSON(res: ServerResponse, status: number, data: unknown): void;
+}
+
+function text(body: Record<string, unknown>, key: string, optional = false): string | undefined {
+  const value = body[key];
+  if (optional && value === undefined) return undefined;
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`invalid_${key}`);
+  return value.trim();
+}
+
+function adminOrganization(input: CompanyOsRouteInput): string | null {
+  return input.adminPrincipal?.organizationId ?? null;
+}
+
+function readableOrganization(input: CompanyOsRouteInput): string | null {
+  return input.memberAccount?.organizationId ?? adminOrganization(input);
+}
+
+export async function handleCompanyOsRoute(input: CompanyOsRouteInput): Promise<boolean> {
+  if (!input.path.startsWith('/enterprise/companyos/')) return false;
+  const bus = new DurableCompanyOsEventBus(input.store);
+  const watchdog = new DurableBrandWatchdog(input.store, bus);
+
+  if (input.path === '/enterprise/companyos/events' && input.method === 'POST') {
+    const organizationId = adminOrganization(input);
+    if (!organizationId) {
+      input.sendJSON(input.res, 403, { error: 'CompanyOS 管理员权限不足' });
+      return true;
+    }
+    try {
+      const body = await input.readBody(input.req, 1_000_000);
+      const idempotencyKey = text(body, 'idempotencyKey')!;
+      const eventInput: CanonicalEvent = {
+        id: text(body, 'id', true) ?? `${organizationId}:${idempotencyKey}`,
+        organizationId,
+        type: text(body, 'type')!,
+        payload: body.payload ?? null,
+        source: text(body, 'source')!,
+        sourceRevision: text(body, 'sourceRevision')!,
+        observedAt: text(body, 'observedAt')!,
+        correlationId: text(body, 'correlationId')!,
+        causationId: text(body, 'causationId', true),
+        idempotencyKey,
+      };
+      const event = bus.publish(eventInput);
+      input.sendJSON(input.res, 201, { event });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      input.sendJSON(input.res, message === 'idempotency_conflict' ? 409 : 400, { error: message });
+    }
+    return true;
+  }
+
+  if (input.path === '/enterprise/companyos/watchdog/inspect' && input.method === 'POST') {
+    const organizationId = adminOrganization(input);
+    if (!organizationId) {
+      input.sendJSON(input.res, 403, { error: 'CompanyOS 管理员权限不足' });
+      return true;
+    }
+    input.sendJSON(input.res, 200, { processed: watchdog.inspectOrganization(organizationId) });
+    return true;
+  }
+
+  if (input.path === '/enterprise/companyos/actions' && input.method === 'GET') {
+    const organizationId = readableOrganization(input);
+    if (!organizationId) {
+      input.sendJSON(input.res, 401, { error: 'CompanyOS 账号会话无效' });
+      return true;
+    }
+    input.sendJSON(input.res, 200, { actions: watchdog.listActions(organizationId) });
+    return true;
+  }
+
+  if (input.path === '/enterprise/companyos/audit' && input.method === 'GET') {
+    const organizationId = adminOrganization(input);
+    if (!organizationId) {
+      input.sendJSON(input.res, 403, { error: 'CompanyOS 管理员权限不足' });
+      return true;
+    }
+    input.sendJSON(input.res, 200, { audit: watchdog.listAudit(organizationId) });
+    return true;
+  }
+
+  input.sendJSON(input.res, 405, { error: 'CompanyOS 路由或方法不受支持' });
+  return true;
+}

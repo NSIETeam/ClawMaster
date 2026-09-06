@@ -21,7 +21,8 @@ export const COMPANY_OS_SCHEMA_CONTRIBUTOR: DatabaseSchemaContributor = {
         fact_fingerprint TEXT NOT NULL,
         created_at_ms INTEGER NOT NULL,
         UNIQUE(organization_id, event_id),
-        UNIQUE(organization_id, idempotency_key)
+        UNIQUE(organization_id, idempotency_key),
+        UNIQUE(cursor, organization_id)
       );
 
       CREATE TABLE IF NOT EXISTS companyos_event_receipts (
@@ -30,13 +31,46 @@ export const COMPANY_OS_SCHEMA_CONTRIBUTOR: DatabaseSchemaContributor = {
         organization_id TEXT NOT NULL,
         processed_at_ms INTEGER NOT NULL,
         PRIMARY KEY(consumer_id, event_cursor),
-        FOREIGN KEY(event_cursor) REFERENCES companyos_events(cursor) ON DELETE CASCADE
+        FOREIGN KEY(event_cursor, organization_id)
+          REFERENCES companyos_events(cursor, organization_id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS companyos_actions (
+        action_id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        source_event_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN (
+          'recommended', 'queued', 'executed', 'failed', 'unknown_outcome'
+        )),
+        evidence_event_ids_json TEXT NOT NULL,
+        created_at_ms INTEGER NOT NULL,
+        updated_at_ms INTEGER NOT NULL,
+        UNIQUE(organization_id, source_event_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS companyos_audit (
+        audit_id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        action_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN (
+          'recommended', 'executed', 'failed', 'unknown_outcome'
+        )),
+        actor TEXT NOT NULL,
+        evidence_event_ids_json TEXT NOT NULL,
+        created_at_ms INTEGER NOT NULL,
+        UNIQUE(organization_id, action_id, action),
+        FOREIGN KEY(action_id) REFERENCES companyos_actions(action_id) ON DELETE CASCADE
       );
 
       CREATE INDEX IF NOT EXISTS idx_companyos_events_organization_cursor
         ON companyos_events(organization_id, cursor);
       CREATE INDEX IF NOT EXISTS idx_companyos_receipts_organization
         ON companyos_event_receipts(organization_id, consumer_id, event_cursor);
+      CREATE INDEX IF NOT EXISTS idx_companyos_actions_organization
+        ON companyos_actions(organization_id, status, created_at_ms, action_id);
     `);
   },
 };

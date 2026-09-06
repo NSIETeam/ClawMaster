@@ -944,21 +944,55 @@ CREATE TABLE companyos_events (
   fact_fingerprint TEXT NOT NULL CHECK (fact_fingerprint ~ '^[0-9a-f]{64}$'),
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (organization_id, event_id),
-  UNIQUE (organization_id, idempotency_key)
+  UNIQUE (organization_id, idempotency_key),
+  UNIQUE (cursor, organization_id)
 );
 
 CREATE TABLE companyos_event_receipts (
   consumer_id TEXT NOT NULL,
-  event_cursor BIGINT NOT NULL REFERENCES companyos_events(cursor) ON DELETE CASCADE,
+  event_cursor BIGINT NOT NULL,
   organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   processed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (consumer_id, event_cursor)
+  PRIMARY KEY (consumer_id, event_cursor),
+  FOREIGN KEY (event_cursor, organization_id)
+    REFERENCES companyos_events(cursor, organization_id) ON DELETE CASCADE
+);
+
+CREATE TABLE companyos_actions (
+  action_id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  source_event_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN (
+    'recommended', 'queued', 'executed', 'failed', 'unknown_outcome'
+  )),
+  evidence_event_ids JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (organization_id, source_event_id)
+);
+
+CREATE TABLE companyos_audit (
+  audit_id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  action_id TEXT NOT NULL REFERENCES companyos_actions(action_id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN (
+    'recommended', 'executed', 'failed', 'unknown_outcome'
+  )),
+  actor TEXT NOT NULL,
+  evidence_event_ids JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (organization_id, action_id, action)
 );
 
 CREATE INDEX companyos_events_organization_cursor
   ON companyos_events(organization_id, cursor);
 CREATE INDEX companyos_receipts_organization
   ON companyos_event_receipts(organization_id, consumer_id, event_cursor);
+CREATE INDEX companyos_actions_organization
+  ON companyos_actions(organization_id, status, created_at, action_id);
 `,
   },
 ];

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Database } from '../data_platform/index.js';
 import {
   COMPANY_OS_SCHEMA_CONTRIBUTOR,
+  DurableBrandWatchdog,
   DurableCompanyOsEventBus,
   createCanonicalEvent,
   type CanonicalEvent,
@@ -44,6 +45,8 @@ describe('durable CompanyOS event bus', () => {
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'companyos_%' ORDER BY name",
     ).all() as Array<{ name: string }>;
     expect(tables.map((row) => row.name)).toEqual([
+      'companyos_actions',
+      'companyos_audit',
       'companyos_event_receipts',
       'companyos_events',
     ]);
@@ -96,5 +99,46 @@ describe('durable CompanyOS event bus', () => {
     const organizations: string[] = [];
     expect(bus.consume('watchdog', (item) => organizations.push(item.organizationId))).toBe(2);
     expect(organizations).toEqual(['org-1', 'org-2']);
+  });
+
+  it('persists one evidence-linked action and audit record across replay', () => {
+    const db = database();
+    let now = Date.parse('2026-09-06T01:00:00.000Z');
+    const store = { db: () => db, now: () => now++ };
+    const bus = new DurableCompanyOsEventBus(store);
+    bus.publish(event());
+    const watchdog = new DurableBrandWatchdog(store, bus);
+    expect(watchdog.inspect()).toBe(1);
+    expect(watchdog.listActions('org-1')).toEqual([
+      expect.objectContaining({
+        organizationId: 'org-1',
+        status: 'recommended',
+        evidenceEventIds: ['org-1:price-1'],
+      }),
+    ]);
+    expect(watchdog.listAudit('org-1')).toEqual([
+      expect.objectContaining({
+        organizationId: 'org-1',
+        action: 'watchdog.recommendation.created',
+        actor: 'brand-ceo-agent',
+        evidenceEventIds: ['org-1:price-1'],
+      }),
+    ]);
+
+    db.prepare("DELETE FROM companyos_event_receipts WHERE consumer_id = 'brand-watchdog-v1'").run();
+    expect(new DurableBrandWatchdog(store, bus).inspect()).toBe(1);
+    expect(watchdog.listActions('org-1')).toHaveLength(1);
+    expect(watchdog.listAudit('org-1')).toHaveLength(1);
+  });
+
+  it('acknowledges non-actionable facts without creating fake actions', () => {
+    const db = database();
+    const store = { db: () => db, now: () => 1 };
+    const bus = new DurableCompanyOsEventBus(store);
+    bus.publish(event({ type: 'inventory.snapshot' }));
+    const watchdog = new DurableBrandWatchdog(store, bus);
+    expect(watchdog.inspect()).toBe(1);
+    expect(watchdog.listActions('org-1')).toEqual([]);
+    expect(watchdog.listAudit('org-1')).toEqual([]);
   });
 });
