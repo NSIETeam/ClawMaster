@@ -6,7 +6,7 @@
  * local authority or split writes between databases.
  */
 
-import { randomBytes, randomInt } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import {
   createServer,
   type IncomingMessage,
@@ -44,6 +44,8 @@ import {
   buildOperatingBrief,
   createCanonicalEvent,
   OPERATING_EVENT_TYPES,
+  type ActionConnectorResult,
+  type CompanyOsActionConnector,
 } from '../modules/company_os/index.js';
 import { listBuiltInBusinessConnectorReadiness } from '../modules/integration_adapters/index.js';
 import {
@@ -103,6 +105,14 @@ export interface ClusteredEnterpriseServerOptions {
   databaseReadiness?: () => Promise<PostgresDatabaseReadiness>;
   /** @deprecated Inject the complete clustered infrastructure instead. */
   closeDatabase?: () => Promise<void>;
+  resolveCompanyOsActionConnector?: (
+    provider: string,
+  ) => CompanyOsActionConnector | undefined;
+  authorizeCompanyOsActionExecution?: (input: {
+    organizationId: string;
+    actionId: string;
+    provider: string;
+  }) => boolean | Promise<boolean>;
   bootstrapAdmin?: {
     username: string;
     password: string;
@@ -559,6 +569,14 @@ export function createClusteredEnterpriseServer(
     smsSender?: ClusteredEnterpriseSmsSender | null;
     licensePublicKeys?: readonly string[];
     startedAt?: string;
+    resolveCompanyOsActionConnector?: (
+      provider: string,
+    ) => CompanyOsActionConnector | undefined;
+    authorizeCompanyOsActionExecution?: (input: {
+      organizationId: string;
+      actionId: string;
+      provider: string;
+    }) => boolean | Promise<boolean>;
   } = {},
 ): {
   server: Server;
@@ -751,6 +769,67 @@ export function createClusteredEnterpriseServer(
           const status = message === 'task_not_found'
             ? 404
             : message === 'task_already_decided' ? 409 : 400;
+          sendJson(res, status, { error: message });
+        }
+        return;
+      }
+
+      const companyOsExecution = /^\/enterprise\/companyos\/actions\/([^/]+)\/(execute|reconcile)$/u.exec(path);
+      if (companyOsExecution && method === 'POST') {
+        const principal = await requireAdministrator({
+          repository, req, res, adminToken, sharedState: options.sharedState,
+        });
+        if (!principal) return;
+        try {
+          const actionId = decodeURIComponent(companyOsExecution[1]!);
+          const body = await readJsonBody(req);
+          const provider = companyOsText(body, 'provider')!;
+          const connector = options.resolveCompanyOsActionConnector?.(provider);
+          if (!connector) {
+            sendJson(res, 503, { error: 'action_connector_unavailable' });
+            return;
+          }
+          const allowed = await options.authorizeCompanyOsActionExecution?.({
+            organizationId: principal.organizationId, actionId, provider,
+          }) ?? false;
+          if (!allowed) {
+            sendJson(res, 403, { error: 'action_execution_blocked' });
+            return;
+          }
+          const claim = await repository.claimCompanyOsActionExecution({
+            organizationId: principal.organizationId, actionId, provider,
+            workerId: randomUUID(),
+          });
+          if (companyOsExecution[2] === 'execute' && claim.status !== 'running') {
+            sendJson(res, 200, { execution: claim });
+            return;
+          }
+          if (companyOsExecution[2] === 'reconcile'
+            && claim.status !== 'unknown_outcome') {
+            throw new Error('action_not_awaiting_reconciliation');
+          }
+          if (companyOsExecution[2] === 'reconcile' && !connector.reconcile) {
+            throw new Error('action_connector_cannot_reconcile');
+          }
+          let result: ActionConnectorResult;
+          try {
+            result = companyOsExecution[2] === 'execute'
+              ? await connector.execute({ action: claim.action, idempotencyKey: claim.idempotencyKey })
+              : await connector.reconcile!({ action: claim.action, idempotencyKey: claim.idempotencyKey });
+          } catch (error) {
+            result = {
+              outcome: 'unknown',
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
+          const execution = await repository.finishCompanyOsActionExecution({
+            claim, result, reconciliation: companyOsExecution[2] === 'reconcile',
+          });
+          sendJson(res, 200, { execution });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          const status = message === 'action_not_found' ? 404
+            : message.includes('conflict') || message.includes('reconciliation') ? 409 : 400;
           sendJson(res, status, { error: message });
         }
         return;
@@ -2562,6 +2641,8 @@ export async function startClusteredEnterpriseServer(
       attachmentStorage: infrastructure.attachmentStorage,
       publicUrl: options.publicUrl ?? process.env.CLAWMASTER_ENTERPRISE_PUBLIC_URL,
       licensePublicKeys: options.licensePublicKeys,
+      resolveCompanyOsActionConnector: options.resolveCompanyOsActionConnector,
+      authorizeCompanyOsActionExecution: options.authorizeCompanyOsActionExecution,
       smsSender:
         options.smsSender !== undefined
           ? options.smsSender

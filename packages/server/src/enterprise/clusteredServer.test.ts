@@ -262,6 +262,28 @@ function repository(
       actionId: 'action-1', title: '人工决策', status: 'approved' as const,
       evidenceEventIds: ['event-1'],
     })),
+    claimCompanyOsActionExecution: vi.fn(async (input) => ({
+      organizationId: input.organizationId, actionId: input.actionId,
+      provider: input.provider, idempotencyKey: `companyos:${input.organizationId}:${input.actionId}`,
+      status: 'running' as const, attempt: 1, fenceToken: 1,
+      ownerId: input.workerId, leaseExpiresAt: '2099-01-01T00:00:00.000Z',
+      action: {
+        id: input.actionId, organizationId: input.organizationId,
+        title: '核查价格', reason: '价格异常', status: 'queued' as const,
+        evidenceEventIds: ['event-1'],
+      },
+    })),
+    finishCompanyOsActionExecution: vi.fn(async (input) => ({
+      organizationId: input.claim.organizationId,
+      actionId: input.claim.actionId,
+      provider: input.claim.provider,
+      idempotencyKey: input.claim.idempotencyKey,
+      status: input.result.outcome === 'committed' ? 'executed' as const : 'unknown_outcome' as const,
+      attempt: 1, fenceToken: 1,
+      ...(input.result.outcome === 'committed'
+        ? { providerReceiptId: input.result.receiptId, resultSummary: input.result.summary }
+        : { lastError: input.result.error }),
+    })),
   } as unknown as PostgresEnterpriseCoreRepository;
 }
 
@@ -402,6 +424,58 @@ describe('clustered PostgreSQL enterprise server', () => {
         'data_governance_v1',
       ]),
     });
+  });
+
+  it('executes a clustered CompanyOS action only through an approved connector', async () => {
+    const repo = repository();
+    const connector = {
+      provider: 'owl',
+      execute: vi.fn(async () => ({
+        outcome: 'committed' as const, receiptId: 'receipt-1', summary: 'accepted',
+      })),
+    };
+    const { baseUrl } = await listen(repo, {
+      resolveCompanyOsActionConnector: (provider) => provider === 'owl' ? connector : undefined,
+      authorizeCompanyOsActionExecution: () => true,
+    });
+    const response = await fetch(`${baseUrl}/enterprise/companyos/actions/action-1/execute`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer clustered-session-token',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ provider: 'owl' }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      execution: { status: 'executed', providerReceiptId: 'receipt-1' },
+    });
+    expect(repo.claimCompanyOsActionExecution).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: 'org_default', actionId: 'action-1', provider: 'owl',
+      }),
+    );
+    expect(connector.execute).toHaveBeenCalledWith(expect.objectContaining({
+      idempotencyKey: 'companyos:org_default:action-1',
+    }));
+    expect(repo.finishCompanyOsActionExecution).toHaveBeenCalledWith(
+      expect.objectContaining({ result: expect.objectContaining({ receiptId: 'receipt-1' }) }),
+    );
+  });
+
+  it('keeps clustered CompanyOS action execution unavailable by default', async () => {
+    const repo = repository();
+    const { baseUrl } = await listen(repo);
+    const response = await fetch(`${baseUrl}/enterprise/companyos/actions/action-1/execute`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer clustered-session-token',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ provider: 'owl' }),
+    });
+    expect(response.status).toBe(503);
+    expect(repo.claimCompanyOsActionExecution).not.toHaveBeenCalled();
   });
 
   it('serves password login and session lookup from the async repository', async () => {

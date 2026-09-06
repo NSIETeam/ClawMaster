@@ -11,6 +11,10 @@ import type {
   CanonicalEvent,
   CompanyOsTask,
 } from './index.js';
+import type {
+  ActionConnectorResult,
+  ActionExecutionRecord,
+} from './actionExecution.js';
 import { operatingFactKey } from './operatingFactIdentity.js';
 
 interface EventRow extends Record<string, unknown> {
@@ -31,6 +35,28 @@ interface EventRow extends Record<string, unknown> {
 interface ClaimRow extends EventRow {
   fence_token: number | string;
   lease_expires_at: Date | string;
+}
+
+interface ActionExecutionRow extends Record<string, unknown> {
+  organization_id: string;
+  action_id: string;
+  provider: string;
+  idempotency_key: string;
+  operation_fingerprint: string;
+  status: ActionExecutionRecord['status'];
+  attempt: number | string;
+  owner_id: string | null;
+  fence_token: number | string;
+  lease_expires_at: Date | string | null;
+  provider_receipt_id: string | null;
+  result_summary: string | null;
+  last_error: string | null;
+}
+
+export interface PostgresCompanyOsActionClaim extends ActionExecutionRecord {
+  action: Action;
+  ownerId?: string;
+  leaseExpiresAt?: string;
 }
 
 export interface PostgresCompanyOsEventClaim {
@@ -100,6 +126,25 @@ function eventFromRow(row: EventRow): CanonicalEvent {
     causationId: row.causation_id ?? undefined,
     idempotencyKey: row.idempotency_key,
   };
+}
+
+function actionExecutionFromRow(row: ActionExecutionRow): ActionExecutionRecord {
+  return {
+    organizationId: row.organization_id,
+    actionId: row.action_id,
+    provider: row.provider,
+    idempotencyKey: row.idempotency_key,
+    status: row.status,
+    attempt: Number(row.attempt),
+    fenceToken: Number(row.fence_token),
+    ...(row.provider_receipt_id ? { providerReceiptId: row.provider_receipt_id } : {}),
+    ...(row.result_summary ? { resultSummary: row.result_summary } : {}),
+    ...(row.last_error ? { lastError: row.last_error } : {}),
+  };
+}
+
+function boundedError(value: string): string {
+  return value.replace(/Bearer\s+\S+/giu, 'Bearer [REDACTED]').slice(0, 500);
 }
 
 async function transaction<T>(
@@ -538,6 +583,161 @@ export function createPostgresCompanyOsRepository(input: {
     });
   }
 
+  async function claimCompanyOsActionExecution(raw: {
+    organizationId: string;
+    actionId: string;
+    provider: string;
+    workerId: string;
+    leaseDurationMs?: number;
+  }): Promise<PostgresCompanyOsActionClaim> {
+    const organizationId = required(raw.organizationId, 'organization_id');
+    const actionId = required(raw.actionId, 'action_id');
+    const provider = required(raw.provider, 'provider');
+    const workerId = required(raw.workerId, 'worker_id');
+    const leaseDurationMs = raw.leaseDurationMs ?? 60_000;
+    if (!Number.isSafeInteger(leaseDurationMs) || leaseDurationMs < 1_000 || leaseDurationMs > 600_000) {
+      throw new Error('invalid_action_lease_duration');
+    }
+    return transaction(input.pool, async (client) => {
+      const selected = await client.query<Record<string, unknown>>(
+        `SELECT action.action_id, action.organization_id, action.title, action.reason,
+                action.status AS action_status, action.evidence_event_ids,
+                execution.provider, execution.idempotency_key,
+                execution.operation_fingerprint, execution.status,
+                execution.attempt, execution.owner_id, execution.fence_token,
+                execution.lease_expires_at, execution.provider_receipt_id,
+                execution.result_summary, execution.last_error
+           FROM companyos_actions action
+           LEFT JOIN companyos_action_executions execution
+             ON execution.organization_id = action.organization_id
+            AND execution.action_id = action.action_id
+          WHERE action.organization_id = $1 AND action.action_id = $2
+          FOR UPDATE OF action`,
+        [organizationId, actionId],
+      );
+      const row = selected.rows[0];
+      if (!row) throw new Error('action_not_found');
+      const action: Action = {
+        id: String(row.action_id), organizationId: String(row.organization_id),
+        title: String(row.title), reason: String(row.reason),
+        status: row.action_status as Action['status'],
+        evidenceEventIds: json(row.evidence_event_ids) as string[],
+      };
+      const idempotencyKey = `companyos:${organizationId}:${actionId}`;
+      const operationFingerprint = createHash('sha256').update(JSON.stringify([
+        organizationId, actionId, action.title, action.reason, provider,
+      ])).digest('hex');
+      if (row.idempotency_key) {
+        if (row.provider !== provider || row.operation_fingerprint !== operationFingerprint) {
+          throw new Error('action_execution_conflict');
+        }
+        const execution = actionExecutionFromRow(row as unknown as ActionExecutionRow);
+        const leaseExpired = execution.status === 'running'
+          && new Date(String(row.lease_expires_at)).getTime() <= now().getTime();
+        if (leaseExpired) {
+          const at = now().toISOString();
+          await client.query(
+            `UPDATE companyos_action_executions
+                SET status = 'unknown_outcome', owner_id = NULL,
+                    lease_expires_at = NULL,
+                    last_error = 'worker lease expired before completion',
+                    result_summary = 'execution lease expired; reconcile before retry',
+                    updated_at = $3::timestamptz
+              WHERE organization_id = $1 AND action_id = $2 AND status = 'running'`,
+            [organizationId, actionId, at],
+          );
+          await projectPostgresActionOutcome(client, action, 'unknown_outcome', at);
+          return { ...execution, status: 'unknown_outcome',
+            lastError: 'worker lease expired before completion', action };
+        }
+        return { ...execution, action };
+      }
+      if (action.status !== 'queued') throw new Error('action_not_approved');
+      const claimedAt = now();
+      const leaseExpiresAt = new Date(claimedAt.getTime() + leaseDurationMs).toISOString();
+      const inserted = await client.query<ActionExecutionRow>(
+        `INSERT INTO companyos_action_executions
+          (organization_id, action_id, provider, idempotency_key,
+           operation_fingerprint, status, attempt, owner_id, fence_token,
+           lease_expires_at, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'running', 1, $6, 1,
+                 $7::timestamptz, $8::timestamptz, $8::timestamptz)
+         RETURNING *`,
+        [organizationId, actionId, provider, idempotencyKey,
+          operationFingerprint, workerId, leaseExpiresAt, claimedAt.toISOString()],
+      );
+      return { ...actionExecutionFromRow(inserted.rows[0]!), action,
+        ownerId: workerId, leaseExpiresAt };
+    });
+  }
+
+  async function finishCompanyOsActionExecution(raw: {
+    claim: PostgresCompanyOsActionClaim;
+    result: ActionConnectorResult;
+    reconciliation?: boolean;
+  }): Promise<ActionExecutionRecord> {
+    const { claim, result } = raw;
+    const status: ActionExecutionRecord['status'] = result.outcome === 'committed'
+      ? 'executed' : result.outcome === 'rejected' ? 'failed' : 'unknown_outcome';
+    return transaction(input.pool, async (client) => {
+      const at = now().toISOString();
+      const expectedStatus = raw.reconciliation ? 'unknown_outcome' : 'running';
+      const updated = await client.query<ActionExecutionRow>(
+        `UPDATE companyos_action_executions
+            SET status = $5, owner_id = NULL, lease_expires_at = NULL,
+                provider_receipt_id = $6, result_summary = $7,
+                last_error = $8, updated_at = $9::timestamptz
+          WHERE organization_id = $1 AND action_id = $2 AND provider = $3
+            AND status = $4
+            AND ($4 = 'unknown_outcome' OR (
+              owner_id = $10 AND fence_token = $11
+              AND lease_expires_at > $9::timestamptz
+            ))
+          RETURNING *`,
+        [claim.organizationId, claim.actionId, claim.provider, expectedStatus, status,
+          result.outcome === 'committed' ? required(result.receiptId, 'provider_receipt_id') : null,
+          result.outcome === 'committed' ? result.summary.slice(0, 500) : null,
+          result.outcome === 'committed' ? null : boundedError(result.error),
+          at, claim.ownerId ?? null, claim.fenceToken],
+      );
+      if (!updated.rows[0]) throw new Error('action_execution_lease_lost');
+      await projectPostgresActionOutcome(client, claim.action, status, at);
+      return actionExecutionFromRow(updated.rows[0]);
+    });
+  }
+
+  async function projectPostgresActionOutcome(
+    client: PostgresClientLike,
+    action: Action,
+    status: Exclude<ActionExecutionRecord['status'], 'running'>,
+    at: string,
+  ): Promise<void> {
+    await client.query(
+      `UPDATE companyos_actions SET status = $3, updated_at = $4::timestamptz
+        WHERE organization_id = $1 AND action_id = $2`,
+      [action.organizationId, action.id, status, at],
+    );
+    if (status === 'executed') {
+      await client.query(
+        `UPDATE companyos_tasks SET status = 'completed', updated_at = $3::timestamptz
+          WHERE organization_id = $1 AND action_id = $2 AND status = 'approved'`,
+        [action.organizationId, action.id, at],
+      );
+    }
+    const auditAction = `watchdog.action.${status}`;
+    const auditId = `audit-${createHash('sha256')
+      .update(`${action.id}\0${auditAction}`).digest('hex').slice(0, 24)}`;
+    await client.query(
+      `INSERT INTO companyos_audit
+        (audit_id, organization_id, action_id, action, status, actor,
+         evidence_event_ids, created_at)
+       VALUES ($1, $2, $3, $4, $5, 'brand-ceo-agent', $6::jsonb, $7::timestamptz)
+       ON CONFLICT (organization_id, action_id, action) DO NOTHING`,
+      [auditId, action.organizationId, action.id, auditAction, status,
+        JSON.stringify(action.evidenceEventIds), at],
+    );
+  }
+
   return {
     publishCompanyOsEvent,
     claimNextCompanyOsEvent,
@@ -548,6 +748,8 @@ export function createPostgresCompanyOsRepository(input: {
     listCompanyOsTasks,
     listCompanyOsAudit,
     decideCompanyOsTask,
+    claimCompanyOsActionExecution,
+    finishCompanyOsActionExecution,
   };
 }
 

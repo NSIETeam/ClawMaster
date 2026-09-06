@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import type {
   PostgresClientLike,
@@ -235,5 +236,133 @@ describe('PostgreSQL CompanyOS authority', () => {
     expect(sql).toContain('INSERT INTO companyos_audit');
     expect(sql).toContain("'human'");
     expect(query.mock.calls.at(-1)![0]).toBe('COMMIT');
+  });
+
+  it('claims only an approved PostgreSQL action with a durable lease and idempotency key', async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('FROM companyos_actions action')) return result([{
+        action_id: 'action-1', organization_id: 'org-1', title: '核查价格',
+        reason: '价格异常', action_status: 'queued', evidence_event_ids: ['event-1'],
+        provider: null, idempotency_key: null,
+      }]);
+      if (sql.includes('INSERT INTO companyos_action_executions')) return result([{
+        organization_id: 'org-1', action_id: 'action-1', provider: 'owl',
+        idempotency_key: 'companyos:org-1:action-1', operation_fingerprint: 'a'.repeat(64),
+        status: 'running', attempt: 1, owner_id: 'worker-1', fence_token: 1,
+        lease_expires_at: '2026-09-06T03:01:00.000Z', provider_receipt_id: null,
+        result_summary: null, last_error: null,
+      }]);
+      return result([]);
+    });
+    const client = { query, release: vi.fn() } as unknown as PostgresClientLike;
+    const repository = createPostgresCompanyOsRepository({
+      pool: { connect: vi.fn(async () => client) } as unknown as PostgresPoolLike,
+      now: () => new Date('2026-09-06T03:00:00.000Z'),
+    });
+    await expect(repository.claimCompanyOsActionExecution({
+      organizationId: 'org-1', actionId: 'action-1', provider: 'owl',
+      workerId: 'worker-1', leaseDurationMs: 60_000,
+    })).resolves.toMatchObject({
+      actionId: 'action-1', status: 'running', ownerId: 'worker-1',
+      idempotencyKey: 'companyos:org-1:action-1',
+    });
+    const sql = query.mock.calls.map((call) => call[0]).join('\n');
+    expect(sql).toContain('FOR UPDATE OF action');
+    expect(sql).toContain('INSERT INTO companyos_action_executions');
+    expect(query.mock.calls.at(-1)![0]).toBe('COMMIT');
+  });
+
+  it('commits a provider receipt only for the current PostgreSQL action fence', async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('UPDATE companyos_action_executions')) return result([{
+        organization_id: 'org-1', action_id: 'action-1', provider: 'owl',
+        idempotency_key: 'companyos:org-1:action-1', operation_fingerprint: 'a'.repeat(64),
+        status: 'executed', attempt: 1, owner_id: null, fence_token: 1,
+        lease_expires_at: null, provider_receipt_id: 'receipt-1',
+        result_summary: 'accepted', last_error: null,
+      }]);
+      return result([]);
+    });
+    const client = { query, release: vi.fn() } as unknown as PostgresClientLike;
+    const repository = createPostgresCompanyOsRepository({
+      pool: { connect: vi.fn(async () => client) } as unknown as PostgresPoolLike,
+      now: () => new Date('2026-09-06T03:00:30.000Z'),
+    });
+    const action = {
+      id: 'action-1', organizationId: 'org-1', title: '核查价格', reason: '价格异常',
+      status: 'queued' as const, evidenceEventIds: ['event-1'],
+    };
+    await expect(repository.finishCompanyOsActionExecution({
+      claim: {
+        action, organizationId: 'org-1', actionId: 'action-1', provider: 'owl',
+        idempotencyKey: 'companyos:org-1:action-1', status: 'running', attempt: 1,
+        fenceToken: 1, ownerId: 'worker-1', leaseExpiresAt: '2026-09-06T03:01:00.000Z',
+      },
+      result: { outcome: 'committed', receiptId: 'receipt-1', summary: 'accepted' },
+    })).resolves.toMatchObject({ status: 'executed', providerReceiptId: 'receipt-1' });
+    const sql = query.mock.calls.map((call) => call[0]).join('\n');
+    expect(sql).toContain('owner_id = $10 AND fence_token = $11');
+    expect(sql).toContain('lease_expires_at > $9::timestamptz');
+    expect(sql).toContain("UPDATE companyos_tasks SET status = 'completed'");
+    expect(sql).toContain('INSERT INTO companyos_audit');
+    expect(query.mock.calls.at(-1)![0]).toBe('COMMIT');
+  });
+
+  it('turns an expired PostgreSQL action lease into unknown outcome without replay', async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('FROM companyos_actions action')) return result([{
+        action_id: 'action-1', organization_id: 'org-1', title: '核查价格',
+        reason: '价格异常', action_status: 'queued', evidence_event_ids: ['event-1'],
+        provider: 'owl', idempotency_key: 'companyos:org-1:action-1',
+        operation_fingerprint: createHash('sha256').update(JSON.stringify([
+          'org-1', 'action-1', '核查价格', '价格异常', 'owl',
+        ])).digest('hex'),
+        status: 'running', attempt: 1, owner_id: 'worker-dead', fence_token: 1,
+        lease_expires_at: '2026-09-06T02:59:00.000Z', provider_receipt_id: null,
+        result_summary: null, last_error: null,
+      }]);
+      return result([]);
+    });
+    const client = { query, release: vi.fn() } as unknown as PostgresClientLike;
+    const repository = createPostgresCompanyOsRepository({
+      pool: { connect: vi.fn(async () => client) } as unknown as PostgresPoolLike,
+      now: () => new Date('2026-09-06T03:00:00.000Z'),
+    });
+    await expect(repository.claimCompanyOsActionExecution({
+      organizationId: 'org-1', actionId: 'action-1', provider: 'owl',
+      workerId: 'worker-new',
+    })).resolves.toMatchObject({
+      status: 'unknown_outcome', lastError: 'worker lease expired before completion',
+    });
+    const sql = query.mock.calls.map((call) => call[0]).join('\n');
+    expect(sql).toContain("SET status = 'unknown_outcome'");
+    expect(sql).not.toContain('INSERT INTO companyos_action_executions');
+    expect(query.mock.calls.some((call) => (
+      Array.isArray(call[1]) && call[1].includes('watchdog.action.unknown_outcome')
+    ))).toBe(true);
+  });
+
+  it('rolls back a late PostgreSQL action worker that lost its fence', async () => {
+    const query = vi.fn(async () => result([]));
+    const client = { query, release: vi.fn() } as unknown as PostgresClientLike;
+    const repository = createPostgresCompanyOsRepository({
+      pool: { connect: vi.fn(async () => client) } as unknown as PostgresPoolLike,
+      now: () => new Date('2026-09-06T03:00:30.000Z'),
+    });
+    await expect(repository.finishCompanyOsActionExecution({
+      claim: {
+        action: {
+          id: 'action-1', organizationId: 'org-1', title: '核查价格',
+          reason: '价格异常', status: 'queued', evidenceEventIds: ['event-1'],
+        },
+        organizationId: 'org-1', actionId: 'action-1', provider: 'owl',
+        idempotencyKey: 'companyos:org-1:action-1', status: 'running', attempt: 1,
+        fenceToken: 1, ownerId: 'worker-late', leaseExpiresAt: '2026-09-06T03:00:00.000Z',
+      },
+      result: { outcome: 'committed', receiptId: 'late-receipt', summary: 'late' },
+    })).rejects.toThrow('action_execution_lease_lost');
+    expect(query.mock.calls.map((call) => call[0])).toEqual([
+      'BEGIN', expect.stringContaining('UPDATE companyos_action_executions'), 'ROLLBACK',
+    ]);
   });
 });
