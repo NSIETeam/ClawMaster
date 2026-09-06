@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use url::Url;
 
+const MAX_PROBE_OUTPUT_BYTES: usize = 4 * 1024;
+
 #[derive(Clone)]
 pub struct Candidate {
     pub id: &'static str,
@@ -90,6 +92,35 @@ pub fn select(id: Option<&str>) -> Result<Candidate, String> {
         .ok_or_else(|| "未找到受支持的系统 Chrome 或 Edge，请先安装浏览器".into())
 }
 
+pub fn probe_webdriver(id: &str) -> Result<String, String> {
+    let candidate = candidates()
+        .into_iter()
+        .find(|candidate| candidate.id == id && candidate.webdriver_contract)
+        .ok_or_else(|| format!("未知系统 WebDriver adapter: {id}"))?;
+    if !candidate.executable.is_file() {
+        return Err(format!("系统 WebDriver {id} 未安装"));
+    }
+    let output = Command::new(&candidate.executable)
+        .arg("--version")
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|error| format!("无法探测系统 WebDriver {id}: {error}"))?;
+    if !output.status.success() {
+        return Err(format!("系统 WebDriver {id} 契约探针失败"));
+    }
+    let bytes = if output.stdout.is_empty() {
+        &output.stderr
+    } else {
+        &output.stdout
+    };
+    let bounded = &bytes[..bytes.len().min(MAX_PROBE_OUTPUT_BYTES)];
+    let version = String::from_utf8_lossy(bounded).trim().to_string();
+    if version.is_empty() {
+        return Err(format!("系统 WebDriver {id} 未返回版本"));
+    }
+    Ok(version)
+}
+
 pub fn validate_navigation_url(value: &str) -> Result<(), String> {
     let url = Url::parse(value).map_err(|_| "RPA URL 无效".to_string())?;
     let loopback = url
@@ -141,5 +172,12 @@ mod tests {
         assert!(validate_navigation_url("https://example.com/path").is_ok());
         assert!(validate_navigation_url("http://example.com/path").is_err());
         assert!(validate_navigation_url("https://user:secret@example.com/").is_err());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn safari_webdriver_contract_reports_the_system_version() {
+        let version = probe_webdriver("safari-webdriver").unwrap();
+        assert!(version.contains("Safari"));
     }
 }

@@ -27,6 +27,13 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
             parameters: json!({"type":"object","properties":{},"additionalProperties":false}),
         },
         ModelToolDefinition {
+            name: "rpa_webdriver_probe".into(),
+            description: "Run a bounded read-only version contract probe against an installed system WebDriver adapter such as Safari WebDriver.".into(),
+            parameters: json!({"type":"object","properties":{
+                "adapter":{"type":"string","enum":["safari-webdriver"]}
+            },"required":["adapter"],"additionalProperties":false}),
+        },
+        ModelToolDefinition {
             name: "rpa_start".into(),
             description: "Start a visible system Chrome or Edge window with a ClawMaster-owned tenant/platform-isolated profile. Requires approval.".into(),
             parameters: json!({"type":"object","properties":{
@@ -100,6 +107,7 @@ pub fn contains(name: &str) -> bool {
     matches!(
         name,
         "rpa_browser_support"
+            | "rpa_webdriver_probe"
             | "rpa_start"
             | "rpa_windows"
             | "rpa_snapshot"
@@ -113,7 +121,10 @@ pub fn contains(name: &str) -> bool {
 }
 
 pub fn is_write(name: &str) -> bool {
-    !matches!(name, "rpa_browser_support" | "rpa_status")
+    !matches!(
+        name,
+        "rpa_browser_support" | "rpa_webdriver_probe" | "rpa_status"
+    )
 }
 
 pub fn approval_summary(call: &ModelToolCall) -> String {
@@ -660,6 +671,10 @@ impl NativeRpa {
             "rpa_browser_support" => {
                 serde_json::to_value(self.browser_support()).map_err(|error| error.to_string())
             }
+            "rpa_webdriver_probe" => Ok(json!({
+                "adapter":text("adapter")?,
+                "version":browser::probe_webdriver(text("adapter")?)?
+            })),
             "rpa_start" => serde_json::to_value(self.launch(
                 text("runId")?,
                 text("tenantId")?,
