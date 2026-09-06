@@ -237,7 +237,10 @@ impl ModelInvocationGateway {
     #[cfg(test)]
     fn with_ledger(credentials: Arc<dyn CredentialStore>, ledger: Arc<dyn UsageLedger>) -> Self {
         Self {
-            client: Client::new(),
+            client: Client::builder()
+                .no_proxy()
+                .build()
+                .expect("test HTTP client"),
             credentials,
             ledger,
         }
