@@ -634,19 +634,27 @@ impl NativeRpa {
         }
     }
 
-    pub fn cancel(&self, run_id: &str) -> Result<RpaRun, String> {
+    pub fn cancel(&self, run_id: &str, approval_id: Option<&str>) -> Result<RpaRun, String> {
         let mut run = self.required_run(run_id)?;
-        if let Some(mut child) = self
-            .owned_browsers
-            .lock()
-            .map_err(|_| "RPA owned browser 锁已损坏".to_string())?
-            .remove(run_id)
-        {
-            let _ = child.terminate();
+        if approval_id.is_none() {
+            return self.reject_step(
+                run,
+                "cancel",
+                "browser.cancel",
+                "owned browser session",
+                "取消 owned browser 缺少 approval binding",
+            );
         }
-        if let Some(current) = run.current_step_id.as_deref() {
-            if let Some(receipt) = run.receipts.iter_mut().find(|item| item.step_id == current) {
+        let mut had_unknown_outcome = false;
+        if let Some(current) = run.current_step_id.take() {
+            if let Some(receipt) = run
+                .receipts
+                .iter_mut()
+                .rev()
+                .find(|item| item.step_id == current && item.state == RpaStepState::Started)
+            {
                 receipt.state = if receipt.external_side_effect {
+                    had_unknown_outcome = true;
                     RpaStepState::UnknownOutcome
                 } else {
                     RpaStepState::Failed
@@ -655,10 +663,32 @@ impl NativeRpa {
                 receipt.completed_at = Some(now_ms());
             }
         }
-        run.state = if run
-            .receipts
-            .last()
-            .is_some_and(|receipt| receipt.state == RpaStepState::UnknownOutcome)
+        let receipt_index = self.start_step(
+            &mut run,
+            "cancel",
+            "browser.cancel",
+            "owned browser session",
+            true,
+            approval_id,
+        )?;
+        if let Some(mut child) = self
+            .owned_browsers
+            .lock()
+            .map_err(|_| "RPA owned browser 锁已损坏".to_string())?
+            .remove(run_id)
+        {
+            if let Err(error) = child.terminate() {
+                fail_receipt(&mut run, receipt_index, &error, true);
+                self.save(&run)?;
+                return Err(error);
+            }
+        }
+        complete_receipt(&mut run, receipt_index, None);
+        run.state = if had_unknown_outcome
+            || run
+                .receipts
+                .iter()
+                .any(|receipt| receipt.state == RpaStepState::UnknownOutcome)
         {
             RpaRunState::UnknownOutcome
         } else {
@@ -832,7 +862,7 @@ impl NativeRpa {
             )
             .map_err(|error| error.to_string()),
             "rpa_status" => Ok(json!({"run":self.get(text("runId")?)?})),
-            "rpa_cancel" => serde_json::to_value(self.cancel(text("runId")?)?)
+            "rpa_cancel" => serde_json::to_value(self.cancel(text("runId")?, approval_id)?)
                 .map_err(|error| error.to_string()),
             _ => Err("未知 RPA 工具".into()),
         }
@@ -1182,6 +1212,62 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use std::thread;
+
+    struct AcceptancePage {
+        url: String,
+        stop: Arc<AtomicBool>,
+        worker: Option<thread::JoinHandle<()>>,
+    }
+
+    impl AcceptancePage {
+        fn start() -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let address = listener.local_addr().unwrap();
+            let stop = Arc::new(AtomicBool::new(false));
+            let worker_stop = Arc::clone(&stop);
+            let worker = thread::spawn(move || {
+                let body = br#"<!doctype html><html><head><title>ClawMaster RPA Acceptance</title></head><body><main><h1>ClawMaster RPA Acceptance</h1><button onclick="this.textContent='ClawMaster RPA clicked'">Run ClawMaster RPA click</button></main></body></html>"#;
+                while !worker_stop.load(Ordering::Acquire) {
+                    match listener.accept() {
+                        Ok((mut stream, _)) => {
+                            let mut request = [0_u8; 2048];
+                            let _ = stream.read(&mut request);
+                            let header = format!(
+                                "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                                body.len()
+                            );
+                            let _ = stream.write_all(header.as_bytes());
+                            let _ = stream.write_all(body);
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            thread::sleep(Duration::from_millis(20));
+                        }
+                        Err(_) => break,
+                    }
+                }
+            });
+            Self {
+                url: format!("http://{address}/"),
+                stop,
+                worker: Some(worker),
+            }
+        }
+    }
+
+    impl Drop for AcceptancePage {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::Release);
+            if let Some(worker) = self.worker.take() {
+                let _ = worker.join();
+            }
+        }
+    }
 
     fn controller() -> (tempfile::TempDir, NativeRpa) {
         let root = tempfile::tempdir().unwrap();
@@ -1293,6 +1379,31 @@ mod tests {
     }
 
     #[test]
+    fn cancel_requires_approval_and_records_the_terminal_receipt() {
+        let (_root, controller) = controller();
+        let mut current = run("cancel-approval", false);
+        current.current_step_id = None;
+        current.receipts.clear();
+        controller.save(&current).unwrap();
+
+        let rejected = controller.cancel("cancel-approval", None).unwrap();
+        assert_eq!(rejected.state, RpaRunState::Running);
+        assert_eq!(
+            rejected.receipts.last().unwrap().state,
+            RpaStepState::Rejected
+        );
+
+        let cancelled = controller
+            .cancel("cancel-approval", Some("approval-cancel"))
+            .unwrap();
+        assert_eq!(cancelled.state, RpaRunState::Cancelled);
+        let receipt = cancelled.receipts.last().unwrap();
+        assert_eq!(receipt.action, "browser.cancel");
+        assert_eq!(receipt.state, RpaStepState::Succeeded);
+        assert_eq!(receipt.approval_id.as_deref(), Some("approval-cancel"));
+    }
+
+    #[test]
     fn uncertain_native_input_failure_is_persisted_and_returned_as_error() {
         let (_root, controller) = controller();
         let mut current = run("input-failure", true);
@@ -1391,5 +1502,141 @@ mod tests {
             persisted.receipts.last().unwrap().state,
             RpaStepState::Failed
         );
+    }
+
+    #[tokio::test]
+    #[ignore = "requires explicit opt-in, an installed Chrome/Edge, desktop accessibility, and screen-capture permission"]
+    async fn completes_real_browser_click_with_encrypted_semantic_receipts() {
+        assert_eq!(
+            std::env::var("CLAWMASTER_REAL_RPA_SMOKE").as_deref(),
+            Ok("1"),
+            "set CLAWMASTER_REAL_RPA_SMOKE=1 only on an authorized acceptance host"
+        );
+        let page = AcceptancePage::start();
+        let (_root, controller) = controller();
+        let browser = std::env::var("CLAWMASTER_REAL_RPA_BROWSER")
+            .ok()
+            .or_else(|| {
+                controller
+                    .browser_support()
+                    .into_iter()
+                    .find(|candidate| candidate.installed && !candidate.webdriver_contract)
+                    .map(|candidate| candidate.id)
+            })
+            .expect("install Chrome or Edge before running the real RPA smoke");
+        controller
+            .launch(
+                "real-browser-click",
+                "release-acceptance",
+                "loopback",
+                Some(&browser),
+                &page.url,
+            )
+            .expect("launch isolated owned browser");
+
+        let deadline = Instant::now() + Duration::from_secs(20);
+        let (windows, window_ref) = loop {
+            let attempt = now_ms();
+            let windows = controller
+                .windows("real-browser-click", &format!("windows-{attempt}"))
+                .expect("read bounded system windows");
+            let value = serde_json::to_value(&windows.inventory).unwrap();
+            let selected = value["windows"].as_array().and_then(|entries| {
+                entries.iter().find(|entry| {
+                    entry["title"]
+                        .as_str()
+                        .is_some_and(|title| title.contains("ClawMaster RPA Acceptance"))
+                })
+            });
+            if let Some(selected) = selected {
+                break (windows, selected["ref"].as_str().unwrap().to_string());
+            }
+            assert!(
+                Instant::now() < deadline,
+                "owned browser window did not appear"
+            );
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        };
+
+        let snapshot = controller
+            .snapshot(
+                "real-browser-click",
+                "snapshot-before-click",
+                &windows.artifact.sha256,
+                &window_ref,
+            )
+            .expect("capture encrypted semantic snapshot");
+        let element_ref = snapshot.snapshot["elements"]
+            .as_array()
+            .and_then(|elements| {
+                elements.iter().find(|element| {
+                    element["name"]
+                        .as_str()
+                        .is_some_and(|name| name.contains("Run ClawMaster RPA click"))
+                })
+            })
+            .and_then(|element| element["ref"].as_str())
+            .expect("find the bounded button element")
+            .to_string();
+        let clicked = controller
+            .click(
+                "real-browser-click",
+                "approved-click",
+                &snapshot.artifact.sha256,
+                &element_ref,
+                "loopback acceptance button",
+                Some("approval-real-rpa-smoke"),
+                true,
+            )
+            .expect("perform approved physical mouse click");
+        assert_eq!(
+            clicked.receipts.last().unwrap().approval_id.as_deref(),
+            Some("approval-real-rpa-smoke")
+        );
+
+        let (_cancel_sender, cancel_receiver) = watch::channel(false);
+        let changed = controller
+            .wait(
+                "real-browser-click",
+                "wait-click-result",
+                &windows.artifact.sha256,
+                &window_ref,
+                "ClawMaster RPA clicked",
+                10_000,
+                cancel_receiver,
+            )
+            .await
+            .expect("observe the click result through a fresh semantic snapshot");
+        let screenshot = controller
+            .screenshot(
+                "real-browser-click",
+                "screenshot-click-result",
+                &windows.artifact.sha256,
+                &window_ref,
+            )
+            .expect("capture encrypted screenshot evidence");
+        let cancelled = controller
+            .cancel("real-browser-click", Some("approval-real-rpa-cancel"))
+            .unwrap();
+        assert_eq!(cancelled.state, RpaRunState::Cancelled);
+        assert!(controller.owned_browsers.lock().unwrap().is_empty());
+
+        let evidence = json!({
+            "schemaVersion": 1,
+            "platform": std::env::consts::OS,
+            "architecture": std::env::consts::ARCH,
+            "browser": browser,
+            "windowRef": window_ref,
+            "elementRef": element_ref,
+            "semanticArtifact": changed.artifact.sha256,
+            "screenshotArtifact": screenshot.artifact.sha256,
+            "approvedClick": true,
+            "cancelled": true,
+            "receiptCount": cancelled.receipts.len()
+        });
+        println!("CLAWMASTER_REAL_RPA_EVIDENCE={evidence}");
+        if let Some(path) = std::env::var_os("CLAWMASTER_REAL_RPA_SMOKE_EVIDENCE") {
+            std::fs::write(path, serde_json::to_vec_pretty(&evidence).unwrap()).unwrap();
+        }
     }
 }

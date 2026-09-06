@@ -43,11 +43,39 @@ pending.
 
 ## Remaining release evidence
 
-Issue #15 must remain open until installed Windows x64 and macOS arm64 builds
+Release gate #21 remains open until installed Windows x64 and macOS ARM64 builds
 perform a visible real click, cancellation leaves no owned browser descendants,
 Safari passes its system WebDriver contract, and screenshots, approval, audit
-and receipts are demonstrated on one run. Fixture tests do not replace this
-installed evidence.
+and receipts are demonstrated on one run. Fixture and component tests do not
+replace this installed evidence.
+
+The Rust component path has an explicit opt-in smoke that starts a loopback-only
+test page in an installed Chrome or Edge profile, discovers the browser through
+bounded `@wN` references, captures an encrypted semantic snapshot, resolves a
+button through `@eN`, performs an approval-bound physical click, waits for the
+result through a fresh snapshot, stores an encrypted screenshot, and cancels
+the owned browser:
+
+```bash
+CLAWMASTER_REAL_RPA_SMOKE=1 \
+  cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib \
+  completes_real_browser_click_with_encrypted_semantic_receipts \
+  -- --ignored --nocapture
+```
+
+Set `CLAWMASTER_REAL_RPA_BROWSER=chrome` or `edge` to select an adapter. Set
+`CLAWMASTER_REAL_RPA_SMOKE_EVIDENCE` to write the secret-free JSON receipt to a
+chosen path. The test stays ignored by default because it requires an installed
+browser plus explicit desktop Accessibility and screen-capture authorization.
+The production cancellation path now requires an approval binding, writes a
+terminal `browser.cancel` receipt, waits for the owned process-tree leader after
+issuing termination, and persists `unknown_outcome` instead of claiming success
+if termination cannot be confirmed.
+
+On the 2026-09-07 macOS acceptance host, the opt-in smoke stopped before any
+desktop input because neither Chrome nor Edge was installed. That is truthful
+environment evidence, not a passed click test and not a reason to substitute
+Playwright or a bundled browser.
 
 The macOS process-tree regression launches a parent and background child and
 confirms both PIDs disappear through the production termination path. The

@@ -19,9 +19,21 @@ pub struct OwnedBrowser {
 
 impl OwnedBrowser {
     pub fn terminate(&mut self) -> Result<(), String> {
+        if self
+            .child
+            .try_wait()
+            .map_err(|error| format!("检查 owned browser 进程树失败: {error}"))?
+            .is_some()
+        {
+            return Ok(());
+        }
         self.child
             .kill()
-            .map_err(|error| format!("终止 owned browser 进程树失败: {error}"))
+            .map_err(|error| format!("终止 owned browser 进程树失败: {error}"))?;
+        self.child
+            .wait()
+            .map(|_| ())
+            .map_err(|error| format!("等待 owned browser 进程树退出失败: {error}"))
     }
 
     #[cfg(all(test, unix))]
@@ -37,7 +49,7 @@ impl OwnedBrowser {
 
 impl Drop for OwnedBrowser {
     fn drop(&mut self) {
-        let _ = self.child.kill();
+        let _ = self.terminate();
     }
 }
 
