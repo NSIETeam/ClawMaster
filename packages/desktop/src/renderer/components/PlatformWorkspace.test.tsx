@@ -12,6 +12,7 @@ describe('PlatformWorkspace', () => {
   const platformWebviewClose = vi.fn(async () => undefined);
 
   beforeEach(() => {
+    window.localStorage.clear();
     openExternal.mockClear();
     platformWebviewOpen.mockClear();
     platformWebviewSetBounds.mockClear();
@@ -42,22 +43,24 @@ describe('PlatformWorkspace', () => {
     await waitFor(() => expect(platformWebviewOpen).toHaveBeenCalledWith(
       'https://47.116.30.60/',
       { x: 640, y: 80, width: 600, height: 680 },
-      false,
+      true,
     ));
     expect(openExternal).not.toHaveBeenCalled();
     expect(screen.getByText(/加密连接已建立/u)).toBeTruthy();
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
-  it('persists the per-platform remember-password preference and passes it to the webview', async () => {
+  it('defaults to keeping the per-platform login and persists an explicit opt-out', async () => {
     Object.assign(window.clawmaster, { platformWebviewOpen, platformWebviewClose });
     render(<PlatformWorkspace target={{ id: 'zhiliaohou', label: '知了猴', url: 'https://example.com/' }} />);
-    fireEvent.click(screen.getByRole('checkbox', { name: /保持登录/u }));
-    expect(window.localStorage.getItem('clawmaster.platform.zhiliaohou.remember-login')).toBe('true');
+    const checkbox = screen.getByRole('checkbox', { name: /保持登录/u }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+    fireEvent.click(checkbox);
+    expect(window.localStorage.getItem('clawmaster.platform.zhiliaohou.remember-login')).toBe('false');
     await waitFor(() => expect(platformWebviewOpen).toHaveBeenCalledWith(
       'https://example.com/',
       { x: 640, y: 80, width: 600, height: 680 },
-      true,
+      false,
     ));
   });
 

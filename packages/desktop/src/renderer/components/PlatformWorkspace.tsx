@@ -22,7 +22,9 @@ export function PlatformWorkspace({
   onClose?: () => void;
 }): React.JSX.Element {
   const [configuredUrl, setConfiguredUrl] = useState(target.url ?? '');
-  const [rememberLogin, setRememberLogin] = useState(() => window.localStorage.getItem(rememberLoginKey(target.id)) === 'true');
+  // Keep login by default; users can explicitly opt out per platform. Only the
+  // platform WebView's own cookie jar is persisted—no plaintext password is stored.
+  const [rememberLogin, setRememberLogin] = useState(() => window.localStorage.getItem(rememberLoginKey(target.id)) !== 'false');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [browserState, setBrowserState] = useState<'idle' | 'loading' | 'embedded' | 'external' | 'failed'>('idle');
   const browserHostRef = useRef<HTMLDivElement>(null);
