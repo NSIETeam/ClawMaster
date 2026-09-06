@@ -34,5 +34,7 @@ describe('CompanyOS route authorization', () => {
     expect(isAdminRoute('/enterprise/companyos/actions')).toBe(false);
     expect(isMemberRoute('/enterprise/companyos/tasks')).toBe(true);
     expect(isAdminRoute('/enterprise/companyos/tasks')).toBe(false);
+    expect(isMemberRoute('/enterprise/companyos/connectors')).toBe(true);
+    expect(isAdminRoute('/enterprise/companyos/connectors')).toBe(false);
   });
 });

@@ -26,6 +26,7 @@
 - clustered server 挂载与本地模式同等的 CompanyOS 认证路由，组织范围来自 PostgreSQL 会话或管理员 principal。
 - 本地与集群模式都要求管理员显式批准或拒绝 Task；批准只把 Action 置为 `queued`，拒绝置为 `rejected`，重复同一决定幂等、冲突决定返回错误，并写入 human Audit。
 - `BusinessDataConnectorV1` 定义 capability/schema version、冲突策略、限流、HTTPS、opaque secretRef、readiness 和同步 cursor；猫头鹰/知了猴 descriptor 与 fixture 已加入，但 fixture 固定为 `fixture_only`，不能作为生产 ready 证据。
+- 本地与 clustered 成员可从 `/enterprise/companyos/connectors` 查看本组织 readiness；默认猫头鹰/知了猴 HTTP endpoint 明确返回 `blocked/insecure_endpoint`，响应不暴露 endpoint 或 secretRef。
 - 覆盖租户隔离、重复/冲突事件、缺成本、价格/GMV 异常和持久化重放的确定性测试。
 
 本地交付提交：`9002108a` 恢复原 PR #19 纵切，`932a3641` 补齐上述租户与幂等完整性门禁。

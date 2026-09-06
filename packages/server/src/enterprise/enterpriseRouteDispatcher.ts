@@ -41,6 +41,7 @@ import { handleSimpleParkCompatibilityRoute } from './simpleParkCompatibilityRou
 import { handleTicketRoute } from './ticketRoutes.js';
 import { handleWorkspaceRoute } from './workspaceRoutes.js';
 import type { RepairNotificationSender } from '../modules/integration_adapters/index.js';
+import { listBuiltInBusinessConnectorReadiness } from '../modules/integration_adapters/index.js';
 
 export type AdminPrincipal =
   | { kind: 'system'; organizationId: string }
@@ -209,6 +210,9 @@ export async function dispatchEnterpriseRoute({
       memberAccount,
       adminPrincipal,
       store: { db: db.getDB, now: Date.now },
+      listConnectorReadiness: (organizationId) => (
+        listBuiltInBusinessConnectorReadiness({ organizationId })
+      ),
       readBody,
       sendJSON,
     })

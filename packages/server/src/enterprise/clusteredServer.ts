@@ -41,6 +41,7 @@ import {
   resolveEnterprisePublicBaseUrl,
 } from '../modules/identity_organization/index.js';
 import { createCanonicalEvent } from '../modules/company_os/index.js';
+import { listBuiltInBusinessConnectorReadiness } from '../modules/integration_adapters/index.js';
 import {
   buildNodePostgresPoolConfig,
   ciphertextSha256,
@@ -781,6 +782,17 @@ export function createClusteredEnterpriseServer(
         if (!account) return;
         sendJson(res, 200, {
           tasks: await repository.listCompanyOsTasks(account.organizationId),
+        });
+        return;
+      }
+
+      if (path === '/enterprise/companyos/connectors' && method === 'GET') {
+        const account = await requireMember(repository, req, res, options.sharedState);
+        if (!account) return;
+        sendJson(res, 200, {
+          connectors: await listBuiltInBusinessConnectorReadiness({
+            organizationId: account.organizationId,
+          }),
         });
         return;
       }

@@ -28,6 +28,11 @@ opaque `secretRef`、cursor 和 limit，输出包含 canonical events、nextCurs
 `blocked/insecure_endpoint`。完成真实接入还需要平台侧 HTTPS、API schema、租户授权、只存于
 secret provider 的凭据、限流参数，以及同步游标和失败恢复的 live evidence。
 
+成员可通过 `GET /enterprise/companyos/connectors` 查看自己组织的内置连接器状态。本地 SQLite
+服务与 clustered PostgreSQL 服务共享同一个 readiness 工厂；默认启用两个 descriptor，但已知
+HTTP endpoint 会在 secret provider 或 adapter probe 之前被阻断。响应不返回 endpoint 或
+secretRef，避免状态页成为凭据和内部拓扑泄露面。
+
 ## 验收边界
 
 fixture 用于验证去重、分页、租户隔离和 Watchdog 投影，不替代生产证据。真实验收必须记录

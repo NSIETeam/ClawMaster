@@ -345,6 +345,17 @@ describe('clustered PostgreSQL enterprise server', () => {
     expect(tasks.status).toBe(200);
     expect(repo.listCompanyOsTasks).toHaveBeenCalledWith('org_default');
 
+    const connectors = await fetch(`${baseUrl}/enterprise/companyos/connectors`, {
+      headers: { authorization: 'Bearer peer-session-token' },
+    });
+    expect(connectors.status).toBe(200);
+    expect(await connectors.json()).toMatchObject({
+      connectors: [
+        { connectorId: 'owl-pricing-v1', state: 'blocked', reason: 'insecure_endpoint' },
+        { connectorId: 'zhilemon-commerce-v1', state: 'blocked', reason: 'insecure_endpoint' },
+      ],
+    });
+
     const denied = await fetch(`${baseUrl}/enterprise/companyos/audit`, {
       headers: { authorization: 'Bearer peer-session-token' },
     });

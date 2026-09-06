@@ -11,3 +11,4 @@ export * from './channelTaskControl.js';
 export * from './integrationAdaptersComposition.js';
 export * from './repairNotificationSenders.js';
 export * from './businessDataConnector.js';
+export * from './builtInBusinessConnectors.js';

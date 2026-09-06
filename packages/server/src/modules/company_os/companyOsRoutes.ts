@@ -18,6 +18,7 @@ export interface CompanyOsRouteInput {
   memberAccount: AccountView | null;
   adminPrincipal: AdminPrincipal | null;
   store: CompanyOsEventStore;
+  listConnectorReadiness(organizationId: string): Promise<unknown[]>;
   readBody(req: IncomingMessage, maxLength?: number): Promise<Record<string, unknown>>;
   sendJSON(res: ServerResponse, status: number, data: unknown): void;
 }
@@ -115,6 +116,18 @@ export async function handleCompanyOsRoute(input: CompanyOsRouteInput): Promise<
       return true;
     }
     input.sendJSON(input.res, 200, { actions: watchdog.listActions(organizationId) });
+    return true;
+  }
+
+  if (input.path === '/enterprise/companyos/connectors' && input.method === 'GET') {
+    const organizationId = readableOrganization(input);
+    if (!organizationId) {
+      input.sendJSON(input.res, 401, { error: 'CompanyOS 账号会话无效' });
+      return true;
+    }
+    input.sendJSON(input.res, 200, {
+      connectors: await input.listConnectorReadiness(organizationId),
+    });
     return true;
   }
 

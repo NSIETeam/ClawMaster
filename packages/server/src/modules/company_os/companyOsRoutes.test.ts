@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Database } from '../data_platform/index.js';
 import { COMPANY_OS_SCHEMA_CONTRIBUTOR } from './companyOsSchema.js';
 import { handleCompanyOsRoute } from './companyOsRoutes.js';
@@ -11,6 +11,7 @@ function harness(input: {
   body?: Record<string, unknown>;
   memberOrganizationId?: string;
   adminOrganizationId?: string;
+  connectorReadiness?: unknown[];
 }) {
   const database = new Database(':memory:');
   databases.push(database);
@@ -32,6 +33,7 @@ function harness(input: {
     store: { db: () => database, now: () => Date.parse('2026-09-06T02:00:00.000Z') },
     readBody: async () => input.body ?? {},
     sendJSON: (_res: never, status: number, data: unknown) => responses.push({ status, data }),
+    listConnectorReadiness: vi.fn(async () => input.connectorReadiness ?? []),
   };
   return { deps, responses, database };
 }
@@ -180,6 +182,20 @@ describe('CompanyOS authenticated routes', () => {
     expect(await handleCompanyOsRoute(admin.deps)).toBe(true);
     expect(admin.responses).toEqual([{
       status: 200, data: { task: expect.objectContaining({ id: 't1', status: 'approved' }) },
+    }]);
+  });
+
+  it('shows connector readiness only for the signed-in tenant', async () => {
+    const { deps, responses } = harness({
+      path: '/enterprise/companyos/connectors', method: 'GET',
+      memberOrganizationId: 'org-1',
+      connectorReadiness: [{ connectorId: 'owl-pricing-v1', state: 'blocked' }],
+    });
+    expect(await handleCompanyOsRoute(deps)).toBe(true);
+    expect(deps.listConnectorReadiness).toHaveBeenCalledWith('org-1');
+    expect(responses).toEqual([{
+      status: 200,
+      data: { connectors: [{ connectorId: 'owl-pricing-v1', state: 'blocked' }] },
     }]);
   });
 });
