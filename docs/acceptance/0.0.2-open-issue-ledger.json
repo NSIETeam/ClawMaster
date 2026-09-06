@@ -16,99 +16,222 @@
       "number": 1,
       "status": "implemented_needs_evidence",
       "closable": false,
-      "evidence": ["Tauri v2 is the production build path", "Windows x64 and macOS ARM64 are the only release targets", "The macOS ARM64 DMG passed checksum, bundle-integrity, isolated-copy, launch, and clean-exit checks at candidate 4b0c39bd"],
-      "remaining": ["Complete installed capability-parity evidence", "Replace the ad-hoc macOS signature with Developer ID signing, notarization, and stapling", "Retire Electron compatibility code only after parity is proven"]
+      "evidence": [
+        "Tauri v2 is the production build path",
+        "Windows x64 and macOS ARM64 are the only release targets",
+        "The macOS ARM64 DMG passed checksum, bundle-integrity, isolated-copy, launch, and clean-exit checks at candidate 4b0c39bd"
+      ],
+      "remaining": [
+        "Complete installed capability-parity evidence",
+        "Replace the ad-hoc macOS signature with Developer ID signing, notarization, and stapling",
+        "Retire Electron compatibility code only after parity is proven"
+      ]
     },
     {
       "number": 2,
       "status": "in_progress",
       "closable": false,
-      "evidence": ["67c190e3 removes the unreachable renderer review panel instead of preserving fake GUI evidence", "The native self-modification control plane stores bounded requests and audit history in encrypted NativeStateStore, enforces idempotent creation, cross-platform path safety, strict transitions, approval roles, actor attribution, and terminal replay rejection; the full Rust suite passes 199 tests with zero failures and three explicit opt-in skips", "The typed Tauri bridge exposes only list, create, approve, reject, and cancel; unavailable prepare, verify, and activation operations still fail explicitly rather than falling back to Electron"],
-      "remaining": ["Implement native isolated worktree preparation and structured verification", "Prove isolated candidate startup and secret isolation", "Implement and prove drain, checkpoint, fencing, unknown-outcome reconciliation, signed atomic activation, observation, and automatic rollback", "Build a reachable native GUI review surface for diffs, permissions, tests, resources, cost, activation, and rollback", "Run required installed negative and 24/72-hour idle tests before retiring the Electron comparison implementation"]
+      "evidence": [
+        "67c190e3 removes the unreachable renderer review panel instead of preserving fake GUI evidence",
+        "The native self-modification control plane stores bounded requests and audit history in encrypted NativeStateStore, enforces idempotent creation, cross-platform path safety, strict transitions, approval roles, actor attribution, and terminal replay rejection; the full Rust suite passes 199 tests with zero failures and three explicit opt-in skips",
+        "The typed Tauri bridge exposes only list, create, approve, reject, and cancel; unavailable prepare, verify, and activation operations still fail explicitly rather than falling back to Electron"
+      ],
+      "remaining": [
+        "Implement native isolated worktree preparation and structured verification",
+        "Prove isolated candidate startup and secret isolation",
+        "Implement and prove drain, checkpoint, fencing, unknown-outcome reconciliation, signed atomic activation, observation, and automatic rollback",
+        "Build a reachable native GUI review surface for diffs, permissions, tests, resources, cost, activation, and rollback",
+        "Run required installed negative and 24/72-hour idle tests before retiring the Electron comparison implementation"
+      ]
     },
     {
       "number": 3,
       "status": "release_last",
       "closable": false,
       "evidence": [],
-      "remaining": ["Close R01 through R12", "Complete installed model, RPA, channel, platform, capability-package, signing, rollback, and artifact evidence", "Close only after all child acceptance is complete"]
+      "remaining": [
+        "Close R01 through R12",
+        "Complete installed model, RPA, channel, platform, capability-package, signing, rollback, and artifact evidence",
+        "Close only after all child acceptance is complete"
+      ]
     },
     {
       "number": 4,
       "status": "implemented_needs_evidence",
       "closable": false,
       "evidence": ["c45fcb28 safe user directory overlays"],
-      "remaining": ["Repeat first-start and restart checks on Windows and macOS installed apps", "Prove junction and symlink escape rejection on each platform", "Verify beta directories remain byte-identical"]
+      "remaining": [
+        "Repeat first-start and restart checks on Windows and macOS installed apps",
+        "Prove junction and symlink escape rejection on each platform",
+        "Verify beta directories remain byte-identical"
+      ]
     },
     {
       "number": 6,
       "status": "implemented_needs_evidence",
       "closable": false,
-      "evidence": ["51809802 native Rust lifecycle kernel", "Runtime contract and NativeStateStore integration tests"],
-      "remaining": ["Complete crash-recovery and idempotent external-write installed acceptance", "Prove no fixed echo or fake model path in the final package", "Verify user-visible approval, cancellation, recovery, and audit on both platforms"]
+      "evidence": [
+        "51809802 native Rust lifecycle kernel",
+        "Runtime contract and NativeStateStore integration tests"
+      ],
+      "remaining": [
+        "Complete crash-recovery and idempotent external-write installed acceptance",
+        "Prove no fixed echo or fake model path in the final package",
+        "Verify user-visible approval, cancellation, recovery, and audit on both platforms"
+      ]
     },
     {
       "number": 8,
       "status": "blocked_external",
       "closable": false,
-      "evidence": ["Three normalized streaming adapters", "System credential store integration", "Shared HTTPS client, proxy validation, cancellation, retry, and UsageLedger tests"],
-      "remaining": ["Rotate the previously exposed provider key", "Enter the replacement key through the installed app so it reaches only the OS credential store", "Complete first-token and full-response smoke from the final installed package"]
+      "evidence": [
+        "Three normalized streaming adapters",
+        "System credential store integration",
+        "Shared HTTPS client, proxy validation, cancellation, retry, and UsageLedger tests"
+      ],
+      "remaining": [
+        "Rotate the previously exposed provider key",
+        "Enter the replacement key through the installed app so it reaches only the OS credential store",
+        "Complete first-token and full-response smoke from the final installed package"
+      ]
     },
     {
       "number": 10,
       "status": "in_progress",
       "closable": false,
-      "evidence": ["7698691e removed a redundant candidate timer", "3b265b2f reduced Windows output to NSIS only", "Rust ResourceGovernor test runs 8 agents through 500 lease cycles each and requires zero remaining agents, queue entries, workers, or loaded implementations", "Synthetic JavaScript allocation diagnostics are explicitly excluded from release evidence", "macOS candidate 4b0c39bd produced a verified 5.30 MiB DMG and 12.54 MiB app; the installed process used 20,944 KiB RSS and 1.1% CPU at 34 seconds, had zero children, and exited without an orphan"],
-      "remaining": ["Run the same task set against the beta baseline and report success and token deltas", "Measure installed-process RSS growth while 8 agents run 500 turns", "Produce equivalent installed CPU, memory, startup, size, signing, and top-component evidence on Windows x64", "Delete legacy production paths only after parity evidence exists"]
+      "evidence": [
+        "7698691e removed a redundant candidate timer",
+        "3b265b2f reduced Windows output to NSIS only",
+        "Rust ResourceGovernor test runs 8 agents through 500 lease cycles each and requires zero remaining agents, queue entries, workers, or loaded implementations",
+        "Synthetic JavaScript allocation diagnostics are explicitly excluded from release evidence",
+        "macOS candidate 4b0c39bd produced a verified 5.30 MiB DMG and 12.54 MiB app; the installed process used 20,944 KiB RSS and 1.1% CPU at 34 seconds, had zero children, and exited without an orphan"
+      ],
+      "remaining": [
+        "Run the same task set against the beta baseline and report success and token deltas",
+        "Measure installed-process RSS growth while 8 agents run 500 turns",
+        "Produce equivalent installed CPU, memory, startup, size, signing, and top-component evidence on Windows x64",
+        "Delete legacy production paths only after parity evidence exists"
+      ]
     },
     {
       "number": 11,
       "status": "implemented_needs_evidence",
       "closable": false,
-      "evidence": ["bce9ab6c bounded native context memory", "The 2026-09-06 full Rust suite ran the frozen 50K Recall@5, Precision@5, cold/warm latency gate, forget, supersede, replay, and 10,000-query scope-isolation checks as part of 195 passing tests with zero failures and three explicit opt-in skips"],
-      "remaining": ["Run the fixed 61ce7eb8 baseline and candidate against the same successful installed-provider task corpus", "Publish median input-token reduction and task-success deltas, requiring at least 40 percent fewer median input tokens and no more than a two-point success-rate decrease; share this one real-provider run with Issue 8"]
+      "evidence": [
+        "bce9ab6c bounded native context memory",
+        "The 2026-09-06 full Rust suite ran the frozen 50K Recall@5, Precision@5, cold/warm latency gate, forget, supersede, replay, and 10,000-query scope-isolation checks as part of 195 passing tests with zero failures and three explicit opt-in skips"
+      ],
+      "remaining": [
+        "Run the fixed 61ce7eb8 baseline and candidate against the same successful installed-provider task corpus",
+        "Publish median input-token reduction and task-success deltas, requiring at least 40 percent fewer median input tokens and no more than a two-point success-rate decrease; share this one real-provider run with Issue 8"
+      ]
     },
     {
       "number": 12,
       "status": "blocked_external",
       "closable": false,
-      "evidence": ["d45fab29 isolated tenant browser sessions", "c73f8e37 added event-driven native channel status"],
-      "remaining": ["Provide valid HTTPS endpoints for all five products", "Complete real Feishu and WeCom tenant authorization, inbound, reply, dedupe, restart, and failure recovery", "Complete all five installed platform login and business paths without claiming page load as readiness"]
+      "evidence": [
+        "d45fab29 isolated tenant browser sessions",
+        "c73f8e37 added event-driven native channel status"
+      ],
+      "remaining": [
+        "Provide valid HTTPS endpoints for all five products",
+        "Complete real Feishu and WeCom tenant authorization, inbound, reply, dedupe, restart, and failure recovery",
+        "Complete all five installed platform login and business paths without claiming page load as readiness"
+      ]
     },
     {
       "number": 13,
       "status": "release_last",
       "closable": false,
       "evidence": ["a07b11aa blocks every tag while any issue remains open"],
-      "remaining": ["Complete and close every other issue first", "Pass Windows Authenticode and macOS Developer ID, hardened runtime, notarization, and staple checks", "Repeat clean install, upgrade, rollback, uninstall, and user-data preservation acceptance", "Generate checksums, SBOM, license inventory, provenance, size ledger, and installed acceptance report", "Publish only after this issue is accepted and closed"]
+      "remaining": [
+        "Complete and close every other issue first",
+        "Pass Windows Authenticode and macOS Developer ID, hardened runtime, notarization, and staple checks",
+        "Repeat clean install, upgrade, rollback, uninstall, and user-data preservation acceptance",
+        "Generate checksums, SBOM, license inventory, provenance, size ledger, and installed acceptance report",
+        "Publish only after this issue is accepted and closed"
+      ]
     },
     {
       "number": 14,
       "status": "implemented_needs_evidence",
       "closable": false,
-      "evidence": ["a29a76c2 signed capability host", "a6546dc2 makes capability install, restart reconciliation, path isolation, immutable versions, and verified rollback crash-safe", "a9266756 exposes the compiled trust-root count and visibly marks Office, OCR, speech, video, and complex analysis unavailable when no trusted first-party key is present", "5d7136c3 adds a user-selected manifest plus WASM flow that verifies the signed plan before rendering source, size, permissions, dependencies, and replacement impact, then requires separate confirmation before Rust revalidates and installs; renderer build, UI tests, typecheck, doctor, code-map, and the 195/0/3 Rust suite pass"],
-      "remaining": ["Provision the production first-party trust root and install a real signed first-party capability package through the final app", "Verify installed size, worker RSS reclamation, cancellation, crash, rollback, and no-silent-download behavior on Windows x64 and macOS ARM64", "Verify an unavailable heavy capability remains visibly unavailable in the final installed packages"]
+      "evidence": [
+        "a29a76c2 signed capability host",
+        "a6546dc2 makes capability install, restart reconciliation, path isolation, immutable versions, and verified rollback crash-safe",
+        "a9266756 exposes the compiled trust-root count and visibly marks Office, OCR, speech, video, and complex analysis unavailable when no trusted first-party key is present",
+        "5d7136c3 adds a user-selected manifest plus WASM flow that verifies the signed plan before rendering source, size, permissions, dependencies, and replacement impact, then requires separate confirmation before Rust revalidates and installs; renderer build, UI tests, typecheck, doctor, code-map, and the 195/0/3 Rust suite pass"
+      ],
+      "remaining": [
+        "Provision the production first-party trust root and install a real signed first-party capability package through the final app",
+        "Verify installed size, worker RSS reclamation, cancellation, crash, rollback, and no-silent-download behavior on Windows x64 and macOS ARM64",
+        "Verify an unavailable heavy capability remains visibly unavailable in the final installed packages"
+      ]
     },
     {
       "number": 15,
       "status": "implemented_needs_evidence",
       "closable": false,
-      "evidence": ["986d2de1 NativeRpa", "b2650acb exact browser window targeting", "10c0c9d0 process-tree ownership", "b15f67a6 cancellation-aware semantic wait", "34ebe3cf keeps rejected runs recoverable, rejects symlinked profile paths, returns native input failures, and preserves unknown_outcome after external dispatch; the macOS Rust suite passes 195 tests with zero failures and three explicit opt-in skips"],
-      "remaining": ["Run a real installed system-browser mouse click on Windows and macOS", "Capture matching encrypted snapshot, approval, audit, receipt, checkpoint, and recovery evidence", "Prove cancellation and crash leave no orphan browser or driver", "Run the Windows compile and behavioral path on a host with MSVC and the Windows SDK; the macOS cross-check stops in aws-lc-sys because windows.h is unavailable", "Retire Playwright release evidence only after native parity is proven"]
+      "evidence": [
+        "986d2de1 NativeRpa",
+        "b2650acb exact browser window targeting",
+        "10c0c9d0 process-tree ownership",
+        "b15f67a6 cancellation-aware semantic wait",
+        "34ebe3cf keeps rejected runs recoverable, rejects symlinked profile paths, returns native input failures, and preserves unknown_outcome after external dispatch; the macOS Rust suite passes 195 tests with zero failures and three explicit opt-in skips"
+      ],
+      "remaining": [
+        "Run a real installed system-browser mouse click on Windows and macOS",
+        "Capture matching encrypted snapshot, approval, audit, receipt, checkpoint, and recovery evidence",
+        "Prove cancellation and crash leave no orphan browser or driver",
+        "Run the Windows compile and behavioral path on a host with MSVC and the Windows SDK; the macOS cross-check stops in aws-lc-sys because windows.h is unavailable",
+        "Retire Playwright release evidence only after native parity is proven"
+      ]
     },
     {
       "number": 16,
       "status": "in_progress",
       "closable": false,
-      "evidence": ["CompanyOS specification and partial existing domain/runtime implementations"],
-      "remaining": ["Complete C00-C15, R00-R18, and E00-E07 without substituting names or UI for behavior", "Complete real Twenty, Frappe, Google, Microsoft, GitHub, Stripe, research, banking, manufacturing, and collaboration paths", "Complete installed multi-tenant, durability, migration, recovery, and provider evidence"]
+      "evidence": [
+        "CompanyOS specification and partial existing domain/runtime implementations"
+      ],
+      "remaining": [
+        "Complete C00-C15, R00-R18, and E00-E07 without substituting names or UI for behavior",
+        "Complete real Twenty, Frappe, Google, Microsoft, GitHub, Stripe, research, banking, manufacturing, and collaboration paths",
+        "Complete installed multi-tenant, durability, migration, recovery, and provider evidence"
+      ]
     },
     {
       "number": 17,
       "status": "in_progress",
       "closable": false,
-      "evidence": ["9002108a restores the deterministic P0 canonical contracts, Profit Engine, Watchdog, brief, action/task/audit slice from PR #19 into the current local delivery branch", "932a3641 rejects mixed-tenant profit aggregation and conflicting idempotency payloads, and scopes external event delivery IDs by organization; eight focused tests, server typecheck, module lint, and boundary validation pass", "The local enterprise schema 28 and PostgreSQL migrations 15-16 define durable tenant-scoped CompanyOS events, latest facts, receipts, claims, actions, decision tasks, and audit records", "Authenticated CompanyOS routes derive organization scope from the server principal, reject body tenant spoofing, persist idempotent Watchdog Action/Task/Audit projections, and keep administrator inspection scoped to that administrator's organization", "SQLite consumers atomically claim one event, reject concurrent workers while a lease is active, take over expired claims with a higher fence token, and prevent stale workers from acknowledging or committing Watchdog projections", "Watchdog creates exactly one evidence-linked pending_decision Task per Action and members can only list Tasks in their own organization", "The asynchronous PostgreSQL CompanyOS authority publishes canonical events, claims with FOR UPDATE SKIP LOCKED and increasing fence tokens, revalidates the lease in the projection transaction, and atomically persists Action/Task/Audit/Receipt; stale claims roll back and non-actionable facts create no projections", "Clustered PostgreSQL HTTP routes enforce administrator ingestion/inspection/audit and tenant-scoped member Action/Task reads without importing the SQLite dispatcher", "Local and PostgreSQL decision transactions require an administrator, bind the tenant to authenticated identity, make repeated identical decisions idempotent, reject conflicting decisions, move approved Actions only to queued, mark rejected Actions explicitly, and append human Audit evidence; 127 core tests and 23 clustered HTTP tests pass", "BusinessDataConnectorV1 now declares capabilities, canonical schema version, conflict policy, rate limits, HTTPS endpoint, opaque secretRef, readiness and durable cursor batches; owl-pricing-v1 and zhilemon-commerce-v1 descriptors plus fixture-only pagination are covered by 6 focused tests", "The known Owl and Zhilemon HTTP endpoints are explicitly documented as blocked/insecure_endpoint rather than production-ready, fixture sync requires an explicit test override, and readiness messages redact endpoint and secretRef values", "Authenticated members can read tenant-scoped connector readiness from both local and clustered /enterprise/companyos/connectors routes; the two built-in descriptors are enabled by default but report blocked/insecure_endpoint before any secret or provider probe, and responses expose neither endpoint nor secretRef", "Inventory, Cash, and Growth pure engines calculate integer-valued operating metrics, preserve source freshness and evidence references, reject mixed tenants/currencies and invalid negative inputs, and report missing, zero-denominator, or stale inputs as partial/risk instead of healthy; 12 focused tests pass", "Authenticated local SQLite and clustered PostgreSQL /enterprise/companyos/brief routes now read tenant-scoped persistent versioned facts and return JSON-safe Revenue, Margin, Inventory, Cash, and Growth metrics; latest-fact selection, missing-not-zero semantics, stale downgrade, malformed/currency-conflict isolation, evidence links, and bounded history are covered by 9 pure Brief tests, 9 local route tests, 8 repository tests, and 23 clustered HTTP tests", "987c1429 migrates password login, session restore, logout, and CompanyOS Brief into the final Tauri/Rust bridge; public HTTP and credential-bearing URLs are rejected, redirects are disabled, the bearer is isolated in a dedicated OS-keyring service, stale auth responses cannot overwrite newer sessions, 401 clears the session, and strict bounded Brief validation plus a real loopback HTTP flow pass in the 203/0/3 Rust suite", "ef513378 replaces Brief history scans with tenant-scoped durable latest-fact projections: SQLite event and projection writes are atomic with one-time versioned backfill, PostgreSQL migration 16 backfills by stable business identity, delayed facts cannot replace newer observations, equal-time writes use the event cursor, and tenant isolation is tested; the final committed server suite passes 215 files and 1499 tests"],
-      "remaining": ["Run migrations 15-16 and the repository against a real PostgreSQL instance, including concurrent replicas, lease expiry takeover, restart recovery, latest-fact backfill, and tenant isolation", "Connect queued Actions to real connector execution through policy/confirmation, durable receipts, unknown_outcome reconciliation, retry safety, and recovery", "Verify password login, session restoration, logout, and the operating Brief in the final installed CEO home on Windows x64 and macOS ARM64; source-level and loopback tests are not installed release evidence", "Implement forecast calibration and real Owl and Zhilemon API adapters after HTTPS endpoints, API schemas, tenant authorization and secret-provider credentials are available; record live readiness, cursor, limit and recovery evidence", "Validate profit, inventory, cash, growth, and at least one full action loop with a real Design Partner", "Record actual source, freshness, policy, tenant, and audit evidence"]
+      "evidence": [
+        "9002108a restores the deterministic P0 canonical contracts, Profit Engine, Watchdog, brief, action/task/audit slice from PR #19 into the current local delivery branch",
+        "932a3641 rejects mixed-tenant profit aggregation and conflicting idempotency payloads, and scopes external event delivery IDs by organization; eight focused tests, server typecheck, module lint, and boundary validation pass",
+        "The local enterprise schema 29 and PostgreSQL migrations 15-17 define durable tenant-scoped CompanyOS events, latest facts, receipts, claims, actions, decision tasks, audit records, and action execution receipts",
+        "Authenticated CompanyOS routes derive organization scope from the server principal, reject body tenant spoofing, persist idempotent Watchdog Action/Task/Audit projections, and keep administrator inspection scoped to that administrator's organization",
+        "SQLite consumers atomically claim one event, reject concurrent workers while a lease is active, take over expired claims with a higher fence token, and prevent stale workers from acknowledging or committing Watchdog projections",
+        "Watchdog creates exactly one evidence-linked pending_decision Task per Action and members can only list Tasks in their own organization",
+        "The asynchronous PostgreSQL CompanyOS authority publishes canonical events, claims with FOR UPDATE SKIP LOCKED and increasing fence tokens, revalidates the lease in the projection transaction, and atomically persists Action/Task/Audit/Receipt; stale claims roll back and non-actionable facts create no projections",
+        "Clustered PostgreSQL HTTP routes enforce administrator ingestion/inspection/audit and tenant-scoped member Action/Task reads without importing the SQLite dispatcher",
+        "Local and PostgreSQL decision transactions require an administrator, bind the tenant to authenticated identity, make repeated identical decisions idempotent, reject conflicting decisions, move approved Actions only to queued, mark rejected Actions explicitly, and append human Audit evidence; 127 core tests and 23 clustered HTTP tests pass",
+        "BusinessDataConnectorV1 now declares capabilities, canonical schema version, conflict policy, rate limits, HTTPS endpoint, opaque secretRef, readiness and durable cursor batches; owl-pricing-v1 and zhilemon-commerce-v1 descriptors plus fixture-only pagination are covered by 6 focused tests",
+        "The known Owl and Zhilemon HTTP endpoints are explicitly documented as blocked/insecure_endpoint rather than production-ready, fixture sync requires an explicit test override, and readiness messages redact endpoint and secretRef values",
+        "Authenticated members can read tenant-scoped connector readiness from both local and clustered /enterprise/companyos/connectors routes; the two built-in descriptors are enabled by default but report blocked/insecure_endpoint before any secret or provider probe, and responses expose neither endpoint nor secretRef",
+        "Inventory, Cash, and Growth pure engines calculate integer-valued operating metrics, preserve source freshness and evidence references, reject mixed tenants/currencies and invalid negative inputs, and report missing, zero-denominator, or stale inputs as partial/risk instead of healthy; 12 focused tests pass",
+        "Authenticated local SQLite and clustered PostgreSQL /enterprise/companyos/brief routes now read tenant-scoped persistent versioned facts and return JSON-safe Revenue, Margin, Inventory, Cash, and Growth metrics; latest-fact selection, missing-not-zero semantics, stale downgrade, malformed/currency-conflict isolation, evidence links, and bounded history are covered by 9 pure Brief tests, 9 local route tests, 8 repository tests, and 23 clustered HTTP tests",
+        "987c1429 migrates password login, session restore, logout, and CompanyOS Brief into the final Tauri/Rust bridge; public HTTP and credential-bearing URLs are rejected, redirects are disabled, the bearer is isolated in a dedicated OS-keyring service, stale auth responses cannot overwrite newer sessions, 401 clears the session, and strict bounded Brief validation plus a real loopback HTTP flow pass in the 203/0/3 Rust suite",
+        "ef513378 replaces Brief history scans with tenant-scoped durable latest-fact projections: SQLite event and projection writes are atomic with one-time versioned backfill, PostgreSQL migration 16 backfills by stable business identity, delayed facts cannot replace newer observations, equal-time writes use the event cursor, and tenant isolation is tested; the final committed server suite passes 215 files and 1499 tests",
+        "Local SQLite Action execution now requires administrator identity, prior human approval, runtime policy, and an injected connector; stable tenant-scoped idempotency, operation fingerprints, worker leases/fencing, provider receipts, redacted failures, no-blind-retry unknown_outcome, explicit reconciliation, and atomic Action/Task/Audit transitions are covered by focused route and repository tests; PostgreSQL migration 17 reserves the matching durable receipt schema; the post-change full server regression passes 215 test files and 1505 tests"
+      ],
+      "remaining": [
+        "Run migrations 15-17 and the repository against a real PostgreSQL instance, including concurrent replicas, lease expiry takeover, restart recovery, latest-fact backfill, tenant isolation, and Action execution receipts",
+        "Implement the PostgreSQL clustered Action execute/reconcile repository and route, then attach a real write-capable connector; the local fail-closed connector port and schema are not live-provider evidence",
+        "Verify password login, session restoration, logout, and the operating Brief in the final installed CEO home on Windows x64 and macOS ARM64; source-level and loopback tests are not installed release evidence",
+        "Implement forecast calibration and real Owl and Zhilemon API adapters after HTTPS endpoints, API schemas, tenant authorization and secret-provider credentials are available; record live readiness, cursor, limit and recovery evidence",
+        "Validate profit, inventory, cash, growth, and at least one full action loop with a real Design Partner",
+        "Record actual source, freshness, policy, tenant, and audit evidence"
+      ]
     }
   ]
 }

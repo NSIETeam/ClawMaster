@@ -190,6 +190,21 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(migration!.sql).toContain('FOREIGN KEY (event_cursor, organization_id)');
   });
 
+  it('installs durable CompanyOS action execution receipts', () => {
+    const migration = ENTERPRISE_POSTGRES_MIGRATIONS.find(
+      (candidate) => candidate.version === 17,
+    );
+    expect(migration).toMatchObject({
+      version: 17,
+      name: 'companyos-action-execution-receipts',
+    });
+    expect(migration!.sql).toContain('CREATE TABLE companyos_action_executions');
+    expect(migration!.sql).toContain("'unknown_outcome'");
+    expect(migration!.sql).toContain('provider_receipt_id TEXT');
+    expect(migration!.sql).toContain('fence_token BIGINT');
+    expect(migration!.sql).toContain('UNIQUE (organization_id, idempotency_key)');
+  });
+
   it('requires an exact policy hash before PostgreSQL reports current consent', async () => {
     const references = currentLegalDocumentReferences();
     const pool: PostgresPoolLike = {

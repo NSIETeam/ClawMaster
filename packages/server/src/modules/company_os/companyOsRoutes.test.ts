@@ -12,6 +12,12 @@ function harness(input: {
   memberOrganizationId?: string;
   adminOrganizationId?: string;
   connectorReadiness?: unknown[];
+  actionConnector?: {
+    provider: string;
+    execute: ReturnType<typeof vi.fn>;
+    reconcile?: ReturnType<typeof vi.fn>;
+  };
+  authorizeActionExecution?: boolean;
 }) {
   const database = new Database(':memory:');
   databases.push(database);
@@ -34,6 +40,10 @@ function harness(input: {
     readBody: async () => input.body ?? {},
     sendJSON: (_res: never, status: number, data: unknown) => responses.push({ status, data }),
     listConnectorReadiness: vi.fn(async () => input.connectorReadiness ?? []),
+    resolveActionConnector: (provider: string) => (
+      input.actionConnector?.provider === provider ? input.actionConnector : undefined
+    ),
+    authorizeActionExecution: () => input.authorizeActionExecution ?? false,
   };
   return { deps, responses, database };
 }
@@ -43,6 +53,48 @@ afterEach(() => {
 });
 
 describe('CompanyOS authenticated routes', () => {
+  it('fails closed when no approved action connector is installed', async () => {
+    const { deps, responses } = harness({
+      path: '/enterprise/companyos/actions/action-1/execute', method: 'POST',
+      adminOrganizationId: 'org-1', body: { provider: 'owl' },
+    });
+    await handleCompanyOsRoute(deps);
+    expect(responses).toEqual([{ status: 503, data: { error: 'action_connector_unavailable' } }]);
+  });
+
+  it('executes an approved action through the injected connector with a durable receipt', async () => {
+    const connector = {
+      provider: 'owl',
+      execute: vi.fn(async () => ({
+        outcome: 'committed' as const, receiptId: 'receipt-1', summary: 'accepted',
+      })),
+    };
+    const { deps, responses, database } = harness({
+      path: '/enterprise/companyos/actions/action-1/execute', method: 'POST',
+      adminOrganizationId: 'org-1', body: { provider: 'owl' },
+      actionConnector: connector, authorizeActionExecution: true,
+    });
+    database.prepare(
+      `INSERT INTO companyos_actions
+        (action_id, organization_id, source_event_id, title, reason, status,
+         evidence_event_ids_json, created_at_ms, updated_at_ms)
+       VALUES ('action-1', 'org-1', 'event-1', '核查价格', '价格异常', 'queued',
+               '["event-1"]', 1, 1)`,
+    ).run();
+    database.prepare(
+      `INSERT INTO companyos_tasks
+        (task_id, organization_id, action_id, title, status,
+         evidence_event_ids_json, created_at_ms, updated_at_ms)
+       VALUES ('task-1', 'org-1', 'action-1', '审批', 'approved', '["event-1"]', 1, 1)`,
+    ).run();
+    await handleCompanyOsRoute(deps);
+    expect(responses).toEqual([{ status: 200, data: { execution: expect.objectContaining({
+      status: 'executed', providerReceiptId: 'receipt-1',
+    }) } }]);
+    expect(connector.execute).toHaveBeenCalledWith(expect.objectContaining({
+      idempotencyKey: 'companyos:org-1:action-1',
+    }));
+  });
   it('rejects event ingestion without an administrator principal', async () => {
     const { deps, responses } = harness({
       path: '/enterprise/companyos/events', method: 'POST', memberOrganizationId: 'org-1',

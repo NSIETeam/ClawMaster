@@ -95,6 +95,29 @@ export const COMPANY_OS_SCHEMA_CONTRIBUTOR: DatabaseSchemaContributor = {
         FOREIGN KEY(action_id) REFERENCES companyos_actions(action_id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS companyos_action_executions (
+        organization_id TEXT NOT NULL,
+        action_id TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        idempotency_key TEXT NOT NULL,
+        operation_fingerprint TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN (
+          'running', 'executed', 'failed', 'unknown_outcome'
+        )),
+        attempt INTEGER NOT NULL CHECK(attempt > 0),
+        owner_id TEXT,
+        fence_token INTEGER NOT NULL CHECK(fence_token > 0),
+        lease_expires_at_ms INTEGER,
+        provider_receipt_id TEXT,
+        result_summary TEXT,
+        last_error TEXT,
+        created_at_ms INTEGER NOT NULL,
+        updated_at_ms INTEGER NOT NULL,
+        PRIMARY KEY(organization_id, action_id),
+        UNIQUE(organization_id, idempotency_key),
+        FOREIGN KEY(action_id) REFERENCES companyos_actions(action_id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS companyos_audit (
         audit_id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
@@ -122,6 +145,8 @@ export const COMPANY_OS_SCHEMA_CONTRIBUTOR: DatabaseSchemaContributor = {
         ON companyos_actions(organization_id, status, created_at_ms, action_id);
       CREATE INDEX IF NOT EXISTS idx_companyos_tasks_organization
         ON companyos_tasks(organization_id, status, created_at_ms, task_id);
+      CREATE INDEX IF NOT EXISTS idx_companyos_action_executions_lease
+        ON companyos_action_executions(status, lease_expires_at_ms);
     `);
   },
 };

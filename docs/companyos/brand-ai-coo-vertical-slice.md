@@ -7,7 +7,7 @@
 - `organizationId`、授权和现有 integration adapter 作为真实接入边界；本模块不复制账号/租户系统。
 - `InMemoryEventBus` 只用于纯领域测试；`DurableCompanyOsEventBus` 使用企业数据库中的事件与 consumer receipt 表，处理成功后才确认，重启后不会重复投影已确认事件。
 - `/enterprise/companyos/*` 路由复用企业账号与管理员 principal；组织范围只取服务端身份，不接受请求体覆盖。
-- `BrandWatchdog` 只产生有证据的建议，不执行外部副作用；执行必须接既有 policy/approval/workflow/audit 路径。
+- `BrandWatchdog` 只产生有证据的建议；`DurableCompanyOsActionExecutor` 只执行已人工批准且通过运行策略的 Action，并要求注入真实 connector。
 - Owl/知了猴的事件通过 `CanonicalEvent` 投影进入；未配置 connector 必须返回 unavailable/blocked，而不是成功。
 
 ## 已完成
@@ -18,13 +18,15 @@
 - Watchdog `event → recommendation → evidence-linked action → audit`。
 - CEO Brief 的 Revenue/Margin、风险、机会、建议/执行/待决策分栏。
 - Profit Engine 拒绝混租户输入，事件消费键包含 organizationId，避免相同外部事件 ID 跨租户碰撞。
-- SQLite schema 27 与 PostgreSQL migration 15 都包含组织级事件唯一键、持久 consumer receipt 和带递增 fence token 的 consumer claim/lease 数据契约；失败处理不会提前确认。
+- SQLite schema 29 与 PostgreSQL migrations 15-17 包含组织级事件、最新事实、consumer receipt、claim/lease 和 Action execution receipt 数据契约。
 - SQLite 持久化 Watchdog Action/Task/Audit 投影，Task 只进入 `pending_decision`，事务提交后的重放依靠稳定 ID 和唯一约束保持幂等。
 - SQLite consumer 原子领取单条事件；活跃租约阻止并发 worker 重复处理，过期租约允许更高 fence token 接管，旧 worker 不能再确认或提交 Watchdog 投影。
 - 认证 HTTP 路由支持事件写入、租户级 Watchdog 检查、Action/Task 查询和管理员 Audit 查询；管理员触发检查不会处理其他租户事件。
 - 集群模式使用独立异步 PostgreSQL authority，不回退 SQLite；通过 `FOR UPDATE OF event SKIP LOCKED` 领取事件，并在独立事务内重新校验 owner/fence/租约后原子写入 Action/Task/Audit/Receipt。
 - clustered server 挂载与本地模式同等的 CompanyOS 认证路由，组织范围来自 PostgreSQL 会话或管理员 principal。
 - 本地与集群模式都要求管理员显式批准或拒绝 Task；批准只把 Action 置为 `queued`，拒绝置为 `rejected`，重复同一决定幂等、冲突决定返回错误，并写入 human Audit。
+- 本地认证路由提供显式 Action execute/reconcile 边界：管理员、人工批准、运行策略和已安装 connector 缺一不可；provider 明确回执才标记 executed，异常或租约过期进入 `unknown_outcome` 并停止自动重放，显式 reconcile 后才可完成。
+- Action execution 以租户和 Action 派生稳定幂等键，持久保存 provider、操作指纹、worker/fence/lease、脱敏错误和 provider receipt；成功时同一事务完成 Action、Task 与 Audit 投影。
 - `BusinessDataConnectorV1` 定义 capability/schema version、冲突策略、限流、HTTPS、opaque secretRef、readiness 和同步 cursor；猫头鹰/知了猴 descriptor 与 fixture 已加入，但 fixture 固定为 `fixture_only`，不能作为生产 ready 证据。
 - 本地与 clustered 成员可从 `/enterprise/companyos/connectors` 查看本组织 readiness；默认猫头鹰/知了猴 HTTP endpoint 明确返回 `blocked/insecure_endpoint`，响应不暴露 endpoint 或 secretRef。
 - Inventory Engine 以整数单位和单位成本计算库存金额及 28 日覆盖天数；缺成本、缺需求或有库存但零需求时返回 partial，不把未知周转包装成正常。
@@ -41,9 +43,9 @@
 ## 未完成与下一步
 
 - 在真实 PostgreSQL 实例执行 migration、并发多副本 claim/超时接管与重启恢复验收；当前 mock SQL 测试不替代真实集群证据。
-- 猫头鹰/知了猴真实 API adapter、HTTPS、租户授权、secret provider 与 live readiness/sync cursor，以及 queued Action 到真实外部动作的 policy/confirmation、执行回执、`unknown_outcome` 对账与恢复。
+- 将 PostgreSQL migration 17 接入 clustered Action execute/reconcile repository 与路由，并在真实多副本环境验证 Action lease/fencing/receipt/reconcile；当前 SQLite 路径和 PostgreSQL schema 不能替代该证据。
+- 猫头鹰/知了猴真实 API adapter、HTTPS、租户授权、secret provider 与 live readiness/sync cursor；在这些外部条件完成前，执行路由保持 connector unavailable，不能伪装成功。
 - 将经营简报接入 Tauri/Rust 企业认证通道并完成最终安装包用户路径；当前 Electron compatibility main/preload 桥不等于 Tauri 发布验收。
-- 用持久 projection 替代 10,000 条事件查询上限。
 - 预测校准、真实猫头鹰/知了猴 OAuth/API 连接。
 - Desktop 首页与真实 Design Partner 验收；当前 fixture 和纯领域测试不替代 live/production 证据。
 - 下一阶段应在真实 PostgreSQL 上验收异步 repository，再把 action 执行接到 policy/approval/workflow/audit 的真实持久路径。

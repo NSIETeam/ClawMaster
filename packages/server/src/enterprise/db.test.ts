@@ -170,7 +170,7 @@ describe('旧账号会话迁移', () => {
     const db = await freshDb();
     expect(db.getDatabaseReadiness()).toEqual({
       ready: true,
-      schemaVersion: 28,
+      schemaVersion: 29,
     });
     const sessionColumns = db
       .getDB()
@@ -209,7 +209,7 @@ describe('数据库 readiness', () => {
     const db = await freshDb();
     expect(db.getDatabaseReadiness()).toEqual({
       ready: true,
-      schemaVersion: 28,
+      schemaVersion: 29,
     });
     const projectionTables = db.getDB().prepare(
       `SELECT name FROM sqlite_master
@@ -264,7 +264,7 @@ describe('数据库 readiness', () => {
     const reopened: DbModule = await import('./db.js');
     expect(reopened.getDatabaseReadiness()).toEqual({
       ready: true,
-      schemaVersion: 28,
+      schemaVersion: 29,
     });
     const tableSql = (
       reopened
@@ -335,7 +335,7 @@ describe('数据库 readiness', () => {
     try {
       expect(reopened.getDatabaseReadiness()).toEqual({
         ready: true,
-        schemaVersion: 28,
+        schemaVersion: 29,
       });
       const migrated = reopened.getTicketForAccount(
         legacyTicket.id,
@@ -415,7 +415,7 @@ describe('数据库 readiness', () => {
     try {
       expect(reopened.getDatabaseReadiness()).toEqual({
         ready: true,
-        schemaVersion: 28,
+        schemaVersion: 29,
       });
       const organizationColumns = reopened
         .getDB()
@@ -562,12 +562,12 @@ describe('数据库 readiness', () => {
     future.exec(`
       CREATE TABLE future_only (id TEXT PRIMARY KEY);
       INSERT INTO future_only (id) VALUES ('preserve-me');
-      PRAGMA user_version = 29;
+      PRAGMA user_version = 30;
     `);
     future.close();
 
     const db = await freshDb();
-    expect(() => db.getDB()).toThrow(/schema version 29.*current version 28/i);
+    expect(() => db.getDB()).toThrow(/schema version 30.*current version 29/i);
 
     const reopened = new Database(path.join(tmpDir, 'data.db'));
     try {
@@ -577,7 +577,7 @@ describe('数据库 readiness', () => {
             user_version: number;
           }
         ).user_version,
-      ).toBe(29);
+      ).toBe(30);
       expect(
         (reopened.prepare('SELECT id FROM future_only').get() as { id: string })
           .id,

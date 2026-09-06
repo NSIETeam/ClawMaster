@@ -1124,6 +1124,36 @@ CREATE INDEX companyos_latest_facts_lookup
   ON companyos_latest_facts(organization_id, event_type, event_cursor);
 `,
   },
+  {
+    version: 17,
+    name: 'companyos-action-execution-receipts',
+    sql: `
+CREATE TABLE companyos_action_executions (
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  action_id TEXT NOT NULL REFERENCES companyos_actions(action_id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL,
+  operation_fingerprint TEXT NOT NULL CHECK (operation_fingerprint ~ '^[0-9a-f]{64}$'),
+  status TEXT NOT NULL CHECK(status IN (
+    'running', 'executed', 'failed', 'unknown_outcome'
+  )),
+  attempt INTEGER NOT NULL CHECK(attempt > 0),
+  owner_id TEXT,
+  fence_token BIGINT NOT NULL CHECK(fence_token > 0),
+  lease_expires_at TIMESTAMPTZ,
+  provider_receipt_id TEXT,
+  result_summary TEXT,
+  last_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (organization_id, action_id),
+  UNIQUE (organization_id, idempotency_key)
+);
+
+CREATE INDEX companyos_action_executions_lease
+  ON companyos_action_executions(status, lease_expires_at);
+`,
+  },
 ];
 
 export const ENTERPRISE_POSTGRES_SCHEMA_VERSION =

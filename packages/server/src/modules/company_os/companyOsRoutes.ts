@@ -9,6 +9,10 @@ import {
   DurableCompanyOsEventBus,
   type CompanyOsEventStore,
 } from './durableEventBus.js';
+import {
+  DurableCompanyOsActionExecutor,
+  type CompanyOsActionConnector,
+} from './actionExecution.js';
 import { buildOperatingBrief, OPERATING_EVENT_TYPES } from './operatingBrief.js';
 
 export interface CompanyOsRouteInput {
@@ -20,6 +24,12 @@ export interface CompanyOsRouteInput {
   adminPrincipal: AdminPrincipal | null;
   store: CompanyOsEventStore;
   listConnectorReadiness(organizationId: string): Promise<unknown[]>;
+  resolveActionConnector?(provider: string): CompanyOsActionConnector | undefined;
+  authorizeActionExecution?(input: {
+    organizationId: string;
+    actionId: string;
+    provider: string;
+  }): boolean | Promise<boolean>;
   readBody(req: IncomingMessage, maxLength?: number): Promise<Record<string, unknown>>;
   sendJSON(res: ServerResponse, status: number, data: unknown): void;
 }
@@ -44,6 +54,41 @@ export async function handleCompanyOsRoute(input: CompanyOsRouteInput): Promise<
   const bus = new DurableCompanyOsEventBus(input.store);
   const watchdog = new DurableBrandWatchdog(input.store, bus);
   const decisionMatch = /^\/enterprise\/companyos\/tasks\/([^/]+)\/decision$/u.exec(input.path);
+  const executionMatch = /^\/enterprise\/companyos\/actions\/([^/]+)\/(execute|reconcile)$/u.exec(input.path);
+
+  if (executionMatch && input.method === 'POST') {
+    const organizationId = adminOrganization(input);
+    if (!organizationId) {
+      input.sendJSON(input.res, 403, { error: 'CompanyOS 管理员权限不足' });
+      return true;
+    }
+    try {
+      const actionId = decodeURIComponent(executionMatch[1]!);
+      const body = await input.readBody(input.req);
+      const provider = text(body, 'provider')!;
+      const connector = input.resolveActionConnector?.(provider);
+      if (!connector) {
+        input.sendJSON(input.res, 503, { error: 'action_connector_unavailable' });
+        return true;
+      }
+      const executor = new DurableCompanyOsActionExecutor(input.store, {
+        allow: ({ action }) => input.authorizeActionExecution?.({
+          organizationId: action.organizationId, actionId: action.id, provider,
+        }) ?? false,
+      });
+      const execution = executionMatch[2] === 'execute'
+        ? await executor.execute(organizationId, actionId, connector)
+        : await executor.reconcile(organizationId, actionId, connector);
+      input.sendJSON(input.res, 200, { execution });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = message === 'action_not_found' ? 404
+        : message === 'action_execution_blocked' ? 403
+          : message.includes('conflict') || message.includes('reconciliation') ? 409 : 400;
+      input.sendJSON(input.res, status, { error: message });
+    }
+    return true;
+  }
 
   if (decisionMatch && input.method === 'POST') {
     const organizationId = adminOrganization(input);

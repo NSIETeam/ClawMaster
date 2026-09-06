@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Database } from '../data_platform/index.js';
 import {
   COMPANY_OS_SCHEMA_CONTRIBUTOR,
+  DurableCompanyOsActionExecutor,
   DurableBrandWatchdog,
   DurableCompanyOsEventBus,
   createCanonicalEvent,
@@ -45,6 +46,7 @@ describe('durable CompanyOS event bus', () => {
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'companyos_%' ORDER BY name",
     ).all() as Array<{ name: string }>;
     expect(tables.map((row) => row.name)).toEqual([
+      'companyos_action_executions',
       'companyos_actions',
       'companyos_audit',
       'companyos_event_claims',
@@ -329,5 +331,103 @@ describe('durable CompanyOS event bus', () => {
       status: 'rejected',
     });
     expect(watchdog.listActions('org-1')[0]).toMatchObject({ status: 'rejected' });
+  });
+
+  it('executes only an approved action and persists the provider receipt', async () => {
+    const db = database();
+    let now = 1_000;
+    const store = { db: () => db, now: () => now++ };
+    const bus = new DurableCompanyOsEventBus(store);
+    bus.publish(event());
+    const watchdog = new DurableBrandWatchdog(store, bus);
+    watchdog.inspect();
+    const action = watchdog.listActions('org-1')[0]!;
+    const connector = {
+      provider: 'owl',
+      execute: vi.fn(async () => ({
+        outcome: 'committed' as const, receiptId: 'owl-receipt-1', summary: 'price checked',
+      })),
+    };
+    const executor = new DurableCompanyOsActionExecutor(store, {
+      ownerId: 'worker-1', allow: () => true,
+    });
+
+    await expect(executor.execute('org-1', action.id, connector))
+      .rejects.toThrow('action_not_approved');
+    watchdog.decideTask('org-1', watchdog.listTasks('org-1')[0]!.id, 'approve');
+    await expect(executor.execute('org-1', action.id, connector)).resolves.toMatchObject({
+      status: 'executed', providerReceiptId: 'owl-receipt-1', attempt: 1,
+    });
+    await executor.execute('org-1', action.id, connector);
+    expect(connector.execute).toHaveBeenCalledTimes(1);
+    expect(watchdog.listActions('org-1')[0]).toMatchObject({ status: 'executed' });
+    expect(watchdog.listTasks('org-1')[0]).toMatchObject({ status: 'completed' });
+    expect(watchdog.listAudit('org-1')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ action: 'watchdog.action.executed', status: 'executed' }),
+    ]));
+  });
+
+  it('stops uncertain writes and expired leases until explicit reconciliation', async () => {
+    const db = database();
+    let now = 1_000;
+    const store = { db: () => db, now: () => now };
+    const bus = new DurableCompanyOsEventBus(store);
+    bus.publish(event());
+    const watchdog = new DurableBrandWatchdog(store, bus);
+    watchdog.inspect();
+    const action = watchdog.listActions('org-1')[0]!;
+    watchdog.decideTask('org-1', watchdog.listTasks('org-1')[0]!.id, 'approve');
+    const connector = {
+      provider: 'owl',
+      execute: vi.fn(async () => { throw new Error('Bearer secret timeout'); }),
+      reconcile: vi.fn(async () => ({
+        outcome: 'committed' as const, receiptId: 'owl-receipt-2', summary: 'confirmed',
+      })),
+    };
+    const executor = new DurableCompanyOsActionExecutor(store, {
+      ownerId: 'worker-dead', leaseDurationMs: 100, allow: () => true,
+    });
+    await expect(executor.execute('org-1', action.id, connector)).resolves.toMatchObject({
+      status: 'unknown_outcome', lastError: 'Bearer [REDACTED] timeout',
+    });
+    await executor.execute('org-1', action.id, connector);
+    expect(connector.execute).toHaveBeenCalledTimes(1);
+    await expect(executor.reconcile('org-1', action.id, connector)).resolves.toMatchObject({
+      status: 'executed', providerReceiptId: 'owl-receipt-2',
+    });
+
+    // A worker that disappears after the durable running claim is also fenced.
+    db.prepare("UPDATE companyos_actions SET status = 'queued' WHERE action_id = ?").run(action.id);
+    db.prepare('DELETE FROM companyos_action_executions WHERE action_id = ?').run(action.id);
+    const neverReturns = { provider: 'owl', execute: vi.fn(async () => new Promise<never>(() => undefined)) };
+    void executor.execute('org-1', action.id, neverReturns);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    now = 1_101;
+    const restarted = new DurableCompanyOsActionExecutor(store, {
+      ownerId: 'worker-new', leaseDurationMs: 100, allow: () => true,
+    });
+    await expect(restarted.execute('org-1', action.id, neverReturns)).resolves.toMatchObject({
+      status: 'unknown_outcome', lastError: 'worker lease expired before completion',
+    });
+    expect(neverReturns.execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies policy before claiming and keeps tenants isolated', async () => {
+    const db = database();
+    const store = { db: () => db, now: () => 1_000 };
+    const bus = new DurableCompanyOsEventBus(store);
+    bus.publish(event());
+    const watchdog = new DurableBrandWatchdog(store, bus);
+    watchdog.inspect();
+    const action = watchdog.listActions('org-1')[0]!;
+    watchdog.decideTask('org-1', watchdog.listTasks('org-1')[0]!.id, 'approve');
+    const connector = { provider: 'owl', execute: vi.fn() };
+    const executor = new DurableCompanyOsActionExecutor(store, { allow: () => false });
+    await expect(executor.execute('org-1', action.id, connector))
+      .rejects.toThrow('action_execution_blocked');
+    await expect(executor.execute('org-2', action.id, connector))
+      .rejects.toThrow('action_not_found');
+    expect(connector.execute).not.toHaveBeenCalled();
+    expect(executor.get('org-1', action.id)).toBeNull();
   });
 });
