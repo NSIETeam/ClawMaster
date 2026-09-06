@@ -293,23 +293,62 @@ impl CapabilityHost {
         trusted_keys: BTreeMap<String, Vec<u8>>,
     ) -> Result<Self, String> {
         fs::create_dir_all(root).map_err(|error| format!("无法创建能力目录: {error}"))?;
-        for entry in fs::read_dir(root).map_err(|error| format!("无法读取能力目录: {error}"))?
-        {
-            let path = entry.map_err(|error| error.to_string())?.path();
-            if path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with(".staging-"))
-            {
-                fs::remove_dir_all(path).map_err(|error| format!("无法清理中断安装: {error}"))?;
-            }
-        }
-        Ok(Self {
+        let host = Self {
             root: root.to_path_buf(),
             store,
             trusted_keys,
             governor: ResourceGovernor::default(),
-        })
+        };
+        host.reconcile_installations()?;
+        Ok(host)
+    }
+
+    fn reconcile_installations(&self) -> Result<(), String> {
+        let registry = self.registry()?;
+        for entry in
+            fs::read_dir(&self.root).map_err(|error| format!("无法读取能力目录: {error}"))?
+        {
+            let entry = entry.map_err(|error| error.to_string())?;
+            let path = entry.path();
+            let file_type = entry.file_type().map_err(|error| error.to_string())?;
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.starts_with(".staging-") {
+                remove_capability_entry(&path, file_type)
+                    .map_err(|error| format!("无法清理中断安装: {error}"))?;
+                continue;
+            }
+            if !file_type.is_dir() || file_type.is_symlink() {
+                continue;
+            }
+            let Some(installed) = registry.installed.get(&name) else {
+                fs::remove_dir_all(&path)
+                    .map_err(|error| format!("无法清理孤儿能力目录: {error}"))?;
+                continue;
+            };
+            let retained = [
+                Some(installed.manifest.version.as_str()),
+                installed.previous_version.as_deref(),
+            ]
+            .into_iter()
+            .flatten()
+            .collect::<BTreeSet<_>>();
+            for version_entry in
+                fs::read_dir(&path).map_err(|error| format!("无法读取能力版本目录: {error}"))?
+            {
+                let version_entry = version_entry.map_err(|error| error.to_string())?;
+                let version = version_entry.file_name().to_string_lossy().into_owned();
+                if !retained.contains(version.as_str()) {
+                    remove_capability_entry(
+                        &version_entry.path(),
+                        version_entry
+                            .file_type()
+                            .map_err(|error| error.to_string())?,
+                    )
+                    .map_err(|error| format!("无法清理孤儿能力版本: {error}"))?;
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn list(&self) -> Result<Vec<InstalledCapability>, String> {
@@ -383,14 +422,17 @@ impl CapabilityHost {
             return Err("第一方能力包安装总量超过 35 MiB".into());
         }
         let package_root = self.root.join(&manifest.id);
-        fs::create_dir_all(&package_root).map_err(|error| error.to_string())?;
+        ensure_direct_child_directory(&self.root, &package_root, "能力包")?;
         let staging = self
             .root
             .join(format!(".staging-{}-{}", manifest.id, manifest.version));
-        if staging.exists() {
-            fs::remove_dir_all(&staging).map_err(|error| error.to_string())?;
+        match fs::symlink_metadata(&staging) {
+            Ok(metadata) => remove_capability_entry(&staging, metadata.file_type())
+                .map_err(|error| error.to_string())?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.to_string()),
         }
-        fs::create_dir(&staging).map_err(|error| format!("无法创建能力暂存目录: {error}"))?;
+        ensure_direct_child_directory(&self.root, &staging, "能力暂存")?;
         let staged_entry = staging.join(&manifest.entrypoint);
         let mut output = OpenOptions::new()
             .create_new(true)
@@ -401,6 +443,20 @@ impl CapabilityHost {
             .write_all(payload)
             .map_err(|error| error.to_string())?;
         output.sync_all().map_err(|error| error.to_string())?;
+        let staged_manifest = staging.join("manifest.json");
+        let manifest_bytes =
+            serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
+        let mut manifest_output = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&staged_manifest)
+            .map_err(|error| format!("无法暂存能力 manifest: {error}"))?;
+        manifest_output
+            .write_all(&manifest_bytes)
+            .map_err(|error| error.to_string())?;
+        manifest_output
+            .sync_all()
+            .map_err(|error| error.to_string())?;
         health_check(&staged_entry).map_err(|error| {
             let _ = fs::remove_dir_all(&staging);
             format!("能力健康检查失败: {error}")
@@ -410,17 +466,12 @@ impl CapabilityHost {
             format!("能力 Host ABI 校验失败: {error}")
         })?;
         let destination = package_root.join(&manifest.version);
-        if destination.exists() {
+        if fs::symlink_metadata(&destination).is_ok() {
             fs::remove_dir_all(&staging).map_err(|error| error.to_string())?;
-        } else {
-            fs::rename(&staging, &destination)
-                .map_err(|error| format!("无法原子提交能力版本: {error}"))?;
+            return Err("能力版本目录已存在，拒绝覆盖完整版本".into());
         }
-        fs::write(
-            destination.join("manifest.json"),
-            serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?,
-        )
-        .map_err(|error| format!("无法保存能力 manifest: {error}"))?;
+        fs::rename(&staging, &destination)
+            .map_err(|error| format!("无法原子提交能力版本: {error}"))?;
         let installed = InstalledCapability {
             previous_version: replacing.as_ref().map(|item| item.manifest.version.clone()),
             manifest,
@@ -445,11 +496,27 @@ impl CapabilityHost {
             .previous_version
             .as_deref()
             .ok_or_else(|| "能力没有可回滚版本".to_string())?;
-        let manifest_path = self.root.join(id).join(previous).join("manifest.json");
+        let package_root = self.root.join(id);
+        validate_direct_child_directory(&self.root, &package_root, "能力包")?;
+        let version_root = package_root.join(previous);
+        validate_direct_child_directory(&package_root, &version_root, "能力版本")?;
+        let manifest_path = version_root.join("manifest.json");
+        validate_direct_child_file(&version_root, &manifest_path, "能力 manifest")?;
         let manifest: CapabilityManifest = serde_json::from_slice(
             &fs::read(&manifest_path).map_err(|error| format!("无法读取上一版本: {error}"))?,
         )
         .map_err(|error| format!("上一版本 manifest 损坏: {error}"))?;
+        if manifest.id != id || manifest.version != previous {
+            return Err("上一版本 manifest 身份不匹配".into());
+        }
+        let entrypoint = version_root.join(&manifest.entrypoint);
+        validate_direct_child_file(&version_root, &entrypoint, "能力入口")?;
+        let payload =
+            fs::read(&entrypoint).map_err(|error| format!("无法读取上一版本: {error}"))?;
+        self.verify(&manifest, &payload)?;
+        wasm_health_check(&entrypoint).map_err(|error| format!("上一版本健康检查失败: {error}"))?;
+        validate_wasm_permissions(&entrypoint, &manifest.permissions)
+            .map_err(|error| format!("上一版本 Host ABI 校验失败: {error}"))?;
         let restored = InstalledCapability {
             manifest,
             previous_version: Some(current.manifest.version),
@@ -486,14 +553,12 @@ impl CapabilityHost {
         if !installed.enabled {
             return Err("能力未启用".into());
         }
-        let executable = self
-            .root
-            .join(id)
-            .join(&installed.manifest.version)
-            .join(&installed.manifest.entrypoint);
-        if !executable.is_file() {
-            return Err("能力入口缺失".into());
-        }
+        let package_root = self.root.join(id);
+        validate_direct_child_directory(&self.root, &package_root, "能力包")?;
+        let version_root = package_root.join(&installed.manifest.version);
+        validate_direct_child_directory(&package_root, &version_root, "能力版本")?;
+        let executable = version_root.join(&installed.manifest.entrypoint);
+        validate_direct_child_file(&version_root, &executable, "能力入口")?;
         Ok(PreparedCapability {
             executable,
             manifest: installed.manifest,
@@ -637,6 +702,64 @@ impl CapabilityHost {
             .put_latest(TREE_INDEX, REGISTRY_ID, "capability-host", registry.clone())
             .map_err(|error| error.to_string())?;
         self.store.flush().map_err(|error| error.to_string())
+    }
+}
+
+fn ensure_direct_child_directory(root: &Path, path: &Path, label: &str) -> Result<(), String> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            fs::create_dir(path).map_err(|error| format!("无法创建{label}目录: {error}"))?;
+        }
+        Err(error) => return Err(format!("无法检查{label}目录: {error}")),
+    }
+    validate_direct_child_directory(root, path, label)
+}
+
+fn validate_direct_child_directory(root: &Path, path: &Path, label: &str) -> Result<(), String> {
+    let metadata =
+        fs::symlink_metadata(path).map_err(|error| format!("无法检查{label}目录: {error}"))?;
+    if metadata.file_type().is_symlink() {
+        return Err(format!("{label}目录不能是符号链接"));
+    }
+    if !metadata.is_dir() {
+        return Err(format!("{label}路径不是目录"));
+    }
+    let canonical_root = root
+        .canonicalize()
+        .map_err(|error| format!("无法解析能力根目录: {error}"))?;
+    let canonical_path = path
+        .canonicalize()
+        .map_err(|error| format!("无法解析{label}目录: {error}"))?;
+    if canonical_path.parent() != Some(canonical_root.as_path()) {
+        return Err(format!("{label}目录逃逸能力根目录"));
+    }
+    Ok(())
+}
+
+fn validate_direct_child_file(root: &Path, path: &Path, label: &str) -> Result<(), String> {
+    let metadata =
+        fs::symlink_metadata(path).map_err(|error| format!("无法检查{label}: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(format!("{label}必须是普通文件"));
+    }
+    let canonical_root = root
+        .canonicalize()
+        .map_err(|error| format!("无法解析{label}根目录: {error}"))?;
+    let canonical_path = path
+        .canonicalize()
+        .map_err(|error| format!("无法解析{label}: {error}"))?;
+    if canonical_path.parent() != Some(canonical_root.as_path()) {
+        return Err(format!("{label}逃逸版本目录"));
+    }
+    Ok(())
+}
+
+fn remove_capability_entry(path: &Path, file_type: fs::FileType) -> std::io::Result<()> {
+    if file_type.is_dir() && !file_type.is_symlink() {
+        fs::remove_dir_all(path)
+    } else {
+        fs::remove_file(path)
     }
 }
 
@@ -986,6 +1109,205 @@ mod tests {
     }
 
     #[test]
+    fn stages_a_complete_version_before_health_check_and_atomic_commit() {
+        let (_root, host, pair) = host();
+        let payload = b"\0asm\x01\0\0\0";
+        let manifest = signed_manifest(payload, &pair, "1.0.0");
+
+        host.install(manifest, payload, true, 1, |entrypoint| {
+            let staged_manifest = entrypoint.parent().unwrap().join("manifest.json");
+            assert!(staged_manifest.is_file());
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn refuses_to_replace_an_existing_version_with_different_bytes() {
+        let (_root, host, pair) = host();
+        let first = wat::parse_str(
+            r#"(module
+                (memory (export "memory") 1)
+                (data (i32.const 32) "first")
+                (func (export "run") (param i32 i32) (result i64)
+                    (i64.const 137438953477)))"#,
+        )
+        .unwrap();
+        host.install(
+            signed_manifest(&first, &pair, "1.0.0"),
+            &first,
+            true,
+            1,
+            wasm_health_check,
+        )
+        .unwrap();
+
+        let second = wat::parse_str(
+            r#"(module
+                (memory (export "memory") 1)
+                (data (i32.const 32) "later")
+                (func (export "run") (param i32 i32) (result i64)
+                    (i64.const 137438953477)))"#,
+        )
+        .unwrap();
+        let error = host
+            .install(
+                signed_manifest(&second, &pair, "1.0.0"),
+                &second,
+                true,
+                2,
+                wasm_health_check,
+            )
+            .unwrap_err();
+
+        assert!(error.contains("版本"));
+        assert_eq!(host.invoke("team.nsi.office", b"{}").unwrap(), b"first");
+    }
+
+    #[test]
+    fn restart_removes_orphan_versions_but_preserves_current_and_previous() {
+        let root = tempfile::tempdir().unwrap();
+        let store = NativeStateStore::open_for_test(&root.path().join("state"), [67; 32]).unwrap();
+        let document = Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new()).unwrap();
+        let pair = Ed25519KeyPair::from_pkcs8(document.as_ref()).unwrap();
+        let trusted = BTreeMap::from([("test-key".into(), pair.public_key().as_ref().to_vec())]);
+        let packs = root.path().join("packs");
+        let host = CapabilityHost::open(&packs, store.clone(), trusted.clone()).unwrap();
+        let first = b"\0asm\x01\0\0\0";
+        host.install(
+            signed_manifest(first, &pair, "1.0.0"),
+            first,
+            true,
+            1,
+            |_| Ok(()),
+        )
+        .unwrap();
+        let second = wat::parse_str("(module (func))").unwrap();
+        host.install(
+            signed_manifest(&second, &pair, "2.0.0"),
+            &second,
+            true,
+            2,
+            |_| Ok(()),
+        )
+        .unwrap();
+        drop(host);
+
+        let orphan = packs.join("team.nsi.office/3.0.0");
+        fs::create_dir_all(&orphan).unwrap();
+        fs::write(orphan.join("worker.wasm"), b"partial").unwrap();
+        fs::create_dir(packs.join(".staging-team.nsi.office-4.0.0")).unwrap();
+
+        CapabilityHost::open(&packs, store, trusted).unwrap();
+
+        assert!(packs.join("team.nsi.office/1.0.0").is_dir());
+        assert!(packs.join("team.nsi.office/2.0.0").is_dir());
+        assert!(!orphan.exists());
+        assert!(!packs.join(".staging-team.nsi.office-4.0.0").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installation_rejects_a_symlinked_package_root_without_writing_outside() {
+        use std::os::unix::fs::symlink;
+
+        let (root, host, pair) = host();
+        let outside = root.path().join("outside");
+        fs::create_dir(&outside).unwrap();
+        symlink(&outside, root.path().join("packs").join("team.nsi.office")).unwrap();
+        let payload = b"\0asm\x01\0\0\0";
+
+        let error = host
+            .install(
+                signed_manifest(payload, &pair, "1.0.0"),
+                payload,
+                true,
+                1,
+                |_| Ok(()),
+            )
+            .unwrap_err();
+
+        assert!(error.contains("符号链接") || error.contains("目录"));
+        assert!(!outside.join("1.0.0/worker.wasm").exists());
+    }
+
+    #[test]
+    fn rollback_rejects_a_tampered_previous_version_and_keeps_current_active() {
+        let (root, host, pair) = host();
+        let first = wat::parse_str(
+            r#"(module
+                (memory (export "memory") 1)
+                (data (i32.const 32) "first")
+                (func (export "run") (param i32 i32) (result i64)
+                    (i64.const 137438953477)))"#,
+        )
+        .unwrap();
+        host.install(
+            signed_manifest(&first, &pair, "1.0.0"),
+            &first,
+            true,
+            1,
+            wasm_health_check,
+        )
+        .unwrap();
+        let second = wat::parse_str(
+            r#"(module
+                (memory (export "memory") 1)
+                (data (i32.const 32) "later")
+                (func (export "run") (param i32 i32) (result i64)
+                    (i64.const 137438953477)))"#,
+        )
+        .unwrap();
+        host.install(
+            signed_manifest(&second, &pair, "2.0.0"),
+            &second,
+            true,
+            2,
+            wasm_health_check,
+        )
+        .unwrap();
+        fs::write(
+            root.path().join("packs/team.nsi.office/1.0.0/worker.wasm"),
+            b"tampered",
+        )
+        .unwrap();
+
+        assert!(host.rollback("team.nsi.office").is_err());
+        assert_eq!(host.invoke("team.nsi.office", b"{}").unwrap(), b"later");
+        assert_eq!(host.list().unwrap()[0].manifest.version, "2.0.0");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn invocation_rejects_an_entrypoint_symlink_even_when_bytes_match() {
+        use std::os::unix::fs::symlink;
+
+        let (root, host, pair) = host();
+        let wasm = wat::parse_str(
+            r#"(module
+                (memory (export "memory") 1)
+                (func (export "run") (param i32 i32) (result i64) (i64.const 0)))"#,
+        )
+        .unwrap();
+        host.install(
+            signed_manifest(&wasm, &pair, "1.0.0"),
+            &wasm,
+            true,
+            1,
+            wasm_health_check,
+        )
+        .unwrap();
+        let entrypoint = root.path().join("packs/team.nsi.office/1.0.0/worker.wasm");
+        let outside = root.path().join("outside.wasm");
+        fs::write(&outside, &wasm).unwrap();
+        fs::remove_file(&entrypoint).unwrap();
+        symlink(&outside, &entrypoint).unwrap();
+
+        let error = host.invoke("team.nsi.office", b"{}").unwrap_err();
+        assert!(error.contains("普通文件") || error.contains("逃逸"));
+    }
+
+    #[test]
     fn plans_before_download_and_requires_approval_to_uninstall() {
         let (_root, host, pair) = host();
         let payload = b"\0asm\x01\0\0\0";
@@ -1008,13 +1330,18 @@ mod tests {
     #[test]
     fn lazy_worker_release_upgrade_and_rollback_preserve_complete_versions() {
         let (_root, host, pair) = host();
-        let first = b"\0asm\x01\0\0\0";
+        let first = wat::parse_str(
+            r#"(module
+                (memory (export "memory") 1)
+                (func (export "run") (param i32 i32) (result i64) (i64.const 0)))"#,
+        )
+        .unwrap();
         host.install(
-            signed_manifest(first, &pair, "1.0.0"),
-            first,
+            signed_manifest(&first, &pair, "1.0.0"),
+            &first,
             true,
             1,
-            |_| Ok(()),
+            wasm_health_check,
         )
         .unwrap();
         assert_eq!(host.resource_snapshot().unwrap().active_workers, 0);
@@ -1024,13 +1351,18 @@ mod tests {
         drop(prepared);
         assert_eq!(host.resource_snapshot().unwrap().active_workers, 0);
 
-        let second = wat::parse_str("(module (func))").unwrap();
+        let second = wat::parse_str(
+            r#"(module
+                (memory (export "memory") 1)
+                (func (export "run") (param i32 i32) (result i64) (i64.const 0)))"#,
+        )
+        .unwrap();
         host.install(
             signed_manifest(&second, &pair, "2.0.0"),
             &second,
             true,
             2,
-            |_| Ok(()),
+            wasm_health_check,
         )
         .unwrap();
         assert_eq!(
