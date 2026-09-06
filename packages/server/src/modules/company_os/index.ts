@@ -218,3 +218,4 @@ export * from './companyOsSchema.js';
 export * from './durableEventBus.js';
 export * from './companyOsRoutes.js';
 export * from './postgresCompanyOsRepository.js';
+export * from './operatingEngines.js';

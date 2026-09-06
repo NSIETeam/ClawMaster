@@ -27,6 +27,10 @@
 - 本地与集群模式都要求管理员显式批准或拒绝 Task；批准只把 Action 置为 `queued`，拒绝置为 `rejected`，重复同一决定幂等、冲突决定返回错误，并写入 human Audit。
 - `BusinessDataConnectorV1` 定义 capability/schema version、冲突策略、限流、HTTPS、opaque secretRef、readiness 和同步 cursor；猫头鹰/知了猴 descriptor 与 fixture 已加入，但 fixture 固定为 `fixture_only`，不能作为生产 ready 证据。
 - 本地与 clustered 成员可从 `/enterprise/companyos/connectors` 查看本组织 readiness；默认猫头鹰/知了猴 HTTP endpoint 明确返回 `blocked/insecure_endpoint`，响应不暴露 endpoint 或 secretRef。
+- Inventory Engine 以整数单位和单位成本计算库存金额及 28 日覆盖天数；缺成本、缺需求或有库存但零需求时返回 partial，不把未知周转包装成正常。
+- Cash Engine 以整数金额计算净营运资本、现金 runway 和逾期应收比例；缺经营流出或流出为零时不生成有限 runway，负现金作为风险显式呈现。
+- Growth Engine 分开计算收入与贡献利润增长，并保留归因假设；收入上涨但贡献利润下降时只报告风险，不包装成健康增长。
+- 三个经营引擎都拒绝跨组织、跨币种、负数经营输入，聚合 source/sourceRevision/observedAt/evidenceRefs，并将过期数据标成 stale 风险。
 - 覆盖租户隔离、重复/冲突事件、缺成本、价格/GMV 异常和持久化重放的确定性测试。
 
 本地交付提交：`9002108a` 恢复原 PR #19 纵切，`932a3641` 补齐上述租户与幂等完整性门禁。
@@ -35,6 +39,7 @@
 
 - 在真实 PostgreSQL 实例执行 migration、并发多副本 claim/超时接管与重启恢复验收；当前 mock SQL 测试不替代真实集群证据。
 - 猫头鹰/知了猴真实 API adapter、HTTPS、租户授权、secret provider 与 live readiness/sync cursor，以及 queued Action 到真实外部动作的 policy/confirmation、执行回执、`unknown_outcome` 对账与恢复。
-- Inventory/Cash/Growth Engine、预测校准、真实猫头鹰/知了猴 OAuth/API 连接。
-- Desktop 首页与真实 Design Partner 验收；当前测试不替代 live/production 证据。
+- 将 Inventory/Cash/Growth Engine 接到持久 canonical 数据、认证查询 API 和 Desktop CEO 首页；当前纯领域测试不等于真实用户路径。
+- 预测校准、真实猫头鹰/知了猴 OAuth/API 连接。
+- Desktop 首页与真实 Design Partner 验收；当前 fixture 和纯领域测试不替代 live/production 证据。
 - 下一阶段应在真实 PostgreSQL 上验收异步 repository，再把 action 执行接到 policy/approval/workflow/audit 的真实持久路径。
