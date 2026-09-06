@@ -23,7 +23,7 @@ const event = createCanonicalEvent({
 });
 
 describe('PostgreSQL CompanyOS authority', () => {
-  it('lists only requested operating events for one tenant', async () => {
+  it('lists only projected operating facts for one tenant', async () => {
     const query = vi.fn().mockResolvedValueOnce(result([{
       cursor: 1, organization_id: event.organizationId, event_id: event.id,
       event_type: event.type, payload: event.payload, source: event.source,
@@ -34,10 +34,10 @@ describe('PostgreSQL CompanyOS authority', () => {
     const repository = createPostgresCompanyOsRepository({
       pool: { query } as unknown as PostgresPoolLike,
     });
-    await expect(repository.listCompanyOsEvents('org-1', ['owl.price.anomaly']))
+    await expect(repository.listLatestCompanyOsFacts('org-1', ['owl.price.anomaly']))
       .resolves.toEqual([event]);
     expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('organization_id = $1 AND event_type = ANY($2::text[])'),
+      expect.stringContaining('FROM companyos_latest_facts latest'),
       ['org-1', ['owl.price.anomaly']],
     );
   });
@@ -54,6 +54,31 @@ describe('PostgreSQL CompanyOS authority', () => {
       pool: { query } as unknown as PostgresPoolLike,
     });
     await expect(repository.publishCompanyOsEvent(event)).resolves.toEqual(event);
+    expect(query.mock.calls[0]![0]).toContain('INSERT INTO companyos_latest_facts');
+  });
+
+  it('atomically projects an operating event by its stable business identity', async () => {
+    const operating = createCanonicalEvent({
+      organizationId: 'org-1', type: 'companyos.profit.line.v1',
+      payload: { skuId: 'sku:1', channelId: 'online', storeId: 'flagship' },
+      source: 'erp', sourceRevision: 'r2', observedAt: '2026-09-06T03:00:00.000Z',
+      correlationId: 'correlation-2', idempotencyKey: 'profit-1',
+    });
+    const query = vi.fn().mockResolvedValueOnce(result([{
+      cursor: 2, organization_id: operating.organizationId, event_id: operating.id,
+      event_type: operating.type, payload: operating.payload, source: operating.source,
+      source_revision: operating.sourceRevision, observed_at: operating.observedAt,
+      correlation_id: operating.correlationId, causation_id: null,
+      idempotency_key: operating.idempotencyKey, fact_fingerprint: 'a'.repeat(64),
+    }]));
+    const repository = createPostgresCompanyOsRepository({
+      pool: { query } as unknown as PostgresPoolLike,
+    });
+    await expect(repository.publishCompanyOsEvent(operating)).resolves.toEqual(operating);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query.mock.calls[0]![0]).toContain('WITH inserted AS');
+    expect(query.mock.calls[0]![0]).toContain('EXCLUDED.observed_at >');
+    expect(query.mock.calls[0]![1]![11]).toBe('5:sku:1|6:online|8:flagship');
   });
 
   it('publishes canonical events with tenant idempotency and detects conflicts', async () => {

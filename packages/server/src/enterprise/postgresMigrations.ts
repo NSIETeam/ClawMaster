@@ -1025,6 +1025,105 @@ CREATE INDEX companyos_tasks_organization
   ON companyos_tasks(organization_id, status, created_at, task_id);
 `,
   },
+  {
+    version: 16,
+    name: 'companyos-latest-fact-projections',
+    sql: `
+CREATE TABLE companyos_latest_facts (
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  fact_key TEXT NOT NULL,
+  event_cursor BIGINT NOT NULL,
+  observed_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (organization_id, event_type, fact_key),
+  UNIQUE (event_cursor, organization_id),
+  FOREIGN KEY (event_cursor, organization_id)
+    REFERENCES companyos_events(cursor, organization_id) ON DELETE CASCADE
+);
+
+WITH identified AS (
+  SELECT event.*,
+    CASE
+      WHEN event_type = 'companyos.profit.line.v1'
+        AND jsonb_typeof(payload) = 'object'
+        AND jsonb_typeof(payload->'skuId') = 'string'
+        AND octet_length(btrim(payload->>'skuId')) BETWEEN 1 AND 512
+        AND payload->>'skuId' !~ '[[:cntrl:]]'
+        AND jsonb_typeof(payload->'channelId') = 'string'
+        AND octet_length(btrim(payload->>'channelId')) BETWEEN 1 AND 512
+        AND payload->>'channelId' !~ '[[:cntrl:]]'
+        AND (NOT (payload ? 'storeId') OR (
+          jsonb_typeof(payload->'storeId') = 'string'
+          AND octet_length(btrim(payload->>'storeId')) BETWEEN 1 AND 512
+          AND payload->>'storeId' !~ '[[:cntrl:]]'
+        ))
+      THEN concat(
+        octet_length(btrim(payload->>'skuId')), ':', btrim(payload->>'skuId'), '|',
+        octet_length(btrim(payload->>'channelId')), ':', btrim(payload->>'channelId'), '|',
+        octet_length(btrim(coalesce(payload->>'storeId', ''))), ':',
+        btrim(coalesce(payload->>'storeId', ''))
+      )
+      WHEN event_type = 'companyos.inventory.line.v1'
+        AND jsonb_typeof(payload) = 'object'
+        AND jsonb_typeof(payload->'skuId') = 'string'
+        AND octet_length(btrim(payload->>'skuId')) BETWEEN 1 AND 512
+        AND payload->>'skuId' !~ '[[:cntrl:]]'
+        AND jsonb_typeof(payload->'warehouseId') = 'string'
+        AND octet_length(btrim(payload->>'warehouseId')) BETWEEN 1 AND 512
+        AND payload->>'warehouseId' !~ '[[:cntrl:]]'
+      THEN concat(
+        octet_length(btrim(payload->>'skuId')), ':', btrim(payload->>'skuId'), '|',
+        octet_length(btrim(payload->>'warehouseId')), ':', btrim(payload->>'warehouseId')
+      )
+      WHEN event_type = 'companyos.growth.line.v1'
+        AND jsonb_typeof(payload) = 'object'
+        AND jsonb_typeof(payload->'channelId') = 'string'
+        AND octet_length(btrim(payload->>'channelId')) BETWEEN 1 AND 512
+        AND payload->>'channelId' !~ '[[:cntrl:]]'
+        AND (NOT (payload ? 'skuId') OR (
+          jsonb_typeof(payload->'skuId') = 'string'
+          AND octet_length(btrim(payload->>'skuId')) BETWEEN 1 AND 512
+          AND payload->>'skuId' !~ '[[:cntrl:]]'
+        ))
+        AND (NOT (payload ? 'campaignId') OR (
+          jsonb_typeof(payload->'campaignId') = 'string'
+          AND octet_length(btrim(payload->>'campaignId')) BETWEEN 1 AND 512
+          AND payload->>'campaignId' !~ '[[:cntrl:]]'
+        ))
+      THEN concat(
+        octet_length(btrim(payload->>'channelId')), ':', btrim(payload->>'channelId'), '|',
+        octet_length(btrim(coalesce(payload->>'skuId', ''))), ':',
+        btrim(coalesce(payload->>'skuId', '')), '|',
+        octet_length(btrim(coalesce(payload->>'campaignId', ''))), ':',
+        btrim(coalesce(payload->>'campaignId', ''))
+      )
+      WHEN event_type = 'companyos.cash.snapshot.v1' AND jsonb_typeof(payload) = 'object'
+      THEN 'singleton'
+      ELSE 'invalid'
+    END AS fact_key
+  FROM companyos_events event
+  WHERE event_type IN (
+    'companyos.profit.line.v1', 'companyos.inventory.line.v1',
+    'companyos.cash.snapshot.v1', 'companyos.growth.line.v1'
+  )
+), ranked AS (
+  SELECT identified.*,
+    row_number() OVER (
+      PARTITION BY organization_id, event_type, fact_key
+      ORDER BY observed_at DESC, cursor DESC
+    ) AS fact_rank
+  FROM identified
+)
+INSERT INTO companyos_latest_facts
+  (organization_id, event_type, fact_key, event_cursor, observed_at)
+SELECT organization_id, event_type, fact_key, cursor, observed_at
+FROM ranked
+WHERE fact_rank = 1;
+
+CREATE INDEX companyos_latest_facts_lookup
+  ON companyos_latest_facts(organization_id, event_type, event_cursor);
+`,
+  },
 ];
 
 export const ENTERPRISE_POSTGRES_SCHEMA_VERSION =

@@ -9,6 +9,7 @@ import type {
   CompanyOsTask,
 } from './index.js';
 import { COMPANY_OS_SCHEMA_CONTRIBUTOR } from './companyOsSchema.js';
+import { operatingFactKey, OPERATING_EVENT_TYPES } from './operatingFactIdentity.js';
 
 interface EventRow {
   cursor: number;
@@ -97,6 +98,33 @@ function eventFromRow(row: EventRow): CanonicalEvent {
   };
 }
 
+function projectionIdentity(event: CanonicalEvent): { key: string; observedAtMs: number } | null {
+  const key = operatingFactKey(event);
+  if (key === null) return null;
+  const observedAtMs = Date.parse(event.observedAt);
+  return Number.isFinite(observedAtMs)
+    ? { key, observedAtMs }
+    : { key: 'invalid-observed-at', observedAtMs: Number.MIN_SAFE_INTEGER };
+}
+
+function upsertLatestFact(database: Database, row: EventRow): void {
+  const projection = projectionIdentity(eventFromRow(row));
+  if (!projection) return;
+  database.prepare(
+    `INSERT INTO companyos_latest_facts
+      (organization_id, event_type, fact_key, event_cursor, observed_at_ms)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(organization_id, event_type, fact_key) DO UPDATE SET
+       event_cursor = excluded.event_cursor,
+       observed_at_ms = excluded.observed_at_ms
+     WHERE excluded.observed_at_ms > companyos_latest_facts.observed_at_ms
+        OR (excluded.observed_at_ms = companyos_latest_facts.observed_at_ms
+            AND excluded.event_cursor > companyos_latest_facts.event_cursor)`,
+  ).run(
+    row.organization_id, row.event_type, projection.key, row.cursor, projection.observedAtMs,
+  );
+}
+
 export class DurableCompanyOsEventBus {
   private readonly workerId: string;
   private readonly leaseDurationMs: number;
@@ -106,6 +134,7 @@ export class DurableCompanyOsEventBus {
     options: { workerId?: string; leaseDurationMs?: number } = {},
   ) {
     COMPANY_OS_SCHEMA_CONTRIBUTOR.apply(store.db());
+    this.backfillLatestFacts();
     this.workerId = required(options.workerId ?? randomUUID(), 'worker_id');
     this.leaseDurationMs = options.leaseDurationMs ?? 30_000;
     if (
@@ -127,48 +156,100 @@ export class DurableCompanyOsEventBus {
     const payloadJson = stableJson(event.payload);
     const factFingerprint = fingerprint(event, payloadJson);
     const database = this.store.db();
-    const existing = database.prepare(
-      `SELECT cursor, organization_id, event_id, event_type, payload_json, source,
-              source_revision, observed_at, correlation_id, causation_id,
-              idempotency_key, fact_fingerprint
-         FROM companyos_events
-        WHERE organization_id = ? AND idempotency_key = ?`,
-    ).get(event.organizationId, event.idempotencyKey) as EventRow | undefined;
-    if (existing) {
-      if (existing.fact_fingerprint !== factFingerprint) throw new Error('idempotency_conflict');
-      return eventFromRow(existing);
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      const existing = database.prepare(
+        `SELECT cursor, organization_id, event_id, event_type, payload_json, source,
+                source_revision, observed_at, correlation_id, causation_id,
+                idempotency_key, fact_fingerprint
+           FROM companyos_events
+          WHERE organization_id = ? AND idempotency_key = ?`,
+      ).get(event.organizationId, event.idempotencyKey) as EventRow | undefined;
+      if (existing) {
+        if (existing.fact_fingerprint !== factFingerprint) throw new Error('idempotency_conflict');
+        database.exec('COMMIT');
+        return eventFromRow(existing);
+      }
+      database.prepare(
+        `INSERT INTO companyos_events
+          (organization_id, event_id, event_type, payload_json, source,
+           source_revision, observed_at, correlation_id, causation_id,
+           idempotency_key, fact_fingerprint, created_at_ms)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        event.organizationId, event.id, event.type, payloadJson, event.source,
+        event.sourceRevision, event.observedAt, event.correlationId,
+        event.causationId ?? null, event.idempotencyKey, factFingerprint,
+        this.store.now(),
+      );
+      const inserted = database.prepare(
+        `SELECT cursor, organization_id, event_id, event_type, payload_json, source,
+                source_revision, observed_at, correlation_id, causation_id,
+                idempotency_key, fact_fingerprint
+           FROM companyos_events
+          WHERE organization_id = ? AND event_id = ?`,
+      ).get(event.organizationId, event.id) as EventRow;
+      upsertLatestFact(database, inserted);
+      database.exec('COMMIT');
+      return eventFromRow(inserted);
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
     }
-    database.prepare(
-      `INSERT INTO companyos_events
-        (organization_id, event_id, event_type, payload_json, source,
-         source_revision, observed_at, correlation_id, causation_id,
-         idempotency_key, fact_fingerprint, created_at_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      event.organizationId, event.id, event.type, payloadJson, event.source,
-      event.sourceRevision, event.observedAt, event.correlationId,
-      event.causationId ?? null, event.idempotencyKey, factFingerprint,
-      this.store.now(),
-    );
-    return event;
   }
 
-  listEvents(organizationId: string, eventTypes: readonly string[]): CanonicalEvent[] {
+  listLatestFacts(organizationId: string, eventTypes: readonly string[]): CanonicalEvent[] {
     const normalizedOrganizationId = required(organizationId, 'organization_id');
     if (!eventTypes.length || eventTypes.length > 50) throw new Error('invalid_event_types');
     const normalizedTypes = [...new Set(eventTypes.map((type) => required(type, 'event_type')))];
     const placeholders = normalizedTypes.map(() => '?').join(', ');
     const rows = this.store.db().prepare(
+      `SELECT event.cursor, event.organization_id, event.event_id, event.event_type,
+              event.payload_json, event.source,
+              event.source_revision, event.observed_at, event.correlation_id,
+              event.causation_id, event.idempotency_key, event.fact_fingerprint
+         FROM companyos_latest_facts latest
+         JOIN companyos_events event
+           ON event.cursor = latest.event_cursor
+          AND event.organization_id = latest.organization_id
+        WHERE latest.organization_id = ? AND latest.event_type IN (${placeholders})
+        ORDER BY event.cursor ASC`,
+    ).all(normalizedOrganizationId, ...normalizedTypes) as unknown as EventRow[];
+    return rows.map(eventFromRow);
+  }
+
+  private backfillLatestFacts(): void {
+    const database = this.store.db();
+    const state = database.prepare(
+      `SELECT version FROM companyos_projection_state
+        WHERE projector_id = 'latest-operating-facts'`,
+    ).get() as { version: number } | undefined;
+    if (state?.version === 1) return;
+    const placeholders = OPERATING_EVENT_TYPES.map(() => '?').join(', ');
+    const rows = database.prepare(
       `SELECT cursor, organization_id, event_id, event_type, payload_json, source,
               source_revision, observed_at, correlation_id, causation_id,
               idempotency_key, fact_fingerprint
          FROM companyos_events
-        WHERE organization_id = ? AND event_type IN (${placeholders})
-        ORDER BY cursor DESC
-        LIMIT 10001`,
-    ).all(normalizedOrganizationId, ...normalizedTypes) as unknown as EventRow[];
-    if (rows.length > 10_000) throw new Error('operating_event_limit_exceeded');
-    return rows.map(eventFromRow).reverse();
+        WHERE event_type IN (${placeholders})
+        ORDER BY cursor ASC`,
+    ).all(...OPERATING_EVENT_TYPES) as unknown as EventRow[];
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      for (const row of rows) upsertLatestFact(database, row);
+      database.prepare(
+        `INSERT INTO companyos_projection_state
+          (projector_id, version, backfilled_at_ms)
+         VALUES ('latest-operating-facts', 1, ?)
+         ON CONFLICT(projector_id) DO UPDATE SET
+           version = excluded.version,
+           backfilled_at_ms = excluded.backfilled_at_ms`,
+      ).run(this.store.now());
+      database.exec('COMMIT');
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   consume(

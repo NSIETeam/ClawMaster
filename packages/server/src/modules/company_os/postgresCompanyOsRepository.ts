@@ -11,6 +11,7 @@ import type {
   CanonicalEvent,
   CompanyOsTask,
 } from './index.js';
+import { operatingFactKey } from './operatingFactIdentity.js';
 
 interface EventRow extends Record<string, unknown> {
   cursor: number | string;
@@ -147,8 +148,10 @@ export function createPostgresCompanyOsRepository(input: {
     required(event.correlationId, 'correlation_id');
     const payloadJson = stableJson(event.payload);
     const factFingerprint = fingerprint(event, payloadJson);
+    const factKey = operatingFactKey(event);
     const inserted = await input.pool.query<EventRow>(
-      `INSERT INTO companyos_events
+      `WITH inserted AS (
+       INSERT INTO companyos_events
         (organization_id, event_id, event_type, payload, source,
          source_revision, observed_at, correlation_id, causation_id,
          idempotency_key, fact_fingerprint)
@@ -156,11 +159,28 @@ export function createPostgresCompanyOsRepository(input: {
        ON CONFLICT (organization_id, idempotency_key) DO NOTHING
        RETURNING cursor, organization_id, event_id, event_type, payload, source,
                  source_revision, observed_at, correlation_id, causation_id,
-                 idempotency_key, fact_fingerprint`,
+                 idempotency_key, fact_fingerprint
+       ), projected AS (
+         INSERT INTO companyos_latest_facts
+           (organization_id, event_type, fact_key, event_cursor, observed_at)
+         SELECT organization_id, event_type, $12::text, cursor, observed_at
+         FROM inserted
+         WHERE $12::text IS NOT NULL
+         ON CONFLICT (organization_id, event_type, fact_key) DO UPDATE SET
+           event_cursor = EXCLUDED.event_cursor,
+           observed_at = EXCLUDED.observed_at
+         WHERE EXCLUDED.observed_at > companyos_latest_facts.observed_at
+            OR (EXCLUDED.observed_at = companyos_latest_facts.observed_at
+                AND EXCLUDED.event_cursor > companyos_latest_facts.event_cursor)
+       )
+       SELECT cursor, organization_id, event_id, event_type, payload, source,
+              source_revision, observed_at, correlation_id, causation_id,
+              idempotency_key, fact_fingerprint
+       FROM inserted`,
       [
         event.organizationId, event.id, event.type, payloadJson, event.source,
         event.sourceRevision, event.observedAt, event.correlationId,
-        event.causationId ?? null, event.idempotencyKey, factFingerprint,
+        event.causationId ?? null, event.idempotencyKey, factFingerprint, factKey,
       ],
     );
     if (inserted.rows[0]) return eventFromRow(inserted.rows[0]);
@@ -390,7 +410,7 @@ export function createPostgresCompanyOsRepository(input: {
     }));
   }
 
-  async function listCompanyOsEvents(
+  async function listLatestCompanyOsFacts(
     organizationId: string,
     eventTypes: readonly string[],
   ): Promise<CanonicalEvent[]> {
@@ -398,17 +418,19 @@ export function createPostgresCompanyOsRepository(input: {
     if (!eventTypes.length || eventTypes.length > 50) throw new Error('invalid_event_types');
     const normalizedTypes = [...new Set(eventTypes.map((type) => required(type, 'event_type')))];
     const rows = await input.pool.query<EventRow>(
-      `SELECT cursor, organization_id, event_id, event_type, payload, source,
-              source_revision, observed_at, correlation_id, causation_id,
-              idempotency_key
-         FROM companyos_events
-        WHERE organization_id = $1 AND event_type = ANY($2::text[])
-        ORDER BY cursor DESC
-        LIMIT 10001`,
+      `SELECT event.cursor, event.organization_id, event.event_id, event.event_type,
+              event.payload, event.source, event.source_revision, event.observed_at,
+              event.correlation_id, event.causation_id, event.idempotency_key
+         FROM companyos_latest_facts latest
+         JOIN companyos_events event
+           ON event.cursor = latest.event_cursor
+          AND event.organization_id = latest.organization_id
+        WHERE latest.organization_id = $1
+          AND latest.event_type = ANY($2::text[])
+        ORDER BY event.cursor ASC`,
       [normalizedOrganizationId, normalizedTypes],
     );
-    if (rows.rows.length > 10_000) throw new Error('operating_event_limit_exceeded');
-    return rows.rows.map(eventFromRow).reverse();
+    return rows.rows.map(eventFromRow);
   }
 
   async function listCompanyOsTasks(organizationId: string): Promise<CompanyOsTask[]> {
@@ -521,7 +543,7 @@ export function createPostgresCompanyOsRepository(input: {
     claimNextCompanyOsEvent,
     completeCompanyOsWatchdogClaim,
     inspectCompanyOsWatchdog,
-    listCompanyOsEvents,
+    listLatestCompanyOsFacts,
     listCompanyOsActions,
     listCompanyOsTasks,
     listCompanyOsAudit,

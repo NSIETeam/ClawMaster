@@ -48,6 +48,24 @@ export const COMPANY_OS_SCHEMA_CONTRIBUTOR: DatabaseSchemaContributor = {
           REFERENCES companyos_events(cursor, organization_id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS companyos_latest_facts (
+        organization_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        fact_key TEXT NOT NULL,
+        event_cursor INTEGER NOT NULL,
+        observed_at_ms INTEGER NOT NULL,
+        PRIMARY KEY(organization_id, event_type, fact_key),
+        UNIQUE(event_cursor, organization_id),
+        FOREIGN KEY(event_cursor, organization_id)
+          REFERENCES companyos_events(cursor, organization_id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS companyos_projection_state (
+        projector_id TEXT PRIMARY KEY,
+        version INTEGER NOT NULL CHECK(version > 0),
+        backfilled_at_ms INTEGER NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS companyos_actions (
         action_id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
@@ -98,6 +116,8 @@ export const COMPANY_OS_SCHEMA_CONTRIBUTOR: DatabaseSchemaContributor = {
         ON companyos_event_receipts(organization_id, consumer_id, event_cursor);
       CREATE INDEX IF NOT EXISTS idx_companyos_claims_expiry
         ON companyos_event_claims(lease_expires_at_ms, consumer_id, event_cursor);
+      CREATE INDEX IF NOT EXISTS idx_companyos_latest_facts_lookup
+        ON companyos_latest_facts(organization_id, event_type, event_cursor);
       CREATE INDEX IF NOT EXISTS idx_companyos_actions_organization
         ON companyos_actions(organization_id, status, created_at_ms, action_id);
       CREATE INDEX IF NOT EXISTS idx_companyos_tasks_organization

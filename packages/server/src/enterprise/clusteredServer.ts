@@ -787,7 +787,7 @@ export function createClusteredEnterpriseServer(
         sendJson(res, 200, {
           brief: buildOperatingBrief({
             organizationId: account.organizationId,
-            events: await repository.listCompanyOsEvents(
+            events: await repository.listLatestCompanyOsFacts(
               account.organizationId, OPERATING_EVENT_TYPES,
             ),
             actions: await repository.listCompanyOsActions(account.organizationId),

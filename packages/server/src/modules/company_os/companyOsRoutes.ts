@@ -129,7 +129,7 @@ export async function handleCompanyOsRoute(input: CompanyOsRouteInput): Promise<
     input.sendJSON(input.res, 200, {
       brief: buildOperatingBrief({
         organizationId,
-        events: bus.listEvents(organizationId, OPERATING_EVENT_TYPES),
+        events: bus.listLatestFacts(organizationId, OPERATING_EVENT_TYPES),
         actions: watchdog.listActions(organizationId),
         asOf: new Date(input.store.now()).toISOString(),
       }),

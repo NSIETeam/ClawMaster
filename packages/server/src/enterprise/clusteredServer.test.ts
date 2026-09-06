@@ -253,7 +253,7 @@ function repository(
     listOrganizationStructure: vi.fn(async () => []),
     publishCompanyOsEvent: vi.fn(async (event) => event),
     inspectCompanyOsWatchdog: vi.fn(async () => 1),
-    listCompanyOsEvents: vi.fn(async () => []),
+    listLatestCompanyOsFacts: vi.fn(async () => []),
     listCompanyOsActions: vi.fn(async () => []),
     listCompanyOsTasks: vi.fn(async () => []),
     listCompanyOsAudit: vi.fn(async () => []),
@@ -353,7 +353,7 @@ describe('clustered PostgreSQL enterprise server', () => {
     expect(await brief.json()).toMatchObject({
       brief: { organizationId: 'org_default', status: 'unknown' },
     });
-    expect(repo.listCompanyOsEvents).toHaveBeenCalledWith(
+    expect(repo.listLatestCompanyOsFacts).toHaveBeenCalledWith(
       'org_default', expect.arrayContaining(['companyos.cash.snapshot.v1']),
     );
 

@@ -50,6 +50,8 @@ describe('durable CompanyOS event bus', () => {
       'companyos_event_claims',
       'companyos_event_receipts',
       'companyos_events',
+      'companyos_latest_facts',
+      'companyos_projection_state',
       'companyos_tasks',
     ]);
   });
@@ -150,6 +152,78 @@ describe('durable CompanyOS event bus', () => {
     })).toEqual(original);
     expect(() => bus.publish({ ...original, payload: { skuId: 'sku-2' } }))
       .toThrow('idempotency_conflict');
+  });
+
+  it('persists only the latest operating fact for each business identity', () => {
+    const db = database();
+    const bus = new DurableCompanyOsEventBus({ db: () => db, now: () => 1 });
+    const base = {
+      type: 'companyos.profit.line.v1',
+      payload: { skuId: 'sku-1', channelId: 'online', revenue: { currency: 'CNY', minorUnits: '100' } },
+    };
+    const current = event({
+      ...base, id: 'current', idempotencyKey: 'current',
+      observedAt: '2026-09-06T02:00:00.000Z',
+    });
+    const delayed = event({
+      ...base, id: 'delayed', idempotencyKey: 'delayed',
+      observedAt: '2026-09-06T01:00:00.000Z',
+    });
+    const replacement = event({
+      ...base, id: 'replacement', idempotencyKey: 'replacement',
+      observedAt: current.observedAt,
+    });
+    bus.publish(current);
+    bus.publish(delayed);
+    expect(bus.listLatestFacts('org-1', [base.type])).toEqual([current]);
+    bus.publish(replacement);
+    expect(bus.listLatestFacts('org-1', [base.type])).toEqual([replacement]);
+    expect(db.prepare('SELECT COUNT(*) AS count FROM companyos_events').get())
+      .toEqual({ count: 3 });
+    expect(db.prepare('SELECT COUNT(*) AS count FROM companyos_latest_facts').get())
+      .toEqual({ count: 1 });
+  });
+
+  it('rebuilds latest operating facts once for a pre-projection database', () => {
+    const db = database();
+    const store = { db: () => db, now: () => 1 };
+    const first = new DurableCompanyOsEventBus(store);
+    first.publish(event({
+      type: 'companyos.cash.snapshot.v1', id: 'cash-old', idempotencyKey: 'cash-old',
+      observedAt: '2026-09-06T01:00:00.000Z',
+    }));
+    first.publish(event({
+      type: 'companyos.cash.snapshot.v1', id: 'cash-new', idempotencyKey: 'cash-new',
+      observedAt: '2026-09-06T02:00:00.000Z',
+    }));
+    db.prepare('DELETE FROM companyos_latest_facts').run();
+    db.prepare("DELETE FROM companyos_projection_state WHERE projector_id = 'latest-operating-facts'")
+      .run();
+    const restarted = new DurableCompanyOsEventBus(store);
+    expect(restarted.listLatestFacts('org-1', ['companyos.cash.snapshot.v1']))
+      .toEqual([expect.objectContaining({ id: 'cash-new' })]);
+    expect(db.prepare(
+      "SELECT version FROM companyos_projection_state WHERE projector_id = 'latest-operating-facts'",
+    ).get()).toEqual({ version: 1 });
+  });
+
+  it('keeps identical operating identities isolated by tenant', () => {
+    const db = database();
+    const bus = new DurableCompanyOsEventBus({ db: () => db, now: () => 1 });
+    const shared = {
+      type: 'companyos.inventory.line.v1',
+      payload: { skuId: 'sku-1', warehouseId: 'main' },
+      observedAt: '2026-09-06T02:00:00.000Z',
+    };
+    bus.publish(event({ ...shared, id: 'org-1-stock', idempotencyKey: 'stock' }));
+    bus.publish(event({
+      ...shared, organizationId: 'org-2', id: 'org-2-stock',
+      correlationId: 'correlation-2', idempotencyKey: 'stock',
+    }));
+    expect(bus.listLatestFacts('org-1', [shared.type]))
+      .toEqual([expect.objectContaining({ id: 'org-1-stock', organizationId: 'org-1' })]);
+    expect(bus.listLatestFacts('org-2', [shared.type]))
+      .toEqual([expect.objectContaining({ id: 'org-2-stock', organizationId: 'org-2' })]);
   });
 
   it('keeps matching external ids and idempotency keys isolated by organization', () => {

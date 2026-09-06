@@ -176,6 +176,20 @@ describe('PostgreSQL enterprise core authority', () => {
     expect(migration!.sql).toContain('REFERENCES organizations(id)');
   });
 
+  it('backfills tenant-bound latest CompanyOS fact projections', () => {
+    const migration = ENTERPRISE_POSTGRES_MIGRATIONS.find(
+      (candidate) => candidate.version === 16,
+    );
+    expect(migration).toMatchObject({
+      version: 16,
+      name: 'companyos-latest-fact-projections',
+    });
+    expect(migration!.sql).toContain('CREATE TABLE companyos_latest_facts');
+    expect(migration!.sql).toContain('PARTITION BY organization_id, event_type, fact_key');
+    expect(migration!.sql).toContain('WHERE fact_rank = 1');
+    expect(migration!.sql).toContain('FOREIGN KEY (event_cursor, organization_id)');
+  });
+
   it('requires an exact policy hash before PostgreSQL reports current consent', async () => {
     const references = currentLegalDocumentReferences();
     const pool: PostgresPoolLike = {

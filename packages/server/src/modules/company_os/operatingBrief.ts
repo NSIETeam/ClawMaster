@@ -10,13 +10,8 @@ import {
   type GrowthLine,
   type InventoryLine,
 } from './operatingEngines.js';
-
-export const OPERATING_EVENT_TYPES = [
-  'companyos.profit.line.v1',
-  'companyos.inventory.line.v1',
-  'companyos.cash.snapshot.v1',
-  'companyos.growth.line.v1',
-] as const;
+import { operatingFactKey, OPERATING_EVENT_TYPES } from './operatingFactIdentity.js';
+export { OPERATING_EVENT_TYPES } from './operatingFactIdentity.js';
 
 type SerializedMoney = { currency: string; minorUnits: string };
 type MetricEvidence = {
@@ -100,20 +95,6 @@ function freshness(event: CanonicalEvent) {
   };
 }
 
-function eventKey(event: CanonicalEvent): string {
-  const payload = object(event.payload);
-  if (event.type === 'companyos.profit.line.v1') {
-    return `${event.type}:${string(payload.skuId, 'sku_id')}:${string(payload.channelId, 'channel_id')}:${string(payload.storeId, 'store_id', true) ?? ''}`;
-  }
-  if (event.type === 'companyos.inventory.line.v1') {
-    return `${event.type}:${string(payload.skuId, 'sku_id')}:${string(payload.warehouseId, 'warehouse_id')}`;
-  }
-  if (event.type === 'companyos.growth.line.v1') {
-    return `${event.type}:${string(payload.channelId, 'channel_id')}:${string(payload.skuId, 'sku_id', true) ?? ''}:${string(payload.campaignId, 'campaign_id', true) ?? ''}`;
-  }
-  return event.type;
-}
-
 function latestValidEvents(events: readonly CanonicalEvent[], asOfMs: number): {
   events: CanonicalEvent[];
   invalidEvidenceRefs: string[];
@@ -127,10 +108,12 @@ function latestValidEvents(events: readonly CanonicalEvent[], asOfMs: number): {
       if (!Number.isFinite(observedAtMs) || observedAtMs > asOfMs) {
         throw new Error('invalid_observed_at');
       }
-      const key = eventKey(event);
-      const current = latest.get(key);
+      const key = operatingFactKey(event);
+      if (key === null) continue;
+      const scopedKey = `${event.type}:${key}`;
+      const current = latest.get(scopedKey);
       if (!current || observedAtMs >= Date.parse(current.observedAt)) {
-        latest.set(key, event);
+        latest.set(scopedKey, event);
       }
     } catch {
       invalidEvidenceRefs.push(event.id);
