@@ -219,11 +219,22 @@ export const STATIC_MODULE_SPECS: readonly StaticModuleSpec[] = [
   })),
 ] as const;
 
-/** Approved product endpoints are defaults; a validated local setting may override them. */
-export function configuredPlatformUrl(platformId: string): string | null {
+export function platformSettingKey(
+  platformId: string,
+  setting: 'url' | 'remember-login',
+  tenantScope?: string,
+): string {
+  const scope = tenantScope?.trim();
+  return scope
+    ? `clawmaster.platform.${encodeURIComponent(scope)}.${platformId}.${setting}`
+    : `clawmaster.platform.${platformId}.${setting}`;
+}
+
+/** Approved product endpoints are defaults; a validated tenant setting may override them. */
+export function configuredPlatformUrl(platformId: string, tenantScope?: string): string | null {
   const fallback = DEFAULT_PLATFORM_URLS[platformId as keyof typeof DEFAULT_PLATFORM_URLS] ?? null;
   const value = typeof window !== 'undefined' && window.localStorage
-    ? window.localStorage.getItem(`clawmaster.platform.${platformId}.url`)
+    ? window.localStorage.getItem(platformSettingKey(platformId, 'url', tenantScope))
     : null;
   if (!value) return fallback;
   try {

@@ -11,6 +11,7 @@ import {
   buildModuleCatalog,
   configuredPlatformUrl,
   DEFAULT_PLATFORM_URLS,
+  platformSettingKey,
   STATIC_MODULE_SPECS,
   type ModuleCatalogContext,
 } from './moduleCatalog.js';
@@ -54,10 +55,17 @@ describe('static module catalog', () => {
       'platform-maotouying': 'http://8.141.8.31/',
     });
     expect(configuredPlatformUrl('platform-zhifang')).toBe('https://47.116.30.60/');
-    window.localStorage.setItem('clawmaster.platform.platform-zhifang.url', 'https://example.com/work/');
-    expect(configuredPlatformUrl('platform-zhifang')).toBe('https://example.com/work/');
-    window.localStorage.setItem('clawmaster.platform.platform-zhifang.url', 'file:///tmp/unsafe');
-    expect(configuredPlatformUrl('platform-zhifang')).toBe('https://47.116.30.60/');
+    window.localStorage.setItem(
+      platformSettingKey('platform-zhifang', 'url', 'tenant-a'),
+      'https://example.com/work/',
+    );
+    expect(configuredPlatformUrl('platform-zhifang', 'tenant-a')).toBe('https://example.com/work/');
+    expect(configuredPlatformUrl('platform-zhifang', 'tenant-b')).toBe('https://47.116.30.60/');
+    window.localStorage.setItem(
+      platformSettingKey('platform-zhifang', 'url', 'tenant-a'),
+      'file:///tmp/unsafe',
+    );
+    expect(configuredPlatformUrl('platform-zhifang', 'tenant-a')).toBe('https://47.116.30.60/');
   });
 
   it('uses the customer-facing platform names and subtitles', () => {

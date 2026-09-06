@@ -2,7 +2,7 @@
 
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import type { PlatformWebviewBounds } from '../../preload/index.js';
-import { isSecurePlatformUrl } from '../moduleCatalog.js';
+import { isSecurePlatformUrl, platformSettingKey } from '../moduleCatalog.js';
 
 export interface PlatformWorkspaceTarget {
   id: string;
@@ -10,19 +10,19 @@ export interface PlatformWorkspaceTarget {
   url: string | null;
 }
 
-function rememberLoginKey(platformId: string): string {
-  return `clawmaster.platform.${platformId}.remember-login`;
-}
-
 export function PlatformWorkspace({
   target,
+  tenantScope,
   onClose,
 }: {
   target: PlatformWorkspaceTarget;
+  tenantScope: string;
   onClose?: () => void;
 }): React.JSX.Element {
   const [configuredUrl, setConfiguredUrl] = useState(target.url ?? '');
-  const [rememberLogin, setRememberLogin] = useState(() => window.localStorage.getItem(rememberLoginKey(target.id)) === 'true');
+  const [rememberLogin, setRememberLogin] = useState(() => (
+    window.localStorage.getItem(platformSettingKey(target.id, 'remember-login', tenantScope)) === 'true'
+  ));
   const [validationError, setValidationError] = useState<string | null>(null);
   const [browserState, setBrowserState] = useState<'idle' | 'loading' | 'embedded' | 'external' | 'failed'>('idle');
   const browserHostRef = useRef<HTMLDivElement>(null);
@@ -58,7 +58,7 @@ export function PlatformWorkspace({
     const initialBounds = measure();
     if (!initialBounds) return undefined;
     setBrowserState('loading');
-    void openEmbedded(url, initialBounds, rememberLogin).then(() => {
+    void openEmbedded(url, initialBounds, target.id, tenantScope, rememberLogin).then(() => {
       opened = true;
       if (disposed) {
         void bridge.platformWebviewClose?.();
@@ -87,18 +87,24 @@ export function PlatformWorkspace({
       window.removeEventListener('resize', updateBounds);
       void bridge.platformWebviewClose?.();
     };
-  }, [insecure, rememberLogin, target.id, target.url]);
+  }, [insecure, rememberLogin, target.id, target.url, tenantScope]);
 
   const updateRememberLogin = (value: boolean): void => {
     setRememberLogin(value);
-    window.localStorage.setItem(rememberLoginKey(target.id), String(value));
+    window.localStorage.setItem(
+      platformSettingKey(target.id, 'remember-login', tenantScope),
+      String(value),
+    );
   };
 
   const saveEndpoint = (): void => {
     try {
       const url = new URL(configuredUrl.trim());
       if (!isSecurePlatformUrl(url) || url.username || url.password) throw new Error('invalid');
-      window.localStorage.setItem(`clawmaster.platform.${target.id}.url`, url.toString());
+      window.localStorage.setItem(
+        platformSettingKey(target.id, 'url', tenantScope),
+        url.toString(),
+      );
       window.location.reload();
     } catch {
       setValidationError('远程平台必须使用 HTTPS；HTTP 仅允许 localhost、127.0.0.1 或 ::1。');
@@ -108,7 +114,7 @@ export function PlatformWorkspace({
   return (
     <section className="claw-platform-workspace" aria-label={`${target.label}平台工作区`}>
       <header>
-        <div><strong>{target.label}</strong><small>加密平台工作区 · 会话关闭即清除</small></div>
+        <div><strong>{target.label}</strong><small>HTTPS 隔离工作区 · 登录状态由你控制</small></div>
         <div className="claw-platform-workspace__actions">
           {browserState === 'embedded' ? <button type="button" onClick={() => void window.clawmaster.platformWebviewReload?.()}>刷新</button> : null}
           <button type="button" disabled={!target.url || insecure} onClick={() => target.url && !insecure && void window.clawmaster.openExternal(target.url)}>系统浏览器</button>
@@ -119,7 +125,9 @@ export function PlatformWorkspace({
       {target.url && !insecure ? <label className="claw-platform-workspace__remember-login">
         <input type="checkbox" checked={rememberLogin} onChange={(event) => updateRememberLogin(event.target.checked)} />
         保持登录
-        <small>仅保留该平台自己的登录 Cookie，不会读取或保存明文密码</small>
+        <small>{rememberLogin
+          ? '持久保留该平台自己的 Cookie；ClawMaster 不读取或保存明文密码'
+          : '关闭平台后清除该工作区会话；ClawMaster 不读取或保存明文密码'}</small>
       </label> : null}
       {!target.url || insecure ? <div className="claw-platform-workspace__config" role="group" aria-label="平台地址配置">
         <label>HTTPS 平台地址<input value={configuredUrl} onChange={(event) => { setConfiguredUrl(event.target.value); setValidationError(null); }} placeholder="https://your-platform.example" /></label>
@@ -132,7 +140,9 @@ export function PlatformWorkspace({
         {browserState === 'external' ? '当前桌面壳不支持内置浏览器，已使用系统浏览器打开。' : null}
         {browserState === 'failed' ? '内置浏览器启动失败，已回退系统浏览器。' : null}
       </div> : null}
-      {target.url && !insecure ? <div role="status">{browserState === 'embedded' ? `加密连接已建立；${target.label} 登录态仅保留在本次浏览器会话。` : `正在安全连接 ${target.label}。`}</div> : null}
+      {target.url && !insecure ? <div role="status">{browserState === 'embedded'
+        ? `HTTPS 工作区已打开；${target.label} 的登录与业务可用性以平台页面显示为准。`
+        : `正在打开 ${target.label} HTTPS 工作区。`}</div> : null}
     </section>
   );
 }

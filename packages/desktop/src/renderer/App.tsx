@@ -155,7 +155,11 @@ import {
   getModuleWorkspaceStorageKey,
   type ModuleWorkspaceLayout,
 } from './moduleWorkspace.js';
-import { isSecurePlatformUrl, type ModuleDefinition } from './moduleCatalog.js';
+import {
+  configuredPlatformUrl,
+  isSecurePlatformUrl,
+  type ModuleDefinition,
+} from './moduleCatalog.js';
 import type { ModuleModalState } from './moduleModal.js';
 import { CapabilityHostDialog } from './components/CapabilityHostDialog.js';
 
@@ -1262,13 +1266,15 @@ function ClawMasterWorkspaceApp({
       return;
     }
     if (activation.kind === 'platform') {
+      const platformUrl = configuredPlatformUrl(activation.platformId, moduleWorkspaceScopeKey)
+        ?? activation.url;
       setMainView('chat');
       window.dispatchEvent(new CustomEvent('clawmaster:open-platform', {
-        detail: { id: activation.platformId, label: module.label, url: activation.url },
+        detail: { id: activation.platformId, label: module.label, url: platformUrl },
       }));
-      if (!activation.url) return;
+      if (!platformUrl) return;
       try {
-        if (!isSecurePlatformUrl(new URL(activation.url))) return;
+        if (!isSecurePlatformUrl(new URL(platformUrl))) return;
       } catch {
         return;
       }
@@ -1304,7 +1310,7 @@ function ClawMasterWorkspaceApp({
       customAgentId: activation.customAgentId,
       icon: module.icon,
     });
-  }, [edition, expandRightPanel, openModuleModal]);
+  }, [edition, expandRightPanel, moduleWorkspaceScopeKey, openModuleModal]);
 
   const handleToolConfirmation = useCallback(
     (

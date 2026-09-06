@@ -149,7 +149,12 @@ export function RightPanel({
         </header>
       ) : null}
       {activeView === 'platform' && platformTarget ? (
-        <PlatformWorkspace key={platformTarget.id} target={platformTarget} onClose={closePlatform} />
+        <PlatformWorkspace
+          key={platformTarget.id}
+          target={platformTarget}
+          tenantScope={scopeKey}
+          onClose={closePlatform}
+        />
       ) : activeView === 'settings' && settingsWorkspace ? (
         settingsWorkspace
       ) : activeView === 'files' ? (

@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{
@@ -14,6 +15,7 @@ const MAX_WEBVIEW_EDGE: f64 = 16_384.0;
 const PLATFORM_LOAD_TIMEOUT: Duration = Duration::from_secs(20);
 const PLATFORM_SNAPSHOT_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_SNAPSHOT_BYTES: usize = 256 * 1024;
+const MAX_SCOPE_ID_BYTES: usize = 2_048;
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -46,6 +48,24 @@ pub(crate) fn validated_url_string(value: &str) -> Result<String, String> {
     validate_url(value).map(|url| url.to_string())
 }
 
+fn scoped_data_store(platform_id: &str, tenant_scope: &str) -> Result<([u8; 16], String), String> {
+    for (value, label) in [(platform_id, "平台 ID"), (tenant_scope, "租户作用域")] {
+        if value.trim().is_empty() || value.len() > MAX_SCOPE_ID_BYTES || value.contains('\0') {
+            return Err(format!("{label}无效"));
+        }
+    }
+    let digest = Sha256::new()
+        .chain_update(b"clawmaster-platform-webview-v1\0")
+        .chain_update(tenant_scope.as_bytes())
+        .chain_update(b"\0")
+        .chain_update(platform_id.as_bytes())
+        .finalize();
+    let mut identifier = [0_u8; 16];
+    identifier.copy_from_slice(&digest[..16]);
+    let directory_name = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+    Ok((identifier, directory_name))
+}
+
 fn validate_bounds(bounds: PlatformWebviewBounds) -> Result<PlatformWebviewBounds, String> {
     let values = [bounds.x, bounds.y, bounds.width, bounds.height];
     if values.iter().any(|value| !value.is_finite())
@@ -74,10 +94,19 @@ pub async fn platform_webview_open(
     app: AppHandle,
     url: String,
     bounds: PlatformWebviewBounds,
+    platform_id: String,
+    tenant_scope: String,
     remember_login: bool,
 ) -> Result<(), String> {
     let url = validate_url(&url)?;
     let bounds = validate_bounds(bounds)?;
+    let (data_store_identifier, directory_name) = scoped_data_store(&platform_id, &tenant_scope)?;
+    let data_directory = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("无法解析平台浏览器数据目录: {error}"))?
+        .join("platform-webviews")
+        .join(directory_name);
     if let Some(existing) = app.get_webview(PLATFORM_WEBVIEW_LABEL) {
         existing
             .close()
@@ -92,6 +121,8 @@ pub async fn platform_webview_open(
         // Keep credentials out of ClawMaster: the platform WebView owns its
         // cookie jar. Incognito is used when the user did not opt in to a
         // persistent login; otherwise the platform session survives restarts.
+        .data_directory(data_directory)
+        .data_store_identifier(data_store_identifier)
         .incognito(!remember_login)
         .on_navigation(|candidate| validate_url(candidate.as_str()).is_ok())
         .on_page_load(move |_webview, payload| {
@@ -349,5 +380,15 @@ mod tests {
         assert!(validate_browser_action("scroll", 3).is_ok());
         assert!(validate_browser_action("script", 0).is_err());
         assert!(validate_browser_action("click", 200).is_err());
+    }
+
+    #[test]
+    fn platform_cookie_stores_are_stable_and_scope_isolated() {
+        let first = scoped_data_store("platform-a", "tenant-a").unwrap();
+        assert_eq!(first, scoped_data_store("platform-a", "tenant-a").unwrap());
+        assert_ne!(first, scoped_data_store("platform-b", "tenant-a").unwrap());
+        assert_ne!(first, scoped_data_store("platform-a", "tenant-b").unwrap());
+        assert!(scoped_data_store("", "tenant-a").is_err());
+        assert!(scoped_data_store("platform-a", "").is_err());
     }
 }

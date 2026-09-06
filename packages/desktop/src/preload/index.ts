@@ -1468,7 +1468,13 @@ export interface ClawMasterBridge {
   /** host-only 命令：用系统浏览器打开外链。 */
   openExternal(url: string): Promise<void>;
   /** Tauri 原生子 WebView；Electron 兼容壳未实现时由调用方回退系统浏览器。 */
-  platformWebviewOpen?(url: string, bounds: PlatformWebviewBounds, rememberLogin?: boolean): Promise<void>;
+  platformWebviewOpen?(
+    url: string,
+    bounds: PlatformWebviewBounds,
+    platformId: string,
+    tenantScope: string,
+    rememberLogin?: boolean,
+  ): Promise<void>;
   platformWebviewSetBounds?(bounds: PlatformWebviewBounds): Promise<void>;
   platformWebviewReload?(): Promise<void>;
   platformWebviewClose?(): Promise<void>;

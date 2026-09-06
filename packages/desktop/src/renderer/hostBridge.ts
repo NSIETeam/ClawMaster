@@ -318,8 +318,15 @@ export function createTauriHostBridge(
     isConnected: (() => connected) as never,
     openExternal: ((url: string) =>
       invoke<void>('open_external', { url })) as never,
-    platformWebviewOpen: ((url: string, bounds: PlatformWebviewBounds, rememberLogin = false) =>
-      invoke<void>('platform_webview_open', { url, bounds, rememberLogin })) as never,
+    platformWebviewOpen: ((
+      url: string,
+      bounds: PlatformWebviewBounds,
+      platformId: string,
+      tenantScope: string,
+      rememberLogin = false,
+    ) => invoke<void>('platform_webview_open', {
+      url, bounds, platformId, tenantScope, rememberLogin,
+    })) as never,
     platformWebviewSetBounds: ((bounds: PlatformWebviewBounds) =>
       invoke<void>('platform_webview_set_bounds', { bounds })) as never,
     platformWebviewReload: (() =>
