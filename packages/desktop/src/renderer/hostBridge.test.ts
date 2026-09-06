@@ -277,15 +277,20 @@ describe('Tauri host bridge', () => {
     );
     const frames = vi.fn();
     const connections = vi.fn();
+    const channelStatuses = vi.fn();
     const openPlatform = vi.fn();
     window.addEventListener('clawmaster:open-platform', openPlatform);
     bridge.onFrame(frames);
     bridge.onConnectionChange(connections);
+    bridge.onNativeChannelStatus?.(channelStatuses);
 
     await expect(bridge.connect()).resolves.toBe(true);
     eventHandlers.get('desktop://connection-change')?.({ payload: true });
     eventHandlers.get('desktop://server-frame')?.({
       payload: { type: 'sessions', payload: { sessions: [] } },
+    });
+    eventHandlers.get('desktop://channel-status')?.({
+      payload: { provider: 'dingtalk', state: 'connected' },
     });
     eventHandlers.get('desktop://open-platform')?.({
       payload: { id: 'platform-agent-browser', label: 'Example', url: 'https://example.com/' },
@@ -296,6 +301,9 @@ describe('Tauri host bridge', () => {
     expect(connections).toHaveBeenLastCalledWith(true);
     expect(frames).toHaveBeenCalledWith({
       type: 'sessions', payload: { sessions: [] },
+    });
+    expect(channelStatuses).toHaveBeenCalledWith({
+      provider: 'dingtalk', state: 'connected',
     });
     expect(openPlatform).toHaveBeenCalledOnce();
     expect((openPlatform.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({

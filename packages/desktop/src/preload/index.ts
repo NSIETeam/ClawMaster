@@ -1431,6 +1431,7 @@ export interface ClawMasterBridge {
   capabilityUninstall?(id: string, approved: boolean): Promise<void>;
   nativeChannelConfigGet?(provider: NativeChannelProvider): Promise<NativeChannelConfig | null>;
   nativeChannelStatusGet?(provider: NativeChannelProvider): Promise<NativeChannelStatus>;
+  onNativeChannelStatus?(handler: (status: NativeChannelStatus) => void): () => void;
   nativeChannelConnectionSet?(
     provider: NativeChannelProvider,
     connected: boolean,

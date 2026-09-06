@@ -89,7 +89,8 @@ flowchart LR
 | Need | Start here | Boundary / evidence |
 | --- | --- | --- |
 | Turn lifecycle, tool state, confirmation, audit | `packages/runtime-kernel-rs` | Rust kernel tests, Tauri integration tests, and CLI/server test adapter |
-| Enterprise APIs, tenancy, channels | `packages/server` | Server focused tests |
+| Enterprise APIs and tenancy | `packages/server` | Server focused tests |
+| Native enterprise channels | `packages/desktop/src-tauri/src/native_channels.rs`, `packages/desktop/src/renderer/components/hub/NativeChannelPanel.tsx` | Rust connector tests, event-driven UI status tests, and staging-tenant acceptance |
 | GUI and native desktop capabilities | `packages/desktop/src/renderer`, `packages/desktop/src-tauri` | Desktop and Cargo tests |
 | Native model invocation, credentials, retry, cancellation, usage | `packages/desktop/src-tauri/src/native_model_gateway.rs` | Recorded provider fixtures and `npm run validate:boundaries` |
 | Encrypted sessions, messages, memory, checkpoints, usage, artifacts | `packages/desktop/src-tauri/src/native_state_store.rs`, `packages/desktop/src-tauri/src/native_encrypted_memory.rs`, `packages/desktop/src-tauri/src/native_encrypted_checkpoints.rs` | Native StateStore/runtime tests and ownership validator |

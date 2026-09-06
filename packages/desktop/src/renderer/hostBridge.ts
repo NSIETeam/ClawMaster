@@ -84,6 +84,7 @@ export function createTauriHostBridge(
   const frameHandlers = new Set<(frame: ServerToClient) => void>();
   const connectionHandlers = new Set<(value: boolean) => void>();
   const updateProgressHandlers = new Set<(value: UpdateProgressInfo) => void>();
+  const nativeChannelStatusHandlers = new Set<(value: NativeChannelStatus) => void>();
   const pendingRequests = new Map<string, {
     expectedType: ServerToClient['type'];
     resolve: (frame: ServerToClient) => void;
@@ -152,6 +153,9 @@ export function createTauriHostBridge(
         listen<boolean>('desktop://connection-change', ({ payload }) =>
           dispatchConnection(payload),
         ),
+        listen<NativeChannelStatus>('desktop://channel-status', ({ payload }) => {
+          for (const handler of nativeChannelStatusHandlers) handler(payload);
+        }),
         listen<UpdateProgressInfo>('desktop://update-progress', ({ payload }) => {
           for (const handler of updateProgressHandlers) handler(payload);
         }),
@@ -275,6 +279,10 @@ export function createTauriHostBridge(
       invoke<NativeChannelConfig | null>('channel_config_get', { provider })) as never,
     nativeChannelStatusGet: ((provider: NativeChannelProvider) =>
       invoke<NativeChannelStatus>('channel_status_get', { provider })) as never,
+    onNativeChannelStatus: ((handler: (status: NativeChannelStatus) => void) => {
+      nativeChannelStatusHandlers.add(handler);
+      return () => nativeChannelStatusHandlers.delete(handler);
+    }) as never,
     nativeChannelConnectionSet: ((provider: NativeChannelProvider, connected: boolean) =>
       invoke<NativeChannelStatus>('channel_connection_set', { provider, connected })) as never,
     nativeChannelConfigSave: ((input: {

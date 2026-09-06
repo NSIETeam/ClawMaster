@@ -17,7 +17,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio::task::JoinHandle;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
@@ -32,6 +32,7 @@ const DINGTALK_PONG_TIMEOUT_SECONDS: u64 = 5;
 const WECOM_WEBSOCKET_ENDPOINT: &str = "wss://openws.work.weixin.qq.com";
 const WECOM_HEARTBEAT_SECONDS: u64 = 30;
 const WECOM_MAX_MISSED_HEARTBEATS: u8 = 2;
+const CHANNEL_STATUS_EVENT: &str = "desktop://channel-status";
 static REQUEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 type NativeWebSocket = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 
@@ -64,7 +65,7 @@ pub struct NativeChannelState {
     configs: Mutex<HashMap<String, ChannelConfig>>,
     credentials: Arc<dyn CredentialStore>,
     http: Client,
-    statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    statuses: Arc<ChannelStatusStore>,
     tasks: Mutex<HashMap<String, ChannelTasks>>,
     wecom_outbound: Mutex<HashMap<String, mpsc::Sender<WeComOutbound>>>,
 }
@@ -89,6 +90,60 @@ struct WeComOutbound {
     request_id: String,
     frame: Value,
     completion: oneshot::Sender<Result<(), String>>,
+}
+
+#[derive(Default)]
+struct ChannelStatusStore {
+    values: Mutex<HashMap<String, ChannelStatus>>,
+    app: Mutex<Option<AppHandle>>,
+}
+
+impl ChannelStatusStore {
+    fn attach(&self, app: AppHandle) {
+        if let Ok(mut current) = self.app.lock() {
+            *current = Some(app);
+        }
+    }
+
+    fn emit(&self, status: &ChannelStatus) {
+        if let Ok(app) = self.app.lock() {
+            if let Some(app) = app.as_ref() {
+                let _ = app.emit(CHANNEL_STATUS_EVENT, status);
+            }
+        }
+    }
+
+    fn set(&self, status: ChannelStatus) {
+        if let Ok(mut values) = self.values.lock() {
+            values.insert(status.provider.clone(), status.clone());
+        }
+        self.emit(&status);
+    }
+
+    fn record_error(&self, provider: &str, error: String) {
+        let status = if let Ok(mut values) = self.values.lock() {
+            let status = values
+                .entry(provider.to_string())
+                .or_insert_with(|| ChannelStatus::new(provider, "connected"));
+            status.last_error = Some(error);
+            Some(status.clone())
+        } else {
+            None
+        };
+        if let Some(status) = status {
+            self.emit(&status);
+        }
+    }
+
+    fn get(&self, provider: &str) -> Result<ChannelStatus, String> {
+        Ok(self
+            .values
+            .lock()
+            .map_err(|_| "企业消息状态锁不可用".to_string())?
+            .get(provider)
+            .cloned()
+            .unwrap_or_else(|| ChannelStatus::new(provider, "idle")))
+    }
 }
 
 #[derive(Debug)]
@@ -135,17 +190,12 @@ struct FeishuConnector {
     app_id: String,
     app_secret: String,
     bot_open_id: Arc<Mutex<Option<String>>>,
-    statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    statuses: Arc<ChannelStatusStore>,
     client_config: Option<WebSocketClientConfig>,
 }
 
-fn set_channel_status(
-    statuses: &Arc<Mutex<HashMap<String, ChannelStatus>>>,
-    status: ChannelStatus,
-) {
-    if let Ok(mut values) = statuses.lock() {
-        values.insert(status.provider.clone(), status);
-    }
+fn set_channel_status(statuses: &Arc<ChannelStatusStore>, status: ChannelStatus) {
+    statuses.set(status);
 }
 
 impl EventStreamConnector for FeishuConnector {
@@ -926,17 +976,8 @@ async fn dingtalk_websocket_endpoint(
     parse_dingtalk_endpoint(&body)
 }
 
-fn record_channel_error(
-    statuses: &Arc<Mutex<HashMap<String, ChannelStatus>>>,
-    provider: &str,
-    error: String,
-) {
-    if let Ok(mut values) = statuses.lock() {
-        let status = values
-            .entry(provider.to_string())
-            .or_insert_with(|| ChannelStatus::new(provider, "connected"));
-        status.last_error = Some(error);
-    }
+fn record_channel_error(statuses: &Arc<ChannelStatusStore>, provider: &str, error: String) {
+    statuses.record_error(provider, error);
 }
 
 async fn run_inbound_worker(
@@ -944,7 +985,7 @@ async fn run_inbound_worker(
     http: Client,
     config: ChannelConfig,
     app_secret: String,
-    statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    statuses: Arc<ChannelStatusStore>,
     wecom_outbound: Option<mpsc::Sender<WeComOutbound>>,
     mut receiver: mpsc::Receiver<InboundMessage>,
     mut shutdown: watch::Receiver<bool>,
@@ -1018,7 +1059,7 @@ async fn run_dingtalk_stream(
     http: Client,
     config: ChannelConfig,
     app_secret: String,
-    statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    statuses: Arc<ChannelStatusStore>,
     sender: mpsc::Sender<InboundMessage>,
     mut shutdown: watch::Receiver<bool>,
 ) {
@@ -1180,7 +1221,7 @@ async fn run_wecom_stream(
     app: AppHandle,
     config: ChannelConfig,
     app_secret: String,
-    statuses: Arc<Mutex<HashMap<String, ChannelStatus>>>,
+    statuses: Arc<ChannelStatusStore>,
     sender: mpsc::Sender<InboundMessage>,
     mut outbound: mpsc::Receiver<WeComOutbound>,
     mut shutdown: watch::Receiver<bool>,
@@ -1370,7 +1411,7 @@ impl NativeChannelState {
                 .timeout(std::time::Duration::from_secs(15))
                 .build()
                 .map_err(|error| format!("无法初始化消息平台 HTTPS 客户端: {error}"))?,
-            statuses: Arc::new(Mutex::new(HashMap::new())),
+            statuses: Arc::new(ChannelStatusStore::default()),
             tasks: Mutex::new(HashMap::new()),
             wecom_outbound: Mutex::new(HashMap::new()),
         })
@@ -1621,6 +1662,7 @@ impl NativeChannelState {
     }
 
     pub fn start_configured(&self, app: AppHandle) {
+        self.statuses.attach(app.clone());
         let configs = self
             .configs
             .lock()
@@ -1693,13 +1735,7 @@ pub fn channel_status_get(
     state: tauri::State<'_, NativeChannelState>,
 ) -> Result<ChannelStatus, String> {
     let provider = validate_provider(&provider)?;
-    Ok(state
-        .statuses
-        .lock()
-        .map_err(|_| "企业消息状态锁不可用".to_string())?
-        .get(provider)
-        .cloned()
-        .unwrap_or_else(|| ChannelStatus::new(provider, "idle")))
+    state.statuses.get(provider)
 }
 
 #[tauri::command]
@@ -1723,13 +1759,7 @@ pub fn channel_connection_set(
     } else {
         state.stop_connector(&provider, &app)?;
     }
-    Ok(state
-        .statuses
-        .lock()
-        .map_err(|_| "企业消息状态锁不可用".to_string())?
-        .get(&provider)
-        .cloned()
-        .unwrap_or_else(|| ChannelStatus::new(&provider, "idle")))
+    state.statuses.get(&provider)
 }
 
 #[tauri::command]
@@ -1926,6 +1956,20 @@ mod tests {
             connector_kind(&channel_config("wecom", Some("agent"))),
             None
         );
+    }
+
+    #[test]
+    fn channel_status_store_preserves_transitions_and_processing_errors() {
+        let statuses = Arc::new(ChannelStatusStore::default());
+        set_channel_status(&statuses, ChannelStatus::new("dingtalk", "connecting"));
+        assert_eq!(statuses.get("dingtalk").unwrap().state, "connecting");
+
+        set_channel_status(&statuses, ChannelStatus::new("dingtalk", "connected"));
+        record_channel_error(&statuses, "dingtalk", "message rejected".into());
+        let status = statuses.get("dingtalk").unwrap();
+        assert_eq!(status.state, "connected");
+        assert_eq!(status.last_error.as_deref(), Some("message rejected"));
+        assert_eq!(statuses.get("wecom").unwrap().state, "idle");
     }
 
     fn message_event(chat_type: &str, sender_type: &str, mentions: Value) -> ChannelEvent {
