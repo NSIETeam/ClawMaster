@@ -10,6 +10,8 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
 }
 
+const HEAVY_CAPABILITIES = ['Office 转换', 'OCR 识别', '语音处理', '视频处理', '复杂分析'];
+
 export function CapabilityHostDialog({
   open,
   onClose,
@@ -58,7 +60,15 @@ export function CapabilityHostDialog({
           {resources ? <section className="claw-customer-module-market__section" aria-label="资源预算">
             <h3>当前资源</h3>
             <p>已加载实现 {resources.loadedImplementations} · worker {resources.activeWorkers} · 活跃 Agent {resources.activeAgents} · 排队 {resources.queuedAgents}</p>
-            <p>输出上限 {formatBytes(resources.maxOutputBytes)} · 事件队列 {resources.maxEventQueue} · 超时 {resources.maxTimeoutSeconds} 秒</p>
+            <p>受信任签名源 {resources.trustedKeyCount} · 输出上限 {formatBytes(resources.maxOutputBytes)} · 事件队列 {resources.maxEventQueue} · 超时 {resources.maxTimeoutSeconds} 秒</p>
+          </section> : null}
+          {resources?.trustedKeyCount === 0 ? <section className="claw-customer-module-market__section" aria-label="按需能力可用性">
+            <h3>按需能力</h3>
+            <p role="status">未配置第一方签名信任根，重型能力当前不可安装。ClawMaster 不会静默下载或绕过验签。</p>
+            {HEAVY_CAPABILITIES.map((name) => <article key={name} className="claw-customer-module-market__card">
+              <span className="claw-module-marketplace__module-copy"><strong>{name}</strong><small>等待可信第一方能力包</small></span>
+              <span className="claw-customer-module-market__actions"><button type="button" disabled>不可安装</button></span>
+            </article>)}
           </section> : null}
           <section className="claw-customer-module-market__section" aria-label="已安装能力包">
             <h3>已安装能力包</h3>

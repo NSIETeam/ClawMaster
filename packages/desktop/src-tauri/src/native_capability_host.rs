@@ -96,6 +96,7 @@ pub struct ResourceSnapshot {
     pub queued_agents: usize,
     pub active_workers: usize,
     pub loaded_implementations: usize,
+    pub trusted_key_count: usize,
     pub max_output_bytes: usize,
     pub max_event_queue: usize,
     pub max_timeout_seconds: u64,
@@ -230,6 +231,7 @@ impl ResourceGovernor {
             queued_agents: state.queued_agents.len(),
             active_workers: state.active_workers,
             loaded_implementations: state.active_workers,
+            trusted_key_count: 0,
             max_output_bytes: self.max_output_bytes,
             max_event_queue: self.max_event_queue,
             max_timeout_seconds: self.max_timeout_seconds,
@@ -356,7 +358,9 @@ impl CapabilityHost {
     }
 
     pub fn resource_snapshot(&self) -> Result<ResourceSnapshot, String> {
-        self.governor.snapshot()
+        let mut snapshot = self.governor.snapshot()?;
+        snapshot.trusted_key_count = self.trusted_keys.len();
+        Ok(snapshot)
     }
 
     pub fn admit_agent(&self, agent_id: &str) -> Result<AgentAdmission, String> {
@@ -1032,7 +1036,9 @@ mod tests {
     async fn cold_start_is_zero_and_second_agent_queues_without_eviction() {
         let (_root, host, _pair) = host();
         assert_eq!(host.list().unwrap(), Vec::new());
-        assert_eq!(host.resource_snapshot().unwrap().active_workers, 0);
+        let cold = host.resource_snapshot().unwrap();
+        assert_eq!(cold.active_workers, 0);
+        assert_eq!(cold.trusted_key_count, 1);
         assert_eq!(
             host.governor.admit_agent("a1").unwrap(),
             AgentAdmission::Active

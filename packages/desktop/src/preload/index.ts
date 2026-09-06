@@ -194,6 +194,7 @@ export interface NativeCapabilityResources {
   queuedAgents: number;
   activeWorkers: number;
   loadedImplementations: number;
+  trustedKeyCount: number;
   maxOutputBytes: number;
   maxEventQueue: number;
   maxTimeoutSeconds: number;

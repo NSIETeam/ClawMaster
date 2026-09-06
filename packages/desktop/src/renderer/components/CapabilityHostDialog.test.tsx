@@ -29,6 +29,7 @@ describe('CapabilityHostDialog', () => {
       queuedAgents: 0,
       activeWorkers: 0,
       loadedImplementations: 0,
+      trustedKeyCount: 0,
       maxOutputBytes: 1024 * 1024,
       maxEventQueue: 1000,
       maxTimeoutSeconds: 300,
@@ -43,6 +44,9 @@ describe('CapabilityHostDialog', () => {
 
     render(<CapabilityHostDialog open onClose={vi.fn()} />);
     expect(await screen.findByText(/已加载实现 0 · worker 0/)).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toContain('未配置第一方签名信任根');
+    expect(screen.getByText('OCR 识别')).toBeTruthy();
+    expect(screen.getAllByText('不可安装').length).toBeGreaterThan(0);
     expect(screen.getByText(/artifact:write/).textContent).toContain('0.00 MiB');
 
     fireEvent.click(screen.getByRole('button', { name: '卸载' }));
