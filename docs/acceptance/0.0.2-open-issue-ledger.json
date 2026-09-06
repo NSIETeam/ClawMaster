@@ -58,7 +58,7 @@
       "number": 10,
       "status": "in_progress",
       "closable": false,
-      "evidence": ["7698691e removed a redundant candidate timer", "3b265b2f reduced Windows output to NSIS only", "Rust ResourceGovernor test runs 8 agents through 500 lease cycles each and requires zero remaining agents, queue entries, workers, or loaded implementations"],
+      "evidence": ["7698691e removed a redundant candidate timer", "3b265b2f reduced Windows output to NSIS only", "Rust ResourceGovernor test runs 8 agents through 500 lease cycles each and requires zero remaining agents, queue entries, workers, or loaded implementations", "Synthetic JavaScript allocation diagnostics are explicitly excluded from release evidence"],
       "remaining": ["Replace the synthetic JavaScript benchmark with installed Rust-runtime evidence", "Run the same task set against the beta baseline and report success and token deltas", "Run 8 agents for 500 turns and prove worker cleanup and RSS growth", "Produce installed process-tree CPU, memory, startup, size, and top-component reports on both platforms", "Delete legacy production paths only after parity evidence exists"]
     },
     {

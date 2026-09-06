@@ -81,8 +81,10 @@ describe('native-local release contract', () => {
       'bundle/nsis/*.exe',
       'bundle/dmg/*_aarch64.dmg',
     ]) expect(workflow).toContain(expected);
-    expect(await readText(path.join(repoRoot, 'scripts/release-preflight.mjs')))
-      .toContain('low-resource-multi-agent-benchmark.mjs');
+    const releasePreflight = await readText(path.join(repoRoot, 'scripts/release-preflight.mjs'));
+    expect(releasePreflight).not.toContain('low-resource-multi-agent-benchmark.mjs');
+    expect(await readText(path.join(desktopRoot, 'src-tauri/src/native_capability_host.rs')))
+      .toContain('eight_agents_release_every_lease_and_worker_across_500_turns');
     expect(workflow).not.toContain('tauri-node-runtime.yml');
     expect(workflow).not.toContain('sqlcipher-native.yml');
     expect(workflow).not.toContain('bundle/msi/*.msi');

@@ -20,9 +20,6 @@ function run(label, command, args, env = {}) {
   }
 }
 
-run('private-state stress benchmark', process.execPath, [
-  'scripts/low-resource-multi-agent-benchmark.mjs', '--profile=standard8gb',
-]);
 run('persistent scheduler execution contract', npm, [
   'exec', '--', 'vitest', 'run', 'packages/core/src/services/recurringTaskRegistry.test.ts',
 ]);

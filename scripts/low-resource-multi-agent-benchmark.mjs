@@ -2,7 +2,8 @@
 /**
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  *
- * Synthetic multi-agent memory benchmark. It never calls model APIs.
+ * Development-only JavaScript allocation diagnostic. It never exercises the
+ * Rust runtime, installed process tree, model APIs, workers, or release limits.
  */
 
 const PROFILES = {
@@ -115,7 +116,7 @@ for (const [name, profile] of Object.entries(profiles)) {
   results.push(await runProfile(name, profile));
 }
 
-console.log('ClawMaster low-resource multi-agent benchmark');
+console.log('ClawMaster synthetic JavaScript allocation diagnostic (not release evidence)');
 for (const result of results) {
   console.log(`${result.pass ? 'PASS' : 'FAIL'} ${result.profile}`);
   console.log(`  agents=${result.agentCount} elapsedMs=${result.elapsedMs} peakRssMb=${result.peakRssMb} peakHeapMb=${result.peakHeapMb} peakAgentStateMb=${result.peakAgentStateMb} retainedHistoryChars=${result.retainedHistoryChars}`);
