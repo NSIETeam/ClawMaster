@@ -42,6 +42,10 @@ describe('cross-platform Tauri workflow contract', () => {
     expect(workflow).toContain("if: startsWith(github.ref, 'refs/tags/v')");
     expect(workflow).toContain('test "$GITHUB_REF_NAME" = "v${version}"');
     expect(workflow).toContain('test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"');
+    expect(workflow).toContain('Release blocked: every issue must be closed before publishing.');
+    expect(workflow).toContain('select(.pull_request | not)');
+    expect(workflow).toContain('release:formal:gate --workspace=packages/desktop');
+    expect(workflow).toContain('release:beta:gate --workspace=packages/desktop');
     expect(workflow).toContain('tag_name: ${{ github.ref_name }}');
     expect(workflow).toContain('name: ClawMaster ${{ github.ref_name }}');
     expect(workflow).not.toContain('inputs.publish_release');

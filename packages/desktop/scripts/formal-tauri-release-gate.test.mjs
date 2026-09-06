@@ -35,6 +35,7 @@ tags:
 name: Publish ClawMaster \${{ github.ref_name }}
 tag_name: \${{ github.ref_name }}
 npm run release:beta:gate --workspace=packages/desktop
+npm run release:formal:gate --workspace=packages/desktop
 `,
     'utf8',
   );
@@ -109,6 +110,7 @@ name: Publish ClawMaster v0.0.2-beta.1
 tag_name: v0.0.2-beta.1
 prerelease: true
 npm run release:beta:gate --workspace=packages/desktop
+npm run release:formal:gate --workspace=packages/desktop
 `,
       }),
       platform: 'darwin',

@@ -136,9 +136,13 @@ export function evaluateFormalTauriReleaseGate({
     || tauriWorkflow.includes('prerelease: true')) {
     fail('Tauri release workflow must derive release identity from github.ref_name');
   }
-  if (!tauriWorkflow.includes('release:formal:gate --workspace=packages/desktop')
-    && !tauriWorkflow.includes('release:beta:gate --workspace=packages/desktop')) {
-    fail('Tauri release workflow is missing release gate coverage');
+  for (const gate of [
+    'release:formal:gate --workspace=packages/desktop',
+    'release:beta:gate --workspace=packages/desktop',
+  ]) {
+    if (!tauriWorkflow.includes(gate)) {
+      fail(`Tauri release workflow is missing release gate coverage: ${gate}`);
+    }
   }
 
   const asset = collectReleaseAsset({ root, version, platform, arch });

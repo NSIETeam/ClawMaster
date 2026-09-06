@@ -71,8 +71,12 @@ describe('native-local release contract', () => {
     for (const expected of [
       'windows-2022', 'macos-15',
       'release:preflight',
+      'Release blocked: every issue must be closed before publishing.',
+      'select(.pull_request | not)',
       'cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib',
       'Reject legacy packaged runtimes',
+      'release:beta:gate --workspace=packages/desktop',
+      'release:formal:gate --workspace=packages/desktop',
       'softprops/action-gh-release',
       'bundle/nsis/*.exe',
       'bundle/dmg/*_aarch64.dmg',
