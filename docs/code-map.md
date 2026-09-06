@@ -95,7 +95,7 @@ flowchart LR
 | Encrypted sessions, messages, memory, checkpoints, usage, artifacts | `packages/desktop/src-tauri/src/native_state_store.rs`, `packages/desktop/src-tauri/src/native_encrypted_memory.rs`, `packages/desktop/src-tauri/src/native_encrypted_checkpoints.rs` | Native StateStore/runtime tests and ownership validator |
 | Tauri runtime provenance | `packages/desktop/src-tauri`, `.github/workflows/tauri-preview.yml` | Rust-native tests, legacy-runtime rejection, artifact size gate, and packaged smoke |
 | Long-running schedules | `packages/workflow` | workflow tests and recurring registry |
-| Computer control | `packages/rpa` | RPA policy and adapter tests |
+| Computer control | `packages/desktop/src-tauri/src/native_rpa/` | Native semantic-window, encrypted artifact, approval/recovery and installed real-click tests; `packages/rpa` remains comparison-only until parity retirement |
 
 ## Update triggers
 

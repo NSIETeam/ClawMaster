@@ -25,13 +25,19 @@ test double does not satisfy an item on its own.
 
 ## RPA
 
-1. RPA stays outside the Core kernel as `packages/rpa`.
-2. The initial supported surface is versioned Web actions only:
-   navigate, fill, click, extract, screenshot, wait, and checkpoint.
-3. Shell execution, raw mouse coordinates, arbitrary scripts, payments, and
-   sending are not RPA primitives. They require separate capability contracts.
-4. Each side-effecting RPA step passes policy and confirmation before the
-   driver is invoked, and preserves evidence plus a recovery-safe receipt.
+1. The production RPA control plane stays outside the Core kernel in
+   `packages/desktop/src-tauri/src/native_rpa/`. `packages/rpa` is a legacy
+   TypeScript comparison surface until its remaining parity evidence is closed.
+2. The native driver launches installed Chrome or Edge with an owned,
+   tenant/platform-isolated profile. It never downloads Playwright Chromium.
+3. The model selects short-lived `@wN` and `@eN` semantic references from
+   encrypted artifacts. Deterministic Rust resolves bounds and invokes the real
+   OS mouse or keyboard; raw model-provided coordinates are not accepted.
+4. Window inventory, accessibility snapshots, screenshots and receipts bind to
+   one RPA run. Side effects pass policy and confirmation, and interrupted
+   external actions become `unknown_outcome` rather than being replayed.
+5. Release acceptance still requires installed Windows/macOS real-click runs,
+   Safari WebDriver contract evidence and process-tree cleanup evidence.
 
 ## Evaluation and rollout
 

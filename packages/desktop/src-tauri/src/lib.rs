@@ -25,6 +25,7 @@ mod native_models;
 mod native_pptx;
 mod native_process;
 mod native_projects;
+mod native_rpa;
 mod native_runtime;
 mod native_schedule;
 mod native_skills;

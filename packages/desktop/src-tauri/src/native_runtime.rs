@@ -20,8 +20,8 @@ use crate::runtime_contracts::{
 use crate::{
     native_agent_tools, native_context, native_diagnostics, native_encrypted_checkpoints,
     native_encrypted_memory, native_enterprise, native_knowledge, native_mcp, native_memory_engine,
-    native_projects, native_schedule, native_skills, native_state_capsule, native_todos,
-    native_workflows, native_worklog, platform_webview,
+    native_projects, native_rpa, native_schedule, native_skills, native_state_capsule,
+    native_todos, native_workflows, native_worklog, platform_webview,
 };
 use clawmaster_runtime_kernel::{
     ApprovalOutcome, CentralPolicy, KernelEvent, KernelStore, PolicyDecision, PolicyRisk,
@@ -324,6 +324,7 @@ pub struct NativeRuntime {
     credentials: Arc<dyn CredentialStore>,
     state_store: NativeStateStore,
     capability_host: CapabilityHost,
+    native_rpa: native_rpa::NativeRpa,
     memory_engine: native_memory_engine::NativeMemoryEngine,
     model_gateway: ModelInvocationGateway,
     runtime_kernel: RuntimeKernel<NativeKernelStore>,
@@ -819,6 +820,10 @@ impl NativeRuntime {
             state_store.clone(),
             trusted_capability_keys()?,
         )?;
+        let native_rpa = native_rpa::NativeRpa::open(
+            &app_data_dir.join("rpa-profiles-v1"),
+            state_store.clone(),
+        )?;
         let recovery_notices = runtime_kernel
             .recover_all(now_ms())
             .map_err(|error| error.to_string())?
@@ -849,6 +854,7 @@ impl NativeRuntime {
             credentials,
             state_store,
             capability_host,
+            native_rpa,
             memory_engine,
             model_gateway,
             runtime_kernel,
@@ -2644,6 +2650,7 @@ impl NativeRuntime {
         available_tools.extend(native_todos::definitions());
         available_tools.extend(native_skills::definitions());
         available_tools.extend(native_workflows::definitions());
+        available_tools.extend(native_rpa::definitions());
         available_tools.extend(mcp_catalog.definitions.clone());
         let known_capabilities = available_tools
             .iter()
@@ -2824,13 +2831,15 @@ impl NativeRuntime {
                 let is_todo = call.name == "todo_write";
                 let is_skill = native_skills::contains(&call.name);
                 let is_workflow = native_workflows::contains(&call.name);
+                let is_rpa = native_rpa::contains(&call.name);
                 let high_risk = risk == Some(native_agent_tools::ToolRisk::Write)
                     || is_mcp
                     || native_encrypted_checkpoints::is_write(&call.name)
                     || native_knowledge::is_write(&call.name)
                     || native_schedule::is_write(call)
                     || is_todo
-                    || is_workflow;
+                    || is_workflow
+                    || (is_rpa && native_rpa::is_write(&call.name));
                 let capability_enabled = context
                     .enabled_capabilities
                     .is_none_or(|enabled| enabled.iter().any(|name| name == &call.name));
@@ -2844,8 +2853,14 @@ impl NativeRuntime {
                     },
                 );
                 let requires_confirmation = policy_decision == PolicyDecision::RequireApproval;
-                let external_side_effect =
-                    is_mcp || matches!(call.name.as_str(), "open_browser" | "browser_action");
+                let external_side_effect = is_mcp
+                    || matches!(call.name.as_str(), "open_browser" | "browser_action")
+                    || (call.name == "rpa_click"
+                        && call
+                            .arguments
+                            .get("externalSideEffect")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(false));
                 let argument_bytes = serde_json::to_vec(&call.arguments)
                     .map_err(|error| format!("无法序列化工具参数: {error}"))?;
                 let argument_revision = format!("{:x}", Sha256::digest(&argument_bytes));
@@ -2896,7 +2911,11 @@ impl NativeRuntime {
                         Actor::Runtime,
                         RuntimeEventPayload::ApprovalRequested {
                             approval_id: approval_request_id.clone(),
-                            message: format!("允许 {} 执行高风险操作？", call.name),
+                            message: if is_rpa {
+                                native_rpa::approval_summary(call)
+                            } else {
+                                format!("允许 {} 执行高风险操作？", call.name)
+                            },
                             risk: Some("high".into()),
                         },
                     )?;
@@ -3168,6 +3187,16 @@ impl NativeRuntime {
                     native_skills::execute(context.workspace, call)
                 } else if approved && is_workflow {
                     self.execute_workflow(&context, call, cancel.clone()).await
+                } else if approved && is_rpa {
+                    self.native_rpa.execute(
+                        call,
+                        requires_confirmation
+                            .then(|| format!("approval-{}", call.id))
+                            .as_deref(),
+                    )
+                } else if is_rpa {
+                    self.native_rpa
+                        .record_rejection(call, "用户拒绝或取消了 RPA 操作")
                 } else if approved && call.name == "browser_snapshot" {
                     platform_webview::platform_webview_snapshot(context.app).await
                 } else if approved && call.name == "browser_action" {

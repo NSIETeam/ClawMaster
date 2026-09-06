@@ -203,20 +203,24 @@ fn collect_desktop_elements(
     }
 }
 
-pub(crate) fn desktop_snapshot() -> Result<serde_json::Value, String> {
-    let app = App::foreground(Duration::ZERO).map_err(desktop_snapshot_error)?;
-    let root = app.as_element();
+pub(crate) fn desktop_snapshot_for_element(
+    app: &App,
+    root: &Element,
+    window_title: Option<&str>,
+) -> serde_json::Value {
     let mut tree = DesktopTreeState::default();
-    collect_desktop_elements(&root, 0, None, &mut tree);
+    collect_desktop_elements(root, 0, None, &mut tree);
 
-    Ok(serde_json::json!({
+    serde_json::json!({
         "provider": "rust:xa11y",
         "coordinateSpace": "logical-desktop-top-left",
         "activeWindow": {
             "app": bounded_label(&app.name, 200),
-            "title": app.data.name.as_deref().map(|value| bounded_label(value, 500)),
+            "title": window_title
+                .or(app.data.name.as_deref())
+                .map(|value| bounded_label(value, 500)),
             "processId": app.pid,
-            "bounds": app.data.bounds
+            "bounds": root.bounds
         },
         "elements": tree.elements,
         "truncated": tree.truncated,
@@ -225,7 +229,13 @@ pub(crate) fn desktop_snapshot() -> Result<serde_json::Value, String> {
         "referenceScope": "this-snapshot-only",
         "visionRequired": false,
         "hint": "Use element bounds centers as the native coordinate reference for confirmed physical mouse actions. Re-snapshot after the UI changes. Request vision only when the accessibility tree cannot identify the target."
-    }))
+    })
+}
+
+pub(crate) fn desktop_snapshot() -> Result<serde_json::Value, String> {
+    let app = App::foreground(Duration::ZERO).map_err(desktop_snapshot_error)?;
+    let root = app.as_element();
+    Ok(desktop_snapshot_for_element(&app, &root, None))
 }
 
 fn desktop_snapshot_error(error: xa11y::Error) -> String {
