@@ -28,6 +28,7 @@
 - 本地认证路由提供显式 Action execute/reconcile 边界：管理员、人工批准、运行策略和已安装 connector 缺一不可；provider 明确回执才标记 executed，异常或租约过期进入 `unknown_outcome` 并停止自动重放，显式 reconcile 后才可完成。
 - Action execution 以租户和 Action 派生稳定幂等键，持久保存 provider、操作指纹、worker/fence/lease、脱敏错误和 provider receipt；成功时同一事务完成 Action、Task 与 Audit 投影。
 - PostgreSQL repository 与 clustered 认证路由实现同一 execute/reconcile 契约；Action row 锁串行化领取，worker/fence/lease 条件更新拒绝迟到结果，过期 lease 只转 `unknown_outcome` 而不重放。
+- Forecast Calibration 只接受已兑现、同租户/模型/指标/周期/单位且带证据的样本，使用整数 WAPE 与 signed bias 评估误差；样本不足或实际值全零时返回 insufficient，不生成虚假置信度。
 - `BusinessDataConnectorV1` 定义 capability/schema version、冲突策略、限流、HTTPS、opaque secretRef、readiness 和同步 cursor；猫头鹰/知了猴 descriptor 与 fixture 已加入，但 fixture 固定为 `fixture_only`，不能作为生产 ready 证据。
 - 本地与 clustered 成员可从 `/enterprise/companyos/connectors` 查看本组织 readiness；默认猫头鹰/知了猴 HTTP endpoint 明确返回 `blocked/insecure_endpoint`，响应不暴露 endpoint 或 secretRef。
 - Inventory Engine 以整数单位和单位成本计算库存金额及 28 日覆盖天数；缺成本、缺需求或有库存但零需求时返回 partial，不把未知周转包装成正常。
@@ -47,6 +48,6 @@
 - 在真实多副本 PostgreSQL 环境验证 migration 17、Action lease/fencing/receipt/reconcile；当前 SQL mock 与 loopback HTTP 测试不能替代该证据。
 - 猫头鹰/知了猴真实 API adapter、HTTPS、租户授权、secret provider 与 live readiness/sync cursor；在这些外部条件完成前，执行路由保持 connector unavailable，不能伪装成功。
 - 将经营简报接入 Tauri/Rust 企业认证通道并完成最终安装包用户路径；当前 Electron compatibility main/preload 桥不等于 Tauri 发布验收。
-- 预测校准、真实猫头鹰/知了猴 OAuth/API 连接。
+- 将 Forecast Calibration 样本通过版本化事件持久化并用真实历史回测阈值；真实猫头鹰/知了猴 OAuth/API 连接仍待外部条件。
 - Desktop 首页与真实 Design Partner 验收；当前 fixture 和纯领域测试不替代 live/production 证据。
 - 下一阶段应在真实 PostgreSQL 上验收异步 repository，再把 action 执行接到 policy/approval/workflow/audit 的真实持久路径。
