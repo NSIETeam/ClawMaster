@@ -42,6 +42,7 @@ struct HealthResponse {
 
 pub struct NativeEnterpriseRemote {
     http: Client,
+    direct_http: Client,
     credentials: Arc<dyn CredentialStore>,
     auth_generation: AtomicU64,
 }
@@ -53,8 +54,15 @@ impl NativeEnterpriseRemote {
             .timeout(Duration::from_secs(10))
             .build()
             .map_err(|error| format!("无法初始化企业网络客户端: {error}"))?;
+        let direct_http = Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(Duration::from_secs(10))
+            .no_proxy()
+            .build()
+            .map_err(|error| format!("无法初始化本地企业网络客户端: {error}"))?;
         Ok(Self {
             http,
+            direct_http,
             credentials: credential_store_for_service(ENTERPRISE_KEYRING_SERVICE),
             auth_generation: AtomicU64::new(0),
         })
@@ -65,6 +73,11 @@ impl NativeEnterpriseRemote {
         Self {
             http: Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .unwrap(),
+            direct_http: Client::builder()
+                .redirect(reqwest::redirect::Policy::none())
+                .no_proxy()
                 .build()
                 .unwrap(),
             credentials,
@@ -107,8 +120,17 @@ impl NativeEnterpriseRemote {
         body: Option<Value>,
     ) -> Result<(StatusCode, Value), String> {
         let endpoint = endpoint(server_url, path)?;
-        let mut request = self
-            .http
+        let http = if endpoint.host_str().is_some_and(|host| {
+            host == "localhost"
+                || host
+                    .parse::<std::net::IpAddr>()
+                    .is_ok_and(|ip| ip.is_loopback())
+        }) {
+            &self.direct_http
+        } else {
+            &self.http
+        };
+        let mut request = http
             .request(method, endpoint)
             .header(reqwest::header::ACCEPT, "application/json");
         if let Some(token) = token {
