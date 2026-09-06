@@ -48,4 +48,35 @@ describe('Brand AI COO vertical slice', () => {
     const watchdog = new BrandWatchdog(bus); watchdog.inspect();
     expect(buildCeoBrief('org-1', calculateProfit([line()]), watchdog.actions).recommendedActions).toHaveLength(0);
   });
+
+  it('rejects mixed-tenant profit input instead of aggregating it', () => {
+    expect(() => calculateProfit([
+      line(),
+      line({ organizationId: 'org-2' }),
+    ])).toThrow('organization_mismatch');
+  });
+
+  it('rejects an idempotency key reused for a different fact', () => {
+    const bus = new InMemoryEventBus();
+    const event = createCanonicalEvent({
+      ...freshness, organizationId: 'org-1', type: 'owl.price.anomaly',
+      payload: { skuId: 'sku-1' }, correlationId: 'c4', idempotencyKey: 'price-3',
+    });
+    bus.publish(event);
+    expect(() => bus.publish({ ...event, payload: { skuId: 'sku-2' } }))
+      .toThrow('idempotency_conflict');
+  });
+
+  it('does not let matching external event ids collide across tenants', () => {
+    const bus = new InMemoryEventBus();
+    bus.publish(createCanonicalEvent({
+      ...freshness, id: 'provider-event-1', organizationId: 'org-1',
+      type: 'owl.price.anomaly', payload: {}, correlationId: 'c5', idempotencyKey: 'price-4',
+    }));
+    bus.publish(createCanonicalEvent({
+      ...freshness, id: 'provider-event-1', organizationId: 'org-2',
+      type: 'owl.price.anomaly', payload: {}, correlationId: 'c6', idempotencyKey: 'price-5',
+    }));
+    expect(bus.consume('brand-watchdog', () => undefined)).toBe(2);
+  });
 });

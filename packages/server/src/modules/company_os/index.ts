@@ -85,11 +85,13 @@ function subtract(base: Money, ...values: Array<Money | undefined>): Money {
 export function calculateProfit(lines: readonly ProfitLine[]): ProfitResult {
   if (!lines.length) return { currency: 'UNKNOWN', revenue: zero('UNKNOWN'), status: 'unknown', missing: ['revenue'], bySku: {} };
   const currency = lines[0].revenue.currency;
+  const organizationId = lines[0].organizationId;
   let revenue = zero(currency);
   let totalCost = zero(currency);
   let hasMissingCost = false;
   const bySku: ProfitResult['bySku'] = {};
   for (const line of lines) {
+    if (line.organizationId !== organizationId) throw new Error('organization_mismatch');
     revenue = add(revenue, line.revenue);
     const knownCost = Boolean(line.cost && line.commission && line.advertising && line.fulfillment);
     const contribution = knownCost ? subtract(line.revenue, line.cost!, line.commission!, line.advertising!, line.fulfillment!, line.refunds) : undefined;
@@ -118,17 +120,46 @@ export class InMemoryEventBus {
   private readonly consumed = new Map<string, Set<string>>();
 
   publish(event: CanonicalEvent): CanonicalEvent {
-    if (!this.events.some((item) => item.organizationId === event.organizationId && item.idempotencyKey === event.idempotencyKey)) this.events.push(event);
-    return this.events.find((item) => item.organizationId === event.organizationId && item.idempotencyKey === event.idempotencyKey)!;
+    const existing = this.events.find((item) => (
+      item.organizationId === event.organizationId
+      && item.idempotencyKey === event.idempotencyKey
+    ));
+    if (existing) {
+      if (eventFingerprint(existing) !== eventFingerprint(event)) {
+        throw new Error('idempotency_conflict');
+      }
+      return existing;
+    }
+    this.events.push(event);
+    return event;
   }
 
   consume(consumer: string, handler: (event: CanonicalEvent) => void): number {
     const seen = this.consumed.get(consumer) ?? new Set<string>();
     let count = 0;
-    for (const event of this.events) if (!seen.has(event.id)) { handler(event); seen.add(event.id); count++; }
+    for (const event of this.events) {
+      const deliveryId = `${event.organizationId}:${event.id}`;
+      if (!seen.has(deliveryId)) {
+        handler(event);
+        seen.add(deliveryId);
+        count++;
+      }
+    }
     this.consumed.set(consumer, seen);
     return count;
   }
+}
+
+function eventFingerprint(event: CanonicalEvent): string {
+  return JSON.stringify([
+    event.type,
+    event.payload,
+    event.source,
+    event.sourceRevision,
+    event.observedAt,
+    event.correlationId,
+    event.causationId ?? null,
+  ]);
 }
 
 export class BrandWatchdog {
