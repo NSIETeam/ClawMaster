@@ -21,10 +21,10 @@
     },
     {
       "number": 2,
-      "status": "audit_required",
+      "status": "in_progress",
       "closable": false,
-      "evidence": [],
-      "remaining": ["Audit every state transition and GUI review surface", "Prove isolated candidate startup and secret isolation", "Prove drain, checkpoint, atomic activation, observation, and automatic rollback", "Run required negative and 24/72-hour idle tests"]
+      "evidence": ["67c190e3 removes the unreachable renderer review panel instead of preserving fake GUI evidence", "The native self-modification control plane stores bounded requests and audit history in encrypted NativeStateStore, enforces idempotent creation, cross-platform path safety, strict transitions, approval roles, actor attribution, and terminal replay rejection; the full Rust suite passes 199 tests with zero failures and three explicit opt-in skips", "The typed Tauri bridge exposes only list, create, approve, reject, and cancel; unavailable prepare, verify, and activation operations still fail explicitly rather than falling back to Electron"],
+      "remaining": ["Implement native isolated worktree preparation and structured verification", "Prove isolated candidate startup and secret isolation", "Implement and prove drain, checkpoint, fencing, unknown-outcome reconciliation, signed atomic activation, observation, and automatic rollback", "Build a reachable native GUI review surface for diffs, permissions, tests, resources, cost, activation, and rollback", "Run required installed negative and 24/72-hour idle tests before retiring the Electron comparison implementation"]
     },
     {
       "number": 3,

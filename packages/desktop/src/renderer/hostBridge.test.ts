@@ -166,6 +166,26 @@ describe('Tauri host bridge', () => {
         },
       },
     });
+    const change = {
+      goal: '精简前端',
+      tenantId: 'tenant-1',
+      actorId: 'user-1',
+      changedPaths: ['packages/desktop/src/renderer/App.tsx'],
+    };
+    await expect(bridge.selfModificationCreate(change)).resolves.toEqual({
+      command: 'self_modification_create',
+      args: { input: change },
+    });
+    await expect(bridge.selfModificationApprove(
+      'change-1', 'reviewer-1', 'security-reviewer',
+    )).resolves.toEqual({
+      command: 'self_modification_approve',
+      args: { id: 'change-1', actorId: 'reviewer-1', kind: 'security-reviewer' },
+    });
+    await expect(bridge.selfModificationCancel('change-1')).resolves.toEqual({
+      command: 'self_modification_cancel',
+      args: { id: 'change-1' },
+    });
   });
 
   it('fails explicitly for capabilities that have not migrated', async () => {

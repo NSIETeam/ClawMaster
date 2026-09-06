@@ -560,6 +560,15 @@ export function createTauriHostBridge(
       'task_runtime_set_active',
       { active },
     )) as never,
+    selfModificationList: (() => invoke('self_modification_list')) as never,
+    selfModificationCreate: ((input: Parameters<ClawMasterBridge['selfModificationCreate']>[0]) =>
+      invoke('self_modification_create', { input })) as never,
+    selfModificationApprove: ((id: string, actorId: string, kind: string) =>
+      invoke('self_modification_approve', { id, actorId, kind })) as never,
+    selfModificationReject: ((id: string, actorId: string, kind: string) =>
+      invoke('self_modification_reject', { id, actorId, kind })) as never,
+    selfModificationCancel: ((id: string) =>
+      invoke('self_modification_cancel', { id })) as never,
     workLogToday: (async () => {
       const requestId = nextRequestId();
       const response = await requestServerFrame(

@@ -28,6 +28,7 @@ mod native_projects;
 mod native_rpa;
 mod native_runtime;
 mod native_schedule;
+mod native_self_modification;
 mod native_skills;
 mod native_state_capsule;
 mod native_state_store;
@@ -353,8 +354,12 @@ pub fn run() {
                 native_runtime::NativeRuntime::load(&directory).map_err(std::io::Error::other)?;
             let channels = native_channels::NativeChannelState::load(&directory)
                 .map_err(std::io::Error::other)?;
+            let self_modification =
+                native_self_modification::NativeSelfModification::open(&directory)
+                    .map_err(std::io::Error::other)?;
             app.manage(runtime);
             app.manage(channels);
+            app.manage(self_modification);
             app.state::<native_channels::NativeChannelState>()
                 .start_configured(app.handle().clone());
             Ok(())
@@ -415,6 +420,11 @@ pub fn run() {
             system_commands::write_clipboard,
             community_skills::community_skill_install,
             community_skills::community_skill_list,
+            native_self_modification::self_modification_list,
+            native_self_modification::self_modification_create,
+            native_self_modification::self_modification_approve,
+            native_self_modification::self_modification_reject,
+            native_self_modification::self_modification_cancel,
             task_runtime_guard::task_runtime_set_active
         ])
         .build(tauri::generate_context!())
