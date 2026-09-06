@@ -120,6 +120,24 @@ pub fn screenshot_png(inventory: &WindowInventory, window_ref: &str) -> Result<V
         .map_err(|error| format!("截取目标窗口失败：{error}"))
 }
 
+pub fn contains_text(snapshot: &serde_json::Value, expected: &str) -> bool {
+    let expected = expected.trim().to_lowercase();
+    if expected.is_empty() {
+        return false;
+    }
+    snapshot
+        .get("elements")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .any(|element| {
+            ["name", "value", "description"]
+                .into_iter()
+                .filter_map(|field| element.get(field).and_then(serde_json::Value::as_str))
+                .any(|value| value.to_lowercase().contains(&expected))
+        })
+}
+
 fn resolve<'a>(
     inventory: &'a WindowInventory,
     window_ref: &str,
@@ -202,5 +220,17 @@ mod tests {
         let encoded = serde_json::to_value(inventory).unwrap();
         assert_eq!(encoded["windows"][0]["ref"], "@w1");
         assert_eq!(encoded["referenceScope"], "this-inventory-only");
+    }
+
+    #[test]
+    fn wait_matching_searches_only_bounded_semantic_text() {
+        let snapshot = serde_json::json!({"elements":[
+            {"ref":"@e1","name":"提交订单","value":null,"description":null},
+            {"ref":"@e2","name":"状态","value":"Ready","description":null}
+        ]});
+        assert!(contains_text(&snapshot, "提交"));
+        assert!(contains_text(&snapshot, "ready"));
+        assert!(!contains_text(&snapshot, "secret"));
+        assert!(!contains_text(&snapshot, ""));
     }
 }

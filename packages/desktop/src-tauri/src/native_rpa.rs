@@ -10,7 +10,8 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use tokio::sync::watch;
 
 mod browser;
 mod semantic;
@@ -90,6 +91,15 @@ pub fn definitions() -> Vec<ModelToolDefinition> {
             },"required":["runId","stepId","snapshotArtifactId","elementRef","text","targetSummary","sensitive"],"additionalProperties":false}),
         },
         ModelToolDefinition {
+            name: "rpa_wait".into(),
+            description: "Wait up to 10 seconds for bounded text to appear in one selected window. It is cancellation-aware and returns a fresh encrypted semantic snapshot on success.".into(),
+            parameters: json!({"type":"object","properties":{
+                "runId":{"type":"string"},"stepId":{"type":"string"},"windowsArtifactId":{"type":"string"},
+                "windowRef":{"type":"string","pattern":"^@w[1-9][0-9]*$"},"matchText":{"type":"string","minLength":1,"maxLength":200},
+                "timeoutMs":{"type":"integer","minimum":100,"maximum":10000}
+            },"required":["runId","stepId","windowsArtifactId","windowRef","matchText","timeoutMs"],"additionalProperties":false}),
+        },
+        ModelToolDefinition {
             name: "rpa_status".into(),
             description: "Read one durable RPA run and its receipts.".into(),
             parameters: json!({"type":"object","properties":{"runId":{"type":"string"}},"required":["runId"],"additionalProperties":false}),
@@ -114,6 +124,7 @@ pub fn contains(name: &str) -> bool {
             | "rpa_click"
             | "rpa_extract"
             | "rpa_fill"
+            | "rpa_wait"
             | "rpa_status"
             | "rpa_cancel"
     )
@@ -554,6 +565,76 @@ impl NativeRpa {
         Ok(run)
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub async fn wait(
+        &self,
+        run_id: &str,
+        step_id: &str,
+        windows_artifact_id: &str,
+        window_ref: &str,
+        match_text: &str,
+        timeout_ms: u64,
+        mut cancel: watch::Receiver<bool>,
+    ) -> Result<RpaSnapshotResult, String> {
+        if match_text.trim().is_empty() || match_text.chars().count() > 200 {
+            return Err("RPA wait matchText 必须为 1-200 个字符".into());
+        }
+        if !(100..=10_000).contains(&timeout_ms) {
+            return Err("RPA wait timeoutMs 必须为 100-10000".into());
+        }
+        let mut run = self.required_run(run_id)?;
+        self.require_bound_artifact(&run, windows_artifact_id, "窗口清单")?;
+        let inventory: semantic::WindowInventory = self.read_artifact(windows_artifact_id)?;
+        let receipt_index =
+            self.start_step(&mut run, step_id, "desktop.wait", match_text, false, None)?;
+        let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+        loop {
+            if *cancel.borrow() {
+                cancel_receipt(&mut run, receipt_index, "用户取消了 RPA wait");
+                self.save(&run)?;
+                return Err("用户取消了 RPA wait".into());
+            }
+            let snapshot = match semantic::snapshot(&inventory, window_ref) {
+                Ok(snapshot) => snapshot,
+                Err(error) => {
+                    fail_receipt(&mut run, receipt_index, &error, false);
+                    self.save(&run)?;
+                    return Err(error);
+                }
+            };
+            if semantic::contains_text(&snapshot, match_text) {
+                let bytes = serde_json::to_vec(&snapshot).map_err(|error| error.to_string())?;
+                let artifact = self
+                    .store
+                    .put_artifact(&format!("rpa-wait-{run_id}-{step_id}"), &bytes)
+                    .map_err(|error| error.to_string())?;
+                complete_receipt(&mut run, receipt_index, Some(&artifact));
+                self.save(&run)?;
+                return Ok(RpaSnapshotResult {
+                    run,
+                    artifact,
+                    snapshot,
+                });
+            }
+            if Instant::now() >= deadline {
+                let error = format!("等待窗口文本超时: {match_text}");
+                fail_receipt(&mut run, receipt_index, &error, false);
+                self.save(&run)?;
+                return Err(error);
+            }
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_millis(100)) => {},
+                changed = cancel.changed() => {
+                    if changed.is_ok() && *cancel.borrow() {
+                        cancel_receipt(&mut run, receipt_index, "用户取消了 RPA wait");
+                        self.save(&run)?;
+                        return Err("用户取消了 RPA wait".into());
+                    }
+                }
+            }
+        }
+    }
+
     pub fn cancel(&self, run_id: &str) -> Result<RpaRun, String> {
         let mut run = self.required_run(run_id)?;
         if let Some(mut child) = self
@@ -654,10 +735,11 @@ impl NativeRpa {
         }
     }
 
-    pub fn execute(
+    pub async fn execute(
         &self,
         call: &ModelToolCall,
         approval_id: Option<&str>,
+        cancel: watch::Receiver<bool>,
     ) -> Result<Value, String> {
         let text = |name: &str| {
             call.arguments
@@ -732,6 +814,22 @@ impl NativeRpa {
                         .unwrap_or(true),
                     approval_id,
                 )?,
+            )
+            .map_err(|error| error.to_string()),
+            "rpa_wait" => serde_json::to_value(
+                self.wait(
+                    text("runId")?,
+                    text("stepId")?,
+                    text("windowsArtifactId")?,
+                    text("windowRef")?,
+                    text("matchText")?,
+                    call.arguments
+                        .get("timeoutMs")
+                        .and_then(Value::as_u64)
+                        .unwrap_or(0),
+                    cancel,
+                )
+                .await?,
             )
             .map_err(|error| error.to_string()),
             "rpa_status" => Ok(json!({"run":self.get(text("runId")?)?})),
@@ -1030,6 +1128,16 @@ fn fail_receipt(run: &mut RpaRun, index: usize, error: &str, interrupted: bool) 
     run.updated_at = now_ms();
 }
 
+fn cancel_receipt(run: &mut RpaRun, index: usize, reason: &str) {
+    let receipt = &mut run.receipts[index];
+    receipt.state = RpaStepState::Failed;
+    receipt.error = Some(reason.into());
+    receipt.completed_at = Some(now_ms());
+    run.current_step_id = None;
+    run.state = RpaRunState::Cancelled;
+    run.updated_at = now_ms();
+}
+
 fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -1161,5 +1269,43 @@ mod tests {
             .unwrap_err();
         assert!(error.contains("secret"));
         assert!(controller.get("missing-run").unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn wait_cancellation_is_persisted_before_desktop_access() {
+        let (_root, controller) = controller();
+        let artifact = controller
+            .store
+            .put_artifact(
+                "empty-window-inventory",
+                br#"{"provider":"test","referenceScope":"this-inventory-only","windows":[],"truncated":false}"#,
+            )
+            .unwrap();
+        let mut current = run("cancel-wait", false);
+        current.current_step_id = None;
+        current.receipts[0].state = RpaStepState::Succeeded;
+        current.receipts[0].artifact_ids = vec![artifact.sha256.clone()];
+        controller.save(&current).unwrap();
+        let (_sender, receiver) = watch::channel(true);
+        let error = controller
+            .wait(
+                "cancel-wait",
+                "wait-ready",
+                &artifact.sha256,
+                "@w1",
+                "Ready",
+                1_000,
+                receiver,
+            )
+            .await
+            .unwrap_err();
+        assert!(error.contains("取消"));
+        let persisted = controller.get("cancel-wait").unwrap().unwrap();
+        assert_eq!(persisted.state, RpaRunState::Cancelled);
+        assert_eq!(persisted.current_step_id, None);
+        assert_eq!(
+            persisted.receipts.last().unwrap().state,
+            RpaStepState::Failed
+        );
     }
 }

@@ -3188,12 +3188,15 @@ impl NativeRuntime {
                 } else if approved && is_workflow {
                     self.execute_workflow(&context, call, cancel.clone()).await
                 } else if approved && is_rpa {
-                    self.native_rpa.execute(
-                        call,
-                        requires_confirmation
-                            .then(|| format!("approval-{}", call.id))
-                            .as_deref(),
-                    )
+                    self.native_rpa
+                        .execute(
+                            call,
+                            requires_confirmation
+                                .then(|| format!("approval-{}", call.id))
+                                .as_deref(),
+                            cancel.clone(),
+                        )
+                        .await
                 } else if is_rpa {
                     self.native_rpa
                         .record_rejection(call, "用户拒绝或取消了 RPA 操作")

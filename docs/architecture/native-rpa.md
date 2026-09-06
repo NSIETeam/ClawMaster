@@ -23,6 +23,9 @@ The model never supplies a PID or coordinate. It selects a window reference and
 an element reference from immutable encrypted artifacts. Rust verifies both
 artifacts belong to the same run before resolving the element center and issuing
 a physical input event. Editable values are redacted from semantic snapshots.
+The bounded wait action listens to the active turn cancellation channel and
+persists cancellation before reading the desktop again; a successful match
+produces a fresh encrypted semantic artifact rather than reusing stale bounds.
 
 ## Safety and recovery
 
