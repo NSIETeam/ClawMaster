@@ -9,7 +9,6 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::process::Child;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -244,7 +243,7 @@ pub struct BrowserSupport {
 pub struct NativeRpa {
     root: PathBuf,
     store: NativeStateStore,
-    owned_browsers: Mutex<BTreeMap<String, Child>>,
+    owned_browsers: Mutex<BTreeMap<String, browser::OwnedBrowser>>,
 }
 
 impl NativeRpa {
@@ -563,8 +562,7 @@ impl NativeRpa {
             .map_err(|_| "RPA owned browser 锁已损坏".to_string())?
             .remove(run_id)
         {
-            let _ = child.kill();
-            let _ = child.wait();
+            let _ = child.terminate();
         }
         if let Some(current) = run.current_step_id.as_deref() {
             if let Some(receipt) = run.receipts.iter_mut().find(|item| item.step_id == current) {
@@ -976,8 +974,7 @@ impl Drop for NativeRpa {
     fn drop(&mut self) {
         if let Ok(children) = self.owned_browsers.get_mut() {
             for child in children.values_mut() {
-                let _ = child.kill();
-                let _ = child.wait();
+                let _ = child.terminate();
             }
         }
     }

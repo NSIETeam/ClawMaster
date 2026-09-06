@@ -1,6 +1,6 @@
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Command, Stdio};
 use url::Url;
 
 const MAX_PROBE_OUTPUT_BYTES: usize = 4 * 1024;
@@ -11,6 +11,34 @@ pub struct Candidate {
     pub label: &'static str,
     pub executable: PathBuf,
     pub webdriver_contract: bool,
+}
+
+pub struct OwnedBrowser {
+    child: Box<dyn process_wrap::std::ChildWrapper>,
+}
+
+impl OwnedBrowser {
+    pub fn terminate(&mut self) -> Result<(), String> {
+        self.child
+            .kill()
+            .map_err(|error| format!("终止 owned browser 进程树失败: {error}"))
+    }
+
+    #[cfg(all(test, unix))]
+    fn id(&self) -> u32 {
+        self.child.id()
+    }
+
+    #[cfg(all(test, unix))]
+    fn take_stdout(&mut self) -> Option<std::process::ChildStdout> {
+        self.child.stdout().take()
+    }
+}
+
+impl Drop for OwnedBrowser {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+    }
 }
 
 pub fn candidates() -> Vec<Candidate> {
@@ -141,18 +169,30 @@ pub fn profile_path(root: &Path, tenant_id: &str, platform_id: &str, browser: &s
         .join(browser)
 }
 
-pub fn spawn(candidate: &Candidate, profile: &Path, url: &str) -> Result<Child, String> {
-    Command::new(&candidate.executable)
+pub fn spawn(candidate: &Candidate, profile: &Path, url: &str) -> Result<OwnedBrowser, String> {
+    let mut command = Command::new(&candidate.executable);
+    command
         .arg(format!("--user-data-dir={}", profile.display()))
         .arg("--no-first-run")
         .arg("--no-default-browser-check")
+        .arg("--disable-background-mode")
         .arg("--new-window")
         .arg(url)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|error| format!("无法启动系统浏览器 {}: {error}", candidate.label))
+        .stderr(Stdio::null());
+    spawn_owned(command).map_err(|error| format!("无法启动系统浏览器 {}: {error}", candidate.label))
+}
+
+fn spawn_owned(command: Command) -> Result<OwnedBrowser, std::io::Error> {
+    use process_wrap::std::CommandWrap;
+
+    let mut wrapped = CommandWrap::from(command);
+    #[cfg(unix)]
+    wrapped.wrap(process_wrap::std::ProcessGroup::leader());
+    #[cfg(windows)]
+    wrapped.wrap(process_wrap::std::JobObject);
+    wrapped.spawn().map(|child| OwnedBrowser { child })
 }
 
 fn safe_segment(value: &str) -> String {
@@ -179,5 +219,37 @@ mod tests {
     fn safari_webdriver_contract_reports_the_system_version() {
         let version = probe_webdriver("safari-webdriver").unwrap();
         assert!(version.contains("Safari"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn terminating_owned_process_kills_its_descendant_group() {
+        use std::io::{BufRead, BufReader};
+
+        let mut command = Command::new("/bin/sh");
+        command
+            .arg("-c")
+            .arg("sleep 30 & echo $!; wait")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
+        let mut owned = spawn_owned(command).unwrap();
+        let parent = owned.id();
+        let mut child_line = String::new();
+        BufReader::new(owned.take_stdout().unwrap())
+            .read_line(&mut child_line)
+            .unwrap();
+        let child = child_line.trim().parse::<u32>().unwrap();
+        owned.terminate().unwrap();
+        assert!(!pid_exists(parent));
+        assert!(!pid_exists(child));
+    }
+
+    #[cfg(unix)]
+    fn pid_exists(pid: u32) -> bool {
+        Command::new("/bin/kill")
+            .args(["-0", &pid.to_string()])
+            .status()
+            .is_ok_and(|status| status.success())
     }
 }

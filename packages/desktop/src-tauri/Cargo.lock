@@ -625,6 +625,7 @@ dependencies = [
  "keyring",
  "lark-channel",
  "lopdf",
+ "process-wrap",
  "reqwest",
  "ring",
  "rmcp",
