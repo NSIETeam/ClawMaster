@@ -166,6 +166,24 @@ describe('Tauri host bridge', () => {
         },
       },
     });
+    await expect(bridge.enterpriseSession()).resolves.toEqual({
+      command: 'enterprise_remote_session',
+      args: undefined,
+    });
+    await expect(bridge.enterprisePasswordLogin({
+      serverUrl: 'https://company.test', identifier: 'owner', password: 'secret',
+    })).resolves.toEqual({
+      command: 'enterprise_remote_password_login',
+      args: { serverUrl: 'https://company.test', identifier: 'owner', password: 'secret' },
+    });
+    await expect(bridge.enterpriseCompanyOsBrief()).resolves.toEqual({
+      command: 'enterprise_remote_companyos_brief',
+      args: undefined,
+    });
+    await expect(bridge.enterpriseLogout()).resolves.toEqual({
+      command: 'enterprise_remote_logout',
+      args: undefined,
+    });
     const change = {
       goal: '精简前端',
       tenantId: 'tenant-1',
@@ -204,7 +222,7 @@ describe('Tauri host bridge', () => {
     );
   });
 
-  it('provides a local personal shell without Electron enterprise state', async () => {
+  it('keeps local-only fallbacks separate from the Rust enterprise session', async () => {
     const bridge = createTauriHostBridge(vi.fn(async (command: string) => {
       if (command === 'get_workspace_directories') {
         return { defaultPath: '/Users/test', recentPaths: [] };
@@ -212,10 +230,7 @@ describe('Tauri host bridge', () => {
       return undefined;
     }) as unknown as TauriInvoke);
 
-    await expect(bridge.enterpriseSession()).resolves.toMatchObject({
-      serverUrl: 'tauri://local',
-      account: { accountType: 'personal', name: 'ClawMaster User' },
-    });
+    await expect(bridge.enterpriseSession()).resolves.toBeUndefined();
     await expect(bridge.customerModuleInstalledList()).resolves.toEqual([]);
     await expect(bridge.getWorkspaceDirectories()).resolves.toEqual({
       defaultPath: '/Users/test', recentPaths: [],

@@ -17,6 +17,7 @@ mod native_diagnostics;
 mod native_encrypted_checkpoints;
 mod native_encrypted_memory;
 mod native_enterprise;
+mod native_enterprise_remote;
 mod native_knowledge;
 mod native_mcp;
 mod native_memory_engine;
@@ -357,9 +358,12 @@ pub fn run() {
             let self_modification =
                 native_self_modification::NativeSelfModification::open(&directory)
                     .map_err(std::io::Error::other)?;
+            let enterprise_remote = native_enterprise_remote::NativeEnterpriseRemote::system()
+                .map_err(std::io::Error::other)?;
             app.manage(runtime);
             app.manage(channels);
             app.manage(self_modification);
+            app.manage(enterprise_remote);
             app.state::<native_channels::NativeChannelState>()
                 .start_configured(app.handle().clone());
             Ok(())
@@ -389,6 +393,10 @@ pub fn run() {
             runtime_diagnostic,
             runtime_contract_version,
             notification_show,
+            native_enterprise_remote::enterprise_remote_session,
+            native_enterprise_remote::enterprise_remote_password_login,
+            native_enterprise_remote::enterprise_remote_companyos_brief,
+            native_enterprise_remote::enterprise_remote_logout,
             native_channels::channel_config_get,
             native_channels::channel_status_get,
             native_channels::channel_connection_set,

@@ -144,7 +144,6 @@ export function createTauriHostBridge(
     for (const handler of connectionHandlers) handler(value);
   };
   const noopSubscription = (): (() => void) => () => undefined;
-  const localAccountTimestamp = new Date(0).toISOString();
   const listenersReady = listen
     ? Promise.all([
         listen<ServerToClient>('desktop://server-frame', ({ payload }) =>
@@ -393,32 +392,15 @@ export function createTauriHostBridge(
       invoke<DesktopRuntimeDiagnostic>('runtime_diagnostic')) as never,
     notificationShow: ((payload: Parameters<ClawMasterBridge['notificationShow']>[0]) =>
       invoke<void>('notification_show', { payload })) as never,
-    enterpriseSession: (() => Promise.resolve({
-      serverUrl: 'tauri://local',
-      account: {
-        id: 'tauri-local-user',
-        organizationId: 'tauri-local',
-        organizationName: 'ClawMaster Local',
-        accountType: 'personal',
-        employeeId: null,
-        username: 'local',
-        phone: null,
-        name: 'ClawMaster User',
-        role: null,
-        department: null,
-        positionId: null,
-        positionTitle: null,
-        isAdmin: false,
-        status: 'active',
-        tags: [],
-        createdAt: localAccountTimestamp,
-        updatedAt: localAccountTimestamp,
-      },
-    })) as never,
+    enterpriseSession: (() => invoke('enterprise_remote_session')) as never,
+    enterprisePasswordLogin: ((input: {
+      serverUrl: string;
+      identifier: string;
+      password: string;
+    }) => invoke('enterprise_remote_password_login', input)) as never,
+    enterpriseLogout: (() => invoke<void>('enterprise_remote_logout')) as never,
     enterpriseRegistrationIntent: (() => Promise.resolve(null)) as never,
-    enterpriseCompanyOsBrief: (() => Promise.reject(
-      new Error('本地个人模式没有企业经营数据。'),
-    )) as never,
+    enterpriseCompanyOsBrief: (() => invoke('enterprise_remote_companyos_brief')) as never,
     enterpriseUsageProfile: ((periodDays = 30) => Promise.resolve({
       accountId: 'tauri-local-user',
       periodDays,

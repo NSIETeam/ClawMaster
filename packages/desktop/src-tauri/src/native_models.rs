@@ -152,28 +152,30 @@ pub trait CredentialStore: Send + Sync {
     fn delete(&self, credential_id: &str) -> Result<(), String>;
 }
 
-pub struct KeyringCredentialStore;
+pub struct KeyringCredentialStore {
+    service: &'static str,
+}
 
 impl CredentialStore for KeyringCredentialStore {
     fn set(&self, credential_id: &str, api_key: &str) -> Result<(), String> {
         if api_key.trim().is_empty() {
-            return Err("API key 不能为空".into());
+            return Err("安全凭据不能为空".into());
         }
-        keyring::Entry::new(KEYRING_SERVICE, credential_id)
+        keyring::Entry::new(self.service, credential_id)
             .map_err(|error| format!("无法访问系统凭据库: {error}"))?
             .set_password(api_key)
-            .map_err(|error| format!("无法保存模型凭据: {error}"))
+            .map_err(|error| format!("无法保存安全凭据: {error}"))
     }
 
     fn get(&self, credential_id: &str) -> Result<String, String> {
-        keyring::Entry::new(KEYRING_SERVICE, credential_id)
+        keyring::Entry::new(self.service, credential_id)
             .map_err(|error| format!("无法访问系统凭据库: {error}"))?
             .get_password()
-            .map_err(|_| "模型凭据不存在，请重新配置 API key".to_string())
+            .map_err(|_| "安全凭据不存在，请重新配置".to_string())
     }
 
     fn delete(&self, credential_id: &str) -> Result<(), String> {
-        let entry = keyring::Entry::new(KEYRING_SERVICE, credential_id)
+        let entry = keyring::Entry::new(self.service, credential_id)
             .map_err(|error| format!("无法访问系统凭据库: {error}"))?;
         match entry.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
@@ -183,7 +185,11 @@ impl CredentialStore for KeyringCredentialStore {
 }
 
 pub fn system_credential_store() -> Arc<dyn CredentialStore> {
-    Arc::new(KeyringCredentialStore)
+    credential_store_for_service(KEYRING_SERVICE)
+}
+
+pub fn credential_store_for_service(service: &'static str) -> Arc<dyn CredentialStore> {
+    Arc::new(KeyringCredentialStore { service })
 }
 
 fn endpoint(base_url: &str, suffix: &str) -> Result<Url, String> {
