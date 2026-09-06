@@ -2,7 +2,7 @@
 
 Release gate: #21
 
-Candidate commit: `197383c3`
+Candidate commit: `753db2f2`
 
 Platform: macOS 26.5.1 (25F80), Apple ARM64
 
@@ -11,13 +11,13 @@ Artifact:
 
 ## Build and artifact evidence
 
-- The complete Tauri release build passed with 204 Rust tests passing, zero
-  failures, and three explicit opt-in tests ignored.
+- The complete Tauri release build passed with 203 default Rust tests passing,
+  zero failures, and five explicitly documented opt-in tests ignored.
 - Desktop typecheck, lint, renderer tests, server tests, repository doctor,
   boundary validation, code-map validation, and release preflight passed.
-- The optimized DMG is 5,636,190 bytes (5.38 MiB), below the 20 MiB beta
+- The optimized DMG is 5,638,212 bytes (5.38 MiB), below the 20 MiB beta
   target. SHA-256:
-  `4f2af02bfa0fe392d55c1312623046e9a062d34fb295de043e0610a4aa4d0bff`.
+  `27253cbc1f920da237957e5df48ccf85332d3038846e2c69406cff1a21d8f8f9`.
 - `hdiutil verify` accepted the final image. The application bundle is 12.68
   MiB and contains a thin ARM64 executable with hardened-runtime flags.
 - `codesign --verify --deep --strict` accepted both the built bundle and the
@@ -36,12 +36,12 @@ by `tauri://localhost`. The visible tree included the task list, workbench,
 working-directory and manual-approval controls, composer, provider selection,
 and API-key secure text field. No Electron or sidecar process was present.
 
-At 54 seconds after launch, the single application process reported:
+At 46 seconds after launch, the single application process reported:
 
 | Metric | Observed |
 | --- | ---: |
 | CPU | 0.0% |
-| RSS | 14,800 KiB |
+| RSS | 13,872 KiB |
 | Child processes | 0 |
 
 The application received a normal application quit request and exited with
@@ -50,15 +50,16 @@ ejected.
 
 ## Keychain failure-path finding
 
-An additional launch with an artificial isolated `HOME` and no default macOS
-Keychain failed closed before opening a window. No unencrypted fallback was
-used, but Tauri surfaced the secure-storage setup error as a Rust panic:
+The app copied from the final DMG was launched again with an artificial isolated
+`HOME` and no default macOS Keychain. It stayed fail closed and did not create
+an unencrypted fallback. Instead of the previous Tauri setup panic, the app
+opened a persistent `ClawMaster - 安全启动失败` page that explained the system
+Keychain was unavailable, stated that no unencrypted data had been written, and
+asked the user to repair or unlock Keychain before reopening the app.
 
-`NativeStateStore system key error: a default keychain could not be found`
-
-This does not invalidate the real-profile installed smoke, but the panic is not
-a mature user-facing failure state. It must be converted into a recoverable,
-visible setup error before #21 is complete.
+The page was verified through the macOS accessibility tree. It exposed only the
+bounded user-facing explanation; the internal `NativeStateStore` error and data
+paths were not rendered.
 
 ## Remaining release blockers
 
