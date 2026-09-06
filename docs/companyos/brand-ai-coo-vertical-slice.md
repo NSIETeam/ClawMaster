@@ -13,10 +13,13 @@
 
 - Canonical money/freshness/event/action/audit contracts。
 - Profit Engine v1：整数金额、成本缺失时 unknown、SKU 维度汇总、贡献利润率。
-- 去重事件发布与按 consumer 的 at-least-once 消费语义。
+- 去重事件发布与按 consumer 的 at-least-once 消费语义；重复幂等键若对应不同事实会明确冲突。
 - Watchdog `event → recommendation → evidence-linked action → audit`。
 - CEO Brief 的 Revenue/Margin、风险、机会、建议/执行/待决策分栏。
-- 覆盖租户隔离、重复事件、缺成本、价格/GMV 异常的确定性测试。
+- Profit Engine 拒绝混租户输入，事件消费键包含 organizationId，避免相同外部事件 ID 跨租户碰撞。
+- 覆盖租户隔离、重复/冲突事件、缺成本、价格/GMV 异常的确定性测试。
+
+本地交付提交：`9002108a` 恢复原 PR #19 纵切，`932a3641` 补齐上述租户与幂等完整性门禁。
 
 ## 未完成与下一步
 

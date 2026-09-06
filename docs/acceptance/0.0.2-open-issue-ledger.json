@@ -107,8 +107,8 @@
       "number": 17,
       "status": "in_progress",
       "closable": false,
-      "evidence": ["Deterministic P0 canonical contracts, Profit Engine, Watchdog, brief, action/task/audit slice from the existing CompanyOS work"],
-      "remaining": ["Complete the real CEO home user path and all required engines", "Connect real Maotouying and Zhiliao data through the Connector Framework", "Validate profit, inventory, cash, growth, and at least one full action loop with a real Design Partner", "Record actual source, freshness, policy, tenant, and audit evidence"]
+      "evidence": ["9002108a restores the deterministic P0 canonical contracts, Profit Engine, Watchdog, brief, action/task/audit slice from PR #19 into the current local delivery branch", "932a3641 rejects mixed-tenant profit aggregation and conflicting idempotency payloads, and scopes external event delivery IDs by organization; eight focused tests, server typecheck, module lint, and boundary validation pass"],
+      "remaining": ["Replace the in-memory bus with durable outbox/inbox persistence and mount authenticated server routes", "Complete the real CEO home user path and Inventory, Cash, and Growth engines", "Connect real Maotouying and Zhiliao data through the Connector Framework", "Validate profit, inventory, cash, growth, and at least one full action loop with a real Design Partner", "Record actual source, freshness, policy, tenant, and audit evidence"]
     }
   ]
 }
