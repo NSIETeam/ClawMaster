@@ -1,4 +1,4 @@
-# R06 macOS Installed Runtime Acceptance
+# R11 macOS Installed Runtime Acceptance
 
 Issue: #10
 
