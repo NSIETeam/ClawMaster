@@ -229,7 +229,7 @@ pub fn select_files(app: AppHandle, state: State<'_, DesktopFileState>) -> Vec<S
             &[
                 "png", "jpg", "jpeg", "gif", "webp", "bmp", "pdf", "doc", "docx", "xls", "xlsx",
                 "ppt", "pptx", "txt", "csv", "json", "xml", "md", "markdown", "mermaid", "mmd",
-                "yaml", "yml", "toml", "rs", "ts", "tsx", "js", "jsx", "css", "html", "sql", "log",
+                "yaml", "yml", "toml", "wasm", "rs", "ts", "tsx", "js", "jsx", "css", "html", "sql", "log",
             ],
         )
         .blocking_pick_files()

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type {
+  NativeCapabilityInstallPlan,
+  NativeCapabilityManifest,
   NativeCapabilityResources,
   NativeInstalledCapability,
 } from '../../preload/index.js';
@@ -11,6 +13,12 @@ function formatBytes(bytes: number): string {
 }
 
 const HEAVY_CAPABILITIES = ['Office 转换', 'OCR 识别', '语音处理', '视频处理', '复杂分析'];
+const USER_SELECTED_SOURCE = 'user-selected-file';
+
+function parseManifest(data: string): NativeCapabilityManifest {
+  const bytes = Uint8Array.from(atob(data), (character) => character.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes)) as NativeCapabilityManifest;
+}
 
 export function CapabilityHostDialog({
   open,
@@ -21,6 +29,9 @@ export function CapabilityHostDialog({
 }): React.JSX.Element | null {
   const [installed, setInstalled] = useState<NativeInstalledCapability[]>([]);
   const [resources, setResources] = useState<NativeCapabilityResources | null>(null);
+  const [manifest, setManifest] = useState<NativeCapabilityManifest | null>(null);
+  const [payloadBase64, setPayloadBase64] = useState('');
+  const [plan, setPlan] = useState<NativeCapabilityInstallPlan | null>(null);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const modal = useModalDialog(open, onClose, !busy);
@@ -48,6 +59,64 @@ export function CapabilityHostDialog({
     if (open) refresh();
   }, [open, refresh]);
 
+  const selectPackage = (): void => {
+    const select = window.clawmaster.selectFiles;
+    const read = window.clawmaster.readFilePath;
+    const planInstall = window.clawmaster.capabilityPlanInstall;
+    if (!select || !read || !planInstall) {
+      setStatus('当前桌面壳不支持原生能力包选择。');
+      return;
+    }
+    setBusy(true);
+    setStatus('请选择同一能力包的 manifest.json 与 WASM 文件…');
+    void select()
+      .then(async (paths) => {
+        const manifestPaths = paths.filter((path) => /(?:^|[/\\])manifest\.json$/iu.test(path));
+        const wasmPaths = paths.filter((path) => /\.wasm$/iu.test(path));
+        if (paths.length !== 2 || manifestPaths.length !== 1 || wasmPaths.length !== 1) {
+          throw new Error('必须同时且仅选择一个 manifest.json 与一个 .wasm 文件。');
+        }
+        const [manifestFile, wasmFile] = await Promise.all([
+          read(manifestPaths[0]),
+          read(wasmPaths[0]),
+        ]);
+        const nextManifest = parseManifest(manifestFile.data);
+        const nextPlan = await planInstall(nextManifest, USER_SELECTED_SOURCE);
+        setManifest(nextManifest);
+        setPayloadBase64(wasmFile.data);
+        setPlan(nextPlan);
+        setStatus('安装计划已生成；请核对来源、大小、权限和依赖。');
+      })
+      .catch((error: unknown) => {
+        setManifest(null);
+        setPayloadBase64('');
+        setPlan(null);
+        setStatus(error instanceof Error ? error.message : String(error));
+      })
+      .finally(() => setBusy(false));
+  };
+
+  const installPackage = (): void => {
+    const install = window.clawmaster.capabilityInstall;
+    if (!install || !manifest || !payloadBase64 || !plan) return;
+    if (!window.confirm(`确认安装 ${plan.id} ${plan.version}？Rust 将再次验签并执行健康检查。`)) return;
+    setBusy(true);
+    setStatus(`正在验证并安装 ${plan.id}…`);
+    void install(manifest, payloadBase64, true)
+      .then((next) => {
+        setInstalled((current) => [
+          ...current.filter((item) => item.manifest.id !== next.manifest.id),
+          next,
+        ]);
+        setManifest(null);
+        setPayloadBase64('');
+        setPlan(null);
+        setStatus(`${next.manifest.id} ${next.manifest.version} 已安装。`);
+      })
+      .catch((error: unknown) => setStatus(error instanceof Error ? error.message : String(error)))
+      .finally(() => setBusy(false));
+  };
+
   if (!open) return null;
   return createPortal(
     <div className="claw-module-marketplace-overlay" onMouseDown={modal.onBackdropMouseDown}>
@@ -69,6 +138,20 @@ export function CapabilityHostDialog({
               <span className="claw-module-marketplace__module-copy"><strong>{name}</strong><small>等待可信第一方能力包</small></span>
               <span className="claw-customer-module-market__actions"><button type="button" disabled>不可安装</button></span>
             </article>)}
+          </section> : null}
+          {resources && resources.trustedKeyCount > 0 ? <section className="claw-customer-module-market__section" aria-label="安装签名能力包">
+            <h3>安装签名能力包</h3>
+            <p>先选择本机能力包并生成只读计划；ClawMaster 不会静默下载或安装。</p>
+            <button type="button" disabled={busy} onClick={selectPackage}>选择 manifest.json 与 WASM</button>
+            {plan ? <article className="claw-customer-module-market__card" aria-label="能力安装计划">
+              <span className="claw-module-marketplace__module-copy">
+                <strong>{plan.id} {plan.version}</strong>
+                <small>来源：本机用户选择 · 压缩 {formatBytes(plan.compressedSize)} · 安装 {formatBytes(plan.installedSize)}</small>
+                <small>权限：{plan.permissions.join('、') || '无'} · 依赖：{plan.dependencies.map((dependency) => `${dependency.id} ≥ ${dependency.minimumVersion}`).join('、') || '无'}</small>
+                {plan.replacesVersion ? <small>将替换 {plan.replacesVersion}，旧版本保留用于回滚</small> : null}
+              </span>
+              <span className="claw-customer-module-market__actions"><button type="button" disabled={busy} onClick={installPackage}>确认安装</button></span>
+            </article> : null}
           </section> : null}
           <section className="claw-customer-module-market__section" aria-label="已安装能力包">
             <h3>已安装能力包</h3>

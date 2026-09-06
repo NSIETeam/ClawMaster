@@ -377,8 +377,10 @@ impl CapabilityHost {
         source: &str,
     ) -> Result<CapabilityInstallPlan, String> {
         self.verify_manifest(manifest)?;
-        if !source.starts_with("https://") || source.len() > 2_048 {
-            return Err("能力包来源必须是有界 HTTPS 地址".into());
+        if (source != "user-selected-file" && !source.starts_with("https://"))
+            || source.len() > 2_048
+        {
+            return Err("能力包来源必须是本机用户选择或有界 HTTPS 地址".into());
         }
         let registry = self.registry()?;
         self.verify_dependencies(manifest, &registry)?;
@@ -1323,6 +1325,12 @@ mod tests {
             .unwrap();
         assert_eq!(plan.compressed_size, payload.len() as u64);
         assert_eq!(plan.permissions, vec!["artifact:write"]);
+        assert_eq!(
+            host.plan_install(&manifest, "user-selected-file")
+                .unwrap()
+                .source,
+            "user-selected-file"
+        );
         assert!(host
             .plan_install(&manifest, "http://insecure.test/office.wasm")
             .is_err());
