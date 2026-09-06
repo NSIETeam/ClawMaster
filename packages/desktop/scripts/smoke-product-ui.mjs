@@ -74,6 +74,7 @@ const executablePath = systemBrowsers.find(existsSync)
 assert.ok(executablePath, 'product UI smoke needs Chrome, Edge, Chromium, or a managed Playwright browser');
 
 const browser = await chromium.launch({ headless: true, executablePath });
+const previewBridgeAccesses = new Set();
 try {
   for (const scenario of [
     { name: 'wide-light', width: 1440, height: 900, colorScheme: 'light' },
@@ -82,6 +83,26 @@ try {
     const page = await browser.newPage({
       viewport: { width: scenario.width, height: scenario.height },
       colorScheme: scenario.colorScheme,
+    });
+    await page.addInitScript(() => {
+      const accesses = new Set();
+      let bridge;
+      Object.defineProperty(window, 'clawmaster', {
+        configurable: true,
+        get: () => bridge,
+        set: (value) => {
+          bridge = new Proxy(value, {
+            get(target, key, receiver) {
+              if (typeof key === 'string') accesses.add(key);
+              return Reflect.get(target, key, receiver);
+            },
+          });
+        },
+      });
+      Object.defineProperty(window, '__clawmasterPreviewBridgeAccesses', {
+        configurable: true,
+        get: () => [...accesses].sort(),
+      });
     });
     const failedResources = [];
     page.on('requestfailed', (request) => {
@@ -196,25 +217,36 @@ try {
       const workspace = page.getByRole('region', { name: `${label}平台工作区` });
       await workspace.waitFor();
       assert.equal(await workspace.getByText(url, { exact: true }).count(), 1);
-      assert.equal(
-        await page.getByRole('tab', { name: label }).getAttribute('aria-selected'),
-        'true',
-      );
+      if (url.startsWith('https://')) {
+        await workspace.getByText(new RegExp(`HTTPS 工作区已打开；${label}`, 'u')).waitFor();
+        assert.equal(await workspace.getByRole('alert').count(), 0);
+      } else {
+        assert.equal(
+          await workspace.getByRole('alert').getByText(/远程 HTTP 会暴露登录和业务数据/u).count(),
+          1,
+        );
+        assert.equal(await workspace.getByLabel(`${label}内置浏览器`).count(), 0);
+      }
       await workspace.getByRole('button', { name: '关闭平台' }).click();
-      assert.equal(await page.getByRole('tab', { name: label }).count(), 0);
+      assert.equal(await page.getByRole('region', { name: `${label}平台工作区` }).count(), 0);
     }
 
-    await page.getByRole('tab', { name: '文件' }).click();
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent(
+      'clawmaster:edit-local-file',
+      { detail: { path: '/Users/demo/acceptance.md' } },
+    )));
     await page.getByRole('region', { name: '文件编辑器' }).waitFor();
     assert.equal(await page.getByRole('button', { name: '选择文件' }).count(), 1);
+    await page.getByRole('button', { name: '返回功能' }).click();
+    assert.equal(await page.getByRole('region', { name: '文件编辑器' }).count(), 0);
 
-    await page.getByRole('tab', { name: '导图' }).click();
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('clawmaster:open-mind-map')));
     const mindMap = page.getByRole('region', { name: '思维导图编辑器' });
     await mindMap.waitFor();
     await mindMap.getByRole('textbox', { name: '思维导图大纲' }).fill('发布\n  候选构建\n  安装验收');
     assert.equal(await mindMap.getByLabel('思维导图预览').getByText('安装验收').count(), 1);
-
-    await page.getByRole('tab', { name: '功能' }).click();
+    await page.getByRole('button', { name: '返回功能' }).click();
+    assert.equal(await page.getByRole('region', { name: '思维导图编辑器' }).count(), 0);
 
     await page.getByRole('button', { name: '功能组菜单：园区服务' }).click();
     const menuBounds = await page.getByRole('menu', { name: '园区服务设置' }).boundingBox();
@@ -223,6 +255,16 @@ try {
     assert.equal(menuBounds.x + menuBounds.width <= scenario.width, true);
     assert.equal(menuBounds.y + menuBounds.height <= scenario.height, true);
 
+    const bridgeUsage = await page.evaluate(() => ({
+      accesses: window.__clawmasterPreviewBridgeAccesses ?? [],
+      defined: Object.keys(window.clawmaster ?? {}),
+    }));
+    assert.deepEqual(
+      bridgeUsage.accesses.filter((method) => !bridgeUsage.defined.includes(method)),
+      [],
+      'browser preview silently substituted an undefined desktop bridge method',
+    );
+    for (const method of bridgeUsage.accesses) previewBridgeAccesses.add(method);
     await page.close();
     console.log(`[product-ui] ${scenario.name} passed`);
   }
@@ -232,3 +274,4 @@ try {
 }
 
 console.log('[product-ui] crown, right rail, editor, mind map, five platforms, marketplace, short viewport and dark theme passed');
+console.log(`[product-ui] preview bridge accesses: ${[...previewBridgeAccesses].sort().join(', ')}`);
