@@ -75,13 +75,13 @@ describe('native-local release contract', () => {
       'Reject legacy packaged runtimes',
       'softprops/action-gh-release',
       'bundle/nsis/*.exe',
-      'bundle/msi/*.msi',
       'bundle/dmg/*_aarch64.dmg',
     ]) expect(workflow).toContain(expected);
     expect(await readText(path.join(repoRoot, 'scripts/release-preflight.mjs')))
       .toContain('low-resource-multi-agent-benchmark.mjs');
     expect(workflow).not.toContain('tauri-node-runtime.yml');
     expect(workflow).not.toContain('sqlcipher-native.yml');
+    expect(workflow).not.toContain('bundle/msi/*.msi');
     expect(workflow).not.toContain('path: packages/desktop/src-tauri/target/release/bundle/');
   });
 

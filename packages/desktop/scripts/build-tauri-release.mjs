@@ -29,7 +29,7 @@ export function tauriReleaseSteps(platform, arch) {
       : version;
     return [
       ...shared,
-      ['tauri', ['build', '--config', JSON.stringify({ version: msiVersion })]],
+      ['tauri', ['build', '--bundles', 'nsis', '--config', JSON.stringify({ version: msiVersion })]],
     ];
   }
   return [
