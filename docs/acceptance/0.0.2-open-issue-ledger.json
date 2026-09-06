@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "auditedAt": "2026-09-06",
+  "repository": "NSIETeam/ClawMaster",
+  "branch": "codex/native-state-store",
+  "baseCommit": "dff26a38",
+  "policy": {
+    "publishOnlyWhenEveryIssueIsClosed": true,
+    "fixtureDoesNotReplaceInstalledOrLiveEvidence": true,
+    "singleConsolidatedPush": true,
+    "releaseIssue": 13,
+    "epicIssue": 3
+  },
+  "issues": [
+    {
+      "number": 1,
+      "status": "implemented_needs_evidence",
+      "closable": false,
+      "evidence": ["Tauri v2 is the production build path", "Windows x64 and macOS ARM64 are the only release targets"],
+      "remaining": ["Complete installed capability-parity evidence", "Verify signed macOS ARM64 package integrity", "Retire Electron compatibility code only after parity is proven"]
+    },
+    {
+      "number": 2,
+      "status": "audit_required",
+      "closable": false,
+      "evidence": [],
+      "remaining": ["Audit every state transition and GUI review surface", "Prove isolated candidate startup and secret isolation", "Prove drain, checkpoint, atomic activation, observation, and automatic rollback", "Run required negative and 24/72-hour idle tests"]
+    },
+    {
+      "number": 3,
+      "status": "release_last",
+      "closable": false,
+      "evidence": [],
+      "remaining": ["Close R01 through R12", "Complete installed model, RPA, channel, platform, capability-package, signing, rollback, and artifact evidence", "Close only after all child acceptance is complete"]
+    },
+    {
+      "number": 4,
+      "status": "implemented_needs_evidence",
+      "closable": false,
+      "evidence": ["c45fcb28 safe user directory overlays"],
+      "remaining": ["Repeat first-start and restart checks on Windows and macOS installed apps", "Prove junction and symlink escape rejection on each platform", "Verify beta directories remain byte-identical"]
+    },
+    {
+      "number": 6,
+      "status": "implemented_needs_evidence",
+      "closable": false,
+      "evidence": ["51809802 native Rust lifecycle kernel", "Runtime contract and NativeStateStore integration tests"],
+      "remaining": ["Complete crash-recovery and idempotent external-write installed acceptance", "Prove no fixed echo or fake model path in the final package", "Verify user-visible approval, cancellation, recovery, and audit on both platforms"]
+    },
+    {
+      "number": 8,
+      "status": "blocked_external",
+      "closable": false,
+      "evidence": ["Three normalized streaming adapters", "System credential store integration", "Shared HTTPS client, proxy validation, cancellation, retry, and UsageLedger tests"],
+      "remaining": ["Rotate the previously exposed provider key", "Enter the replacement key through the installed app so it reaches only the OS credential store", "Complete first-token and full-response smoke from the final installed package"]
+    },
+    {
+      "number": 10,
+      "status": "in_progress",
+      "closable": false,
+      "evidence": ["7698691e removed a redundant candidate timer", "3b265b2f reduced Windows output to NSIS only"],
+      "remaining": ["Replace the synthetic JavaScript benchmark with installed Rust-runtime evidence", "Run the same task set against the beta baseline and report success and token deltas", "Run 8 agents for 500 turns and prove worker cleanup and RSS growth", "Produce installed process-tree CPU, memory, startup, size, and top-component reports on both platforms", "Delete legacy production paths only after parity evidence exists"]
+    },
+    {
+      "number": 11,
+      "status": "implemented_needs_evidence",
+      "closable": false,
+      "evidence": ["bce9ab6c bounded native context memory"],
+      "remaining": ["Run the frozen 50K memory quality dataset", "Prove Recall@5, Precision@5, latency, forget, supersede, and 10,000-query isolation thresholds", "Publish beta-comparable token and task-success reports"]
+    },
+    {
+      "number": 12,
+      "status": "blocked_external",
+      "closable": false,
+      "evidence": ["d45fab29 isolated tenant browser sessions", "c73f8e37 added event-driven native channel status"],
+      "remaining": ["Provide valid HTTPS endpoints for all five products", "Complete real Feishu and WeCom tenant authorization, inbound, reply, dedupe, restart, and failure recovery", "Complete all five installed platform login and business paths without claiming page load as readiness"]
+    },
+    {
+      "number": 13,
+      "status": "release_last",
+      "closable": false,
+      "evidence": ["a07b11aa blocks every tag while any issue remains open"],
+      "remaining": ["Complete and close every other issue first", "Pass Windows Authenticode and macOS Developer ID, hardened runtime, notarization, and staple checks", "Repeat clean install, upgrade, rollback, uninstall, and user-data preservation acceptance", "Generate checksums, SBOM, license inventory, provenance, size ledger, and installed acceptance report", "Publish only after this issue is accepted and closed"]
+    },
+    {
+      "number": 14,
+      "status": "implemented_needs_evidence",
+      "closable": false,
+      "evidence": ["a29a76c2 signed capability host"],
+      "remaining": ["Install a real signed first-party capability package through the final app", "Verify size, resource, permission-diff, cancellation, crash, rollback, and no-silent-download behavior", "Verify an unavailable heavy capability remains visibly unavailable"]
+    },
+    {
+      "number": 15,
+      "status": "implemented_needs_evidence",
+      "closable": false,
+      "evidence": ["986d2de1 NativeRpa", "b2650acb exact browser window targeting", "10c0c9d0 process-tree ownership", "b15f67a6 cancellation-aware semantic wait"],
+      "remaining": ["Run a real installed system-browser mouse click on Windows and macOS", "Capture matching encrypted snapshot, approval, audit, receipt, checkpoint, and recovery evidence", "Prove cancellation and crash leave no orphan browser or driver", "Retire Playwright release evidence only after native parity is proven"]
+    },
+    {
+      "number": 16,
+      "status": "in_progress",
+      "closable": false,
+      "evidence": ["CompanyOS specification and partial existing domain/runtime implementations"],
+      "remaining": ["Complete C00-C15, R00-R18, and E00-E07 without substituting names or UI for behavior", "Complete real Twenty, Frappe, Google, Microsoft, GitHub, Stripe, research, banking, manufacturing, and collaboration paths", "Complete installed multi-tenant, durability, migration, recovery, and provider evidence"]
+    },
+    {
+      "number": 17,
+      "status": "in_progress",
+      "closable": false,
+      "evidence": ["Deterministic P0 canonical contracts, Profit Engine, Watchdog, brief, action/task/audit slice from the existing CompanyOS work"],
+      "remaining": ["Complete the real CEO home user path and all required engines", "Connect real Maotouying and Zhiliao data through the Connector Framework", "Validate profit, inventory, cash, growth, and at least one full action loop with a real Design Partner", "Record actual source, freshness, policy, tenant, and audit evidence"]
+    }
+  ]
+}
