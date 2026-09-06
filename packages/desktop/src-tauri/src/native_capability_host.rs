@@ -927,6 +927,37 @@ mod tests {
         assert_eq!(host.resource_snapshot().unwrap().active_agents, 0);
     }
 
+    #[tokio::test]
+    async fn eight_agents_release_every_lease_and_worker_across_500_turns() {
+        let governor = ResourceGovernor::default();
+        let mut agents = Vec::new();
+        for agent_index in 0..8 {
+            let governor = governor.clone();
+            agents.push(tokio::spawn(async move {
+                let agent_id = format!("stress-agent-{agent_index}");
+                for turn in 0..500 {
+                    governor.admit_agent(&agent_id).unwrap();
+                    let agent = governor.wait_for_agent(&agent_id).await.unwrap();
+                    if turn % 25 == 0 {
+                        let worker = governor.acquire_worker().unwrap();
+                        drop(worker);
+                    }
+                    drop(agent);
+                    tokio::task::yield_now().await;
+                }
+            }));
+        }
+        for agent in agents {
+            agent.await.unwrap();
+        }
+
+        let snapshot = governor.snapshot().unwrap();
+        assert_eq!(snapshot.active_agents, 0);
+        assert_eq!(snapshot.queued_agents, 0);
+        assert_eq!(snapshot.active_workers, 0);
+        assert_eq!(snapshot.loaded_implementations, 0);
+    }
+
     #[test]
     fn installation_requires_approval_signature_hash_platform_and_health() {
         let (_root, host, pair) = host();
