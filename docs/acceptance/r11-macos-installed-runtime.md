@@ -2,7 +2,7 @@
 
 Release gate: #21
 
-Candidate commit: `753db2f2`
+Candidate commit: `2593fa79`
 
 Platform: macOS 26.5.1 (25F80), Apple ARM64
 
@@ -11,13 +11,13 @@ Artifact:
 
 ## Build and artifact evidence
 
-- The complete Tauri release build passed with 203 default Rust tests passing,
-  zero failures, and five explicitly documented opt-in tests ignored.
+- The complete Tauri release build passed with 204 default Rust tests passing,
+  zero failures, and six explicitly documented opt-in tests ignored.
 - Desktop typecheck, lint, renderer tests, server tests, repository doctor,
   boundary validation, code-map validation, and release preflight passed.
-- The optimized DMG is 5,638,212 bytes (5.38 MiB), below the 20 MiB beta
+- The optimized DMG is 5,639,482 bytes (5.38 MiB), below the 20 MiB beta
   target. SHA-256:
-  `27253cbc1f920da237957e5df48ccf85332d3038846e2c69406cff1a21d8f8f9`.
+  `3da487c1f35bbbdd1619f026ac887864a3a01f7652bd9f1414c14fd6ce674c99`.
 - `hdiutil verify` accepted the final image. The application bundle is 12.68
   MiB and contains a thin ARM64 executable with hardened-runtime flags.
 - `codesign --verify --deep --strict` accepted both the built bundle and the
@@ -36,12 +36,12 @@ by `tauri://localhost`. The visible tree included the task list, workbench,
 working-directory and manual-approval controls, composer, provider selection,
 and API-key secure text field. No Electron or sidecar process was present.
 
-At 46 seconds after launch, the single application process reported:
+At 66 seconds after launch, the single application process reported:
 
 | Metric | Observed |
 | --- | ---: |
 | CPU | 0.0% |
-| RSS | 13,872 KiB |
+| RSS | 32,576 KiB |
 | Child processes | 0 |
 
 The application received a normal application quit request and exited with
