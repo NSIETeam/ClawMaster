@@ -11,10 +11,9 @@ const require = createRequire(import.meta.url);
 
 export function tauriReleaseSteps(platform, arch) {
   resolveTauriRuntimePlatform(platform, arch);
-  const shared = [['npm', ['run', 'tauri:native:verify']]];
+  // Tauri's beforeBuildCommand builds frontendDist before compiling native tests.
   if (platform === 'darwin') {
     return [
-      ...shared,
       ['tauri', ['build', '--bundles', 'app']],
       ['npm', ['run', 'tauri:dmg:create']],
       ['npm', ['run', 'tauri:dmg:optimize']],
@@ -28,12 +27,10 @@ export function tauriReleaseSteps(platform, arch) {
       ? `${numericPrerelease[1]}-${numericPrerelease[2]}`
       : version;
     return [
-      ...shared,
       ['tauri', ['build', '--bundles', 'nsis', '--config', JSON.stringify({ version: msiVersion })]],
     ];
   }
   return [
-    ...shared,
     ['tauri', ['build']],
   ];
 }
