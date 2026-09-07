@@ -67,6 +67,7 @@ fn trusted_capability_keys() -> Result<BTreeMap<String, Vec<u8>>, String> {
 }
 const KERNEL_TURN_INDEX_ID: &str = "runtime-kernel-turns";
 const TOOL_APPROVAL_TIMEOUT_MS: u64 = 5 * 60 * 1_000;
+const MAX_NATIVE_TOOL_ROUNDS: usize = 16;
 static RUNTIME_EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone)]
@@ -478,6 +479,18 @@ fn tool_result_terminal_state(external_side_effect: bool, result_ok: bool) -> To
     } else {
         ToolState::Error
     }
+}
+
+fn has_external_side_effect(call: &ModelToolCall, is_mcp: bool) -> bool {
+    is_mcp
+        || matches!(call.name.as_str(), "open_browser" | "browser_action")
+        || matches!(call.name.as_str(), "rpa_fill" | "rpa_drag")
+        || (call.name == "rpa_click"
+            && call
+                .arguments
+                .get("externalSideEffect")
+                .and_then(Value::as_bool)
+                .unwrap_or(false))
 }
 
 fn contract_approval_decision(outcome: ApprovalOutcome) -> ApprovalDecision {
@@ -2798,7 +2811,7 @@ impl NativeRuntime {
         let mut full_text = String::new();
         let mut total_input = 0;
         let mut total_output = 0;
-        for step in 0..8 {
+        for step in 0..MAX_NATIVE_TOOL_ROUNDS {
             let tools =
                 native_context::select_tools_for_context(&available_tools, &messages, 1_200);
             let streamed = self
@@ -2847,8 +2860,11 @@ impl NativeRuntime {
                 completion.output_tokens = total_output;
                 return Ok(StreamCompletion::Completed(completion));
             }
-            if step == 7 {
-                return Err("原生工具循环超过 8 轮，已停止以防止失控".into());
+            if step + 1 == MAX_NATIVE_TOOL_ROUNDS {
+                return Err(format!(
+                    "原生工具循环超过 {MAX_NATIVE_TOOL_ROUNDS} 轮，已停止以防止失控"
+                )
+                .into());
             }
 
             let calls = completion.tool_calls.clone();
@@ -2868,8 +2884,7 @@ impl NativeRuntime {
                         &argument_bytes,
                         &argument_revision,
                         &idempotency_key,
-                        mcp_catalog.contains(&call.name)
-                            || matches!(call.name.as_str(), "open_browser" | "browser_action"),
+                        has_external_side_effect(call, mcp_catalog.contains(&call.name)),
                         now_ms(),
                     )
                     .map_err(|error| error.to_string())?;
@@ -2983,15 +2998,7 @@ impl NativeRuntime {
                     },
                 );
                 let requires_confirmation = policy_decision == PolicyDecision::RequireApproval;
-                let external_side_effect = is_mcp
-                    || matches!(call.name.as_str(), "open_browser" | "browser_action")
-                    || call.name == "rpa_fill"
-                    || (call.name == "rpa_click"
-                        && call
-                            .arguments
-                            .get("externalSideEffect")
-                            .and_then(Value::as_bool)
-                            .unwrap_or(false));
+                let external_side_effect = has_external_side_effect(call, is_mcp);
                 let argument_bytes = serde_json::to_vec(&call.arguments)
                     .map_err(|error| format!("无法序列化工具参数: {error}"))?;
                 let argument_revision = format!("{:x}", Sha256::digest(&argument_bytes));
@@ -4374,6 +4381,35 @@ mod tests {
     }
 
     #[test]
+    fn rpa_external_effect_registration_matches_execution_policy() {
+        let call = |name: &str, arguments: Value| ModelToolCall {
+            id: format!("call-{name}"),
+            name: name.into(),
+            arguments,
+        };
+        assert!(has_external_side_effect(
+            &call("rpa_fill", json!({})),
+            false
+        ));
+        assert!(has_external_side_effect(
+            &call("rpa_drag", json!({})),
+            false
+        ));
+        assert!(has_external_side_effect(
+            &call("rpa_click", json!({"externalSideEffect":true})),
+            false
+        ));
+        assert!(!has_external_side_effect(
+            &call("rpa_click", json!({"externalSideEffect":false})),
+            false
+        ));
+        assert!(has_external_side_effect(
+            &call("read_file", json!({})),
+            true
+        ));
+    }
+
+    #[test]
     fn model_gateway_errors_expose_retry_and_uncertainty_to_the_ui() {
         let error = GatewayError {
             kind: crate::native_model_gateway::GatewayErrorKind::StreamInterrupted,
@@ -4930,6 +4966,39 @@ mod tests {
         runtime.state_store.flush().unwrap();
         assert!(!store_contains(root.path(), "secret-value"));
         assert!(!store_contains(root.path(), "apiKey"));
+    }
+
+    #[test]
+    fn restores_saved_model_and_reuses_credential_after_restart() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let credentials = Arc::new(MemoryCredentials::default());
+        let runtime = NativeRuntime::load_with_credentials(root.path(), credentials.clone())
+            .expect("runtime");
+        runtime
+            .handle(&json!({"type":"save_custom_model","payload":{
+                "provider":"openai","baseUrl":"https://api.deepseek.com",
+                "apiKey":"persisted-secret","modelId":"deepseek-chat",
+                "displayName":"DeepSeek","makeActive":true
+            }}))
+            .expect("save model");
+        runtime.state_store.flush().expect("flush state");
+        drop(runtime);
+
+        let restored = NativeRuntime::load_with_credentials(root.path(), credentials)
+            .expect("restore runtime");
+        let response = restored
+            .handle(&json!({"type":"save_custom_model","payload":{
+                "provider":"openai","baseUrl":"https://api.deepseek.com",
+                "modelId":"deepseek-chat","displayName":"DeepSeek",
+                "makeActive":true
+            }}))
+            .expect("reuse saved credential");
+        assert_eq!(response[0]["type"], "models_list");
+        assert_eq!(
+            response[0]["payload"]["models"][0]["displayName"],
+            "DeepSeek"
+        );
+        assert!(!store_contains(root.path(), "persisted-secret"));
     }
 
     #[test]

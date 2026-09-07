@@ -160,9 +160,16 @@ pub fn contains(name: &str) -> bool {
 }
 
 pub fn is_write(name: &str) -> bool {
-    !matches!(
+    matches!(
         name,
-        "rpa_browser_support" | "rpa_webdriver_probe" | "rpa_status"
+        "rpa_start"
+            | "rpa_screenshot"
+            | "rpa_focus"
+            | "rpa_click"
+            | "rpa_drag"
+            | "rpa_fill"
+            | "rpa_scroll"
+            | "rpa_cancel"
     )
 }
 
@@ -1693,6 +1700,33 @@ mod tests {
             .as_deref()
             .unwrap()
             .contains("approval"));
+    }
+
+    #[test]
+    fn semantic_observation_is_readonly_but_native_actions_stay_gated() {
+        for name in [
+            "rpa_browser_support",
+            "rpa_webdriver_probe",
+            "rpa_windows",
+            "rpa_snapshot",
+            "rpa_extract",
+            "rpa_wait",
+            "rpa_status",
+        ] {
+            assert!(!is_write(name), "{name} should not request write approval");
+        }
+        for name in [
+            "rpa_start",
+            "rpa_screenshot",
+            "rpa_focus",
+            "rpa_click",
+            "rpa_drag",
+            "rpa_fill",
+            "rpa_scroll",
+            "rpa_cancel",
+        ] {
+            assert!(is_write(name), "{name} must remain approval gated");
+        }
     }
 
     #[test]
