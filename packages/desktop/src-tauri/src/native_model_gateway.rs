@@ -209,7 +209,6 @@ impl ModelInvocationGateway {
         ledger: Arc<dyn UsageLedger>,
     ) -> Result<Self, String> {
         let mut builder = Client::builder()
-            .https_only(true)
             .connect_timeout(Duration::from_secs(15))
             .pool_max_idle_per_host(4)
             .pool_idle_timeout(Duration::from_secs(60))

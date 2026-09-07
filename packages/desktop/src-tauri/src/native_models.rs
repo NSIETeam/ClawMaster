@@ -192,17 +192,28 @@ pub fn credential_store_for_service(service: &'static str) -> Arc<dyn Credential
     Arc::new(KeyringCredentialStore { service })
 }
 
-fn endpoint(base_url: &str, suffix: &str) -> Result<Url, String> {
-    let mut base = Url::parse(base_url).map_err(|_| "模型 API 地址无效".to_string())?;
-    let test_loopback = cfg!(test)
-        && base.scheme() == "http"
-        && matches!(base.host_str(), Some("127.0.0.1" | "localhost" | "::1"));
-    if (base.scheme() != "https" && !test_loopback)
+pub(crate) fn validate_model_base_url(base_url: &str) -> Result<Url, String> {
+    let base = Url::parse(base_url).map_err(|_| "模型 API 地址无效".to_string())?;
+    let loopback_http = base.scheme() == "http"
+        && base.host_str().is_some_and(|host| {
+            host == "localhost"
+                || host
+                    .parse::<std::net::IpAddr>()
+                    .is_ok_and(|ip| ip.is_loopback())
+        });
+    if (base.scheme() != "https" && !loopback_http)
         || !base.username().is_empty()
         || base.password().is_some()
     {
-        return Err("模型 API 必须使用不含内嵌凭据的 HTTPS 地址".into());
+        return Err(
+            "模型 API 公网地址必须使用 HTTPS，HTTP 仅限本机回环地址，且不得内嵌凭据".into(),
+        );
     }
+    Ok(base)
+}
+
+fn endpoint(base_url: &str, suffix: &str) -> Result<Url, String> {
+    let mut base = validate_model_base_url(base_url)?;
     if base.path().ends_with(suffix) {
         return Ok(base);
     }
@@ -806,6 +817,13 @@ mod tests {
         );
         assert!(endpoint("http://api.example.com", "chat/completions").is_err());
         assert!(endpoint("https://user:key@example.com", "chat/completions").is_err());
+        assert_eq!(
+            endpoint("http://127.0.0.1:8787/v1", "chat/completions")
+                .unwrap()
+                .as_str(),
+            "http://127.0.0.1:8787/v1/chat/completions"
+        );
+        assert!(endpoint("http://192.168.1.10:8787/v1", "chat/completions").is_err());
     }
 
     #[test]

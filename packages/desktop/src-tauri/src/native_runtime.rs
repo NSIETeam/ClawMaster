@@ -6,8 +6,8 @@ use crate::native_model_gateway::{
     GatewayError, InvocationContext, InvocationPurpose, InvocationRequest, ModelInvocationGateway,
 };
 use crate::native_models::{
-    system_credential_store, CredentialStore, ModelCompletion, ModelMessage, ModelStreamEvent,
-    ModelToolCall, NativeModel, StreamCompletion,
+    system_credential_store, validate_model_base_url, CredentialStore, ModelCompletion,
+    ModelMessage, ModelStreamEvent, ModelToolCall, NativeModel, StreamCompletion,
 };
 use crate::native_state_store::{
     NativeStateStore, StateStoreError, TREE_EVENTS, TREE_INDEX, TREE_SESSIONS,
@@ -1485,7 +1485,7 @@ impl NativeRuntime {
                 if !matches!(
                     provider,
                     "openai" | "openai-responses" | "anthropic" | "gemini"
-                ) || !base_url.starts_with("https://")
+                ) || validate_model_base_url(base_url).is_err()
                     || ids.iter().any(|id| id.trim().is_empty())
                 {
                     vec![error_frame(
@@ -4930,6 +4930,26 @@ mod tests {
         runtime.state_store.flush().unwrap();
         assert!(!store_contains(root.path(), "secret-value"));
         assert!(!store_contains(root.path(), "apiKey"));
+    }
+
+    #[test]
+    fn saves_loopback_model_endpoints_without_allowing_remote_http() {
+        let (_root, runtime) = runtime();
+        let local = runtime
+            .handle(&json!({"type":"save_custom_model","payload":{
+                "provider":"openai","baseUrl":"http://127.0.0.1:8787/v1",
+                "apiKey":"local-placeholder","modelId":"local-model","makeActive":true
+            }}))
+            .expect("save loopback model");
+        assert_eq!(local[0]["type"], "models_list");
+
+        let remote = runtime
+            .handle(&json!({"type":"save_custom_model","payload":{
+                "provider":"openai","baseUrl":"http://api.example.com/v1",
+                "apiKey":"must-not-save","modelId":"remote-http","makeActive":true
+            }}))
+            .expect("reject remote HTTP model");
+        assert_eq!(remote[0]["payload"]["code"], "bad_model_config");
     }
 
     #[test]
