@@ -2,7 +2,7 @@
 
 Release gate: #21
 
-Candidate commit: `2593fa79`
+Candidate commit: `774d2a7b`
 
 Platform: macOS 26.5.1 (25F80), Apple ARM64
 
@@ -11,25 +11,27 @@ Artifact:
 
 ## Build and artifact evidence
 
-- The complete Tauri release build passed with 204 default Rust tests passing,
+- The complete Tauri release build passed with 212 default Rust tests passing,
   zero failures, and six explicitly documented opt-in tests ignored.
 - Desktop typecheck, lint, renderer tests, server tests, repository doctor,
   boundary validation, code-map validation, and release preflight passed.
-- The optimized DMG is 5,639,482 bytes (5.38 MiB), below the 20 MiB beta
+- The optimized DMG is 5,659,440 bytes (5.40 MiB), below the 20 MiB beta
   target. SHA-256:
-  `3da487c1f35bbbdd1619f026ac887864a3a01f7652bd9f1414c14fd6ce674c99`.
-- `hdiutil verify` accepted the final image. The application bundle is 12.68
+  `a0fedf4b431cebcaad2a7d9ea3de9d024d66a955e6324e44bffbb5134aea1f6d`.
+- `hdiutil verify` accepted the final image. The application bundle is 12.70
   MiB and contains a thin ARM64 executable with hardened-runtime flags.
 - `codesign --verify --deep --strict` accepted both the built bundle and the
   copy installed from the mounted DMG.
 
 ## Installed-app smoke
 
-The final DMG was mounted read-only, copied with `ditto` to a fresh temporary
+The latest DMG was mounted read-only, copied with `ditto` to a fresh temporary
 installation directory, and verified again with `codesign`. The copied app was
-then launched directly from that directory, with `CLAWMASTER_USER_DIR` routed
-to a fresh temporary directory. The application used the signed-in user's real
-macOS Keychain for its encrypted native state.
+not yet launched because the system Accessibility authorization dialog remains
+locked. The earlier same-lineage candidate was launched directly from its
+temporary installation directory, with `CLAWMASTER_USER_DIR` routed to a fresh
+temporary directory, and used the signed-in user's real macOS Keychain for its
+encrypted native state.
 
 macOS accessibility inspection observed a standard `ClawMaster` window backed
 by `tauri://localhost`. The visible tree included the task list, workbench,
@@ -47,6 +49,32 @@ At 66 seconds after launch, the single application process reported:
 The application received a normal application quit request and exited with
 status 0. Its PID disappeared, no child process remained, and the DMG was
 ejected.
+
+## Model credential restart evidence
+
+The installed application restored the previously configured `rpa-acceptance`
+model on first launch without showing model setup or asking for the API key
+again. The model definition remained in encrypted native state while the secret
+remained in the existing macOS Keychain service. A focused restart regression
+also reconstructs `NativeRuntime`, saves the same model without an `apiKey`,
+and proves that the stable credential ID resolves the existing credential
+without writing it into the state store.
+
+## Installed RPA permission finding
+
+The installed model path completed browser launch, bounded window discovery,
+focus, and semantic snapshot. Native fill returned from the low-level adapter,
+but a fresh accessibility inspection proved that the input remained empty and
+the following bounded wait timed out. System Settings then showed that
+`ClawMaster` was absent from Privacy & Security > Accessibility; only ChatGPT,
+Codex Computer Use, and the disabled legacy Otto entry were present.
+
+Commit `774d2a7b` therefore adds an `AXIsProcessTrusted` preflight before every
+native keyboard or mouse action. An untrusted installed app now fails closed
+with actionable guidance instead of recording a misleading successful input
+receipt. Final positive input/click/drag evidence still requires adding and
+enabling the latest installed candidate in the macOS Accessibility list and
+restarting it.
 
 ## Keychain failure-path finding
 
@@ -76,7 +104,8 @@ This is candidate evidence, not release acceptance:
   approval-bound Chrome focus, input, scroll, click and drag on this macOS host
   with encrypted artifacts, 14 auditable receipts, confirmed cancellation, and
   no orphan process. The final rebuilt DMG still needs the same path invoked through the installed
-  application entry point; Windows needs its corresponding installed run. The
+  application entry point after macOS Accessibility authorization; Windows
+  needs its corresponding installed run. The
   Playwright release preflight is not a substitute.
 - Final version bump, Pages links, downloaded-artifact hashes, and release notes
   must all agree before the one consolidated push and beta tag.

@@ -30,6 +30,9 @@ Zero-area or off-window elements are rejected before input. Fill, focus,
 scroll, click with external effects, drag, and cancellation require approval.
 Editable values remain redacted. Native input errors after dispatch are
 persisted as `unknown_outcome` when an external effect may have occurred.
+On macOS, native input also checks `AXIsProcessTrusted` before dispatch so an
+unlisted app cannot report success for keyboard or mouse events that the
+operating system silently discards.
 
 ## Real acceptance evidence
 
@@ -55,8 +58,10 @@ chunked wheel events, and emits its own coordinate-correct Quartz drag sequence.
 
 This proves the source-built production Rust path against a real installed
 browser. Release gate #21 still requires the final DMG-installed application to
-invoke the same path through its user/model entry point. The Windows x64
-installed package must independently pass its Edge run. Multi-application
+invoke the same path through its user/model entry point after ClawMaster is
+enabled in macOS Accessibility. The installed model and Keychain credential
+already restore across restart without asking for the API key again. The
+Windows x64 installed package must independently pass its Edge run. Multi-application
 workflows, right/double click, secure Keychain-backed secret entry, and recovery
 after a forced mid-action process crash remain follow-up scope; they are not
 represented as complete by this acceptance.
