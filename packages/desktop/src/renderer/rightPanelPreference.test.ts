@@ -25,12 +25,12 @@ describe('right panel preference', () => {
       serverUrl: '   ',
       organizationId: '   ',
       accountId: '   ',
-    })).toBe('clawmaster.right-panel.v1:local:personal:anonymous');
+    })).toBe('clawmaster.right-panel.v2:local:personal:anonymous');
   });
 
-  it('defaults to expanded for missing or invalid values', () => {
-    expect(readRightPanelCollapsed(scope, { getItem: () => null })).toBe(false);
-    expect(readRightPanelCollapsed(scope, { getItem: () => 'legacy' })).toBe(false);
+  it('defaults to hidden until the user explicitly opens the contextual panel', () => {
+    expect(readRightPanelCollapsed(scope, { getItem: () => null })).toBe(true);
+    expect(readRightPanelCollapsed(scope, { getItem: () => 'legacy' })).toBe(true);
     expect(readRightPanelCollapsed(scope, { getItem: () => 'expanded' })).toBe(false);
     expect(readRightPanelCollapsed(scope, { getItem: () => 'collapsed' })).toBe(true);
   });
@@ -38,7 +38,7 @@ describe('right panel preference', () => {
   it('does not break startup when local storage is unavailable', () => {
     expect(readRightPanelCollapsed(scope, {
       getItem: () => { throw new Error('blocked'); },
-    })).toBe(false);
+    })).toBe(true);
     expect(writeRightPanelCollapsed(scope, true, {
       setItem: () => { throw new Error('blocked'); },
     })).toBe(false);

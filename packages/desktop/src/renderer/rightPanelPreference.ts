@@ -1,6 +1,8 @@
 import type { UiModePreferenceScope } from './uiModePreference.js';
 
-const STORAGE_PREFIX = 'clawmaster.right-panel.v1';
+// v2 intentionally resets the old always-open workspace wall. Context panels
+// now stay out of the conversation until the user explicitly asks for them.
+const STORAGE_PREFIX = 'clawmaster.right-panel.v2';
 
 function normalizeServerUrl(value: string | null | undefined): string {
   const normalized = value?.trim().replace(/\/+$/, '').toLowerCase();
@@ -21,9 +23,9 @@ export function readRightPanelCollapsed(
   storage: Pick<Storage, 'getItem'> = window.localStorage,
 ): boolean {
   try {
-    return storage.getItem(rightPanelStorageKey(scope)) === 'collapsed';
+    return storage.getItem(rightPanelStorageKey(scope)) !== 'expanded';
   } catch {
-    return false;
+    return true;
   }
 }
 

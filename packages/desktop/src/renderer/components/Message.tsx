@@ -207,6 +207,9 @@ function BotMessage({
   const responding = Boolean(
     message.isStreaming || message.isReasoning || message.isProcessingTools,
   );
+  const failedToolCount = tools.filter(
+    (tool) => tool.status === 'error' || tool.status === 'cancelled',
+  ).length;
   const fallbackSummary =
     !text && !responding && tools.length > 0
       ? buildToolCompletionSummary(tools)
@@ -217,13 +220,6 @@ function BotMessage({
     <div className="claw-msg-bot">
       <ClawMasterSecondaryMark active={responding} />
       <div className="claw-msg-bot__body">
-        <div className="claw-msg-bot__head">
-          <span className="claw-msg-bot__name">ClawMaster</span>
-          <span className="claw-msg-bot__time">
-            {formatTime(message.timestamp)}
-          </span>
-        </div>
-
         {message.reasoning || tools.length > 0 ? (
           <ProcessTrace
             reasoning={message.reasoning}
@@ -232,6 +228,16 @@ function BotMessage({
             toolsActive={Boolean(message.isProcessingTools)}
             onRespondQuestion={onRespondQuestion}
           />
+        ) : null}
+
+        {!responding && failedToolCount > 0 ? (
+          <div className="claw-msg-bot__outcome" role="alert">
+            <IconClose size={15} />
+            <span>
+              <strong>本轮未完成</strong>
+              {failedToolCount} 个步骤失败，模型回复仅供参考。
+            </span>
+          </div>
         ) : null}
 
         {displayText ? (
@@ -283,6 +289,9 @@ function ProcessTrace({
   const requiresAttention = tools.some(
     (tool) => tool.status === 'awaiting_approval',
   );
+  const failedCount = tools.filter(
+    (tool) => tool.status === 'error' || tool.status === 'cancelled',
+  ).length;
   const active = reasoningActive || toolsActive;
   const automaticOpen = active || requiresAttention;
   const [open, setOpen] = useState(automaticOpen);
@@ -298,7 +307,7 @@ function ProcessTrace({
   }, [automaticOpen]);
 
   return (
-    <div className="claw-reasoning claw-process-trace">
+    <div className={`claw-reasoning claw-process-trace${failedCount > 0 ? ' claw-process-trace--failed' : ''}`}>
       <button
         type="button"
         className="claw-reasoning__head"
@@ -306,7 +315,13 @@ function ProcessTrace({
         aria-expanded={open}
       >
         <span className="claw-reasoning__title">
-          {active ? '正在处理…' : requiresAttention ? '等待确认' : '处理记录'}
+          {active
+            ? '正在处理…'
+            : requiresAttention
+              ? '等待确认'
+              : failedCount > 0
+                ? `${failedCount} 个步骤失败`
+                : '处理记录'}
         </span>
         {tools.length > 0 ? (
           <span className="claw-process-trace__count">
@@ -330,6 +345,7 @@ function ProcessTrace({
               <ToolCallsCard
                 toolCalls={tools}
                 onRespondQuestion={onRespondQuestion}
+                embedded
               />
             ) : null}
           </div>

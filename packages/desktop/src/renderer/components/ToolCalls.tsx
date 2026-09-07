@@ -754,15 +754,35 @@ function StatusIcon({
 export function ToolCallsCard({
   toolCalls,
   onRespondQuestion,
+  embedded = false,
 }: {
   toolCalls: ToolCall[];
   /** AskUserQuestion 作答回传；缺省时问答卡以只读态渲染（无交互按钮）。 */
   onRespondQuestion?: RespondQuestionFn;
+  /** 已由外层过程区负责折叠时，避免再套一层摘要和折叠按钮。 */
+  embedded?: boolean;
 }): React.JSX.Element | null {
   // 顶层展示给普通用户看的行动进度，具体技术工具名保留在单项 tooltip 里。
   const [open, setOpen] = useState(true);
   if (!toolCalls || toolCalls.length === 0) return null;
   const summary = buildToolGroupSummary(toolCalls);
+  const items = toolCalls.map((tc) =>
+    isPendingQuestion(tc) ? (
+      <QuestionCard key={tc.id} tool={tc} onRespond={onRespondQuestion} />
+    ) : isPendingConfirmation(tc) ? (
+      <ConfirmationCard key={tc.id} tool={tc} onRespond={onRespondQuestion} />
+    ) : (
+      <ToolItem key={tc.id} tool={tc} />
+    ),
+  );
+
+  if (embedded) {
+    return (
+      <div className="claw-tools claw-tools--embedded">
+        <div className="claw-tools__list">{items}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="claw-tools">
@@ -781,24 +801,7 @@ export function ToolCallsCard({
       <div className={`claw-collapse${open ? ' claw-collapse--open' : ''}`}>
         <div className="claw-collapse__inner">
           <div className="claw-tools__list">
-            {toolCalls.map((tc) =>
-              isPendingQuestion(tc) ? (
-                // 待作答的 AskUserQuestion：整卡换成交互式问答卡。
-                <QuestionCard
-                  key={tc.id}
-                  tool={tc}
-                  onRespond={onRespondQuestion}
-                />
-              ) : isPendingConfirmation(tc) ? (
-                <ConfirmationCard
-                  key={tc.id}
-                  tool={tc}
-                  onRespond={onRespondQuestion}
-                />
-              ) : (
-                <ToolItem key={tc.id} tool={tc} />
-              ),
-            )}
+            {items}
           </div>
         </div>
       </div>

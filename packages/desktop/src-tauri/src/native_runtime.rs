@@ -174,6 +174,8 @@ pub(crate) struct StoredMessage {
     pub(crate) content: Value,
     pub(crate) timestamp: u64,
     pub(crate) source: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) associated_tool_calls: Vec<Value>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -469,6 +471,45 @@ fn contract_tool_status(state: ToolState) -> ToolStatus {
         ToolState::Cancelled => ToolStatus::Cancelled,
         ToolState::UnknownOutcome => ToolStatus::UnknownOutcome,
     }
+}
+
+fn persisted_tool_calls(turn: &TurnRecord) -> Vec<Value> {
+    turn.tools
+        .values()
+        .map(|tool| {
+            let status = match tool.state {
+                ToolState::Validating | ToolState::Scheduled => "scheduled",
+                ToolState::AwaitingApproval => "awaiting_approval",
+                ToolState::Executing => "executing",
+                ToolState::Success => "success",
+                ToolState::Error | ToolState::UnknownOutcome => "error",
+                ToolState::Cancelled => "cancelled",
+            };
+            json!({
+                "id": tool.call_id,
+                "toolName": tool.name,
+                "parameters": {},
+                "status": status,
+            })
+        })
+        .collect()
+}
+
+fn guarded_assistant_reply(text: &str, turn: &TurnRecord) -> String {
+    let failed = turn
+        .tools
+        .values()
+        .filter(|tool| {
+            matches!(
+                tool.state,
+                ToolState::Error | ToolState::Cancelled | ToolState::UnknownOutcome
+            )
+        })
+        .count();
+    if failed == 0 {
+        return text.to_string();
+    }
+    format!("本轮未完成：{failed} 个步骤失败，以下模型回复仅供参考。\n\n{text}")
 }
 
 fn tool_result_terminal_state(external_side_effect: bool, result_ok: bool) -> ToolState {
@@ -2560,6 +2601,7 @@ impl NativeRuntime {
                 content: json!([{"type":"text","value":format!("[此前会话的模型压缩摘要]\n{}", completion.text.trim())}]),
                 timestamp,
                 source: "local".into(),
+                associated_tool_calls: Vec::new(),
             }]);
             if let Some(session) = state
                 .sessions
@@ -3951,6 +3993,7 @@ impl NativeRuntime {
                     content,
                     timestamp,
                     source,
+                    associated_tool_calls: Vec::new(),
                 });
             let session = &mut state.sessions[session_index];
             session.status = "thinking".into();
@@ -4112,14 +4155,15 @@ impl NativeRuntime {
 
         match streamed {
             Ok(StreamCompletion::Completed(completion)) => {
-                let reply = completion.text.clone();
+                let reply = guarded_assistant_reply(&completion.text, &kernel_turn);
                 let message = StoredMessage {
                     id: assistant_message_id.clone(),
                     session_id: session_id.clone(),
                     role: "assistant".into(),
-                    content: json!([{"type":"text","value":completion.text}]),
+                    content: json!([{"type":"text","value":reply}]),
                     timestamp: now_ms(),
                     source: "local".into(),
+                    associated_tool_calls: persisted_tool_calls(&kernel_turn),
                 };
                 {
                     let mut state = self
@@ -4211,9 +4255,10 @@ impl NativeRuntime {
                                 id: assistant_message_id.clone(),
                                 session_id: session_id.clone(),
                                 role: "assistant".into(),
-                                content: json!([{"type":"text","value":completion.text}]),
+                                content: json!([{"type":"text","value":guarded_assistant_reply(&completion.text, &kernel_turn)}]),
                                 timestamp: now_ms(),
                                 source: "local".into(),
+                                associated_tool_calls: persisted_tool_calls(&kernel_turn),
                             });
                     }
                     if let Some(session) = state
@@ -4378,6 +4423,41 @@ mod tests {
         );
         assert_eq!(tool_result_terminal_state(false, false), ToolState::Error);
         assert_eq!(tool_result_terminal_state(true, true), ToolState::Success);
+    }
+
+    #[test]
+    fn failed_tool_outcomes_are_persisted_and_guard_the_model_reply() {
+        let mut tools = BTreeMap::new();
+        tools.insert(
+            "call-failed".into(),
+            clawmaster_runtime_kernel::ToolRecord {
+                call_id: "call-failed".into(),
+                name: "rpa_fill".into(),
+                state: ToolState::Error,
+                argument_digest: "digest".into(),
+                revision: "revision".into(),
+                idempotency_key: "key".into(),
+                external_side_effect: false,
+                side_effect_started: false,
+                approval: None,
+            },
+        );
+        let turn = TurnRecord {
+            turn_id: "turn-guard".into(),
+            session_id: Some("session-guard".into()),
+            state: TurnState::Planning,
+            sequence: 1,
+            tools,
+        };
+
+        let calls = persisted_tool_calls(&turn);
+        assert_eq!(calls[0]["status"], "error");
+        assert_eq!(calls[0]["toolName"], "rpa_fill");
+        assert_eq!(calls[0]["parameters"], json!({}));
+
+        let guarded = guarded_assistant_reply("验收完成。", &turn);
+        assert!(guarded.starts_with("本轮未完成：1 个步骤失败"));
+        assert!(guarded.ends_with("验收完成。"));
     }
 
     #[test]
@@ -4749,6 +4829,7 @@ mod tests {
                         content: json!([{"type":"text","value":session_id}]),
                         timestamp,
                         source: "local".into(),
+                        associated_tool_calls: Vec::new(),
                     }],
                 );
             }
@@ -4799,6 +4880,7 @@ mod tests {
                     content: json!([{"type":"text","value":"durable"}]),
                     timestamp: now_ms(),
                     source: "local".into(),
+                    associated_tool_calls: Vec::new(),
                 }],
             );
             runtime.persist(&state).unwrap();
@@ -4856,6 +4938,7 @@ mod tests {
                 content: json!([{"type":"text","value":"hello"}]),
                 timestamp: 1,
                 source: "feishu".into(),
+                associated_tool_calls: Vec::new(),
             });
         assert!(runtime
             .has_channel_message("feishu", "om_persisted")

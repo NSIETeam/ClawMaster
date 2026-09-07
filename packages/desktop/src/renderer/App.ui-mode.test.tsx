@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App.js';
 import type { EnterpriseAccount } from '../preload/index.js';
 import { uiModeStorageKey } from './uiModePreference.js';
+import { rightPanelStorageKey } from './rightPanelPreference.js';
 import { openParkServices } from './components/ParkServicesPlugin.js';
 
 const harness = vi.hoisted(() => ({
@@ -337,12 +338,11 @@ function preferenceKey(account: EnterpriseAccount): string {
 }
 
 function rightPanelPreferenceKey(account: EnterpriseAccount): string {
-  return [
-    'clawmaster.right-panel.v1',
-    'https://enterprise.example.com',
-    account.organizationId,
-    account.id,
-  ].map(encodeURIComponent).join(':');
+  return rightPanelStorageKey({
+    serverUrl: 'https://enterprise.example.com/',
+    organizationId: account.organizationId,
+    accountId: account.id,
+  });
 }
 
 beforeEach(() => {
@@ -402,6 +402,7 @@ describe('App UI mode integration', () => {
 
     expect(app?.dataset.uiMode).toBe('work');
     expect(screen.getByTestId('work-panel')).toBeTruthy();
+    expect(screen.getByTestId('work-panel').dataset.collapsed).toBe('true');
     expect(screen.queryByTestId('ui-mode-guide')).toBeNull();
     expect(screen.getByTestId('whats-new')).toBeTruthy();
     expect(localStorage.getItem(preferenceKey(accountA))).toBe('work');
@@ -426,6 +427,7 @@ describe('App UI mode integration', () => {
 
   it('toggles the right panel from the chat header and persists the account preference', () => {
     localStorage.setItem(preferenceKey(accountA), 'work');
+    localStorage.setItem(rightPanelPreferenceKey(accountA), 'expanded');
     const first = render(<App />);
 
     expect(screen.getByTestId('work-panel').dataset.collapsed).toBe('false');
@@ -526,6 +528,7 @@ describe('App UI mode integration', () => {
     localStorage.setItem(preferenceKey(accountA), 'work');
     localStorage.setItem(preferenceKey(accountB), 'work');
     localStorage.setItem(rightPanelPreferenceKey(accountA), 'collapsed');
+    localStorage.setItem(rightPanelPreferenceKey(accountB), 'expanded');
     const view = render(<App />);
     expect(screen.getByTestId('work-panel').dataset.collapsed).toBe('true');
 

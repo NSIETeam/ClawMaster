@@ -212,6 +212,30 @@ describe('Message 动作行', () => {
     expect(screen.queryByText(/查看相关资料（PDF：report.pdf）已完成。/)).toBeNull();
   });
 
+  it('工具失败时以显式未完成状态压住模型的错误成功结论', () => {
+    render(
+      <Message
+        message={botMessage({
+          content: [{ type: 'text', value: '验收完成。' }],
+          associatedToolCalls: [{
+            id: 'rpa-failed',
+            toolName: 'rpa_fill',
+            parameters: {},
+            status: 'error' as NonNullable<ClawMasterMessage['associatedToolCalls']>[number]['status'],
+          }],
+        })}
+        onCopy={vi.fn()}
+        onRegenerate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('alert').textContent).toContain('本轮未完成');
+    expect(screen.getByRole('alert').textContent).toContain('1 个步骤失败');
+    expect(screen.getByRole('button', { name: /1 个步骤失败/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /有 1 个步骤需要处理/ })).toBeNull();
+    expect(screen.getByText('验收完成。')).toBeTruthy();
+  });
+
   it('Skill 执行时展开显示，执行完成后自动隐藏且仍可手动展开', () => {
     const tool = {
       id: 'skill-1',

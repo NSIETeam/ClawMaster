@@ -508,26 +508,15 @@
   color: var(--claw-text);
 }
 
-.clawmaster-sidebar-mark img {
+.clawmaster-sidebar-mark .clawmaster-brand-icon {
   display: block;
   width: 30px;
   height: 30px;
-  object-fit: contain;
 }
 
-/* The Dock asset has an opaque warm-white canvas. Multiply/screen removes the
-   visible square without maintaining a second brand image. */
 .clawmaster-brand-icon {
-  transform: scale(1.16);
-  transform-origin: center;
-  mix-blend-mode: multiply;
-}
-
-@media (prefers-color-scheme: dark) {
-  .clawmaster-brand-icon {
-    filter: invert(1);
-    mix-blend-mode: screen;
-  }
+  display: block;
+  color: var(--claw-text);
 }
 
 .claw-iconbtn {
@@ -1559,20 +1548,31 @@
   flex: 1 1 auto;
   min-width: 0;
 }
-.claw-msg-bot__head {
+.claw-msg-bot__outcome {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 8px;
-  margin-bottom: 4px;
+  margin: 8px 0 10px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--claw-danger) 34%, var(--claw-border));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--claw-danger) 6%, transparent);
+  color: var(--claw-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
 }
-.claw-msg-bot__name {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--claw-text);
+.claw-msg-bot__outcome > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--claw-danger);
 }
-.claw-msg-bot__time {
-  font-size: 11px;
-  color: var(--claw-text-tertiary);
+.claw-msg-bot__outcome span {
+  display: grid;
+  gap: 1px;
+}
+.claw-msg-bot__outcome strong {
+  color: var(--claw-danger);
+  font-weight: 650;
 }
 .claw-prose {
   font-size: 14px;
@@ -2249,9 +2249,12 @@ h6.claw-prose__h {
   white-space: pre-wrap;
 }
 .claw-process-trace__body > .claw-tools {
-  margin: 3px 10px 10px;
+  margin: 2px 0 6px;
   background: transparent;
   box-shadow: none;
+}
+.claw-process-trace--failed {
+  border-left-color: var(--claw-danger);
 }
 
 /* ══════════════ 工具调用折叠卡 ══════════════ */
@@ -2309,6 +2312,14 @@ h6.claw-prose__h {
 }
 .claw-tools__list {
   border-top: 1px solid var(--claw-border);
+}
+.claw-tools--embedded {
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+.claw-tools--embedded .claw-tools__list {
+  border-top: 0;
 }
 
 /* —— 单个工具卡 —— */
