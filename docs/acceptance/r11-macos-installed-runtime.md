@@ -103,7 +103,29 @@ that native input works. Both platforms still require installed acceptance
 against the final consolidated candidate. Do not close the release gate using
 the earlier source-level browser smoke or the harness's final model text.
 
-## Keychain failure-path finding
+## 2026-09-07 installed beta.3 follow-up
+
+The application at `/Applications/ClawMaster.app` now reports
+`0.0.2-beta.3`. Its executable SHA-256 matches the built candidate:
+`af441eb60c30591f499e3a74a345fb065e07a45abe7f9eb91c7586ca44988768`.
+The 5.40 MiB DMG SHA-256 is
+`aac8c28b15736954a00a7d5b0b7e8ee357de8cc880b5c5614dfd66ce86048fa9`.
+
+The installed model settings initially contained only the loopback
+`rpa-acceptance` fixture. Using the user's previously supplied credential through
+the secure model form, DeepSeek `deepseek-chat` was saved and selected. A fresh
+conversation asking for 2 + 3 without tools returned `5` through the installed
+application. After normal quit and reopening the exact installation path, the
+model remained selected, the answer remained in history, and no key setup was
+requested. The context panel remained collapsed.
+
+This verifies one real-provider response and model/session restoration. It does
+not prove streamed chunk timing, installed RPA input/click/drag, Windows runtime,
+or readiness of external enterprise platforms. The old fixture conversation
+still contains its historical fixed success text; those messages are not valid
+acceptance results.
+
+## Keychain failure-path finding (earlier candidate)
 
 The app copied from the final DMG was launched again with an artificial isolated
 `HOME` and no default macOS Keychain. It stayed fail closed and did not create
