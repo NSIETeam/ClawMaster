@@ -249,11 +249,35 @@ fn desktop_snapshot_error(error: xa11y::Error) -> String {
     format!("读取前台辅助功能树失败：{detail}")
 }
 
+fn validate_native_input_permission(trusted: bool) -> Result<(), String> {
+    if trusted {
+        Ok(())
+    } else {
+        Err("ClawMaster 尚未获得 macOS 辅助功能权限，系统会丢弃键盘和鼠标操作。请在“系统设置 → 隐私与安全性 → 辅助功能”中添加并启用 ClawMaster，然后重新启动应用".into())
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn ensure_native_input_permission() -> Result<(), String> {
+    #[link(name = "ApplicationServices", kind = "framework")]
+    unsafe extern "C" {
+        fn AXIsProcessTrusted() -> u8;
+    }
+
+    validate_native_input_permission(unsafe { AXIsProcessTrusted() != 0 })
+}
+
+#[cfg(not(target_os = "macos"))]
+fn ensure_native_input_permission() -> Result<(), String> {
+    Ok(())
+}
+
 pub(crate) fn input_tool(args: &[String]) -> Result<(), String> {
     let action = args
         .first()
         .map(String::as_str)
         .ok_or("native input action is required")?;
+    ensure_native_input_permission()?;
     let input = xa11y::input_sim().map_err(|error| format!("initialize native input: {error}"))?;
     match action {
         "type" => input
@@ -758,6 +782,15 @@ mod tests {
         assert!(message.contains("ClawMaster"));
         assert!(message.contains("重新启动"));
         assert!(!message.contains("cliclick"));
+    }
+
+    #[test]
+    fn native_input_fails_closed_when_accessibility_is_not_trusted() {
+        assert!(validate_native_input_permission(true).is_ok());
+        let message = validate_native_input_permission(false).unwrap_err();
+        assert!(message.contains("辅助功能"));
+        assert!(message.contains("键盘和鼠标"));
+        assert!(message.contains("重新启动"));
     }
 
     #[test]
