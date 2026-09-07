@@ -1,7 +1,7 @@
 use std::{
     collections::HashSet,
     fs,
-    io::Read,
+    io::{Read, Write},
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -441,14 +441,24 @@ pub async fn export_edited_document(
     let Some(out_path) = selected.and_then(|path| path.into_path().ok()) else {
         return Ok(None);
     };
-    validate_edited_export(&source, &out_path)?;
-    fs::write(&out_path, content)
-        .map_err(|error| format!("native document export failed: {error}"))?;
+    write_edited_copy(&source, &out_path, &content)?;
     Ok(Some(serde_json::json!({
         "sourcePath": source,
         "outPath": out_path,
         "message": format!("已保存编辑稿：{}", out_path.display())
     })))
+}
+
+fn write_edited_copy(source: &Path, destination: &Path, content: &str) -> Result<(), String> {
+    validate_edited_export(source, destination)?;
+    // Atomic creation prevents aliasing and check/write races from truncating an existing file.
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(destination)
+        .map_err(|error| format!("无法新建编辑副本，请选择未使用的文件名：{error}"))?;
+    file.write_all(content.as_bytes())
+        .map_err(|error| format!("写入编辑副本失败：{error}"))
 }
 
 fn validate_edited_export(source: &Path, destination: &Path) -> Result<(), String> {
@@ -772,6 +782,23 @@ mod tests {
         let directories = workspace_directories(Path::new("/Users/alice"));
         assert_eq!(directories.default_path, "/Users/alice");
         assert!(directories.recent_paths.is_empty());
+    }
+
+    #[test]
+    fn edited_copy_creation_cannot_overwrite_a_hard_link_or_existing_file() {
+        let root = std::env::temp_dir().join(format!("clawmaster-copy-{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        let source = root.join("source.md");
+        let alias = root.join("alias.md");
+        let output = root.join("copy.md");
+        fs::write(&source, b"original").unwrap();
+        fs::hard_link(&source, &alias).unwrap();
+        assert!(super::write_edited_copy(&source, &alias, "changed").is_err());
+        super::write_edited_copy(&source, &output, "edited").unwrap();
+        assert!(super::write_edited_copy(&source, &output, "replaced").is_err());
+        assert_eq!(fs::read(&source).unwrap(), b"original");
+        assert_eq!(fs::read(&output).unwrap(), b"edited");
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

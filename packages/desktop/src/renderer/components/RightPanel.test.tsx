@@ -63,6 +63,14 @@ describe('RightPanel module workspace boundary', () => {
     expect(screen.getByRole('button', { name: '返回功能' })).toBeTruthy();
   });
 
+  it('opens a local editor without consulting a model or reading an unselected file', () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: '文件编辑器' }));
+    expect(screen.getByRole('region', { name: '文件编辑器' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '选择文件' })).toBeTruthy();
+    expect(window.clawmaster.extractEditableDocument).not.toHaveBeenCalled();
+  });
+
   it('shows Rust file versions and delegates confirmed recovery', () => {
     const refresh = vi.fn();
     const restore = vi.fn();

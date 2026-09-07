@@ -142,6 +142,15 @@ export function RightPanel({
       aria-busy={busy || readiness === 'loading'}
       aria-hidden={hidden || undefined}
     >
+      {activeView === 'modules' ? (
+        <header className="claw-right-panel__context-head">
+          <button type="button" onClick={() => {
+            onRequestExpand?.();
+            setFilePath(null);
+            setActiveView('files');
+          }}>文件编辑器</button>
+        </header>
+      ) : null}
       {activeView !== 'modules' && activeView !== 'platform' && activeView !== 'settings' ? (
         <header className="claw-right-panel__context-head">
           <strong>{activeView === 'files' ? '文件' : activeView === 'mindmap' ? '思维导图' : '文件版本'}</strong>

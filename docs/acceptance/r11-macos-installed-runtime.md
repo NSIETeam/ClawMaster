@@ -164,23 +164,36 @@ The investigation fixed these concrete defects:
   save test exposed a main-thread deadlock in the previous synchronous commands.
   This system-dialog threading change requires native GUI acceptance, not a mock.
 
-The final candidate built successfully: 216 Rust tests passed, 6 external tests
-remained ignored, and 80 focused renderer tests passed. Renderer typecheck,
+The updated candidate built successfully: 217 Rust tests passed, 6 external tests
+remained ignored, and the 80 focused renderer tests plus 17 right-panel tests passed. Renderer typecheck,
 focused lint, and the code-map check passed. The prior UI smoke covered wide/light
 and short/dark layouts, editor, mind map and platform entries with a preview bridge;
 it did not cover native file-dialog threading.
 
 Installed executable SHA-256 (matches the build output):
-`be07509b66eaa9d7bfb3929e8ab67668004811f604745771568816249273445a`.
-DMG SHA-256: `88b05c6931eabaa5097ae0ff8bc4ebc267b95beb9d1a4a21386400e26cb9729c`.
+`80c409e9052206589ae3e12a04095788ff85094e7630b8cae459808d2298f12b`.
+DMG SHA-256: `1639042663248bce7bb63a4d6b977ad1e2a56c9819f0b18245bb796619996a28`.
 The verified DMG is 5.41 MiB; the native bundle is 12.72 MiB.
 
-Final save-dialog and exported-copy verification is still pending: after the
-threading fix was installed, the process started, but computer-use explicitly
-reported that the Mac was locked. Do not count the earlier hung save attempt as
-a passing export. Resume after manual unlock, save a new Markdown copy, verify
-its contents and the unchanged source, and test picker cancellation. No release
-or GitHub push was performed for this acceptance pass.
+After the Mac became available, the installed candidate completed the native
+save acceptance through the new local file-editor entry, without a model call.
+The OS picker opened the existing Markdown fixture, the editor accepted the
+modified text, and the Save dialog wrote
+`clawmaster_editor_save_check_20260907-verified.md` beside the source. A filesystem
+assertion verified the exact edited contents and the unchanged source. Reopening
+the picker and cancelling preserved the current editor contents and responsive UI.
+The earlier hung save attempt is not counted as a passing export.
+
+Exports now use atomic create-new semantics: a hard link, existing file, or path
+replaced between validation and creation cannot be truncated. A dedicated Rust
+regression covers the hard-link and existing-destination cases. Direct local
+editing requires no transmission of the local path or contents to a model.
+
+This candidate includes the workspace's separately edited Zhixin Pigeon HTTPS
+URL; the preview smoke expectation was synchronized with that existing change.
+Those platform configuration edits are separate from this editor fix. No release
+or GitHub push was performed for this acceptance pass. Full Office layout editing
+and the other product-wide release gates remain outside this narrow acceptance.
 
 ## Remaining release blockers
 
@@ -193,7 +206,6 @@ This is candidate evidence, not release acceptance:
   shutdown, process-tree, size, and hash evidence from the same final commit.
 - Real DeepSeek responses and credential reuse have been observed on macOS as
   recorded above; the corresponding final Windows installation remains untested.
-- Finish the native editor save-dialog acceptance described above.
 - The production Rust Native RPA path has completed visible, bounded,
   approval-bound Chrome focus, input, scroll, click and drag on this macOS host
   with encrypted artifacts, 14 auditable receipts, confirmed cancellation, and
