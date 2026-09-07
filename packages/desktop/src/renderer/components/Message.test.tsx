@@ -212,7 +212,7 @@ describe('Message 动作行', () => {
     expect(screen.queryByText(/查看相关资料（PDF：report.pdf）已完成。/)).toBeNull();
   });
 
-  it('工具失败时以显式未完成状态压住模型的错误成功结论', () => {
+  it('保留失败警告但不凭失败次数判定整个任务未完成', () => {
     render(
       <Message
         message={botMessage({
@@ -229,7 +229,7 @@ describe('Message 动作行', () => {
       />,
     );
 
-    expect(screen.getByRole('alert').textContent).toContain('本轮未完成');
+    expect(screen.getByRole('alert').textContent).toContain('执行过程有失败记录');
     expect(screen.getByRole('alert').textContent).toContain('1 个步骤失败');
     expect(screen.getByRole('button', { name: /1 个步骤失败/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /有 1 个步骤需要处理/ })).toBeNull();

@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import * as transport from '../transport.js';
+import { generatedFilePath } from '../generatedFile.js';
 import type {
   ToolCallStatus,
   ClawMasterMessage,
@@ -406,6 +407,12 @@ function patchRuntimeTool(
     const processing = toolCalls.some((toolCall) => isToolCallInFlight(toolCall.status));
     return {
       ...message,
+      ...(payload.type === 'toolProposed' && !current ? {
+        reasoning: [message.reasoning, ...message.content
+          .filter((part) => part.type === 'text')
+          .map((part) => part.value)].filter(Boolean).join('\n\n'),
+        content: message.content.filter((part) => part.type !== 'text'),
+      } : {}),
       associatedToolCalls: toolCalls,
       isProcessingTools: processing,
       toolsCompleted: !processing,
@@ -1105,6 +1112,13 @@ export function useClawMasterStore(
     const unsubFrame = transport.onFrame((frame) => {
       maybeShowChatNotification(frame, activeRef.current, sessionsRef.current);
       dispatch({ kind: 'frame', frame });
+      if (frame.type === 'runtime_event' && frame.payload.event.sessionId === activeRef.current) {
+        const payload = frame.payload.event.payload;
+        if (payload.type === 'toolResult') {
+          const path = generatedFilePath(payload.status, payload.result);
+          if (path) window.dispatchEvent(new CustomEvent('clawmaster:edit-local-file', { detail: { path } }));
+        }
+      }
       if (frame.type === 'error'
         && !frame.payload.sessionId
         && (frame.payload.code === 'unknown_agent_profile'

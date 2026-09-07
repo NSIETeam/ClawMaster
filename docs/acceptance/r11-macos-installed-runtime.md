@@ -138,6 +138,50 @@ The page was verified through the macOS accessibility tree. It exposed only the
 bounded user-facing explanation; the internal `NativeStateStore` error and data
 paths were not rendered.
 
+## Generated-file editor acceptance (2026-09-07)
+
+The real DeepSeek run created `clawmaster_editor_verified_20260907.pptx`
+with three slide XML entries. Starting from a collapsed right panel, its
+successful native tool result expanded the editor and displayed all three
+slides' extracted text. A separate real `write_file` run created
+`clawmaster_editor_save_check_20260907.md`, opened it automatically, and accepted
+an edit in the right-hand text area. The source on disk remained unchanged.
+This proves generated-file routing and editable text extraction, not lossless
+Office layout editing. Old conversations were not rewritten.
+
+The investigation fixed these concrete defects:
+
+- Tool-round preambles no longer concatenate into the final assistant answer.
+  Live preambles move into the expandable process trace.
+- Failed attempts remain visible without declaring the entire task unfinished
+  merely from their count; model success text is not independent verification.
+- Confirmed native outputs receive an exact-file read grant before being routed
+  to the editor. No sibling or outside-workspace read grant is added.
+- Native string errors are shown rather than replaced by a generic failure.
+- Text editing exports default to an `-edited.md` copy, reject Office extensions,
+  and reject the original source path.
+- File and folder pickers and both save commands run asynchronously: the installed
+  save test exposed a main-thread deadlock in the previous synchronous commands.
+  This system-dialog threading change requires native GUI acceptance, not a mock.
+
+The final candidate built successfully: 216 Rust tests passed, 6 external tests
+remained ignored, and 80 focused renderer tests passed. Renderer typecheck,
+focused lint, and the code-map check passed. The prior UI smoke covered wide/light
+and short/dark layouts, editor, mind map and platform entries with a preview bridge;
+it did not cover native file-dialog threading.
+
+Installed executable SHA-256 (matches the build output):
+`be07509b66eaa9d7bfb3929e8ab67668004811f604745771568816249273445a`.
+DMG SHA-256: `88b05c6931eabaa5097ae0ff8bc4ebc267b95beb9d1a4a21386400e26cb9729c`.
+The verified DMG is 5.41 MiB; the native bundle is 12.72 MiB.
+
+Final save-dialog and exported-copy verification is still pending: after the
+threading fix was installed, the process started, but computer-use explicitly
+reported that the Mac was locked. Do not count the earlier hung save attempt as
+a passing export. Resume after manual unlock, save a new Markdown copy, verify
+its contents and the unchanged source, and test picker cancellation. No release
+or GitHub push was performed for this acceptance pass.
+
 ## Remaining release blockers
 
 This is candidate evidence, not release acceptance:
@@ -147,8 +191,9 @@ This is candidate evidence, not release acceptance:
   when the limitation is disclosed.
 - Windows x64 still needs CI-built installer provenance plus installed startup,
   shutdown, process-tree, size, and hash evidence from the same final commit.
-- A real provider round trip must be verified after a replacement API key is
-  saved through the application into the operating-system credential store.
+- Real DeepSeek responses and credential reuse have been observed on macOS as
+  recorded above; the corresponding final Windows installation remains untested.
+- Finish the native editor save-dialog acceptance described above.
 - The production Rust Native RPA path has completed visible, bounded,
   approval-bound Chrome focus, input, scroll, click and drag on this macOS host
   with encrypted artifacts, 14 auditable receipts, confirmed cancellation, and

@@ -37,7 +37,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::watch;
 
 const RUNTIME_INDEX_ID: &str = "native-runtime-index-v1";
@@ -509,7 +509,7 @@ fn guarded_assistant_reply(text: &str, turn: &TurnRecord) -> String {
     if failed == 0 {
         return text.to_string();
     }
-    format!("本轮未完成：{failed} 个步骤失败，以下模型回复仅供参考。\n\n{text}")
+    format!("执行过程有 {failed} 个失败或取消记录；是否完成请核对最终产物，不能仅凭模型回复确认。\n\n{text}")
 }
 
 fn tool_result_terminal_state(external_side_effect: bool, result_ok: bool) -> ToolState {
@@ -668,6 +668,25 @@ fn bounded_tool_result(value: &Value) -> Value {
         "preview": preview,
         "truncated": serialized.chars().count() > 480,
     })
+}
+
+fn generated_file_path(workspace: &Path, tool_name: &str, result: &Value) -> Option<PathBuf> {
+    let field = match tool_name {
+        "write_file" if result.get("written") == Some(&Value::Bool(true)) => "path",
+        "generate_docx" | "generate_pptx" | "generate_chart" | "merge_pdfs" | "optimize_pdf"
+            if result.get("created") == Some(&Value::Bool(true)) =>
+        {
+            "outputPath"
+        }
+        _ => return None,
+    };
+    let root = workspace.canonicalize().ok()?;
+    let path = root
+        .join(result.get(field)?.as_str()?)
+        .canonicalize()
+        .ok()?;
+    // Never route arbitrary model text, a missing output, or an escaped symlink to the editor.
+    (path.starts_with(&root) && path.is_file()).then_some(path)
 }
 
 fn archive_tool_result(
@@ -2850,7 +2869,6 @@ impl NativeRuntime {
                 text: format!("[Native MCP status]\n{}", mcp_catalog.notices.join("\n")),
             });
         }
-        let mut full_text = String::new();
         let mut total_input = 0;
         let mut total_output = 0;
         for step in 0..MAX_NATIVE_TOOL_ROUNDS {
@@ -2887,17 +2905,14 @@ impl NativeRuntime {
                 )
                 .await?;
             let mut completion = match streamed {
-                StreamCompletion::Cancelled(mut completion) => {
-                    completion.text = full_text + &completion.text;
+                StreamCompletion::Cancelled(completion) => {
                     return Ok(StreamCompletion::Cancelled(completion));
                 }
                 StreamCompletion::Completed(completion) => completion,
             };
-            full_text.push_str(&completion.text);
             total_input += completion.input_tokens;
             total_output += completion.output_tokens;
             if completion.tool_calls.is_empty() {
-                completion.text = full_text;
                 completion.input_tokens = total_input;
                 completion.output_tokens = total_output;
                 return Ok(StreamCompletion::Completed(completion));
@@ -3002,7 +3017,7 @@ impl NativeRuntime {
                         }
                     }
                     return Ok(StreamCompletion::Cancelled(ModelCompletion {
-                        text: full_text,
+                        text: "操作已取消。".into(),
                         input_tokens: total_input,
                         output_tokens: total_output,
                         cache_tokens: 0,
@@ -3276,7 +3291,7 @@ impl NativeRuntime {
                         }
                     }
                     return Ok(StreamCompletion::Cancelled(ModelCompletion {
-                        text: full_text,
+                        text: "操作已取消。".into(),
                         input_tokens: total_input,
                         output_tokens: total_output,
                         cache_tokens: 0,
@@ -3477,8 +3492,19 @@ impl NativeRuntime {
                     .as_ref()
                     .cloned()
                     .unwrap_or_else(|message| json!({ "error": message }));
-                let result_reference =
+                let mut result_reference =
                     archive_tool_result(&self.state_store, &call.id, &result_value)?;
+                if tool_state == ToolState::Success {
+                    if let Some(path) =
+                        generated_file_path(context.workspace, &call.name, &result_value)
+                    {
+                        context
+                            .app
+                            .state::<crate::system_commands::DesktopFileState>()
+                            .grant_generated_file(context.workspace, &path)?;
+                        result_reference["generatedFile"] = json!({"path": path});
+                    }
+                }
                 emit_runtime_event(
                     context.app,
                     context.session_id,
@@ -4456,8 +4482,41 @@ mod tests {
         assert_eq!(calls[0]["parameters"], json!({}));
 
         let guarded = guarded_assistant_reply("验收完成。", &turn);
-        assert!(guarded.starts_with("本轮未完成：1 个步骤失败"));
+        assert!(guarded.starts_with("执行过程有 1 个失败或取消记录"));
+        assert!(!guarded.contains("本轮未完成"));
         assert!(guarded.ends_with("验收完成。"));
+    }
+
+    #[test]
+    fn generated_file_routing_requires_a_real_workspace_output() {
+        let root = std::env::temp_dir().join(format!("clawmaster-generated-{}", now_ms()));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("demo.pptx"), b"test artifact").unwrap();
+        let result = json!({"created":true,"outputPath":"demo.pptx"});
+        assert_eq!(
+            generated_file_path(&root, "generate_pptx", &result),
+            Some(root.join("demo.pptx").canonicalize().unwrap())
+        );
+        assert!(generated_file_path(&root, "native_capabilities", &result).is_none());
+        assert!(generated_file_path(
+            &root,
+            "generate_pptx",
+            &json!({"created":true,"outputPath":"missing.pptx"})
+        )
+        .is_none());
+        assert!(generated_file_path(
+            &root,
+            "generate_pptx",
+            &json!({"created":false,"outputPath":"demo.pptx"})
+        )
+        .is_none());
+        assert!(generated_file_path(
+            &root,
+            "generate_pptx",
+            &json!({"created":true,"outputPath":std::env::current_exe().unwrap()})
+        )
+        .is_none());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

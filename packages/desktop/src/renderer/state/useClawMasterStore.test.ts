@@ -646,6 +646,24 @@ describe('applyFrame 各帧分支', () => {
     expect(view.result.current.state.messages['s1']).toBe(before); // 引用不变 = 原样
   });
 
+  it('only the active session can open a confirmed generated file', () => {
+    const { push } = setup();
+    push({ type: 'sessions_list', payload: { sessions: [makeSession()] } });
+    const opened = vi.fn();
+    window.addEventListener('clawmaster:edit-local-file', opened);
+    try {
+      const result = { generatedFile: { path: '/workspace/demo.pptx' } };
+      push({ type: 'runtime_event', payload: { event: runtimeEvent(1, { type: 'toolResult', toolCallId: 't1', status: 'succeeded', result }, { sessionId: 'background' }) } });
+      push({ type: 'runtime_event', payload: { event: runtimeEvent(2, { type: 'toolResult', toolCallId: 't1', status: 'failed', result }) } });
+      expect(opened).not.toHaveBeenCalled();
+      push({ type: 'runtime_event', payload: { event: runtimeEvent(3, { type: 'toolResult', toolCallId: 't1', status: 'succeeded', result }) } });
+      expect(opened).toHaveBeenCalledTimes(1);
+      expect(opened.mock.calls[0][0].detail.path).toBe('/workspace/demo.pptx');
+    } finally {
+      window.removeEventListener('clawmaster:edit-local-file', opened);
+    }
+  });
+
   it('Runtime Contract v2 是正文、工具和终态的唯一渲染权威', () => {
     const { view, push } = setup();
     push({
@@ -674,6 +692,7 @@ describe('applyFrame 各帧分支', () => {
       payload: { event: runtimeEvent(5, { type: 'usage', inputTokens: 7, outputTokens: 5 }) },
     });
 
+    push({ type: 'runtime_event', payload: { event: runtimeEvent(6, { type: 'contentDelta', delta: 'final answer' }) } });
     // Native compatibility frames arriving after v2 must not duplicate or overwrite UI state.
     push({ type: 'chat_chunk', payload: { sessionId: 's1', messageId: 'm1', delta: ' legacy' } });
     push({
@@ -690,11 +709,12 @@ describe('applyFrame 各帧分支', () => {
     });
     push({
       type: 'runtime_event',
-      payload: { event: runtimeEvent(6, { type: 'finished', reason: 'complete' }) },
+      payload: { event: runtimeEvent(7, { type: 'finished', reason: 'complete' }) },
     });
 
     const message = view.result.current.state.messages['s1'][0];
-    expect(message.content).toEqual([{ type: 'text', value: 'v2 text' }]);
+    expect(message.content).toEqual([{ type: 'text', value: 'final answer' }]);
+    expect(message.reasoning).toBe('v2 text');
     expect(message.associatedToolCalls).toEqual([
       expect.objectContaining({
         id: 'tool-1', toolName: 'read_file', parameters: { path: 'README.md' }, status: 'success',

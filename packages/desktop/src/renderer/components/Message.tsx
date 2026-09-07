@@ -234,8 +234,8 @@ function BotMessage({
           <div className="claw-msg-bot__outcome" role="alert">
             <IconClose size={15} />
             <span>
-              <strong>本轮未完成</strong>
-              {failedToolCount} 个步骤失败，模型回复仅供参考。
+              <strong>执行过程有失败记录</strong>
+              {failedToolCount} 个步骤失败或取消，请结合重试结果与最终产物确认是否完成。
             </span>
           </div>
         ) : null}

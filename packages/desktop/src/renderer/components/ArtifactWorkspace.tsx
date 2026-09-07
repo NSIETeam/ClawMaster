@@ -54,7 +54,7 @@ export function ArtifactWorkspace({ initialPath }: ArtifactWorkspaceProps): Reac
       setContent(next.content);
       setStatus(next.message);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : '无法打开这个文件。');
+      setStatus(error instanceof Error ? error.message : typeof error === 'string' ? error : '无法打开这个文件。');
     } finally {
       setBusy(false);
     }
@@ -82,7 +82,7 @@ export function ArtifactWorkspace({ initialPath }: ArtifactWorkspaceProps): Reac
         setStatus(saved ? `已保存编辑稿：${saved}` : '已取消保存。');
       }
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : '保存失败。');
+      setStatus(error instanceof Error ? error.message : typeof error === 'string' ? error : '保存失败。');
     } finally {
       setBusy(false);
     }

@@ -21,6 +21,24 @@ pub struct DesktopFileState {
     workspace_grants: Mutex<Vec<PathBuf>>,
 }
 
+impl DesktopFileState {
+    // Internal only: called after an approved native write, never exposed as an IPC grant command.
+    pub(crate) fn grant_generated_file(&self, workspace: &Path, path: &Path) -> Result<(), String> {
+        let root = workspace
+            .canonicalize()
+            .map_err(|error| error.to_string())?;
+        let resolved = path.canonicalize().map_err(|error| error.to_string())?;
+        if !resolved.starts_with(&root) || !resolved.is_file() {
+            return Err("生成文件不在当前工作目录内，未授予编辑权限。".into());
+        }
+        self.file_grants
+            .lock()
+            .map_err(|_| "无法授权编辑刚生成的文件。".to_string())?
+            .insert(resolved);
+        Ok(())
+    }
+}
+
 const MAX_READ_FILE_BYTES: u64 = 50 * 1024 * 1024;
 const MAX_TEXT_EXPORT_BYTES: usize = 10 * 1024 * 1024;
 
@@ -220,7 +238,10 @@ pub fn open_path(app: AppHandle, path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn select_files(app: AppHandle, state: State<'_, DesktopFileState>) -> Vec<String> {
+pub async fn select_files(
+    app: AppHandle,
+    state: State<'_, DesktopFileState>,
+) -> Result<Vec<String>, String> {
     let selected = app
         .dialog()
         .file()
@@ -242,14 +263,17 @@ pub fn select_files(app: AppHandle, state: State<'_, DesktopFileState>) -> Vec<S
     if let Ok(mut grants) = state.file_grants.lock() {
         grants.extend(selected.iter().cloned());
     }
-    selected
+    Ok(selected
         .into_iter()
         .map(|path| path.to_string_lossy().into_owned())
-        .collect()
+        .collect())
 }
 
 #[tauri::command]
-pub fn select_folders(app: AppHandle, state: State<'_, DesktopFileState>) -> Vec<String> {
+pub async fn select_folders(
+    app: AppHandle,
+    state: State<'_, DesktopFileState>,
+) -> Result<Vec<String>, String> {
     let selected = app
         .dialog()
         .file()
@@ -267,10 +291,10 @@ pub fn select_folders(app: AppHandle, state: State<'_, DesktopFileState>) -> Vec
         }
         grants.truncate(12);
     }
-    selected
+    Ok(selected
         .into_iter()
         .map(|path| path.to_string_lossy().into_owned())
-        .collect()
+        .collect())
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -388,7 +412,7 @@ pub fn extract_editable_document(
 }
 
 #[tauri::command]
-pub fn export_edited_document(
+pub async fn export_edited_document(
     app: AppHandle,
     source_path: String,
     suggested_file_name: String,
@@ -404,14 +428,20 @@ pub fn export_edited_document(
         .map_err(|_| "file grant state is unavailable".to_string())?;
     let (source, _) = resolve_granted_file(Path::new(&source_path), &grants)?;
     drop(grants);
+    let stem = Path::new(&suggested_file_name)
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("document");
+    let suggested = format!("{stem}-edited.md");
     let selected = app
         .dialog()
         .file()
-        .set_file_name(safe_suggested_file_name(&suggested_file_name))
+        .set_file_name(safe_suggested_file_name(&suggested))
         .blocking_save_file();
     let Some(out_path) = selected.and_then(|path| path.into_path().ok()) else {
         return Ok(None);
     };
+    validate_edited_export(&source, &out_path)?;
     fs::write(&out_path, content)
         .map_err(|error| format!("native document export failed: {error}"))?;
     Ok(Some(serde_json::json!({
@@ -419,6 +449,22 @@ pub fn export_edited_document(
         "outPath": out_path,
         "message": format!("已保存编辑稿：{}", out_path.display())
     })))
+}
+
+fn validate_edited_export(source: &Path, destination: &Path) -> Result<(), String> {
+    let extension = destination
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if !matches!(extension.as_str(), "md" | "markdown" | "txt") {
+        return Err("编辑稿是文本内容，请另存为 .md 或 .txt；不能伪装为 Office 原文件。".into());
+    }
+    let source = source.canonicalize().map_err(|error| error.to_string())?;
+    if destination.canonicalize().ok().as_ref() == Some(&source) {
+        return Err("请另存为新文件，不能覆盖原始文档。".into());
+    }
+    Ok(())
 }
 
 fn mime_type_for_path(path: &Path) -> &'static str {
@@ -562,7 +608,7 @@ fn safe_suggested_file_name(value: &str) -> String {
 }
 
 #[tauri::command]
-pub fn save_text_file(
+pub async fn save_text_file(
     app: AppHandle,
     suggested_file_name: String,
     content: String,
@@ -726,6 +772,45 @@ mod tests {
         let directories = workspace_directories(Path::new("/Users/alice"));
         assert_eq!(directories.default_path, "/Users/alice");
         assert!(directories.recent_paths.is_empty());
+    }
+
+    #[test]
+    fn edited_text_exports_never_masquerade_as_office_files_or_replace_the_source() {
+        let root = std::env::temp_dir().join(format!("clawmaster-export-{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        let source = root.join("original.md");
+        fs::write(&source, b"original").unwrap();
+        assert!(super::validate_edited_export(&source, &source).is_err());
+        assert!(super::validate_edited_export(&source, &root.join("fake.pptx")).is_err());
+        assert!(super::validate_edited_export(&source, &root.join("copy.md")).is_ok());
+        assert!(super::validate_edited_export(&source, &root.join("copy.txt")).is_ok());
+        assert_eq!(fs::read(&source).unwrap(), b"original");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn generated_file_grant_does_not_authorize_siblings_or_outside_paths() {
+        let root =
+            std::env::temp_dir().join(format!("clawmaster-generated-grant-{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        let output = root.join("output.md");
+        let sibling = root.join("private.md");
+        fs::write(&output, b"generated").unwrap();
+        fs::write(&sibling, b"private").unwrap();
+        let state = super::DesktopFileState::default();
+        state.grant_generated_file(&root, &output).unwrap();
+        let grants = state.file_grants.lock().unwrap();
+        assert!(resolve_granted_file(&output, &grants).is_ok());
+        assert!(resolve_granted_file(&sibling, &grants).is_err());
+        drop(grants);
+        assert!(state
+            .grant_generated_file(&root, &std::env::current_exe().unwrap())
+            .is_err());
+        assert!(state.grant_generated_file(&root, &root).is_err());
+        assert!(state
+            .grant_generated_file(&root, &root.join("missing.md"))
+            .is_err());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

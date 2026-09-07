@@ -47,4 +47,10 @@ describe('ArtifactWorkspace', () => {
     await waitFor(() => expect(extractEditableDocument).toHaveBeenCalledWith('/tmp/方案.docx'));
     await waitFor(() => expect((screen.getByRole('textbox', { name: '文件内容' }) as HTMLTextAreaElement).value).toBe('# 初稿'));
   });
+
+  it('shows the native permission error instead of hiding the cause', async () => {
+    extractEditableDocument.mockRejectedValueOnce('文件尚未获得读取授权。');
+    render(<ArtifactWorkspace initialPath="/tmp/方案.docx" />);
+    await waitFor(() => expect(screen.getByRole('status').textContent).toBe('文件尚未获得读取授权。'));
+  });
 });
