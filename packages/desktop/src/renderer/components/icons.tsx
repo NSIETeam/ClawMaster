@@ -7,10 +7,12 @@
 /**
  * 自带 SVG 图标集 —— 故意不引 lucide-react，让渲染层零额外依赖、独立可编译。
  * 全部用 currentColor，跟随父级文字色，hover 态由 CSS 控制。
- * ClawMaster 产品标志使用透明矢量；默认账户头像使用单色 emoji。
+ * ClawMaster 产品标志复用桌面应用图标；默认账户头像使用单色 emoji。
  */
 
 import React from 'react';
+
+const clawmasterAppIcon = new URL('../../../build/icon.png', import.meta.url).href;
 
 type IconProps = { size?: number; className?: string; strokeWidth?: number };
 
@@ -511,25 +513,24 @@ export function ClawMasterAvatar({ size = 30, className }: IconProps): React.JSX
   );
 }
 
-/** 透明单色品牌位，避免 Dock 图标底色在不同页面表面上形成色块。 */
+/** 产品级品牌位直接复用桌面应用图标，确保窗口、Dock 与页面内视觉一致。 */
 export function ClawMasterCrown({ size = 56, className }: IconProps): React.JSX.Element {
   return (
-    <svg
-      viewBox="0 0 24 24"
+    <img
+      src={clawmasterAppIcon}
+      alt="ClawMaster 皇冠标志"
       width={size}
       height={size}
       className={['clawmaster-brand-icon', className].filter(Boolean).join(' ')}
-      role="img"
-      aria-label="ClawMaster 皇冠标志"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M15.45 7.35A6.45 6.45 0 1 0 15.6 16.9" strokeWidth="2.45" />
-      <path d="m15.45 4.75-1.3 4.25M18.7 6.7l-3.25 3.15M20.1 10.35l-4.35 1.15" strokeWidth="1.65" />
-    </svg>
+      style={{
+        display: 'block',
+        width: size,
+        height: size,
+        maxWidth: size,
+        maxHeight: size,
+        objectFit: 'contain',
+      }}
+    />
   );
 }
 
