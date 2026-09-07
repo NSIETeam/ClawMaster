@@ -123,7 +123,16 @@ try {
 
     assert.equal(await page.getByRole('button', { name: '向园区服务添加模块' }).isVisible(), false,
       'unused modules must stay out of the conversation');
+    await page.screenshot({ path: path.join(previewRoot, `smoke-${scenario.name}-conversation.png`) });
     await page.getByRole('button', { name: '展开右侧栏' }).click();
+    await page.getByRole('button', { name: '向园区服务添加模块' }).waitFor({ state: 'visible' });
+    await page.waitForFunction(() => {
+      const panel = document.querySelector('.claw-right-panel');
+      if (!panel) return false;
+      const box = panel.getBoundingClientRect();
+      return box.width >= 250 && box.right <= innerWidth + 1;
+    });
+    await page.screenshot({ path: path.join(previewRoot, `smoke-${scenario.name}-modules.png`) });
 
     // A normal pointer click is intentional: it catches overlapping groups and
     // pointer interception that force-click or DOM dispatch would conceal.
