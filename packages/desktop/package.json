@@ -29,7 +29,6 @@
     "legacy:build:preload": "tsc -p tsconfig.preload.json --noEmit && webpack-cli --config webpack.preload.cjs --mode production && node scripts/verify-preload-bundle.mjs",
     "legacy:build": "npm run legacy:build:main && npm run legacy:build:preload && npm run build:renderer",
     "legacy:start": "npm run legacy:build && electron dist/main/index.js",
-    "legacy:dist:mac": "npm run legacy:build && electron-builder --mac --dir",
     "legacy:dist:portable:win": "node scripts/fetch-win-ripgrep.mjs && npm run legacy:build && electron-builder --win --x64 --publish never && node scripts/portable-usb.mjs",
     "lint": "eslint . --ext .ts,.tsx",
     "pretest": "npm run build --workspace=clawmaster-server && npm run build:native",
@@ -42,7 +41,6 @@
     "release:gate": "node scripts/formal-tauri-release-gate.mjs",
     "release:formal:gate": "node scripts/formal-tauri-release-gate.mjs",
     "release:beta:gate": "node scripts/beta-tauri-release-gate.mjs",
-    "release:legacy:electron": "node scripts/make-delivery-zip.mjs --build",
     "release:legacy:gate": "node scripts/release-recovery-gate.mjs"
   },
   "dependencies": {
@@ -142,52 +140,6 @@
       "node_modules/@clawmaster/native/bin/**/*"
     ],
     "npmRebuild": false,
-    "mac": {
-      "artifactName": "ClawMaster-${version}-${arch}.${ext}",
-      "target": [
-        {
-          "target": "dir",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        }
-      ],
-      "category": "public.app-category.developer-tools",
-      "icon": "build/icon.icns",
-      "darkModeSupport": true,
-      "hardenedRuntime": true,
-      "gatekeeperAssess": true,
-      "notarize": true,
-      "extendInfo": {
-        "NSMicrophoneUsageDescription": "ClawMaster 使用麦克风将语音转换为聊天输入文字。"
-      },
-      "extraResources": [
-        {
-          "from": "build/icon.png",
-          "to": "app-icon.png"
-        },
-        {
-          "from": "../../node_modules/@vscode/ripgrep/bin/rg",
-          "to": "ripgrep/rg"
-        }
-      ]
-    },
-    "dmg": {
-      "sign": true,
-      "contents": [
-        {
-          "x": 130,
-          "y": 220
-        },
-        {
-          "x": 410,
-          "y": 220,
-          "type": "link",
-          "path": "/Applications"
-        }
-      ]
-    },
     "win": {
       "target": [
         {
