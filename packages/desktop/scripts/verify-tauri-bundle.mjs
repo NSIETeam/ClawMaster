@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertMacBundleIdentity } from './tauri-bundle-identity.mjs';
 
 const desktopRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const bundle = path.resolve(process.argv[2] ?? path.join(
@@ -38,6 +39,11 @@ if (!existsSync(executable)) throw new Error(`native executable is missing: ${ex
 if (statSync(executable).size < 1_000_000) throw new Error('native executable is unexpectedly small');
 
 if (process.platform === 'darwin') {
+  const expected = JSON.parse(readFileSync(path.join(desktopRoot, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  const info = JSON.parse(execFileSync('plutil', [
+    '-convert', 'json', '-o', '-', path.join(bundle, 'Contents', 'Info.plist'),
+  ], { encoding: 'utf8' }));
+  assertMacBundleIdentity(info, expected);
   execFileSync('codesign', ['--verify', '--deep', '--strict', bundle], { stdio: 'inherit' });
 }
 
