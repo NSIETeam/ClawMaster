@@ -658,6 +658,24 @@ fn rpa_artifact_summary(value: &Value) -> Option<Value> {
 }
 
 fn bounded_tool_result(value: &Value) -> Value {
+    if value.get("runtime").and_then(Value::as_str) == Some("clawmaster-rust") {
+        if let Some(capabilities) = value.get("capabilities").and_then(Value::as_array) {
+            let entries = capabilities
+                .iter()
+                .take(64)
+                .map(|capability| {
+                    json!({
+                        "id": bounded_string(capability.get("id"), 80),
+                        "tool": bounded_string(capability.get("tool"), 80),
+                        "provider": bounded_string(capability.get("provider"), 80),
+                        "status": bounded_string(capability.get("status"), 40),
+                        "usage": bounded_string(capability.get("usage"), 240),
+                    })
+                })
+                .collect::<Vec<_>>();
+            return json!({"ok":true,"capabilities":entries,"truncated":capabilities.len() > 64});
+        }
+    }
     if let Some(rpa) = rpa_artifact_summary(value) {
         return json!({"ok": true, "rpa": rpa});
     }
@@ -668,6 +686,12 @@ fn bounded_tool_result(value: &Value) -> Value {
         "preview": preview,
         "truncated": serialized.chars().count() > 480,
     })
+}
+
+fn scoped_tool_call_id(session: &str, turn: &str, round: usize, provider_id: &str) -> String {
+    // Provider IDs (including our missing-ID fallback) can repeat across model invocations.
+    let identity = serde_json::json!([session, turn, round, provider_id]);
+    format!("call-{:x}", Sha256::digest(identity.to_string().as_bytes()))
 }
 
 fn generated_file_path(workspace: &Path, tool_name: &str, result: &Value) -> Option<PathBuf> {
@@ -2924,7 +2948,16 @@ impl NativeRuntime {
                 .into());
             }
 
-            let calls = completion.tool_calls.clone();
+            let calls = completion
+                .tool_calls
+                .iter()
+                .cloned()
+                .map(|mut call| {
+                    call.id =
+                        scoped_tool_call_id(context.session_id, context.turn_id, step, &call.id);
+                    call
+                })
+                .collect::<Vec<_>>();
             for call in &calls {
                 let argument_bytes = serde_json::to_vec(&call.arguments)
                     .map_err(|error| format!("无法序列化工具参数: {error}"))?;
@@ -4485,6 +4518,32 @@ mod tests {
         assert!(guarded.starts_with("执行过程有 1 个失败或取消记录"));
         assert!(!guarded.contains("本轮未完成"));
         assert!(guarded.ends_with("验收完成。"));
+    }
+
+    #[test]
+    fn capability_summary_preserves_the_complete_native_tool_index() {
+        let manifest = crate::native_tools::capability_manifest();
+        let summary = bounded_tool_result(&manifest);
+        let entries = summary["capabilities"]
+            .as_array()
+            .expect("structured capability list");
+        assert_eq!(
+            entries.len(),
+            manifest["capabilities"].as_array().unwrap().len()
+        );
+        assert_eq!(summary["truncated"], false);
+        assert!(entries.iter().any(|entry| entry["tool"] == "generate_docx"));
+        assert!(entries.iter().any(|entry| entry["tool"] == "generate_pptx"));
+        assert!(summary.to_string().len() < 5000);
+    }
+
+    #[test]
+    fn provider_call_ids_are_scoped_without_disabling_same_round_replay_detection() {
+        let id = scoped_tool_call_id("s1", "t1", 0, "call_0");
+        assert_eq!(id, scoped_tool_call_id("s1", "t1", 0, "call_0"));
+        assert_ne!(id, scoped_tool_call_id("s1", "t1", 1, "call_0"));
+        assert_ne!(id, scoped_tool_call_id("s2", "t1", 0, "call_0"));
+        assert_ne!(id, scoped_tool_call_id("s1", "t2", 0, "call_0"));
     }
 
     #[test]

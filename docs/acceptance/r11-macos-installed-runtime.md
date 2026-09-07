@@ -195,6 +195,27 @@ Those platform configuration edits are separate from this editor fix. No release
 or GitHub push was performed for this acceptance pass. Full Office layout editing
 and the other product-wide release gates remain outside this narrow acceptance.
 
+## Model capability follow-up (source regression only)
+
+After the installed editor acceptance, the runtime capability manifest was found
+to advertise obsolete `convert_document` and `generate_document` tool names.
+These now map to `merge_pdfs`, `optimize_pdf`, and `generate_docx`, with native
+argument examples. A regression checks every advertised tool against the native
+agent/RPA catalog. The model-facing capability result keeps a bounded structured
+index instead of truncating the entire manifest to its first 480 characters.
+
+Tool call identities are now scoped to session, turn, model round, and provider
+call ID. This prevents provider/fallback IDs reused in later rounds or other
+sessions from colliding with the kernel and tool-result artifact records. The
+same ID within the same round remains a conflict, rather than gaining a new
+identity that would weaken replay detection.
+
+Full native regression: 220 passed, 6 external tests ignored. These follow-up
+changes have not been rebuilt into the installed candidate whose hashes appear
+above. A new installed real-provider programming/RPA run is still required;
+these tests do not prove the cause of every earlier repeated model response or
+measure a latency improvement.
+
 ## Remaining release blockers
 
 This is candidate evidence, not release acceptance:

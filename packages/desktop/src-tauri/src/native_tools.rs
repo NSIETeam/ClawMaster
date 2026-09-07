@@ -49,8 +49,8 @@ pub fn capability_manifest() -> serde_json::Value {
                 provider: "rust:lopdf",
                 status: "ready",
                 description: "原生无损 PDF 合并，无需 pdfunite",
-                tool: "convert_document",
-                usage: "output_format=\"pdf\", merge=true",
+                tool: "merge_pdfs",
+                usage: "outputPath=\"merged.pdf\", inputPaths=[\"a.pdf\",\"b.pdf\"]；使用工作区相对路径",
                 replaces: &["pdfunite"],
             },
             NativeCapability {
@@ -58,8 +58,8 @@ pub fn capability_manifest() -> serde_json::Value {
                 provider: "rust:lopdf",
                 status: "ready",
                 description: "原生 PDF 对象清理和流压缩；需要图片降采样时再使用 Ghostscript",
-                tool: "convert_document",
-                usage: "output_format=\"pdf\", compress=3",
+                tool: "optimize_pdf",
+                usage: "outputPath=\"optimized.pdf\", inputPath=\"source.pdf\"；使用工作区相对路径",
                 replaces: &["ghostscript（无损优化场景）"],
             },
             NativeCapability {
@@ -85,8 +85,8 @@ pub fn capability_manifest() -> serde_json::Value {
                 provider: "rust:zip+xml",
                 status: "ready",
                 description: "原生 DOCX 公文生成和 Markdown 基础结构解析，无需 Python、pandoc 或 typst",
-                tool: "generate_document",
-                usage: "output_format=\"docx\"",
+                tool: "generate_docx",
+                usage: "outputPath=\"report.docx\", title=\"标题\", content=\"正文\"；使用工作区相对路径",
                 replaces: &["python3", "python-docx", "jinja2", "markdown"],
             },
         ]
@@ -791,6 +791,24 @@ mod tests {
         assert!(message.contains("辅助功能"));
         assert!(message.contains("键盘和鼠标"));
         assert!(message.contains("重新启动"));
+    }
+
+    #[test]
+    fn manifest_tools_exist_in_the_native_agent_catalog() {
+        let definitions = crate::native_agent_tools::definitions()
+            .into_iter()
+            .chain(crate::native_rpa::definitions())
+            .map(|tool| tool.name)
+            .collect::<Vec<_>>();
+        for capability in capability_manifest()["capabilities"].as_array().unwrap() {
+            assert!(
+                definitions
+                    .iter()
+                    .any(|name| Some(name.as_str()) == capability["tool"].as_str()),
+                "unknown native tool: {}",
+                capability["tool"]
+            );
+        }
     }
 
     #[test]
