@@ -510,7 +510,103 @@ fn capsule_approval_status(outcome: ApprovalOutcome) -> &'static str {
     }
 }
 
+fn bounded_string(value: Option<&Value>, max_chars: usize) -> Value {
+    value
+        .and_then(Value::as_str)
+        .map(|text| Value::String(text.chars().take(max_chars).collect()))
+        .unwrap_or(Value::Null)
+}
+
+fn bounded_semantic_ref(value: Option<&Value>, prefix: &str) -> Value {
+    value
+        .and_then(Value::as_str)
+        .filter(|reference| {
+            reference.strip_prefix(prefix).is_some_and(|digits| {
+                !digits.is_empty() && digits.chars().all(|ch| ch.is_ascii_digit())
+            })
+        })
+        .map(|reference| Value::String(reference.chars().take(16).collect()))
+        .unwrap_or(Value::Null)
+}
+
+fn rpa_artifact_summary(value: &Value) -> Option<Value> {
+    const MAX_WINDOWS: usize = 40;
+    const MAX_ELEMENTS: usize = 80;
+
+    let artifact = value.get("artifact")?;
+    let sha256 = artifact
+        .get("sha256")?
+        .as_str()
+        .filter(|digest| digest.len() == 64 && digest.chars().all(|ch| ch.is_ascii_hexdigit()))?;
+    let artifact = json!({
+        "sha256": sha256,
+        "byteLength": artifact.get("byteLength").and_then(Value::as_u64)
+    });
+
+    if let Some(inventory) = value.get("inventory") {
+        let source = inventory
+            .get("windows")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let windows = source
+            .iter()
+            .take(MAX_WINDOWS)
+            .map(|window| {
+                json!({
+                    "ref": bounded_semantic_ref(window.get("ref"), "@w"),
+                    "app": bounded_string(window.get("app"), 120),
+                    "title": bounded_string(window.get("title"), 240),
+                    "foreground": window.get("foreground").and_then(Value::as_bool)
+                })
+            })
+            .collect::<Vec<_>>();
+        return Some(json!({
+            "artifact": artifact,
+            "windowInventory": {
+                "referenceScope": bounded_string(inventory.get("referenceScope"), 80),
+                "windows": windows,
+                "truncated": inventory.get("truncated").and_then(Value::as_bool).unwrap_or(false)
+                    || source.len() > MAX_WINDOWS
+            }
+        }));
+    }
+
+    if let Some(snapshot) = value.get("snapshot") {
+        let source = snapshot
+            .get("elements")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let elements = source
+            .iter()
+            .take(MAX_ELEMENTS)
+            .map(|element| {
+                json!({
+                    "ref": bounded_semantic_ref(element.get("ref"), "@e"),
+                    "role": bounded_string(element.get("role"), 80),
+                    "name": bounded_string(element.get("name"), 240),
+                    "description": bounded_string(element.get("description"), 240)
+                })
+            })
+            .collect::<Vec<_>>();
+        return Some(json!({
+            "artifact": artifact,
+            "semanticSnapshot": {
+                "elements": elements,
+                "truncated": snapshot.get("truncated").and_then(Value::as_bool).unwrap_or(false)
+                    || source.len() > MAX_ELEMENTS
+            }
+        }));
+    }
+
+    None
+}
+
 fn bounded_tool_result(value: &Value) -> Value {
+    if let Some(rpa) = rpa_artifact_summary(value) {
+        return json!({"ok": true, "rpa": rpa});
+    }
     let serialized = value.to_string();
     let preview = serialized.chars().take(480).collect::<String>();
     json!({
@@ -4314,6 +4410,58 @@ mod tests {
         assert_eq!(restored, value);
         store.flush().unwrap();
         assert!(!store_contains(root.path(), marker));
+    }
+
+    #[test]
+    fn rpa_artifact_summaries_keep_semantic_refs_without_native_coordinates() {
+        let artifact_id = "a".repeat(64);
+        let inventory = json!({
+            "run": { "receipts": [{ "noise": "x".repeat(2_000) }] },
+            "artifact": { "sha256": artifact_id, "byteLength": 2048 },
+            "inventory": {
+                "referenceScope": "this-inventory-only",
+                "windows": [{
+                    "ref": "@w7", "app": "Google Chrome",
+                    "title": "ClawMaster RPA Acceptance", "foreground": true,
+                    "processId": 4242,
+                    "bounds": { "x": 10, "y": 20, "width": 800, "height": 600 }
+                }],
+                "truncated": false
+            }
+        });
+        let inventory_summary = bounded_tool_result(&inventory);
+        assert_eq!(
+            inventory_summary["rpa"]["artifact"]["sha256"],
+            "a".repeat(64)
+        );
+        assert_eq!(
+            inventory_summary["rpa"]["windowInventory"]["windows"][0]["ref"],
+            "@w7"
+        );
+        let encoded = inventory_summary.to_string();
+        assert!(!encoded.contains("processId"));
+        assert!(!encoded.contains("bounds"));
+        assert!(!encoded.contains("4242"));
+
+        let snapshot = json!({
+            "artifact": { "sha256": "b".repeat(64), "byteLength": 4096 },
+            "snapshot": {
+                "elements": [{
+                    "ref": "@e12", "role": "button", "name": "Run ClawMaster RPA click",
+                    "description": "acceptance action",
+                    "bounds": { "centerX": 300, "centerY": 500 }
+                }],
+                "truncated": false
+            }
+        });
+        let snapshot_summary = bounded_tool_result(&snapshot);
+        assert_eq!(
+            snapshot_summary["rpa"]["semanticSnapshot"]["elements"][0]["ref"],
+            "@e12"
+        );
+        let encoded = snapshot_summary.to_string();
+        assert!(!encoded.contains("centerX"));
+        assert!(!encoded.contains("centerY"));
     }
 
     #[derive(Default)]
