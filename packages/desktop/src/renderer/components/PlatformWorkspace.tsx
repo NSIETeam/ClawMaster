@@ -21,7 +21,7 @@ export function PlatformWorkspace({
 }): React.JSX.Element {
   const [configuredUrl, setConfiguredUrl] = useState(target.url ?? '');
   const [rememberLogin, setRememberLogin] = useState(() => (
-    window.localStorage.getItem(platformSettingKey(target.id, 'remember-login', tenantScope)) === 'true'
+    window.localStorage.getItem(platformSettingKey(target.id, 'remember-login', tenantScope)) !== 'false'
   ));
   const [validationError, setValidationError] = useState<string | null>(null);
   const [browserState, setBrowserState] = useState<'idle' | 'loading' | 'embedded' | 'external' | 'failed'>('idle');

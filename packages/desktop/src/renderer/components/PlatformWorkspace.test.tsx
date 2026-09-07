@@ -13,6 +13,7 @@ describe('PlatformWorkspace', () => {
   const platformWebviewClose = vi.fn(async () => undefined);
 
   beforeEach(() => {
+    window.localStorage.clear();
     openExternal.mockClear();
     platformWebviewOpen.mockClear();
     platformWebviewSetBounds.mockClear();
@@ -45,7 +46,7 @@ describe('PlatformWorkspace', () => {
       { x: 640, y: 80, width: 600, height: 680 },
       'zhifang',
       'tenant-a',
-      false,
+      true,
     ));
     expect(openExternal).not.toHaveBeenCalled();
     expect(screen.getByText(/HTTPS 工作区已打开/u)).toBeTruthy();
@@ -56,6 +57,7 @@ describe('PlatformWorkspace', () => {
 
   it('persists the per-platform remember-password preference and passes it to the webview', async () => {
     Object.assign(window.clawmaster, { platformWebviewOpen, platformWebviewClose });
+    window.localStorage.setItem(platformSettingKey('zhiliaohou', 'remember-login', 'tenant-a'), 'false');
     render(<PlatformWorkspace tenantScope="tenant-a" target={{ id: 'zhiliaohou', label: '知了猴', url: 'https://example.com/' }} />);
     fireEvent.click(screen.getByRole('checkbox', { name: /保持登录/u }));
     expect(window.localStorage.getItem(
@@ -72,10 +74,24 @@ describe('PlatformWorkspace', () => {
   });
 
   it('explains that an ephemeral platform session is cleared on close', async () => {
+    window.localStorage.setItem(platformSettingKey('zhixin-pigeon', 'remember-login', 'tenant-a'), 'false');
     Object.assign(window.clawmaster, { platformWebviewOpen, platformWebviewClose });
     render(<PlatformWorkspace tenantScope="tenant-a" target={{ id: 'zhixin-pigeon', label: '智信鸽', url: 'https://example.com/' }} />);
     expect(screen.getByText(/关闭平台后清除该工作区会话/u)).toBeTruthy();
     await waitFor(() => expect(screen.getByText(/HTTPS 工作区已打开/u)).toBeTruthy());
+  });
+
+  it('keeps an explicit opt-out isolated from another tenant', async () => {
+    window.localStorage.setItem(platformSettingKey('zhifang', 'remember-login', 'tenant-a'), 'false');
+    Object.assign(window.clawmaster, { platformWebviewOpen, platformWebviewClose });
+    const view = render(<PlatformWorkspace tenantScope="tenant-a" target={{ id: 'zhifang', label: '知访', url: 'https://example.com/' }} />);
+    expect((screen.getByRole('checkbox', { name: /保持登录/u }) as HTMLInputElement).checked).toBe(false);
+    view.unmount();
+    render(<PlatformWorkspace tenantScope="tenant-b" target={{ id: 'zhifang', label: '知访', url: 'https://example.com/' }} />);
+    expect((screen.getByRole('checkbox', { name: /保持登录/u }) as HTMLInputElement).checked).toBe(true);
+    await waitFor(() => expect(platformWebviewOpen).toHaveBeenLastCalledWith(
+      'https://example.com/', { x: 640, y: 80, width: 600, height: 680 }, 'zhifang', 'tenant-b', true,
+    ));
   });
 
   it('blocks an insecure remote endpoint without opening either browser', async () => {
