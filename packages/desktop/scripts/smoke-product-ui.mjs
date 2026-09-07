@@ -121,6 +121,10 @@ try {
     assert.equal(await page.getByRole('img', { name: 'ClawMaster 皇冠标志' }).count() > 0, true);
     assert.equal(await page.getByText(/^otto$/iu).count(), 0, 'legacy ClawMaster wordmark became visible');
 
+    assert.equal(await page.getByRole('button', { name: '向园区服务添加模块' }).isVisible(), false,
+      'unused modules must stay out of the conversation');
+    await page.getByRole('button', { name: '展开右侧栏' }).click();
+
     // A normal pointer click is intentional: it catches overlapping groups and
     // pointer interception that force-click or DOM dispatch would conceal.
     await page.getByRole('button', { name: '向园区服务添加模块' }).click();
