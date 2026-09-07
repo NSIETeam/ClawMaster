@@ -2209,7 +2209,7 @@ h6.claw-prose__h {
 /* —— reasoning（思考过程，可折叠）—— */
 .claw-reasoning {
   margin: 8px 0;
-  border-left: 2px solid var(--claw-border-strong);
+  border-left: 0;
   color: var(--claw-text-secondary);
   font-size: 12.5px;
 }
@@ -2254,6 +2254,7 @@ h6.claw-prose__h {
   box-shadow: none;
 }
 .claw-process-trace--failed {
+  border-left: 2px solid var(--claw-danger);
   border-left-color: var(--claw-danger);
 }
 
@@ -2261,11 +2262,11 @@ h6.claw-prose__h {
 
 .claw-tools {
   margin: 12px 0 6px;
-  border: 1px solid var(--claw-border);
+  border: 0;
   border-radius: var(--claw-radius);
   background: var(--claw-surface-raised);
   overflow: hidden;
-  box-shadow: var(--claw-shadow-card);
+  box-shadow: none;
 }
 
 /* 折叠/展开动画：grid-template-rows 0fr→1fr 平滑滑入（无需测高）。 */
@@ -9811,7 +9812,7 @@ h6.claw-prose__h {
   margin: 8px 8px 8px 0;
   border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--claw-border) 70%, transparent);
+  box-shadow: none;
 }
 
 .claw-main__topbar {
@@ -12197,9 +12198,9 @@ h6.claw-prose__h {
 
 .claw-module-group {
   min-width: 0;
-  border: 1px solid var(--claw-border);
+  border: 0;
   border-radius: 16px;
-  background: var(--claw-surface);
+  background: transparent;
   padding: 14px;
 }
 

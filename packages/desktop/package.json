@@ -7,6 +7,7 @@
   "private": true,
   "scripts": {
     "build:native": "npm run build --workspace=@clawmaster/native",
+    "prebuild:renderer": "npm run build --workspace=@clawmaster/runtime-contracts",
     "build:renderer": "webpack-cli --config webpack.config.cjs --mode production && node --test scripts/renderer-static-css.check.mjs",
     "build": "npm run build:renderer && npm run tauri:native:verify",
     "tauri:dev": "tauri dev",
