@@ -341,8 +341,29 @@ struct ActiveTurn {
     cancel: watch::Sender<bool>,
 }
 
+trait NativeLoopHost: Send + Sync {
+    fn emit_event(&self, name: &str, payload: Value) -> Result<(), String>;
+    fn desktop_app(&self) -> Result<&AppHandle, String>;
+    fn grant_generated_file(&self, workspace: &Path, path: &Path) -> Result<(), String>;
+}
+
+impl NativeLoopHost for AppHandle {
+    fn emit_event(&self, name: &str, payload: Value) -> Result<(), String> {
+        self.emit(name, payload).map_err(|error| error.to_string())
+    }
+
+    fn desktop_app(&self) -> Result<&AppHandle, String> {
+        Ok(self)
+    }
+
+    fn grant_generated_file(&self, workspace: &Path, path: &Path) -> Result<(), String> {
+        self.state::<crate::system_commands::DesktopFileState>()
+            .grant_generated_file(workspace, path)
+    }
+}
+
 struct ToolLoopContext<'a> {
-    app: &'a AppHandle,
+    app: &'a dyn NativeLoopHost,
     session_id: &'a str,
     message_id: &'a str,
     model: &'a NativeModel,
@@ -448,7 +469,7 @@ fn runtime_event_frame(
 }
 
 fn emit_runtime_event(
-    app: &AppHandle,
+    app: &dyn NativeLoopHost,
     session_id: &str,
     turn_id: &str,
     step_id: &str,
@@ -2673,7 +2694,7 @@ impl NativeRuntime {
 
     async fn await_tool_confirmation(
         &self,
-        app: &AppHandle,
+        app: &dyn NativeLoopHost,
         session_id: &str,
         call: &ModelToolCall,
         mut cancel: watch::Receiver<bool>,
@@ -3429,7 +3450,10 @@ impl NativeRuntime {
                     self.native_rpa
                         .record_rejection(call, "用户拒绝或取消了 RPA 操作")
                 } else if approved && call.name == "browser_snapshot" {
-                    platform_webview::platform_webview_snapshot(context.app).await
+                    match context.app.desktop_app() {
+                        Ok(app) => platform_webview::platform_webview_snapshot(app).await,
+                        Err(error) => Err(error),
+                    }
                 } else if approved && call.name == "browser_action" {
                     let action = call
                         .arguments
@@ -3442,7 +3466,12 @@ impl NativeRuntime {
                         .and_then(Value::as_u64)
                         .and_then(|value| usize::try_from(value).ok())
                         .unwrap_or(usize::MAX);
-                    platform_webview::platform_webview_action(context.app, action, index).await
+                    match context.app.desktop_app() {
+                        Ok(app) => {
+                            platform_webview::platform_webview_action(app, action, index).await
+                        }
+                        Err(error) => Err(error),
+                    }
                 } else if approved {
                     native_agent_tools::execute_model(call, context.workspace, cancel.clone()).await
                 } else {
@@ -3450,7 +3479,10 @@ impl NativeRuntime {
                 };
                 if call.name == "open_browser" {
                     if let Ok(payload) = &result {
-                        if let Err(error) = context.app.emit("desktop://open-platform", payload) {
+                        if let Err(error) = context
+                            .app
+                            .emit_event("desktop://open-platform", payload.clone())
+                        {
                             result = Err(format!("无法打开右侧浏览器: {error}"));
                         }
                     }
@@ -3531,10 +3563,7 @@ impl NativeRuntime {
                     if let Some(path) =
                         generated_file_path(context.workspace, &call.name, &result_value)
                     {
-                        context
-                            .app
-                            .state::<crate::system_commands::DesktopFileState>()
-                            .grant_generated_file(context.workspace, &path)?;
+                        context.app.grant_generated_file(context.workspace, &path)?;
                         result_reference["generatedFile"] = json!({"path": path});
                     }
                 }
@@ -4463,10 +4492,14 @@ pub(crate) fn text_content(content: &Value) -> String {
         .join("\n")
 }
 
-fn emit(app: &AppHandle, value: Value) -> Result<(), String> {
-    app.emit("desktop://server-frame", value)
+fn emit(app: &dyn NativeLoopHost, value: Value) -> Result<(), String> {
+    app.emit_event("desktop://server-frame", value)
         .map_err(|error| format!("无法发送 Rust 运行时事件: {error}"))
 }
+
+#[cfg(test)]
+#[path = "native_runtime_loop_tests.rs"]
+mod loop_tests;
 
 #[cfg(test)]
 mod tests {
@@ -4720,7 +4753,7 @@ mod tests {
         }
     }
 
-    fn runtime() -> (tempfile::TempDir, NativeRuntime) {
+    pub(super) fn runtime() -> (tempfile::TempDir, NativeRuntime) {
         let root = tempfile::tempdir().expect("tempdir");
         let runtime = NativeRuntime::load_with_credentials(
             root.path(),

@@ -216,6 +216,32 @@ above. A new installed real-provider programming/RPA run is still required;
 these tests do not prove the cause of every earlier repeated model response or
 measure a latency improvement.
 
+## Production tool-loop regression (source only)
+
+The regression now invokes `NativeRuntime::run_model_tool_loop` itself instead
+of manually stitching together gateway and kernel calls. A small desktop-local
+host interface substitutes only window event delivery and supplies the existing
+file grant implementation. Real kernel transitions, confirmation responses,
+encrypted result storage, checkpoints, and native PPTX generation still run.
+
+Two bounded loopback HTTP fixtures cover capability discovery, PPTX generation,
+and a final reply across three model rounds. Both tool rounds deliberately use
+the same provider call ID. Assertions verify distinct runtime IDs, the complete
+native capability index in the next model request, and a final reply containing
+no intermediate planning prose.
+
+- Approval creates exactly three slide XML entries, grants the generated file,
+  and emits a successful typed result with its canonical `generatedFile.path`.
+- Denial creates no output, grants no file, emits a failed/cancelled typed result,
+  and leaves no pending confirmation.
+- `npm run doctor`, `git diff --check`, and `npm run code-map:check` pass.
+- Full native library regression: 222 passed, 0 failed, 6 external tests ignored.
+
+These fixtures use temporary directories and dummy credentials. They do not
+contact DeepSeek, exercise a WebView, prove installed RPA behavior, or update the
+installed app/DMG documented above. Live-provider and installed-candidate checks
+remain necessary before release.
+
 ## Remaining release blockers
 
 This is candidate evidence, not release acceptance:
