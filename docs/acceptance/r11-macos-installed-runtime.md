@@ -60,6 +60,12 @@ also reconstructs `NativeRuntime`, saves the same model without an `apiKey`,
 and proves that the stable credential ID resolves the existing credential
 without writing it into the state store.
 
+This is credential persistence evidence only. `rpa-acceptance` is the local
+acceptance provider, not evidence of a live commercial model. Its fixed final
+response must not be used to judge whether preceding tools succeeded. The final
+installed candidate still needs a real-provider streaming conversation using
+the user's existing secure credential.
+
 ## Installed RPA permission finding
 
 The installed model path completed browser launch, bounded window discovery,
@@ -75,6 +81,27 @@ with actionable guidance instead of recording a misleading successful input
 receipt. Final positive input/click/drag evidence still requires adding and
 enabling the latest installed candidate in the macOS Accessibility list and
 restarting it.
+
+### Subsequent installed retry: still failing
+
+The later interactive retry enabled the candidate ClawMaster application in
+Accessibility. The installed model/tool sequence still did not complete: the
+fill step was followed by an unsuccessful text wait, and later harness steps
+cascaded after missing results. The harness nevertheless emitted its fixed
+completion message. Accessibility permission alone is therefore not a verified
+explanation or complete fix for this installed-path failure.
+
+The failed harness and its temporary outputs were subsequently removed during
+the requested workspace cleanup. This narrative records the observed failure;
+it is not a reproducible positive acceptance receipt. The next run must retain
+a secret-free receipt, stop at the first failed or unknown tool outcome, and
+inspect the selected window immediately after input before proceeding.
+
+Conversation failure rendering and stored tool outcomes were added in
+`60c55240`; those changes prevent loss of failure context but do not establish
+that native input works. Both platforms still require installed acceptance
+against the final consolidated candidate. Do not close the release gate using
+the earlier source-level browser smoke or the harness's final model text.
 
 ## Keychain failure-path finding
 
