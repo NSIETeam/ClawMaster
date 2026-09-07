@@ -242,6 +242,33 @@ contact DeepSeek, exercise a WebView, prove installed RPA behavior, or update th
 installed app/DMG documented above. Live-provider and installed-candidate checks
 remain necessary before release.
 
+## 2026-09-08 rebuilt candidate (not installed)
+
+Built the production-loop follow-up from
+`a01e342ce02fe1c6438b5c1e7c53321ba7a6cab8` with the existing, preserved
+Zhixin Pigeon HTTPS catalog change. This is not a clean-commit release build.
+The only source override is `src/renderer/moduleCatalog.ts` (desktop-relative),
+SHA256 `1afa4dc736519d3a70cc33ba3d589a8e8ac73d110526865b1c7aad1a8c08a584`.
+Its existing catalog regression and UI-smoke fixture changes remain uncommitted.
+
+- Build: `npm run tauri:build --workspace=clawmaster-desktop` passed, including
+  production renderer/static CSS checks, 222 native tests (6 ignored), optimized
+  DMG creation, read-only DMG mounting, application identity/signature checks,
+  Applications shortcut verification, and the legacy-runtime-file exclusion.
+- Catalog regression: 13 passed. Renderer TypeScript check passed.
+- Native executable: Mach-O ARM64; application payload 12.72 MiB.
+- DMG: `packages/desktop/src-tauri/target/release/bundle/dmg/ClawMaster_0.0.2-beta.3_aarch64.dmg`,
+  5.41 MiB (5,670,786 bytes).
+- DMG SHA256: `b4d8a7f226d6a654cd62a5b342c44aeff1d0d603e064d423b8b12ee3a11f66ed`.
+- Bundled executable SHA256: `e40e721f2523f1376c94aa46fa50c519dda3d00bfb8c8c73c7dc3a31c8ea2a24`.
+
+CUA reported the Mac locked. No GUI acceptance or application replacement was
+attempted after that report. `/Applications/ClawMaster.app` remains the earlier
+candidate, executable SHA256
+`80c409e9052206589ae3e12a04095788ff85094e7630b8cae459808d2298f12b`.
+The new bundle is ad-hoc signed, not notarized. This build was not pushed or
+published, and its existence does not close installed RPA or Windows acceptance.
+
 ## Remaining release blockers
 
 This is candidate evidence, not release acceptance:
