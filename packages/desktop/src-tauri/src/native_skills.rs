@@ -40,16 +40,32 @@ pub struct AutoSkillCandidate {
 
 impl AutoSkillCandidate {
     pub fn public_value(&self) -> Value {
+        let (reason, evidence) = match self.kind {
+            AutoCandidateKind::Skill => (
+                format!(
+                    "ClawMaster 在当前项目中发现该 Rust 工具路径已成功执行 {} 次",
+                    self.occurrence_count
+                ),
+                format!("仅使用脱敏审计中的工具名和成功状态：{}", self.pattern),
+            ),
+            AutoCandidateKind::Module => (
+                format!(
+                    "ClawMaster 在当前项目中发现该能力缺失 {} 次，建议确认后补齐",
+                    self.occurrence_count
+                ),
+                format!("仅使用脱敏审计中的工具名和能力缺失状态：{}", self.pattern),
+            ),
+        };
         json!({
             "id": self.id,
             "name": self.name,
             "description": self.description,
             "detectedPattern": self.pattern,
             "occurrenceCount": self.occurrence_count,
-            "reason": format!("ClawMaster 在当前项目中发现该 Rust 工具路径已成功执行 {} 次", self.occurrence_count),
+            "reason": reason,
             "qualityScore": 72,
             "confidence": confidence(self.occurrence_count),
-            "evidence": [format!("仅使用脱敏审计中的工具名和成功状态：{}", self.pattern)],
+            "evidence": [evidence],
             "failureLessons": [],
             "knowledgeEvidenceCount": 0,
             "recommendation": "create",
@@ -124,7 +140,7 @@ pub fn scan(
     handled: &HashSet<String>,
 ) -> Result<Vec<AutoSkillCandidate>, String> {
     let text = read_audit_tail(audit_path)?;
-    let mut successful_by_session: HashMap<String, Vec<String>> = HashMap::new();
+    let mut successful_by_session: HashMap<String, Vec<Option<String>>> = HashMap::new();
     let mut missing_by_session: HashMap<String, Vec<String>> = HashMap::new();
     for line in text.lines() {
         let Ok(record) = serde_json::from_str::<AuditRecord>(line) else {
@@ -132,10 +148,20 @@ pub fn scan(
         };
         if record.state == "completed" && session_workspaces.contains_key(&record.session_id) {
             successful_by_session
-                .entry(record.session_id)
+                .entry(record.session_id.clone())
                 .or_default()
-                .push(record.tool);
-        } else if record.state == "failed"
+                .push(Some(record.tool.clone()));
+        } else if matches!(
+            record.state.as_str(),
+            "failed" | "rejected" | "cancelled" | "unknown_outcome"
+        ) {
+            // Preserve a boundary rather than joining successes across a failed operation.
+            successful_by_session
+                .entry(record.session_id.clone())
+                .or_default()
+                .push(None);
+        }
+        if record.state == "failed"
             && record.detail.as_deref().is_some_and(is_capability_gap)
             && session_workspaces.contains_key(&record.session_id)
         {
@@ -152,13 +178,17 @@ pub fn scan(
             continue;
         };
         for window in tools.windows(2) {
-            let pattern = window.join(" -> ");
+            let [Some(first), Some(second)] = window else {
+                continue;
+            };
+            let pair = vec![first.clone(), second.clone()];
+            let pattern = pair.join(" -> ");
             let entry = counts
                 .entry((workspace.clone(), pattern))
-                .or_insert_with(|| (0, window.to_vec()));
+                .or_insert_with(|| (0, pair));
             entry.0 += 1;
         }
-        for tool in tools {
+        for tool in tools.into_iter().flatten() {
             let entry = counts
                 .entry((workspace.clone(), tool.clone()))
                 .or_insert_with(|| (0, vec![tool]));
@@ -574,6 +604,33 @@ mod tests {
     }
 
     #[test]
+    fn failed_or_rejected_steps_break_successful_path_evidence() {
+        let root = tempfile::tempdir().unwrap();
+        let audit = root.path().join("audit.jsonl");
+        let records = ["failed", "rejected", "cancelled"]
+            .into_iter()
+            .flat_map(|state| {
+                [
+                    json!({"sessionId":"session-1","tool":"read_file","state":"completed"}),
+                    json!({"sessionId":"session-1","tool":"generate_pptx","state":state}),
+                    json!({"sessionId":"session-1","tool":"write_file","state":"completed"}),
+                ]
+            })
+            .map(|record| record.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        fs::write(&audit, records).unwrap();
+        let workspaces = HashMap::from([("session-1".into(), root.path().to_path_buf())]);
+        let candidates = scan(&audit, &workspaces, &HashSet::new()).unwrap();
+        assert!(!candidates
+            .iter()
+            .any(|candidate| candidate.pattern == "read_file -> write_file"));
+        assert!(candidates
+            .iter()
+            .any(|candidate| candidate.pattern == "read_file"));
+    }
+
+    #[test]
     fn stages_only_repeated_successful_rust_tool_paths() {
         let root = tempfile::tempdir().unwrap();
         let audit = root.path().join("audit.jsonl");
@@ -669,6 +726,10 @@ mod tests {
         assert_eq!(candidates[0].kind, AutoCandidateKind::Module);
         assert_eq!(candidates[0].pattern, "render_cad");
         assert_eq!(candidates[0].public_value()["proposalKind"], "module");
+        assert!(!candidates[0].public_value()["reason"]
+            .as_str()
+            .unwrap()
+            .contains("成功"));
 
         let saved = install(&candidates[0]).unwrap();
         assert!(saved.starts_with(
