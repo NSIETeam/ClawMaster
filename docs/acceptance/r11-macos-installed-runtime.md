@@ -416,14 +416,20 @@ build and product-site deployment passed, but it correctly remained unreleased:
 
 - Windows compiled the Rust test binary, then it exited before the test harness
   with `STATUS_ENTRYPOINT_NOT_FOUND`. Pinning Rust 1.98.0 reproduced the same
-  failure, while an earlier run on the same Windows image and Rust 1.98.1 had
-  passed; the toolchain hypothesis was therefore rejected. The new Windows-only
-  direct `process-wrap` Job Object instantiation was isolated from the browser
-  ownership path. Windows now uses its built-in PID-scoped recursive
-  `taskkill /T` contract and retains a failed/unknown outcome when tree exit
-  cannot be confirmed. The direct ClawMaster dependency now enables only the
-  verified POSIX process-group path; RMCP's pre-existing transitive dependency
-  remains unchanged.
+  failure, so the toolchain hypothesis was rejected. A startup-only historical
+  matrix proved that the process-tree/Job Object commit still launched and that
+  `c73f8e37` was the first failing commit. That commit made the Rust test binary
+  retain Tauri's complete Windows windowing stack solely to broadcast channel
+  status. The broadcast is now compiled only for the desktop runtime; tests keep
+  exercising the status state machine without importing unrelated GUI entry
+  points. Windows browser ownership therefore retains the race-safe Job Object
+  implementation rather than the disproved `taskkill` workaround. Rust 1.98.0
+  remains pinned for reproducible release builds, not as a claimed loader fix.
+- The same Windows diagnostic run exposed six capability installation tests
+  failing because open package and manifest handles prevented the staging
+  directory rename. Both handles are now synced and closed before the atomic
+  rename; this preserves the existing POSIX behavior and satisfies Windows file
+  locking semantics.
 - Main CI passed 1,514 server tests and failed only when the runtime-kernel
   adapter requested locked Cargo dependencies in offline mode before the clean
   runner had fetched `syn 3.0.5`. CI now fetches that exact lockfile before the
@@ -432,6 +438,7 @@ build and product-site deployment passed, but it correctly remained unreleased:
   Promise spelling before CI could reach it. The implementation was restored to
   the existing explicit contract without changing its returned version.
 
-These are release-infrastructure fixes, not waived gates. A subsequent main CI
-run passed; the next Windows package run must pass before #21 can proceed to
+These are release-infrastructure fixes, not waived gates. The corrected source
+must pass the isolated Windows Rust suite before one consolidated main push;
+the resulting Windows package run must then pass before #21 can proceed to
 final installed-app acceptance.

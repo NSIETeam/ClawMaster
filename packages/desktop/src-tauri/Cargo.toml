@@ -41,6 +41,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 url = "2"
 wasmi = { version = "1.1.0", default-features = false, features = ["std"] }
+process-wrap = { version = "9.1.0", default-features = false, features = ["std", "job-object", "process-group"] }
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-single-instance = "2"
@@ -49,9 +50,6 @@ tokio-tungstenite = { version = "0.26.2", default-features = false, features = [
 time = { version = "0.3", features = ["formatting"] }
 toml = "0.8"
 xa11y = "=0.13.0"
-
-[target.'cfg(unix)'.dependencies]
-process-wrap = { version = "9.1.0", default-features = false, features = ["std", "process-group"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }

@@ -10,8 +10,7 @@ Python, Chromium or Playwright.
 - `native_rpa/browser.rs` discovers Chrome, Edge and Safari WebDriver, validates
   navigation URLs, derives tenant/platform-isolated profiles and launches only
   ClawMaster-owned browser process trees. POSIX uses an isolated process group;
-  Windows invokes the system `taskkill /T` contract against the exact owned PID
-  and treats an unconfirmed tree exit as a failed cancellation.
+  Windows uses a suspended-process Job Object to avoid child-assignment races.
 - `native_rpa/semantic.rs` enumerates windows, assigns artifact-scoped `@wN`
   references, resolves one selected window and captures its bounded semantic
   tree or PNG.
@@ -97,8 +96,8 @@ DMG-installed application entry-point run required by release gate #21.
 
 The macOS process-tree regression launches a parent and background child and
 confirms both PIDs disappear through the production termination path. The
-Windows path verifies its PID-scoped recursive `taskkill` arguments in the Rust
-suite; behavioral evidence comes from the Windows real-browser runner.
+Windows Job Object path is compiled and exercised by the Windows real-browser
+runner.
 
 Commit `34ebe3cf` closes three pre-installation safety gaps: rejected starts are
 reusable after later approval, native input failures are returned to the model

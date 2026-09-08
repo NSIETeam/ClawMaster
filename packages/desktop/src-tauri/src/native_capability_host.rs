@@ -475,6 +475,9 @@ impl CapabilityHost {
         manifest_output
             .sync_all()
             .map_err(|error| error.to_string())?;
+        // Windows will not rename a directory while these files are still open.
+        drop(output);
+        drop(manifest_output);
         health_check(&staged_entry).map_err(|error| {
             let _ = fs::remove_dir_all(&staging);
             format!("能力健康检查失败: {error}")

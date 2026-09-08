@@ -17,7 +17,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter, Manager};
+#[cfg(not(test))]
+use tauri::Emitter;
+use tauri::{AppHandle, Manager};
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio::task::JoinHandle;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
@@ -32,6 +34,7 @@ const DINGTALK_PONG_TIMEOUT_SECONDS: u64 = 5;
 const WECOM_WEBSOCKET_ENDPOINT: &str = "wss://openws.work.weixin.qq.com";
 const WECOM_HEARTBEAT_SECONDS: u64 = 30;
 const WECOM_MAX_MISSED_HEARTBEATS: u8 = 2;
+#[cfg(not(test))]
 const CHANNEL_STATUS_EVENT: &str = "desktop://channel-status";
 static REQUEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 type NativeWebSocket = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
@@ -95,16 +98,22 @@ struct WeComOutbound {
 #[derive(Default)]
 struct ChannelStatusStore {
     values: Mutex<HashMap<String, ChannelStatus>>,
+    #[cfg(not(test))]
     app: Mutex<Option<AppHandle>>,
 }
 
 impl ChannelStatusStore {
+    #[cfg(not(test))]
     fn attach(&self, app: AppHandle) {
         if let Ok(mut current) = self.app.lock() {
             *current = Some(app);
         }
     }
 
+    #[cfg(test)]
+    fn attach(&self, _app: AppHandle) {}
+
+    #[cfg(not(test))]
     fn emit(&self, status: &ChannelStatus) {
         if let Ok(app) = self.app.lock() {
             if let Some(app) = app.as_ref() {
@@ -112,6 +121,9 @@ impl ChannelStatusStore {
             }
         }
     }
+
+    #[cfg(test)]
+    fn emit(&self, _status: &ChannelStatus) {}
 
     fn set(&self, status: ChannelStatus) {
         if let Ok(mut values) = self.values.lock() {
