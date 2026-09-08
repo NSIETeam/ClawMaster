@@ -17,12 +17,6 @@ jobs:
         include:
           - { label: tenant-profile, source_ref: d45fab2947934ebfa6b3d26e505a53865b6690cf }
           - { label: channel-status, source_ref: c73f8e37277ca43d771f7cc6ba5375739b9093c0 }
-          - { label: stress-tests, source_ref: 85246068ee25fa517254e3bdbce98b897f254ba6 }
-          - { label: capability-proposals, source_ref: 0549d14b9fbf3a12ef77e94d11c10f4ea98f1105 }
-          - { label: crash-safe-capabilities, source_ref: a6546dc2f0e1d0ac8beb919061413e4ee1e2d1db }
-          - { label: trust-state, source_ref: a92667560c2bbcb8aaacb5c51cca235d8a71ede3 }
-          - { label: proxy-fixtures, source_ref: 4dc3c8051e055e76bb35b9198757618d06e211d2 }
-          - { label: hardened-rpa, source_ref: 34ebe3cf97a09ec4c4136ba4a2821abd329c02e6 }
     steps:
       - uses: actions/checkout@v7
         with:
@@ -35,4 +29,15 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force packages/desktop/dist/renderer | Out-Null
           Set-Content packages/desktop/dist/renderer/index.html '<!doctype html><title>diagnostic</title>'
-      - run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib definitions_and_risks_keep_writes_confirmation_gated -- --exact
+      - name: Build test executable
+        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib --no-run
+      - name: Inspect imports and launch
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem packages/desktop/src-tauri/target/debug/deps/clawmaster_desktop_lib-*.exe |
+            Sort-Object LastWriteTime | Select-Object -Last 1
+          $dumpbin = Get-ChildItem "$env:ProgramFiles/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/*/bin/Hostx64/x64/dumpbin.exe" |
+            Sort-Object FullName | Select-Object -Last 1
+          & $dumpbin.FullName /imports $exe.FullName
+          & $exe.FullName definitions_and_risks_keep_writes_confirmation_gated --exact
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
