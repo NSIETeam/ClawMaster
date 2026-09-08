@@ -13,6 +13,8 @@ use crate::native_state_store::{
     NativeStateStore, StateStoreError, TREE_EVENTS, TREE_INDEX, TREE_SESSIONS,
 };
 use crate::native_user_directory::UserDirectory;
+#[cfg(not(test))]
+use crate::platform_webview;
 use crate::runtime_contracts::{
     decode_runtime_event, Actor, ApprovalDecision, DecodedRuntimeEvent, ErrorCode, RuntimeError,
     RuntimeEventEnvelope, RuntimeEventPayload, ToolStatus, RUNTIME_SCHEMA_VERSION,
@@ -21,7 +23,7 @@ use crate::{
     native_agent_tools, native_context, native_diagnostics, native_encrypted_checkpoints,
     native_encrypted_memory, native_enterprise, native_knowledge, native_mcp, native_memory_engine,
     native_projects, native_rpa, native_schedule, native_skills, native_state_capsule,
-    native_todos, native_workflows, native_worklog, platform_webview,
+    native_todos, native_workflows, native_worklog,
 };
 use clawmaster_runtime_kernel::{
     ApprovalOutcome, CentralPolicy, KernelEvent, KernelStore, PolicyDecision, PolicyRisk,
@@ -399,6 +401,34 @@ impl NativeLoopHost for AppHandle {
     fn grant_generated_file(&self, _workspace: &Path, _path: &Path) -> Result<(), String> {
         Err("Desktop file grants are unavailable in unit tests".into())
     }
+}
+
+#[cfg(not(test))]
+async fn capture_platform_webview(app: &dyn NativeLoopHost) -> Result<Value, String> {
+    platform_webview::platform_webview_snapshot(app.desktop_app()?).await
+}
+
+#[cfg(test)]
+async fn capture_platform_webview(_app: &dyn NativeLoopHost) -> Result<Value, String> {
+    Err("Desktop-only tools are unavailable in unit tests".into())
+}
+
+#[cfg(not(test))]
+async fn act_on_platform_webview(
+    app: &dyn NativeLoopHost,
+    action: String,
+    index: usize,
+) -> Result<Value, String> {
+    platform_webview::platform_webview_action(app.desktop_app()?, &action, index).await
+}
+
+#[cfg(test)]
+async fn act_on_platform_webview(
+    _app: &dyn NativeLoopHost,
+    _action: String,
+    _index: usize,
+) -> Result<Value, String> {
+    Err("Desktop-only tools are unavailable in unit tests".into())
 }
 
 struct ToolLoopContext<'a> {
@@ -3537,10 +3567,7 @@ impl NativeRuntime {
                     self.native_rpa
                         .record_rejection(call, "用户拒绝或取消了 RPA 操作")
                 } else if approved && call.name == "browser_snapshot" {
-                    match context.app.desktop_app() {
-                        Ok(app) => platform_webview::platform_webview_snapshot(app).await,
-                        Err(error) => Err(error),
-                    }
+                    capture_platform_webview(context.app).await
                 } else if approved && call.name == "browser_action" {
                     let action = call
                         .arguments
@@ -3553,12 +3580,7 @@ impl NativeRuntime {
                         .and_then(Value::as_u64)
                         .and_then(|value| usize::try_from(value).ok())
                         .unwrap_or(usize::MAX);
-                    match context.app.desktop_app() {
-                        Ok(app) => {
-                            platform_webview::platform_webview_action(app, action, index).await
-                        }
-                        Err(error) => Err(error),
-                    }
+                    act_on_platform_webview(context.app, action.into(), index).await
                 } else if approved {
                     native_agent_tools::execute_model(call, context.workspace, cancel.clone()).await
                 } else {
