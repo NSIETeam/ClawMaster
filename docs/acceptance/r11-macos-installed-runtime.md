@@ -479,3 +479,47 @@ tests with 6 explicit ignores and no failures.
 No tag or release was created by these candidate runs. The installed-app
 DeepSeek and native-RPA acceptance items above remain release decisions rather
 than being inferred from CI success.
+
+## Evidence-driven harness continuation (2026-09-09)
+
+Installed candidate observation showed that the generic WebView browser tools
+could outrank the Rust Native RPA chain for a Chinese request that explicitly
+asked for a real system browser and mouse click. The runtime loop existed, but
+tool-catalog truncation could prevent the model from seeing the tools needed to
+continue it. Starting a browser could also be followed by unsupported success
+prose without window, snapshot, and click evidence.
+
+The local release candidate now treats Chinese and English computer-use intent
+as Native RPA context, prioritizes the bounded start, window, semantic snapshot,
+and click chain, and excludes the internal WebView action path for an explicit
+real-system-browser task. For a requested real browser click, the harness
+derives required evidence only from the latest user message. A no-tool model
+response with missing successful evidence triggers at most two bounded replans;
+after that the result is explicitly incomplete. A failed, rejected, cancelled,
+or uncertain tool result stops safely instead of causing an automatic replay.
+Old browser requests in conversation history cannot contaminate a new turn.
+
+Local verification completed before any push:
+
+- The production-loop fixture made three real OpenAI-compatible HTTP requests
+  and proved that two premature completion claims are replanned before the
+  third is rejected as `incomplete_tool_evidence`.
+- The complete Rust desktop suite passed 246 tests with 6 explicit external,
+  performance, or real-machine tests ignored and no failures.
+- The desktop renderer suite passed 175 files and 1,291 tests. Existing React
+  `act(...)` diagnostics remain visible as non-failing test warnings.
+- Doctor, diff check, typecheck, lint, boundary validation, code-map validation,
+  scheduler acceptance, and the isolated browser RPA fill/click/extract/close
+  preflight passed.
+- The final local macOS ARM64 Tauri build is validly ad-hoc signed. Its complete
+  app runtime is 12.81 MiB and its verified optimized DMG is 5.41 MiB. The DMG
+  SHA-256 is
+  `63fb6a392c70191ac3d01e8ea3219821d873a847be9f7eb62157ca2934e35476`.
+
+This section does not claim final installed-app acceptance. The new local
+ad-hoc signature caused macOS to request user approval before allowing access
+to the existing encrypted runtime-store keychain item. That system prompt must
+be approved by the user; it is not bypassed or automated. A separate opt-in
+native RPA retry also stopped before input because its isolated Chrome window
+was not observed within 20 seconds; it produced no acceptance receipt and is
+not counted as a pass. No push, CI run, tag, or release is claimed here.

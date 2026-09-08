@@ -835,6 +835,36 @@ fn guard_incomplete_completion(
     completion
 }
 
+fn missing_required_tool_evidence<'a>(
+    required: &'a [&'static str],
+    kernel_turn: &TurnRecord,
+) -> Vec<&'a str> {
+    required
+        .iter()
+        .copied()
+        .filter(|required_name| {
+            !kernel_turn
+                .tools
+                .values()
+                .any(|tool| tool.name == *required_name && tool.state == ToolState::Success)
+        })
+        .collect()
+}
+
+fn guard_missing_evidence(mut completion: ModelCompletion, missing: &[&str]) -> ModelCompletion {
+    let warning = format!(
+        "本轮未完全完成：缺少可验证的工具步骤：{}。模型说明不能替代工具执行证据。",
+        missing.join("、")
+    );
+    completion.text = if completion.text.trim().is_empty() {
+        warning
+    } else {
+        format!("{warning}\n\n{}", completion.text.trim())
+    };
+    completion.finish_reason = Some("incomplete_tool_evidence".into());
+    completion
+}
+
 fn error_frame(session_id: Option<&str>, code: &str, message: &str) -> Value {
     frame(
         "error",
@@ -3057,6 +3087,8 @@ impl NativeRuntime {
                 text: format!("[Native MCP status]\n{}", mcp_catalog.notices.join("\n")),
             });
         }
+        let required_evidence = native_context::required_tool_evidence(&messages);
+        let mut evidence_replans = 0_u8;
         let mut total_input = 0;
         let mut total_output = 0;
         for step in 0..MAX_NATIVE_TOOL_ROUNDS {
@@ -3102,6 +3134,29 @@ impl NativeRuntime {
             total_output += completion.output_tokens;
             if completion.tool_calls.is_empty() {
                 completion = guard_incomplete_completion(completion, kernel_turn);
+                let missing = missing_required_tool_evidence(&required_evidence, kernel_turn);
+                let has_failed_tool = kernel_turn
+                    .tools
+                    .values()
+                    .any(|tool| tool.state != ToolState::Success);
+                if !missing.is_empty()
+                    && !has_failed_tool
+                    && evidence_replans < 2
+                    && step + 1 < MAX_NATIVE_TOOL_ROUNDS
+                {
+                    evidence_replans += 1;
+                    messages.push(ModelMessage {
+                        role: "user".into(),
+                        text: format!(
+                            "[Harness verification required]\nThe task is not complete. Missing successful Rust tool evidence: {}. Continue the observe-plan-act-verify loop using those tools. Do not claim completion yet.",
+                            missing.join(", ")
+                        ),
+                    });
+                    continue;
+                }
+                if !missing.is_empty() && !has_failed_tool {
+                    completion = guard_missing_evidence(completion, &missing);
+                }
                 completion.input_tokens = total_input;
                 completion.output_tokens = total_output;
                 return Ok(StreamCompletion::Completed(completion));
@@ -4740,6 +4795,55 @@ mod tests {
         assert_eq!(
             completion.finish_reason.as_deref(),
             Some("incomplete_tool_results")
+        );
+    }
+
+    #[test]
+    fn harness_requires_every_declared_tool_evidence_before_completion() {
+        let mut tools = BTreeMap::new();
+        for name in ["rpa_start", "rpa_windows", "rpa_snapshot"] {
+            tools.insert(
+                format!("call-{name}"),
+                clawmaster_runtime_kernel::ToolRecord {
+                    call_id: format!("call-{name}"),
+                    name: name.into(),
+                    state: ToolState::Success,
+                    argument_digest: "digest".into(),
+                    revision: "revision".into(),
+                    idempotency_key: format!("key-{name}"),
+                    external_side_effect: false,
+                    side_effect_started: false,
+                    approval: None,
+                },
+            );
+        }
+        let turn = TurnRecord {
+            turn_id: "turn-evidence".into(),
+            session_id: Some("session-evidence".into()),
+            state: TurnState::Planning,
+            sequence: 1,
+            tools,
+        };
+        let required = ["rpa_start", "rpa_windows", "rpa_snapshot", "rpa_click"];
+        assert_eq!(
+            missing_required_tool_evidence(&required, &turn),
+            vec!["rpa_click"]
+        );
+        let guarded = guard_missing_evidence(
+            ModelCompletion {
+                text: "The browser task is complete.".into(),
+                input_tokens: 1,
+                output_tokens: 1,
+                cache_tokens: 0,
+                finish_reason: Some("stop".into()),
+                tool_calls: Vec::new(),
+            },
+            &["rpa_click"],
+        );
+        assert!(guarded.text.starts_with("本轮未完全完成"));
+        assert_eq!(
+            guarded.finish_reason.as_deref(),
+            Some("incomplete_tool_evidence")
         );
     }
 

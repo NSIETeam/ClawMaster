@@ -151,6 +151,45 @@ pub fn append_retrieved_context(
     }
 }
 
+fn has_native_rpa_intent(context: &str) -> bool {
+    [
+        "真实系统浏览器",
+        "系统浏览器",
+        "真实鼠标",
+        "鼠标点击",
+        "语义快照",
+        "文本化桌面",
+        "电脑操作",
+        "操作电脑",
+        "computer-use",
+        "computer use",
+        "real system browser",
+        "real mouse",
+    ]
+    .iter()
+    .any(|term| context.contains(term))
+}
+
+pub fn required_tool_evidence(messages: &[ModelMessage]) -> Vec<&'static str> {
+    let context = messages
+        .iter()
+        .rev()
+        .find(|message| message.role == "user")
+        .map(|message| message.text.to_lowercase())
+        .unwrap_or_default();
+    let browser_task = ["浏览器", "browser", "chrome", "edge"]
+        .iter()
+        .any(|term| context.contains(term));
+    if !has_native_rpa_intent(&context) || !browser_task {
+        return Vec::new();
+    }
+    let mut required = vec!["rpa_start", "rpa_windows", "rpa_snapshot"];
+    if ["点击", "click"].iter().any(|term| context.contains(term)) {
+        required.push("rpa_click");
+    }
+    required
+}
+
 pub fn select_tools_for_context(
     tools: &[ModelToolDefinition],
     messages: &[ModelMessage],
@@ -164,14 +203,23 @@ pub fn select_tools_for_context(
         .map(|message| message.text.to_lowercase())
         .collect::<Vec<_>>()
         .join(" ");
+    let native_rpa_intent = has_native_rpa_intent(&context);
     let mut ranked = tools
         .iter()
         .map(|tool| {
-            let mut score = if tool.name == "native_capabilities" {
+            let mut score: i32 = if tool.name == "native_capabilities" {
                 10_000
             } else {
                 0
             };
+            if native_rpa_intent {
+                score += match tool.name.as_str() {
+                    "rpa_start" | "rpa_windows" | "rpa_snapshot" | "rpa_click" => 1_000,
+                    "rpa_browser_support" | "rpa_focus" | "rpa_status" | "rpa_cancel" => 500,
+                    "open_browser" | "browser_snapshot" | "browser_action" => -1_000,
+                    _ => 0,
+                };
+            }
             for term in tool
                 .name
                 .split('_')
@@ -222,6 +270,13 @@ fn tool_aliases(name: &str) -> &'static [&'static str] {
         "run_command" => &["命令", "测试", "构建", "运行", "command"],
         "open_browser" | "browser_snapshot" | "browser_action" => &["浏览器", "网页", "browser"],
         "desktop_snapshot" => &["桌面", "鼠标", "点击", "rpa"],
+        "rpa_start" | "rpa_browser_support" => &["真实系统浏览器", "系统浏览器", "chrome", "edge"],
+        "rpa_windows" | "rpa_snapshot" | "rpa_extract" => {
+            &["窗口", "语义快照", "文本化桌面", "window", "snapshot"]
+        }
+        "rpa_focus" | "rpa_click" | "rpa_drag" | "rpa_fill" | "rpa_scroll" => {
+            &["真实鼠标", "鼠标点击", "点击", "拖拽", "输入", "滚动"]
+        }
         "generate_docx" => &["word", "docx", "文档"],
         "generate_pptx" => &["ppt", "pptx", "演示"],
         "generate_chart" => &["图表", "chart"],
@@ -462,5 +517,55 @@ mod tests {
             })
             .sum::<usize>();
         assert!(tool_tokens <= 1_200);
+    }
+
+    #[test]
+    fn real_system_browser_intent_selects_the_native_rpa_chain_not_webview() {
+        let mut tools = crate::native_agent_tools::definitions();
+        tools.extend(crate::native_rpa::definitions());
+        let selected = select_tools_for_context(
+            &tools,
+            &[ModelMessage {
+                role: "user".into(),
+                text: "请打开真实系统浏览器，读取窗口语义快照，再用真实鼠标点击页面链接。".into(),
+            }],
+            1_200,
+        );
+        let names = selected
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<HashSet<_>>();
+        for required in ["rpa_start", "rpa_windows", "rpa_snapshot", "rpa_click"] {
+            assert!(names.contains(required), "missing RPA tool: {required}");
+        }
+        assert!(!names.contains("open_browser"));
+        assert_eq!(
+            required_tool_evidence(&[ModelMessage {
+                role: "user".into(),
+                text: "Use macOS computer-use to click the visible link in the system browser."
+                    .into(),
+            }]),
+            vec!["rpa_start", "rpa_windows", "rpa_snapshot", "rpa_click"]
+        );
+        assert!(required_tool_evidence(&[ModelMessage {
+            role: "user".into(),
+            text: "Use computer-use to inspect the current desktop app.".into(),
+        }])
+        .is_empty());
+        assert!(required_tool_evidence(&[
+            ModelMessage {
+                role: "user".into(),
+                text: "Use a real system browser and click the link.".into(),
+            },
+            ModelMessage {
+                role: "assistant".into(),
+                text: "Previous task completed.".into(),
+            },
+            ModelMessage {
+                role: "user".into(),
+                text: "Summarize this text without tools.".into(),
+            },
+        ])
+        .is_empty());
     }
 }

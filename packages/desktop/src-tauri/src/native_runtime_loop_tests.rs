@@ -287,6 +287,103 @@ async fn production_loop_denial_never_writes_or_grants_a_file() {
     exercise_production_loop("denied").await;
 }
 
+#[tokio::test]
+async fn production_loop_replans_before_rejecting_an_unverified_rpa_claim() {
+    let (_root, runtime) = tests::runtime();
+    runtime
+        .credentials
+        .set("evidence-fixture", "local-fixture-only")
+        .unwrap();
+    let workspace = tempfile::tempdir().unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base_url = format!("http://{}/v1", listener.local_addr().unwrap());
+    let server = async move {
+        let mut requests = Vec::new();
+        for _ in 0..3 {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            requests.push(read_request(&mut socket).await);
+            let delta = json!({"choices":[{"delta":{"content":"Browser click completed."},"finish_reason":"stop"}]});
+            let body = format!("data: {delta}\n\ndata: [DONE]\n\n");
+            socket
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+        }
+        requests
+    };
+    let model = NativeModel {
+        id: "evidence-fixture".into(),
+        display_name: "Evidence fixture".into(),
+        provider: "openai".into(),
+        base_url,
+        model_id: "evidence-fixture".into(),
+        max_tokens: None,
+        enabled: true,
+        credential_id: "evidence-fixture".into(),
+    };
+    let host = RecordingHost {
+        runtime: &runtime,
+        outcome: "approved",
+        frames: Mutex::new(Vec::new()),
+        grants: Mutex::new(Vec::new()),
+        files: Default::default(),
+    };
+    let mut turn = runtime
+        .runtime_kernel
+        .create_turn_for_session("evidence-turn", Some("evidence-session"), now_ms())
+        .unwrap();
+    runtime
+        .runtime_kernel
+        .transition_turn(&mut turn, TurnState::Planning, "test planning", now_ms())
+        .unwrap();
+    let (_cancel_sender, cancel) = watch::channel(false);
+    let run = runtime.run_model_tool_loop(
+        ToolLoopContext {
+            app: &host,
+            session_id: "evidence-session",
+            message_id: "evidence-message",
+            model: &model,
+            turn_id: "evidence-turn",
+            workspace: workspace.path(),
+            enabled_capabilities: None,
+        },
+        vec![ModelMessage {
+            role: "user".into(),
+            text: "Use the real system browser and click the visible link.".into(),
+        }],
+        cancel,
+        &mut turn,
+    );
+    let (result, requests) =
+        tokio::time::timeout(Duration::from_secs(20), async { tokio::join!(run, server) })
+            .await
+            .expect("evidence loop timed out");
+    let result = result.unwrap_or_else(|error| panic!("evidence loop failed: {error}"));
+    let StreamCompletion::Completed(completion) = result else {
+        panic!("unexpected cancellation")
+    };
+    assert_eq!(requests.len(), 3);
+    for request in &requests[1..] {
+        let prompt = request["messages"].as_array().unwrap().last().unwrap()["content"]
+            .as_str()
+            .unwrap();
+        assert!(prompt.contains("[Harness verification required]"));
+        assert!(prompt.contains("rpa_click"));
+    }
+    assert!(completion.text.starts_with("本轮未完全完成"));
+    assert_eq!(
+        completion.finish_reason.as_deref(),
+        Some("incomplete_tool_evidence")
+    );
+    assert!(turn.tools.is_empty());
+}
+
 async fn exercise_module_refinement(outcome: &'static str) {
     let (_root, runtime) = tests::runtime();
     let workspace = tempfile::tempdir().unwrap();
