@@ -38,4 +38,4 @@ jobs:
       - name: Remove first known channel-status linker regression
         run: git checkout d45fab2947934ebfa6b3d26e505a53865b6690cf -- packages/desktop/src-tauri/src/native_channels.rs
       - name: Build and launch Rust test harness
-        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml definitions_and_risks_keep_writes_confirmation_gated --exact
+        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml accepts_only_supported_providers_and_real_tokens
