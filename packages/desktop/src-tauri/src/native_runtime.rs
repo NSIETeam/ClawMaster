@@ -37,7 +37,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::AppHandle;
+#[cfg(not(test))]
+use tauri::{Emitter, Manager};
 use tokio::sync::watch;
 
 const RUNTIME_INDEX_ID: &str = "native-runtime-index-v1";
@@ -368,6 +370,7 @@ pub(crate) trait NativeLoopHost: Send + Sync {
     fn grant_generated_file(&self, workspace: &Path, path: &Path) -> Result<(), String>;
 }
 
+#[cfg(not(test))]
 impl NativeLoopHost for AppHandle {
     fn emit_event(&self, name: &str, payload: Value) -> Result<(), String> {
         self.emit(name, payload).map_err(|error| error.to_string())
@@ -380,6 +383,21 @@ impl NativeLoopHost for AppHandle {
     fn grant_generated_file(&self, workspace: &Path, path: &Path) -> Result<(), String> {
         self.state::<crate::system_commands::DesktopFileState>()
             .grant_generated_file(workspace, path)
+    }
+}
+
+#[cfg(test)]
+impl NativeLoopHost for AppHandle {
+    fn emit_event(&self, _name: &str, _payload: Value) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn desktop_app(&self) -> Result<&AppHandle, String> {
+        Err("Desktop-only tools are unavailable in unit tests".into())
+    }
+
+    fn grant_generated_file(&self, _workspace: &Path, _path: &Path) -> Result<(), String> {
+        Err("Desktop file grants are unavailable in unit tests".into())
     }
 }
 

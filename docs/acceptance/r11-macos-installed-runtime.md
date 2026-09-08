@@ -431,6 +431,10 @@ build and product-site deployment passed, but it correctly remained unreleased:
   directory rename. Both handles are now synced and closed before the atomic
   rename; this preserves the existing POSIX behavior and satisfies Windows file
   locking semantics.
+- Production-loop tests use a host adapter that deliberately rejects desktop
+  windows and file grants. Its test-only `AppHandle` implementation no longer
+  links production event emission and managed window state into the unit-test
+  executable; the production implementation is unchanged.
 - Main CI passed 1,514 server tests and failed only when the runtime-kernel
   adapter requested locked Cargo dependencies in offline mode before the clean
   runner had fetched `syn 3.0.5`. CI now fetches that exact lockfile before the
