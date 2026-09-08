@@ -446,7 +446,7 @@ build and product-site deployment passed, but it correctly remained unreleased:
   Promise spelling before CI could reach it. The implementation was restored to
   the existing explicit contract without changing its returned version.
 
-These are release-infrastructure fixes, not waived gates. The corrected source
-must pass the isolated Windows Rust suite before one consolidated main push;
-the resulting Windows package run must then pass before #21 can proceed to
-final installed-app acceptance.
+These are release-infrastructure fixes, not waived gates. Isolated Windows run
+`34222979700` validated the final source with 236 tests passed, 6 explicit tests
+ignored and no failures. The resulting main-branch Windows package run must
+still pass before #21 can proceed to final installed-app acceptance.
