@@ -28,4 +28,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.98.0
+      - name: Create diagnostic frontend placeholder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force packages/desktop/dist/renderer | Out-Null
+          Set-Content packages/desktop/dist/renderer/index.html '<!doctype html><title>diagnostic</title>'
       - run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib
