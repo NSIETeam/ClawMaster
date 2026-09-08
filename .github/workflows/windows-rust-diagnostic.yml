@@ -15,18 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { label: release-hardening, source_ref: 06f451811bc4f0fe9633d7dcb276fb9ebac7dce3 }
-          - { label: macos-computer-use, source_ref: e0898edc4b1329d8c43fbe1d14538c5b61e1bf18 }
-          - { label: rpa-tool-summaries, source_ref: eb62f49c1dcac9c8c498710013fc744b1d9fd6ac }
-          - { label: capability-index, source_ref: 61f04dac85fd1c94f658e4b6a2a17aa6213ccf10 }
-          - { label: production-loop-tests, source_ref: a01e342ce02fe1c6438b5c1e7c53321ba7a6cab8 }
-          - { label: module-refinement, source_ref: 659b5914e11b3bdf8a1148d03c2aebdbfae85ccd }
-          - { label: document-workspace, source_ref: ab691cab0507da5398a4b7525cebdfc2c9949cd8 }
+          - { label: final-candidate-v5, source_ref: diag/windows-candidate }
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ matrix.source_ref }}
-          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.98.0
@@ -35,7 +28,5 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force packages/desktop/dist/renderer | Out-Null
           Set-Content packages/desktop/dist/renderer/index.html '<!doctype html><title>diagnostic</title>'
-      - name: Remove first known channel-status linker regression
-        run: git checkout d45fab2947934ebfa6b3d26e505a53865b6690cf -- packages/desktop/src-tauri/src/native_channels.rs
-      - name: Build and launch Rust test harness
-        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml accepts_only_supported_providers_and_real_tokens
+      - name: Run complete Windows Rust suite
+        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml
