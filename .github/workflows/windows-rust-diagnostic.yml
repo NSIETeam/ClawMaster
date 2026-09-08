@@ -1,24 +1,30 @@
 name: Windows Rust Diagnostic
 
 on:
-  workflow_dispatch:
-    inputs:
-      source_ref:
-        description: Commit to test
-        required: true
-        type: string
+  push:
+    branches: [diag/windows-rust]
 
 permissions:
   contents: read
 
 jobs:
   test:
-    name: Test ${{ inputs.source_ref }}
+    name: Test ${{ matrix.label }}
     runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: baseline, source_ref: dff26a38f760b1d7441b806f108c1eb580916ae8 }
+          - { label: user-directory, source_ref: c45fcb2837a80c135b3e345d79029e8a856fdf70 }
+          - { label: kernel, source_ref: 51809802d67664640e2a9d2b49810cdce011f863 }
+          - { label: context, source_ref: bce9ab6c73cae4186fc07b9e56347038dc5bfd7c }
+          - { label: capability-host, source_ref: a29a76c29735ac9822389b44b3b9c5d83a3d42ef }
+          - { label: native-rpa, source_ref: 986d2de13397f53af6b271f876099818e26d239c }
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.source_ref }}
+          ref: ${{ matrix.source_ref }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.98.0
