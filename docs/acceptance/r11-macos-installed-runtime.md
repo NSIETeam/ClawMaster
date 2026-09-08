@@ -420,9 +420,10 @@ build and product-site deployment passed, but it correctly remained unreleased:
   matrix proved that the process-tree/Job Object commit still launched and that
   `c73f8e37` was the first failing commit. That commit made the Rust test binary
   retain Tauri's complete Windows windowing stack solely to broadcast channel
-  status. The broadcast is now compiled only for the desktop runtime; tests keep
-  exercising the status state machine without importing unrelated GUI entry
-  points. Windows browser ownership therefore retains the race-safe Job Object
+  status. The unstable broadcast path has been removed: the channel panel now
+  reads the same typed Rust status command on a bounded two-second interval,
+  without making background connector state own a desktop window handle.
+  Windows browser ownership therefore retains the race-safe Job Object
   implementation rather than the disproved `taskkill` workaround. Rust 1.98.0
   remains pinned for reproducible release builds, not as a claimed loader fix.
 - The same Windows diagnostic run exposed six capability installation tests

@@ -1,6 +1,6 @@
 /** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NativeChannelStatus } from '../../../preload/index.js';
 import { NativeChannelPanel } from './NativeChannelPanel.js';
@@ -22,8 +22,6 @@ describe('NativeChannelPanel', () => {
     provider: 'dingtalk' as const,
     state: connected ? 'connecting' as const : 'idle' as const,
   }));
-  let statusHandler: ((status: NativeChannelStatus) => void) | undefined;
-
   beforeEach(() => {
     configGet.mockClear();
     statusGet.mockClear();
@@ -35,14 +33,9 @@ describe('NativeChannelPanel', () => {
       state: 'connected' as const,
       lastEventAt: '2026-09-05T00:01:00Z',
     }));
-    statusHandler = undefined;
     (window as unknown as { clawmaster: Record<string, unknown> }).clawmaster = {
       nativeChannelConfigGet: configGet,
       nativeChannelStatusGet: statusGet,
-      onNativeChannelStatus: vi.fn((handler: (status: NativeChannelStatus) => void) => {
-        statusHandler = handler;
-        return () => { statusHandler = undefined; };
-      }),
       nativeChannelConfigSave: configSave,
       nativeChannelConnectionSet: connectionSet,
     };
@@ -81,23 +74,6 @@ describe('NativeChannelPanel', () => {
 
     await waitFor(() => expect(connectionSet).toHaveBeenCalledWith('dingtalk', true));
     expect(screen.getByRole('status').textContent).toContain('正在重新建立钉钉长连接');
-  });
-
-  it('updates from native status events without a polling timer', async () => {
-    const interval = vi.spyOn(window, 'setInterval');
-    render(<NativeChannelPanel provider="dingtalk" />);
-    await act(async () => { await Promise.resolve(); });
-    expect(screen.getByText(/长连接：已连接/)).toBeTruthy();
-
-    act(() => {
-      statusHandler?.({
-        provider: 'dingtalk', state: 'failed', lastError: 'socket closed',
-      });
-    });
-
-    expect(screen.getByText(/失败：socket closed/)).toBeTruthy();
-    expect(interval).not.toHaveBeenCalled();
-    interval.mockRestore();
   });
 
   it('defaults WeCom to the recommended bot websocket mode', async () => {

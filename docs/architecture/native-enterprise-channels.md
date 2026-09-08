@@ -19,10 +19,11 @@ runtime. The production path does not start a Node channel worker.
 ## Status delivery
 
 `NativeChannelState` is the single owner of connector status. Every transition
-and processing error emits `desktop://channel-status`. The settings panel reads
-one initial snapshot and then subscribes to those events; it has no interval
-poller. This keeps an open settings page from waking the app every two seconds
-when connectors are idle or disabled.
+and processing error updates the same typed Rust status store. While the settings
+panel is open, it reads `channel_status_get` on a bounded two-second interval and
+stops the timer when the panel unmounts. Background connector state never owns a
+desktop window handle; this keeps the Rust test binary independent of Tauri's
+Windows windowing imports.
 
 ## Remaining release evidence
 

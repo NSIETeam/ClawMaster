@@ -33,13 +33,14 @@ export function NativeChannelPanel({ provider }: { provider: NativeChannelProvid
   useEffect(() => {
     if (!window.clawmaster.nativeChannelStatusGet) return;
     let active = true;
-    void window.clawmaster.nativeChannelStatusGet(provider).then((value) => {
-      if (active) setStatus(value);
-    }).catch(() => undefined);
-    const unsubscribe = window.clawmaster.onNativeChannelStatus?.((value) => {
-      if (active && value.provider === provider) setStatus(value);
-    });
-    return () => { active = false; unsubscribe?.(); };
+    const refresh = (): void => {
+      void window.clawmaster.nativeChannelStatusGet?.(provider).then((value) => {
+        if (active) setStatus(value);
+      }).catch(() => undefined);
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 2000);
+    return () => { active = false; window.clearInterval(timer); };
   }, [provider]);
 
   const save = async (): Promise<void> => {
