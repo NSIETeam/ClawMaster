@@ -450,3 +450,32 @@ These are release-infrastructure fixes, not waived gates. Isolated Windows run
 `34222979700` validated the final source with 236 tests passed, 6 explicit tests
 ignored and no failures. The resulting main-branch Windows package run must
 still pass before #21 can proceed to final installed-app acceptance.
+
+## Final cross-platform candidate evidence (2026-09-08)
+
+The first main-branch package run `34226110194` passed preflight and macOS ARM64
+but exposed a false-negative Windows installation check: Tauri installs the
+stable Rust binary name `clawmaster-desktop.exe`, while the generic bundle
+verifier still expected the product display name `ClawMaster.exe`. The verifier
+now uses the same internal binary contract as the NSIS smoke script, with a
+regression test preventing the two checks from drifting again.
+
+Candidate `e3a76361` then completed both CI run `34238907306` and Tauri run
+`34238907329` without failures. The Windows artifact was 4,714,765 bytes. Its
+installed-runtime evidence records a visible main window, graceful exit, and
+zero orphan processes. The same run also records approved Edge focus, click,
+drag, input, and scroll operations with 15 encrypted receipts. macOS ARM64,
+release preflight, Rust tests, artifact gates, and artifact upload passed in the
+same fixed candidate run.
+
+The candidate also closes the model/tool harness gap visible in earlier UI
+evidence. Tool results are now explicitly returned as harness observations and
+the model is instructed to continue an observe-plan-act-verify loop. More
+importantly, any failed, cancelled, or unknown tool terminal state causes the
+runtime to mark the final response as incomplete; model prose can no longer
+self-certify a failed turn as successful. The full local Rust suite passed 243
+tests with 6 explicit ignores and no failures.
+
+No tag or release was created by these candidate runs. The installed-app
+DeepSeek and native-RPA acceptance items above remain release decisions rather
+than being inferred from CI success.
