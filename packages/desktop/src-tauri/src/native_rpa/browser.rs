@@ -13,10 +13,17 @@ pub struct Candidate {
     pub webdriver_contract: bool,
 }
 
+#[cfg(unix)]
 pub struct OwnedBrowser {
     child: Box<dyn process_wrap::std::ChildWrapper>,
 }
 
+#[cfg(windows)]
+pub struct OwnedBrowser {
+    child: std::process::Child,
+}
+
+#[cfg(unix)]
 impl OwnedBrowser {
     pub fn terminate(&mut self) -> Result<(), String> {
         if self
@@ -44,6 +51,48 @@ impl OwnedBrowser {
     #[cfg(all(test, unix))]
     fn take_stdout(&mut self) -> Option<std::process::ChildStdout> {
         self.child.stdout().take()
+    }
+}
+
+#[cfg(windows)]
+impl OwnedBrowser {
+    pub fn terminate(&mut self) -> Result<(), String> {
+        if self
+            .child
+            .try_wait()
+            .map_err(|error| format!("检查 owned browser 进程树失败: {error}"))?
+            .is_some()
+        {
+            return Ok(());
+        }
+
+        let pid = self.child.id();
+        let mut command = Command::new("taskkill.exe");
+        configure_windows_tree_termination(&mut command, pid);
+        let tree_result = command.status();
+        if matches!(&tree_result, Ok(status) if status.success()) {
+            return self
+                .child
+                .wait()
+                .map(|_| ())
+                .map_err(|error| format!("等待 owned browser 进程树退出失败: {error}"));
+        }
+        if self
+            .child
+            .try_wait()
+            .map_err(|error| format!("重新检查 owned browser 进程树失败: {error}"))?
+            .is_some()
+        {
+            return Ok(());
+        }
+
+        let detail = match tree_result {
+            Ok(status) => format!("taskkill 退出状态 {status}"),
+            Err(error) => format!("无法启动 taskkill: {error}"),
+        };
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        Err(format!("终止 owned browser 进程树失败: {detail}"))
     }
 }
 
@@ -252,15 +301,31 @@ fn configure_browser_command(command: &mut Command, profile: &Path, url: &str) {
         .stderr(Stdio::null());
 }
 
+#[cfg(unix)]
 fn spawn_owned(command: Command) -> Result<OwnedBrowser, std::io::Error> {
     use process_wrap::std::CommandWrap;
 
     let mut wrapped = CommandWrap::from(command);
-    #[cfg(unix)]
     wrapped.wrap(process_wrap::std::ProcessGroup::leader());
-    #[cfg(windows)]
-    wrapped.wrap(process_wrap::std::JobObject);
     wrapped.spawn().map(|child| OwnedBrowser { child })
+}
+
+#[cfg(windows)]
+fn spawn_owned(mut command: Command) -> Result<OwnedBrowser, std::io::Error> {
+    command.spawn().map(|child| OwnedBrowser { child })
+}
+
+#[cfg(windows)]
+fn configure_windows_tree_termination(command: &mut Command, pid: u32) {
+    use std::os::windows::process::CommandExt;
+
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    command
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
 }
 
 fn safe_segment(value: &str) -> String {
@@ -280,6 +345,18 @@ mod tests {
             .map(|argument| argument.to_string_lossy().into_owned())
             .collect::<Vec<_>>();
         assert!(arguments.contains(&"--force-renderer-accessibility=complete".to_string()));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_termination_targets_the_owned_process_tree_without_a_console() {
+        let mut command = Command::new("taskkill.exe");
+        configure_windows_tree_termination(&mut command, 42);
+        let arguments = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(arguments, ["/PID", "42", "/T", "/F"]);
     }
 
     #[test]

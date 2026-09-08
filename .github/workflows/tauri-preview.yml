@@ -73,7 +73,6 @@ jobs:
         with: { node-version: '24.20.0', cache: npm }
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.98.0
           targets: ${{ matrix.target }}
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf

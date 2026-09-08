@@ -414,10 +414,16 @@ hash, or final installed-app acceptance is claimed by this section.
 Commit `ab691cab` was pushed once after the local gates above. Its macOS ARM64
 build and product-site deployment passed, but it correctly remained unreleased:
 
-- Windows compiled the Rust test binary, then the hosted runner upgraded stable
-  Rust from 1.98.0 to 1.98.1 and the binary exited before the test harness with
-  `STATUS_ENTRYPOINT_NOT_FOUND`. The release matrix now pins the previously
-  verified 1.98.0 toolchain instead of accepting an unreviewed moving target.
+- Windows compiled the Rust test binary, then it exited before the test harness
+  with `STATUS_ENTRYPOINT_NOT_FOUND`. Pinning Rust 1.98.0 reproduced the same
+  failure, while an earlier run on the same Windows image and Rust 1.98.1 had
+  passed; the toolchain hypothesis was therefore rejected. The new Windows-only
+  direct `process-wrap` Job Object instantiation was isolated from the browser
+  ownership path. Windows now uses its built-in PID-scoped recursive
+  `taskkill /T` contract and retains a failed/unknown outcome when tree exit
+  cannot be confirmed. The direct ClawMaster dependency now enables only the
+  verified POSIX process-group path; RMCP's pre-existing transitive dependency
+  remains unchanged.
 - Main CI passed 1,514 server tests and failed only when the runtime-kernel
   adapter requested locked Cargo dependencies in offline mode before the clean
   runner had fetched `syn 3.0.5`. CI now fetches that exact lockfile before the
@@ -426,5 +432,6 @@ build and product-site deployment passed, but it correctly remained unreleased:
   Promise spelling before CI could reach it. The implementation was restored to
   the existing explicit contract without changing its returned version.
 
-These are release-infrastructure fixes, not waived gates. The next CI run must
-pass before #21 can proceed to final installed-app acceptance.
+These are release-infrastructure fixes, not waived gates. A subsequent main CI
+run passed; the next Windows package run must pass before #21 can proceed to
+final installed-app acceptance.
