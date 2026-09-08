@@ -15,12 +15,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { label: baseline, source_ref: dff26a38f760b1d7441b806f108c1eb580916ae8 }
-          - { label: user-directory, source_ref: c45fcb2837a80c135b3e345d79029e8a856fdf70 }
-          - { label: kernel, source_ref: 51809802d67664640e2a9d2b49810cdce011f863 }
-          - { label: context, source_ref: bce9ab6c73cae4186fc07b9e56347038dc5bfd7c }
-          - { label: capability-host, source_ref: a29a76c29735ac9822389b44b3b9c5d83a3d42ef }
           - { label: native-rpa, source_ref: 986d2de13397f53af6b271f876099818e26d239c }
+          - { label: webdriver, source_ref: 3d43db259b629e88fc078ba93409e0907e11b760 }
+          - { label: exact-window, source_ref: b2650acbfd6b695967a511a84949e668e0411bd3 }
+          - { label: process-tree, source_ref: 10c0c9d08f79816b0504ca8b333c7dee757b16cc }
+          - { label: semantic-wait, source_ref: b15f67a6c443d604a343eaab884c671276f1b13a }
+          - { label: tenant-profile, source_ref: d45fab2947934ebfa6b3d26e505a53865b6690cf }
+          - { label: hardened-rpa, source_ref: 34ebe3cf97a09ec4c4136ba4a2821abd329c02e6 }
+          - { label: release-head, source_ref: ab691cab0507da5398a4b7525cebdfc2c9949cd8 }
     steps:
       - uses: actions/checkout@v7
         with:
@@ -33,4 +35,4 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force packages/desktop/dist/renderer | Out-Null
           Set-Content packages/desktop/dist/renderer/index.html '<!doctype html><title>diagnostic</title>'
-      - run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib
+      - run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib definitions_and_risks_keep_writes_confirmation_gated -- --exact
