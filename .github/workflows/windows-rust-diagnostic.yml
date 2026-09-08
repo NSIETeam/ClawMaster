@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { label: final-candidate, source_ref: diag/windows-candidate }
+          - { label: final-candidate-v2, source_ref: diag/windows-candidate }
     steps:
       - uses: actions/checkout@v7
         with:
