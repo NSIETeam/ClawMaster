@@ -408,3 +408,23 @@ The final local verification set completed with no failures:
 
 This remains source evidence. No push, CI build, tag, release, final installer
 hash, or final installed-app acceptance is claimed by this section.
+
+## First consolidated CI finding (2026-09-08)
+
+Commit `ab691cab` was pushed once after the local gates above. Its macOS ARM64
+build and product-site deployment passed, but it correctly remained unreleased:
+
+- Windows compiled the Rust test binary, then the hosted runner upgraded stable
+  Rust from 1.98.0 to 1.98.1 and the binary exited before the test harness with
+  `STATUS_ENTRYPOINT_NOT_FOUND`. The release matrix now pins the previously
+  verified 1.98.0 toolchain instead of accepting an unreviewed moving target.
+- Main CI passed 1,514 server tests and failed only when the runtime-kernel
+  adapter requested locked Cargo dependencies in offline mode before the clean
+  runner had fetched `syn 3.0.5`. CI now fetches that exact lockfile before the
+  offline test; the test remains offline and cannot silently change versions.
+- The release-version source contract also exposed a stale browser-preview
+  Promise spelling before CI could reach it. The implementation was restored to
+  the existing explicit contract without changing its returned version.
+
+These are release-infrastructure fixes, not waived gates. The next CI run must
+pass before #21 can proceed to final installed-app acceptance.

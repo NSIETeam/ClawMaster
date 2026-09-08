@@ -32,6 +32,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Fetch locked Rust runtime dependencies
+        run: cargo fetch --locked --manifest-path packages/runtime-kernel-rs/Cargo.toml
+
       - name: Validate source and architecture contracts
         run: |
           npm run doctor

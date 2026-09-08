@@ -70,6 +70,7 @@ describe('native-local release contract', () => {
     const workflow = await readText(path.join(repoRoot, '.github/workflows/tauri-preview.yml'));
     for (const expected of [
       'windows-2022', 'macos-15',
+      'toolchain: 1.98.0',
       'release:preflight',
       'Release blocked: every issue must be closed before publishing.',
       'select(.pull_request | not)',
@@ -89,6 +90,13 @@ describe('native-local release contract', () => {
     expect(workflow).not.toContain('sqlcipher-native.yml');
     expect(workflow).not.toContain('bundle/msi/*.msi');
     expect(workflow).not.toContain('path: packages/desktop/src-tauri/target/release/bundle/');
+  });
+
+  it('fetches locked Rust dependencies before the server offline adapter test', async () => {
+    const workflow = await readText(path.join(repoRoot, '.github/workflows/ci.yml'));
+    const fetch = 'cargo fetch --locked --manifest-path packages/runtime-kernel-rs/Cargo.toml';
+    expect(workflow).toContain(fetch);
+    expect(workflow.indexOf(fetch)).toBeLessThan(workflow.indexOf('npm run test:ci'));
   });
 
   it('makes the browser RPA E2E non-optional in CI', async () => {
