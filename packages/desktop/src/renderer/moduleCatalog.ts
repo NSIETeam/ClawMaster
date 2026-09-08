@@ -79,7 +79,7 @@ export const DEFAULT_PLATFORM_URLS = Object.freeze({
   'platform-zhifang': 'https://47.116.30.60/',
   'platform-trace-code': 'https://8.140.52.117/',
   'platform-zhiliaohou': 'http://47.116.30.60:18787/',
-  'platform-zhixin-pigeon': 'http://47.116.30.60:18788/',
+  'platform-zhixin-pigeon': 'https://47.116.30.60/pigeon/',
   'platform-maotouying': 'http://8.141.8.31/',
 } satisfies Record<string, string>);
 

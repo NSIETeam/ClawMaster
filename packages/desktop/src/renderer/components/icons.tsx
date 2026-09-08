@@ -12,8 +12,6 @@
 
 import React from 'react';
 
-const clawmasterAppIcon = new URL('../../../build/icon.png', import.meta.url).href;
-
 type IconProps = { size?: number; className?: string; strokeWidth?: number };
 
 function base(size = 16): React.SVGProps<SVGSVGElement> {
@@ -513,24 +511,33 @@ export function ClawMasterAvatar({ size = 30, className }: IconProps): React.JSX
   );
 }
 
-/** 产品级品牌位直接复用桌面应用图标，确保窗口、Dock 与页面内视觉一致。 */
-export function ClawMasterCrown({ size = 56, className }: IconProps): React.JSX.Element {
+/** 当前桌面图标的透明矢量轮廓，避免位图底色在浅色和深色界面形成色块。 */
+export function ClawMasterMark({
+  size = 56,
+  className,
+  decorative = false,
+}: IconProps & { decorative?: boolean }): React.JSX.Element {
   return (
-    <img
-      src={clawmasterAppIcon}
-      alt="ClawMaster 皇冠标志"
+    <svg
       width={size}
       height={size}
       className={['clawmaster-brand-icon', className].filter(Boolean).join(' ')}
-      style={{
-        display: 'block',
-        width: size,
-        height: size,
-        maxWidth: size,
-        maxHeight: size,
-        objectFit: 'contain',
-      }}
-    />
+      viewBox="0 0 64 64"
+      fill="none"
+      aria-label={decorative ? undefined : 'ClawMaster 标志'}
+      aria-hidden={decorative || undefined}
+      role={decorative ? undefined : 'img'}
+    >
+      <path
+        d="M18 43v-3.5c0-3.2-1.7-5.8-4.8-7.5A12.5 12.5 0 1 1 30 15.7 14 14 0 0 1 34 10a14 14 0 0 1 4 5.7A12.5 12.5 0 1 1 54.8 32c-3.1 1.7-4.8 4.3-4.8 7.5V43"
+        stroke="currentColor"
+        strokeWidth="4.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M27 25c-1.5 5.5-1.2 10.5.6 15M41 25c1.5 5.5 1.2 10.5-.6 15" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+      <path d="M17 42h34v8a5 5 0 0 1-5 5H22a5 5 0 0 1-5-5v-8Z" fill="currentColor" />
+    </svg>
   );
 }
 

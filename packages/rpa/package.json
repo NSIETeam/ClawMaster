@@ -6,7 +6,7 @@
   "main": "./dist/index.js",
   "types": "./src/index.ts",
   "scripts": {
-    "build": "tsc --build tsconfig.build.json",
+    "build": "tsc --build --force tsconfig.build.json",
     "test": "vitest run",
     "test:e2e": "RUN_RPA_BROWSER_E2E=1 vitest run src/playwright-session-factory.e2e.test.ts",
     "typecheck": "tsc --noEmit",

@@ -378,8 +378,11 @@ export function createTauriHostBridge(
     extractEditableDocument: ((filePath: string) => invoke(
       'extract_editable_document', { filePath },
     )) as never,
-    exportEditedDocument: ((sourcePath: string, suggestedFileName: string, content: string) => invoke(
-      'export_edited_document', { sourcePath, suggestedFileName, content },
+    exportEditedDocument: ((sourcePath: string, suggestedFileName: string, content: string, office?: {
+      sourceDigest: string;
+      edits: Array<{ id: string; originalText: string; text: string }>;
+    }) => invoke(
+      'export_edited_document', { sourcePath, suggestedFileName, content, sourceDigest: office?.sourceDigest, edits: office?.edits },
     )) as never,
     saveTextFile: ((suggestedFileName: string, content: string) =>
       invoke<string | null>('save_text_file', { suggestedFileName, content })) as never,

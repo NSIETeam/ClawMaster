@@ -4742,6 +4742,7 @@ function registerIpc(): void {
       sourcePath: unknown,
       suggestedFileName: unknown,
       content: unknown,
+      _office: unknown,
     ) => {
       if (
         typeof sourcePath !== 'string' ||

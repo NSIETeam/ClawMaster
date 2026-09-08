@@ -401,12 +401,55 @@ pub fn extract_editable_document(
         .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or("document");
-    let (source_format, content, message) = editable_document(&resolved)?;
+    let extension = resolved
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if matches!(extension.as_str(), "docx" | "pptx") {
+        let (blocks, digest) = crate::office_document::extract(&resolved, &extension)?;
+        let content = blocks
+            .iter()
+            .map(|block| block.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        let message = if extension == "docx" {
+            "已按段落打开 Word；另存时保留未修改的样式、图片和页面结构。"
+        } else {
+            "已按文本段打开 PPT；另存时保留未修改的版式、图片和幻灯片结构。"
+        };
+        return Ok(serde_json::json!({
+            "filePath": resolved,
+            "fileName": file_name,
+            "sourceFormat": extension,
+            "editableFormat": "blocks",
+            "content": content,
+            "blocks": blocks,
+            "sourceDigest": digest,
+            "canPreserveFormat": true,
+            "readonly": false,
+            "message": message
+        }));
+    }
+    let (source_format, content, mut message) = editable_document(&resolved)?;
+    let readonly = matches!(source_format, "xlsx" | "pdf");
+    if readonly {
+        message = if source_format == "xlsx" {
+            "已提取 Excel 内容供查看；当前版本不会改写共享字符串、公式或单元格结构。"
+        } else {
+            "已提取 PDF 内容供查看；当前版本不会把抽取文本伪装成原 PDF。"
+        };
+    }
     Ok(serde_json::json!({
         "filePath": resolved,
         "fileName": file_name,
         "sourceFormat": source_format,
+        "editableFormat": "markdown",
         "content": content,
+        "blocks": [],
+        "sourceDigest": null,
+        "canPreserveFormat": false,
+        "readonly": readonly,
         "message": message
     }))
 }
@@ -417,6 +460,8 @@ pub async fn export_edited_document(
     source_path: String,
     suggested_file_name: String,
     content: String,
+    source_digest: Option<String>,
+    edits: Option<Vec<crate::office_document::BlockEdit>>,
     state: State<'_, DesktopFileState>,
 ) -> Result<Option<serde_json::Value>, String> {
     if content.len() > MAX_TEXT_EXPORT_BYTES {
@@ -428,11 +473,24 @@ pub async fn export_edited_document(
         .map_err(|_| "file grant state is unavailable".to_string())?;
     let (source, _) = resolve_granted_file(Path::new(&source_path), &grants)?;
     drop(grants);
+    let source_format = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let preserve_office = matches!(source_format.as_str(), "docx" | "pptx")
+        && source_digest.is_some()
+        && edits.is_some();
     let stem = Path::new(&suggested_file_name)
         .file_stem()
         .and_then(|value| value.to_str())
         .unwrap_or("document");
-    let suggested = format!("{stem}-edited.md");
+    let extension = if preserve_office {
+        source_format.as_str()
+    } else {
+        "md"
+    };
+    let suggested = format!("{stem}-edited.{extension}");
     let selected = app
         .dialog()
         .file()
@@ -441,12 +499,47 @@ pub async fn export_edited_document(
     let Some(out_path) = selected.and_then(|path| path.into_path().ok()) else {
         return Ok(None);
     };
-    write_edited_copy(&source, &out_path, &content)?;
+    let changed_blocks = if preserve_office {
+        validate_office_export(&source, &out_path, &source_format)?;
+        crate::office_document::write_copy(
+            &source,
+            &out_path,
+            &source_format,
+            source_digest.as_deref().unwrap_or_default(),
+            edits.as_deref().unwrap_or_default(),
+        )?
+    } else {
+        write_edited_copy(&source, &out_path, &content)?;
+        1
+    };
     Ok(Some(serde_json::json!({
+        "ok": true,
         "sourcePath": source,
-        "outPath": out_path,
-        "message": format!("已保存编辑稿：{}", out_path.display())
+        "path": out_path,
+        "format": extension,
+        "preservedSourceFormat": preserve_office,
+        "changedBlocks": changed_blocks,
+        "message": format!("已保存{}编辑副本：{}", if preserve_office { "原格式" } else { "Markdown" }, out_path.display())
     })))
+}
+
+fn validate_office_export(source: &Path, destination: &Path, format: &str) -> Result<(), String> {
+    if destination
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+        != Some(format)
+    {
+        return Err(format!("请使用 .{format} 扩展名保存原格式副本"));
+    }
+    if destination.exists()
+        || destination.canonicalize().ok().as_ref()
+            == Some(&source.canonicalize().map_err(|error| error.to_string())?)
+    {
+        return Err("请另存为尚不存在的新文件，不能覆盖原始文档或已有文件。".into());
+    }
+    Ok(())
 }
 
 fn write_edited_copy(source: &Path, destination: &Path, content: &str) -> Result<(), String> {
@@ -813,6 +906,20 @@ mod tests {
         assert!(super::validate_edited_export(&source, &root.join("copy.txt")).is_ok());
         assert_eq!(fs::read(&source).unwrap(), b"original");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn office_exports_require_the_original_extension_and_a_new_path() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("source.docx");
+        fs::write(&source, b"source").unwrap();
+        assert!(
+            super::validate_office_export(&source, &root.path().join("copy.docx"), "docx").is_ok()
+        );
+        assert!(
+            super::validate_office_export(&source, &root.path().join("copy.md"), "docx").is_err()
+        );
+        assert!(super::validate_office_export(&source, &source, "docx").is_err());
     }
 
     #[test]

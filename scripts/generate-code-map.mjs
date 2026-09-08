@@ -138,6 +138,7 @@ flowchart LR
 | GUI and native desktop capabilities | \`packages/desktop/src/renderer\`, \`packages/desktop/src-tauri\` | Desktop and Cargo tests |
 | Native model invocation, credentials, retry, cancellation, usage | \`packages/desktop/src-tauri/src/native_model_gateway.rs\` | Recorded provider fixtures and \`npm run validate:boundaries\` |
 | Encrypted sessions, messages, memory, checkpoints, usage, artifacts | \`packages/desktop/src-tauri/src/native_state_store.rs\`, \`packages/desktop/src-tauri/src/native_encrypted_memory.rs\`, \`packages/desktop/src-tauri/src/native_encrypted_checkpoints.rs\` | Native StateStore/runtime tests and ownership validator |
+| Local Office copy editing | \`packages/desktop/src-tauri/src/office_document.rs\`, \`packages/desktop/src/renderer/components/ArtifactWorkspace.tsx\` | DOCX/PPTX package-preservation tests and desktop editor tests; XLSX/PDF stay read-only |
 | Tauri runtime provenance | \`packages/desktop/src-tauri\`, \`.github/workflows/tauri-preview.yml\` | Rust-native tests, legacy-runtime rejection, artifact size gate, and packaged smoke |
 | Long-running schedules | \`packages/workflow\` | workflow tests and recurring registry |
 | Computer control | \`packages/desktop/src-tauri/src/native_rpa/\` | Native semantic-window, encrypted artifact, approval/recovery and installed real-click tests; \`packages/rpa\` remains comparison-only until parity retirement |

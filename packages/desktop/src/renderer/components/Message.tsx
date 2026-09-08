@@ -207,9 +207,6 @@ function BotMessage({
   const responding = Boolean(
     message.isStreaming || message.isReasoning || message.isProcessingTools,
   );
-  const failedToolCount = tools.filter(
-    (tool) => tool.status === 'error' || tool.status === 'cancelled',
-  ).length;
   const fallbackSummary =
     !text && !responding && tools.length > 0
       ? buildToolCompletionSummary(tools)
@@ -228,16 +225,6 @@ function BotMessage({
             toolsActive={Boolean(message.isProcessingTools)}
             onRespondQuestion={onRespondQuestion}
           />
-        ) : null}
-
-        {!responding && failedToolCount > 0 ? (
-          <div className="claw-msg-bot__outcome" role="alert">
-            <IconClose size={15} />
-            <span>
-              <strong>执行过程有失败记录</strong>
-              {failedToolCount} 个步骤失败或取消，请结合重试结果与最终产物确认是否完成。
-            </span>
-          </div>
         ) : null}
 
         {displayText ? (
@@ -319,13 +306,11 @@ function ProcessTrace({
             ? '正在处理…'
             : requiresAttention
               ? '等待确认'
-              : failedCount > 0
-                ? `${failedCount} 个步骤失败`
-                : '处理记录'}
+              : '处理记录'}
         </span>
         {tools.length > 0 ? (
           <span className="claw-process-trace__count">
-            {tools.length} 个步骤
+            {tools.length} 个步骤{failedCount > 0 ? ` · ${failedCount} 个失败` : ''}
           </span>
         ) : null}
         <IconChevron

@@ -29,7 +29,7 @@ import {
   type PendingAgentSelection,
 } from './Composer.js';
 import type { SlashCommand } from './SlashCommands.js';
-import { ClawMasterCrown, IconArrowDown, IconPanelRight } from './icons.js';
+import { ClawMasterMark, IconArrowDown, IconPanelRight } from './icons.js';
 
 import { ClawMasterPetStage } from './ClawMasterPetStage.js';
 import {
@@ -353,7 +353,7 @@ export function ChatView({
 function EmptyState(): React.JSX.Element {
   return (
     <div className="claw-empty">
-      <ClawMasterCrown size={56} className="claw-empty__brand-mark" />
+      <ClawMasterMark size={56} className="claw-empty__brand-mark" />
       <div className="claw-empty__title">选择左侧对话，或新建一个</div>
       <div>所有任务和对话都保存在这台电脑上</div>
     </div>
@@ -367,7 +367,7 @@ function EmptyConversation({
 }): React.JSX.Element {
   return (
     <div className="claw-empty">
-      <ClawMasterCrown size={48} className="claw-empty__brand-mark" />
+      <ClawMasterMark size={48} className="claw-empty__brand-mark" />
       <div className="claw-empty__title">给 ClawMaster 发送第一条消息</div>
       <div>试试这些开头，或直接输入你的问题</div>
       <div className="claw-empty__prompts">

@@ -15,7 +15,7 @@ const platformCases = [
   ['穿山甲', 'https://8.140.52.117/'],
   ['鸿雁知访', 'https://47.116.30.60/'],
   ['知了猴', 'http://47.116.30.60:18787/'],
-  ['智信鸽', 'http://47.116.30.60:18788/'],
+  ['智信鸽', 'https://47.116.30.60/pigeon/'],
 ];
 
 execFileSync(process.execPath, [path.join(desktopRoot, 'build-preview.cjs')], {
@@ -118,7 +118,7 @@ try {
     await page.getByRole('button', { name: '选择工作式 UI' }).click();
     await page.getByRole('button', { name: '稍后了解' }).click();
 
-    assert.equal(await page.getByRole('img', { name: 'ClawMaster 皇冠标志' }).count() > 0, true);
+    assert.equal(await page.getByRole('img', { name: 'ClawMaster 标志' }).count() > 0, true);
     assert.equal(await page.getByText(/^otto$/iu).count(), 0, 'legacy ClawMaster wordmark became visible');
 
     assert.equal(await page.getByRole('button', { name: '向园区服务添加模块' }).isVisible(), false,

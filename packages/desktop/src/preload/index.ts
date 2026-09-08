@@ -1528,25 +1528,31 @@ export interface ClawMasterBridge {
     mimeType: string;
     data: string;
   }>;
-  /** 提取 PDF/Word/文本为右侧可编辑 Markdown。 */
+  /** 打开受支持文档；Office 可返回按位置编辑的内容块。 */
   extractEditableDocument(filePath: string): Promise<{
     filePath: string;
     fileName: string;
-    sourceFormat: 'text' | 'markdown' | 'docx' | 'pdf';
-    editableFormat: 'markdown';
+    sourceFormat: 'text' | 'markdown' | 'docx' | 'pdf' | 'pptx' | 'xlsx';
+    editableFormat?: 'markdown' | 'blocks';
     content: string;
     readonly: boolean;
     message: string;
+    blocks?: Array<{ id: string; location: string; text: string }>;
+    sourceDigest?: string | null;
+    canPreserveFormat?: boolean;
   }>;
   /** 将右侧编辑稿导出回目标格式。取消保存时返回 null。 */
   exportEditedDocument(
     sourcePath: string,
     suggestedFileName: string,
     content: string,
+    office?: { sourceDigest: string; edits: Array<{ id: string; originalText: string; text: string }> },
   ): Promise<{
     ok: boolean;
     path: string;
-    format: 'text' | 'markdown' | 'docx' | 'pdf';
+    format: 'text' | 'markdown' | 'docx' | 'pptx' | 'pdf';
+    preservedSourceFormat?: boolean;
+    changedBlocks?: number;
     message: string;
   } | null>;
   /** 打开内置视频编辑器窗口。 */
@@ -2441,11 +2447,14 @@ const bridge: ClawMasterBridge = {
   extractEditableDocument(filePath: string): Promise<{
     filePath: string;
     fileName: string;
-    sourceFormat: 'text' | 'markdown' | 'docx' | 'pdf';
-    editableFormat: 'markdown';
+    sourceFormat: 'text' | 'markdown' | 'docx' | 'pdf' | 'pptx' | 'xlsx';
+    editableFormat?: 'markdown' | 'blocks';
     content: string;
     readonly: boolean;
     message: string;
+    blocks?: Array<{ id: string; location: string; text: string }>;
+    sourceDigest?: string | null;
+    canPreserveFormat?: boolean;
   }> {
     return ipcRenderer.invoke(
       IPC.extractEditableDocument,
@@ -2453,11 +2462,14 @@ const bridge: ClawMasterBridge = {
     ) as Promise<{
       filePath: string;
       fileName: string;
-      sourceFormat: 'text' | 'markdown' | 'docx' | 'pdf';
-      editableFormat: 'markdown';
+      sourceFormat: 'text' | 'markdown' | 'docx' | 'pdf' | 'pptx' | 'xlsx';
+      editableFormat?: 'markdown' | 'blocks';
       content: string;
       readonly: boolean;
       message: string;
+      blocks?: Array<{ id: string; location: string; text: string }>;
+      sourceDigest?: string | null;
+      canPreserveFormat?: boolean;
     }>;
   },
 
@@ -2465,22 +2477,28 @@ const bridge: ClawMasterBridge = {
     sourcePath: string,
     suggestedFileName: string,
     content: string,
+    office?: { sourceDigest: string; edits: Array<{ id: string; originalText: string; text: string }> },
   ): Promise<{
     ok: boolean;
     path: string;
-    format: 'text' | 'markdown' | 'docx' | 'pdf';
+    format: 'text' | 'markdown' | 'docx' | 'pptx' | 'pdf';
     message: string;
+    preservedSourceFormat?: boolean;
+    changedBlocks?: number;
   } | null> {
     return ipcRenderer.invoke(
       IPC.exportEditedDocument,
       sourcePath,
       suggestedFileName,
       content,
+      office,
     ) as Promise<{
       ok: boolean;
       path: string;
-      format: 'text' | 'markdown' | 'docx' | 'pdf';
+      format: 'text' | 'markdown' | 'docx' | 'pptx' | 'pdf';
       message: string;
+      preservedSourceFormat?: boolean;
+      changedBlocks?: number;
     } | null>;
   },
 

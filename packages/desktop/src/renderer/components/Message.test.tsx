@@ -55,17 +55,17 @@ function userMessageWithImage(): ClawMasterMessage {
 }
 
 describe('Message 动作行', () => {
-  it('bot 消息使用独立刺猬刺球标记，不再把完整吉祥物当作消息头像', () => {
+  it('bot 消息与侧栏共用无底色品牌轮廓', () => {
     const { container } = render(
       <Message message={botMessage()} onCopy={vi.fn()} onRegenerate={vi.fn()} />,
     );
     const mark = screen.getByLabelText('ClawMaster 回复');
-    expect(mark.querySelector('.claw-response-mark__ball')).toBeTruthy();
-    expect(mark.querySelector('.claw-response-mark__spines')).toBeTruthy();
+    expect(mark.querySelector('.clawmaster-brand-icon')).toBeTruthy();
+    expect(mark.querySelector('img')).toBeNull();
     expect(container.querySelector('img[alt="ClawMaster"]')).toBeNull();
   });
 
-  it('流式、推理或工具处理中，刺球进入弹性跳跃活动态', () => {
+  it('流式、推理或工具处理中，品牌轮廓进入克制的活动态', () => {
     const { rerender } = render(
       <Message
         message={botMessage({ isStreaming: true, content: [] })}
@@ -212,7 +212,7 @@ describe('Message 动作行', () => {
     expect(screen.queryByText(/查看相关资料（PDF：report.pdf）已完成。/)).toBeNull();
   });
 
-  it('保留失败警告但不凭失败次数判定整个任务未完成', () => {
+  it('把失败记录收进单一过程行且不污染最终回答', () => {
     render(
       <Message
         message={botMessage({
@@ -229,10 +229,8 @@ describe('Message 动作行', () => {
       />,
     );
 
-    expect(screen.getByRole('alert').textContent).toContain('执行过程有失败记录');
-    expect(screen.getByRole('alert').textContent).toContain('1 个步骤失败');
-    expect(screen.getByRole('button', { name: /1 个步骤失败/ })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /有 1 个步骤需要处理/ })).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('button', { name: /处理记录.*1 个步骤.*1 个失败/ })).toBeTruthy();
     expect(screen.getByText('验收完成。')).toBeTruthy();
   });
 

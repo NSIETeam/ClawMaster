@@ -23,7 +23,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ModelInfo } from 'clawmaster-server';
 import { VoiceSettings } from '../components/VoiceSettings.js';
 import {
-  ClawMasterCrown,
+  ClawMasterMark,
   IconCheck,
   IconClose,
   IconExternalLink,
@@ -230,7 +230,7 @@ export function SetupPanel({
       <div className="claw-setup">
         <header className="claw-setup__head">
           <div className="claw-setup__brand">
-            <ClawMasterCrown size={28} />
+            <ClawMasterMark size={28} />
           </div>
           <div className="claw-setup__titles">
             <h2 className="claw-setup__title">配置你的模型</h2>

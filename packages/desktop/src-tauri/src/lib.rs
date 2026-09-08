@@ -39,6 +39,7 @@ mod native_update;
 mod native_user_directory;
 mod native_workflows;
 mod native_worklog;
+mod office_document;
 mod platform_webview;
 mod runtime_contracts;
 mod system_commands;

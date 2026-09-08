@@ -28,12 +28,12 @@ describe('native-local release contract', () => {
     ]);
     expect(config).not.toMatch(/8\.14[01]\./u);
     expect(config).not.toMatch(/47\.116\./u);
-    expect(catalog.match(/https?:\/\/(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\//gu)?.sort())
+    expect(catalog.match(/https?:\/\/(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\/[A-Za-z0-9/_-]*/gu)?.sort())
       .toEqual([
         'http://47.116.30.60:18787/',
-        'http://47.116.30.60:18788/',
         'http://8.141.8.31/',
         'https://47.116.30.60/',
+        'https://47.116.30.60/pigeon/',
         'https://8.140.52.117/',
       ]);
     expect(policy).toContain("'native-local'");

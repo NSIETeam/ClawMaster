@@ -94,11 +94,10 @@ beforeEach(() => {
 });
 
 describe('Sidebar：布局（工具区已迁右侧面板）', () => {
-  it('左上角复用桌面应用图标但不重复显示产品名称', () => {
+  it('左上角使用无底色品牌轮廓且不重复显示产品名称', () => {
     renderSidebar();
-    const mark = screen.getByRole('img', { name: 'ClawMaster 皇冠标志' });
-    expect(mark.tagName.toLowerCase()).toBe('img');
-    expect(mark.getAttribute('src')).toContain('icon');
+    const mark = screen.getByRole('img', { name: 'ClawMaster 标志' });
+    expect(mark.tagName.toLowerCase()).toBe('svg');
     expect(mark.classList.contains('clawmaster-brand-icon')).toBe(true);
     expect(screen.queryByText('ClawMaster')).toBeNull();
     expect(screen.queryByText('otto')).toBeNull();

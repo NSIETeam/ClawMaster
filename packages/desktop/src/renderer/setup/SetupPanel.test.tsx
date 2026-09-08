@@ -17,9 +17,9 @@ function renderPanel(): ReturnType<typeof render> {
 }
 
 describe('SetupPanel credential storage', () => {
-  it('uses the compact ClawMaster crown without a legacy wordmark', () => {
+  it('uses the compact ClawMaster mark without a legacy wordmark', () => {
     renderPanel();
-    expect(screen.getByRole('img', { name: 'ClawMaster 皇冠标志' })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'ClawMaster 标志' })).toBeTruthy();
     expect(screen.queryByText(/^otto$/i)).toBeNull();
   });
 

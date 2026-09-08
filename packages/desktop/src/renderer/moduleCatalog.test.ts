@@ -58,10 +58,16 @@ describe('static module catalog', () => {
       'platform-zhifang': 'https://47.116.30.60/',
       'platform-trace-code': 'https://8.140.52.117/',
       'platform-zhiliaohou': 'http://47.116.30.60:18787/',
-      'platform-zhixin-pigeon': 'http://47.116.30.60:18788/',
+      'platform-zhixin-pigeon': 'https://47.116.30.60/pigeon/',
       'platform-maotouying': 'http://8.141.8.31/',
     });
     expect(configuredPlatformUrl('platform-zhifang')).toBe('https://47.116.30.60/');
+    expect(configuredPlatformUrl('platform-zhixin-pigeon')).toBe('https://47.116.30.60/pigeon/');
+    window.localStorage.setItem(
+      platformSettingKey('platform-zhixin-pigeon', 'url', 'tenant-a'),
+      'http://47.116.30.60:18788/',
+    );
+    expect(configuredPlatformUrl('platform-zhixin-pigeon', 'tenant-a')).toBe('https://47.116.30.60/pigeon/');
     window.localStorage.setItem(
       platformSettingKey('platform-zhifang', 'url', 'tenant-a'),
       'https://example.com/work/',

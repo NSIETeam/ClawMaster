@@ -22,7 +22,7 @@ import type { SessionSummary } from 'clawmaster-server';
 import { computeNavBadgeCounts } from '../attentionCenter.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import {
-  ClawMasterCrown,
+  ClawMasterMark,
   IconChevronDown,
   IconUserAvatar,
   IconSettings,
@@ -309,7 +309,7 @@ export function Sidebar({
     <aside className="claw-sidebar">
       <div className="claw-sidebar__traffic" />
       <div className="clawmaster-sidebar-mark" aria-label="ClawMaster">
-        <ClawMasterCrown size={30} />
+        <ClawMasterMark size={30} />
       </div>
 
       {/* 主导航：企业管理员额外显示企业管理；设置仍位于底部账户区。 */}

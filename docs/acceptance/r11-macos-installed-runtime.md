@@ -328,9 +328,9 @@ Verification for the source worktree:
   Dependencies and expectations were corrected, not skipped.
 - Protocol: 38 tests passed. Desktop renderer and server typechecks, repository
   lint, doctor, boundary checks, diff check, and code-map check passed.
-- The pre-existing Zhixin Pigeon catalog/test/smoke URL edits remain separate
-  from this implementation batch. Their aligned packaging endpoint assertion
-  remains with those pending edits; no endpoint was downgraded to pass a test.
+- The Zhixin Pigeon catalog, README, packaging contract, and UI smoke now use
+  the same HTTPS endpoint. A stale insecure local override is replaced with the
+  secure default; no endpoint was downgraded to pass a test.
 
 This is source-level implementation evidence, not installed-product acceptance.
 The following broader work remains unaccepted and must not be claimed complete:
@@ -338,8 +338,12 @@ The following broader work remains unaccepted and must not be claimed complete:
 - Generic missing-capability implementation, independent validation, activation,
   and rollback. This batch starts a reviewable task; it does not make arbitrary
   generated code safe or automatically usable.
-- Lossless editing of arbitrary Office/document formats. Current extracted-text
-  editing and safe Markdown copy export do not preserve all source formatting.
+- Arbitrary lossless Office editing remains out of scope. DOCX and PPTX now
+  support paragraph-level edits into a new same-format copy while retaining
+  unmodified package entries and surrounding OOXML structure. Signed packages,
+  stale sources, unknown blocks, unsafe XML, and overwrites fail closed. XLSX
+  and PDF remain read-only because equivalent safe structure-preserving editing
+  is not implemented.
 - Final Windows installation and final installed macOS/Windows native RPA
   checks against the same candidate, plus real tenant/channel authorization
   wherever production connectivity is claimed.
@@ -365,7 +369,42 @@ This is candidate evidence, not release acceptance:
   application entry point after macOS Accessibility authorization; Windows
   needs its corresponding installed run. The
   Playwright release preflight is not a substitute.
-- Final version bump, Pages links, downloaded-artifact hashes, and release notes
-  must all agree before the one consolidated push and beta tag.
+- Final Pages links, downloaded-artifact hashes, and GitHub release metadata
+  must all agree before the beta tag is announced.
 
 Keep #21 open until these gaps are closed.
+
+## Final local source review (2026-09-08)
+
+Before the single consolidated push, the desktop conversation was reduced to
+one compact expandable process record instead of repeating the same failed-step
+warning in the trace, a large alert, and the assistant reply. Stored tool
+outcomes remain available for audit and the model reply is no longer rewritten.
+The in-app brand mark now uses one transparent, theme-adaptive chef-hat SVG in
+the sidebar, empty state, setup, and assistant response; it no longer places an
+opaque app-icon background or an unrelated colored secondary mascot in chat.
+
+DOCX and PPTX extraction now exposes stable paragraph blocks and a source
+digest. Save writes a new same-format copy only, verifies that the source and
+original blocks are unchanged, preserves untouched ZIP entries, rejects signed
+packages, and never overwrites an existing path. Unchanged source paragraphs
+with preserved boundary whitespace are accepted. Publication also has a safe
+create-new copy fallback for filesystems that do not support hard links.
+
+The final local verification set completed with no failures:
+
+- Desktop renderer suite: 175 files and 1,291 tests passed.
+- Rust desktop suite: 243 tests passed; 6 explicit external, performance, or
+  real-machine tests remained ignored by design.
+- Core suite: 204 files and 2,756 tests passed; 5 tests were skipped by design.
+- Server Rust runtime-kernel adapter, runtime protocol tests, full repository
+  typecheck, lint, doctor, integration-baseline validation, boundary validation,
+  code-map check, diff check, and wide/light plus short/dark UI smoke passed.
+- The integration baseline ledger now matches enterprise database schema 29 and
+  its declared 2-through-29 migration range; its eight contract tests passed.
+- The RPA and workflow package builds now force output regeneration so a stale
+  TypeScript incremental cache cannot report success while `dist/index.js` is
+  absent.
+
+This remains source evidence. No push, CI build, tag, release, final installer
+hash, or final installed-app acceptance is claimed by this section.

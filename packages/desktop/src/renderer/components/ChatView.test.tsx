@@ -93,7 +93,7 @@ describe('ChatView 重新生成携带消息 id', () => {
     expect(screen.queryByRole('button', { name: '专家面板' })).toBeNull();
   });
 
-  it('空会话与未选择会话时显示尺寸受控的 ClawMaster 皇冠标志', () => {
+  it('空会话与未选择会话时显示尺寸受控的 ClawMaster 标志', () => {
     const props = {
       models: MODELS,
       currentModel: 'm1',
@@ -109,13 +109,13 @@ describe('ChatView 重新生成携带消息 id', () => {
     const { rerender } = render(
       <ChatView session={null} messages={[]} {...props} />,
     );
-    const emptyMark = screen.getByRole('img', { name: 'ClawMaster 皇冠标志' });
+    const emptyMark = screen.getByRole('img', { name: 'ClawMaster 标志' });
     expect(emptyMark.getAttribute('width')).toBe('56');
     expect(emptyMark.getAttribute('height')).toBe('56');
     expect(emptyMark.classList.contains('claw-empty__brand-mark')).toBe(true);
 
     rerender(<ChatView session={SESSION} messages={[]} {...props} />);
-    const conversationMark = screen.getByRole('img', { name: 'ClawMaster 皇冠标志' });
+    const conversationMark = screen.getByRole('img', { name: 'ClawMaster 标志' });
     expect(conversationMark.getAttribute('width')).toBe('48');
     expect(conversationMark.getAttribute('height')).toBe('48');
   });

@@ -537,23 +537,6 @@ fn persisted_tool_calls(turn: &TurnRecord) -> Vec<Value> {
         .collect()
 }
 
-fn guarded_assistant_reply(text: &str, turn: &TurnRecord) -> String {
-    let failed = turn
-        .tools
-        .values()
-        .filter(|tool| {
-            matches!(
-                tool.state,
-                ToolState::Error | ToolState::Cancelled | ToolState::UnknownOutcome
-            )
-        })
-        .count();
-    if failed == 0 {
-        return text.to_string();
-    }
-    format!("执行过程有 {failed} 个失败或取消记录；是否完成请核对最终产物，不能仅凭模型回复确认。\n\n{text}")
-}
-
 fn tool_result_terminal_state(external_side_effect: bool, result_ok: bool) -> ToolState {
     if result_ok {
         ToolState::Success
@@ -4365,7 +4348,7 @@ impl NativeRuntime {
             .await;
         match streamed {
             Ok(StreamCompletion::Completed(completion)) => {
-                let reply = guarded_assistant_reply(&completion.text, &kernel_turn);
+                let reply = completion.text.clone();
                 let message = StoredMessage {
                     id: assistant_message_id.clone(),
                     session_id: session_id.clone(),
@@ -4465,7 +4448,7 @@ impl NativeRuntime {
                                 id: assistant_message_id.clone(),
                                 session_id: session_id.clone(),
                                 role: "assistant".into(),
-                                content: json!([{"type":"text","value":guarded_assistant_reply(&completion.text, &kernel_turn)}]),
+                                content: json!([{"type":"text","value":completion.text}]),
                                 timestamp: now_ms(),
                                 source: "local".into(),
                                 associated_tool_calls: persisted_tool_calls(&kernel_turn),
@@ -4643,7 +4626,7 @@ mod tests {
     }
 
     #[test]
-    fn failed_tool_outcomes_are_persisted_and_guard_the_model_reply() {
+    fn failed_tool_outcomes_are_persisted_without_rewriting_the_model_reply() {
         let mut tools = BTreeMap::new();
         tools.insert(
             "call-failed".into(),
@@ -4671,11 +4654,6 @@ mod tests {
         assert_eq!(calls[0]["status"], "error");
         assert_eq!(calls[0]["toolName"], "rpa_fill");
         assert_eq!(calls[0]["parameters"], json!({}));
-
-        let guarded = guarded_assistant_reply("验收完成。", &turn);
-        assert!(guarded.starts_with("执行过程有 1 个失败或取消记录"));
-        assert!(!guarded.contains("本轮未完成"));
-        assert!(guarded.ends_with("验收完成。"));
     }
 
     #[test]
