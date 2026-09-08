@@ -33,7 +33,7 @@ if (legacy.length) {
 }
 
 const executable = process.platform === 'win32'
-  ? path.join(bundle, 'ClawMaster.exe')
+  ? path.join(bundle, 'clawmaster-desktop.exe')
   : path.join(bundle, 'Contents', 'MacOS', 'clawmaster-desktop');
 if (!existsSync(executable)) throw new Error(`native executable is missing: ${executable}`);
 if (statSync(executable).size < 1_000_000) throw new Error('native executable is unexpectedly small');

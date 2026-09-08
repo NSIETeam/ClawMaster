@@ -33,6 +33,10 @@ describe('Tauri Windows installer verification', () => {
       path.join(import.meta.dirname, 'smoke-tauri-windows-install.ps1'),
       'utf8',
     );
+    const bundleVerifier = readFileSync(
+      path.join(import.meta.dirname, 'verify-tauri-bundle.mjs'),
+      'utf8',
+    );
     const workflow = readFileSync(
       path.resolve(import.meta.dirname, '../../../.github/workflows/tauri-preview.yml'),
       'utf8',
@@ -42,6 +46,9 @@ describe('Tauri Windows installer verification', () => {
     expect(smoke).toContain('$appProcess.CloseMainWindow()');
     expect(smoke).toContain('orphanProcessCount');
     expect(smoke).not.toContain('$env:OTTO_USER_DIR');
+    expect(smoke).toContain("-Filter 'clawmaster-desktop.exe'");
+    expect(bundleVerifier).toContain("path.join(bundle, 'clawmaster-desktop.exe')");
+    expect(bundleVerifier).not.toContain("path.join(bundle, 'ClawMaster.exe')");
     expect(workflow).toContain('smoke-tauri-windows-install.ps1');
     expect(workflow).toContain('windows-installed-smoke.json');
     expect(workflow).toContain('CLAWMASTER_REAL_RPA_BROWSER: edge');
