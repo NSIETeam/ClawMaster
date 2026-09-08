@@ -4,8 +4,8 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io::{Read, Seek, SeekFrom};
-use std::path::{Path, PathBuf};
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::path::{Component, Path, PathBuf};
 
 const MIN_OCCURRENCES: usize = 3;
 const MAX_AUDIT_BYTES: u64 = 4 * 1024 * 1024;
@@ -275,14 +275,61 @@ fn is_capability_gap(detail: &str) -> bool {
     .any(|marker| detail.contains(marker))
 }
 
-fn atomic_write(path: &Path, content: &str) -> Result<(), String> {
+fn atomic_write(workspace: &Path, path: &Path, content: &str) -> Result<(), String> {
     let parent = path
         .parent()
         .ok_or_else(|| "自动 Skill 路径缺少父目录".to_string())?;
-    fs::create_dir_all(parent).map_err(|error| format!("无法创建自动 Skill 目录: {error}"))?;
-    let temporary = path.with_extension("md.tmp");
-    fs::write(&temporary, content).map_err(|error| format!("无法写入自动 Skill: {error}"))?;
-    fs::rename(&temporary, path).map_err(|error| format!("无法提交自动 Skill: {error}"))
+    let relative = parent
+        .strip_prefix(workspace)
+        .map_err(|_| "自动 Skill 路径不在当前项目内".to_string())?;
+    let mut checked = workspace.to_path_buf();
+    for component in relative.components() {
+        let Component::Normal(name) = component else {
+            return Err("自动 Skill 路径不得包含目录跳转".into());
+        };
+        checked.push(name);
+        match fs::symlink_metadata(&checked) {
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                if let Err(error) = fs::create_dir(&checked) {
+                    if error.kind() != std::io::ErrorKind::AlreadyExists {
+                        return Err(format!("无法创建自动 Skill 目录: {error}"));
+                    }
+                }
+            }
+            Err(error) => return Err(format!("无法检查自动 Skill 目录: {error}")),
+        }
+        let metadata = fs::symlink_metadata(&checked).map_err(|error| error.to_string())?;
+        let canonical = checked.canonicalize().map_err(|error| error.to_string())?;
+        if metadata.file_type().is_symlink()
+            || !metadata.is_dir()
+            || !canonical.starts_with(workspace)
+        {
+            return Err("自动 Skill 目录不得包含符号链接或越界路径".into());
+        }
+        checked = canonical;
+    }
+    let mut random = [0_u8; 16];
+    getrandom::getrandom(&mut random).map_err(|error| error.to_string())?;
+    let temporary = checked.join(format!(".install-{:x}.tmp", Sha256::digest(random)));
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|error| format!("无法创建自动 Skill 临时文件: {error}"))?;
+    let destination = checked.join(
+        path.file_name()
+            .ok_or_else(|| "自动 Skill 缺少文件名".to_string())?,
+    );
+    let result = (|| {
+        file.write_all(content.as_bytes())?;
+        file.sync_all()?;
+        // A hard link publishes a complete file and fails if any destination already exists.
+        fs::hard_link(&temporary, &destination)
+    })();
+    drop(file);
+    let _ = fs::remove_file(&temporary);
+    result.map_err(|error| format!("无法提交自动 Skill，未覆盖已有文件: {error}"))
 }
 
 pub fn install(candidate: &AutoSkillCandidate) -> Result<PathBuf, String> {
@@ -312,7 +359,7 @@ pub fn install(candidate: &AutoSkillCandidate) -> Result<PathBuf, String> {
         "---\nname: {}\ndescription: {}\n---\n\n# {}\n\n当任务符合 `{}` 时使用。\n\n## 执行步骤\n\n{}\n\n## 安全要求\n\n- 写操作继续经过 ClawMaster 确认与审计门禁。\n- 不复用历史参数、文件内容或密钥；每次从当前任务重新取得输入。\n- 任一步失败时停止并向用户说明，不隐藏失败。\n",
         candidate.name, candidate.description, candidate.name, candidate.pattern, steps
     );
-    atomic_write(&path, &content)?;
+    atomic_write(&workspace, &path, &content)?;
     Ok(path)
 }
 
@@ -339,7 +386,7 @@ fn install_module(candidate: &AutoSkillCandidate, workspace: &Path) -> Result<Pa
     });
     let content = serde_json::to_string_pretty(&manifest)
         .map_err(|error| format!("无法编码自动模块: {error}"))?;
-    atomic_write(&path, &format!("{content}\n"))?;
+    atomic_write(workspace, &path, &format!("{content}\n"))?;
     Ok(path)
 }
 
@@ -601,6 +648,96 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         fs::write(path, format!("{content}\n")).unwrap();
+    }
+
+    fn install_candidate(workspace: &Path, kind: AutoCandidateKind) -> AutoSkillCandidate {
+        AutoSkillCandidate {
+            id: "fixture-candidate".into(),
+            name: "auto-report".into(),
+            description: "Report fixture".into(),
+            pattern: "search_text".into(),
+            occurrence_count: 3,
+            workspace: workspace.to_path_buf(),
+            kind,
+            tools: vec!["search_text".into()],
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installation_rejects_symlinked_project_directories_without_outside_writes() {
+        use std::os::unix::fs::symlink;
+        for (kind, linked) in [
+            (AutoCandidateKind::Skill, ".clawmaster"),
+            (AutoCandidateKind::Skill, ".clawmaster/skills"),
+            (AutoCandidateKind::Module, ".clawmaster/modules/auto-report"),
+        ] {
+            let root = tempfile::tempdir().unwrap();
+            let outside = tempfile::tempdir().unwrap();
+            let link = root.path().join(linked);
+            fs::create_dir_all(link.parent().unwrap()).unwrap();
+            symlink(outside.path(), &link).unwrap();
+            assert!(install(&install_candidate(root.path(), kind)).is_err());
+            assert_eq!(fs::read_dir(outside.path()).unwrap().count(), 0);
+        }
+    }
+
+    #[test]
+    fn installation_does_not_reuse_or_clobber_predictable_temporary_files() {
+        let root = tempfile::tempdir().unwrap();
+        let candidate = install_candidate(root.path(), AutoCandidateKind::Skill);
+        let directory = root.path().join(".clawmaster/skills/auto-report");
+        fs::create_dir_all(&directory).unwrap();
+        let prior = directory.join("SKILL.md.tmp");
+        fs::write(&prior, "unrelated content").unwrap();
+        let output = install(&candidate).unwrap();
+        assert_eq!(fs::read_to_string(&prior).unwrap(), "unrelated content");
+        assert!(output.is_file());
+        assert!(install(&candidate).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installation_does_not_replace_a_dangling_destination_link() {
+        use std::os::unix::fs::symlink;
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let path = root.path().join(".clawmaster/skills/auto-report/SKILL.md");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        symlink(outside.path().join("missing.md"), &path).unwrap();
+        assert!(install(&install_candidate(root.path(), AutoCandidateKind::Skill)).is_err());
+        assert!(fs::symlink_metadata(&path)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(fs::read_dir(outside.path()).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn concurrent_installation_has_one_winner_and_leaves_no_temporary_files() {
+        let root = tempfile::tempdir().unwrap();
+        let candidate = install_candidate(root.path(), AutoCandidateKind::Skill);
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(4));
+        let handles = (0..4)
+            .map(|_| {
+                let candidate = candidate.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    install(&candidate)
+                })
+            })
+            .collect::<Vec<_>>();
+        let results = handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+        let directory = root.path().join(".clawmaster/skills/auto-report");
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 1);
+        assert!(fs::read_to_string(directory.join("SKILL.md"))
+            .unwrap()
+            .contains("search_text"));
     }
 
     #[test]
