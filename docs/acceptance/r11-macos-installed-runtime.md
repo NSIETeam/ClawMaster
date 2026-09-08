@@ -269,6 +269,23 @@ candidate, executable SHA256
 The new bundle is ad-hoc signed, not notarized. This build was not pushed or
 published, and its existence does not close installed RPA or Windows acceptance.
 
+## Project inference follow-up (source only, 2026-09-08)
+
+The default unassigned-session inference now accepts uniquely named, previously
+used office directories without requiring `.git`, `Cargo.toml`, or other code
+markers. Unknown directories still need a real project marker for path-based
+inference. Multiple referenced project roots remain unassigned instead of
+silently choosing the first; a name match cannot override that ambiguity.
+ASCII names match whole tokens so `presales` and `salesforce` do not select a
+known `sales` project. Missing directories and regular files are rejected.
+
+Regression tests reproduced the original failures before implementation.
+Six focused project tests and the full native library suite pass (224 passed,
+0 failed, 6 external tests ignored). Doctor, diff check and code-map check pass.
+This is deterministic evidence-based inference, not semantic classification of
+arbitrary business conversations. The change is not in the DMG above and has
+not been installed or published.
+
 ## Remaining release blockers
 
 This is candidate evidence, not release acceptance:
