@@ -1550,6 +1550,7 @@ export type RealtimePatternMsg = Envelope<
 export type PendingAutoSkillsMsg = Envelope<
   'pending_auto_skills',
   {
+    sessionId?: string | null;
     candidates: AutoSkillCandidateInfo[];
     projectModules?: ProjectModuleInfo[];
     lastAction?: {

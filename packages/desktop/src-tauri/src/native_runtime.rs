@@ -799,15 +799,29 @@ impl NativeRuntime {
     fn auto_skill_candidates(
         &self,
         state: &PersistedState,
+        session_id: Option<&str>,
     ) -> Result<Vec<native_skills::AutoSkillCandidate>, String> {
+        let Some(selected_workspace) = session_id
+            .and_then(|id| {
+                state
+                    .sessions
+                    .iter()
+                    .find(|session| session.session_id == id)
+            })
+            .and_then(|session| session.workspace_path.as_deref())
+            .and_then(|path| Path::new(path).canonicalize().ok())
+            .filter(|path| path.is_dir())
+        else {
+            return Ok(Vec::new());
+        };
         let workspaces = state
             .sessions
             .iter()
             .filter_map(|session| {
-                session
-                    .workspace_path
-                    .as_ref()
-                    .map(|workspace| (session.session_id.clone(), PathBuf::from(workspace)))
+                let workspace = Path::new(session.workspace_path.as_deref()?)
+                    .canonicalize()
+                    .ok()?;
+                (workspace == selected_workspace).then(|| (session.session_id.clone(), workspace))
             })
             .collect::<HashMap<_, _>>();
         let handled = state
@@ -2235,10 +2249,11 @@ impl NativeRuntime {
             }
             "get_pending_auto_skills" | "scan_pending_auto_skills" => {
                 let session_id = payload.get("sessionId").and_then(Value::as_str);
-                match self.auto_skill_candidates(&state) {
+                match self.auto_skill_candidates(&state, session_id) {
                     Ok(candidates) => vec![frame(
                         "pending_auto_skills",
                         json!({
+                            "sessionId": session_id,
                             "candidates": candidates.iter().map(native_skills::AutoSkillCandidate::public_value).collect::<Vec<_>>(),
                             "projectModules": self.project_modules(&state, session_id)
                         }),
@@ -2247,12 +2262,13 @@ impl NativeRuntime {
                 }
             }
             "confirm_pending_auto_skill" => {
+                let session_id = payload.get("sessionId").and_then(Value::as_str);
                 let candidate_id = payload
                     .get("candidateId")
                     .and_then(Value::as_str)
                     .unwrap_or("");
                 match self
-                    .auto_skill_candidates(&state)
+                    .auto_skill_candidates(&state, session_id)
                     .and_then(|candidates| {
                         candidates
                             .into_iter()
@@ -2267,7 +2283,7 @@ impl NativeRuntime {
                         };
                         state.handled_auto_skills.push(candidate.id.clone());
                         dirty = true;
-                        let remaining = self.auto_skill_candidates(&state)?;
+                        let remaining = self.auto_skill_candidates(&state, session_id)?;
                         let skills = native_skills::list(&candidate.workspace)?;
                         let modules = native_skills::list_project_modules(&candidate.workspace)?;
                         Ok((saved_path, proposal_kind, remaining, skills, modules))
@@ -2276,6 +2292,7 @@ impl NativeRuntime {
                         frame(
                             "pending_auto_skills",
                             json!({
+                                "sessionId": session_id,
                                 "candidates": candidates.iter().map(native_skills::AutoSkillCandidate::public_value).collect::<Vec<_>>(),
                                 "projectModules": modules,
                                 "lastAction": { "kind": "confirmed", "candidateId": candidate_id, "savedPath": saved_path, "proposalKind": proposal_kind }
@@ -2287,24 +2304,28 @@ impl NativeRuntime {
                 }
             }
             "reject_pending_auto_skill" => {
+                let session_id = payload.get("sessionId").and_then(Value::as_str);
                 let candidate_id = payload
                     .get("candidateId")
                     .and_then(Value::as_str)
                     .unwrap_or("");
-                match self.auto_skill_candidates(&state).and_then(|candidates| {
-                    if !candidates
-                        .iter()
-                        .any(|candidate| candidate.id == candidate_id)
-                    {
-                        return Err("自动 Skill 候选不存在或已处理".to_string());
-                    }
-                    state.handled_auto_skills.push(candidate_id.to_string());
-                    dirty = true;
-                    self.auto_skill_candidates(&state)
-                }) {
+                match self
+                    .auto_skill_candidates(&state, session_id)
+                    .and_then(|candidates| {
+                        if !candidates
+                            .iter()
+                            .any(|candidate| candidate.id == candidate_id)
+                        {
+                            return Err("自动 Skill 候选不存在或已处理".to_string());
+                        }
+                        state.handled_auto_skills.push(candidate_id.to_string());
+                        dirty = true;
+                        self.auto_skill_candidates(&state, session_id)
+                    }) {
                     Ok(candidates) => vec![frame(
                         "pending_auto_skills",
                         json!({
+                            "sessionId": session_id,
                             "candidates": candidates.iter().map(native_skills::AutoSkillCandidate::public_value).collect::<Vec<_>>(),
                             "projectModules": self.project_modules(&state, payload.get("sessionId").and_then(Value::as_str)),
                             "lastAction": { "kind": "rejected", "candidateId": candidate_id }
@@ -5528,6 +5549,94 @@ mod tests {
     }
 
     #[test]
+    fn auto_skill_actions_are_scoped_to_the_selected_project() {
+        let (root, runtime) = runtime();
+        let mut sessions = Vec::new();
+        for name in ["sales", "support", "sales"] {
+            let workspace = root.path().join(name);
+            fs::create_dir_all(&workspace).unwrap();
+            let created = runtime
+                .handle(&json!({"type":"create_session","payload":{}}))
+                .unwrap();
+            let id = created[0]["payload"]["session"]["sessionId"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            runtime
+                .handle(&json!({"type":"set_session_workspace","payload":{
+                    "sessionId":id,"workspacePath":workspace
+                }}))
+                .unwrap();
+            sessions.push(id);
+        }
+        for session in &sessions[..2] {
+            for index in 0..3 {
+                runtime
+                    .audit_tool(
+                        session,
+                        &ModelToolCall {
+                            id: format!("{session}-{index}"),
+                            name: "search_text".into(),
+                            arguments: json!({"query":"report"}),
+                        },
+                        "completed",
+                        None,
+                    )
+                    .unwrap();
+            }
+        }
+        let get = |session: Option<&str>| {
+            runtime
+                .handle(&json!({"type":"get_pending_auto_skills","payload":{"sessionId":session}}))
+                .unwrap()
+        };
+        let sales = get(Some(&sessions[0]));
+        let other_sales_session = get(Some(&sessions[2]));
+        let support = get(Some(&sessions[1]));
+        assert_eq!(
+            sales[0]["payload"]["candidates"],
+            other_sales_session[0]["payload"]["candidates"]
+        );
+        let candidates = sales[0]["payload"]["candidates"].as_array().unwrap();
+        assert!(candidates
+            .iter()
+            .all(|candidate| !support[0]["payload"]["candidates"]
+                .as_array()
+                .unwrap()
+                .contains(candidate)));
+        assert!(!candidates.is_empty());
+        let candidate_id = candidates[0]["id"].as_str().unwrap();
+        for action in ["confirm_pending_auto_skill", "reject_pending_auto_skill"] {
+            for session in [None, Some(sessions[1].as_str()), Some("missing")] {
+                let result = runtime
+                    .handle(&json!({"type":action,"payload":{
+                        "sessionId":session,"candidateId":candidate_id
+                    }}))
+                    .unwrap();
+                assert_eq!(result[0]["type"], "error");
+            }
+        }
+        assert!(!root.path().join("sales/.clawmaster").exists());
+        assert!(get(None)[0]["payload"]["candidates"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+        assert!(get(Some("missing"))[0]["payload"]["candidates"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+        let confirmed = runtime
+            .handle(&json!({"type":"confirm_pending_auto_skill","payload":{
+                "sessionId":sessions[2],"candidateId":candidate_id
+            }}))
+            .unwrap();
+        assert_eq!(confirmed[0]["payload"]["sessionId"], sessions[2]);
+        assert_eq!(confirmed[0]["payload"]["lastAction"]["kind"], "confirmed");
+        assert!(root.path().join("sales/.clawmaster/skills").is_dir());
+        assert!(!root.path().join("support/.clawmaster").exists());
+    }
+
+    #[test]
     fn confirms_and_persists_a_native_auto_skill() {
         let (root, runtime) = runtime();
         let created = runtime
@@ -5556,7 +5665,7 @@ mod tests {
                 .unwrap();
         }
         let pending = runtime
-            .handle(&json!({"type":"scan_pending_auto_skills","payload":{}}))
+            .handle(&json!({"type":"scan_pending_auto_skills","payload":{"sessionId":session_id}}))
             .unwrap();
         let candidate_id = pending[0]["payload"]["candidates"][0]["id"]
             .as_str()
@@ -5677,7 +5786,7 @@ mod tests {
                 .unwrap();
         }
         let pending = runtime
-            .handle(&json!({"type":"get_pending_auto_skills","payload":{}}))
+            .handle(&json!({"type":"get_pending_auto_skills","payload":{"sessionId":session_id}}))
             .unwrap();
         let candidate_id = pending[0]["payload"]["candidates"][0]["id"]
             .as_str()
@@ -5685,7 +5794,7 @@ mod tests {
             .to_string();
         runtime
             .handle(&json!({"type":"reject_pending_auto_skill","payload":{
-                "candidateId":candidate_id
+                "candidateId":candidate_id,"sessionId":session_id
             }}))
             .unwrap();
         drop(runtime);
@@ -5696,7 +5805,7 @@ mod tests {
         )
         .unwrap();
         let pending = restored
-            .handle(&json!({"type":"get_pending_auto_skills","payload":{}}))
+            .handle(&json!({"type":"get_pending_auto_skills","payload":{"sessionId":session_id}}))
             .unwrap();
         assert!(pending[0]["payload"]["candidates"]
             .as_array()

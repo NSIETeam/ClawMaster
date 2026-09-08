@@ -18,6 +18,7 @@ import * as transport from '../transport.js';
 
 export function createProductWorkspaceConnectionHandler(
   send: (frame: ClientToServer) => void = transport.send,
+  getSessionId: () => string | null | undefined = () => undefined,
 ): (connected: boolean) => void {
   let loadedForCurrentConnection = false;
   return (connected) => {
@@ -29,7 +30,8 @@ export function createProductWorkspaceConnectionHandler(
     loadedForCurrentConnection = true;
     send({ type: 'get_product_workspace', payload: {} });
     send({ type: 'get_schedules', payload: {} });
-    send({ type: 'get_pending_auto_skills', payload: {} });
+    const sessionId = getSessionId();
+    send({ type: 'get_pending_auto_skills', payload: sessionId ? { sessionId } : {} });
   };
 }
 
@@ -71,6 +73,7 @@ export const initialProductWorkspaceState: ProductWorkspaceState = {
 export type ProductWorkspaceAction =
   | { kind: 'frame'; frame: ServerToClient }
   | { kind: 'select_date'; date: string }
+  | { kind: 'reset_project' }
   | { kind: 'clear_invite' }
   | { kind: 'clear_error' };
 
@@ -78,6 +81,9 @@ export function productWorkspaceReducer(
   state: ProductWorkspaceState,
   action: ProductWorkspaceAction,
 ): ProductWorkspaceState {
+  if (action.kind === 'reset_project') {
+    return { ...state, pendingAutoSkills: [], projectModules: [], lastAutoSkillAction: null, realtimePatterns: [] };
+  }
   if (action.kind === 'select_date') {
     return { ...state, selectedDate: action.date };
   }
@@ -182,12 +188,20 @@ export interface UseProductWorkspace {
 
 export function useProductWorkspace(activeSessionId?: string | null): UseProductWorkspace {
   const refreshedTurns = useRef(new Set<string>());
+  const selectedSession = useRef(activeSessionId);
   const [state, dispatch] = useReducer(
     productWorkspaceReducer,
     initialProductWorkspaceState,
   );
 
+  useEffect(() => {
+    selectedSession.current = activeSessionId;
+  }, [activeSessionId]);
+
   useEffect(() => transport.onFrame((frame) => {
+    if (frame.type === 'pending_auto_skills'
+      && frame.payload.sessionId !== undefined
+      && frame.payload.sessionId !== (activeSessionId ?? null)) return;
     dispatch({ kind: 'frame', frame });
     if (frame.type !== 'runtime_event') return;
     const event = frame.payload.event;
@@ -205,7 +219,7 @@ export function useProductWorkspace(activeSessionId?: string | null): UseProduct
 
   useEffect(() => {
     const offConnection = transport.onConnectionChange(
-      createProductWorkspaceConnectionHandler(),
+      createProductWorkspaceConnectionHandler(transport.send, () => selectedSession.current),
     );
     return () => {
       offConnection();
@@ -213,6 +227,7 @@ export function useProductWorkspace(activeSessionId?: string | null): UseProduct
   }, []);
 
   useEffect(() => {
+    dispatch({ kind: 'reset_project' });
     if (activeSessionId) {
       transport.send({
         type: 'get_pending_auto_skills',

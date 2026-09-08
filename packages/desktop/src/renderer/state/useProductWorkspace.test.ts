@@ -79,9 +79,46 @@ describe('automatic skill refresh after native turns', () => {
     });
     view.unmount();
   });
+
+  it('clears old proposals on selection and ignores late results from another session', () => {
+    const view = renderHook(({ sessionId }) => useProductWorkspace(sessionId), {
+      initialProps: { sessionId: 's1' },
+    });
+    const candidate = {
+      id: 'sales-report', name: 'Report', description: 'Sales report',
+      detectedPattern: 'search_text', occurrenceCount: 3, reason: 'Repeated success',
+    };
+    const deliver = (sessionId: string | null) => act(() => {
+      for (const handler of transportMock.handlers) handler({
+        type: 'pending_auto_skills', payload: { sessionId, candidates: [candidate] },
+      });
+    });
+    deliver('s1');
+    expect(view.result.current.state.pendingAutoSkills).toHaveLength(1);
+    view.rerender({ sessionId: 's2' });
+    expect(view.result.current.state.pendingAutoSkills).toEqual([]);
+    deliver('s1');
+    deliver(null);
+    expect(view.result.current.state.pendingAutoSkills).toEqual([]);
+    deliver('s2');
+    expect(view.result.current.state.pendingAutoSkills).toHaveLength(1);
+    view.unmount();
+  });
 });
 
 describe('product workspace connection lifecycle', () => {
+  it('reloads proposals for the latest active session on reconnect', () => {
+    const send = vi.fn<(frame: ClientToServer) => void>();
+    let selected: string | undefined = 's1';
+    const reconnect = createProductWorkspaceConnectionHandler(send, () => selected);
+    reconnect(true);
+    expect(send).toHaveBeenLastCalledWith({ type: 'get_pending_auto_skills', payload: { sessionId: 's1' } });
+    reconnect(false);
+    selected = 's2';
+    reconnect(true);
+    expect(send).toHaveBeenLastCalledWith({ type: 'get_pending_auto_skills', payload: { sessionId: 's2' } });
+  });
+
   it('waits for the local runtime and reloads once after each reconnect', () => {
     const send = vi.fn<(frame: ClientToServer) => void>();
     const onConnectionChange = createProductWorkspaceConnectionHandler(send);
