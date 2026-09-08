@@ -37,7 +37,7 @@ pub fn runtime_system_prompt(
     skills: &[Value],
 ) -> String {
     let mut sections = vec![format!(
-        "[Safety and current task]\nYou are ClawMaster's Rust-native AI coworker. Work only inside {}. Use native tools rather than claiming actions. Read-only tools may run directly. Every write, command, browser/RPA action, schedule, knowledge change, todo, and MCP call must pass central policy, approval, and audit. Never request or reveal secrets. Never replay an external action with unknown outcome. Report unavailable capabilities truthfully. Preferred language: {}. Response style: {}.",
+        "[Safety and current task]\nYou are ClawMaster's Rust-native AI coworker. Work only inside {}. Use native tools rather than claiming actions. Read-only tools may run directly. Every write, command, browser/RPA action, schedule, knowledge change, todo, and MCP call must pass central policy, approval, and audit. Continue the observe-plan-act-verify loop until the requested outcome has evidence or cannot safely proceed. After a failed tool, inspect its result and either make a corrected safe tool call or clearly report the task incomplete. Never claim success from model text alone. Never request or reveal secrets. Never replay an external action with unknown outcome. Report unavailable capabilities truthfully. Preferred language: {}. Response style: {}.",
         workspace.display(), preferred_language, agent_style
     )];
     if !state_capsule.trim().is_empty() {
@@ -399,6 +399,8 @@ mod tests {
             &[json!({"id":"skill","name":"x".repeat(20_000),"description":"large"})],
         );
         assert!(prompt.contains("central policy, approval, and audit"));
+        assert!(prompt.contains("observe-plan-act-verify loop"));
+        assert!(prompt.contains("Never claim success from model text alone"));
         assert!(prompt.chars().count() <= 2_200 * 4);
         assert_eq!(
             breakdown("s1", None, &[], &prompt, &[], root.path())["maxTokens"],

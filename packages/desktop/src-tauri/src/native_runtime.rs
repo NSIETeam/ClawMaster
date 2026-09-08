@@ -809,6 +809,32 @@ fn archive_tool_result(
     }))
 }
 
+fn guard_incomplete_completion(
+    mut completion: ModelCompletion,
+    kernel_turn: &TurnRecord,
+) -> ModelCompletion {
+    let failed_tools = kernel_turn
+        .tools
+        .values()
+        .filter(|tool| tool.state != ToolState::Success)
+        .map(|tool| tool.name.as_str())
+        .collect::<BTreeSet<_>>();
+    if failed_tools.is_empty() {
+        return completion;
+    }
+    let warning = format!(
+        "本轮未完全完成：以下步骤未成功或结果未确认：{}。模型说明不能替代工具执行证据。",
+        failed_tools.into_iter().collect::<Vec<_>>().join("、")
+    );
+    completion.text = if completion.text.trim().is_empty() {
+        warning
+    } else {
+        format!("{warning}\n\n{}", completion.text.trim())
+    };
+    completion.finish_reason = Some("incomplete_tool_results".into());
+    completion
+}
+
 fn error_frame(session_id: Option<&str>, code: &str, message: &str) -> Value {
     frame(
         "error",
@@ -3075,6 +3101,7 @@ impl NativeRuntime {
             total_input += completion.input_tokens;
             total_output += completion.output_tokens;
             if completion.tool_calls.is_empty() {
+                completion = guard_incomplete_completion(completion, kernel_turn);
                 completion.input_tokens = total_input;
                 completion.output_tokens = total_output;
                 return Ok(StreamCompletion::Completed(completion));
@@ -3725,7 +3752,10 @@ impl NativeRuntime {
             }
             messages.push(ModelMessage {
                 role: "user".into(),
-                text: format!("[Rust tool results]\n{}", Value::Array(results)),
+                text: format!(
+                    "[Harness observation: Rust tool results]\n{}\nContinue the observe-plan-act-verify loop. Retry only when safe; otherwise report the remaining work as incomplete.",
+                    Value::Array(results)
+                ),
             });
         }
         unreachable!()
@@ -4666,7 +4696,7 @@ mod tests {
     }
 
     #[test]
-    fn failed_tool_outcomes_are_persisted_without_rewriting_the_model_reply() {
+    fn failed_tool_outcomes_are_persisted_and_cannot_self_certify_success() {
         let mut tools = BTreeMap::new();
         tools.insert(
             "call-failed".into(),
@@ -4694,6 +4724,23 @@ mod tests {
         assert_eq!(calls[0]["status"], "error");
         assert_eq!(calls[0]["toolName"], "rpa_fill");
         assert_eq!(calls[0]["parameters"], json!({}));
+        let completion = guard_incomplete_completion(
+            ModelCompletion {
+                text: "操作已完成。".into(),
+                input_tokens: 1,
+                output_tokens: 1,
+                cache_tokens: 0,
+                finish_reason: Some("stop".into()),
+                tool_calls: Vec::new(),
+            },
+            &turn,
+        );
+        assert!(completion.text.starts_with("本轮未完全完成"));
+        assert!(completion.text.ends_with("操作已完成。"));
+        assert_eq!(
+            completion.finish_reason.as_deref(),
+            Some("incomplete_tool_results")
+        );
     }
 
     #[test]

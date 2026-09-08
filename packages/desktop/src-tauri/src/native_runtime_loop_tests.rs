@@ -178,10 +178,19 @@ async fn exercise_production_loop(outcome: &'static str) {
     let StreamCompletion::Completed(completion) = result else {
         panic!("unexpected cancellation")
     };
-    assert_eq!(
-        completion.text, final_text,
-        "intermediate prose leaked into final reply"
-    );
+    if outcome == "approved" {
+        assert_eq!(
+            completion.text, final_text,
+            "intermediate prose leaked into final reply"
+        );
+    } else {
+        assert!(completion.text.starts_with("本轮未完全完成"));
+        assert!(completion.text.ends_with(final_text));
+        assert_eq!(
+            completion.finish_reason.as_deref(),
+            Some("incomplete_tool_results")
+        );
+    }
     assert_eq!(requests.len(), 3);
     let capabilities = requests[1]["messages"].as_array().unwrap().last().unwrap()["content"]
         .as_str()
@@ -198,6 +207,12 @@ async fn exercise_production_loop(outcome: &'static str) {
         );
     }
     assert!(!capabilities.contains("generate_document"));
+    assert!(
+        requests[2]["messages"].as_array().unwrap().last().unwrap()["content"]
+            .as_str()
+            .unwrap()
+            .contains("[Harness observation: Rust tool results]")
+    );
     assert_eq!(turn.tools.len(), 2, "reused provider ID must not collide");
     let frames = host.frames.lock().unwrap();
     assert_eq!(
