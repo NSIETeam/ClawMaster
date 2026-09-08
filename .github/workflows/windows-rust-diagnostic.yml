@@ -15,11 +15,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { label: final-candidate-v4, source_ref: diag/windows-candidate }
+          - { label: release-hardening, source_ref: 06f45181 }
+          - { label: macos-computer-use, source_ref: e0898edc }
+          - { label: rpa-tool-summaries, source_ref: eb62f49c }
+          - { label: capability-index, source_ref: 61f04dac }
+          - { label: production-loop-tests, source_ref: a01e342c }
+          - { label: module-refinement, source_ref: 659b5914 }
+          - { label: document-workspace, source_ref: ab691cab }
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ matrix.source_ref }}
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.98.0
@@ -28,5 +35,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force packages/desktop/dist/renderer | Out-Null
           Set-Content packages/desktop/dist/renderer/index.html '<!doctype html><title>diagnostic</title>'
-      - name: Run complete Windows Rust suite
-        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml
+      - name: Remove first known channel-status linker regression
+        run: git checkout d45fab2947934ebfa6b3d26e505a53865b6690cf -- packages/desktop/src-tauri/src/native_channels.rs
+      - name: Build and launch Rust test harness
+        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml definitions_and_risks_keep_writes_confirmation_gated --exact
