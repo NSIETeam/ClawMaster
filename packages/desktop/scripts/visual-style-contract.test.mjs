@@ -34,13 +34,15 @@ describe('desktop visual style contract', () => {
     }
   });
 
-  it('keeps module groups on the shared appearance tokens', async () => {
+  it('keeps module groups borderless with shared appearance text tokens', async () => {
     const css = await readFile(
       path.join(packageRoot, 'src', 'renderer', 'styles', 'app.css'),
       'utf8',
     );
 
-    expect(css).toMatch(/\.claw-module-group\s*\{[^}]*background: var\(--claw-surface\);/su);
+    const group = css.match(/\.claw-module-group\s*\{([^}]*)\}/su)?.[1];
+    expect(group).toMatch(/border: 0;/u);
+    expect(group).toMatch(/background: transparent;/u);
     expect(css).toMatch(/\.claw-module-group__header h2\s*\{[^}]*color: var\(--claw-text\);/su);
     expect(css).toMatch(/\.claw-module-tile\s*\{[^}]*color: var\(--claw-text\);/su);
     expect(css).not.toContain('var(--surface, #fff)');

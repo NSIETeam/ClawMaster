@@ -37,23 +37,11 @@ describe('video editor packaged resource', () => {
     ));
   });
 
-  it('macOS 与 Windows 安装包默认不内置视频编辑器资源', () => {
-    const pkg = JSON.parse(
-      readFileSync(resolve(__dirname, '../../package.json'), 'utf8'),
-    ) as {
-      build: {
-        mac: { extraResources: Array<{ from: string; to: string }> };
-        win: { extraResources: Array<{ from: string; to: string }> };
-      };
-    };
-
-    for (const target of [pkg.build.mac, pkg.build.win]) {
-      expect(target.extraResources).not.toContainEqual(
-        expect.objectContaining({ from: '../../resources/video-editor' }),
-      );
-      expect(target.extraResources).not.toContainEqual(
-        expect.objectContaining({ to: 'video-editor' }),
-      );
-    }
+  it('macOS 与 Windows 使用同一 Tauri 配置且不捆绑视频编辑器', () => {
+    const config = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src-tauri/tauri.conf.json'), 'utf8'),
+    ) as { bundle: { resources: Record<string, string>; externalBin?: string[] } };
+    expect(config.bundle.resources).toEqual({});
+    expect(config.bundle.externalBin ?? []).toEqual([]);
   });
 });

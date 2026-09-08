@@ -46,6 +46,7 @@ export interface ProductWorkspaceState {
     candidateId: string;
     savedPath?: string;
     proposalKind?: 'skill' | 'module';
+    refinementSessionId?: string | null;
   } | null;
   selectedDate: string | null;
   lastInvite: {
@@ -109,7 +110,7 @@ export function productWorkspaceReducer(
       ...state,
       pendingAutoSkills: frame.payload.candidates,
       projectModules: frame.payload.projectModules ?? [],
-      lastAutoSkillAction: frame.payload.lastAction ?? null,
+      lastAutoSkillAction: frame.payload.lastAction ?? state.lastAutoSkillAction,
       error: null,
     };
   }
@@ -188,6 +189,7 @@ export interface UseProductWorkspace {
 
 export function useProductWorkspace(activeSessionId?: string | null): UseProductWorkspace {
   const refreshedTurns = useRef(new Set<string>());
+  const refinementSessions = useRef(new Set<string>());
   const selectedSession = useRef(activeSessionId);
   const [state, dispatch] = useReducer(
     productWorkspaceReducer,
@@ -202,7 +204,18 @@ export function useProductWorkspace(activeSessionId?: string | null): UseProduct
     if (frame.type === 'pending_auto_skills'
       && frame.payload.sessionId !== undefined
       && frame.payload.sessionId !== (activeSessionId ?? null)) return;
+    if (frame.type === 'pending_auto_skills') {
+      refinementSessions.current = new Set(
+        (frame.payload.projectModules ?? []).flatMap((module) =>
+          module.refinementSessionId ? [module.refinementSessionId] : []),
+      );
+    }
     dispatch({ kind: 'frame', frame });
+    if (frame.type === 'session_status' && activeSessionId
+      && refinementSessions.current.has(frame.payload.sessionId)
+      && frame.payload.status !== 'streaming') {
+      transport.send({ type: 'get_pending_auto_skills', payload: { sessionId: activeSessionId } });
+    }
     if (frame.type !== 'runtime_event') return;
     const event = frame.payload.event;
     if (!activeSessionId || event.sessionId !== activeSessionId || event.payload.type !== 'finished') return;
@@ -227,6 +240,7 @@ export function useProductWorkspace(activeSessionId?: string | null): UseProduct
   }, []);
 
   useEffect(() => {
+    refinementSessions.current.clear();
     dispatch({ kind: 'reset_project' });
     if (activeSessionId) {
       transport.send({

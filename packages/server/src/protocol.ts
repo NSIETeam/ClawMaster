@@ -236,7 +236,7 @@ export interface ClawMasterMessage {
 // ============================================================================
 
 /** 会话状态。 */
-export type SessionStatus = 'idle' | 'thinking' | 'streaming' | 'error';
+export type SessionStatus = 'idle' | 'queued' | 'thinking' | 'streaming' | 'error';
 
 /**
  * 会话摘要（列表项）。一个会话 = 一个 core Config 实例。
@@ -246,6 +246,8 @@ export interface SessionSummary {
   sessionId: string;
   /** 会话主来源（飞书会话 / 本地会话）。 */
   source: MessageSource;
+  /** Native project-module refinement binding; not a message source or an execution grant. */
+  moduleRefinementCandidateId?: string;
   title: string;
   /** 飞书会话携带 chatId，便于回推。 */
   feishuChatId?: string;
@@ -699,7 +701,8 @@ export interface ProjectModuleInfo {
   id: string;
   name: string;
   description: string;
-  status: 'ready';
+  status: 'draft' | 'refining' | 'needs_review' | 'blocked' | 'ready';
+  refinementSessionId?: string | null;
   sourcePattern: string;
   instructions: string;
 }
@@ -1558,6 +1561,7 @@ export type PendingAutoSkillsMsg = Envelope<
       candidateId: string;
       savedPath?: string;
       proposalKind?: 'skill' | 'module';
+      refinementSessionId?: string | null;
     };
   }
 >;

@@ -286,6 +286,67 @@ This is deterministic evidence-based inference, not semantic classification of
 arbitrary business conversations. The change is not in the DMG above and has
 not been installed or published.
 
+## Consolidated source batch (2026-09-08, local only)
+
+The user requires all agreed implementation and local verification to finish
+before the consolidated push and installer build. No push, CI dispatch, tag,
+installer build, or installed-app replacement was performed for this batch.
+TypeScript dependency output was regenerated only to run local compatibility
+tests; it is not a desktop installer or a shipped Node runtime.
+
+Confirmed capability-gap modules now create a separate local refinement session
+in the same project using the selected model. The desktop send path claims that
+session once and starts the real native turn. File writes still require normal
+approval. A module manifest is a draft, not a working capability: legacy
+unverified `ready` manifests are also presented as drafts. Runtime-bound states
+are `draft`, `refining`, `needs_review`, and `blocked`; model success text never
+promotes a candidate to ready. Invalid project/session bindings do not expose a
+navigation link into another task.
+
+The right panel keeps provisional modules dashed and opens their existing task
+instead of launching a duplicate. Relevant background status changes refresh
+the selected project's tiles without scanning on every token or unrelated task.
+Confirmation links survive refresh and are cleared on project selection changes.
+Interrupted refinement sessions become visibly blocked at restart, without
+automatically replaying model or tool operations.
+
+The same audit found that queued turns could not be cancelled before resource
+admission. A resource reservation now owns its queue entry from creation through
+release. Cancellation, dropped waiters, early failures, and task replacement
+release registrations and cannot later start an abandoned turn. Queue state is
+part of the renderer protocol and exposes the normal stop control. Tests cover
+the case where an old cancelled turn must not clear its replacement's status.
+
+Verification for the source worktree:
+
+- Native library: 238 passed, 0 failed, 6 opt-in/external tests ignored. Local
+  model fixtures exercise automatic refinement kickoff, real native tool-loop
+  execution, approved/denied writes, and refusal to self-certify readiness.
+- Desktop: 175 suites, 1,290 tests passed. The first full run exposed missing
+  local TypeScript dependency output and stale expectations for the transparent
+  module groups, Tauri resources, and the pending HTTPS platform URL change.
+  Dependencies and expectations were corrected, not skipped.
+- Protocol: 38 tests passed. Desktop renderer and server typechecks, repository
+  lint, doctor, boundary checks, diff check, and code-map check passed.
+- The pre-existing Zhixin Pigeon catalog/test/smoke URL edits remain separate
+  from this implementation batch. Their aligned packaging endpoint assertion
+  remains with those pending edits; no endpoint was downgraded to pass a test.
+
+This is source-level implementation evidence, not installed-product acceptance.
+The following broader work remains unaccepted and must not be claimed complete:
+
+- Generic missing-capability implementation, independent validation, activation,
+  and rollback. This batch starts a reviewable task; it does not make arbitrary
+  generated code safe or automatically usable.
+- Lossless editing of arbitrary Office/document formats. Current extracted-text
+  editing and safe Markdown copy export do not preserve all source formatting.
+- Final Windows installation and final installed macOS/Windows native RPA
+  checks against the same candidate, plus real tenant/channel authorization
+  wherever production connectivity is claimed.
+- Final repository consolidation, artifact provenance, release notes, and
+  downloaded-asset checks listed below. Earlier app/DMG hashes do not identify
+  the source changes in this section.
+
 ## Remaining release blockers
 
 This is candidate evidence, not release acceptance:

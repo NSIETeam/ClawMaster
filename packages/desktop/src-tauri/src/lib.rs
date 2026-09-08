@@ -270,11 +270,14 @@ async fn desktop_send(
     if frame.get("type").and_then(Value::as_str) == Some("run_slash_command") {
         return runtime.run_slash_command(&app, &frame).await;
     }
-    for response in runtime.handle_async(&frame).await? {
+    let responses = runtime.handle_async(&frame).await?;
+    for response in &responses {
         app.emit(FRAME_EVENT, response)
             .map_err(|error| format!("无法发送 Rust 运行时事件: {error}"))?;
     }
-    Ok(())
+    runtime
+        .run_confirmed_module_refinement(&app, &responses)
+        .await
 }
 
 #[tauri::command]
@@ -283,7 +286,7 @@ async fn desktop_request(
     runtime: State<'_, native_runtime::NativeRuntime>,
 ) -> Result<Vec<Value>, String> {
     match frame.get("type").and_then(Value::as_str) {
-        Some("send_user_message" | "run_slash_command") => {
+        Some("send_user_message" | "run_slash_command" | "confirm_pending_auto_skill") => {
             Err("流式任务必须通过 desktop_send 执行".into())
         }
         _ => runtime.handle_async(&frame).await,

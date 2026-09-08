@@ -159,6 +159,8 @@ struct Session {
     model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     workspace_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    module_refinement_candidate_id: Option<String>,
     created_at: u64,
     updated_at: u64,
     last_message_preview: String,
@@ -341,7 +343,26 @@ struct ActiveTurn {
     cancel: watch::Sender<bool>,
 }
 
-trait NativeLoopHost: Send + Sync {
+struct ActiveTurnRegistration<'a> {
+    turns: &'a Mutex<HashMap<String, ActiveTurn>>,
+    session_id: &'a str,
+    turn_id: &'a str,
+}
+
+impl Drop for ActiveTurnRegistration<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut turns) = self.turns.lock() {
+            if turns
+                .get(self.session_id)
+                .is_some_and(|turn| turn.turn_id == self.turn_id)
+            {
+                turns.remove(self.session_id);
+            }
+        }
+    }
+}
+
+pub(crate) trait NativeLoopHost: Send + Sync {
     fn emit_event(&self, name: &str, payload: Value) -> Result<(), String>;
     fn desktop_app(&self) -> Result<&AppHandle, String>;
     fn grant_generated_file(&self, workspace: &Path, path: &Path) -> Result<(), String>;
@@ -842,7 +863,11 @@ impl NativeRuntime {
         }) else {
             return Vec::new();
         };
-        native_skills::list_project_modules(Path::new(workspace)).unwrap_or_default()
+        native_skills::list_project_modules(Path::new(workspace))
+            .unwrap_or_default()
+            .into_iter()
+            .map(|module| module_refinement::project(module, Path::new(workspace), state))
+            .collect()
     }
 
     fn channel_session(&self, provider: &str, chat_id: &str) -> Result<String, String> {
@@ -866,6 +891,7 @@ impl NativeRuntime {
             status: "idle".into(),
             model: state.current_model.clone(),
             workspace_path: None,
+            module_refinement_candidate_id: None,
             created_at: timestamp,
             updated_at: timestamp,
             last_message_preview: String::new(),
@@ -1052,7 +1078,14 @@ impl NativeRuntime {
         };
         for session in &mut state.sessions {
             session.message_count = state.messages.get(&session.session_id).map_or(0, Vec::len);
-            if matches!(session.status.as_str(), "thinking" | "streaming") {
+            if session.module_refinement_candidate_id.is_some()
+                && matches!(session.status.as_str(), "queued" | "thinking" | "streaming")
+            {
+                session.status = "error".into();
+                session.last_message_preview =
+                    "完善任务已中断；请检查现有结果后手动继续，不会自动重放。".into();
+                session.updated_at = now_ms();
+            } else if matches!(session.status.as_str(), "queued" | "thinking" | "streaming") {
                 session.status = "idle".into();
                 session.updated_at = now_ms();
             }
@@ -1430,6 +1463,7 @@ impl NativeRuntime {
                         .map(str::to_owned)
                         .or_else(|| state.current_model.clone()),
                     workspace_path: None,
+                    module_refinement_candidate_id: None,
                     created_at: timestamp,
                     updated_at: timestamp,
                     last_message_preview: String::new(),
@@ -2276,7 +2310,19 @@ impl NativeRuntime {
                             .ok_or_else(|| "自动 Skill 候选不存在或已处理".to_string())
                     })
                     .and_then(|candidate| {
-                        let saved_path = native_skills::install(&candidate)?;
+                        let refinement = module_refinement::session_for_candidate(
+                            &state, session_id, &candidate,
+                        );
+                        let saved_path = match &refinement {
+                            Some(session) => native_skills::install_with_refinement(
+                                &candidate,
+                                Some(&session.session_id),
+                            )?,
+                            None => native_skills::install(&candidate)?,
+                        };
+                        if let Some(session) = &refinement {
+                            state.sessions.insert(0, session.clone());
+                        }
                         let proposal_kind = match candidate.kind {
                             native_skills::AutoCandidateKind::Skill => "skill",
                             native_skills::AutoCandidateKind::Module => "module",
@@ -2285,21 +2331,40 @@ impl NativeRuntime {
                         dirty = true;
                         let remaining = self.auto_skill_candidates(&state, session_id)?;
                         let skills = native_skills::list(&candidate.workspace)?;
-                        let modules = native_skills::list_project_modules(&candidate.workspace)?;
-                        Ok((saved_path, proposal_kind, remaining, skills, modules))
+                        let modules = native_skills::list_project_modules(&candidate.workspace)?
+                            .into_iter()
+                            .map(|module| {
+                                module_refinement::project(module, &candidate.workspace, &state)
+                            })
+                            .collect::<Vec<_>>();
+                        Ok((
+                            saved_path,
+                            proposal_kind,
+                            remaining,
+                            skills,
+                            modules,
+                            refinement,
+                        ))
                     }) {
-                    Ok((saved_path, proposal_kind, candidates, skills, modules)) => vec![
-                        frame(
-                            "pending_auto_skills",
-                            json!({
-                                "sessionId": session_id,
-                                "candidates": candidates.iter().map(native_skills::AutoSkillCandidate::public_value).collect::<Vec<_>>(),
-                                "projectModules": modules,
-                                "lastAction": { "kind": "confirmed", "candidateId": candidate_id, "savedPath": saved_path, "proposalKind": proposal_kind }
-                            }),
-                        ),
-                        frame("skills_list", json!({ "skills": skills })),
-                    ],
+                    Ok((saved_path, proposal_kind, candidates, skills, modules, refinement)) => {
+                        let mut frames = vec![
+                            frame(
+                                "pending_auto_skills",
+                                json!({
+                                    "sessionId": session_id,
+                                    "candidates": candidates.iter().map(native_skills::AutoSkillCandidate::public_value).collect::<Vec<_>>(),
+                                    "projectModules": modules,
+                                    "lastAction": { "kind": "confirmed", "candidateId": candidate_id, "savedPath": saved_path, "proposalKind": proposal_kind,
+                                        "refinementSessionId":refinement.as_ref().map(|session| &session.session_id) }
+                                }),
+                            ),
+                            frame("skills_list", json!({ "skills": skills })),
+                        ];
+                        if let Some(session) = refinement {
+                            frames.push(frame("session_upsert", json!({"session":session})));
+                        }
+                        frames
+                    }
                     Err(message) => vec![error_frame(None, "auto_skill_failed", &message)],
                 }
             }
@@ -4003,7 +4068,7 @@ impl NativeRuntime {
 
     async fn run_turn_result(
         &self,
-        app: &AppHandle,
+        app: &dyn NativeLoopHost,
         request: &Value,
     ) -> Result<Option<String>, String> {
         let payload = request
@@ -4025,8 +4090,42 @@ impl NativeRuntime {
             return Err("消息内容不能为空".into());
         }
         let turn_id = next_id("turn");
-        let admission = self.capability_host.admit_agent(&turn_id)?;
+        let (cancel_sender, mut cancel_receiver) = watch::channel(false);
+        let previous = self
+            .active_turns
+            .lock()
+            .map_err(|_| "Rust 运行时取消状态锁已损坏".to_string())?
+            .insert(
+                session_id.clone(),
+                ActiveTurn {
+                    turn_id: turn_id.clone(),
+                    cancel: cancel_sender,
+                },
+            );
+        let _registration = ActiveTurnRegistration {
+            turns: &self.active_turns,
+            session_id: &session_id,
+            turn_id: &turn_id,
+        };
+        if let Some(previous) = previous {
+            let _ = previous.cancel.send(true);
+        }
+        let (admission, reservation) = self.capability_host.reserve_agent(&turn_id)?;
         if admission == AgentAdmission::Queued {
+            {
+                let mut state = self
+                    .state
+                    .lock()
+                    .map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+                let session = state
+                    .sessions
+                    .iter_mut()
+                    .find(|session| session.session_id == session_id)
+                    .ok_or_else(|| "会话不存在".to_string())?;
+                session.status = "queued".into();
+                session.updated_at = now_ms();
+                self.persist(&state)?;
+            }
             emit(
                 app,
                 frame(
@@ -4035,7 +4134,33 @@ impl NativeRuntime {
                 ),
             )?;
         }
-        let _agent_lease = self.capability_host.wait_for_agent(&turn_id).await?;
+        let _agent_lease = tokio::select! {
+            biased;
+            _ = cancel_receiver.wait_for(|cancelled| *cancelled) => {
+                let superseded = self.active_turns.lock()
+                    .map_err(|_| "Rust 运行时取消状态锁已损坏".to_string())?
+                    .get(&session_id).is_none_or(|turn| turn.turn_id != turn_id);
+                if superseded {
+                    return Ok(None);
+                }
+                let updated = {
+                    let mut state = self.state.lock().map_err(|_| "Rust 运行时状态锁已损坏".to_string())?;
+                    let session = state.sessions.iter_mut().find(|session| session.session_id == session_id)
+                        .ok_or_else(|| "会话不存在".to_string())?;
+                    session.status = if session.module_refinement_candidate_id.is_some() { "error" } else { "idle" }.into();
+                    session.last_message_preview = "排队任务已取消，未调用模型或工具。".into();
+                    session.updated_at = now_ms();
+                    let updated = session.clone();
+                    self.persist(&state)?;
+                    updated
+                };
+                emit(app, frame("session_upsert", json!({"session":updated})))?;
+                emit(app, frame("session_status", json!({"sessionId":session_id,"status":updated.status})))?;
+                emit(app, error_frame(Some(&session_id), "turn_cancelled", "排队任务已取消，未调用模型或工具。"))?;
+                return Ok(None);
+            }
+            lease = reservation.wait_until_active() => lease?,
+        };
         let user_directory_snapshot = self.user_directory.snapshot_at_turn_boundary();
         let core_overrides = UserDirectory::core_overrides(&user_directory_snapshot);
         let user_message_id = payload
@@ -4222,21 +4347,6 @@ impl NativeRuntime {
                 now_ms(),
             )
             .map_err(|error| error.to_string())?;
-        let (cancel_sender, cancel_receiver) = watch::channel(false);
-        let previous = self
-            .active_turns
-            .lock()
-            .map_err(|_| "Rust 运行时取消状态锁已损坏".to_string())?
-            .insert(
-                session_id.clone(),
-                ActiveTurn {
-                    turn_id: turn_id.clone(),
-                    cancel: cancel_sender,
-                },
-            );
-        if let Some(previous) = previous {
-            let _ = previous.cancel.send(true);
-        }
         let streamed = self
             .run_model_tool_loop(
                 ToolLoopContext {
@@ -4253,15 +4363,6 @@ impl NativeRuntime {
                 &mut kernel_turn,
             )
             .await;
-        if let Ok(mut active_turns) = self.active_turns.lock() {
-            if active_turns
-                .get(&session_id)
-                .is_some_and(|active| active.turn_id == turn_id)
-            {
-                active_turns.remove(&session_id);
-            }
-        }
-
         match streamed {
             Ok(StreamCompletion::Completed(completion)) => {
                 let reply = guarded_assistant_reply(&completion.text, &kernel_turn);
@@ -4521,6 +4622,9 @@ fn emit(app: &dyn NativeLoopHost, value: Value) -> Result<(), String> {
 #[cfg(test)]
 #[path = "native_runtime_loop_tests.rs"]
 mod loop_tests;
+
+#[path = "native_module_refinement.rs"]
+mod module_refinement;
 
 #[cfg(test)]
 mod tests {
@@ -4987,6 +5091,7 @@ mod tests {
                     status: "idle".into(),
                     model: None,
                     workspace_path: None,
+                    module_refinement_candidate_id: None,
                     created_at: timestamp,
                     updated_at: timestamp,
                     last_message_preview: String::new(),
@@ -5072,6 +5177,66 @@ mod tests {
             .unwrap();
         assert_eq!(session.status, "idle");
         assert_eq!(session.message_count, 1);
+    }
+
+    #[test]
+    fn restart_marks_interrupted_module_refinements_without_replaying_them() {
+        let (root, runtime) = runtime();
+        {
+            let mut state = runtime.state.lock().unwrap();
+            for status in ["queued", "thinking", "streaming", "idle"] {
+                state.sessions.push(Session {
+                    session_id: format!("refinement-{status}"),
+                    source: "local".into(),
+                    title: "Refine module".into(),
+                    status: status.into(),
+                    model: None,
+                    workspace_path: Some(root.path().to_string_lossy().into_owned()),
+                    module_refinement_candidate_id: Some("gap".into()),
+                    created_at: now_ms(),
+                    updated_at: now_ms(),
+                    last_message_preview: String::new(),
+                    message_count: 0,
+                });
+            }
+            runtime.persist(&state).unwrap();
+        }
+        drop(runtime);
+        let restored = NativeRuntime::load_with_credentials(
+            root.path(),
+            Arc::new(MemoryCredentials::default()),
+        )
+        .unwrap();
+        for previous_status in ["queued", "thinking", "streaming"] {
+            let session_id = format!("refinement-{previous_status}");
+            {
+                let state = restored.state.lock().unwrap();
+                let session = state
+                    .sessions
+                    .iter()
+                    .find(|session| session.session_id == session_id)
+                    .unwrap();
+                assert_eq!(session.status, "error");
+                assert!(session.last_message_preview.contains("中断"));
+                assert_eq!(session.message_count, 0);
+            }
+            assert!(restored
+                .claim_module_refinement(&session_id)
+                .unwrap()
+                .is_none());
+        }
+        assert_eq!(
+            restored
+                .state
+                .lock()
+                .unwrap()
+                .sessions
+                .iter()
+                .find(|session| session.session_id == "refinement-idle")
+                .unwrap()
+                .status,
+            "idle"
+        );
     }
 
     #[test]
@@ -5402,6 +5567,7 @@ mod tests {
                 status: "idle".into(),
                 model: None,
                 workspace_path: None,
+                module_refinement_candidate_id: None,
                 created_at: timestamp,
                 updated_at: timestamp,
                 last_message_preview: String::new(),
@@ -5744,6 +5910,53 @@ mod tests {
             confirmed[0]["payload"]["lastAction"]["proposalKind"],
             "module"
         );
+        let refinement_id = confirmed[0]["payload"]["lastAction"]["refinementSessionId"]
+            .as_str()
+            .expect("module confirmation must create a refinement task");
+        assert_ne!(refinement_id, session_id);
+        let request = runtime
+            .claim_module_refinement(refinement_id)
+            .unwrap()
+            .expect("refinement kickoff");
+        assert_eq!(request["type"], "send_user_message");
+        assert_eq!(request["payload"]["sessionId"], refinement_id);
+        assert!(runtime
+            .claim_module_refinement(refinement_id)
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            runtime.project_modules(&runtime.state.lock().unwrap(), Some(session_id))[0]["status"],
+            "refining"
+        );
+        {
+            let mut state = runtime.state.lock().unwrap();
+            let refinement = state
+                .sessions
+                .iter_mut()
+                .find(|session| session.session_id == refinement_id)
+                .unwrap();
+            assert_eq!(refinement.source, "local");
+            assert_eq!(
+                refinement.module_refinement_candidate_id.as_deref(),
+                Some(candidate_id.as_str())
+            );
+            assert_eq!(
+                refinement.workspace_path.as_deref(),
+                root.path().canonicalize().unwrap().to_str()
+            );
+            refinement.status = "idle".into();
+            refinement.message_count = 2;
+            assert_eq!(
+                runtime.project_modules(&state, Some(session_id))[0]["status"],
+                "needs_review"
+            );
+        }
+        let repeat = runtime
+            .handle(&json!({"type":"confirm_pending_auto_skill","payload":{
+                "candidateId":candidate_id,"sessionId":session_id
+            }}))
+            .unwrap();
+        assert_eq!(repeat[0]["type"], "error");
         assert_eq!(
             confirmed[0]["payload"]["projectModules"]
                 .as_array()

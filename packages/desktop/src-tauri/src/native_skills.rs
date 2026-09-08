@@ -333,12 +333,19 @@ fn atomic_write(workspace: &Path, path: &Path, content: &str) -> Result<(), Stri
 }
 
 pub fn install(candidate: &AutoSkillCandidate) -> Result<PathBuf, String> {
+    install_with_refinement(candidate, None)
+}
+
+pub fn install_with_refinement(
+    candidate: &AutoSkillCandidate,
+    refinement_session_id: Option<&str>,
+) -> Result<PathBuf, String> {
     let workspace = candidate
         .workspace
         .canonicalize()
         .map_err(|error| format!("自动 Skill 项目目录不可用: {error}"))?;
     if candidate.kind == AutoCandidateKind::Module {
-        return install_module(candidate, &workspace);
+        return install_module(candidate, &workspace, refinement_session_id);
     }
     let skills_root = workspace.join(".clawmaster/skills");
     let path = skills_root.join(&candidate.name).join("SKILL.md");
@@ -363,7 +370,11 @@ pub fn install(candidate: &AutoSkillCandidate) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-fn install_module(candidate: &AutoSkillCandidate, workspace: &Path) -> Result<PathBuf, String> {
+fn install_module(
+    candidate: &AutoSkillCandidate,
+    workspace: &Path,
+    refinement_session_id: Option<&str>,
+) -> Result<PathBuf, String> {
     let modules_root = workspace.join(".clawmaster/modules");
     let path = modules_root.join(&candidate.name).join("module.json");
     if !path.starts_with(&modules_root) {
@@ -377,7 +388,8 @@ fn install_module(candidate: &AutoSkillCandidate, workspace: &Path) -> Result<Pa
         "id": format!("project-module:{}", candidate.id),
         "name": candidate.name,
         "description": candidate.description,
-        "status": "ready",
+        "status": "draft",
+        "refinementSessionId": refinement_session_id,
         "sourcePattern": candidate.pattern,
         "instructions": format!(
             "这是 ClawMaster 根据当前项目中反复缺失的 `{}` 能力生成的项目模块。先检查现有 Skill、MCP 和签名能力包；能够安全组合时完成任务，否则创建隔离自开发候选，执行测试、权限差异和资源门禁，并在任何安装或外部写入前请求用户确认。不得把缺失能力伪装成成功。",
@@ -417,10 +429,12 @@ pub fn list_project_modules(workspace: &Path) -> Result<Vec<Value>, String> {
         let Ok(content) = fs::read_to_string(canonical) else {
             continue;
         };
-        let Ok(value) = serde_json::from_str::<Value>(&content) else {
+        let Ok(mut value) = serde_json::from_str::<Value>(&content) else {
             continue;
         };
         if valid_project_module(&value) {
+            // Old generated manifests claimed readiness without verification evidence.
+            value["status"] = json!("draft");
             modules.push(value);
         }
     }
@@ -436,7 +450,10 @@ fn valid_project_module(value: &Value) -> bool {
             .is_some_and(|text| !text.trim().is_empty() && text.chars().count() <= maximum)
     };
     value.get("schemaVersion").and_then(Value::as_u64) == Some(1)
-        && value.get("status").and_then(Value::as_str) == Some("ready")
+        && matches!(
+            value.get("status").and_then(Value::as_str),
+            Some("ready" | "draft")
+        )
         && value
             .get("id")
             .and_then(Value::as_str)
@@ -877,6 +894,7 @@ mod tests {
         ));
         let modules = list_project_modules(root.path()).unwrap();
         assert_eq!(modules.len(), 1);
+        assert_eq!(modules[0]["status"], "draft");
         assert_eq!(modules[0]["sourcePattern"], "render_cad");
         assert!(modules[0]["instructions"]
             .as_str()

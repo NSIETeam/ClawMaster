@@ -138,22 +138,36 @@ impl Default for ResourceGovernor {
 }
 
 impl ResourceGovernor {
-    pub fn admit_agent(&self, agent_id: &str) -> Result<AgentAdmission, String> {
+    fn admit_agent(&self, agent_id: &str) -> Result<AgentAdmission, String> {
         let mut state = self
             .state
             .lock()
             .map_err(|_| "资源治理锁已损坏".to_string())?;
+        if state.active_agent.as_deref() == Some(agent_id)
+            || state.queued_agents.iter().any(|id| id == agent_id)
+        {
+            return Err("Agent 已占用或已在等待队列中".into());
+        }
         if state.active_agent.is_none() {
             state.active_agent = Some(agent_id.into());
             return Ok(AgentAdmission::Active);
         }
-        if !state.queued_agents.iter().any(|id| id == agent_id) {
-            if state.queued_agents.len() >= 32 {
-                return Err("Agent 等待队列已满".into());
-            }
-            state.queued_agents.push_back(agent_id.into());
+        if state.queued_agents.len() >= 32 {
+            return Err("Agent 等待队列已满".into());
         }
+        state.queued_agents.push_back(agent_id.into());
         Ok(AgentAdmission::Queued)
+    }
+
+    pub fn reserve_agent(&self, agent_id: &str) -> Result<(AgentAdmission, AgentLease), String> {
+        let admission = self.admit_agent(agent_id)?;
+        Ok((
+            admission,
+            AgentLease {
+                governor: self.clone(),
+                agent_id: agent_id.into(),
+            },
+        ))
     }
 
     fn release_agent(&self, agent_id: &str) -> Result<Option<String>, String> {
@@ -162,6 +176,7 @@ impl ResourceGovernor {
             .lock()
             .map_err(|_| "资源治理锁已损坏".to_string())?;
         if state.active_agent.as_deref() != Some(agent_id) {
+            state.queued_agents.retain(|queued| queued != agent_id);
             return Ok(state.active_agent.clone());
         }
         state.active_agent = state.queued_agents.pop_front();
@@ -169,26 +184,6 @@ impl ResourceGovernor {
         drop(state);
         self.agent_notify.notify_waiters();
         Ok(next)
-    }
-
-    pub async fn wait_for_agent(&self, agent_id: &str) -> Result<AgentLease, String> {
-        loop {
-            let notified = self.agent_notify.notified();
-            if self
-                .state
-                .lock()
-                .map_err(|_| "资源治理锁已损坏".to_string())?
-                .active_agent
-                .as_deref()
-                == Some(agent_id)
-            {
-                return Ok(AgentLease {
-                    governor: self.clone(),
-                    agent_id: agent_id.into(),
-                });
-            }
-            notified.await;
-        }
     }
 
     pub fn acquire_worker(&self) -> Result<WorkerLease, String> {
@@ -242,6 +237,27 @@ impl ResourceGovernor {
 pub struct AgentLease {
     governor: ResourceGovernor,
     agent_id: String,
+}
+
+impl AgentLease {
+    pub async fn wait_until_active(self) -> Result<Self, String> {
+        loop {
+            let notified = self.governor.agent_notify.notified();
+            let active = self
+                .governor
+                .state
+                .lock()
+                .map_err(|_| "资源治理锁已损坏".to_string())?
+                .active_agent
+                .as_deref()
+                == Some(self.agent_id.as_str());
+            if active {
+                drop(notified);
+                return Ok(self);
+            }
+            notified.await;
+        }
+    }
 }
 
 impl Drop for AgentLease {
@@ -363,12 +379,8 @@ impl CapabilityHost {
         Ok(snapshot)
     }
 
-    pub fn admit_agent(&self, agent_id: &str) -> Result<AgentAdmission, String> {
-        self.governor.admit_agent(agent_id)
-    }
-
-    pub async fn wait_for_agent(&self, agent_id: &str) -> Result<AgentLease, String> {
-        self.governor.wait_for_agent(agent_id).await
+    pub fn reserve_agent(&self, agent_id: &str) -> Result<(AgentAdmission, AgentLease), String> {
+        self.governor.reserve_agent(agent_id)
     }
 
     pub fn plan_install(
@@ -1041,21 +1053,41 @@ mod tests {
         let cold = host.resource_snapshot().unwrap();
         assert_eq!(cold.active_workers, 0);
         assert_eq!(cold.trusted_key_count, 1);
-        assert_eq!(
-            host.governor.admit_agent("a1").unwrap(),
-            AgentAdmission::Active
-        );
-        let first = host.governor.wait_for_agent("a1").await.unwrap();
-        assert_eq!(
-            host.governor.admit_agent("a2").unwrap(),
-            AgentAdmission::Queued
-        );
+        let (admission, first) = host.reserve_agent("a1").unwrap();
+        assert_eq!(admission, AgentAdmission::Active);
+        let first = first.wait_until_active().await.unwrap();
+        let (admission, second) = host.reserve_agent("a2").unwrap();
+        assert_eq!(admission, AgentAdmission::Queued);
         assert_eq!(host.resource_snapshot().unwrap().active_agents, 1);
         drop(first);
-        let second = host.governor.wait_for_agent("a2").await.unwrap();
+        let second = second.wait_until_active().await.unwrap();
         assert_eq!(host.resource_snapshot().unwrap().active_agents, 1);
         drop(second);
         assert_eq!(host.resource_snapshot().unwrap().active_agents, 0);
+    }
+
+    #[tokio::test]
+    async fn dropped_reservations_leave_no_queued_or_active_agent() {
+        let governor = ResourceGovernor::default();
+        let (_, first) = governor.reserve_agent("first").unwrap();
+        assert!(governor.reserve_agent("first").is_err());
+        let (_, queued) = governor.reserve_agent("queued").unwrap();
+        assert!(governor.reserve_agent("queued").is_err());
+        assert_eq!(governor.snapshot().unwrap().queued_agents, 1);
+        drop(queued);
+        assert_eq!(governor.snapshot().unwrap().queued_agents, 0);
+        let (_, waiting) = governor.reserve_agent("waiting").unwrap();
+        assert!(tokio::time::timeout(
+            std::time::Duration::from_millis(5),
+            waiting.wait_until_active()
+        )
+        .await
+        .is_err());
+        assert_eq!(governor.snapshot().unwrap().queued_agents, 0);
+        let (_, promoted) = governor.reserve_agent("promoted").unwrap();
+        drop(first);
+        drop(promoted);
+        assert_eq!(governor.snapshot().unwrap().active_agents, 0);
     }
 
     #[tokio::test]
@@ -1067,8 +1099,8 @@ mod tests {
             agents.push(tokio::spawn(async move {
                 let agent_id = format!("stress-agent-{agent_index}");
                 for turn in 0..500 {
-                    governor.admit_agent(&agent_id).unwrap();
-                    let agent = governor.wait_for_agent(&agent_id).await.unwrap();
+                    let (_, agent) = governor.reserve_agent(&agent_id).unwrap();
+                    let agent = agent.wait_until_active().await.unwrap();
                     if turn % 25 == 0 {
                         let worker = governor.acquire_worker().unwrap();
                         drop(worker);

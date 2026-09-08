@@ -8,6 +8,7 @@ describe('hasActiveRuntimeSession', () => {
       { status: 'streaming' },
     ])).toBe(true);
     expect(hasActiveRuntimeSession([{ status: 'thinking' }])).toBe(true);
+    expect(hasActiveRuntimeSession([{ status: 'queued' }])).toBe(true);
   });
 
   it('releases the runtime guard when every session is idle or failed', () => {

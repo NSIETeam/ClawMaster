@@ -6,12 +6,15 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App.js';
 import type { EnterpriseAccount } from '../preload/index.js';
+import type { ProjectModuleInfo } from 'clawmaster-server';
+import type { ModuleDefinition } from './moduleCatalog.js';
 import { uiModeStorageKey } from './uiModePreference.js';
 import { rightPanelStorageKey } from './rightPanelPreference.js';
 import { openParkServices } from './components/ParkServicesPlugin.js';
 
 const harness = vi.hoisted(() => ({
   auth: { current: null as unknown },
+  projectModules: [] as ProjectModuleInfo[],
   centralIdentity: {
     current: { edition: 'personal' as 'personal' | 'enterprise', role: 'member', profiles: [] },
   },
@@ -102,6 +105,7 @@ vi.mock('./state/useProductWorkspace.js', () => ({
       workspace: null,
       schedules: [],
       pendingAutoSkills: [],
+      projectModules: harness.projectModules,
       realtimePatterns: [],
       lastAutoSkillAction: null,
       selectedDate: '2026-08-11',
@@ -113,7 +117,11 @@ vi.mock('./state/useProductWorkspace.js', () => ({
 
 vi.mock('./state/useModuleWorkspaceCapabilities.js', () => ({
   useModuleWorkspaceCapabilities: () => ({
-    status: 'ready', ready: true, modules: [], retry: vi.fn(),
+    status: 'ready', ready: true, modules: harness.projectModules.map((module) => ({
+      id: module.id, label: module.name, category: 'capability', icon: 'self-development',
+      activation: { kind: 'guided-task', taskId: module.id, instructions: module.instructions },
+      availability: 'available',
+    })), retry: vi.fn(),
   }),
 }));
 
@@ -177,28 +185,22 @@ vi.mock('./components/RightPanel.js', () => ({
   RightPanel: ({
     collapsed,
     onActivate,
+    modules,
     settingsWorkspace,
     settingsOpen,
   }: {
     collapsed?: boolean;
     settingsWorkspace?: React.ReactNode;
     settingsOpen?: boolean;
-    onActivate?: (module: {
-      id: string;
-      label: string;
-      category: 'common';
-      icon: 'agent';
-      availability: 'available';
-      activation:
-        | { kind: 'agent'; profileId: string }
-        | { kind: 'dialog'; dialog: 'park'; target: 'announcement' }
-        | { kind: 'dialog'; dialog: 'enterprise-memory' }
-        | { kind: 'route'; route: 'skillzone' }
-        | { kind: 'platform'; platformId: string; url: string; instructions: string };
-    }) => void;
+    modules?: ModuleDefinition[];
+    onActivate?: (module: ModuleDefinition) => void;
   }) => (
     <aside data-testid="work-panel" data-collapsed={collapsed ? 'true' : 'false'}>
       {settingsOpen ? settingsWorkspace : null}
+      {modules?.filter((module) => module.id.startsWith('project-module:')).map((module) => (
+        <button key={module.id} type="button" data-provisional={module.proposalCount === 1}
+          onClick={() => onActivate?.(module)}>{module.label}</button>
+      ))}
       <button type="button" onClick={() => onActivate?.({
         id: 'park-announcement', label: '园区公告', category: 'common', icon: 'agent',
         availability: 'available', activation: { kind: 'dialog', dialog: 'park', target: 'announcement' },
@@ -209,7 +211,7 @@ vi.mock('./components/RightPanel.js', () => ({
       })}>activate-memory</button>
       <button type="button" onClick={() => onActivate?.({
         id: 'skill-zone', label: 'Skill 专区', category: 'common', icon: 'agent',
-        availability: 'available', activation: { kind: 'route', route: 'skillzone' },
+        availability: 'available', activation: { kind: 'route', route: 'skill-zone' },
       })}>activate-skill-zone</button>
       <button type="button" onClick={() => onActivate?.({
         id: 'agent-ppt', label: 'PPT 创作专家', category: 'common', icon: 'agent',
@@ -347,6 +349,7 @@ function rightPanelPreferenceKey(account: EnterpriseAccount): string {
 
 beforeEach(() => {
   localStorage.clear();
+  harness.projectModules = [];
   harness.auth.current = authFor(accountA, 'signed-in');
   harness.centralIdentity.current = { edition: 'personal', role: 'member', profiles: [] };
   Object.defineProperty(window, 'clawmaster', {
@@ -367,6 +370,22 @@ afterEach(() => {
 });
 
 describe('App UI mode integration', () => {
+  it('opens the existing refinement task instead of starting a duplicate module prompt', async () => {
+    localStorage.setItem(preferenceKey(accountA), 'work');
+    harness.projectModules = [{
+      schemaVersion: 1, id: 'project-module:report', name: 'Report', description: 'Build report',
+      status: 'needs_review', sourcePattern: 'report', instructions: 'Do not auto-send',
+      refinementSessionId: 'refinement-1',
+    }];
+    render(<App />);
+    const tile = await screen.findByRole('button', { name: 'Report · 待验收' });
+    expect(tile.dataset.provisional).toBe('true');
+    fireEvent.click(tile);
+    expect(harness.storeActions.selectSession).toHaveBeenCalledExactlyOnceWith('refinement-1');
+    expect(harness.storeActions.sendMessage).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('pending-agent')).toBeNull();
+  });
+
   it('keeps the workspace mounted when an older host returns null for module records', async () => {
     const listModules = vi.fn(async () => null);
     window.clawmaster.customerModuleInstalledList = listModules as never;

@@ -145,8 +145,18 @@ describe('WorkspaceDialogs', () => {
       recommendation: 'create', proposalKind: 'module',
     }]} lastAction={null} onRefresh={vi.fn()} onConfirm={onConfirm} onReject={vi.fn()} onClose={vi.fn()} />);
     expect(screen.getByText(/项目模块提案/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: '确认生成模块' }));
+    fireEvent.click(screen.getByRole('button', { name: '确认并开始完善' }));
     expect(onConfirm).toHaveBeenCalledWith('module-1');
+  });
+
+  it('module confirmation opens the refinement task without claiming readiness', () => {
+    const onOpenRefinement = vi.fn();
+    render(<AutoSkillDialog open candidates={[]} lastAction={{
+      kind: 'confirmed', candidateId: 'module-1', proposalKind: 'module', refinementSessionId: 'refinement-1',
+    }} onRefresh={vi.fn()} onConfirm={vi.fn()} onReject={vi.fn()} onClose={vi.fn()} onOpenRefinement={onOpenRefinement} />);
+    expect(screen.getByRole('status').textContent).toContain('尚未验收');
+    fireEvent.click(screen.getByRole('button', { name: '查看完善任务' }));
+    expect(onOpenRefinement).toHaveBeenCalledWith('refinement-1');
   });
 
   it('自动 Skill 弹窗展示本机实时检测到的重复工作', () => {

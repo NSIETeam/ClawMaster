@@ -236,14 +236,30 @@ export function EnterpriseMemoryDialog({ open, role, onClose }: {
   </DialogFrame>;
 }
 
-export function AutoSkillDialog({ open, candidates, realtimePatterns = [], lastAction, onRefresh, onConfirm, onReject, onClose }: {
+export function AutoSkillDialog({ open, candidates, realtimePatterns = [], lastAction, onRefresh, onConfirm, onReject, onClose, onOpenRefinement }: {
   open: boolean; candidates: AutoSkillCandidateInfo[];
   realtimePatterns?: Array<Extract<import('clawmaster-server').ServerToClient, { type: 'realtime_pattern' }>['payload']>;
-  lastAction: { kind: 'confirmed' | 'rejected'; candidateId: string; savedPath?: string; proposalKind?: 'skill' | 'module' } | null;
+  lastAction: { kind: 'confirmed' | 'rejected'; candidateId: string; savedPath?: string; proposalKind?: 'skill' | 'module'; refinementSessionId?: string | null } | null;
   onRefresh(): void; onConfirm(id: string): void; onReject(id: string): void; onClose(): void;
+  onOpenRefinement?(sessionId: string): void;
 }): React.JSX.Element | null {
   if (!open) return null;
-  return <DialogFrame title="自动能力候选" onClose={onClose}><div className="claw-workspace-dialog__toolbar"><p>成功的重复路径沉淀为 Skill，反复缺失的能力生成项目模块。</p><button type="button" onClick={onRefresh}>立即分析</button></div>{lastAction?.kind === 'confirmed' ? <p role="status">{lastAction.proposalKind === 'module' ? '项目模块' : 'Skill'} 已生成{lastAction.savedPath ? `：${lastAction.savedPath}` : ''}</p> : null}{realtimePatterns.length ? <section aria-label="刚检测到的重复工作">{realtimePatterns.map((pattern) => <article key={pattern.pattern}><h3>{pattern.pattern}</h3><p>{pattern.suggestion}</p><small>本机实时检测 · {pattern.count} 次重复</small></article>)}</section> : null}<div className="claw-workspace-dialog__list">{candidates.length ? candidates.map((candidate) => <article key={candidate.id}><h3>{candidate.name}</h3><p>{candidate.description}</p><small>{candidate.proposalKind === 'module' ? '项目模块提案' : '项目 Skill'} · {candidate.detectedPattern} · {candidate.occurrenceCount} 次重复{candidate.projectName ? ` · 项目：${candidate.projectName}` : ''}</small><footer><button type="button" onClick={() => onConfirm(candidate.id)}>{candidate.proposalKind === 'module' ? '确认生成模块' : candidate.recommendation === 'enhance' ? '确认增强' : '确认生成 Skill'}</button><button type="button" onClick={() => onReject(candidate.id)}>不再建议</button></footer></article>) : <p>暂无候选。系统只会根据脱敏审计生成提案，不会静默创建 Skill 或模块。</p>}</div></DialogFrame>;
+  return <DialogFrame title="自动能力候选" onClose={onClose}>
+    <div className="claw-workspace-dialog__toolbar">
+      <p>成功的重复路径沉淀为 Skill。确认模块后会启动独立完善任务，调用当前模型；涉及写入或外部操作仍需正常授权。</p>
+      <button type="button" onClick={onRefresh}>立即分析</button>
+    </div>
+    {lastAction?.kind === 'confirmed' ? <div role="status">
+      <p>{lastAction.proposalKind === 'module' ? '项目模块草稿已生成，尚未验收' : 'Skill 已生成'}{lastAction.savedPath ? `：${lastAction.savedPath}` : ''}</p>
+      {lastAction.refinementSessionId && onOpenRefinement ? <button type="button" onClick={() => onOpenRefinement(lastAction.refinementSessionId!)}>查看完善任务</button> : null}
+    </div> : null}
+    {realtimePatterns.length ? <section aria-label="刚检测到的重复工作">{realtimePatterns.map((pattern) => <article key={pattern.pattern}><h3>{pattern.pattern}</h3><p>{pattern.suggestion}</p><small>本机实时检测 · {pattern.count} 次重复</small></article>)}</section> : null}
+    <div className="claw-workspace-dialog__list">{candidates.length ? candidates.map((candidate) => <article key={candidate.id}>
+      <h3>{candidate.name}</h3><p>{candidate.description}</p>
+      <small>{candidate.proposalKind === 'module' ? '项目模块提案' : '项目 Skill'} · {candidate.detectedPattern} · {candidate.occurrenceCount} 次重复{candidate.projectName ? ` · 项目：${candidate.projectName}` : ''}</small>
+      <footer><button type="button" onClick={() => onConfirm(candidate.id)}>{candidate.proposalKind === 'module' ? '确认并开始完善' : candidate.recommendation === 'enhance' ? '确认增强' : '确认生成 Skill'}</button><button type="button" onClick={() => onReject(candidate.id)}>不再建议</button></footer>
+    </article>) : <p>暂无候选。系统只会根据脱敏审计生成提案，不会静默创建 Skill 或模块。</p>}</div>
+  </DialogFrame>;
 }
 
 export function CustomAgentManagerDialog({

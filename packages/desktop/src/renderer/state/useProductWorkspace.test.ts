@@ -80,6 +80,42 @@ describe('automatic skill refresh after native turns', () => {
     view.unmount();
   });
 
+  it('refreshes linked refinement statuses without following unrelated background work', () => {
+    const view = renderHook(({ sessionId }) => useProductWorkspace(sessionId), {
+      initialProps: { sessionId: 's1' },
+    });
+    const deliver = (frame: ServerToClient) => {
+      for (const handler of transportMock.handlers) handler(frame);
+    };
+    transportMock.send.mockClear();
+    act(() => {
+      deliver({ type: 'pending_auto_skills', payload: {
+        sessionId: 's1', candidates: [], projectModules: [{
+          schemaVersion: 1, id: 'project-module:c1', name: 'Report', description: 'Report',
+          status: 'draft', sourcePattern: 'report', instructions: 'Build report',
+          refinementSessionId: 'refinement-1',
+        }],
+        lastAction: { kind: 'confirmed', candidateId: 'c1', refinementSessionId: 'refinement-1' },
+      } });
+      deliver({ type: 'session_status', payload: { sessionId: 'refinement-1', status: 'thinking' } });
+      deliver({ type: 'session_status', payload: { sessionId: 'refinement-1', status: 'streaming' } });
+      deliver({ type: 'session_status', payload: { sessionId: 'unrelated', status: 'idle' } });
+      deliver({ type: 'session_status', payload: { sessionId: 'refinement-1', status: 'idle' } });
+      deliver({ type: 'pending_auto_skills', payload: { sessionId: 's1', candidates: [] } });
+    });
+    expect(transportMock.send).toHaveBeenCalledTimes(2);
+    expect(transportMock.send).toHaveBeenLastCalledWith({
+      type: 'get_pending_auto_skills', payload: { sessionId: 's1' },
+    });
+    expect(view.result.current.state.lastAutoSkillAction?.refinementSessionId).toBe('refinement-1');
+    view.rerender({ sessionId: 's2' });
+    transportMock.send.mockClear();
+    act(() => deliver({ type: 'session_status', payload: { sessionId: 'refinement-1', status: 'error' } }));
+    expect(transportMock.send).not.toHaveBeenCalled();
+    expect(view.result.current.state.lastAutoSkillAction).toBeNull();
+    view.unmount();
+  });
+
   it('clears old proposals on selection and ignores late results from another session', () => {
     const view = renderHook(({ sessionId }) => useProductWorkspace(sessionId), {
       initialProps: { sessionId: 's1' },

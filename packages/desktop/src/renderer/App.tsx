@@ -161,6 +161,7 @@ import {
   isSecurePlatformUrl,
   type ModuleDefinition,
 } from './moduleCatalog.js';
+import { presentProjectModule } from './projectModulePresentation.js';
 import type { ModuleModalState } from './moduleModal.js';
 import { CapabilityHostDialog } from './components/CapabilityHostDialog.js';
 import { OperatingBriefDialog } from './components/OperatingBriefDialog.js';
@@ -313,7 +314,7 @@ function ClawMasterWorkspaceApp({
           + product.state.realtimePatterns.length;
         return module.id === 'auto-skill' && proposalCount > 0
           ? { ...module, proposalCount, description: `${proposalCount} 个工作路径等待确认沉淀` }
-          : module;
+          : presentProjectModule(module, product.state.projectModules.find((project) => project.id === module.id));
       });
       const proposals = product.state.pendingAutoSkills
         .filter((candidate) => candidate.proposalKind === 'module')
@@ -332,6 +333,7 @@ function ClawMasterWorkspaceApp({
     [
       moduleCapabilities.modules,
       product.state.pendingAutoSkills,
+      product.state.projectModules,
       product.state.realtimePatterns.length,
     ],
   );
@@ -1093,7 +1095,7 @@ function ClawMasterWorkspaceApp({
     ? state.messages[state.activeSessionId] ?? []
     : [];
 
-  const busy = activeSession?.status === 'thinking' || activeSession?.status === 'streaming';
+  const busy = hasActiveRuntimeSession(activeSession ? [activeSession] : []);
   const runtimeActive = hasActiveRuntimeSession(sessions);
 
   useEffect(() => {
@@ -1259,6 +1261,13 @@ function ClawMasterWorkspaceApp({
 
   const activateModule = useCallback((module: ModuleDefinition): void => {
     if (module.availability !== 'available') return;
+    const project = product.state.projectModules.find((item) => item.id === module.id);
+    if (project?.refinementSessionId && project.status !== 'ready') {
+      setMainView('chat');
+      setModuleModal(null);
+      actions.selectSession(project.refinementSessionId);
+      return;
+    }
     const activation = module.activation;
     if (activation.kind === 'dialog') {
       setMainView('chat');
@@ -1330,7 +1339,7 @@ function ClawMasterWorkspaceApp({
       customAgentId: activation.customAgentId,
       icon: module.icon,
     });
-  }, [edition, expandRightPanel, moduleWorkspaceScopeKey, openModuleModal]);
+  }, [actions, edition, expandRightPanel, moduleWorkspaceScopeKey, openModuleModal, product.state.projectModules]);
 
   const handleToolConfirmation = useCallback(
     (
@@ -1703,6 +1712,11 @@ function ClawMasterWorkspaceApp({
         onRefresh={product.actions.refreshPendingAutoSkills}
         onConfirm={product.actions.confirmPendingAutoSkill}
         onReject={product.actions.rejectPendingAutoSkill}
+        onOpenRefinement={(sessionId) => {
+          actions.selectSession(sessionId);
+          setModuleModal(null);
+          setMainView('chat');
+        }}
         onClose={() => setModuleModal(null)}
       />
       <CapabilityHostDialog

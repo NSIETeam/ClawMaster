@@ -6,6 +6,6 @@ export function hasActiveRuntimeSession(
   sessions: readonly RuntimeSessionLike[],
 ): boolean {
   return sessions.some(
-    (session) => session.status === 'thinking' || session.status === 'streaming',
+    (session) => session.status === 'queued' || session.status === 'thinking' || session.status === 'streaming',
   );
 }
