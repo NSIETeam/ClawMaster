@@ -1,0 +1,25 @@
+name: Windows Rust Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Commit to test
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test ${{ inputs.source_ref }}
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.98.0
+      - run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib
