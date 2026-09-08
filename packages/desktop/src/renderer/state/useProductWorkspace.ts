@@ -5,7 +5,7 @@
  * 服务端是唯一事实源；本 hook 不向 localStorage 复制企业身份。
  */
 
-import { useEffect, useMemo, useReducer } from 'react';
+import { useEffect, useMemo, useReducer, useRef } from 'react';
 import type {
   AutoSkillCandidateInfo,
   ClientToServer,
@@ -181,18 +181,33 @@ export interface UseProductWorkspace {
 }
 
 export function useProductWorkspace(activeSessionId?: string | null): UseProductWorkspace {
+  const refreshedTurns = useRef(new Set<string>());
   const [state, dispatch] = useReducer(
     productWorkspaceReducer,
     initialProductWorkspaceState,
   );
 
+  useEffect(() => transport.onFrame((frame) => {
+    dispatch({ kind: 'frame', frame });
+    if (frame.type !== 'runtime_event') return;
+    const event = frame.payload.event;
+    if (!activeSessionId || event.sessionId !== activeSessionId || event.payload.type !== 'finished') return;
+    const key = JSON.stringify([event.sessionId, event.turnId]);
+    if (refreshedTurns.current.has(key)) return;
+    refreshedTurns.current.add(key);
+    // Bound replay bookkeeping; stream deltas and background turns never trigger a scan.
+    if (refreshedTurns.current.size > 128) {
+      const oldest = refreshedTurns.current.values().next().value;
+      if (oldest !== undefined) refreshedTurns.current.delete(oldest);
+    }
+    transport.send({ type: 'get_pending_auto_skills', payload: { sessionId: activeSessionId } });
+  }), [activeSessionId]);
+
   useEffect(() => {
-    const offFrame = transport.onFrame((frame) => dispatch({ kind: 'frame', frame }));
     const offConnection = transport.onConnectionChange(
       createProductWorkspaceConnectionHandler(),
     );
     return () => {
-      offFrame();
       offConnection();
     };
   }, []);

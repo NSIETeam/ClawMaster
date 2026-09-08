@@ -2,13 +2,84 @@
  * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClientToServer, ServerToClient } from 'clawmaster-server';
+import type { RuntimeEventEnvelope } from '@clawmaster/runtime-contracts';
+
+const transportMock = vi.hoisted(() => ({
+  send: vi.fn(),
+  handlers: new Set<(frame: ServerToClient) => void>(),
+}));
+
+vi.mock('../transport.js', () => ({
+  send: transportMock.send,
+  onFrame: (handler: (frame: ServerToClient) => void) => {
+    transportMock.handlers.add(handler);
+    return () => transportMock.handlers.delete(handler);
+  },
+  onConnectionChange: () => () => {},
+}));
+
 import {
   createProductWorkspaceConnectionHandler,
   initialProductWorkspaceState,
   productWorkspaceReducer,
+  useProductWorkspace,
 } from './useProductWorkspace.js';
+
+describe('automatic skill refresh after native turns', () => {
+  beforeEach(() => {
+    transportMock.send.mockClear();
+    transportMock.handlers.clear();
+  });
+
+  function push(sessionId: string, turnId: string, payload: RuntimeEventEnvelope['payload']) {
+    const event: RuntimeEventEnvelope = {
+      kind: 'event', schemaVersion: '2.0.0', requestId: 'request-1', sessionId, turnId,
+      stepId: 'step-1', traceId: 'trace-1', eventId: `${turnId}-${payload.type}`,
+      sequence: 1, timestamp: '2026-09-08T00:00:00.000Z', actor: 'runtime',
+      ignorable: false, payload,
+    };
+    act(() => {
+      for (const handler of transportMock.handlers) handler({ type: 'runtime_event', payload: { event } });
+    });
+  }
+
+  it('refreshes once per terminal turn, not per streaming event or background session', () => {
+    const view = renderHook(() => useProductWorkspace('s1'));
+    transportMock.send.mockClear();
+    push('s1', 'turn-1', { type: 'contentDelta', delta: 'working' });
+    push('background', 'turn-1', { type: 'finished', reason: 'complete' });
+    expect(transportMock.send).not.toHaveBeenCalled();
+    push('s1', 'turn-1', { type: 'finished', reason: 'complete' });
+    push('s1', 'turn-1', { type: 'finished', reason: 'complete' });
+    expect(transportMock.send).toHaveBeenCalledTimes(1);
+    expect(transportMock.send).toHaveBeenLastCalledWith({
+      type: 'get_pending_auto_skills', payload: { sessionId: 's1' },
+    });
+    push('s1', 'turn-2', { type: 'finished', reason: 'error' });
+    push('s1', 'turn-3', { type: 'finished', reason: 'cancelled' });
+    expect(transportMock.send).toHaveBeenCalledTimes(3);
+    view.unmount();
+    expect(transportMock.handlers.size).toBe(0);
+  });
+
+  it('follows the newly selected session without retaining the old subscription', () => {
+    const view = renderHook(({ sessionId }) => useProductWorkspace(sessionId), {
+      initialProps: { sessionId: 's1' },
+    });
+    view.rerender({ sessionId: 's2' });
+    transportMock.send.mockClear();
+    push('s1', 'turn-1', { type: 'finished', reason: 'complete' });
+    expect(transportMock.send).not.toHaveBeenCalled();
+    push('s2', 'turn-2', { type: 'finished', reason: 'complete' });
+    expect(transportMock.send).toHaveBeenCalledExactlyOnceWith({
+      type: 'get_pending_auto_skills', payload: { sessionId: 's2' },
+    });
+    view.unmount();
+  });
+});
 
 describe('product workspace connection lifecycle', () => {
   it('waits for the local runtime and reloads once after each reconnect', () => {
