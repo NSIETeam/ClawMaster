@@ -15,14 +15,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { label: native-rpa, source_ref: 986d2de13397f53af6b271f876099818e26d239c }
-          - { label: webdriver, source_ref: 3d43db259b629e88fc078ba93409e0907e11b760 }
-          - { label: exact-window, source_ref: b2650acbfd6b695967a511a84949e668e0411bd3 }
-          - { label: process-tree, source_ref: 10c0c9d08f79816b0504ca8b333c7dee757b16cc }
-          - { label: semantic-wait, source_ref: b15f67a6c443d604a343eaab884c671276f1b13a }
           - { label: tenant-profile, source_ref: d45fab2947934ebfa6b3d26e505a53865b6690cf }
+          - { label: channel-status, source_ref: c73f8e37277ca43d771f7cc6ba5375739b9093c0 }
+          - { label: stress-tests, source_ref: 85246068ee25fa517254e3bdbce98b897f254ba6 }
+          - { label: capability-proposals, source_ref: 0549d14b9fbf3a12ef77e94d11c10f4ea98f1105 }
+          - { label: crash-safe-capabilities, source_ref: a6546dc2f0e1d0ac8beb919061413e4ee1e2d1db }
+          - { label: trust-state, source_ref: a92667560c2bbcb8aaacb5c51cca235d8a71ede3 }
+          - { label: proxy-fixtures, source_ref: 4dc3c8051e055e76bb35b9198757618d06e211d2 }
           - { label: hardened-rpa, source_ref: 34ebe3cf97a09ec4c4136ba4a2821abd329c02e6 }
-          - { label: release-head, source_ref: ab691cab0507da5398a4b7525cebdfc2c9949cd8 }
     steps:
       - uses: actions/checkout@v7
         with:
