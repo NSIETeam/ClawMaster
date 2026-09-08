@@ -15,8 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { label: tenant-profile, source_ref: d45fab2947934ebfa6b3d26e505a53865b6690cf }
-          - { label: channel-status, source_ref: c73f8e37277ca43d771f7cc6ba5375739b9093c0 }
+          - { label: final-candidate, source_ref: diag/windows-candidate }
     steps:
       - uses: actions/checkout@v7
         with:
@@ -29,15 +28,5 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force packages/desktop/dist/renderer | Out-Null
           Set-Content packages/desktop/dist/renderer/index.html '<!doctype html><title>diagnostic</title>'
-      - name: Build test executable
-        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --lib --no-run
-      - name: Inspect imports and launch
-        shell: pwsh
-        run: |
-          $exe = Get-ChildItem packages/desktop/src-tauri/target/debug/deps/clawmaster_desktop_lib-*.exe |
-            Sort-Object LastWriteTime | Select-Object -Last 1
-          $dumpbin = Get-ChildItem "$env:ProgramFiles/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/*/bin/Hostx64/x64/dumpbin.exe" |
-            Sort-Object FullName | Select-Object -Last 1
-          & $dumpbin.FullName /imports $exe.FullName
-          & $exe.FullName definitions_and_risks_keep_writes_confirmation_gated --exact
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run complete Windows Rust suite
+        run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml
