@@ -133,27 +133,26 @@ pub async fn spawn_web_host(
             std::thread::spawn(move || drain_lines(stderr, lines));
         }
 
+        let startup_url = Arc::new(Mutex::new(None));
         if let Some(stdout) = child_handle
             .lock()
             .map_err(|e| e.to_string())?
             .as_mut()
             .and_then(|c| c.stdout.take())
         {
-            std::thread::spawn(move || {
-                let reader = BufReader::new(stdout);
-                for _ in reader.lines().flatten() {}
-            });
+            collect_startup_url(stdout, &web_url, Arc::clone(&startup_url));
         }
 
-        if let Err(error) = wait_for_http(
+        let ready = wait_for_http(
             &web_url,
+            &startup_url,
             &child_handle,
             &stderr_lines,
             Duration::from_secs(120),
             None,
         )
-        .await
-        {
+        .await;
+        if let Err(error) = &ready {
             if let Ok(mut guard) = child_handle.lock() {
                 if let Some(mut child) = guard.take() {
                     kill_process_tree(child.id());
@@ -171,14 +170,14 @@ pub async fn spawn_web_host(
                     disabled_plugins.push(entry);
                     continue;
                 }
-                None => return Err(error),
+                None => return Err(error.clone()),
             }
         }
         boot_log::info(&format!("health check passed url={web_url}"));
 
         return Ok(HostHandle {
             port,
-            web_url,
+            web_url: ready?,
             disabled_plugins,
             wsl: Mutex::new(None),
             child: child_handle,
@@ -239,11 +238,9 @@ pub async fn spawn_wsl_web_host(
         boot_log::info(&format!("host pid file skipped: {error}"));
     }
 
+    let startup_url = Arc::new(Mutex::new(None));
     if let Some(stdout) = child.stdout.take() {
-        std::thread::spawn(move || {
-            let reader = BufReader::new(stdout);
-            for _ in reader.lines().flatten() {}
-        });
+        collect_startup_url(stdout, &web_url, Arc::clone(&startup_url));
     }
 
     let child_handle = Arc::new(Mutex::new(Some(child)));
@@ -252,17 +249,18 @@ pub async fn spawn_wsl_web_host(
         linux_pid,
     };
     let wsl_timeout = i18n::t(Msg::WslWaitForwarding);
-    if let Err(error) = wait_for_http(
+    let ready = wait_for_http(
         &web_url,
+        &startup_url,
         &child_handle,
         &stderr_lines,
         Duration::from_secs(120),
         Some(wsl_timeout),
     )
-    .await
-    {
+    .await;
+    if let Err(error) = &ready {
         reap_wsl_session_and_stub(&session, &child_handle);
-        return Err(error);
+        return Err(error.clone());
     }
 
     boot_log::info(&format!(
@@ -271,7 +269,7 @@ pub async fn spawn_wsl_web_host(
 
     Ok(HostHandle {
         port,
-        web_url,
+        web_url: ready?,
         disabled_plugins: Vec::new(),
         wsl: Mutex::new(Some(session)),
         child: child_handle,
@@ -535,7 +533,8 @@ fn spawn_child(
     if let Some(patch) = rescue_patch {
         cmd.arg("--patch").arg(patch);
     }
-    cmd.arg("--host")
+    cmd.arg("--no-open")
+        .arg("--host")
         .arg("127.0.0.1")
         .arg("--port")
         .arg(port.to_string())
@@ -588,13 +587,15 @@ fn format_child_failure(stderr_lines: &Arc<Mutex<Vec<String>>>, exit_code: i32) 
 
 async fn wait_for_http(
     url: &str,
+    startup_url: &Arc<Mutex<Option<String>>>,
     child: &Arc<Mutex<Option<Child>>>,
     stderr_lines: &Arc<Mutex<Vec<String>>>,
     timeout: Duration,
     timeout_detail: Option<&str>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(5))
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -616,13 +617,25 @@ async fn wait_for_http(
             return Err(format_child_failure(stderr_lines, code));
         }
 
-        match client.get(url).send().await {
-            Ok(response) if response.status().is_success() => {
+        let authenticated = startup_url.lock().map_err(|_| "启动地址不可用")?.clone();
+        let Some(authenticated) = authenticated else {
+            tokio::time::sleep(Duration::from_millis(150)).await;
+            continue;
+        };
+        match client.get(&authenticated).send().await {
+            Ok(response)
+                if response.status() == reqwest::StatusCode::SEE_OTHER
+                    && response
+                        .headers()
+                        .get("location")
+                        .is_some_and(|value| value == "/")
+                    && response.headers().contains_key("set-cookie") =>
+            {
                 boot_log::info(&format!(
                     "http ready status={} url={url}",
                     response.status()
                 ));
-                return Ok(());
+                return Ok(authenticated);
             }
             Ok(response) => {
                 boot_log::info(&format!(
@@ -632,7 +645,10 @@ async fn wait_for_http(
             }
             Err(err) => {
                 if !logged_failure {
-                    boot_log::info(&format!("health probe failed url={url} err={err}"));
+                    boot_log::info(&format!(
+                        "health probe failed url={url} err={}",
+                        err.without_url()
+                    ));
                     logged_failure = true;
                 }
             }
@@ -640,6 +656,40 @@ async fn wait_for_http(
 
         tokio::time::sleep(Duration::from_millis(150)).await;
     }
+}
+
+// 只接收该子进程在预期回环端口打印的认证地址；令牌只在内存中交给 WebView。
+fn parse_startup_url(line: &str, base: &str) -> Option<String> {
+    let candidate = line.strip_prefix("dsh web: ")?.split_whitespace().next()?;
+    let url = url::Url::parse(candidate).ok()?;
+    let expected = url::Url::parse(base).ok()?;
+    let pairs: Vec<_> = url.query_pairs().collect();
+    (url.origin() == expected.origin()
+        && url.path() == "/"
+        && url.username().is_empty()
+        && url.password().is_none()
+        && url.fragment().is_none()
+        && pairs.len() == 1
+        && pairs[0].0 == "token"
+        && !pairs[0].1.is_empty())
+    .then(|| url.to_string())
+}
+
+fn collect_startup_url(
+    stdout: impl std::io::Read + Send + 'static,
+    base: &str,
+    target: Arc<Mutex<Option<String>>>,
+) {
+    let base = base.to_string();
+    std::thread::spawn(move || {
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+            if let Some(url) = parse_startup_url(&line, &base) {
+                if let Ok(mut value) = target.lock() {
+                    *value = Some(url);
+                }
+            }
+        }
+    });
 }
 
 fn pick_port(preferred: u16) -> Result<u16, String> {
@@ -664,6 +714,29 @@ mod tests {
     use std::io::Read;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
+
+    #[test]
+    fn startup_url_requires_the_expected_origin_and_one_token() {
+        let base = "http://127.0.0.1:17890/";
+        assert_eq!(
+            super::parse_startup_url(
+                "dsh web: http://127.0.0.1:17890/?token=test (LAN: ignored)",
+                base
+            ),
+            Some(format!("{base}?token=test"))
+        );
+        for line in [
+            "dsh web: http://example.com:17890/?token=test",
+            "dsh web: http://127.0.0.1:17891/?token=test",
+            "dsh web: http://127.0.0.1:17890/?token=a&token=b",
+            "dsh web: http://127.0.0.1:17890/?token=",
+            "dsh web: http://127.0.0.1:17890/",
+            "dsh web: http://user@127.0.0.1:17890/?token=test",
+            "dsh web: opening the default browser",
+        ] {
+            assert_eq!(super::parse_startup_url(line, base), None);
+        }
+    }
 
     #[test]
     fn extracts_the_plugin_id_from_a_loader_failure() {

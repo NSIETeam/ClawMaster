@@ -63,7 +63,7 @@ impl DesktopRuntime {
         }
         progress(ProvisionEvent::Status(i18n::t(Msg::StatusStartWeb).into()));
         let host = supervisor::spawn_web_host(&paths, overlay, &host_path).await?;
-        boot_log::info(&format!("dsh web ready url={}", host.web_url));
+        boot_log::info("dsh web ready");
         Ok(Self {
             paths: paths.clone(),
             web_url: host.web_url.clone(),
@@ -89,7 +89,7 @@ impl DesktopRuntime {
     /// documented placeholder: the live Linux tree lives on WSL runtime paths
     /// inside the supervisor session, not on Windows `RuntimePaths`.
     pub fn start_wsl(host: HostHandle, wsl_paths: WslRuntimePaths) -> Self {
-        boot_log::info(&format!("wsl dsh web ready url={}", host.web_url));
+        boot_log::info("wsl dsh web ready");
         Self {
             // Placeholder only — WSL Host does not consume Windows RuntimePaths.
             paths: RuntimePaths {

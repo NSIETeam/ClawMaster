@@ -43,6 +43,7 @@ pub fn run() {
         }))
         .invoke_handler(tauri::generate_handler![
             chrome::set_close_action,
+            chrome::dismiss_close_prompt,
             chrome::restart_app
         ])
         .setup(|app| {
@@ -166,7 +167,7 @@ async fn boot_app(app: AppHandle, bundled: Option<PathBuf>) -> Result<(), String
     if let Some(notify) = notify {
         app.manage(notify);
     }
-    boot_log::info(&format!("opening main window url={web_url}"));
+    boot_log::info("opening main window");
     chrome::open_main_window(&app, &web_url)?;
     if let Some(splash) = app.get_webview_window("splash") {
         let _ = splash.close();

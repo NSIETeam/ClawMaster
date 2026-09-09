@@ -6,7 +6,6 @@
  */
 import { createHash } from 'node:crypto'
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { execSync } from 'node:child_process'
 import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -22,8 +21,8 @@ const skipDirNames = new Set([
 const trimmedPackages = [
   'vendor/*',
   'packages/*/*',
-  'native/landlock-run',
-  'native/landlock-run/packages/*',
+  'native/system',
+  'native/system/packages/*',
   'apps/cli',
   'apps/web',
 ]
@@ -33,11 +32,8 @@ const skipPackageGroups = new Set(['examples', 'test-support', 'experimental'])
 const skipFileSuffixes = ['.spec.ts', '.e2e.ts', '.snapshot.ts']
 
 /**
- * Derive the bundled pnpm-workspace.yaml from the repository's own file,
- * replacing only the `packages:` membership. Every other section —
- * `patchedDependencies`, `allowBuilds`, overrides — is copied verbatim so a
- * stale hardcoded copy can never disagree with the source tree the bundle
- * ships; pnpm treats a declared-but-unused patch as a hard install error.
+ * 从仓库配置裁剪工作区成员，允许生产包未使用的开发依赖补丁。
+ * 保留补丁、构建许可和 overrides；实际补丁应用失败仍阻止安装。
  *
  * @param {string} sourceYaml
  * @returns {string}
@@ -57,7 +53,10 @@ export function buildTrimmedWorkspaceYaml(sourceYaml) {
     ...trimmedPackages.map(name => `  - ${name}`),
     '',
   ]
-  return [...lines.slice(0, packagesIndex), ...trimmedBlock, ...lines.slice(end)].join('\n')
+  // 裁剪树不含开发工具，允许其补丁未使用；已安装依赖的补丁应用失败仍由 pnpm 报错。
+  return [...lines.slice(0, packagesIndex), ...trimmedBlock, ...lines.slice(end)]
+    .filter(line => !/^allowUnusedPatches:/.test(line))
+    .join('\n').trimEnd() + '\n\nallowUnusedPatches: true\n'
 }
 
 /** @param {string} sourceRoot @param {string} source */
@@ -112,7 +111,7 @@ function hashBundledContent(trimmedWorkspace, bundlePkg) {
     }
   }
 
-  for (const rel of ['patches', 'vendor', join('native', 'landlock-run'), join('apps', 'cli'), join('apps', 'web')]) {
+  for (const rel of ['patches', 'vendor', join('native', 'system'), join('apps', 'cli'), join('apps', 'web')]) {
     const path = join(repoRoot, rel)
     if (existsSync(path)) {
       hashSourceWalk(path, path, hasher, rel.replaceAll('\\', '/'))
@@ -156,15 +155,15 @@ function copyTree(src, dest) {
 function assertBuiltArtifacts() {
   const cliBin = join(repoRoot, 'apps', 'cli', 'lib', 'bin.js')
   const webIndex = join(repoRoot, 'apps', 'web', 'dist', 'index.html')
-  const landlockEntry = join(repoRoot, 'native', 'landlock-run', 'packages', 'entry', 'lib', 'index.js')
+  const systemEntry = join(repoRoot, 'native', 'system', 'packages', 'entry', 'lib', 'index.js')
   if (!existsSync(cliBin) || !existsSync(webIndex)) {
     throw new Error(
       'Harness build artifacts missing. From repo root run: pnpm run build',
     )
   }
-  if (!existsSync(landlockEntry)) {
+  if (!existsSync(systemEntry)) {
     throw new Error(
-      'landlock-run entry lib missing. From native/landlock-run run: pnpm run build:ts',
+      'system entry lib missing. From native/system run: pnpm run build:ts',
     )
   }
 }
@@ -191,23 +190,9 @@ function stripDevDependencies(root) {
   walk(root)
 }
 
-/** @param {string} dir */
-function removeTree(dir) {
-  if (!existsSync(dir)) return
-  try {
-    rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 })
-  } catch (error) {
-    if (process.platform === 'win32') {
-      execSync(`cmd /c rmdir /s /q "${dir.replaceAll('/', '\\')}"`, { stdio: 'ignore' })
-      return
-    }
-    throw error
-  }
-}
-
 function main() {
 assertBuiltArtifacts()
-removeTree(outRoot)
+rmSync(outRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 })
 mkdirSync(outRoot, { recursive: true })
 
 for (const name of ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']) {
@@ -219,7 +204,7 @@ if (existsSync(join(repoRoot, 'patches'))) {
 }
 
 copyTree(join(repoRoot, 'vendor'), join(outRoot, 'vendor'))
-copyTree(join(repoRoot, 'native', 'landlock-run'), join(outRoot, 'native', 'landlock-run'))
+copyTree(join(repoRoot, 'native', 'system'), join(outRoot, 'native', 'system'))
 copyTree(join(repoRoot, 'apps', 'cli'), join(outRoot, 'apps', 'cli'))
 copyTree(join(repoRoot, 'apps', 'web'), join(outRoot, 'apps', 'web'))
 

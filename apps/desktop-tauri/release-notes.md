@@ -1,43 +1,25 @@
-# DeepSeek Harness Desktop 0.1.1-rc.2-0.3
-
-## English
-
-DeepSeek Harness Desktop is a Tauri/WebView shell for the existing `dsh web` interface.
-
-The installer contains a trimmed Harness source tree without `node_modules`. On first launch, the app scans the host for Node / pnpm and an existing `~/.dsh` home, downloads only what is missing, starts the local Harness web host, and opens it in the desktop WebView.
-
-### What's new
-
-- Fixes a rare but self-locking startup failure (observed in the wild as `ERR_MODULE_NOT_FOUND: Cannot find package '@deepseek-ai/dsh-app-boot'`): an interrupted first-run dependency install could be recorded as completed, so every later launch booted a half-installed Harness tree and the splash showed "启动失败" until the cache was deleted by hand.
-- Provisioning reuse now requires pnpm's end-of-install completion marker (`node_modules/.modules.yaml`) alongside the `.pnpm` store, an install failure without the marker fails loudly into recovery, and the same marker gates the WSL provisioning skip.
-- When the web host dies naming an unresolvable dependency, the desktop shell now wipes and re-provisions the harness tree once within the same launch instead of surfacing the Node stack — no manual cache deletion.
-- Bundled Harness source stays on upstream `dsh@0.1.1-rc.2` with this desktop fix applied on top.
-
-### Included builds
-
-- Windows x64 and x86 NSIS installers
-- macOS Intel and Apple Silicon DMGs
-- Linux x64 AppImage and deb packages
-
-These artifacts are not operating-system code-signed or notarized. Windows SmartScreen, macOS Gatekeeper, or Linux desktop security prompts may require explicit approval.
+# DeepSeek Harness Desktop 0.1.5-alpha.1-0.1
 
 ## 中文
 
-DeepSeek Harness Desktop 是现有 `dsh web` 界面的 Tauri/WebView 外壳。
+- 同步上游 `dsh@0.1.5-alpha.1`（`5dda764ed3`），包含会话格式迁移、模型与 Web 界面更新。
+- 适配 Host 启动认证与独立 WebView，保留登录 cookie 校验，启动令牌不写入日志。
+- 保留 DeepSeek Harness 名称、自定义标题栏、托盘、通知和签名更新；启动不额外打开浏览器。
+- 适配 `native/system` 和上游 Electron 包并存，修复裁剪包因开发工具补丁未使用而无法安装依赖的问题。
+- 保留预配自修复和 PowerShell 终端修复，并合入上游启动超时限制。
 
-安装包包含裁剪后的 Harness 源码树，不含 `node_modules`。首次启动会扫描本机 Node / pnpm 和已有 `~/.dsh` 主目录，只下载缺失部分，然后启动本地 Harness Web Host，并在桌面 WebView 中打开。
+更新前请结束正在运行的任务并备份 Harness 主目录。上游仍为 alpha 版本；会话写入可能生成新的版本文件，旧版本无法读取新版本新增的数据。
 
-### 更新内容
+包含 Windows x64/x86 NSIS、macOS Intel/Apple Silicon DMG，以及 Linux x64 AppImage/deb。更新产物使用 Tauri 签名，尚无操作系统代码签名或 macOS notarization。
 
-- 修复一个罕见但会自锁的启动失败（现实中表现为 `ERR_MODULE_NOT_FOUND: Cannot find package '@deepseek-ai/dsh-app-boot'`）：首次运行的依赖安装若被中途打断，可能被记录成已完成，之后每次启动都加载半安装的 Harness 树，启动页一直显示"启动失败"，只能手工删除缓存。
-- 预配复用现在要求 pnpm 的安装结束标记（`node_modules/.modules.yaml`）与 `.pnpm` 存储同时存在，缺失标记的安装失败会明确报错进入恢复路径，WSL 侧的跳过判定也使用同一标记。
-- 当 Web Host 死于指名道姓的缺依赖错误时，桌面外壳会在同一次启动内清空并重新预配 harness 树一次，而不是把 Node 堆栈甩给用户——无需手工删缓存。
-- 内置 Harness 源码保持在上游 `dsh@0.1.1-rc.2`，叠加本次桌面端修复。
+## English
 
-### 包含的构建
+- Sync upstream `dsh@0.1.5-alpha.1` at `5dda764ed3`, including session-format migration, model, and Web UI updates.
+- Exchange the Host launch URL in a separate WebView, retain cookie authentication, and omit launch tokens from logs.
+- Retain the DeepSeek Harness name, window controls, tray, notifications, and signed updates without opening an extra browser.
+- Package `native/system`, coexist with upstream Electron, and permit unused development-tool patches in the trimmed production tree.
+- Retain provisioning recovery and PowerShell fixes together with upstream startup deadlines.
 
-- Windows x64 和 x86 NSIS 安装包
-- macOS Intel 和 Apple Silicon DMG
-- Linux x64 AppImage 和 deb 包
+Finish running tasks and back up the Harness home before upgrading. Upstream remains an alpha release. Session writes may create a new format generation; older releases cannot read data introduced by the new version.
 
-这些产物没有操作系统代码签名，也未经过 notarization。Windows SmartScreen、macOS Gatekeeper 或 Linux 桌面安全提示可能要求用户明确批准。
+Includes Windows x64/x86 NSIS, macOS Intel/Apple Silicon DMG, and Linux x64 AppImage/deb. Update artifacts carry Tauri signatures but lack operating-system code signing and macOS notarization.

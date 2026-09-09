@@ -90,12 +90,6 @@
     body.macos button.ctl.minimize { background: #febc2e; }
     body.macos button.ctl.maximize { background: #28c840; }
     body.macos button.ctl:hover { filter: brightness(1.05); }
-    iframe {
-      flex: 1 1 auto;
-      width: 100%;
-      border: 0;
-      background: var(--bg);
-    }
     .modal {
       position: fixed;
       inset: 0;
@@ -206,7 +200,6 @@
     </div>
     <div class="cluster right" id="right"></div>
   </header>
-  <iframe id="app" title="DeepSeek Harness"></iframe>
   <div id="close-prompt" class="modal" hidden>
     <div class="modal-mask" data-dismiss></div>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="close-title">
@@ -269,18 +262,22 @@
     function setClosePrompt(open) {
       closePrompt.hidden = !open
     }
+    function dismissClosePrompt() {
+      setClosePrompt(false)
+      window.__TAURI__?.core?.invoke('dismiss_close_prompt')
+    }
     async function chooseClose(action) {
       setClosePrompt(false)
       const invoke = window.__TAURI__?.core?.invoke
       if (invoke) await invoke('set_close_action', { action })
     }
     closePrompt.querySelectorAll('[data-dismiss]').forEach((el) => {
-      el.addEventListener('click', () => setClosePrompt(false))
+      el.addEventListener('click', dismissClosePrompt)
     })
     document.getElementById('close-minimize').onclick = () => chooseClose('minimize')
     document.getElementById('close-exit').onclick = () => chooseClose('exit')
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && !closePrompt.hidden) setClosePrompt(false)
+      if (event.key === 'Escape' && !closePrompt.hidden) dismissClosePrompt()
     })
     window.__DSH_CLOSE_PROMPT__ = {
       show() { setClosePrompt(true) },
@@ -288,8 +285,6 @@
     }
 
     async function boot() {
-      const url = window.__DSH_WEB_URL__
-      if (url) document.getElementById('app').src = url
       const layout = window.__DSH_CHROME__ || {
         os: 'windows',
         titlebar_height: 36,
