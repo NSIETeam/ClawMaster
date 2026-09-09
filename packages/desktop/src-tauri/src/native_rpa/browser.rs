@@ -37,7 +37,7 @@ impl OwnedBrowser {
     }
 
     #[cfg(all(test, unix))]
-    fn id(&self) -> u32 {
+    pub(super) fn id(&self) -> u32 {
         self.child.id()
     }
 
@@ -261,6 +261,18 @@ fn spawn_owned(command: Command) -> Result<OwnedBrowser, std::io::Error> {
     #[cfg(windows)]
     wrapped.wrap(process_wrap::std::JobObject);
     wrapped.spawn().map(|child| OwnedBrowser { child })
+}
+
+#[cfg(all(test, unix))]
+pub(super) fn spawn_test_browser() -> OwnedBrowser {
+    let mut command = Command::new("/bin/sh");
+    command
+        .arg("-c")
+        .arg("sleep 30")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    spawn_owned(command).expect("spawn owned test browser")
 }
 
 fn safe_segment(value: &str) -> String {

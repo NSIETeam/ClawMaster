@@ -177,15 +177,51 @@ pub fn required_tool_evidence(messages: &[ModelMessage]) -> Vec<&'static str> {
         .find(|message| message.role == "user")
         .map(|message| message.text.to_lowercase())
         .unwrap_or_default();
+    const RPA_TOOLS: &[&str] = &[
+        "rpa_browser_support",
+        "rpa_start",
+        "rpa_windows",
+        "rpa_snapshot",
+        "rpa_focus",
+        "rpa_click",
+        "rpa_fill",
+        "rpa_hotkey",
+        "rpa_wait",
+        "rpa_status",
+        "rpa_cancel",
+    ];
+    let explicitly_requested = RPA_TOOLS
+        .iter()
+        .copied()
+        .filter(|name| context.contains(name))
+        .collect::<Vec<_>>();
+    let requests_execution = ["调用", "执行", "使用", "call", "invoke", "run"]
+        .iter()
+        .any(|term| context.contains(term));
     let browser_task = ["浏览器", "browser", "chrome", "edge"]
         .iter()
         .any(|term| context.contains(term));
     if !has_native_rpa_intent(&context) || !browser_task {
-        return Vec::new();
+        return if requests_execution {
+            explicitly_requested
+        } else {
+            Vec::new()
+        };
     }
     let mut required = vec!["rpa_start", "rpa_windows", "rpa_snapshot"];
     if ["点击", "click"].iter().any(|term| context.contains(term)) {
         required.push("rpa_click");
+    }
+    if ["清理", "取消", "cancel"]
+        .iter()
+        .any(|term| context.contains(term))
+    {
+        required.push("rpa_cancel");
+    }
+    for name in explicitly_requested {
+        if !required.contains(&name) {
+            required.push(name);
+        }
     }
     required
 }
@@ -567,5 +603,25 @@ mod tests {
             },
         ])
         .is_empty());
+        assert_eq!(
+            required_tool_evidence(&[ModelMessage {
+                role: "user".into(),
+                text: "请只真实调用 rpa_cancel 清理 runId=test。".into(),
+            }]),
+            vec!["rpa_cancel"]
+        );
+        assert_eq!(
+            required_tool_evidence(&[ModelMessage {
+                role: "user".into(),
+                text: "请调用 rpa_start、rpa_windows、rpa_snapshot、rpa_click，最后调用 rpa_cancel 清理。".into(),
+            }]),
+            vec![
+                "rpa_start",
+                "rpa_windows",
+                "rpa_snapshot",
+                "rpa_click",
+                "rpa_cancel"
+            ]
+        );
     }
 }

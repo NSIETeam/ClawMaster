@@ -44,6 +44,8 @@ mod platform_webview;
 mod runtime_contracts;
 mod system_commands;
 mod task_runtime_guard;
+#[cfg(target_os = "macos")]
+mod workspace_bridge;
 
 const FRAME_EVENT: &str = "desktop://server-frame";
 const CONNECTION_EVENT: &str = "desktop://connection-change";
@@ -367,7 +369,11 @@ fn desktop_is_connected(state: State<'_, DesktopConnection>) -> bool {
 pub fn run() {
     let app = tauri::Builder::default()
         // Keep this first so a second launch focuses the existing native runtime.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            #[cfg(target_os = "macos")]
+            if args.iter().any(|arg| arg == "--workspace-bridge") {
+                let _ = workspace_bridge::start(app);
+            }
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.unminimize();
@@ -397,6 +403,10 @@ pub fn run() {
                 app.manage(channels);
                 app.manage(self_modification);
                 app.manage(enterprise_remote);
+                #[cfg(target_os = "macos")]
+                if std::env::args().any(|arg| arg == "--workspace-bridge") {
+                    workspace_bridge::start(app.handle())?;
+                }
                 app.state::<native_channels::NativeChannelState>()
                     .start_configured(app.handle().clone());
                 Ok(())
@@ -483,6 +493,11 @@ pub fn run() {
             event,
             tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
         ) {
+            #[cfg(target_os = "macos")]
+            let _ = workspace_bridge::shutdown();
+            if let Some(runtime) = app_handle.try_state::<native_runtime::NativeRuntime>() {
+                let _ = runtime.shutdown();
+            }
             if let Some(state) = app_handle.try_state::<task_runtime_guard::TaskRuntimeGuard>() {
                 task_runtime_guard::stop(state.inner());
             }

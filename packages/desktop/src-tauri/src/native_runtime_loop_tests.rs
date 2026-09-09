@@ -192,6 +192,14 @@ async fn exercise_production_loop(outcome: &'static str) {
         );
     }
     assert_eq!(requests.len(), 3);
+    for request in &requests[1..] {
+        assert!(
+            !request["messages"]
+                .to_string()
+                .contains("[Requested Rust tools]"),
+            "structured tool calls must not be replayed as assistant prose"
+        );
+    }
     let capabilities = requests[1]["messages"].as_array().unwrap().last().unwrap()["content"]
         .as_str()
         .unwrap();
@@ -355,7 +363,8 @@ async fn production_loop_replans_before_rejecting_an_unverified_rpa_claim() {
         },
         vec![ModelMessage {
             role: "user".into(),
-            text: "Use the real system browser and click the visible link.".into(),
+            text: "Use the real system browser, click the visible link, then call rpa_cancel."
+                .into(),
         }],
         cancel,
         &mut turn,
@@ -375,6 +384,7 @@ async fn production_loop_replans_before_rejecting_an_unverified_rpa_claim() {
             .unwrap();
         assert!(prompt.contains("[Harness verification required]"));
         assert!(prompt.contains("rpa_click"));
+        assert!(prompt.contains("rpa_cancel"));
     }
     assert!(completion.text.starts_with("本轮未完全完成"));
     assert_eq!(

@@ -810,6 +810,15 @@ impl NativeRpa {
                 "取消 owned browser 缺少 approval binding",
             );
         }
+        if run.state == RpaRunState::Cancelled
+            && !self
+                .owned_browsers
+                .lock()
+                .map_err(|_| "RPA owned browser 锁已损坏".to_string())?
+                .contains_key(run_id)
+        {
+            return Ok(run);
+        }
         let mut had_unknown_outcome = false;
         if let Some(current) = run.current_step_id.take() {
             if let Some(receipt) = run
@@ -827,6 +836,12 @@ impl NativeRpa {
                 receipt.error = Some("用户取消了 owned browser session".into());
                 receipt.completed_at = Some(now_ms());
             }
+        }
+        // Cleanup must remain possible after a failed or uncertain step. The
+        // prior state is retained through had_unknown_outcome below.
+        if !matches!(run.state, RpaRunState::Running | RpaRunState::Pending) {
+            had_unknown_outcome |= run.state == RpaRunState::UnknownOutcome;
+            run.state = RpaRunState::Running;
         }
         let receipt_index = self.start_step(
             &mut run,
@@ -862,6 +877,43 @@ impl NativeRpa {
         run.current_step_id = None;
         self.save(&run)?;
         Ok(run)
+    }
+
+    pub fn cleanup_failed_run(&self, run_id: &str) -> Result<(), String> {
+        let child = self
+            .owned_browsers
+            .lock()
+            .map_err(|_| "RPA owned browser 锁已损坏".to_string())?
+            .remove(run_id);
+        if let Some(mut child) = child {
+            child.terminate()?;
+        }
+        Ok(())
+    }
+
+    pub fn shutdown(&self) -> Result<(), String> {
+        let children = {
+            let mut children = self
+                .owned_browsers
+                .lock()
+                .map_err(|_| "RPA owned browser 锁已损坏".to_string())?;
+            std::mem::take(&mut *children)
+        };
+        let mut failures = Vec::new();
+        for (run_id, mut child) in children {
+            let outcome = child.terminate();
+            if let Err(error) = self.record_shutdown(&run_id, outcome.as_ref().err()) {
+                failures.push(error);
+            }
+            if let Err(error) = outcome {
+                failures.push(error);
+            }
+        }
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(failures.join("; "))
+        }
     }
 
     pub fn get(&self, run_id: &str) -> Result<Option<RpaRun>, String> {
@@ -1305,6 +1357,46 @@ impl NativeRpa {
             self.save(&run)?;
         }
         Ok(())
+    }
+
+    fn record_shutdown(&self, run_id: &str, error: Option<&String>) -> Result<(), String> {
+        let Some(mut run) = self.load(run_id)? else {
+            return Ok(());
+        };
+        let timestamp = now_ms();
+        let attempt = run
+            .receipts
+            .iter()
+            .filter(|receipt| receipt.step_id == "shutdown")
+            .count() as u32
+            + 1;
+        run.receipts.push(RpaReceipt {
+            run_id: run.id.clone(),
+            step_id: "shutdown".into(),
+            attempt,
+            state: if error.is_some() {
+                RpaStepState::UnknownOutcome
+            } else {
+                RpaStepState::Succeeded
+            },
+            idempotency_key: format!("rpa-shutdown:{}:{attempt}", run.id),
+            action: "browser.shutdown".into(),
+            target_summary: "owned browser session".into(),
+            external_side_effect: true,
+            approval_id: None,
+            artifact_ids: Vec::new(),
+            error: error.map(|message| message.chars().take(1_000).collect()),
+            started_at: timestamp,
+            completed_at: Some(timestamp),
+        });
+        run.current_step_id = None;
+        run.state = if error.is_some() {
+            RpaRunState::UnknownOutcome
+        } else {
+            RpaRunState::Cancelled
+        };
+        run.updated_at = timestamp;
+        self.save(&run)
     }
 
     fn required_run(&self, run_id: &str) -> Result<RpaRun, String> {
@@ -1780,6 +1872,76 @@ mod tests {
         assert_eq!(receipt.action, "browser.cancel");
         assert_eq!(receipt.state, RpaStepState::Succeeded);
         assert_eq!(receipt.approval_id.as_deref(), Some("approval-cancel"));
+    }
+
+    #[test]
+    fn cancel_remains_available_after_a_failed_step() {
+        let (_root, controller) = controller();
+        let mut current = run("cancel-failed", false);
+        current.state = RpaRunState::Failed;
+        current.receipts[0].state = RpaStepState::Failed;
+        current.receipts[0].completed_at = Some(now_ms());
+        controller.save(&current).unwrap();
+
+        let cancelled = controller
+            .cancel("cancel-failed", Some("approval-cancel-failed"))
+            .unwrap();
+        assert_eq!(cancelled.state, RpaRunState::Cancelled);
+        assert_eq!(cancelled.current_step_id, None);
+        assert_eq!(cancelled.receipts.last().unwrap().action, "browser.cancel");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failed_run_cleanup_terminates_the_owned_process_group() {
+        let (_root, controller) = controller();
+        let child = browser::spawn_test_browser();
+        let pid = child.id();
+        controller
+            .owned_browsers
+            .lock()
+            .unwrap()
+            .insert("failed-owned".into(), child);
+
+        controller.cleanup_failed_run("failed-owned").unwrap();
+
+        assert!(controller.owned_browsers.lock().unwrap().is_empty());
+        assert!(!std::process::Command::new("/bin/kill")
+            .args(["-0", &pid.to_string()])
+            .status()
+            .is_ok_and(|status| status.success()));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shutdown_terminates_owned_browser_and_persists_terminal_state() {
+        let (_root, controller) = controller();
+        let mut current = run("shutdown-owned", false);
+        current.current_step_id = None;
+        current.receipts.clear();
+        controller.save(&current).unwrap();
+        let child = browser::spawn_test_browser();
+        let pid = child.id();
+        controller
+            .owned_browsers
+            .lock()
+            .unwrap()
+            .insert(current.id.clone(), child);
+
+        controller.shutdown().unwrap();
+
+        assert!(controller.owned_browsers.lock().unwrap().is_empty());
+        assert!(!std::process::Command::new("/bin/kill")
+            .args(["-0", &pid.to_string()])
+            .status()
+            .is_ok_and(|status| status.success()));
+        let persisted = controller.get("shutdown-owned").unwrap().unwrap();
+        assert_eq!(persisted.state, RpaRunState::Cancelled);
+        assert_eq!(persisted.current_step_id, None);
+        assert_eq!(
+            persisted.receipts.last().unwrap().action,
+            "browser.shutdown"
+        );
     }
 
     #[test]

@@ -690,6 +690,7 @@ fn rpa_artifact_summary(value: &Value) -> Option<Value> {
             .collect::<Vec<_>>();
         return Some(json!({
             "artifact": artifact,
+            "windowsArtifactId": sha256,
             "windowInventory": {
                 "referenceScope": bounded_string(inventory.get("referenceScope"), 80),
                 "windows": windows,
@@ -719,6 +720,7 @@ fn rpa_artifact_summary(value: &Value) -> Option<Value> {
             .collect::<Vec<_>>();
         return Some(json!({
             "artifact": artifact,
+            "snapshotArtifactId": sha256,
             "semanticSnapshot": {
                 "elements": elements,
                 "truncated": snapshot.get("truncated").and_then(Value::as_bool).unwrap_or(false)
@@ -1241,6 +1243,10 @@ impl NativeRuntime {
             runtime.persist(&state)?;
         }
         Ok(runtime)
+    }
+
+    pub fn shutdown(&self) -> Result<(), String> {
+        self.native_rpa.shutdown()
     }
 
     pub fn capability_list(&self) -> Result<Vec<InstalledCapability>, String> {
@@ -3227,18 +3233,12 @@ impl NativeRuntime {
                     now_ms(),
                 )?;
             }
-            let call_summary = calls
-                .iter()
-                .map(|call| format!("{} {}", call.name, call.arguments))
-                .collect::<Vec<_>>()
-                .join("\n");
-            messages.push(ModelMessage {
-                role: "assistant".into(),
-                text: format!(
-                    "{}\n[Requested Rust tools]\n{call_summary}",
-                    completion.text
-                ),
-            });
+            if !completion.text.trim().is_empty() {
+                messages.push(ModelMessage {
+                    role: "assistant".into(),
+                    text: completion.text.clone(),
+                });
+            }
             let mut results = Vec::new();
             for call in &calls {
                 self.audit_tool(context.session_id, call, "requested", None)?;
@@ -3668,6 +3668,17 @@ impl NativeRuntime {
                 } else {
                     Err("用户拒绝或取消了工具操作".into())
                 };
+                if approved && is_rpa && result.is_err() && call.name != "rpa_cancel" {
+                    if let Some(run_id) = call.arguments.get("runId").and_then(Value::as_str) {
+                        if let Err(cleanup_error) = self.native_rpa.cleanup_failed_run(run_id) {
+                            let tool_error =
+                                result.err().unwrap_or_else(|| "RPA 工具失败".to_string());
+                            result = Err(format!(
+                                "{tool_error}; owned browser 清理失败: {cleanup_error}"
+                            ));
+                        }
+                    }
+                }
                 if call.name == "open_browser" {
                     if let Ok(payload) = &result {
                         if let Err(error) = context
@@ -4996,6 +5007,10 @@ mod tests {
             "a".repeat(64)
         );
         assert_eq!(
+            inventory_summary["rpa"]["windowsArtifactId"],
+            "a".repeat(64)
+        );
+        assert_eq!(
             inventory_summary["rpa"]["windowInventory"]["windows"][0]["ref"],
             "@w7"
         );
@@ -5016,6 +5031,10 @@ mod tests {
             }
         });
         let snapshot_summary = bounded_tool_result(&snapshot);
+        assert_eq!(
+            snapshot_summary["rpa"]["snapshotArtifactId"],
+            "b".repeat(64)
+        );
         assert_eq!(
             snapshot_summary["rpa"]["semanticSnapshot"]["elements"][0]["ref"],
             "@e12"
