@@ -36,7 +36,9 @@ export interface DshInstallLayoutSummary {
 }
 
 function isDshPackage(name: string): boolean {
-  return name === DSH_PACKAGE || name.startsWith(`${DSH_PACKAGE}-`)
+  // 私有 Tauri 安装器使用独立版本，不属于 npm 发布序列。
+  return name !== '@deepseek-ai/dsh-desktop-tauri'
+    && (name === DSH_PACKAGE || name.startsWith(`${DSH_PACKAGE}-`))
 }
 
 function cloneForVersion(manifest: object, version: string): MutableRegistryManifest {

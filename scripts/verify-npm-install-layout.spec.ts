@@ -37,7 +37,7 @@ function validLayout(): NpmPackageLock {
 }
 
 describe('npm install layout verifier', () => {
-  it('creates two incompatible versions of every DSH package', () => {
+  it('为 npm 发布序列生成两个版本，并保留独立桌面安装器的版本', () => {
     const index: RegistryIndex = new Map([
       ['@deepseek-ai/dsh', new Map([['0.1.1-rc.2', {
         name: '@deepseek-ai/dsh',
@@ -52,6 +52,10 @@ describe('npm install layout verifier', () => {
       ['@deepseek-ai/cordis', new Map([['4.0.1', {
         name: '@deepseek-ai/cordis',
         version: '4.0.1',
+      }]])],
+      ['@deepseek-ai/dsh-desktop-tauri', new Map([['0.1.5-alpha.1-0.1', {
+        name: '@deepseek-ai/dsh-desktop-tauri',
+        version: '0.1.5-alpha.1-0.1',
       }]])],
     ])
 
@@ -68,6 +72,7 @@ describe('npm install layout verifier', () => {
       dependencies: { '@deepseek-ai/dsh-child': '^0.2.0' },
     })
     expect(dual.get('@deepseek-ai/cordis')).toBe(index.get('@deepseek-ai/cordis'))
+    expect(dual.get('@deepseek-ai/dsh-desktop-tauri')).toBe(index.get('@deepseek-ai/dsh-desktop-tauri'))
   })
 
   it('accepts isolated DSH releases with one shared Cordis installation', () => {
