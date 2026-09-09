@@ -4,7 +4,9 @@ English | [中文](README.zh.md)
 
 Rust/WebView2 shell over the existing `dsh web` UI. The installer ships **harness source** (no `node_modules`); first run scans the host for a compatible Node / pnpm and an existing `~/.dsh` home, downloads **build tools only** when the scan finds none, then runs `pnpm install --prod` against the bundled tree.
 
-Current desktop release: **0.1.1-rc.2-0.3**.
+Current desktop release: **0.1.5-alpha.1-0.1**.
+
+The Tauri package is `@deepseek-ai/dsh-desktop-tauri`, independent of upstream Electron. The Host launch URL passes only in memory to a separate WebView, where upstream authentication issues the login cookie. Only local chrome receives window-control permissions. Boot logs omit the launch token. The trimmed bundle includes `native/system` and permits unused development-tool patches only in that tree; patch application failures still stop installation.
 
 ## Architecture
 
@@ -22,7 +24,7 @@ Current desktop release: **0.1.1-rc.2-0.3**.
 
 Windows desktop ships one installer, one desktop binary, and one Web client (`dsh web` in the WebView); this is not a second SKU and not a second Web UI. The tray Agent environment toggle only chooses where the Host process runs: Windows Node with pwsh, or Linux Node with bash inside the default WSL2 distro. Switching is operational, not a second codebase: restart is required; Windows keeps the isolated desktop home while WSL uses the distro `~/.dsh`; sessions are not shared; credentials and `.env` are copied once into the Linux home when both files are missing there. A second installer or forked Web client would duplicate the updater, overlay, homes, and CI and is not shipped. In WSL mode, workspace browse uses Linux paths such as `/mnt/d/...` for a Windows drive; `packages/` is unchanged; if Docker Desktop is the default distro, set an eligible WSL2 distro with `wsl --set-default`.
 
-Bundled tree includes: `apps/cli` (with built `lib/`), `apps/web` (with `dist/`), `packages/*/*` (excluding examples and test-support), `native/landlock-run`, `vendor/*`, `patches/`, lockfile — **not** the old 900k-junction offline runtime. Workspace `devDependencies` are stripped at bundle time so `--prod` install does not require demo packages.
+Bundled tree includes: `apps/cli` (with built `lib/`), `apps/web` (with `dist/`), `packages/*/*` (excluding examples and test-support), `native/system`, `vendor/*`, `patches/`, lockfile — **not** the old 900k-junction offline runtime. Workspace `devDependencies` are stripped at bundle time so `--prod` install does not require demo packages.
 
 ### Mirrors (override via env)
 
@@ -46,14 +48,14 @@ Writable paths live under the platform application-data directory (`%APPDATA%\De
 - `bin/` — spawnable `dsh.exe` / `dsh.cmd` / `pnpm.cmd` written onto the Host PATH and, when missing, the user Path
 - `cache/` — downloaded Node zip or tarball
 
-First launch scans the process `PATH` (on Windows, plus the durable user and machine Path) and well-known install locations for Node `^22.19 || >=24` and a usable pnpm before any mirror fetch. It then adopts `$DSH_HOME` (process or, on Windows, the user/machine environment) or `~/.dsh` when that directory already holds sessions, credentials, `.env`, profiles, or settings, and copies missing files from the isolated `dsh-home/` into the selected home. It writes spawnable `dsh` / `pnpm` shims (`dsh.exe` is the desktop binary running as a CLI trampoline) and prepends the selected Node / pnpm directories (plus Git `cmd`/`bin` when `git` or `bash` is missing on that discovery PATH) onto the Host PATH so in-app `spawn('dsh')`, `dsh plugin`, MCP `npx`, and agent `bash`/`git` lookups resolve. Windows does not write an extensionless `dsh` file. Windows Host and CLI children do not allocate a console when the parent has no visible console. The user Path receives the shim directory via the registry, and the Node or pnpm directory only when that command is still absent as a spawnable file. The provisioner still downloads Node for Windows x64/x86, macOS x64/arm64, and Linux x64/arm64 when the scan finds none. Zip and tar.gz extraction reject entries outside the expected Node archive root. Unix archives retain executable permissions. A privately installed pnpm runs through the selected Node binary; a host pnpm is invoked directly. Bundle-specific harness directories let an update provision new source without deleting files used by an older running Host; compatible Node and pnpm runtimes are reused across source updates. The bundled workspace file is derived from the repository's `pnpm-workspace.yaml` with only the package membership trimmed. When provisioning fails, the app reuses the newest harness tree whose dependencies are installed; install and download steps have deadlines, and provisioning keeps the three newest harness trees. The native shell permits one application instance and focuses the existing window on repeated launches. Release builds check for an update after the main window opens; update-network or manifest failures are logged and do not hold the splash. A ready runtime manifest skips the host toolchain scan and compares Node by file size instead of hashing `node.exe`. Window chrome, tray, updater, toast, and completion sound stay in this Rust crate. Host collaboration is an overlay plugin copied into `$DSH_HOME/desktop-overlay` and loaded with `dsh web --patch`; `packages/` is not modified.
+First launch scans the process `PATH` (on Windows, plus the durable user and machine Path) and well-known install locations for Node `^22.19 || >=24` and a usable pnpm before any mirror fetch. It then adopts `$DSH_HOME` (process or, on Windows, the user/machine environment) or `~/.dsh` when that directory already holds sessions, credentials, `.env`, profiles, or settings, and copies missing files from the isolated `dsh-home/` into the selected home. It writes spawnable `dsh` / `pnpm` shims (`dsh.exe` is the desktop binary running as a CLI trampoline) and prepends the selected Node / pnpm directories (plus Git `cmd`/`bin` when `git` or `bash` is missing on that discovery PATH) onto the Host PATH so in-app `spawn('dsh')`, `dsh plugin`, MCP `npx`, and agent `bash`/`git` lookups resolve. Windows does not write an extensionless `dsh` file. Windows Host and CLI children do not allocate a console when the parent has no visible console. The user Path receives the shim directory via the registry, and the Node or pnpm directory only when that command is still absent as a spawnable file. The provisioner still downloads Node for Windows x64/x86, macOS x64/arm64, and Linux x64/arm64 when the scan finds none. Zip and tar.gz extraction reject entries outside the expected Node archive root. Unix archives retain executable permissions. A privately installed pnpm runs through the selected Node binary; a host pnpm is invoked directly. Bundle-specific harness directories let an update provision new source without deleting files used by an older running Host; compatible Node and pnpm runtimes are reused across source updates. The bundled workspace file is derived from the repository's `pnpm-workspace.yaml` with package membership trimmed and unused development-tool patches permitted. When provisioning fails, the app reuses the newest harness tree whose dependencies are installed; install and download steps have deadlines, and provisioning keeps the three newest harness trees. The native shell permits one application instance and focuses the existing window on repeated launches. Release builds check for an update after the main window opens; update-network or manifest failures are logged and do not hold the splash. A ready runtime manifest skips the host toolchain scan and compares Node by file size instead of hashing `node.exe`. Window chrome, tray, updater, toast, and completion sound stay in this Rust crate. Host collaboration is an overlay plugin copied into `$DSH_HOME/desktop-overlay` and loaded with `dsh web --patch`; `packages/` is not modified.
 
 ## Build
 
 From the repo root (needs built CLI + web dist):
 
 ```powershell
-pnpm run build
+pnpm run build:official
 cd apps/desktop-tauri
 pnpm install
 $env:TAURI_SIGNING_PRIVATE_KEY=(Get-Content "$HOME\.tauri\deepseek-desktop-updater.key" -Raw)
@@ -61,7 +63,7 @@ $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD=(Get-Content "$HOME\.tauri\deepseek-desk
 pnpm run build:win
 ```
 
-Installer output: `src-tauri/target/release/bundle/nsis/DeepSeek Harness_0.1.1-rc.2-0.3_x64-setup.exe`
+Installer output: `src-tauri/target/release/bundle/nsis/DeepSeek Harness_0.1.5-alpha.1-0.1_x64-setup.exe`
 
 The NSIS installer bundles **English**, **Simplified Chinese**, and **Traditional Chinese**. Language follows the OS locale automatically (no language picker); if the locale is unsupported, English is used. Native splash, tray, close-dialog, and splash-status copy follow the same rule (`zh*` → Chinese, otherwise English). The embedded `dsh web` client keeps its own Settings language. Before copying files, the installer silently closes `dsh-desktop.exe` and its child process tree. After installation, it recreates an existing desktop shortcut with the versioned standalone ICO resource and notifies Explorer to invalidate stale icon cache entries.
 
@@ -84,7 +86,7 @@ node scripts/bundle-harness-source.mjs
 **Dev (monorepo checkout):**
 
 ```powershell
-# repo root: pnpm run build  (once)
+# repo root: pnpm run build:official  (once)
 cd apps/desktop-tauri
 $env:DSH_DESKTOP_LAUNCH='local'
 pnpm run dev
@@ -100,3 +102,5 @@ pnpm run dev
 | `scripts/prepare-dist.mjs` | Splash dist + bundle (Tauri `beforeBuildCommand`) |
 | `scripts/serve-dist.mjs` | Static server for `tauri dev` splash |
 | `overlay/desktop-notify/` | Cordis overlay: POST completed turns to the native notify port |
+
+Startup regression: copy the trimmed bundle to a temporary directory, install production dependencies there, set DSH_DESKTOP_SMOKE_ROOT to that directory, and run pnpm run test:startup. It uses a private home to check authentication, the homepage, and the DeepSeek Harness title without calling a model API.

@@ -26,10 +26,11 @@ patchedDependencies:
   const trimmed = buildTrimmedWorkspaceYaml(source)
 
   assert.match(trimmed, /^packages:\n(?:  - .*\n)+/)
-  for (const name of ['vendor/*', 'packages/*/*', 'native/landlock-run', 'apps/cli', 'apps/web']) {
+  for (const name of ['vendor/*', 'packages/*/*', 'native/system', 'native/system/packages/*', 'apps/cli', 'apps/web']) {
     assert.ok(trimmed.includes(`  - ${name}\n`), `trimmed packages must include ${name}`)
   }
   assert.ok(!trimmed.includes('apps/*'))
+  assert.ok(!trimmed.includes('native/landlock-run'))
   assert.ok(!trimmed.includes('examples'))
 
   assert.ok(
@@ -38,6 +39,7 @@ patchedDependencies:
   )
   assert.ok(trimmed.includes('allowBuilds:\n  esbuild: true\n  node-pty: true\n'))
   assert.ok(trimmed.includes('linkWorkspacePackages: true\n'))
+  assert.ok(trimmed.includes('allowUnusedPatches: true\n'))
 })
 
 test('buildTrimmedWorkspaceYaml preserves comments after the packages block', () => {

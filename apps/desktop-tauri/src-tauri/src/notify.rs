@@ -87,7 +87,7 @@ fn handle_client(app: AppHandle, mut stream: TcpStream, sound: Option<&std::path
     let _ = stream.write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n");
 
     let focused = app
-        .get_webview_window("main")
+        .get_window("main")
         .and_then(|window| window.is_focused().ok())
         .unwrap_or(false);
     if focused {

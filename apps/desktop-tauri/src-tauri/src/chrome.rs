@@ -3,7 +3,10 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use tauri::window::Color;
-use tauri::{AppHandle, Manager, Theme, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{
+    AppHandle, LogicalPosition, LogicalSize, Manager, Theme, WebviewBuilder, WebviewUrl,
+    WebviewWindowBuilder, WindowEvent,
+};
 
 const DSH_BG: Color = Color(21, 21, 23, 255);
 
@@ -24,7 +27,7 @@ pub fn quit_requested() -> bool {
 /// Exit the process after marking quit so `ExitRequested` is not cancelled.
 pub fn request_quit(app: &AppHandle) {
     mark_process_end(app);
-    if let Some(window) = app.get_webview_window("main") {
+    if let Some(window) = app.get_window("main") {
         let _ = window.destroy();
     }
     app.exit(0);
@@ -59,7 +62,7 @@ pub fn stop_host(app: &AppHandle) {
 
 /// Create the frameless shell window that embeds `dsh web`.
 pub fn open_main_window(app: &AppHandle, url: &str) -> Result<(), String> {
-    if let Some(existing) = app.get_webview_window("main") {
+    if let Some(existing) = app.get_window("main") {
         let _ = existing.show();
         let _ = existing.set_focus();
         return Ok(());
@@ -74,8 +77,7 @@ pub fn open_main_window(app: &AppHandle, url: &str) -> Result<(), String> {
         i18n::Locale::En => "en",
     };
     let init = format!(
-        "window.__DSH_WEB_URL__ = {}; window.__DSH_CHROME__ = {}; window.__DSH_LOCALE__ = {};",
-        serde_json::to_string(url).unwrap_or_else(|_| "\"\"".into()),
+        "window.__DSH_CHROME__ = {}; window.__DSH_LOCALE__ = {};",
         serde_json::to_string(&resolve_controls_layout()).unwrap_or_else(|_| "{}".into()),
         serde_json::to_string(locale).unwrap_or_else(|_| "\"en\"".into()),
     );
@@ -101,8 +103,31 @@ pub fn open_main_window(app: &AppHandle, url: &str) -> Result<(), String> {
         .build()
         .map_err(|e| e.to_string())?;
 
+    // 独立 WebView 提供第一方浏览器环境，保留上游 SameSite=Strict 的认证 cookie。
+    let content_url = url.parse::<url::Url>().map_err(|_| "Host 启动地址无效")?;
+    let native = app.get_window("main").ok_or("main window is missing")?;
+    let content = native
+        .add_child(
+            WebviewBuilder::new("content", WebviewUrl::External(content_url)),
+            LogicalPosition::new(0.0, f64::from(resolve_controls_layout().titlebar_height)),
+            content_size(&native)?,
+        )
+        .map_err(|e| e.to_string())?;
+
     let app_handle = window.app_handle().clone();
     window.on_window_event(move |event| {
+        if matches!(
+            event,
+            WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. }
+        ) {
+            if let Ok(size) = content_size(&native) {
+                let _ = content.set_position(LogicalPosition::new(
+                    0.0,
+                    f64::from(resolve_controls_layout().titlebar_height),
+                ));
+                let _ = content.set_size(size);
+            }
+        }
         if let WindowEvent::CloseRequested { api, .. } = event {
             api.prevent_close();
             on_close_requested(&app_handle);
@@ -116,10 +141,7 @@ pub fn open_main_window(app: &AppHandle, url: &str) -> Result<(), String> {
 
 /// Focus or unhide the main window (single-instance and tray).
 pub fn show_main(app: &AppHandle) {
-    if let Some(window) = app
-        .get_webview_window("main")
-        .or_else(|| app.get_webview_window("splash"))
-    {
+    if let Some(window) = app.get_window("main").or_else(|| app.get_window("splash")) {
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
@@ -182,25 +204,48 @@ fn save_close_action(action: Option<CloseAction>) -> Result<(), String> {
 }
 
 fn hide_main(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
+    if let Some(window) = app.get_window("main") {
         let _ = window.hide();
     }
 }
 
 fn open_close_prompt(app: &AppHandle) -> Result<(), String> {
     let main = app
-        .get_webview_window("main")
+        .get_webview("main")
         .ok_or_else(|| "main window is missing".to_string())?;
     main.eval("window.__DSH_CLOSE_PROMPT__?.show()")
         .map_err(|e| e.to_string())?;
+    if let Some(content) = app.get_webview("content") {
+        content.hide().map_err(|e| e.to_string())?;
+    }
     let _ = main.set_focus();
     Ok(())
 }
 
 fn hide_close_prompt(app: &AppHandle) {
-    if let Some(main) = app.get_webview_window("main") {
+    if let Some(main) = app.get_webview("main") {
         let _ = main.eval("window.__DSH_CLOSE_PROMPT__?.hide()");
     }
+    if let Some(content) = app.get_webview("content") {
+        let _ = content.show();
+    }
+}
+
+/// 取消关闭选择后恢复内容 WebView。
+#[tauri::command]
+pub fn dismiss_close_prompt(app: AppHandle) {
+    hide_close_prompt(&app);
+}
+
+fn content_size(window: &tauri::Window) -> Result<LogicalSize<f64>, String> {
+    let size = window
+        .inner_size()
+        .map_err(|e| e.to_string())?
+        .to_logical::<f64>(window.scale_factor().map_err(|e| e.to_string())?);
+    Ok(LogicalSize::new(
+        size.width,
+        (size.height - f64::from(resolve_controls_layout().titlebar_height)).max(1.0),
+    ))
 }
 
 /// Toast copy when the tray changes the agent runtime target.

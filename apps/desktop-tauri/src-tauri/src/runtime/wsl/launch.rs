@@ -69,6 +69,7 @@ pub fn build_wsl_web_command(spec: &WslLaunchSpec) -> Result<WslCommand, String>
         args.push(patch.clone());
     }
 
+    args.push("--no-open".into());
     args.push("--host".into());
     args.push("127.0.0.1".into());
     args.push("--port".into());
@@ -125,6 +126,7 @@ mod tests {
             "web".to_string(),
             "--patch".to_string(),
             "/home/u/.dsh/desktop-overlay/cordis.yml".to_string(),
+            "--no-open".to_string(),
             "--host".to_string(),
             "127.0.0.1".to_string(),
             "--port".to_string(),

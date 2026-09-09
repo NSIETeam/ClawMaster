@@ -10,6 +10,8 @@ Status: implemented
 
 ## 决策
 
+**Tauri 与 Electron 使用不同的 workspace 名称。** 本 fork 以私有包 `@deepseek-ai/dsh-desktop-tauri` 发布独立版本的安装器，上游保留 `@deepseek-ai/dsh-desktop`。裁剪运行库包含 `native/system`，并继承上游 workspace 补丁。仅裁剪树启用 `allowUnusedPatches`，因为开发工具已被移除；已安装依赖的补丁应用失败仍由 pnpm 拒绝。桌面发布使用 `build:official`，使产品名称保持为 DeepSeek Harness。
+
 **桌面安装包携带裁剪后的源码树和已构建应用产物，但不携带 `node_modules`。** 首次启动把该只读资源复制到应用数据目录，先扫描本机是否已有满足 `^22.19 || >=24` 的 Node 和可用的 pnpm，只在扫描失败时下载对应平台的 Node 压缩包，只在需要时通过已选定的 Node 安装 pnpm，再在移除 `CI` 的环境中执行 `pnpm install --prod --no-frozen-lockfile`。镜像端点仍可通过 `DSH_NODE_MIRROR` 和 `DSH_NPM_REGISTRY` 配置。主机匹配与 Harness 主目录采用由[桌面端主机工具链扫描与主目录匹配](2026-08-14-desktop-host-env-and-home-adoption.zh.md)负责。
 
 **每个源码包使用隔离的可写目录。** 内容哈希选择 `harness-versions/<bundle-hash>`，因此更新不会删除旧 Host 正在占用的文件。兼容的 Node 和 pnpm 运行时保持共享，并在源码更新之间复用。原生外壳只允许一个应用实例，再次启动时会聚焦已有窗口。回退只接受可启动的树，预配步骤带有期限，被取代的树会被清理（[桌面 rc.7 预配失败与不可启动的回退](../bug-fix/2026-08-19-desktop-rc7-provision-fallback.zh.md)）。
