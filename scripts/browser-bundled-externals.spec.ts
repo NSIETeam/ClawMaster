@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -12,7 +12,10 @@ afterEach(() => {
 })
 
 function fixture(): string {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-browser-notices-'))
+  // macOS 的 TMPDIR 是 /var/folders → /private/var/folders 符号链接；vite 会把 HTML
+  // 输入解析成真实路径，而 root 仍是符号链接形式，rollup 因此收到跨链接的相对
+  // 文件名而拒绝构建。统一用真实路径创建 fixture，两种形式不再分叉。
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-browser-notices-')))
   roots.push(root)
   write(root, 'package.json', '{"type":"module"}')
   write(root, 'tsconfig.base.json', JSON.stringify({
