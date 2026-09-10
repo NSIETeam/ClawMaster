@@ -1,25 +1,25 @@
-# DeepSeek Harness Desktop 0.1.5-alpha.1-0.1
+# DeepSeek Harness Desktop 0.1.5-rc.2-0.1
 
 ## 中文
 
-- 同步上游 `dsh@0.1.5-alpha.1`（`5dda764ed3`），包含会话格式迁移、模型与 Web 界面更新。
-- 适配 Host 启动认证与独立 WebView，保留登录 cookie 校验，启动令牌不写入日志。
-- 保留 DeepSeek Harness 名称、自定义标题栏、托盘、通知和签名更新；启动不额外打开浏览器。
-- 适配 `native/system` 和上游 Electron 包并存，修复裁剪包因开发工具补丁未使用而无法安装依赖的问题。
-- 保留预配自修复和 PowerShell 终端修复，并合入上游启动超时限制。
+- 同步上游 `dsh@0.1.5-rc.2`（`c291e7961a`），上游进入 0.1.5 候选阶段。
+- 模型目录更新：Chat Completions 默认切换到 DeepSeek V41 Flash，保留 V4 系列，并恢复 V4 Flash Vision Exp 条目。
+- Web 界面新增侧栏文件预览（图片、共享文件类型图标）与聊天代码块中的 Mermaid、Graphviz、SVG、HTML 图表预览，随主题适配。
+- 细化交付卡片、侧栏交互与回合时长标签（支持小时位）；修复交付文件打开、子代理会话根目录解析与 webworker 文件句柄问题。
+- 桌面壳无行为变化：保留独立 WebView 认证、自定义标题栏、托盘、通知与签名更新。
 
-更新前请结束正在运行的任务并备份 Harness 主目录。上游仍为 alpha 版本；会话写入可能生成新的版本文件，旧版本无法读取新版本新增的数据。
+更新前请结束正在运行的任务并备份 Harness 主目录。上游仍为候选版本；会话写入可能生成新的版本文件，旧版本无法读取新版本新增的数据。
 
 包含 Windows x64/x86 NSIS、macOS Intel/Apple Silicon DMG，以及 Linux x64 AppImage/deb。更新产物使用 Tauri 签名，尚无操作系统代码签名或 macOS notarization。
 
 ## English
 
-- Sync upstream `dsh@0.1.5-alpha.1` at `5dda764ed3`, including session-format migration, model, and Web UI updates.
-- Exchange the Host launch URL in a separate WebView, retain cookie authentication, and omit launch tokens from logs.
-- Retain the DeepSeek Harness name, window controls, tray, notifications, and signed updates without opening an extra browser.
-- Package `native/system`, coexist with upstream Electron, and permit unused development-tool patches in the trimmed production tree.
-- Retain provisioning recovery and PowerShell fixes together with upstream startup deadlines.
+- Sync upstream `dsh@0.1.5-rc.2` at `c291e7961a`; upstream entered the 0.1.5 release-candidate stage.
+- Model catalog updates: Chat Completions now defaults to DeepSeek V41 Flash, V4 models are retained, and the V4 Flash Vision Exp entry is restored.
+- The Web UI gains sidebar file previews (images and shared file-type icons) plus Mermaid, Graphviz, SVG, and HTML diagram previews in chat code fences, adapting to the application theme.
+- Delivery cards, sidebar interactions, and turn-duration labels (with hours) are refined; delivered-file opening, subagent session-root resolution, and webworker file handles are fixed.
+- No desktop-shell behavior change: the separate WebView authentication, window controls, tray, notifications, and signed updates are unchanged.
 
-Finish running tasks and back up the Harness home before upgrading. Upstream remains an alpha release. Session writes may create a new format generation; older releases cannot read data introduced by the new version.
+Finish running tasks and back up the Harness home before upgrading. Upstream remains a release candidate. Session writes may create a new format generation; older releases cannot read data introduced by the new version.
 
 Includes Windows x64/x86 NSIS, macOS Intel/Apple Silicon DMG, and Linux x64 AppImage/deb. Update artifacts carry Tauri signatures but lack operating-system code signing and macOS notarization.
