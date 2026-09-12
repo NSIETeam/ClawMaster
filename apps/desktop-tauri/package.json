@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-desktop-tauri",
-  "productName": "DeepSeek Harness",
-  "description": "Tauri desktop shell: bundled harness source + mirror-fetched Node/pnpm deps",
+  "productName": "ClawMaster",
+  "description": "ClawMaster Tauri shell powered by the DSH runtime",
   "version": "0.1.5-rc.2-0.1",
   "private": true,
   "license": "MIT",

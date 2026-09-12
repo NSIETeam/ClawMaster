@@ -5,9 +5,9 @@
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
-  IfFileExists "$DESKTOP\DeepSeek Harness.lnk" 0 icon_refresh_done
-  Delete "$DESKTOP\DeepSeek Harness.lnk"
-  CreateShortCut "$DESKTOP\DeepSeek Harness.lnk" "$INSTDIR\dsh-desktop.exe" "" "$INSTDIR\deepseek-harness-icon-0.1.5-rc.2-0.1.ico" 0 SW_SHOWNORMAL
+  IfFileExists "$DESKTOP\ClawMaster.lnk" 0 icon_refresh_done
+  Delete "$DESKTOP\ClawMaster.lnk"
+  CreateShortCut "$DESKTOP\ClawMaster.lnk" "$INSTDIR\dsh-desktop.exe" "" "$INSTDIR\clawmaster-icon-0.1.5-rc.2-0.1.ico" 0 SW_SHOWNORMAL
 
 icon_refresh_done:
   ; Explorer caches icons by shortcut and executable path, so notify it after

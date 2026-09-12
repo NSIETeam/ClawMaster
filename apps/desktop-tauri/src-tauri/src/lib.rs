@@ -159,7 +159,7 @@ async fn boot_app(app: AppHandle, bundled: Option<PathBuf>) -> Result<(), String
         boot_log::error(&format!("plugins disabled by rescue patch: {names}"));
         notify::toast(
             &app,
-            "DeepSeek Harness",
+            "ClawMaster",
             &i18n::tf(Msg::PluginsDisabled, &names),
         );
     }

@@ -212,7 +212,7 @@ fn zh(msg: Msg) -> &'static str {
         Msg::UpdaterCurrent => "当前已是最新版本",
         Msg::NotifyTitle => "任务完成",
         Msg::NotifySessionDone => "会话 {0} 已完成",
-        Msg::NotifyBody => "DeepSeek Harness 已完成本轮任务",
+        Msg::NotifyBody => "ClawMaster 已完成本轮任务",
         Msg::ProfileInstalling => "正在安装 profile {0} 依赖…",
         Msg::ProfileReady => "profile {0} 依赖已就绪",
         Msg::ProfileInstallFailed => {
@@ -307,7 +307,7 @@ fn en(msg: Msg) -> &'static str {
         Msg::UpdaterCurrent => "You are already on the latest version",
         Msg::NotifyTitle => "Task complete",
         Msg::NotifySessionDone => "Session {0} finished",
-        Msg::NotifyBody => "DeepSeek Harness finished this turn",
+        Msg::NotifyBody => "ClawMaster finished this turn",
         Msg::ProfileInstalling => "Installing profile {0} dependencies…",
         Msg::ProfileReady => "Profile {0} dependencies are ready",
         Msg::ProfileInstallFailed => {

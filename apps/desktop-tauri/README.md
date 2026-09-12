@@ -1,8 +1,8 @@
-# DeepSeek Harness Desktop (Tauri)
+# ClawMaster Desktop (Tauri)
 
 English | [中文](README.zh.md)
 
-Rust/WebView2 shell over the existing `dsh web` UI. The installer ships **harness source** (no `node_modules`); first run scans the host for a compatible Node / pnpm and an existing `~/.dsh` home, downloads **build tools only** when the scan finds none, then runs `pnpm install --prod` against the bundled tree.
+ClawMaster's Rust/WebView shell over the existing `dsh web` runtime. The installer ships **harness source** (no `node_modules`); first run scans the host for a compatible Node / pnpm and an existing `~/.dsh` home, downloads **build tools only** when the scan finds none, then runs `pnpm install --prod` against the bundled tree. The desktop, splash, title bar, notifications, and Web UI present the ClawMaster name, icon, and the slogan “开启AI时代的企业协作”.
 
 Current desktop release: **0.1.5-rc.2-0.1**.
 
@@ -16,7 +16,7 @@ The Tauri package is `@deepseek-ai/dsh-desktop-tauri`, independent of upstream E
 | **Build env** | — | Reuse host Node 22.19+ or 24+ and pnpm when present; otherwise Node (npmmirror) and pnpm (via npm + npmmirror registry) |
 | **Dependencies** | — | `pnpm install --prod --no-frozen-lockfile` in the platform application-data directory (trimmed bundle vs lockfile; `CI` unset so pnpm does not force frozen install) |
 | **Host** | — | `node apps/cli/lib/bin.js web --host 127.0.0.1`; a loader plugin that fails at start is disabled and the Host is retried |
-| **UI** | Local `shell.html` title bar | Frameless window embeds `dsh web`; splash is a compact transparent window with a borderless radial frost, the official fish mark, DeepSeek wordmark, and a progress bar; the first close is an in-window light modal matching the web client; Windows controls on the right, macOS on the left, Linux from the window-manager button layout |
+| **UI** | Local `shell.html` title bar | Frameless window embeds `dsh web`; splash and web client use the ClawMaster icon, name, and slogan; the first close is an in-window light modal matching the web client; Windows controls on the right, macOS on the left, Linux from the window-manager button layout |
 | **Tray** | Native tray icon | First close asks minimize-to-tray vs quit and remembers the answer in `desktop-settings.json`; tray can change that later, show the window, install the Sakana plugin catalog (`dsh plugin --profile web add github:Sakana-yuyu/dsh-plugins` into the live Host home), check for updates, restart, or quit. Restart and Quit stop the Host Node process tree; Restart then relaunches the desktop process. A successful catalog install restarts the same way so the catalog loads. Minimize-to-tray leaves the Host running |
 | **Notify** | Overlay plugin + localhost POST | `turn/end` with `completed` shows a toast and plays `sounds/complete.wav` when the window is unfocused |
 | **Updates** | Embedded updater public key | Check the stable GitHub update manifest, verify the downloaded artifact signature, install, and restart |
@@ -63,7 +63,7 @@ $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD=(Get-Content "$HOME\.tauri\deepseek-desk
 pnpm run build:win
 ```
 
-Installer output: `src-tauri/target/release/bundle/nsis/DeepSeek Harness_0.1.5-rc.2-0.1_x64-setup.exe`
+Installer output: `src-tauri/target/release/bundle/nsis/ClawMaster_0.1.5-rc.2-0.1_x64-setup.exe`
 
 The NSIS installer bundles **English**, **Simplified Chinese**, and **Traditional Chinese**. Language follows the OS locale automatically (no language picker); if the locale is unsupported, English is used. Native splash, tray, close-dialog, and splash-status copy follow the same rule (`zh*` → Chinese, otherwise English). The embedded `dsh web` client keeps its own Settings language. Before copying files, the installer silently closes `dsh-desktop.exe` and its child process tree. After installation, it recreates an existing desktop shortcut with the versioned standalone ICO resource and notifies Explorer to invalidate stale icon cache entries.
 
@@ -103,4 +103,4 @@ pnpm run dev
 | `scripts/serve-dist.mjs` | Static server for `tauri dev` splash |
 | `overlay/desktop-notify/` | Cordis overlay: POST completed turns to the native notify port |
 
-Startup regression: copy the trimmed bundle to a temporary directory, install production dependencies there, set DSH_DESKTOP_SMOKE_ROOT to that directory, and run pnpm run test:startup. It uses a private home to check authentication, the homepage, and the DeepSeek Harness title without calling a model API.
+Startup regression: copy the trimmed bundle to a temporary directory, install production dependencies there, set DSH_DESKTOP_SMOKE_ROOT to that directory, and run pnpm run test:startup. It uses a private home to check authentication, the homepage, and the ClawMaster title without calling a model API.

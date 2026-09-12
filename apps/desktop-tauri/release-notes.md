@@ -1,4 +1,4 @@
-# DeepSeek Harness Desktop 0.1.5-rc.2-0.1
+# ClawMaster Desktop 0.1.5-rc.2-0.1
 
 ## 中文
 

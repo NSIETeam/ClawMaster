@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "DeepSeek Harness",
+  "productName": "ClawMaster",
   "version": "0.1.5-rc.2-0.1",
-  "identifier": "ai.deepseek.dsh-desktop",
+  "identifier": "team.nsi.clawmaster.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:1430",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "splash",
-        "title": "DeepSeek Harness",
+        "title": "ClawMaster",
         "width": 520,
         "height": 480,
         "resizable": false,
@@ -47,7 +47,7 @@
     "createUpdaterArtifacts": true,
     "targets": ["nsis", "dmg", "appimage", "deb"],
     "category": "DeveloperTool",
-    "shortDescription": "DeepSeek Harness desktop shell",
+    "shortDescription": "ClawMaster desktop shell powered by DSH",
     "icon": [
       "icons/32x32.png",
       "icons/64x64.png",
@@ -60,7 +60,7 @@
       "../bundled/harness": "harness-source",
       "../overlay/desktop-notify": "desktop-overlay",
       "../sounds/complete.wav": "complete.wav",
-      "icons/icon.ico": "deepseek-harness-icon-0.1.5-rc.2-0.1.ico"
+      "icons/icon.ico": "clawmaster-icon-0.1.5-rc.2-0.1.ico"
     },
     "windows": {
       "nsis": {

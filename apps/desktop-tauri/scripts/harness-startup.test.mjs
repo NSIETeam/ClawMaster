@@ -50,7 +50,7 @@ test('裁剪包在全新主目录启动，并通过令牌交换访问受保护�
     const page = await fetch(base, { headers: { cookie: cookie.split(';')[0] } })
     assert.equal(page.status, 200)
     const title = (await page.text()).match(/<title>(.*?)<\/title>/)?.[1]
-    assert.equal(title, 'DeepSeek Harness')
+    assert.equal(title, 'ClawMaster')
     assert.equal(child.exitCode, null)
   } finally {
     clearTimeout(timer)

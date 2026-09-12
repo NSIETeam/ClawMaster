@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeepSeek Harness</title>
+  <title>ClawMaster</title>
   <style>
     :root {
       --fg: rgb(255, 255, 255);
@@ -76,9 +76,11 @@
       position: relative;
       width: 132px;
       height: 97px;
+      background: url("app-icon.png") center / contain no-repeat;
       animation: fish-in 1000ms var(--ease-out) 80ms both, fish-flash 1400ms var(--ease-out) 900ms both;
     }
     .mark svg {
+      display: none;
       width: 100%;
       height: 100%;
       color: rgb(255, 255, 255);
@@ -236,8 +238,8 @@
       </svg>
     </div>
     <div class="brand">
-      <h1>DeepSeek</h1>
-      <span class="badge">HARNESS</span>
+      <h1>ClawMaster</h1>
+      <span class="badge">开启AI时代的企业协作</span>
     </div>
     <div class="status-row">
       <p id="status" data-i18n="splash.preparing">正在准备运行环境…</p>
