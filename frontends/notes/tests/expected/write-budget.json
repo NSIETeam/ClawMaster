@@ -1,0 +1,9 @@
+[
+  { "operation": "create over limit", "status": 400, "code": "invalid_request" },
+  { "operation": "create at limit", "status": 200, "bytes": 262144 },
+  { "operation": "save over limit", "status": 400, "code": "invalid_request", "revisionUnchanged": true },
+  { "operation": "append over limit", "status": 400, "code": "invalid_request", "revisionUnchanged": true },
+  { "operation": "approved tool over limit", "revisionUnchanged": true },
+  { "operation": "tree", "status": 200 },
+  { "operation": "tags", "status": 200 }
+]

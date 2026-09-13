@@ -1,0 +1,9 @@
+{
+  "goal": "Synthetic retained task",
+  "cadence": "daily",
+  "goalDisabled": true,
+  "cadenceDisabled": true,
+  "notice": "目标尚未确认受理，草稿已保留。请检查模型与连接后重试。 原请求可能已经受理，请重试原请求或打开原任务核查。确认受理结果前，目标与频率暂时锁定。打开原任务核查",
+  "retry": "重试原请求",
+  "inspect": "打开原任务核查"
+}

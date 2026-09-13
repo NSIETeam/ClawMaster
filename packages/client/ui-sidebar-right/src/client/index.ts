@@ -142,6 +142,7 @@ export function apply(ctx: ClientContext): void {
       },
       bindService: binding => controller.bind(binding),
       openTab: (kind, options) => { controller.openTab(kind, options) },
+      closeTab: (sessionId, tabId) => { controller.closeIn(sessionId, tabId) },
       hooks: { tabTypes: { subscribe: listener => tabs.subscribe(listener), getSnapshot: () => tabs.entries() } },
     }
 

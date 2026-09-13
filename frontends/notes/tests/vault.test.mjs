@@ -109,13 +109,13 @@ describe('vault io', () => {
     const root = await temporary();
     try {
       const vault = await Vault.open(root);
-      const created = await vault.create('项目/ClawMaster.md', '# ClawMaster\n');
+      const created = await vault.create('项目/ClawMaster.md', '# ClawMaster\n', QUERY_LIMITS.maxReadBytes);
       const read = await vault.read('项目/ClawMaster.md', QUERY_LIMITS.maxReadBytes);
       assert.equal(read.revision, created);
       assert.equal(read.title, 'ClawMaster');
 
-      await assert.rejects(vault.save('项目/ClawMaster.md', '# 改写\n', revisionOf('stale')), rejects('conflict'));
-      const saved = await vault.save('项目/ClawMaster.md', '# 改写\n', read.revision);
+      await assert.rejects(vault.save('项目/ClawMaster.md', '# 改写\n', revisionOf('stale'), QUERY_LIMITS.maxReadBytes), rejects('conflict'));
+      const saved = await vault.save('项目/ClawMaster.md', '# 改写\n', read.revision, QUERY_LIMITS.maxReadBytes);
       assert.equal((await vault.read('项目/ClawMaster.md', QUERY_LIMITS.maxReadBytes)).text, '# 改写\n');
       assert.notEqual(saved, read.revision);
     } finally { await rm(root, { recursive: true, force: true }); }
@@ -125,8 +125,8 @@ describe('vault io', () => {
     const root = await temporary();
     try {
       const vault = await Vault.open(root);
-      const revision = await vault.create('a.md', 'one');
-      await assert.rejects(vault.create('a.md', 'two'), error =>
+      const revision = await vault.create('a.md', 'one', QUERY_LIMITS.maxReadBytes);
+      await assert.rejects(vault.create('a.md', 'two', QUERY_LIMITS.maxReadBytes), error =>
         rejects('conflict')(error) && error.currentRevision === revision);
       assert.equal((await vault.read('a.md', QUERY_LIMITS.maxReadBytes)).text, 'one');
     } finally { await rm(root, { recursive: true, force: true }); }
@@ -137,7 +137,7 @@ describe('vault io', () => {
     try {
       const vault = await Vault.open(root);
       await assert.rejects(vault.read('missing.md', QUERY_LIMITS.maxReadBytes), rejects('not_found'));
-      await assert.rejects(vault.save('missing.md', 'x', revisionOf('x')), rejects('not_found'));
+      await assert.rejects(vault.save('missing.md', 'x', revisionOf('x'), QUERY_LIMITS.maxReadBytes), rejects('not_found'));
       await assert.rejects(vault.remove('missing.md'), rejects('not_found'));
     } finally { await rm(root, { recursive: true, force: true }); }
   });
@@ -146,8 +146,8 @@ describe('vault io', () => {
     const root = await temporary();
     try {
       const vault = await Vault.open(root);
-      await vault.create('a.md', 'a');
-      await vault.create('b.md', 'b');
+      await vault.create('a.md', 'a', QUERY_LIMITS.maxReadBytes);
+      await vault.create('b.md', 'b', QUERY_LIMITS.maxReadBytes);
       await assert.rejects(vault.rename('a.md', 'b.md'), rejects('conflict'));
       await vault.rename('a.md', '目录/移动.md');
       assert.equal((await vault.list(QUERY_LIMITS)).map(entry => entry.id).join(','), 'b.md,目录/移动.md');
@@ -160,7 +160,7 @@ describe('vault io', () => {
     const root = await temporary();
     try {
       const vault = await Vault.open(root);
-      await vault.create('笔记.md', '# 笔记\n');
+      await vault.create('笔记.md', '# 笔记\n', QUERY_LIMITS.maxReadBytes);
       await mkdir(join(root, '.obsidian'), { recursive: true });
       await writeFile(join(root, '.obsidian', 'app.json'), '{}');
       await writeFile(join(root, 'readme.txt'), 'text');
@@ -175,8 +175,8 @@ describe('vault io', () => {
     const root = await temporary();
     try {
       const vault = await Vault.open(root);
-      await vault.create('源.md', '# 源\n\n第二行提到 关键词\n');
-      await vault.create('目标.md', '# 目标\n\n见 [[源]]\n');
+      await vault.create('源.md', '# 源\n\n第二行提到 关键词\n', QUERY_LIMITS.maxReadBytes);
+      await vault.create('目标.md', '# 目标\n\n见 [[源]]\n', QUERY_LIMITS.maxReadBytes);
       const hits = await vault.search('关键词', 10, QUERY_LIMITS);
       assert.deepEqual(hits.map(hit => [hit.id, hit.lineNumber]), [['源.md', 3]]);
       assert.deepEqual((await vault.backlinks('源.md', QUERY_LIMITS)).map(entry => entry.id), ['目标.md']);
@@ -186,11 +186,11 @@ describe('vault io', () => {
   it('seeds the welcome note only while the vault is empty', async () => {
     const root = await temporary();
     try {
-      const first = await openVault(root);
+      const first = await openVault(root, QUERY_LIMITS.maxReadBytes);
       assert.deepEqual((await first.list(QUERY_LIMITS)).map(entry => entry.id), [WELCOME_NOTE]);
       const existing = await first.read(WELCOME_NOTE, QUERY_LIMITS.maxReadBytes);
-      await first.save(WELCOME_NOTE, '# 我改过了\n', existing.revision);
-      const reopened = await openVault(root);
+      await first.save(WELCOME_NOTE, '# 我改过了\n', existing.revision, QUERY_LIMITS.maxReadBytes);
+      const reopened = await openVault(root, QUERY_LIMITS.maxReadBytes);
       assert.equal((await reopened.read(WELCOME_NOTE, QUERY_LIMITS.maxReadBytes)).text, '# 我改过了\n');
       assert.equal((await reopened.list(QUERY_LIMITS)).length, 1);
     } finally { await rm(root, { recursive: true, force: true }); }
@@ -212,7 +212,7 @@ describe('canonical vault paths', () => {
   it('opens the native absolute path returned by the platform', async t => {
     const { root, vault } = await isolatedVault(t);
     assert.equal(vault.root, await realpath(root));
-    await vault.create('本机.md', 'native path');
+    await vault.create('本机.md', 'native path', QUERY_LIMITS.maxReadBytes);
     assert.equal((await vault.read('本机.md', 32)).text, 'native path');
   });
 
@@ -222,11 +222,11 @@ describe('canonical vault paths', () => {
     await mkdir(outside);
     await writeFile(join(outside, 'secret.md'), 'outside sentinel');
     await symlink(outside, join(root, 'linked'), 'junction');
-    const revision = await vault.create('inside.md', 'inside sentinel');
+    const revision = await vault.create('inside.md', 'inside sentinel', QUERY_LIMITS.maxReadBytes);
     for (const operation of [
       () => vault.read('linked/secret.md', 64),
-      () => vault.save('linked/secret.md', 'changed', revisionOf('outside sentinel')),
-      () => vault.create('linked/nested/new.md', 'changed'),
+      () => vault.save('linked/secret.md', 'changed', revisionOf('outside sentinel'), QUERY_LIMITS.maxReadBytes),
+      () => vault.create('linked/nested/new.md', 'changed', QUERY_LIMITS.maxReadBytes),
       () => vault.append('linked/secret.md', 'changed', 64),
       () => vault.rename('inside.md', 'linked/moved.md'),
       () => vault.rename('linked/secret.md', 'moved.md'),
@@ -247,8 +247,8 @@ describe('canonical vault paths', () => {
       throw error;
     }
     await assert.rejects(vault.read('linked.md', 64), rejects('invalid_path'));
-    await assert.rejects(vault.create('linked.md', 'changed'), rejects('invalid_path'));
-    await assert.rejects(vault.save('linked.md', 'changed', revisionOf('outside sentinel')), rejects('invalid_path'));
+    await assert.rejects(vault.create('linked.md', 'changed', QUERY_LIMITS.maxReadBytes), rejects('invalid_path'));
+    await assert.rejects(vault.save('linked.md', 'changed', revisionOf('outside sentinel'), QUERY_LIMITS.maxReadBytes), rejects('invalid_path'));
     await assert.rejects(vault.remove('linked.md'), rejects('invalid_path'));
     assert.equal(await readFile(outside, 'utf8'), 'outside sentinel');
     assert.deepEqual(await vault.list(QUERY_LIMITS), []);
@@ -263,7 +263,7 @@ describe('cooperative writes', () => {
     const start = new Promise(resolve => { release = resolve; });
     const operations = [vault, second].map(async (writer, index) => {
       await start;
-      return writer.create('race.md', `writer ${index}`);
+      return writer.create('race.md', `writer ${index}`, QUERY_LIMITS.maxReadBytes);
     });
     release();
     const results = await Promise.allSettled(operations);
@@ -277,10 +277,10 @@ describe('cooperative writes', () => {
 
   it('commits only one replacement when simultaneous saves carry the same revision', async t => {
     const { root, vault } = await isolatedVault(t);
-    const revision = await vault.create('race.md', 'original');
+    const revision = await vault.create('race.md', 'original', QUERY_LIMITS.maxReadBytes);
     const second = await Vault.open(root);
     const results = await Promise.allSettled([
-      vault.save('race.md', 'first', revision), second.save('race.md', 'second', revision),
+      vault.save('race.md', 'first', revision, QUERY_LIMITS.maxReadBytes), second.save('race.md', 'second', revision, QUERY_LIMITS.maxReadBytes),
     ]);
     assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
     assert.equal(results.find(result => result.status === 'rejected').reason.code, 'conflict');
@@ -289,7 +289,7 @@ describe('cooperative writes', () => {
 
   it('preserves every simultaneous append and reports the committed revision chain', async t => {
     const { root, vault } = await isolatedVault(t);
-    const initial = await vault.create('append.md', 'start');
+    const initial = await vault.create('append.md', 'start', QUERY_LIMITS.maxReadBytes);
     const writers = await Promise.all(Array.from({ length: 4 }, () => Vault.open(root)));
     const changes = await Promise.all(writers.map((writer, index) => writer.append('append.md', `line ${index}`, 256)));
     const note = await vault.read('append.md', 256);
@@ -302,20 +302,20 @@ describe('cooperative writes', () => {
 
   it('rejects a common external edit made after the caller read its revision', async t => {
     const { root, vault } = await isolatedVault(t);
-    const revision = await vault.create('external.md', 'original');
+    const revision = await vault.create('external.md', 'original', QUERY_LIMITS.maxReadBytes);
     await writeFile(join(root, 'external.md'), 'external replacement');
-    await assert.rejects(vault.save('external.md', 'stale caller', revision), rejects('conflict'));
+    await assert.rejects(vault.save('external.md', 'stale caller', revision, QUERY_LIMITS.maxReadBytes), rejects('conflict'));
     assert.equal(await readFile(join(root, 'external.md'), 'utf8'), 'external replacement');
   });
 
   it('leaves the previous file intact when the filesystem rejects atomic staging', async t => {
     if (process.platform === 'win32' || process.getuid?.() === 0) { t.skip('This case requires enforced POSIX directory permissions.'); return; }
     const { root, vault } = await isolatedVault(t);
-    const revision = await vault.create('readonly/note.md', 'preserved');
+    const revision = await vault.create('readonly/note.md', 'preserved', QUERY_LIMITS.maxReadBytes);
     const directory = join(root, 'readonly');
     await chmod(directory, 0o500);
     try {
-      await assert.rejects(vault.save('readonly/note.md', 'lost', revision), rejects('storage_unavailable'));
+      await assert.rejects(vault.save('readonly/note.md', 'lost', revision, QUERY_LIMITS.maxReadBytes), rejects('storage_unavailable'));
       assert.equal(await readFile(join(directory, 'note.md'), 'utf8'), 'preserved');
       assert.deepEqual(await readdir(directory), ['note.md']);
     } finally { await chmod(directory, 0o700); }
@@ -323,11 +323,11 @@ describe('cooperative writes', () => {
 
   it('serializes independent Node processes against the same vault revision', { timeout: 30000 }, async t => {
     const { root, vault } = await isolatedVault(t);
-    const revision = await vault.create('process.md', 'original');
+    const revision = await vault.create('process.md', 'original', QUERY_LIMITS.maxReadBytes);
     const source = `import { Vault } from ${JSON.stringify(new URL('../src/vault.ts', import.meta.url).href)};
 const vault = await Vault.open(process.env.NOTES_TEST_ROOT);
 process.once('message', async () => {
-  try { await vault.save('process.md', process.env.NOTES_TEST_TEXT, process.env.NOTES_TEST_REVISION); process.send({ result: 'saved' }); }
+  try { await vault.save('process.md', process.env.NOTES_TEST_TEXT, process.env.NOTES_TEST_REVISION, 262144); process.send({ result: 'saved' }); }
   catch (error) { process.send({ result: error.code ?? 'unexpected' }); }
   process.disconnect();
 });
@@ -383,8 +383,8 @@ describe('bounded note IO', () => {
 
   it('stops a bounded listing when another visible note exceeds its entry budget', async t => {
     const { vault } = await isolatedVault(t);
-    await vault.create('a.md', 'a');
-    await vault.create('b.md', 'b');
+    await vault.create('a.md', 'a', QUERY_LIMITS.maxReadBytes);
+    await vault.create('b.md', 'b', QUERY_LIMITS.maxReadBytes);
     await assert.rejects(vault.list({ maxReadBytes: 64, maxTreeEntries: 1 }), rejects('invalid_request'));
   });
 });

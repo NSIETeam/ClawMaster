@@ -1,0 +1,138 @@
+{
+  "ops": [
+    [
+      "src/client/service.ts",
+      "  onSubagentJump?: (childSessionId: string) => void\n",
+      "  onSubagentJump?: (childSessionId: string) => void\n  /** Register a cancellation guard for the native tab occurrence. */\n  registerBeforeClose?: (guard: () => boolean | Promise<boolean>) => () => void\n"
+    ],
+    [
+      "src/client/native/tab-adapter.tsx",
+      "    readonly signal: AbortSignal\n  }",
+      "    readonly signal: AbortSignal\n    readonly actions: { beforeClose(guard: () => boolean | Promise<boolean>): () => void }\n  }"
+    ],
+    [
+      "src/client/native/tab-adapter.tsx",
+      "        visible: nativeTab.visible,\n",
+      "        visible: nativeTab.visible,\n        registerBeforeClose: nativeTab.actions.beforeClose,\n"
+    ],
+    [
+      "src/client/builtins/tabs.tsx",
+      "component: ({ ctx, store, scope, tab, expanded, revealed, onToggleDir, onReferenceFile }) => (",
+      "component: ({ ctx, store, scope, tab, expanded, revealed, onToggleDir, onReferenceFile, registerBeforeClose }) => ("
+    ],
+    [
+      "src/client/builtins/tabs.tsx",
+      "          onReferenceFile={onReferenceFile ?? (() => { /* no-op */ })}\n",
+      "          onReferenceFile={onReferenceFile ?? (() => { /* no-op */ })}\n          registerBeforeClose={registerBeforeClose}\n"
+    ],
+    [
+      "src/client/EditorHost.tsx",
+      "import { IconCheckOutline16, IconFolderOpen16, IconRefreshOutline14 }",
+      "import { Button, Modal, IconCheckOutline16, IconFolderOpen16, IconRefreshOutline14 }"
+    ],
+    [
+      "src/client/EditorHost.tsx",
+      "  onReferenceFile: (path: string, isDir: boolean) => void\n",
+      "  onReferenceFile: (path: string, isDir: boolean) => void\n  /** Register a cancellation guard for the native tab occurrence. */\n  registerBeforeClose?: (guard: () => boolean | Promise<boolean>) => () => void\n"
+    ],
+    [
+      "src/client/EditorHost.tsx",
+      "  // Manual refresh (issue #167 + PR #228): a dirty draft is dropped by the\n  // reload (the editor instance remounts), so confirm before discarding it.\n  const refreshFile = (): void => {\n    if (toolbar?.dirty === true) {\n      const confirmed = typeof window.confirm === 'function'\n        ? window.confirm(t('refreshUnsavedConfirm'))\n        : false\n      if (!confirmed) return\n    }\n    setReloadSeq(sequence => sequence + 1)\n  }\n",
+      "  const refreshFile = (): void => {\n    runAfterLeave(() => { setReloadSeq(sequence => sequence + 1) })\n  }\n"
+    ],
+    [
+      "src/client/EditorHost.tsx",
+      "      ctx.get('betterSidebar')?.updateTab(tab.id, { path: absolute, title: baseName(absolute) })",
+      "      runAfterLeave(() => { ctx.get('betterSidebar')?.updateTab(tab.id, { path: absolute, title: baseName(absolute) }) })"
+    ],
+    [
+      "src/client/EditorHost.tsx",
+      "  const controlsRef = useRef<EditorToolbarControls | null>(null)\n",
+      "  const controlsRef = useRef<EditorToolbarControls | null>(null)\n  const toolbarRef = useRef<EditorToolbarState | null>(null)\n  const leaveRef = useRef<((allow: boolean) => void) | null>(null)\n  const [confirmLeave, setConfirmLeave] = useState(false)\n  const requestLeave = useCallback((): boolean | Promise<boolean> => {\n    if (toolbarRef.current?.saveState === 'saving') return false\n    if (toolbarRef.current?.dirty !== true) return true\n    if (leaveRef.current !== null) return false\n    return new Promise<boolean>(resolve => { leaveRef.current = resolve; setConfirmLeave(true) })\n  }, [])\n  const finishLeave = (discard: boolean): void => {\n    const resolve = leaveRef.current\n    leaveRef.current = null\n    setConfirmLeave(false)\n    resolve?.(discard && toolbarRef.current?.saveState !== 'saving')\n  }\n  const runAfterLeave = (action: () => void): void => {\n    const allowed = requestLeave()\n    if (typeof allowed === 'boolean') { if (allowed) action(); return }\n    void allowed.then(allow => { if (allow) action() })\n  }\n  useEffect(() => props.registerBeforeClose?.(requestLeave), [props.registerBeforeClose, requestLeave])\n  useEffect(() => () => { leaveRef.current?.(false); leaveRef.current = null }, [path])\n"
+    ],
+    [
+      "src/client/EditorHost.tsx",
+      "  const onToolbarState = useCallback((next: EditorToolbarState) => {\n",
+      "  const onToolbarState = useCallback((next: EditorToolbarState) => {\n    toolbarRef.current = next\n"
+    ],
+    [
+      "src/client/EditorHost.tsx",
+      "      <div className={css.editorHeader}>",
+      "      <Modal open={confirmLeave} title={t('unsaved')} closeLabel={t('cancel')} onClose={() => { finishLeave(false) }}\n        footer={<><Button variant=\"outline\" onClick={() => { finishLeave(false) }}>{t('cancel')}</Button>\n          <Button variant=\"primary\" disabled={toolbar?.saveState === 'saving'} onClick={() => { finishLeave(true) }}>{t('discard')}</Button></>}>\n        {t('editorLeaveConfirm')}\n      </Modal>\n      <div className={css.editorHeader}>"
+    ],
+    [
+      "src/client/locales.ts",
+      "  refreshUnsavedConfirm: '文件已在磁盘更新，刷新将丢弃未保存编辑。继续吗？',",
+      "  refreshUnsavedConfirm: '文件已在磁盘更新，刷新将丢弃未保存编辑。继续吗？',\n  editorLeaveConfirm: '关闭、刷新或切换文件会丢弃未保存的内容。取消后可先保存，或明确放弃这些更改。',"
+    ],
+    [
+      "src/client/locales.ts",
+      "  refreshUnsavedConfirm: 'The file changed on disk. Refreshing will discard unsaved edits. Continue?',",
+      "  refreshUnsavedConfirm: 'The file changed on disk. Refreshing will discard unsaved edits. Continue?',\n  editorLeaveConfirm: 'Closing, refreshing or switching files will discard unsaved content. Cancel to save first, or discard these changes.',"
+    ],
+    [
+      "lib/types/client/service.d.ts",
+      "    onSubagentJump?: (childSessionId: string) => void;\n",
+      "    onSubagentJump?: (childSessionId: string) => void;\n    /** Register a cancellation guard for the native tab occurrence. */\n    registerBeforeClose?: (guard: () => boolean | Promise<boolean>) => () => void;\n"
+    ],
+    [
+      "lib/types/client/EditorHost.d.ts",
+      "    onReferenceFile: (path: string, isDir: boolean) => void;\n",
+      "    onReferenceFile: (path: string, isDir: boolean) => void;\n    /** Register a cancellation guard for the native tab occurrence. */\n    registerBeforeClose?: (guard: () => boolean | Promise<boolean>) => () => void;\n"
+    ],
+    [
+      "lib/types/client/native/tab-adapter.d.ts",
+      "        readonly signal: AbortSignal;\n    };",
+      "        readonly signal: AbortSignal;\n        readonly actions: { beforeClose(guard: () => boolean | Promise<boolean>): () => void };\n    };"
+    ],
+    [
+      "lib/types/client/locales.d.ts",
+      "    refreshUnsavedConfirm: string;\n",
+      "    refreshUnsavedConfirm: string;\n    editorLeaveConfirm: string;\n"
+    ],
+    [
+      "lib/client.js",
+      "\t\t\t\tvisible: nativeTab.visible,\n",
+      "\t\t\t\tvisible: nativeTab.visible,\n\t\t\t\tregisterBeforeClose: nativeTab.actions.beforeClose,\n"
+    ],
+    [
+      "lib/client.js",
+      "component: ({ ctx, store, scope, tab, expanded, revealed, onToggleDir, onReferenceFile }) =>",
+      "component: ({ ctx, store, scope, tab, expanded, revealed, onToggleDir, onReferenceFile, registerBeforeClose }) =>"
+    ],
+    [
+      "lib/client.js",
+      "\t\t\t\t\t\tonReferenceFile: onReferenceFile ?? (() => {})\n",
+      "\t\t\t\t\t\tonReferenceFile: onReferenceFile ?? (() => {}),\n\t\t\t\t\t\tregisterBeforeClose\n"
+    ],
+    [
+      "lib/client.js",
+      "\t\t\tconst refreshFile = () => {\n\t\t\t\tif (toolbar?.dirty === true) {\n\t\t\t\t\tif (!(typeof window.confirm === \"function\" ? window.confirm(t(\"refreshUnsavedConfirm\")) : false)) return;\n\t\t\t\t}\n\t\t\t\tsetReloadSeq((sequence) => sequence + 1);\n\t\t\t};",
+      "\t\t\tconst refreshFile = () => { runAfterLeave(() => { setReloadSeq(sequence => sequence + 1); }); };"
+    ],
+    [
+      "lib/client.js",
+      "\t\t\t\tif (inPlace) ctx.get(\"betterSidebar\")?.updateTab(tab.id, {\n\t\t\t\t\tpath: absolute,\n\t\t\t\t\ttitle: baseName(absolute)\n\t\t\t\t});",
+      "\t\t\t\tif (inPlace) runAfterLeave(() => { ctx.get(\"betterSidebar\")?.updateTab(tab.id, { path: absolute, title: baseName(absolute) }); });"
+    ],
+    [
+      "lib/client.js",
+      "\t\t\tconst onToolbarState = (0, react.useCallback)((next) => {\n",
+      "\t\t\tconst onToolbarState = (0, react.useCallback)((next) => {\n\t\t\t\ttoolbarRef.current = next;\n"
+    ]
+  ],
+  "hashes": {
+    "src/client/service.ts": "9467b4ac4317b2b9f12f1c0b709520c362a7847639b43d3bebef2b66395332ec",
+    "src/client/native/tab-adapter.tsx": "8936292b71cff1b8ec468be1533ce6dc1b6d40b2c814dae0c1861f990b857a81",
+    "src/client/builtins/tabs.tsx": "451c769c886444899444fc198baa19a78d886c0531143228759d23e0c042909d",
+    "src/client/EditorHost.tsx": "83b9f2a37d5ebae07907348c3cc9c23cb9f1c85e7cf7e0daed9ede3267c20fc9",
+    "src/client/locales.ts": "584592c2330e5a268091b8c0c9022cf3ee833e5d5b8ec1bd743de0ce0209d1d0",
+    "lib/types/client/service.d.ts": "041a73667aa0c1c7885f5da37bd66cceb5b870d450101b6800aa8047f033b974",
+    "lib/types/client/EditorHost.d.ts": "3bfba33df399fba80bf6045c9a1d42a737ff46759cfdeb72a063d45887697c3d",
+    "lib/types/client/native/tab-adapter.d.ts": "9f48159e35d7995ea0bd8fddd276eea4fd0cfa575b4ad968c59478d8a0f2989f",
+    "lib/types/client/locales.d.ts": "5ecf492106b9be871b20692284566752b0ba08eea87205ec03d6db2cbbbbb9e9",
+    "lib/client.js": "2b6d2bcef19dc98d4aef98b68e47f79c9df41d61ac5211a0919dd8493e1ccc83"
+  },
+  "setup": "  const toolbarRef = useRef<EditorToolbarState | null>(null)\n  const leaveRef = useRef<((allow: boolean) => void) | null>(null)\n  const [confirmLeave, setConfirmLeave] = useState(false)\n  const requestLeave = useCallback((): boolean | Promise<boolean> => {\n    if (toolbarRef.current?.saveState === 'saving') return false\n    if (toolbarRef.current?.dirty !== true) return true\n    if (leaveRef.current !== null) return false\n    return new Promise<boolean>(resolve => { leaveRef.current = resolve; setConfirmLeave(true) })\n  }, [])\n  const finishLeave = (discard: boolean): void => {\n    const resolve = leaveRef.current\n    leaveRef.current = null\n    setConfirmLeave(false)\n    resolve?.(discard && toolbarRef.current?.saveState !== 'saving')\n  }\n  const runAfterLeave = (action: () => void): void => {\n    const allowed = requestLeave()\n    if (typeof allowed === 'boolean') { if (allowed) action(); return }\n    void allowed.then(allow => { if (allow) action() })\n  }\n  useEffect(() => props.registerBeforeClose?.(requestLeave), [props.registerBeforeClose, requestLeave])\n  useEffect(() => () => { leaveRef.current?.(false); leaveRef.current = null }, [path])\n",
+  "modal": "      <Modal open={confirmLeave} title={t('unsaved')} closeLabel={t('cancel')} onClose={() => { finishLeave(false) }}\n        footer={<><Button variant=\"outline\" onClick={() => { finishLeave(false) }}>{t('cancel')}</Button>\n          <Button variant=\"primary\" disabled={toolbar?.saveState === 'saving'} onClick={() => { finishLeave(true) }}>{t('discard')}</Button></>}>\n        {t('editorLeaveConfirm')}\n      </Modal>\n"
+}

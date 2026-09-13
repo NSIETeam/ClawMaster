@@ -59,6 +59,8 @@ interface Held extends TabOccurrence {
   paneId: PaneId | undefined
   /** Whether the resource model has been asked to hold the address. */
   pinned: boolean
+  readonly closeGuards: Set<() => boolean | Promise<boolean>>
+  closing: boolean
 }
 
 /** Every session's occurrences. */
@@ -130,6 +132,31 @@ export class TabDomain {
     existing.navigation.set({ ...target, revision: existing.navigation.getSnapshot().revision + 1 })
   }
 
+  /**
+   * Commit a close or replacement only while its original occurrence still permits it.
+   * @param sessionId - the owning Session.
+   * @param tabId - the occurrence being removed.
+   * @param commit - the settled layout mutation; never called after denial or disposal.
+   */
+  requestClose(sessionId: SessionId, tabId: TabId, commit: () => void): void {
+    const held = this.bySession.get(sessionId)?.get(tabId)
+    if (held?.closing) return
+    if (held === undefined || held.closeGuards.size === 0) { commit(); return }
+    held.closing = true
+    const revision = held.navigation.getSnapshot().revision
+    void (async () => {
+      try {
+        for (const guard of held.closeGuards) {
+          if (!await guard() || !held.closeGuards.has(guard)) return
+        }
+        if (!held.signal.aborted && this.bySession.get(sessionId)?.get(tabId) === held
+          && held.navigation.getSnapshot().revision === revision) commit()
+      } catch (error) {
+        console.error('sidebarRight: close confirmation failed', error)
+      } finally { held.closing = false }
+    })()
+  }
+
   /** Abort every occurrence of every session; the package is unloading. */
   dispose(): void {
     for (const held of this.bySession.values()) {
@@ -168,12 +195,19 @@ export class TabDomain {
       navigation: createSnapshotStore(navigation),
       paneId: undefined,
       pinned: false,
+      closeGuards: new Set(),
+      closing: false,
       tabActions: {
         openResource: (address, options = {}) => {
           navigator.openResourceIn(sessionId, address, { ...place(options), params: options.params })
         },
         openTab: (kind, options = {}) => {
           navigator.openTabIn(sessionId, kind, { ...place(options), params: options.params })
+        },
+        beforeClose: (guard) => {
+          controller.signal.throwIfAborted()
+          held.closeGuards.add(guard)
+          return () => { held.closeGuards.delete(guard) }
         },
         close: () => { navigator.closeIn(sessionId, tabId) },
       },

@@ -1,5 +1,5 @@
 /** SQLite enterprise records and authenticated DSH Fetch routes; owns no listener or Session. */
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { mkdir, open } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { z } from 'zod';
@@ -7,7 +7,7 @@ import {
   EnterpriseError, ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH,
 } from './enterprise-types.ts';
 import type {
-  AuditEntry, BusinessOrder, Contact, EnterpriseCommand, EnterpriseCommandRequest, EnterpriseSnapshot, InventoryItem,
+  AuditEntry, BusinessOrder, Contact, EnterpriseCommand, EnterpriseCommandRequest, EnterpriseSnapshot, InventoryItem, EnterpriseId,
 } from './enterprise-types.ts';
 import {
   contactSchema, itemSchema, orderSchema, auditSchema, parseEnterpriseRequest,
@@ -19,12 +19,72 @@ const APPLICATION_ID = 0x434d454e;
 const integer = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const sqliteRow = z.record(z.string(), z.unknown());
 
+// The frontend's npm lock pins Node 22.10 types; Node >=22.19 provides both SQLite APIs.
+interface SearchDatabase extends DatabaseSync {
+  function(name: string, options: { deterministic: boolean }, callback: (value: unknown, search: unknown) => number): void;
+}
+interface IterableStatement extends StatementSync {
+  iterate(...parameters: Array<string | number>): IterableIterator<unknown>;
+}
+
+/** Collection-scoped query already validated by the tool parser. */
+export interface EnterpriseQuerySpec {
+  collection: 'contacts' | 'inventory' | 'orders' | 'audit';
+  id?: EnterpriseId;
+  search?: string;
+  offset: number;
+  limit: number;
+  revision?: number;
+}
+
+/** Bounded tool page; total counts matching records before pagination. */
+export interface EnterpriseQueryPage {
+  revision: number;
+  collection: EnterpriseQuerySpec['collection'];
+  offset: number;
+  total: number;
+  nextOffset: number | null;
+  records: Array<Contact | InventoryItem | BusinessOrder | AuditEntry>;
+}
+
+/** Current revision and one durable command receipt. */
+export interface EnterpriseCommitReceipt { revision: number; receipt: AuditEntry; }
+
+/** Facts needed for approval; exact committed replays carry their existing receipt. */
+export interface EnterprisePreparation {
+  request: EnterpriseCommandRequest;
+  revision: number;
+  before: Contact | InventoryItem | BusinessOrder | null;
+  inventory?: InventoryItem[];
+  receipt?: AuditEntry;
+}
+
+// All SQL identifiers and JSON keys are deployment-independent literals.
+const jsonFields = (columns: readonly string[]): string => columns.map(column => `'${column}', r.${column}`).join(', ');
+const orderLinesJson = `(SELECT json_group_array(json(line)) FROM (SELECT json_object('itemId', itemId, 'quantity', quantity, 'unitPriceMinorUnits', unitPriceMinorUnits) AS line FROM order_lines WHERE orderId = r.id ORDER BY position))`;
+const collections = {
+  contacts: { table: 'contacts', order: 'r.name, r.id', schema: contactSchema,
+    json: `json_object(${jsonFields(['id', 'name', 'company', 'stage', 'nextAction', 'nextActionDate', 'updatedAt'])})` },
+  inventory: { table: 'inventory', order: 'r.sku, r.id', schema: itemSchema,
+    json: `json_object(${jsonFields(['id', 'sku', 'name', 'stock', 'reorderAt', 'supplier', 'updatedAt'])})` },
+  orders: { table: 'orders', order: 'r.updatedAt DESC, r.id', schema: orderSchema,
+    json: `json_object(${jsonFields(['id', 'kind', 'counterparty', 'orderDate', 'currency'])}, 'lines', json(${orderLinesJson}), ${jsonFields(['note', 'status', 'totalMinorUnits', 'updatedAt', 'submittedAt'])})` },
+  audit: { table: 'enterprise_audit', order: 'r.revision DESC', schema: auditSchema,
+    json: `json_object(${jsonFields(['revision', 'commandId', 'entityId', 'at', 'type'])}, 'before', json(r.beforeJson), 'after', json(r.afterJson))` },
+} as const;
+
 /** Public database owner; close is idempotent and rejects all subsequent operations. */
 export class EnterpriseStore {
   private closed = false;
   private readonly db: DatabaseSync;
 
-  constructor(db: DatabaseSync) { this.db = db; }
+  constructor(db: DatabaseSync) {
+    this.db = db;
+    (db as SearchDatabase).function('clawmaster_contains', { deterministic: true }, (value, search) => {
+      if (typeof value !== 'string' || typeof search !== 'string') throw new Error('Enterprise search requires text.');
+      return Number(value.toLowerCase().includes(search));
+    });
+  }
 
   private assertOpen(): void {
     if (this.closed) throw new EnterpriseError('storage_unavailable', 'Enterprise storage is closed.');
@@ -43,25 +103,34 @@ export class EnterpriseStore {
     return this.db.prepare('SELECT * FROM inventory ORDER BY sku, id').all().map(row => itemSchema.parse(row));
   }
 
+  private orderFromRow(value: unknown): BusinessOrder {
+    const header = sqliteRow.parse(value);
+    const lines = this.db.prepare('SELECT itemId, quantity, unitPriceMinorUnits FROM order_lines WHERE orderId = ? ORDER BY position')
+      .all(String(header.id));
+    return orderSchema.parse({ ...header, lines });
+  }
+
+  private order(id: string): BusinessOrder | undefined {
+    const row = this.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+    return row === undefined ? undefined : this.orderFromRow(row);
+  }
+
   private orders(): BusinessOrder[] {
-    return this.db.prepare('SELECT * FROM orders ORDER BY updatedAt DESC, id').all().map(row => {
-      const header = sqliteRow.parse(row);
-      const lines = this.db.prepare('SELECT itemId, quantity, unitPriceMinorUnits FROM order_lines WHERE orderId = ? ORDER BY position')
-        .all(String(header.id));
-      return orderSchema.parse({ ...header, lines });
+    return this.db.prepare('SELECT * FROM orders ORDER BY updatedAt DESC, id').all().map(row => this.orderFromRow(row));
+  }
+
+  private auditEntry(value: unknown): AuditEntry {
+    const row = sqliteRow.parse(value);
+    return auditSchema.parse({
+      revision: row.revision, commandId: row.commandId, type: row.type, entityId: row.entityId,
+      at: row.at, before: JSON.parse(String(row.beforeJson)), after: JSON.parse(String(row.afterJson)),
     });
   }
 
   private readSnapshot(): EnterpriseSnapshot {
     const revision = this.revision();
     const audit = this.db.prepare('SELECT revision, commandId, type, entityId, at, beforeJson, afterJson FROM enterprise_audit ORDER BY revision DESC')
-      .all().map(value => {
-        const row = sqliteRow.parse(value);
-        return auditSchema.parse({
-          revision: row.revision, commandId: row.commandId, type: row.type, entityId: row.entityId,
-          at: row.at, before: JSON.parse(String(row.beforeJson)), after: JSON.parse(String(row.afterJson)),
-        });
-      });
+      .all().map(value => this.auditEntry(value));
     return parseEnterpriseSnapshot({ revision, contacts: this.contacts(), inventory: this.items(), orders: this.orders(), audit });
   }
 
@@ -83,33 +152,108 @@ export class EnterpriseStore {
     }
   }
 
-  private isReplay(request: EnterpriseCommandRequest): boolean {
-    const receipt = this.db.prepare('SELECT commandJson FROM enterprise_audit WHERE commandId = ?').get(request.commandId);
-    if (!receipt) return false;
-    if (z.object({ commandJson: z.string() }).strict().parse(receipt).commandJson !== JSON.stringify(request.command)) {
+  /**
+   * Read only the requested collection and page in one SQLite read transaction.
+   * @param query Validated filters, revision and pagination fields.
+   * @param maxBytes Maximum UTF-8 bytes in the returned page; an oversized first record fails.
+   * @returns Matching record count and a bounded page without unrelated collections or audit history.
+   */
+  queryPage(query: EnterpriseQuerySpec, maxBytes: number): EnterpriseQueryPage {
+    this.assertOpen();
+    const source = collections[query.collection];
+    const conditions: string[] = [];
+    const parameters: Array<string | number> = [];
+    if (query.id !== undefined) {
+      conditions.push(query.collection === 'audit' ? '(r.entityId = ? OR r.commandId = ?)' : 'r.id = ?');
+      parameters.push(query.id);
+      if (query.collection === 'audit') parameters.push(query.id);
+    }
+    if (query.search !== undefined) {
+      conditions.push(`clawmaster_contains(${source.json}, ?) = 1`);
+      parameters.push(query.search.toLowerCase());
+    }
+    const where = conditions.length === 0 ? '' : ` WHERE ${conditions.join(' AND ')}`;
+    this.db.exec('BEGIN');
+    try {
+      const revision = this.revision();
+      if (query.revision !== undefined && query.revision !== revision) {
+        throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Restart pagination.', revision);
+      }
+      const count = this.db.prepare(`SELECT COUNT(*) AS total FROM ${source.table} r${where}`).get(...parameters);
+      const total = z.object({ total: integer }).strict().parse(count).total;
+      const records: EnterpriseQueryPage['records'] = [];
+      const page = (): EnterpriseQueryPage => ({
+        revision, collection: query.collection, offset: query.offset, total,
+        nextOffset: query.offset + records.length < total ? query.offset + records.length : null, records,
+      });
+      const rows = this.db.prepare(`SELECT ${source.json} AS recordJson FROM ${source.table} r${where} ORDER BY ${source.order} LIMIT ? OFFSET ?`);
+      for (const row of (rows as IterableStatement).iterate(...parameters, query.limit, query.offset)) {
+        const serialized = z.object({ recordJson: z.string() }).strict().parse(row).recordJson;
+        records.push(source.schema.parse(JSON.parse(serialized)));
+        if (Buffer.byteLength(JSON.stringify(page()), 'utf8') > maxBytes) {
+          records.pop();
+          if (records.length === 0) throw new Error('result_too_large: A record exceeds maxQueryBytes. Increase the configured page byte budget to read it.');
+          break;
+        }
+      }
+      const result = page();
+      this.db.exec('COMMIT');
+      return result;
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      if (error instanceof z.ZodError || error instanceof SyntaxError) {
+        throw new EnterpriseError('storage_invalid', 'Enterprise page records cannot be read.');
+      }
+      throw error;
+    }
+  }
+
+  private existingReceipt(request: EnterpriseCommandRequest): AuditEntry | undefined {
+    const value = this.db.prepare('SELECT * FROM enterprise_audit WHERE commandId = ?').get(request.commandId);
+    if (!value) return undefined;
+    const row = sqliteRow.parse(value);
+    if (row.commandJson !== JSON.stringify(request.command)) {
       throw new EnterpriseError('command_conflict', 'Command identifier was already used for a different command.');
     }
-    return true;
+    return this.auditEntry(row);
   }
 
   /**
-   * Validate a command against a consistent state before requesting approval.
+   * Read the target records for approval or find one exact committed receipt.
    * @param value Untrusted command envelope, identical to execute's input.
-   * @returns Validated request, reviewed snapshot and an existing receipt for an exact replay.
+   * @returns Validated request, current revision and the affected records only.
    */
-  prepare(value: unknown): { request: EnterpriseCommandRequest; snapshot: EnterpriseSnapshot; receipt?: AuditEntry } {
+  prepare(value: unknown): EnterprisePreparation {
     this.assertOpen();
     const request = parseEnterpriseRequest(value);
     this.db.exec('BEGIN');
     try {
-      const replay = this.isReplay(request);
-      const snapshot = this.readSnapshot();
-      if (!replay && request.revision !== snapshot.revision) {
-        throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Reload before saving.', snapshot.revision);
+      const receipt = this.existingReceipt(request);
+      const revision = this.revision();
+      if (!receipt && request.revision !== revision) {
+        throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Reload before saving.', revision);
       }
-      const receipt = replay ? snapshot.audit.find(entry => entry.commandId === request.commandId) : undefined;
+      const result: EnterprisePreparation = { request, revision, before: null };
+      if (receipt) result.receipt = receipt;
+      else {
+        const command = request.command;
+        const id = 'id' in command ? command.id : 'contact' in command ? command.contact.id : 'item' in command ? command.item.id : command.order.id;
+        if (command.type.startsWith('contact.')) {
+          const row = this.db.prepare('SELECT * FROM contacts WHERE id = ?').get(id);
+          result.before = row === undefined ? null : contactSchema.parse(row);
+        } else if (command.type.startsWith('item.')) {
+          const row = this.db.prepare('SELECT * FROM inventory WHERE id = ?').get(id);
+          result.before = row === undefined ? null : itemSchema.parse(row);
+        } else {
+          const order = this.order(id);
+          result.before = order ?? null;
+          if (command.type === 'order.submit' && order !== undefined) {
+            result.inventory = order.lines.map(line => itemSchema.parse(this.requireRow('inventory', line.itemId)));
+          }
+        }
+      }
       this.db.exec('COMMIT');
-      return { request, snapshot, ...(receipt ? { receipt } : {}) };
+      return result;
     } catch (error) {
       this.db.exec('ROLLBACK');
       if (error instanceof EnterpriseError) throw error;
@@ -123,25 +267,39 @@ export class EnterpriseStore {
    * @returns The full snapshot after the command or its idempotent replay.
    */
   execute(value: unknown): EnterpriseSnapshot {
+    return this.commit(value, () => this.readSnapshot());
+  }
+
+  /**
+   * Commit through the same transaction as manual saves and return one receipt.
+   * @param value Untrusted command request JSON.
+   * @returns Current revision and the committed or replayed audit entry, without a full snapshot.
+   */
+  executeReceipt(value: unknown): EnterpriseCommitReceipt {
+    return this.commit(value, (revision, receipt) => ({ revision, receipt }));
+  }
+
+  private commit<T>(value: unknown, project: (revision: number, receipt: AuditEntry) => T): T {
     this.assertOpen();
     const request = parseEnterpriseRequest(value);
     this.db.exec('BEGIN IMMEDIATE');
     try {
-      const serialized = JSON.stringify(request.command);
-      if (this.isReplay(request)) {
-        const result = this.readSnapshot();
+      const existing = this.existingReceipt(request);
+      const revision = this.revision();
+      if (existing) {
+        const result = project(revision, existing);
         this.db.exec('COMMIT');
         return result;
       }
-      const revision = this.revision();
       if (request.revision !== revision) throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Reload before saving.', revision);
       if (!Number.isSafeInteger(revision + 1)) throw new EnterpriseError('numeric_overflow', 'Enterprise revision exceeds the supported integer range.');
       const at = new Date().toISOString();
       const change = this.apply(request.command, at);
+      const receipt = auditSchema.parse({ revision: revision + 1, commandId: request.commandId, type: request.command.type, entityId: change.id, at, before: change.before, after: change.after });
       this.db.prepare('INSERT INTO enterprise_audit (revision, commandId, type, entityId, at, commandJson, beforeJson, afterJson) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(revision + 1, request.commandId, request.command.type, change.id, at, serialized, JSON.stringify(change.before), JSON.stringify(change.after));
+        .run(revision + 1, request.commandId, request.command.type, change.id, at, JSON.stringify(request.command), JSON.stringify(change.before), JSON.stringify(change.after));
       this.db.prepare('UPDATE enterprise_meta SET revision = ? WHERE singleton = 1').run(revision + 1);
-      const result = this.readSnapshot();
+      const result = project(revision + 1, receipt);
       this.db.exec('COMMIT');
       return result;
     } catch (error) {
@@ -185,7 +343,7 @@ export class EnterpriseStore {
         return { id: command.id, before, after: null };
       }
       case 'order.save': {
-        const before = this.orders().find(order => order.id === command.order.id) ?? null;
+        const before = this.order(command.order.id) ?? null;
         if (before?.status === 'submitted') throw new EnterpriseError('submitted_order', 'Submitted orders cannot be changed.');
         for (const line of command.order.lines) this.requireRow('inventory', line.itemId);
         const order: BusinessOrder = { ...command.order, status: 'draft', totalMinorUnits: enterpriseOrderTotal(command.order), updatedAt: at, submittedAt: null };
@@ -198,14 +356,14 @@ export class EnterpriseStore {
         return { id: order.id, before, after: order };
       }
       case 'order.remove': {
-        const before = this.orders().find(order => order.id === command.id);
+        const before = this.order(command.id);
         if (!before) throw new EnterpriseError('not_found', 'Order does not exist.');
         if (before.status === 'submitted') throw new EnterpriseError('submitted_order', 'Submitted orders cannot be removed.');
         this.db.prepare('DELETE FROM orders WHERE id = ?').run(command.id);
         return { id: command.id, before, after: null };
       }
       case 'order.submit': {
-        const order = this.orders().find(candidate => candidate.id === command.id);
+        const order = this.order(command.id);
         if (!order) throw new EnterpriseError('not_found', 'Order does not exist.');
         if (order.status === 'submitted') throw new EnterpriseError('submitted_order', 'Order has already been submitted.');
         const beforeItems: InventoryItem[] = [];

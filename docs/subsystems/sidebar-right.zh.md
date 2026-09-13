@@ -100,7 +100,7 @@ Sidebar 声明四个扩展 slot；其文档 tab 另行声明下表中的 keyed �
 | `sidebar.right.tab.menu.item` | list，会话作用域 | 追加在 kit 自身布局动作之后的内容级动作。执行了动作的条目必须调用 owner 的 `dismiss()`。 |
 | `sidebar.right.tab.document` | 按文档实现的 `id` keyed，会话作用域 | 文档 tab 内选中的文件渲染器；父组件拥有共享加载与工具栏控件。 |
 
-正文、标题与引导页替换项接收框架注入的 `useTabInfo()`。它返回 `{ sidebar, panel, tab }`：`sidebar` 包含 `expanded` 与 `fullscreen`，`panel.id` 标识所属窗格，`tab` 包含记录字段以及 `visible`、`navigation`、`signal` 和 `actions`。停靠正文仅在展开且活跃时可见；停靠标题只要求展开；浮窗保持可见。`signal` 在记录消失或插件卸载时中止，不因隐藏或切换 Session 而中止。`tab.actions` 提供绑定到标签所属 Session 的 `openResource`、`openTab` 与 `close`。打开位置缺省为当前所属窗格；`revealIfOpened` 缺省为 `true`，`replaceTab: true` 在同一历史项中替换本记录。菜单项保留普通的 `tab` 与 `dismiss` owner 参数。
+正文、标题与引导页替换项接收框架注入的 `useTabInfo()`。它返回 `{ sidebar, panel, tab }`：`sidebar` 包含 `expanded` 与 `fullscreen`，`panel.id` 标识所属窗格，`tab` 包含记录字段以及 `visible`、`navigation`、`signal` 和 `actions`。停靠正文仅在展开且活跃时可见；停靠标题只要求展开；浮窗保持可见。`signal` 在记录消失或插件卸载时中止，不因隐藏或切换 Session 而中止。`tab.actions` 提供绑定到标签所属 Session 的 `openResource`、`openTab` 与 `close`。打开位置缺省为当前所属窗格；`revealIfOpened` 缺省为 `true`，`replaceTab: true` 在同一历史项中替换本记录。菜单项保留普通的 `tab` 与 `dismiss` owner 参数。 `tab.actions.beforeClose(guard)` 返回注册释放函数；返回 false 或拒绝的异步确认会取消关闭与显式替换。标签实例串行处理待定请求，并拒绝释放后才到达的批准。
 
 `navigation.revision` 在每次导航到该 tab 时递增，`params` 不变也递增，正文可仅凭「又被导航了」行动；按地址打开的 tab 为 `1`，没有人按地址打开的记录——种入的引导、撤销恢复的 tab——为 `0`。Tab 域为每条打开的记录保有一个 occurrence：记录出现即在资源模型里钉住，因此切换 tab 卸载正文也不丢内容；记录消失即中止并丢弃；撤销恢复的记录是新的 occurrence（[Tab 域](../../packages/client/ui-sidebar-right/README.zh.md#the-tab-domain)）。
 

@@ -46,7 +46,7 @@ export class ProposalStore {
     const proposal: Proposal = {
       proposalId: randomUUID(), id: safe, text, baseRevision, createdAt: now.toISOString(),
     };
-    await this.vault.createMetadata('proposals', this.filename(proposal.proposalId), `${JSON.stringify(proposal, null, 2)}\n`, this.maxReadBytes);
+    await this.vault.createMetadata('proposals', this.filename(proposal.proposalId), `${JSON.stringify(proposal, null, 2)}\n`, this.maxReadBytes, this.maxEntries);
     return proposal;
   }
 

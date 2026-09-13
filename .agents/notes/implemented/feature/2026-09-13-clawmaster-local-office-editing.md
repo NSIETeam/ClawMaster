@@ -20,6 +20,8 @@ Saves retain absolute drive/UNC paths and reuse sidebar uploads with the opened 
 
 The [shell decision](2026-09-12-clawmaster-shell-over-dsh.md) retains runtime, Session and sidebar-lifetime ownership. Office persistence supplements those decisions.
 
+Toolbar dirty/save state feeds the existing sidebar host. Occurrence-owned close guards reuse its renderer modal before close, replacement, refresh or in-place file switches; cancellation and repeated requests preserve the iframe. The editor's own Save control retains the same revision checks. Application shutdown and cross-pane remounts still require prior saving.
+
 ## Alternatives considered
 
 **External document server.** Local conversion avoids another managed deployment.

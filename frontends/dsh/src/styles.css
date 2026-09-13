@@ -61,6 +61,7 @@ body[data-ds-dark-theme] .cm-dsh-brand-mark > .cm-dsh-brand-dark { display: bloc
 .cm-task-list ul { list-style:none; padding:0; margin:0; }
 .cm-task-list li { border-bottom:1px solid var(--cm-line); }
 .cm-task-list li button { width:100%; display:flex; align-items:center; gap:20px; text-align:left; border:0; border-radius:0; padding:16px 4px; background:transparent; }
+.cm-attention { color:var(--dsw-alias-state-warning-primary,#9a6700); font-weight:600; }
 .cm-task-title { flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .cm-task-list time { font-size:11px; color:var(--cm-muted); }
 .cm-running { color:var(--cm-accent); font-size:10px; }

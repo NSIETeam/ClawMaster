@@ -9,7 +9,7 @@ export const name = 'clawmaster-office';
 export const inject = ['betterSidebar', 'locale'];
 const RUNTIME = '/clawmaster/office/runtime/';
 
-function OfficeViewer({ scope, path, locale }: OfficeViewerProps & { locale: OfficeLocale }) {
+function OfficeViewer({ scope, path, locale, onToolbarState }: OfficeViewerProps & { locale: OfficeLocale }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [channel] = useState(() => crypto.randomUUID());
   const [document] = useState(() => new OfficeDocument(scope, path, locale, {
@@ -17,6 +17,12 @@ function OfficeViewer({ scope, path, locale }: OfficeViewerProps & { locale: Off
     fetch: window.fetch.bind(window), digest: bytes => crypto.subtle.digest('SHA-256', bytes),
   }));
   const state = useSyncExternalStore(document.subscribe, document.getSnapshot, document.getSnapshot);
+  useEffect(() => {
+    onToolbarState?.({ modes: false, mode: 'edit', dirty: state.dirty,
+      editable: false,
+      saveState: state.status === 'saving' ? 'saving' : state.status === 'saved' ? 'saved'
+        : ['save-error', 'conflict'].includes(state.status) ? 'failed' : 'idle' });
+  }, [state, onToolbarState]);
   const copy = officeCopy(locale);
   const [recoveryUrl, setRecoveryUrl] = useState<string>();
   useEffect(() => {

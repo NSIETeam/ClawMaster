@@ -56,6 +56,8 @@ The panel takes the conversation's ground colour and content font sizes rather t
 
 The `rightbar` entry retains the current Session's `rightbar.session` subtree while a global panel is selected. Each docked pane also retains visited tab bodies through `DockSurface.keepVisitedTabsMounted`; switching tabs within that pane preserves editor drafts and iframe documents. Inactive bodies and hidden panels release layout space and focus, leave the accessibility tree, and cannot receive keyboard input. Hidden panels dismiss tab menus. Closing a tab, moving it to another pane or floating surface, changing Sessions, or unloading the sidebar unmounts its body; save editor content before those actions. Tab-domain records and their abort signals have a separate lifetime described below.
 
+Tab bodies can register `tab.actions.beforeClose(guard)` and dispose that registration with their own lifetime. Native close controls, tab actions and explicit replacements wait for these guards; false or rejection keeps the tab, and late approvals after disposal do not mutate the layout. One pending confirmation owns the request, so repeated closes cannot bypass it. This does not protect application shutdown or moving a body between render containers.
+
 <a id="state"></a>
 ## State
 

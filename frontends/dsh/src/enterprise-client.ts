@@ -91,17 +91,18 @@ export class EnterpriseClient {
   }
 
   /**
-   * Save one command against the currently displayed revision.
+   * Save one command against the revision captured when its draft or confirmation opened.
    * @param command User-reviewed operation.
+   * @param revision Revision whose records the user reviewed; refresh never rebases a draft.
    * @returns Whether the operation was confirmed committed.
    */
-  async execute(command: EnterpriseCommand): Promise<boolean> {
+  async execute(command: EnterpriseCommand, revision: number): Promise<boolean> {
     if (this.state.saving) return false;
     if (this.pendingRequest) { this.set({ error: 'pending_command' }); return false; }
     if (!this.state.snapshot) { this.set({ error: 'storage_unavailable' }); return false; }
     let request: EnterpriseCommandRequest;
     try {
-      request = parseEnterpriseRequest({ revision: this.state.snapshot.revision, commandId: this.nextId(), command });
+      request = parseEnterpriseRequest({ revision, commandId: this.nextId(), command });
     } catch (error) {
       this.set({ error: error instanceof EnterpriseError ? error.code : 'invalid_request' });
       return false;

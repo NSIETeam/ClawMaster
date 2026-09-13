@@ -2,9 +2,12 @@
 import { z } from 'zod';
 import { flushSync } from 'react-dom';
 import { productCopy, type ProductLocale, type ProductModule } from './locales/frontend.ts';
-import { enterpriseTabTypes, type FrontendServices, type SessionId, type WorkspaceId } from './services.ts';
+import { enterpriseTabTypes, type FrontendServices, type SessionId, type SessionRequestId, type WorkspaceId } from './services.ts';
 
 export type WatchdogCadence = 'once' | 'hourly' | 'daily';
+/** Task text survives navigation; an unconfirmed prompt locks edits until admission succeeds. */
+export interface WatchdogDraft { goal: string; cadence: WatchdogCadence; busy: boolean; failed: boolean; locked: boolean; sessionId?: SessionId; }
+
 const allocation = z.object({ workspaceId: z.string().min(1), path: z.string().min(1) }).strict();
 
 /** Compose the submitted user request; DSH records and executes it normally. */
@@ -28,6 +31,14 @@ export class ProductNavigationError extends Error {
  */
 export function createProductActions(ctx: FrontendServices, lifetime: AbortSignal, request: typeof fetch = fetch) {
   let pending: Promise<void> | undefined;
+  let draft: WatchdogDraft = { goal: '', cadence: 'once', busy: false, failed: false, locked: false };
+  const changes = new EventTarget();
+  const publish = (patch: Partial<WatchdogDraft>) => {
+    draft = { ...draft, ...patch };
+    changes.dispatchEvent(new Event('change'));
+  };
+  let task: { target?: { workspaceId: WorkspaceId; cwd: string }; sessionId?: SessionId; submission?: { text: string; requestId: SessionRequestId; abandon(): void } } | undefined;
+
   const exclusive = (operation: () => Promise<void>): Promise<void> => {
     if (pending) return pending;
     const attempt = operation();
@@ -46,22 +57,58 @@ export function createProductActions(ctx: FrontendServices, lifetime: AbortSigna
     return { workspaceId: value.workspaceId as WorkspaceId, cwd: value.path };
   };
   return {
+    draft: {
+      getSnapshot: () => draft,
+      subscribe(listener: () => void) { changes.addEventListener('change', listener); return () => changes.removeEventListener('change', listener); },
+    },
+    updateDraft(goal: string, cadence: WatchdogCadence): void {
+      if (!draft.busy && !draft.locked) publish({ goal, cadence });
+    },
+    openDraftSession(): void {
+      if (draft.sessionId) ctx.uiWorkspace.openSession(draft.sessionId);
+    },
     start(goal: string, cadence: WatchdogCadence, locale: ProductLocale): Promise<void> {
       return exclusive(async () => {
         const navigation = AbortSignal.any([lifetime, ctx.layout.beginNavigation()]);
         navigation.throwIfAborted();
-        const target = await allocate('task', navigation);
-        navigation.throwIfAborted();
-        const id = await ctx.sessions.create(target);
-        if (navigation.aborted) return;
-        ctx.uiWorkspace.openSession(id);
-        const text = watchdogPrompt(goal, cadence, locale);
-        if (text) {
-          const binding = ctx.sessions.binding(id);
-          if (!binding) throw new ProductNavigationError('actionError');
-          const result = await binding.session.prompt([{ type: 'text', text }], 'queue');
-          if (!result.ok) throw new ProductNavigationError('actionError');
+        if (!goal.trim()) {
+          const target = await allocate('task', navigation);
+          navigation.throwIfAborted();
+          const id = await ctx.sessions.create(target);
+          if (!navigation.aborted) ctx.uiWorkspace.openSession(id);
+          return;
         }
+        if (draft.locked && (goal !== draft.goal || cadence !== draft.cadence)) {
+          throw new ProductNavigationError('actionError');
+        }
+        publish({ goal, cadence, busy: true, failed: false });
+        const attempt = task ??= {};
+        try {
+          attempt.target ??= await allocate('task', navigation);
+          navigation.throwIfAborted();
+          attempt.sessionId ??= await ctx.sessions.create(attempt.target);
+          publish({ sessionId: attempt.sessionId });
+          if (navigation.aborted) return;
+          const binding = ctx.sessions.binding(attempt.sessionId);
+          if (!binding) throw new ProductNavigationError('actionError');
+          const text = draft.locked && attempt.submission ? attempt.submission.text : watchdogPrompt(goal, cadence, locale);
+          if (attempt.submission?.text !== text) {
+            const submission = binding.session.beginSubmission({ mode: 'queue', text, attachments: [] });
+            attempt.submission = { text, requestId: submission.requestId, abandon: submission.abandon };
+          }
+          // Retain the admission identity across uncertain transport outcomes;
+          // DSH deduplicates accepted prompts by this request id.
+          publish({ locked: true });
+          const result = await binding.session.prompt([{ type: 'text', text }], 'queue', lifetime, attempt.submission.requestId);
+          if (!result.ok) throw new ProductNavigationError('actionError');
+          task = undefined;
+          publish({ goal: '', cadence: 'once', failed: false, locked: false, sessionId: undefined });
+          if (!navigation.aborted) ctx.uiWorkspace.openSession(attempt.sessionId);
+        } catch (error) {
+          attempt.submission?.abandon();
+          if (!lifetime.aborted) publish({ failed: true });
+          throw error;
+        } finally { if (!lifetime.aborted) publish({ busy: false }); }
       });
     },
     open(module: ProductModule, locale: ProductLocale): Promise<void> {

@@ -41,6 +41,41 @@ const command = body => new Request(`http://localhost${NOTES_COMMAND_PATH}`, {
 });
 
 describe('shipped artifact', () => {
+  it('refuses oversized writes through the shipped route and tool while the saved note remains readable', async () => withArtifact(async (host, root) => {
+    const limit = 262144;
+    const prefix = '/api/clawmaster/notes/';
+    const post = request => host.routes.get(NOTES_COMMAND_PATH).fetch(command({ request }));
+    const read = async () => (await host.routes.get(prefix + 'note').fetch(new Request('http://localhost' + prefix + 'note?id=bounded.md'))).json();
+    const expected = JSON.parse(await readFile(new URL('./expected/write-budget.json', import.meta.url), 'utf8'));
+    const actual = [];
+    const absent = await post({ action: 'create', id: 'never/large.md', text: 'x'.repeat(limit + 1) });
+    actual.push({ operation: 'create over limit', status: absent.status, code: (await absent.json()).error.code });
+    await assert.rejects(readFile(join(root, 'never/large.md')), error => error.code === 'ENOENT');
+    const text = 'x'.repeat(limit);
+    const created = await post({ action: 'create', id: 'bounded.md', text });
+    const receipt = await created.json();
+    actual.push({ operation: 'create at limit', status: created.status, bytes: Buffer.byteLength((await read()).text) });
+    for (const request of [
+      { action: 'save', id: 'bounded.md', text: `${text}x`, expectedRevision: receipt.revision },
+      { action: 'append', id: 'bounded.md', text: 'x' },
+    ]) {
+      const response = await post(request);
+      const body = await response.json();
+      actual.push({ operation: `${request.action} over limit`, status: response.status, code: body.error.code, revisionUnchanged: (await read()).revision === receipt.revision });
+      assert.equal(await readFile(join(root, 'bounded.md'), 'utf8'), text);
+    }
+    await assert.rejects(host.tools.get('notes_write').execute(
+      { request: { action: 'append', id: 'bounded.md', text: 'approved but too large' } },
+      { name: 'notes_write', callId: 'budget', agent: {}, signal: new AbortController().signal },
+    ), error => error.code === 'invalid_request');
+    actual.push({ operation: 'approved tool over limit', revisionUnchanged: (await read()).revision === receipt.revision });
+    for (const route of ['tree', 'tags']) {
+      const response = await host.routes.get(prefix + route).fetch(new Request('http://localhost' + prefix + route));
+      actual.push({ operation: route, status: response.status });
+    }
+    assert.deepEqual(actual, expected);
+  }));
+
   it('exports the plugin surface the loader expects', () => {
     assert.equal(shipped.name, 'clawmaster-notes');
     assert.deepEqual(shipped.inject, ['connection', 'tools', 'approval']);

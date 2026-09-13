@@ -9,7 +9,7 @@ on:
       tag:
         description: Existing desktop-v* tag to rebuild and publish
         required: true
-        default: desktop-v0.2.0-beta.6
+        default: desktop-v0.2.0-release
 
 permissions:
   contents: read
@@ -71,13 +71,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Validate release version
-        shell: pwsh
-        run: |
-          $version = (Get-Content apps/desktop-tauri/package.json | ConvertFrom-Json).version
-          $tauriVersion = (Get-Content apps/desktop-tauri/src-tauri/tauri.conf.json | ConvertFrom-Json).version
-          if ($env:RELEASE_TAG -ne "desktop-v$version" -or $tauriVersion -ne $version) {
-            throw "Release tag and desktop versions must match"
-          }
+        shell: bash
+        run: node apps/desktop-tauri/scripts/release-channel.mjs "$RELEASE_TAG"
 
       - name: Install Linux bundle dependencies
         if: runner.os == 'Linux'
@@ -108,16 +103,27 @@ jobs:
           npm run typecheck --prefix frontends/notes
           pnpm run test:notes-client
 
+      - name: Verify WatchDog business writes and task admission
+        shell: bash
+        run: |
+          npm test --prefix frontends/dsh
+          npm run typecheck --prefix frontends/dsh
+
       - name: Build ClawMaster harness
         run: pnpm --dir apps/desktop-tauri run build:harness
 
       - name: Verify collapsed process details and approvals
         run: pnpm exec vitest run packages/client/ui-chat/tests/clawmaster-disclosures.client.spec.tsx packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx packages/client/ui-chat/tests/chat-view.client.spec.tsx packages/client/ui-tool/tests/terminal-card.client.spec.tsx packages/client/ui-tool/tests/tool-row.client.spec.tsx packages/client/ui-chat/tests/turn-process-running.client.spec.ts packages/client/ui-chat/tests/conversation-node-definitions.client.spec.ts packages/client/ui-chat/tests/system-prompt-row.client.spec.tsx packages/client/ui-chat/tests/approval-command.client.spec.tsx packages/client/ui-approval/tests/ui-approval.client.spec.tsx
 
+      - name: Verify sidebar close and replacement lifecycle
+        run: pnpm exec vitest run packages/client/ui-sidebar-right/tests/service.client.spec.ts packages/client/ui-sidebar-right/tests/seat.client.spec.tsx packages/client/ui-sidebar-right/tests/guide-body.client.spec.tsx
+
       - name: Verify provenance and plugin rejection cases
         shell: bash
         run: |
           pnpm --dir apps/desktop-tauri run test:bundle
+          pnpm --dir apps/desktop-tauri run test:update-manifest
+          node --test apps/desktop-tauri/scripts/windows-native-evidence.test.mjs
           node --test apps/desktop-tauri/sys-prompt/tests/assembly.test.mjs
 
       - name: Verify Linux package permission rejection cases
@@ -141,9 +147,29 @@ jobs:
       - name: Verify prepared payload
         run: node apps/desktop-tauri/scripts/bundle-harness-source.mjs --check
 
+      - name: Verify controlled desktop updates
+        run: cargo test --locked --manifest-path apps/desktop-tauri/src-tauri/Cargo.toml --target ${{ matrix.target }} updater::tests
+
       - name: Verify macOS signature
         if: runner.os == 'macOS'
         run: codesign --verify --deep --strict apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/macos/ClawMaster.app
+
+      - name: Verify installed Windows desktop and normal relaunch
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem 'apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/nsis' -File -Filter '*-setup.exe')
+          if ($installers.Count -ne 1) { throw 'Expected exactly one NSIS installer' }
+          $version = (Get-Content apps/desktop-tauri/package.json -Raw | ConvertFrom-Json).version
+          & ./apps/desktop-tauri/scripts/verify-windows-native.ps1 -Installer $installers[0].FullName -PreparedRoot ./apps/desktop-tauri/bundled/harness -ExpectedVersion $version -OutputPath ./native-acceptance/windows-native-acceptance.json
+
+      - uses: actions/upload-artifact@v4
+        if: always() && runner.os == 'Windows'
+        with:
+          name: windows-native-acceptance
+          path: native-acceptance/windows-native-acceptance.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Verify extracted Linux installers and Host restart
         if: runner.os == 'Linux'
@@ -167,6 +193,8 @@ jobs:
             cp -a "$task_payload" "$task_smoke"
             (cd "$task_smoke" && pnpm install --prod --frozen-lockfile)
             DSH_DESKTOP_SMOKE_ROOT="$task_smoke" node --test apps/desktop-tauri/scripts/desktop-plugin-install.test.mjs apps/desktop-tauri/scripts/harness-startup.test.mjs
+            DSH_DESKTOP_SMOKE_ROOT="$task_smoke" pnpm exec vitest run --config frontends/dsh/tests/vitest.navigation.config.ts
+            DSH_DESKTOP_SMOKE_ROOT="$task_smoke" pnpm exec vitest run --config apps/desktop-tauri/scripts/vitest.sidebar.config.ts
           done
 
       - name: Verify fresh production installation and Host restart
@@ -184,6 +212,10 @@ jobs:
             $env:DSH_DESKTOP_SMOKE_ROOT = $smokeRoot
             node --test apps/desktop-tauri/scripts/desktop-plugin-install.test.mjs apps/desktop-tauri/scripts/harness-startup.test.mjs
             if ($LASTEXITCODE -ne 0) { throw "Packaged Host acceptance failed" }
+            pnpm exec vitest run --config frontends/dsh/tests/vitest.navigation.config.ts
+            if ($LASTEXITCODE -ne 0) { throw "Packaged WatchDog interaction acceptance failed" }
+            pnpm exec vitest run --config apps/desktop-tauri/scripts/vitest.sidebar.config.ts
+            if ($LASTEXITCODE -ne 0) { throw "Packaged editor interaction acceptance failed" }
           } finally { Remove-Item $smokeRoot -Recurse -Force }
 
       - name: Stage release assets
@@ -192,6 +224,8 @@ jobs:
           ASSET_ARCH: ${{ matrix.asset_arch }}
           ASSET_PLATFORM: ${{ matrix.asset_platform }}
           RUST_TARGET: ${{ matrix.target }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           $version = (Get-Content apps/desktop-tauri/package.json | ConvertFrom-Json).version
           $bundleRoot = "apps/desktop-tauri/src-tauri/target/$env:RUST_TARGET/release/bundle"
@@ -224,7 +258,12 @@ jobs:
             $appImageDestination = "release-assets/clawmaster-$version-linux-$env:ASSET_ARCH.AppImage"
             Copy-Item $appImage.FullName $appImageDestination
             Copy-Item $signature.FullName "$appImageDestination.sig"
-            Copy-Item $deb.FullName "release-assets/clawmaster-$version-linux-$env:ASSET_ARCH.deb"
+            $debDestination = "release-assets/clawmaster-$version-linux-$env:ASSET_ARCH.deb"
+            Copy-Item $deb.FullName $debDestination
+            pnpm --dir apps/desktop-tauri exec tauri signer sign (Join-Path $env:GITHUB_WORKSPACE $debDestination)
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path "$debDestination.sig")) {
+              throw "DEB updater signature was not generated"
+            }
           }
 
       - uses: actions/upload-artifact@v4
@@ -253,6 +292,10 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Resolve publication channel
+        id: channel
+        run: node apps/desktop-tauri/scripts/release-channel.mjs "$RELEASE_TAG"
+
       - name: Verify release asset set
         shell: pwsh
         run: |
@@ -268,6 +311,7 @@ jobs:
             '*-linux-x64.AppImage',
             '*-linux-x64.AppImage.sig',
             '*-linux-x64.deb',
+            '*-linux-x64.deb.sig',
             '*-windows-x64-build.json',
             '*-macos-x64-build.json',
             '*-macos-arm64-build.json',
@@ -312,10 +356,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          RELEASE_TITLE: ${{ steps.channel.outputs.title }}
+          RELEASE_PRERELEASE: ${{ steps.channel.outputs.prerelease }}
+          RELEASE_LATEST: ${{ steps.channel.outputs.latest }}
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            if [ "$RELEASE_PRERELEASE" = false ]; then
+              echo "A stable release already exists; publish a new version instead of replacing its files."
+              exit 1
+            fi
             gh release upload "$RELEASE_TAG" release-assets/* --clobber
-            gh release edit "$RELEASE_TAG" --title "ClawMaster Desktop ${RELEASE_TAG#desktop-v}" --notes-file apps/desktop-tauri/release-notes.md --prerelease --latest=false
+            gh release edit "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file apps/desktop-tauri/release-notes.md --prerelease="$RELEASE_PRERELEASE" --latest="$RELEASE_LATEST"
           else
-            gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "ClawMaster Desktop ${RELEASE_TAG#desktop-v}" --notes-file apps/desktop-tauri/release-notes.md --prerelease --latest=false
+            gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TITLE" --notes-file apps/desktop-tauri/release-notes.md --prerelease="$RELEASE_PRERELEASE" --latest="$RELEASE_LATEST"
           fi

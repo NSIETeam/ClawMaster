@@ -32,5 +32,5 @@
   },
   "inputClientPatchSha256": "5b8c63af2e132fe0cd418ed0f80241f3bf182b472b8ddb0702340c59665d10eb",
   "includedIn": "dsh-better-sidebar@0.19.1.patch",
-  "includedInSha256": "42d3ad714f93355512033396bcff868ca21612244d242c923e02c74beb411417"
+  "includedInSha256": "0bea306b21f7a30cf91a98bd35c829585dc3f0ea8f246bb1732f24af7ad73582"
 }

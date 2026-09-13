@@ -97,6 +97,8 @@ export interface SidebarRightInjected {
    * the guide opened by kind, through the same path as every other open.
    */
   readonly openTab: (kind: string, options?: SidebarRightOpenTabOptions) => void
+  /** Close through the occurrence's registered confirmations. */
+  readonly closeTab: (sessionId: SessionId, tabId: TabId) => void
   readonly hooks: {
     readonly tabTypes: HostObservable<readonly SidebarRightTabDefinition[]>
   }
@@ -123,6 +125,7 @@ interface PanelProps {
   readonly t: RightbarSeatProps['t']
   readonly renderSlot: Children['renderSlot']
   readonly openTab: SidebarRightInjected['openTab']
+  readonly closeTab: SidebarRightInjected['closeTab']
   readonly useTabTypes: RightbarSeatProps['useTabTypes']
   readonly useTabNavigation: RightbarSeatProps['useTabNavigation']
   readonly useStore: Store['useStore']
@@ -144,9 +147,10 @@ function guideIn(layout: LayoutState, paneId: PaneId): TabId | undefined {
  * @param sessionId - the session the seat draws; every action is bound to it.
  * @param actions - the seat's bound store actions.
  * @param openTab - the navigation face's `openTab`, which the strip's add control asks for a guide through.
+ * @param closeTab - the occurrence-aware close path; it may await cancellation guards.
  * @returns the intents the kit reports gestures to.
  */
-export function intentsFor(sessionId: SessionId, actions: Store['actions'], openTab: PanelProps['openTab']): DockIntents {
+export function intentsFor(sessionId: SessionId, actions: Store['actions'], openTab: PanelProps['openTab'], closeTab: PanelProps['closeTab']): DockIntents {
   return {
     focusTab: (tabId) => { actions.focusTab(sessionId, tabId) },
     focusPane: (paneId) => { actions.focusPane(sessionId, paneId) },
@@ -156,7 +160,7 @@ export function intentsFor(sessionId: SessionId, actions: Store['actions'], open
     // guides in other panes; the store settles the open on a guide the pane
     // already holds, so the ask is idempotent all the same.
     addTab: (paneId) => { openTab(GUIDE_KIND, { paneId, revealIfOpened: false }) },
-    closeTab: (tabId) => { actions.closeTab(sessionId, tabId) },
+    closeTab: (tabId) => { closeTab(sessionId, tabId) },
     duplicateTab: (tabId) => { actions.duplicateTab(sessionId, tabId) },
     floatTab: (tabId, rect?: FloatRect) => { actions.floatTab(sessionId, tabId, rect) },
     unfloatPane: (paneId) => { actions.unfloatPane(sessionId, paneId) },
@@ -332,7 +336,7 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
           minPaneFraction={0.2}
           canAddTab={paneId => guideIn(surface.layout, paneId) === undefined}
           canCloseTab={tabId => canCloseTab(surface, tabId)}
-          intents={intentsFor(sessionId, actions, openTab)}
+          intents={intentsFor(sessionId, actions, openTab, panel.closeTab)}
           labels={dockLabels(t)}
           renderTab={bodiesFor(panel)}
           renderTabTitle={titlesFor(panel)}
@@ -360,7 +364,7 @@ function Floats(panel: PanelProps): ReactNode {
       <FloatLayer
         state={surface.layout}
         canCloseTab={tabId => canCloseTab(surface, tabId)}
-        intents={intentsFor(sessionId, actions, openTab)}
+        intents={intentsFor(sessionId, actions, openTab, panel.closeTab)}
         labels={dockLabels(t)}
         renderTab={bodiesFor(panel)}
         renderTabTitle={titlesFor(panel)}
@@ -377,7 +381,7 @@ function Floats(panel: PanelProps): ReactNode {
  * which session it is acting on, because this is the seat that knows both.
  */
 export function RightbarSeat({
-  sessionId, width, viewportWidth, canShow, visible, useStore, actions, t, renderSlot, syncPresentation, bindService, openTab,
+  sessionId, width, viewportWidth, canShow, visible, useStore, actions, t, renderSlot, syncPresentation, bindService, openTab, closeTab,
   useTabTypes, useTabNavigation, occurrence,
 }: RightbarSeatProps): ReactNode {
   // One store instance per session, so this map holds this session's surface.
@@ -444,7 +448,7 @@ export function RightbarSeat({
 
   if (surface === undefined) return null
   const panel: PanelProps = {
-    sessionId, actions, t, renderSlot, surface, openTab, useTabTypes, useTabNavigation, useStore, occurrence,
+    sessionId, actions, t, renderSlot, surface, openTab, closeTab, useTabTypes, useTabNavigation, useStore, occurrence,
     fullscreen, autoFullscreen, reportRoom, visible,
   }
   return (

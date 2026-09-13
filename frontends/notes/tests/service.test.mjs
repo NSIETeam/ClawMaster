@@ -1,11 +1,11 @@
 /** Notes service: query bounds, every command receipt and daily-note behaviour. */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Vault } from '../src/vault.ts';
-import { DEFAULT_LIMITS, NotesService, commandSummary, dailyNote, localDate } from '../src/service.ts';
+import { DEFAULT_LIMITS, NotesService, commandSummary, composeDigest, dailyNote, localDate } from '../src/service.ts';
 
 const rejects = code => error => error?.code === code;
 
@@ -40,8 +40,8 @@ describe('query bounds', () => {
   });
 
   it('fails loudly when a note exceeds the read budget', async () => {
-    await withService(async service => {
-      await service.execute({ action: 'create', id: 'big.md', text: 'x'.repeat(64) });
+    await withService(async (service, root) => {
+      await writeFile(join(root, 'big.md'), 'x'.repeat(64));
       await assert.rejects(service.read('big.md'), rejects('invalid_request'));
     }, { ...DEFAULT_LIMITS, maxReadBytes: 16 });
   });
@@ -96,6 +96,66 @@ describe('commands', () => {
     await assert.rejects(service.execute({ action: 'delete', id: '../escape.md' }));
     await assert.rejects(service.execute({ action: 'nonsense' }));
     assert.deepEqual((await service.tree()).notes, []);
+  }));
+});
+
+describe('committed UTF-8 note budgets', () => {
+  const limits = { ...DEFAULT_LIMITS, maxReadBytes: 1024 };
+  const exact = `${'文'.repeat(341)}x`;
+
+  it('rejects oversized create before making directories and accepts exact multibyte content', async () => withService(async (service, root) => {
+    await assert.rejects(service.execute({ action: 'create', id: 'new/large.md', text: `${exact}x` }), rejects('invalid_request'));
+    assert.deepEqual(await readdir(root), []);
+    await service.execute({ action: 'create', id: 'exact.md', text: exact });
+    assert.equal(await readFile(join(root, 'exact.md'), 'utf8'), exact);
+    assert.equal((await service.tree()).notes[0].size, 1024);
+  }, limits));
+
+  it('rejects a larger save without changing disk bytes or revision', async () => withService(async (service, root) => {
+    const created = await service.execute({ action: 'create', id: 'a.md', text: 'original' });
+    await assert.rejects(service.execute({ action: 'save', id: 'a.md', text: `${exact}x`, expectedRevision: created.revision }), rejects('invalid_request'));
+    assert.equal(await readFile(join(root, 'a.md'), 'utf8'), 'original');
+    assert.equal((await service.read('a.md')).revision, created.revision);
+    const saved = await service.execute({ action: 'save', id: 'a.md', text: exact, expectedRevision: created.revision });
+    assert.equal((await service.read('a.md')).revision, saved.revision);
+  }, limits));
+
+  it('bounds the combined append under the writer lock when concurrent appends each fit alone', async () => withService(async (service, root) => {
+    const text = 'x'.repeat(1022);
+    await service.execute({ action: 'create', id: 'append.md', text });
+    const results = await Promise.allSettled(['a', 'b'].map(value => service.execute({ action: 'append', id: 'append.md', text: value })));
+    assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+    assert.equal(results.find(result => result.status === 'rejected').reason.code, 'invalid_request');
+    const note = await service.read('append.md');
+    assert.match(note.text, /^x{1022}\n[ab]$/);
+    assert.equal(Buffer.byteLength(note.text), 1024);
+    assert.equal(await readFile(join(root, 'append.md'), 'utf8'), note.text);
+  }, limits));
+
+  for (const action of ['daily', 'digest']) {
+    it(`counts the ${action} header and final newline before committing`, async () => withService(async (service, root) => {
+      const date = '2026-09-13';
+      const { id, header } = dailyNote(date);
+      const base = action === 'daily' ? `${header}\n\n` : `${header}\n${composeDigest({ date, time: '12:00', summary: '' })}\n`;
+      const text = 'x'.repeat(limits.maxReadBytes - Buffer.byteLength(base));
+      const write = value => action === 'daily' ? service.execute({ action, date, text: value }) : service.digest({ date, time: '12:00', summary: value });
+      await assert.rejects(write(`${text}x`), rejects('invalid_request'));
+      assert.deepEqual(await readdir(root), []);
+      await write(text);
+      const before = await service.read(id);
+      assert.equal(Buffer.byteLength(before.text), limits.maxReadBytes);
+      await assert.rejects(write('more'), rejects('invalid_request'));
+      assert.equal((await service.read(id)).revision, before.revision);
+      assert.equal(await readFile(join(root, id), 'utf8'), before.text);
+    }, limits));
+  }
+
+  it('rechecks the active budget when an older proposal is applied without consuming it on refusal', async () => withService(async (service, root) => {
+    const proposal = await service.propose('new.md', 'x'.repeat(1500));
+    const bounded = new NotesService(service.vault, limits);
+    await assert.rejects(bounded.applyProposal(proposal.proposal.proposalId), rejects('invalid_request'));
+    await assert.rejects(readFile(join(root, 'new.md')), error => error.code === 'ENOENT');
+    assert.equal((await service.proposals.list()).length, 1);
   }));
 });
 
@@ -173,8 +233,8 @@ describe('shared query budgets and concurrent commands', () => {
     }
   }, { ...DEFAULT_LIMITS, maxTreeEntries: 1 }));
 
-  it('applies the byte budget to every query that reads note bodies or titles', async () => withService(async service => {
-    await service.execute({ action: 'create', id: 'large.md', text: 'x'.repeat(64) });
+  it('applies the byte budget to every query that reads note bodies or titles', async () => withService(async (service, root) => {
+    await writeFile(join(root, 'large.md'), 'x'.repeat(64));
     for (const operation of [() => service.read('large.md'), () => service.tree(), () => service.search('x'), () => service.tags(), () => service.backlinks('large.md')]) {
       await assert.rejects(operation, rejects('invalid_request'));
     }
@@ -196,7 +256,7 @@ describe('shared query budgets and concurrent commands', () => {
 describe('pending proposal diff budgets', () => {
   it('bounds the combined before and after UTF-8 bytes across proposals', async () => withService(async service => {
     for (const id of ['a.md', 'b.md']) {
-      await service.vault.create(id, '文'.repeat(150));
+      await service.vault.create(id, '文'.repeat(150), DEFAULT_LIMITS.maxReadBytes);
       await service.propose(id, '稿'.repeat(30));
     }
     await assert.rejects(service.pendingProposals(), rejects('invalid_request'));
@@ -205,15 +265,15 @@ describe('pending proposal diff budgets', () => {
   }, { ...DEFAULT_LIMITS, maxReadBytes: 1000 }));
 
   it('accepts combined diff inputs exactly at the byte budget', async () => withService(async service => {
-    await service.vault.create('a.md', '文'.repeat(250));
+    await service.vault.create('a.md', '文'.repeat(250), DEFAULT_LIMITS.maxReadBytes);
     await service.propose('a.md', 'x'.repeat(250));
     assert.equal((await service.pendingProposals()).length, 1);
   }, { ...DEFAULT_LIMITS, maxReadBytes: 1000 }));
 
   it('reports an over-budget source instead of rendering it as a missing note', async () => withService(async service => {
-    const original = await service.vault.create('a.md', 'small');
+    const original = await service.vault.create('a.md', 'small', DEFAULT_LIMITS.maxReadBytes);
     await service.propose('a.md', 'draft');
-    await service.vault.save('a.md', 'x'.repeat(1001), original);
+    await service.vault.save('a.md', 'x'.repeat(1001), original, DEFAULT_LIMITS.maxReadBytes);
     await assert.rejects(service.pendingProposals(), rejects('invalid_request'));
   }, { ...DEFAULT_LIMITS, maxReadBytes: 1000 }));
 });

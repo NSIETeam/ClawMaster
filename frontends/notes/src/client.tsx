@@ -100,6 +100,7 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
   const [draft, setDraft] = useState(() => drafts.values().next().value?.text ?? '');
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [status, setStatus] = useState<Status>({ state: 'idle' });
+  const [refreshError, setRefreshError] = useState<string>();
   const [backlinks, setBacklinks] = useState<NoteEntry[]>([]);
   const [tags, setTags] = useState<Array<{ tag: string; count: number }>>([]);
   const [proposals, setProposals] = useState<Array<{ proposal: Proposal; diff: UnifiedDiff }>>([]);
@@ -132,13 +133,14 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
   }, [copy]);
 
   const refresh = useCallback(async () => {
-    try {
-      const [tree, tagList, pending] = await Promise.all([api.tree(), api.tags(), api.proposals()]);
-      setEntries(tree.notes);
-      setTags(tagList.tags);
-      setProposals(pending.proposals);
-    } catch (error) { fail(error); }
-  }, [api, fail]);
+    const [tree, tagList, pending] = await Promise.allSettled([api.tree(), api.tags(), api.proposals()]);
+    if (tree.status === 'fulfilled') setEntries(tree.value.notes);
+    if (tagList.status === 'fulfilled') setTags(tagList.value.tags);
+    if (pending.status === 'fulfilled') setProposals(pending.value.proposals);
+    const failures = [tree, tagList, pending].flatMap(result => result.status === 'rejected'
+      ? [result.reason instanceof Error ? result.reason.message : String(result.reason)] : []);
+    setRefreshError(failures.length > 0 ? `${copy.error}: ${failures.join(' · ')}` : undefined);
+  }, [api, copy]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -391,6 +393,9 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
         </button>
       </div>
     </div>
+    {refreshError && <div role="alert"><p>{refreshError}</p>
+      <button type="button" onClick={() => void refresh()}>{copy.retry}</button>
+    </div>}
     {creating && <div className="cm-notes-create">
       <input autoFocus value={newName} placeholder={copy.noteName} aria-label={copy.noteName}
         onChange={event => setNewName(event.target.value)}

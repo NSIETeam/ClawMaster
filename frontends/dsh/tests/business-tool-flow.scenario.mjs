@@ -117,7 +117,7 @@ async function fixture(t, script, runtime = false) {
       return { events, calls, results };
     } finally { await reader.close(); }
   };
-  return { root, store, run, adapter };
+  return { root, store, run, adapter, ctx };
 }
 
 test('live runtime observations reach the model and survive exact Session storage replay', { timeout: 30000 }, async t => {
@@ -145,13 +145,20 @@ test('CSV processing and CRM maintenance record model-visible tool results and r
     toolCallResponse('saved-crm', 'enterprise_query', { collection: 'contacts', id: contact.id, offset: 0, limit: 10 }),
     textResponse('Synthetic CSV and CRM records checked.'),
   ]);
+  f.ctx.on('approval/request', async event => {
+    assert.equal(event.callId, 'save-contact');
+    assert.equal(event.toolName, 'enterprise_command');
+    assert.match(event.reason, /contact.upsert/);
+    return 'allowed-once';
+  });
   await writeFile(join(f.root, 'leads.csv'), 'name,company\n Synthetic Customer ,Fixture Company\n Synthetic Customer ,Fixture Company\n');
-  const { calls, results } = await f.run();
+  const { events, calls, results } = await f.run();
   assert.equal(results.length, 4);
   for (const result of results) assert.equal(result.isError, false, JSON.stringify(result));
   const values = results.map(result => JSON.parse(result.content[0].text));
   const recorded = {
     tools: calls.map(call => call.data.name),
+    approval: events.filter(event => event.type === 'approval/decided').map(event => ({ outcome: event.data.outcome })),
     csv: { rows: values[0].preview.rows, duplicatesRemoved: values[0].duplicatesRemoved },
     initialContacts: values[1].records,
     receipt: { revision: values[2].revision, commandId: values[2].commandId, type: values[2].type, entityId: values[2].entityId },

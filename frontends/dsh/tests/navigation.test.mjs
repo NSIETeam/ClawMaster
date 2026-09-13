@@ -12,7 +12,7 @@ function fixture() {
     sessions: {
       list: { getSnapshot: () => snapshot },
       async create(target) { calls.push(['create', target]); return 'session-1'; },
-      binding(id) { return { session: { async prompt(content, mode) { calls.push(['prompt', id, content, mode]); return { ok: true, value: { accepted: true } }; } } }; },
+      binding(id) { return { session: { beginSubmission() { return { requestId: 'submission-1', abandon() {} }; }, async prompt(content, mode) { calls.push(['prompt', id, content, mode]); return { ok: true, value: { accepted: true } }; } } }; },
     },
     workspaces: { list: { getSnapshot: () => ({ archivedSessionIds: [] }) } },
     layout: {
@@ -51,7 +51,7 @@ test('new tasks allocate explicitly and submit through the bound DSH Session', a
   assert.deepEqual(f.calls, [
     ['allocate', '/api/clawmaster/workspace', { kind: 'task' }, 'same-origin'],
     ['create', { workspaceId: 'workspace-1', cwd: '/managed/desk' }],
-    ['open', 'session-1'], ['panel', null], ['prompt', 'session-1', [{ type: 'text', text: '检查本机库存' }], 'queue'],
+    ['prompt', 'session-1', [{ type: 'text', text: '检查本机库存' }], 'queue'], ['open', 'session-1'], ['panel', null],
   ]);
   assert.equal(watchdogPrompt('inspect stock', 'once', 'en-US'), 'inspect stock');
   assert.match(watchdogPrompt('inspect stock', 'hourly', 'en-US'), /schedule_create.*60 minutes/);
@@ -134,4 +134,97 @@ test('superseded tool navigation never opens a late-created desk Session', async
     await opening;
     assert.equal(f.calls.filter(row => row[0] === 'open' || row[0] === 'tab').length, 0);
   }
+});
+
+
+test('a task draft survives other panel navigation and clears only after admission', async () => {
+  const f = fixture();
+  let changes = 0;
+  const unsubscribe = f.actions.draft.subscribe(() => changes++);
+  f.actions.updateDraft('Retain this review goal', 'daily');
+  f.ctx.layout.selectPanel('settings');
+  assert.equal(f.actions.draft.getSnapshot().goal, 'Retain this review goal');
+  assert.equal(f.actions.draft.getSnapshot().cadence, 'daily');
+  await f.actions.open('crm', 'en-US');
+  assert.equal(f.actions.draft.getSnapshot().goal, 'Retain this review goal');
+  await f.actions.start('Retain this review goal', 'daily', 'en-US');
+  assert.deepEqual(f.actions.draft.getSnapshot(), { goal: '', cadence: 'once', failed: false, busy: false, locked: false, sessionId: undefined });
+  unsubscribe();
+  const count = changes;
+  f.actions.updateDraft('Next goal', 'once');
+  assert.equal(changes, count);
+});
+
+test('a lost admission response retries the original Session and request identity', async () => {
+  const f = fixture();
+  const requests = [];
+  const admitted = new Set();
+  let loseResponse = true;
+  let minted = 0;
+  f.ctx.sessions.binding = id => ({ session: {
+    beginSubmission: () => ({ requestId: `retained-request-${++minted}`, abandon() {} }),
+    async prompt(content, _mode, _signal, requestId) {
+      requests.push({ id, content, requestId });
+      admitted.add(requestId);
+      if (loseResponse) { loseResponse = false; return { ok: false, error: { code: 'transport/unavailable', message: 'Response lost' } }; }
+      return { ok: true, value: { accepted: true } };
+    },
+  } });
+  await assert.rejects(f.actions.start('Retain original goal', 'hourly', 'en-US'), { code: 'actionError' });
+  assert.equal(f.actions.draft.getSnapshot().goal, 'Retain original goal');
+  assert.equal(f.actions.draft.getSnapshot().failed, true);
+  assert.equal(f.actions.draft.getSnapshot().sessionId, 'session-1');
+  assert.equal(f.calls.filter(call => call[0] === 'open').length, 0, 'failed admission keeps the management page open');
+  f.actions.updateDraft('Changed goal must not be submitted', 'daily');
+  assert.equal(f.actions.draft.getSnapshot().goal, 'Retain original goal');
+  assert.equal(f.actions.draft.getSnapshot().cadence, 'hourly');
+  assert.equal(f.actions.draft.getSnapshot().locked, true);
+  await assert.rejects(f.actions.start('Changed goal must not be submitted', 'daily', 'en-US'), { code: 'actionError' });
+  assert.equal(requests.length, 1);
+  assert.equal(minted, 1);
+  f.actions.openDraftSession();
+  f.ctx.layout.selectPanel('clawmaster');
+  await f.actions.start('Retain original goal', 'hourly', 'zh-CN');
+  assert.equal(f.calls.filter(call => call[0] === 'create').length, 1);
+  assert.equal(f.calls.filter(call => call[0] === 'allocate').length, 1);
+  assert.deepEqual(requests[1], requests[0]);
+  assert.equal(admitted.size, 1);
+  assert.equal(minted, 1);
+  assert.equal(f.actions.draft.getSnapshot().locked, false);
+  assert.equal(f.actions.draft.getSnapshot().goal, '');
+});
+
+test('opening a blank task preserves a goal that has not been submitted', async () => {
+  const f = fixture();
+  f.actions.updateDraft('Unsubmitted review', 'daily');
+  await f.actions.start('', 'once', 'en-US');
+  assert.equal(f.actions.draft.getSnapshot().goal, 'Unsubmitted review');
+  assert.equal(f.actions.draft.getSnapshot().cadence, 'daily');
+  assert.equal(f.calls.filter(call => call[0] === 'prompt').length, 0);
+});
+
+
+test('an exception during prompt admission retires the local echo and keeps the draft for retry', async () => {
+  const f = fixture();
+  let abandoned = 0;
+  f.ctx.sessions.binding = () => ({ session: {
+    beginSubmission: () => ({ requestId: 'exception-request', abandon() { abandoned++; } }),
+    async prompt() { throw new Error('carrier interrupted'); },
+  } });
+  await assert.rejects(f.actions.start('Preserve on throw', 'once', 'en-US'), /carrier interrupted/);
+  assert.equal(abandoned, 1);
+  assert.equal(f.actions.draft.getSnapshot().goal, 'Preserve on throw');
+  assert.equal(f.actions.draft.getSnapshot().failed, true);
+  assert.equal(f.actions.draft.getSnapshot().busy, false);
+});
+
+test('failure before prompt submission leaves the goal and cadence editable', async () => {
+  const f = fixture();
+  f.ctx.sessions.binding = () => undefined;
+  await assert.rejects(f.actions.start('Before admission', 'once', 'en-US'), { code: 'actionError' });
+  assert.equal(f.actions.draft.getSnapshot().locked, false);
+  f.actions.updateDraft('Corrected before sending', 'daily');
+  assert.equal(f.actions.draft.getSnapshot().goal, 'Corrected before sending');
+  assert.equal(f.actions.draft.getSnapshot().cadence, 'daily');
+  assert.equal(f.calls.filter(call => call[0] === 'prompt').length, 0);
 });

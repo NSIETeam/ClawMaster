@@ -8,7 +8,8 @@ import * as JSX from 'react/jsx-runtime';
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives';
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime';
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import vm from 'node:vm';
@@ -60,12 +61,17 @@ async function factories() {
   return { sidebar, frontend: entry(external) };
 }
 
-async function fixture(existing = true) {
+async function fixture(existing = true, enterpriseStore, localeKey = 'zh') {
+  const selectedLocale = { active: localeKey };
   const { sidebar, frontend } = await factories();
   const request = vi.fn(async (path, init) => {
     expect(init.credentials).toBe('same-origin');
     if (path === '/api/clawmaster/workspace') return Response.json({ workspaceId: 'managed', path: '/synthetic/desk' });
-    if (path === '/api/clawmaster/enterprise') return Response.json({ revision: 0, contacts: [], inventory: [], orders: [], audit: [] });
+    if (path === '/api/clawmaster/enterprise') return Response.json(enterpriseStore?.snapshot() ?? { revision: 0, contacts: [], inventory: [], orders: [], audit: [] });
+    if (path === '/api/clawmaster/enterprise/command' && enterpriseStore) {
+      try { return Response.json(enterpriseStore.execute(JSON.parse(init.body))); }
+      catch (error) { return Response.json({ error: { code: error.code, message: error.message, currentRevision: error.currentRevision } }, { status: 409 }); }
+    }
     throw new Error(`Unexpected enterprise request: ${path}`);
   });
   vi.stubGlobal('fetch', request);
@@ -80,7 +86,7 @@ async function fixture(existing = true) {
   const locale = new LocaleRuntime(runtime.ctx);
   runtime.ctx.provide('locale', locale);
   runtime.slots.installLocale(locale);
-  await runtime.declare({ rightbar: { kind: 'single', scope: 'root' }, 'conversation.session.header.corner': { kind: 'single', scope: 'session' } });
+  await runtime.declare({ main: { kind: 'single', scope: 'root' }, rightbar: { kind: 'single', scope: 'root' }, 'conversation.session.header.corner': { kind: 'single', scope: 'session' } });
   if (existing) await runtime.sessions.add({ id: 'existing', summary: { cwd: '/synthetic/existing', blank: true } });
   runtime.sessions.stubCreate(async () => runtime.sessions.add({ id: 'created', summary: { cwd: '/synthetic/desk', blank: true } }, { current: false }));
   await runtime.mount({ inject: [...inject], apply });
@@ -110,10 +116,10 @@ async function fixture(existing = true) {
   cleanups.push(() => { for (const cleanup of pluginCleanups.reverse()) cleanup(); });
   const uiWorkspace = new UiWorkspaceService(runtime.ctx, {}, runtime.workspaces, runtime.sessions);
   frontend.apply({
-    slots: { inject(_name, setup) { pluginCleanups.push(setup()); }, register(options, component) { slots.push({ options, component }); return () => {}; } },
+    slots: { inject(_name, setup) { pluginCleanups.push(setup()); }, register(options, component) { slots.push({ options, component }); return options.name === 'main' ? runtime.slots.register(options, component) : () => {}; } },
     theme: { overrideTokens: () => () => {} },
     sessions: runtime.sessions, workspaces: runtime.workspaces, layout, uiWorkspace, betterSidebar: service,
-    locale: { getSnapshot: () => localeSnapshot, subscribe: () => () => {} },
+    locale: { getSnapshot: () => selectedLocale, subscribe: () => () => {} },
     settingsScope: { bind() { return { getSnapshot: () => ({ mode: 'host', status: 'ready', value: { acknowledgedVersion: 0 } }), subscribe: () => () => {} }; } },
     connection: { state: { getSnapshot: () => 'connected', subscribe: () => () => {} } },
     effect(setup) { pluginCleanups.push(setup()); },
@@ -125,7 +131,6 @@ async function fixture(existing = true) {
   await waitFor(() => expect(sidebar.api.settingsGet).toHaveBeenCalledTimes(1));
   return { runtime, layout, service, store, records, view, settings, request, slots, sidebar, controller: runtime.ctx.sidebarRight };
 }
-const localeSnapshot = { active: 'zh' };
 
 async function openFromSettings(f, title) {
   fireEvent.click(f.settings.getByRole('button', { name: new RegExp(`${title} (Feature settings|功能设置)`) }));
@@ -191,18 +196,192 @@ it('a later navigation cancels the compiled component settings open before a new
   const ready = new Promise(resolve => { release = resolve; });
   f.runtime.sessions.stubCreate(async () => {
     entered();
-    await ready;
-    return f.runtime.sessions.add({ id: 'late', summary: { cwd: '/synthetic/desk', blank: true } }, { current: false });
+    return await ready;
   });
   fireEvent.click(f.settings.getByRole('button', { name: /ERP 库存与订单 (Feature settings|功能设置)/ }));
   fireEvent.click(screen.getByRole('button', { name: '在右侧打开' }));
   await creating;
   act(() => f.layout.selectPanel('clawmaster'));
-  await act(async () => { release(); await ready; });
+  const late = await f.runtime.sessions.add({ id: 'late', summary: { cwd: '/synthetic/desk', blank: true } }, { current: false });
+  await act(async () => { release(late); await ready; });
   await waitFor(() => expect(screen.queryByRole('button', { name: '在右侧打开' })).toBeNull());
   expect(f.runtime.panelInfo.getSnapshot().activePanelId).toBe('clawmaster');
   expect(f.runtime.sessions.list.getSnapshot().current).toBeUndefined();
   expect(f.controller.active()).toBeUndefined();
   expect(f.view.container.querySelector('.cm-enterprise')).toBeNull();
   expect(f.request.mock.calls.map(([path]) => path)).toEqual(['/api/clawmaster/workspace']);
+});
+
+
+async function enterpriseFixture() {
+  const store = await openEnterpriseStore(':memory:');
+  cleanups.push(() => store.close());
+  const contact = { id: 'review-contact', name: 'Synthetic customer', company: 'Original company', stage: 'lead', nextAction: 'Original follow-up', nextActionDate: null };
+  const item = { id: 'review-item', sku: 'ITEM', name: 'Synthetic item', stock: 10, reorderAt: 3, supplier: 'Original supplier' };
+  const order = { id: 'review-order', kind: 'sale', counterparty: 'Synthetic customer', orderDate: '2026-09-14', currency: 'CNY', lines: [{ itemId: item.id, quantity: 2, unitPriceMinorUnits: 500 }], note: 'Original order note' };
+  const write = command => store.execute({ revision: store.snapshot().revision, commandId: crypto.randomUUID(), command });
+  write({ type: 'contact.upsert', contact }); write({ type: 'item.upsert', item }); write({ type: 'order.save', order });
+  return { ...await fixture(true, store), store, write, contact, item, order };
+}
+
+it('a CRM draft survives another component refresh but cannot overwrite its newer record without review', async () => {
+  const f = await enterpriseFixture();
+  await openFromSettings(f, 'CRM 客户');
+  fireEvent.click(within(f.view.container).getByRole('button', { name: '编辑', exact: true }));
+  const input = within(f.view.container).getByRole('textbox', { name: '下一步行动', exact: true });
+  fireEvent.change(input, { target: { value: 'Retained draft action' } });
+  f.write({ type: 'contact.upsert', contact: { ...f.contact, company: 'Newer company from another view' } });
+  act(() => f.layout.selectPanel('settings'));
+  await openFromSettings(f, 'ERP 库存与订单');
+  act(() => f.layout.selectPanel('settings'));
+  await openFromSettings(f, 'CRM 客户');
+  const panel = within(f.view.container);
+  const review = await panel.findByRole('region', { name: '最新记录' });
+  expect(input.value).toBe('Retained draft action');
+  expect(within(review).getByText('Newer company from another view')).toBeDefined();
+  expect(panel.getByRole('button', { name: '保存', exact: true }).disabled).toBe(true);
+  const before = f.store.snapshot();
+  fireEvent.submit(panel.getByRole('form', { name: '编辑客户' }));
+  await waitFor(() => expect(panel.getAllByRole('alert').some(alert => alert.textContent.includes('数据已更新'))).toBe(true));
+  expect(f.store.snapshot()).toEqual(before);
+  const snapshot = { conflict: review.textContent, draft: input.value, saveDisabled: panel.getByRole('button', { name: '保存', exact: true }).disabled };
+  const path = resolve('frontends/dsh/tests/expected/enterprise-draft-review.zh.json');
+  if (process.env.DSH_UPDATE_EXPECTED === '1') await writeFile(path, JSON.stringify(snapshot, null, 2) + '\n');
+  expect(snapshot).toEqual(JSON.parse(await readFile(path, 'utf8')));
+  fireEvent.click(within(review).getByRole('button', { name: '已核对最新记录，保留草稿继续' }));
+  fireEvent.click(panel.getByRole('button', { name: '保存', exact: true }));
+  await waitFor(() => expect(f.store.snapshot().contacts[0].nextAction).toBe('Retained draft action'));
+  expect(f.store.snapshot().revision).toBe(before.revision + 1);
+});
+
+it.each(['inventory', 'order'])('an ERP %s draft keeps its reviewed revision until the latest record is explicitly checked', async kind => {
+  const f = await enterpriseFixture();
+  await openFromSettings(f, 'ERP 库存与订单');
+  const panel = within(f.view.container);
+  if (kind === 'order') fireEvent.click(panel.getByRole('button', { name: '订单', exact: true }));
+  fireEvent.click(panel.getByRole('button', { name: kind === 'inventory' ? '编辑' : '编辑草稿', exact: true }));
+  const input = panel.getByRole('textbox', { name: kind === 'inventory' ? '供应商' : '备注', exact: true });
+  fireEvent.change(input, { target: { value: 'Retained ERP draft' } });
+  f.write(kind === 'inventory' ? { type: 'item.upsert', item: { ...f.item, stock: 6 } } : { type: 'order.save', order: { ...f.order, counterparty: 'Newer buyer' } });
+  fireEvent.click(panel.getByRole('button', { name: '刷新', exact: true }));
+  const review = await panel.findByRole('region', { name: '最新记录' });
+  expect(input.value).toBe('Retained ERP draft');
+  const save = panel.getByRole('button', { name: kind === 'inventory' ? '保存' : '保存草稿', exact: true });
+  expect(save.disabled).toBe(true);
+  const before = f.store.snapshot();
+  fireEvent.submit(panel.getByRole('form', { name: kind === 'inventory' ? '编辑物料' : '编辑草稿' }));
+  await waitFor(() => expect(panel.getAllByRole('alert').some(alert => alert.textContent.includes('数据已更新'))).toBe(true));
+  expect(f.store.snapshot()).toEqual(before);
+  fireEvent.click(within(review).getByRole('button', { name: '已核对最新记录，保留草稿继续' }));
+  fireEvent.click(save);
+  await waitFor(() => expect(f.store.snapshot().revision).toBe(before.revision + 1));
+});
+
+it.each(['delete', 'submit'])('a refreshed ERP %s confirmation must be reopened before any mutation', async kind => {
+  const f = await enterpriseFixture();
+  await openFromSettings(f, 'ERP 库存与订单');
+  const panel = within(f.view.container);
+  fireEvent.click(panel.getByRole('button', { name: '订单', exact: true }));
+  fireEvent.click(panel.getByRole('button', { name: kind === 'delete' ? '删除' : '确认提交订单', exact: true }));
+  f.write({ type: 'item.upsert', item: { ...f.item, stock: 5 } });
+  const before = f.store.snapshot();
+  fireEvent.click(panel.getByRole('button', { name: '刷新', exact: true }));
+  await panel.findByText('记录已更新，本次确认已失效。请取消后重新打开并核对。');
+  expect(panel.getByRole('button', { name: kind === 'delete' ? '确认删除' : '提交并更新库存', exact: true }).disabled).toBe(true);
+  expect(f.store.snapshot()).toEqual(before);
+  fireEvent.click(panel.getByRole('button', { name: '取消', exact: true }));
+  fireEvent.click(panel.getByRole('button', { name: kind === 'delete' ? '删除' : '确认提交订单', exact: true }));
+  fireEvent.click(panel.getByRole('button', { name: kind === 'delete' ? '确认删除' : '提交并更新库存', exact: true }));
+  await waitFor(() => expect(f.store.snapshot().revision).toBe(before.revision + 1));
+});
+
+it.each(['zh', 'en'])('WatchDog keeps a goal across main-slot remounts and surfaces real DSH pending interactions first (%s)', async locale => {
+  const f = await fixture(true, undefined, locale);
+  const labels = locale === 'zh' ? { goal: '需要关注什么？', cadence: '检查频率', attention: '待处理 2' } : { goal: 'What should WatchDog watch?', cadence: 'Frequency', attention: 'Needs attention 2' };
+  f.settings.unmount();
+  await f.runtime.sessions.add({ id: 'active', summary: { cwd: '/synthetic', displayTitle: 'Active check', blank: false, running: true, updatedAt: 30 } }, { current: false });
+  await f.runtime.sessions.add({ id: 'approval', summary: { cwd: '/synthetic', displayTitle: 'Inventory approval', blank: false, running: true, updatedAt: 20 } }, { current: false });
+  await f.runtime.sessions.add({ id: 'question', summary: { cwd: '/synthetic', displayTitle: 'Customer question', blank: false, running: true, updatedAt: 10 } }, { current: false });
+  const publish = f.runtime.ctx.uiSession.registerPendingInteraction(() => 1);
+  const approval = publish({ key: 'approval-1', kind: 'approval', sessionId: 'approval' }, async () => {});
+  const question = publish({ key: 'question-1', kind: 'question', sessionId: 'question' }, async () => {});
+  cleanups.push(() => { approval(); question(); });
+  const mount = () => f.runtime.renderSlot('main', {}, { entryKey: 'clawmaster' });
+  let main = mount();
+  const goal = 'Review customer follow-ups and inventory';
+  fireEvent.change(within(main.container).getByRole('textbox', { name: labels.goal }), { target: { value: goal } });
+  fireEvent.change(within(main.container).getByRole('combobox', { name: labels.cadence }), { target: { value: 'daily' } });
+  f.runtime.renderSlot('main', {}, { entryKey: 'settings' });
+  act(() => f.layout.selectPanel('settings'));
+  act(() => f.layout.selectPanel('clawmaster'));
+  main = mount();
+  const view = within(main.container);
+  expect(view.getByRole('textbox', { name: labels.goal }).value).toBe(goal);
+  expect(view.getByRole('combobox', { name: labels.cadence }).value).toBe('daily');
+  const entries = view.getAllByRole('listitem').map(row => ({ title: row.querySelector('.cm-task-title').textContent, status: row.querySelector('.cm-task-title + span').textContent }));
+  const snapshot = { draft: goal, cadence: 'daily', entries };
+  const path = resolve(`frontends/dsh/tests/expected/watchdog-management.${locale}.json`);
+  if (process.env.DSH_UPDATE_EXPECTED === '1') await writeFile(path, JSON.stringify(snapshot, null, 2) + '\n');
+  expect(snapshot).toEqual(JSON.parse(await readFile(path, 'utf8')));
+  fireEvent.click(view.getByRole('button', { name: labels.attention }));
+  expect(view.getAllByRole('listitem')).toHaveLength(2);
+  fireEvent.click(view.getByRole('button', { name: /Inventory approval/ }));
+  expect(f.runtime.sessions.list.getSnapshot().current).toBe('approval');
+  act(() => approval());
+  await waitFor(() => expect(view.getAllByRole('listitem')).toHaveLength(1));
+  expect(view.getByRole('button', { name: /Customer question/ })).toBeDefined();
+  f.runtime.renderSlot('main', {}, { entryKey: 'settings' });
+});
+
+
+it.each(['zh', 'en'])('the compiled WatchDog locks uncertain task text and retries the original DSH request (%s)', async locale => {
+  const f = await fixture(true, undefined, locale);
+  f.settings.unmount();
+  const labels = locale === 'zh'
+    ? { goal: '需要关注什么？', cadence: '检查频率', start: '开始检查', retry: '重试原请求', inspect: '打开原任务核查' }
+    : { goal: 'What should WatchDog watch?', cadence: 'Frequency', start: 'Start check', retry: 'Retry original request', inspect: 'Inspect existing task' };
+  const admitted = new Set();
+  const prompt = vi.fn(async (_content, _mode, _signal, requestId) => {
+    admitted.add(requestId);
+    return prompt.mock.calls.length === 1
+      ? { ok: false, error: { code: 'transport/unavailable', message: 'Response lost after admission' } }
+      : { ok: true, value: { accepted: true } };
+  });
+  const id = await f.runtime.sessions.add({ id: 'retry-task', summary: { cwd: '/synthetic/task', blank: true }, session: { prompt } }, { current: false });
+  f.runtime.sessions.stubCreate(async () => id);
+  const mount = () => f.runtime.renderSlot('main', {}, { entryKey: 'clawmaster' });
+  act(() => f.layout.selectPanel('clawmaster'));
+  let main = mount();
+  fireEvent.change(within(main.container).getByRole('textbox', { name: labels.goal }), { target: { value: 'Synthetic retained task' } });
+  fireEvent.change(within(main.container).getByRole('combobox', { name: labels.cadence }), { target: { value: 'daily' } });
+  fireEvent.click(within(main.container).getByRole('button', { name: labels.start }));
+  await waitFor(() => expect(within(main.container).getByRole('button', { name: labels.retry }).disabled).toBe(false));
+  expect(f.runtime.panelInfo.getSnapshot().activePanelId).toBe('clawmaster');
+  const goal = within(main.container).getByRole('textbox', { name: labels.goal });
+  const cadence = within(main.container).getByRole('combobox', { name: labels.cadence });
+  expect(goal.disabled).toBe(true);
+  expect(cadence.disabled).toBe(true);
+  fireEvent.change(goal, { target: { value: 'Must not replace an uncertain request' } });
+  fireEvent.change(cadence, { target: { value: 'hourly' } });
+  const snapshot = { goal: goal.value, cadence: cadence.value, goalDisabled: goal.disabled, cadenceDisabled: cadence.disabled, notice: within(main.container).getByRole('alert').textContent, retry: labels.retry, inspect: labels.inspect };
+  const path = resolve(`frontends/dsh/tests/expected/watchdog-admission.${locale}.json`);
+  if (process.env.DSH_UPDATE_EXPECTED === '1') await writeFile(path, JSON.stringify(snapshot, null, 2) + '\n');
+  expect(snapshot).toEqual(JSON.parse(await readFile(path, 'utf8')));
+  expect(goal.value).toBe('Synthetic retained task');
+  expect(cadence.value).toBe('daily');
+  fireEvent.click(within(main.container).getByRole('button', { name: labels.inspect }));
+  expect(f.runtime.sessions.list.getSnapshot().current).toBe(id);
+  f.runtime.renderSlot('main', {}, { entryKey: 'settings' });
+  act(() => f.layout.selectPanel('clawmaster'));
+  main = mount();
+  expect(within(main.container).getByRole('textbox', { name: labels.goal }).disabled).toBe(true);
+  fireEvent.click(within(main.container).getByRole('button', { name: labels.retry }));
+  await waitFor(() => expect(prompt).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(f.runtime.panelInfo.getSnapshot().activePanelId).toBeNull());
+  expect(prompt.mock.calls[1]).toEqual(prompt.mock.calls[0]);
+  expect(admitted.size).toBe(1);
+  expect(f.runtime.sessions.calls.filter(call => call.method === 'create')).toHaveLength(1);
+  expect(f.request.mock.calls.filter(([path]) => path === '/api/clawmaster/workspace')).toHaveLength(1);
+  expect(within(main.container).getByRole('textbox', { name: labels.goal }).value).toBe('');
+  expect(within(main.container).getByRole('textbox', { name: labels.goal }).disabled).toBe(false);
 });

@@ -56,6 +56,8 @@ kind: "package-reference"
 
 选中全局面板期间，`rightbar` 入口保留当前 Session 的 `rightbar.session` 子树。每个停靠格还通过 `DockSurface.keepVisitedTabsMounted` 保留访问过的 tab 正文；在同一格内切换 tab 会保留编辑器草稿和 iframe 文档。非活动正文与隐藏面板释放布局空间与焦点，退出无障碍树，且不能接收键盘输入。隐藏面板会关闭 tab 菜单。关闭 tab、将其移到另一格或浮窗、切换 Session，或卸载侧栏都会卸载正文；这些操作前需保存编辑内容。Tab 域记录及其中止信号具有下文说明的独立生命周期。
 
+标签正文可通过 `tab.actions.beforeClose(guard)` 注册关闭确认，并随自身生命周期释放注册。原生关闭控件、标签动作与显式替换都会等待确认；返回 false 或拒绝时保留标签，释放后才到达的批准不会再修改布局。一次待定确认独占请求，重复关闭不会绕过它。此机制不保护应用退出或将正文移到其他渲染容器。
+
 <a id="state"></a>
 ## 状态
 

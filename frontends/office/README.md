@@ -25,7 +25,7 @@ This desktop bundle opens `.docx`, `.xlsx` and `.pptx` files in the existing sid
 <a id="use-this-package"></a>
 ## Use this package
 
-Open an Office file from the current task's file tree. Use the editor's Save control and wait for the viewer to report Saved before closing the tab, changing Sessions or quitting the application. The original filename and Office format are preserved. The desktop includes this private bundle; it is not a separately published npm installation.
+Open an Office file from the current task's file tree. Use the editor's own Save control. Closing a dirty tab, refreshing it or switching its file asks before discarding edits; Cancel keeps the live document. Wait for Saved before changing Sessions, moving tabs between panes or quitting the application. The original filename and format are preserved. The desktop includes this private bundle.
 
 If another writer changes the file after it was opened, saving reports a conflict and preserves the file on disk. Download the current draft from the viewer, or close and reopen the latest file. Network or conversion failures do not acknowledge success. Drafts remain only in the live viewer and are not recovered after an application crash.
 
@@ -52,6 +52,8 @@ npm test --prefix frontends/office
 ```
 
 Each editor frame loads a capability adapter before its SDK: WebKit versions without `requestIdleCallback` defer startup work with cancellable timers and report no idle budget. Available native scheduling remains unchanged. Preparation also guards Chromium-only memory sampling and canonicalizes the presentation theme URL; it preserves upstream legal markup. These [compatibility transformations](scripts/editor-compatibility.mjs) and their source are included in the verified runtime.
+
+The [sidebar adapter generator](scripts/patch-sidebar-editor.mjs) applies unique, SHA-256-pinned source and artifact transformations after its recorded base patch; changed upstream inputs fail. Added hooks and modal markup compile from the reviewed TypeScript snippets. The combined sidebar patch and provenance include these outputs.
 
 The runtime adds about 178 MiB of extracted assets before installer compression. Resource generation is deterministic and excluded from Git. [Upstream provenance](vendor/onlyoffice-web-local/SOURCE.json) pins the release archive, converter source and local changes. The [browser tests](tests/browser.test.mjs) exercise synthetic files with and without native idle scheduling in an isolated local server; they require Playwright Chromium and the patched sidebar package.
 

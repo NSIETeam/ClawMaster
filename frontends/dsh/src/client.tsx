@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { BrandMark, BrandName, HeroMark, Workbench, WorkbenchIcon } from './Workbench.tsx';
-import { connectionLabel, enterpriseTabTypes, recentSessions, type FrontendServices, type Observable } from './services.ts';
+import { connectionLabel, enterpriseTabTypes, recentSessions, type FrontendServices, type Observable, type WorkbenchRuntimeProps } from './services.ts';
 import { productCopy, type ProductLocale } from './locales/frontend.ts';
 import { createProductActions, ProductNavigationError } from './navigation.ts';
 import { createInitialEntry, type InitialEntryProps } from './initial-entry.ts';
@@ -75,17 +75,22 @@ export function apply(ctx: FrontendServices): void {
     ctx.slots.inject(slot, () => ctx.slots.register({ name: slot }, component));
   }
 
-  function ConnectedWorkbench() {
+  function ConnectedWorkbench({ useSessionPendingInteraction }: WorkbenchRuntimeProps) {
     const locale = useLocale();
+    const draft = useSnapshot(actions.draft);
+    const interactions = useSessionPendingInteraction(value => value);
     const snapshot = useSnapshot(ctx.sessions.list);
     const workspaces = useSnapshot(ctx.workspaces.list);
     const connection = useSnapshot(ctx.connection.state);
     return <Workbench
       locale={locale}
-      sessions={recentSessions(snapshot, workspaces.archivedSessionIds, locale)}
+      sessions={recentSessions(snapshot, workspaces.archivedSessionIds, locale, interactions)}
       sessionsLoading={snapshot.phase === 'pending' || workspaces.phase === 'pending'}
       connectionLabel={connectionLabel(connection, locale)}
       connected={connection === 'connected'}
+      draft={draft}
+      onDraft={actions.updateDraft}
+      onDraftSession={actions.openDraftSession}
       onStart={(goal, cadence) => actions.start(goal, cadence, locale)}
       onModule={module => actions.open(module, locale)}
       onOpenSession={id => ctx.uiWorkspace.openSession(id)}

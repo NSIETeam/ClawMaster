@@ -16,17 +16,17 @@ ClawMaster 需要直接使用成熟的 DSH 运行时、会话、审批、工具�
 
 手动选择工作区时使用 DSH 的应用内目录浏览器。ClawMaster 组合包禁用自适应 `directory-picker` 行，同时挂载已有的目录浏览后端和客户端界面；Web 组合包提供这两个依赖。路径浏览、新建文件夹、取消和工作区接入均由 DSH 负责。这项部署选择仅在加载 ClawMaster 组合包时生效，官方 Web profile 保留自适应选择器。
 
-ClawMaster 负责产品呈现与 Tauri 桌面壳。运行执行、Session、工具、审批和插件加载由 DSH 负责。`@clawmaster/dsh-frontend` 通过公开客户端插槽增加 ClawMaster 图标、WatchDog 导航与口号“开启AI时代的企业协作”。加载产品时不创建默认 Workspace：用户明确新建任务后，系统在 `$DSH_HOME/watchdog-workspaces/tasks` 下分配目录，再创建普通 DSH Session 并提交消息。工具入口沿用当前未归档的 Session，或按需分配共用 `desk` 目录。后续导航会阻止延迟完成的 Session 抢占选择或提交模型请求。bundle 启用官方 Schedule 与 time-context；DSH base 提供 Goal 与 goal-round-driver。`@xmanrui/dsh-im` 提供飞书、微信、企微与钉钉扫码接入。
+ClawMaster 负责产品呈现与 Tauri 桌面壳。运行执行、Session、工具、审批和插件加载由 DSH 负责。`@clawmaster/dsh-frontend` 通过公开客户端插槽增加 ClawMaster 图标、WatchDog 导航与口号“开启AI时代的企业协作”。加载产品时不创建默认 Workspace：用户明确新建任务后，系统在 `$DSH_HOME/watchdog-workspaces/tasks` 下分配目录，再创建普通 DSH Session 并提交消息。工具入口沿用当前未归档的 Session，或按需分配共用 `desk` 目录。后续导航会阻止延迟完成的 Session 抢占选择，以及尚未开始的请求提交。[WatchDog 请求决策记录](../bug-fix/2026-09-13-watchdog-task-admission-and-attention.zh.md)负责任务草稿、受理重试与待处理交互。bundle 启用官方 Schedule 与 time-context；DSH base 提供 Goal 与 goal-round-driver。`@xmanrui/dsh-im` 提供飞书、微信、企微与钉钉扫码接入。
 
 默认 profile 挂载 `dsh-better-sidebar@0.19.1`，由维护者按 DSH 0.1.5-rc.2 验证。WatchDog 是产品唯一的左侧导航入口。编辑器与浏览器入口打开原生右侧面板，终端打开底部面板。CRM 与 ERP 通过公开的 `betterSidebar.registerTab` 注册 `clawmaster:crm` 和 `clawmaster:erp`，每个 Session 中各类型只有一个标签。已有侧栏设置负责启用开关与功能弹窗；产品弹窗明确打开原生右侧标签，失败时提示重试。注册既不打开标签，也不选择或创建 Workspace。CSV/TSV 处理是 AI 能力，没有独立客户端页面。
 
-CRM 与 ERP 通过 DSH 已认证 Fetch 注册表访问 `$DSH_HOME/watchdog/enterprise.sqlite` 本机 SQLite 数据库。库存变化、不可修改的已提交订单、版本递增、命令回执及前后审计事实在同一事务中提交。版本冲突会保留未保存输入；结果不确定的客户端写入保留命令标识，供用户明确进行幂等重试。数据库版本单调递增，无法读取或不属于本产品的数据库会报错而不被替换。该系统面向单用户人民币库存与联系人管理，使用完整快照读取，不是多租户 ERP。旧浏览器记录不会被删除或自动迁移；数据库使新记录不依赖浏览器来源和桌面端口。
+CRM 与 ERP 通过 DSH 已认证 Fetch 注册表访问 `$DSH_HOME/watchdog/enterprise.sqlite` 本机 SQLite 数据库。库存变化、不可修改的已提交订单、版本递增、命令回执及前后审计事实在同一事务中提交。版本冲突会保留未保存输入；结果不确定的客户端写入保留命令标识，供用户明确进行幂等重试。数据库版本单调递增，无法读取或不属于本产品的数据库会报错而不被替换。该系统面向单用户人民币库存与联系人管理，不是多租户 ERP。[企业决策记录](../bug-fix/2026-09-13-enterprise-reviewed-writes-and-bounded-queries.zh.md)负责已复核草稿版本、AI 定向读取及仍使用完整快照的容量限制。旧浏览器记录不会被删除或自动迁移；数据库使新记录不依赖浏览器来源和桌面端口。
 
 没有历史记录时，客户端首次进入只选择一次 WatchDog；已有选择优先。工具入口使用共享 React DOM 的提交操作，先挂载目标 Session 并绑定右侧面板挂载点，再打开标签；导航取消仍优先。
 
 全局面板导航保留当前 Session 的右侧栏子树，每个停靠格也保留访问过的 tab 正文，使编辑器在同一格内切换 tab 时保留未保存正文、浏览器保留 iframe 文档。隐藏正文释放布局空间与焦点；隐藏面板关闭菜单，并发布 false 的 tab 可见性。当前服务绑定在返回会话界面前释放。这样保留已有编辑器的保存基线，无需另建草稿存储。固定 Better Sidebar 补丁通过公开更新 API 保留 URL、标题与导航历史，按 Session 和 tab 身份区分原生记录，在真实原生生命周期中止时释放记录。正文生命周期更短：将 tab 移到另一格或浮窗、切换 Session、关闭 tab 与退出前仍需保存编辑内容。
 
-AI 经已有 DSH 工具流程使用 `csv_process`、`enterprise_query` 和 `enterprise_command`。PapaParse 负责 CSV/TSV 解析和序列化。CSV 工具通过沙箱文件系统读取完整工作空间文件，返回有上限的预览，并在观察版本保护下保存完整输出，默认防护公式执行。企业工具与认证路由共用数据库所有者和事务实现。模型查询对输出分页；AI 库存写入、删除与订单提交需要 DSH 单次审批。审批缺席时不修改记录，过期审批不能跳过版本检查。卸载先撤销两个调用方并等待进行中操作结束，再关闭数据库。DSH 记录工具调用和结果，可从 Session JSONL 重建。CRM 与 ERP 右侧组件用于复核与人工接手。
+AI 经已有 DSH 工具流程使用 `csv_process`、`enterprise_query` 和 `enterprise_command`。PapaParse 负责 CSV/TSV 解析和序列化。CSV 工具通过沙箱文件系统读取完整工作空间文件，返回有上限的预览，并在观察版本保护下保存完整输出，默认防护公式执行。企业工具与认证路由共用数据库所有者和事务实现。模型查询从一个集合读取有界分页；AI 每次新的业务写入都需要 DSH 单次审批，包括联系人和订单草稿。审批不可用或被拒绝时不修改记录，过期审批不能跳过版本检查。卸载先撤销两个调用方并等待进行中操作结束，再关闭数据库。DSH 记录工具调用和结果，可从 Session JSONL 重建。CRM 与 ERP 右侧组件用于复核与人工接手。
 
 Tauri 安装内容将已构建前端及精确版本插件依赖加入 CLI 解析范围。Node 预加载脚本在受支持的 `dsh web` 入口前初始化普通 Web profile，并追加缺失的产品 bundle；用户依赖版本与补丁策略保持不变。因此全新安装不依赖开发者预先配置的 profile。复制时排除依赖与开发目录，即使复制根目录为 `node_modules`。`assertPreparedBundle` 拒绝被排除目录、符号链接及与准备 manifest 不一致的摘要；默认项和前端产物参与该摘要。profile 中明确安装的软件包优先于安装包内的补丁副本。[桌面 README](../../../../apps/desktop-tauri/README.zh.md#im-workspaces-and-bundled-packages)负责受支持的移除、备份与已安装产物验证流程。
 
@@ -38,7 +38,7 @@ Tauri 安装内容将已构建前端及精确版本插件依赖加入 CLI 解析
 
 产品拥有的原生字符串与资源在应用元数据、启动页、托盘、通知、关闭对话框、Windows 快捷方式及安装器图标中使用 ClawMaster。[原生窗口决策](2026-09-13-clawmaster-native-window-titlebar.zh.md)负责窗口装饰、macOS 覆盖式顶栏预留空间、分别设置的系统与 Web 主题，以及重开隐藏窗口而不启动另一个 Host 的行为。内部 `dsh` 命令、包名、profile 数据与旧应用数据路径保留兼容义务。
 
-桌面包含发布验签公钥，自动更新端点为空。启动与托盘操作在创建 updater 或发送请求前检查端点；即使已有公钥，空端点列表仍禁用自动更新。已配置的端点必须配有匹配公钥。公开 ClawMaster-Desktop 仓库只在每项配置的平台构建成功后发布版本化预发布版，附带更新签名、公钥、manifest 与校验和。Tauri 签名验证更新产物；macOS 临时签名不提供 Apple 公证或开发者身份，Windows 没有发布者证书。[桌面 README](../../../../apps/desktop-tauri/README.zh.md#release)负责发布操作与启用方式。
+桌面包含发布验签公钥与公开仓库的正式版 manifest 端点。[正式更新决策](../architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责通道选择、启动仅检查可用版本及下载与安装的分别确认。空端点列表禁用更新请求；启用通道须配置公钥。发布要求每项配置的平台构建和安装器检查成功。Tauri 签名认证更新产物；macOS 临时签名不提供 Apple 公证或开发者身份，Windows 没有发布者证书。[桌面 README](../../../../apps/desktop-tauri/README.zh.md#release)负责发行操作。
 
 DSH 提供品牌图标插槽，但没有对话首页标题插槽。因此 ClawMaster 图标把 `MutationObserver` 限定在 `[data-phase="hero"]`，只替换完全匹配的上游中英文标题。这样无需修改 DSH 源码，但上游文字或结构变化后必须进行可见界面回归。
 

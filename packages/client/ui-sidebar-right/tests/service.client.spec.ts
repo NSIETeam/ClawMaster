@@ -590,3 +590,47 @@ describe('SidebarRightController — binding lifetime', () => {
     expect(() => { controller.toggleExpanded() }).not.toThrow()
   })
 })
+
+describe('SidebarRightController — unsaved tab confirmations', () => {
+  it('denial preserves content and a repeated pending request cannot bypass the guard', async () => {
+    const h = harness(); h.publish(); h.controller.openResource('dsh-resource://file/draft.docx'); h.publish()
+    const id = h.tabOf('draft.docx')
+    const occurrence = h.controller.tabDomain.occurrence(SESSION, { id })
+    let decide!: (allow: boolean) => void
+    const guard = vi.fn(() => new Promise<boolean>((resolve) => { decide = resolve }))
+    const release = occurrence.tabActions.beforeClose(guard)
+    h.controller.close(id); h.controller.close(id)
+    expect(guard).toHaveBeenCalledTimes(1)
+    expect(occurrence.signal.aborted).toBe(false)
+    decide(false); await Promise.resolve(); await Promise.resolve()
+    expect(h.titles()).toContain('draft.docx')
+    release(); h.controller.close(id)
+    expect(h.titles()).not.toContain('draft.docx')
+  })
+
+  it('replacement is cancelled, then explicitly allowed without losing another tab', async () => {
+    const h = harness(); h.publish(); h.controller.openResource('dsh-resource://file/draft.docx'); h.publish()
+    const id = h.tabOf('draft.docx')
+    const guard = vi.fn().mockReturnValue(false)
+    h.controller.tabDomain.occurrence(SESSION, { id }).tabActions.beforeClose(guard)
+    h.controller.openResource('dsh-resource://file/next.xlsx', { replaceTab: id })
+    await Promise.resolve(); await Promise.resolve()
+    expect(h.titles()).toContain('draft.docx'); expect(h.titles()).not.toContain('next.xlsx')
+    guard.mockReturnValue(true)
+    h.controller.openResource('dsh-resource://file/next.xlsx', { replaceTab: id })
+    await Promise.resolve(); await Promise.resolve()
+    expect(h.titles()).not.toContain('draft.docx'); expect(h.titles()).toContain('next.xlsx')
+  })
+
+  it('a late approval after occurrence disposal does not mutate its replacement', async () => {
+    const h = harness(); h.publish(); h.controller.openResource('dsh-resource://file/draft.docx'); h.publish()
+    const id = h.tabOf('draft.docx')
+    let decide!: (allow: boolean) => void
+    h.controller.tabDomain.occurrence(SESSION, { id }).tabActions.beforeClose(() => new Promise<boolean>((resolve) => { decide = resolve }))
+    h.controller.close(id)
+    h.controller.tabDomain.dispose()
+    const before = h.entries()
+    decide(true); await Promise.resolve(); await Promise.resolve()
+    expect(h.entries()).toBe(before); expect(h.titles()).toContain('draft.docx')
+  })
+})

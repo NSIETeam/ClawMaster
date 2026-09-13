@@ -4,7 +4,8 @@ import test from 'node:test';
 import { Context } from '@deepseek-ai/cordis';
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt';
 import ToolRuntime from '@deepseek-ai/dsh-tools';
-import ApprovalService from '@deepseek-ai/dsh-user-approval';
+import ApprovalService, { setApprovalPolicy } from '@deepseek-ai/dsh-user-approval';
+import { setSandboxMode } from '@deepseek-ai/dsh-sandbox-policy';
 import { Session, SessionId } from '@deepseek-ai/dsh-session';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
@@ -44,17 +45,17 @@ function seed(store) {
   }
 }
 
-test('CRM and draft commands use shared transactions and queries expose only a filtered page', async t => {
+test('approved CRM and draft commands use shared transactions and queries expose only a filtered page', async t => {
   const h = await setup(t, { maxQueryRows: 2 });
   let approvals = 0;
-  h.ctx.on('approval/request', async () => { approvals++; return 'rejected'; });
+  h.ctx.on('approval/request', async () => { approvals++; return 'allowed-once'; });
   for (let i = 0; i < 3; i++) {
     const result = await h.command({ type: 'contact.upsert', contact: { ...contact, id: `crm-${i}`, name: `客户${i}` } });
     assert.equal(result.isError, false, resultText(result));
     assert.equal(result.value.commandRevision, i + 1);
     assert.deepEqual(JSON.parse(resultText(result)), result.value);
   }
-  assert.equal(approvals, 0);
+  assert.equal(approvals, 3);
   const first = await h.execute('enterprise_query', { collection: 'contacts', search: '远航', offset: 0, limit: 2 });
   assert.equal(first.isError, false, resultText(first));
   assert.deepEqual(Object.keys(first.value).sort(), ['collection', 'nextOffset', 'offset', 'records', 'revision', 'total']);
@@ -75,7 +76,7 @@ test('CRM and draft commands use shared transactions and queries expose only a f
   const draft = await h.command({ type: 'order.save', order });
   assert.equal(draft.isError, false, resultText(draft));
   assert.equal((await h.execute('enterprise_query', { collection: 'orders', offset: 0, limit: 1 })).value.records[0].status, 'draft');
-  assert.equal(approvals, 0);
+  assert.equal(approvals, 4);
   const stale = await h.execute('enterprise_query', { collection: 'contacts', offset: 2, limit: 2, revision: first.value.revision });
   assert.equal(stale.isError, true);
   assert.match(resultText(stale), /revision_conflict/);
@@ -107,11 +108,13 @@ test('tool schemas and the HTTP domain parser reject extra, malformed and unsafe
   assert.equal(h.store.snapshot().revision, 0);
 });
 
-test('every stock write, deletion and order submission fails closed without an approval answerer', async t => {
+test('every business mutation fails closed without an approval answerer', async t => {
   const h = await setup(t);
   seed(h.store);
   const before = h.store.snapshot();
   for (const command of [
+    { type: 'contact.upsert', contact: { ...contact, stage: 'lost' } },
+    { type: 'order.save', order: { ...order, note: 'changed without approval' } },
     { type: 'item.upsert', item: { ...item, stock: 20 } },
     { type: 'contact.remove', id: contact.id },
     { type: 'item.remove', id: item.id },
@@ -123,7 +126,7 @@ test('every stock write, deletion and order submission fails closed without an a
     assert.match(resultText(result), /approval_unavailable/);
     assert.deepEqual(h.store.snapshot(), before);
   }
-  assert.deepEqual(h.session.snapshotEvents().filter(event => event.type === 'approval/decided').map(event => event.data.outcome), Array(5).fill('unavailable'));
+  assert.deepEqual(h.session.snapshotEvents().filter(event => event.type === 'approval/decided').map(event => event.data.outcome), Array(7).fill('unavailable'));
 });
 
 test('one-shot approval records the exact reviewed action and an idempotent retry does not repeat it', async t => {
@@ -232,6 +235,7 @@ test('query byte limits paginate whole records and report a single oversized rec
 
 test('Host presenters replay from arguments and recorded content without reading storage', async t => {
   const h = await setup(t);
+  h.ctx.on('approval/request', async () => 'allowed-once');
   const result = await h.command({ type: 'contact.upsert', contact });
   const query = h.ctx.tools.get('enterprise_query');
   const change = h.ctx.tools.get('enterprise_command');
@@ -240,4 +244,140 @@ test('Host presenters replay from arguments and recorded content without reading
   assert.equal(query.presentCall({ collection: 'invalid' }), undefined);
   assert.deepEqual(change.presentResult({}, result).content, result.content);
   assert.equal(change.presentResult({}, { ...result, isError: true }).title, 'Enterprise change failed');
+});
+
+for (const outcome of ['rejected', 'cancelled']) {
+  test(`CRM edits and order draft edits preserve stored records after ${outcome} approval`, async t => {
+    const h = await setup(t);
+    seed(h.store);
+    const before = h.store.snapshot();
+    h.ctx.on('approval/request', async () => outcome);
+    for (const command of [
+      { type: 'contact.upsert', contact: { ...contact, stage: 'lost' } },
+      { type: 'order.save', order: { ...order, note: 'unapproved draft edit' } },
+    ]) {
+      const result = await h.command(command);
+      assert.equal(result.isError, true);
+      assert.match(resultText(result), new RegExp(`approval_${outcome}`));
+      assert.deepEqual(h.store.snapshot(), before);
+    }
+  });
+}
+
+test('a read-only delegated Session with never approval cannot change CRM or order drafts', async t => {
+  const h = await setup(t);
+  seed(h.store);
+  const before = h.store.snapshot();
+  const id = SessionId(randomUUID());
+  const session = Session.create(id, undefined, { ...h.session.header, id, origin: 'subagent', parentSession: h.session.id });
+  session.append('turn/start', { turn: 1 });
+  setSandboxMode(session, 'read-only');
+  setApprovalPolicy(session, 'never');
+  let asked = 0;
+  h.ctx.on('approval/request', async () => { asked++; return 'allowed-once'; });
+  for (const command of [
+    { type: 'contact.upsert', contact: { ...contact, stage: 'lost' } },
+    { type: 'order.save', order: { ...order, note: 'delegated draft edit' } },
+  ]) {
+    const result = await h.ctx.tools.execute({
+      callId: randomUUID(), name: 'enterprise_command', arguments: { request: request(h.store, command) },
+      agent: { id, session }, signal: new AbortController().signal,
+    });
+    assert.equal(result.isError, true);
+    assert.match(resultText(result), /approval_rejected/);
+    assert.deepEqual(h.store.snapshot(), before);
+  }
+  assert.equal(asked, 0);
+});
+
+test('approved CRM replay returns the committed receipt without asking or applying twice', async t => {
+  const h = await setup(t);
+  let asked = 0;
+  h.ctx.on('approval/request', async () => { asked++; return 'allowed-once'; });
+  const envelope = { request: request(h.store, { type: 'contact.upsert', contact }) };
+  const first = await h.execute('enterprise_command', envelope);
+  assert.equal(first.isError, false, resultText(first));
+  const replay = await h.execute('enterprise_command', envelope);
+  assert.deepEqual(replay.value, first.value);
+  assert.equal(h.store.snapshot().revision, 1);
+  assert.equal(asked, 1);
+});
+
+test('collection pages preserve Unicode and literal JSON search with revision-checked pagination', async t => {
+  const h = await setup(t, { maxQueryRows: 2 });
+  seed(h.store);
+  h.store.execute(request(h.store, { type: 'contact.upsert', contact: { ...contact, id: 'unicode-a', name: 'ÉCOLE', company: 'Åsa % _', nextAction: 'quoted "owner"\\path' } }));
+  h.store.execute(request(h.store, { type: 'contact.upsert', contact: { ...contact, id: 'unicode-b', name: 'école', company: 'Different', nextAction: 'literal search' } }));
+  const baseline = h.store.snapshot();
+  for (const collection of ['contacts', 'inventory', 'orders', 'audit']) {
+    for (const search of ['', 'ÉCOLE', 'ÅSA', 'owner', '%', '_', '"name":', "' OR 1=1 --"]) {
+      const expected = baseline[collection].filter(row => JSON.stringify(row).toLowerCase().includes(search.toLowerCase()));
+      const received = [];
+      let offset = 0;
+      do {
+        const result = await h.execute('enterprise_query', { collection, search, offset, limit: 2, revision: baseline.revision });
+        assert.equal(result.isError, false, resultText(result));
+        assert.equal(result.value.total, expected.length);
+        received.push(...result.value.records);
+        offset = result.value.nextOffset;
+      } while (offset !== null);
+      assert.deepEqual(received, expected, `${collection}: ${search}`);
+    }
+  }
+  for (const id of [contact.id, baseline.audit[0].commandId]) {
+    const expected = baseline.audit.filter(row => row.entityId === id || row.commandId === id);
+    const result = await h.execute('enterprise_query', { collection: 'audit', id, offset: 0, limit: 2 });
+    assert.deepEqual(result.value.records, expected.slice(0, 2));
+    assert.equal(result.value.total, expected.length);
+  }
+  const beyond = await h.execute('enterprise_query', { collection: 'contacts', offset: 100, limit: 1 });
+  assert.deepEqual(beyond.value.records, []);
+  assert.equal(beyond.value.total, baseline.contacts.length);
+  assert.equal(beyond.value.nextOffset, null);
+  h.store.executeReceipt({ revision: baseline.revision, commandId: randomUUID(), command: { type: 'contact.upsert', contact } });
+  const stale = await h.execute('enterprise_query', { collection: 'contacts', offset: 2, limit: 1, revision: baseline.revision });
+  assert.equal(stale.isError, true);
+  assert.match(resultText(stale), /revision_conflict/);
+});
+
+test('a one-record query, approval, commit and replay never scan unrelated audit history', async t => {
+  const h = await setup(t, { maxQueryRows: 1, maxQueryBytes: 4096 });
+  seed(h.store);
+  for (let revision = 3; revision < 2000; revision++) {
+    h.store.executeReceipt({ revision, commandId: `history-${revision}`, command: {
+      type: 'contact.upsert', contact: { ...contact, nextAction: 'x'.repeat(2000) },
+    } });
+  }
+  const db = h.store.db;
+  const original = db.prepare.bind(db);
+  const statements = [];
+  t.mock.method(db, 'prepare', sql => { statements.push(sql); return original(sql); });
+  const query = await h.execute('enterprise_query', { collection: 'contacts', id: contact.id, offset: 0, limit: 1 });
+  assert.equal(query.isError, false, resultText(query));
+  assert.equal(query.value.records.length, 1);
+  assert.ok(Buffer.byteLength(resultText(query)) <= 4096);
+  assert.ok(statements.every(sql => !/\b(enterprise_audit|inventory|orders|order_lines)\b/i.test(sql)), statements.join('\n'));
+  const queries = statements.filter(sql => /FROM contacts/i.test(sql));
+  assert.equal(queries.length, 2);
+  assert.match(queries[1], /LIMIT \? OFFSET \?/);
+  let asked = 0;
+  h.ctx.on('approval/request', async event => {
+    asked++;
+    assert.match(event.reason, /x{2000}/);
+    return 'allowed-once';
+  });
+  const envelope = { request: { revision: query.value.revision, commandId: 'bounded-write', command: {
+    type: 'contact.upsert', contact: { ...contact, nextAction: 'approved replacement' },
+  } } };
+  statements.length = 0;
+  const committed = await h.execute('enterprise_command', envelope);
+  assert.equal(committed.isError, false, resultText(committed));
+  assert.equal(committed.value.commandRevision, 2001);
+  const replay = await h.execute('enterprise_command', envelope);
+  assert.deepEqual(replay.value, committed.value);
+  assert.equal(asked, 1);
+  const auditReads = statements.filter(sql => /SELECT.+FROM enterprise_audit/i.test(sql));
+  assert.equal(auditReads.length, 3, 'prepare, commit and exact replay each look up one receipt');
+  assert.ok(auditReads.every(sql => /WHERE commandId = \?/.test(sql)), auditReads.join('\n'));
+  assert.ok(statements.every(sql => !/FROM (inventory|orders|order_lines)/i.test(sql)), statements.join('\n'));
 });

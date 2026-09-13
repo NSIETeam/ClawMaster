@@ -1,0 +1,18 @@
+{
+  "draft": "Review customer follow-ups and inventory",
+  "cadence": "daily",
+  "entries": [
+    {
+      "title": "Inventory approval",
+      "status": "Waiting for approval"
+    },
+    {
+      "title": "Customer question",
+      "status": "Waiting for answer"
+    },
+    {
+      "title": "Active check",
+      "status": "Running"
+    }
+  ]
+}

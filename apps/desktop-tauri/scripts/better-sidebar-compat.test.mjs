@@ -126,7 +126,7 @@ test('native sidebar retains browser navigation and isolates Session-owned recor
     const tab = (id = 'tab2', params, kind = 'browser') => {
       const controller = new AbortController()
       controllers.push(controller)
-      return { controller, info: { tab: { id, kind, title: kind, contentId: kind, visible: true, navigation: { address: kind, params, revision: 1 }, signal: controller.signal } } }
+      return { controller, info: { tab: { id, kind, title: kind, contentId: kind, visible: true, navigation: { address: kind, params, revision: 1 }, signal: controller.signal, actions: { beforeClose: () => () => {} } } } }
     }
     const mount = async (value, sessionId = 'a', descriptorId = 'browser') => {
       await act(async () => {

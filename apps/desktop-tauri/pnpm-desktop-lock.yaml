@@ -268,7 +268,7 @@ patchedDependencies:
   '@openviking/dsh-memory-plugin@0.3.0': 1ac11f6a20844f1620d176c09b4520d434830128e676ceb43c9af2d8e5f95b91
   '@xmanrui/dsh-im@4.20.0': d65de3c3853294342923d4e302d3fe56baadd6fd7975336c3f86a91fd053b028
   '@yao-pkg/pkg@6.21.0': 28edd2180c36691c481522ef81f6f6614505f45e491aad542ac4663d4e6b3ff8
-  dsh-better-sidebar@0.19.1: 42d3ad714f93355512033396bcff868ca21612244d242c923e02c74beb411417
+  dsh-better-sidebar@0.19.1: 0bea306b21f7a30cf91a98bd35c829585dc3f0ea8f246bb1732f24af7ad73582
   dsh-routing-suite@0.1.2: 252d8ffce63014aca24e19b892b86ae7dd21e2a01eb8070b82d803c5215b64fc
   node-pty@1.2.0-beta.15: b40ae545608897914bd25fb009c97eeac478c34e8a910298ddcb01b746534bb0
 
@@ -1090,7 +1090,7 @@ importers:
         version: 15.0.0
       dsh-better-sidebar:
         specifier: 0.19.1
-        version: 0.19.1(patch_hash=42d3ad714f93355512033396bcff868ca21612244d242c923e02c74beb411417)(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-agent@packages+core+agent)(@deepseek-ai/dsh-client-locale@packages+client+locale)(@deepseek-ai/dsh-client-ui-conversation@packages+client+ui-conversation)(@deepseek-ai/dsh-client-ui-primitives@packages+client+ui-primitives)(@deepseek-ai/dsh-client-ui-settings@packages+client+ui-settings)(@deepseek-ai/dsh-client-ui-sidebar-right@packages+client+ui-sidebar-right)(@deepseek-ai/dsh-client-ui-slots@packages+client+ui-slots)(@deepseek-ai/dsh-host-webserver@packages+host+webserver)(@deepseek-ai/dsh-invariants@packages+runtime-diagnostics+invariants)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-session@packages+core+session)(@deepseek-ai/dsh-settings@packages+settings+settings)(@deepseek-ai/dsh-subagent@packages+subagent+subagent)(@deepseek-ai/dsh-tools@packages+core+tools)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 0.19.1(patch_hash=0bea306b21f7a30cf91a98bd35c829585dc3f0ea8f246bb1732f24af7ad73582)(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-agent@packages+core+agent)(@deepseek-ai/dsh-client-locale@packages+client+locale)(@deepseek-ai/dsh-client-ui-conversation@packages+client+ui-conversation)(@deepseek-ai/dsh-client-ui-primitives@packages+client+ui-primitives)(@deepseek-ai/dsh-client-ui-settings@packages+client+ui-settings)(@deepseek-ai/dsh-client-ui-sidebar-right@packages+client+ui-sidebar-right)(@deepseek-ai/dsh-client-ui-slots@packages+client+ui-slots)(@deepseek-ai/dsh-host-webserver@packages+host+webserver)(@deepseek-ai/dsh-invariants@packages+runtime-diagnostics+invariants)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-session@packages+core+session)(@deepseek-ai/dsh-settings@packages+settings+settings)(@deepseek-ai/dsh-subagent@packages+subagent+subagent)(@deepseek-ai/dsh-tools@packages+core+tools)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       dsh-routing-suite:
         specifier: 0.1.2
         version: 0.1.2(patch_hash=252d8ffce63014aca24e19b892b86ae7dd21e2a01eb8070b82d803c5215b64fc)
@@ -10853,7 +10853,7 @@ snapshots:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
-  dsh-better-sidebar@0.19.1(patch_hash=42d3ad714f93355512033396bcff868ca21612244d242c923e02c74beb411417)(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-agent@packages+core+agent)(@deepseek-ai/dsh-client-locale@packages+client+locale)(@deepseek-ai/dsh-client-ui-conversation@packages+client+ui-conversation)(@deepseek-ai/dsh-client-ui-primitives@packages+client+ui-primitives)(@deepseek-ai/dsh-client-ui-settings@packages+client+ui-settings)(@deepseek-ai/dsh-client-ui-sidebar-right@packages+client+ui-sidebar-right)(@deepseek-ai/dsh-client-ui-slots@packages+client+ui-slots)(@deepseek-ai/dsh-host-webserver@packages+host+webserver)(@deepseek-ai/dsh-invariants@packages+runtime-diagnostics+invariants)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-session@packages+core+session)(@deepseek-ai/dsh-settings@packages+settings+settings)(@deepseek-ai/dsh-subagent@packages+subagent+subagent)(@deepseek-ai/dsh-tools@packages+core+tools)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  dsh-better-sidebar@0.19.1(patch_hash=0bea306b21f7a30cf91a98bd35c829585dc3f0ea8f246bb1732f24af7ad73582)(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-agent@packages+core+agent)(@deepseek-ai/dsh-client-locale@packages+client+locale)(@deepseek-ai/dsh-client-ui-conversation@packages+client+ui-conversation)(@deepseek-ai/dsh-client-ui-primitives@packages+client+ui-primitives)(@deepseek-ai/dsh-client-ui-settings@packages+client+ui-settings)(@deepseek-ai/dsh-client-ui-sidebar-right@packages+client+ui-sidebar-right)(@deepseek-ai/dsh-client-ui-slots@packages+client+ui-slots)(@deepseek-ai/dsh-host-webserver@packages+host+webserver)(@deepseek-ai/dsh-invariants@packages+runtime-diagnostics+invariants)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-session@packages+core+session)(@deepseek-ai/dsh-settings@packages+settings+settings)(@deepseek-ai/dsh-subagent@packages+subagent+subagent)(@deepseek-ai/dsh-tools@packages+core+tools)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       '@codemirror/commands': 6.11.0
       '@codemirror/lang-cpp': 6.0.3

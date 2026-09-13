@@ -32,17 +32,17 @@ A wiki link resolves to its note; when several notes match you choose, and when 
 
 **Proposals** appear in the side panel with the diff they would apply, each with **Apply** and **Discard**. Applying is revision-guarded: if the note moved since the proposal was drafted, the apply is refused and the proposal stays for a retry. Applying also preserves any unsaved local draft, which must be reconciled before saving.
 
-While the tab is visible the panel polls every four seconds for a version covering both notes and pending proposals, so external edits and proposal creation or discard appear without a manual refresh. An unsaved draft is never discarded by that refresh: the panel reports the external change and offers a reload.
+While the tab is visible the panel polls every four seconds for a version covering both notes and pending proposals, so external edits and proposal creation or discard appear without a manual refresh. An unsaved draft is never discarded by that refresh: the panel reports the external change and offers a reload. Note, tag and proposal refreshes settle independently. A failed proposal listing keeps its error and retry action visible while successfully loaded notes and tags remain usable.
 
 <a id="configuration"></a>
 ## Configuration
 
-The [host configuration](src/host.ts) accepts an absolute `vaultRoot`. Its default is `~/Documents/ClawMaster 笔记` on macOS and `~/ClawMasterNotes` elsewhere, outside the desktop runtime directories. Reads, listings, search, tags and backlinks share these limits; appending also respects the read limit.
+The [host configuration](src/host.ts) accepts an absolute `vaultRoot`. Its default is `~/Documents/ClawMaster 笔记` on macOS and `~/ClawMasterNotes` elsewhere, outside the desktop runtime directories. Reads, writes, listings, search, tags and backlinks share these limits. Every note write checks final UTF-8 bytes, including daily headers and appended content, before changing a file; rejection preserves existing bytes and revisions.
 
 | Field | Default | Meaning |
 |---|---|---|
-| `limits.maxReadBytes` | 262144 | Maximum bytes per note read, aggregate proposal JSON listing, or combined before/after diff inputs. |
-| `limits.maxTreeEntries` | 5000 | Maximum entries in a note or proposal listing. |
+| `limits.maxReadBytes` | 262144 | Maximum final UTF-8 bytes per note read/write, aggregate stored proposal JSON, or combined before/after diff inputs. |
+| `limits.maxTreeEntries` | 5000 | Maximum entries in a note or proposal listing; proposal creation enforces the stored proposal count. |
 | `limits.maxSearchResults` | 50 | Default and maximum search hits; configurable up to 200. |
 
 <a id="understand-the-implementation"></a>
@@ -55,7 +55,7 @@ The [host](src/host.ts) registers eight routes on the existing authenticated DSH
 
 The [vault](src/vault.ts) rejects linked files and linked directories below its canonical root. Cooperative writers share a cross-process file lock; revision checks and mutation receipts are calculated while holding it. Saves publish complete temporary files through atomic replacement. Creation and renaming use hard links that refuse an occupied destination. The browser renders parsed Markdown data rather than raw HTML, and [shared text parsing](src/note-format.ts) does not rewrite frontmatter.
 
-The [proposal store](src/proposals.ts) persists drafts and base revisions as JSON under `.clawmaster/proposals`, excluded from the note index but readable through external filesystem access. Metadata reuses checked vault paths, bounded reads, the write lock and atomic no-replace publication. Listings share entry and aggregate JSON byte limits; proposal texts and source texts share a second aggregate diff-input budget. Unsafe paths, corrupt metadata and excess bytes fail explicitly. The [line diff](src/diff.ts) uses whole-file replacement above 2000 lines per side and marks truncated output.
+The [proposal store](src/proposals.ts) persists drafts and base revisions as JSON under `.clawmaster/proposals`, excluded from the note index but readable through external filesystem access. Metadata reuses checked vault paths, bounded reads, the write lock and atomic no-replace publication. Proposal creation checks the stored entry count and aggregate JSON bytes under the vault writer lock. Listings use the same limits; proposal texts and source texts share a second aggregate diff-input budget. Unsafe paths, corrupt metadata and excess bytes fail explicitly. The [line diff](src/diff.ts) uses whole-file replacement above 2000 lines per side and marks truncated output.
 
 The [revision scanner](src/watcher.ts) fingerprints note paths, sizes and modification times on request, sharing concurrent scans. The `revision` route combines that fingerprint with a bounded proposal-content digest, so metadata-only changes also refresh the panel. Scan failures reach the request; teardown waits for active scans. No native filesystem watch or background scan is started.
 

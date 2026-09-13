@@ -48,7 +48,7 @@ test('the shipped factory registers WatchDog and enterprise sidebar components a
   };
   runInNewContext(source, {
     window: { __ModuleLoader__: { load: value => { registration = value; } } },
-    document: doc, MutationObserver: FakeMutationObserver, AbortController,
+    document: doc, MutationObserver: FakeMutationObserver, AbortController, EventTarget, Event,
     fetch() { throw new Error('must not request on plugin load'); },
   });
   assert.equal(registration.id, manifest.name);
@@ -125,7 +125,7 @@ test('the shipped factory registers WatchDog and enterprise sidebar components a
     usePanelInfo: selector => selector({ activePanelId: null }),
   })), '');
   const main = rows.get('main:clawmaster').component;
-  const html = renderToStaticMarkup(React.createElement(main));
+  const html = renderToStaticMarkup(React.createElement(main, { useSessionPendingInteraction: selector => selector(new Map()) }));
   assert.match(html, /已连接/);
   assert.match(html, /开启AI时代的企业协作/);
   assert.match(html, /还没有任务/);
@@ -135,16 +135,16 @@ test('the shipped factory registers WatchDog and enterprise sidebar components a
   services.sessions.list.getSnapshot = () => ({
     ids: ['finished'], byId: { finished: { id: 'finished', displayTitle: '完成的测试任务', updatedAt: 1, running: false, blank: false } }, phase: 'ready',
   });
-  const taskHtml = renderToStaticMarkup(React.createElement(main));
+  const taskHtml = renderToStaticMarkup(React.createElement(main, { useSessionPendingInteraction: selector => selector(new Map()) }));
   assert.match(taskHtml, /完成的测试任务/);
   assert.match(taskHtml, /class="cm-idle">当前未运行/);
   assert.doesNotMatch(taskHtml, /已停止执行/);
   services.locale.getSnapshot = () => ({ active: 'en' });
   assert.equal(tabs.get('clawmaster:crm').title(), 'CRM contacts');
-  assert.match(renderToStaticMarkup(React.createElement(main)), /What should WatchDog watch/);
-  assert.match(renderToStaticMarkup(React.createElement(main)), /class="cm-idle">Not running/);
+  assert.match(renderToStaticMarkup(React.createElement(main, { useSessionPendingInteraction: selector => selector(new Map()) })), /What should WatchDog watch/);
+  assert.match(renderToStaticMarkup(React.createElement(main, { useSessionPendingInteraction: selector => selector(new Map()) })), /class="cm-idle">Not running/);
   services.sessions.list.getSnapshot = () => ({ ids: [], byId: {}, phase: 'pending' });
-  assert.match(renderToStaticMarkup(React.createElement(main)), /Loading sessions/);
+  assert.match(renderToStaticMarkup(React.createElement(main, { useSessionPendingInteraction: selector => selector(new Map()) })), /Loading sessions/);
   for (const cleanup of cleanups.reverse()) cleanup();
   assert.equal(styleCount, 0);
   assert.equal(themeCount, 0);
@@ -233,4 +233,18 @@ test('workspace disposal drains an entered registry write and rejects further al
   await stopping;
   assert.equal(settled, true);
   assert.equal(creates, 1);
+});
+
+
+test('WatchDog prioritizes DSH pending approvals, questions and plan reviews without inferring business completion', () => {
+  const rows = ['running', 'approval', 'question', 'plan', 'idle', 'extension'].map((id, index) => ({
+    id, displayTitle: id, updatedAt: 10 - index, running: id !== 'idle', blank: false, completed: id === 'idle',
+  }));
+  const snapshot = { ids: rows.map(row => row.id), byId: Object.fromEntries(rows.map(row => [row.id, row])), phase: 'ready' };
+  const pending = new Map([['approval', { kind: 'approval' }], ['question', { kind: 'question' }], ['plan', { kind: 'plan-review' }], ['extension', { kind: 'other-domain' }]]);
+  const projected = recentSessions(snapshot, [], 'en-US', pending);
+  assert.deepEqual(projected.map(row => [row.id, row.status, row.attention]), [
+    ['approval', 'approval', true], ['question', 'question', true], ['plan', 'planReview', true],
+    ['running', 'running', false], ['idle', 'idle', false], ['extension', 'running', false],
+  ]);
 });

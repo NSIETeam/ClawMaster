@@ -632,7 +632,7 @@ describe('intentsFor — the kit\'s gestures as one session\'s store actions', (
       resizeFloat: vi.fn(), resizeSplit: vi.fn(),
     }
     const openTab = vi.fn()
-    const intents = intentsFor(SESSION, actions as unknown as Parameters<typeof intentsFor>[1], openTab)
+    const intents = intentsFor(SESSION, actions as unknown as Parameters<typeof intentsFor>[1], openTab, actions.closeTab)
     const rect = { x: 1, y: 2, width: 300, height: 200 }
     const TAB_1 = 'tab-1' as TabId
     const PANE_1 = 'pane-1' as PaneId

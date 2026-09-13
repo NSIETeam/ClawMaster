@@ -23,6 +23,7 @@ const expectedAssets = {
   'darwin-x86_64': `clawmaster-${version}-macos-x64.app.tar.gz`,
   'darwin-aarch64': `clawmaster-${version}-macos-arm64.app.tar.gz`,
   'linux-x86_64': `clawmaster-${version}-linux-x64.AppImage`,
+  'linux-x86_64-deb': `clawmaster-${version}-linux-x64.deb`,
 }
 
 async function withTempDir(run) {
@@ -105,6 +106,22 @@ test('writeUpdaterManifest rejects a missing normalized asset or signature', asy
       }),
       /missing release file.*linux-x64\.AppImage\.sig/i,
     )
+  })
+})
+
+test('DEB installations have a separately signed DEB update instead of an AppImage fallback', async () => {
+  await withTempDir(async directory => {
+    await writeAssets(directory)
+    const outputPath = join(directory, 'latest.json')
+    const options = { assetsDir: directory, outputPath, version, repository, releaseTag, notes: '', pubDate }
+    await writeUpdaterManifest(options)
+    const manifest = JSON.parse(await readFile(outputPath, 'utf8'))
+    const deb = manifest.platforms['linux-x86_64-deb']
+    assert.ok(deb.url.endsWith('.deb'))
+    assert.equal(deb.signature, `signature:${expectedAssets['linux-x86_64-deb']}`)
+    assert.ok(manifest.platforms['linux-x86_64'].url.endsWith('.AppImage'))
+    await rm(join(directory, `${expectedAssets['linux-x86_64-deb']}.sig`))
+    await assert.rejects(writeUpdaterManifest(options), /missing release file.*linux-x64\.deb\.sig/i)
   })
 })
 

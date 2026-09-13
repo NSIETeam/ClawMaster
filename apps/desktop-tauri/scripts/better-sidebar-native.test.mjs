@@ -22,8 +22,8 @@ const packageRoot = process.env.DSH_SIDEBAR_TEST_PACKAGE_ROOT
   ? resolve(process.env.DSH_SIDEBAR_TEST_PACKAGE_ROOT)
   : dirname(resolver.resolve('dsh-better-sidebar/package.json'))
 const SESSION = 'editor-retention'
-const CWD = '/synthetic-editor-retention'
-const FILE = `${CWD}/desktop-check-clean.csv`
+const CWD = resolve(repository, 'synthetic-editor-retention')
+const FILE = join(CWD, 'desktop-check-clean.csv')
 const ORIGINAL = 'sku,name,stock\nA1,Original record,3\n'
 const DRAFT = 'sku,name,stock\nDRAFT-20260913,Native editor retention,20\n'
 const runtimes = []
@@ -145,7 +145,7 @@ async function fixture() {
   const csv = controller.active()
   await waitFor(() => expect(view.container.querySelector('.cm-editor')).not.toBeNull())
   const cm = editor.EditorView.findFromDOM(view.container.querySelector('.cm-editor'))
-  return { runtime, service, controller, records, scope, view, files, csv, cm, disk, read, write, frame, editor }
+  return { runtime, service, controller, records, scope, view, files, csv, cm, disk, read, write, frame, editor, store }
 }
 
 it.each(['tab switch', 'global panels and document shortcut'])('retains the actual CSV editor through %s and saves only on request', async route => {
@@ -192,8 +192,47 @@ it.each(['tab switch', 'global panels and document shortcut'])('retains the actu
   })
   await waitFor(() => expect(f.write).toHaveBeenCalledTimes(1))
   expect(f.disk.get(FILE)).toBe(DRAFT)
-  act(() => { f.controller.close(f.csv.id) })
+  await act(async () => { f.controller.close(f.csv.id) })
   expect(destroyed).toHaveBeenCalledTimes(1)
   expect(signal.aborted).toBe(true)
+  expect(f.records.get(f.csv.id, SESSION)).toBeUndefined()
+})
+
+it.each(['en-US', 'zh-CN'])('the actual native close button keeps a cancelled draft and saves before a clean close (%s)', async language => {
+  vi.spyOn(navigator, 'language', 'get').mockReturnValue(language)
+  const expected = JSON.parse(await readFile(join(repository, 'frontends/office/tests/expected/dirty-leave.json'), 'utf8'))[language]
+  const f = await fixture()
+  const destroyed = vi.spyOn(f.cm, 'destroy')
+  await act(async () => { f.cm.dispatch({ changes: { from: 0, to: f.cm.state.doc.length, insert: DRAFT } }) })
+  const close = () => fireEvent.click(f.view.container.querySelector(`[data-dockkit-tab="${f.csv.id}"] button`))
+  await act(async () => { close() })
+  expect(screen.getByRole('dialog').textContent).toContain(expected.description)
+  expect(destroyed).not.toHaveBeenCalled(); expect(f.disk.get(FILE)).toBe(ORIGINAL)
+  await act(async () => { f.controller.close(f.csv.id) })
+  expect(screen.getAllByRole('dialog')).toHaveLength(1)
+  await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: expected.cancel, exact: true }).at(-1)) })
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(f.cm.state.doc.toString()).toBe(DRAFT); expect(destroyed).not.toHaveBeenCalled()
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: expected.save, exact: true })) })
+  await waitFor(() => expect(f.disk.get(FILE)).toBe(DRAFT))
+  await act(async () => { close() })
+  expect(screen.queryByRole('dialog')).toBeNull(); expect(destroyed).toHaveBeenCalledTimes(1)
+})
+
+it('refresh and in-place file navigation keep the actual draft until discard is explicit', async () => {
+  const f = await fixture()
+  await act(async () => { f.cm.dispatch({ changes: { from: 0, to: f.cm.state.doc.length, insert: DRAFT } }) })
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Refresh', exact: true })) })
+  await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: 'Cancel', exact: true }).at(-1)) })
+  expect(f.cm.state.doc.toString()).toBe(DRAFT); expect(f.read).toHaveBeenCalledTimes(1)
+  await act(async () => { f.store.setPrefs({ ...f.store.getSnapshot().prefs, editorExplorer: true }) })
+  const next = join(CWD, 'second.csv'); f.disk.set(next, 'second file')
+  const input = f.cm.dom.closest('[data-dsh-native-tab-host]').querySelector('input')
+  await act(async () => { fireEvent.change(input, { target: { value: next } }); fireEvent.keyDown(input, { key: 'Enter' }) })
+  await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: 'Cancel', exact: true }).at(-1)) })
+  expect(f.cm.state.doc.toString()).toBe(DRAFT); expect(f.read).toHaveBeenCalledTimes(1)
+  await act(async () => { f.controller.close(f.csv.id) })
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Discard changes', exact: true })) })
+  expect(f.disk.get(FILE)).toBe(ORIGINAL)
   expect(f.records.get(f.csv.id, SESSION)).toBeUndefined()
 })

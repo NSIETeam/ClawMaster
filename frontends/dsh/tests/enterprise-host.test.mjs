@@ -254,3 +254,27 @@ test('DSH route registration validates JSON, returns conflicts and disposes with
   assert.equal(reopened.snapshot().revision, 1);
   reopened.close();
 });
+
+test('receipt-only commands retain stock rollback, revision checks and durable exact replay', async context => {
+  const { store, open } = await database(context);
+  command(store, { type: 'item.upsert', item: { ...item, stock: 1 } });
+  command(store, { type: 'order.save', order: order('receipt-sale', 'sale', 2) });
+  const before = store.snapshot();
+  assert.throws(() => store.executeReceipt({ revision: before.revision, commandId: 'failed-receipt', command: { type: 'order.submit', id: 'receipt-sale' } }), { code: 'insufficient_stock' });
+  assert.deepEqual(store.snapshot(), before);
+  const prepared = store.prepare({ revision: before.revision, commandId: 'stale-receipt', command: { type: 'contact.upsert', contact } });
+  command(store, { type: 'item.upsert', item: { ...item, stock: 5 } });
+  assert.throws(() => store.executeReceipt(prepared.request), { code: 'revision_conflict' });
+  const request = { revision: store.snapshot().revision, commandId: 'durable-receipt', command: { type: 'order.submit', id: 'receipt-sale' } };
+  const first = store.executeReceipt(request);
+  assert.equal(first.receipt.after.inventory[0].stock, 3);
+  command(store, { type: 'contact.upsert', contact });
+  const expected = store.snapshot();
+  store.close();
+  const reopened = await open();
+  const replay = reopened.executeReceipt(request);
+  assert.equal(replay.revision, expected.revision);
+  assert.deepEqual(replay.receipt, first.receipt);
+  assert.deepEqual(reopened.snapshot(), expected);
+  assert.throws(() => reopened.executeReceipt({ ...request, command: { type: 'contact.remove', id: contact.id } }), { code: 'command_conflict' });
+});

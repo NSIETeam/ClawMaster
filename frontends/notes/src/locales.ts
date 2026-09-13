@@ -48,6 +48,7 @@ export interface NotesCopy {
   missingTarget: string;
   loading: string;
   error: string;
+  retry: string;
   dismiss: string;
   unsaved: string;
 }
@@ -69,7 +70,7 @@ const copy: Record<NotesLocale, NotesCopy> = {
     backlinks: '反向链接', noBacklinks: '暂无反向链接', tags: '标签', noTags: '暂无标签',
     empty: '这个笔记库还是空的，先创建一篇笔记。', open: '打开', delete: '删除',
     deleteConfirm: '确定删除这篇笔记？此操作不可恢复。', missingTarget: '链接的目标笔记不存在',
-    loading: '载入中…', error: '操作失败', dismiss: '知道了', unsaved: '有未保存的修改',
+    loading: '载入中…', error: '操作失败', retry: '重试载入', dismiss: '知道了', unsaved: '有未保存的修改',
   },
   'en-US': {
     tab: 'Notes', tabDescription: 'Built-in Markdown vault: wiki links, backlinks, tags and search',
@@ -87,7 +88,7 @@ const copy: Record<NotesLocale, NotesCopy> = {
     backlinks: 'Backlinks', noBacklinks: 'No backlinks yet', tags: 'Tags', noTags: 'No tags yet',
     empty: 'This vault is empty. Create the first note.', open: 'Open', delete: 'Delete',
     deleteConfirm: 'Delete this note? This cannot be undone.', missingTarget: 'The linked note does not exist',
-    loading: 'Loading…', error: 'The operation failed', dismiss: 'Dismiss', unsaved: 'Unsaved changes',
+    loading: 'Loading…', error: 'The operation failed', retry: 'Retry loading', dismiss: 'Dismiss', unsaved: 'Unsaved changes',
   },
 };
 

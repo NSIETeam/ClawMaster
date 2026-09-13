@@ -1,0 +1,18 @@
+{
+  "draft": "Review customer follow-ups and inventory",
+  "cadence": "daily",
+  "entries": [
+    {
+      "title": "Inventory approval",
+      "status": "等待审批"
+    },
+    {
+      "title": "Customer question",
+      "status": "等待回答"
+    },
+    {
+      "title": "Active check",
+      "status": "执行中"
+    }
+  ]
+}

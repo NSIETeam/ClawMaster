@@ -132,7 +132,13 @@ export interface SidebarRightTabActions {
    * @param options - placement and that kind's navigation parameters.
    */
   openTab<K extends string>(kind: K, options?: SidebarRightTabPlacement & { readonly params?: SidebarRightTabParamsFor<K> }): void
-  /** Close this tab. */
+  /**
+   * Register a confirmation before this occurrence closes or is replaced.
+   * @param guard - return false to keep the tab; asynchronous confirmations are serialized.
+   * @returns a disposer that removes this registration.
+   */
+  beforeClose(guard: () => boolean | Promise<boolean>): () => void
+  /** Close this tab after its registered confirmations allow it. */
   close(): void
 }
 

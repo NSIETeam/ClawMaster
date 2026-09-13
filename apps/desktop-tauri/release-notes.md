@@ -1,55 +1,33 @@
-# ClawMaster Desktop 0.2.0-beta.6
+# ClawMaster WatchDog 0.2.0-release
 
 ## 中文
 
-- 修复 Windows 与 Linux 上的笔记刷新兼容性问题。
-- 品牌图标提供黑色和白色两份透明 SVG，分别适配浅色和深色界面；启动页跟随系统外观，应用内图标跟随所选主题。
-- 使用 Tauri 桌面壳和 DSH 运行时，复用已有模型凭证、Session、工具、审批和插件。WatchDog 提供任务入口，创建任务时分配工作目录。
-- 首次 WatchDog 教程介绍企业管理：明确业务目标、记录责任与验收标准、核查 CRM/ERP 和办公资料、安排巡检并跟进整改。模型和聊天配置作为可选辅助入口；教程可跳过或从设置重看，阅读教程不会启动任务。
-- 添加工作区时使用应用内目录窗口，可浏览文件夹、输入路径或新建文件夹。WatchDog 创建任务时仍自动分配工作目录。
-- 启动页、产品界面、通知、小组件静态文案和 Web 图标统一使用 ClawMaster，口号为“开启AI时代的企业协作”。保留 DeepSeek 模型提供商名称、DSH 软件包与数据路径以及上游许可声明。
-- 品牌图标使用按原图轮廓复刻的可编辑 SVG，明暗图标共用相同轮廓，favicon 和原生桌面图标使用浅色版本。
-- 编辑器和浏览器在右侧打开，终端在会话下方打开。会话内切换同一格的标签或访问全局面板时保留已打开内容；关闭标签、切换 Session 或退出前仍需保存。
-- 基础 DOCX、XLSX 与 PPTX 可在侧栏使用本地 ONLYOFFICE 编辑器编辑、保存并重新打开；浏览器验收覆盖三种格式及编辑期间磁盘变化后的冲突保护，冲突时拒绝覆盖磁盘文件。复杂排版、宏、加密文件与旧版二进制格式未纳入验收；保留 ONLYOFFICE 许可声明及对应源码入口。
-- CSV/TSV、CRM 和 ERP 提供 AI 工具；CRM 与 ERP 也可从组件设置打开右侧标签进行复核。AI 库存写入、删除与订单提交使用 DSH 单次审批。
-- 内置 Agent Teams、OpenViking Memory、Routing Suite、Better Sidebar 与 IM 集成。OpenViking 需另行配置服务；Routing 的智能路由预设提供任务指导。飞书、微信、企微与钉钉接入需完成对应平台的登录确认。
-- 主窗口使用系统原生控件。macOS 隐藏标题文字并为交通灯预留空间；通过 Dock 或 Finder 重开被关闭偏好隐藏的窗口时，恢复已有窗口与 Host。系统窗口外观和 Web 主题分别设置。
-- Windows 启动预加载模块时使用文件 URL，支持盘符、空格与非英文安装路径。
-- 打包排除依赖与开发目录，即使复制根目录本身为 `node_modules`；交付校验拒绝排除目录、符号链接与安装内容摘要漂移。
+开启AI时代的企业协作。WatchDog 是使用 Tauri 桌面壳与 DSH 运行时的本地企业协作工作台，复用现有模型凭证、会话、工具、审批和插件。程序版本为 `0.2.0`，发布名称为 `0.2.0-release`。
 
-发布工作流在 Windows x64、macOS Apple Silicon、macOS Intel、Linux x64 四项构建全部成功后，向 [ClawMaster-Desktop](https://github.com/NSIETeam/ClawMaster-Desktop/releases) 发布预发布版，包含 NSIS、DMG、AppImage/deb、Tauri 更新签名、公钥 `clawmaster-release-signing.pub`、`latest.json` 与 `SHA256SUMS.txt`。macOS 使用临时签名验证完整性，不包含 Apple 公证；Windows 没有发布者证书。默认包含发布验签公钥，自动更新端点为空，请通过版本附件安装。
+- **任务跟进**：首次教程围绕业务目标、责任、验收与巡检。工作台优先展示待审批、待回答和待审核计划，点击回到原会话。目标草稿在导航时保留；受理状态未确认时锁定原目标与频率，重试同一请求，避免重复创建。当前未运行不等于业务已经完成。
+- **业务复核**：AI 的每次新 CRM/ERP 写入均需 DSH 单次批准，包括联系人和订单草稿。人工组件沿用同一数据库；旧草稿遇到版本变化须明确复核，过期的删除与提交确认自动失效。AI 查询按集合分页读取，保留修订、事务回滚和幂等回执。
+- **笔记可靠性**：内置笔记提供目录、Markdown 编辑、今日笔记、链接、反链、标签、搜索与待审差异。每次写入检查最终文件大小，避免保存后无法读取；待审列表加载失败有独立重试入口，不阻塞已加载的笔记。
+- **办公资料**：基础 DOCX、XLSX 与 PPTX 可在右侧使用本地 ONLYOFFICE 编辑器编辑、保存并重新打开。关闭、刷新或换文件前检查未保存内容，取消可保留编辑，保存使用编辑器自带按钮。磁盘文件在编辑期间变化时，冲突保存会拒绝覆盖。CSV/TSV 由 AI 工具处理；CRM/ERP 组件供复核和人工接管。
+- **桌面体验**：明暗主题使用对应透明 SVG，产品界面统一 ClawMaster 品牌。工作区使用应用内目录选择。思考、记忆注入与命令详情默认收起，审批和错误保持可见。
+- **可控更新**：启动只提示新版本；下载与安装分别确认，签名验证失败不能安装。正式版使用 GitHub Latest 通道，已有正式版本禁止覆盖；Linux DEB 使用独立签名的 DEB 更新文件。
+- **DSH 组件**：内置 Agent Teams、OpenViking Memory、Routing Suite、Better Sidebar 与 IM 集成。OpenViking 需要单独配置服务，IM 连接需要对应平台登录；安装插件不代表外部账户已连接。
 
-macOS 最低要求为 11.0。Linux 的 Landlock 沙箱需要内核实际支持并启用该能力；功能探测确定完整、部分或不可用状态。首次启动需要联网准备运行环境与生产依赖。升级前保存编辑、结束运行任务并备份 DSH 主目录；保留该主目录以复用凭证与会话。
+四平台发布包括 Windows x64 NSIS、macOS Apple Silicon/Intel DMG、Linux x64 AppImage/deb，以及 Tauri 更新签名、公钥、`latest.json`、构建来源记录和 `SHA256SUMS.txt`。所有平台构建与安装验收通过后，工作流发布到 [ClawMaster-Desktop](https://github.com/NSIETeam/ClawMaster-Desktop/releases)。macOS 使用临时签名，不含 Apple 公证；Windows 没有发布者证书。
+
+本版面向本地企业工作台，不提供多租户服务或大规模数据库承诺。人工业务快照与开库校验仍读取全量记录。任务草稿在当前前端加载期间保留；退出应用或刷新前请保存。Office 复杂排版、宏、加密与旧版二进制格式不在验收范围内，保留其许可与对应源码入口。macOS 最低版本为 11.0；Linux 沙箱能力由内核功能探测确定。首次启动需要联网准备运行环境和生产依赖。升级前保存编辑、结束任务并备份 DSH 主目录；保留该目录以复用凭证与会话。
 
 ## English
 
-- Fixes Notes refresh compatibility on Windows and Linux.
-- Transparent black and white SVG brand icons match light and dark surfaces. The splash follows system appearance and the application icon follows the selected Web theme.
-- Uses a Tauri desktop shell and the DSH runtime, reusing existing model credentials, Sessions, tools, approvals, and plugins. WatchDog provides the task entry and allocates a working directory when a task is created.
-- The first-run WatchDog tutorial guides enterprise management: define business goals, record responsibilities and acceptance criteria, review CRM/ERP records and files, schedule checks, and follow up on findings. Model and chat configuration are optional supporting links. Skip the tutorial or replay it from Settings; reading it starts no task.
-- Adding a workspace uses an in-app directory dialog with folder browsing, path entry, and folder creation. WatchDog still allocates a working directory when creating a task.
-- The splash, product UI, notifications, static widget copy, and Web icons use ClawMaster with the slogan “开启AI时代的企业协作”. DeepSeek model-provider names, DSH package and data paths, and upstream license notices remain intact.
-- The brand mark is an editable SVG traced from the original artwork. The light and dark variants share the same outline; the favicon and generated native desktop icons use the light variant.
-- The editor and browser open on the right; the terminal opens below the conversation. Open content remains mounted during global-panel visits and tab switches within the same pane. Save before closing tabs, changing Sessions, or quitting.
-- Basic DOCX, XLSX, and PPTX files can be edited, saved, and reopened in local ONLYOFFICE sidebar editors. Browser acceptance covers all three formats and conflict protection when disk content changes during editing; a conflicting save preserves the file on disk. Complex layouts, macros, encrypted files, and legacy binary formats remain outside acceptance. ONLYOFFICE license notices and corresponding-source access remain available.
-- CSV/TSV, CRM, and ERP expose AI tools; CRM and ERP also open right-side review tabs from component settings. AI inventory writes, deletions, and order submission use one-shot DSH approval.
-- Includes Agent Teams, OpenViking Memory, Routing Suite, Better Sidebar, and IM integration. OpenViking requires a separate service; Routing's Smart preset provides task guidance. Feishu, Weixin, WeCom, and DingTalk setup requires each platform's login confirmation.
-- The main window uses native system controls. macOS hides title text and reserves space for traffic lights; reopening a window hidden by the close preference from the Dock or Finder restores the existing window and Host. System window appearance and Web themes have separate settings.
-- Windows loads the startup preload through a file URL, supporting drive letters, spaces, and non-English installation paths.
-- Packaging excludes dependency and development directories even when the copy root is `node_modules`; validation rejects excluded directories, symbolic links, and payload digest drift.
+ClawMaster WatchDog is a local enterprise collaboration workspace with a Tauri desktop shell and the DSH runtime. It reuses model credentials, conversations, tools, approvals and plugins. The program version is `0.2.0`; the release is named `0.2.0-release`.
 
-After all four Windows x64, macOS Apple Silicon, macOS Intel, and Linux x64 builds succeed, the release workflow publishes a prerelease to [ClawMaster-Desktop](https://github.com/NSIETeam/ClawMaster-Desktop/releases) with NSIS, DMG, AppImage/deb, Tauri updater signatures, the public key `clawmaster-release-signing.pub`, `latest.json`, and `SHA256SUMS.txt`. macOS uses ad-hoc signing for integrity without Apple notarization; Windows has no publisher certificate. The release public key is bundled and automatic-update endpoints are empty; install from the version's assets.
+- **Task follow-up**: The first-run tutorial covers business goals, responsibilities, acceptance and scheduled checks. The workbench prioritizes pending approvals, questions and plan reviews and opens their existing conversations. Goal drafts survive navigation. Unconfirmed admission locks the original goal and cadence and retries the same request. Not running does not establish business completion.
+- **Business review**: Every new AI CRM/ERP mutation requires one-shot DSH approval, including contacts and order drafts. Manual components use the same database. Stale drafts require explicit review, and changed revisions expire deletion and submission confirmations. AI queries read collection-specific pages while retaining revisions, transaction rollback and idempotent receipts.
+- **Reliable notes**: The built-in vault provides folders, Markdown editing, daily notes, links, backlinks, tags, search and proposed diffs. Every write checks final file size to keep saved notes readable. Failed proposal loading has its own retry action and does not block successfully loaded notes.
+- **Office files**: Basic DOCX, XLSX and PPTX can be edited, saved and reopened in local ONLYOFFICE sidebar editors. Closing, refreshing or switching files checks for unsaved content; cancellation retains edits and saving uses the embedded editor’s button. A conflicting save preserves a file changed on disk during editing. AI tools process CSV/TSV; CRM/ERP components support review and manual takeover.
+- **Desktop experience**: Transparent SVG marks match light and dark themes, and product copy uses ClawMaster. Workspace selection uses an in-app directory dialog. Reasoning, memory injection and command details stay collapsed while approvals and errors remain visible.
+- **Controlled updates**: Startup only announces availability. Download and installation require separate confirmations, and signature failure prevents installation. Stable versions use GitHub Latest and cannot overwrite existing stable releases. Linux DEB installations use separately signed DEB updates.
+- **DSH components**: Includes Agent Teams, OpenViking Memory, Routing Suite, Better Sidebar and IM integration. OpenViking requires a separate service; IM connections require each platform’s login. Installing a plugin does not connect an external account.
 
-macOS requires version 11.0 or later. Linux Landlock confinement requires an enforcing kernel; its functional probe determines full, partial, or unusable enforcement. First launch requires network access to prepare the runtime and production dependencies. Before upgrading, save edits, finish running tasks, and back up the DSH home; retain that home to reuse credentials and Sessions.
+The four-platform release includes Windows x64 NSIS, macOS Apple Silicon/Intel DMGs, Linux x64 AppImage/deb, Tauri updater signatures, the public key, `latest.json`, build provenance and `SHA256SUMS.txt`. The workflow publishes to [ClawMaster-Desktop](https://github.com/NSIETeam/ClawMaster-Desktop/releases) after platform builds and installer acceptance pass. macOS uses ad-hoc signing without Apple notarization; Windows has no publisher certificate.
 
-内置笔记支持文件夹树、Markdown 编辑、今日笔记、重命名、链接、反链、标签和搜索。AI 可以先生成待审差异；修改笔记正文需要批准。保存冲突和后台刷新保留未保存草稿，客户端与服务端接口在同一安装包内同步更新。
-
-The built-in Markdown vault provides a folder tree, daily notes, rename, links, backlinks, tags and search. Agents can stage a diff for review; changes to note content require approval. Save conflicts and background refresh preserve unsaved drafts, and the installer ships matching client and Host interfaces.
-
-桌面默认使用 `clawmaster-sys-prompt`，以 ClawMaster 与 WatchDog 企业协作身份组装系统提示，继续沿用 DSH 的工具和审批机制。
-
-The desktop uses `clawmaster-sys-prompt` for its ClawMaster and WatchDog enterprise persona while retaining DSH tool and approval mechanisms.
-
-思考、记忆注入摘要和命令行详情默认收起。运行中的过程集中显示为“工作中”，点击可展开；当前答案继续流式显示，审批与失败提示仍可见。
-
-Reasoning, injected-memory summaries and command details stay collapsed until opened. Active process details appear in an expandable working row while the current answer continues streaming; approvals and concise failure messages remain visible.
+This version targets a local enterprise workspace and does not provide multitenancy or a large-database capacity guarantee. Manual business snapshots and startup validation still read all records. Task drafts last for the current frontend lifetime; save before exiting or refreshing. Complex Office layouts, macros, encrypted files and legacy binary formats remain outside acceptance; legal notices and corresponding-source access remain available. macOS requires 11.0 or later; Linux sandbox availability follows its kernel capability probe. First launch needs network access to prepare runtime and production dependencies. Before upgrading, save edits, finish tasks and back up the DSH home; retain it to reuse credentials and conversations.

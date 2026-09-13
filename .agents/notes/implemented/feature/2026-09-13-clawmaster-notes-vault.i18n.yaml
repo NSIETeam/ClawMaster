@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-13-clawmaster-notes-vault.md
-2026-09-13-clawmaster-notes-vault.md: 6373466054174ae88d31998033d1c7b25b8221b5
-2026-09-13-clawmaster-notes-vault.zh.md: 0547bb7df9433caca1e73d787c34033423fbba47
+2026-09-13-clawmaster-notes-vault.md: 5f3ff3006cf4f634a1cdb91447e898274149cfc7
+2026-09-13-clawmaster-notes-vault.zh.md: 6037d5738402d501bf164582c65d567b617aaf55

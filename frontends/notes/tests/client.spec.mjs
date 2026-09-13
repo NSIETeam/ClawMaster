@@ -34,7 +34,7 @@ const revision = text => {
 const bare = id => id.replace(/\.(md|canvas)$/, '');
 const note = (id, text) => ({ id, text, title: bare(id), revision: revision(text), links: [], embeds: [], tags: [] });
 
-async function fixture(locale = 'zh', extra = {}, pendingProposals = []) {
+async function fixture(locale = 'zh', extra = {}, pendingProposals = [], failures = {}) {
   const old = Object.getOwnPropertyDescriptor(window, '__ModuleLoader__');
   disposers.push(() => { if (old) Object.defineProperty(window, '__ModuleLoader__', old); else Reflect.deleteProperty(window, '__ModuleLoader__'); });
   let factory;
@@ -50,6 +50,8 @@ async function fixture(locale = 'zh', extra = {}, pendingProposals = []) {
     expect(init.credentials).toBe('same-origin');
     const url = new URL(path, 'http://localhost');
     requests.push({ path: url.pathname, command: init.body ? JSON.parse(init.body).request : undefined });
+    const failure = failures[url.pathname.split('/').at(-1)];
+    if (failure) return Response.json({ error: { code: 'invalid_request', message: failure } }, { status: 400 });
     if (url.pathname.endsWith('/tree')) return Response.json({ vault: '/synthetic/notes', notes: [...disk].map(([id, text]) => ({ id, title: bare(id), dir: '', size: text.length, mtimeMs: 1 })) });
     if (url.pathname.endsWith('/tags')) return Response.json({ tags: [] });
     if (url.pathname.endsWith('/backlinks')) return Response.json({ id: url.searchParams.get('id'), notes: [] });
@@ -133,6 +135,44 @@ async function fixture(locale = 'zh', extra = {}, pendingProposals = []) {
 }
 
 for (const locale of ['zh', 'en']) {
+  it(`shows proposal errors with retry while notes remain editable and drafts survive (${locale})`, async () => {
+    const failures = { proposals: 'Pending proposal byte limit exceeded' };
+    const f = await fixture(locale, {}, [], failures);
+    expect(screen.getByRole('alert').textContent).toContain(failures.proposals);
+    await f.open('Alpha');
+    fireEvent.change(f.editor(), { target: { value: 'local draft during proposal failure' } });
+    expect(screen.getByRole('alert').textContent).toContain(failures.proposals);
+    const retry = locale === 'zh' ? '重试载入' : 'Retry loading';
+    fireEvent.click(screen.getByRole('button', { name: retry }));
+    await waitFor(() => expect(f.requests.filter(request => request.path.endsWith('/proposals')).length).toBe(2));
+    expect(f.editor().value).toBe('local draft during proposal failure');
+    fireEvent.click(screen.getByRole('button', { name: f.copy.save }));
+    await waitFor(() => expect(f.disk.get('Alpha.md')).toBe('local draft during proposal failure'));
+    expect(screen.getByRole('alert').textContent).toContain(failures.proposals);
+    delete failures.proposals;
+    fireEvent.click(screen.getByRole('button', { name: retry }));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBe(null));
+    expect(f.editor().value).toBe('local draft during proposal failure');
+  });
+
+  it(`preserves the editable draft when the server refuses an oversized save (${locale})`, async () => {
+    const failures = {};
+    const f = await fixture(locale, {}, [], failures);
+    await f.open('Alpha');
+    fireEvent.change(f.editor(), { target: { value: 'oversized local draft' } });
+    failures.command = 'The complete note exceeds the 1024 byte limit. Shorten the content before saving; the existing file was not changed.';
+    fireEvent.click(screen.getByRole('button', { name: f.copy.save }));
+    await waitFor(() => expect(screen.getByRole('status').dataset.state).toBe('error'));
+    expect(f.editor().value).toBe('oversized local draft');
+    expect(f.editor().readOnly).toBe(false);
+    expect(f.disk.get('Alpha.md')).toBe('# Alpha\n');
+    expect(screen.getByRole('status').textContent).toContain('1024 byte limit');
+    delete failures.command;
+    fireEvent.change(f.editor(), { target: { value: 'shortened draft' } });
+    fireEvent.click(screen.getByRole('button', { name: f.copy.save }));
+    await waitFor(() => expect(f.disk.get('Alpha.md')).toBe('shortened draft'));
+  });
+
   it(`keeps draft and newer file on save conflict without read or delete (${locale})`, async () => {
     const f = await fixture(locale);
     await f.open('Alpha');

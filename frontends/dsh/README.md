@@ -38,6 +38,10 @@ Skip and finish record a versioned acknowledgement through DSH settings. The des
 
 Application startup creates no default workspace. With no session or workspace history, the first entry opens WatchDog; existing selections and subsequent navigation take precedence. Starting a WatchDog task allocates a directory under `$DSH_HOME/watchdog-workspaces/tasks/<uuid>` and uses the ordinary DSH session flow. Opening an editor, browser or terminal uses the current, unarchived session when available; otherwise the first tool request allocates `$DSH_HOME/watchdog-workspaces/desk` and creates or reuses its session. These directories and their files survive application restarts.
 
+WatchDog keeps the task description and review frequency while you switch between settings, components and Sessions. Once a prompt is sent, an unconfirmed submission keeps its target Session and locks the goal and frequency. Retry the original request or open its Session to inspect it; retries reuse the exact prompt and request identity, including after a UI language change. Failures before sending leave the draft editable. Confirmed acceptance clears and unlocks the draft. Reloading the page or quitting discards an unaccepted task draft.
+
+The task list prioritizes Sessions awaiting approval, an answer or plan review and can filter to those requiring attention. Open the original Session to respond. Running and idle labels report execution activity; neither certifies that the business objective is complete.
+
 To choose a workspace directory manually, use **Add workspace** in the workspace header. The directory browser opens inside ClawMaster. Browse folders, enter a path or create a folder, then choose **Open** to use the selected directory.
 
 WatchDog occupies the main panel. Better Sidebar opens document editing, browsing, CRM and ERP in tabs beside the conversation, and terminals at the bottom. Manage CRM and ERP with the other components in Settings → Side Cards; each component's feature settings opens its right-side tab. Components are enabled by default but open only on request. Opening an existing component selects its tab.
@@ -68,7 +72,9 @@ CRM and ERP start with an empty database at `$DSH_HOME/watchdog/enterprise.sqlit
 
 Save purchase or sale orders as drafts with quantities and unit prices. Submitting a purchase adds stock; submitting a sale subtracts stock. All lines, order status, the revision and before/after audit facts commit together. Insufficient stock rolls back the entire submission. Submitted orders cannot be edited, deleted or applied twice.
 
-Stock and quantities use safe integers; monetary values use integer CNY minor units. A SKU referenced by an order cannot be deleted. If another view changes the records, a stale save returns a revision conflict: refresh the records, review the current values, and save again. Unsupported, foreign or damaged databases fail without an automatic reset.
+Stock and quantities use safe integers; monetary values use integer CNY minor units. A SKU referenced by an order cannot be deleted. Unsupported, foreign or damaged databases fail without an automatic reset.
+
+Contact, stock and order forms save against the revision captured when editing begins. A shared record refresh preserves your input and shows current values when the revision changes; saving remains disabled until you explicitly confirm that you have reviewed them and want to keep the whole draft. This action does not merge fields automatically. A deleted record or submitted order cannot be resumed for editing. A changed revision invalidates a deletion or submission confirmation; cancel and reopen it before proceeding. Uncertain saves retain their command identity for an explicit retry.
 
 ### Use reminders and IM connections
 
@@ -88,7 +94,9 @@ The sidebar and conversation hero render the transparent [light SVG](src/clawmas
 
 The [profile patch](cordis.patch.yml) disables the official brand and adaptive directory-picker rows, inserts this frontend and DSH's browse directory-picker backend and surface, enables Schedule and time context, and enables the reminder UI. The DSH Web bundle already supplies both browse packages. The [client entry](src/client.tsx) uses DSH's existing slots, theme, sessions, workspaces and panel services. The [Host entry](src/host.ts) registers lazy workspace allocation and enterprise routes on the existing authenticated DSH Fetch carrier; it starts no second server.
 
-[PapaParse processing](src/business.ts) owns CSV syntax and serialization. [Enterprise storage](src/enterprise-host.ts) uses Node's SQLite and transactions; the HTTP routes and [AI tools](src/enterprise-tools.ts) share one store, command validation and revision checks. DSH's settings store remains configuration storage. Enterprise data does not enter the model automatically.
+[PapaParse processing](src/business.ts) owns CSV syntax and serialization. [Enterprise storage](src/enterprise-host.ts) uses Node's SQLite and transactions; the HTTP routes and [AI tools](src/enterprise-tools.ts) share one store, command validation and revision checks. DSH's settings store remains configuration storage. Enterprise data does not enter the model automatically. The [enterprise decision](../../.agents/notes/implemented/bug-fix/2026-09-13-enterprise-reviewed-writes-and-bounded-queries.md) explains approval ownership, reviewed revisions and targeted reads. The [WatchDog request decision](../../.agents/notes/implemented/bug-fix/2026-09-13-watchdog-task-admission-and-attention.md) explains draft lifetime and pending-interaction projection.
+
+AI queries select one SQLite collection, bind user filters and paginate rows in SQL. A Unicode case-insensitive literal search over each record’s JSON text may scan the selected collection to count matches. Approval preparation reads only the target record and referenced stock; AI commits and exact retries return one durable receipt. The [capacity limits](#known-limitations-and-deferred-work) distinguish these paths from full manual snapshots and startup validation.
 
 The Host plugin accepts these optional settings through its Cordis configuration. Storage paths must be absolute.
 
@@ -130,9 +138,9 @@ The test command builds the client factory and Host bundle before running the pa
 
 The frontend registers `csv_process`, `enterprise_query` and `enterprise_command` through DSH's ordinary tool pipeline. CSV processing reads complete files inside the current Session workspace, returns bounded previews and counts, and optionally saves the full result. Existing outputs require a prior read and DSH's file-version guard. Write escalation uses normal single-use DSH approval and does not permit paths outside the workspace.
 
-Enterprise queries return bounded pages with a revision and continuation offset. AI can save contacts and order drafts; inventory writes, record deletions and order submission require explicit DSH approval. Rejected, cancelled or unavailable approval leaves records unchanged. Revision conflicts require rereading; identical committed command IDs return their original receipt. UI and AI operations use the same local database.
+Enterprise queries return bounded pages with a revision, matching count and continuation offset. Pagination refuses a stale revision; a single record exceeding the byte budget fails explicitly. Every new AI business mutation, including contact and order-draft saves, requires explicit one-shot DSH approval. Rejection, cancellation, unavailable approval or the `never` policy leaves records unchanged. Revision conflicts require rereading; identical committed command IDs return their original receipt without another mutation or approval. Authenticated manual UI saves retain their user-initiated behavior. UI and AI operations use the same local database.
 
-Tool calls and returned data enter the Session log and subsequent model requests through DSH. The database is not automatically copied into prompts. The recorded owner-local [business flow](tests/business-tool-flow.test.mjs) covers CSV-to-CRM tool results, persisted replay and unavailable ERP approval with a synthetic model. Schedule owns its reminder tools and follow-up messages.
+Tool calls and returned data enter the Session log and subsequent model requests through DSH. The database is not automatically copied into prompts. The recorded owner-local [business flow](tests/business-tool-flow.test.mjs) covers CSV-to-CRM tool results, one-shot CRM approval, persisted replay and unavailable ERP approval with a synthetic model. Schedule owns its reminder tools and follow-up messages.
 
 The ClawMaster profile selects DSH `read-only` file access with `ask` approval for new Sessions. Workspace file writes require explicit single-use escalation; `never` approval denies requests requiring a decision rather than approving them. Saved user settings take precedence over profile defaults. Delegated Sessions intersect their captured file access with live ancestor permissions before model steps and tools; missing or cyclic ancestry permits only reads, and child approval remains `never`. DSH's canonical setters append any restriction to the Session log. Agent Teams defaults to three members with one delegation level; its existing service owns roster validation, including the Web planning route.
 
@@ -149,7 +157,7 @@ The constraints below apply to this frontend and its local records.
 
 - The integration baseline is DSH `0.1.5-rc.2` with Cordis `4.0.2`. Compatibility covers the public services consumed here and the plugin combinations that are actually tested; it does not certify every DSH plugin.
 
-- CRM and ERP are local single-user records, not a shared multi-tenant enterprise system or an external ERP/CRM connector. Audit history is retained in full. Browser reads and internal storage reads use full snapshots; model queries paginate their output. Large-database capacity is not established. The data processor supports delimited text, not an XLSX workbook or a persistent spreadsheet service.
+- CRM and ERP are local single-user records, not a shared multi-tenant enterprise system or an external ERP/CRM connector. Audit history is retained in full. Manual HTTP snapshots and save responses, along with startup semantic validation, still load all records and audit history. AI query pages and command receipts avoid unrelated collections, but unrestricted large-database capacity is not established. The data processor supports delimited text, not an XLSX workbook or a persistent spreadsheet service.
 
 - This package has no standalone installer-size commitment. The Tauri shell, DSH, Node runtime and third-party components have separate packaging and license obligations; this package uses Apache-2.0.
 

@@ -5,6 +5,8 @@ export type ProductModule = 'editor' | 'browser' | 'terminal' | 'crm' | 'erp';
 const zh = {
   brand: 'ClawMaster',
   watchdog: 'WatchDog', slogan: '开启AI时代的企业协作', connected: '已连接', disconnected: '连接已断开', connecting: '正在连接',
+  retryTask: '重试原请求', openDraftTask: '打开原任务核查', taskStartFailed: '目标尚未确认受理，草稿已保留。请检查模型与连接后重试。', taskRetryHint: '原请求可能已经受理，请重试原请求或打开原任务核查。确认受理结果前，目标与频率暂时锁定。' ,
+  attention: '待处理', approval: '等待审批', question: '等待回答', planReview: '等待计划审核',
   workspace: '工作空间', newTask: '新建任务', preparing: '正在准备…', start: '开始检查',
   goal: '需要关注什么？', goalHint: '告诉 AI 要处理哪些表格、跟进哪些客户，或检查哪些库存与订单。',
   cadence: '检查频率', once: '单次检查', hourly: '每小时', daily: '每天',
@@ -34,7 +36,7 @@ const zh = {
   submitHint: '提交后订单不可修改，采购增加库存，销售扣减库存。', stockCorrection: '直接修改库存属于库存校正，会记录前后数量。',
   noAudit: '还没有变更记录', time: '时间', action: '操作', revision: '版本', details: '详情',
   invalid_request: '请检查必填字段、日期和数字。数量须为整数，金额最多两位小数。',
-  revision_conflict: '数据已在其他页面更新。请刷新后重新保存；当前输入已保留。',
+  revision_conflict: '数据已更新。请刷新查看最新记录，并在表单中核对后再保存；当前输入已保留。',
   command_conflict: '该请求编号已被其他操作使用，请刷新后重试。', not_found: '记录已不存在，请刷新列表。',
   duplicate_sku: 'SKU 已存在，请使用另一个编号。', referenced_item: '该物料被订单引用，不能删除。',
   submitted_order: '已提交的订单不能再次修改或提交。', insufficient_stock: '库存不足，订单未提交。',
@@ -46,6 +48,8 @@ export type ProductCopy = { [K in keyof typeof zh]: string };
 const en: ProductCopy = {
   brand: 'ClawMaster',
   watchdog: 'WatchDog', slogan: 'Enterprise collaboration for the AI era', connected: 'Connected', disconnected: 'Disconnected', connecting: 'Connecting',
+  retryTask: 'Retry original request', openDraftTask: 'Inspect existing task', taskStartFailed: 'Task admission is not confirmed. Your draft is retained. Check the model and connection, then retry.', taskRetryHint: 'The original request may already be accepted. Retry it or inspect the existing task. The goal and frequency stay locked until admission is confirmed.',
+  attention: 'Needs attention', approval: 'Waiting for approval', question: 'Waiting for answer', planReview: 'Waiting for plan review',
   workspace: 'Workspace', newTask: 'New task', preparing: 'Preparing…', start: 'Start check',
   goal: 'What should WatchDog watch?', goalHint: 'Tell AI which tables to process, customers to follow up with, or stock and orders to check.',
   cadence: 'Frequency', once: 'One check', hourly: 'Every hour', daily: 'Every day',
@@ -59,7 +63,7 @@ const en: ProductCopy = {
   name: 'Name', company: 'Company', stage: 'Stage', nextAction: 'Next action', nextDate: 'Follow-up date', lead: 'Lead', contacted: 'Contacted', proposal: 'Proposal', won: 'Won', lost: 'Closed', crmDescription: 'Ask AI to query and organize contacts, stages and follow-ups. Review or edit the same local records here.', noContacts: 'No contacts yet', contactSearch: 'Search names, companies or follow-ups', contactNew: 'New contact', contactEdit: 'Edit contact', due: 'Follow-up due', allStages: 'All stages',
   inventory: 'Inventory', orders: 'Orders', audit: 'Change history', sku: 'SKU', itemName: 'Item name', stock: 'Stock', reorderAt: 'Reorder level', supplier: 'Supplier', erpDescription: 'Ask AI to check stock and prepare orders. AI requests approval before stock changes, deletions or order submission. Review results or take over here.', lowStock: 'Reorder needed', normalStock: 'Stock available', noInventory: 'No inventory items yet', itemNew: 'New item', itemEdit: 'Edit item', inventorySearch: 'Search SKU, item or supplier',
   orderNew: 'New order', orderEdit: 'Edit draft', noOrders: 'No orders yet', purchase: 'Purchase', sale: 'Sale', draft: 'Draft', submitted: 'Submitted', counterparty: 'Customer / supplier', orderDate: 'Order date', quantity: 'Quantity', price: 'Unit price (CNY)', total: 'Amount', note: 'Note', lines: 'Order lines', addLine: 'Add line', removeLine: 'Remove line', chooseItem: 'Select item', submitOrder: 'Submit and update stock', orderDetails: 'Order details', submitHint: 'Submitted orders are immutable. Purchases add stock; sales deduct stock.', stockCorrection: 'Editing stock directly records an inventory correction with before and after quantities.', noAudit: 'No changes yet', time: 'Time', action: 'Action', revision: 'Revision', details: 'Details',
-  invalid_request: 'Check required fields, dates and numbers. Quantities must be integers; prices allow two decimal places.', revision_conflict: 'Another page updated these records. Refresh and save again; your inputs are retained.', command_conflict: 'This request ID was used by another action. Refresh and retry.', not_found: 'The record no longer exists. Refresh the list.', duplicate_sku: 'This SKU already exists. Choose another.', referenced_item: 'An order references this item, so it cannot be deleted.', submitted_order: 'Submitted orders cannot be edited or submitted again.', insufficient_stock: 'Insufficient stock. The order was not submitted.', numeric_overflow: 'A quantity or amount exceeds the supported range.', storage_unavailable: 'Local data is temporarily unavailable. Please retry.', storage_invalid: 'Local data cannot be read. Preserve the original file and inspect it.', networkError: 'Cannot connect to the local service. Check the app connection and retry.', invalidResponse: 'The service returned unrecognized data. Update the app and retry.',
+  invalid_request: 'Check required fields, dates and numbers. Quantities must be integers; prices allow two decimal places.', revision_conflict: 'Records changed. Refresh to see the latest record, then review it in the form before saving; your inputs are retained.', command_conflict: 'This request ID was used by another action. Refresh and retry.', not_found: 'The record no longer exists. Refresh the list.', duplicate_sku: 'This SKU already exists. Choose another.', referenced_item: 'An order references this item, so it cannot be deleted.', submitted_order: 'Submitted orders cannot be edited or submitted again.', insufficient_stock: 'Insufficient stock. The order was not submitted.', numeric_overflow: 'A quantity or amount exceeds the supported range.', storage_unavailable: 'Local data is temporarily unavailable. Please retry.', storage_invalid: 'Local data cannot be read. Preserve the original file and inspect it.', networkError: 'Cannot connect to the local service. Check the app connection and retry.', invalidResponse: 'The service returned unrecognized data. Update the app and retry.',
 };
 
 /** Resolve the product dictionary from the DSH locale selection. */

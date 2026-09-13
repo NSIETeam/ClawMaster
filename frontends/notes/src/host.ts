@@ -238,7 +238,7 @@ export async function apply(ctx: NotesHostContext, config: NotesHostConfig = {})
   if (!isAbsolute(root)) throw new Error('Notes vault root must be an absolute path.');
   const limits: NotesLimits = options.limits ?? DEFAULT_LIMITS;
   await ctx.effect(async () => {
-    const service = new NotesService(await openVault(root), limits);
+    const service = new NotesService(await openVault(root, limits.maxReadBytes), limits);
     const watcher = await VaultWatcher.open(root);
     const disposers: Array<() => Promise<void>> = [];
     const removals: Array<() => void> = [];

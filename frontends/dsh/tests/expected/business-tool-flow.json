@@ -1,5 +1,6 @@
 {
   "tools": ["csv_process", "enterprise_query", "enterprise_command", "enterprise_query"],
+  "approval": [{ "outcome": "allowed-once" }],
   "csv": {
     "rows": [["Synthetic Customer", "Fixture Company"]],
     "duplicatesRemoved": 1

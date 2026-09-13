@@ -7,6 +7,7 @@ const PLATFORM_ASSET_SUFFIXES = {
   'darwin-x86_64': 'macos-x64.app.tar.gz',
   'darwin-aarch64': 'macos-arm64.app.tar.gz',
   'linux-x86_64': 'linux-x64.AppImage',
+  'linux-x86_64-deb': 'linux-x64.deb',
 }
 
 const OPTIONS = {

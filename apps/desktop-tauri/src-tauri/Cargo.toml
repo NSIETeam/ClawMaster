@@ -1,6 +1,6 @@
 [package]
 name = "dsh-desktop"
-version = "0.2.0-beta.6"
+version = "0.2.0"
 description = "ClawMaster desktop shell powered by DSH (Tauri)"
 authors = ["DeepSeek"]
 edition = "2021"
@@ -29,6 +29,7 @@ futures-util = "0.3"
 flate2 = "1"
 tar = "0.4"
 tauri-plugin-updater = "2"
+tauri-plugin-dialog = "2"
 url = "2"
 sys-locale = "0.3"
 

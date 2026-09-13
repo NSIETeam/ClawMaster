@@ -3,6 +3,9 @@ import type { ProductLocale } from './frontend.ts';
 import type { EnterpriseCommand } from '../enterprise-types.ts';
 
 const zh = {
+  draftChanged: '记录已更新，当前输入已保留。请核对下面的最新记录，再决定是否用当前草稿保存。',
+  latestRecord: '最新记录', reviewedDraft: '已核对最新记录，保留草稿继续', recordUnavailable: '记录已删除或订单已提交，请取消编辑并查看最新记录。',
+  confirmationChanged: '记录已更新，本次确认已失效。请取消后重新打开并核对。',
   pending: '上次保存的结果尚未确认。请重试同一请求，系统会防止重复写入；当前输入已保留。',
   retryPending: '重试同一请求', deleteConfirm: '确认删除这条记录？删除操作会保留变更记录。',
   confirmDelete: '确认删除', confirmSubmit: '确认提交订单', before: '修改前', after: '修改后',
@@ -27,6 +30,9 @@ const zh = {
 
 type EnterpriseCopy = { [K in keyof typeof zh]: string };
 const en: EnterpriseCopy = {
+  draftChanged: 'Records changed. Your inputs are retained. Review the latest record below before saving this draft.',
+  latestRecord: 'Latest record', reviewedDraft: 'Reviewed latest record; keep my draft', recordUnavailable: 'The record was deleted or the order was submitted. Cancel editing and inspect the latest records.',
+  confirmationChanged: 'Records changed and this confirmation expired. Cancel, reopen and review it.',
   pending: 'The last save has not been confirmed. Retry the same request to resolve it without duplicate writes. Your inputs are retained.',
   retryPending: 'Retry same request', deleteConfirm: 'Delete this record? The change history will be retained.',
   confirmDelete: 'Confirm deletion', confirmSubmit: 'Confirm order submission', before: 'Before', after: 'After',

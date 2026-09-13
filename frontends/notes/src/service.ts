@@ -111,11 +111,11 @@ export class NotesService {
   async applyProposal(proposalId: string): Promise<NoteReceipt & { proposalId: string }> {
     const proposal = await this.proposals.read(proposalId);
     const receipt: NoteReceipt = proposal.baseRevision === null
-      ? { action: 'apply-proposal', id: proposal.id, revision: await this.vault.create(proposal.id, proposal.text), previousRevision: null }
+      ? { action: 'apply-proposal', id: proposal.id, revision: await this.vault.create(proposal.id, proposal.text, this.limits.maxReadBytes), previousRevision: null }
       : {
         action: 'apply-proposal',
         id: proposal.id,
-        revision: await this.vault.save(proposal.id, proposal.text, proposal.baseRevision),
+        revision: await this.vault.save(proposal.id, proposal.text, proposal.baseRevision, this.limits.maxReadBytes),
         previousRevision: proposal.baseRevision,
       };
     await this.proposals.remove(proposalId);
@@ -202,11 +202,11 @@ export class NotesService {
     const command: NoteCommand = noteCommandSchema.parse(value);
     switch (command.action) {
       case 'create': {
-        const revision = await this.vault.create(command.id, command.text);
+        const revision = await this.vault.create(command.id, command.text, this.limits.maxReadBytes);
         return { action: command.action, id: command.id, revision, previousRevision: null };
       }
       case 'save': {
-        const revision = await this.vault.save(command.id, command.text, command.expectedRevision);
+        const revision = await this.vault.save(command.id, command.text, command.expectedRevision, this.limits.maxReadBytes);
         return { action: command.action, id: command.id, revision, previousRevision: command.expectedRevision };
       }
       case 'append': {
@@ -225,7 +225,7 @@ export class NotesService {
           } catch (error) {
             if (!(error instanceof VaultError) || error.code !== 'not_found') throw error;
           }
-          const revision = await this.vault.create(id, `${header}\n`);
+          const revision = await this.vault.create(id, `${header}\n`, this.limits.maxReadBytes);
           return { action: command.action, id, revision, previousRevision: null };
         }
         const change = await this.vault.appendOrCreate(id, `${entry}\n`, `${header}\n`, this.limits.maxReadBytes);

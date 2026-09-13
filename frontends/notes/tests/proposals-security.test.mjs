@@ -48,7 +48,7 @@ describe('proposal metadata paths', () => {
       throw error;
     }
     for (const action of [() => store.read(ID), () => store.list(), () => store.remove(ID),
-      () => vault.createMetadata('proposals', `${ID}.json`, serialized('changed'), 4096)]) {
+      () => vault.createMetadata('proposals', `${ID}.json`, serialized('changed'), 4096, 10)]) {
       await assert.rejects(action, rejects('invalid_path'));
     }
     assert.equal(await fs.readFile(outside, 'utf8'), serialized('outside sentinel'));
@@ -70,11 +70,36 @@ describe('proposal metadata paths', () => {
     assert.deepEqual(await vault.list({ maxReadBytes: 4096, maxTreeEntries: 10 }), []);
     await assert.rejects(vault.read('.clawmaster/proposals/a.json', 4096), rejects('invalid_path'));
     await assert.rejects(vault.readMetadata('../outside', `${ID}.json`, 4096), rejects('invalid_path'));
-    await assert.rejects(vault.createMetadata('proposals', '../outside.json', 'x', 4096), rejects('invalid_path'));
+    await assert.rejects(vault.createMetadata('proposals', '../outside.json', 'x', 4096, 10), rejects('invalid_path'));
   });
 });
 
 describe('proposal metadata publication', () => {
+  it('refuses concurrent proposals that would exceed the cumulative byte budget before publishing the loser', async t => {
+    const { vault, root, store } = await fixture(t, 600);
+    const second = new ProposalStore(await Vault.open(root), 600, 10);
+    const results = await Promise.allSettled([store.create('a.md', 'x'.repeat(200)), second.create('b.md', 'y'.repeat(200))]);
+    assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+    const refusal = results.find(result => result.status === 'rejected').reason;
+    assert.equal(refusal.code, 'invalid_request');
+    assert.match(refusal.message, /Apply or discard/);
+    const records = await store.list();
+    assert.equal(records.length, 1);
+    assert.deepEqual(await fs.readdir(join(root, PROPOSAL_DIRECTORY)), [`${records[0].proposalId}.json`]);
+    assert.equal((await vault.list({ maxReadBytes: 600, maxTreeEntries: 10 })).length, 0);
+  });
+
+  it('refuses a new proposal at the entry limit and permits creation after an explicit discard', async t => {
+    const { root, store } = await fixture(t, 4096, 1);
+    const first = await store.create('a.md', 'first');
+    const before = await fs.readFile(join(root, PROPOSAL_DIRECTORY, `${first.proposalId}.json`));
+    await assert.rejects(store.create('b.md', 'second'), rejects('invalid_request'));
+    assert.deepEqual(await fs.readFile(join(root, PROPOSAL_DIRECTORY, `${first.proposalId}.json`)), before);
+    await store.remove(first.proposalId);
+    const next = await store.create('b.md', 'second');
+    assert.deepEqual((await store.list()).map(proposal => proposal.proposalId), [next.proposalId]);
+  });
+
   it('publishes complete private JSON only after staging finishes', { timeout: 30000 }, async t => {
     const { root, store } = await fixture(t);
     const original = fs.link;
@@ -112,7 +137,7 @@ describe('proposal metadata publication', () => {
     const { root, vault, store } = await fixture(t);
     const second = await Vault.open(root);
     const results = await Promise.allSettled([vault, second].map((writer, index) =>
-      writer.createMetadata('proposals', `${ID}.json`, serialized(`writer ${index}`), 4096)));
+      writer.createMetadata('proposals', `${ID}.json`, serialized(`writer ${index}`), 4096, 10)));
     assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
     const stored = await store.read(ID);
     const revision = revisionOf(serialized(stored.text));

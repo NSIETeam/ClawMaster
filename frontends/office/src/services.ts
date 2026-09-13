@@ -3,7 +3,11 @@ import type { ReactNode } from 'react';
 import { isDocumentBytes, isEnvelope, OFFICE_PROTOCOL, OFFICE_PROTOCOL_VERSION, MAX_DOCUMENT_BYTES, type OfficeLocale, type ParentPayload } from './protocol.ts';
 
 export interface OfficeScope { sessionId: string; cwd?: string }
-export interface OfficeViewerProps { scope: OfficeScope; path: string; title: string }
+export interface OfficeToolbarState { modes: boolean; mode: 'preview' | 'edit'; dirty: boolean; editable: boolean; saveState: 'idle' | 'saving' | 'saved' | 'failed' }
+export interface OfficeViewerProps {
+  scope: OfficeScope; path: string; title: string;
+  onToolbarState?: (state: OfficeToolbarState) => void;
+}
 export interface OfficeServices {
   effect(install: () => () => void, label?: string): void;
   locale: { getSnapshot(): { active: string }; subscribe(listener: () => void): () => void };

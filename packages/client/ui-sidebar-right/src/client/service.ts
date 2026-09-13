@@ -294,7 +294,9 @@ export class SidebarRightController implements ISidebarRight {
    */
   closeIn(sessionId: SessionId, tabId: TabId): void {
     const actions = this.actionsFor(sessionId)
-    if (actions !== undefined) actions.closeTab(sessionId, tabId)
+    if (actions !== undefined) this.tabDomain.requestClose(sessionId, tabId, () => {
+      if (this.ownsActions(sessionId, actions)) actions.closeTab(sessionId, tabId)
+    })
   }
 
   /** Claim a resource and place it in one session; an address outside the scheme or one no type claims throws. */
@@ -332,14 +334,18 @@ export class SidebarRightController implements ISidebarRight {
     placement: SidebarRightPlacement,
     params: SidebarRightNavigationParams,
   ): void {
-    actions.openContent(sessionId, {
+    const commit = (): void => { actions.openContent(sessionId, {
       kind: claim.kind,
       contentId: claim.contentId,
       title: claim.title,
       ...placement.paneId === undefined ? {} : { paneId: placement.paneId },
       ...placement.replaceTab === undefined ? {} : { replaceTab: placement.replaceTab },
       ...placement.revealIfOpened === undefined ? {} : { revealIfOpened: placement.revealIfOpened },
-    }, (tabId) => { this.tabDomain.navigate(sessionId, tabId, { address, params }) })
+    }, (tabId) => { this.tabDomain.navigate(sessionId, tabId, { address, params }) }) }
+    if (placement.replaceTab === undefined) commit()
+    else this.tabDomain.requestClose(sessionId, placement.replaceTab, () => {
+      if (this.ownsActions(sessionId, actions)) commit()
+    })
   }
 
   /**
@@ -348,7 +354,9 @@ export class SidebarRightController implements ISidebarRight {
    */
   close(tabId: TabId): void {
     const { sessionId, actions } = this.require()
-    actions.closeTab(sessionId, tabId)
+    this.tabDomain.requestClose(sessionId, tabId, () => {
+      if (this.ownsActions(sessionId, actions)) actions.closeTab(sessionId, tabId)
+    })
   }
 
   /**
@@ -462,6 +470,11 @@ export class SidebarRightController implements ISidebarRight {
    */
   private actionsFor(sessionId: SessionId): SurfaceActions | undefined {
     return this.adopted.get(sessionId)?.store.actions
+  }
+
+  private ownsActions(sessionId: SessionId, actions: SurfaceActions): boolean {
+    return this.actionsFor(sessionId) === actions
+      || (this.binding?.sessionId === sessionId && this.binding.actions === actions)
   }
 
   private require(): SidebarRightBinding {

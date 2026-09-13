@@ -135,6 +135,12 @@ function storageError(error: unknown): VaultError {
   return new VaultError('storage_unavailable', `Vault operation failed: ${error instanceof Error ? error.message : String(error)}`);
 }
 
+function assertWriteSize(text: string, maxBytes: number): void {
+  if (Buffer.byteLength(text, 'utf8') > maxBytes) {
+    throw new VaultError('invalid_request', `The complete note exceeds the ${maxBytes} byte limit. Shorten the content before saving; the existing file was not changed.`);
+  }
+}
+
 /**
  * A Markdown vault with canonical path checks and cooperative cross-process writes.
  * External processes replacing ancestors between a check and syscall require OS isolation.
@@ -306,17 +312,31 @@ export class Vault {
     return this.readContents(metadataId(namespace, name), maxBytes);
   }
 
-  /** Publish complete private JSON without replacing an existing file, under the vault writer lock. */
-  async createMetadata(namespace: string, name: string, text: string, maxBytes: number): Promise<string> {
+  /** Publish private JSON under the writer lock only while the complete metadata listing fits its byte and entry budgets. */
+  async createMetadata(namespace: string, name: string, text: string, maxBytes: number, maxEntries: number): Promise<string> {
     const id = metadataId(namespace, name);
     if (Buffer.byteLength(text, 'utf8') > maxBytes) throw new VaultError('invalid_request', `Metadata exceeds the ${maxBytes} byte limit.`);
     return this.mutate(async () => {
-      const checked = await this.checkedPath(id, 'file', true);
-      if (checked.info) {
+      try {
         const current = await this.readContents(id, maxBytes);
         throw new VaultError('conflict', `Metadata ${id} already exists.`, current.revision);
+      } catch (error) {
+        if (!(error instanceof VaultError) || error.code !== 'not_found') throw error;
       }
-      return this.createLocked(id, text);
+      const names = await this.listMetadata(namespace, maxEntries);
+      if (names.length >= maxEntries) throw new VaultError('invalid_request', 'The pending proposal limit is full. Apply or discard an existing proposal first.');
+      let remaining = maxBytes - Buffer.byteLength(text, 'utf8');
+      for (const existingName of names) {
+        let existing;
+        try { existing = await this.readMetadata(namespace, existingName, remaining); } catch (error) {
+          if (error instanceof VaultError && error.code === 'invalid_request') {
+            throw new VaultError('invalid_request', 'The pending proposal byte limit is full. Apply or discard an existing proposal first.');
+          }
+          throw error;
+        }
+        remaining -= Buffer.byteLength(existing.text, 'utf8');
+      }
+      return this.createLocked(id, text, maxBytes);
     });
   }
 
@@ -354,7 +374,8 @@ export class Vault {
     } catch (error) { throw storageError(error); }
   }
 
-  private async createLocked(id: string, text: string): Promise<string> {
+  private async createLocked(id: string, text: string, maxBytes: number): Promise<string> {
+    assertWriteSize(text, maxBytes);
     const checked = await this.checkedPath(id, 'file', true);
     const existing = await this.currentRevision(id);
     if (existing) throw new VaultError('conflict', `Note ${id} already exists.`, existing.revision);
@@ -371,13 +392,15 @@ export class Vault {
     } finally { await rm(staging, { recursive: true, force: true }); }
   }
 
-  /** Create complete content with no-replace publication; an occupied target is never overwritten. */
-  async create(id: string, text: string): Promise<string> {
+  /** Create bounded UTF-8 content with no-replace publication; an occupied target is never overwritten. */
+  async create(id: string, text: string, maxBytes: number): Promise<string> {
     const safe = assertWritableNoteId(id);
-    return this.mutate(() => this.createLocked(safe, text));
+    assertWriteSize(text, maxBytes);
+    return this.mutate(() => this.createLocked(safe, text, maxBytes));
   }
 
-  private async saveLocked(id: string, text: string, expectedRevision: string): Promise<string> {
+  private async saveLocked(id: string, text: string, expectedRevision: string, maxBytes: number): Promise<string> {
+    assertWriteSize(text, maxBytes);
     const existing = await this.currentRevision(id);
     if (!existing) throw new VaultError('not_found', `Note ${id} does not exist.`);
     if (existing.revision !== expectedRevision) throw new VaultError('conflict', `Note ${id} changed since it was read.`, existing.revision);
@@ -386,22 +409,23 @@ export class Vault {
     return revisionOf(text);
   }
 
-  /** Replace complete content after re-reading the caller's revision under the cooperative writer lock. */
-  async save(id: string, text: string, expectedRevision: string): Promise<string> {
+  /** Replace bounded UTF-8 content after re-reading the caller's revision under the cooperative writer lock. */
+  async save(id: string, text: string, expectedRevision: string, maxBytes: number): Promise<string> {
     const safe = assertWritableNoteId(id);
-    return this.mutate(() => this.saveLocked(safe, text, expectedRevision));
+    assertWriteSize(text, maxBytes);
+    return this.mutate(() => this.saveLocked(safe, text, expectedRevision, maxBytes));
   }
 
-  private async appendLocked(current: NoteDocument, text: string): Promise<VaultChange> {
+  private async appendLocked(current: NoteDocument, text: string, maxBytes: number): Promise<VaultChange> {
     const separator = current.text.endsWith('\n') || current.text === '' ? '' : '\n';
-    const revision = await this.saveLocked(current.id, `${current.text}${separator}${text}`, current.revision);
+    const revision = await this.saveLocked(current.id, `${current.text}${separator}${text}`, current.revision, maxBytes);
     return { revision, previousRevision: current.revision };
   }
 
   /** Append to the revision read under the writer lock and return both committed revisions. */
   async append(id: string, text: string, maxBytes: number): Promise<VaultChange> {
     const safe = assertWritableNoteId(id);
-    return this.mutate(async () => this.appendLocked(await this.read(safe, maxBytes), text));
+    return this.mutate(async () => this.appendLocked(await this.read(safe, maxBytes), text, maxBytes));
   }
 
   /** Atomically choose between a new initial document and an append to the existing document. */
@@ -412,8 +436,8 @@ export class Vault {
       try { current = await this.read(safe, maxBytes); } catch (error) {
         if (!(error instanceof VaultError) || error.code !== 'not_found') throw error;
       }
-      if (current) return this.appendLocked(current, text);
-      return { revision: await this.createLocked(safe, `${initialText}${text}`), previousRevision: null };
+      if (current) return this.appendLocked(current, text, maxBytes);
+      return { revision: await this.createLocked(safe, `${initialText}${text}`, maxBytes), previousRevision: null };
     });
   }
 
@@ -451,10 +475,10 @@ export class Vault {
   }
 
   /** Seed a welcome note only while no visible note exists, under the vault writer lock. */
-  async seedWelcome(): Promise<void> {
+  async seedWelcome(maxBytes: number): Promise<void> {
     await this.mutate(async () => {
       for await (const _id of this.noteIds()) return;
-      await this.createLocked(WELCOME_NOTE, WELCOME_TEXT);
+      await this.createLocked(WELCOME_NOTE, WELCOME_TEXT, maxBytes);
     });
   }
 
@@ -489,8 +513,8 @@ export class Vault {
 }
 
 /** Open a canonical vault and seed welcome content once while it is empty. */
-export async function openVault(root: string): Promise<Vault> {
+export async function openVault(root: string, maxBytes: number): Promise<Vault> {
   const vault = await Vault.open(root);
-  await vault.seedWelcome();
+  await vault.seedWelcome(maxBytes);
   return vault;
 }

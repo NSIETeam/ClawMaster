@@ -1,0 +1,12 @@
+{
+  "en-US": {
+    "description": "Closing, refreshing or switching files will discard unsaved content. Cancel to save first, or discard these changes.",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "zh-CN": {
+    "description": "关闭、刷新或切换文件会丢弃未保存的内容。取消后可先保存，或明确放弃这些更改。",
+    "cancel": "取消",
+    "save": "保存"
+  }
+}
