@@ -33,7 +33,7 @@ function fixture(t) {
 
 // Use a real compiler subprocess with source input distinct from emitted output.
 function compile(root) {
-  const esbuild = pathToFileURL(createRequire(import.meta.url).resolve('esbuild')).href
+  const esbuild = pathToFileURL(createRequire(new URL('../../../frontends/dsh/package.json', import.meta.url)).resolve('esbuild')).href
   execFileSync(process.execPath, ['--input-type=module', '-e', `
     import { buildSync } from ${JSON.stringify(esbuild)};
     buildSync({ entryPoints: ['source.js'], outfile: 'apps/cli/lib/bin.js', bundle: true, platform: 'node', format: 'esm' });
