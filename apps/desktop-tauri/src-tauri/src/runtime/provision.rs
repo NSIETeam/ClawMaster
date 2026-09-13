@@ -15,6 +15,7 @@ use super::config::{
     dev_launch_mode, node_mirror_base, npm_registry, DEFAULT_NODE_VERSION, DEFAULT_PNPM_VERSION,
     HARNESS_VERSIONS_DIR,
 };
+use super::env_path::path_eq;
 use super::host_env::{
     node_binary_compatible, pnpm_binary_usable, scan_host_toolchain, toolchain_status,
 };
@@ -47,8 +48,7 @@ const PNPM_HARNESS_INSTALL_TIMEOUT: Duration = Duration::from_secs(20 * 60);
 const PNPM_GLOBAL_INSTALL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const NODE_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
-/// Harness trees kept under `harness-versions`: the active tree, the fallback
-/// for a failed provision, and one spare for an older still-running Host.
+/// Minimum retained generations; registered Workspace directories are kept in addition.
 const HARNESS_TREES_KEPT: usize = 3;
 
 /// Node distribution archive coordinates for a given OS/arch.
@@ -154,7 +154,11 @@ pub async fn ensure_runtime(
             i18n::t(Msg::StatusExtractHarness).into(),
         ));
         progress(ProvisionEvent::Progress(12));
-        if let Err(error) = seed_harness_tree(&bundled, &harness_root) {
+        if let Err(error) = seed_harness_tree(&bundled, &harness_root, &dsh_home) {
+            let error = match error {
+                HarnessSeedError::Protected(error) => return Err(error),
+                HarnessSeedError::Io(error) => error,
+            };
             boot_log::info(&format!("seed fallback: {error}"));
             if !cli_entry.is_file() {
                 if let Some(existing) = find_existing_harness(&app_root) {
@@ -254,7 +258,7 @@ pub async fn ensure_runtime(
     ) {
         boot_log::info(&format!("manifest write skipped: {error}"));
     }
-    gc_harness_versions(&app_root);
+    gc_harness_versions(&app_root, &dsh_home);
 
     progress(ProvisionEvent::Status(
         i18n::t(Msg::StatusRuntimeReady).into(),
@@ -465,12 +469,10 @@ fn install_completed(root: &Path) -> bool {
         && root.join("node_modules").join(".modules.yaml").is_file()
 }
 
-/// Delete the provisioned tree and its manifest so the next `ensure_runtime`
-/// call reseeds and reinstalls from the bundled source. The on-disk gates
-/// cannot see every form of store damage after a completed install (e.g. a
-/// package directory removed later), so a boot whose Host dies naming an
-/// unresolvable dependency repairs itself through here.
+/// Invalidate an unreferenced runtime for dependency repair. Registered Workspace
+/// overlap or unreadable registration stops repair before either tree or manifest changes.
 pub fn invalidate_provisioned_tree(paths: &RuntimePaths) -> Result<(), String> {
+    ensure_harness_disposable(&paths.harness_root, &paths.dsh_home)?;
     if paths.harness_root.exists() {
         fs::remove_dir_all(&paths.harness_root)
             .map_err(|e| recoverable_message("remove harness", &paths.harness_root, e))?;
@@ -489,6 +491,104 @@ pub fn invalidate_provisioned_tree(paths: &RuntimePaths) -> Result<(), String> {
             error,
         )),
     }
+}
+
+/// Resolve existing aliases, retaining a missing suffix beneath its known parent.
+fn workspace_comparison_path(path: &Path) -> Result<PathBuf, &'static str> {
+    if !path.is_absolute() {
+        return Err("workspace storage contains a non-absolute path");
+    }
+    let mut parent = path.to_path_buf();
+    let mut suffix = Vec::new();
+    loop {
+        match fs::canonicalize(&parent) {
+            Ok(mut resolved) => {
+                for name in suffix.iter().rev() {
+                    resolved.push(name);
+                }
+                return Ok(resolved);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                match fs::symlink_metadata(&parent) {
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    _ => return Err("workspace path cannot be resolved"),
+                }
+                let name = parent
+                    .file_name()
+                    .ok_or("workspace path cannot be resolved")?;
+                suffix.push(name.to_os_string());
+                if !parent.pop() {
+                    return Err("workspace path cannot be resolved");
+                }
+            }
+            Err(_) => return Err("workspace path cannot be resolved"),
+        }
+    }
+}
+
+/// Read only the current DSH workspace unit; diagnostics never include stored values.
+fn registered_workspace_paths(dsh_home: &Path) -> Result<Vec<PathBuf>, &'static str> {
+    let storage = dsh_home.join("storages").join("workspace.json");
+    match fs::symlink_metadata(&storage) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(_) => return Err("workspace storage cannot be inspected"),
+        Ok(_) => {}
+    }
+    let raw = fs::read(&storage).map_err(|_| "workspace storage cannot be read")?;
+    let document: serde_json::Value =
+        serde_json::from_slice(&raw).map_err(|_| "workspace storage is not valid JSON")?;
+    if document
+        .pointer("/unit/name")
+        .and_then(|value| value.as_str())
+        != Some("workspace")
+        || document
+            .pointer("/unit/version")
+            .and_then(|value| value.as_u64())
+            != Some(2)
+    {
+        return Err("workspace storage has an unsupported unit or version");
+    }
+    let records = document
+        .pointer("/tables/workspaces")
+        .and_then(|value| value.as_object())
+        .ok_or("workspace storage has no readable workspaces table")?;
+    records
+        .values()
+        .map(|record| {
+            let path = record
+                .get("path")
+                .and_then(|value| value.as_str())
+                .ok_or("workspace storage contains a missing or invalid path")?;
+            workspace_comparison_path(Path::new(path))
+        })
+        .collect()
+}
+
+fn overlaps_workspace(root: &Path, workspaces: &[PathBuf]) -> Result<bool, &'static str> {
+    let root = workspace_comparison_path(root)?;
+    Ok(workspaces.iter().any(|workspace| {
+        workspace.ancestors().any(|parent| path_eq(parent, &root))
+            || root.ancestors().any(|parent| path_eq(parent, workspace))
+    }))
+}
+
+fn ensure_harness_disposable(root: &Path, dsh_home: &Path) -> Result<(), String> {
+    let inspected = match fs::symlink_metadata(root) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Ok(metadata) if metadata.is_dir() && !metadata.is_symlink() => {
+            registered_workspace_paths(dsh_home).and_then(|paths| overlaps_workspace(root, &paths))
+        }
+        _ => Err("runtime directory cannot be inspected safely"),
+    };
+    let reason = match inspected {
+        Ok(false) => return Ok(()),
+        Ok(true) => "runtime directory overlaps a registered Workspace",
+        Err(reason) => reason,
+    };
+    let message =
+        format!("automatic runtime replacement stopped: {reason}; existing files preserved");
+    boot_log::info(&message);
+    Err(message)
 }
 
 fn mtime_of(path: &Path) -> SystemTime {
@@ -520,23 +620,38 @@ fn find_existing_harness(app_root: &Path) -> Option<PathBuf> {
     harness_tree_bootable(&legacy).then_some(legacy)
 }
 
-/// Delete harness trees beyond the newest kept set. Removal failures are
-/// logged and skipped: an older Host may still hold files open.
-fn gc_harness_versions(app_root: &Path) {
+/// Delete only old real directories disjoint from registered Workspaces.
+/// Unknown workspace storage stops cleanup; removal failures leave that tree intact.
+fn gc_harness_versions(app_root: &Path, dsh_home: &Path) {
     let versions = app_root.join(HARNESS_VERSIONS_DIR);
     let Ok(entries) = fs::read_dir(&versions) else {
         return;
     };
     let mut dirs: Vec<PathBuf> = entries
         .flatten()
+        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
         .map(|entry| entry.path())
-        .filter(|path| path.is_dir())
         .collect();
     if dirs.len() <= HARNESS_TREES_KEPT {
         return;
     }
+    let workspaces = match registered_workspace_paths(dsh_home) {
+        Ok(paths) => paths,
+        Err(reason) => {
+            boot_log::info(&format!("automatic runtime cleanup stopped: {reason}"));
+            return;
+        }
+    };
     sort_harness_trees_newest_first(&mut dirs);
     for stale in &dirs[HARNESS_TREES_KEPT..] {
+        match overlaps_workspace(stale, &workspaces) {
+            Ok(true) => continue,
+            Ok(false) => {}
+            Err(reason) => {
+                boot_log::info(&format!("automatic runtime cleanup stopped: {reason}"));
+                return;
+            }
+        }
         match fs::remove_dir_all(stale) {
             Ok(()) => boot_log::info(&format!("removed old harness {}", stale.display())),
             Err(error) => {
@@ -634,7 +749,14 @@ fn read_bundle_version(bundled: &Path) -> Result<String, String> {
         .to_string())
 }
 
-fn seed_harness_tree(source: &Path, dest: &Path) -> Result<(), String> {
+#[derive(Debug)]
+enum HarnessSeedError {
+    Protected(String),
+    Io(String),
+}
+
+fn seed_harness_tree(source: &Path, dest: &Path, dsh_home: &Path) -> Result<(), HarnessSeedError> {
+    ensure_harness_disposable(dest, dsh_home).map_err(HarnessSeedError::Protected)?;
     let cli = dest.join("apps").join("cli").join("lib").join("bin.js");
     if dest.exists() {
         if let Err(error) = fs::remove_dir_all(dest) {
@@ -643,7 +765,7 @@ fn seed_harness_tree(source: &Path, dest: &Path) -> Result<(), String> {
                 boot_log::info(&format!("{message}; reusing existing tree"));
                 return Ok(());
             }
-            return Err(message);
+            return Err(HarnessSeedError::Io(message));
         }
     }
     match copy_tree(source, dest) {
@@ -656,7 +778,7 @@ fn seed_harness_tree(source: &Path, dest: &Path) -> Result<(), String> {
             ));
             Ok(())
         }
-        Err(error) => Err(error),
+        Err(error) => Err(HarnessSeedError::Io(error)),
     }
 }
 
@@ -1099,12 +1221,92 @@ fn spawn_pipe_reader<T: Read + Send + 'static>(pipe: Option<T>) -> std::thread::
 mod tests {
     use super::{
         find_existing_harness, gc_harness_versions, harness_root_for_bundle, harness_tree_bootable,
-        manifest_ready, node_archive_spec_for, node_matches_manifest, safe_archive_relative_path,
-        HARNESS_TREES_KEPT,
+        invalidate_provisioned_tree, manifest_ready, node_archive_spec_for, node_matches_manifest,
+        registered_workspace_paths, safe_archive_relative_path, seed_harness_tree,
+        sort_harness_trees_newest_first, RuntimePaths, HARNESS_TREES_KEPT,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::Duration;
+
+    static NEXT_CLEANUP_DIR: AtomicU64 = AtomicU64::new(0);
+
+    struct CleanupFixture(PathBuf);
+
+    impl CleanupFixture {
+        fn new() -> Self {
+            loop {
+                let id = NEXT_CLEANUP_DIR.fetch_add(1, Ordering::Relaxed);
+                let root = std::env::temp_dir()
+                    .join(format!("dsh-workspace-cleanup-{}-{id}", std::process::id()));
+                match fs::create_dir(&root) {
+                    Ok(()) => return Self(root),
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                    Err(error) => panic!("create cleanup fixture: {error}"),
+                }
+            }
+        }
+
+        fn home(&self) -> PathBuf {
+            self.0.join("selected-home")
+        }
+
+        fn generations(&self) -> Vec<PathBuf> {
+            let mut roots: Vec<PathBuf> = ["a", "b", "c", "d", "e"]
+                .iter()
+                .map(|name| self.0.join("harness-versions").join(name))
+                .collect();
+            for root in &roots {
+                make_harness_tree(root, true);
+                fs::create_dir(root.join("user-files")).unwrap();
+                fs::write(
+                    root.join("user-files").join("notes.txt"),
+                    "keep user content",
+                )
+                .unwrap();
+            }
+            sort_harness_trees_newest_first(&mut roots);
+            roots
+        }
+
+        fn register(&self, path: &Path) {
+            self.write_storage(
+                &serde_json::json!({
+                    "unit": { "name": "workspace", "version": 2 },
+                    "global": { "initialized": true, "workspaceIds": ["registered"] },
+                    "tables": { "workspaces": { "registered": { "path": path } } }
+                })
+                .to_string(),
+            );
+        }
+
+        fn write_storage(&self, raw: &str) {
+            let storage = self.home().join("storages");
+            fs::create_dir_all(&storage).unwrap();
+            fs::write(storage.join("workspace.json"), raw).unwrap();
+        }
+
+        fn runtime_paths(&self, root: &Path) -> RuntimePaths {
+            let runtime = self.0.join("runtime");
+            fs::create_dir_all(&runtime).unwrap();
+            fs::write(runtime.join("manifest.json"), "preserve manifest").unwrap();
+            RuntimePaths {
+                node_binary: runtime.join("node"),
+                pnpm_binary: runtime.join("pnpm"),
+                cli_entry: root.join("apps/cli/lib/bin.js"),
+                harness_root: root.to_path_buf(),
+                runtime_root: runtime,
+                dsh_home: self.home(),
+            }
+        }
+    }
+
+    impl Drop for CleanupFixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
 
     fn make_harness_tree(root: &Path, installed: bool) {
         let cli = root.join("apps").join("cli").join("lib").join("bin.js");
@@ -1168,24 +1370,152 @@ mod tests {
 
     #[test]
     fn gc_keeps_only_the_newest_harness_trees() {
-        let base = std::env::temp_dir().join(format!("dsh-gc-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&base);
-        let versions = base.join("harness-versions");
-        for name in ["a", "b", "c", "d", "e"] {
-            make_harness_tree(&versions.join(name), true);
-            std::thread::sleep(Duration::from_millis(30));
+        let fixture = CleanupFixture::new();
+        let roots = fixture.generations();
+        gc_harness_versions(&fixture.0, &fixture.home());
+        for (index, root) in roots.iter().enumerate() {
+            assert_eq!(root.exists(), index < HARNESS_TREES_KEPT);
         }
-        gc_harness_versions(&base);
-        let remaining: Vec<String> = fs::read_dir(&versions)
+    }
+
+    #[test]
+    fn gc_preserves_equal_nested_missing_and_parent_workspaces() {
+        for relation in ["equal", "nested", "missing", "parent", "sibling-prefix"] {
+            let fixture = CleanupFixture::new();
+            let roots = fixture.generations();
+            let old = &roots[4];
+            let workspace = match relation {
+                "equal" => old.clone(),
+                "nested" => old.join("user-files"),
+                "missing" => old.join("user-files/missing/child"),
+                "parent" => old.parent().unwrap().to_path_buf(),
+                "sibling-prefix" => old.with_file_name(format!(
+                    "{}-unrelated",
+                    old.file_name().unwrap().to_string_lossy()
+                )),
+                _ => unreachable!(),
+            };
+            fixture.register(&workspace);
+            gc_harness_versions(&fixture.0, &fixture.home());
+            if relation == "sibling-prefix" {
+                assert!(!old.exists());
+            } else {
+                assert_eq!(
+                    fs::read_to_string(old.join("user-files/notes.txt")).unwrap(),
+                    "keep user content"
+                );
+            }
+            assert_eq!(roots[3].exists(), relation == "parent", "{relation}");
+        }
+    }
+
+    #[test]
+    fn unreadable_or_unknown_workspace_storage_blocks_all_removal_and_reseeding() {
+        for raw in [
+            "not-json-with-private-sentinel",
+            r#"{"unit":{"name":"workspace","version":3},"tables":{"workspaces":{}}}"#,
+            r#"{"unit":{"name":"other","version":2},"tables":{"workspaces":{}}}"#,
+            r#"{"unit":{"name":"workspace","version":2},"tables":{}}"#,
+            r#"{"unit":{"name":"workspace","version":2},"tables":{"workspaces":[]}}"#,
+            r#"{"unit":{"name":"workspace","version":2},"tables":{"workspaces":{"x":{}}}}"#,
+            r#"{"unit":{"name":"workspace","version":2},"tables":{"workspaces":{"x":{"path":"relative-private-sentinel"}}}}"#,
+            "unreadable-directory",
+        ] {
+            let fixture = CleanupFixture::new();
+            let roots = fixture.generations();
+            if raw == "unreadable-directory" {
+                fs::create_dir_all(fixture.home().join("storages/workspace.json")).unwrap();
+            } else {
+                fixture.write_storage(raw);
+            }
+            let paths = fixture.runtime_paths(&roots[4]);
+            let source = fixture.0.join("source");
+            make_harness_tree(&source, false);
+            gc_harness_versions(&fixture.0, &fixture.home());
+            assert!(roots.iter().all(|root| root.exists()));
+            let error = invalidate_provisioned_tree(&paths).unwrap_err();
+            assert!(!error.contains("private-sentinel"));
+            assert!(seed_harness_tree(&source, &roots[4], &fixture.home()).is_err());
+            assert_eq!(
+                fs::read_to_string(roots[4].join("user-files/notes.txt")).unwrap(),
+                "keep user content"
+            );
+            assert_eq!(
+                fs::read_to_string(paths.runtime_root.join("manifest.json")).unwrap(),
+                "preserve manifest"
+            );
+        }
+    }
+
+    #[test]
+    fn registered_workspaces_block_dependency_invalidation_and_seed_replacement() {
+        for relation in ["equal", "nested", "parent"] {
+            let fixture = CleanupFixture::new();
+            let roots = fixture.generations();
+            let root = &roots[4];
+            fixture.register(&match relation {
+                "equal" => root.clone(),
+                "nested" => root.join("user-files"),
+                "parent" => root.parent().unwrap().to_path_buf(),
+                _ => unreachable!(),
+            });
+            let paths = fixture.runtime_paths(root);
+            let source = fixture.0.join("source");
+            make_harness_tree(&source, false);
+            assert!(invalidate_provisioned_tree(&paths).is_err());
+            assert!(seed_harness_tree(&source, root, &fixture.home()).is_err());
+            assert_eq!(
+                fs::read_to_string(root.join("user-files/notes.txt")).unwrap(),
+                "keep user content"
+            );
+            assert_eq!(
+                fs::read_to_string(paths.runtime_root.join("manifest.json")).unwrap(),
+                "preserve manifest"
+            );
+        }
+    }
+
+    #[test]
+    fn unreferenced_runtime_can_be_invalidated_and_seeded_for_a_new_user() {
+        let fixture = CleanupFixture::new();
+        let roots = fixture.generations();
+        let paths = fixture.runtime_paths(&roots[4]);
+        invalidate_provisioned_tree(&paths).unwrap();
+        assert!(!paths.harness_root.exists());
+        assert!(!paths.runtime_root.join("manifest.json").exists());
+        let source = fixture.0.join("source");
+        make_harness_tree(&source, false);
+        seed_harness_tree(&source, &paths.harness_root, &fixture.home()).unwrap();
+        assert!(paths.cli_entry.is_file());
+        assert!(registered_workspace_paths(&fixture.home())
             .unwrap()
-            .flatten()
-            .map(|entry| entry.file_name().to_string_lossy().into_owned())
-            .collect();
-        assert_eq!(remaining.len(), HARNESS_TREES_KEPT);
-        for name in &remaining {
-            assert!(["c", "d", "e"].contains(&name.as_str()), "kept {name}");
-        }
-        let _ = fs::remove_dir_all(&base);
+            .is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn workspace_symlink_alias_preserves_its_runtime_target() {
+        let fixture = CleanupFixture::new();
+        let roots = fixture.generations();
+        let alias = fixture.0.join("workspace-alias");
+        std::os::unix::fs::symlink(&roots[4], &alias).unwrap();
+        fixture.register(&alias);
+        gc_harness_versions(&fixture.0, &fixture.home());
+        assert!(roots[4].join("user-files/notes.txt").is_file());
+        assert!(!roots[3].exists());
+        let paths = fixture.runtime_paths(&roots[4]);
+        assert!(invalidate_provisioned_tree(&paths).is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn workspace_path_comparison_preserves_windows_case_variants() {
+        let fixture = CleanupFixture::new();
+        let roots = fixture.generations();
+        fixture.register(Path::new(&roots[4].to_string_lossy().to_uppercase()));
+        gc_harness_versions(&fixture.0, &fixture.home());
+        assert!(roots[4].join("user-files/notes.txt").is_file());
+        assert!(!roots[3].exists());
     }
 
     #[test]

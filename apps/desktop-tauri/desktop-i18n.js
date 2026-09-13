@@ -4,7 +4,10 @@
  */
 window.DSH_I18N = (function () {
   const zh = {
-    'splash.preparing': '正在准备运行环境…',
+    'splash.preparing': '正在启动 ClawMaster…',
+    'splash.slogan': '开启AI时代的企业协作',
+    'splash.progress': '启动进度',
+    'splash.errorDetails': '启动错误详情',
     'splash.failed': '启动失败',
     'shell.closeTitle': '关闭窗口',
     'shell.closeDesc': '下次将记住这个选择，可在托盘菜单里改回。',
@@ -16,7 +19,10 @@ window.DSH_I18N = (function () {
     'shell.close': '关闭',
   }
   const en = {
-    'splash.preparing': 'Preparing the runtime…',
+    'splash.preparing': 'Starting ClawMaster…',
+    'splash.slogan': 'Enterprise collaboration for the AI era',
+    'splash.progress': 'Startup progress',
+    'splash.errorDetails': 'Startup error details',
     'splash.failed': 'Startup failed',
     'shell.closeTitle': 'Close window',
     'shell.closeDesc': 'This choice is remembered; change it later from the tray.',

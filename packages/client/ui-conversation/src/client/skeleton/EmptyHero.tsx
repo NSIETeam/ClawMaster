@@ -131,6 +131,7 @@ function HeroFish({ hovering }: { hovering: boolean }) {
  */
 export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
   const [hovering, setHovering] = useState(false)
+  const clawmaster = process.env.DSH_CLIENT_BUILD_PROFILE === 'clawmaster'
   return (
     <div className={css.root}>
       <div className={css.stack}>
@@ -146,12 +147,14 @@ export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
             onMouseLeave={() => { setHovering(false) }}
           >
             {renderSlot('conversation.hero.brand.mark', { size: 34, className: css.fish }, {
-              fallback: <HeroFish hovering={hovering} />,
+              fallback: clawmaster
+                ? <img src="/favicon.svg" width={34} height={34} alt="" aria-hidden="true" className={css.fish} />
+                : <HeroFish hovering={hovering} />,
             })}
           </span>
           <span className={css.titleGroup}>
             {/* Own element: keeps the headline text addressable apart from the badge. */}
-            <span>{t('hero.headline')}</span>
+            <span>{t(clawmaster ? 'hero.productHeadline' : 'hero.headline')}</span>
             <span className={css.previewBadge}>{t('hero.preview')}</span>
           </span>
         </div>

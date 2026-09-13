@@ -2,7 +2,7 @@
 /** Sidebar presentation and tab subscriptions through the production slot renderer. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent } from '@testing-library/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -76,14 +76,31 @@ async function mountSeat(viewportWidth = 1440, canShow = true, entryCount = 0) {
   const bodies = new Map<string, SidebarRightTabInfo>()
   const titles = new Map<string, SidebarRightTabInfo>()
   const hooks = new Map<string, PropsRuntime<'sidebar.right.pane.tab'>['useTabInfo']>()
+  const cleanup = vi.fn<(tabId: string) => void>()
+  const shortcut = vi.fn<(tabId: string) => void>()
   let mounts = 0
   function Body(props: PropsRuntime<'sidebar.right.pane.tab'>) {
     const info = props.useTabInfo()
     const [instance] = useState(() => ++mounts)
+    const [draft, setDraft] = useState('')
+    useEffect(() => () => { cleanup(info.tab.id) }, [info.tab.id])
+    useEffect(() => {
+      if (!info.tab.visible) return
+      const onKey = (event: KeyboardEvent): void => {
+        if (event.key === 's' && event.ctrlKey) shortcut(info.tab.id)
+      }
+      document.addEventListener('keydown', onKey)
+      return () => { document.removeEventListener('keydown', onKey) }
+    }, [info.tab.id, info.tab.visible])
     bodies.set(info.tab.id, info)
     hooks.set(info.tab.id, props.useTabInfo)
     expect(['tabInfo', 'tab', 'paneId', 'visible', 'navigation', 'signal', 'tabActions'].filter(key => key in props)).toEqual([])
-    return <span data-tab-body={info.tab.id} data-instance={instance} data-revision={info.tab.navigation.revision} />
+    return (
+      <span data-tab-body={info.tab.id} data-instance={instance} data-revision={info.tab.navigation.revision}>
+        <textarea aria-label="Draft" value={draft} onChange={(event) => { setDraft(event.target.value) }} />
+        <iframe title="Preview" />
+      </span>
+    )
   }
   function Title({ useTabInfo }: PropsRuntime<'sidebar.right.pane.tab.title'>) {
     const info = useTabInfo()
@@ -107,7 +124,10 @@ async function mountSeat(viewportWidth = 1440, canShow = true, entryCount = 0) {
     act(() => { controller.openResource(`dsh-resource://file/session/s-test/${name}`, options) })
     return controller.active()!
   }
-  return { runtime, feature, controller, instance, actions: instance.actions, layout, open, frame, pin, bodies, titles, hooks, view }
+  return {
+    runtime, feature, controller, instance, actions: instance.actions, layout, open,
+    frame, pin, bodies, titles, hooks, view, cleanup, shortcut,
+  }
 }
 
 function element(container: HTMLElement, selector: string): HTMLElement {
@@ -117,17 +137,73 @@ function element(container: HTMLElement, selector: string): HTMLElement {
 }
 
 describe('RightbarSeat presentation', () => {
-  it('hides for a global main panel and retains the Session sidebar state', async () => {
+  it.each(['docked', 'floating'])('retains the %s tab draft and frame across a global panel, then releases it on close', async (placement) => {
     const h = await mountSeat()
-    h.open('retained.txt')
+    const tab = h.open('retained.txt')
+    if (placement === 'floating') act(() => { h.controller.float(tab.id) })
+    const host = placement === 'floating' ? document.body : h.view.container
+    const panel = element(host, placement === 'floating' ? '[data-sidebar-right-float-host]' : '[data-sidebar-right-panel]')
+    const body = element(host, `[data-tab-body="${tab.id}"]`)
+    const input = body.querySelector('textarea')!
+    const preview = body.querySelector('iframe')!
+    const previewDocument = preview.contentDocument!
+    previewDocument.body.textContent = 'Page state'
+    const signal = h.bodies.get(tab.id)!.tab.signal
+    h.cleanup.mockClear()
+    fireEvent.change(input, { target: { value: 'Unsaved document' } })
+    input.focus()
+    fireEvent.keyDown(document, { key: 's', ctrlKey: true })
+    expect(h.shortcut).toHaveBeenCalledTimes(1)
     const retained = h.layout()
+    h.frame.closeRightbar.mockClear()
+    h.frame.openRightbar.mockClear()
     act(() => { h.runtime.panelInfo.set({ activePanelId: 'other-panel' as MainPanelId }) })
-    expect(h.view.container.querySelector('[data-sidebar-right-panel]')).toBeNull()
+    h.view.update({ width: 0, viewportWidth: 1440, canShow: false })
+    expect(element(host, `[data-tab-body="${tab.id}"]`)).toBe(body)
+    expect(panel.hidden).toBe(true)
+    expect(panel.inert).toBe(true)
+    expect(panel.getAttribute('aria-hidden')).toBe('true')
+    expect(document.activeElement).not.toBe(input)
+    expect(h.bodies.get(tab.id)!.tab.visible).toBe(false)
+    expect(h.titles.get(tab.id)!.tab.visible).toBe(false)
+    expect(h.cleanup).not.toHaveBeenCalled()
+    expect(signal.aborted).toBe(false)
     expect(h.frame.closeRightbar).toHaveBeenCalled()
+    expect(h.frame.openRightbar).not.toHaveBeenCalled()
+    expect(h.controller.active()).toBeUndefined()
     expect(h.layout()).toBe(retained)
+    fireEvent.keyDown(document, { key: 's', ctrlKey: true })
+    expect(h.shortcut).toHaveBeenCalledTimes(1)
+    h.view.update({ width: 420, viewportWidth: 1440, canShow: true })
     act(() => { h.runtime.panelInfo.set({ activePanelId: null }) })
-    expect(h.view.container.querySelector('[data-sidebar-right-panel]')).not.toBeNull()
+    expect(element(host, `[data-tab-body="${tab.id}"]`)).toBe(body)
+    expect(panel.hidden).toBe(false)
+    expect(panel.inert).toBe(false)
+    expect(input.value).toBe('Unsaved document')
+    expect(preview.contentDocument).toBe(previewDocument)
+    expect(preview.contentDocument!.body.textContent).toBe('Page state')
+    expect(h.bodies.get(tab.id)!.tab.visible).toBe(true)
     expect(h.layout()).toBe(retained)
+    fireEvent.keyDown(document, { key: 's', ctrlKey: true })
+    expect(h.shortcut).toHaveBeenCalledTimes(2)
+    act(() => { h.runtime.panelInfo.set({ activePanelId: 'other-panel' as MainPanelId }) })
+    act(() => { h.bodies.get(tab.id)!.tab.actions.close() })
+    expect(host.querySelector(`[data-tab-body="${tab.id}"]`)).toBeNull()
+    expect(h.cleanup).toHaveBeenCalledExactlyOnceWith(tab.id)
+    expect(signal.aborted).toBe(true)
+    fireEvent.keyDown(document, { key: 's', ctrlKey: true })
+    expect(h.shortcut).toHaveBeenCalledTimes(2)
+  })
+
+  it('dismisses the portalled tab menu when a global panel hides its anchor', async () => {
+    const h = await mountSeat()
+    const tab = h.open()
+    fireEvent.contextMenu(element(h.view.container, `[data-dockkit-tab="${tab.id}"]`))
+    expect(document.querySelector('[data-dockkit-tab-menu]')).not.toBeNull()
+    act(() => { h.runtime.panelInfo.set({ activePanelId: 'other-panel' as MainPanelId }) })
+    expect(document.querySelector('[data-dockkit-tab-menu]')).toBeNull()
+    act(() => { h.runtime.panelInfo.set({ activePanelId: null }) })
+    expect(document.querySelector('[data-dockkit-tab-menu]')).toBeNull()
   })
 
   it.each([0, 1, 2])('selects the default from %i guide entries and protects only a sole guide', async (entryCount) => {
@@ -336,7 +412,7 @@ describe('RightbarSeat fullscreen entry', () => {
     expect(h.frame.openRightbar).toHaveBeenCalledExactlyOnceWith(false, true)
   })
 
-  it.each(['close', 'push', 'session', 'unmount'])('ignores a late completion after %s', async (change) => {
+  it.each(['close', 'push', 'global panel', 'session', 'unmount'])('ignores a late completion after %s', async (change) => {
     const h = await mountSeat()
     act(() => { h.actions.setMode(SESSION, 'fullscreen') })
     const slide = transition()
@@ -345,6 +421,7 @@ describe('RightbarSeat fullscreen entry', () => {
     expect(h.frame.openRightbar).not.toHaveBeenCalled()
     if (change === 'close') fireEvent.click(element(h.view.container, '[data-sidebar-right-toggle]'))
     else if (change === 'push') fireEvent.click(element(h.view.container, '[data-sidebar-right-mode]'))
+    else if (change === 'global panel') act(() => { h.runtime.panelInfo.set({ activePanelId: 'other-panel' as MainPanelId }) })
     else if (change === 'session') {
       await h.runtime.sessions.add({ id: OTHER })
       act(() => { h.controller.openResource('dsh-resource://file/session/s-other/b.txt') })
@@ -400,11 +477,13 @@ describe('slot-owned useTabInfo', () => {
     const h = await mountSeat()
     const a = h.open('a.txt')
     const b = h.open('b.txt')
-    const bodyB = element(h.view.container, '[data-tab-body]')
+    const bodyB = element(h.view.container, `[data-tab-body="${b.id}"]`)
     expect(h.titles.get(a.id)?.tab.visible).toBe(true)
     act(() => { h.actions.focusTab(SESSION, a.id) })
-    const bodyA = element(h.view.container, '[data-tab-body]')
+    const bodyA = element(h.view.container, `[data-tab-body="${a.id}"]`)
     expect(bodyA.dataset['instance']).not.toBe(bodyB.dataset['instance'])
+    expect(bodyB.isConnected).toBe(true)
+    expect(bodyB.closest('[hidden]')).not.toBeNull()
     expect(bodyA.dataset['tabBody']).toBe(a.id)
     const signal = h.bodies.get(a.id)!.tab.signal
     act(() => { h.actions.setExpanded(SESSION, false) })
@@ -445,7 +524,10 @@ describe('slot-owned useTabInfo', () => {
     await h.runtime.sessions.setCurrent(SESSION)
     const remaining = h.bodies.get(h.controller.active()!.id)!
     expect(remaining.tab.navigation.revision).toBe(1)
+    act(() => { h.runtime.panelInfo.set({ activePanelId: 'other-panel' as MainPanelId }) })
+    h.cleanup.mockClear()
     await h.feature.dispose()
+    expect(h.cleanup).toHaveBeenCalledExactlyOnceWith(remaining.tab.id)
     expect(remaining.tab.signal.aborted).toBe(true)
     expect(otherInfo.tab.signal.aborted).toBe(true)
     expect(h.runtime.ctx.get('sidebarRight')).toBeUndefined()

@@ -14,16 +14,15 @@ import {
 } from './generate-updater-manifest.mjs'
 
 const version = '0.1.1-rc.2-0.3'
-const repository = 'deepseek-ai/deepseek-harness'
+const repository = 'NSIETeam/ClawMaster-Desktop'
 const releaseTag = `desktop-v${version}`
 const pubDate = '2026-08-14T00:00:00.000Z'
 
 const expectedAssets = {
-  'windows-x86_64': `deepseek-harness-${version}-windows-x64-setup.exe`,
-  'windows-i686': `deepseek-harness-${version}-windows-x86-setup.exe`,
-  'darwin-x86_64': `deepseek-harness-${version}-macos-x64.app.tar.gz`,
-  'darwin-aarch64': `deepseek-harness-${version}-macos-arm64.app.tar.gz`,
-  'linux-x86_64': `deepseek-harness-${version}-linux-x64.AppImage`,
+  'windows-x86_64': `clawmaster-${version}-windows-x64-setup.exe`,
+  'darwin-x86_64': `clawmaster-${version}-macos-x64.app.tar.gz`,
+  'darwin-aarch64': `clawmaster-${version}-macos-arm64.app.tar.gz`,
+  'linux-x86_64': `clawmaster-${version}-linux-x64.AppImage`,
 }
 
 async function withTempDir(run) {

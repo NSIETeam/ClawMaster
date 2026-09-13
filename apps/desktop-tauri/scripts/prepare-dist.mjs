@@ -7,6 +7,13 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+for (const name of ['dsh', 'office']) {
+  const frontend = join(root, '..', '..', 'frontends', name)
+  const frontendBuild = spawnSync(process.execPath, [join(frontend, 'scripts', 'build.mjs')], {
+    stdio: 'inherit', cwd: frontend,
+  })
+  if (frontendBuild.status !== 0) process.exit(frontendBuild.status ?? 1)
+}
 const dist = join(root, 'dist')
 mkdirSync(dist, { recursive: true })
 cpSync(join(root, 'splash.html'), join(dist, 'splash.html'))

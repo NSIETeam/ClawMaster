@@ -1,0 +1,210 @@
+[
+  {
+    "introduction": "WatchDog 教程用 WatchDog 管好企业日常以“本周客户跟进与交付风险巡检”为例，从明确管理目标到复核整改。",
+    "title": "确定本周要管的范围",
+    "body": "确定本周要管的范围先选一个具体问题：哪些客户本周需要跟进，哪些订单可能因库存不足影响交付。在 WatchDog 任务说明中写明时间、客户或订单范围，以及要收到的风险清单。示例目标：巡检本周客户跟进与交付风险，列出待跟进客户、缺货订单和需要补充的资料，供我复核。",
+    "auxiliary": null,
+    "buttons": [
+      {
+        "name": "确定本周要管的范围",
+        "disabled": false
+      },
+      {
+        "name": "写清负责人、期限和验收标准",
+        "disabled": false
+      },
+      {
+        "name": "让业务资料支撑管理结论",
+        "disabled": false
+      },
+      {
+        "name": "选择巡检节奏，确认业务变更",
+        "disabled": false
+      },
+      {
+        "name": "跟踪任务，复核结果并落实整改",
+        "disabled": false
+      },
+      {
+        "name": "跳过教程",
+        "disabled": false
+      },
+      {
+        "name": "上一步",
+        "disabled": true
+      },
+      {
+        "name": "下一步",
+        "disabled": false
+      }
+    ]
+  },
+  {
+    "introduction": "WatchDog 教程用 WatchDog 管好企业日常以“本周客户跟进与交付风险巡检”为例，从明确管理目标到复核整改。",
+    "title": "写清负责人、期限和验收标准",
+    "body": "写清负责人、期限和验收标准把分工约定写进同一段任务说明：由谁跟进、何时反馈、怎样算处理完成。负责人和期限是说明文字；需要安排同事时，由你确认并落实分工。接着补充：由销售负责人复核客户跟进，采购负责人核对缺货，周五 17:00 前反馈；每项结论附客户或订单依据、建议措施和待确认问题。",
+    "auxiliary": null,
+    "buttons": [
+      {
+        "name": "确定本周要管的范围",
+        "disabled": false
+      },
+      {
+        "name": "写清负责人、期限和验收标准",
+        "disabled": false
+      },
+      {
+        "name": "让业务资料支撑管理结论",
+        "disabled": false
+      },
+      {
+        "name": "选择巡检节奏，确认业务变更",
+        "disabled": false
+      },
+      {
+        "name": "跟踪任务，复核结果并落实整改",
+        "disabled": false
+      },
+      {
+        "name": "跳过教程",
+        "disabled": false
+      },
+      {
+        "name": "上一步",
+        "disabled": false
+      },
+      {
+        "name": "下一步",
+        "disabled": false
+      }
+    ]
+  },
+  {
+    "introduction": "WatchDog 教程用 WatchDog 管好企业日常以“本周客户跟进与交付风险巡检”为例，从明确管理目标到复核整改。",
+    "title": "让业务资料支撑管理结论",
+    "body": "让业务资料支撑管理结论让任务核查 CRM 的客户阶段与跟进日期、ERP 的库存和采购销售订单，并指定要使用的办公文件。交付承诺以提供的资料为准；资料缺失或无法读取时，先列出需要补充的内容。AI 使用业务工具整理结果，你复核结论。要查原始记录，在“设置 → 侧边卡片”找到 CRM、ERP，从功能设置选择“在右侧打开”。",
+    "auxiliary": null,
+    "buttons": [
+      {
+        "name": "确定本周要管的范围",
+        "disabled": false
+      },
+      {
+        "name": "写清负责人、期限和验收标准",
+        "disabled": false
+      },
+      {
+        "name": "让业务资料支撑管理结论",
+        "disabled": false
+      },
+      {
+        "name": "选择巡检节奏，确认业务变更",
+        "disabled": false
+      },
+      {
+        "name": "跟踪任务，复核结果并落实整改",
+        "disabled": false
+      },
+      {
+        "name": "跳过教程",
+        "disabled": false
+      },
+      {
+        "name": "上一步",
+        "disabled": false
+      },
+      {
+        "name": "下一步",
+        "disabled": false
+      }
+    ]
+  },
+  {
+    "introduction": "WatchDog 教程用 WatchDog 管好企业日常以“本周客户跟进与交付风险巡检”为例，从明确管理目标到复核整改。",
+    "title": "选择巡检节奏，确认业务变更",
+    "body": "选择巡检节奏，确认业务变更先用“单次检查”核对结果。需要重复巡检时，在 WatchDog 填写目标，选择“每小时”或“每天”，再点“开始检查”创建新的巡检任务。是否安排成功以任务结果为准；需保持应用与会话活动。任务若请求修改库存、删除记录或提交订单，先在对话中核对操作范围和影响，再决定是否批准；不符合要求就拒绝并补充说明。",
+    "auxiliary": null,
+    "buttons": [
+      {
+        "name": "确定本周要管的范围",
+        "disabled": false
+      },
+      {
+        "name": "写清负责人、期限和验收标准",
+        "disabled": false
+      },
+      {
+        "name": "让业务资料支撑管理结论",
+        "disabled": false
+      },
+      {
+        "name": "选择巡检节奏，确认业务变更",
+        "disabled": false
+      },
+      {
+        "name": "跟踪任务，复核结果并落实整改",
+        "disabled": false
+      },
+      {
+        "name": "跳过教程",
+        "disabled": false
+      },
+      {
+        "name": "上一步",
+        "disabled": false
+      },
+      {
+        "name": "下一步",
+        "disabled": false
+      }
+    ]
+  },
+  {
+    "introduction": "WatchDog 教程用 WatchDog 管好企业日常以“本周客户跟进与交付风险巡检”为例，从明确管理目标到复核整改。",
+    "title": "跟踪任务，复核结果并落实整改",
+    "body": "跟踪任务，复核结果并落实整改在 WatchDog 任务列表查看“执行中”的任务，搜索或打开这次巡检。逐项核对资料来源、异常和处理建议，在任务中补充整改要求，再核对后续结果。例如：请补齐缺货订单的库存依据，列出建议补货量与待确认事项，交采购负责人复核。“当前未运行”只表示此刻未执行，是否完成以任务结果为准。",
+    "auxiliary": "进入管理台后再填写并启动巡检。若尚未配置模型或需要聊天连接，可使用这些辅助入口；已有配置可直接复用。",
+    "buttons": [
+      {
+        "name": "确定本周要管的范围",
+        "disabled": false
+      },
+      {
+        "name": "写清负责人、期限和验收标准",
+        "disabled": false
+      },
+      {
+        "name": "让业务资料支撑管理结论",
+        "disabled": false
+      },
+      {
+        "name": "选择巡检节奏，确认业务变更",
+        "disabled": false
+      },
+      {
+        "name": "跟踪任务，复核结果并落实整改",
+        "disabled": false
+      },
+      {
+        "name": "跳过教程",
+        "disabled": false
+      },
+      {
+        "name": "上一步",
+        "disabled": false
+      },
+      {
+        "name": "进入 WatchDog 管理台",
+        "disabled": false
+      },
+      {
+        "name": "模型设置（按需）",
+        "disabled": false
+      },
+      {
+        "name": "聊天连接（可选）",
+        "disabled": false
+      }
+    ]
+  }
+]

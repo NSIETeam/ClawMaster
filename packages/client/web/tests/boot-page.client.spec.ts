@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BootPage } from '../src/boot-page.ts'
 
-afterEach(() => { document.body.innerHTML = '' })
+let originalTitle: string
+beforeEach(() => { originalTitle = document.title })
+afterEach(() => {
+  document.body.innerHTML = ''
+  document.title = originalTitle
+})
 
 function mount() {
   const el = document.createElement('div')
@@ -12,10 +17,20 @@ function mount() {
 
 describe('BootPage', () => {
   it('draws the loading skeleton before any plugin state arrives', () => {
+    document.title = 'ClawMaster'
     const { el } = mount()
     expect(el.firstElementChild?.getAttribute('data-dsh-boot')).toBe('')
-    expect(el.textContent).toContain('HARNESS')
-    expect(el.textContent).toContain('Loading plugins…')
+    expect(el.textContent).toMatchInlineSnapshot('"ClawMasterLoading plugins…"')
+  })
+
+  it('keeps the initial document brand while the application title changes', () => {
+    document.title = 'Acme <Workspace>'
+    const { el, page } = mount()
+    document.title = 'Customer report — Acme'
+    page.fail('Service unavailable')
+    expect(el.textContent).toContain('Acme <Workspace>')
+    expect(el.textContent).not.toContain('Customer report')
+    expect(el.querySelector('workspace')).toBeNull()
   })
 
   it('keeps loading while entries are active or loading', () => {

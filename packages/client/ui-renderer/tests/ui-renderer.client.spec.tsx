@@ -68,8 +68,9 @@ describe('UI renderer plugin', () => {
     const { ctx, slots } = await bench()
     slots.register({ name: 'root' }, () => <div data-testid="root-probe" />)
     const el = container()
-    el.innerHTML = '<div class="boot" data-dsh-boot=""><div><div class="spinner" data-dsh-boot-spinner="" style="--dsh-boot-arc: 180deg"></div><div>Loading plugins…</div></div></div>'
+    el.innerHTML = '<div class="boot" data-dsh-boot=""><div><div class="wordmark">ClawMaster</div><div class="spinner" data-dsh-boot-spinner="" style="--dsh-boot-arc: 180deg"></div><div>Loading plugins…</div></div></div>'
     const boot = el.firstElementChild
+    const wordmark = el.querySelector('.wordmark')!
     const observer = new MutationObserver(() => {})
     observer.observe(el, { childList: true, subtree: true })
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -81,7 +82,8 @@ describe('UI renderer plugin', () => {
     expect(error).not.toHaveBeenCalled()
     error.mockRestore()
     expect(el.querySelector('[data-testid="root-probe"]')).toBeTruthy()
-    expect(records.some(record => record.target === boot)).toBe(false)
+    expect(records.some(record => record.target === boot || record.target === wordmark)).toBe(false)
+    expect(wordmark.textContent).toBe('ClawMaster')
   })
 
   it('returns an unmount disposer', async () => {

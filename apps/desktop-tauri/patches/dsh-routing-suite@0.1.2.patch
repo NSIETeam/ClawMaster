@@ -1,0 +1,172 @@
+diff --git a/lib/index.js b/lib/index.js
+index 99dbfb6..0c55384 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -1,4 +1,5 @@
+ import z from "schemastery";
++import { z as stateSchema } from "zod";
+ //#region src/router.mjs
+ const ROUTING_SECTION = "routing-suite-guidance";
+ const INSPECT_INTENT_PATTERNS = [/修复|排查|调试|报错|为什么|审查|检查|迁移|重构|优化|升级|兼容|漏洞|回归/gi, /\b(?:fix|debug|diagnos\w*|review|audit|inspect|migrat\w*|refactor\w*|optimi[sz]\w*|upgrade|compat\w*|regression)\b/gi];
+@@ -18,19 +19,28 @@ function extractText(data) {
+ 	if (typeof message === "string") return message;
+ 	return (Array.isArray(message?.content) ? message.content : []).filter((part) => part?.type === "text" && typeof part.text === "string").map((part) => part.text).join("\n");
+ }
+-function firstUserText(session) {
+-	const events = Array.isArray(session?.events) ? session.events : [];
+-	for (const event of events) {
+-		if (event?.type !== "user/message") continue;
+-		const outer = event.data;
+-		const message = outer?.message ?? outer;
+-		const source = outer?.source ?? message?.source;
+-		if (source?.kind && source.kind !== "user") continue;
+-		const text = extractText(outer).trim();
+-		if (text) return text;
+-	}
+-	return "";
++function userText(data) {
++	const message = data?.message ?? data;
++	const source = data?.source ?? message?.source;
++	if (source?.kind && source.kind !== "user") return "";
++	return extractText(data).trim();
+ }
++const ROUTING_PROJECTION = "routing-suite/task";
++const routingProjection = {
++	key: ROUTING_PROJECTION,
++	stateSchema: stateSchema.object({
++		agentPreset: stateSchema.string().nullable(),
++		firstUserText: stateSchema.string()
++	}).strict(),
++	stateVersion: 1,
++	init: (header) => ({ agentPreset: header.agentPreset ?? null, firstUserText: "" }),
++	apply(state, event) {
++		if (event.type === "agent-preset/selected") return { ...state, agentPreset: event.data.agentPreset };
++		if (state.firstUserText || event.type !== "user/message") return state;
++		const text = userText(event.data);
++		return text ? { ...state, firstUserText: text } : state;
++	}
++};
+ function classifyTask(text) {
+ 	const input = typeof text === "string" ? text.trim() : "";
+ 	if (!input) return "neutral";
+@@ -42,9 +52,9 @@ function classifyTask(text) {
+ 	if (inspectSymptom > 0) return "inspect-first";
+ 	return "neutral";
+ }
+-function resolveMode(strategy, session) {
++function resolveMode(strategy, text) {
+ 	if (strategy === "inspect-first" || strategy === "direct") return strategy;
+-	return classifyTask(firstUserText(session));
++	return classifyTask(text);
+ }
+ function applyRoutingToAssembly(assembled, mode) {
+ 	if (mode === "neutral" || !GUIDANCE[mode] || !Array.isArray(assembled?.sections)) return assembled;
+@@ -62,15 +72,11 @@ function applyRoutingToAssembly(assembled, mode) {
+ //#endregion
+ //#region src/index.ts
+ const name = "dsh-routing-suite";
+-const inject = ["systemPrompt", "webServer"];
++const inject = ["systemPrompt", "webServer", "sessionProjections"];
+ const routingPreset = "routing-suite";
+-function selectedPreset(session) {
+-	const events = Array.isArray(session?.events) ? session.events : [];
+-	for (let index = events.length - 1; index >= 0; index -= 1) {
+-		const event = events[index];
+-		if (event?.type === "agent-preset/selected" && typeof event.data?.agentPreset === "string") return event.data.agentPreset;
+-	}
+-	return typeof session?.header?.agentPreset === "string" ? session.header.agentPreset : void 0;
++/** Read the current preset from the replayable routing projection. */
++function selectedPreset(session, sessionProjections) {
++	return sessionProjections.stateOf(session, ROUTING_PROJECTION).agentPreset ?? void 0;
+ }
+ const Config = z.object({
+ 	enabled: z.boolean().default(true),
+@@ -83,12 +89,22 @@ const Config = z.object({
+ function apply(ctx, config) {
+ 	const enabled = config.enabled ?? true;
+ 	const strategy = config.strategy ?? "auto";
++	let closed = false;
++	ctx.effect(() => () => { closed = true; });
++	ctx.sessionProjections.register(routingProjection);
++	const claimedTasks = new WeakMap();
++	// Inbox claims are durably recorded before the first request's prompt is assembled.
++	ctx.on("agent/inbox/claimed", ({ agent, message, turn }) => {
++		const text = userText(message);
++		if (text && claimedTasks.get(agent.session)?.turn !== turn) claimedTasks.set(agent.session, { turn, text });
++	});
+ 	ctx.on("system-prompt/assemble", async (_assembly, context, next) => {
+ 		const assembled = await next();
+-		if (!enabled) return assembled;
++		if (closed || !enabled || context?.signal?.aborted) return assembled;
+ 		const session = context?.agent?.session;
+-		if (!session || selectedPreset(session) !== "routing-suite") return assembled;
+-		return applyRoutingToAssembly(assembled, resolveMode(strategy, session));
++		if (!session || selectedPreset(session, ctx.sessionProjections) !== "routing-suite") return assembled;
++		const text = ctx.sessionProjections.stateOf(session, ROUTING_PROJECTION).firstUserText || claimedTasks.get(session)?.text || "";
++		return applyRoutingToAssembly(assembled, resolveMode(strategy, text));
+ 	});
+ 	ctx.effect(() => ctx.webServer.register({
+ 		kind: "prefix",
+diff --git a/lib/types/index.d.ts b/lib/types/index.d.ts
+index c78eaae..943defe 100644
+--- a/lib/types/index.d.ts
++++ b/lib/types/index.d.ts
+@@ -1,7 +1,10 @@
+ export declare const name = "dsh-routing-suite";
+ export declare const inject: string[];
+ export declare const routingPreset = "routing-suite";
+-export declare function selectedPreset(session: any): string | undefined;
++/** Read the current preset using the registered replayable routing projection. */
++export declare function selectedPreset(session: unknown, sessionProjections: {
++    stateOf(session: unknown, key: "routing-suite/task"): { agentPreset: string | null };
++}): string | undefined;
+ export interface Config {
+     /** Enable task-aware routing guidance. */
+     enabled: boolean;
+diff --git a/package.json b/package.json
+index 09745dd..b542c4e 100644
+--- a/package.json
++++ b/package.json
+@@ -1,7 +1,7 @@
+ {
+   "name": "dsh-routing-suite",
+   "version": "0.1.2",
+-  "description": "A lightweight, selectable smart-routing mode for DeepSeek Harness.",
++  "description": "A lightweight, selectable smart-routing mode for ClawMaster.",
+   "type": "module",
+   "main": "./lib/index.js",
+   "types": "./lib/types/index.d.ts",
+diff --git a/preset/routing-suite/agent.cordis.yml b/preset/routing-suite/agent.cordis.yml
+index f0916d9..85f1a72 100644
+--- a/preset/routing-suite/agent.cordis.yml
++++ b/preset/routing-suite/agent.cordis.yml
+@@ -24,8 +24,9 @@
+ - id: persona
+   name: '@deepseek-ai/dsh-persona'
+   config:
+-    text: >-
+-      You are a coding agent powered by the {{model}} model. Your working directory is {{cwd}}.
++    suffix: Your working directory is {{cwd}}.
++    prefix: >-
++      You are a coding agent powered by the {{model}} model.
+ 
+ - id: agent-instructions
+   name: '@deepseek-ai/dsh-agent-instructions'
+@@ -206,7 +207,7 @@
+       config:
+         provider: codex
+         toolName: subagent_codex
+-        enableRunInBackground: false
++        backgroundMode: one-shot
+         maxDepth: provider-managed
+ 
+     - id: tool-subagent-claude-code
+@@ -215,7 +216,7 @@
+       config:
+         provider: claude-code
+         toolName: subagent_claude_code
+-        enableRunInBackground: false
++        backgroundMode: one-shot
+         maxDepth: provider-managed
+ 
+     - id: workflow-worker-thread

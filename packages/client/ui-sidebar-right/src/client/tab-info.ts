@@ -10,6 +10,7 @@ import type { createSidebarRightStore } from './stores.ts'
 export interface TabHookContext {
   readonly tabId: TabId
   readonly title: boolean
+  readonly visible: boolean
   readonly fullscreen: boolean
   readonly signal: AbortSignal
   readonly actions: SidebarRightTabActions
@@ -25,7 +26,7 @@ export interface TabHookContext {
  */
 export const tabInfoFactory: SlotHookFactory<'sidebar.right.pane.tab', UseSidebarRightTabInfo> = (standard, context) => {
   const { sessionId } = standard
-  const { tabId, title, fullscreen, signal, actions, useStore, useTabNavigation } = context
+  const { tabId, title, visible, fullscreen, signal, actions, useStore, useTabNavigation } = context
   return function useTabInfo() {
     const layout = useStore(state => state.bySession[sessionId]?.layout)
     const navigation = useTabNavigation(tabId)
@@ -40,13 +41,13 @@ export const tabInfoFactory: SlotHookFactory<'sidebar.right.pane.tab', UseSideba
         panel: { id: pane.id },
         tab: {
           ...tab,
-          visible: pane.host === 'float' || (layout.expanded && (title || pane.activeTabId === tabId)),
+          visible: visible && (pane.host === 'float' || (layout.expanded && (title || pane.activeTabId === tabId))),
           navigation,
           signal,
           actions,
         },
       }
-    }, [layout, navigation, tabId, title, fullscreen, signal, actions])
+    }, [layout, navigation, tabId, title, visible, fullscreen, signal, actions])
   }
 }
 

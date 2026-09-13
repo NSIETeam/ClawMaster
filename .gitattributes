@@ -11,3 +11,13 @@
 # Pairing records are generated from the three confirmed owner-blob pairs.
 # The worktree-local installer registers the fail-closed driver command.
 *.i18n.yaml merge=dsh-translation-pairing
+
+# Patch context and pinned third-party licenses preserve upstream bytes.
+apps/desktop-tauri/patches/dsh-routing-suite@0.1.2.patch whitespace=-space-before-tab,-blank-at-eol
+apps/desktop-tauri/patches/dsh-better-sidebar@0.19.1.patch whitespace=-space-before-tab,-blank-at-eol
+apps/desktop-tauri/patches/dsh-better-sidebar@0.19.1.office-save.patch whitespace=-space-before-tab,-blank-at-eol
+apps/desktop-tauri/patches/@xmanrui__dsh-im@4.20.0.patch whitespace=-blank-at-eol
+apps/desktop-tauri/patches/@openviking__dsh-memory-plugin@0.3.0.patch whitespace=-blank-at-eol
+frontends/office/patches/onlyoffice-x2t.patch whitespace=-blank-at-eol
+frontends/office/LICENSE whitespace=-blank-at-eol
+frontends/office/vendor/onlyoffice-web-local/LICENSE whitespace=-blank-at-eol

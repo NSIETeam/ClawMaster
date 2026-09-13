@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { bindSnapshotSelector, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
+import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { Context } from '@deepseek-ai/cordis'
 import { SettingsSchemaService } from '@deepseek-ai/dsh-client-ui-settings/src/client/schema.ts'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
@@ -29,9 +30,15 @@ const WELCOME_NOTICE_COPY = {
   zh: { title: zh.welcomeTitle, body: zh.welcomeBody, continueLabel: zh.welcomeContinue },
 }
 
+beforeEach(() => {
+  vi.stubEnv('DSH_CLIENT_TITLE', undefined)
+  vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', undefined)
+})
+
 afterEach(() => {
   cleanup()
   document.getElementById('root')?.remove()
+  vi.unstubAllEnvs()
 })
 
 /** The settings namespace answers over the Remote carrier, which has no envelope. */
@@ -60,6 +67,7 @@ function mount(
   version?: string,
   mutateImpl: () => Promise<unknown> = () =>
     Promise.resolve(remoteAnswer(welcomeView({ [WELCOME_NOTICE_ACK_FIELD]: WELCOME_NOTICE_VERSION }, 1))),
+  language: 'en' | 'zh' = 'zh',
 ) {
   const appRoot = document.createElement('div')
   appRoot.id = 'root'
@@ -88,6 +96,9 @@ function mount(
   void mirror.load()
   const complete = vi.fn()
   const unusedHook = (() => { throw new Error('unused standard hook') }) as never
+  const locale = new LocaleRuntime(new Context())
+  locale.register('settings.models', { en, zh })
+  locale.setLocale(language)
   const props: WelcomeNoticeProps = {
     stepId: 'welcome-notice',
     complete,
@@ -98,7 +109,7 @@ function mount(
     useWorkspaces: unusedHook,
     controller,
     useWelcome: bindSnapshotSelector(controller.store),
-    t: key => zh[key],
+    t: locale.bind('settings.models'),
   }
   return { ...render(<WelcomeNotice {...props} />), complete, controller, mirror, mutate, appRoot }
 }
@@ -130,6 +141,33 @@ describe('WelcomeNotice', () => {
     fireEvent.click(document.querySelector('[class*="mask"]')!)
     expect(h.complete).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+
+  it.each([
+    ['en', 'Welcome to ClawMaster', 'Configure model providers and API keys in Models settings. You can change these settings whenever you need.'],
+    ['zh', '欢迎使用 ClawMaster', '你可以在模型设置中配置模型提供方和 API 密钥，并随时调整这些设置。'],
+  ] as const)('uses the custom build title and locale-owned welcome copy in %s', async (language, title, body) => {
+    vi.stubEnv('DSH_CLIENT_TITLE', 'ClawMaster')
+    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'clawmaster')
+    const h = mount(undefined, undefined, language)
+    const dialog = await screen.findByRole('dialog', { name: title })
+    expect(screen.getByText(body, { exact: true })).toBeTruthy()
+    expect(dialog.textContent).not.toMatch(/DeepSeek Harness|HARNESS/iu)
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: title }))
+    fireEvent.click(screen.getByRole('button', { name: WELCOME_NOTICE_COPY[language].continueLabel }))
+    await act(async () => { await Promise.resolve() })
+    expect(h.mutate).toHaveBeenCalledOnce()
+    expect(h.complete).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the DSH notice for the official build profile', async () => {
+    vi.stubEnv('DSH_CLIENT_TITLE', 'DeepSeek Harness')
+    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'official')
+    mount()
+    await screen.findByRole('dialog', { name: WELCOME_NOTICE_COPY.zh.title })
+    for (const paragraph of WELCOME_NOTICE_COPY.zh.body.split('\n\n')) {
+      expect(screen.getByText(paragraph, { exact: true })).toBeTruthy()
+    }
   })
 
   it('completes only after the acknowledgement write commits', async () => {

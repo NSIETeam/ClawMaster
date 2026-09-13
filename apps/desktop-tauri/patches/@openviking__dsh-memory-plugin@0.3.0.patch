@@ -1,0 +1,225 @@
+diff --git a/index.mjs b/index.mjs
+index 34d7679..c7be3bf 100644
+--- a/index.mjs
++++ b/index.mjs
+@@ -1,54 +1,96 @@
+ import { OpenVikingClient } from "./client.mjs";
+ import { resolveConfig } from "./config.mjs";
+-import { injectStartupProfile } from "./lifecycle.mjs";
+ import { mountOpenVikingMcp } from "./mcp.mjs";
+-import { OpenVikingRuntime } from "./runtime.mjs";
++import { OpenVikingRuntime, startupProfileProjection } from "./runtime.mjs";
+ import { mountOpenVikingSkills } from "./skills.mjs";
+ import { guardVikingUri } from "./uri-guard.mjs";
+ 
+ export const name = "openviking-memory";
+-export const inject = ["agents", "sessions", "tools"];
++export const inject = ["agents", "sessions", "tools", "sessionProjections"];
+ 
+-export function apply(ctx, input = {}) {
++export async function apply(ctx, input = {}) {
+   const config = resolveConfig(input);
+   const client = new OpenVikingClient(config);
+-  const runtime = new OpenVikingRuntime(client, config, ctx.logger);
++  const runtime = new OpenVikingRuntime(client, config, ctx.logger, ctx.sessionProjections);
++  const lifetime = new AbortController();
++  const closedAgents = new WeakSet();
++  const active = new Map();
++  const closing = agent => lifetime.signal.aborted || closedAgents.has(agent);
++  const track = (agent, operation) => {
++    const pending = active.get(agent) || new Set();
++    active.set(agent, pending);
++    const task = Promise.resolve().then(operation);
++    pending.add(task);
++    const settled = () => {
++      pending.delete(task);
++      if (pending.size === 0) active.delete(agent);
++    };
++    void task.then(settled, settled);
++    return task;
++  };
++  const closeAgent = async agent => {
++    closedAgents.add(agent);
++    await Promise.allSettled(active.get(agent) || []);
++    await runtime.dispose(agent.session);
++  };
++  let projection;
++  ctx.effect(function* () {
++    projection = ctx.plugin({
++      name: "openviking-profile-state",
++      inject: ["sessionProjections"],
++      apply(owner) { owner.sessionProjections.register(startupProfileProjection); },
++    });
++    yield projection.dispose;
++    yield async () => {
++      lifetime.abort();
++      await Promise.allSettled([...active.values()].flatMap(pending => [...pending]));
++      await runtime.disposeAll();
++    };
++  }, "openvikingMemory: drain requests before projection withdrawal");
++  await projection.await();
+   const skipMemory = session => (
+     config.skipSubagentSessions && session?.header?.origin === "subagent"
+   );
+   ctx.provide("openvikingMemory", runtime);
+-  ctx.effect(
+-    () => () => runtime.disposeAll(),
+-    "openvikingMemory.disposeAll()",
+-  );
+ 
+   ctx.on("agent/session-start", ({ agent }) => {
+-    if (skipMemory(agent.session)) return false;
++    if (closing(agent) || skipMemory(agent.session)) return false;
+     agent.ctx.effect(
+-      () => () => runtime.dispose(agent.session),
++      () => () => closeAgent(agent),
+       "openvikingMemory.disposeSession()",
+     );
+-    return injectStartupProfile(agent, runtime);
++    return track(agent, async () => {
++      if (closing(agent)) return false;
++      await runtime.initialize(agent);
++      if (closing(agent) || agent.status !== "idle") return false;
++      const profile = await runtime.profileMessage(agent);
++      if (closing(agent) || !profile) return false;
++      agent.inject(profile);
++      return true;
++    });
+   });
+ 
+   // prepend: downstream waterfall listeners run first, so this plugin sees
+   // the final claimed batch and appends after every other contributor.
+   ctx.on("agent/pre-step", async ({ agent, messages, signal }, next) => {
+     const decision = await next();
+-    if (skipMemory(agent.session)) return decision;
++    if (closing(agent) || skipMemory(agent.session)) return decision;
+     if (decision.kind !== "enter" || signal.aborted) return decision;
+-    const profile = await runtime.profileMessage(agent);
+-    if (signal.aborted) return decision;
+-    const recall = await runtime.recallMessage(agent, decision.messages);
+-    if (signal.aborted) return decision;
+-    const additions = [profile, recall].filter(Boolean);
+-    return additions.length > 0
+-      ? { kind: "enter", messages: [...decision.messages, ...additions] }
+-      : decision;
++    return track(agent, async () => {
++      if (closing(agent) || signal.aborted) return decision;
++      const profile = await runtime.profileMessage(agent, decision.messages);
++      if (closing(agent) || signal.aborted) return decision;
++      const recall = await runtime.recallMessage(agent, decision.messages);
++      if (closing(agent) || signal.aborted) return decision;
++      const additions = [profile, recall].filter(Boolean);
++      return additions.length > 0
++        ? { ...decision, messages: [...decision.messages, ...additions] }
++        : decision;
++    });
+   }, { prepend: true });
+ 
+   ctx.on("session/event", (session, event) => {
+-    if (skipMemory(session)) return;
++    if (lifetime.signal.aborted || skipMemory(session)) return;
+     runtime.capture(session, event);
+     runtime.maybeCommit(session, event);
+   });
+diff --git a/package.json b/package.json
+index 3683ab9..b9d6688 100644
+--- a/package.json
++++ b/package.json
+@@ -1,7 +1,7 @@
+ {
+   "name": "@openviking/dsh-memory-plugin",
+   "version": "0.3.0",
+-  "description": "OpenViking memory and context bundle for DeepSeek Harness",
++  "description": "OpenViking memory and context bundle for ClawMaster",
+   "type": "module",
+   "main": "index.mjs",
+   "exports": {
+diff --git a/runtime.mjs b/runtime.mjs
+index e6ef703..47acc4b 100644
+--- a/runtime.mjs
++++ b/runtime.mjs
+@@ -1,4 +1,5 @@
+ import { createUserMessage } from "@deepseek-ai/dsh-llm";
++import { z } from "zod";
+ import { buildProfileBlock } from "./shared/profile-inject.mjs";
+ import { buildRecallBlock } from "./shared/recall-core.mjs";
+ import { deriveHarnessSessionId } from "./shared/session-model.mjs";
+@@ -16,11 +17,31 @@ import {
+   promptText,
+ } from "./capture.mjs";
+ 
++const STARTUP_PROFILE_KEY = "openviking/startup-profile";
++
++/** Reconstruct profile delivery from this Session's own committed messages. */
++export const startupProfileProjection = {
++  key: STARTUP_PROFILE_KEY,
++  stateVersion: 1,
++  stateSchema: z.object({
++    inheritedEventCount: z.number().int().nonnegative(),
++    delivered: z.boolean(),
++  }).strict(),
++  init: (_header, inheritedEventCount) => ({ inheritedEventCount, delivered: false }),
++  apply(state, event) {
++    if (state.delivered || event.seq < state.inheritedEventCount) return state;
++    return event.type === "user/message" && isStartupProfile(event.data)
++      ? { ...state, delivered: true }
++      : state;
++  },
++};
++
+ export class OpenVikingRuntime {
+-  constructor(client, config, logger = console) {
++  constructor(client, config, logger = console, projections) {
+     this.client = client;
+     this.config = config;
+     this.logger = logger;
++    this.projections = projections;
+     this.states = new Map();
+   }
+ 
+@@ -41,7 +62,6 @@ export class OpenVikingRuntime {
+       config: { ...this.config, peerId },
+       ready: false,
+       profileBlock: "",
+-      profileDelivered: false,
+       toolNames: new Map(),
+       writes: Promise.resolve(),
+       initializationRetryable: false,
+@@ -106,14 +126,10 @@ export class OpenVikingRuntime {
+     return state;
+   }
+ 
+-  async profileMessage(agent) {
++  async profileMessage(agent, messages = []) {
+     const state = await this.initialize(agent);
+-    if (!state.ready || !state.profileBlock || state.profileDelivered) return null;
+-    if (hasStartupProfile(agent)) {
+-      state.profileDelivered = true;
+-      return null;
+-    }
+-    state.profileDelivered = true;
++    if (!state.ready || !state.profileBlock) return null;
++    if (hasStartupProfile(agent, this.projections, messages)) return null;
+     return pluginMessage(state.profileBlock, "instructions");
+   }
+ 
+@@ -319,14 +335,11 @@ function pluginMessage(content, form) {
+   });
+ }
+ 
+-function hasStartupProfile(agent) {
+-  const session = agent.session;
+-  const ownEvents = (session?.events || []).slice(session?.header?.seedLength ?? 0);
+-  const inHistory = ownEvents.some(event => (
+-    event?.type === "user/message" && isStartupProfile(event.data)
+-  ));
+-  if (inHistory) return true;
+-  return [agent.inbox?.nextTurn, agent.inbox?.nextStep].some(messages => (
++function hasStartupProfile(agent, projections, messages) {
++  const state = projections.stateOf(agent.session, STARTUP_PROFILE_KEY);
++  if (state === undefined) throw new Error("OpenViking startup profile projection is not registered");
++  if (state.delivered) return true;
++  return [messages, agent.inbox?.nextTurn, agent.inbox?.nextStep].some(messages => (
+     (messages || []).some(isStartupProfile)
+   ));
+ }

@@ -27,14 +27,14 @@ export class BootPage {
   private failure: string | undefined
 
   /**
-   * Build and attach the boot page.
+   * Build and attach the boot page using the document's initial product title.
    * @param container - Application mount point.
    */
   constructor(container: HTMLElement) {
     this.root = div(css.boot)
     this.root.dataset.dshBoot = ''
     this.card = div(css.card)
-    this.wordmark = div(css.wordmark, 'HARNESS')
+    this.wordmark = div(css.wordmark, container.ownerDocument.title)
     this.spinner = div(css.spinner)
     this.spinner.dataset.dshBootSpinner = ''
     this.hint = div(css.hint, 'Loading plugins…')

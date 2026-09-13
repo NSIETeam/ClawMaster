@@ -1,29 +1,25 @@
+/** WatchDog task launcher and projection of the DSH Session list. */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode, RefObject } from 'react';
+import type { RefObject } from 'react';
 import clawmasterIcon from './clawmaster.png';
-import { BusinessModules } from './BusinessModules';
+import { productCopy, type ProductLocale, type ProductModule } from './locales/frontend.ts';
+import type { SessionId } from './services.ts';
+import { ProductNavigationError, type WatchdogCadence } from './navigation.ts';
 
-export interface WorkbenchSession {
-  id: string;
-  title: string;
-  updatedAt?: number;
-  running?: boolean;
-}
-
+export interface WorkbenchSession { id: SessionId; title: string; updatedAt: number; running: boolean; }
 export interface WorkbenchProps {
+  locale: ProductLocale;
   sessions: readonly WorkbenchSession[];
-  sessionsLoading?: boolean;
+  sessionsLoading: boolean;
   connectionLabel: string;
   connected: boolean;
-  watchdogReady?: boolean;
-  onNewSession: () => void;
-  onOpenSession: (id: string) => void;
-  onOpenModels?: () => void;
-  onOpenPlugins?: () => void;
+  onStart: (goal: string, cadence: WatchdogCadence) => Promise<void>;
+  onModule: (module: ProductModule) => Promise<void>;
+  onOpenSession: (id: SessionId) => void;
   onRefresh: () => Promise<void>;
 }
 
-export const BRAND_SLOGAN = '开启AI时代的企业协作';
+export const BRAND_SLOGAN = productCopy('zh-CN').slogan;
 
 interface MarkProps {
   size?: number;
@@ -32,7 +28,7 @@ interface MarkProps {
 }
 
 export function BrandName() {
-  return <span className="cm-dsh-brand-name">ClawMaster</span>;
+  return <span className="cm-dsh-brand-name">{productCopy('zh-CN').brand}</span>;
 }
 
 export function BrandMark({ size = 30, className, imageRef }: MarkProps) {
@@ -72,235 +68,73 @@ export function HeroMark({ size = 68, className }: MarkProps) {
   return <BrandMark imageRef={imageRef} size={size} className={['cm-dsh-hero-mark', className].filter(Boolean).join(' ')} />;
 }
 
-type IconName = 'plus' | 'arrow' | 'search' | 'refresh' | 'model' | 'plugins' | 'task' | 'close';
-
-function Icon({ name, size = 18, className }: { name: IconName; size?: number; className?: string }) {
-  const paths: Record<IconName, ReactNode> = {
-    plus: <path d="M12 5v14M5 12h14" />,
-    arrow: <path d="M5 12h14m-5-5 5 5-5 5" />,
-    search: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></>,
-    refresh: <><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 6.2A8 8 0 0 1 19.5 10M4.5 14a8 8 0 0 0 13.4 3.8" /></>,
-    model: <><rect x="6" y="6" width="12" height="12" rx="3" /><path d="M10 2v4m4-4v4m-4 12v4m4-4v4M2 10h4m-4 4h4m12-4h4m-4 4h4" /><rect x="10" y="10" width="4" height="4" rx="1" /></>,
-    plugins: <><path d="M14 3H9v6H3v6h6v6h6v-6h6V9h-7V3Z" /><path d="M9 9h5" /></>,
-    task: <><rect x="5" y="3" width="14" height="18" rx="3" /><path d="M9 8h6m-6 4h6m-6 4h3" /></>,
-    close: <path d="m6 6 12 12M6 18 18 6" />,
-  };
-  return (
-    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {paths[name]}
-    </svg>
-  );
+export function WorkbenchIcon({ size = 18 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" /><path d="M3 10h18M10 10v11" /></svg>;
 }
 
-export function WorkbenchIcon({ size = 18, active = false }: { size?: number; active?: boolean }) {
-  return (
-    <svg className="cm-dsh-workbench-icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={active ? { color: 'var(--dsw-alias-brand-primary, #3264d8)' } : undefined}>
-      <rect x="3" y="3" width="7" height="7" rx="2" />
-      <rect x="14" y="3" width="7" height="7" rx="2" />
-      <rect x="3" y="14" width="7" height="7" rx="2" />
-      <rect x="14" y="14" width="7" height="7" rx="2" />
-    </svg>
-  );
-}
-
-function updatedLabel(timestamp: number | undefined): string | undefined {
-  if (timestamp === undefined || !Number.isFinite(timestamp)) return undefined;
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return undefined;
-  const today = new Date();
-  const sameDay = date.getFullYear() === today.getFullYear()
-    && date.getMonth() === today.getMonth()
-    && date.getDate() === today.getDate();
-  if (sameDay) {
-    return `今天 ${new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)}`;
-  }
-  return new Intl.DateTimeFormat('zh-CN', {
-    ...(date.getFullYear() === today.getFullYear() ? {} : { year: 'numeric' as const }),
-    month: 'long',
-    day: 'numeric',
-  }).format(date);
-}
-
-export function Workbench({
-  sessions,
-  sessionsLoading = false,
-  connectionLabel,
-  connected,
-  watchdogReady = true,
-  onNewSession,
-  onOpenSession,
-  onOpenModels,
-  onOpenPlugins,
-  onRefresh,
-}: WorkbenchProps) {
+/** Explicit task creation and tool opening; no model request runs on render. */
+export function Workbench({ locale, sessions, sessionsLoading, connectionLabel, connected, onStart, onModule, onOpenSession, onRefresh }: WorkbenchProps) {
+  const copy = productCopy(locale);
+  const [goal, setGoal] = useState('');
+  const [cadence, setCadence] = useState<WatchdogCadence>('once');
   const [query, setQuery] = useState('');
   const [runningOnly, setRunningOnly] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshError, setRefreshError] = useState(false);
-  const refreshPending = useRef(false);
-  const mounted = useRef(true);
-
-  useEffect(() => {
-    mounted.current = true;
-    return () => { mounted.current = false; };
-  }, []);
-
-  const runningCount = sessions.filter((session) => session.running).length;
-  const matchingSessions = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase('zh-CN');
-    return sessions.filter((session) => (!runningOnly || session.running)
-      && (session.title || '未命名任务').toLocaleLowerCase('zh-CN').includes(needle));
-  }, [sessions, query, runningOnly]);
-
-  const refresh = async () => {
-    if (refreshPending.current) return;
-    refreshPending.current = true;
-    setRefreshing(true);
-    setRefreshError(false);
-    try {
-      await onRefresh();
-    } catch {
-      if (mounted.current) setRefreshError(true);
-    } finally {
-      refreshPending.current = false;
-      if (mounted.current) setRefreshing(false);
-    }
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<'actionError' | 'refreshError' | 'toolDisabled' | undefined>();
+  const pending = useRef(false);
+  const active = useRef(true);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const act = async (operation: () => Promise<void>, fallback: 'actionError' | 'refreshError' = 'actionError') => {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true); setError(undefined);
+    try { await operation(); }
+    catch (reason) { if (active.current) setError(reason instanceof ProductNavigationError ? reason.code : fallback); }
+    finally { pending.current = false; if (active.current) setBusy(false); }
   };
-
-  const hasFilter = query.trim().length > 0 || runningOnly;
-
-  return (
-    <main className="cm-dsh-workbench" aria-label="ClawMaster WatchDog">
-      <div className="cm-dsh-workbench-inner">
-        <div className="cm-dsh-topline">
-          <span className="cm-dsh-eyebrow"><WorkbenchIcon size={15} /> WatchDog 运行中</span>
-          <span className={`cm-dsh-connection${connected ? ' is-connected' : ''}`} role="status">
-            <span className="cm-dsh-status-dot" />
-            {connectionLabel}
-          </span>
-        </div>
-
-        <header className="cm-dsh-welcome">
-          <div className="cm-dsh-welcome-copy">
-            <p className="cm-dsh-greeting">欢迎回来</p>
-            <h1>{BRAND_SLOGAN}</h1>
-            <p className="cm-dsh-intro">持续观察企业信号，发现异常后推进处理。无需预设工作空间，系统会按任务上下文调配执行环境。</p>
+  const matching = useMemo(() => sessions.filter(row => (!runningOnly || row.running)
+    && row.title.toLocaleLowerCase(locale).includes(query.trim().toLocaleLowerCase(locale))), [sessions, runningOnly, query, locale]);
+  const modules: readonly ProductModule[] = ['editor', 'browser', 'terminal'];
+  return <main className="cm-dsh-workbench" aria-label={copy.watchdog}>
+    <header className="cm-workbench-toolbar">
+      <h1><WorkbenchIcon /> {copy.watchdog}</h1>
+      <span className={`cm-connection${connected ? ' is-connected' : ''}`} role="status">{connectionLabel}</span>
+      <button type="button" disabled={busy || !connected} onClick={() => { void act(() => onStart('', 'once')); }}>{copy.newTask}</button>
+    </header>
+    <div className="cm-workbench-content">
+      <section className="cm-task-launcher" aria-labelledby="cm-goal-heading">
+        <p className="cm-slogan">{copy.slogan}</p>
+        <h2 id="cm-goal-heading">{copy.goal}</h2>
+        <form onSubmit={event => { event.preventDefault(); if (goal.trim()) void act(() => onStart(goal, cadence)); }}>
+          <textarea aria-label={copy.goal} placeholder={copy.goalHint} value={goal} onChange={event => setGoal(event.target.value)} required rows={3} />
+          <div className="cm-launcher-actions">
+            <label>{copy.cadence}<select aria-label={copy.cadence} value={cadence} onChange={event => setCadence(event.target.value as WatchdogCadence)}>
+              <option value="once">{copy.once}</option><option value="hourly">{copy.hourly}</option><option value="daily">{copy.daily}</option>
+            </select></label>
+            <button className="cm-primary" type="submit" disabled={busy || !connected || !goal.trim()}>{busy ? copy.preparing : copy.start}</button>
           </div>
-          <button className="cm-dsh-button cm-dsh-button-primary cm-dsh-start" type="button" disabled={!watchdogReady} onClick={onNewSession}>
-            <Icon name="plus" size={18} /> {watchdogReady ? '启动 WatchDog' : '正在准备 WatchDog'}
-          </button>
-        </header>
-
-        <div className="cm-dsh-content-grid">
-          <section className="cm-dsh-tasks" aria-labelledby="cm-dsh-tasks-heading" aria-busy={sessionsLoading || refreshing}>
-            <div className="cm-dsh-section-heading">
-              <div className="cm-dsh-section-title">
-                <h2 id="cm-dsh-tasks-heading">WatchDog 任务</h2>
-                {!sessionsLoading && <span className="cm-dsh-count">{sessions.length}</span>}
-              </div>
-              <button className="cm-dsh-refresh" type="button" disabled={refreshing} aria-busy={refreshing} onClick={() => { void refresh(); }}>
-                <Icon name="refresh" size={15} className={refreshing ? 'cm-dsh-spin' : undefined} />
-                {refreshing ? '正在刷新' : '刷新'}
-              </button>
-            </div>
-
-            <div className="cm-dsh-task-card">
-              <div className="cm-dsh-task-toolbar">
-                <div className="cm-dsh-filters" role="group" aria-label="筛选任务状态">
-                  <button className={`cm-dsh-filter${!runningOnly ? ' is-selected' : ''}`} type="button" aria-pressed={!runningOnly} onClick={() => setRunningOnly(false)}>全部</button>
-                  <button className={`cm-dsh-filter${runningOnly ? ' is-selected' : ''}`} type="button" aria-pressed={runningOnly} onClick={() => setRunningOnly(true)}>
-                    进行中 {!sessionsLoading && <span>{runningCount}</span>}
-                  </button>
-                </div>
-                <div className="cm-dsh-search">
-                  <Icon name="search" size={16} />
-                  <input aria-label="搜索近期任务" placeholder="搜索任务" value={query} onChange={(event) => setQuery(event.target.value)} type="search" />
-                  {query && <button type="button" className="cm-dsh-clear" aria-label="清空搜索" onClick={() => setQuery('')}><Icon name="close" size={13} /></button>}
-                </div>
-              </div>
-
-              {refreshError && <p className="cm-dsh-refresh-error" role="alert">暂时没能更新任务列表，请稍后重试。</p>}
-
-              {sessionsLoading ? (
-                <div className="cm-dsh-empty cm-dsh-loading" role="status">
-                  <span className="cm-dsh-empty-icon"><Icon name="refresh" size={25} className="cm-dsh-spin" /></span>
-                  <p>正在读取会话…</p>
-                </div>
-              ) : matchingSessions.length > 0 ? (
-                <ul className="cm-dsh-session-list" aria-label="近期任务列表">
-                  {matchingSessions.map((session) => {
-                    const updated = updatedLabel(session.updatedAt);
-                    return (
-                      <li key={session.id}>
-                        <button type="button" className="cm-dsh-session" onClick={() => onOpenSession(session.id)}>
-                          <span className={`cm-dsh-session-icon${session.running ? ' is-running' : ''}`}><Icon name="task" size={19} /></span>
-                          <span className="cm-dsh-session-copy">
-                            <span className="cm-dsh-session-title">{session.title || '未命名任务'}</span>
-                            <span className="cm-dsh-session-meta">
-                              {session.running ? <span className="cm-dsh-running-label"><span /> 进行中</span> : <span>点击继续</span>}
-                              {updated && <><span aria-hidden="true">·</span><span>{updated}</span></>}
-                            </span>
-                          </span>
-                          <Icon name="arrow" size={17} className="cm-dsh-session-arrow" />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <div className="cm-dsh-empty">
-                  <span className="cm-dsh-empty-icon"><Icon name={hasFilter ? 'search' : 'task'} size={26} /></span>
-                  <h3>{hasFilter ? '没有找到匹配的任务' : '创建第一个 WatchDog'}</h3>
-                  <p>{hasFilter ? '换个关键词，或查看全部任务。' : '描述要持续关注的目标、信号和异常条件，系统会自动绑定托管空间并调配任务上下文。'}</p>
-                  {hasFilter ? (
-                    <button type="button" className="cm-dsh-button cm-dsh-button-secondary" onClick={() => { setQuery(''); setRunningOnly(false); }}>查看全部任务</button>
-                  ) : (
-                    <button type="button" className="cm-dsh-button cm-dsh-button-secondary" disabled={!watchdogReady} onClick={onNewSession}><Icon name="plus" size={16} /> {watchdogReady ? '启动 WatchDog' : '正在准备 WatchDog'}</button>
-                  )}
-                </div>
-              )}
-            </div>
-            <p className="cm-dsh-list-note" aria-live="polite">
-              {sessionsLoading ? '稍等一下，你的任务正在路上。' : hasFilter ? `显示 ${matchingSessions.length} 个匹配任务` : '每一次开始，都可以从这里继续。'}
-            </p>
-          </section>
-
-          <aside className="cm-dsh-sidebar" aria-label="工作台快捷入口">
-            <div className="cm-dsh-section-heading"><h2>快速开始</h2></div>
-            <div className="cm-dsh-setup-card">
-              {onOpenModels && <button type="button" className="cm-dsh-shortcut" onClick={onOpenModels}>
-                <span className="cm-dsh-shortcut-icon"><Icon name="model" size={20} /></span>
-                <span className="cm-dsh-shortcut-copy"><strong>模型设置</strong><span>选择适合你的 AI 模型</span></span>
-                <Icon name="arrow" size={16} className="cm-dsh-shortcut-arrow" />
-              </button>}
-              {onOpenPlugins && <button type="button" className="cm-dsh-shortcut" onClick={onOpenPlugins}>
-                <span className="cm-dsh-shortcut-icon cm-dsh-shortcut-plugins"><Icon name="plugins" size={20} /></span>
-                <span className="cm-dsh-shortcut-copy"><strong>插件设置</strong><span>查看工具与扩展配置</span></span>
-                <Icon name="arrow" size={16} className="cm-dsh-shortcut-arrow" />
-              </button>}
-              {(!onOpenModels || !onOpenPlugins) && <div className="cm-dsh-settings-guide">
-                <span className="cm-dsh-shortcut-icon"><Icon name="model" size={20} /></span>
-                <h3>让工作准备得更充分</h3>
-                <p>在左下角设置中配置模型、管理插件。</p>
-                <ol>
-                  <li><span>1</span>打开左下角「设置」</li>
-                  <li><span>2</span>在「模型」中完成模型配置</li>
-                  <li><span>3</span>在「插件」中查看工具与扩展</li>
-                </ol>
-              </div>}
-            </div>
-
-            <div className="cm-dsh-note-card">
-              <span className="cm-dsh-note-line" aria-hidden="true" />
-              <p className="cm-dsh-note-label">默认工作方式</p>
-              <h3>无需指定工作空间</h3>
-              <p>先接收监控目标，再按任务调配上下文；目标续跑、定时巡检与高风险审批都沿用 DSH 的成熟能力。</p>
-              <span className="cm-dsh-note-signature"><BrandMark size={22} /> ClawMaster WatchDog</span>
-            </div>
-          </aside>
+        </form>
+        <p className="cm-help">{cadence === 'once' ? copy.allocationHint : copy.scheduleHint}</p>
+      </section>
+      {error && <p className="cm-error" role="alert">{copy[error]}</p>}
+      <nav className="cm-module-launchers" aria-label={copy.modules}>
+        {modules.map(module => <button key={module} type="button" disabled={busy || !connected} onClick={() => { void act(() => onModule(module)); }}>
+          <WorkbenchIcon size={17} /><strong>{copy[module]}</strong><small>{copy[`${module}Hint`]}</small>
+        </button>)}
+      </nav>
+      <section className="cm-task-list" aria-label={copy.tasks} aria-busy={sessionsLoading}>
+        <div className="cm-list-toolbar"><h2>{copy.tasks} <span>{sessions.length}</span></h2>
+          <div className="cm-task-filters"><button type="button" aria-pressed={!runningOnly} onClick={() => setRunningOnly(false)}>{copy.all}</button>
+            <button type="button" aria-pressed={runningOnly} onClick={() => setRunningOnly(true)}>{copy.running} {sessions.filter(row => row.running).length}</button></div>
+          <input type="search" aria-label={copy.search} placeholder={copy.search} value={query} onChange={event => setQuery(event.target.value)} />
+          <button type="button" disabled={busy} onClick={() => { void act(onRefresh, 'refreshError'); }}>{copy.refresh}</button>
         </div>
-        <BusinessModules />
-      </div>
-    </main>
-  );
+        {sessionsLoading ? <p className="cm-empty" role="status">{copy.loading}</p> : matching.length === 0 ? <div className="cm-empty"><p>{query || runningOnly ? copy.noMatches : copy.noTasks}</p><small>{copy.noTasksHint}</small></div> :
+          <ul>{matching.map(row => <li key={row.id}><button type="button" onClick={() => onOpenSession(row.id)}>
+            <span className="cm-task-title">{row.title}</span><span className={row.running ? 'cm-running' : 'cm-idle'}>{row.running ? copy.running : copy.idle}</span>
+            <time dateTime={new Date(row.updatedAt).toISOString()}>{new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(row.updatedAt)}</time>
+          </button></li>)}</ul>}
+      </section>
+    </div>
+  </main>;
 }

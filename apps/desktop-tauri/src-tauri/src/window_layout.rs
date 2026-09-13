@@ -1,4 +1,11 @@
-//! OS-aware window-control placement for the custom title bar.
+//! Window-control layout metadata for the in-window title bar.
+//!
+//! The main window uses the platform's native decorations, so no in-window
+//! title bar is drawn and `titlebar_height` is zero. macOS additionally merges
+//! its native title bar into the window content ([`desktop_overlay`]), so the
+//! title text never appears and the system window controls float over the
+//! product UI instead of occupying a row of their own. The button-layout
+//! parsing remains for the `__DSH_CHROME__` bootstrap payload and its tests.
 //!
 //! Windows keeps minimize/maximize/close on the right. macOS keeps close/
 //! minimize/maximize on the left. Linux reads the window-manager button
@@ -22,6 +29,38 @@ pub struct ControlsLayout {
     pub right: Vec<WindowButton>,
     pub os: &'static str,
     pub titlebar_height: u32,
+}
+
+/// Window chrome the product Web UI has to lay itself out around.
+///
+/// The desktop window keeps the platform's native decorations; on macOS the
+/// title bar is then drawn as an overlay over the window content, so the
+/// content starts at the window top and the system controls sit on top of its
+/// top-left corner. `controls_inset` is the vertical space those floating
+/// controls occupy, which the column under them has to keep clear.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+pub struct DesktopOverlay {
+    pub os: &'static str,
+    /// `overlay` when the title bar is drawn over the content instead of above it.
+    pub titlebar_style: &'static str,
+    /// Vertical space the floating window controls occupy at the top-left.
+    pub controls_inset: u32,
+}
+
+/// Resolve the overlay chrome for this host.
+///
+/// Returns `None` on platforms that reserve their own title bar row outside
+/// the window content, where the Web UI owes the system controls no space.
+pub fn desktop_overlay() -> Option<DesktopOverlay> {
+    if cfg!(target_os = "macos") {
+        Some(DesktopOverlay {
+            os: current_os(),
+            titlebar_style: "overlay",
+            controls_inset: 28,
+        })
+    } else {
+        None
+    }
 }
 
 /// Resolve the live title-bar layout for this host.
@@ -52,11 +91,7 @@ fn current_os() -> &'static str {
 }
 
 fn titlebar_height() -> u32 {
-    if cfg!(target_os = "macos") {
-        32
-    } else {
-        36
-    }
+    0
 }
 
 fn platform_button_layout() -> (Vec<WindowButton>, Vec<WindowButton>) {
@@ -159,7 +194,20 @@ fn parse_side(raw: &str) -> Vec<WindowButton> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_button_layout, WindowButton};
+    use super::{desktop_overlay, parse_button_layout, WindowButton};
+
+    #[test]
+    fn macos_title_bar_merges_into_the_content() {
+        let overlay = desktop_overlay();
+        if cfg!(target_os = "macos") {
+            let overlay = overlay.expect("macOS floats its window controls over the content");
+            assert_eq!(overlay.titlebar_style, "overlay");
+            assert_eq!(overlay.controls_inset, 28);
+            assert_eq!(overlay.os, "macos");
+        } else {
+            assert_eq!(overlay, None);
+        }
+    }
 
     #[test]
     fn windows_default_keeps_controls_on_the_right() {

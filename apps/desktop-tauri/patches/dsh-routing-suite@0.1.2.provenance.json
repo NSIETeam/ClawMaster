@@ -1,0 +1,30 @@
+{
+  "package": "dsh-routing-suite",
+  "version": "0.1.2",
+  "license": "MIT",
+  "upstreamTarball": "dsh-routing-suite-0.1.2.tgz",
+  "upstreamSha256": {
+    "lib/index.js": "aba9af5e3f9c40b48a698ab81e59624e759f0559340e6062dc3f47c04735a3d8",
+    "lib/types/index.d.ts": "4eb127f08304e4e76e6d278c564ddae3835cd3aeb6c17e8d5517e329c12a6ef9",
+    "package.json": "7881ec4051caec03d58e7a8825c22e88d57d3d7a563e1624f50d3e4284d5cab8",
+    "preset/routing-suite/agent.cordis.yml": "cb98756a9ed76ca351a45a0ba138a97bf0ab7eead4fe2f1e9d1c9f9ec97937f0"
+  },
+  "patch": "dsh-routing-suite@0.1.2.patch",
+  "requiredDependencyExtension": {
+    "zod": "4.4.3"
+  },
+  "purpose": "Use the DSH Session projection registry for task classification and the selected preset. Use ClawMaster in the installed plugin description.",
+  "patchSha256": "252d8ffce63014aca24e19b892b86ae7dd21e2a01eb8070b82d803c5215b64fc",
+  "patchedSha256": {
+    "lib/index.js": "1c44175f0406fc2dfef10dd072456b7bbbbc3fc90d0550fa01364f9d0c18a04e",
+    "lib/types/index.d.ts": "53d8dd2e11ef954898f06a369f716d1ce50e0db235a05a5dfade712381b42104",
+    "package.json": "5613ebceba991cae6ed2c644b594b710d6cd2b7f11a7de0d8a04ea685b98677d",
+    "preset/routing-suite/agent.cordis.yml": "4f0866a1a96d1a8deb19c8c57b92965789f889e0c62b4472282f7d70bac5a9ce"
+  },
+  "tarballSha256": "33881ff0e2f1e221ce9ce8a89e65f518b6d345c4a52b4ab9d82b84eced73cdb0",
+  "unchangedSha256": {
+    "LICENSE": "dc38b387a82e3208cd5def758f20760cba25d8298066d01d8ee3a9868b7af267",
+    "lib/client.js": "042380ff4c0c998aad41d09a8f3eda201a4d99ad9d4064a3526204928b8442a9",
+    "cordis.patch.yml": "5eb6a075fa39ff961baa60770cd9e8f0c326150e87a7f99d079569926508d0e6"
+  }
+}

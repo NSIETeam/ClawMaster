@@ -1,0 +1,3 @@
+- insert:
+    - id: clawmaster-office
+      name: '@clawmaster/dsh-office'

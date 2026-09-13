@@ -1,0 +1,36 @@
+{
+  "package": "dsh-better-sidebar",
+  "version": "0.19.1",
+  "license": "MIT",
+  "upstreamTarball": "https://registry.npmjs.org/dsh-better-sidebar/-/dsh-better-sidebar-0.19.1.tgz",
+  "upstreamIntegrity": "sha512-Jr0tPJoDKUVkq+fioL6Td+YwXZ+PULx3CnBJ4iktaQGNP5y9hgpz6V7o7f4Yh2czheVKZsewurqCaiN10GQYeQ==",
+  "patch": "dsh-better-sidebar@0.19.1.office-save.patch",
+  "patchSha256": "9b17030180f8666ff383f3878a8e1316beda38c2c0c96dac4326639678005add",
+  "purpose": "Add optional strong SHA-256 If-Match validation to binary uploads; serialize canonical-path commits and retain legacy unversioned uploads.",
+  "inputSha256": {
+    "src/fs-operations.ts": "b8e8ab9481b5366d0c2cf0eaaca86c8978454029b27e94791d1bd20f938295e6",
+    "src/index.ts": "236d7530180ad763d9b6dc25e90c08489bf587d017b687c645f14fda07e583df",
+    "src/wire.ts": "6206330bee9e0db8a8072d3d94d3fa15107e4d4169b9bd54956a5ffac2f7da77",
+    "lib/index.js": "14d7d0f55167d9571bd0bc4a46909ac20650ca4e4b4733547c2e8f1ab50e36a3",
+    "lib/types/fs-operations.d.ts": "47bcad6beb9012501915fb922fa0691e2cf0588e48f2be242cd32f2732ea8960",
+    "lib/types/wire.d.ts": "6fc4a528c1579f3ec91ceb234560f9f05dd0f98ee6fa0b93ecc403b2886a31be"
+  },
+  "patchedSha256": {
+    "src/fs-operations.ts": "153e71fe8eb987dced23caf60c4bfde87edf08ca79286cd9feb05fb2f296397e",
+    "src/index.ts": "8546550f27a2a873172624adbb6d4246d33083fdf164ef58127ffdd8b2c5191f",
+    "src/wire.ts": "a22a30f188c0fd9ef0abcd59fc45b758b49aea1676bcc61e3ab762e62cd01492",
+    "lib/index.js": "ce2419a1fa087b17de1cbd02de430b0c54bec8228f5572912b0824c52bae9043",
+    "lib/types/fs-operations.d.ts": "f99409889e46f8a0417791ae87ece2ac258006e1c88062dd03bb0d443a7b2956",
+    "lib/types/wire.d.ts": "645143616c34c828c32cc20d3d67174cdeee65c3ffd63ea77293dd2d5fe22c1a"
+  },
+  "unchangedClientSha256": {
+    "lib/client-editor.js": "94be626aac70c7827f1b2b11f4ad2d481e826b1ca14d970c08a47776c55bc0cd",
+    "lib/client-mermaid.js": "a68a245983a28923c2ac8e60ffb767fbc5af4b2c042364039a3d7ad8f095f737",
+    "lib/client-registry.js": "8d7522bf9b614029406d8871547d1645cd5a1e3cb8f5a257456257e84e16dc4f",
+    "lib/client-terminal.js": "878a97d160bde6a746e80a0b9f6c2d3383bd5239047f407d42abe8a39b05685b",
+    "lib/client.js": "2b6d2bcef19dc98d4aef98b68e47f79c9df41d61ac5211a0919dd8493e1ccc83"
+  },
+  "inputClientPatchSha256": "5b8c63af2e132fe0cd418ed0f80241f3bf182b472b8ddb0702340c59665d10eb",
+  "includedIn": "dsh-better-sidebar@0.19.1.patch",
+  "includedInSha256": "42d3ad714f93355512033396bcff868ca21612244d242c923e02c74beb411417"
+}

@@ -37,6 +37,8 @@ export interface PaneCallbacks {
   readonly draggingTabId: TabId | undefined
   readonly labels: DockLabels
   readonly renderTab: TabRenderer
+  /** Keep visited bodies mounted until they leave this pane. */
+  readonly keepVisitedTabsMounted?: boolean
   /** A chip's or panel header's title content; absent means the record's `title` text. */
   readonly renderTabTitle: TabRenderer | undefined
   /** Embedder items appended to a tab's context menu; absent means the kit's item only. */

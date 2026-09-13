@@ -1,4 +1,4 @@
-name: Desktop Release
+name: ClawMaster Desktop Release
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       tag:
         description: Existing desktop-v* tag to rebuild and publish
         required: true
-        default: desktop-v0.1.5-rc.2-0.1
+        default: desktop-v0.2.0-beta.1
 
 permissions:
   contents: write
@@ -20,12 +20,14 @@ concurrency:
 
 env:
   NODE_VERSION: '24'
+  DSH_TELEMETRY_DISABLED: '1'
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
 jobs:
   build:
     name: Build ${{ matrix.asset_platform }}-${{ matrix.asset_arch }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -35,11 +37,6 @@ jobs:
             bundles: nsis
             asset_platform: windows
             asset_arch: x64
-          - runner: windows-2025
-            target: i686-pc-windows-msvc
-            bundles: nsis
-            asset_platform: windows
-            asset_arch: x86
           - runner: macos-15-intel
             target: x86_64-apple-darwin
             bundles: app,dmg
@@ -72,11 +69,20 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
+      - name: Validate release version
+        shell: pwsh
+        run: |
+          $version = (Get-Content apps/desktop-tauri/package.json | ConvertFrom-Json).version
+          $tauriVersion = (Get-Content apps/desktop-tauri/src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          if ($env:RELEASE_TAG -ne "desktop-v$version" -or $tauriVersion -ne $version) {
+            throw "Release tag and desktop versions must match"
+          }
+
       - name: Install Linux bundle dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -q
-          sudo apt-get install -yq libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+          sudo apt-get install -yq libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils musl-tools
 
       - name: Install Rust target
         run: rustup target add ${{ matrix.target }}
@@ -84,14 +90,50 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build harness
-        run: pnpm run build:official
+      - name: Install product frontend build dependencies
+        run: |
+          npm ci --prefix frontends/dsh --ignore-scripts
+          npm ci --prefix frontends/office --ignore-scripts
+
+      - name: Build ClawMaster harness
+        run: pnpm --dir apps/desktop-tauri run build:harness
+
+      - name: Build complete Linux sandbox binaries
+        if: runner.os == 'Linux'
+        run: node --import tsx/esm native/system/scripts/build.ts
+
+      - name: Prepare verified Office editor resources
+        run: node frontends/office/scripts/prepare-runtime.mjs
 
       - name: Build desktop bundles
         env:
+          APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && '-' || '' }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: pnpm --dir apps/desktop-tauri exec tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      - name: Verify prepared payload
+        run: node apps/desktop-tauri/scripts/bundle-harness-source.mjs --check
+
+      - name: Verify macOS signature
+        if: runner.os == 'macOS'
+        run: codesign --verify --deep --strict apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/macos/ClawMaster.app
+
+      - name: Verify fresh production installation and Host restart
+        shell: pwsh
+        run: |
+          $smokeRoot = Join-Path $env:RUNNER_TEMP ("clawmaster-production-" + [guid]::NewGuid().ToString())
+          Copy-Item apps/desktop-tauri/bundled/harness $smokeRoot -Recurse
+          try {
+            Push-Location $smokeRoot
+            try {
+              pnpm install --prod --frozen-lockfile
+              if ($LASTEXITCODE -ne 0) { throw "Production dependency installation failed" }
+            } finally { Pop-Location }
+            $env:DSH_DESKTOP_SMOKE_ROOT = $smokeRoot
+            node --test apps/desktop-tauri/scripts/desktop-plugin-install.test.mjs apps/desktop-tauri/scripts/harness-startup.test.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Packaged Host acceptance failed" }
+          } finally { Remove-Item $smokeRoot -Recurse -Force }
 
       - name: Stage release assets
         shell: pwsh
@@ -108,7 +150,7 @@ jobs:
             $source = Get-ChildItem $bundleRoot -Recurse -File -Filter '*-setup.exe' | Select-Object -First 1
             if (-not $source) { throw "NSIS installer not found under $bundleRoot" }
             $signature = Get-Item "$($source.FullName).sig" -ErrorAction Stop
-            $destination = "release-assets/deepseek-harness-$version-windows-$env:ASSET_ARCH-setup.exe"
+            $destination = "release-assets/clawmaster-$version-windows-$env:ASSET_ARCH-setup.exe"
             Copy-Item $source.FullName $destination
             Copy-Item $signature.FullName "$destination.sig"
           }
@@ -117,8 +159,8 @@ jobs:
             $updater = Get-ChildItem $bundleRoot -Recurse -File -Filter '*.app.tar.gz' | Select-Object -First 1
             if (-not $source -or -not $updater) { throw "DMG or updater archive not found under $bundleRoot" }
             $signature = Get-Item "$($updater.FullName).sig" -ErrorAction Stop
-            Copy-Item $source.FullName "release-assets/deepseek-harness-$version-macos-$env:ASSET_ARCH.dmg"
-            $updaterDestination = "release-assets/deepseek-harness-$version-macos-$env:ASSET_ARCH.app.tar.gz"
+            Copy-Item $source.FullName "release-assets/clawmaster-$version-macos-$env:ASSET_ARCH.dmg"
+            $updaterDestination = "release-assets/clawmaster-$version-macos-$env:ASSET_ARCH.app.tar.gz"
             Copy-Item $updater.FullName $updaterDestination
             Copy-Item $signature.FullName "$updaterDestination.sig"
           }
@@ -127,10 +169,10 @@ jobs:
             $deb = Get-ChildItem $bundleRoot -Recurse -File -Filter '*.deb' | Select-Object -First 1
             if (-not $appImage -or -not $deb) { throw "Linux AppImage or deb not found under $bundleRoot" }
             $signature = Get-Item "$($appImage.FullName).sig" -ErrorAction Stop
-            $appImageDestination = "release-assets/deepseek-harness-$version-linux-$env:ASSET_ARCH.AppImage"
+            $appImageDestination = "release-assets/clawmaster-$version-linux-$env:ASSET_ARCH.AppImage"
             Copy-Item $appImage.FullName $appImageDestination
             Copy-Item $signature.FullName "$appImageDestination.sig"
-            Copy-Item $deb.FullName "release-assets/deepseek-harness-$version-linux-$env:ASSET_ARCH.deb"
+            Copy-Item $deb.FullName "release-assets/clawmaster-$version-linux-$env:ASSET_ARCH.deb"
           }
 
       - uses: actions/upload-artifact@v4
@@ -163,8 +205,6 @@ jobs:
           $expected = @(
             '*-windows-x64-setup.exe',
             '*-windows-x64-setup.exe.sig',
-            '*-windows-x86-setup.exe',
-            '*-windows-x86-setup.exe.sig',
             '*-macos-x64.dmg',
             '*-macos-x64.app.tar.gz',
             '*-macos-x64.app.tar.gz.sig',
@@ -195,6 +235,11 @@ jobs:
             --notes-file apps/desktop-tauri/release-notes.md `
             --pub-date $publishedAt
 
+      - name: Record release checksums
+        run: |
+          cp apps/desktop-tauri/release-signing.pub release-assets/clawmaster-release-signing.pub
+          node apps/desktop-tauri/scripts/release-checksums.mjs release-assets
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -202,13 +247,7 @@ jobs:
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" release-assets/* --clobber
-            gh release edit "$RELEASE_TAG" --title "DeepSeek Harness Desktop ${RELEASE_TAG#desktop-v}" --notes-file apps/desktop-tauri/release-notes.md --latest
+            gh release edit "$RELEASE_TAG" --title "ClawMaster Desktop ${RELEASE_TAG#desktop-v}" --notes-file apps/desktop-tauri/release-notes.md --prerelease --latest=false
           else
-            gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "DeepSeek Harness Desktop ${RELEASE_TAG#desktop-v}" --notes-file apps/desktop-tauri/release-notes.md --latest
-          fi
-
-          if gh release view desktop-updater >/dev/null 2>&1; then
-            gh release upload desktop-updater release-assets/latest.json --clobber
-          else
-            gh release create desktop-updater release-assets/latest.json --target "$(git rev-parse HEAD)" --title "DeepSeek Harness Desktop update channel" --notes "Stable signed-update manifest channel. Installers are published in versioned desktop releases. / 稳定的签名更新 manifest 通道。安装包发布在带版本号的 desktop Release 中。" --prerelease
+            gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "ClawMaster Desktop ${RELEASE_TAG#desktop-v}" --notes-file apps/desktop-tauri/release-notes.md --prerelease --latest=false
           fi

@@ -48,6 +48,7 @@ pub fn build_wsl_web_command(spec: &WslLaunchSpec) -> Result<WslCommand, String>
         "/usr/bin/env".into(),
         format!("PATH={}", spec.linux_path),
         format!("DSH_HOME={}", spec.linux_dsh_home),
+        "DSH_DESKTOP_DEFAULTS=1".into(),
         "NODE_ENV=production".into(),
     ];
 
@@ -61,6 +62,8 @@ pub fn build_wsl_web_command(spec: &WslLaunchSpec) -> Result<WslCommand, String>
     args.push(r#"echo $$ >&2; exec "$@""#.into());
     args.push("sh".into());
     args.push(spec.linux_node.clone());
+    args.push("--import".into());
+    args.push(format!("{}/desktop-defaults.mjs", spec.linux_harness_root));
     args.push(spec.linux_cli.clone());
     args.push("web".into());
 
@@ -115,6 +118,7 @@ mod tests {
             "/usr/bin/env".to_string(),
             "PATH=/home/u/.local/share/dsh-desktop/runtime/node/bin:/usr/bin".to_string(),
             "DSH_HOME=/home/u/.dsh".to_string(),
+            "DSH_DESKTOP_DEFAULTS=1".to_string(),
             "NODE_ENV=production".to_string(),
             "DSH_DESKTOP_NOTIFY_URL=http://127.0.0.1:17991/".to_string(),
             "/bin/sh".to_string(),
@@ -122,6 +126,8 @@ mod tests {
             r#"echo $$ >&2; exec "$@""#.to_string(),
             "sh".to_string(),
             "/home/u/.local/share/dsh-desktop/runtime/node/bin/node".to_string(),
+            "--import".to_string(),
+            "/home/u/.local/share/dsh-desktop/harness-versions/abc/desktop-defaults.mjs".to_string(),
             "/home/u/.local/share/dsh-desktop/harness-versions/abc/apps/cli/lib/bin.js".to_string(),
             "web".to_string(),
             "--patch".to_string(),

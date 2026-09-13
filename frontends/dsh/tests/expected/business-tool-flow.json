@@ -1,0 +1,22 @@
+{
+  "tools": ["csv_process", "enterprise_query", "enterprise_command", "enterprise_query"],
+  "csv": {
+    "rows": [["Synthetic Customer", "Fixture Company"]],
+    "duplicatesRemoved": 1
+  },
+  "initialContacts": [],
+  "receipt": {
+    "revision": 1,
+    "commandId": "save-synthetic-lead",
+    "type": "contact.upsert",
+    "entityId": "synthetic-lead"
+  },
+  "contacts": [{
+    "id": "synthetic-lead",
+    "name": "Synthetic Customer",
+    "company": "Fixture Company",
+    "stage": "lead",
+    "nextAction": "Review synthetic lead",
+    "nextActionDate": null
+  }]
+}
