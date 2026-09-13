@@ -46,15 +46,35 @@ describe('shipped artifact', () => {
     assert.equal(typeof shipped.defaultVaultRoot, 'function');
   });
 
-  it('serves the authenticated routes and seeds a fresh vault', async () => withArtifact(async host => {
+  it('registers every Notes route and seeds a fresh vault', async () => withArtifact(async host => {
     assert.deepEqual([...host.routes.keys()].sort(), [
       '/api/clawmaster/notes/backlinks',
       '/api/clawmaster/notes/command', '/api/clawmaster/notes/note',
+      '/api/clawmaster/notes/proposals', '/api/clawmaster/notes/revision',
       '/api/clawmaster/notes/search', '/api/clawmaster/notes/tags', '/api/clawmaster/notes/tree',
     ]);
     const response = await host.routes.get(NOTES_TREE_PATH).fetch(new Request(`http://localhost${NOTES_TREE_PATH}`));
     assert.equal(response.status, 200);
     assert.deepEqual((await response.json()).notes.map(note => note.id), ['欢迎.md']);
+  }));
+
+  it('returns JSON from every built route, including both live-refresh endpoints', async () => withArtifact(async host => {
+    const prefix = '/api/clawmaster/notes/';
+    for (const [path, query] of [
+      ['tree', ''], ['note', '?id=' + encodeURIComponent('欢迎.md')], ['search', '?q=ClawMaster'],
+      ['tags', ''], ['backlinks', '?id=' + encodeURIComponent('欢迎.md')], ['proposals', ''], ['revision', ''],
+    ]) {
+      const response = await host.routes.get(prefix + path).fetch(new Request('http://localhost' + prefix + path + query));
+      assert.equal(response.status, 200, path);
+      assert.match(response.headers.get('content-type'), /application\/json/, path);
+      assert.equal(typeof await response.json(), 'object', path);
+    }
+    const invalid = await host.routes.get(NOTES_COMMAND_PATH).fetch(command({ request: { action: 'missing' } }));
+    assert.equal(invalid.status, 400);
+    assert.equal((await invalid.json()).error.code, 'invalid_request');
+    const missing = await host.routes.get(prefix + 'note').fetch(new Request('http://localhost' + prefix + 'note?id=missing.md'));
+    assert.equal(missing.status, 404);
+    assert.equal((await missing.json()).error.code, 'not_found');
   }));
 
   it('commits an approved daily entry to disk', async () => withArtifact(async (host, root) => {
@@ -87,3 +107,25 @@ describe('shipped artifact', () => {
     assert.equal(host.tools.size, 0);
   }));
 });
+
+
+it('changes the built revision for a proposal and its discard without editing a note', async () => withArtifact(async (host, root) => {
+  const prefix = '/api/clawmaster/notes/';
+  const get = async path => (await host.routes.get(prefix + path).fetch(new Request('http://localhost' + prefix + path))).json();
+  const source = await readFile(join(root, '欢迎.md'), 'utf8');
+  const before = (await get('revision')).version;
+  const drafted = await host.tools.get('notes_propose').execute(
+    { id: '欢迎.md', text: 'pending draft only' },
+    { name: 'notes_propose', callId: 'proposal', agent: {}, signal: new AbortController().signal },
+  );
+  const pending = await get('proposals');
+  assert.equal(pending.proposals.length, 1);
+  const after = (await get('revision')).version;
+  assert.notEqual(after, before);
+  assert.equal(await readFile(join(root, '欢迎.md'), 'utf8'), source);
+  const discarded = await host.routes.get(NOTES_COMMAND_PATH).fetch(command({ request: { action: 'discard-proposal', proposalId: drafted.proposal.proposalId } }));
+  assert.equal(discarded.status, 200);
+  assert.deepEqual((await get('proposals')).proposals, []);
+  assert.equal((await get('revision')).version, before);
+  assert.equal(await readFile(join(root, '欢迎.md'), 'utf8'), source);
+}));

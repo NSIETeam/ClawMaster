@@ -1,8 +1,8 @@
 /** Browser-side Notes transport over the plugin's own authenticated Fetch routes. */
 import {
-  NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH,
-  noteCommandSchema, noteReadSchema, noteReceiptSchema, notesBacklinksSchema, notesFailureSchema, notesSearchSchema, notesTagsSchema, notesTreeSchema,
-  type NoteCommand, type NoteRead, type NoteReceipt, type NotesBacklinks, type NotesSearch, type NotesTags, type NotesTree,
+  NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH,
+  noteCommandSchema, noteReadSchema, noteReceiptSchema, notesBacklinksSchema, notesFailureSchema, notesProposalsSchema, notesRevisionSchema, notesSearchSchema, notesTagsSchema, notesTreeSchema,
+  type NoteCommand, type NoteRead, type NoteReceipt, type NotesBacklinks, type NotesProposals, type NotesRevision, type NotesSearch, type NotesTags, type NotesTree,
 } from './protocol.ts';
 
 /** One rejected Notes call, carrying the server's failure code and conflict revision. */
@@ -47,6 +47,16 @@ export class NotesApi {
     const params = new URLSearchParams({ q: query });
     if (limit !== undefined) params.set('limit', String(limit));
     return notesSearchSchema.parse(await this.call(`${NOTES_SEARCH_PATH}?${params}`));
+  }
+
+  /** Pending proposals with the diff each would apply. */
+  async proposals(): Promise<NotesProposals> {
+    return notesProposalsSchema.parse(await this.call(NOTES_PROPOSALS_PATH));
+  }
+
+  /** The current vault version, used to notice edits made outside this client. */
+  async revision(): Promise<NotesRevision['version']> {
+    return notesRevisionSchema.parse(await this.call(NOTES_REVISION_PATH)).version;
   }
 
   /** Every tag with its note count. */

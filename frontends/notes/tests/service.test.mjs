@@ -114,6 +114,28 @@ describe('daily workflow', () => {
   }));
 });
 
+describe('daily opening', () => {
+  it('opens the daily note without writing anything when the entry is empty', async () => withService(async service => {
+    const opened = await service.execute({ action: 'daily', text: '', date: '2026-09-13' });
+    assert.equal(opened.id, '日记/2026-09-13.md');
+    const text = (await service.read(opened.id)).text;
+    assert.equal(text.match(/^# 2026-09-13$/gm)?.length, 1);
+    assert.deepEqual((await service.tree()).notes.map(note => note.id), ['日记/2026-09-13.md']);
+
+    // A second open must not grow the note or change its revision.
+    const again = await service.execute({ action: 'daily', text: '', date: '2026-09-13' });
+    assert.equal(again.revision, opened.revision);
+    assert.equal((await service.read(opened.id)).text, text);
+  }));
+
+  it('still appends a real entry after the note was opened', async () => withService(async service => {
+    const opened = await service.execute({ action: 'daily', text: '', date: '2026-09-13' });
+    const written = await service.execute({ action: 'daily', text: '下午：修完 A1', date: '2026-09-13' });
+    assert.equal(written.previousRevision, opened.revision);
+    assert.match((await service.read(opened.id)).text, /下午：修完 A1/);
+  }));
+});
+
 describe('tags and metadata', () => {
   it('counts tags across notes, most used first', async () => withService(async service => {
     await service.execute({ action: 'create', id: 'a.md', text: '---\ntags: [工作, 项目]\n---\n#工作\n' });
@@ -168,4 +190,30 @@ describe('shared query budgets and concurrent commands', () => {
     for (const receipt of receipts) if (receipt.previousRevision !== null) assert.ok(revisions.has(receipt.previousRevision));
     assert.ok(revisions.has(note.revision));
   }));
+});
+
+
+describe('pending proposal diff budgets', () => {
+  it('bounds the combined before and after UTF-8 bytes across proposals', async () => withService(async service => {
+    for (const id of ['a.md', 'b.md']) {
+      await service.vault.create(id, '文'.repeat(150));
+      await service.propose(id, '稿'.repeat(30));
+    }
+    await assert.rejects(service.pendingProposals(), rejects('invalid_request'));
+    assert.equal((await service.proposals.list()).length, 2);
+    assert.equal((await service.read('a.md')).text, '文'.repeat(150));
+  }, { ...DEFAULT_LIMITS, maxReadBytes: 1000 }));
+
+  it('accepts combined diff inputs exactly at the byte budget', async () => withService(async service => {
+    await service.vault.create('a.md', '文'.repeat(250));
+    await service.propose('a.md', 'x'.repeat(250));
+    assert.equal((await service.pendingProposals()).length, 1);
+  }, { ...DEFAULT_LIMITS, maxReadBytes: 1000 }));
+
+  it('reports an over-budget source instead of rendering it as a missing note', async () => withService(async service => {
+    const original = await service.vault.create('a.md', 'small');
+    await service.propose('a.md', 'draft');
+    await service.vault.save('a.md', 'x'.repeat(1001), original);
+    await assert.rejects(service.pendingProposals(), rejects('invalid_request'));
+  }, { ...DEFAULT_LIMITS, maxReadBytes: 1000 }));
 });

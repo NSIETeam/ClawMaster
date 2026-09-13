@@ -35,7 +35,8 @@
     "build": "node scripts/build.mjs",
     "check": "node scripts/build.mjs --check",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/build.mjs && node --import tsx/esm --test tests/*.test.mjs"
+    "test": "node scripts/build.mjs && node --import tsx/esm --test tests/*.test.mjs",
+    "test:client": "vitest run --config tests/vitest.client.config.ts"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.0.2"

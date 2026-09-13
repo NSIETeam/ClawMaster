@@ -3,9 +3,15 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { ReactNode } from 'react';
 import { NotesApi, NotesApiError } from './notes-api.ts';
 import { inlineTokens, parseMarkdown, type Block } from './markdown.ts';
-import type { NoteEntry, NoteRead } from './protocol.ts';
+import type { NoteEntry, NoteMatch, NoteRead, Proposal, UnifiedDiff } from './protocol.ts';
 import { extractLinks, noteTitle, parseFrontmatter } from './note-format.ts';
 import { notesCopy, type NotesLocale } from './locales.ts';
+import { ancestorsOf, buildTree, flattenTree } from './tree.ts';
+import {
+  BacklinkIcon, CalendarIcon, CanvasIcon, ChevronIcon, EditIcon, FolderIcon, FolderOpenIcon,
+  InfoIcon, NoteIcon, PlusIcon, PreviewIcon, ProposalIcon, RenameIcon, SaveIcon, SearchIcon,
+  TagIcon, TrashIcon,
+} from './icons.tsx';
 import styles from './styles.css';
 
 export const name = 'clawmaster-notes';
@@ -20,6 +26,7 @@ export interface NotesClientServices {
       id: string;
       title: string | (() => string);
       description?: string | (() => string);
+      icon?: ReactNode | ((size: number) => ReactNode);
       order?: number;
       single?: boolean;
       component(props: { scope: { sessionId: string }; visible: boolean }): ReactNode;
@@ -33,6 +40,22 @@ type Drafts = Map<string, NoteDraft>;
 type Status = { state: 'loading' | 'idle' | 'dirty' | 'saving' | 'saved' | 'conflict' | 'error'; message?: string };
 
 const HEADINGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const;
+
+/**
+ * Sidebar glyph for the notes tab.
+ * Drawn inline as SVG like every other product tab, so the module ships no raster asset.
+ */
+function NotesIcon({ size = 18 }: { size?: number }): ReactNode {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+    <rect x="4" y="3" width="16" height="18" rx="3" />
+    <path d="M8 3v18" />
+    <path d="M12 8.5h5M12 12.5h5" />
+  </svg>;
+}
+
+/** How often a visible notes panel asks whether the vault changed underneath it. */
+const REVISION_POLL_MS = 4000;
 
 /** Render one inline run: wiki links become in-panel navigation, never raw markup. */
 function InlineView({ text, onWiki }: { text: string; onWiki: (target: string) => void }): ReactNode {
@@ -65,7 +88,7 @@ function BlockView({ block, onWiki }: { block: Block; onWiki: (target: string) =
 }
 
 /** The sidebar notes page: vault tree, editor, preview, backlinks, tags and search. */
-function NotesPanel({ ctx, drafts }: { ctx: NotesClientServices; drafts: Drafts }): ReactNode {
+function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts: Drafts; visible: boolean }): ReactNode {
   const locale: NotesLocale = useSyncExternalStore(
     listener => ctx.locale.subscribe(listener),
     () => ctx.locale.getSnapshot().active,
@@ -79,13 +102,23 @@ function NotesPanel({ ctx, drafts }: { ctx: NotesClientServices; drafts: Drafts 
   const [status, setStatus] = useState<Status>({ state: 'idle' });
   const [backlinks, setBacklinks] = useState<NoteEntry[]>([]);
   const [tags, setTags] = useState<Array<{ tag: string; count: number }>>([]);
+  const [proposals, setProposals] = useState<Array<{ proposal: Proposal; diff: UnifiedDiff }>>([]);
+  // Folder ids whose children are hidden; empty means every folder starts expanded.
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const [query, setQuery] = useState('');
-  const [matches, setMatches] = useState<NoteEntry[]>();
+  const [matches, setMatches] = useState<NoteMatch[]>();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [confirmation, setConfirmation] = useState<'delete' | 'reload'>();
+  const [wiki, setWiki] = useState<{ target: string; candidates: NoteEntry[] }>();
+  const [renaming, setRenaming] = useState<string>();
+  const [renameDraft, setRenameDraft] = useState('');
   const busy = useRef(false);
   const generation = useRef(0);
+  const vaultVersion = useRef<string>();
+  // Read through a ref so the poll below never restarts on a keystroke.
+  const latest = useRef<{ open: NoteRead | undefined; draft: string }>({ open: undefined, draft: '' });
+  latest.current = { open, draft };
   useEffect(() => () => { generation.current += 1; }, []);
 
   const fail = useCallback((error: unknown) => {
@@ -100,13 +133,50 @@ function NotesPanel({ ctx, drafts }: { ctx: NotesClientServices; drafts: Drafts 
 
   const refresh = useCallback(async () => {
     try {
-      const [tree, tagList] = await Promise.all([api.tree(), api.tags()]);
+      const [tree, tagList, pending] = await Promise.all([api.tree(), api.tags(), api.proposals()]);
       setEntries(tree.notes);
       setTags(tagList.tags);
+      setProposals(pending.proposals);
     } catch (error) { fail(error); }
   }, [api, fail]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  // Live refresh: an external edit (an editor or the agent writing files) is noticed by
+  // version, then applied without ever discarding an unsaved draft.
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        if (busy.current) return;
+        const current = await api.revision();
+        if (cancelled || busy.current) return;
+        const previous = vaultVersion.current;
+        vaultVersion.current = current;
+        if (previous === undefined || previous === current) return;
+        await refresh();
+        if (cancelled) return;
+        const currentNote = latest.current.open;
+        if (currentNote === undefined) return;
+        const readGeneration = generation.current;
+        const fresh = await api.read(currentNote.id);
+        if (cancelled || busy.current || readGeneration !== generation.current) return;
+        const editor = latest.current;
+        if (editor.open?.id !== currentNote.id || editor.open.revision !== currentNote.revision) return;
+        if (fresh.revision === currentNote.revision) return;
+        if (editor.draft !== editor.open.text) {
+          setStatus({ state: 'conflict', message: copy.external });
+          return;
+        }
+        setOpen(fresh);
+        setDraft(fresh.text);
+      } catch { /* a failed poll is not something the user needs to act on */ }
+    };
+    void poll();
+    const timer = setInterval(() => { void poll(); }, REVISION_POLL_MS);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [api, copy, refresh, visible]);
 
   const openNote = useCallback(async (id: string, reload = false) => {
     if (busy.current) return;
@@ -123,6 +193,14 @@ function NotesPanel({ ctx, drafts }: { ctx: NotesClientServices; drafts: Drafts 
       setMode('edit');
       setStatus({ state: 'idle' });
       setBacklinks([]);
+      // A selection made from a link, a search hit or a backlink must be visible in the tree.
+      setCollapsed(current => {
+        const ancestors = ancestorsOf(id);
+        if (!ancestors.some(folder => current.has(folder))) return current;
+        const next = new Set(current);
+        for (const folder of ancestors) next.delete(folder);
+        return next;
+      });
       const linked = await api.backlinks(id);
       if (requestGeneration === generation.current) setBacklinks(linked.notes);
     } catch (error) { if (requestGeneration === generation.current) fail(error); }
@@ -183,31 +261,135 @@ function NotesPanel({ ctx, drafts }: { ctx: NotesClientServices; drafts: Drafts 
     finally { busy.current = false; }
   }, [api, drafts, fail, refresh]);
 
+  /** Apply a reviewed proposal; the vault refuses when the note moved since it was drafted. */
+  const applyProposal = useCallback(async (proposalId: string) => {
+    if (busy.current) return;
+    busy.current = true;
+    setStatus({ state: 'saving' });
+    try {
+      const receipt = await api.command({ action: 'apply-proposal', proposalId });
+      await refresh();
+      busy.current = false;
+      await openNote(receipt.id);
+      if (drafts.has(receipt.id)) setStatus({ state: 'conflict', message: copy.external });
+    } catch (error) { fail(error); }
+    finally { busy.current = false; }
+  }, [api, copy, drafts, fail, openNote, refresh]);
+
+  /** Drop a proposal without touching the note. */
+  const discardProposal = useCallback(async (proposalId: string) => {
+    if (busy.current) return;
+    busy.current = true;
+    setStatus({ state: 'saving' });
+    try {
+      await api.command({ action: 'discard-proposal', proposalId });
+      setStatus({ state: 'idle' });
+      await refresh();
+    } catch (error) { fail(error); }
+    finally { busy.current = false; }
+  }, [api, fail, refresh]);
+
   const runSearch = useCallback(async () => {
     if (query.trim() === '') { setMatches(undefined); return; }
-    try { setMatches((await api.search(query.trim())).matches.map(match => ({ id: match.id, title: match.title, dir: '', size: 0, mtimeMs: 0 }))); }
+    try { setMatches((await api.search(query.trim())).matches); }
     catch (error) { fail(error); }
   }, [api, fail, query]);
 
+  /** Resolve a wiki target to every candidate; ambiguity and absence are surfaced, never guessed. */
   const openWiki = useCallback((target: string) => {
     const wanted = target.endsWith('.md') ? target : `${target}.md`;
-    const hit = (entries ?? []).find(entry => entry.id === target || entry.id === wanted
-      || entry.id.replace(/\.md$/, '').endsWith(`/${target}`));
-    if (hit) { void openNote(hit.id); return; }
-    setStatus({ state: 'error', message: copy.missingTarget });
-  }, [copy, entries, openNote]);
+    const bare = target.replace(/\.md$/, '');
+    const candidates = (entries ?? []).filter(entry => {
+      const idBare = entry.id.replace(/\.md$/, '');
+      return entry.id === target || entry.id === wanted || idBare === bare
+        || idBare.split('/').pop() === bare || idBare.endsWith(`/${bare}`);
+    });
+    const [only] = candidates;
+    if (candidates.length === 1 && only !== undefined) { void openNote(only.id); return; }
+    setWiki({ target: bare, candidates });
+  }, [entries, openNote]);
+
+  /** Create the note a wiki link points at, then open it. */
+  const createFromWiki = useCallback(async (target: string) => {
+    const id = target.endsWith('.md') ? target : `${target}.md`;
+    try {
+      await api.command({ action: 'create', id, text: `# ${target.replace(/\.md$/, '')}\n` });
+      setWiki(undefined);
+      await refresh();
+      await openNote(id);
+    } catch (error) { fail(error); }
+  }, [api, fail, openNote, refresh]);
+
+  /** Rename the open note; the vault refuses to clobber an existing target. */
+  const renameNote = useCallback(async (to: string) => {
+    if (!open || busy.current) return;
+    const trimmed = to.trim();
+    const target = trimmed.endsWith('.md') ? trimmed : `${trimmed}.md`;
+    if (trimmed === '' || target === open.id) { setRenaming(undefined); return; }
+    busy.current = true;
+    setStatus({ state: 'saving' });
+    try {
+      await api.command({ action: 'rename', id: open.id, to: target });
+      const retained = drafts.get(open.id);
+      if (retained) {
+        drafts.set(target, { note: { ...retained.note, id: target }, text: retained.text });
+        drafts.delete(open.id);
+      }
+      setRenaming(undefined);
+      await refresh();
+      busy.current = false;
+      await openNote(target);
+    } catch (error) { fail(error); }
+    finally { busy.current = false; }
+  }, [api, drafts, fail, open, openNote, refresh]);
+
+  /** Open today's daily note, creating it when it does not exist yet. */
+  const openToday = useCallback(async () => {
+    if (busy.current) return;
+    busy.current = true;
+    setStatus({ state: 'saving' });
+    try {
+      const receipt = await api.command({ action: 'daily', text: '' });
+      await refresh();
+      busy.current = false;
+      await openNote(receipt.id);
+    } catch (error) { fail(error); }
+    finally { busy.current = false; }
+  }, [api, fail, openNote, refresh]);
 
   const dirty = open !== undefined && draft !== open.text;
-  const shown = matches ?? entries;
+  const isCanvas = open !== undefined && open.id.endsWith('.canvas');
   const blocks = useMemo(() => parseMarkdown(draft), [draft]);
+  const tree = useMemo(() => buildTree(entries ?? []), [entries]);
+  const rows = useMemo(() => flattenTree(tree, collapsed), [tree, collapsed]);
+
+  const toggleFolder = useCallback((id: string) => {
+    setCollapsed(current => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   return <section className="cm-notes" aria-label={copy.tab}>
     <div className="cm-notes-bar">
-      <input value={query} placeholder={copy.searchPlaceholder} aria-label={copy.search}
-        onChange={event => setQuery(event.target.value)}
-        onKeyDown={event => { if (event.key === 'Enter') void runSearch(); }} />
-      <button type="button" onClick={() => { setQuery(''); setMatches(undefined); }}>{copy.cancel}</button>
-      <button type="button" onClick={() => setCreating(value => !value)}>{copy.newNote}</button>
+      <div className="cm-notes-search">
+        <SearchIcon size={14} className="cm-notes-glyph" />
+        <input value={query} placeholder={copy.searchPlaceholder} aria-label={copy.search}
+          onChange={event => setQuery(event.target.value)}
+          onKeyDown={event => { if (event.key === 'Enter') void runSearch(); }} />
+        {query !== ''
+          && <button type="button" className="cm-notes-clear" onClick={() => { setQuery(''); setMatches(undefined); }}>{copy.cancel}</button>}
+      </div>
+      <div className="cm-notes-tools">
+        <button type="button" className="cm-notes-tool" onClick={() => void openToday()}>
+          <CalendarIcon size={14} />{copy.todayNote}
+        </button>
+        <button type="button" className="cm-notes-tool" onClick={() => setCreating(value => !value)}>
+          <PlusIcon size={14} />{copy.newNote}
+        </button>
+      </div>
     </div>
     {creating && <div className="cm-notes-create">
       <input autoFocus value={newName} placeholder={copy.noteName} aria-label={copy.noteName}
@@ -216,27 +398,65 @@ function NotesPanel({ ctx, drafts }: { ctx: NotesClientServices; drafts: Drafts 
       <button type="button" onClick={() => void createNote()}>{copy.create}</button>
     </div>}
     <div className="cm-notes-body">
-      {shown === undefined
-        ? <p className="cm-notes-empty">{copy.loading}</p>
-        : shown.length === 0
-          ? <p className="cm-notes-empty">{matches === undefined ? copy.empty : copy.noResults}</p>
-          : shown.map(entry => <div key={entry.id}>
-            <button type="button" className="cm-notes-item" data-active={open?.id === entry.id}
-              disabled={status.state === 'saving'} onClick={() => void openNote(entry.id)}>
-              <span>{entry.title}</span>
-              {' '}<small>{drafts.has(entry.id) ? copy.dirty : entry.dir}</small>
+      {matches !== undefined
+        ? matches.length === 0
+          ? <p className="cm-notes-empty">{copy.noResults}</p>
+          : matches.map(match => <div key={`${match.id}:${match.lineNumber}`} className="cm-notes-hit">
+            <button type="button" className="cm-notes-item" disabled={status.state === 'saving'}
+              onClick={() => void openNote(match.id)}>
+              <NoteIcon size={14} className="cm-notes-glyph" />
+              <span className="cm-notes-label">{match.title}</span>
+              {/* The separator keeps the row's accessible name readable ("Alpha line 3");
+                  a whitespace-only node is ignored by the flex layout, so the 6px row gap
+                  alone decides the spacing. */}
+              {' '}
+              <small className="cm-notes-meta">{copy.line} {match.lineNumber}</small>
             </button>
-          </div>)}
+            <p className="cm-notes-match">{match.line}</p>
+          </div>)
+        : rows.length === 0
+          ? <p className="cm-notes-empty">{copy.empty}</p>
+          : rows.map(row => row.kind === 'folder'
+            ? <button key={`folder:${row.id}`} type="button" className="cm-notes-item cm-notes-folder"
+              style={{ paddingLeft: row.depth * 22 + 6 }}
+              aria-expanded={!collapsed.has(row.id)} disabled={status.state === 'saving'}
+              onClick={() => toggleFolder(row.id)}>
+              <ChevronIcon size={12} className={collapsed.has(row.id) ? 'cm-notes-chevron' : 'cm-notes-chevron cm-notes-chevron-open'} />
+              {collapsed.has(row.id)
+                ? <FolderIcon size={14} className="cm-notes-glyph" />
+                : <FolderOpenIcon size={14} className="cm-notes-glyph" />}
+              <span className="cm-notes-label">{row.name}</span>
+            </button>
+            : <button key={row.id} type="button" className="cm-notes-item" data-active={open?.id === row.id}
+              style={{ paddingLeft: row.depth * 22 + 6 + 18 }}
+              disabled={status.state === 'saving'} onClick={() => void openNote(row.id)}>
+              {row.id.endsWith('.canvas')
+                ? <CanvasIcon size={14} className="cm-notes-glyph" />
+                : <NoteIcon size={14} className="cm-notes-glyph" />}
+              <span className="cm-notes-label">{row.name}</span>
+              {/* Same separator rule as a search hit: the unsaved badge must not fuse into
+                  the note name for assistive technology ("Alpha Unsaved", not "AlphaUnsaved"). */}
+              {drafts.has(row.id) && <>{' '}<small className="cm-notes-badge">{copy.dirty}</small></>}
+            </button>)}
     </div>
     {open && <div className="cm-notes-editor">
       <div className="cm-notes-head">
         <h2>{open.title}</h2>
         <div className="cm-notes-actions">
-          <button type="button" onClick={() => setMode(value => value === 'edit' ? 'preview' : 'edit')}>
+          {!isCanvas && <button type="button" className="cm-notes-action" disabled={status.state === 'saving'}
+            onClick={() => { setRenaming(open.id); setRenameDraft(open.id.replace(/\.md$/, '')); }}>
+            <RenameIcon size={14} />{copy.rename}
+          </button>}
+          <button type="button" className="cm-notes-action" onClick={() => setMode(value => value === 'edit' ? 'preview' : 'edit')}>
+            {mode === 'edit' ? <PreviewIcon size={14} /> : <EditIcon size={14} />}
             {mode === 'edit' ? copy.preview : copy.edit}
           </button>
-          <button type="button" disabled={!dirty || status.state === 'saving'} onClick={() => void save()}>{copy.save}</button>
-          <button type="button" disabled={status.state === 'saving'} onClick={() => setConfirmation('delete')}>{copy.delete}</button>
+          <button type="button" className="cm-notes-action" disabled={isCanvas || !dirty || status.state === 'saving'} onClick={() => void save()}>
+            <SaveIcon size={14} />{copy.save}
+          </button>
+          <button type="button" className="cm-notes-action" disabled={status.state === 'saving'} onClick={() => setConfirmation('delete')}>
+            <TrashIcon size={14} />{copy.delete}
+          </button>
         </div>
       </div>
       {confirmation && <div role="alertdialog" aria-label={confirmation === 'delete' ? copy.delete : copy.conflictReload}>
@@ -246,18 +466,52 @@ function NotesPanel({ ctx, drafts }: { ctx: NotesClientServices; drafts: Drafts 
           {confirmation === 'delete' ? copy.delete : copy.conflictReload}
         </button>
       </div>}
-      {mode === 'edit'
-        ? <textarea value={draft} readOnly={status.state === 'saving' || status.state === 'loading'} spellCheck={false} aria-label={copy.edit} onChange={event => {
-          const text = event.target.value;
-          setDraft(text);
-          if (text === open.text) drafts.delete(open.id);
-          else drafts.set(open.id, { note: open, text });
-        }} />
-        : <div className="cm-notes-preview">{blocks.map((block, index) => <BlockView key={index} block={block} onWiki={openWiki} />)}</div>}
+      {wiki && <div role="alertdialog" aria-label={copy.wikiMissing}>
+        {wiki.candidates.length === 0
+          ? <p>{copy.wikiMissing}</p>
+          : <>
+            <p>{copy.wikiAmbiguous}</p>
+            {wiki.candidates.map(candidate => <button key={candidate.id} type="button" className="cm-notes-item"
+              onClick={() => { setWiki(undefined); void openNote(candidate.id); }}><span>{candidate.title}</span></button>)}
+          </>}
+        <button type="button" onClick={() => setWiki(undefined)}>{copy.cancel}</button>
+        {wiki.candidates.length === 0
+          && <button type="button" onClick={() => void createFromWiki(wiki.target)}>{copy.wikiCreate}</button>}
+      </div>}
+      {renaming !== undefined && <div role="alertdialog" aria-label={copy.rename}>
+        <input autoFocus value={renameDraft} aria-label={copy.renameLabel}
+          onChange={event => setRenameDraft(event.target.value)}
+          onKeyDown={event => { if (event.key === 'Enter') void renameNote(renameDraft); }} />
+        <button type="button" onClick={() => setRenaming(undefined)}>{copy.cancel}</button>
+        <button type="button" onClick={() => void renameNote(renameDraft)}>{copy.rename}</button>
+      </div>}
+      {isCanvas
+        ? <>
+          <p className="cm-notes-canvas-notice"><InfoIcon size={13} />{copy.canvasReadOnly}</p>
+          <pre className="cm-notes-canvas">{draft}</pre>
+        </>
+        : mode === 'edit'
+          ? <textarea value={draft} readOnly={status.state === 'saving' || status.state === 'loading'} spellCheck={false} aria-label={copy.edit} onChange={event => {
+            const text = event.target.value;
+            setDraft(text);
+            if (text === open.text) drafts.delete(open.id);
+            else drafts.set(open.id, { note: open, text });
+          }} />
+          : <div className="cm-notes-preview">{blocks.map((block, index) => <BlockView key={index} block={block} onWiki={openWiki} />)}</div>}
       <div className="cm-notes-side">
-        <h3>{copy.backlinks}</h3>
+        <h3 className="cm-notes-section"><ProposalIcon size={13} />{copy.proposals}</h3>
+        {proposals.length === 0 ? <p>{copy.noProposals}</p> : proposals.map(entry => <div key={entry.proposal.proposalId} className="cm-notes-proposal">
+          <button type="button" className="cm-notes-item" disabled={status.state === 'saving'}
+            onClick={() => void openNote(entry.proposal.id)}><span>{entry.proposal.id}</span></button>
+          <pre className="cm-notes-diff">{entry.diff.lines.map(line => `${line.kind === 'add' ? '+' : line.kind === 'remove' ? '-' : ' '} ${line.text}`).join('\n')}</pre>
+          <div className="cm-notes-actions">
+            <button type="button" disabled={status.state === 'saving'} onClick={() => void applyProposal(entry.proposal.proposalId)}>{copy.applyProposal}</button>
+            <button type="button" disabled={status.state === 'saving'} onClick={() => void discardProposal(entry.proposal.proposalId)}>{copy.discardProposal}</button>
+          </div>
+        </div>)}
+        <h3 className="cm-notes-section"><BacklinkIcon size={13} />{copy.backlinks}</h3>
         {backlinks.length === 0 ? <p>{copy.noBacklinks}</p> : backlinks.map(entry => <button key={entry.id} type="button" className="cm-notes-item" disabled={status.state === 'saving'} onClick={() => void openNote(entry.id)}><span>{entry.title}</span></button>)}
-        <h3>{copy.tags}</h3>
+        <h3 className="cm-notes-section"><TagIcon size={13} />{copy.tags}</h3>
         {tags.length === 0 ? <p>{copy.noTags}</p> : tags.map(tag => <span key={tag.tag} className="cm-notes-chip">{tag.tag} · {tag.count}</span>)}
       </div>
     </div>}
@@ -293,12 +547,13 @@ export function apply(ctx: NotesClientServices): void {
     id: 'clawmaster:notes',
     title: () => notesCopy(ctx.locale.getSnapshot().active.startsWith('zh') ? 'zh-CN' : 'en-US').tab,
     description: () => notesCopy(ctx.locale.getSnapshot().active.startsWith('zh') ? 'zh-CN' : 'en-US').tabDescription,
+    icon: size => <NotesIcon size={size} />,
     order: 30,
     single: true,
-    component: ({ scope }) => {
+    component: ({ scope, visible }) => {
       let drafts = sessions.get(scope.sessionId);
       if (!drafts) { drafts = new Map(); sessions.set(scope.sessionId, drafts); }
-      return <NotesPanel key={scope.sessionId} ctx={ctx} drafts={drafts} />;
+      return <NotesPanel key={scope.sessionId} ctx={ctx} drafts={drafts} visible={visible} />;
     },
   }), 'clawmaster: notes tab');
 }

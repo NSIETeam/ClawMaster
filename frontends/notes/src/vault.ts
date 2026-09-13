@@ -116,6 +116,16 @@ export interface VaultQueryLimits { maxReadBytes: number; maxTreeEntries: number
 /** The revisions observed and committed under one writer lock. */
 export interface VaultChange { revision: string; previousRevision: string | null }
 
+/** Complete UTF-8 file content and the revision of the bytes read. */
+export interface VaultFileContents { text: string; revision: string }
+
+function metadataId(namespace: string, name?: string): string {
+  if (!/^[a-z][a-z0-9-]*$/.test(namespace) || name !== undefined && !/^[a-zA-Z0-9][a-zA-Z0-9_-]*\.json$/.test(name)) {
+    throw new VaultError('invalid_path', 'Vault metadata requires a plain namespace and JSON filename.');
+  }
+  return `.clawmaster/${namespace}${name === undefined ? '' : `/${name}`}`;
+}
+
 function isMissing(error: unknown): boolean {
   return (error as NodeJS.ErrnoException | null)?.code === 'ENOENT';
 }
@@ -259,9 +269,7 @@ export class Vault {
     } catch (error) { throw storageError(error); }
   }
 
-  /** Read at most maxBytes; both the initial size and bytes arriving after that check are bounded. */
-  async read(id: string, maxBytes: number): Promise<NoteDocument> {
-    const safe = assertNoteId(id);
+  private async readContents(safe: string, maxBytes: number): Promise<VaultFileContents> {
     try {
       const { handle, info } = await this.openNote(safe);
       let bytes: Buffer;
@@ -277,14 +285,73 @@ export class Vault {
         }
         bytes = Buffer.concat(chunks, size);
       } finally { await handle.close(); }
-      const text = bytes.toString('utf8');
-      const head = parseFrontmatter(text);
-      const links = extractLinks(text);
-      return { id: safe, title: noteTitle(safe, head.data, head.body), text, revision: revisionOf(bytes), links: links.links, embeds: links.embeds, tags: links.tags };
+      return { text: bytes.toString('utf8'), revision: revisionOf(bytes) };
     } catch (error) {
       if (isMissing(error)) throw new VaultError('not_found', `Note ${safe} does not exist.`);
       throw storageError(error);
     }
+  }
+
+  /** Read at most maxBytes; both the initial size and bytes arriving after that check are bounded. */
+  async read(id: string, maxBytes: number): Promise<NoteDocument> {
+    const safe = assertNoteId(id);
+    const contents = await this.readContents(safe, maxBytes);
+    const head = parseFrontmatter(contents.text);
+    const links = extractLinks(contents.text);
+    return { id: safe, title: noteTitle(safe, head.data, head.body), ...contents, links: links.links, embeds: links.embeds, tags: links.tags };
+  }
+
+  /** Read one private JSON file with the same link checks and byte bound as notes. */
+  async readMetadata(namespace: string, name: string, maxBytes: number): Promise<VaultFileContents> {
+    return this.readContents(metadataId(namespace, name), maxBytes);
+  }
+
+  /** Publish complete private JSON without replacing an existing file, under the vault writer lock. */
+  async createMetadata(namespace: string, name: string, text: string, maxBytes: number): Promise<string> {
+    const id = metadataId(namespace, name);
+    if (Buffer.byteLength(text, 'utf8') > maxBytes) throw new VaultError('invalid_request', `Metadata exceeds the ${maxBytes} byte limit.`);
+    return this.mutate(async () => {
+      const checked = await this.checkedPath(id, 'file', true);
+      if (checked.info) {
+        const current = await this.readContents(id, maxBytes);
+        throw new VaultError('conflict', `Metadata ${id} already exists.`, current.revision);
+      }
+      return this.createLocked(id, text);
+    });
+  }
+
+  /** Remove only a checked regular metadata file; an absent file is already discarded. */
+  async removeMetadata(namespace: string, name: string): Promise<void> {
+    const id = metadataId(namespace, name);
+    await this.mutate(async () => {
+      let checked;
+      try { checked = await this.checkedPath(id, 'file'); } catch (error) {
+        if (error instanceof VaultError && error.code === 'not_found') return;
+        throw error;
+      }
+      if (checked.info) await unlink(checked.path);
+    });
+  }
+
+  /** List private JSON filenames under an entry budget, refusing linked files and directories. */
+  async listMetadata(namespace: string, maxEntries: number): Promise<string[]> {
+    const id = metadataId(namespace);
+    try {
+      let directory;
+      try { directory = await this.checkedPath(id, 'directory'); } catch (error) {
+        if (error instanceof VaultError && error.code === 'not_found') return [];
+        throw error;
+      }
+      const names: string[] = [];
+      let count = 0;
+      for await (const entry of await opendir(directory.path)) {
+        if (count++ >= maxEntries) throw new VaultError('invalid_request', `Metadata exceeds the ${maxEntries} entry limit.`);
+        if (!entry.name.endsWith('.json')) continue;
+        await this.checkedPath(metadataId(namespace, entry.name), 'file');
+        names.push(entry.name);
+      }
+      return names.sort();
+    } catch (error) { throw storageError(error); }
   }
 
   private async createLocked(id: string, text: string): Promise<string> {

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH } from '../src/protocol.ts';
+import { NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH } from '../src/protocol.ts';
 import { apply, defaultVaultRoot, runQuery } from '../src/host.ts';
 import { NotesService } from '../src/service.ts';
 import { Vault } from '../src/vault.ts';
@@ -65,7 +65,7 @@ describe('default vault root', () => {
 describe('route contract', () => {
   it('registers notes routes with the right methods', async () => withHost(async host => {
     assert.deepEqual([...host.routes.keys()].sort(),
-      [NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH].sort());
+      [NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH].sort());
     for (const route of host.routes.values()) assert.equal(route.requestBody, 'buffered');
     assert.deepEqual(host.routes.get(NOTES_TREE_PATH).methods, ['GET']);
     assert.deepEqual(host.routes.get(NOTES_NOTE_PATH).methods, ['GET']);
@@ -73,6 +73,8 @@ describe('route contract', () => {
     assert.deepEqual(host.routes.get(NOTES_TAGS_PATH).methods, ['GET']);
     assert.deepEqual(host.routes.get(NOTES_COMMAND_PATH).methods, ['POST']);
     assert.deepEqual(host.routes.get(NOTES_BACKLINKS_PATH).methods, ['GET']);
+    assert.deepEqual(host.routes.get(NOTES_REVISION_PATH).methods, ['GET']);
+    assert.deepEqual(host.routes.get(NOTES_PROPOSALS_PATH).methods, ['GET']);
   }));
 
   it('serves the tree and seeds a fresh vault', async () => withHost(async (host, root) => {
@@ -178,24 +180,57 @@ describe('route contract', () => {
 });
 
 describe('tool surface', () => {
-  it('cancels an outstanding approval and refuses its late allow after unloading', async () => withHost(async (host, root) => {
-    const requested = Promise.withResolvers();
-    const answer = Promise.withResolvers();
-    host.ctx.approval.request = request => { requested.resolve(request); return answer.promise; };
-    const operation = host.tools.get('notes_write').execute(
-      { request: { action: 'create', id: 'late.md', text: 'must not be written' } },
-      { name: 'notes_write', callId: 'late', agent: {}, signal: new AbortController().signal },
-    );
-    const outcome = operation.then(() => undefined, error => error);
-    const request = await requested.promise;
-    const aborted = new Promise(resolve => request.signal.addEventListener('abort', resolve, { once: true }));
-    const disposed = host.dispose();
-    await aborted;
-    assert.equal(host.tools.size, 0);
-    answer.resolve('allowed-once');
-    assert.match((await outcome).message, /unloaded/);
-    await disposed;
-    await assert.rejects(readFile(join(root, 'late.md')), { code: 'ENOENT' });
+  for (const [name, args, id] of [
+    ['notes_write', { request: { action: 'create', id: 'late.md', text: 'must not be written' } }, 'late.md'],
+    ['notes_digest', { summary: 'must not be written', date: '2026-09-13' }, '日记/2026-09-13.md'],
+  ]) {
+    it(`cancels an outstanding ${name} approval and refuses its late allow after unloading`, async () => withHost(async (host, root) => {
+      const requested = Promise.withResolvers();
+      const answer = Promise.withResolvers();
+      host.ctx.approval.request = request => { requested.resolve(request); return answer.promise; };
+      const operation = host.tools.get(name).execute(args,
+        { name, callId: 'late', agent: {}, signal: new AbortController().signal });
+      const outcome = operation.then(() => undefined, error => error);
+      const request = await requested.promise;
+      let completed = false;
+      const disposed = host.dispose().then(() => { completed = true; });
+      await Promise.resolve();
+      assert.equal(request.signal.aborted, true);
+      assert.equal(completed, false, 'disposal waits for the outstanding operation');
+      answer.resolve('allowed-once');
+      assert.match((await outcome).message, /unloaded/);
+      await disposed;
+      assert.equal(host.tools.size, 0);
+      await assert.rejects(readFile(join(root, id)), { code: 'ENOENT' });
+    }));
+  }
+
+  it('rejects a retained propose tool after unloading without creating metadata', async () => withHost(async (host, root) => {
+    const propose = host.tools.get('notes_propose');
+    await host.dispose();
+    await assert.rejects(propose.execute({ id: 'late.md', text: 'must not be stored' },
+      { name: 'notes_propose', callId: 'late-proposal', signal: new AbortController().signal }), /unloaded/);
+    await assert.rejects(readFile(join(root, '.clawmaster', 'proposals')), { code: 'ENOENT' });
+  }));
+
+  it('waits for an in-flight proposal operation when unloading', async () => withHost(async host => {
+    const entered = Promise.withResolvers();
+    const released = Promise.withResolvers();
+    const original = NotesService.prototype.propose;
+    NotesService.prototype.propose = async () => { entered.resolve(); await released.promise; return { completed: true }; };
+    try {
+      const operation = host.tools.get('notes_propose').execute({ id: 'wait.md', text: 'draft' },
+        { name: 'notes_propose', callId: 'wait-proposal', signal: new AbortController().signal });
+      await entered.promise;
+      let completed = false;
+      const disposed = host.dispose().then(() => { completed = true; });
+      await Promise.resolve();
+      assert.equal(completed, false);
+      released.resolve();
+      assert.deepEqual(await operation, { completed: true });
+      await disposed;
+      assert.equal(completed, true);
+    } finally { released.resolve(); NotesService.prototype.propose = original; }
   }));
 
   it('withdraws the first tool and every route if later registration fails', async () => {
@@ -213,8 +248,8 @@ describe('tool surface', () => {
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
-  it('registers one read tool and one write tool', async () => withHost(async host => {
-    assert.deepEqual([...host.tools.keys()].sort(), ['notes_query', 'notes_write']);
+  it('registers query, draft, digest and write tools', async () => withHost(async host => {
+    assert.deepEqual([...host.tools.keys()].sort(), ['notes_digest', 'notes_propose', 'notes_query', 'notes_write']);
     const query = host.tools.get('notes_query');
     assert.equal(query.parameters.type, 'object');
     assert.deepEqual(query.parameters.required, ['mode']);
@@ -279,6 +314,54 @@ describe('tool surface', () => {
     await write.execute({ request: { action: 'delete', id: 'a.md' } },
       { name: 'notes_write', callId: 'c2', agent: {}, signal: new AbortController().signal });
     assert.match(host.prompts[1].reason, /not moved to a trash folder/);
+  }));
+});
+
+describe('proposals and digests', () => {
+  const exec = (agent) => ({ name: 'notes', callId: 'c', ...(agent ? { agent } : {}), signal: new AbortController().signal });
+
+  it('drafts a proposal without approval and lists it', async () => withHost(async host => {
+    const result = await host.tools.get('notes_propose').execute({ id: 'a.md', text: '# A\nnew line\n' }, exec());
+    assert.equal(result.proposal.id, 'a.md');
+    assert.equal(result.proposal.baseRevision, null);
+    assert.equal(result.diff.added, 2);
+    assert.equal(host.prompts.length, 0, 'drafting a proposal must never prompt');
+    const listed = await (await host.routes.get(NOTES_PROPOSALS_PATH).fetch(get(NOTES_PROPOSALS_PATH))).json();
+    assert.equal(listed.proposals.length, 1);
+    assert.equal(listed.proposals[0].proposal.proposalId, result.proposal.proposalId);
+    const viaQuery = await host.tools.get('notes_query').execute({ mode: 'proposals' }, exec());
+    assert.equal(viaQuery.proposals.length, 1);
+  }));
+
+  it('applies a proposal only after a one-shot approval', async () => withHost(async (host, root) => {
+    const { proposal } = await host.tools.get('notes_propose').execute({ id: 'a.md', text: '# A\n' }, exec());
+    const receipt = await host.tools.get('notes_write').execute(
+      { request: { action: 'apply-proposal', proposalId: proposal.proposalId } }, exec({ id: 'agent' }),
+    );
+    assert.equal(receipt.id, 'a.md');
+    assert.equal(await readFile(join(root, 'a.md'), 'utf8'), '# A\n');
+    assert.equal(host.prompts.length, 1);
+    assert.match(host.prompts[0].reason, /Apply the stored proposal/);
+    const listed = await (await host.routes.get(NOTES_PROPOSALS_PATH).fetch(get(NOTES_PROPOSALS_PATH))).json();
+    assert.deepEqual(listed.proposals, [], 'an applied proposal is gone');
+  }));
+
+  it('records work in the daily note through notes_digest', async () => withHost(async (host, root) => {
+    const result = await host.tools.get('notes_digest').execute(
+      { summary: '修完 A1', date: '2026-09-13', time: '16:40', nextSteps: ['补文档'] }, exec({ id: 'agent' }),
+    );
+    assert.equal(result.id, '日记/2026-09-13.md');
+    const text = await readFile(join(root, result.id), 'utf8');
+    assert.match(text, /### 16:40/);
+    assert.match(text, /修完 A1/);
+    assert.match(text, /\*\*下一步\*\*/);
+    assert.equal(host.prompts.length, 1);
+    assert.match(host.prompts[0].reason, /Append a work entry/);
+  }));
+
+  it('refuses a digest without an owning agent session', async () => withHost(async host => {
+    await assert.rejects(host.tools.get('notes_digest').execute({ summary: 'x' }, exec()), /owning DSH agent session/);
+    assert.equal(host.prompts.length, 0);
   }));
 });
 

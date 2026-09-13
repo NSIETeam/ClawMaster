@@ -5,13 +5,15 @@ import {
 import {
   noteCommandSchema, type NoteCommand, type NoteRead, type NoteReceipt, type NotesSearch, type NotesTree,
 } from './protocol.ts';
+import { unifiedDiff, type UnifiedDiff } from './diff.ts';
+import { ProposalStore, type Proposal } from './proposals.ts';
 
 /** Directory that holds one note per day. */
 export const DAILY_DIRECTORY = '日记';
 
 /** Deployment bounds for one model-visible or browser-visible page. */
 export interface NotesLimits {
-  /** Maximum UTF-8 bytes returned by one read; larger notes fail explicitly. */
+  /** Maximum UTF-8 bytes per note read or combined proposal diff inputs; excess fails explicitly. */
   maxReadBytes: number;
   /** Default and hard maximum number of search hits. */
   maxSearchResults: number;
@@ -35,9 +37,125 @@ export function dailyNote(date: string): { id: string; header: string } {
   };
 }
 
+/** One work entry the agent composed out of what it just did. */
+export interface DigestEntry {
+  /** Local date `YYYY-MM-DD`; defaults to today. */
+  date?: string | undefined;
+  /** Local time `HH:MM`; defaults to now. */
+  time?: string | undefined;
+  /** Project name, linked to its note when one matches. */
+  project?: string | undefined;
+  /** What was done. */
+  summary: string;
+  /** Decisions taken. */
+  decisions?: string[] | undefined;
+  /** Evidence a reader can check. */
+  evidence?: string[] | undefined;
+  /** What happens next. */
+  nextSteps?: string[] | undefined;
+}
+
+/** Compose one daily work entry; `link` is the resolved project note id when one exists. */
+export function composeDigest(entry: DigestEntry, link?: string | undefined, now: Date = new Date()): string {
+  const pad = (value: number): string => String(value).padStart(2, '0');
+  const time = entry.time ?? `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const heading = entry.project === undefined
+    ? `### ${time}`
+    : `### ${time} · ${link === undefined ? entry.project : `[[${link}]]`}`;
+  const sections: string[] = [heading, '', entry.summary.trim()];
+  const list = (title: string, items: string[] | undefined): void => {
+    const kept = (items ?? []).map(item => item.trim()).filter(item => item !== '');
+    if (kept.length === 0) return;
+    sections.push('', `**${title}**`, ...kept.map(item => `- ${item}`));
+  };
+  list('决定', entry.decisions);
+  list('证据', entry.evidence);
+  list('下一步', entry.nextSteps);
+  return sections.join('\n');
+}
+
 /** Read, search and mutate one vault under explicit bounds. */
 export class NotesService {
-  constructor(readonly vault: Vault, readonly limits: NotesLimits = DEFAULT_LIMITS) {}
+  /** Pending proposals for this vault. */
+  readonly proposals: ProposalStore;
+
+  constructor(readonly vault: Vault, readonly limits: NotesLimits = DEFAULT_LIMITS) {
+    this.proposals = new ProposalStore(vault, limits.maxReadBytes, limits.maxTreeEntries);
+  }
+
+  /**
+   * Draft a change without touching any note.
+   * The proposal records the revision it was based on, so applying it later can detect drift.
+   */
+  async propose(id: string, text: string): Promise<{ proposal: Proposal; diff: UnifiedDiff }> {
+    const proposal = await this.proposals.create(id, text);
+    return { proposal, diff: unifiedDiff(await this.before(proposal), text) };
+  }
+
+  /** Every pending proposal with the diff it would apply. */
+  async pendingProposals(): Promise<Array<{ proposal: Proposal; diff: UnifiedDiff }>> {
+    const pending = await this.proposals.list();
+    const entries: Array<{ proposal: Proposal; diff: UnifiedDiff }> = [];
+    let remaining = this.limits.maxReadBytes;
+    for (const proposal of pending) {
+      remaining -= Buffer.byteLength(proposal.text, 'utf8');
+      if (remaining < 0) throw new VaultError('invalid_request', 'Pending proposal diff inputs exceed the configured byte limit.');
+      const before = await this.before(proposal, remaining);
+      remaining -= Buffer.byteLength(before, 'utf8');
+      entries.push({ proposal, diff: unifiedDiff(before, proposal.text) });
+    }
+    return entries;
+  }
+
+  /** Apply a proposal, refusing when its note moved since the proposal was drafted. */
+  async applyProposal(proposalId: string): Promise<NoteReceipt & { proposalId: string }> {
+    const proposal = await this.proposals.read(proposalId);
+    const receipt: NoteReceipt = proposal.baseRevision === null
+      ? { action: 'apply-proposal', id: proposal.id, revision: await this.vault.create(proposal.id, proposal.text), previousRevision: null }
+      : {
+        action: 'apply-proposal',
+        id: proposal.id,
+        revision: await this.vault.save(proposal.id, proposal.text, proposal.baseRevision),
+        previousRevision: proposal.baseRevision,
+      };
+    await this.proposals.remove(proposalId);
+    return { ...receipt, proposalId };
+  }
+
+  /** Drop a proposal without touching the note. */
+  async discardProposal(proposalId: string): Promise<{ proposalId: string; id: string }> {
+    const proposal = await this.proposals.read(proposalId);
+    await this.proposals.remove(proposalId);
+    return { proposalId, id: proposal.id };
+  }
+
+  /** Append one composed work entry to the daily note, linking a matching project note. */
+  async digest(entry: DigestEntry): Promise<{ id: string; markdown: string; revision: string; previousRevision: string | null }> {
+    const date = entry.date ?? localDate();
+    const { id, header } = dailyNote(date);
+    const link = entry.project === undefined ? undefined : await this.projectLink(entry.project);
+    const markdown = composeDigest(entry, link);
+    const change = await this.vault.appendOrCreate(id, `${markdown}\n`, `${header}\n`, this.limits.maxReadBytes);
+    return { id, markdown, ...change };
+  }
+
+  private async before(proposal: Proposal, maxReadBytes: number = this.limits.maxReadBytes): Promise<string> {
+    if (proposal.baseRevision === null) return '';
+    try { return (await this.vault.read(proposal.id, maxReadBytes)).text; }
+    catch (error) {
+      if (error instanceof VaultError && error.code === 'not_found') return '';
+      throw error;
+    }
+  }
+
+  private async projectLink(project: string): Promise<string | undefined> {
+    const wanted = project.replace(/\.md$/, '').toLowerCase();
+    for (const entry of await this.vault.list(this.limits)) {
+      const bare = entry.id.replace(/\.md$/, '');
+      if (bare.toLowerCase() === wanted || (bare.split('/').pop() ?? '').toLowerCase() === wanted) return bare;
+    }
+    return undefined;
+  }
 
   /** Every note, bounded so one huge vault cannot exhaust a model request. */
   async tree(): Promise<NotesTree> {
@@ -98,7 +216,19 @@ export class NotesService {
       case 'daily': {
         const date = command.date ?? localDate();
         const { id, header } = dailyNote(date);
-        const change = await this.vault.appendOrCreate(id, `${command.text}\n`, `${header}\n`, this.limits.maxReadBytes);
+        const entry = command.text.trim();
+        // An empty entry is how the UI opens today's note without writing anything to it.
+        if (entry === '') {
+          try {
+            const current = await this.read(id);
+            return { action: command.action, id, revision: current.revision, previousRevision: current.revision };
+          } catch (error) {
+            if (!(error instanceof VaultError) || error.code !== 'not_found') throw error;
+          }
+          const revision = await this.vault.create(id, `${header}\n`);
+          return { action: command.action, id, revision, previousRevision: null };
+        }
+        const change = await this.vault.appendOrCreate(id, `${entry}\n`, `${header}\n`, this.limits.maxReadBytes);
         return { action: command.action, id, ...change };
       }
       case 'rename': {
@@ -108,6 +238,11 @@ export class NotesService {
       case 'delete': {
         const revision = await this.vault.remove(command.id);
         return { action: command.action, id: command.id, revision: null, previousRevision: revision };
+      }
+      case 'apply-proposal': return this.applyProposal(command.proposalId);
+      case 'discard-proposal': {
+        const dropped = await this.discardProposal(command.proposalId);
+        return { action: command.action, id: dropped.id, revision: null, previousRevision: null };
       }
     }
   }
@@ -124,6 +259,8 @@ export function commandSummary(command: NoteCommand, vaultRoot: string): string 
     case 'daily': return `Append today's work entry to the daily note in ${where}.`;
     case 'rename': return `Rename note ${command.id} to ${command.to} in ${where}.`;
     case 'delete': return `Delete note ${command.id} in ${where}. The note is not moved to a trash folder.`;
+    case 'apply-proposal': return `Apply the stored proposal ${command.proposalId} in ${where}. The note is written only if it still matches the revision the proposal was based on.`;
+    case 'discard-proposal': return `Discard the stored proposal ${command.proposalId} in ${where}. No note changes; the proposal text is deleted.`;
   }
 }
 

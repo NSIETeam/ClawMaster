@@ -6,6 +6,8 @@ export const NOTES_TREE_PATH = '/api/clawmaster/notes/tree';
 export const NOTES_NOTE_PATH = '/api/clawmaster/notes/note';
 export const NOTES_SEARCH_PATH = '/api/clawmaster/notes/search';
 export const NOTES_TAGS_PATH = '/api/clawmaster/notes/tags';
+export const NOTES_REVISION_PATH = '/api/clawmaster/notes/revision';
+export const NOTES_PROPOSALS_PATH = '/api/clawmaster/notes/proposals';
 export const NOTES_BACKLINKS_PATH = '/api/clawmaster/notes/backlinks';
 export const NOTES_COMMAND_PATH = '/api/clawmaster/notes/command';
 
@@ -45,6 +47,35 @@ export const notesSearchSchema = z.object({ query: z.string(), matches: z.array(
 export type NotesSearch = z.output<typeof notesSearchSchema>;
 
 /** Every tag in the vault with its note count. */
+/** A proposal id is a generated UUID, validated before it reaches the filesystem. */
+export const proposalIdSchema = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+
+/** One stored proposal and the diff it would apply. */
+export const proposalSchema = z.object({
+  proposalId: proposalIdSchema,
+  id: noteIdSchema,
+  text: z.string(),
+  baseRevision: revisionSchema.nullable(),
+  createdAt: z.string(),
+}).strict();
+export type Proposal = z.output<typeof proposalSchema>;
+
+export const diffLineSchema = z.object({
+  kind: z.enum(['context', 'add', 'remove']), text: z.string(),
+}).strict();
+export const unifiedDiffSchema = z.object({
+  lines: z.array(diffLineSchema), added: z.number().int().min(0), removed: z.number().int().min(0), truncated: z.boolean(),
+}).strict();
+export type UnifiedDiff = z.output<typeof unifiedDiffSchema>;
+export const notesProposalsSchema = z.object({
+  proposals: z.array(z.object({ proposal: proposalSchema, diff: unifiedDiffSchema }).strict()),
+}).strict();
+export type NotesProposals = z.output<typeof notesProposalsSchema>;
+
+/** Opaque vault version; a change means some note file changed outside this client. */
+export const notesRevisionSchema = z.object({ version: z.string().min(1) }).strict();
+export type NotesRevision = z.output<typeof notesRevisionSchema>;
+
 export const notesTagsSchema = z.object({
   tags: z.array(z.object({ tag: z.string(), count: z.number().int().min(1) }).strict()),
 }).strict();
@@ -58,6 +89,8 @@ export const noteCommandSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('daily'), text: noteTextSchema, date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }).strict(),
   z.object({ action: z.literal('rename'), id: noteIdSchema, to: noteIdSchema }).strict(),
   z.object({ action: z.literal('delete'), id: noteIdSchema }).strict(),
+  z.object({ action: z.literal('apply-proposal'), proposalId: proposalIdSchema }).strict(),
+  z.object({ action: z.literal('discard-proposal'), proposalId: proposalIdSchema }).strict(),
 ]);
 export type NoteCommand = z.output<typeof noteCommandSchema>;
 export const noteCommandEnvelopeSchema = z.object({ request: z.unknown() }).strict();

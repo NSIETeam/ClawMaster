@@ -3,9 +3,9 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
 import * as JSX from 'react/jsx-runtime';
-import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
-import vm from 'node:vm';
+// The shipped bundle is pulled in as text so this spec stays free of `node:` imports and
+// can run under the jsdom environment the UI needs.
+import clientSource from '../dist/client.js?raw';
 
 const disposers = [];
 afterEach(() => {
@@ -13,26 +13,44 @@ afterEach(() => {
   for (const dispose of disposers.splice(0).reverse()) dispose();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
-const revision = text => `sha256-${createHash('sha256').update(text).digest('hex')}`;
-const note = (id, text) => ({ id, text, title: id.slice(0, -3), revision: revision(text), links: [], embeds: [], tags: [] });
+/**
+ * Deterministic stand-in for a content revision.
+ * The client validates the `sha256-<64 hex>` shape rather than the algorithm, and real
+ * content hashing is covered against the actual implementation by the vault and service
+ * suites. Keeping it here avoids a `node:crypto` import in a browser-environment spec.
+ */
+const revision = text => {
+  let left = 0x811c9dc5;
+  let right = 0x01000193;
+  for (const byte of new TextEncoder().encode(text)) {
+    left = Math.imul(left ^ byte, 0x01000193) >>> 0;
+    right = Math.imul(right + byte, 0x85ebca6b) >>> 0;
+  }
+  const hex = value => value.toString(16).padStart(8, '0');
+  return `sha256-${`${hex(left)}${hex(right)}`.repeat(4)}`;
+};
+const bare = id => id.replace(/\.(md|canvas)$/, '');
+const note = (id, text) => ({ id, text, title: bare(id), revision: revision(text), links: [], embeds: [], tags: [] });
 
-async function fixture(locale = 'zh') {
+async function fixture(locale = 'zh', extra = {}, pendingProposals = []) {
   const old = Object.getOwnPropertyDescriptor(window, '__ModuleLoader__');
   disposers.push(() => { if (old) Object.defineProperty(window, '__ModuleLoader__', old); else Reflect.deleteProperty(window, '__ModuleLoader__'); });
   let factory;
   window.__ModuleLoader__ = { load: entry => { factory = entry.factory; } };
-  vm.runInThisContext(await readFile('frontends/notes/dist/client.js', 'utf8'));
+  new Function('window', clientSource)(window);
   const modules = { react: React, 'react/jsx-runtime': JSX };
   const plugin = factory(id => { if (!(id in modules)) throw new Error(`Unexpected client dependency: ${id}`); return modules[id]; });
-  const disk = new Map([['Alpha.md', '# Alpha\n'], ['Beta.md', '# Beta\n']]);
+  // Seed before mount: the panel lists the vault once, on mount.
+  const disk = new Map([['Alpha.md', '# Alpha\n'], ['Beta.md', '# Beta\n'], ...Object.entries(extra)]);
   const requests = [];
   let delayRead;
   const request = vi.fn(async (path, init) => {
     expect(init.credentials).toBe('same-origin');
     const url = new URL(path, 'http://localhost');
     requests.push({ path: url.pathname, command: init.body ? JSON.parse(init.body).request : undefined });
-    if (url.pathname.endsWith('/tree')) return Response.json({ vault: '/synthetic/notes', notes: [...disk].map(([id, text]) => ({ id, title: id.slice(0, -3), dir: '', size: text.length, mtimeMs: 1 })) });
+    if (url.pathname.endsWith('/tree')) return Response.json({ vault: '/synthetic/notes', notes: [...disk].map(([id, text]) => ({ id, title: bare(id), dir: '', size: text.length, mtimeMs: 1 })) });
     if (url.pathname.endsWith('/tags')) return Response.json({ tags: [] });
     if (url.pathname.endsWith('/backlinks')) return Response.json({ id: url.searchParams.get('id'), notes: [] });
     if (url.pathname.endsWith('/note')) {
@@ -41,11 +59,53 @@ async function fixture(locale = 'zh') {
       if (!disk.has(id)) return Response.json({ error: { code: 'not_found', message: 'Missing' } }, { status: 404 });
       return Response.json(note(id, disk.get(id)));
     }
+    if (url.pathname.endsWith('/search')) {
+      const needle = (url.searchParams.get('q') ?? '').toLowerCase();
+      const matches = [];
+      for (const [id, text] of disk) {
+        const lines = text.split('\n');
+        const at = lines.findIndex(line => line.toLowerCase().includes(needle));
+        if (at >= 0) matches.push({ id, title: bare(id), lineNumber: at + 1, line: lines[at] });
+      }
+      return Response.json({ query: needle, matches });
+    }
+    if (url.pathname.endsWith('/revision')) return Response.json({ version: revision([...disk].map(([id, text]) => `${id}:${text}`).join('|') + JSON.stringify(pendingProposals)) });
+    if (url.pathname.endsWith('/proposals')) return Response.json({ proposals: pendingProposals });
     if (url.pathname.endsWith('/command')) {
       const command = JSON.parse(init.body).request;
-      const previous = disk.has(command.id) ? revision(disk.get(command.id)) : null;
+      const id = command.action === 'rename' ? command.id : command.action === 'daily' ? '日记/2026-09-13.md' : command.id;
+      const previous = disk.has(id) ? revision(disk.get(id)) : null;
       if ((command.action === 'save' && command.expectedRevision !== previous) || (command.action === 'create' && previous !== null)) {
         return Response.json({ error: { code: 'conflict', message: 'Changed', currentRevision: previous } }, { status: 409 });
+      }
+      if (command.action === 'apply-proposal' || command.action === 'discard-proposal') {
+        const index = pendingProposals.findIndex(entry => entry.proposal.proposalId === command.proposalId);
+        if (index < 0) return Response.json({ error: { code: 'not_found', message: 'Missing' } }, { status: 404 });
+        const entry = pendingProposals[index];
+        // The real service refuses to apply a proposal whose note moved on.
+        const current = disk.has(entry.proposal.id) ? revision(disk.get(entry.proposal.id)) : null;
+        if (current !== entry.proposal.baseRevision) {
+          return Response.json({ error: { code: 'conflict', message: 'Changed', currentRevision: current } }, { status: 409 });
+        }
+        pendingProposals.splice(index, 1);
+        if (command.action === 'discard-proposal') {
+          return Response.json({ action: 'discard-proposal', id: entry.proposal.id, revision: null, previousRevision: null });
+        }
+        disk.set(entry.proposal.id, entry.proposal.text);
+        return Response.json({
+          action: 'apply-proposal', id: entry.proposal.id,
+          revision: revision(entry.proposal.text), previousRevision: entry.proposal.baseRevision,
+        });
+      }
+      if (command.action === 'rename') {
+        if (disk.has(command.to)) return Response.json({ error: { code: 'conflict', message: 'Exists', currentRevision: revision(disk.get(command.to)) } }, { status: 409 });
+        disk.set(command.to, disk.get(command.id));
+        disk.delete(command.id);
+        return Response.json({ action: 'rename', id: command.to, revision: revision(disk.get(command.to)), previousRevision: previous });
+      }
+      if (command.action === 'daily') {
+        if (!disk.has(id)) disk.set(id, `---\ntags: [日记]\n---\n\n# 2026-09-13\n`);
+        return Response.json({ action: 'daily', id, revision: revision(disk.get(id)), previousRevision: previous });
       }
       if (command.action === 'delete') disk.delete(command.id);
       else disk.set(command.id, command.text);
@@ -69,7 +129,7 @@ async function fixture(locale = 'zh') {
     : { edit: 'Edit', save: 'Save', reload: 'Reload', cancel: 'Cancel', delete: 'Delete', dirty: 'Unsaved' };
   const open = async id => { fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${id}( |$)`) })); await screen.findByRole('heading', { name: id }); };
   const editor = () => screen.getByRole('textbox', { name: copy.edit });
-  return { disk, requests, view, mount, copy, open, editor, delay: handler => { delayRead = handler; } };
+  return { disk, requests, view, mount, copy, open, editor, tab: () => tab, delay: handler => { delayRead = handler; } };
 }
 
 for (const locale of ['zh', 'en']) {
@@ -83,7 +143,7 @@ for (const locale of ['zh', 'en']) {
     await waitFor(() => expect(screen.getByRole('status').dataset.state).toBe('conflict'));
     expect(f.editor().value).toBe('local unsaved draft');
     expect(f.disk.get('Alpha.md')).toBe('newer external text');
-    expect(f.requests.slice(before).map(item => item.command?.action ?? item.path)).toEqual(['save']);
+    expect(f.requests.slice(before).filter(item => item.command).map(item => item.command.action)).toEqual(['save']);
     expect(f.requests.some(item => item.command?.action === 'delete')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: f.copy.reload }));
     const dialog = screen.getByRole('alertdialog');
@@ -174,3 +234,228 @@ it('keeps the open draft when creating a duplicate note is rejected', async () =
   expect(f.disk.get('Beta.md')).toBe('# Beta\n');
   expect(f.requests.some(item => item.command?.action === 'delete')).toBe(false);
 });
+
+it('renames the open note and opens the new path', async () => {
+  const f = await fixture();
+  await f.open('Alpha');
+  fireEvent.click(screen.getByRole('button', { name: '重命名' }));
+  fireEvent.change(screen.getByRole('textbox', { name: '新名称' }), { target: { value: 'Gamma' } });
+  fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '重命名' }));
+  await waitFor(() => expect(f.disk.has('Gamma.md')).toBe(true));
+  expect(f.disk.has('Alpha.md')).toBe(false);
+  expect(screen.getByRole('heading', { name: 'Gamma' })).toBeDefined();
+});
+
+it('offers to create the note a missing wiki link points at', async () => {
+  const f = await fixture();
+  f.disk.set('Alpha.md', 'see [[Gamma]]\n');
+  await f.open('Alpha');
+  fireEvent.click(screen.getByRole('button', { name: '预览' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Gamma' }));
+  const dialog = await screen.findByRole('alertdialog');
+  expect(within(dialog).getByText('这个链接指向的笔记还不存在。')).toBeDefined();
+  fireEvent.click(within(dialog).getByRole('button', { name: '创建这篇笔记' }));
+  await waitFor(() => expect(f.disk.has('Gamma.md')).toBe(true));
+  expect(f.disk.get('Gamma.md')).toBe('# Gamma\n');
+});
+
+it('asks which note an ambiguous wiki link means instead of guessing', async () => {
+  const f = await fixture('zh', { 'one/Note.md': '# One\n', 'two/Note.md': '# Two\n' });
+  f.disk.set('Alpha.md', 'see [[Note]]\n');
+  await f.open('Alpha');
+  fireEvent.click(screen.getByRole('button', { name: '预览' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Note' }));
+  const dialog = await screen.findByRole('alertdialog');
+  expect(within(dialog).getByText('有多篇笔记匹配这个链接，请选择：')).toBeDefined();
+  expect(within(dialog).getAllByRole('button', { name: /Note/ })).toHaveLength(2);
+});
+
+it('shows a canvas file read-only with saving disabled', async () => {
+  const f = await fixture('zh', { 'Board.canvas': '{"nodes":[]}' });
+  await f.open('Board');
+  expect(screen.getByText('画布文件以只读方式显示（本版本尚无画布编辑器）。')).toBeDefined();
+  expect(screen.queryByRole('textbox', { name: '编辑' })).toBeNull();
+  expect(screen.getByRole('button', { name: '保存' }).disabled).toBe(true);
+  expect(screen.queryByRole('button', { name: '重命名' })).toBeNull();
+});
+
+it('renders the matching line for search hits', async () => {
+  const f = await fixture();
+  fireEvent.change(screen.getByRole('textbox', { name: '搜索笔记' }), { target: { value: 'Beta' } });
+  fireEvent.keyDown(screen.getByRole('textbox', { name: '搜索笔记' }), { key: 'Enter' });
+  await waitFor(() => expect(screen.getByText('# Beta')).toBeDefined());
+  expect(f.requests.some(item => item.path.endsWith('/search'))).toBe(true);
+});
+
+it("opens today's daily note, creating it once", async () => {
+  const f = await fixture();
+  fireEvent.click(screen.getByRole('button', { name: '今日笔记' }));
+  await waitFor(() => expect(f.disk.has('日记/2026-09-13.md')).toBe(true));
+  expect(screen.getByRole('heading', { name: '日记/2026-09-13' })).toBeDefined();
+  expect(f.requests.filter(item => item.command?.action === 'daily')).toHaveLength(1);
+});
+
+/** One proposal fixture with a diff that adds a single line. */
+const proposalFixture = () => ({
+  proposal: {
+    proposalId: '11111111-1111-4111-8111-111111111111', id: 'Alpha.md',
+    text: '# Alpha\nreviewed\n', baseRevision: revision('# Alpha\n'), createdAt: '2026-09-13T00:00:00.000Z',
+  },
+  diff: {
+    lines: [{ kind: 'context', text: '# Alpha' }, { kind: 'add', text: 'reviewed' }],
+    added: 1, removed: 0, truncated: false,
+  },
+});
+
+it('shows a pending proposal with its diff and applies it', async () => {
+  const f = await fixture('zh', {}, [proposalFixture()]);
+  await f.open('Alpha');
+  expect(screen.getByText('待审建议')).toBeDefined();
+  expect(screen.getByText(/\+ reviewed/)).toBeDefined();
+  fireEvent.click(screen.getByRole('button', { name: '应用' }));
+  await waitFor(() => expect(f.disk.get('Alpha.md')).toBe('# Alpha\nreviewed\n'));
+  await waitFor(() => expect(screen.queryByRole('button', { name: '应用' })).toBeNull());
+  expect(f.requests.some(item => item.command?.action === 'apply-proposal')).toBe(true);
+});
+
+it('discards a proposal without touching the note', async () => {
+  const f = await fixture('zh', {}, [proposalFixture()]);
+  await f.open('Alpha');
+  fireEvent.click(screen.getByRole('button', { name: '丢弃' }));
+  await waitFor(() => expect(screen.queryByRole('button', { name: '丢弃' })).toBeNull());
+  expect(f.disk.get('Alpha.md')).toBe('# Alpha\n');
+  expect(f.requests.some(item => item.command?.action === 'apply-proposal')).toBe(false);
+});
+
+it('shows a proposal conflict instead of overwriting the note', async () => {
+  const f = await fixture('zh', {}, [proposalFixture()]);
+  f.disk.set('Alpha.md', 'changed underneath\n');
+  await f.open('Alpha');
+  fireEvent.click(screen.getByRole('button', { name: '应用' }));
+  await waitFor(() => expect(screen.getByRole('status').dataset.state).toBe('conflict'));
+  expect(f.disk.get('Alpha.md')).toBe('changed underneath\n');
+  // The proposal survives a refused apply, so it can be retried after a reload.
+  expect(screen.getByRole('button', { name: '应用' })).toBeDefined();
+});
+
+it('gives the sidebar tab an inline SVG icon rather than a raster asset', async () => {
+  const f = await fixture();
+  const descriptor = f.tab();
+  expect(typeof descriptor.icon).toBe('function');
+  const { container } = render(React.createElement(React.Fragment, null, descriptor.icon(18)));
+  const svg = container.querySelector('svg');
+  expect(svg).toBeTruthy();
+  expect(svg.getAttribute('viewBox')).toBe('0 0 24 24');
+  expect(svg.getAttribute('stroke')).toBe('currentColor');
+  // One rounded body rect, a spine and two text lines — all vector, no raster fallback.
+  expect(svg.querySelectorAll('rect').length).toBe(1);
+  expect(svg.querySelectorAll('path').length).toBe(2);
+  expect(container.querySelector('img')).toBeNull();
+});
+
+
+for (const locale of ['zh', 'en']) {
+  it(`preserves edits typed while a live-refresh read is pending (${locale})`, async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    const f = await fixture(locale);
+    await f.open('Alpha');
+    const reading = Promise.withResolvers();
+    const release = Promise.withResolvers();
+    f.delay(async id => { if (id === 'Alpha.md') { reading.resolve(); await release.promise; } });
+    f.disk.set('Alpha.md', 'external replacement');
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+    await reading.promise;
+    fireEvent.change(f.editor(), { target: { value: 'draft typed during refresh' } });
+    await act(async () => { release.resolve(); });
+    await waitFor(() => expect(screen.getByRole('status').dataset.state).toBe('conflict'));
+    expect(f.editor().value).toBe('draft typed during refresh');
+    expect(f.disk.get('Alpha.md')).toBe('external replacement');
+    expect(f.requests.filter(item => item.command)).toHaveLength(0);
+  });
+
+  it(`does not navigate back when an earlier live-refresh read finishes (${locale})`, async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    const f = await fixture(locale);
+    await f.open('Alpha');
+    const reading = Promise.withResolvers();
+    const release = Promise.withResolvers();
+    f.delay(async id => { if (id === 'Alpha.md') { reading.resolve(); await release.promise; } });
+    f.disk.set('Alpha.md', 'external replacement');
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+    await reading.promise;
+    await f.open('Beta');
+    fireEvent.change(f.editor(), { target: { value: 'Beta local draft' } });
+    await act(async () => { release.resolve(); });
+    expect(screen.getByRole('heading', { name: 'Beta' })).toBeDefined();
+    expect(f.editor().value).toBe('Beta local draft');
+  });
+}
+
+it('preserves a local draft while applying a proposal and still refuses a stale save', async () => {
+  const f = await fixture('zh', {}, [proposalFixture()]);
+  await f.open('Alpha');
+  fireEvent.change(f.editor(), { target: { value: 'local draft must survive' } });
+  fireEvent.click(screen.getByRole('button', { name: '应用' }));
+  await waitFor(() => expect(f.disk.get('Alpha.md')).toBe('# Alpha\nreviewed\n'));
+  await waitFor(() => expect(screen.getByRole('status').dataset.state).toBe('conflict'));
+  expect(f.editor().value).toBe('local draft must survive');
+  fireEvent.click(screen.getByRole('button', { name: f.copy.save }));
+  await waitFor(() => expect(f.requests.some(item => item.command?.action === 'save')).toBe(true));
+  expect(f.disk.get('Alpha.md')).toBe('# Alpha\nreviewed\n');
+  expect(f.editor().value).toBe('local draft must survive');
+  expect(f.requests.some(item => item.command?.action === 'delete')).toBe(false);
+});
+
+it('moves an unsaved draft with a renamed note and saves it at the new path', async () => {
+  const f = await fixture();
+  await f.open('Alpha');
+  fireEvent.change(f.editor(), { target: { value: 'draft before rename' } });
+  fireEvent.click(screen.getByRole('button', { name: '重命名' }));
+  fireEvent.change(screen.getByRole('textbox', { name: '新名称' }), { target: { value: 'Gamma' } });
+  fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '重命名' }));
+  await waitFor(() => expect(f.disk.has('Gamma.md')).toBe(true));
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+  expect(f.editor().value).toBe('draft before rename');
+  expect(f.disk.get('Gamma.md')).toBe('# Alpha\n');
+  fireEvent.click(screen.getByRole('button', { name: f.copy.save }));
+  await waitFor(() => expect(f.disk.get('Gamma.md')).toBe('draft before rename'));
+  expect(f.disk.has('Alpha.md')).toBe(false);
+});
+
+
+it('renders nested folders with SVG icons and lets the reader collapse their children', async () => {
+  const f = await fixture('en', { 'projects/sub/Task.md': '# Task\n' });
+  const folders = () => [...f.view.container.querySelectorAll('.cm-notes-folder')];
+  expect(folders().map(button => button.textContent)).toEqual(['projects', 'sub']);
+  expect(folders()[0].querySelector('svg')).not.toBeNull();
+  expect(screen.getByRole('button', { name: 'projects/sub/Task' })).toBeDefined();
+  fireEvent.click(folders()[0]);
+  expect(folders()[0].getAttribute('aria-expanded')).toBe('false');
+  expect(screen.queryByRole('button', { name: 'projects/sub/Task' })).toBeNull();
+  fireEvent.click(folders()[0]);
+  expect(folders()[0].getAttribute('aria-expanded')).toBe('true');
+  expect(screen.getByRole('button', { name: 'projects/sub/Task' })).toBeDefined();
+});
+
+
+for (const locale of ['zh', 'en']) {
+  it(`refreshes proposed and discarded drafts on the existing timer without note edits (${locale})`, async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    const pending = [];
+    const f = await fixture(locale, {}, pending);
+    await f.open('Alpha');
+    fireEvent.change(f.editor(), { target: { value: 'keep local draft' } });
+    const applyLabel = locale === 'zh' ? '应用' : 'Apply';
+    expect(screen.queryByRole('button', { name: applyLabel })).toBeNull();
+    pending.push(proposalFixture());
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+    await waitFor(() => expect(screen.getByRole('button', { name: applyLabel })).toBeDefined());
+    expect(f.editor().value).toBe('keep local draft');
+    pending.splice(0);
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+    await waitFor(() => expect(screen.queryByRole('button', { name: applyLabel })).toBeNull());
+    expect(f.editor().value).toBe('keep local draft');
+    expect(f.disk.get('Alpha.md')).toBe('# Alpha\n');
+    expect(f.requests.filter(item => item.command)).toHaveLength(0);
+  });
+}

@@ -6,24 +6,24 @@ English | [中文](2026-09-13-clawmaster-notes-vault.zh.md)
 
 ## Problem
 
-New users need a notebook without installing an external editor. Agent writes and concurrent editors must not silently overwrite work or turn a conflict into deletion.
+A built-in notebook must preserve drafts, share portable files with external editors, and separate an agent's proposed changes from approved note mutations.
 
 ## Decision
 
-The [Notes component](../../../../frontends/notes/README.md) owns plain Markdown files in a configurable user directory. It reuses DSH authentication, tool types, approval and sidebar registration instead of introducing another server. Every agent mutation requires a one-shot approval; unloading cancels pending approval work.
+The [Notes component](../../../../frontends/notes/README.md) uses DSH authentication, tool types, approval and sidebar registration. Host and Client ship together with eight JSON routes. `notes_write` and `notes_digest` require an owning agent and one-shot approval. Every tool joins plugin lifetime tracking; unloading cancels pending approvals and waits for active operations and watcher scans.
 
-Cooperative writers serialize revision checks and writes through the existing cross-process file lock. Atomic replacement protects complete saved contents; no-replace publication protects occupied destinations. Linked descendants are rejected. Shared text parsing keeps Node filesystem code out of the browser.
+Cooperative writers serialize revision checks through the existing cross-process lock. Atomic replacement protects saves; no-replace publication protects occupied destinations. Checked paths reject linked descendants. Proposal JSON under `.clawmaster/proposals` uses the same storage protections and bounded reads. It remains accessible externally while excluded from the note index. Drafting persists metadata without another approval; source Markdown changes only on application.
 
-The client retains drafts by Session in plugin memory because sidebar closing has no veto callback. Conflicts retain drafts and disk contents; explicit reload and deletion require in-panel confirmation.
+The visible panel polls a version covering notes and bounded proposal contents. Drafts survive concurrent refresh, navigation, rename and proposal application in Session-scoped plugin memory. Conflicts preserve drafts and disk contents; explicit reload and deletion require confirmation. Nested folders and inline SVG icons reuse the host's visual conventions.
 
 ## Alternatives considered
 
-Requiring Obsidian excludes fresh installations. A separate HTTP server duplicates authentication. Blind overwrite or automatic conflict recovery loses user intent. A durable draft database adds another content owner and is deferred.
+Requiring Obsidian excludes fresh installations. A second server duplicates authentication. Blind overwrite and automatic draft replacement lose user intent. A durable draft database introduces another content owner.
 
 ## Consequences
 
-Saved notes remain portable files, while unsaved drafts do not survive process exit. The file lock is cooperative, not OS isolation from hostile writers; crash durability and stale-lock recovery remain explicit [limitations](../../../../frontends/notes/README.md#known-limitations-and-deferred-work). Creation and renaming require hard links.
+Unsaved drafts do not survive process exit. Filesystem isolation, crash durability, hard-link requirements and fingerprint limitations remain explicit [limitations](../../../../frontends/notes/README.md#known-limitations-and-deferred-work).
 
 ## Verification
 
-Storage tests cover independent writers, path escapes, failed publication and read budgets. Host tests cover rejected approvals and unload races. Compiled React tests cover conflicts, retained drafts and deletion confirmation in both locales. Final installed-UI acceptance remains separate.
+Storage, lifecycle and built-Host tests exercise synthetic files, late approval after unload, proposal budgets and metadata-only revision changes. Compiled-client tests cover draft races, automatic proposal refresh and confirmation flows. Type checking and artifact freshness checks pass. These checks do not establish final installed-UI acceptance.

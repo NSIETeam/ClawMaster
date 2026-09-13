@@ -14,6 +14,19 @@ export interface NotesCopy {
   searchPlaceholder: string;
   results: string;
   noResults: string;
+  line: string;
+  rename: string;
+  renameLabel: string;
+  todayNote: string;
+  canvasReadOnly: string;
+  external: string;
+  proposals: string;
+  noProposals: string;
+  applyProposal: string;
+  discardProposal: string;
+  wikiAmbiguous: string;
+  wikiMissing: string;
+  wikiCreate: string;
   edit: string;
   preview: string;
   save: string;
@@ -44,6 +57,11 @@ const copy: Record<NotesLocale, NotesCopy> = {
     tab: '笔记', tabDescription: '内置 Markdown 笔记库：双向链接、反链、标签与全文搜索',
     vault: '笔记库', newNote: '新建笔记', noteName: '笔记名称', create: '创建', cancel: '取消',
     search: '搜索笔记', searchPlaceholder: '输入关键词…', results: '搜索结果', noResults: '没有匹配的笔记',
+    line: '第', rename: '重命名', renameLabel: '新名称', todayNote: '今日笔记',
+    canvasReadOnly: '画布文件以只读方式显示（本版本尚无画布编辑器）。',
+    external: '笔记已被外部修改', proposals: '待审建议', noProposals: '暂无待审建议',
+    applyProposal: '应用', discardProposal: '丢弃',
+    wikiAmbiguous: '有多篇笔记匹配这个链接，请选择：', wikiMissing: '这个链接指向的笔记还不存在。', wikiCreate: '创建这篇笔记',
     edit: '编辑', preview: '预览', save: '保存', saving: '保存中…', saved: '已保存', dirty: '未保存',
     conflict: '笔记已在其他位置修改。本地草稿已保留，磁盘内容未覆盖。', conflictReload: '重新载入',
     reloadConfirm: '重新载入磁盘版本会放弃这篇笔记的本地草稿。继续吗？',
@@ -57,6 +75,11 @@ const copy: Record<NotesLocale, NotesCopy> = {
     tab: 'Notes', tabDescription: 'Built-in Markdown vault: wiki links, backlinks, tags and search',
     vault: 'Vault', newNote: 'New note', noteName: 'Note name', create: 'Create', cancel: 'Cancel',
     search: 'Search notes', searchPlaceholder: 'Type a keyword…', results: 'Results', noResults: 'No matching notes',
+    line: 'line', rename: 'Rename', renameLabel: 'New name', todayNote: "Today's note",
+    canvasReadOnly: 'Canvas files are shown read-only; this version has no canvas editor.',
+    external: 'The note changed outside ClawMaster', proposals: 'Proposals', noProposals: 'No proposals pending',
+    applyProposal: 'Apply', discardProposal: 'Discard',
+    wikiAmbiguous: 'Several notes match this link. Pick one:', wikiMissing: 'The linked note does not exist yet.', wikiCreate: 'Create this note',
     edit: 'Edit', preview: 'Preview', save: 'Save', saving: 'Saving…', saved: 'Saved', dirty: 'Unsaved',
     conflict: 'This note changed elsewhere. Your draft is retained and the file was not overwritten.', conflictReload: 'Reload',
     reloadConfirm: 'Reloading the file discards this note’s local draft. Continue?',

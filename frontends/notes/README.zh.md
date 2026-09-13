@@ -1,5 +1,5 @@
 ---
-description: "ClawMaster 笔记：本地 Markdown 编辑、双向链接、搜索与逐次审批的智能体写入。"
+description: "ClawMaster 笔记：本地 Markdown 编辑、双向链接、搜索、可审阅 diff 的 agent 建议与受批准门控的写入。"
 kind: "package-bundle"
 ---
 
@@ -7,82 +7,93 @@ kind: "package-bundle"
 
 [English](README.md) | 中文
 
-## 摘要
+## 概述
 
-ClawMaster 内置本地笔记库，支持 Markdown 编辑、预览、双向链接、反链、标签和文本搜索。你可以让智能体把工作整理成笔记，并逐次批准写入。产品自行创建笔记库，无需安装 Obsidian。已保存笔记是普通文件；未保存草稿仅保留在本次应用运行的内存中。
+ClawMaster 内置本地笔记库，支持 Markdown 编辑、预览、双向链接、反向链接、标签与全文搜索。你可以让 agent 把完成的工作记录成笔记，或者存储可审阅的草稿并展示 diff，保持源笔记不变；agent 对笔记的改动需要你批准。笔记库由产品自建，不依赖 Obsidian。已保存的笔记仍是普通文件；未保存的草稿在本次应用会话内保留在内存中。
 
 ## 目录
 
-- [使用此组件](#use-this-package)
+- [使用本包](#use-this-package)
 - [配置](#configuration)
-- [理解实现](#understand-the-implementation)
-- [模型体验](#model-experience)
-- [已知限制与暂缓工作](#known-limitations-and-deferred-work)
+- [实现说明](#understand-the-implementation)
+- [模型侧体验](#model-experience)
+- [已知限制与后续工作](#known-limitations-and-deferred-work)
 - [验证](#verification)
-- [进一步阅读](#further-exploration)
+- [延伸阅读](#further-exploration)
 
 <a id="use-this-package"></a>
-## 使用此组件
+## 使用本包
 
-这个私有组件通过[配置层补丁](cordis.patch.yml)包含在 ClawMaster 桌面配置中。在侧栏标签选择器中打开**笔记**。插件加载时，主机创建配置的笔记库；库中没有受支持笔记时，写入一篇欢迎笔记。
+这个私有组件通过[捆绑补丁](cordis.patch.yml)包含在 ClawMaster 桌面配置中。从侧栏标签选择器打开 **笔记**。插件加载时 host 会创建配置的笔记库，并在其中没有任何受支持笔记时写入一篇欢迎笔记。
 
-新建或打开笔记，编辑文本后选择**保存**。版本冲突会同时保留本地草稿和磁盘上的较新文件。**重新载入**会先确认是否放弃草稿。插件保持加载时，切换笔记或关闭后重新打开笔记标签，会保留同一会话的草稿。**删除**需要确认，且不会移入废纸篓。
+新建或打开一篇笔记，编辑文本后选择 **保存**。修订冲突会同时保留你的草稿与更新的文件。**重新载入** 会在丢弃草稿前明确询问。在插件保持加载期间，切换笔记或关闭再打开「笔记」标签都会为同一会话保留草稿。**删除** 需要确认，且不进入回收站。**重命名** 在笔记库内移动笔记并保留本地草稿，目标已存在时拒绝执行。**今日笔记** 打开当天的日记笔记，且只创建一次。
+
+双向链接会解析到对应笔记；有多篇匹配时由你选择，一篇都不匹配时提供创建入口。`.canvas` 文件以只读方式打开，保存与重命名被禁用，因为本组件没有画布编辑器。
+
+**待审建议** 连同将要应用的 diff 显示在侧栏面板中，每个都配有 **应用** 与 **丢弃**。应用受修订号保护：若笔记在起草之后被改动，应用会被拒绝，建议保留下来供重试。应用也会保留未保存的本地草稿，保存前需要协调内容。
+
+标签页可见时，面板会轮询同时涵盖笔记与待审建议的版本号，因此外部编辑以及建议的创建或丢弃无需手动刷新即可出现。该刷新绝不会丢弃未保存的草稿：面板会报告外部改动并提供重新载入。
 
 <a id="configuration"></a>
 ## 配置
 
-[主机配置](src/host.ts)接受绝对路径 `vaultRoot`。默认位置在 macOS 上为 `~/Documents/ClawMaster 笔记`，其他平台为 `~/ClawMasterNotes`，位于桌面运行时目录之外。读取、目录列表、搜索、标签和反链共用以下限制；追加操作也遵守读取限制。
+[host 配置](src/host.ts)接受一个绝对路径 `vaultRoot`。macOS 上的默认值是 `~/Documents/ClawMaster 笔记`，其他平台为 `~/ClawMasterNotes`，均位于桌面运行时目录之外。读取、列举、搜索、标签与反向链接共享以下上限；追加同样受读取上限约束。
 
 | 字段 | 默认值 | 含义 |
 |---|---|---|
-| `limits.maxReadBytes` | 262144 | 单篇笔记的最大读取字节数。 |
-| `limits.maxTreeEntries` | 5000 | 目录列表允许访问的最大笔记数。 |
-| `limits.maxSearchResults` | 50 | 默认及最大搜索结果数，可配置到 200。 |
+| `limits.maxReadBytes` | 262144 | 单篇笔记读取、建议 JSON 累计列举或 diff 前后文本累计输入的最大字节数。 |
+| `limits.maxTreeEntries` | 5000 | 一次笔记或建议列举的最大条目数。 |
+| `limits.maxSearchResults` | 50 | 搜索命中的默认值与上限；最高可配到 200。 |
 
 <a id="understand-the-implementation"></a>
-## 理解实现
+## 实现说明
 
 <details>
-<summary>实现细节</summary>
+<summary>实现内部细节</summary>
 
-[主机](src/host.ts)在现有、已鉴权的 DSH Fetch 通道注册六个路由，均位于 `/api/clawmaster/notes/`：GET `tree`、`note`、`search`、`tags`、`backlinks`，以及 POST `command`。通道负责鉴权和来源检查；浏览器携带同源凭据。组件不启动额外服务器。工具定义、执行上下文和审批采用 DSH 公共类型。卸载时移除注册项、取消待处理审批，并等待正在执行的操作结束。
+[host](src/host.ts)在既有、已认证的 DSH Fetch 载体上注册八条路由：位于 `/api/clawmaster/notes/` 下的 GET `tree`、`note`、`search`、`tags`、`backlinks`、`proposals`、`revision`，以及 POST `command`。认证与来源校验由该载体负责；浏览器使用同源凭据。不额外启动任何服务器。工具定义、执行上下文与审批都使用 DSH 的公开类型。卸载时撤下注册、取消待处理审批，并等待进行中的工具、请求与监听器扫描。Host 与 Client 必须一起交付：只更新客户端无法补齐缺失的 API 路由。
 
-[笔记库存储](src/vault.ts)拒绝规范根目录以下的链接文件及链接目录。协作写入者共用跨进程文件锁；版本检查和改动回执在持锁期间计算。保存通过原子替换发布完整临时文件。创建和重命名使用硬链接，拒绝覆盖已有目标。浏览器渲染解析后的 Markdown 数据，不直接渲染原始 HTML；[共用文本解析](src/note-format.ts)不重写 frontmatter。
+[vault](src/vault.ts)会拒绝其规范根目录之下的链接文件与链接目录。协作型写者共享一把跨进程文件锁；修订校验与改动回执都在持锁期间计算。保存通过原子替换发布完整临时文件。创建与重命名使用硬链接并拒绝占用的目标。[共享文本解析](src/note-format.ts)不会重写 frontmatter，浏览器渲染的是解析后的 Markdown 数据而非原始 HTML。
+
+[建议存储](src/proposals.ts)将草稿与基础修订号以 JSON 持久化在 `.clawmaster/proposals` 下，不进入笔记索引，但外部文件系统访问仍可读取。元数据复用笔记库路径检查、有界读取、写锁与原子无覆盖发布。列举共享条目上限和累计 JSON 字节上限；建议文本与源文本另共享一份累计 diff 输入预算。不安全路径、损坏元数据与超限字节会明确报错。[行级 diff](src/diff.ts)在单侧超过 2000 行时使用整文件替换，并标记截断输出。
+
+[监听器](src/watcher.ts)根据笔记路径、大小与修改时间计算指纹，并结合文件系统事件和兜底轮询。`revision` 路由将该指纹与有界的建议内容摘要合并，因此只改元数据也会刷新面板。监听和后台扫描失败会被记录；卸载会等待进行中的扫描。
+
+[面板](src/client.tsx)按宿主自身的界面样式设计，而不是一个通用列表。[树](src/tree.ts)由笔记 id 推导出文件夹，使行真正具备层级：行高 34px、图标间距 6px、行内缩进为 `depth * 22 + 6`，与宿主文件管理器资源管理器使用的尺寸一致。[图标](src/icons.tsx)是同一套 16px 网格上的内联 SVG，因此模块不携带位图资源。
 
 </details>
 
 <a id="model-experience"></a>
-## 模型体验
+## 模型侧体验
 
-`notes_query`读取配置的笔记库，不请求写入审批。`notes_write`执行创建、保存、追加、重命名、删除或添加带日期的日记条目。每次 AI 写入都要求所属 DSH 智能体会话及 `allowed-once` 一次性批准；拒绝、取消或插件卸载会阻止仍在等待审批的操作提交。保存须提供读取时获得的版本，不一致时返回冲突。回执记录改动前后的版本，不提供被删除或替换内容的可恢复副本。已鉴权的界面命令属于用户编辑，不额外请求智能体审批。
+`notes_query` 无需写入批准即可读取配置的笔记库，包括待审建议。`notes_propose` 起草一处改动并返回其行级 diff，**不写入任何笔记**，同时将建议 JSON 持久化到本地，无需额外批准。`notes_write` 负责创建、保存、追加、重命名、删除、追加带日期的日记条目，以及应用和丢弃已存储的建议。`notes_digest` 由「做了什么」加上可选的决策、证据与下一步合成一条带日期的条目，链接到匹配的项目笔记，并追加到日记；这就是把完成的工作变成笔记的原语。
+
+通过 `notes_write` 和 `notes_digest` 修改笔记时，要求发起方是 DSH agent 会话并取得 `allowed-once` 批准；被拒、被取消或插件卸载都会阻止待处理审批提交。保存必须携带从读取得到的修订号，不一致时返回冲突。应用建议必须携带草稿所依据的修订号，发生漂移即被拒绝。回执报告改动前后的修订号，而不提供被删除或被替换内容的可恢复副本。直接经由已认证 UI 的命令属于用户编辑，不会额外请求 agent 批准。
 
 <a id="known-limitations-and-deferred-work"></a>
-## 已知限制与暂缓工作
+## 已知限制与后续工作
 
-- Markdown 编辑支持部分格式；组件不实现 Obsidian 插件或画布编辑器。搜索扫描文件，不使用持久索引。
-- 草稿不跨进程退出持久化。有草稿时会触发浏览器卸载提醒；原生应用退出保护尚未验证。
-- 文件锁协调协作写入者，不能隔离恶意或非协作进程替换祖先目录、或争抢最后一次文件系统操作。写入不承诺通过 `fsync` 保证崩溃持久性。
-- 创建和重命名需要文件系统支持硬链接。重命名清理失败可能保留两个路径，并明确报错。异常退出遗留的锁需人工确认后恢复，组件不会自动删除。
+- Markdown 编辑只支持一部分格式；本组件不实现 Obsidian 插件或画布编辑器，画布以只读打开。搜索是扫描文件而非持久化索引，列举会为标题读取每篇笔记的头部。
+- 实时刷新依赖轮询，失败请求或隐藏标签页可能延迟刷新。笔记指纹无法检测同时保持大小与修改时间不变的编辑。
+- 草稿不会跨进程退出持久化。存在草稿时浏览器会收到卸载警告；原生应用退出保护尚未验证。
+- 文件锁协调的是协作型写者；它们无法隔离恶意或不配合的进程替换祖先目录或竞争最后一次文件系统操作。写入不承诺通过 `fsync` 获得崩溃持久性。
+- 创建与重命名需要硬链接支持。重命名清理失败可能留下两个路径，并给出显式错误。异常退出遗留的锁需要人工核查与恢复；本组件不会自动清除它。
 
 <a id="verification"></a>
 ## 验证
 
-在已安装开发依赖的仓库根目录运行存储与主机测试、编译后客户端交互、类型检查和产物一致性检查：
+在已安装开发依赖的仓库根目录下，运行存储/host 测试、编译客户端测试、类型检查与产物新鲜度检查。客户端运行器会先构建产物，因为它驱动的是已发布产物而不是源码：
 
 ```sh
 npm --prefix frontends/notes test
-pnpm exec vitest run --config frontends/notes/tests/vitest.client.config.ts
+npm run test:notes-client
 npm --prefix frontends/notes run typecheck
 node frontends/notes/scripts/build.mjs --check
 ```
 
-这些检查使用合成文件和受控浏览器响应，不代表最终安装版笔记界面已经验收。
+这些检查使用合成文件与受控的浏览器响应；它们不构成对最终安装后「笔记」界面的验收。
 
 <a id="further-exploration"></a>
-## 进一步阅读
+## 延伸阅读
 
-参见[设计决策](../../.agents/notes/implemented/feature/2026-09-13-clawmaster-notes-vault.zh.md)、[通信校验](src/protocol.ts)和[桌面集成](../../apps/desktop-tauri/README.zh.md)。
-
-### 开发备注
-
-无。
+[Agent Note](../../.agents/notes/implemented/feature/2026-09-13-clawmaster-notes-vault.zh.md)记录了本模块为何存在、存储与审阅模型背后的决策，以及已验证的内容。
