@@ -11,8 +11,6 @@ English | [中文](README.zh.md)
 
 `dsh-client-ui-tool` is the client Tool presentation plugin of the dsh web client: it renders every tool call in the conversation. `ui-conversation` dispatches each ordered `tool-call` Conversation Node through the matching key of `conversation.chat.node`; this package renders its root and Code Dispatch children, then dispatches every atomic call through the keyed `tool.call.toolview` slot. Unregistered Tool names use the generic card. Business UI packages register only their wire Tool names and atomic views — they do not pair Session events, rebuild the transcript, or own root/subcall topology, because the Runtime remains authoritative for call/result pairing, lifecycle, and recursive `subCalls` projection.
 
-ClawMaster builds initially collapse shell, terminal-send, and code details, including command previews, raw output, and stack traces. Failed rows retain a brief failure summary; a nonzero terminal exit without one shows the localized failed status. All available shell inputs and outputs remain expandable, including background acknowledgements. Manual expansion survives updates to the same row. Other Tool summaries and pending approval controls retain their existing presentation.
-
 ## Table of Contents
 
 - [Use this package](#use-this-package)
@@ -28,6 +26,8 @@ ClawMaster builds initially collapse shell, terminal-send, and code details, inc
 ## Use this package
 
 Tool calls appear in the conversation as cards: a root call tree with its nested subcalls, each atomic call rendered by its owning view. Users see running, successful, failed, and interrupted states that come only from the frozen call/result slice, and can open files or inspect calls through the Host callbacks.
+
+ClawMaster builds initially collapse shell, terminal-send, and code details, including command previews, raw output, and stack traces. Failed rows retain a brief failure summary; a nonzero terminal exit without one shows the localized failed status. All available shell inputs and outputs remain expandable, including background acknowledgements. Manual expansion survives updates to the same row. Other Tool summaries and pending approval controls retain their existing presentation.
 
 ### Registering a business tool view
 
