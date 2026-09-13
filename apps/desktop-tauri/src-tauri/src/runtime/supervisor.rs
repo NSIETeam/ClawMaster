@@ -525,6 +525,11 @@ fn spawn_child(
     rescue_patch: Option<&Path>,
 ) -> Result<Child, String> {
     let mut cmd = Command::new(&paths.node_binary);
+    if super::config::dev_launch_mode().as_deref() != Some("local") {
+        cmd.arg("--import")
+            .arg(paths.harness_root.join("desktop-defaults.mjs"));
+        cmd.env("DSH_DESKTOP_DEFAULTS", "1");
+    }
     cmd.arg(&paths.cli_entry).arg("web");
     if let Some(overlay) = overlay {
         cmd.arg("--patch").arg(&overlay.patch_file);

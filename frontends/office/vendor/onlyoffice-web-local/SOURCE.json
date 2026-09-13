@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/sweetwisdom/onlyoffice-web-local",
+  "commit": "c4905016372a633cfba59a78f0acb3f029c85883",
+  "releaseTag": "release-8",
+  "archiveUrl": "https://github.com/sweetwisdom/onlyoffice-web-local/releases/download/release-8/html.zip",
+  "archiveSha256": "ea59195d747150176cc779e4fd0e1160791a34ea34d2576de1893143bb9410a0",
+  "sourcePath": "src/utils/x2t.ts",
+  "sourceSha256": "ac7e244dfccc92272bbcf7ea8fefc74505e8b0b429306783834b498be9d2f0eb",
+  "patchedSourceSha256": "7a15c57fd384e5fa78c4832df7084d987dfb342cc884f3c7899b795d5f1136ce",
+  "licenseSha256": "e9b47cbae1996c4f7e59f40b966edd3849a0b4410716927dd40504f225df3862",
+  "patch": "patches/onlyoffice-x2t.patch"
+}

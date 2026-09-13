@@ -79,8 +79,10 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| match event {
-            RunEvent::ExitRequested { api, .. } => {
-                if !chrome::quit_requested() {
+            #[cfg(target_os = "macos")]
+            RunEvent::Reopen { .. } => chrome::show_main(app),
+            RunEvent::ExitRequested { code, api, .. } => {
+                if code.is_none() && !chrome::quit_requested() {
                     api.prevent_exit();
                 } else {
                     chrome::stop_host(app);

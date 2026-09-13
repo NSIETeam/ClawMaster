@@ -487,6 +487,16 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+.retainedBody {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.retainedBody[hidden] {
+  display: none;
+}
+
 .empty {
   margin: 0;
   padding: 12px;

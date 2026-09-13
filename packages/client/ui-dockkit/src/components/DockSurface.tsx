@@ -57,6 +57,12 @@ export interface DockSurfaceProps {
   readonly labels: DockLabels
   readonly renderTab: TabRenderer
   /**
+   * Keep visited tab bodies mounted while inactive in the same pane; defaults
+   * to false. Inactive bodies are hidden and inert. Removing a tab, moving it
+   * to another pane, or unmounting the surface releases its body.
+   */
+  readonly keepVisitedTabsMounted?: boolean
+  /**
    * What a tab's chip shows as its title; omit to show the record's `title`
    * text. An embedder-internal seam: the Sidebar dispatches it to a per-kind
    * slot, and nothing outside that embedder is expected to supply it.
@@ -164,6 +170,7 @@ function sameSizes(a: readonly number[], b: readonly number[]): boolean {
 export function DockSurface({
   state, canSplit, canAddTab, canCloseTab, intents, labels, renderTab, renderTabTitle, renderTabMenuItems, chrome, onRoom,
   dropZones = 'edges', minPaneFraction = MIN_PANE_FRACTION, hideSplitWhenBlocked = false,
+  keepVisitedTabsMounted = false,
 }: DockSurfaceProps): ReactNode {
   const surface = useRef<HTMLDivElement | null>(null)
   const [preview, setPreview] = useState<Preview>(NO_PREVIEW)
@@ -281,6 +288,7 @@ export function DockSurface({
     draggingTabId: preview.draggingTabId,
     labels,
     renderTab,
+    keepVisitedTabsMounted,
     renderTabTitle,
     renderTabMenuItems,
     chromePaneId: topRightPaneId(state),

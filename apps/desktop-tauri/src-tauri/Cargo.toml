@@ -1,6 +1,6 @@
 [package]
 name = "dsh-desktop"
-version = "0.1.5-rc.2-0.1"
+version = "0.2.0-beta.1"
 description = "ClawMaster desktop shell powered by DSH (Tauri)"
 authors = ["DeepSeek"]
 edition = "2021"

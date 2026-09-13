@@ -53,6 +53,12 @@
   border: none;
 }
 
+/* Global panels retain tab instances without reserving geometry or drawing portals. */
+.panel[hidden],
+.floatHost[hidden] {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .panel,
   .panel[data-sidebar-right-open] {

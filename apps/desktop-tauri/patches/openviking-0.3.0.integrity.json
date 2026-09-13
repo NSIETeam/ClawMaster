@@ -1,0 +1,21 @@
+{
+  "package": "@openviking/dsh-memory-plugin",
+  "version": "0.3.0",
+  "registryTarball": "https://registry.npmjs.org/@openviking/dsh-memory-plugin/-/dsh-memory-plugin-0.3.0.tgz",
+  "tarballSha256": "589289c0285a1c4ed8f41bccc8011c7b400a1d5a172d382c9e47dedc8095dae2",
+  "patchSha256": "1ac11f6a20844f1620d176c09b4520d434830128e676ceb43c9af2d8e5f95b91",
+  "upstreamSha256": {
+    "index.mjs": "7ae2ac130a52f9cf28bf95d148df917a852e1e18f7d14d81c78e0bfe5ea3845c",
+    "package.json": "30ce6126fb5d20738e733bb852f3204d522ae9833e3468f04599d4fa99a26fe2",
+    "runtime.mjs": "0b16d35385b1be9e1da43e02cd11a72d0ca287f0b7aaa2107b3f0d75c541a210"
+  },
+  "patchedSha256": {
+    "index.mjs": "cefe0d0b9d2c0ed9b12514b6e59cb67026eedf1a91ea264321f852397d4fe4e2",
+    "package.json": "adf33a14df93c0226137056bdbadd51b62f5b479ba2cc42db30542385398748b",
+    "runtime.mjs": "4a1d92518c7918780bce68b56435553cf05ab6bd3c7e219d44dd36af3d530644"
+  },
+  "purpose": "Preserve the existing Session compatibility patch. Use ClawMaster in the installed plugin description.",
+  "unchangedSha256": {
+    "cordis.patch.yml": "83ac2a6370333026a0d042b24a982227ccf56338c58994c611fe91d3999d0955"
+  }
+}

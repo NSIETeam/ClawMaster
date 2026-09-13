@@ -74,6 +74,7 @@ function fireResize(el: Element): void {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
   resizeObservers.length = 0
 })
 beforeEach(() => {
@@ -325,6 +326,15 @@ function mount(
 }
 
 describe('Hero chrome', () => {
+  it('ClawMaster uses the packaged icon and slogan when the hero brand slot is empty', () => {
+    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'clawmaster')
+    const renderSlot: HeroShellProps['renderSlot'] = (_key, _owner, options) => options?.fallback ?? null
+    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot} />)
+    expect(view.container.querySelector('img')?.getAttribute('src')).toBe('/favicon.svg')
+    expect(view.container.querySelector('svg')).toBeNull()
+    expect(view.getByText('Enterprise collaboration for the AI era')).toBeTruthy()
+  })
+
   it('renders the English preview badge through the hero locale seat', () => {
     const renderSlot = vi.fn<HeroShellProps['renderSlot']>(() => null)
     const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot} />)

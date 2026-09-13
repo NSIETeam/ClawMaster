@@ -1,71 +1,41 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, stat, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { parseDelimited, readStoredList } from '../src/business.ts';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { recentSessions, connectionLabel, watchdogWorkspaceId } from '../src/services.ts';
+import { recentSessions, connectionLabel } from '../src/services.ts';
 
-test('the workbench projects existing DSH rows without inventing tasks or mutating the source', () => {
+const sourceOf = value => ({ subscribe: () => () => {}, getSnapshot: () => value });
+
+test('the workbench projects real DSH rows without blank, archived or delegated tasks', () => {
   const older = Object.freeze({ id: 'older', displayTitle: '旧任务', updatedAt: 10, running: false, blank: false });
   const newer = Object.freeze({ id: 'newer', displayTitle: '真实项目', updatedAt: 20, running: true, blank: false });
   const blank = Object.freeze({ id: 'blank', displayTitle: '空会话', updatedAt: 99, running: false, blank: true });
   const child = Object.freeze({ id: 'child', displayTitle: '子任务', updatedAt: 100, running: false, blank: false, origin: 'subagent' });
-  const snapshot = Object.freeze({
-    ids: Object.freeze(['older', 'newer', 'blank', 'child', 'stale']),
-    byId: Object.freeze({ older, newer, blank, child }), phase: 'ready',
-  });
+  const snapshot = Object.freeze({ ids: Object.freeze(['older', 'newer', 'blank', 'child', 'stale']), byId: Object.freeze({ older, newer, blank, child }), phase: 'ready' });
   assert.deepEqual(recentSessions(snapshot, []).map(row => row.id), ['newer', 'older']);
   assert.equal(recentSessions(snapshot, [])[0].running, true);
-  const archived = Object.freeze(['newer']);
-  assert.deepEqual(recentSessions(snapshot, archived).map(row => row.id), ['older']);
-  assert.deepEqual(archived, ['newer']);
+  assert.deepEqual(recentSessions(snapshot, ['newer']).map(row => row.id), ['older']);
   assert.deepEqual(snapshot.ids, ['older', 'newer', 'blank', 'child', 'stale']);
   assert.deepEqual(recentSessions({ ids: [], byId: {}, phase: 'pending' }, []), []);
 });
 
-test('unknown or disconnected state is never displayed as connected', () => {
+test('unknown connection state never displays connected in either locale', () => {
   assert.equal(connectionLabel('connected'), '已连接');
   assert.equal(connectionLabel(undefined), '正在连接');
-  assert.equal(connectionLabel('connecting'), '正在连接');
   assert.equal(connectionLabel('disconnected'), '连接已断开');
+  assert.equal(connectionLabel(undefined, 'en-US'), 'Connecting');
 });
 
-test('WatchDog resolves only its system-managed workspace', () => {
-  const snapshot = {
-    phase: 'ready', archivedSessionIds: [],
-    items: [
-      { workspaceId: 'recent', path: '/projects/recent', title: 'Recent project' },
-      { workspaceId: 'watchdog', path: '/managed/watchdog', title: 'WatchDog 托管空间' },
-    ],
-  };
-  assert.equal(watchdogWorkspaceId(snapshot), 'watchdog');
-  assert.equal(watchdogWorkspaceId({ ...snapshot, items: snapshot.items.slice(0, 1) }), undefined);
-});
-
-test('the data processor parses CSV and TSV without losing quoted commas', () => {
-  assert.deepEqual(parseDelimited('name,value\n"华东,一区",12').rows, [
-    ['name', 'value'], ['华东,一区', '12'],
-  ]);
-  assert.deepEqual(parseDelimited('sku\tstock\nA-1\t8'), {
-    delimiter: '\t', rows: [['sku', 'stock'], ['A-1', '8']],
-  });
-});
-
-test('business module storage ignores malformed and invalid records', () => {
-  const isNamed = value => typeof value === 'object' && value !== null && typeof value.name === 'string';
-  assert.deepEqual(readStoredList('[{"name":"远航科技"},{"bad":1}]', isNamed), [{ name: '远航科技' }]);
-  assert.deepEqual(readStoredList('{broken', isNamed), []);
-});
-
-test('the distributed factory uses shared React and leaves the DSH backend and other UI slots intact', async () => {
+test('the shipped factory registers WatchDog and enterprise sidebar components and cleans up without creating Sessions', async () => {
   const source = await readFile(new URL('../dist/client.js', import.meta.url), 'utf8');
   const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   const rows = new Map();
+  const tabs = new Map();
   const cleanups = [];
   let styleCount = 0;
   let themeCount = 0;
@@ -78,79 +48,168 @@ test('the distributed factory uses shared React and leaves the DSH backend and o
   };
   runInNewContext(source, {
     window: { __ModuleLoader__: { load: value => { registration = value; } } },
-    document: doc,
-    MutationObserver: FakeMutationObserver,
+    document: doc, MutationObserver: FakeMutationObserver, AbortController,
+    fetch() { throw new Error('must not request on plugin load'); },
   });
   assert.equal(registration.id, manifest.name);
   const sharedRequire = createRequire(import.meta.url);
-  const imports = new Set();
+  const runtimeImports = new Set();
   const plugin = registration.factory(id => {
-    imports.add(id);
-    assert.ok(['react', 'react/jsx-runtime'].includes(id), `unexpected runtime import: ${id}`);
+    assert.ok(['react', 'react/jsx-runtime', 'react-dom'].includes(id), `unexpected runtime import: ${id}`);
+    runtimeImports.add(id);
     return sharedRequire(id);
   });
-  const emptySource = { subscribe: () => () => {}, getSnapshot: () => ({ ids: [], byId: {}, phase: 'ready' }) };
+  assert.ok(runtimeImports.has('react-dom'), 'navigation must use the Host ReactDOM singleton');
+  const buildMeta = JSON.parse(await readFile(new URL('../dist/build-meta.json', import.meta.url), 'utf8'));
+  assert.equal(Object.keys(buildMeta.inputs).some(path => path.includes('node_modules/react-dom/')), false);
   const services = {
     slots: {
       inject(_name, setup) { cleanups.push(setup()); },
       register(options, component) {
-        rows.set(options.name, { options, component });
+        if (options.id === 'clawmaster-initial-entry') assert.ok(rows.has('main:clawmaster'));
+        rows.set(`${options.name}:${options.key ?? options.id ?? ''}`, { options, component });
         return () => { disposedSlots++; };
       },
     },
-    theme: {
-      overrideTokens(_id, tokens) {
-        for (const token of Object.values(tokens)) assert.ok(token.light && token.dark);
-        themeCount++;
-        return () => { themeCount--; };
-      },
-    },
-    sessions: { list: emptySource, refresh: () => { throw new Error('should only refresh after user action'); } },
-    workspaces: { list: { subscribe: () => () => {}, getSnapshot: () => ({
-      items: [{ workspaceId: 'watchdog', path: '/managed/watchdog', title: 'WatchDog 托管空间' }],
-      archivedSessionIds: [], phase: 'ready',
-    }) } },
-    connection: { state: { subscribe: () => () => {}, getSnapshot: () => 'connected' } },
-    uiWorkspace: {
-      startSession() { throw new Error('must not create a session on plugin load'); },
-      openSession() { throw new Error('must not change selected session on plugin load'); },
-    },
+    theme: { overrideTokens(_id, tokens) {
+      for (const token of Object.values(tokens)) assert.ok(token.light && token.dark);
+      themeCount++; return () => { themeCount--; };
+    } },
+    sessions: { list: sourceOf({ ids: [], byId: {}, phase: 'ready' }),
+      create() { throw new Error('must not create on load'); },
+      refresh() { throw new Error('must only refresh after user action'); } },
+    workspaces: { list: sourceOf({ items: [], archivedSessionIds: [], phase: 'ready' }) },
+    connection: { state: sourceOf('connected') },
+    locale: sourceOf({ active: 'zh' }),
+    settingsScope: { bind() { return sourceOf({ mode: 'host', status: 'ready', value: { acknowledgedVersion: 0 } }); } },
+    layout: { selectPanel() { throw new Error('must not navigate on load'); } },
+    betterSidebar: { registerTab(tab) { tabs.set(tab.id, tab); return () => tabs.delete(tab.id); } },
+    uiWorkspace: { openSession() { throw new Error('must not change selection on load'); } },
     effect(setup) { cleanups.push(setup()); },
   };
   plugin.apply(services);
   assert.equal(doc.title, 'ClawMaster');
   assert.equal(styleCount, 1);
   assert.equal(themeCount, 1);
-  assert.ok(imports.has('react'));
-  assert.deepEqual([...rows.keys()].sort(), [
-    'conversation.hero.brand.mark', 'main', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.panellist',
-  ].sort());
-  assert.equal(rows.get('main').options.key, 'clawmaster');
-  assert.equal(rows.get('sidebar.panellist').options.id, 'clawmaster');
-  assert.ok(plugin.inject.includes('workspaces'));
-  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-api-workspace-controller'));
-  const brand = renderToStaticMarkup(React.createElement(rows.get('sidebar.brand.name').component));
-  assert.match(brand, /ClawMaster/);
-  const html = renderToStaticMarkup(React.createElement(rows.get('main').component));
+  assert.equal(rows.size, 8);
+  assert.ok(rows.has('main:clawmaster'));
+  assert.ok(rows.has('sidebar.panellist:clawmaster'));
+  assert.deepEqual([...tabs.keys()], ['clawmaster:crm', 'clawmaster:erp']);
+  for (const tab of tabs.values()) {
+    assert.equal(tab.single, true);
+    assert.match(renderToStaticMarkup(tab.settings.render({ close() {} })), /在右侧打开/);
+  }
+  assert.ok(manifest.dsh.client.inject.includes('dsh-better-sidebar'));
+  assert.equal(tabs.get('clawmaster:crm').title(), 'CRM 客户');
+  const initialEntry = rows.get('shell.overlay:clawmaster-initial-entry').component;
+  assert.equal(renderToStaticMarkup(React.createElement(initialEntry, {
+    usePanelInfo: selector => selector({ activePanelId: null }),
+  })), '');
+  const main = rows.get('main:clawmaster').component;
+  const html = renderToStaticMarkup(React.createElement(main));
   assert.match(html, /已连接/);
   assert.match(html, /开启AI时代的企业协作/);
-  assert.match(html, /WatchDog 运行中/);
-  assert.match(html, /无需预设工作空间/);
-  assert.doesNotMatch(html, /真实项目|旧任务/);
-  services.workspaces.list.getSnapshot = () => ({ items: [], archivedSessionIds: [], phase: 'pending' });
-  const pendingHtml = renderToStaticMarkup(React.createElement(rows.get('main').component));
-  assert.match(pendingHtml, /正在读取会话/);
-  assert.doesNotMatch(pendingHtml, /还没有任务/);
+  assert.match(html, /还没有任务/);
+  assert.match(html, /文档编辑器/);
+  assert.match(html, /系统按任务创建工作空间/);
+  assert.doesNotMatch(html, /WatchDog 运行中|DeepSeek Harness|HARNESS|数据处理器|CRM 客户|ERP 库存/);
+  services.sessions.list.getSnapshot = () => ({
+    ids: ['finished'], byId: { finished: { id: 'finished', displayTitle: '完成的测试任务', updatedAt: 1, running: false, blank: false } }, phase: 'ready',
+  });
+  const taskHtml = renderToStaticMarkup(React.createElement(main));
+  assert.match(taskHtml, /完成的测试任务/);
+  assert.match(taskHtml, /class="cm-idle">当前未运行/);
+  assert.doesNotMatch(taskHtml, /已停止执行/);
+  services.locale.getSnapshot = () => ({ active: 'en' });
+  assert.equal(tabs.get('clawmaster:crm').title(), 'CRM contacts');
+  assert.match(renderToStaticMarkup(React.createElement(main)), /What should WatchDog watch/);
+  assert.match(renderToStaticMarkup(React.createElement(main)), /class="cm-idle">Not running/);
+  services.sessions.list.getSnapshot = () => ({ ids: [], byId: {}, phase: 'pending' });
+  assert.match(renderToStaticMarkup(React.createElement(main)), /Loading sessions/);
   for (const cleanup of cleanups.reverse()) cleanup();
   assert.equal(styleCount, 0);
   assert.equal(themeCount, 0);
-  assert.equal(disposedSlots, 5);
+  assert.equal(disposedSlots, 8);
+  assert.equal(tabs.size, 0);
+});
 
+test('the distributed Host allocates workspaces only on explicit requests and preserves separate tasks', async t => {
   const host = await import('../dist/index.js');
-  assert.deepEqual(Object.keys(host), ['apply', 'inject', 'name']);
-  const root = await mkdtemp(join(tmpdir(), 'clawmaster-watchdog-'));
-  const created = [];
-  await host.apply({ workspaceRegistry: { create: async (...args) => { created.push(args); } } }, { managedRoot: join(root, 'managed') });
-  assert.equal((await stat(join(root, 'managed'))).isDirectory(), true);
-  assert.deepEqual(created, [[join(root, 'managed'), 'WatchDog 托管空间']]);
+  const root = await mkdtemp(join(tmpdir(), 'clawmaster-workspaces-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const routes = new Map();
+  const created = new Map();
+  const cleanups = [];
+  const ctx = {
+    settings: { register(namespace, schema) { assert.equal(namespace, 'clawmaster-watchdog-onboarding'); assert.deepEqual(schema({}), { acknowledgedVersion: 0 }); } },
+    workspaceRegistry: { async create(path) {
+      if (!created.has(path)) created.set(path, { id: `workspace-${created.size}`, path });
+      return created.get(path);
+    } },
+    connection: { fetch: { register(route) { routes.set(route.path, route); return async () => { routes.delete(route.path); }; } } },
+    tools: { register() { return () => {}; } },
+    approval: { request() { throw new Error('workspace allocation must not request approval'); } },
+    fs: { sandboxMode: 'workspace-write' },
+    sandboxPolicy: { resolve() { throw new Error('workspace allocation must not invoke CSV'); } },
+    effect(setup) {
+      const result = setup();
+      if (result instanceof Promise) return result.then(cleanup => { cleanups.push(cleanup); });
+      cleanups.push(result);
+    },
+  };
+  t.after(async () => { for (const cleanup of cleanups.reverse()) await cleanup(); });
+  const managedRoot = join(root, 'workspaces');
+  await host.apply(ctx, { managedRoot, databasePath: join(root, 'data.sqlite') });
+  assert.equal(created.size, 0);
+  await assert.rejects(stat(managedRoot), { code: 'ENOENT' });
+  const request = body => routes.get('/api/clawmaster/workspace').fetch(new Request('http://localhost/api/clawmaster/workspace', { method: 'POST', body }));
+  for (const body of ['{broken', '{}', '{"kind":"bad"}', '{"kind":"task","path":"/outside"}']) {
+    assert.equal((await request(body)).status, 400);
+  }
+  assert.equal(created.size, 0);
+  const tools = await (await request('{"kind":"tools"}')).json();
+  const again = await (await request('{"kind":"tools"}')).json();
+  assert.deepEqual(tools, again);
+  assert.equal(tools.path, join(managedRoot, 'desk'));
+  const tasks = await Promise.all([request('{"kind":"task"}'), request('{"kind":"task"}')]);
+  const [first, second] = await Promise.all(tasks.map(response => response.json()));
+  assert.notEqual(first.workspaceId, second.workspaceId);
+  assert.notEqual(first.path, second.path);
+  assert.ok((await stat(first.path)).isDirectory());
+  assert.equal(created.size, 3);
+});
+
+
+test('workspace disposal drains an entered registry write and rejects further allocations', async t => {
+  const { applyManagedWorkspaces } = await import('../src/workspace-host.ts');
+  const root = await mkdtemp(join(tmpdir(), 'clawmaster-workspace-dispose-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let entered;
+  let finish;
+  const registryEntered = new Promise(resolve => { entered = resolve; });
+  const registryFinish = new Promise(resolve => { finish = resolve; });
+  let route;
+  let registered = true;
+  let creates = 0;
+  const dispose = applyManagedWorkspaces({
+    workspaceRegistry: { async create(path) { creates++; entered(); await registryFinish; return { id: 'owned', path }; } },
+    connection: { fetch: { register(value) { route = value; return async () => { registered = false; }; } } },
+  }, root);
+  t.after(() => { finish(); return dispose(); });
+  const request = () => new Request('http://localhost/api/clawmaster/workspace', { method: 'POST', body: '{"kind":"task"}' });
+  const aborted = new AbortController();
+  aborted.abort();
+  assert.equal((await route.fetch(new Request(request(), { signal: aborted.signal }))).status, 503);
+  const active = route.fetch(request());
+  await registryEntered;
+  let settled = false;
+  const stopping = dispose().then(() => { settled = true; });
+  assert.equal(registered, false);
+  assert.equal((await route.fetch(request())).status, 503);
+  assert.equal(settled, false);
+  finish();
+  assert.equal((await active).status, 200);
+  await stopping;
+  assert.equal(settled, true);
+  assert.equal(creates, 1);
 });

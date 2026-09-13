@@ -58,6 +58,8 @@ A tab's `kind` is an opaque string. Seeded tabs are factories (`DockControllerOp
 
 `DockSurface` is the docked area. Chrome around it — a rail, a collapsed presentation, any history controls — belongs to the embedder, which reads `state.expanded` and decides; the kit ships no undo/redo control of its own. Surface-wide controls the embedder does want on the surface go through the `chrome` prop, which the kit places at the far end of the top-right pane's tab strip (the last child of every row split, the first of every column split), so a surface needs no header row of its own. `FloatLayer` owns its own gestures and positions panels in viewport coordinates, so it may be mounted anywhere, including a portal.
 
+`DockSurface` renders only the active body by default. With `keepVisitedTabsMounted`, a body mounts on its first visit and remains mounted while its tab stays in the same mounted pane; inactive bodies are hidden, inert, and lose focus without discarding local editor state. Unvisited tabs do not mount. Closing or moving a tab out of its pane, disabling retention, or unmounting the surface releases the affected bodies. This retains state in memory, not across application restarts.
+
 <a id="interaction-rules-worth-keeping"></a>
 ## Interaction rules worth keeping
 

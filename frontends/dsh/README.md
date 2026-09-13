@@ -1,100 +1,158 @@
-# ClawMaster DSH 前端
+---
+description: "ClawMaster WatchDog desktop workspace, local data processing, CRM and inventory orders for users and maintainers of the Tauri frontend bundle."
+kind: "package-bundle"
+---
 
-`@clawmaster/dsh-frontend` 是现有 DeepSeek Harness Web Host 的外置前端插件。
-它把 ClawMaster 产品化为企业 WatchDog：增加品牌、配色和监控工作台，使用 DSH 已有客户端服务；后台零迁移。
-Agent、模型、工具、插件执行、审批、会话存储和恢复继续由原 DSH 负责。
+# ClawMaster WatchDog frontend
 
-## 当前功能与兼容范围
+English | [中文](README.zh.md)
 
-- 侧栏与对话首页的 ClawMaster 标识，适配明暗主题。
-- 工作台展示实际 DSH 会话，支持搜索、进行中筛选、刷新、新建和重新打开会话。
-- Host 会在 `$DSH_HOME/watchdog-workspaces/managed` 创建 WatchDog 托管空间；“启动 WatchDog”自动绑定该空间，不继承用户当前或最近工作空间。
-- 内置数据处理器可解析和预览 CSV/TSV；CRM 客户跟进和 ERP 库存台账提供本机持久化 CRUD，低库存自动标记。
-- 默认组合 `dsh-better-sidebar@0.19.1`，在会话右侧提供 CodeMirror 文档/代码编辑器、文件预览、沙箱网页浏览器、终端、Git 与任务面板。
-- 默认启用 DSH 官方 Goal 续跑链路，并在本 bundle 中启用官方 Schedule、时区上下文和提醒目录，用于固定间隔巡检与同会话提醒。
-- 展示真实连接状态；空白、已归档及子代理会话不进入近期任务列表。
-- 对话、审批、工具调用与结果、模型和插件设置视图继续使用原 DSH 界面。
-  工作台提供设置位置说明，当前没有另造模型或插件管理后台。
+## Summary
 
-当前支持和核验基线为 **DSH `0.1.5-rc.2`**，Cordis peer 为 `4.0.2`。
-本插件消费公开 `slots`、`theme`、`sessions`、`workspaces`、`connection`、`uiWorkspace` 服务。
-兼容声明仅覆盖本插件使用的服务和实际验证的页面，未宣称所有 DSH 插件均已测试。
-新增企业功能应调用已有接口；本版本未增加企业后端、Rust 宿主桥或凭据 provider。
+ClawMaster brings tasks, document editing, browsing, terminals and local business records into one Tauri desktop workspace. Its slogan is “开启AI时代的企业协作”. The desktop includes this bundle and uses DSH for conversations, models, tools, approvals, plugins and session recovery. AI uses DSH tools to process CSV and query or prepare customer and order records. The panels support reviewing results, approvals and manual takeover. AI tasks use the configured DSH provider; manual actions require no model call.
 
-浏览器标签、桌面标题栏、启动页和页面内品牌均显示 ClawMaster。对话首页标题通过精确匹配上游中英文标题进行替换；升级 DSH 后需进行可见界面回归。
-本包也不打包 Node、DSH 后台或桌面安装器，没有 10 MiB 安装包承诺。
+## Table of Contents
 
-## 开发、检查与打包
+- [Use this package](#use-this-package)
+- [Understand the implementation](#understand-the-implementation)
+- [Further Exploration](#further-exploration)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
 
-使用现有 DSH 支持的 Node：`^22.19.0 || >=24.0.0`，推荐与运行 DSH 的版本一致。
-下列命令在本目录执行；这是独立前端包，不需要构建整个 ClawMaster 仓库。
+-----
+
+<a id="use-this-package"></a>
+## Use this package
+
+Use the ClawMaster Tauri desktop application. Its provisioner includes this frontend and the plugins listed in the [desktop defaults](../../apps/desktop-tauri/README.md#architecture). The [desktop guide](../../apps/desktop-tauri/README.md) owns installer, runtime provisioning and launch instructions; this frontend package alone is not a desktop installer.
+
+<a id="first-run-tutorial"></a>
+### First-run tutorial
+
+With no Session or Workspace history, WatchDog teaches a five-step management workflow using this week's customer follow-ups and delivery risks: define scope, write responsibilities and acceptance criteria, inspect CRM/ERP records and supplied documents, choose a review frequency and check approvals, then verify findings and follow up on corrective action. Owners and deadlines are instructions in the task description. The primary action opens WatchDog management; model and IM settings are auxiliary destinations at the end. Reading, skipping or replaying creates no task and sends no prompt or external message. Existing users can open Settings → WatchDog tutorial at any time.
+
+Skip and finish record a versioned acknowledgement through DSH settings. The desktop keeps it across restarts and local port changes; newer acknowledgement versions are preserved. A refused write keeps the guide open with a retry message. Remote browsers retain acknowledgement only for the current settings-shell lifetime. Tutorial completion does not verify an API key, create a task, schedule a reminder or connect an IM account.
+
+### Start a task or open a tool
+
+Application startup creates no default workspace. With no session or workspace history, the first entry opens WatchDog; existing selections and subsequent navigation take precedence. Starting a WatchDog task allocates a directory under `$DSH_HOME/watchdog-workspaces/tasks/<uuid>` and uses the ordinary DSH session flow. Opening an editor, browser or terminal uses the current, unarchived session when available; otherwise the first tool request allocates `$DSH_HOME/watchdog-workspaces/desk` and creates or reuses its session. These directories and their files survive application restarts.
+
+WatchDog occupies the main panel. Better Sidebar opens document editing, browsing, CRM and ERP in tabs beside the conversation, and terminals at the bottom. Manage CRM and ERP with the other components in Settings → Side Cards; each component's feature settings opens its right-side tab. Components are enabled by default but open only on request. Opening an existing component selects its tab.
+
+Visiting a global panel such as WatchDog preserves the current Session's right-side editor and browser instances, including unsaved text and iframe documents. Hidden docked and floating content takes no frame width or keyboard focus. Save before switching Sessions, closing tabs or quitting. The [desktop compatibility patch](../../apps/desktop-tauri/README.md#architecture) also retains browser navigation per native Session and tab identity; it does not persist editor drafts.
+
+| Module | Use |
+| --- | --- |
+| Documents | Edit text and code, and preview files in the session workspace. |
+| Browser | Open websites in Better Sidebar's sandboxed browser panel. |
+| Terminal | Use a terminal associated with the session workspace. |
+| CRM | Maintain contacts, companies, stages, next actions and follow-up dates. |
+| ERP | Maintain SKUs, stock, reorder thresholds, suppliers and purchase/sale orders. |
+
+### Give AI a business task
+
+Describe the goal in a task and place its input files in that task's workspace. For example: “Trim and deduplicate customers.csv, save customers-clean.csv, then query CRM and organize contacts needing follow-up.” AI calls the built-in business tools directly. CRM and ERP components provide review and manual controls; the file editor opens CSV results. Data processing has no separate panel or navigation entry.
+
+### Prepare CSV or TSV data
+
+Ask AI to process a workspace file with explicit delimiter, header, trim, duplicate removal, blank-record removal, substring filter and sort rules. Parsing preserves cell text, including leading zeros. Invalid quoting or inconsistent column counts block processing and output until the source is corrected.
+
+The tool's default input limit is 16 MiB and its result preview contains at most 10 rows. Saved CSV includes every processed row with a UTF-8 BOM. Spreadsheet formula protection is enabled by default and prefixes formula-active cells with a single quote. DSH records the tool's result and saved file path in the conversation.
+
+### Save contacts, stock and orders
+
+CRM and ERP start with an empty database at `$DSH_HOME/watchdog/enterprise.sqlite`. Saved records are independent of the browser origin, random Host port and selected session. Contact and SKU edits and deletions are audited. Existing browser `localStorage` records are neither deleted nor automatically imported into SQLite.
+
+Save purchase or sale orders as drafts with quantities and unit prices. Submitting a purchase adds stock; submitting a sale subtracts stock. All lines, order status, the revision and before/after audit facts commit together. Insufficient stock rolls back the entire submission. Submitted orders cannot be edited, deleted or applied twice.
+
+Stock and quantities use safe integers; monetary values use integer CNY minor units. A SKU referenced by an order cannot be deleted. If another view changes the records, a stale save returns a revision conflict: refresh the records, review the current values, and save again. Unsupported, foreign or damaged databases fail without an automatic reset.
+
+### Use reminders and IM connections
+
+The bundle enables DSH's official Schedule, time context and reminder catalog. Reminder delivery needs the application running and a live root agent in the owning session; closing the application does not create an operating-system background scheduler. Due reminders return to the same conversation when that session can accept them. See the [Schedule guide](../../docs/user/guide/schedule.md) for supported timing and recovery behavior.
+
+IM account setup and platform login flows belong to the bundled IM plugin. Including the plugin does not establish a live Feishu, WeChat, WeCom or DingTalk connection; each platform's account conditions and connection result must be verified in its settings.
+
+-----
+
+<a id="understand-the-implementation"></a>
+## Understand the implementation
+
+<details>
+<summary>Implementation and contributor checks — click to expand</summary>
+
+The [profile patch](cordis.patch.yml) disables the official brand row, inserts this frontend, enables Schedule and time context, and enables the reminder UI. The [client entry](src/client.tsx) uses DSH's existing slots, theme, sessions, workspaces and panel services. The [Host entry](src/host.ts) registers lazy workspace allocation and enterprise routes on the existing authenticated DSH Fetch carrier; it starts no second server.
+
+[PapaParse processing](src/business.ts) owns CSV syntax and serialization. [Enterprise storage](src/enterprise-host.ts) uses Node's SQLite and transactions; the HTTP routes and [AI tools](src/enterprise-tools.ts) share one store, command validation and revision checks. DSH's settings store remains configuration storage. Enterprise data does not enter the model automatically.
+
+The Host plugin accepts these optional settings through its Cordis configuration. Storage paths must be absolute.
+
+| Setting | Default |
+| --- | --- |
+| `managedRoot` | `$DSH_HOME/watchdog-workspaces` |
+| `databasePath` | `$DSH_HOME/watchdog/enterprise.sqlite` |
+| `busyTimeoutMs` | `5000`; SQLite writer-lock wait, from `0` to `60000` ms |
+| `dataTools.maxInputBytes` | `16777216` |
+| `dataTools.previewRows` / `previewColumns` / `previewCellChars` / `maxDiagnostics` | `10` / `8` / `120` / `10` |
+| `enterpriseTools.maxQueryRows` / `maxQueryBytes` | `100` / `262144` |
+
+With the repository's supported Node runtime and this package's dependencies installed, run these commands from this directory:
 
 ```sh
-cd /Users/king/Documents/ChatGPT/ClawMaster/frontends/dsh
-npm ci
 npm run typecheck
 npm test
 npm pack
 ```
 
-`npm test` 先构建，再运行三个自动化测试：会话数据映射、连接状态、打包后的客户端注册与卸载。
-这些测试不调用模型，也不能替代真实浏览器、审批或插件组合验收。
-单独构建可运行 `npm run build`；`npm pack` 的 `prepack` 也会重新构建。
-当前版本生成 `clawmaster-dsh-frontend-0.3.1.tgz`，内含客户端 bundle、托管空间 Host 入口和 profile patch。
-包标记为 private，可本地打包安装，不通过这些命令发布到 npm。
+The test command builds the client factory and Host bundle before running the package's focused tests. Packing runs the same build and produces a local `.tgz`; the package is private. React and React DOM come from DSH's shared client runtime. Tool navigation commits the session view before opening a panel, so the panel's DSH seat is bound. The [desktop build](../../apps/desktop-tauri/README.md) includes the frontend artifacts in its runtime payload.
 
-## 安装到现有 DSH
+</details>
 
-命令假设当前 shell 能执行已有的 `dsh`，且 `pnpm` 在 `PATH` 中。
-`dsh plugin` 实际把 `add` / `remove` 等参数传给 profile 目录内的 pnpm，并自动维护 bundle 列表。
-若 DSH 来自项目内安装，也可用其 `node_modules/.bin/dsh` 的绝对路径替换命令名。
+-----
 
-首次建立尚不存在的 `clawmaster` profile 时，先从官方 Web 模板创建；以下命令只打印配置，不启动模型：
+<a id="further-exploration"></a>
+## Further Exploration
 
-```sh
-dsh --profile clawmaster --from-default-profile web --dump-default-config
-```
+- [Desktop installation and runtime](../../apps/desktop-tauri/README.md) — Tauri packaging, startup and platform behavior.
+- [Profile composition](../../packages/boot/app-boot/README.md) — DSH bundle ordering and configuration.
+- [Official Schedule](../../packages/schedule/schedule/README.md) — durable reminders and live-session delivery.
+- [Enterprise records and commands](src/enterprise-types.ts) — the shared client/Host data definitions.
 
-已有 `clawmaster` profile 时跳过此步，并确认其已经包含 `dsh-base` 与 `dsh-web-app`。
-不要直接对尚不存在的自定义 profile 执行插件安装后假定它有 Web UI：`dsh plugin` 默认只创建 base profile。
-已有 DSH 使用自定义 `DSH_HOME` 时，所有命令沿用同一设置。
+-----
 
-安装已构建的本地包，再启动或重启该 profile：
+<a id="model-experience"></a>
+## Model Experience
 
-```sh
-dsh plugin --profile web add /Users/king/Documents/ChatGPT/ClawMaster/frontends/dsh/clawmaster-dsh-frontend-0.3.1.tgz --ignore-scripts
-dsh plugin --profile web add dsh-better-sidebar@0.19.1
-dsh --profile clawmaster --host 127.0.0.1 --port 0 --no-open
-```
+The frontend registers `csv_process`, `enterprise_query` and `enterprise_command` through DSH's ordinary tool pipeline. CSV processing reads complete files inside the current Session workspace, returns bounded previews and counts, and optionally saves the full result. Existing outputs require a prior read and DSH's file-version guard. Write escalation uses normal single-use DSH approval and does not permit paths outside the workspace.
 
-Better Sidebar 的终端依赖 `node-pty` 原生构建；pnpm 首次拦截其构建脚本时，应先审阅后通过 `pnpm approve-builds` 只批准 `node-pty`，再重跑插件安装。默认设置保留工作区路径围栏与网页 iframe 沙箱，模型终端工具默认关闭。
+Enterprise queries return bounded pages with a revision and continuation offset. AI can save contacts and order drafts; inventory writes, record deletions and order submission require explicit DSH approval. Rejected, cancelled or unavailable approval leaves records unchanged. Revision conflicts require rereading; identical committed command IDs return their original receipt. UI and AI operations use the same local database.
 
-在其他目录构建时，将 tgz 参数换成实际绝对路径。`--ignore-scripts` 适用于这里已经包含构建产物的包。
-`--port 0` 让系统分配空闲端口；用 DSH 输出的认证入口打开页面，不把 token URL 写入文档或分享。
-在侧栏选择“工作台”，即可查看本插件页面；原会话和设置入口继续可用。
+Tool calls and returned data enter the Session log and subsequent model requests through DSH. The database is not automatically copied into prompts. The recorded owner-local [business flow](tests/business-tool-flow.test.mjs) covers CSV-to-CRM tool results, persisted replay and unavailable ERP approval with a synthetic model. Schedule owns its reminder tools and follow-up messages.
 
-安装会启用包内 `cordis.patch.yml`：禁用官方品牌展示行、插入本前端插件，并启用 DSH 官方 Schedule 与 time-context。
-DSH 的其他 Host、工具、存储及业务插件行保持原配置；Goal 与 goal-round-driver 已由 DSH base 默认提供。
-移除此界面扩展可执行下列命令并重启 profile；无需删除会话数据：
+#### KV Cache effect
 
-```sh
-dsh plugin --profile clawmaster remove @clawmaster/dsh-frontend
-```
+The frontend adds tool schemas and logged tool results, without a separate model provider or system-prompt prefix. Result changes affect the subsequent request suffix. DSH owns request assembly and cache handling.
 
-2026-09-12 已在独立 `DSH_HOME` / `DSH_AGENTS_HOME` 中实际验证首次 profile 创建、
-`npm pack`、官方 CLI 安装本地 tgz 和配置导出。导出差异仅为禁用官方品牌行及新增本插件，
-其他插件配置保留；这项安装验证没有启动模型。
+<a id="known-limitations-and-deferred-work"></a>
+## Known Limitations and Deferred Work
 
-## 源码入口
+The constraints below apply to this frontend and its local records.
 
-| 文件 | 职责 |
-| --- | --- |
-| `src/client.tsx` | 注册品牌、主题及工作台插槽，订阅官方服务 |
-| `src/Workbench.tsx` / `src/styles.css` | 工作台呈现、筛选、刷新状态与响应式样式 |
-| `src/services.ts` | 使用到的服务类型及只读会话展示映射 |
-| `src/host.ts` | 创建并登记 WatchDog 托管工作空间 |
-| `scripts/build.mjs` | 生成官方 ModuleLoader 客户端 factory；React 使用 Host 的共享实例 |
-| `cordis.patch.yml` | 前端 profile 组合，不实现后台逻辑 |
+- The integration baseline is DSH `0.1.5-rc.2` with Cordis `4.0.2`. Compatibility covers the public services consumed here and the plugin combinations that are actually tested; it does not certify every DSH plugin.
 
-本包许可证为 Apache-2.0；DSH 及各第三方组件保留各自许可证。
-DSH 接口与 CLI 参考：[官方源码](https://github.com/deepseek-ai/deepseek-harness/tree/c291e7961a515f6d7af9304e7fd1d257929aef26)、[profile 插件管理](https://github.com/deepseek-ai/deepseek-harness/blob/c291e7961a515f6d7af9304e7fd1d257929aef26/apps/cli/src/plugin.ts)。
+- CRM and ERP are local single-user records, not a shared multi-tenant enterprise system or an external ERP/CRM connector. Audit history is retained in full. Browser reads and internal storage reads use full snapshots; model queries paginate their output. Large-database capacity is not established. The data processor supports delimited text, not an XLSX workbook or a persistent spreadsheet service.
+
+- This package has no standalone installer-size commitment. The Tauri shell, DSH, Node runtime and third-party components have separate packaging and license obligations; this package uses Apache-2.0.
+
+- OpenViking Memory is installed but disabled by desktop defaults until connected. The [local service guide](../../apps/desktop-tauri/README.md#optional-local-openviking-service) owns macOS preparation, USER credentials and the external AGPL-3.0 server; the integration plugin uses Apache-2.0. Service health alone does not verify desktop memory capture or cross-Session recall.
+
+<a id="dev-note"></a>
+### Dev Note
+
+<details>
+<summary>Development verification context — click to expand</summary>
+
+This checkout is undergoing desktop integration. Source tests and package builds are development evidence; they do not establish acceptance of a newly installed desktop, every module interaction, real model reminders or platform QR login. The desktop integration task owns those live checks before release.
+
+</details>

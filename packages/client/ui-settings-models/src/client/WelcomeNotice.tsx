@@ -1,9 +1,9 @@
-/** Product-wide, versioned internal-testing notice. */
+/** Product-wide, versioned welcome or internal-testing notice. */
 
 import { useCallback, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsRuntime, Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WelcomeNoticeState, WelcomeNoticeStore } from './welcome-store.ts'
 import type { en } from './locales.ts'
@@ -19,7 +19,7 @@ export interface WelcomeNoticeInjected {
   /** Welcome acknowledgement controller. */
   controller: WelcomeNoticeStore
   /** Onboarding copy. */
-  t: (key: keyof typeof en) => string
+  t: Translate<keyof typeof en>
 }
 
 /** Coordinator owner props plus this step's injected face. */
@@ -54,10 +54,13 @@ export function WelcomeNotice(props: WelcomeNoticeProps): ReactNode {
   const acknowledge = async (): Promise<void> => {
     if (await controller.acknowledge()) finish()
   }
-  const paragraphs = t('welcomeBody').split('\n\n')
+  const product = process.env.DSH_CLIENT_TITLE
+  const branded = product !== undefined && process.env.DSH_CLIENT_BUILD_PROFILE !== 'official'
+  const title = branded ? t('welcomeProductTitle', { product }) : t('welcomeTitle')
+  const paragraphs = t(branded ? 'welcomeProductBody' : 'welcomeBody').split('\n\n')
 
   return (
-    <OnboardingModal title={t('welcomeTitle')} focusTitle>
+    <OnboardingModal title={title} focusTitle>
       <div className={css.copy}>
         {paragraphs.map(paragraph => <p key={paragraph}>{paragraph}</p>)}
       </div>

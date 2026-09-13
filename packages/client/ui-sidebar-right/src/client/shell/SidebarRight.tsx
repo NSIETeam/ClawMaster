@@ -80,7 +80,7 @@ export interface SidebarRightInjected {
    * Publish this seat's session, actions, and the store's surfaces to `ctx.sidebarRight`.
    *
    * The service is root-scoped and cannot read a per-entry store, so the only
-   * honest source is the mounted seat. Held for as long as the seat is mounted.
+   * source is the mounted seat. Held while the Conversation is selected.
    * @param binding - what a command needs to act on this session, and what a tab's own action needs to act on its.
    * @returns a release callback.
    */
@@ -127,6 +127,7 @@ interface PanelProps {
   readonly useTabNavigation: RightbarSeatProps['useTabNavigation']
   readonly useStore: Store['useStore']
   readonly occurrence: SidebarRightInjected['occurrence']
+  readonly visible: boolean
   readonly fullscreen: boolean
   readonly autoFullscreen: boolean
   /** Receives the kit's room-rule readings for the service's `split`. */
@@ -168,7 +169,7 @@ export function intentsFor(sessionId: SessionId, actions: Store['actions'], open
 }
 
 /** One tab's slot dispatch: which seat, and what to render when no type registered. */
-interface TabSlotProps extends Pick<PanelProps, 'renderSlot' | 'occurrence' | 'useTabTypes' | 'useTabNavigation' | 'useStore' | 'fullscreen'> {
+interface TabSlotProps extends Pick<PanelProps, 'renderSlot' | 'occurrence' | 'useTabTypes' | 'useTabNavigation' | 'useStore' | 'fullscreen' | 'visible'> {
   readonly tab: TabRecord
   readonly seat: 'sidebar.right.pane.tab' | 'sidebar.right.pane.tab.title'
   readonly fallback: ReactNode
@@ -178,19 +179,20 @@ interface TabSlotProps extends Pick<PanelProps, 'renderSlot' | 'occurrence' | 'u
  * Dispatch one tab's body or title with stable framework hooks and record lifetime.
  */
 function TabSlot({
-  renderSlot, occurrence, useTabTypes, useTabNavigation, useStore, fullscreen, tab, seat, fallback,
+  renderSlot, occurrence, useTabTypes, useTabNavigation, useStore, fullscreen, visible, tab, seat, fallback,
 }: TabSlotProps): ReactNode {
   const { signal, tabActions } = occurrence(tab)
   const definition = useTabTypes(types => types.find(definition => definition.kind === tab.kind))
   const hookContext = useMemo((): TabHookContext => ({
     tabId: tab.id,
     title: seat === 'sidebar.right.pane.tab.title',
+    visible,
     fullscreen,
     signal,
     actions: tabActions,
     useStore,
     useTabNavigation,
-  }), [tab.id, seat, fullscreen, signal, tabActions, useStore, useTabNavigation])
+  }), [tab.id, seat, fullscreen, visible, signal, tabActions, useStore, useTabNavigation])
   return renderSlot(seat, {}, { entryKey: definition?.id ?? tab.kind, fallback, hookContext })
 }
 
@@ -203,9 +205,8 @@ function TabSlot({
  */
 function bodiesFor(panel: PanelProps): TabRenderer {
   const { t, ...rest } = panel
-  // Keyed by record: the kit draws one body per pane in one place, and the
-  // keyed slot below keys on the type, so two tabs of one kind would otherwise
-  // share a component instance and its local state (a scroll position, a ref).
+  // The slot registry keys by implementation type; the record key keeps each
+  // tab's local state independent when several tabs use that implementation.
   return tab => (
     <TabSlot
       key={tab.id}
@@ -283,13 +284,31 @@ function PanelChrome({ sessionId, fullscreen, autoFullscreen, actions, t }: Pick
   )
 }
 
+/** Remove keyboard focus and interaction from a retained hidden panel, including iframe focus. */
+function usePanelVisibility(ref: RefObject<HTMLDivElement>, visible: boolean): void {
+  useLayoutEffect(() => {
+    const element = ref.current
+    if (element === null) return
+    element.inert = !visible
+    const focused = document.activeElement
+    if (!visible && focused instanceof HTMLElement && element.contains(focused)) focused.blur()
+  })
+}
+
+/** Dismiss the kit's body-portalled menu when its retained anchor is hidden. */
+function TabMenuItems({ visible, dismiss, children }: { visible: boolean; dismiss: () => void; children: ReactNode }): ReactNode {
+  useLayoutEffect(() => { if (!visible) dismiss() }, [visible, dismiss])
+  return children
+}
+
 /**
  * The panel: the docked surface with the two controls in its top-right strip,
  * anchored to the frame's right edge and slid off it while collapsed.
  */
 function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<HTMLDivElement> }): ReactNode {
-  const { sessionId, surface, actions, t, renderSlot, openTab, width, reportRoom, fullscreen, autoFullscreen, panelRef } = panel
+  const { sessionId, surface, actions, t, renderSlot, openTab, width, reportRoom, fullscreen, autoFullscreen, panelRef, visible } = panel
   const { expanded } = surface.layout
+  usePanelVisibility(panelRef, visible && expanded)
   return (
     <div
       ref={panelRef}
@@ -297,13 +316,15 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
       style={{ width: fullscreen ? '100%' : width }}
       data-sidebar-right-panel={fullscreen ? 'fullscreen' : 'push'}
       data-sidebar-right-open={expanded || undefined}
+      hidden={!visible}
       // Off-edge is out of reach: the stylesheet's visibility flip takes the
       // hidden panel out of the tab order, and this takes it out of the
       // accessibility tree.
-      aria-hidden={!expanded || undefined}
+      aria-hidden={!visible || !expanded || undefined}
     >
       <div className={css.panelBody}>
         <DockSurface
+          keepVisitedTabsMounted
           state={surface.layout}
           canSplit={canSplit(surface.layout) && dockPaneIds(surface.layout).length < 2}
           hideSplitWhenBlocked
@@ -315,8 +336,11 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
           labels={dockLabels(t)}
           renderTab={bodiesFor(panel)}
           renderTabTitle={titlesFor(panel)}
-          renderTabMenuItems={(tab, dismiss) =>
-            renderSlot('sidebar.right.tab.menu.item', { tab, dismiss })}
+          renderTabMenuItems={(tab, dismiss) => (
+            <TabMenuItems visible={visible && expanded} dismiss={dismiss}>
+              {renderSlot('sidebar.right.tab.menu.item', { tab, dismiss })}
+            </TabMenuItems>
+          )}
           chrome={<PanelChrome sessionId={sessionId} fullscreen={fullscreen} autoFullscreen={autoFullscreen} actions={actions} t={t} />}
           onRoom={reportRoom}
         />
@@ -327,10 +351,12 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
 
 /** Portal the floating layer out of whichever seat rendered it. */
 function Floats(panel: PanelProps): ReactNode {
-  const { sessionId, surface, actions, t, openTab } = panel
+  const { sessionId, surface, actions, t, openTab, visible } = panel
+  const host = useRef<HTMLDivElement>(null)
+  usePanelVisibility(host, visible)
   if (surface.layout.floats.length === 0) return null
   return createPortal(
-    <div className={css.floatHost} data-sidebar-right-float-host>
+    <div ref={host} className={css.floatHost} data-sidebar-right-float-host hidden={!visible} aria-hidden={!visible || undefined}>
       <FloatLayer
         state={surface.layout}
         canCloseTab={tabId => canCloseTab(surface, tabId)}
@@ -351,7 +377,7 @@ function Floats(panel: PanelProps): ReactNode {
  * which session it is acting on, because this is the seat that knows both.
  */
 export function RightbarSeat({
-  sessionId, width, viewportWidth, canShow, useStore, actions, t, renderSlot, syncPresentation, bindService, openTab,
+  sessionId, width, viewportWidth, canShow, visible, useStore, actions, t, renderSlot, syncPresentation, bindService, openTab,
   useTabTypes, useTabNavigation, occurrence,
 }: RightbarSeatProps): ReactNode {
   // One store instance per session, so this map holds this session's surface.
@@ -360,7 +386,7 @@ export function RightbarSeat({
   // adopted stores instead.
   const surfaces = useStore(state => state.bySession)
   const surface = surfaces[sessionId]
-  const shown = surface !== undefined && surface.layout.expanded
+  const shown = visible && surface !== undefined && surface.layout.expanded
   const autoFullscreen = viewportWidth < 768
   const fullscreen = autoFullscreen || surface?.layout.mode === 'fullscreen'
   const panelRef = useRef<HTMLDivElement | null>(null)
@@ -407,8 +433,10 @@ export function RightbarSeat({
   // Republished on every committed change: the service's readers answer from the
   // last commit, and its commands act on the session actually on screen.
   useEffect(
-    () => bindService({ sessionId, actions, surfaces, canSplitPane: paneId => room.current.get(paneId)?.row !== false }),
-    [bindService, sessionId, actions, surfaces],
+    () => visible
+      ? bindService({ sessionId, actions, surfaces, canSplitPane: paneId => room.current.get(paneId)?.row !== false })
+      : undefined,
+    [bindService, sessionId, actions, surfaces, visible],
   )
   // The Tab domain is not synced here: the controller adopted this session's
   // store as the runtime minted it and reconciles on the store's own commits,
@@ -417,7 +445,7 @@ export function RightbarSeat({
   if (surface === undefined) return null
   const panel: PanelProps = {
     sessionId, actions, t, renderSlot, surface, openTab, useTabTypes, useTabNavigation, useStore, occurrence,
-    fullscreen, autoFullscreen, reportRoom,
+    fullscreen, autoFullscreen, reportRoom, visible,
   }
   return (
     <>

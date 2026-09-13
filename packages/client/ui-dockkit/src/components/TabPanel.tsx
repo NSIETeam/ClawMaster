@@ -207,6 +207,41 @@ function splitBlockedTitle(labels: PaneCallbacks['labels'], block: SplitBlock): 
   }
 }
 
+/** Hide a retained body without leaving its focused controls or iframe active. */
+function RetainedTabBody({ tabId, visible, children }: { tabId: TabId; visible: boolean; children: ReactNode }): ReactNode {
+  const body = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const element = body.current
+    /* v8 ignore next -- the body div mounts before its layout effect. */
+    if (element === null) return
+    element.inert = !visible
+    const focused = element.ownerDocument.activeElement
+    if (!visible && focused instanceof HTMLElement && element.contains(focused)) focused.blur()
+  }, [visible])
+  return (
+    <div ref={body} className={css.retainedBody} data-dockkit-tab-body={tabId} hidden={!visible} aria-hidden={!visible || undefined}>
+      {children}
+    </div>
+  )
+}
+
+/** Visit history belongs to this mounted pane; closed or moved tabs leave it immediately. */
+function RetainedTabBodies({ state, pane, callbacks }: TabPanelProps): ReactNode {
+  const [visited, setVisited] = useState<readonly TabId[]>([])
+  const present = pane.tabs.filter(tabId => tabId === pane.activeTabId || visited.includes(tabId))
+  if (present.length !== visited.length || present.some((tabId, index) => tabId !== visited[index])) setVisited(present)
+  return (
+    <>
+      {present.map(tabId => (
+        <RetainedTabBody key={tabId} tabId={tabId} visible={tabId === pane.activeTabId}>
+          {callbacks.renderTab(getTab(state, tabId))}
+        </RetainedTabBody>
+      ))}
+      {pane.activeTabId === undefined && <p className={css.empty}>{callbacks.labels.emptyPane}</p>}
+    </>
+  )
+}
+
 /** The pane's tab strip, split control, and body. */
 export function TabPanel({ state, pane, callbacks }: TabPanelProps): ReactNode {
   // The open context menu and the chip that opened it; the menu positions
@@ -407,9 +442,11 @@ export function TabPanel({ state, pane, callbacks }: TabPanelProps): ReactNode {
         )}
       </div>
       <div className={css.paneBody}>
-        {active === undefined
-          ? <p className={css.empty}>{callbacks.labels.emptyPane}</p>
-          : callbacks.renderTab(active)}
+        {callbacks.keepVisitedTabsMounted
+          ? <RetainedTabBodies key={pane.id} state={state} pane={pane} callbacks={callbacks} />
+          : active === undefined
+            ? <p className={css.empty}>{callbacks.labels.emptyPane}</p>
+            : callbacks.renderTab(active)}
         {zone !== undefined && (
           <>
             <div className={css.dockScrim} data-dockkit-dock-scrim />

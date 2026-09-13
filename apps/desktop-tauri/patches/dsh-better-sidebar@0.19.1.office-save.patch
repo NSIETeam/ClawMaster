@@ -1,0 +1,544 @@
+diff --git a/src/fs-operations.ts b/src/fs-operations.ts
+index 4908a30..2a80d96 100644
+--- a/src/fs-operations.ts
++++ b/src/fs-operations.ts
+@@ -17,10 +17,10 @@
+  * row renames/unlinks the LINK, never its target, matching what the tree
+  * row visually names (VS Code semantics).
+  */
+-import { randomUUID } from 'node:crypto'
++import { createHash, randomUUID } from 'node:crypto'
+ import { once } from 'node:events'
+ import { createWriteStream } from 'node:fs'
+-import { access, lstat, mkdir, realpath, rename, rm, stat, unlink } from 'node:fs/promises'
++import { access, lstat, mkdir, open, realpath, rename, rm, stat, unlink } from 'node:fs/promises'
+ import { basename, dirname, join } from 'node:path'
+ import { isWithin, requireAbsolute } from './fs-tree.ts'
+ import { ensureWorkspacePath, ensureWorkspaceWritePath } from './path-security.ts'
+@@ -41,6 +41,57 @@ export interface WorkspaceUploadInput {
+   limit: number
+   /** Whether workspace containment is enforced (the `workspaceFence` setting; on by default). */
+   fence?: boolean
++  /** SHA-256 revision of the bytes opened by the editor, without HTTP quotes. */
++  expectedRevision?: string
++}
++
++/** Commit queues share canonical target paths across all upload requests. */
++const uploadCommits = new Map<string, Promise<void>>()
++
++/** Serialize the final check and rename, releasing the queue after success or failure. */
++async function commitUpload<T>(target: string, commit: () => Promise<T>): Promise<T> {
++  const previous = uploadCommits.get(target)
++  let release!: () => void
++  const pending = new Promise<void>((resolve) => { release = resolve })
++  uploadCommits.set(target, pending)
++  try {
++    await previous
++    return await commit()
++  } finally {
++    release()
++    if (uploadCommits.get(target) === pending) uploadCommits.delete(target)
++  }
++}
++
++/** Hash actual file bytes with the upload byte cap; a missing save target conflicts. */
++async function uploadTargetRevision(target: string, limit: number): Promise<string> {
++  let file
++  try {
++    file = await open(target, 'r')
++  } catch (error) {
++    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
++      throw new SidebarError('revision-conflict', 'file changed since it was opened', 412)
++    }
++    throw error
++  }
++  try {
++    if (!(await file.stat()).isFile()) {
++      throw new SidebarError('revision-conflict', 'save target is no longer a file', 412)
++    }
++    const digest = createHash('sha256')
++    const buffer = Buffer.alloc(64 * 1024)
++    let size = 0
++    for (;;) {
++      const { bytesRead } = await file.read(buffer, 0, buffer.length, null)
++      if (bytesRead === 0) break
++      size += bytesRead
++      if (size > limit) throw new SidebarError('too-large', `file exceeds the ${limit} byte limit`, 413)
++      digest.update(buffer.subarray(0, bytesRead))
++    }
++    return `sha256-${digest.digest('hex')}`
++  } finally {
++    await file.close()
++  }
+ }
+ 
+ /**
+@@ -48,14 +99,17 @@ export interface WorkspaceUploadInput {
+  * sibling receives the bytes, then is renamed over the target. The parent
+  * directory is created on demand (recursive), so folder uploads work before
+  * any level exists. The unique temp name keeps concurrent uploads to the same
+- * target independent (each writes and renames its own file; the last rename
+- * wins) and never blocks later uploads after a crashed process.
++ * target independent. Final commits serialize by canonical path; without a
++ * revision the last commit wins. With a revision, the current file bytes are
++ * checked after the complete upload and immediately before rename. This is
++ * optimistic conflict detection, not an atomic compare-and-swap against
++ * unrelated processes.
+  *
+  * @throws SidebarError with a wire code for containment, shape, and size
+  * failures; the temp file is always removed on failure.
+  */
+-export async function writeWorkspaceUpload(input: WorkspaceUploadInput): Promise<{ path: string; size: number }> {
+-  const { cwd, dir, relativePath, chunks, limit, fence = true } = input
++export async function writeWorkspaceUpload(input: WorkspaceUploadInput): Promise<{ path: string; size: number; revision?: string }> {
++  const { cwd, dir, relativePath, chunks, limit, fence = true, expectedRevision } = input
+   const base = requireAbsolute(dir)
+   await ensureWorkspacePath(cwd, base, fence)
+   if (relativePath === '' || relativePath.startsWith('/') || relativePath.startsWith('\\')) {
+@@ -74,6 +128,7 @@ export async function writeWorkspaceUpload(input: WorkspaceUploadInput): Promise
+   // already closed (successful end, later failure) cannot leave the wait hanging.
+   const closed = new Promise<void>((resolve) => { stream.once('close', () => resolve()) })
+   let size = 0
++  const digest = expectedRevision === undefined ? undefined : createHash('sha256')
+   let streamError: unknown
+   // A permanent 'error' listener keeps a failing disk from crashing the host:
+   // every await below surfaces the failure through the promise chain instead.
+@@ -83,16 +138,29 @@ export async function writeWorkspaceUpload(input: WorkspaceUploadInput): Promise
+       const buffer = Buffer.from(chunk)
+       size += buffer.length
+       if (size > limit) throw new SidebarError('too-large', `upload exceeds the ${limit} byte limit`, 413)
++      digest?.update(buffer)
+       if (!stream.write(buffer)) await once(stream, 'drain')
+       if (streamError !== undefined) throw streamError
+     }
+     await new Promise<void>((resolve, reject) => {
+       stream.end((error?: Error | null) => (error === undefined || error === null ? resolve() : reject(error)))
+     })
++    await closed
+     if (streamError !== undefined) throw streamError
+-    await rename(tmp, safeTarget)
+-    const info = await stat(safeTarget)
+-    return { path: target, size: info.size }
++    return await commitUpload(safeTarget, async () => {
++      if (await ensureWorkspaceWritePath(cwd, target, fence) !== safeTarget) {
++        throw new SidebarError('fs-error', 'upload destination changed during upload', 409)
++      }
++      if (expectedRevision !== undefined && await uploadTargetRevision(safeTarget, limit) !== expectedRevision) {
++        throw new SidebarError('revision-conflict', 'file changed since it was opened', 412)
++      }
++      await rename(tmp, safeTarget)
++      return {
++        path: target,
++        size,
++        ...(digest === undefined ? {} : { revision: `sha256-${digest.digest('hex')}` }),
++      }
++    })
+   } catch (error) {
+     // Wait for the stream to fully close before unlinking (Windows locks open
+     // files), then remove our own uniquely named temp file.
+diff --git a/src/index.ts b/src/index.ts
+index 9598be8..396d877 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -82,6 +82,15 @@ export const name = 'dsh-better-sidebar'
+ /** Services required before mounting: the webserver routes, the session store, the web runtime's trusted hosts, and the tool registry. */
+ export const inject = ['webServer', 'sessions', 'webRuntime', 'tools']
+ 
++/** Accept one strong SHA-256 If-Match tag; unversioned uploads remain supported. */
++function uploadRevisionHeader(header: string | string[] | undefined): string | undefined {
++  if (header === undefined) return undefined
++  if (typeof header !== 'string' || !/^"sha256-[a-f0-9]{64}"$/.test(header)) {
++    throw new SidebarError('bad-request', 'If-Match must be one quoted sha256 revision', 400)
++  }
++  return header.slice(1, -1)
++}
++
+ /** Content types for the media route, by extension. */
+ const MEDIA_TYPES: Record<string, string> = {
+   '.png': 'image/png',
+@@ -938,16 +947,18 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
+         if (sessionId === null || dir === null || relativePath === null || relativePath.trim() === '') {
+           throw new SidebarError('bad-request', 'sessionId, dir, and relativePath are required')
+         }
++        const expectedRevision = uploadRevisionHeader(req.headers['if-match'])
+         const cwd = await sessionCwdOf(ctx, sessionId, url.searchParams.get('cwd') ?? undefined)
+-        const { path, size } = await writeWorkspaceUpload({
++        const result = await writeWorkspaceUpload({
+           cwd,
+           dir,
+           relativePath,
+           chunks: req,
+           limit: resolved.uploadLimit,
+           fence: fenceEnabledOf(() => settingsFace),
++          expectedRevision,
+         })
+-        writeOk(res, { path, size })
++        writeOk(res, result)
+       } catch (error) {
+         writeError(res, error)
+       }
+diff --git a/src/wire.ts b/src/wire.ts
+index 3002543..ff890ef 100644
+--- a/src/wire.ts
++++ b/src/wire.ts
+@@ -23,6 +23,7 @@ export type SidebarErrorCode =
+   | 'subagents-unavailable'
+   | 'settings-rejected'
+   | 'settings-conflict'
++  | 'revision-conflict'
+   | 'internal'
+ 
+ /** One API failure with its wire code and HTTP status. */
+diff --git a/lib/index.js b/lib/index.js
+index 74c7171..c919cb1 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -412,79 +412,140 @@ async function ensureWorkspaceWritePath(cwd, target, fence = true) {
+ 		existingPath = parent;
+ 	}
+ }
+-//#endregion
+-//#region src/fs-operations.ts
+-/**
+-* Workspace-safe file mutations for the sidebar (the upload route today).
+-*
+-* Every write is confined to the real session workspace: the upload
+-* directory is resolved absolute and its target is checked through existing
+-* filesystem ancestors, the relative path is sanitized (absolute paths, '.',
+-* '..' and empty segments are refused), and the final target must stay inside
+-* the workspace after symlink resolution. Bytes stream from the request body
+-* to a uniquely named temp sibling
+-* and are renamed into place, so a failed, aborted, or oversized upload never
+-* leaves a partial file at the target path.
+-*
+-* The tree's rename/delete (below) are link-aware: existence and containment
+-* are verified against the fully resolved target (a symlink pointing outside
+-* the workspace is refused while the fence is armed), but the operation
+-* itself addresses the lexical row path — renaming or deleting a symlink
+-* row renames/unlinks the LINK, never its target, matching what the tree
+-* row visually names (VS Code semantics).
+-*/
++"use strict";
++/** Commit queues share canonical target paths across all upload requests. */
++const uploadCommits = new Map();
++"use strict";
++/** Serialize the final check and rename, releasing the queue after success or failure. */
++async function commitUpload(target, commit) {
++	const previous = uploadCommits.get(target);
++	let release;
++	const pending = new Promise((resolve) => { release = resolve; });
++	uploadCommits.set(target, pending);
++	try {
++		await previous;
++		return await commit();
++	}
++	finally {
++		release();
++		if (uploadCommits.get(target) === pending)
++			uploadCommits.delete(target);
++	}
++}
++"use strict";
++/** Hash actual file bytes with the upload byte cap; a missing save target conflicts. */
++async function uploadTargetRevision(target, limit) {
++	let file;
++	try {
++		file = await open(target, 'r');
++	}
++	catch (error) {
++		if (error.code === 'ENOENT') {
++			throw new SidebarError('revision-conflict', 'file changed since it was opened', 412);
++		}
++		throw error;
++	}
++	try {
++		if (!(await file.stat()).isFile()) {
++			throw new SidebarError('revision-conflict', 'save target is no longer a file', 412);
++		}
++		const digest = createHash('sha256');
++		const buffer = Buffer.alloc(64 * 1024);
++		let size = 0;
++		for (;;) {
++			const { bytesRead } = await file.read(buffer, 0, buffer.length, null);
++			if (bytesRead === 0)
++				break;
++			size += bytesRead;
++			if (size > limit)
++				throw new SidebarError('too-large', `file exceeds the ${limit} byte limit`, 413);
++			digest.update(buffer.subarray(0, bytesRead));
++		}
++		return `sha256-${digest.digest('hex')}`;
++	}
++	finally {
++		await file.close();
++	}
++}
++"use strict";
+ /**
+-* Stream `chunks` into `dir/relativePath` atomically: a uniquely named temp
+-* sibling receives the bytes, then is renamed over the target. The parent
+-* directory is created on demand (recursive), so folder uploads work before
+-* any level exists. The unique temp name keeps concurrent uploads to the same
+-* target independent (each writes and renames its own file; the last rename
+-* wins) and never blocks later uploads after a crashed process.
+-*
+-* @throws SidebarError with a wire code for containment, shape, and size
+-* failures; the temp file is always removed on failure.
+-*/
++ * Stream `chunks` into `dir/relativePath` atomically: a uniquely named temp
++ * sibling receives the bytes, then is renamed over the target. The parent
++ * directory is created on demand (recursive), so folder uploads work before
++ * any level exists. The unique temp name keeps concurrent uploads to the same
++ * target independent. Final commits serialize by canonical path; without a
++ * revision the last commit wins. With a revision, the current file bytes are
++ * checked after the complete upload and immediately before rename. This is
++ * optimistic conflict detection, not an atomic compare-and-swap against
++ * unrelated processes.
++ *
++ * @throws SidebarError with a wire code for containment, shape, and size
++ * failures; the temp file is always removed on failure.
++ */
+ async function writeWorkspaceUpload(input) {
+-	const { cwd, dir, relativePath, chunks, limit, fence = true } = input;
++	const { cwd, dir, relativePath, chunks, limit, fence = true, expectedRevision } = input;
+ 	const base = requireAbsolute(dir);
+ 	await ensureWorkspacePath(cwd, base, fence);
+-	if (relativePath === "" || relativePath.startsWith("/") || relativePath.startsWith("\\")) throw new SidebarError("bad-request", "relativePath must stay below the upload directory", 400);
++	if (relativePath === '' || relativePath.startsWith('/') || relativePath.startsWith('\\')) {
++		throw new SidebarError('bad-request', 'relativePath must stay below the upload directory', 400);
++	}
+ 	const segments = relativePath.split(/[\\/]/);
+-	if (segments.some((part) => part === "" || part === "." || part === "..")) throw new SidebarError("bad-request", "relativePath must stay below the upload directory", 400);
++	if (segments.some(part => part === '' || part === '.' || part === '..')) {
++		throw new SidebarError('bad-request', 'relativePath must stay below the upload directory', 400);
++	}
+ 	const target = join(base, ...segments);
+ 	const safeTarget = await ensureWorkspaceWritePath(cwd, target, fence);
+ 	const tmp = join(dirname(safeTarget), `.${basename(safeTarget)}.dsh-upload-${randomUUID()}.tmp`);
+ 	await mkdir(dirname(safeTarget), { recursive: true });
+-	const stream = createWriteStream(tmp, { flags: "wx" });
+-	const closed = new Promise((resolve) => {
+-		stream.once("close", () => resolve());
+-	});
++	const stream = createWriteStream(tmp, { flags: 'wx' });
++	// Resolves once the stream fully closes; created up front so a stream that
++	// already closed (successful end, later failure) cannot leave the wait hanging.
++	const closed = new Promise((resolve) => { stream.once('close', () => resolve()); });
+ 	let size = 0;
++	const digest = expectedRevision === undefined ? undefined : createHash('sha256');
+ 	let streamError;
+-	stream.on("error", (error) => {
+-		streamError = error;
+-	});
++	// A permanent 'error' listener keeps a failing disk from crashing the host:
++	// every await below surfaces the failure through the promise chain instead.
++	stream.on('error', (error) => { streamError = error; });
+ 	try {
+ 		for await (const chunk of chunks) {
+ 			const buffer = Buffer.from(chunk);
+ 			size += buffer.length;
+-			if (size > limit) throw new SidebarError("too-large", `upload exceeds the ${limit} byte limit`, 413);
+-			if (!stream.write(buffer)) await once(stream, "drain");
+-			if (streamError !== void 0) throw streamError;
++			if (size > limit)
++				throw new SidebarError('too-large', `upload exceeds the ${limit} byte limit`, 413);
++			digest?.update(buffer);
++			if (!stream.write(buffer))
++				await once(stream, 'drain');
++			if (streamError !== undefined)
++				throw streamError;
+ 		}
+ 		await new Promise((resolve, reject) => {
+-			stream.end((error) => error === void 0 || error === null ? resolve() : reject(error));
++			stream.end((error) => (error === undefined || error === null ? resolve() : reject(error)));
+ 		});
+-		if (streamError !== void 0) throw streamError;
+-		await rename(tmp, safeTarget);
+-		return {
+-			path: target,
+-			size: (await stat(safeTarget)).size
+-		};
+-	} catch (error) {
++		await closed;
++		if (streamError !== undefined)
++			throw streamError;
++		return await commitUpload(safeTarget, async () => {
++			if (await ensureWorkspaceWritePath(cwd, target, fence) !== safeTarget) {
++				throw new SidebarError('fs-error', 'upload destination changed during upload', 409);
++			}
++			if (expectedRevision !== undefined && await uploadTargetRevision(safeTarget, limit) !== expectedRevision) {
++				throw new SidebarError('revision-conflict', 'file changed since it was opened', 412);
++			}
++			await rename(tmp, safeTarget);
++			return {
++				path: target,
++				size,
++				...(digest === undefined ? {} : { revision: `sha256-${digest.digest('hex')}` }),
++			};
++		});
++	}
++	catch (error) {
++		// Wait for the stream to fully close before unlinking (Windows locks open
++		// files), then remove our own uniquely named temp file.
+ 		stream.destroy();
+-		await closed.catch(() => {});
+-		await rm(tmp, { force: true }).catch(() => {});
++		await closed.catch(() => { });
++		await rm(tmp, { force: true }).catch(() => { });
+ 		throw error;
+ 	}
+ }
+@@ -4849,6 +4910,17 @@ function buildApi(ctx, ptyManager, agentPtyRegistry, resolved, terminalShell, ge
+ 		...buildSidechatApi(ctx, assistantLive)
+ 	};
+ }
++"use strict";
++/** Accept one strong SHA-256 If-Match tag; unversioned uploads remain supported. */
++function uploadRevisionHeader(header) {
++	if (header === undefined)
++		return undefined;
++	if (typeof header !== 'string' || !/^"sha256-[a-f0-9]{64}"$/.test(header)) {
++		throw new SidebarError('bad-request', 'If-Match must be one quoted sha256 revision', 400);
++	}
++	return header.slice(1, -1);
++}
++
+ /**
+ * Plugin body: mount the fenced routes and the pty lifecycle.
+ * @param ctx - host plugin context (webServer, sessions, webRuntime).
+@@ -4973,53 +5045,45 @@ function apply(ctx, config) {
+ 			}
+ 		}
+ 	}), "dsh-better-sidebar: /sidebar/api routes");
++	"use strict";
+ 	ctx.effect(() => ctx.webServer.register({
+-		kind: "exact",
+-		path: "/sidebar/upload",
++		kind: 'exact',
++		path: '/sidebar/upload',
+ 		handler: async (req, res) => {
+ 			if (!fence(req)) {
+-				writeJson(res, 403, {
+-					ok: false,
+-					error: {
+-						code: "forbidden",
+-						message: "forbidden"
+-					}
+-				});
++				writeJson(res, 403, { ok: false, error: { code: 'forbidden', message: 'forbidden' } });
+ 				return;
+ 			}
+-			if (req.method !== "POST") {
+-				writeJson(res, 405, {
+-					ok: false,
+-					error: {
+-						code: "method-error",
+-						message: "method not allowed"
+-					}
+-				});
++			if (req.method !== 'POST') {
++				writeJson(res, 405, { ok: false, error: { code: 'method-error', message: 'method not allowed' } });
+ 				return;
+ 			}
+ 			try {
+-				const url = new URL(req.url ?? "/", "http://dsh.internal");
+-				const sessionId = url.searchParams.get("sessionId");
+-				const dir = url.searchParams.get("dir");
+-				const relativePath = url.searchParams.get("relativePath");
+-				if (sessionId === null || dir === null || relativePath === null || relativePath.trim() === "") throw new SidebarError("bad-request", "sessionId, dir, and relativePath are required");
+-				const { path, size } = await writeWorkspaceUpload({
+-					cwd: await sessionCwdOf(ctx, sessionId, url.searchParams.get("cwd") ?? void 0),
++				const url = new URL(req.url ?? '/', 'http://dsh.internal');
++				const sessionId = url.searchParams.get('sessionId');
++				const dir = url.searchParams.get('dir');
++				const relativePath = url.searchParams.get('relativePath');
++				if (sessionId === null || dir === null || relativePath === null || relativePath.trim() === '') {
++					throw new SidebarError('bad-request', 'sessionId, dir, and relativePath are required');
++				}
++				const expectedRevision = uploadRevisionHeader(req.headers['if-match']);
++				const cwd = await sessionCwdOf(ctx, sessionId, url.searchParams.get('cwd') ?? undefined);
++				const result = await writeWorkspaceUpload({
++					cwd,
+ 					dir,
+ 					relativePath,
+ 					chunks: req,
+ 					limit: resolved.uploadLimit,
+-					fence: fenceEnabledOf(() => settingsFace)
++					fence: fenceEnabledOf(() => settingsFace),
++					expectedRevision,
+ 				});
+-				writeOk(res, {
+-					path,
+-					size
+-				});
+-			} catch (error) {
++				writeOk(res, result);
++			}
++			catch (error) {
+ 				writeError(res, error);
+ 			}
+-		}
+-	}), "dsh-better-sidebar: /sidebar/upload route");
++		},
++	}), 'dsh-better-sidebar: /sidebar/upload route');
+ 	ctx.effect(() => registerBundleRoute(ctx, fence), "dsh-better-sidebar: /sidebar/bundle chunk route");
+ 	ctx.effect(() => ctx.webServer.register({
+ 		kind: "prefix",
+diff --git a/lib/types/fs-operations.d.ts b/lib/types/fs-operations.d.ts
+index cf99bd9..d796f47 100644
+--- a/lib/types/fs-operations.d.ts
++++ b/lib/types/fs-operations.d.ts
+@@ -12,14 +12,19 @@ export interface WorkspaceUploadInput {
+     limit: number;
+     /** Whether workspace containment is enforced (the `workspaceFence` setting; on by default). */
+     fence?: boolean;
++    /** SHA-256 revision of the bytes opened by the editor, without HTTP quotes. */
++    expectedRevision?: string;
+ }
+ /**
+  * Stream `chunks` into `dir/relativePath` atomically: a uniquely named temp
+  * sibling receives the bytes, then is renamed over the target. The parent
+  * directory is created on demand (recursive), so folder uploads work before
+  * any level exists. The unique temp name keeps concurrent uploads to the same
+- * target independent (each writes and renames its own file; the last rename
+- * wins) and never blocks later uploads after a crashed process.
++ * target independent. Final commits serialize by canonical path; without a
++ * revision the last commit wins. With a revision, the current file bytes are
++ * checked after the complete upload and immediately before rename. This is
++ * optimistic conflict detection, not an atomic compare-and-swap against
++ * unrelated processes.
+  *
+  * @throws SidebarError with a wire code for containment, shape, and size
+  * failures; the temp file is always removed on failure.
+@@ -27,6 +32,7 @@ export interface WorkspaceUploadInput {
+ export declare function writeWorkspaceUpload(input: WorkspaceUploadInput): Promise<{
+     path: string;
+     size: number;
++    revision?: string;
+ }>;
+ /** Inputs of one tree-row rename. */
+ export interface WorkspaceRenameInput {
+diff --git a/lib/types/wire.d.ts b/lib/types/wire.d.ts
+index 8b5ace0..07af6d9 100644
+--- a/lib/types/wire.d.ts
++++ b/lib/types/wire.d.ts
+@@ -6,16 +6,16 @@
+  */
+ import type { SidebarHttpRequest, SidebarHttpResponse } from './context-types.ts';
+ /** Machine-readable error codes of the sidebar API. */
+-export type SidebarErrorCode = 'bad-request' | 'not-found' | 'forbidden' | 'method-error' | 'too-large' | 'fs-error' | 'git-error' | 'pty-error' | 'pty-deps-missing' | 'shell-not-found' | 'job-error' | 'sidechat-error' | 'subagents-unavailable' | 'settings-rejected' | 'settings-conflict' | 'internal';
++export type SidebarErrorCode = 'bad-request' | 'not-found' | 'forbidden' | 'method-error' | 'too-large' | 'fs-error' | 'git-error' | 'pty-error' | 'pty-deps-missing' | 'shell-not-found' | 'job-error' | 'sidechat-error' | 'subagents-unavailable' | 'settings-rejected' | 'settings-conflict' | 'revision-conflict' | 'internal';
+ /** One API failure with its wire code and HTTP status. */
+ export declare class SidebarError extends Error {
+     readonly code: SidebarErrorCode;
+     readonly status: number;
+     /** Optional structured context (e.g. `{ shell }` for shell-not-found). */
+-    readonly meta?: Record<string, string> | undefined;
++    readonly meta?: Record<string, string>;
+     constructor(code: SidebarErrorCode, message: string, status?: number, 
+     /** Optional structured context (e.g. `{ shell }` for shell-not-found). */
+-    meta?: Record<string, string> | undefined);
++    meta?: Record<string, string>);
+ }
+ /** Success envelope of one API method. */
+ export interface SidebarOk<T> {

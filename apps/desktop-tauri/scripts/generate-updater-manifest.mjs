@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url'
 
 const PLATFORM_ASSET_SUFFIXES = {
   'windows-x86_64': 'windows-x64-setup.exe',
-  'windows-i686': 'windows-x86-setup.exe',
   'darwin-x86_64': 'macos-x64.app.tar.gz',
   'darwin-aarch64': 'macos-arm64.app.tar.gz',
   'linux-x86_64': 'linux-x64.AppImage',
@@ -28,7 +27,7 @@ export function normalizedAssets(version) {
   return Object.fromEntries(
     Object.entries(PLATFORM_ASSET_SUFFIXES).map(([platform, suffix]) => [
       platform,
-      `deepseek-harness-${version}-${suffix}`,
+      `clawmaster-${version}-${suffix}`,
     ]),
   )
 }

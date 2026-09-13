@@ -1,0 +1,29 @@
+{
+  "name": "@clawmaster/dsh-office",
+  "version": "0.1.0",
+  "description": "Office document editors in the existing DSH sidebar",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "engines": { "node": ">=22.19.0" },
+  "exports": { ".": "./dist/index.js", "./client": "./dist/client.js", "./package.json": "./package.json" },
+  "files": ["dist", "runtime", "cordis.patch.yml", "README.md", "README.zh.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "patches", "scripts", "src"],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": { "platform": "web", "inject": ["dsh-better-sidebar", "@deepseek-ai/dsh-client-locale"] }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/build.mjs --check",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx/esm --test tests/host.test.mjs tests/transport.test.mjs",
+    "test:host": "node --import tsx/esm --test tests/host.test.mjs",
+    "test:browser": "node --import tsx/esm --test tests/browser.test.mjs"
+  },
+  "peerDependencies": { "@deepseek-ai/cordis": "4.0.2" },
+  "dependencies": { "zod": "4.4.3" },
+  "devDependencies": {
+    "@types/node": "22.10.2", "@types/react": "18.3.12", "@types/react-dom": "18.3.1",
+    "esbuild": "0.25.0", "fflate": "0.8.3", "playwright": "1.61.1", "react": "18.3.1", "react-dom": "18.3.1", "tsx": "4.22.4", "typescript": "5.9.3"
+  }
+}

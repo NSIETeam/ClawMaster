@@ -118,6 +118,18 @@ describe('ui-settings-models apply', () => {
     expect(after.slots.entries('settings.section')).toHaveLength(1)
   })
 
+  it('ClawMaster keeps model editing and delegates its first-run guide to the product', async () => {
+    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'clawmaster')
+    onTestFinished(() => { vi.unstubAllEnvs() })
+    const b = await bench()
+    declare(b.slots)
+    const fiber = b.ctx.plugin({ inject: [...inject], apply })
+    onTestFinished(() => fiber.dispose())
+    await fiber.await()
+    expect(b.slots.entries('settings.onboarding')).toHaveLength(0)
+    expect(b.slots.entries('settings.section')[0]!.component).toBe(ModelsSection)
+  })
+
   it('the label thunk follows the active locale without re-registration', async () => {
     const b = await bench()
     declare(b.slots)

@@ -83,6 +83,7 @@ pub enum Msg {
     BootRecoverFailed,
     PluginsDisabled,
     UpdaterDevSkip,
+    UpdaterUnconfigured,
     UpdaterCurrent,
     NotifyTitle,
     NotifySessionDone,
@@ -160,32 +161,32 @@ fn zh(msg: Msg) -> &'static str {
         Msg::CatalogNotReady => "请等客户端启动完成后再安装插件库",
         Msg::CatalogFailed => "安装插件库失败",
         Msg::CatalogRestarting => "插件库已安装，正在重启…",
-        Msg::SplashPreparing => "正在准备运行环境…",
+        Msg::SplashPreparing => "正在启动 ClawMaster…",
         Msg::SplashBootFailed => "启动失败",
-        Msg::StatusLocalRepo => "使用本地仓库…",
-        Msg::StatusMatchingHome => "正在匹配已有对话与密钥…",
+        Msg::StatusLocalRepo => "正在载入本地应用…",
+        Msg::StatusMatchingHome => "正在读取已有会话与设置…",
         Msg::StatusRuntimeReady => "运行环境已就绪",
-        Msg::StatusScanToolchain => "正在扫描本机 Node / pnpm…",
-        Msg::StatusExtractHarness => "正在释放 harness 源码…",
-        Msg::StatusReusedNode => "已复用本机 Node，跳过下载",
-        Msg::StatusDownloadNode => "正在从镜像下载 Node {0}…",
-        Msg::StatusReusedPnpm => "已复用本机 pnpm",
-        Msg::StatusInstallPnpm => "正在安装 pnpm {0}…",
-        Msg::StatusInstallDeps => "正在从镜像安装依赖 (pnpm install --prod --no-frozen-lockfile)…",
-        Msg::StatusCheckProfile => "正在检查 profile 依赖…",
-        Msg::StatusStartWeb => "正在启动 Web 界面…",
+        Msg::StatusScanToolchain => "正在检查本机运行环境…",
+        Msg::StatusExtractHarness => "正在准备应用文件…",
+        Msg::StatusReusedNode => "已找到兼容运行环境，无需下载",
+        Msg::StatusDownloadNode => "正在下载运行组件…",
+        Msg::StatusReusedPnpm => "已找到本机安装组件",
+        Msg::StatusInstallPnpm => "正在准备安装组件…",
+        Msg::StatusInstallDeps => "正在安装所需组件，首次启动可能需要几分钟…",
+        Msg::StatusCheckProfile => "正在检查工作台插件…",
+        Msg::StatusStartWeb => "正在打开工作台…",
         Msg::StatusDetectWsl => "正在检测 WSL…",
         Msg::StatusPrepareWsl => "正在准备 WSL 运行环境…",
-        Msg::StatusWritePath => "正在写入 dsh 命令并加入 PATH…",
+        Msg::StatusWritePath => "正在完成桌面配置…",
         Msg::StatusCheckUpdate => "正在检查桌面更新…",
         Msg::StatusDownloadUpdate => "正在下载桌面更新 {0}…",
         Msg::StatusHomeNone => "未发现已有对话，将使用桌面端主目录",
         Msg::StatusHomeMatched => "已匹配已有主目录 {0}",
         Msg::StatusHomeRestored => "已恢复 {0} 项历史数据到 {1}",
-        Msg::StatusScanMatchedBoth => "已匹配本机 Node {0}，跳过运行时下载",
-        Msg::StatusScanMatchedNode => "已匹配本机 Node {0}，将仅安装 pnpm",
-        Msg::StatusScanMissingNode => "未找到兼容 Node，将下载运行时并复用本机 pnpm",
-        Msg::StatusScanMissingBoth => "未找到兼容 Node / pnpm，将从镜像下载",
+        Msg::StatusScanMatchedBoth => "已找到兼容运行环境，跳过运行时下载",
+        Msg::StatusScanMatchedNode => "已找到兼容运行环境，正在补齐启动组件",
+        Msg::StatusScanMissingNode => "正在下载兼容运行环境，保留已有组件",
+        Msg::StatusScanMissingBoth => "所需运行组件将从镜像下载",
         Msg::WslMissing => "未检测到 WSL。请安装 WSL2 后再将运行环境设为 WSL。",
         Msg::Wsl1Only => "当前发行版是 WSL1。请执行 wsl --set-version <发行版> 2。",
         Msg::WslDockerDefault => {
@@ -209,16 +210,17 @@ fn zh(msg: Msg) -> &'static str {
             "以下插件已损坏，本次启动已自动禁用：{0}。修复或更新插件后重启即可恢复。"
         }
         Msg::UpdaterDevSkip => "开发构建不检查桌面更新",
+        Msg::UpdaterUnconfigured => "ClawMaster 尚未配置桌面更新通道",
         Msg::UpdaterCurrent => "当前已是最新版本",
         Msg::NotifyTitle => "任务完成",
         Msg::NotifySessionDone => "会话 {0} 已完成",
         Msg::NotifyBody => "ClawMaster 已完成本轮任务",
-        Msg::ProfileInstalling => "正在安装 profile {0} 依赖…",
-        Msg::ProfileReady => "profile {0} 依赖已就绪",
+        Msg::ProfileInstalling => "正在安装工作台插件…",
+        Msg::ProfileReady => "工作台插件已就绪",
         Msg::ProfileInstallFailed => {
             "profile {0} 依赖安装失败: {1}\n请检查网络后重试，或手动运行 dsh plugin --profile {0} install"
         }
-        Msg::StatusDownloadLinuxNode => "正在下载 Linux Node {0}…",
+        Msg::StatusDownloadLinuxNode => "正在下载 Linux 运行组件…",
     }
 }
 
@@ -245,36 +247,32 @@ fn en(msg: Msg) -> &'static str {
         Msg::CatalogNotReady => "Wait until the client has started, then install the plugin catalog",
         Msg::CatalogFailed => "Plugin catalog install failed",
         Msg::CatalogRestarting => "Plugin catalog installed; restarting…",
-        Msg::SplashPreparing => "Preparing the runtime…",
+        Msg::SplashPreparing => "Starting ClawMaster…",
         Msg::SplashBootFailed => "Startup failed",
-        Msg::StatusLocalRepo => "Using the local repository…",
-        Msg::StatusMatchingHome => "Matching existing sessions and credentials…",
+        Msg::StatusLocalRepo => "Loading the local application…",
+        Msg::StatusMatchingHome => "Reading existing sessions and settings…",
         Msg::StatusRuntimeReady => "Runtime is ready",
-        Msg::StatusScanToolchain => "Scanning this machine for Node / pnpm…",
-        Msg::StatusExtractHarness => "Unpacking harness source…",
-        Msg::StatusReusedNode => "Reusing this machine's Node; skip download",
-        Msg::StatusDownloadNode => "Downloading Node {0} from the mirror…",
-        Msg::StatusReusedPnpm => "Reusing this machine's pnpm",
-        Msg::StatusInstallPnpm => "Installing pnpm {0}…",
-        Msg::StatusInstallDeps => {
-            "Installing dependencies from the mirror (pnpm install --prod --no-frozen-lockfile)…"
-        }
-        Msg::StatusCheckProfile => "Checking profile dependencies…",
-        Msg::StatusStartWeb => "Starting the web UI…",
+        Msg::StatusScanToolchain => "Checking this computer's runtime…",
+        Msg::StatusExtractHarness => "Preparing application files…",
+        Msg::StatusReusedNode => "A compatible runtime is available; no download needed",
+        Msg::StatusDownloadNode => "Downloading runtime components…",
+        Msg::StatusReusedPnpm => "Local installation components are available",
+        Msg::StatusInstallPnpm => "Preparing installation components…",
+        Msg::StatusInstallDeps => "Installing required components. First launch may take a few minutes…",
+        Msg::StatusCheckProfile => "Checking workbench plugins…",
+        Msg::StatusStartWeb => "Opening the workbench…",
         Msg::StatusDetectWsl => "Detecting WSL…",
         Msg::StatusPrepareWsl => "Preparing the WSL runtime…",
-        Msg::StatusWritePath => "Writing the dsh command and updating PATH…",
+        Msg::StatusWritePath => "Finishing desktop setup…",
         Msg::StatusCheckUpdate => "Checking for desktop updates…",
         Msg::StatusDownloadUpdate => "Downloading desktop update {0}…",
         Msg::StatusHomeNone => "No existing sessions found; using the desktop home",
         Msg::StatusHomeMatched => "Matched existing home {0}",
         Msg::StatusHomeRestored => "Restored {0} history items into {1}",
-        Msg::StatusScanMatchedBoth => "Matched this machine's Node {0}; skip runtime download",
-        Msg::StatusScanMatchedNode => "Matched this machine's Node {0}; will install pnpm only",
-        Msg::StatusScanMissingNode => {
-            "No compatible Node found; will download the runtime and reuse this machine's pnpm"
-        }
-        Msg::StatusScanMissingBoth => "No compatible Node / pnpm found; will download from the mirror",
+        Msg::StatusScanMatchedBoth => "A compatible runtime is available; skipping its download",
+        Msg::StatusScanMatchedNode => "A compatible runtime is available; preparing remaining components",
+        Msg::StatusScanMissingNode => "Downloading a compatible runtime and keeping existing components",
+        Msg::StatusScanMissingBoth => "Required runtime components will be downloaded",
         Msg::WslMissing => "WSL was not detected. Install WSL2, then set the runtime to WSL.",
         Msg::Wsl1Only => "This distro is WSL1. Run wsl --set-version <distro> 2.",
         Msg::WslDockerDefault => {
@@ -304,29 +302,30 @@ fn en(msg: Msg) -> &'static str {
             "These plugins failed to load and were disabled for this launch: {0}. Restart after you repair or update them."
         }
         Msg::UpdaterDevSkip => "Dev builds do not check for desktop updates",
+        Msg::UpdaterUnconfigured => "ClawMaster has no desktop update channel configured",
         Msg::UpdaterCurrent => "You are already on the latest version",
         Msg::NotifyTitle => "Task complete",
         Msg::NotifySessionDone => "Session {0} finished",
         Msg::NotifyBody => "ClawMaster finished this turn",
-        Msg::ProfileInstalling => "Installing profile {0} dependencies…",
-        Msg::ProfileReady => "Profile {0} dependencies are ready",
+        Msg::ProfileInstalling => "Installing workbench plugins…",
+        Msg::ProfileReady => "Workbench plugins are ready",
         Msg::ProfileInstallFailed => {
             "Profile {0} dependency install failed: {1}\nCheck the network and retry, or run: dsh plugin --profile {0} install"
         }
-        Msg::StatusDownloadLinuxNode => "Downloading Linux Node {0}…",
+        Msg::StatusDownloadLinuxNode => "Downloading Linux runtime components…",
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{locale_from_tag, t, tf, Locale, Msg};
+    use super::{en, locale_from_tag, t, tf, zh, Locale, Msg};
 
     #[test]
     fn tests_default_to_chinese() {
         assert_eq!(t(Msg::TrayShow), "显示窗口");
         assert_eq!(t(Msg::TrayRestart), "重启");
         assert_eq!(t(Msg::TrayInstallCatalog), "安装插件库");
-        assert_eq!(t(Msg::SplashPreparing), "正在准备运行环境…");
+        assert_eq!(t(Msg::SplashPreparing), "正在启动 ClawMaster…");
         assert_eq!(t(Msg::SplashBootFailed), "启动失败");
         assert!(t(Msg::WslMissing).contains("WSL2"));
     }
@@ -334,6 +333,47 @@ mod tests {
     #[test]
     fn interpolates_named_distro() {
         assert!(tf(Msg::WslNamedMissing, "Debian").contains("Debian"));
+    }
+
+    #[test]
+    fn startup_progress_uses_product_copy_in_both_languages() {
+        assert_eq!(
+            zh(Msg::StatusInstallDeps),
+            "正在安装所需组件，首次启动可能需要几分钟…"
+        );
+        assert_eq!(
+            en(Msg::StatusInstallDeps),
+            "Installing required components. First launch may take a few minutes…"
+        );
+        for message in [
+            Msg::SplashPreparing,
+            Msg::StatusLocalRepo,
+            Msg::StatusExtractHarness,
+            Msg::StatusInstallPnpm,
+            Msg::StatusInstallDeps,
+            Msg::StatusCheckProfile,
+            Msg::StatusStartWeb,
+            Msg::ProfileInstalling,
+            Msg::ProfileReady,
+        ] {
+            for text in [zh(message), en(message)] {
+                for detail in ["pnpm", "--prod", "--no-frozen-lockfile", "harness"] {
+                    assert!(!text.to_lowercase().contains(detail), "{text}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn startup_errors_preserve_recovery_details_in_both_languages() {
+        for text in [zh(Msg::ProfileInstallFailed), en(Msg::ProfileInstallFailed)] {
+            assert!(text.contains("{0}"));
+            assert!(text.contains("{1}"));
+            assert!(text.contains("dsh plugin --profile {0} install"));
+        }
+        for text in [zh(Msg::BootRecoverFailed), en(Msg::BootRecoverFailed)] {
+            assert!(text.contains("boot.log"));
+        }
     }
 
     #[test]
