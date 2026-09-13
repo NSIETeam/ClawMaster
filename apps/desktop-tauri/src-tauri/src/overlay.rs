@@ -1,0 +1,236 @@
+//! Implant the desktop overlay plugin into `$DSH_HOME` without editing packages.
+
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use crate::runtime::provision::RuntimePaths;
+
+/// Absolute `--patch` file the Host should load.
+pub struct OverlayPatch {
+    pub patch_file: PathBuf,
+}
+
+/// Build a POSIX `file://` URL for a Linux overlay plugin path under `/home`.
+///
+/// Returns `Err` when `linux_path` is not absolute, not under `/home`, names a
+/// Windows drive path (for example `/C:/plugin.mjs`), or contains `wsl.localhost`.
+pub fn linux_plugin_file_url(linux_path: &str) -> Result<String, String> {
+    if !linux_path.starts_with('/') {
+        return Err(format!("Linux plugin path must be absolute: {linux_path}"));
+    }
+    if linux_path.contains("wsl.localhost") {
+        return Err(format!(
+            "Linux plugin path must not use wsl.localhost: {linux_path}"
+        ));
+    }
+    if is_windows_drive_path(linux_path) {
+        return Err(format!(
+            "Linux plugin path must not be a Windows drive path: {linux_path}"
+        ));
+    }
+    if !linux_path.starts_with("/home/") {
+        return Err(format!(
+            "Linux plugin path must be under /home: {linux_path}"
+        ));
+    }
+    Ok(format!("file://{linux_path}"))
+}
+
+fn is_windows_drive_path(path: &str) -> bool {
+    let Some(rest) = path.strip_prefix('/') else {
+        return false;
+    };
+    let mut chars = rest.chars();
+    matches!(
+        (chars.next(), chars.next()),
+        (Some(drive), Some(':')) if drive.is_ascii_alphabetic()
+    )
+}
+
+/// Render the `--patch` YAML row that registers the desktop notify plugin.
+pub fn overlay_yaml(plugin_url: &str) -> String {
+    format!("- insert:\n    - id: dsh-desktop-notify\n      name: '{plugin_url}'\n")
+}
+
+/// Copy the overlay plugin into `dest_dir` and write a `--patch` list.
+pub fn install_overlay_at(
+    dest_dir: &Path,
+    overlay_src: &Path,
+    plugin_name_in_yaml: &str,
+) -> Result<OverlayPatch, String> {
+    let plugin_src = overlay_src.join("index.mjs");
+    if !plugin_src.is_file() {
+        return Err(format!(
+            "desktop overlay plugin missing: {}",
+            plugin_src.display()
+        ));
+    }
+
+    fs::create_dir_all(dest_dir).map_err(|e| format!("无法创建 {}: {e}", dest_dir.display()))?;
+    let plugin_dest = dest_dir.join("index.mjs");
+    fs::copy(&plugin_src, &plugin_dest).map_err(|e| {
+        format!(
+            "无法复制 {} -> {}: {e}",
+            plugin_src.display(),
+            plugin_dest.display()
+        )
+    })?;
+
+    let patch_file = dest_dir.join("cordis.yml");
+    fs::write(&patch_file, overlay_yaml(plugin_name_in_yaml))
+        .map_err(|e| format!("无法写入 {}: {e}", patch_file.display()))?;
+
+    Ok(OverlayPatch { patch_file })
+}
+
+/// Copy the overlay plugin into the selected home and write a `--patch` list.
+pub fn install_overlay(
+    paths: &RuntimePaths,
+    overlay_src: &Path,
+    notify_url: &str,
+) -> Result<OverlayPatch, String> {
+    let dest_dir = paths.dsh_home.join("desktop-overlay");
+    let plugin_src = overlay_src.join("index.mjs");
+    if !plugin_src.is_file() {
+        return Err(format!(
+            "desktop overlay plugin missing: {}",
+            plugin_src.display()
+        ));
+    }
+
+    fs::create_dir_all(&dest_dir).map_err(|e| format!("无法创建 {}: {e}", dest_dir.display()))?;
+    let plugin_dest = dest_dir.join("index.mjs");
+    fs::copy(&plugin_src, &plugin_dest).map_err(|e| {
+        format!(
+            "无法复制 {} -> {}: {e}",
+            plugin_src.display(),
+            plugin_dest.display()
+        )
+    })?;
+
+    let plugin_path = normalize_plugin_path(&plugin_dest)?;
+    let _ = notify_url;
+    install_overlay_at(&dest_dir, overlay_src, &plugin_path)
+}
+
+fn normalize_plugin_path(path: &Path) -> Result<String, String> {
+    let canonical = path
+        .canonicalize()
+        .map_err(|e| format!("无法解析 {}: {e}", path.display()))?;
+    url::Url::from_file_path(&canonical)
+        .map(|file_url| file_url.as_str().to_string())
+        .map_err(|()| {
+            format!(
+                "plugin path is not a usable file URL: {}",
+                canonical.display()
+            )
+        })
+}
+
+/// Resolve the overlay source shipped beside the desktop shell.
+pub fn resolve_overlay_source(resource_dir: Option<&Path>) -> PathBuf {
+    if let Some(dir) = resource_dir {
+        let bundled = dir.join("desktop-overlay");
+        if bundled.join("index.mjs").is_file() {
+            return bundled;
+        }
+    }
+
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("overlay")
+        .join("desktop-notify")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        install_overlay, install_overlay_at, linux_plugin_file_url, normalize_plugin_path,
+        overlay_yaml,
+    };
+    use crate::runtime::provision::RuntimePaths;
+    use std::fs;
+
+    #[test]
+    fn linux_file_url_is_posix() {
+        assert_eq!(
+            linux_plugin_file_url("/home/u/.dsh/desktop-overlay/index.mjs").unwrap(),
+            "file:///home/u/.dsh/desktop-overlay/index.mjs"
+        );
+    }
+
+    #[test]
+    fn linux_file_url_rejects_windows_drive_path() {
+        assert!(linux_plugin_file_url("/C:/plugin.mjs").is_err());
+    }
+
+    #[test]
+    fn linux_file_url_rejects_wsl_localhost() {
+        assert!(linux_plugin_file_url("//wsl.localhost/Ubuntu/home/u/plugin.mjs").is_err());
+    }
+
+    #[test]
+    fn install_overlay_at_writes_yaml_with_given_url() {
+        let root =
+            std::env::temp_dir().join(format!("dsh desktop overlay at {}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("src").join("index.mjs"),
+            "export function apply() {}\n",
+        )
+        .unwrap();
+
+        let dest_dir = root.join("desktop-overlay");
+        let plugin_url = "file:///home/u/.dsh/desktop-overlay/index.mjs";
+        let overlay = install_overlay_at(&dest_dir, &root.join("src"), plugin_url).unwrap();
+        let yaml = fs::read_to_string(&overlay.patch_file).unwrap();
+
+        assert!(dest_dir.join("index.mjs").is_file());
+        assert!(yaml.contains(plugin_url));
+        assert!(!yaml.contains("file:///C:"));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn overlay_yaml_names_linux_url() {
+        let yaml = overlay_yaml("file:///home/u/.dsh/desktop-overlay/index.mjs");
+        assert!(yaml.contains("file:///home/u/.dsh/desktop-overlay/index.mjs"));
+        assert!(!yaml.contains("file:///C:"));
+    }
+
+    #[test]
+    fn writes_a_file_url_patch_row_that_node_esm_can_import() {
+        let root = std::env::temp_dir().join(format!("dsh desktop overlay {}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("src").join("index.mjs"),
+            "export function apply() {}\n",
+        )
+        .unwrap();
+
+        let dsh_home = root.join("home");
+        let paths = RuntimePaths {
+            node_binary: root.join("node"),
+            pnpm_binary: root.join("pnpm"),
+            cli_entry: root.join("bin.js"),
+            harness_root: root.clone(),
+            runtime_root: root.join("runtime"),
+            dsh_home: dsh_home.clone(),
+        };
+
+        let overlay =
+            install_overlay(&paths, &root.join("src"), "http://127.0.0.1:9/notify").unwrap();
+        let yaml = fs::read_to_string(&overlay.patch_file).unwrap();
+        let plugin = dsh_home.join("desktop-overlay").join("index.mjs");
+        let plugin_url = normalize_plugin_path(&plugin).unwrap();
+        assert!(plugin.is_file());
+        assert!(plugin_url.starts_with("file://"), "{plugin_url}");
+        assert!(plugin_url.contains("%20"), "{plugin_url}");
+        assert!(!plugin_url.contains('\\'), "{plugin_url}");
+        assert!(yaml.contains("id: dsh-desktop-notify"));
+        assert!(yaml.contains(&format!("name: '{plugin_url}'")), "{yaml}");
+        let _ = fs::remove_dir_all(&root);
+    }
+}

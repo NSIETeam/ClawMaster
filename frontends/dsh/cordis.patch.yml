@@ -1,0 +1,17 @@
+# ClawMaster presentation plus the official durable Schedule capability used
+# by WatchDog tasks. Keep the existing DSH runtime and all other plugin rows.
+- id: ui-brand-official
+  disabled: true
+
+- insert:
+    - id: clawmaster-frontend
+      name: '@clawmaster/dsh-frontend'
+
+    - id: time-context
+      name: '@deepseek-ai/dsh-time-context'
+
+    - id: schedule
+      name: '@deepseek-ai/dsh-schedule'
+
+- id: ui-schedule
+  disabled: false

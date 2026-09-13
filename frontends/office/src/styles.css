@@ -1,0 +1,6 @@
+.cm-office { display: flex; flex-direction: column; height: 100%; min-height: 0; width: 100%; overflow: hidden; background: var(--dsw-alias-bg-base, #fff); }
+.cm-office-status { display: flex; align-items: center; gap: 12px; padding: 6px 10px; flex: 0 0 auto; font: 12px/1.5 system-ui, sans-serif; color: var(--dsw-alias-label-secondary, #60646c); border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); }
+.cm-office-status > span { flex: 1; min-width: 0; }
+.cm-office-status a { color: inherit; }
+.cm-office-status[data-state="conflict"], .cm-office-status[data-state="save-error"] { color: #a54816; background: #fff5eb; }
+.cm-office-frame { display: block; flex: 1; min-height: 0; width: 100%; border: 0; }

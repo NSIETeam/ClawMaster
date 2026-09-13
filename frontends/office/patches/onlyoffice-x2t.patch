@@ -1,0 +1,59 @@
+--- a/src/utils/x2t.ts
++++ b/src/utils/x2t.ts
+@@ -262,7 +262,7 @@
+                             encoding: 'binary',
+                         })
+ 
+-                        const blob = new Blob([fileData])
++                        const blob = new Blob([Uint8Array.from(fileData)])
+                         const mediaUrl = URL.createObjectURL(blob)
+                         media[`media/${file}`] = mediaUrl
+                     } catch (error) {
+@@ -324,10 +324,10 @@
+     }
+ 
+     /**
+-     * 将 bin 格式转换为指定格式并下载
++     * 将 bin 格式转换为指定格式
+      */
+-    async convertBinToDocumentAndDownload(
+-        bin: Uint8Array,
++    async convertBinToDocument(
++        bin: Uint8Array | string,
+         originalFileName: string,
+         targetExt = 'DOCX',
+     ): Promise<BinConversionResult> {
+@@ -361,9 +361,6 @@
+             // 读取生成的文档
+             const result = this.x2tModule!.FS.readFile(`/working/${outputFileName}`)
+ 
+-            // 下载文件
+-            // TODO: 完善打印功能
+-            this.saveWithFileSystemAPI(result, outputFileName)
+ 
+             return {
+                 fileName: outputFileName,
+@@ -380,7 +377,7 @@
+      * 下载文件
+      */
+     private downloadFile(data: Uint8Array, fileName: string): void {
+-        const blob = new Blob([data])
++        const blob = new Blob([Uint8Array.from(data)])
+         const url = URL.createObjectURL(blob)
+         const link = document.createElement('a')
+ 
+@@ -520,11 +517,11 @@
+ export const initX2TScript = () => x2tConverter.loadScript()
+ export const initX2T = () => x2tConverter.initialize()
+ export const convertDocument = (file: File) => x2tConverter.convertDocument(file)
+-export const convertBinToDocumentAndDownload = (
+-    bin: Uint8Array,
++export const convertBinToDocument = (
++    bin: Uint8Array | string,
+     fileName: string,
+     targetExt?: string,
+-) => x2tConverter.convertBinToDocumentAndDownload(bin, fileName, targetExt)
++) => x2tConverter.convertBinToDocument(bin, fileName, targetExt)
+ 
+ // 文件类型常量
+ export const oAscFileType = {

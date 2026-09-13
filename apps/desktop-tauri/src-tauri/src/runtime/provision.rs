@@ -1,0 +1,1714 @@
+use std::fs::{self, File};
+use std::io::{copy, Read, Write};
+use std::path::{Component, Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant, SystemTime};
+
+use flate2::read::GzDecoder;
+use futures_util::StreamExt;
+use sha2::{Digest, Sha256};
+use tar::Archive;
+use zip::ZipArchive;
+
+use super::boot_log;
+use super::config::{
+    dev_launch_mode, node_mirror_base, npm_registry, DEFAULT_NODE_VERSION, DEFAULT_PNPM_VERSION,
+    HARNESS_VERSIONS_DIR,
+};
+use super::env_path::path_eq;
+use super::host_env::{
+    node_binary_compatible, pnpm_binary_usable, scan_host_toolchain, toolchain_status,
+};
+use super::io_fallback::{is_recoverable_io, recoverable_message};
+use super::process::hide_console;
+use super::user_home::{resolve_user_home, user_home_status};
+use super::{app_data_root, ProvisionEvent};
+use crate::i18n::{self, Msg};
+
+/// Paths to the provisioned build environment and harness tree.
+#[derive(Clone, Debug)]
+pub struct RuntimePaths {
+    pub node_binary: PathBuf,
+    pub pnpm_binary: PathBuf,
+    pub cli_entry: PathBuf,
+    pub harness_root: PathBuf,
+    pub runtime_root: PathBuf,
+    pub dsh_home: PathBuf,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ArchiveKind {
+    TarGz,
+    Zip,
+}
+
+/// Provisioning step ceilings. Expiry fails the step into the recovery path
+/// instead of parking the boot splash on a wedged network or subprocess.
+const PNPM_HARNESS_INSTALL_TIMEOUT: Duration = Duration::from_secs(20 * 60);
+const PNPM_GLOBAL_INSTALL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const NODE_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+
+/// Minimum retained generations; registered Workspace directories are kept in addition.
+const HARNESS_TREES_KEPT: usize = 3;
+
+/// Node distribution archive coordinates for a given OS/arch.
+#[derive(Debug)]
+pub(crate) struct NodeArchiveSpec {
+    pub(crate) archive_name: String,
+    pub(crate) inner_folder: String,
+    kind: ArchiveKind,
+    pub(crate) url: String,
+}
+
+/// Ensure bundled harness + Node + pnpm deps exist; mirror-fetch only build tools.
+pub async fn ensure_runtime(
+    bundled_source: Option<PathBuf>,
+    progress: impl Fn(ProvisionEvent) + Send + Sync + 'static,
+) -> Result<RuntimePaths, String> {
+    if let Some(mode) = dev_launch_mode() {
+        if mode == "local" || mode == "source" {
+            progress(ProvisionEvent::Status(i18n::t(Msg::StatusLocalRepo).into()));
+            progress(ProvisionEvent::Progress(100));
+            return resolve_local_repo();
+        }
+    }
+
+    let bundled = bundled_source.ok_or_else(|| i18n::t(Msg::BootMissingBundle).to_string())?;
+
+    let runtime_root = app_data_root()?.join("runtime");
+    let node_dir = runtime_root.join("node");
+    let pnpm_home = runtime_root.join("pnpm-global");
+    let app_root = app_data_root()?;
+    let bundle_hash = read_bundle_hash(&bundled)?;
+    let harness_root = harness_root_for_bundle(&app_root, &bundle_hash);
+    let manifest_path = runtime_root.join("manifest.json");
+    let isolated_home = app_data_root()?.join("dsh-home");
+
+    let preferred_node = node_binary_path(&node_dir);
+    let preferred_pnpm = pnpm_binary_path(&pnpm_home);
+    let cli_entry = harness_root
+        .join("apps")
+        .join("cli")
+        .join("lib")
+        .join("bin.js");
+
+    progress(ProvisionEvent::Status(
+        i18n::t(Msg::StatusMatchingHome).into(),
+    ));
+    progress(ProvisionEvent::Progress(8));
+    let user_home = resolve_user_home(&isolated_home);
+    let dsh_home = user_home.path.clone();
+    progress(ProvisionEvent::Status(user_home_status(
+        &user_home,
+        &isolated_home,
+    )));
+
+    if manifest_ready(&manifest_path, &bundled, &harness_root, &cli_entry) {
+        boot_log::info("provision skipped: manifest ready");
+        progress(ProvisionEvent::Status(
+            i18n::t(Msg::StatusRuntimeReady).into(),
+        ));
+        progress(ProvisionEvent::Progress(100));
+        // The recorded node may be a host binary outside the desktop runtime
+        // dir; reuse it so a skipped provision can still start the host.
+        let node_binary = recorded_node_path(&manifest_path)
+            .map(PathBuf::from)
+            .unwrap_or(preferred_node);
+        return Ok(RuntimePaths {
+            node_binary,
+            pnpm_binary: preferred_pnpm,
+            cli_entry,
+            harness_root,
+            runtime_root,
+            dsh_home,
+        });
+    }
+
+    progress(ProvisionEvent::Status(
+        i18n::t(Msg::StatusScanToolchain).into(),
+    ));
+    progress(ProvisionEvent::Progress(3));
+    let toolchain = scan_host_toolchain(&preferred_node, &preferred_pnpm);
+    progress(ProvisionEvent::Status(toolchain_status(&toolchain)));
+
+    let mut node_binary = toolchain.node.unwrap_or_else(|| preferred_node.clone());
+    let mut pnpm_binary = toolchain.pnpm.unwrap_or_else(|| preferred_pnpm.clone());
+
+    boot_log::info("provision starting: seed harness + node + pnpm install");
+    if let Err(error) = fs::create_dir_all(&runtime_root) {
+        boot_log::info(&recoverable_message("create runtime", &runtime_root, error));
+    }
+    if let Err(error) = fs::create_dir_all(&dsh_home) {
+        boot_log::info(&recoverable_message("create home", &dsh_home, error));
+    }
+
+    // A bootable tree under this bundle-hash directory is a completed
+    // provision of the same bundled source; deleting and recopying it costs a
+    // full seed for no content change. Only an unbootable tree is re-seeded.
+    let mut harness_root = harness_root;
+    let mut cli_entry = cli_entry;
+    if harness_tree_bootable(&harness_root) {
+        boot_log::info("harness tree installed; seed skipped");
+    } else {
+        progress(ProvisionEvent::Status(
+            i18n::t(Msg::StatusExtractHarness).into(),
+        ));
+        progress(ProvisionEvent::Progress(12));
+        if let Err(error) = seed_harness_tree(&bundled, &harness_root, &dsh_home) {
+            let error = match error {
+                HarnessSeedError::Protected(error) => return Err(error),
+                HarnessSeedError::Io(error) => error,
+            };
+            boot_log::info(&format!("seed fallback: {error}"));
+            if !cli_entry.is_file() {
+                if let Some(existing) = find_existing_harness(&app_root) {
+                    boot_log::info(&format!("reusing harness {}", existing.display()));
+                    harness_root = existing;
+                    cli_entry = harness_root
+                        .join("apps")
+                        .join("cli")
+                        .join("lib")
+                        .join("bin.js");
+                } else if !is_recoverable_io(&error) {
+                    return Err(error);
+                }
+            }
+        }
+    }
+
+    if node_binary_compatible(&node_binary) {
+        boot_log::info(&format!("reusing Node {}", node_binary.display()));
+        progress(ProvisionEvent::Status(
+            i18n::t(Msg::StatusReusedNode).into(),
+        ));
+        progress(ProvisionEvent::Progress(30));
+    } else {
+        progress(ProvisionEvent::Status(i18n::tf(
+            Msg::StatusDownloadNode,
+            DEFAULT_NODE_VERSION,
+        )));
+        progress(ProvisionEvent::Progress(15));
+        if let Err(error) = fetch_node(&node_dir, DEFAULT_NODE_VERSION, &progress).await {
+            boot_log::info(&format!("node download fallback: {error}"));
+            if preferred_node.is_file() {
+                node_binary = preferred_node;
+            } else if !is_recoverable_io(&error) {
+                return Err(error);
+            }
+        } else {
+            node_binary = preferred_node;
+        }
+    }
+
+    if pnpm_binary_usable(&pnpm_binary) {
+        boot_log::info(&format!("reusing pnpm {}", pnpm_binary.display()));
+        progress(ProvisionEvent::Status(
+            i18n::t(Msg::StatusReusedPnpm).into(),
+        ));
+        progress(ProvisionEvent::Progress(40));
+    } else {
+        progress(ProvisionEvent::Status(i18n::tf(
+            Msg::StatusInstallPnpm,
+            DEFAULT_PNPM_VERSION,
+        )));
+        progress(ProvisionEvent::Progress(35));
+        if let Err(error) = install_pnpm(&node_binary, &pnpm_home, DEFAULT_PNPM_VERSION) {
+            boot_log::info(&format!("pnpm install fallback: {error}"));
+            if preferred_pnpm.is_file() {
+                pnpm_binary = preferred_pnpm;
+            } else if !is_recoverable_io(&error) {
+                return Err(error);
+            }
+        } else {
+            pnpm_binary = preferred_pnpm;
+        }
+    }
+
+    if install_completed(&harness_root) {
+        boot_log::info("harness dependencies installed; pnpm install skipped");
+    } else {
+        progress(ProvisionEvent::Status(
+            i18n::t(Msg::StatusInstallDeps).into(),
+        ));
+        progress(ProvisionEvent::Progress(50));
+        if let Err(error) = pnpm_install_harness(&node_binary, &pnpm_binary, &harness_root) {
+            boot_log::info(&format!("pnpm install harness fallback: {error}"));
+            // The tree cannot resolve its imports until the install completes,
+            // so any failure here fails the boot into recovery instead of
+            // leaving a half-linked store that poisons later boots.
+            if !install_completed(&harness_root) {
+                return Err(error);
+            }
+        }
+    }
+
+    if !cli_entry.is_file() {
+        return Err(format!(
+            "harness CLI 缺失: {} — 请确认安装包内已包含 apps/cli/lib",
+            cli_entry.display()
+        ));
+    }
+
+    if let Err(error) = write_manifest(
+        &manifest_path,
+        &bundled,
+        &node_binary,
+        &harness_root,
+        &cli_entry,
+    ) {
+        boot_log::info(&format!("manifest write skipped: {error}"));
+    }
+    gc_harness_versions(&app_root, &dsh_home);
+
+    progress(ProvisionEvent::Status(
+        i18n::t(Msg::StatusRuntimeReady).into(),
+    ));
+    progress(ProvisionEvent::Progress(100));
+
+    Ok(RuntimePaths {
+        node_binary,
+        pnpm_binary,
+        cli_entry,
+        harness_root,
+        runtime_root,
+        dsh_home,
+    })
+}
+
+fn node_binary_path(node_dir: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        node_dir.join("node.exe")
+    }
+    #[cfg(not(windows))]
+    {
+        node_dir.join("bin").join("node")
+    }
+}
+
+fn pnpm_binary_path(pnpm_home: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        pnpm_home.join("pnpm.cmd")
+    }
+    #[cfg(not(windows))]
+    {
+        pnpm_home.join("bin").join("pnpm")
+    }
+}
+
+fn resolve_local_repo() -> Result<RuntimePaths, String> {
+    let repo = std::env::var("DSH_DESKTOP_REPO").unwrap_or_else(|_| {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("..")
+            .canonicalize()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| ".".into())
+    });
+
+    let harness_root = PathBuf::from(&repo);
+    let cli_entry = harness_root
+        .join("apps")
+        .join("cli")
+        .join("lib")
+        .join("bin.js");
+    if !cli_entry.is_file() {
+        return Err(format!(
+            "本地 CLI 未构建: {} — 请在仓库根目录运行 pnpm run build",
+            cli_entry.display()
+        ));
+    }
+
+    let toolchain = scan_host_toolchain(Path::new("node"), Path::new("pnpm"));
+    let node_binary = toolchain
+        .node
+        .ok_or_else(|| "找不到兼容 Node；请安装 Node ^22.19 或 >=24，或设置 PATH".to_string())?;
+    let pnpm_binary = toolchain.pnpm.unwrap_or_else(|| {
+        #[cfg(windows)]
+        {
+            PathBuf::from("pnpm.cmd")
+        }
+        #[cfg(not(windows))]
+        {
+            PathBuf::from("pnpm")
+        }
+    });
+
+    let isolated_home = app_data_root()?.join("dsh-home");
+    let dsh_home = resolve_user_home(&isolated_home).path;
+
+    Ok(RuntimePaths {
+        node_binary,
+        pnpm_binary,
+        cli_entry,
+        harness_root,
+        runtime_root: app_data_root()?.join("runtime"),
+        dsh_home,
+    })
+}
+
+fn manifest_ready(
+    manifest_path: &Path,
+    bundled: &Path,
+    harness_root: &Path,
+    cli_entry: &Path,
+) -> bool {
+    if !manifest_path.is_file() || !cli_entry.is_file() || !install_completed(harness_root) {
+        return false;
+    }
+
+    let Ok(raw) = fs::read_to_string(manifest_path) else {
+        return false;
+    };
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        return false;
+    };
+    let Ok(bundle_hash) = read_bundle_hash(bundled) else {
+        return false;
+    };
+    if bundle_hash != parsed["bundleSha256"].as_str().unwrap_or("") {
+        return false;
+    }
+
+    // The recorded Node may be a host binary (e.g. an nvm-managed node.exe)
+    // rather than the desktop-managed runtime node. Only the recorded path
+    // proves the previous provision is still valid.
+    let Some(node_path) = parsed["nodePath"].as_str() else {
+        return false;
+    };
+    node_matches_manifest(Path::new(node_path), &parsed, &node_binary_compatible)
+}
+
+/// The recorded Node proves the previous provision reusable: the binary must
+/// exist on disk. Byte equality with the manifest fast-paths the stable case
+/// without spawning anything; byte drift (an nvm-style symlink repointed to a
+/// different installed version) is accepted when the new binary still passes
+/// `probe`, so switching host Node versions does not force a full reprovision.
+fn node_matches_manifest(
+    node_binary: &Path,
+    parsed: &serde_json::Value,
+    probe: &dyn Fn(&Path) -> bool,
+) -> bool {
+    let Ok(meta) = fs::metadata(node_binary) else {
+        return false;
+    };
+    match parsed["nodeBytes"].as_u64() {
+        Some(bytes) => bytes == meta.len() || probe(node_binary),
+        None => true,
+    }
+}
+
+/// The Node path recorded by the previous provision, if any.
+fn recorded_node_path(manifest_path: &Path) -> Option<String> {
+    let raw = fs::read_to_string(manifest_path).ok()?;
+    let parsed: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    parsed["nodePath"].as_str().map(str::to_string)
+}
+
+/// Rebuild `RuntimePaths` from whatever Node / CLI already exists on disk.
+pub fn try_recover_paths(bundled: Option<&Path>) -> Option<RuntimePaths> {
+    let app_root = app_data_root().ok()?;
+    let runtime_root = app_root.join("runtime");
+    let isolated_home = app_root.join("dsh-home");
+    let preferred_node = node_binary_path(&runtime_root.join("node"));
+    let preferred_pnpm = pnpm_binary_path(&runtime_root.join("pnpm-global"));
+    let toolchain = scan_host_toolchain(&preferred_node, &preferred_pnpm);
+    let node_binary = toolchain
+        .node
+        .filter(|path| path.is_file())
+        .or_else(|| preferred_node.is_file().then_some(preferred_node))?;
+    let pnpm_binary = toolchain
+        .pnpm
+        .filter(|path| path.is_file())
+        .or_else(|| preferred_pnpm.is_file().then_some(preferred_pnpm))?;
+    let harness_root = bundled
+        .and_then(|source| read_bundle_hash(source).ok())
+        .map(|hash| harness_root_for_bundle(&app_root, &hash))
+        .filter(|path| harness_tree_bootable(path))
+        .or_else(|| find_existing_harness(&app_root))?;
+    let cli_entry = harness_root
+        .join("apps")
+        .join("cli")
+        .join("lib")
+        .join("bin.js");
+    if !cli_entry.is_file() {
+        return None;
+    }
+    let dsh_home = resolve_user_home(&isolated_home).path;
+    Some(RuntimePaths {
+        node_binary,
+        pnpm_binary,
+        cli_entry,
+        harness_root,
+        runtime_root,
+        dsh_home,
+    })
+}
+
+/// A harness tree boots the Host only when the prebuilt CLI entry and a
+/// completed `pnpm install` are both present. pnpm creates the
+/// `node_modules/.pnpm` store during linking but writes
+/// `node_modules/.modules.yaml` only at the end, so the marker is what
+/// separates a completed install from one that was killed mid-link; a store
+/// without the marker fails `dsh web` with `ERR_MODULE_NOT_FOUND`.
+fn harness_tree_bootable(root: &Path) -> bool {
+    root.join("apps")
+        .join("cli")
+        .join("lib")
+        .join("bin.js")
+        .is_file()
+        && install_completed(root)
+}
+
+/// True when `pnpm install` finished for `root`: the virtual store exists and
+/// pnpm's end-of-install marker is present.
+fn install_completed(root: &Path) -> bool {
+    root.join("node_modules").join(".pnpm").is_dir()
+        && root.join("node_modules").join(".modules.yaml").is_file()
+}
+
+/// Invalidate an unreferenced runtime for dependency repair. Registered Workspace
+/// overlap or unreadable registration stops repair before either tree or manifest changes.
+pub fn invalidate_provisioned_tree(paths: &RuntimePaths) -> Result<(), String> {
+    ensure_harness_disposable(&paths.harness_root, &paths.dsh_home)?;
+    if paths.harness_root.exists() {
+        fs::remove_dir_all(&paths.harness_root)
+            .map_err(|e| recoverable_message("remove harness", &paths.harness_root, e))?;
+        boot_log::info(&format!(
+            "invalidated harness {}",
+            paths.harness_root.display()
+        ));
+    }
+    let manifest_path = paths.runtime_root.join("manifest.json");
+    match fs::remove_file(&manifest_path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(recoverable_message(
+            "remove manifest",
+            &manifest_path,
+            error,
+        )),
+    }
+}
+
+/// Resolve existing aliases, retaining a missing suffix beneath its known parent.
+fn workspace_comparison_path(path: &Path) -> Result<PathBuf, &'static str> {
+    if !path.is_absolute() {
+        return Err("workspace storage contains a non-absolute path");
+    }
+    let mut parent = path.to_path_buf();
+    let mut suffix = Vec::new();
+    loop {
+        match fs::canonicalize(&parent) {
+            Ok(mut resolved) => {
+                for name in suffix.iter().rev() {
+                    resolved.push(name);
+                }
+                return Ok(resolved);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                match fs::symlink_metadata(&parent) {
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    _ => return Err("workspace path cannot be resolved"),
+                }
+                let name = parent
+                    .file_name()
+                    .ok_or("workspace path cannot be resolved")?;
+                suffix.push(name.to_os_string());
+                if !parent.pop() {
+                    return Err("workspace path cannot be resolved");
+                }
+            }
+            Err(_) => return Err("workspace path cannot be resolved"),
+        }
+    }
+}
+
+/// Read only the current DSH workspace unit; diagnostics never include stored values.
+fn registered_workspace_paths(dsh_home: &Path) -> Result<Vec<PathBuf>, &'static str> {
+    let storage = dsh_home.join("storages").join("workspace.json");
+    match fs::symlink_metadata(&storage) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(_) => return Err("workspace storage cannot be inspected"),
+        Ok(_) => {}
+    }
+    let raw = fs::read(&storage).map_err(|_| "workspace storage cannot be read")?;
+    let document: serde_json::Value =
+        serde_json::from_slice(&raw).map_err(|_| "workspace storage is not valid JSON")?;
+    if document
+        .pointer("/unit/name")
+        .and_then(|value| value.as_str())
+        != Some("workspace")
+        || document
+            .pointer("/unit/version")
+            .and_then(|value| value.as_u64())
+            != Some(2)
+    {
+        return Err("workspace storage has an unsupported unit or version");
+    }
+    let records = document
+        .pointer("/tables/workspaces")
+        .and_then(|value| value.as_object())
+        .ok_or("workspace storage has no readable workspaces table")?;
+    records
+        .values()
+        .map(|record| {
+            let path = record
+                .get("path")
+                .and_then(|value| value.as_str())
+                .ok_or("workspace storage contains a missing or invalid path")?;
+            workspace_comparison_path(Path::new(path))
+        })
+        .collect()
+}
+
+fn overlaps_workspace(root: &Path, workspaces: &[PathBuf]) -> Result<bool, &'static str> {
+    let root = workspace_comparison_path(root)?;
+    Ok(workspaces.iter().any(|workspace| {
+        workspace.ancestors().any(|parent| path_eq(parent, &root))
+            || root.ancestors().any(|parent| path_eq(parent, workspace))
+    }))
+}
+
+fn ensure_harness_disposable(root: &Path, dsh_home: &Path) -> Result<(), String> {
+    let inspected = match fs::symlink_metadata(root) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Ok(metadata) if metadata.is_dir() && !metadata.is_symlink() => {
+            registered_workspace_paths(dsh_home).and_then(|paths| overlaps_workspace(root, &paths))
+        }
+        _ => Err("runtime directory cannot be inspected safely"),
+    };
+    let reason = match inspected {
+        Ok(false) => return Ok(()),
+        Ok(true) => "runtime directory overlaps a registered Workspace",
+        Err(reason) => reason,
+    };
+    let message =
+        format!("automatic runtime replacement stopped: {reason}; existing files preserved");
+    boot_log::info(&message);
+    Err(message)
+}
+
+fn mtime_of(path: &Path) -> SystemTime {
+    fs::metadata(path)
+        .and_then(|meta| meta.modified())
+        .unwrap_or(SystemTime::UNIX_EPOCH)
+}
+
+/// Order candidate harness trees newest first so recovery prefers the most
+/// recently provisioned tree; equal timestamps fall back to name order.
+fn sort_harness_trees_newest_first(dirs: &mut [PathBuf]) {
+    dirs.sort_by(|a, b| mtime_of(b).cmp(&mtime_of(a)).then_with(|| b.cmp(a)));
+}
+
+fn find_existing_harness(app_root: &Path) -> Option<PathBuf> {
+    let versions = app_root.join(HARNESS_VERSIONS_DIR);
+    if let Ok(entries) = fs::read_dir(&versions) {
+        let mut dirs: Vec<PathBuf> = entries
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| path.is_dir() && harness_tree_bootable(path))
+            .collect();
+        sort_harness_trees_newest_first(&mut dirs);
+        if let Some(newest) = dirs.first() {
+            return Some(newest.clone());
+        }
+    }
+    let legacy = app_root.join("harness");
+    harness_tree_bootable(&legacy).then_some(legacy)
+}
+
+/// Delete only old real directories disjoint from registered Workspaces.
+/// Unknown workspace storage stops cleanup; removal failures leave that tree intact.
+fn gc_harness_versions(app_root: &Path, dsh_home: &Path) {
+    let versions = app_root.join(HARNESS_VERSIONS_DIR);
+    let Ok(entries) = fs::read_dir(&versions) else {
+        return;
+    };
+    let mut dirs: Vec<PathBuf> = entries
+        .flatten()
+        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+        .map(|entry| entry.path())
+        .collect();
+    if dirs.len() <= HARNESS_TREES_KEPT {
+        return;
+    }
+    let workspaces = match registered_workspace_paths(dsh_home) {
+        Ok(paths) => paths,
+        Err(reason) => {
+            boot_log::info(&format!("automatic runtime cleanup stopped: {reason}"));
+            return;
+        }
+    };
+    sort_harness_trees_newest_first(&mut dirs);
+    for stale in &dirs[HARNESS_TREES_KEPT..] {
+        match overlaps_workspace(stale, &workspaces) {
+            Ok(true) => continue,
+            Ok(false) => {}
+            Err(reason) => {
+                boot_log::info(&format!("automatic runtime cleanup stopped: {reason}"));
+                return;
+            }
+        }
+        match fs::remove_dir_all(stale) {
+            Ok(()) => boot_log::info(&format!("removed old harness {}", stale.display())),
+            Err(error) => {
+                boot_log::info(&format!(
+                    "old harness removal skipped {}: {error}",
+                    stale.display()
+                ));
+            }
+        }
+    }
+}
+
+pub(crate) fn read_bundle_hash(bundled: &Path) -> Result<String, String> {
+    let manifest = bundled.join(".bundle-manifest.json");
+    let raw = fs::read_to_string(&manifest).map_err(|e| e.to_string())?;
+    let parsed: serde_json::Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+    parsed["contentSha256"]
+        .as_str()
+        .map(str::to_string)
+        .ok_or_else(|| format!("invalid bundle manifest: {}", manifest.display()))
+}
+
+fn harness_root_for_bundle(app_root: &Path, bundle_hash: &str) -> PathBuf {
+    let directory = bundle_hash.get(..16).unwrap_or(bundle_hash);
+    app_root.join(HARNESS_VERSIONS_DIR).join(directory)
+}
+
+fn node_distribution_root(node_binary: &Path) -> PathBuf {
+    let parent = node_binary.parent().unwrap_or(node_binary);
+    #[cfg(windows)]
+    {
+        parent.to_path_buf()
+    }
+    #[cfg(not(windows))]
+    {
+        if parent.file_name().and_then(|name| name.to_str()) == Some("bin") {
+            parent.parent().unwrap_or(parent).to_path_buf()
+        } else {
+            parent.to_path_buf()
+        }
+    }
+}
+
+fn find_npm_cli(node_binary: &Path) -> Option<PathBuf> {
+    let root = node_distribution_root(node_binary);
+    let bundled = root
+        .join(npm_modules_dir())
+        .join("npm")
+        .join("bin")
+        .join("npm-cli.js");
+    if bundled.is_file() {
+        return Some(bundled);
+    }
+    None
+}
+
+fn write_manifest(
+    path: &Path,
+    bundled: &Path,
+    node_binary: &Path,
+    harness_root: &Path,
+    cli_entry: &Path,
+) -> Result<(), String> {
+    let doc = serde_json::json!({
+        "bundleSha256": read_bundle_hash(bundled)?,
+        "harnessVersion": read_bundle_version(bundled)?,
+        "nodeVersion": DEFAULT_NODE_VERSION,
+        "pnpmVersion": DEFAULT_PNPM_VERSION,
+        "nodeBytes": fs::metadata(node_binary).map(|meta| meta.len()).unwrap_or(0),
+        "nodePath": node_binary.display().to_string(),
+        "cliSha256": file_sha256(cli_entry)?,
+        "harnessRoot": harness_root.display().to_string(),
+        "provisionedAt": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+        "nodeMirror": node_mirror_base(),
+        "npmRegistry": npm_registry(),
+        "method": "bundled-source-pnpm-install",
+    });
+    fs::write(
+        path,
+        format!("{}\n", serde_json::to_string_pretty(&doc).unwrap()),
+    )
+    .map_err(|e| e.to_string())
+}
+
+fn read_bundle_version(bundled: &Path) -> Result<String, String> {
+    let manifest = bundled.join(".bundle-manifest.json");
+    let raw = fs::read_to_string(&manifest).map_err(|e| e.to_string())?;
+    let parsed: serde_json::Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+    Ok(parsed["harnessVersion"]
+        .as_str()
+        .unwrap_or("unknown")
+        .to_string())
+}
+
+#[derive(Debug)]
+enum HarnessSeedError {
+    Protected(String),
+    Io(String),
+}
+
+fn seed_harness_tree(source: &Path, dest: &Path, dsh_home: &Path) -> Result<(), HarnessSeedError> {
+    ensure_harness_disposable(dest, dsh_home).map_err(HarnessSeedError::Protected)?;
+    let cli = dest.join("apps").join("cli").join("lib").join("bin.js");
+    if dest.exists() {
+        if let Err(error) = fs::remove_dir_all(dest) {
+            let message = recoverable_message("seed remove", dest, error);
+            if cli.is_file() {
+                boot_log::info(&format!("{message}; reusing existing tree"));
+                return Ok(());
+            }
+            return Err(HarnessSeedError::Io(message));
+        }
+    }
+    match copy_tree(source, dest) {
+        Ok(()) => Ok(()),
+        Err(error) if cli.is_file() => {
+            boot_log::info(&format!(
+                "seed copy skipped {}; reusing {}",
+                error,
+                dest.display()
+            ));
+            Ok(())
+        }
+        Err(error) => Err(HarnessSeedError::Io(error)),
+    }
+}
+
+fn copy_tree(source: &Path, dest: &Path) -> Result<(), String> {
+    if source.is_file() {
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).map_err(|e| recoverable_message("create", parent, e))?;
+        }
+        fs::copy(source, dest)
+            .map_err(|e| format!("copy {} -> {}: {e}", source.display(), dest.display()))?;
+        return Ok(());
+    }
+
+    fs::create_dir_all(dest).map_err(|e| recoverable_message("create", dest, e))?;
+    for entry in fs::read_dir(source).map_err(|e| recoverable_message("read", source, e))? {
+        let entry = entry.map_err(|e| recoverable_message("read", source, e))?;
+        let name = entry.file_name();
+        if name == "node_modules" {
+            continue;
+        }
+        copy_tree(&entry.path(), &dest.join(name))?;
+    }
+    Ok(())
+}
+
+fn file_sha256(path: &Path) -> Result<String, String> {
+    let mut file = File::open(path).map_err(|e| format!("无法读取 {}: {e}", path.display()))?;
+    let mut hasher = Sha256::new();
+    let mut buf = [0u8; 8192];
+    loop {
+        let n = file.read(&mut buf).map_err(|e| e.to_string())?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(hex::encode(hasher.finalize()))
+}
+
+async fn fetch_node(
+    node_dir: &Path,
+    version: &str,
+    progress: &impl Fn(ProvisionEvent),
+) -> Result<(), String> {
+    let spec = node_archive_spec(version)?;
+    let cache = app_data_root()?.join("cache");
+    fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
+    let archive_path = cache.join(&spec.archive_name);
+
+    if !archive_path.is_file() {
+        download_file(&spec.url, &archive_path, 15, 30, progress).await?;
+    }
+
+    if node_dir.exists() {
+        fs::remove_dir_all(node_dir).map_err(|e| e.to_string())?;
+    }
+
+    match spec.kind {
+        ArchiveKind::Zip => extract_node_zip(&archive_path, node_dir, &spec.inner_folder)?,
+        ArchiveKind::TarGz => extract_node_tar_gz(&archive_path, node_dir, &spec.inner_folder)?,
+    }
+
+    progress(ProvisionEvent::Progress(34));
+    Ok(())
+}
+
+fn extract_node_zip(
+    archive_path: &Path,
+    node_dir: &Path,
+    inner_folder: &str,
+) -> Result<(), String> {
+    fs::create_dir_all(node_dir).map_err(|e| e.to_string())?;
+    let file = File::open(archive_path).map_err(|e| e.to_string())?;
+    let mut archive = ZipArchive::new(file).map_err(|e| e.to_string())?;
+    let expected_root = Path::new(inner_folder);
+
+    for index in 0..archive.len() {
+        let mut entry = archive.by_index(index).map_err(|e| e.to_string())?;
+        let entry_path = entry
+            .enclosed_name()
+            .ok_or_else(|| format!("unsafe path in Node zip: {}", entry.name()))?;
+        let Some(relative) = safe_archive_relative_path(&entry_path, expected_root)? else {
+            continue;
+        };
+        let out = node_dir.join(relative);
+        if entry.is_dir() {
+            fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+        } else {
+            if let Some(parent) = out.parent() {
+                fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            }
+            let mut out_file = File::create(&out).map_err(|e| e.to_string())?;
+            copy(&mut entry, &mut out_file).map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(())
+}
+
+fn extract_node_tar_gz(
+    archive_path: &Path,
+    node_dir: &Path,
+    inner_folder: &str,
+) -> Result<(), String> {
+    let staging = node_dir.with_extension("extracting");
+    if staging.exists() {
+        fs::remove_dir_all(&staging).map_err(|e| e.to_string())?;
+    }
+    fs::create_dir_all(&staging).map_err(|e| e.to_string())?;
+
+    let file = File::open(archive_path).map_err(|e| e.to_string())?;
+    let decoder = GzDecoder::new(file);
+    let mut archive = Archive::new(decoder);
+    archive.set_preserve_permissions(true);
+    let expected_root = Path::new(inner_folder);
+
+    for entry in archive.entries().map_err(|e| e.to_string())? {
+        let mut entry = entry.map_err(|e| e.to_string())?;
+        let entry_path = entry.path().map_err(|e| e.to_string())?.into_owned();
+        safe_archive_relative_path(&entry_path, expected_root)?;
+        if !entry.unpack_in(&staging).map_err(|e| e.to_string())? {
+            return Err(format!(
+                "unsafe path in Node tar archive: {}",
+                entry_path.display()
+            ));
+        }
+    }
+
+    let extracted = staging.join(inner_folder);
+    if !extracted.is_dir() {
+        return Err(format!(
+            "Node archive is missing expected directory: {}",
+            extracted.display()
+        ));
+    }
+    fs::rename(&extracted, node_dir).map_err(|e| e.to_string())?;
+    fs::remove_dir_all(&staging).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn safe_archive_relative_path(
+    path: &Path,
+    expected_root: &Path,
+) -> Result<Option<PathBuf>, String> {
+    if path.components().any(|component| {
+        matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        )
+    }) {
+        return Err(format!("unsafe archive path: {}", path.display()));
+    }
+
+    let relative = path.strip_prefix(expected_root).map_err(|_| {
+        format!(
+            "archive entry is outside {}: {}",
+            expected_root.display(),
+            path.display()
+        )
+    })?;
+    if relative.as_os_str().is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(relative.to_path_buf()))
+    }
+}
+
+fn node_archive_spec(version: &str) -> Result<NodeArchiveSpec, String> {
+    node_archive_spec_for(version, std::env::consts::OS, std::env::consts::ARCH)
+}
+
+pub(crate) fn node_archive_spec_for(
+    version: &str,
+    os: &str,
+    arch: &str,
+) -> Result<NodeArchiveSpec, String> {
+    let base = node_mirror_base().trim_end_matches('/').to_string();
+    let (target, kind, extension) = match (os, arch) {
+        ("windows", "x86_64") => ("win-x64", ArchiveKind::Zip, "zip"),
+        ("windows", "x86") => ("win-x86", ArchiveKind::Zip, "zip"),
+        ("macos", "x86_64") => ("darwin-x64", ArchiveKind::TarGz, "tar.gz"),
+        ("macos", "aarch64") => ("darwin-arm64", ArchiveKind::TarGz, "tar.gz"),
+        ("linux", "x86_64") => ("linux-x64", ArchiveKind::TarGz, "tar.gz"),
+        ("linux", "aarch64") => ("linux-arm64", ArchiveKind::TarGz, "tar.gz"),
+        _ => return Err(format!("unsupported Node runtime target: {os}-{arch}")),
+    };
+    let inner_folder = format!("node-v{version}-{target}");
+    let archive_name = format!("{inner_folder}.{extension}");
+    let url = format!("{base}/v{version}/{archive_name}");
+    Ok(NodeArchiveSpec {
+        archive_name,
+        inner_folder,
+        kind,
+        url,
+    })
+}
+
+pub(crate) async fn download_file(
+    url: &str,
+    dest: &Path,
+    progress_start: u8,
+    progress_end: u8,
+    progress: &impl Fn(ProvisionEvent),
+) -> Result<(), String> {
+    let client = reqwest::Client::builder()
+        .user_agent("dsh-desktop/0.1")
+        .timeout(NODE_DOWNLOAD_TIMEOUT)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let response = client.get(url).send().await.map_err(|e| e.to_string())?;
+    if !response.status().is_success() {
+        return Err(format!("下载失败 {}: HTTP {}", url, response.status()));
+    }
+
+    let total = response.content_length();
+    let mut stream = response.bytes_stream();
+    let mut file = File::create(dest).map_err(|e| e.to_string())?;
+    let mut downloaded: u64 = 0;
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| e.to_string())?;
+        file.write_all(&chunk).map_err(|e| e.to_string())?;
+        downloaded += chunk.len() as u64;
+        if let Some(total) = total {
+            let frac = downloaded as f64 / total as f64;
+            let pct = progress_start as f64 + frac * (progress_end - progress_start) as f64;
+            progress(ProvisionEvent::Progress(pct as u8));
+        }
+    }
+
+    Ok(())
+}
+
+/// Spawn `cmd` and wait for its exit status, killing it at `timeout`. The
+/// child's stdio is inherited from this process.
+fn wait_status_with_timeout(
+    cmd: &mut Command,
+    timeout: Duration,
+    label: &str,
+) -> Result<std::process::ExitStatus, String> {
+    let mut child = cmd.spawn().map_err(|e| format!("{label} 启动失败: {e}"))?;
+    wait_child_with_timeout(&mut child, timeout, label)
+}
+
+fn wait_child_with_timeout(
+    child: &mut std::process::Child,
+    timeout: Duration,
+    label: &str,
+) -> Result<std::process::ExitStatus, String> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+            return Ok(status);
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(format!(
+                "{label} 超时（超过 {} 分钟）",
+                timeout.as_secs() / 60
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+}
+
+fn install_pnpm(node_binary: &Path, pnpm_home: &Path, version: &str) -> Result<(), String> {
+    if pnpm_home.exists() {
+        fs::remove_dir_all(pnpm_home).map_err(|e| e.to_string())?;
+    }
+    fs::create_dir_all(pnpm_home).map_err(|e| e.to_string())?;
+
+    let spec = format!("pnpm@{version}");
+    let registry = npm_registry();
+    let status = if let Some(npm_cli) = find_npm_cli(node_binary) {
+        let mut cmd = Command::new(node_binary);
+        cmd.arg(&npm_cli)
+            .arg("install")
+            .arg("-g")
+            .arg(&spec)
+            .arg("--prefix")
+            .arg(pnpm_home)
+            .arg("--registry")
+            .arg(&registry)
+            .arg("--no-audit")
+            .arg("--no-fund")
+            .arg("--loglevel=error");
+        add_node_to_path(&mut cmd, node_binary)?;
+        hide_console(&mut cmd);
+        wait_status_with_timeout(&mut cmd, PNPM_GLOBAL_INSTALL_TIMEOUT, "pnpm 安装")?
+    } else {
+        let npm = which::which("npm")
+            .or_else(|_| which::which("npm.cmd"))
+            .map_err(|_| {
+                format!(
+                    "找不到 npm-cli.js 或 npm，无法通过 {} 安装 pnpm",
+                    node_binary.display()
+                )
+            })?;
+        let mut cmd = Command::new(npm);
+        cmd.arg("install")
+            .arg("-g")
+            .arg(&spec)
+            .arg("--prefix")
+            .arg(pnpm_home)
+            .arg("--registry")
+            .arg(&registry)
+            .arg("--no-audit")
+            .arg("--no-fund")
+            .arg("--loglevel=error");
+        add_node_to_path(&mut cmd, node_binary)?;
+        hide_console(&mut cmd);
+        wait_status_with_timeout(&mut cmd, PNPM_GLOBAL_INSTALL_TIMEOUT, "pnpm 安装")?
+    };
+
+    if !status.success() {
+        return Err(format!(
+            "npm install -g {spec} 失败 (exit {status}); registry={registry}"
+        ));
+    }
+
+    Ok(())
+}
+
+#[cfg(windows)]
+fn npm_modules_dir() -> &'static str {
+    "node_modules"
+}
+
+#[cfg(not(windows))]
+fn npm_modules_dir() -> &'static str {
+    "lib/node_modules"
+}
+
+fn pnpm_entry_path(pnpm_home: &Path) -> PathBuf {
+    pnpm_home
+        .join(npm_modules_dir())
+        .join("pnpm")
+        .join("bin")
+        .join("pnpm.cjs")
+}
+
+fn add_node_to_path(cmd: &mut Command, node_binary: &Path) -> Result<(), String> {
+    let node_bin_dir = node_binary
+        .parent()
+        .ok_or_else(|| format!("Node binary has no parent: {}", node_binary.display()))?;
+    let mut paths = vec![node_bin_dir.to_path_buf()];
+    if let Some(existing) = std::env::var_os("PATH") {
+        paths.extend(std::env::split_paths(&existing));
+    }
+    let joined = std::env::join_paths(paths).map_err(|e| e.to_string())?;
+    cmd.env("PATH", joined);
+    Ok(())
+}
+
+fn configure_pnpm_install(
+    cmd: &mut Command,
+    node_binary: &Path,
+    harness_root: &Path,
+    registry: &str,
+) -> Result<(), String> {
+    cmd.arg("install")
+        .arg("--prod")
+        .arg("--no-frozen-lockfile")
+        .arg("--registry")
+        .arg(registry)
+        .current_dir(harness_root)
+        .env("NPM_CONFIG_REGISTRY", registry)
+        .env("npm_config_registry", registry)
+        .env_remove("CI")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    add_node_to_path(cmd, node_binary)?;
+    hide_console(cmd);
+    Ok(())
+}
+
+pub(crate) fn pnpm_js_entry(pnpm_binary: &Path) -> Option<PathBuf> {
+    let parent = pnpm_binary.parent()?;
+    let homes = [Some(parent), parent.parent()];
+    for home in homes.into_iter().flatten() {
+        let entry = pnpm_entry_path(home);
+        if entry.is_file() {
+            return Some(entry);
+        }
+    }
+    None
+}
+
+fn pnpm_install_harness(
+    node_binary: &Path,
+    pnpm_binary: &Path,
+    harness_root: &Path,
+) -> Result<(), String> {
+    let registry = npm_registry();
+    let mut cmd = if let Some(entry) = pnpm_js_entry(pnpm_binary) {
+        let mut cmd = Command::new(node_binary);
+        cmd.arg(entry);
+        cmd
+    } else if pnpm_binary_usable(pnpm_binary) {
+        Command::new(pnpm_binary)
+    } else {
+        return Err(format!("pnpm entry is missing: {}", pnpm_binary.display()));
+    };
+    configure_pnpm_install(&mut cmd, node_binary, harness_root, &registry)?;
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("pnpm install 启动失败: {e}"))?;
+    // Drain the pipes on dedicated threads: a chatty install would otherwise
+    // fill the OS pipe buffer and block the child before a deadline can fire.
+    let stdout_handle = spawn_pipe_reader(child.stdout.take());
+    let stderr_handle = spawn_pipe_reader(child.stderr.take());
+    let status = wait_child_with_timeout(&mut child, PNPM_HARNESS_INSTALL_TIMEOUT, "pnpm install")?;
+    let stdout = stdout_handle.join().unwrap_or_default();
+    let stderr = stderr_handle.join().unwrap_or_default();
+
+    if !status.success() {
+        return Err(format!(
+            "pnpm install 失败 (exit {})\nstdout:\n{stdout}\nstderr:\n{stderr}",
+            status
+        ));
+    }
+
+    Ok(())
+}
+
+fn spawn_pipe_reader<T: Read + Send + 'static>(pipe: Option<T>) -> std::thread::JoinHandle<String> {
+    std::thread::spawn(move || {
+        let mut buffer = String::new();
+        if let Some(mut pipe) = pipe {
+            let _ = pipe.read_to_string(&mut buffer);
+        }
+        buffer
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        find_existing_harness, gc_harness_versions, harness_root_for_bundle, harness_tree_bootable,
+        invalidate_provisioned_tree, manifest_ready, node_archive_spec_for, node_matches_manifest,
+        registered_workspace_paths, safe_archive_relative_path, seed_harness_tree,
+        sort_harness_trees_newest_first, RuntimePaths, HARNESS_TREES_KEPT,
+    };
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::Duration;
+
+    static NEXT_CLEANUP_DIR: AtomicU64 = AtomicU64::new(0);
+
+    struct CleanupFixture(PathBuf);
+
+    impl CleanupFixture {
+        fn new() -> Self {
+            loop {
+                let id = NEXT_CLEANUP_DIR.fetch_add(1, Ordering::Relaxed);
+                let root = std::env::temp_dir()
+                    .join(format!("dsh-workspace-cleanup-{}-{id}", std::process::id()));
+                match fs::create_dir(&root) {
+                    Ok(()) => return Self(root),
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                    Err(error) => panic!("create cleanup fixture: {error}"),
+                }
+            }
+        }
+
+        fn home(&self) -> PathBuf {
+            self.0.join("selected-home")
+        }
+
+        fn generations(&self) -> Vec<PathBuf> {
+            let mut roots: Vec<PathBuf> = ["a", "b", "c", "d", "e"]
+                .iter()
+                .map(|name| self.0.join("harness-versions").join(name))
+                .collect();
+            for root in &roots {
+                make_harness_tree(root, true);
+                fs::create_dir(root.join("user-files")).unwrap();
+                fs::write(
+                    root.join("user-files").join("notes.txt"),
+                    "keep user content",
+                )
+                .unwrap();
+            }
+            sort_harness_trees_newest_first(&mut roots);
+            roots
+        }
+
+        fn register(&self, path: &Path) {
+            self.write_storage(
+                &serde_json::json!({
+                    "unit": { "name": "workspace", "version": 2 },
+                    "global": { "initialized": true, "workspaceIds": ["registered"] },
+                    "tables": { "workspaces": { "registered": { "path": path } } }
+                })
+                .to_string(),
+            );
+        }
+
+        fn write_storage(&self, raw: &str) {
+            let storage = self.home().join("storages");
+            fs::create_dir_all(&storage).unwrap();
+            fs::write(storage.join("workspace.json"), raw).unwrap();
+        }
+
+        fn runtime_paths(&self, root: &Path) -> RuntimePaths {
+            let runtime = self.0.join("runtime");
+            fs::create_dir_all(&runtime).unwrap();
+            fs::write(runtime.join("manifest.json"), "preserve manifest").unwrap();
+            RuntimePaths {
+                node_binary: runtime.join("node"),
+                pnpm_binary: runtime.join("pnpm"),
+                cli_entry: root.join("apps/cli/lib/bin.js"),
+                harness_root: root.to_path_buf(),
+                runtime_root: runtime,
+                dsh_home: self.home(),
+            }
+        }
+    }
+
+    impl Drop for CleanupFixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn make_harness_tree(root: &Path, installed: bool) {
+        let cli = root.join("apps").join("cli").join("lib").join("bin.js");
+        fs::create_dir_all(cli.parent().unwrap()).unwrap();
+        fs::write(&cli, b"// cli").unwrap();
+        if installed {
+            fs::create_dir_all(root.join("node_modules").join(".pnpm")).unwrap();
+            fs::write(root.join("node_modules").join(".modules.yaml"), b"").unwrap();
+        }
+    }
+
+    #[test]
+    fn harness_tree_bootable_requires_installed_dependencies() {
+        let dir = std::env::temp_dir().join(format!("dsh-bootable-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let seeded = dir.join("seeded");
+        make_harness_tree(&seeded, false);
+        assert!(!harness_tree_bootable(&seeded));
+        let installed = dir.join("installed");
+        make_harness_tree(&installed, true);
+        assert!(harness_tree_bootable(&installed));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_store_without_the_completion_marker_is_not_bootable() {
+        let dir = std::env::temp_dir().join(format!("dsh-marker-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let killed = dir.join("harness-versions").join("killedmidinstall");
+        make_harness_tree(&killed, true);
+        fs::remove_file(killed.join("node_modules").join(".modules.yaml")).unwrap();
+        assert!(!harness_tree_bootable(&killed));
+        assert!(find_existing_harness(&dir).is_none());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn recovery_skips_a_tree_without_installed_dependencies() {
+        let base = std::env::temp_dir().join(format!("dsh-recover-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let versions = base.join("harness-versions");
+        make_harness_tree(&versions.join("7c5e4321f834a90b"), false);
+        make_harness_tree(&versions.join("7a9222660fa6f5d1"), true);
+        let picked = find_existing_harness(&base).unwrap();
+        assert!(picked.ends_with("7a9222660fa6f5d1"));
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn recovery_prefers_the_newest_bootable_tree() {
+        let base = std::env::temp_dir().join(format!("dsh-recover-newest-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let versions = base.join("harness-versions");
+        make_harness_tree(&versions.join("older"), true);
+        std::thread::sleep(Duration::from_millis(50));
+        make_harness_tree(&versions.join("newer"), true);
+        let picked = find_existing_harness(&base).unwrap();
+        assert!(picked.ends_with("newer"));
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn gc_keeps_only_the_newest_harness_trees() {
+        let fixture = CleanupFixture::new();
+        let roots = fixture.generations();
+        gc_harness_versions(&fixture.0, &fixture.home());
+        for (index, root) in roots.iter().enumerate() {
+            assert_eq!(root.exists(), index < HARNESS_TREES_KEPT);
+        }
+    }
+
+    #[test]
+    fn gc_preserves_equal_nested_missing_and_parent_workspaces() {
+        for relation in ["equal", "nested", "missing", "parent", "sibling-prefix"] {
+            let fixture = CleanupFixture::new();
+            let roots = fixture.generations();
+            let old = &roots[4];
+            let workspace = match relation {
+                "equal" => old.clone(),
+                "nested" => old.join("user-files"),
+                "missing" => old.join("user-files/missing/child"),
+                "parent" => old.parent().unwrap().to_path_buf(),
+                "sibling-prefix" => old.with_file_name(format!(
+                    "{}-unrelated",
+                    old.file_name().unwrap().to_string_lossy()
+                )),
+                _ => unreachable!(),
+            };
+            fixture.register(&workspace);
+            gc_harness_versions(&fixture.0, &fixture.home());
+            if relation == "sibling-prefix" {
+                assert!(!old.exists());
+            } else {
+                assert_eq!(
+                    fs::read_to_string(old.join("user-files/notes.txt")).unwrap(),
+                    "keep user content"
+                );
+            }
+            assert_eq!(roots[3].exists(), relation == "parent", "{relation}");
+        }
+    }
+
+    #[test]
+    fn unreadable_or_unknown_workspace_storage_blocks_all_removal_and_reseeding() {
+        for raw in [
+            "not-json-with-private-sentinel",
+            r#"{"unit":{"name":"workspace","version":3},"tables":{"workspaces":{}}}"#,
+            r#"{"unit":{"name":"other","version":2},"tables":{"workspaces":{}}}"#,
+            r#"{"unit":{"name":"workspace","version":2},"tables":{}}"#,
+            r#"{"unit":{"name":"workspace","version":2},"tables":{"workspaces":[]}}"#,
+            r#"{"unit":{"name":"workspace","version":2},"tables":{"workspaces":{"x":{}}}}"#,
+            r#"{"unit":{"name":"workspace","version":2},"tables":{"workspaces":{"x":{"path":"relative-private-sentinel"}}}}"#,
+            "unreadable-directory",
+        ] {
+            let fixture = CleanupFixture::new();
+            let roots = fixture.generations();
+            if raw == "unreadable-directory" {
+                fs::create_dir_all(fixture.home().join("storages/workspace.json")).unwrap();
+            } else {
+                fixture.write_storage(raw);
+            }
+            let paths = fixture.runtime_paths(&roots[4]);
+            let source = fixture.0.join("source");
+            make_harness_tree(&source, false);
+            gc_harness_versions(&fixture.0, &fixture.home());
+            assert!(roots.iter().all(|root| root.exists()));
+            let error = invalidate_provisioned_tree(&paths).unwrap_err();
+            assert!(!error.contains("private-sentinel"));
+            assert!(seed_harness_tree(&source, &roots[4], &fixture.home()).is_err());
+            assert_eq!(
+                fs::read_to_string(roots[4].join("user-files/notes.txt")).unwrap(),
+                "keep user content"
+            );
+            assert_eq!(
+                fs::read_to_string(paths.runtime_root.join("manifest.json")).unwrap(),
+                "preserve manifest"
+            );
+        }
+    }
+
+    #[test]
+    fn registered_workspaces_block_dependency_invalidation_and_seed_replacement() {
+        for relation in ["equal", "nested", "parent"] {
+            let fixture = CleanupFixture::new();
+            let roots = fixture.generations();
+            let root = &roots[4];
+            fixture.register(&match relation {
+                "equal" => root.clone(),
+                "nested" => root.join("user-files"),
+                "parent" => root.parent().unwrap().to_path_buf(),
+                _ => unreachable!(),
+            });
+            let paths = fixture.runtime_paths(root);
+            let source = fixture.0.join("source");
+            make_harness_tree(&source, false);
+            assert!(invalidate_provisioned_tree(&paths).is_err());
+            assert!(seed_harness_tree(&source, root, &fixture.home()).is_err());
+            assert_eq!(
+                fs::read_to_string(root.join("user-files/notes.txt")).unwrap(),
+                "keep user content"
+            );
+            assert_eq!(
+                fs::read_to_string(paths.runtime_root.join("manifest.json")).unwrap(),
+                "preserve manifest"
+            );
+        }
+    }
+
+    #[test]
+    fn unreferenced_runtime_can_be_invalidated_and_seeded_for_a_new_user() {
+        let fixture = CleanupFixture::new();
+        let roots = fixture.generations();
+        let paths = fixture.runtime_paths(&roots[4]);
+        invalidate_provisioned_tree(&paths).unwrap();
+        assert!(!paths.harness_root.exists());
+        assert!(!paths.runtime_root.join("manifest.json").exists());
+        let source = fixture.0.join("source");
+        make_harness_tree(&source, false);
+        seed_harness_tree(&source, &paths.harness_root, &fixture.home()).unwrap();
+        assert!(paths.cli_entry.is_file());
+        assert!(registered_workspace_paths(&fixture.home())
+            .unwrap()
+            .is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn workspace_symlink_alias_preserves_its_runtime_target() {
+        let fixture = CleanupFixture::new();
+        let roots = fixture.generations();
+        let alias = fixture.0.join("workspace-alias");
+        std::os::unix::fs::symlink(&roots[4], &alias).unwrap();
+        fixture.register(&alias);
+        gc_harness_versions(&fixture.0, &fixture.home());
+        assert!(roots[4].join("user-files/notes.txt").is_file());
+        assert!(!roots[3].exists());
+        let paths = fixture.runtime_paths(&roots[4]);
+        assert!(invalidate_provisioned_tree(&paths).is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn workspace_path_comparison_preserves_windows_case_variants() {
+        let fixture = CleanupFixture::new();
+        let roots = fixture.generations();
+        fixture.register(Path::new(&roots[4].to_string_lossy().to_uppercase()));
+        gc_harness_versions(&fixture.0, &fixture.home());
+        assert!(roots[4].join("user-files/notes.txt").is_file());
+        assert!(!roots[3].exists());
+    }
+
+    #[test]
+    fn isolates_harness_trees_by_bundle_hash() {
+        let app_root = Path::new("app-data");
+        assert_eq!(
+            harness_root_for_bundle(app_root, "0123456789abcdefaaaaaaaaaaaaaaaa"),
+            PathBuf::from("app-data")
+                .join("harness-versions")
+                .join("0123456789abcdef")
+        );
+        assert_ne!(
+            harness_root_for_bundle(app_root, "0123456789abcdefaaaaaaaaaaaaaaaa"),
+            harness_root_for_bundle(app_root, "fedcba9876543210bbbbbbbbbbbbbbbb")
+        );
+    }
+
+    #[test]
+    fn selects_node_archive_for_every_release_target() {
+        let cases = [
+            ("windows", "x86_64", "win-x64", "zip"),
+            ("windows", "x86", "win-x86", "zip"),
+            ("macos", "x86_64", "darwin-x64", "tar.gz"),
+            ("macos", "aarch64", "darwin-arm64", "tar.gz"),
+            ("linux", "x86_64", "linux-x64", "tar.gz"),
+            ("linux", "aarch64", "linux-arm64", "tar.gz"),
+        ];
+
+        for (os, arch, node_target, extension) in cases {
+            let spec = node_archive_spec_for("22.19.0", os, arch).unwrap();
+            assert_eq!(
+                spec.archive_name,
+                format!("node-v22.19.0-{node_target}.{extension}")
+            );
+            assert_eq!(spec.inner_folder, format!("node-v22.19.0-{node_target}"));
+        }
+    }
+
+    #[test]
+    fn rejects_unsupported_node_archive_targets() {
+        let error = node_archive_spec_for("22.19.0", "linux", "x86").unwrap_err();
+        assert!(error.contains("unsupported"));
+    }
+
+    #[test]
+    fn accepts_only_archive_paths_below_expected_root() {
+        assert_eq!(
+            safe_archive_relative_path(
+                Path::new("node-v22.19.0-linux-x64/bin/node"),
+                Path::new("node-v22.19.0-linux-x64"),
+            )
+            .unwrap(),
+            Some(Path::new("bin/node").to_path_buf())
+        );
+        assert_eq!(
+            safe_archive_relative_path(
+                Path::new("node-v22.19.0-linux-x64"),
+                Path::new("node-v22.19.0-linux-x64"),
+            )
+            .unwrap(),
+            None
+        );
+        assert!(safe_archive_relative_path(
+            Path::new("node-v22.19.0-linux-x64/../../escape"),
+            Path::new("node-v22.19.0-linux-x64"),
+        )
+        .is_err());
+        assert!(safe_archive_relative_path(
+            Path::new("../node-v22.19.0-linux-x64/bin/node"),
+            Path::new("node-v22.19.0-linux-x64"),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn treats_byte_equality_as_manifest_identity_without_probing() {
+        let dir = std::env::temp_dir().join(format!("dsh-node-manifest-{}", std::process::id()));
+        let _ = fs::create_dir_all(&dir);
+        let node = dir.join("node.exe");
+        fs::write(&node, b"node-binary").unwrap();
+        let bytes = fs::metadata(&node).unwrap().len();
+
+        let probes = std::cell::Cell::new(0);
+        let probe = |_: &Path| {
+            probes.set(probes.get() + 1);
+            false
+        };
+        assert!(node_matches_manifest(
+            &node,
+            &serde_json::json!({ "nodeBytes": bytes }),
+            &probe
+        ));
+        assert_eq!(probes.get(), 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_drifted_node_only_when_it_still_satisfies_the_engine_range() {
+        let dir = std::env::temp_dir().join(format!("dsh-node-drift-{}", std::process::id()));
+        let _ = fs::create_dir_all(&dir);
+        let node = dir.join("node.exe");
+        fs::write(&node, b"a-different-node-binary").unwrap();
+        let stale_bytes = 1;
+
+        assert!(node_matches_manifest(
+            &node,
+            &serde_json::json!({ "nodeBytes": stale_bytes }),
+            &|_: &Path| true
+        ));
+        assert!(!node_matches_manifest(
+            &node,
+            &serde_json::json!({ "nodeBytes": stale_bytes }),
+            &|_: &Path| false
+        ));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn skips_provision_when_recorded_host_node_still_matches() {
+        let dir = std::env::temp_dir().join(format!("dsh-manifest-ready-{}", std::process::id()));
+        let _ = fs::create_dir_all(&dir);
+        let harness = dir.join("harness");
+        let node_modules = harness.join("node_modules");
+        let _ = fs::create_dir_all(node_modules.join(".pnpm"));
+        fs::write(node_modules.join(".modules.yaml"), b"").unwrap();
+        let cli = harness.join("apps").join("cli").join("lib").join("bin.js");
+        let _ = fs::create_dir_all(cli.parent().unwrap());
+        fs::write(&cli, b"cli").unwrap();
+
+        let node = dir.join("node.exe");
+        fs::write(&node, b"node-binary").unwrap();
+        let bytes = fs::metadata(&node).unwrap().len();
+
+        let bundled = dir.join("bundled");
+        let _ = fs::create_dir_all(&bundled);
+        fs::write(
+            bundled.join(".bundle-manifest.json"),
+            r#"{"contentSha256":"0123456789abcdef0123456789abcdef"}"#,
+        )
+        .unwrap();
+
+        let manifest_path = dir.join("manifest.json");
+        // serde_json::json! keeps Windows path backslashes properly escaped;
+        // a format!-built JSON string would be rejected by the parser.
+        fs::write(
+            &manifest_path,
+            serde_json::json!({
+                "bundleSha256": "0123456789abcdef0123456789abcdef",
+                "nodePath": node.display().to_string(),
+                "nodeBytes": bytes,
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        assert!(manifest_ready(&manifest_path, &bundled, &harness, &cli,));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn reprovisions_when_recorded_node_is_missing() {
+        let dir = std::env::temp_dir().join(format!("dsh-manifest-stale-{}", std::process::id()));
+        let _ = fs::create_dir_all(&dir);
+        let harness = dir.join("harness");
+        let node_modules = harness.join("node_modules");
+        let _ = fs::create_dir_all(node_modules.join(".pnpm"));
+        fs::write(node_modules.join(".modules.yaml"), b"").unwrap();
+        let cli = harness.join("apps").join("cli").join("lib").join("bin.js");
+        let _ = fs::create_dir_all(cli.parent().unwrap());
+        fs::write(&cli, b"cli").unwrap();
+
+        let bundled = dir.join("bundled");
+        let _ = fs::create_dir_all(&bundled);
+        fs::write(
+            bundled.join(".bundle-manifest.json"),
+            r#"{"contentSha256":"0123456789abcdef0123456789abcdef"}"#,
+        )
+        .unwrap();
+
+        // The recorded node no longer exists (e.g. an nvm version removed).
+        let manifest_path = dir.join("manifest.json");
+        fs::write(
+            &manifest_path,
+            serde_json::json!({
+                "bundleSha256": "0123456789abcdef0123456789abcdef",
+                "nodePath": dir.join("missing-node.exe").display().to_string(),
+                "nodeBytes": 1234,
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        assert!(!manifest_ready(&manifest_path, &bundled, &harness, &cli,));
+        let _ = fs::remove_dir_all(&dir);
+    }
+}

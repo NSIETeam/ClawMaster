@@ -1,0 +1,16 @@
+# OpenViking requires a separately configured memory service. User patches run last.
+- id: openviking-memory-runtime
+  name: '@openviking/dsh-memory-plugin'
+  disabled: true
+
+# Channel defaults must outlive the installation directory. User patches run last.
+- id: xmanrui-dsh-im
+  config:
+    weixin:
+      workspace: !!js dshHomePath('watchdog-workspaces', 'im')
+    feishu:
+      workspace: !!js dshHomePath('watchdog-workspaces', 'im')
+    dingtalk:
+      workspace: !!js dshHomePath('watchdog-workspaces', 'im')
+    wecom:
+      workspace: !!js dshHomePath('watchdog-workspaces', 'im')

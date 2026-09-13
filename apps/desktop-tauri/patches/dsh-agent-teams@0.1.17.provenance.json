@@ -1,0 +1,21 @@
+{
+  "package": "@nanmicoder/dsh-agent-teams",
+  "version": "0.1.17",
+  "license": "MIT",
+  "upstreamTarball": "https://registry.npmjs.org/@nanmicoder/dsh-agent-teams/-/dsh-agent-teams-0.1.17.tgz",
+  "patch": "@nanmicoder__dsh-agent-teams@0.1.17.patch",
+  "purpose": "Use the ClawMaster product name in the installed plugin description; retain plugin identity, licenses and all executable code.",
+  "patchSha256": "40792cb1cbc6e85507262405f0e3526e3e584c8ef19195d0fbc56fd8b7221fe5",
+  "upstreamSha256": {
+    "package.json": "8e5c048aac644c80764f69bd9c3ee1591f2ad24bf05f4ba816f8a59d67d3c62e"
+  },
+  "patchedSha256": {
+    "package.json": "97b478b6c3e84556f44b484db831d3b44c08c3ca5233bb774eb84941eeeb58b6"
+  },
+  "unchangedSha256": {
+    "LICENSE": "e4e722cd6f8bb374affe13b571a262e0e03d68407da555abf1b046eb7889d4ea",
+    "lib/client.js": "8a8d5be8557c3782b8b92e1988817e25f5cf847b77e50d3a9324a66b5a42c13a",
+    "lib/index.js": "23fcde23f489a9539e97d353d50684ef60f19fa13e8b2dc9f23c9752af78cea1",
+    "cordis.patch.yml": "699b8ba773693205db637a5fea7c0c9e38ce1668a148e347beb0ea4339c2079b"
+  }
+}

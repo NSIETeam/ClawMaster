@@ -1,0 +1,13 @@
+diff --git a/package.json b/package.json
+index d9cdc6e..07f92a9 100644
+--- a/package.json
++++ b/package.json
+@@ -1,7 +1,7 @@
+ {
+   "name": "@nanmicoder/dsh-agent-teams",
+   "version": "0.1.17",
+-  "description": "AgentTeams for DeepSeek Harness: multi-agent team collaboration (captain, members, tasks with dependencies, messaging) driven by natural language, with a tree monitor in the web GUI",
++  "description": "AgentTeams for ClawMaster: multi-agent team collaboration (captain, members, tasks with dependencies, messaging) driven by natural language, with a tree monitor in the web GUI",
+   "type": "module",
+   "main": "lib/index.js",
+   "types": "lib/types/index.d.ts",

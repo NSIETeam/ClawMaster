@@ -1,0 +1,210 @@
+[
+  {
+    "introduction": "WatchDog tutorialManage everyday business with WatchDogReview this week’s customer follow-ups and delivery risks, from setting goals to checking corrective action.",
+    "title": "Define what to review this week",
+    "body": "Define what to review this weekChoose a concrete question: which customers need follow-up this week, and which orders could face delivery risks from low stock? In the WatchDog task description, specify the period, customers or orders, and the risk list you need.Example goal: review this week’s customer follow-ups and delivery risks; list customers awaiting follow-up, orders with stock shortages, and missing information for my review.",
+    "auxiliary": null,
+    "buttons": [
+      {
+        "name": "Define what to review this week",
+        "disabled": false
+      },
+      {
+        "name": "State owners, deadlines and acceptance criteria",
+        "disabled": false
+      },
+      {
+        "name": "Base management conclusions on business records",
+        "disabled": false
+      },
+      {
+        "name": "Choose a review frequency and approve changes",
+        "disabled": false
+      },
+      {
+        "name": "Track tasks, verify findings and follow through",
+        "disabled": false
+      },
+      {
+        "name": "Skip tutorial",
+        "disabled": false
+      },
+      {
+        "name": "Back",
+        "disabled": true
+      },
+      {
+        "name": "Next",
+        "disabled": false
+      }
+    ]
+  },
+  {
+    "introduction": "WatchDog tutorialManage everyday business with WatchDogReview this week’s customer follow-ups and delivery risks, from setting goals to checking corrective action.",
+    "title": "State owners, deadlines and acceptance criteria",
+    "body": "State owners, deadlines and acceptance criteriaWrite responsibilities in the same task description: who follows up, when they report back, and what counts as resolved. Owners and deadlines are written instructions; confirm and arrange colleagues’ responsibilities yourself.Add: the sales lead reviews customer follow-ups and the purchasing lead checks shortages by Friday at 17:00. Each finding includes customer or order evidence, suggested action and unresolved questions.",
+    "auxiliary": null,
+    "buttons": [
+      {
+        "name": "Define what to review this week",
+        "disabled": false
+      },
+      {
+        "name": "State owners, deadlines and acceptance criteria",
+        "disabled": false
+      },
+      {
+        "name": "Base management conclusions on business records",
+        "disabled": false
+      },
+      {
+        "name": "Choose a review frequency and approve changes",
+        "disabled": false
+      },
+      {
+        "name": "Track tasks, verify findings and follow through",
+        "disabled": false
+      },
+      {
+        "name": "Skip tutorial",
+        "disabled": false
+      },
+      {
+        "name": "Back",
+        "disabled": false
+      },
+      {
+        "name": "Next",
+        "disabled": false
+      }
+    ]
+  },
+  {
+    "introduction": "WatchDog tutorialManage everyday business with WatchDogReview this week’s customer follow-ups and delivery risks, from setting goals to checking corrective action.",
+    "title": "Base management conclusions on business records",
+    "body": "Base management conclusions on business recordsAsk the task to check CRM stages and follow-up dates, ERP stock and purchase or sale orders, and the office files you specify. Use supplied documents for delivery commitments. List information to provide if records are missing or unreadable.AI uses business tools to organize results; you review the conclusions. To inspect original records, find CRM or ERP in Settings → Side Cards and choose Open in sidebar in its feature settings.",
+    "auxiliary": null,
+    "buttons": [
+      {
+        "name": "Define what to review this week",
+        "disabled": false
+      },
+      {
+        "name": "State owners, deadlines and acceptance criteria",
+        "disabled": false
+      },
+      {
+        "name": "Base management conclusions on business records",
+        "disabled": false
+      },
+      {
+        "name": "Choose a review frequency and approve changes",
+        "disabled": false
+      },
+      {
+        "name": "Track tasks, verify findings and follow through",
+        "disabled": false
+      },
+      {
+        "name": "Skip tutorial",
+        "disabled": false
+      },
+      {
+        "name": "Back",
+        "disabled": false
+      },
+      {
+        "name": "Next",
+        "disabled": false
+      }
+    ]
+  },
+  {
+    "introduction": "WatchDog tutorialManage everyday business with WatchDogReview this week’s customer follow-ups and delivery risks, from setting goals to checking corrective action.",
+    "title": "Choose a review frequency and approve changes",
+    "body": "Choose a review frequency and approve changesStart with One check and review its results. For recurring reviews, enter the goal in WatchDog, choose Every hour or Every day, then select Start check to create a new task. Confirm scheduling from its result; keep the app and session active.If the task requests a stock change, record deletion or order submission, inspect its scope and effects in the conversation before approving. Reject it and clarify your requirements when needed.",
+    "auxiliary": null,
+    "buttons": [
+      {
+        "name": "Define what to review this week",
+        "disabled": false
+      },
+      {
+        "name": "State owners, deadlines and acceptance criteria",
+        "disabled": false
+      },
+      {
+        "name": "Base management conclusions on business records",
+        "disabled": false
+      },
+      {
+        "name": "Choose a review frequency and approve changes",
+        "disabled": false
+      },
+      {
+        "name": "Track tasks, verify findings and follow through",
+        "disabled": false
+      },
+      {
+        "name": "Skip tutorial",
+        "disabled": false
+      },
+      {
+        "name": "Back",
+        "disabled": false
+      },
+      {
+        "name": "Next",
+        "disabled": false
+      }
+    ]
+  },
+  {
+    "introduction": "WatchDog tutorialManage everyday business with WatchDogReview this week’s customer follow-ups and delivery risks, from setting goals to checking corrective action.",
+    "title": "Track tasks, verify findings and follow through",
+    "body": "Track tasks, verify findings and follow throughUse the WatchDog task list to see Running tasks, search for this review and open it. Check sources, exceptions and proposed actions. Add corrective requirements in the task, then verify the follow-up results.For example: provide stock evidence for affected orders, suggest replenishment quantities and list questions for the purchasing lead to review. Not running only describes current activity; check task results to determine completion.",
+    "auxiliary": "Open management, then write and start your review. Use these auxiliary settings if you need a model or chat connection; existing configuration can be reused.",
+    "buttons": [
+      {
+        "name": "Define what to review this week",
+        "disabled": false
+      },
+      {
+        "name": "State owners, deadlines and acceptance criteria",
+        "disabled": false
+      },
+      {
+        "name": "Base management conclusions on business records",
+        "disabled": false
+      },
+      {
+        "name": "Choose a review frequency and approve changes",
+        "disabled": false
+      },
+      {
+        "name": "Track tasks, verify findings and follow through",
+        "disabled": false
+      },
+      {
+        "name": "Skip tutorial",
+        "disabled": false
+      },
+      {
+        "name": "Back",
+        "disabled": false
+      },
+      {
+        "name": "Open WatchDog management",
+        "disabled": false
+      },
+      {
+        "name": "Model settings (if needed)",
+        "disabled": false
+      },
+      {
+        "name": "Chat connections (optional)",
+        "disabled": false
+      }
+    ]
+  }
+]

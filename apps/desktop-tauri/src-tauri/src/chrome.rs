@@ -1,0 +1,366 @@
+//! Main window, close preference, and window-chrome commands.
+
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use tauri::window::Color;
+use tauri::{
+    AppHandle, LogicalPosition, LogicalSize, Manager, WebviewBuilder, WebviewUrl,
+    WebviewWindowBuilder, WindowEvent,
+};
+#[cfg(target_os = "macos")]
+use tauri::TitleBarStyle;
+
+/// Window backdrop shown before the Web UI paints.
+const DSH_BG: Color = Color(21, 21, 23, 255);
+
+use crate::desktop_settings::{self, AgentEnvironment, CloseAction};
+use crate::i18n::{self, Msg};
+use crate::notify;
+use crate::runtime::boot_log;
+use crate::runtime::DesktopRuntime;
+use crate::window_layout::{desktop_overlay, resolve_controls_layout};
+
+static QUIT_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+/// True when the process is allowed to exit (tray Quit/Restart, Exit close, updater restart).
+pub fn quit_requested() -> bool {
+    QUIT_REQUESTED.load(Ordering::SeqCst)
+}
+
+/// Exit the process after marking quit so `ExitRequested` is not cancelled.
+pub fn request_quit(app: &AppHandle) {
+    mark_process_end(app);
+    if let Some(window) = app.get_window("main") {
+        let _ = window.destroy();
+    }
+    app.exit(0);
+}
+
+/// Relaunch the desktop process. Stops the Host first because `app.restart`
+/// skips `Drop`, and marks quit so a non-main-thread restart is not cancelled.
+pub fn request_restart(app: &AppHandle) -> ! {
+    mark_process_end(app);
+    app.restart()
+}
+
+/// Webview-facing restart: the plugin store's "重启" button asks for a full
+/// app relaunch (shell + Host), not just a Host restart. Calls through to
+/// `request_restart`, which stops the Host and relaunches this process.
+#[tauri::command]
+pub fn restart_app(app: AppHandle) {
+    request_restart(&app)
+}
+
+fn mark_process_end(app: &AppHandle) {
+    QUIT_REQUESTED.store(true, Ordering::SeqCst);
+    stop_host(app);
+}
+
+/// Reap the Host Node tree. `app.exit` / `app.restart` skip `Drop`.
+pub fn stop_host(app: &AppHandle) {
+    if let Some(runtime) = app.try_state::<DesktopRuntime>() {
+        runtime.host.stop();
+    }
+}
+
+/// Create the shell window that embeds `dsh web`, with the platform's native
+/// decorations and, on macOS, the title bar merged into the content.
+pub fn open_main_window(app: &AppHandle, url: &str) -> Result<(), String> {
+    if let Some(existing) = app.get_window("main") {
+        let _ = existing.show();
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .ok_or_else(|| "default window icon is missing".to_string())?;
+    let locale = match i18n::current() {
+        i18n::Locale::Zh => "zh",
+        i18n::Locale::En => "en",
+    };
+    let init = format!(
+        "window.__DSH_CHROME__ = {}; window.__DSH_LOCALE__ = {};",
+        serde_json::to_string(&resolve_controls_layout()).unwrap_or_else(|_| "{}".into()),
+        serde_json::to_string(locale).unwrap_or_else(|_| "\"en\"".into()),
+    );
+
+    let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("shell.html".into()))
+        .title("ClawMaster")
+        .inner_size(1280.0, 860.0)
+        .center()
+        .decorations(true)
+        .visible(false)
+        .background_color(DSH_BG)
+        .initialization_script(&init);
+
+    // macOS keeps its native decorations (rounded corners, shadow, resizing,
+    // window controls) but draws the title bar as an overlay over the content:
+    // no title row and no product name in window chrome, with the traffic
+    // lights floating over the product UI's top-left corner. The window keeps
+    // the live system appearance instead of pinning a color scheme.
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .title_bar_style(TitleBarStyle::Overlay)
+            .hidden_title(true);
+    }
+
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    {
+        builder = builder.shadow(true);
+    }
+
+    let window = builder
+        .icon(icon)
+        .map_err(|e| e.to_string())?
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    // 独立 WebView 提供第一方浏览器环境，保留上游 SameSite=Strict 的认证 cookie。
+    let content_url = url.parse::<url::Url>().map_err(|_| "Host 启动地址无效")?;
+    // An overlay title bar leaves the product Web UI owning the window's
+    // top-left corner, so the Host webview receives the chrome metrics it must
+    // lay out around. Other platforms reserve their title bar outside the
+    // content and report no overlay.
+    let overlay = content_bootstrap();
+    let native = app.get_window("main").ok_or("main window is missing")?;
+    let content = native
+        .add_child(
+            WebviewBuilder::new("content", WebviewUrl::External(content_url))
+                .initialization_script(&overlay),
+            LogicalPosition::new(0.0, f64::from(resolve_controls_layout().titlebar_height)),
+            content_size(&native)?,
+        )
+        .map_err(|e| e.to_string())?;
+
+    let app_handle = window.app_handle().clone();
+    window.on_window_event(move |event| {
+        if matches!(
+            event,
+            WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. }
+        ) {
+            if let Ok(size) = content_size(&native) {
+                let _ = content.set_position(LogicalPosition::new(
+                    0.0,
+                    f64::from(resolve_controls_layout().titlebar_height),
+                ));
+                let _ = content.set_size(size);
+            }
+        }
+        if let WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            on_close_requested(&app_handle);
+        }
+    });
+
+    window.show().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Focus or unhide the main window (single-instance and tray).
+pub fn show_main(app: &AppHandle) {
+    if let Some(window) = app.get_window("main").or_else(|| app.get_window("splash")) {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+/// Apply the saved close action, or ask once when none is stored.
+pub fn on_close_requested(app: &AppHandle) {
+    match desktop_settings::load().close_action {
+        Some(CloseAction::Minimize) => hide_main(app),
+        Some(CloseAction::Exit) => request_quit(app),
+        None => {
+            if let Err(error) = open_close_prompt(app) {
+                boot_log::info(&format!("close prompt fallback hide: {error}"));
+                hide_main(app);
+            }
+        }
+    }
+}
+
+/// Persist a close action from the in-window prompt, then apply it.
+#[tauri::command]
+pub fn set_close_action(app: AppHandle, action: String) -> Result<(), String> {
+    let parsed = parse_close_action(&action)?;
+    remember_close_action(&app, parsed)?;
+    hide_close_prompt(&app);
+    match parsed {
+        None => {}
+        Some(CloseAction::Minimize) => hide_main(&app),
+        Some(CloseAction::Exit) => request_quit(&app),
+    }
+    Ok(())
+}
+
+/// Persist a close action from the tray without immediately hiding or quitting.
+pub fn remember_close_action(app: &AppHandle, action: Option<CloseAction>) -> Result<(), String> {
+    save_close_action(action)?;
+    let message = match action {
+        Some(CloseAction::Minimize) => i18n::t(Msg::ToastCloseMin),
+        Some(CloseAction::Exit) => i18n::t(Msg::ToastCloseExit),
+        None => i18n::t(Msg::ToastCloseAsk),
+    };
+    notify::toast(app, "ClawMaster", message);
+    Ok(())
+}
+
+fn parse_close_action(action: &str) -> Result<Option<CloseAction>, String> {
+    match action {
+        "minimize" => Ok(Some(CloseAction::Minimize)),
+        "exit" => Ok(Some(CloseAction::Exit)),
+        "ask" => Ok(None),
+        other => Err(format!("unknown close action: {other}")),
+    }
+}
+
+fn save_close_action(action: Option<CloseAction>) -> Result<(), String> {
+    let mut settings = desktop_settings::load();
+    settings.close_action = action;
+    desktop_settings::save(&settings)
+}
+
+fn hide_main(app: &AppHandle) {
+    if let Some(window) = app.get_window("main") {
+        let _ = window.hide();
+    }
+}
+
+fn open_close_prompt(app: &AppHandle) -> Result<(), String> {
+    let main = app
+        .get_webview("main")
+        .ok_or_else(|| "main window is missing".to_string())?;
+    main.eval("window.__DSH_CLOSE_PROMPT__?.show()")
+        .map_err(|e| e.to_string())?;
+    if let Some(content) = app.get_webview("content") {
+        content.hide().map_err(|e| e.to_string())?;
+    }
+    let _ = main.set_focus();
+    Ok(())
+}
+
+fn hide_close_prompt(app: &AppHandle) {
+    if let Some(main) = app.get_webview("main") {
+        let _ = main.eval("window.__DSH_CLOSE_PROMPT__?.hide()");
+    }
+    if let Some(content) = app.get_webview("content") {
+        let _ = content.show();
+    }
+}
+
+/// 取消关闭选择后恢复内容 WebView。
+#[tauri::command]
+pub fn dismiss_close_prompt(app: AppHandle) {
+    hide_close_prompt(&app);
+}
+
+fn content_size(window: &tauri::Window) -> Result<LogicalSize<f64>, String> {
+    let size = window
+        .inner_size()
+        .map_err(|e| e.to_string())?
+        .to_logical::<f64>(window.scale_factor().map_err(|e| e.to_string())?);
+    Ok(LogicalSize::new(
+        size.width,
+        (size.height - f64::from(resolve_controls_layout().titlebar_height)).max(1.0),
+    ))
+}
+
+/// Boot script for the Host webview: the window-chrome metrics the product UI
+/// lays itself out around, plus the adaptation an overlay title bar needs.
+///
+/// The Host web UI is served from its own origin, so the shell cannot reach
+/// into its components. It publishes the metrics and adapts the rendered side
+/// column instead: that column owns the window's top-left corner, so it
+/// reserves the strip the floating system controls occupy and serves as the
+/// window drag region. A bare `data-tauri-drag-region` only fires on direct
+/// hits, so the controls inside the column keep their own behavior. The script
+/// runs on every document load and watches for the column, which the Host
+/// renders asynchronously and may replace.
+fn content_bootstrap() -> String {
+    format!(
+        "window.__DSH_DESKTOP_OVERLAY__ = {};\n{}",
+        serde_json::to_string(&desktop_overlay()).unwrap_or_else(|_| "null".into()),
+        OVERLAY_BOOTSTRAP,
+    )
+}
+
+/// Product-UI adaptation for the macOS overlay title bar.
+const OVERLAY_BOOTSTRAP: &str = r#"
+(function () {
+  var overlay = window.__DSH_DESKTOP_OVERLAY__;
+  if (!overlay || overlay.titlebar_style !== "overlay" || !(overlay.controls_inset > 0)) return;
+  var inset = overlay.controls_inset + "px";
+  var column = null;
+  function apply() {
+    if (column && column.isConnected && column.style.paddingTop === inset) return;
+    var mark = document.querySelector("img.cm-dsh-brand-mark:not(.cm-dsh-hero-mark)");
+    var button = mark && mark.closest("button");
+    var candidate = button && button.parentElement && button.parentElement.parentElement;
+    if (!candidate) return;
+    column = candidate;
+    column.style.paddingTop = inset;
+    column.setAttribute("data-tauri-drag-region", "");
+  }
+  function watch() {
+    apply();
+    new MutationObserver(apply).observe(
+      document.documentElement, { childList: true, subtree: true },
+    );
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", watch, { once: true });
+  } else {
+    watch();
+  }
+})();
+"#;
+
+/// Toast copy when the tray changes the agent runtime target.
+pub fn environment_changed_message() -> &'static str {
+    i18n::t(Msg::EnvRestart)
+}
+
+/// Persist the agent runtime target from the tray without restarting the Host.
+pub fn apply_agent_environment(value: AgentEnvironment) -> Result<(), String> {
+    let mut settings = desktop_settings::load();
+    settings.agent_environment = value;
+    desktop_settings::save(&settings)
+}
+
+/// Persist the agent runtime target from the tray and toast success or failure.
+pub fn remember_agent_environment(app: &AppHandle, value: AgentEnvironment) {
+    match apply_agent_environment(value) {
+        Ok(()) => notify::toast(app, "ClawMaster", environment_changed_message()),
+        Err(error) => {
+            boot_log::error(&format!("tray agent environment save failed: {error}"));
+            notify::toast(app, i18n::t(Msg::EnvSaveFailed), &error);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{content_bootstrap, environment_changed_message};
+
+    #[test]
+    fn environment_changed_message_is_restart_toast() {
+        assert_eq!(environment_changed_message(), "运行环境将在重启后生效");
+    }
+
+    #[test]
+    fn host_bootstrap_publishes_the_window_chrome() {
+        let script = content_bootstrap();
+        assert!(script.starts_with("window.__DSH_DESKTOP_OVERLAY__ = "));
+        assert!(script.contains("data-tauri-drag-region"));
+        if cfg!(target_os = "macos") {
+            assert!(script.contains(r#""titlebar_style":"overlay""#));
+            assert!(script.contains(r#""controls_inset":28"#));
+        } else {
+            assert!(script.contains("__DSH_DESKTOP_OVERLAY__ = null;"));
+        }
+    }
+}
