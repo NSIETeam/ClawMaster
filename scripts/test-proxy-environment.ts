@@ -20,11 +20,14 @@
  * Real-API e2e is cleared too. Before proxy support existed every request connected directly and
  * that suite passed, so a direct connection is the environment it is known to work in; leaving the
  * ambient proxy in place would newly stake it on the proxy reaching the provider.
+ *
+ * This entry point stays free of `node:` imports on purpose. It is loaded in every environment a
+ * suite runs in, including the jsdom ones, where Vitest transforms it as browser code: a `node:`
+ * specifier is externalized there and the setup then fails to load before a single test runs. The
+ * config discovery its wiring test needs lives in that spec instead.
  * @module
  */
 
-import { globSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { PROXY_ENV_NAMES } from '../packages/util/http-proxy/src/policy.ts'
 
 /** The flag a Node process reads before honoring the names above; ambient in the same way. */
@@ -32,17 +35,6 @@ const NODE_PROXY_FLAG = 'NODE_USE_ENV_PROXY'
 
 /** This module's path as a `setupFiles` entry, so its own wiring test names it once. */
 export const TEST_PROXY_SETUP_FILE = './scripts/test-proxy-environment.ts'
-
-/**
- * Every Vitest configuration in the repository, discovered rather than listed: the web suites carry
- * no `setupFiles` today, and a hand-written list would let one of them gain a setup without gaining
- * this one. The wiring test asserts only over the configurations that declare a setup at all.
- *
- * @returns repository-relative config paths, sorted.
- */
-export function vitestConfigFiles(): string[] {
-  return globSync('vitest*.ts', { cwd: resolve(import.meta.dirname, '..') }).sort()
-}
 
 /**
  * Delete every proxy name from one environment.
