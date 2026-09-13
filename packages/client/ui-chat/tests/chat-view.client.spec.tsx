@@ -1418,7 +1418,7 @@ describe('ChatView', () => {
     expect(members.map(member => member.getAttribute('hidden'))).toEqual([null, null, null])
   })
 
-  it('keeps the first System prompt above User and outside Process through completion and expansion', () => {
+  it('folds the first System prompt into Process behind the opening User through completion and expansion', () => {
     const builder = new ChatSnapshotBuilder()
     const initial = withSystemPrompt(chatSnapshotFixture({
       nodes: [userInTurn(2, 'question', 1), context(3, 'runtime policy', 1)],
@@ -1427,7 +1427,10 @@ describe('ChatView', () => {
     const view = render(<h.ChatView {...h.props} />)
     const promptRow = view.container.querySelector<HTMLElement>('[data-chat-flow-kind="system-prompt"]')!
 
-    expect(renderedFlowKinds(view.container)).toEqual(['system-prompt', 'user', 'context'])
+    expect(renderedFlowKinds(view.container)).toEqual(['user', 'system-prompt', 'context'])
+    // The prompt already takes the process position, but this Turn has no
+    // disclosure row yet, so nothing may be hidden: a hidden row with no
+    // disclosure to reopen it would be unreachable.
     expect(promptRow.getAttribute('hidden')).toBeNull()
     expect(promptRow.hasAttribute('data-turn-process-member')).toBe(false)
 
@@ -1444,10 +1447,10 @@ describe('ChatView', () => {
       })
     })
     expect(renderedFlowKinds(view.container)).toEqual([
-      'system-prompt', 'user', 'turn-process', 'context', 'assistant-step',
+      'user', 'turn-process', 'system-prompt', 'context', 'assistant-step',
     ])
     expect(view.container.querySelector('[data-chat-flow-kind="system-prompt"]')).toBe(promptRow)
-    expect(promptRow.getAttribute('hidden')).toBeNull()
+    expect(promptRow.getAttribute('hidden')).toBe('until-found')
 
     act(() => {
       h.set({
@@ -1466,20 +1469,22 @@ describe('ChatView', () => {
     const toggle = turnProcessControl(view.container)!
     const members = [...view.container.querySelectorAll<HTMLElement>('[data-turn-process-member]')]
     expect(renderedFlowKinds(view.container)).toEqual([
-      'system-prompt', 'user', 'turn-process', 'context', 'assistant-step', 'assistant-step', 'turn-tail',
+      'user', 'turn-process', 'system-prompt', 'context', 'assistant-step', 'assistant-step', 'turn-tail',
     ])
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    expect(promptRow.getAttribute('hidden')).toBeNull()
-    expect(promptRow.hasAttribute('data-turn-process-member')).toBe(false)
-    expect(members.map(member => member.dataset.chatFlowKind)).toEqual(['context', 'assistant-step'])
-    expect(members.map(member => member.getAttribute('hidden'))).toEqual(['until-found', 'until-found'])
+    expect(promptRow.getAttribute('hidden')).toBe('until-found')
+    expect(promptRow.hasAttribute('data-turn-process-member')).toBe(true)
+    expect(members.map(member => member.dataset.chatFlowKind))
+      .toEqual(['system-prompt', 'context', 'assistant-step'])
+    expect(members.map(member => member.getAttribute('hidden')))
+      .toEqual(['until-found', 'until-found', 'until-found'])
 
     fireEvent.click(toggle)
     expect(renderedFlowKinds(view.container)).toEqual([
-      'system-prompt', 'user', 'turn-process', 'context', 'assistant-step', 'assistant-step', 'turn-tail',
+      'user', 'turn-process', 'system-prompt', 'context', 'assistant-step', 'assistant-step', 'turn-tail',
     ])
     expect(promptRow.getAttribute('hidden')).toBeNull()
-    expect(members.map(member => member.getAttribute('hidden'))).toEqual([null, null])
+    expect(members.map(member => member.getAttribute('hidden'))).toEqual([null, null, null])
   })
 
   it('folds Context under the fallback title when every summary count is zero', () => {
@@ -1534,7 +1539,45 @@ describe('ChatView', () => {
     expect(answer?.hasAttribute('data-turn-process-answer')).toBe(false)
   })
 
-  it('keeps a live Turn expanded and folds it once at turn/end', () => {
+  it('keeps a prompt-only process reachable after the answer completes', () => {
+    const snapshot = withSystemPrompt(chatSnapshotFixture({
+      nodes: [userInTurn(2, 'question', 1), assistant(3, 'final answer', 1, 1)],
+      turnEnds: new Map([[1, 4]]),
+    }))
+    const h = makeHarness({ chat: snapshot })
+    const view = render(<h.ChatView {...h.props} />)
+    const toggle = turnProcessControl(view.container)
+    const promptRow = view.container.querySelector<HTMLElement>('[data-chat-flow-kind="system-prompt"]')!
+    expect(toggle).not.toBeNull()
+    expect(promptRow.getAttribute('hidden')).toBe('until-found')
+    fireEvent.click(toggle!)
+    expect(promptRow.getAttribute('hidden')).toBeNull()
+    expect(view.getAllByText('final answer')).toHaveLength(1)
+  })
+
+  it('keeps retry and failure rows reachable beside a folded live process', () => {
+    const h = makeHarness({
+      nodes: [user(1, 'question'), assistant(2, 'inspect', 1, 1), retry(3), turnError(4, 'IO')],
+      partial: { turn: 1, step: 2, blocks: [{ kind: 'text', text: 'streaming answer' }] },
+      running: true,
+    })
+    const view = render(<h.ChatView {...h.props} />)
+    const toggle = turnProcessControl(view.container)!
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    const retryRow = view.container.querySelector<HTMLElement>('[data-chat-flow-kind="model-retry"]')!
+    const errorRow = view.container.querySelector<HTMLElement>('[data-chat-flow-kind="turn-error"]')!
+    expect(retryRow.getAttribute('hidden')).toBeNull()
+    expect(errorRow.getAttribute('hidden')).toBeNull()
+    expect(view.getByText('plugin exploded')).toBeTruthy()
+    expect(view.getAllByText('streaming answer')).toHaveLength(1)
+    expect(view.getByText('streaming answer').closest('[hidden]')).toBeNull()
+    fireEvent.click(toggle)
+    expect(view.getAllByText('streaming answer')).toHaveLength(1)
+    fireEvent.click(toggle)
+    expect(view.getAllByText('streaming answer')).toHaveLength(1)
+  })
+
+  it('folds a live Turn into 工作中 while its answer keeps streaming', () => {
     const process = assistant(2, 'inspect', 1, 1)
     const h = makeHarness({
       nodes: [user(1, 'question'), process],
@@ -1542,8 +1585,26 @@ describe('ChatView', () => {
       running: true,
     })
     const view = render(<h.ChatView {...h.props} />)
-    expect(turnProcessControl(view.container)).toBeNull()
+    const toggle = turnProcessControl(view.container)!
+    expect(toggle.getAttribute('data-state')).toBe('running')
+    expect(toggle.textContent).toContain('工作中')
+    expect(view.getAllByText('streaming answer')).toHaveLength(1)
+    expect(view.getByText('streaming answer').closest('[hidden]')).toBeNull()
+    expect({
+      label: toggle.textContent,
+      expanded: toggle.getAttribute('aria-expanded'),
+      state: toggle.getAttribute('data-state'),
+      answer: view.getByText('streaming answer').textContent,
+    }).toMatchInlineSnapshot(`
+      {
+        "answer": "streaming answer",
+        "expanded": "false",
+        "label": "工作中 · 正在回复",
+        "state": "running",
+      }
+    `)
     const processRow = view.getByText('inspect').closest('[data-chat-flow-kind="assistant-step"]') as HTMLElement
+    expect(processRow.getAttribute('hidden')).toBe('until-found')
 
     act(() => {
       h.set({
@@ -1553,8 +1614,9 @@ describe('ChatView', () => {
         turnEnds: new Map([[1, 5]]),
       })
     })
-    const toggle = turnProcessControl(view.container)!
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    const settled = turnProcessControl(view.container)!
+    expect(settled.getAttribute('data-state')).toBe('ok')
+    expect(settled.getAttribute('aria-expanded')).toBe('false')
     expect(processRow.getAttribute('hidden')).toBe('until-found')
   })
 

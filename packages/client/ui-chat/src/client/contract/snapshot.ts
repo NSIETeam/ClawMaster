@@ -2,7 +2,7 @@ import type {
   ConversationNode, ConversationTimelineSnapshot, PartialAssistant, RunningToolCall,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ChatConversationViewNode } from './chat-nodes.ts'
-import type { TurnProcessSpec } from './turn-process.ts'
+import type { TurnProcessActivity, TurnProcessSpec } from './turn-process.ts'
 
 export type {
   AssistantBlock, AssistantMessageNode, AssistantProvenanceView, AssistantRequestConfig,
@@ -77,6 +77,22 @@ export interface ChatTurnProcessPresentation {
   readonly turnClosed: boolean
   readonly hasExternalProcess: boolean
   readonly compactAnswer: boolean
+  /** Whether the Turn still produces process evidence, so its row reads as running. */
+  readonly running: boolean
+  /** Newest process evidence already folded away; null once the Turn closed. */
+  readonly activity: TurnProcessActivity | null
+  /**
+   * Anchor of the human message that opens the Turn, when it has one. Process
+   * evidence recorded before it — the request prompt is the shipped case — is
+   * laid out behind that message and folds into the same window.
+   */
+  readonly openingHumanAnchor: number | undefined
+  /**
+   * Chat Node key of the assistant step still producing the reply. It is never
+   * a fold member, so the streaming answer stays readable while the process
+   * around it collapses.
+   */
+  readonly liveAnswerKey: string | null
 }
 
 /** Compatibility projection backing StatsPills and the legacy top-level snapshot fields. */

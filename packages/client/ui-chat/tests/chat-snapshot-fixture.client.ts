@@ -5,7 +5,7 @@ import type {
   PartialAssistant, RunningToolCall, ToolCallBlock, TurnNavigationItem,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {
-  ConversationLocationDataSource, ConversationLocationDataStore, ConversationTurnDataMap, TurnLocation,
+  ConversationLocationDataSource, ConversationLocationDataStore, ConversationTurnDataMap, StepLocation, TurnLocation,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { TurnTokenUsage } from '../src/client/contract/chat-nodes.ts'
 import { deriveTurnMetrics } from '../src/client/contract/turn-metrics.ts'
@@ -50,7 +50,8 @@ function sameFixtureLocation(
     || left.turn.status !== right.turn.status
     || left.turn.start !== right.turn.start
     || left.turn.end !== right.turn.end
-    || left.turn.data !== right.turn.data) return false
+    || left.turn.data !== right.turn.data
+    || left.turn.steps !== right.turn.steps) return false
   if (left.kind === 'turn' || right.kind === 'turn') return left.kind === right.kind
   return left.step.step === right.step.step
     && left.step.status === right.step.status
@@ -299,6 +300,22 @@ export function chatSnapshotFixture(input: {
     const previousData = previous?.timeline.turns.get(turn)?.data
     const data = previousData instanceof FixtureTurnDataStore ? previousData : new FixtureTurnDataStore()
     turnData.set(turn, data)
+    const stepNumbers = new Set(legacy.nodes.flatMap(node =>
+      'turn' in node && node.turn === turn && 'step' in node ? [node.step] : []))
+    if (legacy.partial?.turn === turn) stepNumbers.add(legacy.partial.step)
+    for (const call of legacy.runningCalls) if (call.turn === turn) stepNumbers.add(call.step)
+    const previousSteps = previous?.timeline.turns.get(turn)?.steps ?? EMPTY
+    const steps: readonly StepLocation[] = [...stepNumbers].sort((left, right) => left - right).map((step) => {
+      const status = endSeq === undefined && (legacy.partial?.turn === turn && legacy.partial.step === step
+        || legacy.runningCalls.some(call => call.turn === turn && call.step === step)) ? 'open' : 'closed'
+      const existing = previousSteps.find(candidate => candidate.step === step && candidate.status === status)
+      // The legacy fixture publishes Step coordinates; it has no Step-owned business data.
+      const emptySource = new FixtureSource(() => undefined)
+      return existing ?? {
+        turn, step, status, start: undefined, end: undefined,
+        data: { get: () => undefined, source: () => emptySource },
+      }
+    })
     turns.set(turn, {
       turn,
       start: timing === undefined ? undefined : {
@@ -308,7 +325,7 @@ export function chatSnapshotFixture(input: {
         type: 'turn/end', seq: endSeq, time: timing.endTime, turn, reason: 'completed',
       } as never,
       status: endSeq === undefined ? 'open' : 'closed',
-      steps: EMPTY,
+      steps: sameValues(previousSteps, steps) ? previousSteps : steps,
       data,
     })
   }

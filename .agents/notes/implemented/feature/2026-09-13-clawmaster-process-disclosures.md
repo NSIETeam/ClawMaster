@@ -10,7 +10,7 @@ Enterprise users need task results and actionable failures without reading techn
 
 ## Decision
 
-The existing ClawMaster build profile omits reasoning and context previews and shell/code summaries from collapsed headers. Source labels and short failure summaries remain visible. The existing disclosures retain complete available inputs and outputs; background shell receipts also remain expandable. React state records manual expansion for the mounted row, without an effect that resets it during streaming or completion. Existing completed-Turn grouping continues to own whole-process folding.
+The existing ClawMaster build profile omits reasoning and context previews and shell/code summaries from collapsed headers. Source labels and short failure summaries remain visible. The existing disclosures retain complete available inputs and outputs; background shell receipts also remain expandable. React state records manual expansion for the mounted row, without an effect that resets it during streaming or completion. Turn grouping owns whole-process folding in Compact mode, including a running `Working` row that preserves the latest Step’s answer and leaves Retry, Compaction, failure, and approval presentation accessible. The projector and renderer use the same process-range predicate: hiding a prompt before the opening human message must also make its expand control available.
 
 Presentation does not modify Session events, model inputs, final answers, or approval controls. Other DSH builds retain their existing previews. The [shell decision](2026-09-12-clawmaster-shell-over-dsh.md) owns the product/runtime separation; the [Chat](../../../../packages/client/ui-chat/README.md) and [Tool](../../../../packages/client/ui-tool/README.md) references own component behavior.
 
@@ -26,4 +26,4 @@ Users open technical detail explicitly. Expansion is local UI state, not a durab
 
 ## Verification
 
-Component tests cover default collapse, manual expansion through updates, background receipts, failed terminal exits, ordinary result summaries, and unchanged DSH previews. English and Chinese rendered-text snapshots pin the collapsed headers. Existing Chat tests retain coverage for final answers and approval presentation.
+Component tests cover default collapse, manual expansion through updates, background receipts, failed terminal exits, ordinary result summaries, and unchanged DSH previews. English and Chinese rendered-text snapshots pin the collapsed headers. Chat tests cover prompt-only process expansion, a single visible streaming answer through toggles and completion, live Retry and failure visibility, and approval presentation. A keyless rendered-output snapshot pins the working row. The legacy Chat fixture includes Step coordinates so it exercises the same latest-Step selection as the production projector.
