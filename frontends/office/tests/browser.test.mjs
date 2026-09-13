@@ -11,7 +11,8 @@ import { unzipSync, strFromU8 } from 'fflate';
 import { chromium } from 'playwright';
 import { apply } from '../dist/index.js';
 
-test('Word, Excel and PowerPoint edits survive save and reopen; concurrent changes preserve disk bytes', { timeout: 180000 }, async t => {
+for (const withoutIdleCallback of [false, true]) {
+test(`Word, Excel and PowerPoint edits survive save, reopen and conflicts (${withoutIdleCallback ? 'without idle callbacks' : 'native scheduling'})`, { timeout: 180000 }, async t => {
   assert.ok(process.env.DSH_OFFICE_SIDEBAR_PACKAGE_ROOT, 'Set DSH_OFFICE_SIDEBAR_PACKAGE_ROOT to the patched sidebar package.');
   const { writeWorkspaceUpload } = await import(pathToFileURL(join(resolve(process.env.DSH_OFFICE_SIDEBAR_PACKAGE_ROOT), 'src/fs-operations.ts')).href);
   const temporary = await mkdtemp(join(tmpdir(), 'clawmaster-office-browser-'));
@@ -53,6 +54,7 @@ test('Word, Excel and PowerPoint edits survive save and reopen; concurrent chang
     const original = await readFile(new URL(`./fixtures/${file}`, import.meta.url));
     const path = join(temporary, file); await writeFile(path, original);
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    if (withoutIdleCallback) await page.addInitScript(() => { delete window.requestIdleCallback; delete window.cancelIdleCallback; });
     try {
       const state = status => page.waitForFunction(value => document.querySelector('output').textContent.includes(`"status":"${value}"`), status, { timeout: 60000 });
       await page.goto(`http://127.0.0.1:${server.address().port}/?${new URLSearchParams({ path })}`);
@@ -72,7 +74,7 @@ test('Word, Excel and PowerPoint edits survive save and reopen; concurrent chang
       else if (file.endsWith('.docx')) { assert.ok(xml.includes('WORD_ORIGINAL_20260913')); assert.ok(xml.includes('<w:tbl>')); }
       else assert.ok(xml.includes('POWERPOINT_ORIGINAL_20260913'));
       await page.reload(); await state('ready');
-      if (process.env.OFFICE_TEST_EVIDENCE) await page.screenshot({ path: join(process.env.OFFICE_TEST_EVIDENCE, `${file}.png`) });
+      if (process.env.OFFICE_TEST_EVIDENCE) await page.screenshot({ path: join(process.env.OFFICE_TEST_EVIDENCE, `${file}${withoutIdleCallback ? '-without-idle-callback' : ''}.png`) });
       await edit(); await writeFile(path, original); await page.mouse.click(19, 32); await state('conflict');
       assert.deepEqual(await readFile(path), original);
       assert.match(await page.locator('output').innerText(), /"dirty":true.*"recovery":true/);
@@ -81,3 +83,4 @@ test('Word, Excel and PowerPoint edits survive save and reopen; concurrent chang
   }
   assert.deepEqual(results, JSON.parse(await readFile(new URL('./expected/browser.json', import.meta.url))));
 });
+}

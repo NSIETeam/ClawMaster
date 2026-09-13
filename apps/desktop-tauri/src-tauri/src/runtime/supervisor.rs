@@ -37,6 +37,7 @@ pub struct HostHandle {
     /// Cleared on the first successful `stop` so Drop does not wait again.
     pub wsl: Mutex<Option<WslSession>>,
     child: Arc<Mutex<Option<Child>>>,
+    current: Option<super::current::CurrentRuntime>,
     #[cfg(windows)]
     job: Mutex<Option<super::process::KillOnCloseJob>>,
 }
@@ -61,6 +62,11 @@ impl HostHandle {
             job.take();
         }
         let _ = std::fs::remove_file(host_pid_path());
+        if let Some(current) = &self.current {
+            if let Err(error) = current.stopped() {
+                boot_log::error(&format!("runtime stop record failed: {error}"));
+            }
+        }
     }
 }
 
@@ -113,7 +119,8 @@ pub async fn spawn_web_host(
                 disabled_plugins.join(",")
             }
         ));
-        let child = spawn_child(paths, port, overlay, host_path, rescue_patch.as_deref())?;
+        let run_id = super::current::new_run_id()?;
+        let child = spawn_child(paths, port, overlay, host_path, rescue_patch.as_deref(), &run_id)?;
         let pid = child.id();
         #[cfg(windows)]
         let job = attach_host_job(&child);
@@ -175,12 +182,30 @@ pub async fn spawn_web_host(
         }
         boot_log::info(&format!("health check passed url={web_url}"));
 
+        let current = if super::config::dev_launch_mode().as_deref() == Some("local") {
+            None
+        } else {
+            match super::current::CurrentRuntime::ready(paths, pid, port, &disabled_plugins, &run_id) {
+                Ok(current) => Some(current),
+                Err(error) => {
+                    if let Some(mut child) = child_handle.lock().map_err(|e| e.to_string())?.take() {
+                        kill_process_tree(child.id());
+                        let _ = child.kill();
+                        let _ = child.wait();
+                    }
+                    let _ = std::fs::remove_file(host_pid_path());
+                    return Err(format!("Cannot record the current desktop runtime: {error}"));
+                }
+            }
+        };
+
         return Ok(HostHandle {
             port,
             web_url: ready?,
             disabled_plugins,
             wsl: Mutex::new(None),
             child: child_handle,
+            current,
             #[cfg(windows)]
             job: Mutex::new(job),
         });
@@ -273,6 +298,7 @@ pub async fn spawn_wsl_web_host(
         disabled_plugins: Vec::new(),
         wsl: Mutex::new(Some(session)),
         child: child_handle,
+        current: None,
         #[cfg(windows)]
         job: Mutex::new(job),
     })
@@ -523,6 +549,7 @@ fn spawn_child(
     overlay: Option<&HostOverlay>,
     host_path: &str,
     rescue_patch: Option<&Path>,
+    run_id: &str,
 ) -> Result<Child, String> {
     let mut cmd = Command::new(&paths.node_binary);
     if super::config::dev_launch_mode().as_deref() != Some("local") {
@@ -544,6 +571,8 @@ fn spawn_child(
         .arg("--port")
         .arg(port.to_string())
         .env("DSH_HOME", &paths.dsh_home)
+        .env("CLAWMASTER_RUNTIME_STATE", super::current::state_path(&paths.dsh_home))
+        .env("CLAWMASTER_RUNTIME_RUN_ID", run_id)
         .env("PATH", host_path)
         .env("NODE_ENV", "production")
         .current_dir(&paths.harness_root)

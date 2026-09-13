@@ -11,6 +11,7 @@ import { basename, dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { load as loadYaml } from 'js-yaml'
 import { DESKTOP_PLUGIN_VERSIONS } from './desktop-defaults.mjs'
+import { desktopBuildMode, PAYLOAD_PROVENANCE_PATH, verifyPreparedBuild } from './build-provenance.mjs'
 
 const desktopRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const repoRoot = join(desktopRoot, '..', '..')
@@ -184,9 +185,10 @@ export function hashBundledContent(root) {
 /**
  * Reject modified payloads or development dependencies before installer packaging.
  * @param {string} root - Prepared, uninstalled harness tree.
+ * @param {'release'|'development'} mode - Packaging policy inherited from the selected build mode.
  * @returns {void} Throws for unexpected entries or a stale manifest digest.
  */
-export function assertPreparedBundle(root) {
+export function assertPreparedBundle(root, mode = desktopBuildMode()) {
   const walk = current => {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       const path = join(current, entry.name)
@@ -200,6 +202,15 @@ export function assertPreparedBundle(root) {
   walk(root)
   const manifest = JSON.parse(readFileSync(join(root, '.bundle-manifest.json'), 'utf8'))
   if (manifest.contentSha256 !== hashBundledContent(root)) throw new Error('Prepared payload digest does not match its manifest')
+  const provenance = JSON.parse(readFileSync(join(root, PAYLOAD_PROVENANCE_PATH), 'utf8'))
+  if (JSON.stringify(provenance) !== JSON.stringify(manifest.buildProvenance)) throw new Error('Prepared payload provenance differs from its manifest')
+  if (provenance.schemaVersion !== 1 || !['development', 'release'].includes(provenance.mode)
+    || typeof provenance.buildId !== 'string' || typeof provenance.source?.dirty !== 'boolean') {
+    throw new Error('Prepared payload provenance is invalid')
+  }
+  if (mode === 'release' && (provenance.mode !== 'release' || provenance.source.dirty)) {
+    throw new Error('Release payload must come from a clean release build')
+  }
 }
 
 /**
@@ -292,6 +303,7 @@ export function stripDevDependencies(root) {
 
 function main() {
 assertBuiltArtifacts()
+const buildProvenance = verifyPreparedBuild(repoRoot)
 const desktopLock = readFileSync(join(desktopRoot, 'pnpm-desktop-lock.yaml'), 'utf8')
 assertDesktopLockfile(desktopLock, join(desktopRoot, 'patches'))
 rmSync(outRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 })
@@ -355,15 +367,19 @@ const bundlePkg = {
 writeFileSync(join(outRoot, 'package.json'), `${JSON.stringify(bundlePkg, null, 2)}\n`)
 
 stripDevDependencies(outRoot)
+writeFileSync(join(outRoot, PAYLOAD_PROVENANCE_PATH), `${JSON.stringify(buildProvenance, null, 2)}\n`)
 
 const manifest = {
   harnessVersion: rootPkg.version,
+  desktopVersion: JSON.parse(readFileSync(join(desktopRoot, 'package.json'), 'utf8')).version,
   bundledAt: new Date().toISOString(),
   contentSha256: hashBundledContent(outRoot),
   method: 'trimmed-monorepo-source',
+  buildProvenance,
 }
 writeFileSync(join(outRoot, '.bundle-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
 assertPreparedBundle(outRoot)
+verifyPreparedBuild(repoRoot)
 
 console.log(`bundle-harness-source: wrote ${outRoot}`)
 console.log(`bundle-harness-source: sha256=${manifest.contentSha256}`)
@@ -371,6 +387,9 @@ console.log(`bundle-harness-source: sha256=${manifest.contentSha256}`)
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
-  if (process.argv[2] === '--check') assertPreparedBundle(outRoot)
+  if (process.argv[2] === '--check') {
+    assertPreparedBundle(outRoot)
+    verifyPreparedBuild(repoRoot)
+  }
   else main()
 }

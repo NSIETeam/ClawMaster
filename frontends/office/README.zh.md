@@ -51,7 +51,9 @@ node frontends/office/scripts/build.mjs --check
 npm test --prefix frontends/office
 ```
 
-运行资源在安装包压缩前增加约 178 MiB。资源生成是确定性的，且不进入 Git。[上游溯源](vendor/onlyoffice-web-local/SOURCE.json) 固定发布归档、转换器源码和本地修改。[浏览器测试](tests/browser.test.mjs) 使用自造文件和隔离本地服务器，需要 Playwright Chromium 及已应用补丁的侧栏包。
+每个编辑器 iframe 在 SDK 之前加载能力适配脚本：缺少 `requestIdleCallback` 的 WebKit 使用可取消的定时器延后启动工作，并报告没有可用空闲时间。已有原生调度保持不变。资源准备还为 Chromium 专有的内存采样添加能力检查，并修正演示文稿主题 URL，保留上游法律标记。这些[兼容转换](scripts/editor-compatibility.mjs)及其源码均包含在已校验资源中。
+
+运行资源在安装包压缩前增加约 178 MiB。资源生成是确定性的，且不进入 Git。[上游溯源](vendor/onlyoffice-web-local/SOURCE.json) 固定发布归档、转换器源码和本地修改。[浏览器测试](tests/browser.test.mjs) 在隔离本地服务器中使用自造文件，覆盖有无原生空闲调度两种情况，需要 Playwright Chromium 及已应用补丁的侧栏包。
 
 </details>
 

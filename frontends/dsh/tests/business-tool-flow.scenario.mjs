@@ -24,12 +24,30 @@ import { MockAdapter, textResponse, toolCallResponse } from '../../../packages/c
 import { applyDataTools } from '../src/data-tools.ts';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
+import { applyRuntimeGovernance } from '../src/runtime-governance.ts';
 
 const contact = { id: 'synthetic-lead', name: 'Synthetic Customer', company: 'Fixture Company', stage: 'lead', nextAction: 'Review synthetic lead', nextActionDate: null };
 
-async function fixture(t, script) {
+async function fixture(t, script, runtime = false) {
   const root = await mkdtemp(join(tmpdir(), 'clawmaster-business-flow-'));
   const ctx = new Context();
+  if (runtime) {
+    const previous = process.env.CLAWMASTER_RUNTIME_STATE;
+    const previousRun = process.env.CLAWMASTER_RUNTIME_RUN_ID;
+    process.env.CLAWMASTER_RUNTIME_STATE = join(root, 'current-runtime.json');
+    process.env.CLAWMASTER_RUNTIME_RUN_ID = 'fixture-run';
+    t.after(() => {
+      if (previous === undefined) delete process.env.CLAWMASTER_RUNTIME_STATE;
+      else process.env.CLAWMASTER_RUNTIME_STATE = previous;
+      if (previousRun === undefined) delete process.env.CLAWMASTER_RUNTIME_RUN_ID;
+      else process.env.CLAWMASTER_RUNTIME_RUN_ID = previousRun;
+    });
+    await writeFile(process.env.CLAWMASTER_RUNTIME_STATE, JSON.stringify({
+      schemaVersion: 1, status: 'ready', runId: 'fixture-run', hostPid: process.pid, port: 17890,
+      observedAtUnixMs: 1, desktopVersion: 'fixture', harnessVersion: 'fixture',
+      contentSha256: 'a'.repeat(64), harnessRoot: root, disabledPlugins: [], buildProvenance: null,
+    }));
+  }
   let store;
   t.after(async () => {
     try { await ctx.fiber.dispose(); }
@@ -38,9 +56,10 @@ async function fixture(t, script) {
   store = await openEnterpriseStore(join(root, 'enterprise.sqlite'));
   const adapter = new MockAdapter(script);
   const product = {
-    name: 'business-tools-fixture', inject: ['tools', 'approval', 'fs', 'sandboxPolicy'],
+    name: 'business-tools-fixture', inject: ['tools', 'approval', 'fs', 'sandboxPolicy', 'systemPrompt'],
     async apply(context) {
       applyDataTools(context);
+      if (runtime) applyRuntimeGovernance(context);
       const remove = await applyEnterpriseTools(context, store);
       context.effect(() => remove);
     },
@@ -98,8 +117,25 @@ async function fixture(t, script) {
       return { events, calls, results };
     } finally { await reader.close(); }
   };
-  return { root, store, run };
+  return { root, store, run, adapter };
 }
+
+test('live runtime observations reach the model and survive exact Session storage replay', { timeout: 30000 }, async t => {
+  const f = await fixture(t, [toolCallResponse('status', 'runtime_status', {}), textResponse('Runtime checked.')], true);
+  const { results } = await f.run();
+  assert.equal(results[0].isError, false);
+  const observation = JSON.parse(results[0].content[0].text);
+  assert.equal(observation.available, true);
+  const firstRequest = JSON.stringify(f.adapter.requests[0].messages);
+  assert.ok(firstRequest.includes('Current ClawMaster runtime observation:'));
+  assert.ok(firstRequest.includes('Treat remembered values as dated history.'));
+  assert.deepEqual({
+    available: observation.available,
+    harnessVersion: observation.identity.harnessVersion,
+    contentSha256: observation.identity.contentSha256,
+    source: observation.identity.source,
+  }, JSON.parse(await readFile(new URL('expected/runtime-status.json', import.meta.url), 'utf8')));
+});
 
 test('CSV processing and CRM maintenance record model-visible tool results and replay them from JSONL', { timeout: 30000 }, async t => {
   const f = await fixture(t, [

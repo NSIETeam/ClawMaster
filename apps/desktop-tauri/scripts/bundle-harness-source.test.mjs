@@ -42,14 +42,20 @@ test('installer packaging rejects stale bytes and injected dependencies', () => 
   const root = mkdtempSync(join(tmpdir(), 'desktop-payload-verify-'))
   try {
     writeFileSync(join(root, 'index.js'), 'product')
-    const manifest = () => writeFileSync(join(root, '.bundle-manifest.json'), JSON.stringify({ contentSha256: hashBundledContent(root) }))
+    const buildProvenance = { schemaVersion: 1, mode: 'development', buildId: 'development-fixture', source: { dirty: true } }
+    writeFileSync(join(root, '.build-provenance.json'), JSON.stringify(buildProvenance))
+    const manifest = () => writeFileSync(join(root, '.bundle-manifest.json'), JSON.stringify({ contentSha256: hashBundledContent(root), buildProvenance }))
     manifest()
-    assert.doesNotThrow(() => assertPreparedBundle(root))
+    assert.doesNotThrow(() => assertPreparedBundle(root, 'development'))
+    assert.throws(() => assertPreparedBundle(root, 'release'), /clean release build/)
+    writeFileSync(join(root, '.bundle-manifest.json'), JSON.stringify({ contentSha256: hashBundledContent(root), buildProvenance: { ...buildProvenance, buildId: 'another-source' } }))
+    assert.throws(() => assertPreparedBundle(root, 'development'), /provenance differs/)
+    manifest()
     writeFileSync(join(root, 'index.js'), 'changed after preparation')
-    assert.throws(() => assertPreparedBundle(root), /digest does not match/)
+    assert.throws(() => assertPreparedBundle(root, 'development'), /digest does not match/)
     manifest()
     mkdirSync(join(root, 'node_modules'))
-    assert.throws(() => assertPreparedBundle(root), /excluded directory/)
+    assert.throws(() => assertPreparedBundle(root, 'development'), /excluded directory/)
   } finally { rmSync(root, { recursive: true, force: true }) }
 })
 
@@ -212,6 +218,12 @@ test('desktop lock validation rejects drifted releases, patches and nested DSH c
     const oldVersion = structuredClone(lock);
     oldVersion.importers['apps/cli'].dependencies['@nanmicoder/dsh-agent-teams'].specifier = '0.1.16';
     assert.throws(() => assertDesktopLockfile(JSON.stringify(oldVersion), root), /must pin/);
+    for (const [name, version] of Object.entries(DESKTOP_PLUGIN_VERSIONS)) {
+      const upgraded = structuredClone(lock);
+      const [major, minor, patch] = version.split('.').map(Number);
+      upgraded.importers['apps/cli'].dependencies[name].specifier = `${major}.${minor}.${patch + 1}`;
+      assert.throws(() => assertDesktopLockfile(JSON.stringify(upgraded), root), /must pin/, `${name} upgrade requires review`);
+    }
     for (const name of Object.keys(DESKTOP_PATCHED_DEPENDENCIES)) {
       const oldPatch = structuredClone(lock);
       oldPatch.patchedDependencies[name] = 'stale';

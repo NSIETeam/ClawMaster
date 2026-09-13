@@ -4,16 +4,29 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { assertPortableNpmLock, digest, verify } from './runtime.mjs';
+import { compatibilityScript, editorPages, fixPresentationThemeUrl, guardEditorMemorySample } from './editor-compatibility.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 assertPortableNpmLock(JSON.parse(await readFile(join(root, 'package-lock.json'))));
 const source = JSON.parse(await readFile(join(root, 'vendor/onlyoffice-web-local/SOURCE.json')));
 const runtimeHash = await verify(join(root, 'runtime'), source);
 const frame = await build({ absWorkingDir: root, entryPoints: ['src/frame.ts'], outfile: 'frame.js', bundle: true, format: 'esm', platform: 'browser', target: 'es2022', legalComments: 'inline', write: false });
+const compatibility = await build({ absWorkingDir: root, entryPoints: ['src/editor-compatibility.ts'], outfile: 'editor-compatibility.js', bundle: true, format: 'iife', platform: 'browser', target: 'es2022', legalComments: 'inline', write: false });
 if (digest(frame.outputFiles[0].contents) !== digest(await readFile(join(root, 'runtime/frame.js')))
+  || digest(compatibility.outputFiles[0].contents) !== digest(await readFile(join(root, 'runtime/editor-compatibility.js')))
   || digest(await readFile(join(root, 'src/frame.html'))) !== digest(await readFile(join(root, 'runtime/index.html')))) {
   throw new Error('Office frame source changed. Run prepare-runtime before building.');
 }
+for (const page of editorPages) {
+  const html = await readFile(join(root, 'runtime', page), 'utf8');
+  if (!html.includes(`<head>\n    ${compatibilityScript}`) || html.split(compatibilityScript).length !== 2) throw new Error('Office editor compatibility is missing. Run prepare-runtime before building.');
+  const application = await readFile(join(root, 'runtime', page.replace('index.html', 'app.js')), 'utf8');
+  const upstream = application.replace('setTimeout(()=>{if(!performance.memory)return;', 'setTimeout(()=>{');
+  if (guardEditorMemorySample(upstream) !== application) throw new Error('Office memory sampler compatibility is missing. Run prepare-runtime before building.');
+}
+const presentationSdk = await readFile(join(root, 'runtime/sdkjs/slide/sdk-all-min.js'), 'utf8');
+const upstreamSdk = presentationSdk.replace('AscCommon.N_e(t.replace(/\\/$/,"")+"/themes.js"', 'AscCommon.N_e(t+"/themes.js"');
+if (fixPresentationThemeUrl(upstreamSdk) !== presentationSdk) throw new Error('Office presentation theme URL differs. Run prepare-runtime before building.');
 const manifest = JSON.parse(await readFile(join(root, 'package.json')));
 const common = { absWorkingDir: root, bundle: true, target: 'es2022', write: false, legalComments: 'inline' };
 const host = await build({ ...common, entryPoints: ['src/host.ts'], outfile: 'dist/index.js', packages: 'external', platform: 'node', format: 'esm', define: { __OFFICE_RUNTIME_MANIFEST_SHA256__: JSON.stringify(runtimeHash) } });

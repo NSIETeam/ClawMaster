@@ -1,9 +1,48 @@
-# ClawMaster presentation plus the official durable Schedule capability used
-# by WatchDog tasks. Keep the existing DSH runtime and all other plugin rows.
+# ClawMaster presentation and workspace browsing with the official durable
+# Schedule capability used by WatchDog tasks.
 - id: ui-brand-official
   disabled: true
 
+- id: directory-picker
+  disabled: true
+
+- id: sandbox-policy
+  config:
+    mode: read-only
+    workspaceRoot: !!js process.cwd()
+
+- id: approval
+  config:
+    policy: ask
+
+- id: permission
+  config:
+    defaultPreset: read-only
+    presets:
+      read-only:
+        sandbox: read-only
+        approval: ask
+      workspace-write:
+        sandbox: workspace-write
+        approval: ask
+      danger-full-access:
+        sandbox: danger-full-access
+        approval: never
+
+- id: agent-teams
+  config:
+    stateDir: .agent-teams
+    memberProvider: spawn
+    memberMaxDepth: 1
+    maxMembers: 3
+
 - insert:
+    - id: directory-picker-browse
+      name: '@deepseek-ai/dsh-host-directory-picker-browse'
+
+    - id: ui-directory-picker-browse
+      name: '@deepseek-ai/dsh-client-ui-directory-picker-browse'
+
     - id: clawmaster-frontend
       name: '@clawmaster/dsh-frontend'
 

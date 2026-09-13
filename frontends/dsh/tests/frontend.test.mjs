@@ -94,6 +94,19 @@ test('the shipped factory registers WatchDog and enterprise sidebar components a
   assert.equal(rows.size, 8);
   assert.ok(rows.has('main:clawmaster'));
   assert.ok(rows.has('sidebar.panellist:clawmaster'));
+  const artwork = await readFile(new URL('../src/clawmaster.svg', import.meta.url), 'utf8');
+  for (const slot of ['sidebar.brand.mark:', 'conversation.hero.brand.mark:']) {
+    const mark = renderToStaticMarkup(React.createElement(rows.get(slot).component));
+    const src = /src="([^"]+)"/u.exec(mark)?.[1]
+      ?.replaceAll('&quot;', '"').replaceAll('&#x27;', "'")
+      .replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&');
+    assert.ok(src?.startsWith('data:image/svg+xml'), `${slot} renders the vector artwork`);
+    const separator = src.indexOf(',');
+    const decoded = src.slice(0, separator).endsWith(';base64')
+      ? Buffer.from(src.slice(separator + 1), 'base64').toString('utf8')
+      : decodeURIComponent(src.slice(separator + 1));
+    assert.equal(decoded, artwork);
+  }
   assert.deepEqual([...tabs.keys()], ['clawmaster:crm', 'clawmaster:erp']);
   for (const tab of tabs.values()) {
     assert.equal(tab.single, true);
@@ -147,7 +160,9 @@ test('the distributed Host allocates workspaces only on explicit requests and pr
       return created.get(path);
     } },
     connection: { fetch: { register(route) { routes.set(route.path, route); return async () => { routes.delete(route.path); }; } } },
-    tools: { register() { return () => {}; } },
+    tools: { register() { return () => {}; }, guard() { return () => {}; } },
+    systemPrompt: { context() { return () => {}; } },
+    on() { return () => {}; },
     approval: { request() { throw new Error('workspace allocation must not request approval'); } },
     fs: { sandboxMode: 'workspace-write' },
     sandboxPolicy: { resolve() { throw new Error('workspace allocation must not invoke CSV'); } },

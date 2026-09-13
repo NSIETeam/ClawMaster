@@ -51,7 +51,9 @@ node frontends/office/scripts/build.mjs --check
 npm test --prefix frontends/office
 ```
 
-The runtime adds about 178 MiB of extracted assets before installer compression. Resource generation is deterministic and excluded from Git. [Upstream provenance](vendor/onlyoffice-web-local/SOURCE.json) pins the release archive, converter source and local changes. The [browser tests](tests/browser.test.mjs) use synthetic files and an isolated local server; they require Playwright Chromium and the patched sidebar package.
+Each editor frame loads a capability adapter before its SDK: WebKit versions without `requestIdleCallback` defer startup work with cancellable timers and report no idle budget. Available native scheduling remains unchanged. Preparation also guards Chromium-only memory sampling and canonicalizes the presentation theme URL; it preserves upstream legal markup. These [compatibility transformations](scripts/editor-compatibility.mjs) and their source are included in the verified runtime.
+
+The runtime adds about 178 MiB of extracted assets before installer compression. Resource generation is deterministic and excluded from Git. [Upstream provenance](vendor/onlyoffice-web-local/SOURCE.json) pins the release archive, converter source and local changes. The [browser tests](tests/browser.test.mjs) exercise synthetic files with and without native idle scheduling in an isolated local server; they require Playwright Chromium and the patched sidebar package.
 
 </details>
 
