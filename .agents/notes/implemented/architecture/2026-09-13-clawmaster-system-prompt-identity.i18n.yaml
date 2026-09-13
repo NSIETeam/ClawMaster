@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-13-clawmaster-system-prompt-identity.md
-2026-09-13-clawmaster-system-prompt-identity.md: 76987962b9ee735e97576956ae2b495a5daede5c
-2026-09-13-clawmaster-system-prompt-identity.zh.md: 0e4fd8332e2e9b6e5e54693acf4a0b250e10879f
+2026-09-13-clawmaster-system-prompt-identity.md: 72a5e49476eb25baa1ba0e07fb85bd0ee2b195ba
+2026-09-13-clawmaster-system-prompt-identity.zh.md: 582044a1e13580db322eb88227d4acffe0244915

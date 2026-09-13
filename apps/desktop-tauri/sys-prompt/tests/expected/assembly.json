@@ -9,7 +9,7 @@
     "deployment:persona-suffix"
   ],
   "toolNames": ["edit", "read", "write"],
-  "variables": { "cwd": "/clawmaster-fixture" },
+  "variables": { "cwd": "/clawmaster-fixture", "model": "fixture-model" },
   "approvalAsk": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nApproval policy: ask. Operations that require approval may ask through the configured answerers; without an available answerer, the request fails closed.",
   "approvalNever": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nApproval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."
 }

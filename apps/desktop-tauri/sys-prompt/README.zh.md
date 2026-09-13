@@ -12,7 +12,11 @@ ClawMaster 在 WatchDog 中使用企业协作身份，同时保留 DSH 的工具
 
 ## 配置
 
-[桌面策略](../defaults/cordis.patch.yml) 为既有的 `system-prompt` 配置行选择此模块，关闭上游身份开场，并提供产品角色说明。用户 profile 补丁仍最后生效。全部配置字段由 [DSH SystemPrompt](../../../packages/core/system-prompt/README.zh.md) 定义。
+[桌面策略](../defaults/cordis.patch.yml) 禁用上游 `system-prompt` 配置行，并以 `clawmaster-sys-prompt` 插入此模块。其配置关闭上游身份开场，并提供产品角色说明。全部配置字段由 [DSH SystemPrompt](../../../packages/core/system-prompt/README.zh.md) 定义。
+
+用户 profile 补丁最后生效，定制当前服务时必须指定 `id: clawmaster-sys-prompt`。指定 `id: system-prompt` 的补丁只会修改已禁用的上游条目，其配置不会迁移。配置补丁会替换整个对象，因此须保留 `includeHarnessIdentity: false` 和其他需要的字段。
+
+如需明确选择上游服务，应在同一用户补丁中禁用 `clawmaster-sys-prompt` 并启用 `system-prompt`。同时启用两个条目会竞争注册同一个服务。
 
 ## 实现
 

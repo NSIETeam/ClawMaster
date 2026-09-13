@@ -1,4 +1,4 @@
-# ClawMaster Desktop 0.2.0-beta.3
+# ClawMaster Desktop 0.2.0-beta.4
 
 ## 中文
 

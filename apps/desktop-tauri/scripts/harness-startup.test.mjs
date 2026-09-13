@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import { mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -136,6 +137,34 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     await writeFile(patch, `${JSON.stringify([{ id: 'clawmaster-notes', config: { vaultRoot: notesRoot } }])}\n`)
     const environment = Object.fromEntries(Object.entries(process.env)
       .filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD/i.test(name)))
+    const profile = spawnSync(process.execPath, ['--import', pathToFileURL(join(root, 'desktop-defaults.mjs')).href,
+      join(root, 'apps/cli/lib/bin.js'), 'web', '--patch', patch, '--dump-config'], {
+      cwd: root, env: { ...environment, DSH_HOME: home, DSH_DESKTOP_DEFAULTS: '1', NODE_ENV: 'production' },
+      encoding: 'utf8', timeout: STARTUP_TIMEOUT_MS, windowsHide: true,
+    })
+    assert.equal(profile.error, undefined)
+    assert.equal(profile.signal, null)
+    assert.equal(profile.status, 0, redact(profile.stderr))
+    assert.doesNotMatch(profile.stderr, /patch:.*(?:not found|mismatch)/, 'Desktop patches must apply to the shipped profile')
+    const require = createRequire(join(root, 'apps/cli/package.json'))
+    const { load } = require('js-yaml')
+    const { entryListSchema } = await import(pathToFileURL(require.resolve('@deepseek-ai/cordis-plugin-include')).href)
+    const promptEntries = []
+    const visit = (entries, disabled = false) => {
+      for (const entry of entries) {
+        const inactive = disabled || entry.disabled === true
+        if (['@deepseek-ai/dsh-system-prompt', 'clawmaster-sys-prompt'].includes(entry.name)) {
+          promptEntries.push({ ...entry, inactive })
+        }
+        if (entry.group && Array.isArray(entry.config)) visit(entry.config, inactive)
+      }
+    }
+    visit(load(profile.stdout, { schema: entryListSchema }))
+    const activePrompt = promptEntries.filter(entry => !entry.inactive)
+    assert.equal(activePrompt.length, 1, 'The desktop must have exactly one active system prompt provider')
+    assert.equal(activePrompt[0].name, 'clawmaster-sys-prompt')
+    assert.equal(activePrompt[0].config.includeHarnessIdentity, false)
+    assert.match(activePrompt[0].config.personaPrefix, /^You are ClawMaster,/)
     const request = (url, options) => fetch(url, {
       ...options, signal: AbortSignal.any([context.signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]),
     })

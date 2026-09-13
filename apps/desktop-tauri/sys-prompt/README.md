@@ -12,7 +12,11 @@ ClawMaster presents an enterprise collaboration identity in WatchDog while retai
 
 ## Configuration
 
-The [desktop policy](../defaults/cordis.patch.yml) selects this module for the existing `system-prompt` row, disables the upstream identity opener, and supplies the product persona. User profile patches still run last. Every accepted field comes from [DSH SystemPrompt](../../../packages/core/system-prompt/README.md).
+The [desktop policy](../defaults/cordis.patch.yml) disables the upstream `system-prompt` row and inserts this module as `clawmaster-sys-prompt`. Its configuration disables the upstream identity opener and supplies the product persona. Every accepted field comes from [DSH SystemPrompt](../../../packages/core/system-prompt/README.md).
+
+User profile patches run last and must target `id: clawmaster-sys-prompt` to customize the active service. Patches targeting `id: system-prompt` modify the disabled upstream entry; their configuration is not migrated. A configuration patch replaces the whole object, so retain `includeHarnessIdentity: false` and every other desired field.
+
+To select the upstream service explicitly, disable `clawmaster-sys-prompt` and enable `system-prompt` in the same user patch. Enabling both entries creates competing registrations for the same service.
 
 ## Implementation
 

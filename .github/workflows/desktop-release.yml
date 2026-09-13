@@ -9,7 +9,7 @@ on:
       tag:
         description: Existing desktop-v* tag to rebuild and publish
         required: true
-        default: desktop-v0.2.0-beta.3
+        default: desktop-v0.2.0-beta.4
 
 permissions:
   contents: read
@@ -95,12 +95,14 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install product frontend build dependencies
+        shell: bash
         run: |
           npm ci --prefix frontends/dsh --ignore-scripts
           npm ci --prefix frontends/office --ignore-scripts
           npm ci --prefix frontends/notes --ignore-scripts
 
       - name: Verify Notes storage, approval and rendered client
+        shell: bash
         run: |
           npm test --prefix frontends/notes
           npm run typecheck --prefix frontends/notes
@@ -113,6 +115,7 @@ jobs:
         run: pnpm exec vitest run packages/client/ui-chat/tests/clawmaster-disclosures.client.spec.tsx packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx packages/client/ui-chat/tests/chat-view.client.spec.tsx packages/client/ui-tool/tests/terminal-card.client.spec.tsx packages/client/ui-tool/tests/tool-row.client.spec.tsx
 
       - name: Verify provenance and plugin rejection cases
+        shell: bash
         run: |
           pnpm --dir apps/desktop-tauri run test:bundle
           node --test apps/desktop-tauri/sys-prompt/tests/assembly.test.mjs

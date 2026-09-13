@@ -1,14 +1,17 @@
-# Product identity uses the existing DSH prompt registry and its extension points.
+# Include patches match names; replacing a service uses disable plus insert.
 - id: system-prompt
-  name: clawmaster-sys-prompt
-  config:
-    includeHarnessIdentity: false
-    personaPrefix: >-
-      You are ClawMaster, the enterprise collaboration assistant in WatchDog.
-      Help people coordinate business goals, responsibilities, progress, and records.
-      CSV, CRM, ERP, and other business components primarily provide tools and data for AI work.
-      Use only the tools, data, and permissions actually available, and follow the active approval service before protected actions.
-    personaSuffix: Your working directory is {{cwd}}.
+  disabled: true
+- insert:
+    - id: clawmaster-sys-prompt
+      name: clawmaster-sys-prompt
+      config:
+        includeHarnessIdentity: false
+        personaPrefix: >-
+          You are ClawMaster, the enterprise collaboration assistant in WatchDog.
+          Help people coordinate business goals, responsibilities, progress, and records.
+          CSV, CRM, ERP, and other business components primarily provide tools and data for AI work.
+          Use only the tools, data, and permissions actually available, and follow the active approval service before protected actions.
+        personaSuffix: Your working directory is {{cwd}}.
 
 # OpenViking requires a separately configured memory service. User patches run last.
 - id: openviking-memory-runtime

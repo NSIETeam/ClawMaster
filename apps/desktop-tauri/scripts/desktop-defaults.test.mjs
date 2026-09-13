@@ -25,7 +25,9 @@ function fixture(t) {
     const path = join(modules, name)
     mkdirSync(path, { recursive: true })
     writeFileSync(join(path, 'package.json'), JSON.stringify({ name, dsh: { bundle: { patch: './cordis.patch.yml' } } }))
-    writeFileSync(join(path, 'cordis.patch.yml'), '[]\n')
+    writeFileSync(join(path, 'cordis.patch.yml'), name === '@deepseek-ai/dsh-base'
+      ? '- insert:\n    - id: system-prompt\n      name: "@deepseek-ai/dsh-system-prompt"\n'
+      : '[]\n')
   }
   for (const name of DESKTOP_BUNDLES) {
     const path = join(modules, name)
@@ -87,7 +89,7 @@ test('IM channel defaults resolve under the selected home and preserve user over
       const { dshHomePath } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-home-paths')).href);
       const profile = boot.loadProfile('ClawMaster', 'web', ${JSON.stringify(join(f.cli, 'package.json'))}, process.env.DSH_HOME);
       const entries = [...profile.layers.map(layer => layer.patches), profile.patches]
-        .reduce((entries, patches) => applyEntryPatches(entries, patches, message => { throw new Error(message) }), []);
+        .reduce((entries, patches) => applyEntryPatches(entries, patches, (message, ...args) => { throw new Error([message, ...args].join(" ")) }), []);
       const config = entries.find(entry => entry.id === 'xmanrui-dsh-im').config;
       process.stdout.write(JSON.stringify(interpolate({ dshHomePath }, config)));
     `
@@ -147,7 +149,7 @@ test('host-only OpenViking remains visible but disabled until a user patch enabl
   const composition = () => {
     const profile = boot.loadProfile('ClawMaster', 'web', join(f.cli, 'package.json'), f.home)
     return [...profile.layers.map(layer => layer.patches), profile.patches]
-      .reduce((entries, patches) => applyEntryPatches(entries, patches, message => { throw new Error(message) }), [])
+      .reduce((entries, patches) => applyEntryPatches(entries, patches, (message, ...args) => { throw new Error([message, ...args].join(" ")) }), [])
   }
   const runtime = () => composition().find(entry => entry.id === 'openviking-memory').config[0]
   assert.equal(runtime().name, '@openviking/dsh-memory-plugin')
