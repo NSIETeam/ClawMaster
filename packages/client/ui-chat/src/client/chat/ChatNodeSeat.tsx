@@ -8,6 +8,43 @@ import { storedTurnProcessEntry } from '../stores.ts'
 import { useSearchableHidden } from './searchable-hidden.ts'
 import css from './ChatView.module.css'
 
+/**
+ * Disclosure key for a Turn whose answer step is not finalized yet. A stored
+ * entry under this key never equals a closed Turn's real answer step, so an
+ * expanded running row returns to the default collapsed state when it closes.
+ */
+const LIVE_PROCESS_STEP = -1
+
+/**
+ * Evidence the running fold swallows. A live Turn folds exactly what a reader
+ * asked to fold — reasoning, recalled or injected context, Tool calls and the
+ * request prompt — so every other row keeps its place: a retry in flight, a
+ * running compaction and any kind a future module adds stay readable until the
+ * Turn closes, when the full process window applies as before.
+ */
+const RUNNING_FOLD_KINDS: ReadonlySet<string> = new Set([
+  'assistant-step', 'context', 'system-prompt', 'tool-call',
+])
+
+/**
+ * Whether the layout placed one Node inside its Turn's process region. Evidence
+ * recorded before the opening human message is laid out behind that message —
+ * the request prompt is the shipped case — and evidence from the process start
+ * onward is what the Turn produced in place.
+ * @param anchorSeq - the Node's own anchor.
+ * @param processStartSeq - first anchor the Turn's process window covers.
+ * @param openingHumanAnchor - anchor of the Turn's opening human message, if any.
+ * @returns whether the Node folds with the Turn's process.
+ */
+function insideProcessRegion(
+  anchorSeq: number,
+  processStartSeq: number,
+  openingHumanAnchor: number | undefined,
+): boolean {
+  if (openingHumanAnchor === undefined) return anchorSeq >= processStartSeq
+  return anchorSeq < openingHumanAnchor || anchorSeq >= processStartSeq
+}
+
 interface ChatNodeSeatProps extends ChatNodeOwnerProps {
   readonly nodeKey: string
   readonly useChatNode: ChatViewSlotProps['useChatNode']
@@ -48,29 +85,37 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
   const storedEntry = useStore(state => processSpec === undefined
     ? undefined
     : storedTurnProcessEntry(state, processSpec.turn))
-  const processEntry = processSpec !== undefined
-    && processSpec.answerStep !== null
-    && storedEntry?.answerStep === processSpec.answerStep
+  // A running Turn has no finalized answer step yet, so its disclosure state is
+  // kept under the live bucket and moves to the real answer step once it closes.
+  const processStep = processSpec === undefined
+    ? null
+    : processSpec.answerStep ?? LIVE_PROCESS_STEP
+  const processEntry = processStep !== null && storedEntry?.answerStep === processStep
     ? storedEntry
     : undefined
   const processOpen = processEntry !== undefined
   const setOpen = useCallback((open: boolean) => {
-    if (processSpec !== undefined && processSpec.answerStep !== null) {
-      actions.setTurnProcessOpen(processSpec.turn, processSpec.answerStep, open)
+    if (processSpec !== undefined && processStep !== null) {
+      actions.setTurnProcessOpen(processSpec.turn, processStep, open)
     }
-  }, [actions, processSpec])
+  }, [actions, processSpec, processStep])
   const processWindowReady = processSpec !== undefined
     && processPresentation !== undefined
     && compactTranscript
-    && processSpec.answerAnchorSeq !== null
     && processPresentation.turn === processSpec.turn
-    && processPresentation.turnClosed
     && !historyIncomplete
+    && (processPresentation.running || processSpec.answerAnchorSeq !== null)
   const processMember = routedNode !== undefined
     && processWindowReady
     && !TURN_PROCESS_INDEPENDENT_KINDS.has(routedNode.kind)
-    && routedNode.anchorSeq >= processSpec.processStartSeq
-    && routedNode.anchorSeq < processSpec.answerAnchorSeq
+    && (!processPresentation.running || RUNNING_FOLD_KINDS.has(routedNode.kind))
+    && insideProcessRegion(
+      routedNode.anchorSeq,
+      processSpec.processStartSeq,
+      processPresentation.openingHumanAnchor,
+    )
+    && (processSpec.answerAnchorSeq === null || routedNode.anchorSeq < processSpec.answerAnchorSeq)
+    && routedNode.key !== processPresentation.liveAnswerKey
   const processAnswer = routedNode !== undefined
     && processWindowReady
     && routedNode.kind === 'assistant-step'
@@ -79,15 +124,17 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
   const foldable = processWindowReady
     && (processMember || (ownsDisclosure
       && (processPresentation.hasExternalProcess || processSpec.inlineReasoning)))
-  const turnProcess = useMemo(() => processSpec === undefined
+  const turnProcess = useMemo(() => processSpec === undefined || processPresentation === undefined
     ? undefined
     : {
       spec: processSpec,
       foldable,
       open: processOpen,
+      running: processPresentation.running,
+      activity: processPresentation.activity,
       setOpen,
     }, [
-    foldable, processOpen, processSpec, setOpen,
+    foldable, processOpen, processPresentation, processSpec, setOpen,
   ])
   const controllerInactive = routedNode?.kind === 'turn-process'
     && !foldable

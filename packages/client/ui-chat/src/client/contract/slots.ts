@@ -18,7 +18,7 @@ import type { ChatConversationViewNode, ChatNode, ChatNodeKind } from './chat-no
 import type {
   ChatNodeProcessSource, ChatNodeSource, ChatSnapshot, ChatTurnProcessPresentation,
 } from './snapshot.ts'
-import type { TurnProcessSpec } from './turn-process.ts'
+import type { TurnProcessActivity, TurnProcessSpec } from './turn-process.ts'
 import type { TranscriptViewMode } from '../../chat-settings.ts'
 
 /** Selector hook over the current Conversation binding's Chat target. */
@@ -102,6 +102,10 @@ export interface TurnProcessOwnerProps {
   readonly spec: TurnProcessSpec
   readonly foldable: boolean
   readonly open: boolean
+  /** Whether the Turn still runs, so the row reads as working instead of summarized. */
+  readonly running: boolean
+  /** Newest folded process evidence; null when the Turn closed or none is readable. */
+  readonly activity: TurnProcessActivity | null
   setOpen(open: boolean): void
 }
 

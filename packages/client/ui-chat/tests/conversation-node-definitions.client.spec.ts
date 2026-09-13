@@ -1565,9 +1565,11 @@ describe('built-in conversation node Definitions', () => {
     ])
 
     const current = snapshot(value)
+    // A request prompt is process evidence now, so it folds behind the opening
+    // User instead of standing before it as an independent card.
     expect(current.order.map(key => current.nodes.get(key)?.kind)).toEqual([
-      'system-prompt',
       'user',
+      'system-prompt',
       'context',
     ])
     expect(node(current, 'system-prompt')?.anchorSeq).toBe(1)
@@ -1644,12 +1646,12 @@ describe('built-in conversation node Definitions', () => {
     ])
 
     const current = snapshot(value)
-    expect(current.order.map(key => current.nodes.get(key)?.kind)).toEqual(['system-prompt', 'user'])
+    expect(current.order.map(key => current.nodes.get(key)?.kind)).toEqual(['user', 'system-prompt'])
 
     value.append(systemAt(5, '# Replaced', 3))
     value.flush()
     const replaced = snapshot(value)
-    expect(replaced.order.map(key => replaced.nodes.get(key)?.kind)).toEqual(['system-prompt', 'user'])
+    expect(replaced.order.map(key => replaced.nodes.get(key)?.kind)).toEqual(['user', 'system-prompt'])
   })
 
   it('presents an in-history prompt update as its own card and lets no same-step header repeat it', () => {
@@ -1724,10 +1726,10 @@ describe('built-in conversation node Definitions', () => {
     ])
 
     const current = snapshot(value)
-    expect(current.order.map(key => current.nodes.get(key)?.kind)).toEqual(['system-prompt', 'user'])
+    expect(current.order.map(key => current.nodes.get(key)?.kind)).toEqual(['user', 'system-prompt'])
   })
 
-  it('keeps the initial system prompt before the opening User as Turn process state changes', () => {
+  it('folds the initial system prompt into the process behind the opening User', () => {
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
@@ -1748,14 +1750,14 @@ describe('built-in conversation node Definitions', () => {
     }
     const promptKey = node(snapshot(value), 'system-prompt')?.key
 
-    expect(kinds()).toEqual(['system-prompt', 'user', 'context'])
+    expect(kinds()).toEqual(['user', 'system-prompt', 'context'])
 
     value.append(at(7, 'assistant/live-chunk', {
       turn: 1, step: 1, chunk: { type: 'reasoning-delta', index: 0, text: 'thinking' },
     }))
     value.flush()
     expect(kinds()).toEqual([
-      'system-prompt', 'user', 'turn-process', 'context', 'assistant-step',
+      'user', 'turn-process', 'system-prompt', 'context', 'assistant-step',
     ])
 
     value.append(at(8, 'step/end', { turn: 1, step: 1 }))
@@ -1768,7 +1770,7 @@ describe('built-in conversation node Definitions', () => {
     value.flush()
 
     expect(kinds()).toEqual([
-      'system-prompt', 'user', 'turn-process', 'context', 'assistant-step', 'assistant-step', 'turn-tail',
+      'user', 'turn-process', 'system-prompt', 'context', 'assistant-step', 'assistant-step', 'turn-tail',
     ])
     expect(node(snapshot(value), 'system-prompt')?.key).toBe(promptKey)
   })
@@ -1795,7 +1797,7 @@ describe('built-in conversation node Definitions', () => {
       const candidate = current.nodes.get(key)
       return candidate?.kind === 'system-prompt' || candidate?.kind === 'user' ? [candidate] : []
     })
-    expect(ordered.map(candidate => candidate.kind)).toEqual(['system-prompt', 'user', 'user'])
+    expect(ordered.map(candidate => candidate.kind)).toEqual(['user', 'system-prompt', 'user'])
   })
 
   it('places a withheld replacement prompt after prepend supplies its original node', () => {
@@ -1876,8 +1878,10 @@ describe('built-in conversation node Definitions', () => {
       const candidate = current.nodes.get(key)
       return candidate?.kind === 'system-prompt' || candidate?.kind === 'user' ? [candidate] : []
     })
+    // Each Turn's prompt folds behind that Turn's opening User, so the second
+    // Turn's prompt lands after the second User rather than before it.
     expect(ordered.map(candidate => candidate?.kind)).toEqual([
-      'system-prompt', 'user', 'system-prompt', 'system-prompt', 'user',
+      'user', 'system-prompt', 'system-prompt', 'user', 'system-prompt',
     ])
     expect(ordered.filter(candidate => candidate?.kind === 'system-prompt')
       .map(candidate => candidate?.anchorSeq)).toEqual([1, 7, 10])
