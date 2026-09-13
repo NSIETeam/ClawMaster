@@ -4,7 +4,8 @@ import test from 'node:test';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parse } from 'yaml';
+import { load } from 'js-yaml';
+import { entryListSchema } from '../../../vendor/include/src/index.ts';
 import { Context } from '../../../vendor/cordis/src/index.ts';
 import SessionStore, { Session, SessionId } from '../../../packages/core/session/src/index.ts';
 import SessionProjections from '../../../packages/session/session-projection/src/index.ts';
@@ -31,9 +32,7 @@ import { MockAdapter, textResponse, toolCallResponse } from '../../../packages/c
 import * as ToolFs from '../../../packages/fs/tool-fs/src/index.ts';
 import { setSandboxMode } from '../../../packages/sandbox/sandbox-policy/src/index.ts';
 
-const rows = parse(await readFile(new URL('../cordis.patch.yml', import.meta.url), 'utf8'), {
-  customTags: [{ tag: 'tag:yaml.org,2002:js', resolve: value => value }],
-});
+const rows = load(await readFile(new URL('../cordis.patch.yml', import.meta.url), 'utf8'), { schema: entryListSchema });
 const configOf = id => rows.find(row => row.id === id)?.config;
 
 async function fixture(t, storedDefault) {

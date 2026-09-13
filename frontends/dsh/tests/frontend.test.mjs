@@ -155,10 +155,13 @@ test('the shipped factory registers WatchDog and enterprise sidebar components a
 test('the distributed Host allocates workspaces only on explicit requests and preserves separate tasks', async t => {
   const host = await import('../dist/index.js');
   const root = await mkdtemp(join(tmpdir(), 'clawmaster-workspaces-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  const cleanups = [];
+  t.after(async () => {
+    try { for (const cleanup of cleanups.reverse()) await cleanup(); }
+    finally { await rm(root, { recursive: true, force: true }); }
+  });
   const routes = new Map();
   const created = new Map();
-  const cleanups = [];
   const ctx = {
     settings: { register(namespace, schema) { assert.equal(namespace, 'clawmaster-watchdog-onboarding'); assert.deepEqual(schema({}), { acknowledgedVersion: 0 }); } },
     workspaceRegistry: { async create(path) {
@@ -178,7 +181,6 @@ test('the distributed Host allocates workspaces only on explicit requests and pr
       cleanups.push(result);
     },
   };
-  t.after(async () => { for (const cleanup of cleanups.reverse()) await cleanup(); });
   const managedRoot = join(root, 'workspaces');
   await host.apply(ctx, { managedRoot, databasePath: join(root, 'data.sqlite') });
   assert.equal(created.size, 0);
@@ -204,19 +206,23 @@ test('the distributed Host allocates workspaces only on explicit requests and pr
 test('workspace disposal drains an entered registry write and rejects further allocations', async t => {
   const { applyManagedWorkspaces } = await import('../src/workspace-host.ts');
   const root = await mkdtemp(join(tmpdir(), 'clawmaster-workspace-dispose-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  let entered;
+  let dispose;
   let finish;
+  t.after(async () => {
+    finish?.();
+    try { await dispose?.(); }
+    finally { await rm(root, { recursive: true, force: true }); }
+  });
+  let entered;
   const registryEntered = new Promise(resolve => { entered = resolve; });
   const registryFinish = new Promise(resolve => { finish = resolve; });
   let route;
   let registered = true;
   let creates = 0;
-  const dispose = applyManagedWorkspaces({
+  dispose = applyManagedWorkspaces({
     workspaceRegistry: { async create(path) { creates++; entered(); await registryFinish; return { id: 'owned', path }; } },
     connection: { fetch: { register(value) { route = value; return async () => { registered = false; }; } } },
   }, root);
-  t.after(() => { finish(); return dispose(); });
   const request = () => new Request('http://localhost/api/clawmaster/workspace', { method: 'POST', body: '{"kind":"task"}' });
   const aborted = new AbortController();
   aborted.abort();
