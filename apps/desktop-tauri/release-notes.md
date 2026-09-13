@@ -41,3 +41,7 @@ macOS requires version 11.0 or later. Linux Landlock confinement requires an enf
 新增内置笔记库：支持 Markdown 编辑、链接、反链、标签和搜索；AI 写入需要批准，保存冲突保留草稿，生产依赖锁已由 pnpm 生成并验证。
 
 Adds the built-in Markdown vault with editing, links, backlinks, tags and search. Agent writes require approval, save conflicts preserve drafts, and the production lockfile is generated and verified with pnpm.
+
+桌面默认使用 `clawmaster-sys-prompt`，以 ClawMaster 与 WatchDog 企业协作身份组装系统提示，继续沿用 DSH 的工具和审批机制。
+
+The desktop uses `clawmaster-sys-prompt` for its ClawMaster and WatchDog enterprise persona while retaining DSH tool and approval mechanisms.

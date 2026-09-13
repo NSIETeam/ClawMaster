@@ -112,7 +112,7 @@ jobs:
       - name: Verify provenance and plugin rejection cases
         run: |
           pnpm --dir apps/desktop-tauri run test:bundle
-          node --test apps/desktop-tauri/scripts/verify-linux-package.test.mjs
+          node --test apps/desktop-tauri/scripts/verify-linux-package.test.mjs apps/desktop-tauri/sys-prompt/tests/assembly.test.mjs
 
       - name: Build complete Linux sandbox binaries
         if: runner.os == 'Linux'

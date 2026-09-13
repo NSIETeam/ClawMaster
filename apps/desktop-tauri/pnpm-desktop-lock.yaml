@@ -276,6 +276,15 @@ importers:
 
   .: {}
 
+  apps/clawmaster-sys-prompt:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../vendor/cordis
+      '@deepseek-ai/dsh-system-prompt':
+        specifier: link:../../packages/core/system-prompt
+        version: link:../../packages/core/system-prompt
+
   apps/cli:
     dependencies:
       '@clawmaster/dsh-desktop-policy':
@@ -1073,6 +1082,9 @@ importers:
       '@xmanrui/dsh-im':
         specifier: 4.20.0
         version: 4.20.0(patch_hash=d65de3c3853294342923d4e302d3fe56baadd6fd7975336c3f86a91fd053b028)(supports-color@9.4.0)
+      clawmaster-sys-prompt:
+        specifier: workspace:*
+        version: link:../clawmaster-sys-prompt
       commander:
         specifier: ^15.0.0
         version: 15.0.0
