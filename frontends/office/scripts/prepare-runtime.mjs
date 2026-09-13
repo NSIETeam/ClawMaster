@@ -5,6 +5,7 @@ import { mkdir, readFile, writeFile, mkdtemp, rename, rm, cp, access } from 'nod
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MANIFEST, assertPortableNpmLock, digest, tree, verify } from './runtime.mjs';
+import { addEditorCompatibility, editorPages, fixPresentationThemeUrl, guardEditorMemorySample } from './editor-compatibility.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 assertPortableNpmLock(JSON.parse(await readFile(join(root, 'package-lock.json'))));
@@ -34,6 +35,15 @@ try {
   }
   await cp(join(root, 'src/frame.html'), join(temporary, 'index.html'));
   await build({ absWorkingDir: root, entryPoints: ['src/frame.ts'], outfile: join(temporary, 'frame.js'), bundle: true, format: 'esm', platform: 'browser', target: 'es2022', legalComments: 'inline' });
+  await build({ absWorkingDir: root, entryPoints: ['src/editor-compatibility.ts'], outfile: join(temporary, 'editor-compatibility.js'), bundle: true, format: 'iife', platform: 'browser', target: 'es2022', legalComments: 'inline' });
+  for (const page of editorPages) {
+    const path = join(temporary, page);
+    await writeFile(path, addEditorCompatibility(await readFile(path, 'utf8')));
+    const application = join(temporary, page.replace('index.html', 'app.js'));
+    await writeFile(application, guardEditorMemorySample(await readFile(application, 'utf8')));
+  }
+  const presentationSdk = join(temporary, 'sdkjs/slide/sdk-all-min.js');
+  await writeFile(presentationSdk, fixPresentationThemeUrl(await readFile(presentationSdk, 'utf8')));
   await cp(join(root, 'LICENSE'), join(temporary, 'LICENSE.txt'));
   await cp(join(root, 'vendor/onlyoffice-web-local'), join(temporary, 'source/onlyoffice-web-local'), { recursive: true });
   await cp(join(root, 'patches'), join(temporary, 'source/patches'), { recursive: true });

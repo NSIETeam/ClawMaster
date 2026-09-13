@@ -38,6 +38,8 @@ ClawMaster 在同一个 Tauri 桌面工作台中提供任务、文档编辑、�
 
 应用启动时不创建默认工作空间。没有会话或工作空间历史时，首次进入会打开 WatchDog；已有选择和后续导航优先。启动 WatchDog 任务会在 `$DSH_HOME/watchdog-workspaces/tasks/<uuid>` 下分配目录，并使用 DSH 的常规会话流程。打开编辑器、浏览器或终端时优先使用当前未归档会话；没有可用会话时，首次工具请求才分配 `$DSH_HOME/watchdog-workspaces/desk`，并创建或复用其会话。这些目录和文件会在应用重启后保留。
 
+手动选择工作空间目录时，点击工作区标题栏的**添加工作区**。目录浏览器在 ClawMaster 窗口内打开，可逐级浏览、直接输入路径或新建文件夹，再点击**打开**使用选中的目录。
+
 WatchDog 位于主区。Better Sidebar 在会话右侧的标签页中打开文档编辑、网页浏览、CRM 和 ERP，在底部打开终端。CRM 和 ERP 与其他组件一起在“设置 → 侧边卡片”管理，各组件的功能设置可打开其右侧标签页。组件默认启用，仅在请求时打开；再次打开已存在的组件会选中其标签页。
 
 访问 WatchDog 等全局面板时，当前 Session 右侧的编辑器和浏览器实例继续保留，包括未保存正文和 iframe 文档。隐藏的停靠与浮动内容不占框架列宽或键盘焦点。切换 Session、关闭 tab 或退出前请先保存。[桌面兼容补丁](../../apps/desktop-tauri/README.zh.md#architecture)还按原生 Session 与 tab 身份保留浏览导航，但不持久保存编辑器草稿。
@@ -82,7 +84,9 @@ CRM 和 ERP 使用 `$DSH_HOME/watchdog/enterprise.sqlite` 中的空数据库开�
 <details>
 <summary>实现与贡献者检查——点击展开</summary>
 
-[Profile 补丁](cordis.patch.yml)禁用官方品牌行、插入本前端、启用 Schedule 与时间上下文，并开启提醒界面。[客户端入口](src/client.tsx)使用 DSH 现有的 slot、主题、会话、工作空间与面板服务。[Host 入口](src/host.ts)在已有、带认证的 DSH Fetch 传输层注册惰性工作空间分配和企业路由，不启动第二个服务。
+侧栏与对话欢迎区通过客户端构建的 SVG data URL loader 渲染[共用矢量图案](src/clawmaster.svg)。[桌面资源指南](../../apps/desktop-tauri/README.zh.md#release)负责启动页、favicon 与原生图标分发；[PNG](src/clawmaster.png)仅保留为视觉参考。
+
+[Profile 补丁](cordis.patch.yml)禁用官方品牌与自适应目录选择行，插入本前端及 DSH 的目录浏览后端与界面，启用 Schedule 与时间上下文，并开启提醒界面。DSH Web 组合包已提供这两个目录浏览软件包。[客户端入口](src/client.tsx)使用 DSH 现有的 slot、主题、会话、工作空间与面板服务。[Host 入口](src/host.ts)在已有、带认证的 DSH Fetch 传输层注册惰性工作空间分配和企业路由，不启动第二个服务。
 
 [PapaParse 处理代码](src/business.ts)负责 CSV 语法与序列化。[企业存储](src/enterprise-host.ts)使用 Node SQLite 和事务；HTTP 路由与 [AI 工具](src/enterprise-tools.ts)共用存储、命令校验和版本检查。DSH 设置存储仍用于配置。企业数据不会自动进入模型。
 
@@ -130,9 +134,13 @@ npm pack
 
 工具调用和返回数据经 DSH 写入 Session 日志及后续模型请求，数据库不会自动复制到提示词中。包内录制的[业务流程](tests/business-tool-flow.test.mjs)使用合成模型覆盖 CSV 到 CRM 的工具结果、持久化重放和 ERP 审批缺席。Schedule 负责提醒工具与后续消息。
 
+ClawMaster profile 为新 Session 选择 DSH `read-only` 文件访问与 `ask` 审批。工作空间文件写入需要显式单次提权；`never` 审批会拒绝需要决定的请求，而不是自动同意。已保存的用户设置优先于 profile 默认值。委派 Session 在模型步骤与工具执行前，将创建时取得的文件访问范围与实时祖先权限取交集；祖先缺失或成环时仅允许读取，子代理审批保持 `never`。DSH 规范 setter 将收紧操作追加到 Session 日志。Agent Teams 默认最多三名成员、一级委派；既有服务负责名单校验，包括 Web 规划路由。
+
 #### KV Cache 影响
 
-前端增加工具 schema 与已记录的工具结果，不添加独立模型提供方或系统提示词前缀。结果变化影响后续请求的后缀。DSH 负责请求组装与缓存处理。
+`runtime_status` 返回带观测时间的桌面身份与源码来源；壳记录不属于当前 Host 时返回不可用。记录到日志的运行时上下文在请求组装时刷新这些事实，并将记忆中的版本、路径、端口和权限视作历史。前端 Host 行的 `runtimeGovernance` 可配置 `maxRssMiB`（默认取 2048 MiB 与物理内存四分之一中的较小值，下限 256 MiB）、`maxConcurrentHeavyTools`（2）和 `heavyToolPatterns`（Shell、子代理、团队、工作流与 CSV 工具名称）。DSH 单调守卫在 Host RSS 达到预算时拒绝新的匹配工具；执行分发拒绝超额重叠调用，并在成功、失败或取消后释放容量。状态读取仍可用。这些限制不约束外部进程内存、工具返回后的后台工作、Office WebView 或其他应用。
+
+前端增加工具 schema、已记录的工具结果与带时间戳的运行时上下文，不添加独立模型提供方或系统提示词前缀。观测与结果变化影响请求后缀。DSH 负责请求组装与缓存处理。
 
 <a id="known-limitations-and-deferred-work"></a>
 ## 已知限制与暂缓工作

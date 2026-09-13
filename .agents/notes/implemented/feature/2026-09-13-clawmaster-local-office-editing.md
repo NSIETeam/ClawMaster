@@ -6,7 +6,7 @@ English | [中文](2026-09-13-clawmaster-local-office-editing.zh.md)
 
 ## Problem
 
-Office files need editable content and safe persistence within a task. Preview-only conversion cannot preserve an editing session, while independent document services add installation and maintenance requirements.
+Office files need editing and safe persistence within a task. Independent document services add deployment requirements.
 
 ## Decision
 
@@ -14,15 +14,17 @@ The [Office bundle](../../../../frontends/office/README.md) registers DOCX, XLSX
 
 Explicit preparation downloads an archive pinned by SHA-256. Builds remain offline and reject stale resources or local dependency links. Distribution preserves AGPL-3.0-only terms, ONLYOFFICE notices and corresponding-source access; ClawMaster branding does not remove these obligations.
 
+Editor frames use timers when missing native idle callbacks would stop WebKit initialization. Preparation guards Chromium memory sampling and canonicalizes presentation theme URLs, retaining authentication, path checks and legal markup.
+
 Saves retain absolute drive/UNC paths and reuse sidebar uploads with the opened bytes' strong SHA-256 `If-Match`. Serialized commits recheck the file after receiving the body. HTTP 412 preserves changed disk content; uncertain or failed saves retain the live draft and never acknowledge success. Only confirmed writes advance the revision.
 
 The [shell decision](2026-09-12-clawmaster-shell-over-dsh.md) retains runtime, Session and sidebar-lifetime ownership. Office persistence supplements those decisions.
 
 ## Alternatives considered
 
-**External document server.** Existing server-dependent integrations require another managed deployment. Local conversion keeps editing available within the desktop installation.
+**External document server.** Local conversion avoids another managed deployment.
 
-**Preview-only rendering.** It avoids save coordination but does not provide the requested Office editing.
+**Preview-only rendering.** It does not provide Office editing.
 
 ## Consequences
 

@@ -38,6 +38,8 @@ Skip and finish record a versioned acknowledgement through DSH settings. The des
 
 Application startup creates no default workspace. With no session or workspace history, the first entry opens WatchDog; existing selections and subsequent navigation take precedence. Starting a WatchDog task allocates a directory under `$DSH_HOME/watchdog-workspaces/tasks/<uuid>` and uses the ordinary DSH session flow. Opening an editor, browser or terminal uses the current, unarchived session when available; otherwise the first tool request allocates `$DSH_HOME/watchdog-workspaces/desk` and creates or reuses its session. These directories and their files survive application restarts.
 
+To choose a workspace directory manually, use **Add workspace** in the workspace header. The directory browser opens inside ClawMaster. Browse folders, enter a path or create a folder, then choose **Open** to use the selected directory.
+
 WatchDog occupies the main panel. Better Sidebar opens document editing, browsing, CRM and ERP in tabs beside the conversation, and terminals at the bottom. Manage CRM and ERP with the other components in Settings → Side Cards; each component's feature settings opens its right-side tab. Components are enabled by default but open only on request. Opening an existing component selects its tab.
 
 Visiting a global panel such as WatchDog preserves the current Session's right-side editor and browser instances, including unsaved text and iframe documents. Hidden docked and floating content takes no frame width or keyboard focus. Save before switching Sessions, closing tabs or quitting. The [desktop compatibility patch](../../apps/desktop-tauri/README.md#architecture) also retains browser navigation per native Session and tab identity; it does not persist editor drafts.
@@ -82,7 +84,9 @@ IM account setup and platform login flows belong to the bundled IM plugin. Inclu
 <details>
 <summary>Implementation and contributor checks — click to expand</summary>
 
-The [profile patch](cordis.patch.yml) disables the official brand row, inserts this frontend, enables Schedule and time context, and enables the reminder UI. The [client entry](src/client.tsx) uses DSH's existing slots, theme, sessions, workspaces and panel services. The [Host entry](src/host.ts) registers lazy workspace allocation and enterprise routes on the existing authenticated DSH Fetch carrier; it starts no second server.
+The sidebar and conversation hero render [the shared SVG artwork](src/clawmaster.svg) through the client bundle's SVG data URL loader. The [desktop asset guide](../../apps/desktop-tauri/README.md#release) owns splash, favicon and native icon distribution; [the PNG](src/clawmaster.png) is retained only as a visual reference.
+
+The [profile patch](cordis.patch.yml) disables the official brand and adaptive directory-picker rows, inserts this frontend and DSH's browse directory-picker backend and surface, enables Schedule and time context, and enables the reminder UI. The DSH Web bundle already supplies both browse packages. The [client entry](src/client.tsx) uses DSH's existing slots, theme, sessions, workspaces and panel services. The [Host entry](src/host.ts) registers lazy workspace allocation and enterprise routes on the existing authenticated DSH Fetch carrier; it starts no second server.
 
 [PapaParse processing](src/business.ts) owns CSV syntax and serialization. [Enterprise storage](src/enterprise-host.ts) uses Node's SQLite and transactions; the HTTP routes and [AI tools](src/enterprise-tools.ts) share one store, command validation and revision checks. DSH's settings store remains configuration storage. Enterprise data does not enter the model automatically.
 
@@ -130,9 +134,13 @@ Enterprise queries return bounded pages with a revision and continuation offset.
 
 Tool calls and returned data enter the Session log and subsequent model requests through DSH. The database is not automatically copied into prompts. The recorded owner-local [business flow](tests/business-tool-flow.test.mjs) covers CSV-to-CRM tool results, persisted replay and unavailable ERP approval with a synthetic model. Schedule owns its reminder tools and follow-up messages.
 
+The ClawMaster profile selects DSH `read-only` file access with `ask` approval for new Sessions. Workspace file writes require explicit single-use escalation; `never` approval denies requests requiring a decision rather than approving them. Saved user settings take precedence over profile defaults. Delegated Sessions intersect their captured file access with live ancestor permissions before model steps and tools; missing or cyclic ancestry permits only reads, and child approval remains `never`. DSH's canonical setters append any restriction to the Session log. Agent Teams defaults to three members with one delegation level; its existing service owns roster validation, including the Web planning route.
+
 #### KV Cache effect
 
-The frontend adds tool schemas and logged tool results, without a separate model provider or system-prompt prefix. Result changes affect the subsequent request suffix. DSH owns request assembly and cache handling.
+`runtime_status` reads desktop identity and source provenance with an observation time; it returns unavailable when the shell record does not identify this Host. Logged runtime context refreshes these facts at request assembly and treats remembered versions, paths, ports and permissions as historical. `runtimeGovernance` on the frontend Host row configures `maxRssMiB` (default: the smaller of 2048 MiB and one quarter of physical memory, with a 256 MiB floor), `maxConcurrentHeavyTools` (2), and `heavyToolPatterns` (shell, subagent, team, workflow and CSV tool names). DSH's monotonic guard rejects new matching tools at the Host RSS budget; dispatch rejects excess overlapping bodies and releases capacity after success, failure or cancellation. Status reads remain available. These limits do not cap external process memory, background work after a tool returns, Office WebViews or other applications.
+
+The frontend adds tool schemas, logged tool results and timestamped runtime context, without a separate model provider or system-prompt prefix. Changed observations and results affect the request suffix. DSH owns request assembly and cache handling.
 
 <a id="known-limitations-and-deferred-work"></a>
 ## Known Limitations and Deferred Work

@@ -6,7 +6,59 @@ import { tmpdir } from 'node:os';
 import { Writable } from 'node:stream';
 import { build } from 'esbuild';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 import { assertPortableNpmLock, digest, MANIFEST, tree } from '../scripts/runtime.mjs';
+import { addEditorCompatibility, compatibilityScript, editorPages, fixPresentationThemeUrl, guardEditorMemorySample } from '../scripts/editor-compatibility.mjs';
+
+test('editor compatibility preserves native scheduling and defers cancellable work when idle callbacks are unavailable', async () => {
+  const result = await build({ entryPoints: [new URL('../src/editor-compatibility.ts', import.meta.url).pathname], bundle: true, format: 'iife', platform: 'browser', write: false });
+  const source = result.outputFiles[0].text;
+  const nativeRequest = () => 42; const nativeCancel = () => {};
+  const native = { requestIdleCallback: nativeRequest, cancelIdleCallback: nativeCancel };
+  runInNewContext(source, { window: native });
+  assert.equal(native.requestIdleCallback, nativeRequest); assert.equal(native.cancelIdleCallback, nativeCancel);
+  const fallback = { setTimeout, clearTimeout };
+  runInNewContext(source, { window: fallback, performance });
+  let synchronous = true;
+  const completed = new Promise(resolve => fallback.requestIdleCallback(deadline => {
+    assert.equal(synchronous, false); assert.equal(deadline.didTimeout, true); assert.equal(deadline.timeRemaining(), 0); resolve();
+  }, { timeout: 0 }));
+  let cancelledCalled = false;
+  fallback.cancelIdleCallback(fallback.requestIdleCallback(() => { cancelledCalled = true; }));
+  synchronous = false; await completed;
+  await new Promise(resolve => setTimeout(resolve, 5)); assert.equal(cancelledCalled, false);
+  assert.equal(editorPages.length, 3);
+  const upstream = '<!doctype html><html><head><script src="sdk.js"></script></head><body>ONLYOFFICE</body></html>';
+  const patched = addEditorCompatibility(upstream);
+  assert.equal(patched.replace(`\n    ${compatibilityScript}`, ''), upstream);
+  assert.ok(patched.indexOf(compatibilityScript) < patched.indexOf('src="sdk.js"'));
+  assert.throws(() => addEditorCompatibility('<html></html>'), /Unexpected/);
+  assert.throws(() => addEditorCompatibility(patched), /Unexpected/);
+});
+
+test('editor memory sampling skips browsers without Chromium statistics and preserves available measurements', () => {
+  const original = 'setTimeout(()=>{var t=10*Math.round(performance.memory.usedJSHeapSize/1024/1024/10);send(t)},3000)';
+  const patched = guardEditorMemorySample(original);
+  let sample;
+  const environment = { performance: {}, setTimeout: callback => callback(), send: value => { sample = value; } };
+  runInNewContext(patched, environment); assert.equal(sample, undefined);
+  environment.performance.memory = { usedJSHeapSize: 128 * 1024 * 1024 };
+  runInNewContext(patched, environment); assert.equal(sample, 130);
+  assert.throws(() => guardEditorMemorySample(''), /Unexpected/);
+  assert.throws(() => guardEditorMemorySample(patched), /Unexpected/);
+});
+
+test('presentation theme manifests load from directories with or without a trailing slash', () => {
+  const original = 'AscCommon.N_e(t+"/themes.js",()=>{})';
+  const patched = fixPresentationThemeUrl(original);
+  for (const t of ['../../themes', '../../themes/']) {
+    let path;
+    runInNewContext(patched, { t, AscCommon: { N_e: value => { path = value; } } });
+    assert.equal(path, '../../themes/themes.js');
+  }
+  assert.throws(() => fixPresentationThemeUrl(''), /Unexpected/);
+  assert.throws(() => fixPresentationThemeUrl(patched), /Unexpected/);
+});
 
 test('independent build locks reject local symlinks and filesystem dependencies', async () => {
   assertPortableNpmLock(JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url))));
