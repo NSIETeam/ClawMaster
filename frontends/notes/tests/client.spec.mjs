@@ -459,3 +459,21 @@ for (const locale of ['zh', 'en']) {
     expect(f.requests.filter(item => item.command)).toHaveLength(0);
   });
 }
+
+for (const locale of ['zh', 'en']) {
+  it(`refreshes external note edits and additions on the visible panel timer (${locale})`, async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    const f = await fixture(locale);
+    await f.open('Alpha');
+    f.disk.set('Alpha.md', 'externally updated note');
+    f.disk.set('Gamma.md', '# External addition\n');
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+    await waitFor(() => expect(f.editor().value).toBe('externally updated note'));
+    expect(screen.getByRole('button', { name: 'Gamma' })).toBeDefined();
+    expect(f.requests.filter(item => item.command)).toHaveLength(0);
+    const revisionRequests = f.requests.filter(item => item.path.endsWith('/revision')).length;
+    f.view.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+    expect(f.requests.filter(item => item.path.endsWith('/revision'))).toHaveLength(revisionRequests);
+  });
+}

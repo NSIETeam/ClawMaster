@@ -32,7 +32,7 @@ A wiki link resolves to its note; when several notes match you choose, and when 
 
 **Proposals** appear in the side panel with the diff they would apply, each with **Apply** and **Discard**. Applying is revision-guarded: if the note moved since the proposal was drafted, the apply is refused and the proposal stays for a retry. Applying also preserves any unsaved local draft, which must be reconciled before saving.
 
-While the tab is visible the panel polls a version covering both notes and pending proposals, so external edits and proposal creation or discard appear without a manual refresh. An unsaved draft is never discarded by that refresh: the panel reports the external change and offers a reload.
+While the tab is visible the panel polls every four seconds for a version covering both notes and pending proposals, so external edits and proposal creation or discard appear without a manual refresh. An unsaved draft is never discarded by that refresh: the panel reports the external change and offers a reload.
 
 <a id="configuration"></a>
 ## Configuration
@@ -51,13 +51,13 @@ The [host configuration](src/host.ts) accepts an absolute `vaultRoot`. Its defau
 <details>
 <summary>Implementation internals</summary>
 
-The [host](src/host.ts) registers eight routes on the existing authenticated DSH Fetch carrier: GET `tree`, `note`, `search`, `tags`, `backlinks`, `proposals` and `revision`, plus POST `command`, under `/api/clawmaster/notes/`. The carrier owns authentication and origin checks; the browser uses same-origin credentials. No additional server is started. Tool definitions, execution contexts and approvals use the public DSH types. Disposal removes registrations, cancels pending approvals and waits for active tools, requests and watcher scans. Host and Client must ship together: a client-only update cannot supply missing API routes.
+The [host](src/host.ts) registers eight routes on the existing authenticated DSH Fetch carrier: GET `tree`, `note`, `search`, `tags`, `backlinks`, `proposals` and `revision`, plus POST `command`, under `/api/clawmaster/notes/`. The carrier owns authentication and origin checks; the browser uses same-origin credentials. No additional server is started. Tool definitions, execution contexts and approvals use the public DSH types. Disposal removes registrations, cancels pending approvals and waits for active tools, requests and revision scans. Host and Client must ship together: a client-only update cannot supply missing API routes.
 
 The [vault](src/vault.ts) rejects linked files and linked directories below its canonical root. Cooperative writers share a cross-process file lock; revision checks and mutation receipts are calculated while holding it. Saves publish complete temporary files through atomic replacement. Creation and renaming use hard links that refuse an occupied destination. The browser renders parsed Markdown data rather than raw HTML, and [shared text parsing](src/note-format.ts) does not rewrite frontmatter.
 
 The [proposal store](src/proposals.ts) persists drafts and base revisions as JSON under `.clawmaster/proposals`, excluded from the note index but readable through external filesystem access. Metadata reuses checked vault paths, bounded reads, the write lock and atomic no-replace publication. Listings share entry and aggregate JSON byte limits; proposal texts and source texts share a second aggregate diff-input budget. Unsafe paths, corrupt metadata and excess bytes fail explicitly. The [line diff](src/diff.ts) uses whole-file replacement above 2000 lines per side and marks truncated output.
 
-The [watcher](src/watcher.ts) fingerprints note paths, sizes and modification times, with filesystem events and a fallback poll. The `revision` route combines that fingerprint with a bounded proposal-content digest, so metadata-only changes also refresh the panel. Watch and background-scan failures are recorded; teardown waits for active scans.
+The [revision scanner](src/watcher.ts) fingerprints note paths, sizes and modification times on request, sharing concurrent scans. The `revision` route combines that fingerprint with a bounded proposal-content digest, so metadata-only changes also refresh the panel. Scan failures reach the request; teardown waits for active scans. No native filesystem watch or background scan is started.
 
 The [panel](src/client.tsx) is styled as host chrome rather than a generic list. [Tree](src/tree.ts) derives folders from note ids so rows nest, with 34px rows, a 6px icon gap and `depth * 22 + 6` inline indentation — the metrics the host's own file-manager explorer uses. [Icons](src/icons.tsx) are inline SVG glyphs on one 16px grid, so the module ships no raster asset.
 

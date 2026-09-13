@@ -1,7 +1,8 @@
-# ClawMaster Desktop 0.2.0-beta.5
+# ClawMaster Desktop 0.2.0-beta.6
 
 ## 中文
 
+- 修复 Windows 与 Linux 上的笔记刷新兼容性问题。
 - 品牌图标提供黑色和白色两份透明 SVG，分别适配浅色和深色界面；启动页跟随系统外观，应用内图标跟随所选主题。
 - 使用 Tauri 桌面壳和 DSH 运行时，复用已有模型凭证、Session、工具、审批和插件。WatchDog 提供任务入口，创建任务时分配工作目录。
 - 首次 WatchDog 教程介绍企业管理：明确业务目标、记录责任与验收标准、核查 CRM/ERP 和办公资料、安排巡检并跟进整改。模型和聊天配置作为可选辅助入口；教程可跳过或从设置重看，阅读教程不会启动任务。
@@ -22,6 +23,7 @@ macOS 最低要求为 11.0。Linux 的 Landlock 沙箱需要内核实际支持�
 
 ## English
 
+- Fixes Notes refresh compatibility on Windows and Linux.
 - Transparent black and white SVG brand icons match light and dark surfaces. The splash follows system appearance and the application icon follows the selected Web theme.
 - Uses a Tauri desktop shell and the DSH runtime, reusing existing model credentials, Sessions, tools, approvals, and plugins. WatchDog provides the task entry and allocates a working directory when a task is created.
 - The first-run WatchDog tutorial guides enterprise management: define business goals, record responsibilities and acceptance criteria, review CRM/ERP records and files, schedule checks, and follow up on findings. Model and chat configuration are optional supporting links. Skip the tutorial or replay it from Settings; reading it starts no task.

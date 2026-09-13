@@ -4,7 +4,9 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import fs from 'node:fs';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NOTES_COMMAND_PATH, NOTES_TREE_PATH } from '../src/protocol.ts';
@@ -129,3 +131,29 @@ it('changes the built revision for a proposal and its discard without editing a 
   assert.equal((await get('revision')).version, before);
   assert.equal(await readFile(join(root, '欢迎.md'), 'utf8'), source);
 }));
+
+it('refreshes external file changes through built routes without native watching', async t => {
+  const nativeWatch = t.mock.method(fs, 'watch', () => { throw new Error('native watching unavailable'); });
+  syncBuiltinESMExports();
+  try {
+    await withArtifact(async (host, root) => {
+      const prefix = '/api/clawmaster/notes/';
+      const get = async (path, query = '') => {
+        const response = await host.routes.get(prefix + path).fetch(new Request('http://localhost' + prefix + path + query));
+        assert.equal(response.status, 200);
+        return response.json();
+      };
+      const initial = (await get('revision')).version;
+      await writeFile(join(root, 'External.md'), 'created outside the panel');
+      const created = (await get('revision')).version;
+      assert.notEqual(created, initial);
+      assert.ok((await get('tree')).notes.some(note => note.id === 'External.md'));
+      await writeFile(join(root, 'External.md'), 'edited outside the panel with a different length');
+      assert.notEqual((await get('revision')).version, created);
+      assert.equal((await get('note', '?id=External.md')).text, 'edited outside the panel with a different length');
+      await rm(join(root, 'External.md'));
+      assert.equal((await get('revision')).version, initial);
+      assert.equal(nativeWatch.mock.callCount(), 0, 'revision refresh must work without starting a native watcher');
+    });
+  } finally { t.mock.restoreAll(); syncBuiltinESMExports(); }
+});

@@ -1,31 +1,13 @@
-/** Vault watcher: fingerprinting, external-edit detection and clean disposal. */
+/** On-demand note revisions, scan failure recovery and quiescent disposal. */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import fsPromises, { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { VaultWatcher, fingerprint, isIgnoredPath } from '../src/watcher.ts';
+import { VaultWatcher, fingerprint } from '../src/watcher.ts';
 
 const temporary = () => mkdtemp(join(tmpdir(), 'clawmaster-watcher-'));
-
-/** Wait until `check` passes or the deadline expires. */
-async function until(check, timeoutMs = 5000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (await check()) return true;
-    await new Promise(resolve => setTimeout(resolve, 25));
-  }
-  return false;
-}
-
-describe('ignored paths', () => {
-  it('skips hidden entries at any depth but keeps real notes', () => {
-    assert.equal(isIgnoredPath('.obsidian/workspace.json'), true);
-    assert.equal(isIgnoredPath('目录/.hidden.md'), true);
-    assert.equal(isIgnoredPath('目录/笔记.md'), false);
-    assert.equal(isIgnoredPath('笔记.md'), false);
-  });
-});
 
 describe('fingerprint', () => {
   it('changes when a note is added, edited or removed', async () => {
@@ -57,87 +39,69 @@ describe('fingerprint', () => {
   });
 });
 
-describe('watcher', () => {
-  it('reports a new version after an external write', async () => {
+describe('revision scans', () => {
+  it('observes external writes on the next request', async () => {
     const root = await temporary();
     const watcher = await VaultWatcher.open(root);
     try {
-      // Fail with the real reason instead of a bare timeout when the OS refuses a watch.
-      assert.equal(watcher.active, true, `filesystem watch unavailable: ${watcher.unavailableReason ?? 'unknown'}`);
-      const before = watcher.current();
+      const before = await watcher.recompute();
       await writeFile(join(root, '外部.md'), '# 外部写入\n');
-      // Either path satisfies this: the event accelerator, or the 3s safety poll behind it.
-      // The budget is generous on purpose — a loaded machine may delay both — but the poll
-      // means a dropped FSEvents delivery costs latency, not a failure.
-      const moved = await until(async () => watcher.current() !== before, 10000);
-      assert.equal(moved, true, 'the watcher never observed the external write');
-      assert.notEqual(watcher.current(), before);
+      const after = await watcher.recompute();
+      assert.equal(after, await fingerprint(root));
+      assert.notEqual(after, before);
     } finally { await watcher.close(); await rm(root, { recursive: true, force: true }); }
   });
 
-  it('refreshes from the safety poll when no watch could be attached', async () => {
-    const parent = await temporary();
-    // The root does not exist yet, so `fs.watch` throws ENOENT and no event can ever arrive:
-    // only the safety poll can notice the vault appearing.
-    const root = join(parent, 'vault');
-    const watcher = await VaultWatcher.open(root);
-    try {
-      assert.equal(watcher.active, false, `expected poll-only mode: ${watcher.unavailableReason ?? 'watch attached anyway'}`);
-      const before = watcher.current();
-      await mkdir(root, { recursive: true });
-      await writeFile(join(root, 'a.md'), '# later\n');
-      const moved = await until(async () => watcher.current() !== before, 8000);
-      assert.equal(moved, true, 'the safety poll never re-fingerprinted the vault');
-    } finally { await watcher.close(); await rm(parent, { recursive: true, force: true }); }
-  });
-
-  it('recomputes on demand for a caller that does not wait for an event', async () => {
+  it('reports scan failures to the request and recovers on a later request', async t => {
     const root = await temporary();
     const watcher = await VaultWatcher.open(root);
+    t.after(async () => { await watcher.close(); await rm(root, { recursive: true, force: true }); });
     try {
-      const before = watcher.current();
-      await writeFile(join(root, 'a.md'), 'one');
-      assert.equal(await watcher.recompute(), await fingerprint(root));
-      assert.notEqual(watcher.current(), before);
-    } finally { await watcher.close(); await rm(root, { recursive: true, force: true }); }
+      t.mock.method(fsPromises, 'readdir', async () => { throw Object.assign(new Error('synthetic scan denied'), { code: 'EACCES' }); });
+      syncBuiltinESMExports();
+      await assert.rejects(watcher.recompute(), /synthetic scan denied/);
+    } finally { t.mock.restoreAll(); syncBuiltinESMExports(); }
+    await writeFile(join(root, 'a.md'), 'later request');
+    assert.equal(await watcher.recompute(), await fingerprint(root));
   });
 
-  it('stops reporting after close and tolerates a double close', async () => {
+  it('shares concurrent scans and waits for their completion before closing', { timeout: 15000 }, async t => {
     const root = await temporary();
     const watcher = await VaultWatcher.open(root);
-    await watcher.close();
-    await watcher.close();
-    const settled = watcher.current();
-    await writeFile(join(root, 'a.md'), 'after close');
-    await new Promise(resolve => setTimeout(resolve, 400));
-    assert.equal(watcher.current(), settled);
-    await rm(root, { recursive: true, force: true });
+    const before = await watcher.recompute();
+    const original = fsPromises.readdir;
+    const entered = Promise.withResolvers();
+    const release = Promise.withResolvers();
+    let scan;
+    let closing;
+    try {
+      await writeFile(join(root, 'pending.md'), 'pending change');
+      t.mock.method(fsPromises, 'readdir', async (...args) => {
+        entered.resolve();
+        await release.promise;
+        return original(...args);
+      });
+      syncBuiltinESMExports();
+      scan = watcher.recompute();
+      await entered.promise;
+      assert.equal(watcher.recompute(), scan);
+      let closed = false;
+      closing = watcher.close();
+      void closing.then(() => { closed = true; });
+      assert.equal(watcher.close(), closing);
+      assert.equal(await watcher.recompute(), before);
+      assert.equal(closed, false, 'close must await the blocked scan');
+      release.resolve();
+      await closing;
+      assert.equal(await scan, before, 'a completed scan cannot publish after close');
+      assert.equal(closed, true);
+    } finally {
+      release.resolve();
+      await Promise.allSettled([scan, closing]);
+      t.mock.restoreAll();
+      syncBuiltinESMExports();
+      await watcher.close();
+      await rm(root, { recursive: true, force: true });
+    }
   });
-});
-
-
-it('contains a failed background scan and records its error', async () => {
-  const root = await temporary();
-  const watcher = await VaultWatcher.open(root);
-  const original = watcher.recompute;
-  try {
-    watcher.recompute = async () => { throw new Error('synthetic fingerprint failure'); };
-    await writeFile(join(root, 'a.md'), 'trigger');
-    assert.equal(await until(() => watcher.unavailableReason === 'synthetic fingerprint failure', 8000), true);
-  } finally { watcher.recompute = original; await watcher.close(); await rm(root, { recursive: true, force: true }); }
-});
-
-it('waits for an active scan and publishes no version after close', async () => {
-  const root = await temporary();
-  const watcher = await VaultWatcher.open(root);
-  try {
-    const version = watcher.current();
-    await writeFile(join(root, 'pending.md'), 'pending change');
-    let scanFinished = false;
-    const scan = watcher.recompute().then(() => { scanFinished = true; });
-    await watcher.close();
-    assert.equal(scanFinished, true);
-    await scan;
-    assert.equal(watcher.current(), version);
-  } finally { await watcher.close(); await rm(root, { recursive: true, force: true }); }
 });
