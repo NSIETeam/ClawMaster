@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-13-clawmaster-notes-vault.md
+2026-09-13-clawmaster-notes-vault.md: 674a55c2f3e505c29ce27eebfef9339a3a464c07
+2026-09-13-clawmaster-notes-vault.zh.md: 33a28c5c5e35784f751df334cc4851af5a060809
