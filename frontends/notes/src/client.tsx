@@ -20,6 +20,7 @@ export interface NotesClientServices {
       id: string;
       title: string | (() => string);
       description?: string | (() => string);
+      icon?: ReactNode | ((size: number) => ReactNode);
       order?: number;
       single?: boolean;
       component(props: { scope: { sessionId: string }; visible: boolean }): ReactNode;
@@ -33,6 +34,19 @@ type Drafts = Map<string, NoteDraft>;
 type Status = { state: 'loading' | 'idle' | 'dirty' | 'saving' | 'saved' | 'conflict' | 'error'; message?: string };
 
 const HEADINGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const;
+
+/**
+ * Sidebar glyph for the notes tab.
+ * Drawn inline as SVG like every other product tab, so the module ships no raster asset.
+ */
+function NotesIcon({ size = 18 }: { size?: number }): ReactNode {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+    <rect x="4" y="3" width="16" height="18" rx="3" />
+    <path d="M8 3v18" />
+    <path d="M12 8.5h5M12 12.5h5" />
+  </svg>;
+}
 
 /** How often a visible notes panel asks whether the vault changed underneath it. */
 const REVISION_POLL_MS = 4000;
@@ -459,6 +473,7 @@ export function apply(ctx: NotesClientServices): void {
     id: 'clawmaster:notes',
     title: () => notesCopy(ctx.locale.getSnapshot().active.startsWith('zh') ? 'zh-CN' : 'en-US').tab,
     description: () => notesCopy(ctx.locale.getSnapshot().active.startsWith('zh') ? 'zh-CN' : 'en-US').tabDescription,
+    icon: size => <NotesIcon size={size} />,
     order: 30,
     single: true,
     component: ({ scope, visible }) => {

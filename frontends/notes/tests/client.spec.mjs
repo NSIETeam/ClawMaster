@@ -128,7 +128,7 @@ async function fixture(locale = 'zh', extra = {}, pendingProposals = []) {
     : { edit: 'Edit', save: 'Save', reload: 'Reload', cancel: 'Cancel', delete: 'Delete', dirty: 'Unsaved' };
   const open = async id => { fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${id}( |$)`) })); await screen.findByRole('heading', { name: id }); };
   const editor = () => screen.getByRole('textbox', { name: copy.edit });
-  return { disk, requests, view, mount, copy, open, editor, delay: handler => { delayRead = handler; } };
+  return { disk, requests, view, mount, copy, open, editor, tab: () => tab, delay: handler => { delayRead = handler; } };
 }
 
 for (const locale of ['zh', 'en']) {
@@ -335,4 +335,19 @@ it('shows a proposal conflict instead of overwriting the note', async () => {
   expect(f.disk.get('Alpha.md')).toBe('changed underneath\n');
   // The proposal survives a refused apply, so it can be retried after a reload.
   expect(screen.getByRole('button', { name: '应用' })).toBeDefined();
+});
+
+it('gives the sidebar tab an inline SVG icon rather than a raster asset', async () => {
+  const f = await fixture();
+  const descriptor = f.tab();
+  expect(typeof descriptor.icon).toBe('function');
+  const { container } = render(React.createElement(React.Fragment, null, descriptor.icon(18)));
+  const svg = container.querySelector('svg');
+  expect(svg).toBeTruthy();
+  expect(svg.getAttribute('viewBox')).toBe('0 0 24 24');
+  expect(svg.getAttribute('stroke')).toBe('currentColor');
+  // One rounded body rect, a spine and two text lines — all vector, no raster fallback.
+  expect(svg.querySelectorAll('rect').length).toBe(1);
+  expect(svg.querySelectorAll('path').length).toBe(2);
+  expect(container.querySelector('img')).toBeNull();
 });
