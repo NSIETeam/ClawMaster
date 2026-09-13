@@ -1,38 +1,747 @@
-.cm-notes { display: flex; flex-direction: column; height: 100%; min-height: 0; font-size: 13px; }
-.cm-notes-bar { display: flex; gap: 6px; align-items: center; padding: 8px; border-bottom: 1px solid var(--dsw-alias-border-l1, #e8eaef); }
-.cm-notes-bar input { flex: 1; min-width: 0; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--dsw-alias-border-l2, #d4d9e3); background: transparent; color: inherit; }
-.cm-notes-bar button, .cm-notes-actions button, .cm-notes-create button { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--dsw-alias-border-l2, #d4d9e3); background: var(--dsw-alias-bg-layer-2, #f5f6f8); color: inherit; cursor: pointer; }
-.cm-notes-bar button:disabled, .cm-notes-actions button:disabled { opacity: .5; cursor: default; }
-.cm-notes-body { flex: 1; min-height: 0; overflow: auto; }
-.cm-notes-group { padding: 6px 10px 2px; opacity: .6; font-size: 11px; letter-spacing: .04em; }
-.cm-notes-item { display: flex; align-items: center; gap: 6px; width: 100%; padding: 4px 10px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-.cm-notes-item:hover { background: var(--dsw-alias-bg-layer-2, #f5f6f8); }
-.cm-notes-item[data-active='true'] { background: var(--dsw-alias-bg-layer-2, #f5f6f8); font-weight: 600; }
-.cm-notes-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cm-notes-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.cm-notes-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--dsw-alias-border-l1, #e8eaef); }
-.cm-notes-head h2 { flex: 1; min-width: 0; margin: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cm-notes-status { font-size: 11px; opacity: .7; }
-.cm-notes-status[data-state='conflict'], .cm-notes-status[data-state='error'] { color: #c0392b; opacity: 1; }
-.cm-notes-actions { display: flex; gap: 6px; }
-.cm-notes textarea { flex: 1; min-height: 160px; width: 100%; padding: 10px; border: 0; resize: none; background: transparent; color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.6; }
-.cm-notes-preview { padding: 10px 14px; line-height: 1.65; }
-.cm-notes-preview h1, .cm-notes-preview h2, .cm-notes-preview h3, .cm-notes-preview h4, .cm-notes-preview h5, .cm-notes-preview h6 { margin: 14px 0 6px; }
-.cm-notes-preview pre { padding: 8px 10px; border-radius: 6px; background: var(--dsw-alias-bg-layer-2, #f5f6f8); overflow: auto; }
-.cm-notes-preview blockquote { margin: 8px 0; padding-left: 10px; border-left: 3px solid var(--dsw-alias-border-l2, #d4d9e3); opacity: .85; }
-.cm-notes-preview hr { border: 0; border-top: 1px solid var(--dsw-alias-border-l1, #e8eaef); }
-.cm-notes-wiki { border: 0; background: none; padding: 0; color: var(--dsw-alias-brand-primary, #2563eb); cursor: pointer; font: inherit; text-decoration: underline dotted; }
-.cm-notes-side { border-top: 1px solid var(--dsw-alias-border-l1, #e8eaef); padding: 8px 10px; max-height: 30%; overflow: auto; }
-.cm-notes-side h3 { margin: 6px 0; font-size: 11px; letter-spacing: .04em; opacity: .6; text-transform: uppercase; }
-.cm-notes-chip { display: inline-block; margin: 0 4px 4px 0; padding: 2px 8px; border-radius: 10px; background: var(--dsw-alias-bg-layer-2, #f5f6f8); font-size: 11px; }
-.cm-notes-create { display: flex; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--dsw-alias-border-l1, #e8eaef); }
-.cm-notes-create input { flex: 1; min-width: 0; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--dsw-alias-border-l2, #d4d9e3); background: transparent; color: inherit; }
-.cm-notes-notice { margin: 8px 10px; padding: 6px 10px; border-radius: 6px; background: var(--dsw-alias-bg-layer-2, #f5f6f8); }
-.cm-notes-empty { padding: 16px 14px; opacity: .7; }
-.cm-notes-match { margin: 0 10px 6px 22px; font-size: 11.5px; opacity: .7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cm-notes-canvas-notice { margin: 8px 10px 0; font-size: 11.5px; opacity: .75; }
-.cm-notes-canvas { margin: 8px 10px; padding: 8px 10px; border-radius: 6px; background: var(--dsw-alias-bg-layer-2, #f5f6f8); overflow: auto; font-size: 12px; }
-.cm-notes [role='alertdialog'] { margin: 8px 10px; padding: 8px 10px; border: 1px solid var(--dsw-alias-border-l2, #d4d9e3); border-radius: 6px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
-.cm-notes [role='alertdialog'] input { width: 100%; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--dsw-alias-border-l2, #d4d9e3); background: transparent; color: inherit; }
-.cm-notes-proposal { border: 1px solid var(--dsw-alias-border-l1, #e8eaef); border-radius: 6px; margin-bottom: 6px; padding: 4px; }
-.cm-notes-diff { max-height: 160px; overflow: auto; margin: 4px 0; padding: 6px 8px; border-radius: 4px; background: var(--dsw-alias-bg-layer-2, #f5f6f8); font-size: 11.5px; line-height: 1.5; white-space: pre; }
+/*
+ * ClawMaster Notes panel styling.
+ *
+ * Two measured references drive every number here:
+ *
+ *  1. The host's own file manager (dsh-better-sidebar 0.19.1,
+ *     src/client/sidebar.module.css `.explorerRow` / `.explorerDir`): 34px rows,
+ *     6px icon gap, `depth * 22 + 6` inline indent, 8px row padding, 8px radius,
+ *     `--dsw-font-s-14` labels, `--dsw-font-s-strong-14` directory labels,
+ *     `--dsw-alias-interactive-bg-hover` hover and
+ *     `--dsw-alias-state-business-tertiary` selection. The notes tree is the same
+ *     kind of list, so it reads as host chrome instead of a bolt-on.
+ *  2. Obsidian (obsidian.asar `app.css`, `.tree-item-self` / `.nav-file-icon` /
+ *     `.tree-item-children`): 13px UI type, 2px row rhythm, 4px row radius,
+ *     6px icon gap (`--size-2-3`), indentation guides between levels, chevrons
+ *     that fade when collapsed, tags that stay quiet until hover, and muted
+ *     section headers.
+ *
+ * All colours come from host alias tokens so the panel follows light/dark and
+ * any future theme change; the literal fallbacks only keep the panel legible if
+ * a token disappears.
+ */
+.cm-notes {
+  --cm-row-height: 34px;
+  --cm-row-gap: 6px;
+  --cm-row-padding: 8px;
+  --cm-indent: 22px;
+  --cm-radius: 8px;
+  --cm-radius-sm: 4px;
+  --cm-control: 28px;
+  --cm-font: var(--dsw-font-xs-13, 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  --cm-font-2: var(--dsw-font-xxs-12, 12px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  --cm-font-3: var(--dsw-font-xxxs-11, 11px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  --cm-font-tree: var(--dsw-font-s-14, 14px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  --cm-font-tree-dir: var(--dsw-font-s-strong-14, 600 14px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  --cm-ink: var(--dsw-alias-label-primary, #1f2329);
+  --cm-ink-2: var(--dsw-alias-label-secondary, #5b6270);
+  --cm-ink-3: var(--dsw-alias-label-tertiary, #8a909c);
+  --cm-ink-4: var(--dsw-alias-label-quaternary, #aab0ba);
+  --cm-danger: var(--dsw-alias-label-error, #c0392b);
+  --cm-line: var(--dsw-alias-border-l1, rgba(0, 0, 0, .08));
+  --cm-line-2: var(--dsw-alias-border-l2, rgba(0, 0, 0, .14));
+  --cm-surface: var(--dsw-alias-bg-layer-2, rgba(0, 0, 0, .03));
+  --cm-surface-2: var(--dsw-alias-bg-layer-3, rgba(0, 0, 0, .05));
+  --cm-hover: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, .05));
+  --cm-selected: var(--dsw-alias-state-business-tertiary, rgba(37, 99, 235, .12));
+  --cm-accent: var(--dsw-alias-brand-primary, var(--dsw-alias-state-business-primary, #2563eb));
+  --cm-guide: var(--dsw-alias-border-l2, rgba(0, 0, 0, .12));
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font: var(--cm-font);
+  color: var(--cm-ink);
+}
+
+/* Keyboard focus uses the host's ring shape rather than the browser default. */
+.cm-notes :focus-visible {
+  outline: 2px solid var(--cm-accent);
+  outline-offset: -1px;
+}
+
+/* ---------------------------------------------------------------- toolbar -- */
+
+.cm-notes-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--cm-row-gap);
+  padding: var(--cm-row-padding);
+  border-bottom: 1px solid var(--cm-line);
+}
+
+/* The search field is the panel's one filled input: glyph, text, clear. */
+.cm-notes-search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--cm-row-gap);
+  min-width: 0;
+  height: var(--cm-control);
+  padding: 0 var(--cm-row-gap);
+  border: 1px solid transparent;
+  border-radius: var(--cm-radius);
+  background: var(--cm-surface);
+}
+
+.cm-notes-search:focus-within {
+  border-color: var(--cm-line-2);
+  background: transparent;
+}
+
+.cm-notes-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+.cm-notes-search input::placeholder {
+  color: var(--cm-ink-3);
+}
+
+.cm-notes-clear {
+  flex: none;
+  height: 20px;
+  padding: 0 var(--cm-row-gap);
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: transparent;
+  color: var(--cm-ink-3);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cm-notes-clear:hover {
+  background: var(--cm-hover);
+  color: var(--cm-ink);
+}
+
+.cm-notes-tools {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+/* Icon + label tools, sized like the host's toolbar buttons. */
+.cm-notes-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cm-row-gap);
+  height: var(--cm-control);
+  padding: 0 var(--cm-row-gap);
+  border: 0;
+  border-radius: var(--cm-radius);
+  background: transparent;
+  color: var(--cm-ink-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cm-notes-tool:hover {
+  background: var(--cm-hover);
+  color: var(--cm-ink);
+}
+
+.cm-notes-tool:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
+/* New-note name field: same metrics as the search field, one row tall. */
+.cm-notes-create {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--cm-row-gap);
+  padding: var(--cm-row-padding);
+  border-bottom: 1px solid var(--cm-line);
+}
+
+.cm-notes-create input {
+  flex: 1;
+  min-width: 0;
+  height: var(--cm-control);
+  padding: 0 var(--cm-row-gap);
+  border: 1px solid var(--cm-line-2);
+  border-radius: var(--cm-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+.cm-notes-create button {
+  flex: none;
+  height: var(--cm-control);
+  padding: 0 10px;
+  border: 1px solid var(--cm-line-2);
+  border-radius: var(--cm-radius);
+  background: var(--cm-surface);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cm-notes-create button:hover {
+  background: var(--cm-surface-2);
+}
+
+/* ------------------------------------------------------------- file tree -- */
+
+.cm-notes-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px var(--cm-row-padding) var(--cm-row-padding);
+  /* Keyboard scrolling should not tuck the revealed row under the toolbar. */
+  scroll-padding-block: 4px;
+}
+
+/*
+ * Opening a note hands the panel to the note: the tree keeps a 40% rail and the editor takes
+ * the rest, so a note is actually readable in a sidebar-width column. Without `:has()` support
+ * the rule is ignored and the two halves stay even, which is still usable.
+ */
+.cm-notes:has(.cm-notes-editor) .cm-notes-body {
+  flex: 0 1 40%;
+  max-height: 40%;
+}
+
+/*
+ * One row geometry for folders, notes and search hits. `border-box` plus a
+ * 100% width keeps the inline indent inside the row, exactly as the host
+ * explorer documents: deeper rows must not create a horizontal scrollbar.
+ */
+.cm-notes-item {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  gap: var(--cm-row-gap);
+  width: 100%;
+  max-width: 100%;
+  height: var(--cm-row-height);
+  padding: 0 var(--cm-row-padding);
+  border: 0;
+  border-radius: var(--cm-radius);
+  background: transparent;
+  color: inherit;
+  font: var(--cm-font-tree);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cm-notes-item:hover {
+  background: var(--cm-hover);
+}
+
+/* The open note keeps the host's business tint, with weight for redundancy. */
+.cm-notes-item[data-active='true'] {
+  background: var(--cm-selected);
+  font-weight: 600;
+}
+
+.cm-notes-item:disabled {
+  opacity: .6;
+  cursor: default;
+}
+
+/* Folder rows carry the strong label weight the host uses for directories. */
+.cm-notes-folder {
+  font: var(--cm-font-tree-dir);
+}
+
+.cm-notes-chevron {
+  flex: none;
+  color: var(--cm-ink-4);
+  transition: transform 120ms ease;
+}
+
+.cm-notes-chevron-open {
+  transform: rotate(90deg);
+}
+
+.cm-notes-folder:hover .cm-notes-chevron {
+  color: var(--cm-ink-2);
+}
+
+.cm-notes-glyph {
+  flex: none;
+  color: var(--cm-ink-3);
+}
+
+.cm-notes-folder .cm-notes-glyph,
+.cm-notes-item:hover .cm-notes-glyph {
+  color: var(--cm-ink-2);
+}
+
+.cm-notes-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Unsaved-draft marker: a quiet pill, never louder than the note title. */
+.cm-notes-badge {
+  flex: none;
+  padding: 1px var(--cm-row-gap);
+  border-radius: 999px;
+  background: var(--cm-selected);
+  color: var(--cm-ink-2);
+  font: var(--cm-font-3);
+}
+
+.cm-notes-meta {
+  flex: none;
+  color: var(--cm-ink-3);
+  font: var(--cm-font-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ find -- */
+
+.cm-notes-hit {
+  margin-bottom: 2px;
+}
+
+.cm-notes-hit .cm-notes-item {
+  height: 30px;
+}
+
+/*
+ * Snippet sits under its row, aligned with the row label
+ * (8px padding + 14px glyph + 6px gap).
+ */
+.cm-notes-match {
+  margin: 0 var(--cm-row-padding) 0 28px;
+  color: var(--cm-ink-3);
+  font: var(--cm-font-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-notes-empty {
+  margin: 0;
+  padding: 14px var(--cm-row-padding);
+  color: var(--cm-ink-3);
+  font: var(--cm-font-2);
+}
+
+/* ---------------------------------------------------------------- editor -- */
+
+.cm-notes-editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--cm-line);
+}
+
+.cm-notes-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--cm-row-gap);
+  padding: var(--cm-row-padding) 10px;
+  border-bottom: 1px solid var(--cm-line);
+}
+
+.cm-notes-head h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-notes-actions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+.cm-notes-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cm-row-gap);
+  height: var(--cm-control);
+  padding: 0 var(--cm-row-gap);
+  border: 1px solid var(--cm-line);
+  border-radius: var(--cm-radius);
+  background: transparent;
+  color: var(--cm-ink-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cm-notes-action:hover:not(:disabled) {
+  background: var(--cm-hover);
+  color: var(--cm-ink);
+}
+
+.cm-notes-action:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+.cm-notes-tool svg,
+.cm-notes-action svg {
+  flex: none;
+}
+
+/* Source and rendered views share one reading measure. */
+.cm-notes textarea {
+  flex: 1;
+  min-height: 140px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  outline: none;
+  tab-size: 2;
+}
+
+.cm-notes-preview {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 14px 20px;
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+.cm-notes-preview > :first-child {
+  margin-top: 10px;
+}
+
+.cm-notes-preview h1,
+.cm-notes-preview h2,
+.cm-notes-preview h3,
+.cm-notes-preview h4,
+.cm-notes-preview h5,
+.cm-notes-preview h6 {
+  margin: 20px 0 8px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.cm-notes-preview h1 { font-size: 20px; }
+.cm-notes-preview h2 { font-size: 17px; }
+.cm-notes-preview h3 { font-size: 15px; }
+.cm-notes-preview h4,
+.cm-notes-preview h5,
+.cm-notes-preview h6 { font-size: 13.5px; }
+
+.cm-notes-preview p {
+  margin: 8px 0;
+}
+
+.cm-notes-preview ul,
+.cm-notes-preview ol {
+  margin: 8px 0;
+  padding-left: 22px;
+}
+
+.cm-notes-preview li {
+  margin: 2px 0;
+}
+
+.cm-notes-preview code {
+  padding: 1px 4px;
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  font-size: .92em;
+}
+
+.cm-notes-preview pre {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--cm-line);
+  border-radius: var(--cm-radius);
+  background: var(--cm-surface);
+  overflow: auto;
+}
+
+.cm-notes-preview pre code {
+  padding: 0;
+  background: none;
+}
+
+.cm-notes-preview blockquote {
+  margin: 10px 0;
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--cm-line-2);
+  color: var(--cm-ink-2);
+}
+
+.cm-notes-preview hr {
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--cm-line);
+}
+
+.cm-notes-preview table {
+  border-collapse: collapse;
+  margin: 10px 0;
+}
+
+.cm-notes-preview th,
+.cm-notes-preview td {
+  padding: 4px 10px;
+  border: 1px solid var(--cm-line);
+}
+
+/* A wiki link reads as an in-panel link, not as underlined prose. */
+.cm-notes-wiki {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cm-accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.cm-notes-wiki:hover {
+  text-decoration-style: solid;
+}
+
+/* Canvas files open read-only: a labelled notice above the raw document. */
+.cm-notes-canvas-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-row-gap);
+  margin: 0;
+  padding: 8px 14px 0;
+  color: var(--cm-ink-3);
+  font: var(--cm-font-2);
+}
+
+.cm-notes-canvas {
+  flex: 1;
+  min-height: 0;
+  margin: 8px 14px 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--cm-line);
+  border-radius: var(--cm-radius);
+  background: var(--cm-surface);
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ------------------------------------------------------- side information -- */
+
+.cm-notes-side {
+  flex: none;
+  max-height: 34%;
+  overflow: auto;
+  padding: 8px 10px 12px;
+  border-top: 1px solid var(--cm-line);
+  color: var(--cm-ink-2);
+  font: var(--cm-font-2);
+}
+
+/* Obsidian-style section header: small, muted, letterspaced, with a glyph. */
+.cm-notes-section {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-row-gap);
+  margin: 10px 0 6px;
+  color: var(--cm-ink-3);
+  font: var(--cm-font-3);
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.cm-notes-section:first-child {
+  margin-top: 2px;
+}
+
+.cm-notes-side p {
+  margin: 4px 0 8px;
+  color: var(--cm-ink-3);
+}
+
+/* Side lists reuse the row geometry, one size down. */
+.cm-notes-side .cm-notes-item {
+  height: 26px;
+  font: var(--cm-font-2);
+  color: var(--cm-ink-2);
+}
+
+.cm-notes-chip {
+  display: inline-block;
+  margin: 0 4px 4px 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--cm-surface);
+  color: var(--cm-ink-2);
+  font: var(--cm-font-3);
+}
+
+.cm-notes-proposal {
+  margin-bottom: var(--cm-row-gap);
+  padding: 4px;
+  border: 1px solid var(--cm-line);
+  border-radius: var(--cm-radius);
+}
+
+.cm-notes-proposal .cm-notes-actions {
+  padding: 4px 2px 2px;
+}
+
+.cm-notes-proposal .cm-notes-actions button {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--cm-line);
+  border-radius: var(--cm-radius-sm);
+  background: transparent;
+  color: var(--cm-ink-2);
+  font: var(--cm-font-3);
+  cursor: pointer;
+}
+
+.cm-notes-proposal .cm-notes-actions button:hover:not(:disabled) {
+  background: var(--cm-hover);
+  color: var(--cm-ink);
+}
+
+.cm-notes-diff {
+  max-height: 160px;
+  margin: 4px 0;
+  padding: 6px 8px;
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface);
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+/* -------------------------------------------------------------- dialogs -- */
+
+.cm-notes [role='alertdialog'] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cm-row-gap);
+  margin: 8px 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--cm-line-2);
+  border-radius: var(--cm-radius);
+  background: var(--cm-surface);
+}
+
+.cm-notes [role='alertdialog'] p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.cm-notes [role='alertdialog'] input {
+  flex: 1;
+  min-width: 0;
+  height: var(--cm-control);
+  padding: 0 var(--cm-row-gap);
+  border: 1px solid var(--cm-line-2);
+  border-radius: var(--cm-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+.cm-notes [role='alertdialog'] button {
+  height: var(--cm-control);
+  padding: 0 10px;
+  border: 1px solid var(--cm-line-2);
+  border-radius: var(--cm-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cm-notes [role='alertdialog'] button:hover {
+  background: var(--cm-hover);
+}
+
+/* The wiki-link picker lists candidates full width, so its rows stack. */
+.cm-notes [role='alertdialog'] .cm-notes-item {
+  height: 28px;
+  font: var(--cm-font-2);
+}
+
+/* ----------------------------------------------------------- status bar -- */
+
+.cm-notes-notice {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--cm-row-gap);
+  min-height: var(--cm-control);
+  padding: 0 10px;
+  border-top: 1px solid var(--cm-line);
+  color: var(--cm-ink-3);
+  font: var(--cm-font-3);
+}
+
+.cm-notes-notice button {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--cm-line);
+  border-radius: var(--cm-radius-sm);
+  background: transparent;
+  color: var(--cm-ink-2);
+  font: var(--cm-font-3);
+  cursor: pointer;
+}
+
+.cm-notes-notice button:hover {
+  background: var(--cm-hover);
+  color: var(--cm-ink);
+}
+
+.cm-notes-status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-notes-status[data-state='conflict'],
+.cm-notes-status[data-state='error'] {
+  color: var(--cm-danger);
+}
+
+/* Follow the system motion preference, like the host's row animation does. */
+@media (prefers-reduced-motion: reduce) {
+  .cm-notes * {
+    transition: none !important;
+  }
+}

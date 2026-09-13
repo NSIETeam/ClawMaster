@@ -66,11 +66,29 @@ describe('watcher', () => {
       assert.equal(watcher.active, true, `filesystem watch unavailable: ${watcher.unavailableReason ?? 'unknown'}`);
       const before = watcher.current();
       await writeFile(join(root, '外部.md'), '# 外部写入\n');
-      // Generous budget: the event path is an accelerator, and a loaded machine can delay it.
+      // Either path satisfies this: the event accelerator, or the 3s safety poll behind it.
+      // The budget is generous on purpose — a loaded machine may delay both — but the poll
+      // means a dropped FSEvents delivery costs latency, not a failure.
       const moved = await until(async () => watcher.current() !== before, 10000);
       assert.equal(moved, true, 'the watcher never observed the external write');
       assert.notEqual(watcher.current(), before);
     } finally { watcher.close(); await rm(root, { recursive: true, force: true }); }
+  });
+
+  it('refreshes from the safety poll when no watch could be attached', async () => {
+    const parent = await temporary();
+    // The root does not exist yet, so `fs.watch` throws ENOENT and no event can ever arrive:
+    // only the safety poll can notice the vault appearing.
+    const root = join(parent, 'vault');
+    const watcher = await VaultWatcher.open(root);
+    try {
+      assert.equal(watcher.active, false, `expected poll-only mode: ${watcher.unavailableReason ?? 'watch attached anyway'}`);
+      const before = watcher.current();
+      await mkdir(root, { recursive: true });
+      await writeFile(join(root, 'a.md'), '# later\n');
+      const moved = await until(async () => watcher.current() !== before, 8000);
+      assert.equal(moved, true, 'the safety poll never re-fingerprinted the vault');
+    } finally { watcher.close(); await rm(parent, { recursive: true, force: true }); }
   });
 
   it('recomputes on demand for a caller that does not wait for an event', async () => {

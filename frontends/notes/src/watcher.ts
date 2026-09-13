@@ -5,6 +5,11 @@
  * state at startup and every later external edit (an editor or the agent writing files).
  * The fingerprint is the authority: a watcher event only schedules a re-fingerprint, so a
  * missed, coalesced or unsupported watch event degrades to a slower refresh, never a stale view.
+ *
+ * That degradation is enforced here rather than left to the caller: a safety poll re-fingerprints
+ * on an interval, so an event that never arrives (macOS FSEvents occasionally drops one under
+ * load — observed once in this module's own suite) costs latency, not correctness. Events remain
+ * the accelerator; the poll is the floor.
  */
 import { watch, type FSWatcher } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
@@ -14,6 +19,15 @@ import { NOTE_EXTENSIONS } from './vault.ts';
 
 /** Coalescing window for a burst of filesystem events. */
 const DEBOUNCE_MS = 120;
+
+/**
+ * How often the safety poll re-fingerprints when no event arrives.
+ *
+ * A fingerprint walk is one readdir per directory plus one stat per note file — microseconds for
+ * a personal vault — and the same work the `/revision` route already performs on demand, so this
+ * adds one bounded sweep rather than a new class of load.
+ */
+const FALLBACK_POLL_MS = 3000;
 
 /** True when a vault-relative path is hidden or belongs to tooling rather than the user. */
 export function isIgnoredPath(relativePath: string): boolean {
@@ -50,6 +64,7 @@ export class VaultWatcher {
   private version: string;
   private watcher: FSWatcher | undefined;
   private timer: NodeJS.Timeout | undefined;
+  private poll: NodeJS.Timeout | undefined;
   private disposed = false;
   /** Why the filesystem watcher could not be attached, when it could not. */
   private failure: string | undefined;
@@ -78,6 +93,10 @@ export class VaultWatcher {
       this.failure = (error as Error).message;
       this.watcher = undefined;
     }
+    // The floor under the accelerator, attached whether or not the watch succeeded: an
+    // unsupported watch platform and a dropped event both degrade to this interval.
+    this.poll = setInterval(() => { void this.recompute(); }, FALLBACK_POLL_MS);
+    this.poll.unref();
   }
 
   private schedule(): void {
@@ -115,6 +134,8 @@ export class VaultWatcher {
     this.disposed = true;
     if (this.timer) clearTimeout(this.timer);
     this.timer = undefined;
+    if (this.poll) clearInterval(this.poll);
+    this.poll = undefined;
     this.watcher?.close();
     this.watcher = undefined;
   }

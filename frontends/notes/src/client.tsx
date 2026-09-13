@@ -6,6 +6,12 @@ import { inlineTokens, parseMarkdown, type Block } from './markdown.ts';
 import type { NoteEntry, NoteMatch, NoteRead, Proposal, UnifiedDiff } from './protocol.ts';
 import { extractLinks, noteTitle, parseFrontmatter } from './note-format.ts';
 import { notesCopy, type NotesLocale } from './locales.ts';
+import { ancestorsOf, buildTree, flattenTree } from './tree.ts';
+import {
+  BacklinkIcon, CalendarIcon, CanvasIcon, ChevronIcon, EditIcon, FolderIcon, FolderOpenIcon,
+  InfoIcon, NoteIcon, PlusIcon, PreviewIcon, ProposalIcon, RenameIcon, SaveIcon, SearchIcon,
+  TagIcon, TrashIcon,
+} from './icons.tsx';
 import styles from './styles.css';
 
 export const name = 'clawmaster-notes';
@@ -97,6 +103,8 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
   const [backlinks, setBacklinks] = useState<NoteEntry[]>([]);
   const [tags, setTags] = useState<Array<{ tag: string; count: number }>>([]);
   const [proposals, setProposals] = useState<Array<{ proposal: Proposal; diff: UnifiedDiff }>>([]);
+  // Folder ids whose children are hidden; empty means every folder starts expanded.
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const [query, setQuery] = useState('');
   const [matches, setMatches] = useState<NoteMatch[]>();
   const [creating, setCreating] = useState(false);
@@ -180,6 +188,14 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
       setMode('edit');
       setStatus({ state: 'idle' });
       setBacklinks([]);
+      // A selection made from a link, a search hit or a backlink must be visible in the tree.
+      setCollapsed(current => {
+        const ancestors = ancestorsOf(id);
+        if (!ancestors.some(folder => current.has(folder))) return current;
+        const next = new Set(current);
+        for (const folder of ancestors) next.delete(folder);
+        return next;
+      });
       const linked = await api.backlinks(id);
       if (requestGeneration === generation.current) setBacklinks(linked.notes);
     } catch (error) { if (requestGeneration === generation.current) fail(error); }
@@ -334,15 +350,36 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
   const dirty = open !== undefined && draft !== open.text;
   const isCanvas = open !== undefined && open.id.endsWith('.canvas');
   const blocks = useMemo(() => parseMarkdown(draft), [draft]);
+  const tree = useMemo(() => buildTree(entries ?? []), [entries]);
+  const rows = useMemo(() => flattenTree(tree, collapsed), [tree, collapsed]);
+
+  const toggleFolder = useCallback((id: string) => {
+    setCollapsed(current => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   return <section className="cm-notes" aria-label={copy.tab}>
     <div className="cm-notes-bar">
-      <input value={query} placeholder={copy.searchPlaceholder} aria-label={copy.search}
-        onChange={event => setQuery(event.target.value)}
-        onKeyDown={event => { if (event.key === 'Enter') void runSearch(); }} />
-      <button type="button" onClick={() => { setQuery(''); setMatches(undefined); }}>{copy.cancel}</button>
-      <button type="button" onClick={() => void openToday()}>{copy.todayNote}</button>
-      <button type="button" onClick={() => setCreating(value => !value)}>{copy.newNote}</button>
+      <div className="cm-notes-search">
+        <SearchIcon size={14} className="cm-notes-glyph" />
+        <input value={query} placeholder={copy.searchPlaceholder} aria-label={copy.search}
+          onChange={event => setQuery(event.target.value)}
+          onKeyDown={event => { if (event.key === 'Enter') void runSearch(); }} />
+        {query !== ''
+          && <button type="button" className="cm-notes-clear" onClick={() => { setQuery(''); setMatches(undefined); }}>{copy.cancel}</button>}
+      </div>
+      <div className="cm-notes-tools">
+        <button type="button" className="cm-notes-tool" onClick={() => void openToday()}>
+          <CalendarIcon size={14} />{copy.todayNote}
+        </button>
+        <button type="button" className="cm-notes-tool" onClick={() => setCreating(value => !value)}>
+          <PlusIcon size={14} />{copy.newNote}
+        </button>
+      </div>
     </div>
     {creating && <div className="cm-notes-create">
       <input autoFocus value={newName} placeholder={copy.noteName} aria-label={copy.noteName}
@@ -354,35 +391,62 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
       {matches !== undefined
         ? matches.length === 0
           ? <p className="cm-notes-empty">{copy.noResults}</p>
-          : matches.map(match => <div key={`${match.id}:${match.lineNumber}`}>
+          : matches.map(match => <div key={`${match.id}:${match.lineNumber}`} className="cm-notes-hit">
             <button type="button" className="cm-notes-item" disabled={status.state === 'saving'}
               onClick={() => void openNote(match.id)}>
-              <span>{match.title}</span>{' '}<small>{copy.line} {match.lineNumber}</small>
+              <NoteIcon size={14} className="cm-notes-glyph" />
+              <span className="cm-notes-label">{match.title}</span>
+              {/* The separator keeps the row's accessible name readable ("Alpha line 3");
+                  a whitespace-only node is ignored by the flex layout, so the 6px row gap
+                  alone decides the spacing. */}
+              {' '}
+              <small className="cm-notes-meta">{copy.line} {match.lineNumber}</small>
             </button>
             <p className="cm-notes-match">{match.line}</p>
           </div>)
-        : entries === undefined
-          ? <p className="cm-notes-empty">{copy.loading}</p>
-          : entries.length === 0
-            ? <p className="cm-notes-empty">{copy.empty}</p>
-            : entries.map(entry => <div key={entry.id}>
-              <button type="button" className="cm-notes-item" data-active={open?.id === entry.id}
-                disabled={status.state === 'saving'} onClick={() => void openNote(entry.id)}>
-                <span>{entry.title}</span>
-                {' '}<small>{drafts.has(entry.id) ? copy.dirty : entry.dir}</small>
-              </button>
-            </div>)}
+        : rows.length === 0
+          ? <p className="cm-notes-empty">{copy.empty}</p>
+          : rows.map(row => row.kind === 'folder'
+            ? <button key={`folder:${row.id}`} type="button" className="cm-notes-item cm-notes-folder"
+              style={{ paddingLeft: row.depth * 22 + 6 }}
+              aria-expanded={!collapsed.has(row.id)} disabled={status.state === 'saving'}
+              onClick={() => toggleFolder(row.id)}>
+              <ChevronIcon size={12} className={collapsed.has(row.id) ? 'cm-notes-chevron' : 'cm-notes-chevron cm-notes-chevron-open'} />
+              {collapsed.has(row.id)
+                ? <FolderIcon size={14} className="cm-notes-glyph" />
+                : <FolderOpenIcon size={14} className="cm-notes-glyph" />}
+              <span className="cm-notes-label">{row.name}</span>
+            </button>
+            : <button key={row.id} type="button" className="cm-notes-item" data-active={open?.id === row.id}
+              style={{ paddingLeft: row.depth * 22 + 6 + 18 }}
+              disabled={status.state === 'saving'} onClick={() => void openNote(row.id)}>
+              {row.id.endsWith('.canvas')
+                ? <CanvasIcon size={14} className="cm-notes-glyph" />
+                : <NoteIcon size={14} className="cm-notes-glyph" />}
+              <span className="cm-notes-label">{row.name}</span>
+              {/* Same separator rule as a search hit: the unsaved badge must not fuse into
+                  the note name for assistive technology ("Alpha Unsaved", not "AlphaUnsaved"). */}
+              {drafts.has(row.id) && <>{' '}<small className="cm-notes-badge">{copy.dirty}</small></>}
+            </button>)}
     </div>
     {open && <div className="cm-notes-editor">
       <div className="cm-notes-head">
         <h2>{open.title}</h2>
         <div className="cm-notes-actions">
-          {!isCanvas && <button type="button" disabled={status.state === 'saving'} onClick={() => { setRenaming(open.id); setRenameDraft(open.id.replace(/\.md$/, '')); }}>{copy.rename}</button>}
-          <button type="button" onClick={() => setMode(value => value === 'edit' ? 'preview' : 'edit')}>
+          {!isCanvas && <button type="button" className="cm-notes-action" disabled={status.state === 'saving'}
+            onClick={() => { setRenaming(open.id); setRenameDraft(open.id.replace(/\.md$/, '')); }}>
+            <RenameIcon size={14} />{copy.rename}
+          </button>}
+          <button type="button" className="cm-notes-action" onClick={() => setMode(value => value === 'edit' ? 'preview' : 'edit')}>
+            {mode === 'edit' ? <PreviewIcon size={14} /> : <EditIcon size={14} />}
             {mode === 'edit' ? copy.preview : copy.edit}
           </button>
-          <button type="button" disabled={isCanvas || !dirty || status.state === 'saving'} onClick={() => void save()}>{copy.save}</button>
-          <button type="button" disabled={status.state === 'saving'} onClick={() => setConfirmation('delete')}>{copy.delete}</button>
+          <button type="button" className="cm-notes-action" disabled={isCanvas || !dirty || status.state === 'saving'} onClick={() => void save()}>
+            <SaveIcon size={14} />{copy.save}
+          </button>
+          <button type="button" className="cm-notes-action" disabled={status.state === 'saving'} onClick={() => setConfirmation('delete')}>
+            <TrashIcon size={14} />{copy.delete}
+          </button>
         </div>
       </div>
       {confirmation && <div role="alertdialog" aria-label={confirmation === 'delete' ? copy.delete : copy.conflictReload}>
@@ -413,7 +477,7 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
       </div>}
       {isCanvas
         ? <>
-          <p className="cm-notes-canvas-notice">{copy.canvasReadOnly}</p>
+          <p className="cm-notes-canvas-notice"><InfoIcon size={13} />{copy.canvasReadOnly}</p>
           <pre className="cm-notes-canvas">{draft}</pre>
         </>
         : mode === 'edit'
@@ -425,7 +489,7 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
           }} />
           : <div className="cm-notes-preview">{blocks.map((block, index) => <BlockView key={index} block={block} onWiki={openWiki} />)}</div>}
       <div className="cm-notes-side">
-        <h3>{copy.proposals}</h3>
+        <h3 className="cm-notes-section"><ProposalIcon size={13} />{copy.proposals}</h3>
         {proposals.length === 0 ? <p>{copy.noProposals}</p> : proposals.map(entry => <div key={entry.proposal.proposalId} className="cm-notes-proposal">
           <button type="button" className="cm-notes-item" disabled={status.state === 'saving'}
             onClick={() => void openNote(entry.proposal.id)}><span>{entry.proposal.id}</span></button>
@@ -435,9 +499,9 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
             <button type="button" disabled={status.state === 'saving'} onClick={() => void discardProposal(entry.proposal.proposalId)}>{copy.discardProposal}</button>
           </div>
         </div>)}
-        <h3>{copy.backlinks}</h3>
+        <h3 className="cm-notes-section"><BacklinkIcon size={13} />{copy.backlinks}</h3>
         {backlinks.length === 0 ? <p>{copy.noBacklinks}</p> : backlinks.map(entry => <button key={entry.id} type="button" className="cm-notes-item" disabled={status.state === 'saving'} onClick={() => void openNote(entry.id)}><span>{entry.title}</span></button>)}
-        <h3>{copy.tags}</h3>
+        <h3 className="cm-notes-section"><TagIcon size={13} />{copy.tags}</h3>
         {tags.length === 0 ? <p>{copy.noTags}</p> : tags.map(tag => <span key={tag.tag} className="cm-notes-chip">{tag.tag} · {tag.count}</span>)}
       </div>
     </div>}
