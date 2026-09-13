@@ -18,8 +18,8 @@ function latestLine(text: string): string {
 
 /**
  * Render one assistant reasoning block as the Think disclosure row. The
- * collapsed summary omits double-asterisk markers; expanded content preserves
- * the complete text.
+ * ClawMaster header omits reasoning previews; other builds show a plain-text
+ * summary. Expanded content preserves the complete text.
  * @param props.text - complete or streaming reasoning text.
  * @param props.running - whether this block is the streaming tail.
  * @param props.t - conversation locale seat for the running status.
@@ -48,7 +48,7 @@ export function ReasoningRow({ text, running, t }: { text: string; running: bool
         expandable
         expandOnRowClick
         onToggle={() => { setExpanded(value => !value) }}
-        collapsedContent={(
+        collapsedContent={process.env.DSH_CLIENT_BUILD_PROFILE !== 'clawmaster' && (
           <>
             <span className={css.separator} aria-hidden />
             <span className={css.summary} data-follow-end={running || undefined}>

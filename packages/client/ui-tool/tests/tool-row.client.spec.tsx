@@ -15,6 +15,7 @@ import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.t
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
 })
 
 const t: GenericToolCardProps['t'] = makeTranslate(zh, commonZh)
@@ -236,6 +237,39 @@ describe('ToolRow', () => {
     variant: 'bash' as const, icon: <i data-testid="tool-icon" />, title: 'Bash',
     summary: 'List files', bodyRaw: '{"a":1}', state: 'ok' as const,
   }
+
+  it.each(['bash', 'code', 'others'] as const)('ClawMaster keeps %s process details closed across result updates', (variant) => {
+    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'clawmaster')
+    const props = { ...rowProps, variant, toolName: variant === 'others' ? 'terminal_send' : 'pwsh', output: 'private output' }
+    const view = render(<ToolRow {...props} state="running" />)
+    expect(view.container.textContent).not.toContain('List files')
+    expect(view.container.textContent).not.toContain('private output')
+    view.rerender(<ToolRow {...props} />)
+    expect(view.container.querySelector('[aria-expanded="false"]')).not.toBeNull()
+    fireEvent.click(view.getByRole('button'))
+    expect(view.getByText('private output')).toBeTruthy()
+    view.rerender(<ToolRow {...props} output="updated output" />)
+    expect(view.getByText('updated output')).toBeTruthy()
+    expect(view.container.querySelector('[aria-expanded="true"]')).not.toBeNull()
+  })
+
+  it('ClawMaster shows a failed shell summary without exposing its raw output', () => {
+    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'clawmaster')
+    const view = render(<ToolRow {...rowProps} state="error" output="raw error stack" errorSummary="Permission denied" />)
+    expect(view.getByText('Permission denied')).toBeTruthy()
+    expect(view.container.textContent).not.toContain('raw error stack')
+    expect(view.container.textContent).not.toContain('List files')
+    view.rerender(<ToolRow {...rowProps} state="error" output="raw error stack" />)
+    expect(view.getByRole('button').textContent).toContain(t('row.failed'))
+    fireEvent.click(view.getByRole('button'))
+    expect(view.getByText('raw error stack')).toBeTruthy()
+  })
+
+  it('ClawMaster keeps ordinary result summaries visible', () => {
+    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'clawmaster')
+    const view = render(<ToolRow {...rowProps} variant="read" summary="report.csv" />)
+    expect(view.getByText('report.csv')).toBeTruthy()
+  })
 
   it('renders leading icon, title and summary while collapsed', () => {
     const view = render(<ToolRow {...rowProps} />)

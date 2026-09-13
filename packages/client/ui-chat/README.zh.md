@@ -12,6 +12,8 @@ kind: "package-reference"
 
 文件提及提供方同时接收当前查看的会话 ID 与收尾轮次的属主信息，因此继承历史中的链接可以指向 fork 自身。
 
+ClawMaster 构建默认收起思考和上下文正文，并省略标题旁的内容预览。标题保留内容类型和上下文来源。同一行的流式更新保留用户手动展开状态；Session 事件保持完整。[展示决策](../../../.agents/notes/implemented/feature/2026-09-13-clawmaster-process-disclosures.zh.md)定义产品范围。
+
 ## 目录
 
 - [引用预览](#reference-previews)

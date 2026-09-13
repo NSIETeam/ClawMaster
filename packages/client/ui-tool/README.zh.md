@@ -11,6 +11,8 @@ kind: "package-reference"
 
 `dsh-client-ui-tool` 是 dsh Web 客户端的 Client 工具展示插件：它渲染对话中的每一次工具调用。`ui-conversation` 通过 `conversation.chat.node` 的匹配 key 分发每个已排序的 `tool-call` Conversation Node；本包渲染其中的 root 及其 Code Dispatch 子调用，并把每个原子调用通过 keyed slot `tool.call.toolview` 分发。没有注册的工具名称使用通用卡片。业务 UI 包只注册 wire 工具名称和原子视图——它们不配对会话事件、不重建 transcript（文本记录），也不拥有 root/subcall 拓扑，因为运行时仍对 call/result 配对、生命周期与递归 `subCalls` 投影拥有最终决定权。
 
+ClawMaster 构建默认收起 Shell、终端发送和代码详情，包括命令预览、原始输出和堆栈。失败行保留简短错误摘要；非零终端退出没有摘要时显示本地化失败状态。所有可用的 Shell 输入和输出仍可展开，包括后台执行回执。同一行的更新保留用户手动展开状态。其他 Tool 摘要和待审批控件保持原有展示。
+
 ## 目录
 
 - [使用本包](#use-this-package)

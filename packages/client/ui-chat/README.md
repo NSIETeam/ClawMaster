@@ -12,6 +12,8 @@ Use this package to render a browser chat from recorded Session conversations, i
 
 File-mention providers receive the viewed Session ID with the closing-turn owner, so links into inherited history can address the fork itself.
 
+ClawMaster builds initially collapse reasoning and context bodies and omit their header previews. Headers retain the content kind and context producer. Manual expansion survives streamed updates to the same row; Session events remain intact. The [presentation decision](../../../.agents/notes/implemented/feature/2026-09-13-clawmaster-process-disclosures.md) owns the product scope.
+
 ## Table of Contents
 
 - [Reference previews](#reference-previews)

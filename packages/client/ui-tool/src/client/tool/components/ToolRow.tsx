@@ -160,9 +160,11 @@ export function ToolRow({
     [bodyRaw, card, open, variant],
   )
   const status = stateStatus(state, t)
+  const hidePreview = process.env.DSH_CLIENT_BUILD_PROFILE === 'clawmaster'
+    && (variant === 'bash' || variant === 'code' || terminalBody !== null || toolName === 'terminal_send')
   // A failure must replace, not supplement, the normal summary.
-  const failureLine = state === 'error' ? errorSummary ?? null : null
-  const summaryText = failureLine ?? terminalBody?.description ?? summary
+  const failureLine = state === 'error' ? errorSummary ?? (hidePreview ? t('row.failed') : null) : null
+  const summaryText = failureLine ?? (hidePreview ? '' : terminalBody?.description ?? summary)
   // A diff row's collapsed line carries the card's +/- totals (the same
   // numbers the expanded footer prints) so the change size reads without
   // expanding; an explicit summarySuffix (none today on diff rows) wins.

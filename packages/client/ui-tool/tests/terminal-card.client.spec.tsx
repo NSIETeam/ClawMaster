@@ -22,7 +22,10 @@ type BashRowProps = Parameters<typeof BashRow>[0]
 const t: GenericToolCardProps['t'] = makeTranslate(zh, commonZh)
 const enT: GenericToolCardProps['t'] = makeTranslate(en, commonEn)
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.unstubAllEnvs()
+})
 
 /**
  * Match an output line with its interior whitespace intact: the column
@@ -417,6 +420,50 @@ describe('BashRow terminal card', () => {
     sessionId: SID, useSessions: bindSnapshotSelector(list()),
     t,
   } as unknown as BashRowProps)
+
+  it.each([['en', enT], ['zh', t]] as const)('ClawMaster %s hides shell previews and preserves manual expansion through completion', (_locale, translate) => {
+    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'clawmaster')
+    const view = render(<BashRow {...rowProps(running())} t={translate} />)
+    expect(view.container.textContent).not.toContain('List files')
+    expect(view.container.textContent).not.toContain('ls -la')
+    expect(view.getByRole('button').getAttribute('aria-expanded')).toBe('false')
+    expect(view.container.textContent).toMatchSnapshot()
+    view.rerender(<BashRow {...rowProps(settled())} t={translate} />)
+    expect(view.container.textContent).not.toContain('a.ts')
+    fireEvent.click(view.getByRole('button'))
+    expect(view.getByText('ls -la')).toBeTruthy()
+    expect(view.getByText('a.ts  b.ts', RAW)).toBeTruthy()
+    view.rerender(<BashRow {...rowProps(settled({ content: [{ type: 'text', text: 'updated output' }] }))} t={translate} />)
+    expect(view.getByText('updated output')).toBeTruthy()
+    expect(view.container.querySelector('[data-sample="bash"]')?.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(view.container.querySelector('[data-sample="bash"]')!)
+    view.rerender(<BashRow {...rowProps(settled({ content: [{ type: 'text', text: 'final output' }] }))} t={translate} />)
+    expect(view.container.textContent).not.toContain('final output')
+  })
+
+  it('ClawMaster keeps failed status visible and raw stderr behind the disclosure', () => {
+    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'clawmaster')
+    const view = render(<BashRow {...rowProps(settled({ content: [{ type: 'text', text: 'raw stderr detail\n[exit code: 2]' }] }))} />)
+    const row = view.getByRole('button')
+    expect(row.textContent).toContain(t('bash.failed'))
+    expect(view.container.querySelector('[data-state="error"]')).not.toBeNull()
+    expect(view.container.textContent).not.toContain('raw stderr detail')
+    expect(view.container.textContent).not.toContain('List files')
+    fireEvent.click(row)
+    expect(view.getByText('raw stderr detail')).toBeTruthy()
+  })
+
+  it('ClawMaster retains background acknowledgements and their inputs behind an expandable header', () => {
+    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'clawmaster')
+    const view = render(<BashRow {...rowProps(settled({
+      call: { name: 'bash', argsRaw: shellArgs({ run_in_background: true }) },
+      content: [{ type: 'text', text: 'background receipt' }],
+    }))} />)
+    expect(view.container.textContent).not.toContain('background receipt')
+    fireEvent.click(view.getByRole('button'))
+    expect(view.getByText(/"command": "ls -la"/)).toBeTruthy()
+    expect(view.getByText('background receipt')).toBeTruthy()
+  })
 
   it('collapses to the summary row; the whole row toggles the command output', () => {
     const view = render(<BashRow {...rowProps(settled())} />)

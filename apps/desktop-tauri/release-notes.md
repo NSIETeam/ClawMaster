@@ -45,3 +45,7 @@ Adds the built-in Markdown vault with editing, links, backlinks, tags and search
 桌面默认使用 `clawmaster-sys-prompt`，以 ClawMaster 与 WatchDog 企业协作身份组装系统提示，继续沿用 DSH 的工具和审批机制。
 
 The desktop uses `clawmaster-sys-prompt` for its ClawMaster and WatchDog enterprise persona while retaining DSH tool and approval mechanisms.
+
+思考、记忆注入摘要和命令行详情默认收起，点击后查看完整内容；流式更新保持用户的展开选择，审批与失败提示继续可见。
+
+Reasoning, injected-memory summaries and command details stay collapsed until opened. Streaming updates preserve the chosen disclosure state; approvals and concise failure messages remain visible.

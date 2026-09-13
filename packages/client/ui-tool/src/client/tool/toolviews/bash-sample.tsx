@@ -41,6 +41,7 @@ function stateStatus(state: ToolRowState, t: BashRowProps['t']): string | null {
 
 /** Renders expandable Bash output with an accessible lifecycle label. */
 export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }: BashRowProps) {
+  const hidePreview = process.env.DSH_CLIENT_BUILD_PROFILE === 'clawmaster'
   const model = toolRowModel(toolName, block)
   // An omitted shell workdir is the session workspace; relative values resolve
   // against it before reaching the terminal primitive.
@@ -54,10 +55,10 @@ export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }:
     : model.state
   const status = stateStatus(state, t)
   const [expanded, setExpanded] = useState(false)
-  // Failures, persistent-shell results, and spill previews use a generic body;
-  // background acknowledgements and malformed calls remain collapsed.
+  // ClawMaster keeps every available input/output accessible behind the header;
+  // other builds limit generic bodies to failures and settled shell results.
   const genericBody = terminal === null
-    && (model.state === 'error' || isSettledPersistentShellCall(block) || isSpilledShellCall(block))
+    && (hidePreview || model.state === 'error' || isSettledPersistentShellCall(block) || isSpilledShellCall(block))
     && (model.bodyRaw !== null || model.output !== null)
   const expandable = terminal !== null || genericBody
   const open = expanded && expandable
@@ -67,7 +68,10 @@ export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }:
       : null,
     [genericBody, model.bodyRaw, model.variant, open],
   )
-  const failureLine = model.state === 'error' ? model.errorSummary : null
+  const failureLine = state === 'error'
+    ? model.errorSummary ?? (hidePreview ? t('bash.failed') : null)
+    : null
+  const summary = failureLine ?? (hidePreview ? null : terminal?.description ?? model.summary)
   const toggleExpand = () => {
     setExpanded(v => !v)
   }
@@ -103,10 +107,14 @@ export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }:
         <span className={css.leading}>{leading}</span>
         {status !== null && <span className={css.visuallyHidden}>{status}</span>}
         <span className={css.title}>{t(model.titleKey)}</span>
-        <span className={css.sep} aria-hidden />
-        <span className={clsx(css.summary, failureLine !== null && css.errorSummary)}>
-          {failureLine ?? terminal?.description ?? model.summary}
-        </span>
+        {summary !== null && (
+          <>
+            <span className={css.sep} aria-hidden />
+            <span className={clsx(css.summary, failureLine !== null && css.errorSummary)}>
+              {summary}
+            </span>
+          </>
+        )}
       </div>
       {open && (
         <div className={css.bodyWrap}>

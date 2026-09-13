@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`BashRow terminal card > ClawMaster en hides shell previews and preserves manual expansion through completion 1`] = `"RunningBash"`;
+
+exports[`BashRow terminal card > ClawMaster zh hides shell previews and preserves manual expansion through completion 1`] = `"运行中Bash"`;

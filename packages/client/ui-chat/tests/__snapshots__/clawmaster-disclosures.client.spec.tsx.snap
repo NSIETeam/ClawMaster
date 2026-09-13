@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ClawMaster process disclosures (en) > keeps memory source visible and reveals its recorded body only on demand 1`] = `"Context injectionOpenViking Memory"`;
+
+exports[`ClawMaster process disclosures (en) > keeps reasoning out of the collapsed DOM through streaming and completion 1`] = `"Think"`;
+
+exports[`ClawMaster process disclosures (zh) > keeps memory source visible and reveals its recorded body only on demand 1`] = `"上下文注入OpenViking Memory"`;
+
+exports[`ClawMaster process disclosures (zh) > keeps reasoning out of the collapsed DOM through streaming and completion 1`] = `"思考"`;

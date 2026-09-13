@@ -49,7 +49,7 @@ export function ContextInjectionRow({ content, source, provenance, form, t }: Co
         <>
           <span className={css.sep} aria-hidden />
           <span className={css.source} data-context-source>{provenance.label}</span>
-          {summary !== null && (
+          {summary !== null && process.env.DSH_CLIENT_BUILD_PROFILE !== 'clawmaster' && (
             <>
               <span className={css.sep} aria-hidden />
               <span className={css.summary} data-context-summary>{summary}</span>
