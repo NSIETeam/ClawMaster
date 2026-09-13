@@ -9,7 +9,7 @@ on:
       tag:
         description: Existing desktop-v* tag to rebuild and publish
         required: true
-        default: desktop-v0.2.0-beta.1
+        default: desktop-v0.2.0-beta.2
 
 permissions:
   contents: read
@@ -21,6 +21,7 @@ concurrency:
 env:
   NODE_VERSION: '24'
   DSH_TELEMETRY_DISABLED: '1'
+  DSH_DESKTOP_BUILD_MODE: release
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
 jobs:
@@ -84,6 +85,9 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -yq libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils musl-tools
 
+      - name: Require clean release source
+        run: node apps/desktop-tauri/scripts/build-provenance.mjs
+
       - name: Install Rust target
         run: rustup target add ${{ matrix.target }}
 
@@ -97,6 +101,9 @@ jobs:
 
       - name: Build ClawMaster harness
         run: pnpm --dir apps/desktop-tauri run build:harness
+
+      - name: Verify provenance and plugin rejection cases
+        run: pnpm --dir apps/desktop-tauri run test:bundle
 
       - name: Build complete Linux sandbox binaries
         if: runner.os == 'Linux'
@@ -145,6 +152,7 @@ jobs:
           $version = (Get-Content apps/desktop-tauri/package.json | ConvertFrom-Json).version
           $bundleRoot = "apps/desktop-tauri/src-tauri/target/$env:RUST_TARGET/release/bundle"
           New-Item -ItemType Directory -Force release-assets | Out-Null
+          Copy-Item apps/desktop-tauri/bundled/harness/.bundle-manifest.json "release-assets/clawmaster-$version-$env:ASSET_PLATFORM-$env:ASSET_ARCH-build.json"
 
           if ($env:ASSET_PLATFORM -eq 'windows') {
             $source = Get-ChildItem $bundleRoot -Recurse -File -Filter '*-setup.exe' | Select-Object -First 1
@@ -215,11 +223,25 @@ jobs:
             '*-macos-arm64.app.tar.gz.sig',
             '*-linux-x64.AppImage',
             '*-linux-x64.AppImage.sig',
-            '*-linux-x64.deb'
+            '*-linux-x64.deb',
+            '*-windows-x64-build.json',
+            '*-macos-x64-build.json',
+            '*-macos-arm64-build.json',
+            '*-linux-x64-build.json'
           )
           foreach ($pattern in $expected) {
             if (-not (Get-ChildItem release-assets -File -Filter $pattern)) {
               throw "Missing release asset matching $pattern"
+            }
+          }
+          $commit = (git rev-parse HEAD).Trim()
+          $tree = (git rev-parse 'HEAD^{tree}').Trim()
+          $version = (Get-Content apps/desktop-tauri/package.json | ConvertFrom-Json).version
+          foreach ($file in Get-ChildItem release-assets -File -Filter '*-build.json') {
+            $manifest = Get-Content $file.FullName | ConvertFrom-Json
+            $build = $manifest.buildProvenance
+            if ($manifest.desktopVersion -ne $version -or $manifest.contentSha256 -notmatch '^[a-f0-9]{64}$' -or $build.schemaVersion -ne 1 -or $build.mode -ne 'release' -or $build.source.dirty -ne $false -or $build.source.dirtyFiles.Count -ne 0 -or $build.source.gitCommit -ne $commit -or $build.source.gitTree -ne $tree) {
+              throw "Build provenance does not match clean release source: $($file.Name)"
             }
           }
 

@@ -632,9 +632,6 @@ fn gc_harness_versions(app_root: &Path, dsh_home: &Path) {
         .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
         .map(|entry| entry.path())
         .collect();
-    if dirs.len() <= HARNESS_TREES_KEPT {
-        return;
-    }
     let workspaces = match registered_workspace_paths(dsh_home) {
         Ok(paths) => paths,
         Err(reason) => {
@@ -642,6 +639,19 @@ fn gc_harness_versions(app_root: &Path, dsh_home: &Path) {
             return;
         }
     };
+    dirs.retain(|path| {
+        if !fs::read_dir(path).is_ok_and(|mut entries| entries.next().is_none()) {
+            return true;
+        }
+        if matches!(overlaps_workspace(path, &workspaces), Ok(false)) {
+            // remove_dir refuses a directory populated after the emptiness check.
+            let _ = fs::remove_dir(path);
+        }
+        false
+    });
+    if dirs.len() <= HARNESS_TREES_KEPT {
+        return;
+    }
     sort_harness_trees_newest_first(&mut dirs);
     for stale in &dirs[HARNESS_TREES_KEPT..] {
         match overlaps_workspace(stale, &workspaces) {
@@ -1375,6 +1385,26 @@ mod tests {
         gc_harness_versions(&fixture.0, &fixture.home());
         for (index, root) in roots.iter().enumerate() {
             assert_eq!(root.exists(), index < HARNESS_TREES_KEPT);
+        }
+    }
+
+    #[test]
+    fn empty_generations_do_not_consume_rollback_slots_or_remove_workspaces() {
+        let fixture = CleanupFixture::new();
+        let versions = fixture.0.join("harness-versions");
+        for name in ["one", "two", "three"] {
+            make_harness_tree(&versions.join(name), true);
+        }
+        let empty = versions.join("empty");
+        let workspace = versions.join("workspace");
+        fs::create_dir(&empty).unwrap();
+        fs::create_dir(&workspace).unwrap();
+        fixture.register(&workspace);
+        gc_harness_versions(&fixture.0, &fixture.home());
+        assert!(!empty.exists());
+        assert!(workspace.is_dir());
+        for name in ["one", "two", "three"] {
+            assert!(harness_tree_bootable(&versions.join(name)));
         }
     }
 

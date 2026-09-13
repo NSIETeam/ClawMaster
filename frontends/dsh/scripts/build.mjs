@@ -17,7 +17,7 @@ const result = await build({
   format: 'cjs',
   jsx: 'automatic',
   external: ['react', 'react/jsx-runtime', 'react-dom'],
-  loader: { '.png': 'dataurl', '.css': 'text' },
+  loader: { '.svg': 'dataurl', '.css': 'text' },
   banner: { js: `window.__ModuleLoader__.load({ id: ${JSON.stringify(manifest.name)}, factory(require) { const module = { exports: {} }; const exports = module.exports;` },
   footer: { js: 'return module.exports; } });' },
   metafile: true,

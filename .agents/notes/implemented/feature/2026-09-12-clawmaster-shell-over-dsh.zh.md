@@ -10,6 +10,12 @@ ClawMaster 需要直接使用成熟的 DSH 运行时、会话、审批、工具�
 
 ## 决策
 
+桌面溯源将编译产物绑定到编译前观察的源码，并在准备阶段拒绝源码或产物变化。仅在复制后记录摘要，无法证明现有 JavaScript 由哪份源码生成。因此发布模式要求干净的 Git 源文件集合、匹配的完整提交与树标识，以及完整 harness 构建和产品准备过程生成的阶段记录。开发产物保留脏文件路径和明确的开发构建编号。原生图标输出从源 SVG 重新生成并作为产物验证，因为平台编码可能独立于图案变化。资源包对独立溯源记录副本计算摘要，并为每个平台公开一份 manifest，不携带 Git 元数据。[桌面 README](../../../../apps/desktop-tauri/README.zh.md#release)负责记录字段与发布操作。
+
+前端的 [ClawMaster SVG](../../../../frontends/dsh/src/clawmaster.svg)是客户端标识、启动页、favicon 与原生图标生成的矢量图案源。共用一个源文件可避免分别缩放或重画的标识产生偏差。原始 PNG 仅保留为参考，不参与运行时渲染。桌面资源检查要求 SVG 路径并拒绝内嵌或链接图片，防止 SVG 包装悄悄恢复位图缩放。打包保留 favicon 的精确源文件字节，分发的客户端 factory 渲染同一图案。
+
+手动选择工作区时使用 DSH 的应用内目录浏览器。ClawMaster 组合包禁用自适应 `directory-picker` 行，同时挂载已有的目录浏览后端和客户端界面；Web 组合包提供这两个依赖。路径浏览、新建文件夹、取消和工作区接入均由 DSH 负责。这项部署选择仅在加载 ClawMaster 组合包时生效，官方 Web profile 保留自适应选择器。
+
 ClawMaster 负责产品呈现与 Tauri 桌面壳。运行执行、Session、工具、审批和插件加载由 DSH 负责。`@clawmaster/dsh-frontend` 通过公开客户端插槽增加 ClawMaster 图标、WatchDog 导航与口号“开启AI时代的企业协作”。加载产品时不创建默认 Workspace：用户明确新建任务后，系统在 `$DSH_HOME/watchdog-workspaces/tasks` 下分配目录，再创建普通 DSH Session 并提交消息。工具入口沿用当前未归档的 Session，或按需分配共用 `desk` 目录。后续导航会阻止延迟完成的 Session 抢占选择或提交模型请求。bundle 启用官方 Schedule 与 time-context；DSH base 提供 Goal 与 goal-round-driver。`@xmanrui/dsh-im` 提供飞书、微信、企微与钉钉扫码接入。
 
 默认 profile 挂载 `dsh-better-sidebar@0.19.1`，由维护者按 DSH 0.1.5-rc.2 验证。WatchDog 是产品唯一的左侧导航入口。编辑器与浏览器入口打开原生右侧面板，终端打开底部面板。CRM 与 ERP 通过公开的 `betterSidebar.registerTab` 注册 `clawmaster:crm` 和 `clawmaster:erp`，每个 Session 中各类型只有一个标签。已有侧栏设置负责启用开关与功能弹窗；产品弹窗明确打开原生右侧标签，失败时提示重试。注册既不打开标签，也不选择或创建 Workspace。CSV/TSV 处理是 AI 能力，没有独立客户端页面。

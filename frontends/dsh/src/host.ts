@@ -8,6 +8,8 @@ import { applyDataTools, type DataToolsConfig } from './data-tools.ts';
 import { applyManagedWorkspaces, type WorkspaceHostContext } from './workspace-host.ts';
 import { OnboardingSettingsSchema, type OnboardingHostServices } from './onboarding-host.ts';
 import { ONBOARDING_NAMESPACE } from './onboarding.ts';
+import { applyRuntimeGovernance, type RuntimeGovernanceConfig } from './runtime-governance.ts';
+import { applyPermissionGovernance } from './permission-governance.ts';
 
 type HostServices = Context & WorkspaceHostContext & OnboardingHostServices;
 
@@ -17,10 +19,11 @@ interface HostConfig {
   busyTimeoutMs?: number;
   dataTools?: DataToolsConfig;
   enterpriseTools?: EnterpriseToolConfig;
+  runtimeGovernance?: RuntimeGovernanceConfig;
 }
 
 export const name = 'clawmaster-watchdog-host';
-export const inject = ['workspaceRegistry', 'connection', 'tools', 'approval', 'fs', 'sandboxPolicy', 'settings'];
+export const inject = ['workspaceRegistry', 'connection', 'tools', 'approval', 'fs', 'sandboxPolicy', 'settings', 'systemPrompt', 'agents'];
 
 /**
  * Register AI tools and authenticated routes against one shared database.
@@ -35,6 +38,8 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
   if (!isAbsolute(managedRoot) || !isAbsolute(databasePath)) throw new Error('Product storage paths must be absolute');
   ctx.settings.register(ONBOARDING_NAMESPACE, OnboardingSettingsSchema);
   applyDataTools(ctx, config.dataTools);
+  applyRuntimeGovernance(ctx, config.runtimeGovernance);
+  applyPermissionGovernance(ctx);
   ctx.effect(() => applyManagedWorkspaces(ctx, managedRoot), 'clawmaster: managed Workspace allocation');
   await ctx.effect(async () => {
     const store = await openEnterpriseStore(databasePath, config.busyTimeoutMs);

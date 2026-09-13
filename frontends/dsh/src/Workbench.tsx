@@ -1,7 +1,7 @@
 /** WatchDog task launcher and projection of the DSH Session list. */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import clawmasterIcon from './clawmaster.png';
+import clawmasterIcon from './clawmaster.svg';
 import { productCopy, type ProductLocale, type ProductModule } from './locales/frontend.ts';
 import type { SessionId } from './services.ts';
 import { ProductNavigationError, type WatchdogCadence } from './navigation.ts';

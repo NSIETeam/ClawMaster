@@ -18,10 +18,11 @@ test('packaging rejects upstream branding and artifacts changed after verificati
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const dist = join(root, 'apps/web/dist')
   mkdirSync(dist, { recursive: true })
-  const desktop = join(root, 'apps/desktop-tauri')
-  mkdirSync(desktop, { recursive: true })
-  const icon = readFileSync(new URL('../app-icon.png', import.meta.url))
-  writeFileSync(join(desktop, 'app-icon.png'), icon)
+  const frontend = join(root, 'frontends/dsh/src')
+  mkdirSync(frontend, { recursive: true })
+  const icon = readFileSync(new URL('../../../frontends/dsh/src/clawmaster.svg', import.meta.url), 'utf8')
+  const iconPath = join(frontend, 'clawmaster.svg')
+  writeFileSync(iconPath, icon)
   const manifest = {
     name: 'DeepSeek Harness', short_name: 'DSH', start_url: '/', display: 'fullscreen',
     icons: [{ src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
@@ -39,11 +40,22 @@ test('packaging rejects upstream branding and artifacts changed after verificati
   brandClawMasterWebAssets(root)
   assert.deepEqual(JSON.parse(readFileSync(manifestPath, 'utf8')), { ...manifest, name: 'ClawMaster', short_name: 'ClawMaster' })
   const favicon = readFileSync(join(dist, 'favicon.svg'), 'utf8')
-  const encoded = /href="data:image\/png;base64,([^"]+)"/u.exec(favicon)?.[1]
-  assert.ok(encoded)
-  assert.deepEqual(Buffer.from(encoded, 'base64'), icon)
+  assert.equal(favicon, icon)
   assert.doesNotMatch(favicon, /upstream-whale/u)
   assert.doesNotThrow(() => verifyClawMasterClient(root))
+  for (const replacement of [
+    '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:image/png;base64,cG5n"/></svg>',
+    '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1v1z"/><image href="app-icon.png"/></svg>',
+    '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1v1z"/><filter><feImage href="app-icon.png"/></filter></svg>',
+    '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1v1z"/><foreignObject><img src="app-icon.png"/></foreignObject></svg>',
+    '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1v1z"/><style>svg{background:url(data:image/png;base64,cG5n)}</style></svg>',
+  ]) {
+    writeFileSync(iconPath, replacement)
+    assert.throws(() => brandClawMasterWebAssets(root), /SVG paths without embedded or linked images/u)
+    assert.throws(() => verifyClawMasterClient(root), /SVG paths without embedded or linked images/u)
+    assert.equal(readFileSync(join(dist, 'favicon.svg'), 'utf8'), icon)
+  }
+  writeFileSync(iconPath, icon)
   writeFileSync(index, '<title>Stale build</title>')
   assert.throws(() => verifyClawMasterClient(root), /artifacts differ/)
 })

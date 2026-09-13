@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 ClawMaster's Rust/WebView shell over the existing `dsh web` runtime. The installer ships **harness source** without `node_modules`; first run scans the host for compatible Node.js and pnpm installations and an existing `~/.dsh` home, downloads missing Node.js or pnpm, then installs production dependencies against the bundled tree. Application metadata, the splash, notifications, and Web UI use the ClawMaster name, icon, and slogan “开启AI时代的企业协作”.
 
-Desktop package version: **0.2.0-beta.1**. `build:harness` selects the ClawMaster client profile, sets the browser title before plugins load, and projects the existing product icon into the built favicon and PWA manifest. It records the resulting client digest; packaging rejects a different title, profile, manifest name, icon, or digest. Upstream Web asset sources retain their default branding.
+Desktop package version: **0.2.0-beta.2**. `build:harness` selects the ClawMaster client profile, sets the browser title before plugins load, and projects the existing product icon into the built favicon and PWA manifest. It records the resulting client digest; packaging rejects a different title, profile, manifest name, icon, or digest. Upstream Web asset sources retain their default branding.
 
 The Tauri package is `@deepseek-ai/dsh-desktop-tauri`, independent of upstream Electron. The Host launch URL passes only in memory to a separate WebView, where upstream authentication issues the login cookie. Application commands belong to the local shell; loopback Host content receives only window dragging and double-click maximization permissions. Boot logs omit the launch token. The trimmed bundle includes `native/system` and permits unused development-tool patches only in that tree; patch application failures still stop installation.
 
@@ -129,7 +129,7 @@ pnpm install
 pnpm run build:win
 ```
 
-Installer output: `src-tauri/target/release/bundle/nsis/ClawMaster_0.2.0-beta.1_x64-setup.exe`
+Installer output: `src-tauri/target/release/bundle/nsis/ClawMaster_0.2.0-beta.2_x64-setup.exe`
 
 The NSIS installer bundles **English**, **Simplified Chinese**, and **Traditional Chinese**. Language follows the OS locale automatically (no language picker); if the locale is unsupported, English is used. Native splash, tray, close-dialog, and splash-status copy follow the same rule (`zh*` → Chinese, otherwise English). The embedded `dsh web` client keeps its own Settings language. Before copying files, the installer silently closes `dsh-desktop.exe` and its child process tree. After installation, it recreates an existing desktop shortcut with the versioned standalone ICO resource and notifies Explorer to invalidate stale icon cache entries.
 
@@ -139,12 +139,16 @@ Pushing a `desktop-v*` tag runs [the desktop release workflow](../../.github/wor
 
 Release assets belong to the public [ClawMaster-Desktop repository](https://github.com/NSIETeam/ClawMaster-Desktop/releases) and include the operating system and architecture in their names. Tauri updater signatures authenticate downloaded artifacts with the configured updater key. macOS ad-hoc signing checks bundle integrity without certifying a developer identity; it does not include Apple notarization. Windows packages have no publisher certificate.
 
-The desktop icon set uses the artwork in [app-icon.png](app-icon.png), matching the [frontend mark](../../frontends/dsh/src/clawmaster.png). The Tauri bundle, installer/uninstaller, splash, taskbar, Dock, Linux desktop entry, and built Web favicon use that artwork. macOS hides native title text; the shell draws no separate title row. Windows installation also includes a version-qualified ICO file so shortcut icon lookup does not reuse an older executable-path cache key.
+The [frontend SVG](../../frontends/dsh/src/clawmaster.svg) is the shared artwork for the application, splash and Web favicon; the favicon preserves its exact bytes. The [icon generator](scripts/generate-icons.mjs) creates native icon formats from this vector source during desktop preparation. Desktop branding verification rejects embedded or linked images inside the SVG. The [original PNG](../../frontends/dsh/src/clawmaster.png) remains a visual reference. macOS hides native title text; the shell draws no separate title row. Windows installation also includes a version-qualified ICO file so shortcut icon lookup does not reuse an older executable-path cache key.
 
-Bundle only (no Tauri):
+[Build provenance](scripts/build-provenance.mjs) binds the complete harness build and product preparation to a full Git commit, committed tree, working-source SHA-256 and relative dirty-file list. Preparation rejects source changes or replaced Host, client and frontend artifacts after compilation. The default `development` mode produces an explicit development build ID, including `dirty` when source differs. `DSH_DESKTOP_BUILD_MODE=release` requires clean source and release-mode records throughout the workflow. Generated native icon files are verified build outputs rather than source inputs; their platform encoders can change bytes without changing the SVG. A source change requires another complete `build:harness` before `prepare:dist`.
+
+The payload's `.bundle-manifest.json` includes `desktopVersion` and `buildProvenance`; the matching `.build-provenance.json` participates in `contentSha256`. The installer carries these records without `.git`. Each platform's `*-build.json` release attachment identifies its source and artifacts, and publication checks its commit, tree, version and clean release mode against the tag. The provenance checks run in `test:bundle`.
+
+Prepare the payload without compiling the native shell, after `build:harness` and Office resource preparation:
 
 ```powershell
-node scripts/bundle-harness-source.mjs
+node scripts/prepare-dist.mjs
 ```
 
 ## Run
@@ -161,6 +165,8 @@ pnpm run dev
 **Installed app:** use the package for your system from GitHub Releases. First launch shows the splash while it scans the host, selects an existing DSH home, and installs missing tools or dependencies before opening the Web UI.
 
 ## Scripts
+
+The native Host writes `$DSH_HOME/desktop/current-runtime.json` after readiness and marks its own record stopped on normal exit. The record includes the bundle digest, source provenance, process identity and observation time; provisioning metadata and memory entries are not live-state authorities. The frontend's `runtime_status` tool reads this file afresh and requires the current Host PID, refusing stopped, missing or malformed records. Historical observations retain their dates. Empty unregistered generation directories do not consume the three rollback slots; registered Workspace directories remain protected. WSL and source-development launches do not publish this native identity record.
 
 | Script | Purpose |
 |---|---|
