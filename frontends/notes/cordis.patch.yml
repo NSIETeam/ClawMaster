@@ -1,0 +1,5 @@
+# Built-in ClawMaster Notes: a self-contained Markdown vault with an
+# authenticated Fetch surface and approval-gated agent tools.
+- insert:
+    - id: clawmaster-notes
+      name: '@clawmaster/dsh-notes'
