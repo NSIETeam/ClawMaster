@@ -45,9 +45,12 @@ const post = (path, body, contentType = 'application/json') => new Request(`http
 
 describe('default vault root', () => {
   it('is a real documents folder, never runtime state', () => {
-    assert.equal(defaultVaultRoot('darwin', '/Users/x'), '/Users/x/Documents/ClawMaster 笔记');
-    assert.equal(defaultVaultRoot('linux', '/home/x'), '/home/x/ClawMasterNotes');
-    for (const value of [defaultVaultRoot('darwin', '/Users/x'), defaultVaultRoot('linux', '/home/x')]) {
+    const home = join(tmpdir(), 'clawmaster-default-vault-user');
+    assert.equal(defaultVaultRoot('darwin', home), join(home, 'Documents', 'ClawMaster 笔记'));
+    assert.equal(defaultVaultRoot('linux', home), join(home, 'ClawMasterNotes'));
+    assert.equal(defaultVaultRoot('win32', home), join(home, 'ClawMasterNotes'));
+    for (const platform of ['darwin', 'linux', 'win32']) {
+      const value = defaultVaultRoot(platform, home);
       assert.ok(!value.includes('.dsh'));
       assert.ok(!value.includes('harness-versions'));
     }
