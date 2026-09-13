@@ -1,8 +1,10 @@
 import type { ChatNode } from '../contract/chat-nodes.ts'
+import { isSettledTool } from '../contract/chat-nodes.ts'
 import type {
   ChatLocationNodeIndex, ChatNodeStore, ChatTurnProcessPresentation,
 } from '../contract/snapshot.ts'
-import { TURN_PROCESS_INDEPENDENT_KINDS } from '../contract/turn-process.ts'
+import { TURN_PROCESS_INDEPENDENT_KINDS, sameTurnProcessActivity } from '../contract/turn-process.ts'
+import type { TurnProcessActivity } from '../contract/turn-process.ts'
 
 function nodeTurn(node: ChatNode | undefined): number | undefined {
   const location = node?.location
@@ -18,7 +20,37 @@ function samePresentation(
     && left.turn === right.turn
     && left.turnClosed === right.turnClosed
     && left.hasExternalProcess === right.hasExternalProcess
-    && left.compactAnswer === right.compactAnswer)
+    && left.compactAnswer === right.compactAnswer
+    && left.running === right.running
+    && left.openingHumanAnchor === right.openingHumanAnchor
+    && left.liveAnswerKey === right.liveAnswerKey
+    && sameTurnProcessActivity(left.activity, right.activity))
+}
+
+/**
+ * Describe what one folded process node is doing, for the running row's action
+ * line. Kinds without a readable action return null and publish no line.
+ * @param node - newest folded process node.
+ * @returns the activity, or null when the node carries none.
+ */
+function activityOf(node: ChatNode | undefined): TurnProcessActivity | null {
+  if (node === undefined) return null
+  if (node.kind === 'tool-call') {
+    const root = node.data.root
+    // A settled row keeps its name on the backfilled call head, which is null
+    // when window truncation left the call itself outside the window.
+    return { kind: 'tool', name: isSettledTool(root) ? root.call?.name ?? null : root.name }
+  }
+  if (node.kind === 'context') return { kind: 'context' }
+  if (node.kind !== 'assistant-step') return null
+  const blocks = node.data.blocks
+  for (let index = blocks.length - 1; index >= 0; index -= 1) {
+    const block = blocks[index]
+    if (block === undefined) continue
+    if (block.kind === 'reasoning' && block.text.trim() !== '') return { kind: 'reasoning' }
+    if (block.kind === 'text' && block.text.trim() !== '') return { kind: 'message' }
+  }
+  return null
 }
 
 function derivePresentation(
@@ -44,6 +76,8 @@ function derivePresentation(
     }
   }
 
+  const running = location.turn.status !== 'closed'
+  const members: ChatNode[] = []
   let hasExternalProcess = false
   let compactAnswer = true
   for (const key of keys) {
@@ -60,13 +94,37 @@ function derivePresentation(
     if (node.kind !== 'assistant-step' || spec.answerStep === null || node.data.step !== spec.answerStep) {
       hasExternalProcess = true
     }
+    members.push(node)
+  }
+  // While the Turn runs, only its latest step can be the answer in progress: a
+  // node for an earlier step has already been folded away, and the in-flight
+  // step often has no node yet because it still renders as the partial tail.
+  let liveAnswer: ChatNode | undefined
+  if (running) {
+    const latestStep = location.turn.steps.at(-1)
+    if (latestStep !== undefined) {
+      for (const node of members) {
+        if (node.kind !== 'assistant-step' || node.data.step !== latestStep.step) continue
+        if (liveAnswer === undefined || node.anchorSeq > liveAnswer.anchorSeq) liveAnswer = node
+      }
+    }
+  }
+  // The action line describes the newest evidence that actually folded away.
+  let newest: ChatNode | undefined
+  for (const node of members) {
+    if (node === liveAnswer) continue
+    if (newest === undefined || node.anchorSeq > newest.anchorSeq) newest = node
   }
   return {
     turn,
     spec,
-    turnClosed: location.turn.status === 'closed',
+    turnClosed: !running,
     hasExternalProcess,
     compactAnswer,
+    running,
+    openingHumanAnchor,
+    activity: running ? activityOf(newest) : null,
+    liveAnswerKey: liveAnswer?.key ?? null,
   }
 }
 

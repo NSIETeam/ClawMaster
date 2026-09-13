@@ -17,8 +17,32 @@ export interface TurnProcessSpec {
   readonly subagentCount: number
 }
 
+/**
+ * Newest folded process evidence, shown beside the running disclosure label so
+ * a reader can tell what the Turn is doing without expanding it.
+ */
+export type TurnProcessActivity =
+  | { readonly kind: 'reasoning' }
+  | { readonly kind: 'message' }
+  | { readonly kind: 'tool'; readonly name: string | null }
+  | { readonly kind: 'context' }
+
+/**
+ * Compare two running-activity values by their published fields.
+ * @param left - previous activity, or null when none is published.
+ * @param right - next activity, or null.
+ * @returns whether both describe the same activity line.
+ */
+export function sameTurnProcessActivity(
+  left: TurnProcessActivity | null,
+  right: TurnProcessActivity | null,
+): boolean {
+  if (left === right) return true
+  if (left === null || right === null || left.kind !== right.kind) return false
+  return left.kind !== 'tool' || right.kind !== 'tool' || left.name === right.name
+}
+
 const TURN_PROCESS_INDEPENDENT_KIND_LIST = [
-  'system-prompt',
   'user',
   'steering',
   'turn-process',
@@ -27,7 +51,11 @@ const TURN_PROCESS_INDEPENDENT_KIND_LIST = [
   'turn-tail',
 ] as const satisfies readonly ChatNode['kind'][]
 
-/** Chat Node kinds that remain independent of a Turn's process disclosure. */
+/**
+ * Chat Node kinds that remain independent of a Turn's process disclosure.
+ * A workspace or system prompt is deliberately absent: it is process evidence
+ * like any injected context, so folding a Turn leaves exactly one summary row.
+ */
 export const TURN_PROCESS_INDEPENDENT_KINDS: ReadonlySet<string> = new Set(
   TURN_PROCESS_INDEPENDENT_KIND_LIST,
 )
