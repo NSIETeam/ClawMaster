@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
-import { mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createInterface } from 'node:readline'
 import test from 'node:test'
 
@@ -120,8 +120,8 @@ async function stopHost(host, graceTimeoutMs = SHUTDOWN_TIMEOUT_MS) {
 }
 
 // 使用安装过生产依赖的裁剪包，验证全新主目录不会借用用户已有的 profile。
-test('裁剪包在全新主目录加载默认插件，企业数据通过认证并跨 Host 重启持久化', {
-  timeout: 2 * STARTUP_TIMEOUT_MS + 20 * REQUEST_TIMEOUT_MS + 4 * SHUTDOWN_TIMEOUT_MS + 10000,
+test('裁剪包在全新主目录加载默认插件，企业数据与笔记通过认证并跨 Host 重启持久化', {
+  timeout: 2 * STARTUP_TIMEOUT_MS + 40 * REQUEST_TIMEOUT_MS + 4 * SHUTDOWN_TIMEOUT_MS + 10000,
 }, async context => {
   const root = resolve(process.env.DSH_DESKTOP_SMOKE_ROOT
     ?? fileURLToPath(new URL('../bundled/harness', import.meta.url)))
@@ -131,14 +131,16 @@ test('裁剪包在全新主目录加载默认插件，企业数据通过认证�
   let previousPort
   try {
     const patch = join(home, 'smoke.patch.yml')
-    await writeFile(patch, '[]\n')
+    const notesRoot = join(await realpath(home), 'notes-vault')
+    // Notes defaults to the real Documents folder, independently of DSH_HOME.
+    await writeFile(patch, `${JSON.stringify([{ id: 'clawmaster-notes', config: { vaultRoot: notesRoot } }])}\n`)
     const environment = Object.fromEntries(Object.entries(process.env)
       .filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD/i.test(name)))
     const request = (url, options) => fetch(url, {
       ...options, signal: AbortSignal.any([context.signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]),
     })
     const start = async () => {
-      const child = spawn(process.execPath, ['--import', join(root, 'desktop-defaults.mjs'),
+      const child = spawn(process.execPath, ['--import', pathToFileURL(join(root, 'desktop-defaults.mjs')).href,
         join(root, 'apps/cli/lib/bin.js'), 'web',
         '--patch', patch, '--no-open', '--host', '127.0.0.1', '--port', '0'], {
         cwd: root, env: { ...environment, DSH_HOME: home, DSH_DESKTOP_DEFAULTS: '1', NODE_ENV: 'production' },
@@ -164,13 +166,25 @@ test('裁剪包在全新主目录加载默认插件，企业数据通过认证�
     assert.equal(title, 'ClawMaster')
     const serializedGraph = html.match(/<script>globalThis\["__DSH_BOOT__"\] = (.*?)<\/script>/s)?.[1]
     assert.ok(serializedGraph, '首页必须提供客户端启动图')
-    const entries = new Set(JSON.parse(serializedGraph).entries.map(entry => entry.id))
-    for (const name of ['@xmanrui/dsh-im', 'dsh-better-sidebar', '@clawmaster/dsh-frontend', '@clawmaster/dsh-office']) {
+    const graph = JSON.parse(serializedGraph)
+    const entries = new Set(graph.entries.map(entry => entry.id))
+    for (const name of ['@xmanrui/dsh-im', 'dsh-better-sidebar', '@clawmaster/dsh-frontend', '@clawmaster/dsh-notes', '@clawmaster/dsh-office']) {
       assert.ok(entries.has(name), `全新主目录缺少默认客户端插件：${name}`)
     }
     const snapshotPath = '/api/clawmaster/enterprise'
     const commandPath = '/api/clawmaster/enterprise/command'
     const workspacePath = '/api/clawmaster/workspace'
+    const notesTreePath = '/api/clawmaster/notes/tree'
+    const notesCommandPath = '/api/clawmaster/notes/command'
+    const noteId = '验收/冷启动 #1.md'
+    const noteText = '# 冷启动验收\n\n仅临时笔记库。\n'
+    const editedNoteText = `${noteText}\n已保存的修改。\n`
+    const createNote = { request: { action: 'create', id: noteId, text: noteText } }
+    const noteUrl = base => {
+      const url = new URL('/api/clawmaster/notes/note', base)
+      url.searchParams.set('id', noteId)
+      return url
+    }
     const managedRoot = join(await realpath(home), 'watchdog-workspaces')
     const contact = {
       id: 'smoke-contact', name: '验收联系人', company: '验收企业', stage: 'lead',
@@ -183,7 +197,17 @@ test('裁剪包在全新主目录加载默认插件，企业数据通过认证�
     assert.equal((await request(new URL(snapshotPath, first.base))).status, 401)
     assert.equal((await post(first.base, commandPath, command)).status, 401)
     assert.equal((await post(first.base, workspacePath, { kind: 'task' })).status, 401)
+    assert.equal((await request(new URL(notesTreePath, first.base))).status, 401)
+    assert.equal((await request(noteUrl(first.base))).status, 401)
+    assert.equal((await post(first.base, notesCommandPath, createNote)).status, 401)
     const authenticated = { cookie: first.cookie, origin: new URL(first.base).origin }
+    const notesEntry = graph.entries.find(entry => entry.id === '@clawmaster/dsh-notes')
+    const notesScriptUrl = new URL(notesEntry.url, first.base)
+    assert.equal(notesScriptUrl.origin, new URL(first.base).origin)
+    const notesScript = await request(notesScriptUrl, { headers: authenticated })
+    assert.equal(notesScript.status, 200)
+    assert.match(notesScript.headers.get('content-type'), /javascript/)
+    assert.match(await notesScript.text(), /window\.__ModuleLoader__\.load\(\{ id: "@clawmaster\/dsh-notes"/)
     const officeUrl = new URL('/clawmaster/office/runtime/index.html', first.base)
     assert.equal((await request(officeUrl)).status, 401)
     const office = await request(officeUrl, { headers: authenticated })
@@ -191,11 +215,43 @@ test('裁剪包在全新主目录加载默认插件，企业数据通过认证�
     assert.match(office.headers.get('content-security-policy'), /connect-src 'self'/)
     assert.match(await office.text(), /frame\.js/)
     const crossOrigin = { cookie: first.cookie, origin: 'https://cross-origin.invalid' }
-    for (const [path, value] of [[commandPath, command], [workspacePath, { kind: 'task' }]]) {
+    for (const [path, value] of [[commandPath, command], [workspacePath, { kind: 'task' }], [notesCommandPath, createNote]]) {
       const denied = await post(first.base, path, value, crossOrigin)
       assert.equal(denied.status, 403)
       assert.equal(await denied.text(), 'forbidden')
     }
+    const notesTree = await request(new URL(notesTreePath, first.base), { headers: authenticated })
+    assert.equal(notesTree.status, 200)
+    assert.equal(notesTree.headers.get('cache-control'), 'no-store')
+    const initialNotes = await notesTree.json()
+    assert.equal(initialNotes.vault, notesRoot)
+    assert.deepEqual(initialNotes.notes.map(note => note.id), ['欢迎.md'])
+    const createdNote = await post(first.base, notesCommandPath, createNote, authenticated)
+    assert.equal(createdNote.status, 200)
+    const creation = await createdNote.json()
+    assert.match(creation.revision, /^sha256-[0-9a-f]{64}$/)
+    assert.deepEqual(creation, { action: 'create', id: noteId, revision: creation.revision, previousRevision: null })
+    const loadedNote = await request(noteUrl(first.base), { headers: authenticated })
+    assert.equal(loadedNote.status, 200)
+    const originalNote = await loadedNote.json()
+    assert.equal(originalNote.id, noteId)
+    assert.equal(originalNote.text, noteText)
+    assert.equal(originalNote.revision, creation.revision)
+    const saveNote = { request: { action: 'save', id: noteId, text: editedNoteText, expectedRevision: creation.revision } }
+    const savedNote = await post(first.base, notesCommandPath, saveNote, authenticated)
+    assert.equal(savedNote.status, 200)
+    const noteChange = await savedNote.json()
+    assert.match(noteChange.revision, /^sha256-[0-9a-f]{64}$/)
+    assert.notEqual(noteChange.revision, creation.revision)
+    assert.deepEqual(noteChange, { action: 'save', id: noteId, revision: noteChange.revision, previousRevision: creation.revision })
+    const staleNote = await post(first.base, notesCommandPath, {
+      request: { ...saveNote.request, text: '过期修改不得覆盖已保存内容。' },
+    }, authenticated)
+    assert.equal(staleNote.status, 409)
+    const conflict = await staleNote.json()
+    assert.equal(conflict.error.code, 'conflict')
+    assert.equal(conflict.error.currentRevision, noteChange.revision)
+    assert.equal(await readFile(join(notesRoot, noteId), 'utf8'), editedNoteText)
     const initial = await request(new URL(snapshotPath, first.base), { headers: authenticated })
     assert.equal(initial.status, 200)
     assert.equal(initial.headers.get('cache-control'), 'no-store')
@@ -242,6 +298,24 @@ test('裁剪包在全新主目录加载默认插件，企业数据通过认证�
     assert.equal(restored.status, 200)
     assert.deepEqual(await restored.json(), expected)
     assert.deepEqual(await allocate('tools', second), desk)
+    const secondAuthenticated = { cookie: second.cookie, origin: new URL(second.base).origin }
+    const restoredNote = await request(noteUrl(second.base), { headers: secondAuthenticated })
+    assert.equal(restoredNote.status, 200)
+    const persistedNote = await restoredNote.json()
+    assert.equal(persistedNote.text, editedNoteText)
+    assert.equal(persistedNote.revision, noteChange.revision)
+    const deletedNote = await post(second.base, notesCommandPath, {
+      request: { action: 'delete', id: noteId },
+    }, secondAuthenticated)
+    assert.equal(deletedNote.status, 200)
+    assert.deepEqual(await deletedNote.json(), {
+      action: 'delete', id: noteId, revision: null, previousRevision: noteChange.revision,
+    })
+    assert.equal((await request(noteUrl(second.base), { headers: secondAuthenticated })).status, 404)
+    await assert.rejects(stat(join(notesRoot, noteId)), { code: 'ENOENT' })
+    const remainingNotes = await request(new URL(notesTreePath, second.base), { headers: secondAuthenticated })
+    assert.equal(remainingNotes.status, 200)
+    assert.deepEqual((await remainingNotes.json()).notes.map(note => note.id), ['欢迎.md'])
     assert.equal(host.child.signalCode, null)
     assert.equal(host.child.exitCode, null)
   } catch (error) {

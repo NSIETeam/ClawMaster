@@ -18,6 +18,7 @@ export const DESKTOP_BUNDLES = Object.freeze([
   ...Object.keys(DESKTOP_PLUGIN_VERSIONS),
   '@clawmaster/dsh-desktop-policy',
   '@clawmaster/dsh-frontend',
+  '@clawmaster/dsh-notes',
   '@clawmaster/dsh-office',
 ])
 

@@ -4,7 +4,7 @@
 
 这是 ClawMaster 基于现有 `dsh web` 运行时的 Rust/WebView 外壳。安装包携带 **Harness 源码**，不包含 `node_modules`；首次运行扫描本机兼容的 Node.js、pnpm 和已有的 `~/.dsh` 主目录，下载缺失的 Node.js 或 pnpm，再对安装包内的源码树安装生产依赖。应用元数据、启动页、通知和 Web 界面使用 ClawMaster 名称、图标与口号“开启AI时代的企业协作”。
 
-桌面包版本：**0.2.0-beta.2**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
+桌面包版本：**0.2.0-beta.3**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
 
 Tauri 包名为 `@deepseek-ai/dsh-desktop-tauri`，与上游 Electron 应用独立。Host 启动地址只在内存中传给独立 WebView，由上游认证流程签发登录 cookie。应用命令归本地外壳所有；回环 Host 内容仅获得窗口拖动与双击最大化权限。启动日志不记录认证令牌。裁剪包包含 `native/system`，并仅在裁剪树中允许开发工具补丁未使用；实际补丁应用失败仍会阻止安装。
 
@@ -27,7 +27,7 @@ Windows 桌面只交付一个安装包、一个桌面二进制和同一个 Web �
 
 安装包内的源码树包括已构建的 `apps/cli/lib` 与 `apps/web/dist`、除 examples 与 test-support 外的 `packages/*/*`、`native/system`、`vendor/*`、补丁与生产 lockfile。复制时排除依赖和开发目录，即使复制根目录本身就是 `node_modules`；workspace 的 `devDependencies` 也会移除，不改写不可变 Office 运行资源及其对应源码。`assertPreparedBundle` 在交付前拒绝被排除目录、符号链接及与准备 manifest 不一致的安装内容摘要。
 
-安装包包含已构建的 `frontends/dsh` 及下表中的精确版本插件。原生与 WSL 启动在 `dsh web` 前预加载 [desktop-defaults.mjs](scripts/desktop-defaults.mjs)，校验产物并追加缺失的 Web profile 组合包，保留现有依赖和用户补丁。源码 checkout 的 `dev:local` 跳过此安装专属预加载。插件安装内容复用当前 DSH workspace 依赖，避免预发行 peer 范围自动安装另一版核心。
+安装包包含已构建的 `frontends/dsh` 及下表中的精确版本插件。原生与 WSL 启动在 `dsh web` 前预加载 [desktop-defaults.mjs](scripts/desktop-defaults.mjs)，校验产物并追加缺失的 Web profile 组合包，保留现有依赖和用户补丁。原生启动要求预加载模块使用绝对路径，将其转换为 `file:` URL；转换失败时在启动 Node 前报告错误；[预加载决策](../../.agents/notes/implemented/bug-fix/2026-09-13-desktop-node-preload-file-url.zh.md)说明 Windows 与文件名编码要求。源码 checkout 的 `dev:local` 跳过此安装专属预加载。插件安装内容复用当前 DSH workspace 依赖，避免预发行 peer 范围自动安装另一版核心。
 
 | 插件 | 桌面默认行为 |
 | --- | --- |
@@ -132,7 +132,7 @@ pnpm install
 pnpm run build:win
 ```
 
-安装包输出：`src-tauri/target/release/bundle/nsis/ClawMaster_0.2.0-beta.2_x64-setup.exe`
+安装包输出：`src-tauri/target/release/bundle/nsis/ClawMaster_0.2.0-beta.3_x64-setup.exe`
 
 NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语言自动跟随操作系统 locale，不显示语言选择器；不支持的 locale 使用英语。原生启动页、托盘、关闭对话框和启动状态文案遵循同一规则（`zh*` 用中文，其余用英语）。嵌入的 `dsh web` 客户端仍使用自己的 Settings 语言。复制文件前，安装器会静默关闭 `dsh-desktop.exe` 及其子进程树。安装后，安装器使用独立的版本化 ICO 资源重建已有桌面快捷方式，并通知 Explorer 清除陈旧的图标缓存记录。
 

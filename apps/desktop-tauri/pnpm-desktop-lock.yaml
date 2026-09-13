@@ -284,6 +284,9 @@ importers:
       '@clawmaster/dsh-frontend':
         specifier: workspace:*
         version: link:../../frontends/dsh
+      '@clawmaster/dsh-notes':
+        specifier: workspace:*
+        version: link:../../frontends/notes
       '@clawmaster/dsh-office':
         specifier: workspace:*
         version: link:../../frontends/office
@@ -1116,6 +1119,24 @@ importers:
       papaparse:
         specifier: 5.7.0
         version: 5.7.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  frontends/notes:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: link:../../vendor/cordis
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: link:../../packages/util/atomic-write
+        version: link:../../packages/util/atomic-write
+      '@deepseek-ai/dsh-tools':
+        specifier: link:../../packages/core/tools
+        version: link:../../packages/core/tools
+      '@deepseek-ai/dsh-user-approval':
+        specifier: link:../../packages/interaction/user-approval
+        version: link:../../packages/interaction/user-approval
       zod:
         specifier: 4.4.3
         version: 4.4.3

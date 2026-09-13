@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 ClawMaster's Rust/WebView shell over the existing `dsh web` runtime. The installer ships **harness source** without `node_modules`; first run scans the host for compatible Node.js and pnpm installations and an existing `~/.dsh` home, downloads missing Node.js or pnpm, then installs production dependencies against the bundled tree. Application metadata, the splash, notifications, and Web UI use the ClawMaster name, icon, and slogan “开启AI时代的企业协作”.
 
-Desktop package version: **0.2.0-beta.2**. `build:harness` selects the ClawMaster client profile, sets the browser title before plugins load, and projects the existing product icon into the built favicon and PWA manifest. It records the resulting client digest; packaging rejects a different title, profile, manifest name, icon, or digest. Upstream Web asset sources retain their default branding.
+Desktop package version: **0.2.0-beta.3**. `build:harness` selects the ClawMaster client profile, sets the browser title before plugins load, and projects the existing product icon into the built favicon and PWA manifest. It records the resulting client digest; packaging rejects a different title, profile, manifest name, icon, or digest. Upstream Web asset sources retain their default branding.
 
 The Tauri package is `@deepseek-ai/dsh-desktop-tauri`, independent of upstream Electron. The Host launch URL passes only in memory to a separate WebView, where upstream authentication issues the login cookie. Application commands belong to the local shell; loopback Host content receives only window dragging and double-click maximization permissions. Boot logs omit the launch token. The trimmed bundle includes `native/system` and permits unused development-tool patches only in that tree; patch application failures still stop installation.
 
@@ -26,7 +26,7 @@ Windows desktop ships one installer, one desktop binary, and one Web client (`ds
 
 The bundled tree includes built `apps/cli/lib` and `apps/web/dist`, `packages/*/*` excluding examples and test-support, `native/system`, `vendor/*`, patches, and the production lockfile. Copying excludes dependency and development directories even when the copy root itself is `node_modules`; workspace `devDependencies` are stripped without rewriting the immutable Office runtime or its corresponding sources. `assertPreparedBundle` rejects excluded directories, symbolic links, and payload digests that differ from the prepared manifest before the tree can ship.
 
-The installation includes the built `frontends/dsh` package and the exact plugin versions below. Native and WSL launches preload [desktop-defaults.mjs](scripts/desktop-defaults.mjs) before `dsh web`, validate artifacts, and append missing Web profile bundles while preserving existing dependencies and user patches. Source-checkout `dev:local` skips this installation-specific preload. Installed plugins reuse the current DSH workspace dependencies, preventing prerelease peer ranges from installing another core version.
+The installation includes the built `frontends/dsh` package and the exact plugin versions below. Native and WSL launches preload [desktop-defaults.mjs](scripts/desktop-defaults.mjs) before `dsh web`, validate artifacts, and append missing Web profile bundles while preserving existing dependencies and user patches. Native launch requires an absolute preload path, converts it to a `file:` URL, and reports conversion failure before starting Node; the [preload decision](../../.agents/notes/implemented/bug-fix/2026-09-13-desktop-node-preload-file-url.md) explains the Windows and filename-encoding requirements. Source-checkout `dev:local` skips this installation-specific preload. Installed plugins reuse the current DSH workspace dependencies, preventing prerelease peer ranges from installing another core version.
 
 | Plugin | Desktop default |
 | --- | --- |
@@ -129,7 +129,7 @@ pnpm install
 pnpm run build:win
 ```
 
-Installer output: `src-tauri/target/release/bundle/nsis/ClawMaster_0.2.0-beta.2_x64-setup.exe`
+Installer output: `src-tauri/target/release/bundle/nsis/ClawMaster_0.2.0-beta.3_x64-setup.exe`
 
 The NSIS installer bundles **English**, **Simplified Chinese**, and **Traditional Chinese**. Language follows the OS locale automatically (no language picker); if the locale is unsupported, English is used. Native splash, tray, close-dialog, and splash-status copy follow the same rule (`zh*` → Chinese, otherwise English). The embedded `dsh web` client keeps its own Settings language. Before copying files, the installer silently closes `dsh-desktop.exe` and its child process tree. After installation, it recreates an existing desktop shortcut with the versioned standalone ICO resource and notifies Explorer to invalidate stale icon cache entries.
 

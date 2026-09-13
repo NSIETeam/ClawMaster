@@ -1,0 +1,19 @@
+{
+  "bundle": {
+    "resources": {
+      "../bundled/harness": null
+    },
+    "linux": {
+      "appimage": {
+        "files": {
+          "/usr/share/ClawMaster/harness-source": "../bundled/harness"
+        }
+      },
+      "deb": {
+        "files": {
+          "/usr/share/ClawMaster/harness-source": "../bundled/harness"
+        }
+      }
+    }
+  }
+}

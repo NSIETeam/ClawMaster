@@ -1,0 +1,74 @@
+/** Notes copy in both product locales. */
+export type NotesLocale = 'zh-CN' | 'en-US';
+
+/** Every string the notes panel renders. */
+export interface NotesCopy {
+  tab: string;
+  tabDescription: string;
+  vault: string;
+  newNote: string;
+  noteName: string;
+  create: string;
+  cancel: string;
+  search: string;
+  searchPlaceholder: string;
+  results: string;
+  noResults: string;
+  edit: string;
+  preview: string;
+  save: string;
+  saving: string;
+  saved: string;
+  dirty: string;
+  conflict: string;
+  conflictReload: string;
+  reloadConfirm: string;
+  invalidRevision: string;
+  backlinks: string;
+  noBacklinks: string;
+  tags: string;
+  noTags: string;
+  empty: string;
+  open: string;
+  delete: string;
+  deleteConfirm: string;
+  missingTarget: string;
+  loading: string;
+  error: string;
+  dismiss: string;
+  unsaved: string;
+}
+
+const copy: Record<NotesLocale, NotesCopy> = {
+  'zh-CN': {
+    tab: '笔记', tabDescription: '内置 Markdown 笔记库：双向链接、反链、标签与全文搜索',
+    vault: '笔记库', newNote: '新建笔记', noteName: '笔记名称', create: '创建', cancel: '取消',
+    search: '搜索笔记', searchPlaceholder: '输入关键词…', results: '搜索结果', noResults: '没有匹配的笔记',
+    edit: '编辑', preview: '预览', save: '保存', saving: '保存中…', saved: '已保存', dirty: '未保存',
+    conflict: '笔记已在其他位置修改。本地草稿已保留，磁盘内容未覆盖。', conflictReload: '重新载入',
+    reloadConfirm: '重新载入磁盘版本会放弃这篇笔记的本地草稿。继续吗？',
+    invalidRevision: '保存结果缺少笔记版本，请保留草稿并重试。',
+    backlinks: '反向链接', noBacklinks: '暂无反向链接', tags: '标签', noTags: '暂无标签',
+    empty: '这个笔记库还是空的，先创建一篇笔记。', open: '打开', delete: '删除',
+    deleteConfirm: '确定删除这篇笔记？此操作不可恢复。', missingTarget: '链接的目标笔记不存在',
+    loading: '载入中…', error: '操作失败', dismiss: '知道了', unsaved: '有未保存的修改',
+  },
+  'en-US': {
+    tab: 'Notes', tabDescription: 'Built-in Markdown vault: wiki links, backlinks, tags and search',
+    vault: 'Vault', newNote: 'New note', noteName: 'Note name', create: 'Create', cancel: 'Cancel',
+    search: 'Search notes', searchPlaceholder: 'Type a keyword…', results: 'Results', noResults: 'No matching notes',
+    edit: 'Edit', preview: 'Preview', save: 'Save', saving: 'Saving…', saved: 'Saved', dirty: 'Unsaved',
+    conflict: 'This note changed elsewhere. Your draft is retained and the file was not overwritten.', conflictReload: 'Reload',
+    reloadConfirm: 'Reloading the file discards this note’s local draft. Continue?',
+    invalidRevision: 'The save response has no note revision. Keep your draft and try again.',
+    backlinks: 'Backlinks', noBacklinks: 'No backlinks yet', tags: 'Tags', noTags: 'No tags yet',
+    empty: 'This vault is empty. Create the first note.', open: 'Open', delete: 'Delete',
+    deleteConfirm: 'Delete this note? This cannot be undone.', missingTarget: 'The linked note does not exist',
+    loading: 'Loading…', error: 'The operation failed', dismiss: 'Dismiss', unsaved: 'Unsaved changes',
+  },
+};
+
+/** Copy for one locale. */
+export function notesCopy(locale: NotesLocale): NotesCopy {
+  return copy[locale];
+}

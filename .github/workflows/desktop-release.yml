@@ -9,7 +9,7 @@ on:
       tag:
         description: Existing desktop-v* tag to rebuild and publish
         required: true
-        default: desktop-v0.2.0-beta.2
+        default: desktop-v0.2.0-beta.3
 
 permissions:
   contents: read
@@ -98,12 +98,21 @@ jobs:
         run: |
           npm ci --prefix frontends/dsh --ignore-scripts
           npm ci --prefix frontends/office --ignore-scripts
+          npm ci --prefix frontends/notes --ignore-scripts
+
+      - name: Verify Notes storage, approval and rendered client
+        run: |
+          npm test --prefix frontends/notes
+          npm run typecheck --prefix frontends/notes
+          pnpm run test:notes-client
 
       - name: Build ClawMaster harness
         run: pnpm --dir apps/desktop-tauri run build:harness
 
       - name: Verify provenance and plugin rejection cases
-        run: pnpm --dir apps/desktop-tauri run test:bundle
+        run: |
+          pnpm --dir apps/desktop-tauri run test:bundle
+          node --test apps/desktop-tauri/scripts/verify-linux-package.test.mjs
 
       - name: Build complete Linux sandbox binaries
         if: runner.os == 'Linux'
@@ -117,7 +126,7 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && '-' || '' }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: pnpm --dir apps/desktop-tauri exec tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+        run: pnpm --dir apps/desktop-tauri exec tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} ${{ runner.os == 'Linux' && '--verbose' || '' }}
 
       - name: Verify prepared payload
         run: node apps/desktop-tauri/scripts/bundle-harness-source.mjs --check
@@ -126,10 +135,35 @@ jobs:
         if: runner.os == 'macOS'
         run: codesign --verify --deep --strict apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/macos/ClawMaster.app
 
+      - name: Verify extracted Linux installers and Host restart
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          task_bundle="$GITHUB_WORKSPACE/apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle"
+          task_root=$(mktemp -d "$RUNNER_TEMP/ClawMaster 验收 # XXXXXX")
+          trap 'rm -rf "$task_root"' EXIT
+          task_appimage=$(find "$task_bundle/appimage" -maxdepth 1 -name '*.AppImage' -type f -print -quit)
+          task_deb=$(find "$task_bundle/deb" -maxdepth 1 -name '*.deb' -type f -print -quit)
+          test -n "$task_appimage" && test -n "$task_deb"
+          mkdir "$task_root/appimage" "$task_root/deb"
+          (cd "$task_root/appimage" && "$task_appimage" --appimage-extract > /dev/null)
+          dpkg-deb --extract "$task_deb" "$task_root/deb"
+          for task_format in appimage deb; do
+            task_extracted="$task_root/$task_format"
+            if [ "$task_format" = appimage ]; then task_extracted="$task_extracted/squashfs-root"; fi
+            task_payload=$(node apps/desktop-tauri/scripts/verify-linux-package.mjs --package-root "$task_extracted" --prepared-root apps/desktop-tauri/bundled/harness --arch x64)
+            task_smoke="$task_root/production $task_format"
+            cp -a "$task_payload" "$task_smoke"
+            (cd "$task_smoke" && pnpm install --prod --frozen-lockfile)
+            DSH_DESKTOP_SMOKE_ROOT="$task_smoke" node --test apps/desktop-tauri/scripts/desktop-plugin-install.test.mjs apps/desktop-tauri/scripts/harness-startup.test.mjs
+          done
+
       - name: Verify fresh production installation and Host restart
+        if: runner.os != 'Linux'
         shell: pwsh
         run: |
-          $smokeRoot = Join-Path $env:RUNNER_TEMP ("clawmaster-production-" + [guid]::NewGuid().ToString())
+          $smokeRoot = Join-Path $env:RUNNER_TEMP ("ClawMaster 验收 # " + [guid]::NewGuid().ToString())
           Copy-Item apps/desktop-tauri/bundled/harness $smokeRoot -Recurse
           try {
             Push-Location $smokeRoot

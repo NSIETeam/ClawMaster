@@ -13,7 +13,7 @@ const repository = fileURLToPath(new URL('../../..', import.meta.url))
 const require = createRequire(join(repository, 'apps/cli/package.json'))
 
 function fixture(t) {
-  const root = mkdtempSync(join(tmpdir(), 'clawmaster-defaults-'))
+  const root = mkdtempSync(join(tmpdir(), 'clawmaster defaults 空 #%-'))
   t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 3 }))
   const cli = join(root, 'apps/cli')
   const modules = join(cli, 'node_modules')
@@ -179,7 +179,7 @@ test('Node preload prepares the profile once and consumes its inherited activati
   mkdirSync(join(f.cli, 'lib'))
   const entry = join(f.cli, 'lib/bin.js')
   writeFileSync(entry, 'if (process.env.DSH_DESKTOP_DEFAULTS !== undefined) throw new Error("activation flag leaked")\n')
-  const result = spawnSync(process.execPath, ['--import', preload, entry], {
+  const result = spawnSync(process.execPath, ['--import', pathToFileURL(preload).href, entry], {
     env: { ...process.env, DSH_HOME: f.home, DSH_DESKTOP_DEFAULTS: '1' },
     encoding: 'utf8', timeout: 15000, windowsHide: true,
   })

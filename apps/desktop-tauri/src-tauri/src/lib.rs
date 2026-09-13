@@ -94,11 +94,131 @@ pub fn run() {
 }
 
 fn resolve_bundled_source(app: &AppHandle) -> Option<PathBuf> {
-    app.path()
-        .resource_dir()
-        .ok()
-        .map(|dir| dir.join(BUNDLED_HARNESS_DIR))
-        .filter(|path| path.join(".bundle-manifest.json").is_file())
+    let resource_dir = app.path().resource_dir().ok()?;
+    #[cfg(target_os = "linux")]
+    {
+        let bundled = resolve_linux_bundled_source(&resource_dir);
+        #[cfg(debug_assertions)]
+        let bundled = bundled.or_else(|| {
+            // Tauri dev does not copy the Linux package-specific files mappings.
+            let source = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bundled/harness");
+            source
+                .join(".bundle-manifest.json")
+                .is_file()
+                .then_some(source)
+        });
+        bundled
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let source = resource_dir.join(BUNDLED_HARNESS_DIR);
+        source
+            .join(".bundle-manifest.json")
+            .is_file()
+            .then_some(source)
+    }
+}
+
+/// Linux packages keep the immutable runtime outside linuxdeploy's ELF scan of usr/lib.
+#[cfg(any(target_os = "linux", test))]
+fn resolve_linux_bundled_source(resource_dir: &std::path::Path) -> Option<PathBuf> {
+    let lib_dir = resource_dir.parent()?;
+    if lib_dir.file_name()? != "lib" {
+        return None;
+    }
+    let source = lib_dir
+        .parent()?
+        .join("share/ClawMaster")
+        .join(BUNDLED_HARNESS_DIR);
+    source
+        .join(".bundle-manifest.json")
+        .is_file()
+        .then_some(source)
+}
+
+#[cfg(test)]
+mod linux_payload_tests {
+    use super::resolve_linux_bundled_source;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct Fixture(PathBuf);
+
+    impl Fixture {
+        fn new() -> Self {
+            let nonce = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let root = std::env::temp_dir().join(format!(
+                "clawmaster-linux-layout-{}-{nonce}",
+                std::process::id()
+            ));
+            fs::create_dir(&root).unwrap();
+            Self(root)
+        }
+
+        fn payload(&self, prefix: &str) -> PathBuf {
+            let source = self
+                .0
+                .join(prefix)
+                .join("usr/share/ClawMaster/harness-source");
+            fs::create_dir_all(&source).unwrap();
+            fs::write(source.join(".bundle-manifest.json"), "{}").unwrap();
+            source
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            fs::remove_dir_all(&self.0).unwrap();
+        }
+    }
+
+    #[test]
+    fn linux_payload_resolves_deb_and_appimage_prefixes() {
+        let fixture = Fixture::new();
+        for prefix in ["", ".mount ClawMaster"] {
+            let expected = fixture.payload(prefix);
+            let resources = fixture.0.join(prefix).join("usr/lib/ClawMaster");
+            assert_eq!(resolve_linux_bundled_source(&resources), Some(expected));
+        }
+    }
+
+    #[test]
+    fn linux_payload_rejects_missing_manifest_and_legacy_lib_copy() {
+        let fixture = Fixture::new();
+        let resources = fixture.0.join("usr/lib/ClawMaster");
+        let legacy = resources.join("harness-source");
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join(".bundle-manifest.json"), "{}").unwrap();
+        assert_eq!(resolve_linux_bundled_source(&resources), None);
+        fixture.payload("");
+        assert_eq!(
+            resolve_linux_bundled_source(&fixture.0.join("target/debug")),
+            None
+        );
+    }
+
+    #[test]
+    fn linux_payload_config_removes_only_the_scanned_resource_mapping() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let (config, _) =
+            tauri::utils::config::parse::read_from(tauri::utils::platform::Target::Linux, root)
+                .unwrap();
+        let resources = config["bundle"]["resources"].as_object().unwrap();
+        assert!(!resources.contains_key("../bundled/harness"));
+        assert_eq!(resources["../overlay/desktop-notify"], "desktop-overlay");
+        assert_eq!(resources["../sounds/complete.wav"], "complete.wav");
+        for package in ["appimage", "deb"] {
+            assert_eq!(
+                config["bundle"]["linux"][package]["files"]["/usr/share/ClawMaster/harness-source"],
+                "../bundled/harness"
+            );
+        }
+        let _: tauri::utils::config::Config = serde_json::from_value(config).unwrap();
+    }
 }
 
 async fn boot_app(app: AppHandle, bundled: Option<PathBuf>) -> Result<(), String> {
@@ -159,11 +279,7 @@ async fn boot_app(app: AppHandle, bundled: Option<PathBuf>) -> Result<(), String
     if !runtime.host.disabled_plugins.is_empty() {
         let names = runtime.host.disabled_plugins.join("、");
         boot_log::error(&format!("plugins disabled by rescue patch: {names}"));
-        notify::toast(
-            &app,
-            "ClawMaster",
-            &i18n::tf(Msg::PluginsDisabled, &names),
-        );
+        notify::toast(&app, "ClawMaster", &i18n::tf(Msg::PluginsDisabled, &names));
     }
     app.manage(runtime);
     if let Some(notify) = notify {

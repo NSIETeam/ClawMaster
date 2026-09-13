@@ -543,6 +543,17 @@ fn attach_host_job(child: &Child) -> Option<super::process::KillOnCloseJob> {
     }
 }
 
+/// Node ESM preloads require file URLs for Windows drive paths and URL delimiters.
+fn desktop_preload_url(harness_root: &Path) -> Result<url::Url, String> {
+    let preload = harness_root.join("desktop-defaults.mjs");
+    url::Url::from_file_path(&preload).map_err(|_| {
+        format!(
+            "桌面预加载模块路径无法转换为 file URL: {}",
+            preload.display()
+        )
+    })
+}
+
 fn spawn_child(
     paths: &RuntimePaths,
     port: u16,
@@ -554,7 +565,7 @@ fn spawn_child(
     let mut cmd = Command::new(&paths.node_binary);
     if super::config::dev_launch_mode().as_deref() != Some("local") {
         cmd.arg("--import")
-            .arg(paths.harness_root.join("desktop-defaults.mjs"));
+            .arg(desktop_preload_url(&paths.harness_root)?.as_str());
         cmd.env("DSH_DESKTOP_DEFAULTS", "1");
     }
     cmd.arg(&paths.cli_entry).arg("web");
@@ -748,6 +759,27 @@ mod tests {
     use std::io::Read;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
+
+    #[test]
+    fn preload_url_preserves_native_paths_and_encodes_url_delimiters() {
+        let root = std::env::temp_dir().join("ClawMaster 空间 # %");
+        let url = super::desktop_preload_url(&root).unwrap();
+        assert_eq!(url.scheme(), "file");
+        assert_eq!(url.to_file_path().unwrap(), root.join("desktop-defaults.mjs"));
+        assert!(url.as_str().contains("%20"));
+        assert!(url.as_str().contains("%23"));
+        assert!(url.as_str().contains("%25"));
+        assert_eq!(url.fragment(), None);
+        assert_eq!(url.query(), None);
+    }
+
+    #[test]
+    fn preload_url_rejects_a_relative_harness_path() {
+        let error = super::desktop_preload_url(std::path::Path::new("relative-harness"))
+            .unwrap_err();
+        assert!(error.contains("relative-harness"));
+        assert!(error.contains("file URL"));
+    }
 
     #[test]
     fn startup_url_requires_the_expected_origin_and_one_token() {

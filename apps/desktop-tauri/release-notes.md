@@ -1,4 +1,4 @@
-# ClawMaster Desktop 0.2.0-beta.2
+# ClawMaster Desktop 0.2.0-beta.3
 
 ## 中文
 
@@ -12,6 +12,7 @@
 - CSV/TSV、CRM 和 ERP 提供 AI 工具；CRM 与 ERP 也可从组件设置打开右侧标签进行复核。AI 库存写入、删除与订单提交使用 DSH 单次审批。
 - 内置 Agent Teams、OpenViking Memory、Routing Suite、Better Sidebar 与 IM 集成。OpenViking 需另行配置服务；Routing 的智能路由预设提供任务指导。飞书、微信、企微与钉钉接入需完成对应平台的登录确认。
 - 主窗口使用系统原生控件。macOS 隐藏标题文字并为交通灯预留空间；通过 Dock 或 Finder 重开被关闭偏好隐藏的窗口时，恢复已有窗口与 Host。系统窗口外观和 Web 主题分别设置。
+- Windows 启动预加载模块时使用文件 URL，支持盘符、空格与非英文安装路径。
 - 打包排除依赖与开发目录，即使复制根目录本身为 `node_modules`；交付校验拒绝排除目录、符号链接与安装内容摘要漂移。
 
 发布工作流在 Windows x64、macOS Apple Silicon、macOS Intel、Linux x64 四项构建全部成功后，向 [ClawMaster-Desktop](https://github.com/NSIETeam/ClawMaster-Desktop/releases) 发布预发布版，包含 NSIS、DMG、AppImage/deb、Tauri 更新签名、公钥 `clawmaster-release-signing.pub`、`latest.json` 与 `SHA256SUMS.txt`。macOS 使用临时签名验证完整性，不包含 Apple 公证；Windows 没有发布者证书。默认包含发布验签公钥，自动更新端点为空，请通过版本附件安装。
@@ -30,8 +31,13 @@ macOS 最低要求为 11.0。Linux 的 Landlock 沙箱需要内核实际支持�
 - CSV/TSV, CRM, and ERP expose AI tools; CRM and ERP also open right-side review tabs from component settings. AI inventory writes, deletions, and order submission use one-shot DSH approval.
 - Includes Agent Teams, OpenViking Memory, Routing Suite, Better Sidebar, and IM integration. OpenViking requires a separate service; Routing's Smart preset provides task guidance. Feishu, Weixin, WeCom, and DingTalk setup requires each platform's login confirmation.
 - The main window uses native system controls. macOS hides title text and reserves space for traffic lights; reopening a window hidden by the close preference from the Dock or Finder restores the existing window and Host. System window appearance and Web themes have separate settings.
+- Windows loads the startup preload through a file URL, supporting drive letters, spaces, and non-English installation paths.
 - Packaging excludes dependency and development directories even when the copy root is `node_modules`; validation rejects excluded directories, symbolic links, and payload digest drift.
 
 After all four Windows x64, macOS Apple Silicon, macOS Intel, and Linux x64 builds succeed, the release workflow publishes a prerelease to [ClawMaster-Desktop](https://github.com/NSIETeam/ClawMaster-Desktop/releases) with NSIS, DMG, AppImage/deb, Tauri updater signatures, the public key `clawmaster-release-signing.pub`, `latest.json`, and `SHA256SUMS.txt`. macOS uses ad-hoc signing for integrity without Apple notarization; Windows has no publisher certificate. The release public key is bundled and automatic-update endpoints are empty; install from the version's assets.
 
 macOS requires version 11.0 or later. Linux Landlock confinement requires an enforcing kernel; its functional probe determines full, partial, or unusable enforcement. First launch requires network access to prepare the runtime and production dependencies. Before upgrading, save edits, finish running tasks, and back up the DSH home; retain that home to reuse credentials and Sessions.
+
+新增内置笔记库：支持 Markdown 编辑、链接、反链、标签和搜索；AI 写入需要批准，保存冲突保留草稿，生产依赖锁已由 pnpm 生成并验证。
+
+Adds the built-in Markdown vault with editing, links, backlinks, tags and search. Agent writes require approval, save conflicts preserve drafts, and the production lockfile is generated and verified with pnpm.
