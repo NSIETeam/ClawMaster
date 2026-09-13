@@ -57,7 +57,9 @@ The [vault](src/vault.ts) rejects linked files and linked directories below its 
 
 Proposals and diffs are separate concerns. The [proposal store](src/proposals.ts) keeps drafts as JSON under the vault's ignored `.clawmaster/` directory — never listed as notes and never visible to an external editor browsing the vault — and records the revision each draft was based on. The [line diff](src/diff.ts) is bounded and dependency-free: it is exact for ordinary notes, degrades to a whole-file replacement above 2000 lines a side rather than building a huge table, and truncates an oversized result with an explicit marker.
 
-[Live refresh](src/watcher.ts) publishes a vault version from a filesystem fingerprint combined with a recursive watch. The fingerprint is the authority, so a missed, coalesced or unsupported watch event degrades to a slower refresh instead of a stale view, and a watch that cannot be attached is recorded rather than swallowed. The `revision` route recomputes the fingerprint on demand, so the client detects external edits even where no watcher is available.
+[Live refresh](src/watcher.ts) publishes a vault version from a filesystem fingerprint combined with a recursive watch. The fingerprint is the authority, so a missed, coalesced or unsupported watch event degrades to a slower refresh instead of a stale view, and a watch that cannot be attached is recorded rather than swallowed. A safety poll re-fingerprints on an interval, so that degradation is enforced inside the watcher instead of depending on the caller; the `revision` route additionally recomputes the fingerprint on demand.
+
+The [panel](src/client.tsx) is styled as host chrome rather than a generic list. [Tree](src/tree.ts) derives folders from note ids so rows nest, with 34px rows, a 6px icon gap and `depth * 22 + 6` inline indentation — the metrics the host's own file-manager explorer uses. [Icons](src/icons.tsx) are inline SVG glyphs on one 16px grid, so the module ships no raster asset.
 
 </details>
 
