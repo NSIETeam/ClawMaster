@@ -205,6 +205,8 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     const workspacePath = '/api/clawmaster/workspace'
     const notesTreePath = '/api/clawmaster/notes/tree'
     const notesCommandPath = '/api/clawmaster/notes/command'
+    const notesReadPaths = ['tree', 'note', 'search', 'tags', 'backlinks', 'proposals', 'revision']
+      .map(name => `/api/clawmaster/notes/${name}`)
     const noteId = '验收/冷启动 #1.md'
     const noteText = '# 冷启动验收\n\n仅临时笔记库。\n'
     const editedNoteText = `${noteText}\n已保存的修改。\n`
@@ -226,8 +228,9 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     assert.equal((await request(new URL(snapshotPath, first.base))).status, 401)
     assert.equal((await post(first.base, commandPath, command)).status, 401)
     assert.equal((await post(first.base, workspacePath, { kind: 'task' })).status, 401)
-    assert.equal((await request(new URL(notesTreePath, first.base))).status, 401)
-    assert.equal((await request(noteUrl(first.base))).status, 401)
+    for (const path of notesReadPaths) {
+      assert.equal((await request(new URL(path, first.base))).status, 401)
+    }
     assert.equal((await post(first.base, notesCommandPath, createNote)).status, 401)
     const authenticated = { cookie: first.cookie, origin: new URL(first.base).origin }
     const notesEntry = graph.entries.find(entry => entry.id === '@clawmaster/dsh-notes')
@@ -266,6 +269,29 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     assert.equal(originalNote.id, noteId)
     assert.equal(originalNote.text, noteText)
     assert.equal(originalNote.revision, creation.revision)
+    for (const [name, params, check] of [
+      ['search', { q: '冷启动验收' }, body => assert.ok(body.matches.some(note => note.id === noteId))],
+      ['tags', {}, body => assert.ok(Array.isArray(body.tags))],
+      ['backlinks', { id: noteId }, body => assert.deepEqual(body, { id: noteId, notes: [] })],
+      ['proposals', {}, body => assert.deepEqual(body, { proposals: [] })],
+      ['revision', {}, body => assert.ok(typeof body.version === 'string' && body.version.length > 0)],
+    ]) {
+      const url = new URL(`/api/clawmaster/notes/${name}`, first.base)
+      url.search = new URLSearchParams(params).toString()
+      const response = await request(url, { headers: authenticated })
+      assert.equal(response.status, 200, `Notes ${name} route is available in the built Host`)
+      assert.match(response.headers.get('content-type'), /application\/json/, `Notes ${name} must not fall through to the HTML shell`)
+      assert.equal(response.headers.get('cache-control'), 'no-store')
+      check(await response.json())
+    }
+    for (const [id, status] of [['', 400], ['missing-note.md', 404]]) {
+      const url = new URL('/api/clawmaster/notes/note', first.base)
+      url.searchParams.set('id', id)
+      const response = await request(url, { headers: authenticated })
+      assert.equal(response.status, status)
+      assert.match(response.headers.get('content-type'), /application\/json/)
+      assert.equal(typeof (await response.json()).error.code, 'string')
+    }
     const saveNote = { request: { action: 'save', id: noteId, text: editedNoteText, expectedRevision: creation.revision } }
     const savedNote = await post(first.base, notesCommandPath, saveNote, authenticated)
     assert.equal(savedNote.status, 200)

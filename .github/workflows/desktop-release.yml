@@ -112,7 +112,7 @@ jobs:
         run: pnpm --dir apps/desktop-tauri run build:harness
 
       - name: Verify collapsed process details and approvals
-        run: pnpm exec vitest run packages/client/ui-chat/tests/clawmaster-disclosures.client.spec.tsx packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx packages/client/ui-chat/tests/chat-view.client.spec.tsx packages/client/ui-tool/tests/terminal-card.client.spec.tsx packages/client/ui-tool/tests/tool-row.client.spec.tsx
+        run: pnpm exec vitest run packages/client/ui-chat/tests/clawmaster-disclosures.client.spec.tsx packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx packages/client/ui-chat/tests/chat-view.client.spec.tsx packages/client/ui-tool/tests/terminal-card.client.spec.tsx packages/client/ui-tool/tests/tool-row.client.spec.tsx packages/client/ui-chat/tests/turn-process-running.client.spec.ts packages/client/ui-chat/tests/conversation-node-definitions.client.spec.ts packages/client/ui-chat/tests/system-prompt-row.client.spec.tsx packages/client/ui-chat/tests/approval-command.client.spec.tsx packages/client/ui-approval/tests/ui-approval.client.spec.tsx
 
       - name: Verify provenance and plugin rejection cases
         shell: bash

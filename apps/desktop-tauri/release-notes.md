@@ -40,14 +40,14 @@ After all four Windows x64, macOS Apple Silicon, macOS Intel, and Linux x64 buil
 
 macOS requires version 11.0 or later. Linux Landlock confinement requires an enforcing kernel; its functional probe determines full, partial, or unusable enforcement. First launch requires network access to prepare the runtime and production dependencies. Before upgrading, save edits, finish running tasks, and back up the DSH home; retain that home to reuse credentials and Sessions.
 
-新增内置笔记库：支持 Markdown 编辑、链接、反链、标签和搜索；AI 写入需要批准，保存冲突保留草稿，生产依赖锁已由 pnpm 生成并验证。
+内置笔记支持文件夹树、Markdown 编辑、今日笔记、重命名、链接、反链、标签和搜索。AI 可以先生成待审差异；修改笔记正文需要批准。保存冲突和后台刷新保留未保存草稿，客户端与服务端接口在同一安装包内同步更新。
 
-Adds the built-in Markdown vault with editing, links, backlinks, tags and search. Agent writes require approval, save conflicts preserve drafts, and the production lockfile is generated and verified with pnpm.
+The built-in Markdown vault provides a folder tree, daily notes, rename, links, backlinks, tags and search. Agents can stage a diff for review; changes to note content require approval. Save conflicts and background refresh preserve unsaved drafts, and the installer ships matching client and Host interfaces.
 
 桌面默认使用 `clawmaster-sys-prompt`，以 ClawMaster 与 WatchDog 企业协作身份组装系统提示，继续沿用 DSH 的工具和审批机制。
 
 The desktop uses `clawmaster-sys-prompt` for its ClawMaster and WatchDog enterprise persona while retaining DSH tool and approval mechanisms.
 
-思考、记忆注入摘要和命令行详情默认收起，点击后查看完整内容；流式更新保持用户的展开选择，审批与失败提示继续可见。
+思考、记忆注入摘要和命令行详情默认收起。运行中的过程集中显示为“工作中”，点击可展开；当前答案继续流式显示，审批与失败提示仍可见。
 
-Reasoning, injected-memory summaries and command details stay collapsed until opened. Streaming updates preserve the chosen disclosure state; approvals and concise failure messages remain visible.
+Reasoning, injected-memory summaries and command details stay collapsed until opened. Active process details appear in an expandable working row while the current answer continues streaming; approvals and concise failure messages remain visible.
