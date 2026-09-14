@@ -274,6 +274,27 @@ describe('reconnect supervisor', () => {
     expect(instances).toHaveLength(1)
   })
 
+  it('fails a connection attempt that never completes initialize within the configured deadline', async () => {
+    vi.useFakeTimers()
+    try {
+      const gate: PromiseWithResolvers<void> = Promise.withResolvers()
+      mockConnect.mockImplementation(() => gate.promise)
+      const handle = startConnection(
+        ctx,
+        { ...stdioConfig(), connectionTimeoutMs: 20 },
+        resolveReconnectPolicy({ enabled: false }, 'reconnect'),
+      )
+      await vi.advanceTimersByTimeAsync(20)
+      const outcome = await handle.ready
+      expect(outcome.error).toBeInstanceOf(Error)
+      expect(String(outcome.error)).toMatch(/timed out after 20ms/)
+      expect(mockClose).toHaveBeenCalledTimes(1)
+      expect(mockListTools).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('bounds disposal while a resolving generation never reports that it closed', async () => {
     vi.useFakeTimers()
     try {

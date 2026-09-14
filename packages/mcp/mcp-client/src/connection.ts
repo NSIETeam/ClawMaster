@@ -49,6 +49,9 @@ export const RECONNECT_DEFAULTS: Required<ReconnectConfig> = Object.freeze({
 // generation is gone; timing out fails closed instead of overlapping children.
 const GENERATION_CLOSE_TIMEOUT_MS = 5_000
 
+/** Maximum time allowed for one initialize + initial tools/list generation. */
+export const DEFAULT_CONNECTION_TIMEOUT_MS = 15_000
+
 /** Fully resolved reconnect policy captured at plugin load. */
 export type ResolvedReconnectPolicy = Readonly<Required<ReconnectConfig>>
 
@@ -148,6 +151,34 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
   let connectedAt: number | undefined
   /** The real error from the first connection attempt, for startup-await diagnostics. */
   let firstAttemptError: unknown
+
+  /** Bound initialize and initial discovery, then request transport shutdown on expiry. */
+  async function connectAndSync(
+    generation: Client,
+    syncOpts: ToolBridgeOptions,
+    isClosed: () => boolean,
+  ): Promise<void> {
+    const timeoutMs = config.connectionTimeoutMs ?? DEFAULT_CONNECTION_TIMEOUT_MS
+    let timer: NodeJS.Timeout | undefined
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error(`${label}: initialize and tool discovery timed out after ${timeoutMs}ms`))
+      }, timeoutMs)
+      timer.unref()
+    })
+    try {
+      await Promise.race([
+        (async () => {
+          await generation.connect(createTransport(config))
+          if (isClosed()) return
+          await enqueueSync(generation, syncOpts)
+        })(),
+        timeout,
+      ])
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
+    }
+  }
 
   /** A generation may act only while it is the current one on a live plugin. */
   const isCurrent = (generation: Client): boolean => !disposed && client === generation
@@ -269,13 +300,12 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
       },
     )
     try {
-      await generation.connect(createTransport(config))
+      await connectAndSync(generation, startup ? startupOpts : opts, hasClosed)
       if (hasClosed()) {
         attemptSettled = true
         generationDown(generation)
         return
       }
-      await enqueueSync(generation, startup ? startupOpts : opts)
     } catch (error) {
       if (firstAttemptError === undefined) firstAttemptError = error
       // Disposal clears current ownership before it closes the generation, so
