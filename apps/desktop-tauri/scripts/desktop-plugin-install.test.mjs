@@ -53,7 +53,9 @@ test('installed plugins use reviewed versions, applied patches and one DSH works
   assert.equal(memory.disabled, true)
   assert.equal(memory.name, '@openviking/dsh-memory-plugin')
   assert.equal(entries.find(entry => entry.id === 'clawmaster-graph-memory').name, '@clawmaster/dsh-graph-memory')
-  assert.match(entries.find(entry => entry.id === 'clawmaster-graph-memory-storage').config.path, /\.clawmaster\/components\/graph-memory\/graph\.sqlite$/)
+  assert.deepEqual(entries.find(entry => entry.id === 'clawmaster-graph-memory-storage').config.path, {
+    __jsExpr: "(process.env.HOME ?? process.env.USERPROFILE) + '/.clawmaster/components/graph-memory/graph.sqlite'",
+  })
   const routing = boot.resolveBundleDir('ClawMaster', 'dsh-routing-suite', anchor, join(home, 'profiles/web'))
   for (const file of ['preset.yml', 'agent.cordis.yml']) {
     assert.equal(readFileSync(join(home, '.agent-presets/routing-suite', file), 'utf8'), readFileSync(join(routing, 'preset/routing-suite', file), 'utf8'))
