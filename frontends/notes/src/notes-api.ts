@@ -1,8 +1,8 @@
 /** Browser-side Notes transport over the plugin's own authenticated Fetch routes. */
 import {
-  NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH,
-  noteCommandSchema, noteReadSchema, noteReceiptSchema, notesBacklinksSchema, notesFailureSchema, notesProposalsSchema, notesRevisionSchema, notesSearchSchema, notesTagsSchema, notesTreeSchema,
-  type NoteCommand, type NoteRead, type NoteReceipt, type NotesBacklinks, type NotesProposals, type NotesRevision, type NotesSearch, type NotesTags, type NotesTree,
+  NOTES_ANNOTATIONS_PATH, NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH,
+  noteCommandSchema, noteReadSchema, noteReceiptSchema, notesAnnotationsSchema, notesBacklinksSchema, notesFailureSchema, notesProposalsSchema, notesRevisionSchema, notesSearchSchema, notesTagsSchema, notesTreeSchema,
+  type NoteCommand, type NoteRead, type NoteReceipt, type NotesAnnotations, type NotesBacklinks, type NotesProposals, type NotesRevision, type NotesSearch, type NotesTags, type NotesTree,
 } from './protocol.ts';
 
 /** One rejected Notes call, carrying the server's failure code and conflict revision. */
@@ -67,6 +67,11 @@ export class NotesApi {
   /** Notes containing a link to the requested note. */
   async backlinks(id: string): Promise<NotesBacklinks> {
     return notesBacklinksSchema.parse(await this.call(`${NOTES_BACKLINKS_PATH}?${new URLSearchParams({ id })}`));
+  }
+
+  /** Marks a person or an agent left on one note. */
+  async annotations(id: string): Promise<NotesAnnotations> {
+    return notesAnnotationsSchema.parse(await this.call(`${NOTES_ANNOTATIONS_PATH}?${new URLSearchParams({ id })}`));
   }
 
   /** Apply one mutation; validated locally before the request leaves the page. */

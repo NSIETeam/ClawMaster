@@ -3,12 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { ReactNode } from 'react';
 import { NotesApi, NotesApiError } from './notes-api.ts';
 import { inlineTokens, parseMarkdown, type Block } from './markdown.ts';
-import type { NoteEntry, NoteMatch, NoteRead, Proposal, UnifiedDiff } from './protocol.ts';
+import type { Annotation, NoteEntry, NoteMatch, NoteRead, Proposal, UnifiedDiff } from './protocol.ts';
 import { extractLinks, noteTitle, parseFrontmatter } from './note-format.ts';
 import { notesCopy, type NotesLocale } from './locales.ts';
 import { ancestorsOf, buildTree, flattenTree } from './tree.ts';
 import {
-  BacklinkIcon, CalendarIcon, CanvasIcon, ChevronIcon, EditIcon, FolderIcon, FolderOpenIcon,
+  BacklinkIcon, CalendarIcon, CanvasIcon, ChevronIcon, CommentIcon, EditIcon, FolderIcon, FolderOpenIcon,
   InfoIcon, NoteIcon, PlusIcon, PreviewIcon, ProposalIcon, RenameIcon, SaveIcon, SearchIcon,
   TagIcon, TrashIcon,
 } from './icons.tsx';
@@ -101,6 +101,8 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [status, setStatus] = useState<Status>({ state: 'idle' });
   const [backlinks, setBacklinks] = useState<NoteEntry[]>([]);
+  // Marks a person or an agent left on the open note; they live beside the note, not in it.
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [tags, setTags] = useState<Array<{ tag: string; count: number }>>([]);
   const [proposals, setProposals] = useState<Array<{ proposal: Proposal; diff: UnifiedDiff }>>([]);
   // Folder ids whose children are hidden; empty means every folder starts expanded.
@@ -142,6 +144,15 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  /** Loads the marks of one note. Annotations are an auxiliary layer: a failed read must
+   *  never make a readable note unreadable, so the error stays inside this call. */
+  const loadAnnotations = useCallback(async (id: string, isCurrent: () => boolean): Promise<void> => {
+    try {
+      const marks = await api.annotations(id);
+      if (isCurrent()) setAnnotations(marks.annotations);
+    } catch { /* the section keeps showing the marks it already has */ }
+  }, [api]);
+
   // Live refresh: an external edit (an editor or the agent writing files) is noticed by
   // version, then applied without ever discarding an unsaved draft.
   useEffect(() => {
@@ -153,7 +164,11 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
         if (cancelled) return;
         const previous = vaultVersion.current;
         vaultVersion.current = current;
-        if (previous === undefined || previous === current) return;
+        // Marks sit beside the note in an ignored directory, so they never move the vault
+        // version; they are re-read on every tick to surface what the agent just wrote.
+        const openId = latest.current.open?.id;
+        if (openId !== undefined) await loadAnnotations(openId, () => !cancelled);
+        if (cancelled || previous === undefined || previous === current) return;
         await refresh();
         if (cancelled) return;
         const { open: current_note, draft: current_draft } = latest.current;
@@ -171,7 +186,7 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
     void poll();
     const timer = setInterval(() => { void poll(); }, REVISION_POLL_MS);
     return () => { cancelled = true; clearInterval(timer); };
-  }, [api, copy, refresh, visible]);
+  }, [api, copy, loadAnnotations, refresh, visible]);
 
   const openNote = useCallback(async (id: string, reload = false) => {
     if (busy.current) return;
@@ -188,6 +203,7 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
       setMode('edit');
       setStatus({ state: 'idle' });
       setBacklinks([]);
+      setAnnotations([]);
       // A selection made from a link, a search hit or a backlink must be visible in the tree.
       setCollapsed(current => {
         const ancestors = ancestorsOf(id);
@@ -198,8 +214,9 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
       });
       const linked = await api.backlinks(id);
       if (requestGeneration === generation.current) setBacklinks(linked.notes);
+      await loadAnnotations(id, () => requestGeneration === generation.current);
     } catch (error) { if (requestGeneration === generation.current) fail(error); }
-  }, [api, drafts, fail]);
+  }, [api, drafts, fail, loadAnnotations]);
 
   const save = useCallback(async () => {
     if (!open || busy.current) return;
@@ -489,6 +506,20 @@ function NotesPanel({ ctx, drafts, visible }: { ctx: NotesClientServices; drafts
           }} />
           : <div className="cm-notes-preview">{blocks.map((block, index) => <BlockView key={index} block={block} onWiki={openWiki} />)}</div>}
       <div className="cm-notes-side">
+        <h3 className="cm-notes-section"><CommentIcon size={13} />{copy.annotations}</h3>
+        {annotations.length === 0 ? <p>{copy.noAnnotations}</p> : annotations.map(mark => (
+          <div key={mark.annotationId} className="cm-notes-mark" data-kind={mark.kind} data-source={mark.source}>
+            <div className="cm-notes-mark-head">
+              <span className="cm-notes-mark-kind">{copy[mark.kind]}</span>
+              {/* A person's mark and an agent's mark must never read as the same thing. */}
+              <span className="cm-notes-mark-source" data-source={mark.source}>{mark.source === 'ai' ? copy.ai : copy.human}</span>
+              {mark.author !== null && <span className="cm-notes-mark-author">{mark.author}</span>}
+              {mark.line !== null && <span className="cm-notes-mark-line">{copy.line} {mark.line}</span>}
+            </div>
+            {mark.quote !== null && <blockquote className="cm-notes-mark-quote">{mark.quote}</blockquote>}
+            <p className="cm-notes-mark-body">{mark.body}</p>
+          </div>
+        ))}
         <h3 className="cm-notes-section"><ProposalIcon size={13} />{copy.proposals}</h3>
         {proposals.length === 0 ? <p>{copy.noProposals}</p> : proposals.map(entry => <div key={entry.proposal.proposalId} className="cm-notes-proposal">
           <button type="button" className="cm-notes-item" disabled={status.state === 'saving'}

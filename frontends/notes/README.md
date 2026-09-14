@@ -32,6 +32,8 @@ A wiki link resolves to its note; when several notes match you choose, and when 
 
 **Proposals** appear in the side panel with the diff they would apply, each with **Apply** and **Discard**. Applying is revision-guarded: if the note moved since the proposal was drafted, the apply is refused and the proposal stays for a retry.
 
+**Annotations** sit above the proposals in that panel: each mark shows its kind (comment, highlight, to-do or risk), who left it — a person or an agent — and the line or quoted fragment it anchors to, without touching the note's own text. Marks are re-read on every poll, so one the agent writes appears while you are reading the note.
+
 While the tab is visible the panel polls a cheap vault version, so edits made by another editor or by the agent appear without a manual refresh. An unsaved draft is never discarded by that refresh: the panel reports the external change and offers a reload.
 
 <a id="configuration"></a>

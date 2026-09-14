@@ -70,9 +70,9 @@ export function createNotesAccess(service: NotesService, root: string): NotesAcc
 
 /**
  * Read the notes access another plugin published, if it is mounted.
- * @param ctx - Any harness context.
+ * @param ctx - Any harness context; one without a service registry yields undefined.
  * @returns The access object, or undefined when the notes plugin is not composed.
  */
 export function notesAccessOf(ctx: Pick<NotesHostContext, 'get'>): NotesAccess | undefined {
-  return ctx.get(NOTES_ACCESS_KEY) as NotesAccess | undefined;
+  return ctx.get?.(NOTES_ACCESS_KEY) as NotesAccess | undefined;
 }
