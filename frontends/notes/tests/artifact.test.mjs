@@ -8,12 +8,14 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NOTES_COMMAND_PATH, NOTES_TREE_PATH } from '../src/protocol.ts';
+import { NOTES_ACCESS_KEY } from '../src/access.ts';
 
 const shipped = await import('../dist/index.js');
 
-function harness() {
+function harness({ registry = false } = {}) {
   const routes = new Map();
   const tools = new Map();
+  const provided = new Map();
   let install;
   let answer = 'allowed-once';
   const ctx = {
@@ -22,12 +24,17 @@ function harness() {
     approval: { async request() { return answer; } },
     effect(operation) { install = operation(); return install; },
   };
-  return { ctx, routes, tools, deny() { answer = 'denied'; }, async dispose() { const remove = await install; await remove(); } };
+  // A host is only required to offer the three injected services; the registry is a bonus.
+  if (registry) {
+    ctx.provide = (key, value) => provided.set(key, value);
+    ctx.get = key => provided.get(key);
+  }
+  return { ctx, routes, tools, provided, deny() { answer = 'denied'; }, async dispose() { const remove = await install; await remove(); } };
 }
 
-async function withArtifact(run) {
+async function withArtifact(run, options = {}) {
   const root = await mkdtemp(join(tmpdir(), 'clawmaster-artifact-'));
-  const host = harness();
+  const host = harness(options);
   try {
     await shipped.apply(host.ctx, { vaultRoot: root });
     return await run(host, root);
@@ -48,15 +55,32 @@ describe('shipped artifact', () => {
 
   it('serves the authenticated routes and seeds a fresh vault', async () => withArtifact(async host => {
     assert.deepEqual([...host.routes.keys()].sort(), [
+      '/api/clawmaster/notes/annotations',
       '/api/clawmaster/notes/backlinks',
       '/api/clawmaster/notes/command', '/api/clawmaster/notes/note',
       '/api/clawmaster/notes/proposals', '/api/clawmaster/notes/revision',
       '/api/clawmaster/notes/search', '/api/clawmaster/notes/tags', '/api/clawmaster/notes/tree',
     ]);
+    assert.deepEqual([...host.tools.keys()].sort(),
+      ['notes_annotate', 'notes_digest', 'notes_propose', 'notes_query', 'notes_write']);
     const response = await host.routes.get(NOTES_TREE_PATH).fetch(new Request(`http://localhost${NOTES_TREE_PATH}`));
     assert.equal(response.status, 200);
     assert.deepEqual((await response.json()).notes.map(note => note.id), ['欢迎.md']);
   }));
+
+  it('serves every note on a host that offers no service registry', async () => withArtifact(async host => {
+    // The declared injections are the Fetch, tool and approval services; a registry is a bonus.
+    assert.equal(typeof host.provided.get(NOTES_ACCESS_KEY), 'undefined');
+    const response = await host.routes.get(NOTES_TREE_PATH).fetch(new Request(`http://localhost${NOTES_TREE_PATH}`));
+    assert.equal(response.status, 200);
+  }));
+
+  it('publishes the vault access handle when the host has a service registry', async () => withArtifact(async host => {
+    const access = host.provided.get(NOTES_ACCESS_KEY);
+    assert.equal(typeof access.list, 'function');
+    assert.equal(typeof access.read, 'function');
+    assert.deepEqual(await access.list().then(entries => entries.map(entry => entry.id)), ['欢迎.md']);
+  }, { registry: true }));
 
   it('commits an approved daily entry to disk', async () => withArtifact(async (host, root) => {
     const write = host.tools.get('notes_write');

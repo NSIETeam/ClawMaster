@@ -44,10 +44,14 @@ export interface NotesHostContext {
   tools: Pick<ToolRuntime, 'register'>;
   approval: Pick<ApprovalService, 'request'>;
   effect: Context['effect'];
-  /** Publish the vault access companion plugins read with `get`. */
-  provide(name: string, value: unknown): void;
+  /**
+   * Publish the vault access companion plugins read with `get`. Optional: the plugin's declared
+   * injections are the Fetch, tool and approval services, so a host without a service registry
+   * still gets every route and tool — it only loses the shared access handle.
+   */
+  provide?(name: string, value: unknown): void;
   /** Read a value another plugin published. */
-  get(name: string): unknown;
+  get?(name: string): unknown;
 }
 
 const limitsSchema = z.object({
@@ -290,7 +294,7 @@ export async function apply(ctx: NotesHostContext, config: NotesHostConfig = {})
     // Companion plugins — the WatchDog reviewers, an archive writer, a memory bridge — consume the
     // vault through this handle instead of opening the directory themselves and duplicating the
     // path policy, the lock and the revision discipline.
-    ctx.provide(NOTES_ACCESS_KEY, createNotesAccess(service, root));
+    ctx.provide?.(NOTES_ACCESS_KEY, createNotesAccess(service, root));
     const disposers: Array<() => Promise<void>> = [];
     const removals: Array<() => void> = [];
     const pending = new Set<Promise<unknown>>();
