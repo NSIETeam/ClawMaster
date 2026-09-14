@@ -284,6 +284,9 @@ importers:
       '@clawmaster/dsh-frontend':
         specifier: workspace:*
         version: link:../../frontends/dsh
+      '@clawmaster/dsh-guard':
+        specifier: workspace:*
+        version: link:../../frontends/guard
       '@clawmaster/dsh-notes':
         specifier: workspace:*
         version: link:../../frontends/notes
@@ -1122,6 +1125,15 @@ importers:
       zod:
         specifier: 4.4.3
         version: 4.4.3
+
+  frontends/guard:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: link:../../vendor/cordis
+      '@deepseek-ai/dsh-tools':
+        specifier: link:../../packages/core/tools
+        version: link:../../packages/core/tools
 
   frontends/notes:
     dependencies:
