@@ -9,7 +9,11 @@ kind: "package-reference"
 
 ## 摘要
 
-ClawMaster Guard 会在每个工具调用即将执行前审查它，并拒绝那些会毁掉用户没有要求毁掉的东西的调用。它挂在 harness 的 `tools/pre-execute` 瀑布事件上——与 Claude Code、Codex 两个 hook 桥接器相同的拦截点——因此对 shell 工具、子智能体，以及任何经过该管线的工具都生效。
+ClawMaster Guard 是 ClawMaster 围绕智能体工作所做的审查层，覆盖三个「审查还能改变结果」的时刻：
+
+- **过程**（`tools/pre-execute`，与 Claude Code、Codex 两个 hook 桥接器相同的拦截点）：拒绝那些会毁掉用户没有要求毁掉的东西的调用。
+- **结果**（`session/event`，每个 `turn/end`）：把刚结束的这一回合还原成可核对的事实，并归档进笔记库。
+- **方案**（`exit_plan_mode`）：预留，是下一阶段。
 
 它**绝不会**代替模型批准破坏性操作。致命模式（根目录、家目录或通配符删除，设备/文件系统写入，fork 炸弹，删除 `.git`，先改写 `HOME` 再借它删除）直接拒绝；其余破坏性操作一律升级为审批请求，而**在没有任何应答者的会话里，审批请求会按失败关闭处理**：当审批策略为 `never` 时，该操作会被阻断而不是放行——这正是它在无人值守时仍然有效的原因。
 
@@ -41,9 +45,17 @@ ClawMaster Guard 会在每个工具调用即将执行前审查它，并拒绝那
     shellTools: [bash, shell, run_command, exec]
     denyPaths: ['/Users/me/Documents']
     allowPaths: ['/tmp/scratch']
+    resultReview: archive
+    resultProject: ClawMaster
 ```
 
 `mode: observe` 是在真正信任规则集之前用真实工作负载衡量它的方式：guard 会记录判定并继续委派。
+
+## 结果审查
+
+配置 `resultReview: archive` 后，guard 订阅会话事件流，并在每个 `turn/end` 依据**该回合自身的事件**合成审查：跑了哪些工具、它们指涉了哪些文件与命令、是否有结果报告失败、是否出现了测试/构建/lint。它会把无法确立的部分直接说明，而不是暗示成功（「本回合没有出现测试、构建或 lint，因此结论仅基于人工检查」）。
+
+审查通过笔记插件发布的库访问句柄（`ctx.provide('clawmasterNotes')`）追加，因此当日笔记只有一个写入者、一条修订链——与智能体自己的 `notes_digest` 相同。没有跑工具的回合不归档，这正是让归档值得一读的原因。笔记插件未挂载时 guard 会说明并跳过；写入失败时会话继续，失败被记录。
 
 ## 模型体验
 
@@ -58,4 +70,4 @@ ClawMaster Guard 会在每个工具调用即将执行前审查它，并拒绝那
 
 ## 验证
 
-`npm --prefix frontends/guard test` 先构建再运行测试套件：62 条用例覆盖上表的风险判定、目标展开、`sudo`/`env` 前缀、子 shell 与命令链、引号内文字不得误报、决定映射、`observe` 模式、`allowPaths`/`denyPaths`、workdir 解析，以及挂载本身——包括「拒绝不会抵达管线」和「审查抛错时改为委派而不是弄坏智能体」。
+`npm --prefix frontends/guard test` 先构建再运行测试套件：73 条用例覆盖上表的风险判定、目标展开、`sudo`/`env` 前缀、子 shell 与命令链、引号内文字不得误报、决定映射、`observe` 模式、`allowPaths`/`denyPaths`、workdir 解析，以及挂载本身——包括「拒绝不会抵达管线」和「审查抛错时改为委派而不是弄坏智能体」。结果审查另有专属用例：从代表性事件还原事实、无法识别的载荷、命令只取首行、合成出的审查文本、按会话缓冲、`off` 默认值、笔记库缺失，以及写入失败。
