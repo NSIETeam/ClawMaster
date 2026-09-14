@@ -14,6 +14,7 @@ function harness() {
   const routes = new Map();
   const tools = new Map();
   const prompts = [];
+  const provided = new Map();
   let install;
   let answer = 'allowed-once';
   const ctx = {
@@ -21,9 +22,11 @@ function harness() {
     tools: { register(definition) { tools.set(definition.name, definition); return () => { tools.delete(definition.name); }; } },
     approval: { async request(request) { prompts.push(request); return answer; } },
     effect(operation) { install = operation(); return install; },
+    provide(key, value) { provided.set(key, value); },
+    get(key) { return provided.get(key); },
   };
   return {
-    ctx, routes, tools, prompts,
+    ctx, routes, tools, prompts, provided,
     deny() { answer = 'denied'; },
     async dispose() { const remove = await install; await remove(); },
   };
@@ -326,6 +329,24 @@ describe('proposals and digests', () => {
   it('refuses a digest without an owning agent session', async () => withHost(async host => {
     await assert.rejects(host.tools.get('notes_digest').execute({ summary: 'x' }, exec()), /owning DSH agent session/);
     assert.equal(host.prompts.length, 0);
+  }));
+
+  it('publishes the vault access companion plugins run through', async () => withHost(async (host, root) => {
+    const access = host.provided.get('clawmasterNotes');
+    assert.ok(access, 'the notes host must publish its vault access');
+    assert.equal(access.root, root);
+    await readFile(join(root, '欢迎.md'), 'utf8');
+
+    assert.equal((await access.list()).some(entry => entry.id === '欢迎.md'), true);
+    assert.match((await access.read('欢迎.md')).text, /ClawMaster/);
+    assert.equal((await access.search('ClawMaster')).length >= 1, true);
+    assert.equal(Array.isArray(await access.tags()), true);
+
+    // A digest written through the access object lands in the same daily note the agent tool uses.
+    const receipt = await access.digest({ date: '2026-09-14', time: '16:45', summary: '通过访问句柄归档' });
+    assert.equal(receipt.id, '日记/2026-09-14.md');
+    assert.match(receipt.revision, /^sha256-[0-9a-f]{64}$/);
+    assert.match(await readFile(join(root, '日记/2026-09-14.md'), 'utf8'), /通过访问句柄归档/);
   }));
 });
 

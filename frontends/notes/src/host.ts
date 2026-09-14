@@ -16,6 +16,7 @@ import {
 import { DEFAULT_LIMITS, NotesService, commandSummary, type NotesLimits } from './service.ts';
 import { VaultError, openVault, type VaultEntry } from './vault.ts';
 import { VaultWatcher } from './watcher.ts';
+import { NOTES_ACCESS_KEY, createNotesAccess } from './access.ts';
 
 export const name = 'clawmaster-notes';
 export const inject = ['connection', 'tools', 'approval'];
@@ -42,6 +43,10 @@ export interface NotesHostContext {
   tools: Pick<ToolRuntime, 'register'>;
   approval: Pick<ApprovalService, 'request'>;
   effect: Context['effect'];
+  /** Publish the vault access companion plugins read with `get`. */
+  provide(name: string, value: unknown): void;
+  /** Read a value another plugin published. */
+  get(name: string): unknown;
 }
 
 const limitsSchema = z.object({
@@ -239,6 +244,10 @@ export async function apply(ctx: NotesHostContext, config: NotesHostConfig = {})
   await ctx.effect(async () => {
     const service = new NotesService(await openVault(root), limits);
     const watcher = await VaultWatcher.open(root);
+    // Companion plugins — the WatchDog reviewers, an archive writer, a memory bridge — consume the
+    // vault through this handle instead of opening the directory themselves and duplicating the
+    // path policy, the lock and the revision discipline.
+    ctx.provide(NOTES_ACCESS_KEY, createNotesAccess(service, root));
     const disposers: Array<() => Promise<void>> = [];
     const removals: Array<() => void> = [];
     const pending = new Set<Promise<unknown>>();
