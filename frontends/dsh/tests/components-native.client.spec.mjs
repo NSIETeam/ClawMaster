@@ -139,7 +139,7 @@ async function openFromSettings(f, title) {
   await waitFor(() => expect(screen.queryByRole('button', { name: '在右侧打开' })).toBeNull());
 }
 
-it.each([false, true])('opens CRM and ERP from the real component settings without default Workspace selection (existing=%s)', async existing => {
+it.each([false, true])('toggles enterprise components without selecting a default Workspace (existing=%s)', async existing => {
   const f = await fixture(existing);
   expect(f.request).not.toHaveBeenCalled();
   expect(f.runtime.sessions.calls.filter(call => call.method === 'create')).toHaveLength(0);
@@ -154,6 +154,12 @@ it.each([false, true])('opens CRM and ERP from the real component settings witho
   expect(f.request).not.toHaveBeenCalled();
   fireEvent.click(crmToggle);
   await waitFor(() => expect(f.service.isTabEnabled('clawmaster:crm')).toBe(true));
+  expect(f.request).not.toHaveBeenCalled();
+  expect(f.store.getPrefs().tabsEnabled.browser).toBe(false);
+});
+
+it.each([false, true])('switches CRM and ERP tabs without losing a draft or duplicating the native seat (existing=%s)', async existing => {
+  const f = await fixture(existing);
   await openFromSettings(f, 'CRM 客户');
   const crm = f.controller.active();
   expect(crm.kind).toBe('clawmaster:crm');
@@ -174,6 +180,20 @@ it.each([false, true])('opens CRM and ERP from the real component settings witho
   expect(f.view.container.querySelectorAll(`[data-dockkit-tab="${crm.id}"]`)).toHaveLength(1);
   expect(name.isConnected).toBe(true);
   expect(name.value).toBe('Synthetic unsaved contact');
+  expect(f.runtime.sessions.calls.filter(call => call.method === 'create')).toHaveLength(existing ? 0 : 1);
+  expect(f.request.mock.calls.filter(([path]) => path === '/api/clawmaster/workspace')).toHaveLength(existing ? 0 : 1);
+  expect(f.request.mock.calls.some(([path]) => path.includes('/command'))).toBe(false);
+  expect(f.store.getPrefs().tabsEnabled.browser).toBe(false);
+});
+
+it.each([false, true])('closing an enterprise tab aborts its seat and reopening starts without the discarded draft (existing=%s)', async existing => {
+  const f = await fixture(existing);
+  await openFromSettings(f, 'CRM 客户');
+  const crm = f.controller.active();
+  await waitFor(() => expect(within(f.view.container).getByRole('button', { name: '新建客户' })).toBeDefined());
+  fireEvent.click(within(f.view.container).getByRole('button', { name: '新建客户' }));
+  const name = within(f.view.container).getByRole('textbox', { name: '姓名', exact: true });
+  fireEvent.change(name, { target: { value: 'Discarded contact draft' } });
   const closed = f.records.get(crm.id, existing ? 'existing' : 'created').signal;
   act(() => f.controller.close(crm.id));
   expect(closed.aborted).toBe(true);
