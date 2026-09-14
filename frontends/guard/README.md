@@ -16,7 +16,8 @@ moments a review can still change the outcome:
   bridges use): refuses the calls that destroy something the user did not ask to destroy.
 - **Result** (`session/event`, at every `turn/end`): reduces the finished turn to checkable facts
   and archives them into the notes vault.
-- **Plan** (`exit_plan_mode`): reserved — the next stage.
+- **Plan** (`exit_plan_mode`): reads the plan the model is about to submit and states what a
+  reviewer would ask for — an acceptance criterion above all.
 
 It never approves a destructive action on the model's behalf. Critical patterns (a root, home or
 wildcard deletion, a device or filesystem writer, a fork bomb, deleting `.git`, a command that
@@ -58,6 +59,7 @@ Optional configuration:
     allowPaths: ['/tmp/scratch']
     resultReview: archive
     resultProject: ClawMaster
+    planReview: enforce
 ```
 
 `mode: observe` is the way to measure the rule set against real work before trusting it: the guard
@@ -85,6 +87,24 @@ user's own approval; the guard never grants one on the model's behalf"). The mod
 report the block and ask the user rather than work around it — the same instruction Codex's
 auto-reviewer gives.
 
+## Plan review
+
+`planReview` reads the plan text before the plan is submitted for the user's approval:
+
+| Finding | Binding? |
+| --- | --- |
+| `plan.no-acceptance` — the plan never says how its result will be checked | **yes** |
+| `plan.unscoped-risk` — the plan touches something destructive or irreversible without naming the evidence that will show the result | no |
+| `plan.no-evidence` — no command, hash, diff or test run is named as proof | no |
+| `plan.no-steps` — no ordered steps, so the scope cannot be read from the plan | no |
+| `plan.thin` — the body is too short to review | no |
+
+With `advisory` (the default) the findings are logged and the plan proceeds; with `enforce` a
+**binding** finding turns into an approval request, so a plan that never says how it will be
+verified needs the user's own yes before work starts. A plan that satisfies the rules passes
+untouched in both modes. `planTool` names the submitting tool (default `exit_plan_mode`) if a
+profile uses a different one.
+
 ## Known limitations and deferred work
 
 - The classifier is deterministic and rule-based. It does not model whether *the user* authorized a
@@ -100,7 +120,7 @@ auto-reviewer gives.
 
 ## Verification
 
-`npm --prefix frontends/guard test` builds and then runs the suite: 73 cases covering the risk
+`npm --prefix frontends/guard test` builds and then runs the suite: 84 cases covering the risk
 table above, target expansion, `sudo`/`env` prefixes, subshells and chains, the quoted-prose
 false-positive case, decision mapping, `observe` mode, `allowPaths`/`denyPaths`, workdir
 resolution, and the mount itself — including that a denial never reaches the pipeline and that a

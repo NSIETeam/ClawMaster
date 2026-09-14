@@ -19,7 +19,7 @@
 
 import type { PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools';
 import { homedir } from 'node:os';
-import { parseOptions, reviewCall, workdirOf, type GuardOptions } from './policy.ts';
+import { parseOptions, planDecision, reviewCall, workdirOf, type GuardOptions } from './policy.ts';
 import { composeResultReview } from './review.ts';
 import { collectTurn, isReviewable, type ReviewEvent } from './turn-facts.ts';
 
@@ -114,6 +114,9 @@ export function apply(ctx: GuardHostContext, config: unknown = {}): void {
         home: homedir(),
         cwd: workdirOf({ name: exec.name, arguments: exec.arguments }) ?? process.cwd(),
       });
+      // The plan stage reviews a submission before the user is asked to accept it; it only decides
+      // when it is enforcing, and otherwise records what it found.
+      decision ??= planDecision({ name: exec.name, arguments: exec.arguments }, options, ctx.logger);
     } catch (error) {
       // A guard bug must not become a broken agent: report it and let the call through.
       ctx.logger.warn(`clawmaster-guard: review failed, delegating: ${String(error)}`);

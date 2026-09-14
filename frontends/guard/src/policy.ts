@@ -12,6 +12,7 @@
 
 import type { PreToolDecision } from '@deepseek-ai/dsh-tools';
 import { inspectShellCommand, type Finding, type InspectContext } from './classify.ts';
+import { inspectPlan, planReviewReason } from './plan.ts';
 
 /** Guard configuration; every field has a working default. */
 export interface GuardOptions {
@@ -34,6 +35,13 @@ export interface GuardOptions {
   resultReview: 'off' | 'archive';
   /** Project name an archived entry links to, when the vault has a matching note. */
   resultProject?: string;
+  /**
+   * Plan stage: `off` ignores plans; `advisory` logs what the review found; `enforce` also asks the
+   * user before accepting a plan that never states how its result will be checked.
+   */
+  planReview: 'off' | 'advisory' | 'enforce';
+  /** Tool that submits a plan for the user's review. */
+  planTool: string;
 }
 
 /** Defaults: enforce, review the shell tools, and deny nothing beyond the rule set. */
@@ -43,6 +51,8 @@ export const DEFAULT_OPTIONS: GuardOptions = {
   denyPaths: [],
   allowPaths: [],
   resultReview: 'off',
+  planReview: 'advisory',
+  planTool: 'exit_plan_mode',
 };
 
 /** The decision for one call plus the finding behind it, so a caller can log either. */
@@ -70,8 +80,40 @@ export function parseOptions(config: unknown): GuardOptions {
     denyPaths: stringList(source['denyPaths']) ?? DEFAULT_OPTIONS.denyPaths,
     allowPaths: stringList(source['allowPaths']) ?? DEFAULT_OPTIONS.allowPaths,
     resultReview: source['resultReview'] === 'archive' ? 'archive' : DEFAULT_OPTIONS.resultReview,
+    planReview: source['planReview'] === 'off' || source['planReview'] === 'enforce' ? source['planReview'] : DEFAULT_OPTIONS.planReview,
+    planTool: typeof source['planTool'] === 'string' && source['planTool'] !== '' ? source['planTool'] : DEFAULT_OPTIONS.planTool,
     ...project !== undefined ? { resultProject: project } : {},
   };
+}
+
+/** The plan text a call would submit, when the call is the configured plan tool. */
+export function planTextOf(call: { name: string; arguments: unknown }, options: GuardOptions): string | undefined {
+  if (options.planReview === 'off' || call.name !== options.planTool) return undefined;
+  const args = typeof call.arguments === 'object' && call.arguments !== null ? call.arguments as Record<string, unknown> : {};
+  const plan = args['plan'];
+  return typeof plan === 'string' && plan.trim() !== '' ? plan : undefined;
+}
+
+/**
+ * Review a plan submission and decide whether it needs the user's own approval first.
+ * @param call - Tool name and parsed arguments.
+ * @param options - Guard configuration.
+ * @param logger - Host logger, used for the advisory mode.
+ * @returns An `ask` decision when the plan review is binding and enforcing; otherwise undefined.
+ */
+export function planDecision(
+  call: { name: string; arguments: unknown },
+  options: GuardOptions,
+  logger: { info(message: string): void },
+): PreToolDecision | undefined {
+  const plan = planTextOf(call, options);
+  if (plan === undefined) return undefined;
+  const review = inspectPlan(plan);
+  if (review.verdict === 'ok') return undefined;
+  const reason = planReviewReason(review);
+  if (options.planReview === 'enforce' && review.verdict === 'block') return { kind: 'ask', reason };
+  logger.info(`clawmaster-guard: ${reason}`);
+  return undefined;
 }
 
 /** A configured list of strings, or undefined when the field is absent or unusable. */

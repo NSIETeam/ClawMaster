@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { Worker } from 'node:worker_threads';
-import { applyEnterpriseHost, openEnterpriseStore } from '../src/enterprise-host.ts';
+import { applyEnterpriseHost, mountEnterpriseRoutes, openEnterpriseStore } from '../src/enterprise-host.ts';
 import { parseEnterpriseRequest, parseEnterpriseSnapshot } from '../src/enterprise-schema.ts';
 import { ENTERPRISE_BACKUP_PATH, ENTERPRISE_COMMAND_PATH, ENTERPRISE_RESTORE_PATH, ENTERPRISE_SNAPSHOT_PATH } from '../src/enterprise-types.ts';
 
@@ -25,11 +25,11 @@ async function database(context) {
 const contact = { id: 'contact-1', name: '王经理', company: '远航科技', stage: 'proposal', nextAction: '确认报价', nextActionDate: '2026-09-15' };
 const item = { id: 'item-1', sku: 'A-001', name: '控制器', stock: 12, reorderAt: 3, supplier: '本地供应商' };
 const order = (id, kind, quantity = 2) => ({ id, kind, counterparty: '远航科技', orderDate: '2026-09-12', currency: 'CNY', lines: [{ itemId: item.id, quantity, unitPriceMinorUnits: 12345 }], note: '交货前确认' });
-const command = (store, value, extra = {}) => store.execute({ revision: store.snapshot().revision, commandId: randomUUID(), command: value, ...extra });
+const command = (store, value, extra = {}) => store.execute({ generation: store.snapshot().generation, revision: store.snapshot().revision, commandId: randomUUID(), command: value, ...extra });
 
 test('CRM edits, SKU corrections, deletion and audit survive reopening the database', async context => {
   const { store, open } = await database(context);
-  assert.deepEqual(store.snapshot(), { revision: 0, contacts: [], inventory: [], orders: [], audit: [] });
+  assert.deepEqual(store.snapshot(), { generation: 0, revision: 0, contacts: [], inventory: [], orders: [], audit: [] });
   command(store, { type: 'contact.upsert', contact });
   command(store, { type: 'contact.upsert', contact: { ...contact, stage: 'won', nextActionDate: null } });
   command(store, { type: 'item.upsert', item });
@@ -55,9 +55,96 @@ test('restore replaces records and audit atomically from a complete backup envel
   const backup = store.backup();
   command(store, { type: 'contact.upsert', contact: { ...contact, stage: 'lost' } });
   const restored = store.restore(backup, store.snapshot().revision);
-  assert.deepEqual(restored, backup.snapshot);
+  assert.deepEqual(restored, { ...backup.snapshot, generation: 1 });
   assert.equal(store.backup().auditCommands.length, backup.auditCommands.length);
   assert.throws(() => store.restore(backup, 0), { code: 'revision_conflict' });
+});
+
+test('restore rejects pre-restore writes, receipts and confirmations even when revisions repeat', async context => {
+  const { store, open } = await database(context);
+  command(store, { type: 'contact.upsert', contact });
+  const backup = store.backup();
+  const oldRequest = { generation: 0, revision: 1, commandId: 'old-request', command: { type: 'contact.upsert', contact: { ...contact, name: 'stale' } } };
+  store.execute(oldRequest);
+  store.restore(backup, 2, 0);
+  for (const method of ['prepare', 'execute']) {
+    assert.throws(() => store[method](oldRequest), { code: 'revision_conflict' });
+    assert.throws(() => store[method]({ ...oldRequest, commandId: 'uncommitted' }), { code: 'revision_conflict' });
+    assert.throws(() => store[method]({ revision: 1, commandId: 'legacy', command: oldRequest.command }), { code: 'revision_conflict' });
+  }
+  assert.throws(() => store.restore(backup, 1, 0), { code: 'revision_conflict' });
+  const reopened = await open();
+  assert.equal(reopened.snapshot().generation, 1);
+  command(reopened, { type: 'contact.upsert', contact: { ...contact, name: 'reviewed' } });
+  reopened.restore(backup, 2, 1);
+  assert.equal(store.snapshot().generation, 2);
+  assert.equal(store.snapshot().contacts[0].name, contact.name);
+});
+
+test('schema 1 gains a restore counter without changing business records or audit', async context => {
+  const { store, path, open } = await database(context);
+  command(store, { type: 'contact.upsert', contact });
+  const expected = store.snapshot();
+  store.close();
+  const legacy = new DatabaseSync(path);
+  legacy.exec('ALTER TABLE enterprise_meta DROP COLUMN generation; PRAGMA user_version=1;');
+  legacy.close();
+  const migrated = await open();
+  assert.deepEqual(migrated.snapshot(), expected);
+  const inspect = new DatabaseSync(path);
+  try { assert.equal(inspect.prepare('PRAGMA user_version').get().user_version, 2); }
+  finally { inspect.close(); }
+});
+
+test('a failed restore rolls back records, receipts and the restore counter together', async context => {
+  const { store, path } = await database(context);
+  command(store, { type: 'contact.upsert', contact });
+  const backup = store.backup();
+  command(store, { type: 'contact.upsert', contact: { ...contact, name: 'newer' } });
+  const before = store.backup();
+  const fault = new DatabaseSync(path);
+  fault.exec("CREATE TRIGGER reject_restore BEFORE INSERT ON contacts BEGIN SELECT RAISE(ABORT, 'fixture failure'); END;");
+  fault.close();
+  assert.throws(() => store.restore(backup, 2, 0), { code: 'storage_invalid' });
+  assert.deepEqual(store.snapshot(), before.snapshot);
+  assert.deepEqual(store.backup().auditCommands, before.auditCommands);
+});
+
+test('backup receipt content must agree with its audited entity and values', async context => {
+  const { store } = await database(context);
+  command(store, { type: 'contact.upsert', contact });
+  const backup = store.backup();
+  for (const changed of [{ ...contact, id: 'wrong-id' }, { ...contact, name: 'different content' }]) {
+    const invalid = structuredClone(backup);
+    invalid.auditCommands[0].commandJson = JSON.stringify({ type: 'contact.upsert', contact: changed });
+    assert.throws(() => store.restore(invalid, 1, 0), { code: 'storage_invalid' });
+    assert.deepEqual(store.snapshot(), backup.snapshot);
+  }
+});
+
+test('route disposal drains a restore body and prevents replacement after shutdown begins', async context => {
+  const { store } = await database(context);
+  const backup = store.backup();
+  command(store, { type: 'contact.upsert', contact });
+  const before = store.snapshot();
+  const routes = new Map();
+  const remove = await mountEnterpriseRoutes({ connection: { fetch: { register(route) {
+    routes.set(route.path, route.fetch); return async () => { routes.delete(route.path); };
+  } } } }, store);
+  context.after(remove);
+  let release;
+  const body = new ReadableStream({ start(controller) { release = () => {
+    controller.enqueue(new TextEncoder().encode(JSON.stringify({ confirm: true, expectedRevision: 1, expectedGeneration: 0, backup })));
+    controller.close();
+  }; } });
+  const response = routes.get(ENTERPRISE_RESTORE_PATH)(new Request('http://fixture/restore', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body, duplex: 'half',
+  }));
+  const closing = remove();
+  release();
+  assert.equal((await response).status, 503);
+  await closing;
+  assert.deepEqual(store.snapshot(), before);
 });
 
 test('purchase and sale submission change stock exactly once and retain integer money', async context => {
@@ -203,7 +290,7 @@ test('invalid types, impossible dates, unknown fields and unsafe monetary values
   ];
   for (const value of invalid) assert.throws(() => command(store, value), { code: 'invalid_request' });
   assert.throws(() => parseEnterpriseRequest({ revision: 0, commandId: '../escape', command: { type: 'contact.upsert', contact } }), { code: 'invalid_request' });
-  assert.deepEqual(store.snapshot(), { revision: 0, contacts: [], inventory: [], orders: [], audit: [] });
+  assert.deepEqual(store.snapshot(), { generation: 0, revision: 0, contacts: [], inventory: [], orders: [], audit: [] });
   command(store, { type: 'item.upsert', item });
   assert.throws(() => command(store, { type: 'item.upsert', item: { ...item, id: 'duplicate' } }), { code: 'duplicate_sku' });
   assert.throws(() => command(store, { type: 'order.save', order: { ...order('sale', 'sale'), lines: [{ itemId: item.id, quantity: 2, unitPriceMinorUnits: Number.MAX_SAFE_INTEGER }] } }), { code: 'numeric_overflow' });

@@ -4,13 +4,14 @@ import { createHash } from 'node:crypto'
 import { cp, mkdir, mkdtemp, readFile, rm, symlink } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 
 const repository = fileURLToPath(new URL('../../..', import.meta.url))
-const resolver = createRequire(join(repository, 'apps/cli/package.json'))
+const coreRoot = resolve(process.env.DSH_OPENVIKING_TEST_CORE_ROOT ?? repository)
+const resolver = createRequire(join(coreRoot, 'apps/cli/package.json'))
 const patchPath = fileURLToPath(new URL('../patches/@openviking__dsh-memory-plugin@0.3.0.patch', import.meta.url))
 const integrity = JSON.parse(await readFile(new URL('../patches/openviking-0.3.0.integrity.json', import.meta.url), 'utf8'))
 const sha256 = data => createHash('sha256').update(data).digest('hex')
@@ -22,7 +23,8 @@ const { createUserMessage } = await built('@deepseek-ai/dsh-llm')
 
 /** Locate the package owning a resolved entry without requiring a package.json export. */
 async function packageRoot(name) {
-  let current = dirname(resolver.resolve(name))
+  const dependencyResolver = name === 'zod' ? createRequire(resolver.resolve('@deepseek-ai/dsh-llm')) : resolver
+  let current = dirname(dependencyResolver.resolve(name))
   while (dirname(current) !== current) {
     try {
       const manifest = JSON.parse(await readFile(join(current, 'package.json'), 'utf8'))

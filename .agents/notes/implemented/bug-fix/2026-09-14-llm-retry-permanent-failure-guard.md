@@ -14,6 +14,8 @@ Keep `always` unbounded only for transient failures. After downstream recovery h
 
 The decision is local to the retry executor. Providers remain responsible for mapping wire failures to stable codes, and deployments still choose normal-mode budgets and provider backoff. No new model-visible event is introduced; a permanent failure is represented by the existing failed request and turn settlement.
 
+HTTP 401/403 is permanent regardless of the accompanying provider code, and normal mode also refuses classified permanent failures even when its eligible-code list includes them. Always mode preserves the single downstream outcome, including a thrown error, without invoking recovery twice.
+
 ## Acceptance
 
 - Always mode does not append `llm/retry` or arm a timer for each classified permanent code.

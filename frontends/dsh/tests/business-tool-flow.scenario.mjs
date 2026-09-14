@@ -141,7 +141,7 @@ test('CSV processing and CRM maintenance record model-visible tool results and r
   const f = await fixture(t, [
     toolCallResponse('csv', 'csv_process', { input_path: 'leads.csv', trim: true, deduplicate: true }),
     toolCallResponse('empty-crm', 'enterprise_query', { collection: 'contacts', offset: 0, limit: 10 }),
-    toolCallResponse('save-contact', 'enterprise_command', { request: { revision: 0, commandId: 'save-synthetic-lead', command: { type: 'contact.upsert', contact } } }),
+    toolCallResponse('save-contact', 'enterprise_command', { request: { generation: 0, revision: 0, commandId: 'save-synthetic-lead', command: { type: 'contact.upsert', contact } } }),
     toolCallResponse('saved-crm', 'enterprise_query', { collection: 'contacts', id: contact.id, offset: 0, limit: 10 }),
     textResponse('Synthetic CSV and CRM records checked.'),
   ]);
@@ -154,7 +154,7 @@ test('CSV processing and CRM maintenance record model-visible tool results and r
     tools: calls.map(call => call.data.name),
     csv: { rows: values[0].preview.rows, duplicatesRemoved: values[0].duplicatesRemoved },
     initialContacts: values[1].records,
-    receipt: { revision: values[2].revision, commandId: values[2].commandId, type: values[2].type, entityId: values[2].entityId },
+    receipt: { generation: values[2].generation, revision: values[2].revision, commandId: values[2].commandId, type: values[2].type, entityId: values[2].entityId },
     contacts: values[3].records.map(({ updatedAt, ...row }) => row),
   };
   assert.deepEqual(recorded, JSON.parse(await readFile(new URL('expected/business-tool-flow.json', import.meta.url), 'utf8')));
@@ -164,7 +164,7 @@ test('CSV processing and CRM maintenance record model-visible tool results and r
 
 test('an ERP submission from the model records a real unavailable approval and leaves stock unchanged', { timeout: 30000 }, async t => {
   const f = await fixture(t, [
-    toolCallResponse('submit-order', 'enterprise_command', { request: { revision: 2, commandId: 'submit-fixture-order', command: { type: 'order.submit', id: 'fixture-order' } } }),
+    toolCallResponse('submit-order', 'enterprise_command', { request: { generation: 0, revision: 2, commandId: 'submit-fixture-order', command: { type: 'order.submit', id: 'fixture-order' } } }),
     textResponse('The order was not submitted because approval is unavailable.'),
   ]);
   const item = { id: 'fixture-item', sku: 'FIXTURE', name: 'Synthetic inventory', stock: 5, reorderAt: 1, supplier: 'Fixture supplier' };
