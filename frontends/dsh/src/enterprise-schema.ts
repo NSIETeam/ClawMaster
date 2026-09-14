@@ -1,7 +1,7 @@
 /** Browser-safe validation shared by HTTP clients and SQLite record readers. */
 import { z } from 'zod';
 import { enterpriseId, EnterpriseError } from './enterprise-types.ts';
-import type { EnterpriseCommandRequest, EnterpriseSnapshot, OrderInput } from './enterprise-types.ts';
+import type { EnterpriseBackup, EnterpriseCommandRequest, EnterpriseSnapshot, OrderInput } from './enterprise-types.ts';
 
 const identifier = z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/).transform(enterpriseId);
 const shortText = z.string().trim().max(200);
@@ -83,6 +83,24 @@ const snapshotSchema = z.object({
     && snapshot.audit.length === snapshot.revision
     && snapshot.audit.every((entry, index) => entry.revision === snapshot.revision - index);
 });
+const backupSchema = z.object({
+  schemaVersion: z.literal(1), exportedAt: timestamp, snapshot: snapshotSchema,
+  auditCommands: z.array(z.object({ revision: integer.min(1), commandId: identifier, commandJson: z.string().min(2) }).strict()),
+}).strict().superRefine((backup, context) => {
+  if (backup.auditCommands.length !== backup.snapshot.audit.length) {
+    context.addIssue({ code: 'custom', message: 'Backup command receipts do not cover the complete audit history.' });
+    return;
+  }
+  const byRevision = new Map(backup.auditCommands.map(entry => [entry.revision, entry]));
+  for (const entry of backup.snapshot.audit) {
+    const receipt = byRevision.get(entry.revision);
+    if (!receipt || receipt.commandId !== entry.commandId) {
+      context.addIssue({ code: 'custom', message: 'Backup command receipt does not match its audit entry.' });
+      return;
+    }
+    try { JSON.parse(receipt.commandJson); } catch { context.addIssue({ code: 'custom', message: 'Backup command JSON is malformed.' }); return; }
+  }
+});
 
 /**
  * Validate JSON before it enters an enterprise transaction.
@@ -103,6 +121,20 @@ export function parseEnterpriseRequest(value: unknown): EnterpriseCommandRequest
 export function parseEnterpriseSnapshot(value: unknown): EnterpriseSnapshot {
   const result = snapshotSchema.safeParse(value);
   if (!result.success) throw new EnterpriseError('storage_invalid', 'Enterprise snapshot fields are invalid.');
+  return result.data;
+}
+
+/** Validate a complete restore-capable backup envelope. */
+export function parseEnterpriseBackup(value: unknown): EnterpriseBackup {
+  const result = backupSchema.safeParse(value);
+  if (!result.success) throw new EnterpriseError('storage_invalid', 'Enterprise backup fields are invalid.');
+  return result.data;
+}
+
+/** Validate the explicit restore request envelope before opening SQLite. */
+export function parseEnterpriseRestoreRequest(value: unknown): { expectedRevision: number; confirm: true; backup: EnterpriseBackup } {
+  const result = z.object({ expectedRevision: integer, confirm: z.literal(true), backup: backupSchema }).strict().safeParse(value);
+  if (!result.success) throw new EnterpriseError('invalid_request', 'Enterprise restore confirmation is invalid.');
   return result.data;
 }
 

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import clawmasterIcon from './clawmaster.svg';
+import clawmasterDarkIcon from './clawmaster-dark.svg';
 import { productCopy, type ProductLocale, type ProductModule } from './locales/frontend.ts';
 import type { SessionId } from './services.ts';
 import { ProductNavigationError, type WatchdogCadence } from './navigation.ts';
@@ -33,16 +34,16 @@ export function BrandName() {
 
 export function BrandMark({ size = 30, className, imageRef }: MarkProps) {
   return (
-    <img
-      ref={imageRef}
+    <span
       className={['cm-dsh-brand-mark', className].filter(Boolean).join(' ')}
-      src={clawmasterIcon}
-      width={size}
-      height={size}
-      alt=""
+      style={{ width: size, height: size }}
       aria-hidden="true"
-      draggable={false}
-    />
+    >
+      <img ref={imageRef} className="cm-dsh-brand-light" src={clawmasterIcon}
+        width={size} height={size} alt="" draggable={false} />
+      <img className="cm-dsh-brand-dark" src={clawmasterDarkIcon}
+        width={size} height={size} alt="" draggable={false} />
+    </span>
   );
 }
 

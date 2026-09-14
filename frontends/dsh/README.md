@@ -68,7 +68,7 @@ CRM and ERP start with an empty database at `$DSH_HOME/watchdog/enterprise.sqlit
 
 Save purchase or sale orders as drafts with quantities and unit prices. Submitting a purchase adds stock; submitting a sale subtracts stock. All lines, order status, the revision and before/after audit facts commit together. Insufficient stock rolls back the entire submission. Submitted orders cannot be edited, deleted or applied twice.
 
-Stock and quantities use safe integers; monetary values use integer CNY minor units. A SKU referenced by an order cannot be deleted. If another view changes the records, a stale save returns a revision conflict: refresh the records, review the current values, and save again. Unsupported, foreign or damaged databases fail without an automatic reset.
+Stock and quantities use safe integers; monetary values use integer CNY minor units. A SKU referenced by an order cannot be deleted. If another view changes the records, a stale save returns a revision conflict: refresh the records, review the current values, and save again. Unsupported, foreign or damaged databases fail without an automatic reset. The CRM and ERP headers provide **Download local data backup**, which exports a dated, validated JSON envelope containing the complete snapshot and command receipts needed for idempotent restore. The authenticated Host exposes restore only as an explicit revision-confirmed operation; the panel never overwrites the database or restores data automatically.
 
 ### Use reminders and IM connections
 
@@ -84,7 +84,7 @@ IM account setup and platform login flows belong to the bundled IM plugin. Inclu
 <details>
 <summary>Implementation and contributor checks — click to expand</summary>
 
-The sidebar and conversation hero render [the shared SVG artwork](src/clawmaster.svg) through the client bundle's SVG data URL loader. The [desktop asset guide](../../apps/desktop-tauri/README.md#release) owns splash, favicon and native icon distribution; [the PNG](src/clawmaster.png) is retained only as a visual reference.
+The sidebar and conversation hero render the transparent [light SVG](src/clawmaster.svg) or [dark SVG](src/clawmaster-dark.svg) through the client bundle's SVG data URL loader. CSS follows DSH's resolved `body[data-ds-dark-theme]` state, including manual theme choices and system-following mode. The [desktop asset guide](../../apps/desktop-tauri/README.md#release) owns splash, favicon and native icon distribution; [the PNG](src/clawmaster.png) is retained only as a visual reference.
 
 The [profile patch](cordis.patch.yml) disables the official brand and adaptive directory-picker rows, inserts this frontend and DSH's browse directory-picker backend and surface, enables Schedule and time context, and enables the reminder UI. The DSH Web bundle already supplies both browse packages. The [client entry](src/client.tsx) uses DSH's existing slots, theme, sessions, workspaces and panel services. The [Host entry](src/host.ts) registers lazy workspace allocation and enterprise routes on the existing authenticated DSH Fetch carrier; it starts no second server.
 
