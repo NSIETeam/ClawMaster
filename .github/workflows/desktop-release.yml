@@ -108,7 +108,9 @@ jobs:
           echo "DSH_PNPM_CJS=$(pwd)/$rt/pnpm/pnpm.cjs" >> "$GITHUB_ENV"
 
       - name: Build ClawMaster harness
-        run: pnpm --dir apps/desktop-tauri run build:harness
+        run: |
+          pnpm exec vitest run scripts/tsdown-config.spec.ts
+          pnpm --dir apps/desktop-tauri run build:harness
 
       - name: Verify Graph Memory component
         run: |
