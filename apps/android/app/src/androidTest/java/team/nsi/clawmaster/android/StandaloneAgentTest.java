@@ -18,6 +18,7 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static org.junit.Assert.*;
 import static org.hamcrest.Matchers.containsString;
 
@@ -63,7 +64,7 @@ public final class StandaloneAgentTest {
             });
             awaitState(controller, "approval");
             scenario.recreate();
-            onView(withText(R.string.approve)).perform(click());
+            onView(withText(R.string.approve)).inRoot(isDialog()).perform(click());
             awaitState(controller, "complete");
             assertEquals(2, model.calls);
             assertTrue(model.continuation.toString().contains("revision"));
@@ -84,7 +85,7 @@ public final class StandaloneAgentTest {
                 catch (Exception e) { throw new AssertionError(e); }
             });
             awaitState(controller, "approval");
-            onView(withText(R.string.reject)).perform(click());
+            onView(withText(R.string.reject)).inRoot(isDialog()).perform(click());
             awaitState(controller, "complete");
             assertEquals(0, controller.notes.search(title).length());
             assertTrue(model.continuation.toString().contains("user_rejected"));
