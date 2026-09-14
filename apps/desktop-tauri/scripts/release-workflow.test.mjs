@@ -8,6 +8,9 @@ const workflow = load(readFileSync(new URL('../../../.github/workflows/desktop-r
 
 test('the committed desktop lock is unambiguous and includes graph persistence', () => {
   const lock = load(readFileSync(new URL('../pnpm-desktop-lock.yaml', import.meta.url), 'utf8'))
+  for (const name of ['dsh', 'notes', 'office', 'guard', 'graph-memory', 'rpa']) {
+    assert.ok(lock.importers[`frontends/${name}`], name)
+  }
   assert.equal(lock.importers['frontends/graph-memory'].dependencies['@deepseek-ai/dsh-storage-sqlite'].version,
     'link:../../packages/storage/storage-sqlite')
 })

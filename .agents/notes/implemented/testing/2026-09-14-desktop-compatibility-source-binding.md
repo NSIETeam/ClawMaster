@@ -12,6 +12,8 @@ An installed plugin tree can retain earlier DSH artifacts while the checkout cha
 
 The desktop `test:compat` command verifies current prepared-build provenance and the uninstalled bundle digest before acquiring dependencies. It copies the verified payload to a private temporary directory, installs frozen dependencies without lifecycle scripts, and checks pinned registry archives against the reviewed package hashes before extraction. Tests receive explicit artifact directories; the routing test has no implicit preference for a packaged tree. The runner rechecks source provenance after the tests and removes its own temporary tree on completion or failure.
 
+The lockfile is generated from the final trimmed manifests and includes every frontend and the system-prompt workspace. Lock checks and a real fresh-home boot jointly verify component discovery and tool registration. Desktop runtime tests run in the platform matrix; generic PATH fixtures use host-valid paths, while copying real Windows files into WSL mounts is tested on Windows only.
+
 ## Alternatives considered
 
 **Prefer any existing bundled runtime.** Its existence proves neither freshness nor a match with edited source.

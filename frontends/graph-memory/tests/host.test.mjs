@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { Context } from '@deepseek-ai/cordis';
+import SystemPrompt from '@deepseek-ai/dsh-system-prompt';
+import ToolRuntime, { assertSupportedJsonSchema } from '@deepseek-ai/dsh-tools';
 import { apply, GRAPH_MEMORY_ACCESS_KEY } from '../src/host.ts';
 import { GRAPH_MEMORY_GRAPH_PATH, GRAPH_MEMORY_QUERY_PATH, GRAPH_MEMORY_REFRESH_PATH } from '../src/protocol.ts';
 
@@ -17,7 +20,7 @@ function harness({ listError } = {}) {
   };
   const ctx = {
     connection: { fetch: { register(route) { routes.set(route.path, route); return async () => routes.delete(route.path); } } },
-    tools: { register(tool) { tools.set(tool.name, tool); return () => tools.delete(tool.name); } },
+    tools: { register(tool) { assertSupportedJsonSchema(tool.output.schema); tools.set(tool.name, tool); return () => tools.delete(tool.name); } },
     storage: { backend: { get() { return { kv: { async open() { return unit; } }, async close() {} }; } } },
     provide(key, value) { provided.set(key, value); },
     get(key) {
@@ -46,7 +49,7 @@ test('host registers authenticated routes, zod-derived tools and shared access',
   assert.equal(query.isConcurrencySafe({ query: 'x' }), true);
   assert.equal(query.isConcurrencySafe({ limit: 'wrong' }), false);
   const refresh = h.tools.get('graph_memory_refresh');
-  assert.equal((await refresh.execute({}, { signal: new AbortController().signal })).sources[0].documents, 1);
+  assert.equal((await refresh.execute({}, { signal: new AbortController().signal })).documents, 1);
   const writeback = await h.tools.get('graph_memory_plan_writeback').execute({
     noteTitle: '决策', memoryTitle: '偏好',
     items: [{ kind: 'decision', text: '采用同一索引' }, { kind: 'preference', text: '偏好中文' }],
@@ -55,6 +58,31 @@ test('host registers authenticated routes, zod-derived tools and shared access',
   await h.dispose();
   assert.equal(h.routes.size, 0);
   assert.equal(h.tools.size, 0);
+});
+
+test('real ToolRuntime registers and validates every graph tool result', async t => {
+  const ctx = new Context();
+  const h = harness();
+  t.after(async () => { await h.dispose(); await ctx.fiber.dispose(); });
+  await ctx.plugin(SystemPrompt).await();
+  await ctx.plugin(ToolRuntime, { mode: 'native' }).await();
+  h.ctx.tools = ctx.tools;
+  await apply(h.ctx, { memory: 'off' });
+  const run = async (name, args) => {
+    const result = await ctx.tools.execute({ name, callId: name, arguments: args, signal: new AbortController().signal });
+    assert.equal(result.isError, false, JSON.stringify(result));
+    return JSON.parse(result.content.filter(block => block.type === 'text').map(block => block.text).join(''));
+  };
+  const refreshed = await run('graph_memory_refresh', {});
+  assert.equal(refreshed.documents, 1);
+  assert.equal(typeof refreshed.nodes, 'number');
+  const queried = await run('graph_memory_query', { query: 'Graph memory' });
+  assert.equal(queried.hits[0].title, 'Alpha');
+  const plan = await run('graph_memory_plan_writeback', {
+    noteTitle: 'Decisions', memoryTitle: 'Preferences',
+    items: [{ kind: 'decision', text: 'Shared index' }, { kind: 'preference', text: 'Chinese' }],
+  });
+  assert.deepEqual(plan.map(item => item.destination), ['notes', 'memory']);
 });
 
 test('routes build the graph and reject invalid query input', async () => {

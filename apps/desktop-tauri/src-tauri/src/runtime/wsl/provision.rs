@@ -522,7 +522,9 @@ mod tests {
         dir
     }
 
+    // This fixture copies real Windows files into a mocked WSL mount.
     #[test]
+    #[cfg(windows)]
     fn copies_credentials_once_and_skips_sessions() {
         let bundled = temp_dir("bundled");
         let windows_home = temp_dir("win-home");

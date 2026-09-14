@@ -29,7 +29,7 @@ ClawMaster Desktop 在默认 profile 中安装此 bundle。它的 patch 关闭 N
 
 ### 获得的能力
 
-`graph_memory_query` 用同一套 BM25 排序检索笔记正文与 OpenViking 记忆，并沿 wiki 链接、词法相似、重复关系和主题扩展结果。`graph_memory_refresh` 在进程内重建派生快照。`graph_memory_plan_writeback` 把结论、决定和证据分到笔记，把偏好和稳定事实分到记忆；它以预览形式返回互相的 `[[链接]]`，不执行写入。
+`graph_memory_query` 用同一套 BM25 排序检索笔记正文与 OpenViking 记忆，并沿 wiki 链接、词法相似、重复关系和主题扩展结果。`graph_memory_refresh` 在进程内重建派生快照，向模型返回生成时间及文档、节点、边的数量，而非完整索引。`graph_memory_plan_writeback` 把结论、决定和证据分到笔记，把偏好和稳定事实分到记忆；它以预览形式返回互相的 `[[链接]]`，不执行写入。
 
 侧边栏列出主题页和带依据的相似文件对。额外文件目录通过 `fileSources` 显式启用。Markdown 与文本文件贡献可检索正文；演示文稿、电子表格、PDF、图片及其他二进制文件只贡献名称、路径、大小、时间戳和扩展名。
 
@@ -52,7 +52,7 @@ npm --prefix frontends/graph-memory run test:real-vault
 <details>
 <summary>实现内部细节——点击展开</summary>
 
-此 bundle 插入两个条目：SQLite 存储提供器与 Graph Memory Host/client 包。Host 通过 `clawmasterNotes` 读取笔记，通过 HTTP API 读取 OpenViking，在进程内构建完整且可表示为 JSON 的图，并原子替换 `ctx.storage` 中的一个 KV 值。工具直接调用同一引擎；组件不启动子进程，也不直接导入 SQLite。
+此 bundle 插入两个条目：SQLite 存储提供器与 Graph Memory Host/client 包。Host 通过 `clawmasterNotes` 读取笔记，通过 HTTP API 读取 OpenViking，在进程内构建完整且可表示为 JSON 的图，并原子替换 `ctx.storage` 中的一个 KV 值。工具输出使用 DSH 支持的 schema，输入与领域细化校验仍由 zod 负责。工具直接调用同一引擎；组件不启动子进程，也不直接导入 SQLite。
 
 每回合第 1 个 step，上下文监听器先委托给下一个监听器，再刷新和查询统一图。注入的用户消息以 `clawmaster-graph-memory` 为插件来源并使用 `form: snapshot`，所以下一回合的快照会覆盖上一回合。笔记清单读取失败时，组件记录错误并原样返回该 step。
 

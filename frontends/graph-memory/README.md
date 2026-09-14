@@ -29,7 +29,7 @@ ClawMaster Desktop installs this bundle in its default profile. Its patch disabl
 
 ### What you get
 
-`graph_memory_query` searches note bodies and OpenViking memory with one BM25 ranking and expands results over wiki links, lexical similarity, duplicate relations, and topics. `graph_memory_refresh` rebuilds the derived snapshot in process. `graph_memory_plan_writeback` classifies conclusions, decisions, and evidence for notes, and preferences and stable facts for memory; it returns reciprocal `[[links]]` as a preview and writes nothing.
+`graph_memory_query` searches note bodies and OpenViking memory with one BM25 ranking and expands results over wiki links, lexical similarity, duplicate relations, and topics. `graph_memory_refresh` rebuilds the derived snapshot in process and returns its generation time and document, node and edge counts instead of the entire index. `graph_memory_plan_writeback` classifies conclusions, decisions, and evidence for notes, and preferences and stable facts for memory; it returns reciprocal `[[links]]` as a preview and writes nothing.
 
 The sidebar lists topic pages and evidence-backed similar-file pairs. Additional file directories are opt-in through `fileSources`. Markdown and text files contribute searchable text; presentations, spreadsheets, PDFs, images, and other binary files contribute names, paths, sizes, timestamps, and extensions only.
 
@@ -52,7 +52,7 @@ The last command reads the configured real Notes vault and OpenViking service. I
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The bundle inserts two rows: a SQLite storage provider and the Graph Memory host/client package. The host reads notes through `clawmasterNotes`, reads OpenViking through its HTTP API, builds a complete JSON-safe graph in process, and replaces one `ctx.storage` KV value atomically. Tools call the same engine directly; no child process or direct SQLite import exists in the component.
+The bundle inserts two rows: a SQLite storage provider and the Graph Memory host/client package. The host reads notes through `clawmasterNotes`, reads OpenViking through its HTTP API, builds a complete JSON-safe graph in process, and replaces one `ctx.storage` KV value atomically. Tool outputs use DSH-supported schemas while zod retains input and refined domain validation. Tools call the same engine directly; no child process or direct SQLite import exists in the component.
 
 At step 1 of every turn, the context listener first delegates to the next listener. It then refreshes and queries the unified graph. The injected user message uses plugin source `clawmaster-graph-memory` and `form: snapshot`, so the next turn replaces the earlier snapshot. A note-list failure is logged and returns the original step unchanged.
 

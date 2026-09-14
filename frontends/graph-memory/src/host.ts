@@ -7,9 +7,10 @@ import { GraphMemoryEngine, panelProjection } from './engine.ts';
 import { GraphStore } from './store.ts';
 import { planWriteback, tokenize } from './algorithms.ts';
 import { indexSources, type GraphIndexConfig, type NotesAccess } from './indexer.ts';
+import { graphQueryOutput, graphRefreshOutput } from './tool-schemas.ts';
 import {
   GRAPH_MEMORY_GRAPH_PATH, GRAPH_MEMORY_QUERY_PATH, GRAPH_MEMORY_REFRESH_PATH,
-  graphPanelSchema, graphQueryResultSchema, graphQuerySchema, graphRefreshSchema,
+  graphPanelSchema, graphQuerySchema, graphRefreshSchema,
   graphWritebackPlanResultSchema, graphWritebackPlanSchema,
 } from './protocol.ts';
 
@@ -69,7 +70,6 @@ function jsonSchema(schema: z.ZodType): Record<string, unknown> {
 
 const queryParameters = jsonSchema(graphQuerySchema) as ToolDefinition['parameters'];
 const refreshParameters = jsonSchema(graphRefreshSchema) as ToolDefinition['parameters'];
-const queryOutput = jsonSchema(graphQueryResultSchema) as ToolDefinition['output']['schema'];
 const writebackParameters = jsonSchema(graphWritebackPlanSchema) as ToolDefinition['parameters'];
 const writebackOutput = jsonSchema(graphWritebackPlanResultSchema) as ToolDefinition['output']['schema'];
 
@@ -178,7 +178,7 @@ export async function apply(ctx: GraphMemoryHostContext, config: GraphMemoryHost
         description: 'Search ClawMaster notes and agent memory as one graph. Returns ranked documents and the matched terms or graph edges that justify every result.',
         parameters: queryParameters,
         output: {
-          schema: queryOutput,
+          schema: graphQueryOutput,
           render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
         },
         isConcurrencySafe: args => graphQuerySchema.safeParse(args).success,
@@ -196,15 +196,17 @@ export async function apply(ctx: GraphMemoryHostContext, config: GraphMemoryHost
         description: 'Refresh the derived ClawMaster notes-and-memory graph in process. This reads OpenViking when configured and never writes agent memory.',
         parameters: refreshParameters,
         output: {
-          schema: { type: 'string' },
-          render: (_args, value) => [{ type: 'text', text: String(value) }],
+          schema: graphRefreshOutput,
+          render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
         },
         isConcurrencySafe: () => false,
         execute: async (args, exec) => {
           const parsed = graphRefreshSchema.parse(args);
           exec.signal.throwIfAborted();
           if (parsed.semantic) throw new Error('Semantic refresh is read-only but is not enabled in this build.');
-          return refresh(exec.signal);
+          const graph = await refresh(exec.signal);
+          return { generatedAt: graph.generatedAt, documents: graph.sources.reduce((count, source) => count + source.documents, 0),
+            nodes: graph.nodes.length, edges: graph.edges.length };
         },
         presentCall: () => ({ card: 'generic', title: 'Refresh Graph Memory', kind: 'edit' }),
         presentResult: (_args, result) => ({ card: 'generic', title: 'Graph Memory refresh', content: result.content }),

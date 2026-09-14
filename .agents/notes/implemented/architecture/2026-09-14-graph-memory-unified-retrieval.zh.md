@@ -26,7 +26,9 @@ ClawMaster 同时提供人管理的 Notes 笔记库与 agent 管理的长期记�
 
 ## 验证
 
-包测试覆盖 `ctx.storage` 替换、直接工具调用、从 zod 派生的 schema、同权来源检索、逐回合 snapshot 注入、失败时保留 step、重复依据、二进制只索引元数据，以及主题/相似项渲染。独立的只读命令索引真实 Notes 笔记库与已配置的 OpenViking 服务；若没有任何查询同时召回两类内容，命令就失败。
+输出字段使用 DSH 的 schema 描述器，不能直接传入带有 `anyOf` 或长度限制的 zod JSON Schema。真实 ToolRuntime 注册并执行全部三个工具，校验返回值；刷新只返回计数，完整图保留给面板。
+
+包测试覆盖 `ctx.storage` 替换、直接工具调用、从 zod 派生的参数及 DSH 输出 schema、同权来源检索、逐回合 snapshot 注入、失败时保留 step、重复依据、二进制只索引元数据，以及主题/相似项渲染。独立的只读命令索引真实 Notes 笔记库与已配置的 OpenViking 服务；若没有任何查询同时召回两类内容，命令就失败。
 
 算法改编基线是独立开发的 GraphRAG 源码树，其稳定聚合 SHA-256 为 `73c9775d42850789f4e73ea298cfab250eb98dc18917ddeca1772ed60bf7a222`；实际观察到的门禁为主包 50 项测试、工具包 9 项测试。
 

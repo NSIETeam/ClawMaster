@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-14-graph-memory-unified-retrieval.md
-2026-09-14-graph-memory-unified-retrieval.md: dd825a3ef7ae857ff9ccf8d7b456fb9ead4ecb74
-2026-09-14-graph-memory-unified-retrieval.zh.md: 5f5995d63d16bd763603861b33357532581f8485
+2026-09-14-graph-memory-unified-retrieval.md: 8ee828cc486e55d81b9f2fb84a767e2a9fbb558c
+2026-09-14-graph-memory-unified-retrieval.zh.md: 05d9a6382c5241d6cf48daa6aa543c93b1ee09bf

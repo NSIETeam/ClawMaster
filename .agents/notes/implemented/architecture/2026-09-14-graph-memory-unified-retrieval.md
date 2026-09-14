@@ -26,7 +26,9 @@ The existing Guard result review and Notes tools own note writes. Graph Memory s
 
 ## Verification
 
-Package tests cover `ctx.storage` replacement, direct tool calls, zod-derived schemas, equal-source retrieval, per-turn snapshot injection, failure preservation, duplicate evidence, binary metadata-only indexing, and topic/similarity rendering. A separate read-only command indexes the real Notes vault and configured OpenViking service and fails unless one query recalls both kinds.
+Output fields use DSH schema descriptors, not raw zod JSON Schema with unsupported `anyOf` or length refinements. Real ToolRuntime registers and executes all three tools and validates their return values. Refresh returns counts; the complete graph remains available to the panel.
+
+Package tests cover `ctx.storage` replacement, direct tool calls, zod-derived parameters and DSH output schemas, equal-source retrieval, per-turn snapshot injection, failure preservation, duplicate evidence, binary metadata-only indexing, and topic/similarity rendering. A separate read-only command indexes the real Notes vault and configured OpenViking service and fails unless one query recalls both kinds.
 
 The adapted algorithm baseline is the independently developed GraphRAG source tree whose stable aggregate SHA-256 was `73c9775d42850789f4e73ea298cfab250eb98dc18917ddeca1772ed60bf7a222`; its observed gates were 50 main tests and 9 tool tests.
 

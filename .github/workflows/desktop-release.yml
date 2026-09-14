@@ -168,8 +168,8 @@ jobs:
       - name: Verify prepared payload
         run: node apps/desktop-tauri/scripts/bundle-harness-source.mjs --check
 
-      - name: Verify controlled desktop updates
-        run: cargo test --locked --manifest-path apps/desktop-tauri/src-tauri/Cargo.toml --target ${{ matrix.target }} updater::tests
+      - name: Verify desktop runtime and controlled updates
+        run: cargo test --locked --manifest-path apps/desktop-tauri/src-tauri/Cargo.toml --target ${{ matrix.target }}
 
       - name: Verify macOS signature
         if: runner.os == 'macOS'
