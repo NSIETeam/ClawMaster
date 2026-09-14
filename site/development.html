@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+ <meta charset="utf-8" />
+ <meta name="viewport" content="width=device-width, initial-scale=1" />
+ <meta name="description" content="使用 ClawMaster 进行开发：从已有项目修复一个小问题开始，学习选择工作区、阅读源码、审批修改、终端测试、浏览器核验和 Git 差异复核。附两份可复制任务模板。" />
+ <meta name="theme-color" content="#ffffff" />
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+ <link rel="canonical" href="https://nsieteam.github.io/ClawMaster/development.html" />
+ <link rel="icon" href="favicon.svg" type="image/svg+xml" media="(prefers-color-scheme: light)" />
+ <link rel="icon" href="assets/clawmaster-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+ <link rel="stylesheet" href="styles.css" />
+ <link rel="stylesheet" href="guide.css" />
+ <title>使用ClawMaster进行开发 | ClawMaster</title>
+</head>
+<body class="guide-page">
+ <a class="skip-link" href="#main">跳到教程正文</a>
+ <header class="site-header">
+  <a class="brand" href="./" aria-label="ClawMaster 官网首页"><img class="brand-logo" src="assets/clawmaster.svg" width="48" height="48" alt="" /><span>ClawMaster</span></a>
+  <nav aria-label="页面导航"><a href="./">产品首页</a><a href="tutorials.html">教程中心</a><a href="guide.html">WatchDog</a><a href="./#download">下载</a></nav>
+  <a class="header-link" href="./#download">下载桌面版 <span aria-hidden="true">↓</span></a>
+ </header>
+ <main id="main">
+  <header class="guide-hero">
+   <p class="eyebrow">DEVELOPMENT GUIDE · 0.2.0-RELEASE</p>
+   <h1>使用ClawMaster<br /><span>进行开发</span></h1>
+   <p class="hero-lede">把需求、源码、终端和网页预览放在一个工作台。从已有项目的小问题开始，先理解，再修改，用代码差异和实际操作确认结果。</p>
+   <p class="guide-meta">适用于 ClawMaster WatchDog 0.2.0 · 面向已有项目的开发者 · 练习使用本地测试数据</p>
+   <div class="hero-actions"><a class="button button-primary" href="#prepare">开始准备项目 <span aria-hidden="true">↓</span></a><a class="button button-secondary" href="#read">复制首次任务模板</a></div>
+  </header>
+  <div class="guide-layout">
+   <aside class="guide-toc" id="contents" aria-label="教程目录">
+    <p class="section-kicker">教程目录</p>
+    <ol>
+     <li><a href="#prepare">准备项目与开发环境</a></li>
+     <li><a href="#workspace">打开正确的工作区</a></li>
+     <li><a href="#read">先让 AI 读懂问题</a></li>
+     <li><a href="#plan">确认修改范围与审批</a></li>
+     <li><a href="#test">编辑文件并运行测试</a></li>
+     <li><a href="#preview">在浏览器复现与核验</a></li>
+     <li><a href="#review">复核差异与本地提交</a></li>
+     <li><a href="#recovery">失败或中断后继续</a></li>
+    </ol>
+    <a class="guide-back" href="tutorials.html">← 返回教程中心</a>
+   </aside>
+   <article class="guide-content">
+    <section class="guide-section" id="prepare">
+     <p class="section-kicker">01 / 准备项目与开发环境</p><h2>选择一个能在本机复现的小问题。</h2>
+     <p>练习场景：网页的必填字段输入空格也能提交。目标是拒绝空白，保留正常提交和既有长度规则。也可换成你项目里的明确缺陷，并替换模板。</p>
+     <ol class="guide-steps">
+      <li>准备项目的 Git 工作副本，保存已有修改，记录当前分支与提交。另建开发分支处理本次问题；没有 Git 的项目先保存可恢复副本。</li>
+      <li>按项目 README 准备依赖、编译器、测试数据和开发服务。ClawMaster 自带的运行环境用于启动应用，不能代替项目所需的 Python、Java、数据库或其他工具。</li>
+      <li>复现一次，记下页面、输入、实际与预期结果。记录已有测试错误，区分新旧问题。</li>
+     </ol>
+     <p>尚未配置模型时，先按 <a href="guide.html#prepare">WatchDog 教程的安装与模型准备</a>完成连接。使用本地测试环境，避免用真实客户提交表单。</p>
+    </section>
+    <section class="guide-section" id="workspace">
+     <p class="section-kicker">02 / 打开正确的工作区</p><h2>让任务对应到项目目录。</h2>
+     <ol class="guide-steps">
+      <li>点击工作区标题栏的<strong>添加工作区</strong>，在应用内目录浏览器中选择项目根目录，也可直接输入路径，点击<strong>打开</strong>。</li>
+      <li>使用该工作区的新建会话入口进入<strong>新会话</strong>。发送任务前确认当前工作区，避免在 WatchDog 自动分配的空目录里寻找已有项目。</li>
+      <li>需要查看文件或运行命令时，打开<strong>文档编辑器</strong>和<strong>终端</strong>。文档在右侧、终端在底部；它们使用关联会话的工作空间。</li>
+     </ol>
+     <div class="guide-result"><strong>应该看到</strong><p>文件树包含项目说明和源码目录。让 AI 报告当前目录，核对后再继续。</p></div>
+    </section>
+    <section class="guide-section" id="read">
+     <p class="section-kicker">03 / 先读源码</p><h2>先要依据与方案，再要代码。</h2>
+     <p>把复现步骤和读取范围一起交给 AI。文件名、函数名和测试入口须有源码依据；资料不足时先补充。</p>
+     <label class="template-label" for="development-read">首次任务模板：将方括号内容替换为你的项目情况，点击文本框后全选复制。</label>
+     <textarea id="development-read" class="guide-template" readonly spellcheck="false" rows="20">请先只读调查当前工作区，不修改文件，不安装依赖，不运行会写入文件的命令。
+
+项目：[项目名称]
+问题页面：[本地页面地址或路由]
+复现步骤：打开表单，在 [字段名称] 输入三个普通空格，点击提交。
+实际结果：仍可提交。
+预期结果：拒绝空白输入并给出明确提示；正常输入继续提交，既有长度规则保持有效。
+
+先阅读项目说明、适用的 AGENTS.md（如果存在）、相关实现与测试。
+不要读取 .env、密钥文件或与本任务无关的目录。
+请输出：
+1. 当前工作目录、相关文件与现有校验逻辑。
+2. 问题原因及对应源码依据；不能确认的地方说明缺少什么。
+3. 最小修改方案，预计涉及哪些文件，是否影响服务端校验。
+4. 正常、错误和边界情况各如何验证；测试命令从项目实际说明中查找。
+5. 需要我确认的规则或缺失依赖。
+
+先给调查结果，等我确认具体范围后再修改。</textarea>
+     <p class="guide-note">只读要求也要与实际权限配合。新会话默认只读文件访问并询问审批；已有用户保存的设置优先。源码中被用于任务的内容可能发给你配置的模型服务，按项目要求选择可使用的资料与模型。</p>
+    </section>
+    <section class="guide-section" id="plan">
+     <p class="section-kicker">04 / 确认修改范围</p><h2>把“修好了”写成可以检查的结果。</h2>
+     <p>确认根因后，约定修改文件、空白规则和测试范围。新增依赖、改数据库或扩展其他模块前，先确认原因与影响。</p>
+     <label class="template-label" for="development-change">实现任务模板：确认方案后在原会话发送，替换文件范围与项目命令。</label>
+     <textarea id="development-change" class="guide-template" readonly spellcheck="false" rows="21">按刚才确认的方案修复必填字段空白校验。
+
+允许修改：[已核对的实现文件与相关测试文件]。
+保留原有正常提交、错误提示风格和长度规则，不做无关重构。
+空白处理采用项目已约定的规则；若普通空格、制表符或其他空白字符的行为尚未确定，先问清楚。
+
+请补充并执行与本次变更有关的验证：
+- 正常：合法名称可提交，数据符合原有约定。
+- 错误：空字符串和三个普通空格被拒绝，不能写入记录。
+- 边界：最短合法输入、现有最大长度和超出最大长度一位的输入，符合原有规则。
+存在对应服务端入口时，也检查它是否独立拒绝无效输入。
+
+测试与开发服务使用项目已有命令；说明命令的作用和可能产生的文件，依当前权限完成所需审批。
+失败时报告原因，不删除检查或修改断言来掩盖问题。
+完成后列出修改、实际执行的测试、浏览器核验结果和未验证项。
+本次不提交 Git、不推送、不部署、不发布。</textarea>
+     <p>出现写入或命令审批时，核对目录、目标文件和操作影响；符合本次范围再批准。被拒绝的操作需要调整方案，不能通过放宽全部权限继续。</p>
+    </section>
+    <section class="guide-section" id="test">
+     <p class="section-kicker">05 / 编辑与测试</p><h2>让修改和检查对应起来。</h2>
+     <p>AI 修改后，在<strong>文档编辑器</strong>打开相关文件核对。需要人工接手时先保存编辑，避免你和 AI 同时修改同一文件；切换会话或退出前也先保存。</p>
+     <ol class="guide-steps">
+      <li>在<strong>终端</strong>确认当前目录，使用项目实际声明的测试命令，先跑受影响的功能测试。</li>
+      <li>根据改动补充项目要求的类型检查、格式检查或构建。页面、接口和数据迁移各有不同检查。</li>
+      <li>读取实际输出：是否执行了目标用例，有没有跳过、缺失凭据或服务未启动。失败时保留错误并定位原因。</li>
+     </ol>
+     <div class="guide-result"><strong>本例的验收标准</strong><p>合法名称可提交；空字符串与三个空格被拒绝；最短合法输入、长度上限及超长输入符合原规则。若只测到前端，需要明确服务端写入是否仍未验证。</p></div>
+    </section>
+    <section class="guide-section" id="preview">
+     <p class="section-kicker">06 / 浏览器核验</p><h2>亲手走一遍用户会做的操作。</h2>
+     <p>按项目说明启动开发服务，在<strong>网页浏览器</strong>输入实际输出的本地地址。确认使用最新代码，再按原步骤操作。</p>
+     <ol class="guide-steps">
+      <li>提交空字符串和三个空格，检查提示是否清楚，以及测试记录是否确实没有增加。</li>
+      <li>提交合法名称，检查成功反馈与实际保存值；再验证已约定的长度边界。</li>
+      <li>刷新后复查结果。涉及布局时检查窄窗口和键盘操作，确认提示没有遮挡按钮。</li>
+     </ol>
+     <p class="guide-note">命令成功只能说明该项检查通过，不能代表全站验收。页面受嵌入、登录或环境限制无法核验时，改用系统浏览器检查并记录结果；这一步不会自动证明其他页面也正常。</p>
+    </section>
+    <section class="guide-section" id="review">
+     <p class="section-kicker">07 / 复核差异与提交</p><h2>把可复核的修改留在项目里。</h2>
+     <p>在项目目录查看 <code>git status --short</code>、<code>git diff --stat</code> 和 <code>git diff</code>。这些只读命令适用于已安装 Git 的 macOS、Windows 和 Linux；本教程通过终端操作 Git。</p>
+     <ol class="guide-steps">
+      <li>对照开工前记录，区分本次修改、你原有的工作以及新增文件。确认没有顺手改动无关模块。</li>
+      <li>逐项核对实现、测试与文档，不把密钥、日志或无关构建产物加入提交。</li>
+      <li>需要 AI 提交时，在原会话明确授权“仅将本次已审阅文件提交到当前开发分支”，核对暂存内容后完成本地提交。</li>
+     </ol>
+     <p>本地提交、推送和发布是不同操作。推送或发布前另行明确仓库、分支、环境与范围，遵循审核流程。收尾记录提交号、检查结果和未验证项。</p>
+    </section>
+    <section class="guide-section" id="recovery">
+     <p class="section-kicker">08 / 失败与恢复</p><h2>从已有状态继续，避免重复改动。</h2>
+     <div class="guide-faq">
+      <details open><summary>模型或应用中断了，怎么继续？</summary><p>重新打开项目的原会话，先检查已保存文件、Git 差异和仍运行的进程，再描述中断位置。未保存的编辑不能靠会话记录恢复；ClawMaster 不会自动替你回滚整个项目。</p></details>
+      <details><summary>终端找不到命令或服务起不来？</summary><p>核对当前目录、项目要求的工具版本和依赖安装结果。把完整错误交给 AI 分析；权限、缺失工具和代码错误分别处理，不把无法执行的测试记为通过。</p></details>
+      <details><summary>修改后出现新问题？</summary><p>先保存当前差异，用原复现步骤缩小范围，再决定修复或撤销本次特定改动。已有他人或自己的未提交修改需单独保留，避免整目录覆盖或强制重置。</p></details>
+     </div>
+     <div class="guide-ending"><h3>下一次，从一个更清楚的问题开始。</h3><p>保留复现、修改和验证记录，让下次开发更容易接手。</p><a class="button button-primary" href="tutorials.html">继续阅读教程 <span aria-hidden="true">→</span></a></div>
+     <p>继续阅读：<a href="office.html">你所要的办公工作区，只需要一个ClawMaster</a> · <a href="personal.html">使用ClawMaster进行个人管理</a> · <a href="guide.html">WatchDog 详细教程</a>。</p>
+     <p class="guide-source">本教程按 0.2.0-release 界面与行为编写。详细范围以<a href="https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/desktop-v0.2.0-release">发行说明</a>和<a href="https://github.com/NSIETeam/ClawMaster-Desktop/blob/desktop-v0.2.0-release/frontends/dsh/README.zh.md">工作台使用说明</a>为准。</p>
+    </section>
+   </article>
+  </div>
+ </main>
+ <footer><div class="footer-brand"><img class="brand-logo" src="assets/clawmaster.svg" width="48" height="48" alt="" /><strong>ClawMaster</strong></div><p>开启AI时代的企业协作</p><div class="footer-links"><a href="./">产品首页</a><a href="tutorials.html">教程中心</a><a href="#contents">返回目录</a><span>© 2026 NSIETeam</span></div></footer>
+</body>
+</html>

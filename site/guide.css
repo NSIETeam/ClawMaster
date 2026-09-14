@@ -79,3 +79,18 @@
  .guide-template { height: 840px; resize: none; }
  .guide-content details:not([open]) > * { display: block; }
 }
+
+.tutorial-library { max-width: 1240px; margin: 0 auto; padding: 0 32px 80px; }
+.tutorial-library .lesson-grid { margin-top: 0; }
+.library-start { margin-top: 40px; padding: 32px; background: #f1f8f3; border-radius: 16px; }
+.library-start h2 { font-size: 24px; line-height: 1.5; }
+.library-start p { color: var(--muted); line-height: 1.9; }
+.related-guides { display: flex; flex-wrap: wrap; gap: 14px 24px; padding-top: 26px; margin-top: 28px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.8; }
+.related-guides strong { flex-basis: 100%; }
+.related-guides a { color: var(--orange-deep); text-underline-offset: 3px; }
+@media (max-width: 720px) {
+ .tutorial-library { padding: 0 22px 50px; }
+ .library-start { padding: 24px; }
+}
+
+.guide-ending p a { color: var(--mint); }

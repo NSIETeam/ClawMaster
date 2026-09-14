@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+ <meta charset="utf-8" />
+ <meta name="viewport" content="width=device-width, initial-scale=1" />
+ <meta name="description" content="用 ClawMaster 管理个人的一周：制定学习计划、连接 Markdown 笔记、复核 AI 每日总结，再用周复盘调整下一步。包含可复制模板与保存冲突恢复方法。" />
+ <meta name="theme-color" content="#ffffff" />
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+ <link rel="canonical" href="https://nsieteam.github.io/ClawMaster/personal.html" />
+ <link rel="icon" href="favicon.svg" type="image/svg+xml" media="(prefers-color-scheme: light)" />
+ <link rel="icon" href="assets/clawmaster-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+ <link rel="stylesheet" href="styles.css" />
+ <link rel="stylesheet" href="guide.css" />
+ <title>使用 ClawMaster 进行个人管理 | ClawMaster</title>
+</head>
+<body class="guide-page">
+ <a class="skip-link" href="#main">跳到教程正文</a>
+ <header class="site-header">
+  <a class="brand" href="./" aria-label="ClawMaster 官网首页"><img class="brand-logo" src="assets/clawmaster.svg" width="48" height="48" alt="" /><span>ClawMaster</span></a>
+  <nav aria-label="页面导航"><a href="./">产品首页</a><a href="tutorials.html">教程中心</a><a href="guide.html">WatchDog</a><a href="./#download">下载</a></nav>
+  <a class="header-link" href="./#download">下载桌面版 <span aria-hidden="true">↓</span></a>
+ </header>
+ <main id="main">
+  <header class="guide-hero">
+   <p class="eyebrow">PERSONAL GUIDE · 0.2.0-RELEASE</p>
+   <h1>使用ClawMaster<br /><span>进行个人管理</span></h1>
+   <p class="hero-lede">从学生的一周学习开始，把计划、知识点和实际完成情况连起来。让 AI 帮你整理和检查，由你决定日程、核对结论并保存成果。</p>
+   <p class="guide-meta">适用于个人学习与日常管理 · 中文界面 · 下方课程、任务与进度均为虚构示例</p>
+   <div class="hero-actions"><a class="button button-primary" href="#week">制定一周计划 <span aria-hidden="true">↓</span></a><a class="button button-secondary" href="guide.html#prepare">首次安装与模型准备</a></div>
+  </header>
+  <div class="guide-layout">
+   <aside class="guide-toc" id="contents" aria-label="教程目录">
+    <p class="section-kicker">教程目录</p>
+    <ol>
+     <li><a href="#prepare">准备个人笔记库</a></li>
+     <li><a href="#week">制定一周计划</a></li>
+     <li><a href="#check">让 AI 检查安排</a></li>
+     <li><a href="#learn">连接学习笔记</a></li>
+     <li><a href="#daily">留下每日总结</a></li>
+     <li><a href="#review">完成周复盘</a></li>
+     <li><a href="#rhythm">选择检查节奏</a></li>
+     <li><a href="#recovery">保存与失败恢复</a></li>
+    </ol>
+    <a class="guide-back" href="tutorials.html">← 返回教程中心</a>
+   </aside>
+   <article class="guide-content">
+    <section class="guide-section" id="prepare">
+     <p class="section-kicker">01 / 准备</p><h2>从一本自己的笔记库开始。</h2>
+     <p>完成<a href="guide.html#prepare">安装与模型设置</a>后，从侧栏标签选择器打开<strong>笔记</strong>。它自带 Markdown 笔记库，无需安装 Obsidian。笔记保存在本机文件夹，适合学习资料与日常记录。</p>
+     <ol class="guide-steps">
+      <li>点击<strong>新建笔记</strong>，将<strong>笔记名称</strong>填写为“一周计划”，点击<strong>创建</strong>。</li>
+      <li>填入自己的可用时间与本周目标，点击<strong>保存</strong>。再打开一次，确认正文仍在。</li>
+     </ol>
+     <p>先用示例练习。交给模型处理的笔记内容会发送至你配置的模型服务；API Key 不要写在笔记或任务描述里。</p>
+    </section>
+    <section class="guide-section" id="week">
+     <p class="section-kicker">02 / 一周计划</p><h2>把“想学完”写成可核对的成果。</h2>
+     <p>假设小林本周有六小时自主学习时间。先写成果、预计投入和截止时间，保留一小时机动。下表可以作为“一周计划”的正文依据；换成真实使用时，补上具体日期。</p>
+     <div class="guide-table-wrap"><table><caption>虚构的一周安排：计划五小时，另留一小时机动</caption><thead><tr><th scope="col">事项</th><th scope="col">时间</th><th scope="col">完成证据</th></tr></thead><tbody>
+      <tr><th scope="row">线性代数</th><td>周二前，二小时</td><td>完成十道题，记录错因</td></tr>
+      <tr><th scope="row">英语阅读</th><td>周四前，一小时</td><td>读两篇文章，各写摘要</td></tr>
+      <tr><th scope="row">课程报告</th><td>周五前，二小时</td><td>一页提纲，标出三个来源</td></tr>
+     </tbody></table></div>
+     <p>时间安排由你执行。先把课程、通勤等固定事项算进去；如果合计超时，减少本周范围，避免把每项都标成最高优先级。</p>
+    </section>
+    <section class="guide-section" id="check">
+     <p class="section-kicker">03 / 计划检查</p><h2>先检查可行性，再决定怎么调整。</h2>
+     <p>打开 <strong>WatchDog</strong>，把模板粘贴到<strong>需要关注什么？</strong>，选择<strong>单次检查</strong>，点击<strong>开始检查</strong>。首次练习直接提供数据，无需先选目录。</p>
+     <label class="template-label" for="week-template">计划检查模板：点击文本框，全选复制；正式使用前替换示例安排。</label>
+     <textarea id="week-template" class="guide-template" readonly spellcheck="false" rows="20">请检查我的一周学习计划，只分析以下示例，不读取其他文件，不修改笔记，不发送消息。
+
+可用时间：六小时，其中一小时留作机动。
+线性代数：周二前投入二小时，完成十道题并记录错因。
+英语阅读：周四前投入一小时，读两篇文章并各写摘要。
+课程报告：周五前投入二小时，完成一页提纲并标出三个来源。
+
+请输出：
+1. 计划投入、机动时间与总时间是否一致。
+2. 每项任务的第一步和完成证据。
+3. 最可能拖延的环节，以及需要我补充的信息。
+4. 若少了一小时，建议如何缩小范围，并说明取舍。
+
+不要把预计投入当成实际完成。信息不足时明确标注待确认，先给建议，等我决定。</textarea>
+     <div class="guide-result"><strong>应该看到</strong><p>三项计划合计五小时，加机动共六小时；每项都有下一步和验收点。若模型自行增加课程或声称已经完成，在原会话要求按给定数据重查。确认后的安排由你复制回笔记并保存。</p></div>
+    </section>
+    <section class="guide-section" id="learn">
+     <p class="section-kicker">04 / 学习笔记</p><h2>把知识点与本周目标连起来。</h2>
+     <ol class="guide-steps">
+      <li>新建“线性代数”笔记，写下“概念、例题、错因、下次练习”四项，正文加入 <code>#学习</code> 和 <code>[[一周计划]]</code>，然后<strong>保存</strong>。</li>
+      <li>在“一周计划”中加入 <code>[[线性代数]]</code> 并保存。通过<strong>预览</strong>点击链接，确认打开的是对应笔记。</li>
+      <li>使用<strong>标签</strong>找同类内容，用<strong>搜索笔记</strong>查关键词；在目标笔记的<strong>反向链接</strong>中查看哪些笔记引用了它。</li>
+     </ol>
+     <p>链接匹配多篇时选择正确对象；目标不存在时可<strong>创建这篇笔记</strong>。笔记标题明确一些，比给所有文件起名“复习”更容易找回。</p>
+    </section>
+    <section class="guide-section" id="daily">
+     <p class="section-kicker">05 / 每日总结</p><h2>先记录事实，再让 AI 帮你整理。</h2>
+     <p>每天结束时打开<strong>今日笔记</strong>，写实际完成和剩余问题，点击<strong>保存</strong>；再次点击会打开同一天的日记。也可把事实交给原任务会话整理，核对后批准追加。</p>
+     <label class="template-label" for="daily-template">每日总结模板：全选复制到任务会话，先替换日期和实际记录。</label>
+     <textarea id="daily-template" class="guide-template" readonly spellcheck="false" rows="20">请整理今天的学习总结。以下是虚构练习数据，实际使用前我会替换。
+
+日期：请先与我确认本次记录的日期。
+实际完成：线性代数做了六道题，四道正确，两道有错。
+证据：两道错题的过程已写在“线性代数”笔记。
+尚未完成：计划的其余四道题。
+下一步：明天先复查两道错题，再决定是否做剩余题。
+
+先只整理上述事实，区分已完成、未完成与下一步；不要补造学习时长或成绩。需要读取时只查指定笔记。
+向我展示拟追加正文、日期与目标日记。确认内容后再请求一次笔记写入审批，追加到当日日记并关联“线性代数”，保留已有内容。
+写入成功后给出实际笔记路径，供我重新打开核对；没有成功就明确说明。</textarea>
+     <p>AI 修改笔记需要单次批准。先核对日期、目标与追加内容再批准；拒绝或取消不会执行该次写入。看到成功回执后重新打开日记，确认原有内容还在，新增部分没有把六道题写成十道。</p>
+    </section>
+    <section class="guide-section" id="review">
+     <p class="section-kicker">06 / 周复盘</p><h2>用实际记录调整下一周。</h2>
+     <p>周末在原会话明确指定“一周计划”、相关学习笔记与本周日记日期范围，请 AI 对照目标列出“完成证据、差距、原因待确认、下周调整”。缺少的日记应列为资料缺口，不能推断那天没有学习。</p>
+     <ol class="guide-steps">
+      <li>逐项回到原笔记核对，再决定保留、缩小或延后哪项任务。</li>
+      <li>把确定的结论保存为“周复盘”，链接到“一周计划”。给下周只留几个明确成果。</li>
+      <li>需要 AI 改正文时可先要求起草建议，在<strong>待审建议</strong>检查差异，再选择<strong>应用</strong>或<strong>丢弃</strong>。建议出现本身不代表正文已修改。</li>
+     </ol>
+    </section>
+    <section class="guide-section" id="rhythm">
+     <p class="section-kicker">07 / 检查节奏</p><h2>把重复检查用在已跑通的流程上。</h2>
+     <p>先完成一次计划检查，再考虑将<strong>检查频率</strong>改为<strong>每天</strong>。它请求每二十四小时重复检查，不是固定晚上九点的日历预约；要在原会话核查实际安排、时间和停止方式。</p>
+     <p class="guide-note">应用必须保持运行，对应任务会话须有活动任务。结果返回原会话，不承诺手机通知、系统级提醒或日历同步。关闭后错过了检查，恢复时先核对记录，必要时补做一次。</p>
+    </section>
+    <section class="guide-section" id="recovery">
+     <p class="section-kicker">08 / 保存与恢复</p><h2>遇到问题，先保住草稿与原任务。</h2>
+     <div class="guide-faq">
+      <details open><summary>保存冲突或看到“笔记已被外部修改”？</summary><p>当前草稿和磁盘新内容都被保留。先把草稿复制到安全位置，再核对最新内容；<strong>重新载入</strong>会询问是否放弃本地草稿。协调内容后再保存，别反复用旧稿覆盖。建议应用冲突时也要按最新笔记重新核对。</p></details>
+      <details><summary>开始检查报错，目标暂时无法编辑？</summary><p>原请求可能已经受理。选择<strong>打开原任务核查</strong>；需要重试时用<strong>重试原请求</strong>。先修正连接或模型配置，避免新建相同任务。任务显示“当前未运行”时仍需打开核对结果。</p></details>
+      <details><summary>退出后，记录和草稿分别在哪里？</summary><p>已保存的 Markdown 文件留在本机笔记库；退出前主动保存，未保存草稿不保证退出后恢复。备份整个笔记库，不要依赖自动跨设备同步。普通笔记即可完成本教程；OpenViking Memory 需要另行配置，不是安装即拥有跨会话记忆。</p></details>
+     </div>
+     <nav class="related-guides" aria-label="继续阅读"><strong>继续阅读</strong><a href="office.html">办公工作区 →</a><a href="development.html">使用 ClawMaster 进行开发 →</a><a href="guide.html">WatchDog 使用教程 →</a></nav>
+     <p class="guide-source">本教程依据 0.2.0-release（源码 f853469）编写。界面与能力以<a href="https://github.com/NSIETeam/ClawMaster-Desktop/blob/desktop-v0.2.0-release/frontends/dsh/README.zh.md">工作台说明</a>、<a href="https://github.com/NSIETeam/ClawMaster-Desktop/blob/desktop-v0.2.0-release/frontends/notes/README.zh.md">笔记说明</a>和<a href="https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/desktop-v0.2.0-release">发行说明</a>为准。</p>
+    </section>
+   </article>
+  </div>
+ </main>
+ <footer><div class="footer-brand"><img class="brand-logo" src="assets/clawmaster.svg" width="48" height="48" alt="" /><strong>ClawMaster</strong></div><p>开启AI时代的企业协作</p><div class="footer-links"><a href="./">产品首页</a><a href="#contents">返回目录</a><span>© 2026 NSIETeam</span></div></footer>
+</body>
+</html>

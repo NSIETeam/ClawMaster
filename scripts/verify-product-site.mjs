@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Check the published HTML against the release manifest before deploying Pages. */
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const directory = resolve(process.argv[2] ?? 'site');
@@ -51,7 +51,24 @@ const guide = read('guide.html');
 assert(guide.includes('WatchDog'));
 assert(guide.includes('0.2.0-release'));
 assert(existsSync(resolve(directory, 'guide.css')));
-for (const [name, source] of [['index.html', html], ['guide.html', guide]]) {
+const scenarioTitles = new Map([
+  ['office.html', '你所要的办公工作区，只需要一个ClawMaster'],
+  ['development.html', '使用ClawMaster进行开发'],
+  ['personal.html', '使用ClawMaster进行个人管理'],
+]);
+const library = read('tutorials.html');
+assert(html.includes('href="tutorials.html"'), 'Homepage must link to tutorial center');
+for (const [name, title] of scenarioTitles) {
+  const source = read(name);
+  const heading = source.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)?.[1];
+  assert.equal(heading?.replace(/<[^>]+>/g, '').replace(/\s/g, ''), title);
+  assert(source.includes(`https://nsieteam.github.io/ClawMaster/${name}`), `${name}: missing canonical URL`);
+  assert(library.includes(`href="${name}"`), `Tutorial center must link to ${name}`);
+  assert(html.includes(`href="${name}"`), `Homepage must link to ${name}`);
+}
+assert(library.includes('href="guide.html"'), 'WatchDog tutorial must remain discoverable');
+for (const name of readdirSync(directory).filter((file) => file.endsWith('.html'))) {
+  const source = read(name);
   const ids = [...source.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, `${name}: duplicate IDs`);
   for (const [, attribute, value] of source.matchAll(/\b(href|src)="([^"]+)"/g)) {

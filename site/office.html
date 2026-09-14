@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+ <meta charset="utf-8" />
+ <meta name="viewport" content="width=device-width, initial-scale=1" />
+ <meta name="description" content="用 ClawMaster 整理会议资料、核对销售 CSV、完成周报与笔记、编辑基础 Office 文件，并复核本地客户和库存记录。包含两段可复制练习与保存恢复步骤。" />
+ <meta name="theme-color" content="#ffffff" />
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+ <link rel="canonical" href="https://nsieteam.github.io/ClawMaster/office.html" />
+ <link rel="icon" href="favicon.svg" type="image/svg+xml" media="(prefers-color-scheme: light)" />
+ <link rel="icon" href="assets/clawmaster-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+ <link rel="stylesheet" href="styles.css" />
+ <link rel="stylesheet" href="guide.css" />
+ <title>你所要的办公工作区，只需要一个ClawMaster | ClawMaster 教程</title>
+</head>
+<body class="guide-page">
+ <a class="skip-link" href="#main">跳到教程正文</a>
+ <header class="site-header">
+  <a class="brand" href="./" aria-label="ClawMaster 官网首页"><img class="brand-logo" src="assets/clawmaster.svg" width="48" height="48" alt="" /><span>ClawMaster</span></a>
+  <nav aria-label="页面导航"><a href="./">产品首页</a><a href="tutorials.html">教程中心</a><a href="guide.html">WatchDog</a><a href="./#download">下载</a></nav>
+  <a class="header-link" href="./#download">下载桌面版 <span aria-hidden="true">↓</span></a>
+ </header>
+ <main id="main">
+  <header class="guide-hero">
+   <p class="eyebrow">OFFICE WORKSPACE · 0.2.0-RELEASE</p>
+   <h1>你所要的办公工作区，<br /><span>只需要一个ClawMaster</span></h1>
+   <p class="hero-lede">从一份会议记录和销售表开始，在同一个桌面里整理资料、核对数字、写周报、修改文档，再保存可复查的工作记录。让 AI 承担整理工作，你掌握事实与决定。</p>
+   <p class="guide-meta">适用于 ClawMaster WatchDog 0.2.0 · 约 25 分钟 · 示例均为虚构教学数据</p>
+   <div class="hero-actions"><a class="button button-primary" href="#meeting">开始会议练习 <span aria-hidden="true">↓</span></a><a class="button button-secondary" href="tutorials.html">浏览全部教程</a></div>
+  </header>
+  <div class="guide-layout">
+   <aside class="guide-toc" id="contents" aria-label="教程目录">
+    <p class="section-kicker">教程目录</p>
+    <ol>
+     <li><a href="#workspace">准备办公工作区</a></li>
+     <li><a href="#meeting">把会议记录变成行动清单</a></li>
+     <li><a href="#sales">核对销售 CSV</a></li>
+     <li><a href="#report">写一份有依据的周报</a></li>
+     <li><a href="#office">编辑 Word、Excel、PowerPoint</a></li>
+     <li><a href="#records">复核客户与库存记录</a></li>
+     <li><a href="#archive">保存与归档</a></li>
+     <li><a href="#recovery">遇到问题怎么继续</a></li>
+    </ol>
+    <a class="guide-back" href="tutorials.html">← 返回教程中心</a>
+   </aside>
+   <article class="guide-content">
+    <section class="guide-section" id="workspace">
+     <p class="section-kicker">01 / 准备工作区</p><h2>围绕一件工作准备资料。</h2>
+     <p>这次练习的交付物是一份销售周报、一张已核对的行动清单，以及一篇保存的工作笔记。先按<a href="guide.html#prepare">安装与模型准备</a>完成配置，再把本周使用的资料副本集中到同一个文件夹，保留原件。</p>
+     <ol class="guide-steps">
+      <li>已有办公目录时，在工作区标题栏点击<strong>添加工作区</strong>，通过应用内目录浏览器选中它，点击<strong>打开</strong>。</li>
+      <li>也可以直接在 WatchDog 填写<strong>需要关注什么？</strong>，选择<strong>单次检查</strong>并<strong>开始检查</strong>，由应用准备任务工作空间。</li>
+      <li>在当前任务打开<strong>文档编辑器</strong>查看文件；需要工作记录时，从侧栏标签选择器打开<strong>笔记</strong>。</li>
+     </ol>
+     <p>先要求 AI 列出它实际找到的文件和资料缺口，再开始分析。写出文件名、在编辑器预览成功，都不代表模型已经读取内容。</p>
+     <p class="guide-note">基础办公流程可以集中在这里完成。复杂 Office 排版和多人协同仍需按实际需求选择工具；模型分析会把所需内容发送到你配置的模型服务，请只提供本次任务必要的资料。</p>
+    </section>
+    <section class="guide-section" id="meeting">
+     <p class="section-kicker">02 / 会议整理</p><h2>先分清决定、建议和未知事项。</h2>
+     <p>在当前任务会话粘贴下方内容；使用 WatchDog 时，将它作为单次检查目标提交。此练习不需要任何外部文件。先验证 AI 是否忠实保留事实，再用同一方式整理真实会议记录。</p>
+     <label class="template-label" for="meeting-example">练习一：点击文本框后全选复制。负责人均为虚构角色，不会自动派单或发送消息。</label>
+     <textarea id="meeting-example" class="guide-template" readonly spellcheck="false" rows="19">请整理以下虚构会议记录，仅在对话中输出，不读取其他资料、不写文件、不发送消息。
+
+会议：2026 年 9 月 14 日销售例会。
+1. 示例客户甲需要报价修改版；林同学负责，9 月 16 日 17:00 前完成。会议确认执行。
+2. 示例客户乙还没有确认交付时间；陈同学负责在 9 月 15 日询问，交付日期待客户回复。
+3. 有人建议给所有客户统一打九折，会议没有批准。
+4. 下周检查报价反馈，但没有确定负责人和具体时间。
+
+请输出“已确认行动”“待确认问题”“未批准建议”三部分。
+每条行动列出原始依据、负责人、期限和完成证据。
+不要把询问日期当成交付日期；没有信息写“待确认”。
+
+验收：两条已确认行动；统一折扣不得列为已批准动作；下周检查的负责人和时间都应列为缺口。</textarea>
+     <div class="guide-result"><strong>应该看到</strong><p>报价修改与询问交付时间是两条行动；9 月 15 日是询问期限，交付日期仍未知。九折只是未批准建议，下周检查仍需补充负责人和时间。</p></div>
+     <p>发现错误时，在原会话指出对应条目，要求重新对照原文。经你确认的清单才进入周报；AI 的建议不会替你完成同事分工。</p>
+    </section>
+    <section class="guide-section" id="sales">
+     <p class="section-kicker">03 / 销售核对</p><h2>数字要能回到原始行。</h2>
+     <p>第二段练习先用内嵌 CSV 核对口径。真实使用时，把 CSV 副本放入当前任务工作空间，并指定准确文件名。首次只读分析；需要清理结果时，另存新文件并复核写入审批。</p>
+     <label class="template-label" for="sales-example">练习二：复制整段。金额为人民币元，按给定订单状态统计，不推测收款情况。</label>
+     <textarea id="sales-example" class="guide-template" readonly spellcheck="false" rows="21">请核对下方虚构销售数据，只分析本段，不读取本机其他文件，不写入业务库。
+
+订单号,客户,金额元,状态
+001,示例客户甲,1200,已确认
+002,示例客户乙,800,待确认
+003,示例客户丙,500,已确认
+001,示例客户甲,1200,已确认
+
+规则：相同订单号且各字段完全一致才去重；同一编号存在不同内容时先报告冲突。
+按“已确认”统计订单数与金额，“待确认”单独列出。
+编号保留前导零。数据没有收款字段，不得称为“到账金额”。
+
+请输出去重依据、两类统计及每项统计对应的订单号。
+验收：4 行原始记录，去重后 3 单；已确认 2 单共 1700 元，待确认 1 单共 800 元。明确收款状态未知。
+若计算与此不一致，展示差异，不要为了满足答案篡改数据。</textarea>
+     <p>文件处理结果的预览有行数上限，完整输出以保存的文件为准。要求同时报告输入行数、删除原因、输出行数；遇到引号错误或列数不一致，先修正副本再重试，不能把解析失败当成空表。</p>
+    </section>
+    <section class="guide-section" id="report">
+     <p class="section-kicker">04 / 周报与笔记</p><h2>把已经核对的内容写成周报。</h2>
+     <p>继续在原会话要求：“仅根据已核对的会议与销售结果，写本周概况、已确认事项、风险、下周行动四部分；为数字标注订单号，为行动标注会议条目；不得把计划写成已完成。”</p>
+     <ol class="guide-steps">
+      <li>逐项核对 1700 元的口径、报价期限和未知交付时间；删去没有依据的完成率或增长率。</li>
+      <li>在<strong>笔记</strong>中新建一篇周报，粘贴确认后的内容并<strong>保存</strong>；也可以请 AI 提交笔记草稿建议。</li>
+      <li>看到<strong>待审建议</strong>时检查改动，再选择<strong>应用</strong>或<strong>丢弃</strong>。AI 直接修改笔记需要单次批准。</li>
+     </ol>
+     <div class="guide-result"><strong>验收成果</strong><p>重新打开笔记能看到相同内容；事实、计划和待确认问题分开。对话里出现周报正文，尚不等于文件已经保存。</p></div>
+    </section>
+    <section class="guide-section" id="office">
+     <p class="section-kicker">05 / Office 编辑</p><h2>在右侧完成基础文档修改。</h2>
+     <p>从当前任务文件树打开已有的 <strong>DOCX、XLSX 或 PPTX</strong> 副本。内嵌编辑器可以进行基础文档编辑：把周报正文放入 Word，核对 Excel 的单元格内容，修改 PowerPoint 的标题和文字。手动编辑不调用模型，不需要外部文档服务器。</p>
+     <ol class="guide-steps">
+      <li>先确认页数、工作表或幻灯片，以及原内容是否正确显示；复杂格式保留原件并逐页检查。</li>
+      <li>完成小范围修改后，使用<strong>编辑器自带的保存按钮</strong>，等待显示<strong>已保存</strong>。</li>
+      <li>关闭再打开文件，核对文字、表格数据和布局。保存保留原文件名及格式，不能用改扩展名转换格式。</li>
+     </ol>
+     <p>本教程不依赖一键生成演示文稿。CSV 处理工具也不直接处理 XLSX 工作簿；需要 AI 分析时，先确认读取成功，或提供相关文本、导出的 CSV 副本。</p>
+     <p class="guide-note">宏、加密文档、旧版二进制格式和与 Microsoft Office 完全一致的排版不在当前兼容验收范围。切换会话、移动面板或退出应用前主动保存，未保存草稿不能在应用崩溃后恢复。</p>
+    </section>
+    <section class="guide-section" id="records">
+     <p class="section-kicker">06 / 客户与库存</p><h2>让业务记录与已确认事项一致。</h2>
+     <p>进入<strong>设置 → 侧边卡片</strong>，在 CRM 或 ERP 的功能设置中选择<strong>在右侧打开</strong>。CRM 维护客户阶段、下一步和跟进日期；ERP 维护 SKU、库存与采购、销售订单。它们是本机单用户记录，不会自动连接公司的既有系统。</p>
+     <p>需要录入时，先让 AI 列出拟改记录、原值、新值和依据，确认后再允许本次写入。练习可只拟定“示例客户甲：确认报价反馈”的更新建议，不实际录入。业务记录为空时，明确这是缺少本地资料，不要猜测同步失败。</p>
+     <p>订单草稿与提交不同：提交采购增加库存，提交销售扣减库存。核对 SKU、数量和金额后再决定是否提交。真正完成的标准是回执成功且记录符合预期，审批通过本身不是成功结果。</p>
+    </section>
+    <section class="guide-section" id="archive">
+     <p class="section-kicker">07 / 归档复核</p><h2>下次工作能从这里接上。</h2>
+     <ol class="guide-steps">
+      <li>保留原始资料、已核对结果和最终周报，文件名写明日期，避免覆盖唯一原件。</li>
+      <li>在<strong>今日笔记</strong>记下成果位置、仍待确认的事项和下一次检查时间；保存后重开检查。</li>
+      <li>退出前保存所有 Office 和笔记编辑，并确认需要的输出文件真实存在。</li>
+     </ol>
+     <p>需要每天重复核对时，按 <a href="guide.html#schedule">WatchDog 重复检查教程</a>先验证单次结果，再安排频率。到期提醒需要应用及所属任务会话满足运行条件，不能当作关机后仍执行的系统服务。</p>
+    </section>
+    <section class="guide-section" id="recovery">
+     <p class="section-kicker">08 / 恢复与继续</p><h2>保留草稿，解决具体问题。</h2>
+     <div class="guide-faq">
+      <details open><summary>Office 无法打开或保存失败？</summary><p>先确认是支持的格式和完整文件副本。转换或网络错误不代表已保存；保留打开的文档。发生外部修改冲突时，可从查看器下载当前草稿，再重新打开最新文件比较，不要直接覆盖。</p></details>
+      <details><summary>笔记提示外部修改或建议应用冲突？</summary><p>先协调最新正文与本地草稿。选择重新载入会询问是否丢弃草稿；未核对前取消。待审建议加载失败时使用建议区域的重试入口，避免丢失正在编辑的正文。</p></details>
+      <details><summary>AI 说“已完成”，却找不到成果？</summary><p>要求它报告实际文件路径、写入回执或对应记录，然后人工打开核对。没有这些证据时，将其视为待完成；在原会话继续补齐，不重复发起相同业务写入。</p></details>
+     </div>
+     <div class="guide-ending"><h3>继续搭建你的工作方式。</h3><p>办公资料准备好后，可以进一步学习 <a href="guide.html">WatchDog 管理检查</a>、<a href="development.html">使用 ClawMaster 进行开发</a>，或<a href="personal.html">使用 ClawMaster 进行个人管理</a>。</p><a class="button button-primary" href="tutorials.html">返回教程中心 <span aria-hidden="true">→</span></a></div>
+     <p class="guide-source">依据 0.2.0-release 编写：<a href="https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/desktop-v0.2.0-release">发行说明</a>、<a href="https://github.com/NSIETeam/ClawMaster-Desktop/blob/desktop-v0.2.0-release/frontends/dsh/README.zh.md">工作台</a>、<a href="https://github.com/NSIETeam/ClawMaster-Desktop/blob/desktop-v0.2.0-release/frontends/office/README.zh.md">Office</a>与<a href="https://github.com/NSIETeam/ClawMaster-Desktop/blob/desktop-v0.2.0-release/frontends/notes/README.zh.md">笔记</a>使用说明。</p>
+    </section>
+   </article>
+  </div>
+ </main>
+ <footer><div class="footer-brand"><img class="brand-logo" src="assets/clawmaster.svg" width="48" height="48" alt="" /><strong>ClawMaster</strong></div><p>开启AI时代的企业协作</p><div class="footer-links"><a href="./">产品首页</a><a href="tutorials.html">教程中心</a><a href="#contents">返回目录</a><span>© 2026 NSIETeam</span></div></footer>
+</body>
+</html>

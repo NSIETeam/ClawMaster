@@ -2,7 +2,7 @@
 
 官网地址：https://nsieteam.github.io/ClawMaster/ 。本目录是直接发布的静态 HTML、CSS 与 JavaScript，无需安装桌面应用依赖。
 
-`guide.html` 提供十节 WatchDog 详细教程，包含虚构客户记录的完整练习、审批、验收、重复检查与故障恢复。
+`tutorials.html` 是教程中心，`office.html`、`development.html`、`personal.html` 分别提供办公、开发与个人管理的独立教程。`guide.html` 保留十节 WatchDog 企业工作跟进教程。首页和各篇教程提供互相导航；每篇包含可复制示例、操作步骤和结果核验方法。
 
 当前介绍 ClawMaster WatchDog 0.2.0-release，程序版本为 0.2.0。下载来自 `NSIETeam/ClawMaster-Desktop`；产品范围以该发布版本的发行说明及 `frontends/dsh/README.zh.md` 为依据。CRM/ERP 为本机单用户记录，企业组织权限、外部业务系统和通讯平台的接入需继续验证。
 
