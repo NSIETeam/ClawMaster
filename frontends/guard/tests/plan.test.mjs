@@ -85,7 +85,8 @@ describe('plan stage wiring', () => {
 
   it('records findings without deciding while advisory', () => {
     const logs = [];
-    const decision = planDecision(call(unreviewablePlan), DEFAULT_OPTIONS, { info: message => logs.push(message) });
+    const options = { ...DEFAULT_OPTIONS, planReview: 'advisory' };
+    const decision = planDecision(call(unreviewablePlan), options, { info: message => logs.push(message) });
     assert.equal(decision, undefined);
     assert.equal(logs.length, 1);
     assert.match(logs[0], /plan review \(block\)/);
@@ -127,11 +128,16 @@ describe('plan stage wiring', () => {
     assert.equal(delegated, 1);
   });
 
-  it('reads the plan stage out of configuration', () => {
-    assert.equal(parseOptions({}).planReview, 'advisory');
+  it('reads both review stages out of configuration, keeping explicit off switches', () => {
+    // The defaults are the product stance: hold a plan to its acceptance, archive the result.
+    assert.equal(parseOptions({}).planReview, 'enforce');
+    assert.equal(parseOptions({}).resultReview, 'archive');
     assert.equal(parseOptions({ planReview: 'off' }).planReview, 'off');
+    assert.equal(parseOptions({ planReview: 'advisory' }).planReview, 'advisory');
     assert.equal(parseOptions({ planReview: 'enforce' }).planReview, 'enforce');
-    assert.equal(parseOptions({ planReview: 'nonsense' }).planReview, 'advisory');
+    assert.equal(parseOptions({ planReview: 'nonsense' }).planReview, 'enforce');
+    assert.equal(parseOptions({ resultReview: 'off' }).resultReview, 'off');
+    assert.equal(parseOptions({ resultReview: 'nonsense' }).resultReview, 'archive');
     assert.equal(parseOptions({ planTool: 'submit_plan' }).planTool, 'submit_plan');
   });
 });
