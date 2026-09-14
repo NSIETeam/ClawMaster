@@ -26,6 +26,14 @@ export interface GuardOptions {
   denyPaths: readonly string[];
   /** Path prefixes where a high-risk action runs without approval (a scratch or build directory). */
   allowPaths: readonly string[];
+  /**
+   * Result stage: `archive` appends a checkable review of each finished turn to the notes vault;
+   * `off` records nothing. Defaults to `off`, because an archive that writes noise is worse than no
+   * archive — turn it on when the vault is where work is expected to be remembered.
+   */
+  resultReview: 'off' | 'archive';
+  /** Project name an archived entry links to, when the vault has a matching note. */
+  resultProject?: string;
 }
 
 /** Defaults: enforce, review the shell tools, and deny nothing beyond the rule set. */
@@ -34,6 +42,7 @@ export const DEFAULT_OPTIONS: GuardOptions = {
   shellTools: ['bash', 'shell', 'run_command', 'exec'],
   denyPaths: [],
   allowPaths: [],
+  resultReview: 'off',
 };
 
 /** The decision for one call plus the finding behind it, so a caller can log either. */
@@ -52,11 +61,16 @@ export interface Review {
 export function parseOptions(config: unknown): GuardOptions {
   const source = typeof config === 'object' && config !== null ? config as Record<string, unknown> : {};
   const mode = source['mode'] === 'observe' ? 'observe' : DEFAULT_OPTIONS.mode;
+  const project = typeof source['resultProject'] === 'string' && source['resultProject'].trim() !== ''
+    ? source['resultProject'].trim()
+    : undefined;
   return {
     mode,
     shellTools: stringList(source['shellTools']) ?? DEFAULT_OPTIONS.shellTools,
     denyPaths: stringList(source['denyPaths']) ?? DEFAULT_OPTIONS.denyPaths,
     allowPaths: stringList(source['allowPaths']) ?? DEFAULT_OPTIONS.allowPaths,
+    resultReview: source['resultReview'] === 'archive' ? 'archive' : DEFAULT_OPTIONS.resultReview,
+    ...project !== undefined ? { resultProject: project } : {},
   };
 }
 

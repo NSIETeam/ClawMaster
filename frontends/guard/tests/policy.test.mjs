@@ -95,7 +95,7 @@ describe('mounting', () => {
     const fake = host();
     apply(fake.ctx);
     assert.deepEqual([...fake.listeners.keys()], ['tools/pre-execute']);
-    assert.match(fake.logs[0], /mounted \(mode enforce\)/);
+    assert.match(fake.logs[0], /mounted \(mode enforce, result review off\)/);
   });
 
   it('denies through the listener and delegates safe calls to the pipeline', async () => {

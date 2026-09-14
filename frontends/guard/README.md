@@ -9,10 +9,14 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-ClawMaster Guard reviews every tool call just before it executes and refuses the ones that destroy
-something the user did not ask to destroy. It mounts on the harness's `tools/pre-execute`
-waterfall — the same interception point the Claude Code and Codex hook bridges use — so it works
-for the shell tool, for subagents, and for any other tool that reaches that pipeline.
+ClawMaster Guard is the review layer ClawMaster runs around an agent's work. It covers the three
+moments a review can still change the outcome:
+
+- **Process** (`tools/pre-execute`, the same interception point the Claude Code and Codex hook
+  bridges use): refuses the calls that destroy something the user did not ask to destroy.
+- **Result** (`session/event`, at every `turn/end`): reduces the finished turn to checkable facts
+  and archives them into the notes vault.
+- **Plan** (`exit_plan_mode`): reserved — the next stage.
 
 It never approves a destructive action on the model's behalf. Critical patterns (a root, home or
 wildcard deletion, a device or filesystem writer, a fork bomb, deleting `.git`, a command that
@@ -52,10 +56,26 @@ Optional configuration:
     shellTools: [bash, shell, run_command, exec]
     denyPaths: ['/Users/me/Documents']
     allowPaths: ['/tmp/scratch']
+    resultReview: archive
+    resultProject: ClawMaster
 ```
 
 `mode: observe` is the way to measure the rule set against real work before trusting it: the guard
 logs its verdict and delegates.
+
+## Result review
+
+With `resultReview: archive` the guard subscribes to the session event stream and, at each
+`turn/end`, composes a review of that turn from the turn's own events: which tools ran, which files
+and commands they named, whether anything reported a failure, and whether a test, build or lint run
+appeared. It states what it could not establish instead of implying success ("No test, build or lint
+run appeared in this turn, so the result rests on inspection alone.").
+
+The review is appended through the notes plugin's published vault access
+(`ctx.provide('clawmasterNotes')`), so the daily note keeps one writer and one revision chain — the
+same one the agent's own `notes_digest` uses. A turn that ran no tools is not archived, which is
+what keeps the archive worth reading. If the notes plugin is not mounted, the guard says so and
+skips; if the vault write fails, the session continues and the failure is logged.
 
 ## Model Experience
 
@@ -80,8 +100,10 @@ auto-reviewer gives.
 
 ## Verification
 
-`npm --prefix frontends/guard test` builds and then runs the suite: 62 cases covering the risk
+`npm --prefix frontends/guard test` builds and then runs the suite: 73 cases covering the risk
 table above, target expansion, `sudo`/`env` prefixes, subshells and chains, the quoted-prose
 false-positive case, decision mapping, `observe` mode, `allowPaths`/`denyPaths`, workdir
 resolution, and the mount itself — including that a denial never reaches the pipeline and that a
-throwing review delegates instead of breaking the agent.
+throwing review delegates instead of breaking the agent. The result stage has its own cases: turn
+facts from representative events, unrecognized payloads, first-line-only commands, the composed
+review text, per-session buffering, the `off` default, a missing vault, and a failing vault write.
