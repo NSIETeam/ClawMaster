@@ -3,6 +3,9 @@ import type { ProductLocale } from './frontend.ts';
 import type { EnterpriseCommand } from '../enterprise-types.ts';
 
 const zh = {
+  restoreUncertain: '恢复结果尚未确认。请刷新核对当前数据后再继续操作。',
+  backupFailed: '备份下载失败，请检查连接后重试。',
+  staleForm: '数据已恢复，当前表单或确认属于恢复前的数据。输入已保留；请复制需要的内容，取消并重新打开后核对再提交。',
   pending: '上次保存的结果尚未确认。请重试同一请求，系统会防止重复写入；当前输入已保留。',
   retryPending: '重试同一请求', deleteConfirm: '确认删除这条记录？删除操作会保留变更记录。',
   confirmDelete: '确认删除', confirmSubmit: '确认提交订单', before: '修改前', after: '修改后',
@@ -27,6 +30,9 @@ const zh = {
 
 type EnterpriseCopy = { [K in keyof typeof zh]: string };
 const en: EnterpriseCopy = {
+  restoreUncertain: 'The restore outcome is unknown. Refresh and review the current records before continuing.',
+  backupFailed: 'Backup download failed. Check the connection and retry.',
+  staleForm: 'The database was restored after this form or confirmation was opened. Your inputs are retained. Copy anything you need, cancel, and reopen to review the current records before submitting.',
   pending: 'The last save has not been confirmed. Retry the same request to resolve it without duplicate writes. Your inputs are retained.',
   retryPending: 'Retry same request', deleteConfirm: 'Delete this record? The change history will be retained.',
   confirmDelete: 'Confirm deletion', confirmSubmit: 'Confirm order submission', before: 'Before', after: 'After',

@@ -75,6 +75,7 @@ export type EnterpriseCommand =
 
 /** Retrying one commandId with the same command never repeats a mutation. */
 export interface EnterpriseCommandRequest {
+  generation: number;
   revision: number;
   commandId: EnterpriseId;
   command: EnterpriseCommand;
@@ -93,6 +94,8 @@ export interface AuditEntry {
 
 /** Complete local business state, independent of browser origin and selected Session. */
 export interface EnterpriseSnapshot {
+  /** Database-local restore counter; never imported from a backup. */
+  generation: number;
   revision: number;
   contacts: Contact[];
   inventory: InventoryItem[];

@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-14-llm-retry-permanent-failure-guard.md
-2026-09-14-llm-retry-permanent-failure-guard.md: d4c4a1ab96a704f94bf80f4ab24a34f16d70b4cc
-2026-09-14-llm-retry-permanent-failure-guard.zh.md: f4c9489e7d905dc641b7fa7197290a3ae6378eb0
+2026-09-14-llm-retry-permanent-failure-guard.md: 6fa0467241deac00964ae97a1c10c9505a1707eb
+2026-09-14-llm-retry-permanent-failure-guard.zh.md: c2ebd0bf2db83e71d1a9252a8f157dc32ba74d5a

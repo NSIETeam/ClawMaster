@@ -8,7 +8,7 @@ import {
 } from './enterprise-types.ts';
 
 /** User-visible failure categories; transport failures leave mutation outcomes unresolved. */
-export type EnterpriseClientErrorCode = EnterpriseErrorCode | 'networkError' | 'invalidResponse' | 'pending_command';
+export type EnterpriseClientErrorCode = EnterpriseErrorCode | 'networkError' | 'invalidResponse' | 'pending_command' | 'stale_form';
 
 /** A complete view of the client's current records and in-flight operations. */
 export interface EnterpriseClientState {
@@ -16,6 +16,8 @@ export interface EnterpriseClientState {
   loading: boolean;
   saving: boolean;
   pending: boolean;
+  /** A restore response was lost; refresh reads the authoritative database before more writes. */
+  restoreUncertain?: boolean;
   error: EnterpriseClientErrorCode | null;
 }
 
@@ -36,6 +38,7 @@ export class EnterpriseClient {
   private state: EnterpriseClientState = { snapshot: null, loading: false, saving: false, pending: false, error: null };
   private readonly listeners = new Set<() => void>();
   private pendingRequest: EnterpriseCommandRequest | undefined;
+  private restoreUncertain = false;
   private generation = 0;
   private readonly fetcher: EnterpriseFetch;
   private readonly nextId: () => EnterpriseId;
@@ -82,7 +85,8 @@ export class EnterpriseClient {
         this.set({ error: 'invalidResponse' });
         return;
       }
-      this.set({ snapshot });
+      this.restoreUncertain = false;
+      this.set({ snapshot, pending: this.pendingRequest !== undefined, restoreUncertain: false });
     } catch {
       if (generation === this.generation) this.set({ error: 'networkError' });
     } finally {
@@ -99,31 +103,54 @@ export class EnterpriseClient {
   }
 
   /** Restore a previously reviewed backup after confirming the displayed revision. */
-  async restore(backup: EnterpriseBackup, expectedRevision: number): Promise<EnterpriseSnapshot> {
-    const response = await this.fetcher(ENTERPRISE_RESTORE_PATH, {
-      method: 'POST', credentials: 'same-origin', cache: 'no-store',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ confirm: true, expectedRevision, backup }),
-    });
-    const json: unknown = await response.json();
-    if (!response.ok) throw new EnterpriseError('storage_unavailable', 'Enterprise backup could not be restored.');
-    const snapshot = parseEnterpriseSnapshot(json);
-    this.set({ snapshot, error: null });
-    return snapshot;
+  async restore(backup: EnterpriseBackup, expectedRevision: number, expectedGeneration: number): Promise<EnterpriseSnapshot> {
+    if (this.state.saving || this.state.pending) throw new EnterpriseError('invalid_request', 'Resolve the current enterprise operation before restoring.');
+    this.generation++;
+    this.set({ loading: false, saving: true, error: null });
+    let outcomeKnown = false;
+    try {
+      const response = await this.fetcher(ENTERPRISE_RESTORE_PATH, {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ confirm: true, expectedRevision, expectedGeneration, backup }),
+      });
+      const json: unknown = await response.json();
+      if (!response.ok) {
+        const failure = failureSchema.safeParse(json);
+        if (!failure.success) throw new EnterpriseError('storage_invalid', 'Enterprise restore response is invalid.');
+        outcomeKnown = true;
+        throw new EnterpriseError(failure.data.error.code, failure.data.error.message);
+      }
+      const snapshot = parseEnterpriseSnapshot(json);
+      if (snapshot.generation !== expectedGeneration + 1
+        || JSON.stringify({ ...snapshot, generation: backup.snapshot.generation }) !== JSON.stringify(backup.snapshot)) throw new EnterpriseError('storage_invalid', 'Enterprise restore acknowledgement is invalid.');
+      outcomeKnown = true;
+      this.set({ snapshot, error: null });
+      return snapshot;
+    } catch (error) {
+      this.restoreUncertain = !outcomeKnown;
+      this.set({ pending: this.restoreUncertain, restoreUncertain: this.restoreUncertain, error: error instanceof EnterpriseError ? error.code : 'networkError' });
+      throw error;
+    } finally { this.set({ saving: false }); }
   }
 
   /**
    * Save one command against the currently displayed revision.
    * @param command User-reviewed operation.
+   * @param reviewedGeneration Database generation when a retained form or confirmation was opened; omitted for an immediate operation.
    * @returns Whether the operation was confirmed committed.
    */
-  async execute(command: EnterpriseCommand): Promise<boolean> {
+  async execute(command: EnterpriseCommand, reviewedGeneration?: number): Promise<boolean> {
     if (this.state.saving) return false;
-    if (this.pendingRequest) { this.set({ error: 'pending_command' }); return false; }
+    if (this.pendingRequest || this.restoreUncertain) { this.set({ error: 'pending_command' }); return false; }
     if (!this.state.snapshot) { this.set({ error: 'storage_unavailable' }); return false; }
+    if (reviewedGeneration !== undefined && reviewedGeneration !== this.state.snapshot.generation) {
+      this.set({ error: 'stale_form' });
+      return false;
+    }
     let request: EnterpriseCommandRequest;
     try {
-      request = parseEnterpriseRequest({ revision: this.state.snapshot.revision, commandId: this.nextId(), command });
+      request = parseEnterpriseRequest({ generation: this.state.snapshot.generation, revision: this.state.snapshot.revision, commandId: this.nextId(), command });
     } catch (error) {
       this.set({ error: error instanceof EnterpriseError ? error.code : 'invalid_request' });
       return false;

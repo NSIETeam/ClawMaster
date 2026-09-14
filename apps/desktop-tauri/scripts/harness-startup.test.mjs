@@ -173,6 +173,8 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     }
     const snapshotPath = '/api/clawmaster/enterprise'
     const commandPath = '/api/clawmaster/enterprise/command'
+    const restorePath = '/api/clawmaster/enterprise/restore'
+    const backupPath = '/api/clawmaster/enterprise/backup'
     const workspacePath = '/api/clawmaster/workspace'
     const notesTreePath = '/api/clawmaster/notes/tree'
     const notesCommandPath = '/api/clawmaster/notes/command'
@@ -190,12 +192,14 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
       id: 'smoke-contact', name: '验收联系人', company: '验收企业', stage: 'lead',
       nextAction: '确认需求', nextActionDate: null,
     }
-    const command = { revision: 0, commandId: 'smoke-command', command: { type: 'contact.upsert', contact } }
+    const command = { generation: 0, revision: 0, commandId: 'smoke-command', command: { type: 'contact.upsert', contact } }
     const post = (base, path, value, headers = {}) => request(new URL(path, base), {
       method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(value),
     })
     assert.equal((await request(new URL(snapshotPath, first.base))).status, 401)
     assert.equal((await post(first.base, commandPath, command)).status, 401)
+    assert.equal((await post(first.base, restorePath, {})).status, 401)
+    assert.equal((await request(new URL(backupPath, first.base))).status, 401)
     assert.equal((await post(first.base, workspacePath, { kind: 'task' })).status, 401)
     assert.equal((await request(new URL(notesTreePath, first.base))).status, 401)
     assert.equal((await request(noteUrl(first.base))).status, 401)
@@ -255,7 +259,7 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     const initial = await request(new URL(snapshotPath, first.base), { headers: authenticated })
     assert.equal(initial.status, 200)
     assert.equal(initial.headers.get('cache-control'), 'no-store')
-    assert.deepEqual(await initial.json(), { revision: 0, contacts: [], inventory: [], orders: [], audit: [] })
+    assert.deepEqual(await initial.json(), { generation: 0, revision: 0, contacts: [], inventory: [], orders: [], audit: [] })
     assert.equal((await post(first.base, workspacePath, { kind: 'invalid' }, authenticated)).status, 400)
     assert.equal((await stat(join(managedRoot, 'im'))).isDirectory(), true)
     for (const kind of ['tasks', 'desk']) await assert.rejects(stat(join(managedRoot, kind)), { code: 'ENOENT' })
@@ -276,12 +280,23 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     assert.equal(desk.path, join(managedRoot, 'desk'))
     const saved = await post(first.base, commandPath, command, authenticated)
     assert.equal(saved.status, 200)
-    const expected = await saved.json()
+    let expected = await saved.json()
     assert.equal(expected.revision, 1)
     assert.deepEqual(expected.contacts, [{ ...contact, updatedAt: expected.contacts[0]?.updatedAt }])
     assert.ok(Number.isFinite(Date.parse(expected.contacts[0].updatedAt)))
     assert.equal(expected.audit.length, 1)
     assert.equal(expected.audit[0].commandId, command.commandId)
+    const backupResponse = await request(new URL(backupPath, first.base), { headers: authenticated })
+    assert.equal(backupResponse.status, 200)
+    const backup = await backupResponse.json()
+    const confirmation = { confirm: true, expectedGeneration: 0, expectedRevision: 1, backup }
+    assert.equal((await post(first.base, restorePath, confirmation, { ...authenticated, origin: 'https://foreign.invalid' })).status, 403)
+    const restoreResponse = await post(first.base, restorePath, confirmation, authenticated)
+    assert.equal(restoreResponse.status, 200)
+    expected = { ...expected, generation: 1 }
+    assert.deepEqual(await restoreResponse.json(), expected)
+    assert.equal((await post(first.base, commandPath, command, authenticated)).status, 409)
+    assert.equal((await post(first.base, restorePath, confirmation, authenticated)).status, 409)
     assert.equal(host.child.signalCode, null)
     assert.equal(host.child.exitCode, null)
     await stopHost(host)

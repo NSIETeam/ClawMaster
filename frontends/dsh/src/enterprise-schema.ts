@@ -39,7 +39,8 @@ const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('order.remove'), id: identifier }).strict(),
   z.object({ type: z.literal('order.submit'), id: identifier }).strict(),
 ]);
-const requestSchema = z.object({ revision: integer, commandId: identifier, command: commandSchema }).strict();
+// Legacy requests belong only to the initial, never-restored database generation.
+const requestSchema = z.object({ generation: integer.default(0), revision: integer, commandId: identifier, command: commandSchema }).strict();
 
 /** Stored contact JSON, including its modification time. */
 export const contactSchema = contactInput.extend({ updatedAt: timestamp });
@@ -71,7 +72,7 @@ export const auditSchema = z.discriminatedUnion('type', [
   return (entry.before === null || entry.before.id === entry.entityId) && (entry.after === null || entry.after.id === entry.entityId);
 });
 const snapshotSchema = z.object({
-  revision: integer, contacts: z.array(contactSchema), inventory: z.array(itemSchema),
+  generation: integer.default(0), revision: integer, contacts: z.array(contactSchema), inventory: z.array(itemSchema),
   orders: z.array(orderSchema), audit: z.array(auditSchema),
 }).strict().refine(snapshot => {
   const unique = (values: readonly string[]) => new Set(values).size === values.length;
@@ -98,7 +99,28 @@ const backupSchema = z.object({
       context.addIssue({ code: 'custom', message: 'Backup command receipt does not match its audit entry.' });
       return;
     }
-    try { JSON.parse(receipt.commandJson); } catch { context.addIssue({ code: 'custom', message: 'Backup command JSON is malformed.' }); return; }
+    try {
+      const command = commandSchema.parse(JSON.parse(receipt.commandJson));
+      let expected: unknown;
+      switch (entry.type) {
+        case 'contact.upsert': {
+          const { updatedAt: _updatedAt, ...contact } = entry.after;
+          expected = { type: entry.type, contact }; break;
+        }
+        case 'item.upsert': {
+          const { updatedAt: _updatedAt, ...item } = entry.after;
+          expected = { type: entry.type, item }; break;
+        }
+        case 'order.save': {
+          const { updatedAt: _updatedAt, submittedAt: _submittedAt, status: _status, totalMinorUnits: _total, ...order } = entry.after;
+          expected = { type: entry.type, order }; break;
+        }
+        default: expected = { type: entry.type, id: entry.entityId };
+      }
+      if (JSON.stringify(command) !== JSON.stringify(commandSchema.parse(expected))) {
+        context.addIssue({ code: 'custom', message: 'Backup command content differs from its audit record.' }); return;
+      }
+    } catch { context.addIssue({ code: 'custom', message: 'Backup command JSON is invalid.' }); return; }
   }
 });
 
@@ -132,8 +154,8 @@ export function parseEnterpriseBackup(value: unknown): EnterpriseBackup {
 }
 
 /** Validate the explicit restore request envelope before opening SQLite. */
-export function parseEnterpriseRestoreRequest(value: unknown): { expectedRevision: number; confirm: true; backup: EnterpriseBackup } {
-  const result = z.object({ expectedRevision: integer, confirm: z.literal(true), backup: backupSchema }).strict().safeParse(value);
+export function parseEnterpriseRestoreRequest(value: unknown): { expectedGeneration: number; expectedRevision: number; confirm: true; backup: EnterpriseBackup } {
+  const result = z.object({ expectedGeneration: integer.default(0), expectedRevision: integer, confirm: z.literal(true), backup: backupSchema }).strict().safeParse(value);
   if (!result.success) throw new EnterpriseError('invalid_request', 'Enterprise restore confirmation is invalid.');
   return result.data;
 }

@@ -16,7 +16,7 @@ const querySchema = z.object({
   collection: z.enum(['contacts', 'inventory', 'orders', 'audit']),
   id: z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/).optional(),
   search: z.string().trim().max(2000).optional(),
-  offset: safeInteger, limit: safeInteger.min(1), revision: safeInteger.optional(),
+  offset: safeInteger, limit: safeInteger.min(1), revision: safeInteger.optional(), generation: safeInteger.optional(),
 }).strict();
 const commandEnvelope = z.object({ request: z.unknown() }).strict();
 const configSchema = z.object({
@@ -48,7 +48,7 @@ function fail(error: unknown): never {
 
 function receipt(snapshot: EnterpriseSnapshot, entry: AuditEntry) {
   return {
-    revision: snapshot.revision, commandId: entry.commandId, commandRevision: entry.revision,
+    generation: snapshot.generation, revision: snapshot.revision, commandId: entry.commandId, commandRevision: entry.revision,
     entityId: entry.entityId, type: entry.type, at: entry.at,
   };
 }
@@ -70,7 +70,8 @@ function readPage(store: EnterpriseStore, value: unknown, config: z.output<typeo
   const query = querySchema.parse(value);
   if (query.limit > config.maxQueryRows) throw new Error(`invalid_request: limit must not exceed ${config.maxQueryRows}.`);
   const snapshot = store.snapshot();
-  if (query.revision !== undefined && query.revision !== snapshot.revision) {
+  if ((query.revision !== undefined && (query.revision !== snapshot.revision || (query.generation ?? 0) !== snapshot.generation))
+    || (query.generation !== undefined && query.generation !== snapshot.generation)) {
     throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Restart pagination.', snapshot.revision);
   }
   const search = query.search?.toLowerCase();
@@ -81,7 +82,7 @@ function readPage(store: EnterpriseStore, value: unknown, config: z.output<typeo
   });
   const records: typeof rows = [];
   const page = () => ({
-    revision: snapshot.revision, collection: query.collection, offset: query.offset, total: rows.length,
+    generation: snapshot.generation, revision: snapshot.revision, collection: query.collection, offset: query.offset, total: rows.length,
     nextOffset: query.offset + records.length < rows.length ? query.offset + records.length : null,
     records,
   });

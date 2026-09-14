@@ -51,12 +51,12 @@ function ClientBanner({ state, client, locale, localError, onRetried }: {
 }) {
   const t = productCopy(locale);
   const e = enterpriseCopy(locale);
-  const error = localError ?? (state.error === 'pending_command' ? e.pending : state.error ? t[state.error] : null);
+  const error = localError ?? (state.error === 'pending_command' ? e.pending : state.error === 'stale_form' ? e.staleForm : state.error ? t[state.error] : null);
   if (!error && !state.pending) return null;
   return <div className={`cm-ent-banner ${state.pending ? 'is-pending' : 'is-error'}`} role="alert">
     {error && <p>{error}</p>}
-    {state.pending && <p>{e.pending}</p>}
-    <div className="cm-ent-actions">{state.pending
+    {state.pending && <p>{state.restoreUncertain ? e.restoreUncertain : e.pending}</p>}
+    <div className="cm-ent-actions">{state.pending && !state.restoreUncertain
       ? <button type="button" disabled={state.saving} onClick={async () => { const command = await client.retryPending(); if (command) onRetried?.(command); }}>{state.saving ? t.saving : e.retryPending}</button>
       : <button type="button" disabled={state.loading || state.saving} onClick={() => { void client.refresh(); }}>{state.loading ? t.refreshing : t.refresh}</button>}
     </div>
@@ -70,33 +70,39 @@ function Panel({ locale, state, client, title, description, children }: {
   const t = productCopy(locale);
   const e = enterpriseCopy(locale);
   const [restore, setRestore] = useState<EnterpriseBackup | null>(null);
+  const [restoreReview, setRestoreReview] = useState<Pick<EnterpriseSnapshot, 'revision' | 'generation'> | null>(null);
   const [restoreError, setRestoreError] = useState(false);
+  const [backupError, setBackupError] = useState(false);
   const [restoreBusy, setRestoreBusy] = useState(false);
   const chooseRestore = async (file: File | undefined) => {
     if (!file) return;
+    const reviewed = client.getSnapshot().snapshot;
+    if (!reviewed) return;
     try {
       setRestore(parseEnterpriseBackup(JSON.parse(await file.text())));
+      setRestoreReview({ revision: reviewed.revision, generation: reviewed.generation });
       setRestoreError(false);
     } catch {
       setRestore(null); setRestoreError(true);
     }
   };
   const confirmRestore = async () => {
-    if (!restore || !state.snapshot) return;
+    if (!restore || !restoreReview) return;
     setRestoreBusy(true); setRestoreError(false);
     try {
-      await client.restore(restore, state.snapshot.revision);
+      await client.restore(restore, restoreReview.revision, restoreReview.generation);
       setRestore(null);
-    } catch { setRestoreError(true); }
+    } catch { /* The client retains the restore outcome and its localized failure. */ }
     finally { setRestoreBusy(false); }
   };
   return <section className="cm-enterprise" aria-label={title}>
     <style>{styles}</style>
     <header className="cm-ent-header"><div><small>{e.sourceLocal}</small><h2>{title}</h2><p>{description}</p></div>
-      <div className="cm-ent-actions">{state.snapshot && <small>{t.revision}: {state.snapshot.revision}</small>}{state.snapshot && <button type="button" disabled={state.loading || state.saving} onClick={() => { void downloadEnterpriseBackup(client); }}>{e.localBackup}</button>}<label className="cm-ent-file-button"><input type="file" accept="application/json,.json" hidden onChange={event => { void chooseRestore(event.target.files?.[0]); event.currentTarget.value = ''; }} />{e.restoreBackup}</label><button type="button" disabled={state.loading || state.saving} onClick={() => { void client.refresh(); }}>{state.loading ? t.refreshing : t.refresh}</button></div>
+      <div className="cm-ent-actions">{state.snapshot && <small>{t.revision}: {state.snapshot.revision}</small>}{state.snapshot && <button type="button" disabled={state.loading || state.saving} onClick={() => { setBackupError(false); void downloadEnterpriseBackup(client).catch(() => setBackupError(true)); }}>{e.localBackup}</button>}<label className="cm-ent-file-button"><input type="file" accept="application/json,.json" hidden disabled={state.saving || state.pending} onChange={event => { void chooseRestore(event.target.files?.[0]); event.currentTarget.value = ''; }} />{e.restoreBackup}</label><button type="button" disabled={state.loading || state.saving} onClick={() => { void client.refresh(); }}>{state.loading ? t.refreshing : t.refresh}</button></div>
     </header>
     {restoreError && <p className="cm-ent-banner is-error" role="alert">{e.restoreInvalid}</p>}
-    {restore && state.snapshot && <section className="cm-ent-banner cm-ent-confirm" aria-label={e.restorePreview}><strong>{e.restorePreview}</strong><p>{t.revision}: {restore.snapshot.revision} · {e.contactsCount}: {restore.snapshot.contacts.length} · {e.inventoryCount}: {restore.snapshot.inventory.length} · {e.allOrders}: {restore.snapshot.orders.length}</p><p>{e.restoreConfirm}？{t.revision} {state.snapshot.revision} → {restore.snapshot.revision}</p><div className="cm-ent-actions"><button className="cm-ent-primary" type="button" disabled={restoreBusy} onClick={() => { void confirmRestore(); }}>{restoreBusy ? t.saving : e.restoreConfirm}</button><button type="button" disabled={restoreBusy} onClick={() => setRestore(null)}>{e.restoreCancel}</button></div></section>}
+    {backupError && <p className="cm-ent-banner is-error" role="alert">{e.backupFailed}</p>}
+    {restore && state.snapshot && <section className="cm-ent-banner cm-ent-confirm" aria-label={e.restorePreview}><strong>{e.restorePreview}</strong><p>{t.revision}: {restore.snapshot.revision} · {e.contactsCount}: {restore.snapshot.contacts.length} · {e.inventoryCount}: {restore.snapshot.inventory.length} · {e.allOrders}: {restore.snapshot.orders.length}</p><p>{e.restoreConfirm}？{t.revision} {state.snapshot.revision} → {restore.snapshot.revision}</p><div className="cm-ent-actions"><button className="cm-ent-primary" type="button" disabled={restoreBusy || state.saving || state.pending || state.loading} onClick={() => { void confirmRestore(); }}>{restoreBusy ? t.saving : e.restoreConfirm}</button><button type="button" disabled={restoreBusy} onClick={() => setRestore(null)}>{e.restoreCancel}</button></div></section>}
     {state.snapshot === null && !state.error && <p className="cm-ent-empty" role="status">{t.loadingData}</p>}
     {children}
   </section>;
@@ -127,8 +133,8 @@ export function CRM({ locale = 'zh-CN', client = enterpriseClient }: EnterpriseP
   const [search, setSearch] = useState('');
   const [stage, setStage] = useState<ContactInput['stage'] | ''>('');
   const [dueOnly, setDueOnly] = useState(false);
-  const [editor, setEditor] = useState<ContactInput | null>(null);
-  const [deleting, setDeleting] = useState<Contact | null>(null);
+  const [editor, setEditor] = useState<(ContactInput & { reviewedGeneration: number }) | null>(null);
+  const [deleting, setDeleting] = useState<(Contact & { reviewedGeneration: number }) | null>(null);
   const [status, setStatus] = useState('');
   const busy = state.saving || state.pending;
   const snapshot = state.snapshot;
@@ -139,7 +145,8 @@ export function CRM({ locale = 'zh-CN', client = enterpriseClient }: EnterpriseP
   }) ?? [];
   const edit = (contact: Contact) => {
     const { updatedAt: _updatedAt, ...input } = contact;
-    setEditor(input); setStatus('');
+    if (!snapshot) return;
+    setEditor({ ...input, reviewedGeneration: snapshot.generation }); setStatus('');
   };
   const mutationDone = (command: EnterpriseCommand) => {
     if (command.type === 'contact.upsert') { setEditor(null); setStatus(e.saved); }
@@ -153,23 +160,24 @@ export function CRM({ locale = 'zh-CN', client = enterpriseClient }: EnterpriseP
       <div className="cm-ent-toolbar"><input type="search" aria-label={t.contactSearch} placeholder={t.contactSearch} value={search} onChange={event => setSearch(event.target.value)} />
         <select aria-label={e.stageFilter} value={stage} onChange={event => setStage(stages.find(value => value === event.target.value) ?? '')}><option value="">{t.allStages}</option>{stages.map(value => <option key={value} value={value}>{t[value]}</option>)}</select>
         <label className="cm-ent-check"><input type="checkbox" checked={dueOnly} onChange={event => setDueOnly(event.target.checked)} />{e.onlyDue}</label>
-        <button className="cm-ent-primary" type="button" disabled={busy || editor !== null} onClick={() => { setEditor({ id: newId(), name: '', company: '', stage: 'lead', nextAction: '', nextActionDate: null }); setStatus(''); }}>{t.contactNew}</button>
+        <button className="cm-ent-primary" type="button" disabled={busy || editor !== null} onClick={() => { setEditor({ id: newId(), name: '', company: '', stage: 'lead', nextAction: '', nextActionDate: null, reviewedGeneration: snapshot.generation }); setStatus(''); }}>{t.contactNew}</button>
       </div>
       {deleting && <DeleteConfirmation locale={locale} busy={busy} name={deleting.name} onCancel={() => setDeleting(null)} onDelete={async () => {
         const command: EnterpriseCommand = { type: 'contact.remove', id: deleting.id };
-        if (await client.execute(command)) mutationDone(command);
+        if (await client.execute(command, deleting.reviewedGeneration)) mutationDone(command);
       }} />}
       <div className={`cm-ent-layout${editor ? ' has-editor' : ''}`}><div>
         {rows.length === 0 ? <p className="cm-ent-empty">{snapshot.contacts.length === 0 ? t.noContacts : e.noFiltered}</p> : <div className="cm-ent-table-wrap"><table className="cm-ent-table" aria-label={t.crm}>
           <thead><tr><th>{t.name}</th><th>{t.stage}</th><th>{t.nextAction}</th><th>{t.action}</th></tr></thead>
           <tbody>{rows.map(contact => <tr key={contact.id}><td><strong>{contact.name}</strong><small>{contact.company || e.noCompany}</small></td><td><span className={`cm-ent-badge${contact.stage === 'won' ? ' is-success' : ''}`}>{t[contact.stage]}</span></td>
             <td>{contact.nextAction || e.noAction}<small>{contact.nextActionDate ?? e.noDate} {isDue(contact) && <span className="cm-ent-badge is-warning">{t.due}</span>}</small></td>
-            <td><div className="cm-ent-actions"><button type="button" disabled={busy || editor !== null} onClick={() => edit(contact)}>{t.edit}</button><button className="cm-ent-danger" type="button" disabled={busy || editor !== null} onClick={() => setDeleting(contact)}>{t.remove}</button></div></td></tr>)}</tbody>
+            <td><div className="cm-ent-actions"><button type="button" disabled={busy || editor !== null} onClick={() => edit(contact)}>{t.edit}</button><button className="cm-ent-danger" type="button" disabled={busy || editor !== null} onClick={() => setDeleting({ ...contact, reviewedGeneration: snapshot.generation })}>{t.remove}</button></div></td></tr>)}</tbody>
         </table></div>}
       </div>{editor && <form className="cm-ent-form" aria-label={snapshot.contacts.some(contact => contact.id === editor.id) ? t.contactEdit : t.contactNew} onSubmit={async event => {
         event.preventDefault();
-        const command: EnterpriseCommand = { type: 'contact.upsert', contact: editor };
-        if (await client.execute(command)) mutationDone(command);
+        const { reviewedGeneration, ...contact } = editor;
+        const command: EnterpriseCommand = { type: 'contact.upsert', contact };
+        if (await client.execute(command, reviewedGeneration)) mutationDone(command);
       }}>
         <header><h3>{snapshot.contacts.some(contact => contact.id === editor.id) ? t.contactEdit : t.contactNew}</h3><button type="button" disabled={busy} onClick={() => setEditor(null)}>{t.cancel}</button></header>
         <fieldset className="cm-ent-fields" disabled={busy}>
@@ -185,12 +193,12 @@ export function CRM({ locale = 'zh-CN', client = enterpriseClient }: EnterpriseP
   </Panel>;
 }
 
-interface ItemDraft { id: EnterpriseId; sku: string; name: string; stock: string; reorderAt: string; supplier: string; }
+interface ItemDraft { id: EnterpriseId; sku: string; name: string; stock: string; reorderAt: string; supplier: string; reviewedGeneration: number; }
 interface LineDraft { key: string; itemId: string; quantity: string; price: string; }
-interface OrderDraft { id: EnterpriseId; kind: 'purchase' | 'sale'; counterparty: string; orderDate: string; note: string; lines: LineDraft[]; }
+interface OrderDraft { id: EnterpriseId; kind: 'purchase' | 'sale'; counterparty: string; orderDate: string; note: string; lines: LineDraft[]; reviewedGeneration: number; }
 
-function toOrderDraft(order: BusinessOrder): OrderDraft {
-  return { id: order.id, kind: order.kind, counterparty: order.counterparty, orderDate: order.orderDate, note: order.note,
+function toOrderDraft(order: BusinessOrder, reviewedGeneration: number): OrderDraft {
+  return { id: order.id, kind: order.kind, counterparty: order.counterparty, orderDate: order.orderDate, note: order.note, reviewedGeneration,
     lines: order.lines.map(line => ({ key: crypto.randomUUID(), itemId: line.itemId, quantity: String(line.quantity), price: minorUnitsToMoneyInput(line.unitPriceMinorUnits) })) };
 }
 
@@ -248,8 +256,8 @@ export function ERP({ locale = 'zh-CN', client = enterpriseClient }: EnterpriseP
   const [itemEditor, setItemEditor] = useState<ItemDraft | null>(null);
   const [orderEditor, setOrderEditor] = useState<OrderDraft | null>(null);
   const [viewOrderId, setViewOrderId] = useState<EnterpriseId | null>(null);
-  const [deleting, setDeleting] = useState<{ kind: 'item' | 'order'; id: EnterpriseId; name: string } | null>(null);
-  const [submittingId, setSubmittingId] = useState<EnterpriseId | null>(null);
+  const [deleting, setDeleting] = useState<{ kind: 'item' | 'order'; id: EnterpriseId; name: string; reviewedGeneration: number } | null>(null);
+  const [submission, setSubmission] = useState<{ id: EnterpriseId; reviewedGeneration: number } | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [auditLimit, setAuditLimit] = useState(100);
@@ -257,18 +265,18 @@ export function ERP({ locale = 'zh-CN', client = enterpriseClient }: EnterpriseP
   const busy = state.saving || state.pending;
   const items = snapshot?.inventory.filter(item => `${item.sku}\n${item.name}\n${item.supplier}`.toLocaleLowerCase(locale).includes(search.toLocaleLowerCase(locale)) && (!lowOnly || item.stock <= item.reorderAt)) ?? [];
   const orders = snapshot?.orders.filter(order => `${order.counterparty}\n${order.note}\n${order.id}`.toLocaleLowerCase(locale).includes(orderSearch.toLocaleLowerCase(locale)) && (!orderKind || order.kind === orderKind) && (!orderStatus || order.status === orderStatus)) ?? [];
-  const submitting = snapshot?.orders.find(order => order.id === submittingId);
+  const submitting = snapshot?.orders.find(order => order.id === submission?.id);
   const viewed = snapshot?.orders.find(order => order.id === viewOrderId);
   const mutationDone = (command: EnterpriseCommand) => {
     setLocalError(null);
     if (command.type === 'item.upsert') { setItemEditor(null); setStatus(e.saved); }
     if (command.type === 'order.save') { setOrderEditor(null); setStatus(e.saved); }
     if (command.type === 'item.remove' || command.type === 'order.remove') { setDeleting(null); setStatus(e.deleted); }
-    if (command.type === 'order.submit') { setSubmittingId(null); setStatus(e.submittedNotice); }
+    if (command.type === 'order.submit') { setSubmission(null); setStatus(e.submittedNotice); }
   };
-  const execute = async (command: EnterpriseCommand) => { setLocalError(null); if (await client.execute(command)) mutationDone(command); };
+  const execute = async (command: EnterpriseCommand, reviewedGeneration: number) => { setLocalError(null); if (await client.execute(command, reviewedGeneration)) mutationDone(command); };
   const inputError = (error: unknown) => setLocalError(error instanceof EnterpriseError ? t[error.code] : t.invalid_request);
-  const editItem = (item: InventoryItem) => { setItemEditor({ id: item.id, sku: item.sku, name: item.name, stock: String(item.stock), reorderAt: String(item.reorderAt), supplier: item.supplier }); setLocalError(null); setStatus(''); };
+  const editItem = (item: InventoryItem) => { if (!snapshot) return; setItemEditor({ id: item.id, sku: item.sku, name: item.name, stock: String(item.stock), reorderAt: String(item.reorderAt), supplier: item.supplier, reviewedGeneration: snapshot.generation }); setLocalError(null); setStatus(''); };
   let draftTotal: number | null = null;
   if (orderEditor) {
     try { draftTotal = enterpriseOrderTotal(toOrderInput(orderEditor)); } catch { /* Incomplete decimal inputs have no preview total. */ }
@@ -278,21 +286,22 @@ export function ERP({ locale = 'zh-CN', client = enterpriseClient }: EnterpriseP
     {status && <p className="cm-ent-status" role="status">{status}</p>}
     {snapshot && <>
       <nav className="cm-ent-tabs" aria-label={t.erp}>{(['inventory', 'orders', 'audit'] as const).map(value => <button key={value} type="button" aria-pressed={tab === value} onClick={() => { setTab(value); setLocalError(null); }}>{t[value]}</button>)}</nav>
-      {deleting && <DeleteConfirmation locale={locale} busy={busy} name={deleting.name} onCancel={() => setDeleting(null)} onDelete={() => { void execute({ type: deleting.kind === 'item' ? 'item.remove' : 'order.remove', id: deleting.id }); }} />}
+      {deleting && <DeleteConfirmation locale={locale} busy={busy} name={deleting.name} onCancel={() => setDeleting(null)} onDelete={() => { void execute({ type: deleting.kind === 'item' ? 'item.remove' : 'order.remove', id: deleting.id }, deleting.reviewedGeneration); }} />}
       {tab === 'inventory' && <>
         <div className="cm-ent-counts"><div><span>{e.inventoryCount}</span><strong>{snapshot.inventory.length}</strong></div><div><span>{e.lowStockCount}</span><strong>{snapshot.inventory.filter(item => item.stock <= item.reorderAt).length}</strong></div></div>
         <div className="cm-ent-toolbar"><input type="search" aria-label={t.inventorySearch} placeholder={t.inventorySearch} value={search} onChange={event => setSearch(event.target.value)} /><label className="cm-ent-check"><input type="checkbox" checked={lowOnly} onChange={event => setLowOnly(event.target.checked)} />{e.onlyLowStock}</label>
-          <button className="cm-ent-primary" type="button" disabled={busy || itemEditor !== null} onClick={() => { setItemEditor({ id: newId(), sku: '', name: '', stock: '0', reorderAt: '0', supplier: '' }); setLocalError(null); setStatus(''); }}>{t.itemNew}</button>
+          <button className="cm-ent-primary" type="button" disabled={busy || itemEditor !== null} onClick={() => { setItemEditor({ id: newId(), sku: '', name: '', stock: '0', reorderAt: '0', supplier: '', reviewedGeneration: snapshot.generation }); setLocalError(null); setStatus(''); }}>{t.itemNew}</button>
         </div>
         <div className={`cm-ent-layout${itemEditor ? ' has-editor' : ''}`}><div>
           {items.length === 0 ? <p className="cm-ent-empty">{snapshot.inventory.length === 0 ? t.noInventory : e.noFiltered}</p> : <div className="cm-ent-table-wrap"><table className="cm-ent-table" aria-label={t.inventory}><thead><tr><th>{t.sku}</th><th>{t.stock}</th><th>{t.reorderAt}</th><th>{t.action}</th></tr></thead><tbody>
-            {items.map(item => <tr key={item.id}><td><strong>{item.name}</strong><small>{item.sku} · {item.supplier || e.noSupplier}</small></td><td>{item.stock}<small><span className={`cm-ent-badge${item.stock <= item.reorderAt ? ' is-warning' : ''}`}>{item.stock <= item.reorderAt ? t.lowStock : t.normalStock}</span></small></td><td>{item.reorderAt}</td><td><div className="cm-ent-actions"><button type="button" disabled={busy || itemEditor !== null} onClick={() => editItem(item)}>{t.edit}</button><button className="cm-ent-danger" type="button" disabled={busy || itemEditor !== null} onClick={() => setDeleting({ kind: 'item', id: item.id, name: `${item.sku} · ${item.name}` })}>{t.remove}</button></div></td></tr>)}
+            {items.map(item => <tr key={item.id}><td><strong>{item.name}</strong><small>{item.sku} · {item.supplier || e.noSupplier}</small></td><td>{item.stock}<small><span className={`cm-ent-badge${item.stock <= item.reorderAt ? ' is-warning' : ''}`}>{item.stock <= item.reorderAt ? t.lowStock : t.normalStock}</span></small></td><td>{item.reorderAt}</td><td><div className="cm-ent-actions"><button type="button" disabled={busy || itemEditor !== null} onClick={() => editItem(item)}>{t.edit}</button><button className="cm-ent-danger" type="button" disabled={busy || itemEditor !== null} onClick={() => setDeleting({ kind: 'item', id: item.id, name: `${item.sku} · ${item.name}`, reviewedGeneration: snapshot.generation })}>{t.remove}</button></div></td></tr>)}
           </tbody></table></div>}
         </div>{itemEditor && <form className="cm-ent-form" aria-label={snapshot.inventory.some(item => item.id === itemEditor.id) ? t.itemEdit : t.itemNew} onSubmit={async event => {
           event.preventDefault();
           let item: InventoryItemInput;
-          try { item = { ...itemEditor, stock: quantityInputToInteger(itemEditor.stock, 0), reorderAt: quantityInputToInteger(itemEditor.reorderAt, 0) }; } catch (error) { inputError(error); return; }
-          await execute({ type: 'item.upsert', item });
+          const { reviewedGeneration, ...input } = itemEditor;
+          try { item = { ...input, stock: quantityInputToInteger(itemEditor.stock, 0), reorderAt: quantityInputToInteger(itemEditor.reorderAt, 0) }; } catch (error) { inputError(error); return; }
+          await execute({ type: 'item.upsert', item }, reviewedGeneration);
         }}><header><h3>{snapshot.inventory.some(item => item.id === itemEditor.id) ? t.itemEdit : t.itemNew}</h3><button type="button" disabled={busy} onClick={() => { setItemEditor(null); setLocalError(null); }}>{t.cancel}</button></header>
           <fieldset className="cm-ent-fields" disabled={busy}>
             <label className="cm-ent-field"><span>{t.sku}</span><input required maxLength={200} value={itemEditor.sku} onChange={event => setItemEditor({ ...itemEditor, sku: event.target.value })} /></label>
@@ -307,14 +316,14 @@ export function ERP({ locale = 'zh-CN', client = enterpriseClient }: EnterpriseP
         <div className="cm-ent-toolbar"><input type="search" aria-label={e.orderSearch} placeholder={e.orderSearch} value={orderSearch} onChange={event => setOrderSearch(event.target.value)} />
           <select aria-label={e.orderKindFilter} value={orderKind} onChange={event => setOrderKind(event.target.value === 'purchase' ? 'purchase' : event.target.value === 'sale' ? 'sale' : '')}><option value="">{e.allOrders}</option><option value="purchase">{t.purchase}</option><option value="sale">{t.sale}</option></select>
           <select aria-label={e.orderStatusFilter} value={orderStatus} onChange={event => setOrderStatus(event.target.value === 'draft' ? 'draft' : event.target.value === 'submitted' ? 'submitted' : '')}><option value="">{e.allOrders}</option><option value="draft">{t.draft}</option><option value="submitted">{t.submitted}</option></select>
-          <button className="cm-ent-primary" type="button" disabled={busy || orderEditor !== null || snapshot.inventory.length === 0} onClick={() => { setOrderEditor({ id: newId(), kind: 'purchase', counterparty: '', orderDate: today(), note: '', lines: [newLine()] }); setViewOrderId(null); setLocalError(null); setStatus(''); }}>{t.orderNew}</button>
+          <button className="cm-ent-primary" type="button" disabled={busy || orderEditor !== null || snapshot.inventory.length === 0} onClick={() => { setOrderEditor({ id: newId(), kind: 'purchase', counterparty: '', orderDate: today(), note: '', lines: [newLine()], reviewedGeneration: snapshot.generation }); setViewOrderId(null); setLocalError(null); setStatus(''); }}>{t.orderNew}</button>
         </div>
         {snapshot.inventory.length === 0 && <p className="cm-ent-banner">{e.addInventoryFirst}</p>}
-        {submitting && <section className="cm-ent-banner cm-ent-confirm" aria-label={e.confirmSubmit}><h3>{e.confirmSubmit}</h3><p>{t[submitting.kind]} · {submitting.counterparty} · {money(submitting.totalMinorUnits)}</p><p>{t.submitHint}</p><strong>{e.submitImpact}</strong><ul className="cm-ent-impact">{submitting.lines.map(line => <li key={line.itemId}>{snapshot.inventory.find(item => item.id === line.itemId)?.sku} {submitting.kind === 'purchase' ? '+' : '−'}{line.quantity}</li>)}</ul><div className="cm-ent-actions"><button className="cm-ent-primary" type="button" disabled={busy} onClick={() => { void execute({ type: 'order.submit', id: submitting.id }); }}>{state.saving ? t.saving : t.submitOrder}</button><button type="button" disabled={busy} onClick={() => setSubmittingId(null)}>{t.cancel}</button></div></section>}
+        {submitting && submission && <section className="cm-ent-banner cm-ent-confirm" aria-label={e.confirmSubmit}><h3>{e.confirmSubmit}</h3><p>{t[submitting.kind]} · {submitting.counterparty} · {money(submitting.totalMinorUnits)}</p><p>{t.submitHint}</p><strong>{e.submitImpact}</strong><ul className="cm-ent-impact">{submitting.lines.map(line => <li key={line.itemId}>{snapshot.inventory.find(item => item.id === line.itemId)?.sku} {submitting.kind === 'purchase' ? '+' : '−'}{line.quantity}</li>)}</ul><div className="cm-ent-actions"><button className="cm-ent-primary" type="button" disabled={busy} onClick={() => { void execute({ type: 'order.submit', id: submitting.id }, submission.reviewedGeneration); }}>{state.saving ? t.saving : t.submitOrder}</button><button type="button" disabled={busy} onClick={() => setSubmission(null)}>{t.cancel}</button></div></section>}
         <div className={`cm-ent-layout cm-ent-orders-layout${orderEditor ? ' has-editor' : ''}`}><div>
           {orders.length === 0 ? <p className="cm-ent-empty">{snapshot.orders.length === 0 ? t.noOrders : e.noFiltered}</p> : <div className="cm-ent-table-wrap"><table className="cm-ent-table" aria-label={t.orders}><thead><tr><th>{t.orderDate}</th><th>{t.counterparty}</th><th>{t.stage}</th><th>{t.total}</th><th>{t.action}</th></tr></thead><tbody>{orders.map(order => <tr key={order.id}><td>{order.orderDate}<small>{t[order.kind]}</small></td><td><strong>{order.counterparty}</strong><small>{order.note}</small></td><td><span className={`cm-ent-badge${order.status === 'submitted' ? ' is-success' : ''}`}>{t[order.status]}</span></td><td>{money(order.totalMinorUnits)}</td><td><div className="cm-ent-actions">
             <button type="button" disabled={busy || orderEditor !== null} onClick={() => setViewOrderId(order.id)}>{t.orderDetails}</button>
-            {order.status === 'draft' && <><button type="button" disabled={busy || orderEditor !== null} onClick={() => { setOrderEditor(toOrderDraft(order)); setViewOrderId(null); setLocalError(null); }}>{t.orderEdit}</button><button type="button" disabled={busy || orderEditor !== null} onClick={() => setSubmittingId(order.id)}>{e.confirmSubmit}</button><button className="cm-ent-danger" type="button" disabled={busy || orderEditor !== null} onClick={() => setDeleting({ kind: 'order', id: order.id, name: `${t[order.kind]} · ${order.counterparty} · ${money(order.totalMinorUnits)}` })}>{t.remove}</button></>}
+            {order.status === 'draft' && <><button type="button" disabled={busy || orderEditor !== null} onClick={() => { setOrderEditor(toOrderDraft(order, snapshot.generation)); setViewOrderId(null); setLocalError(null); }}>{t.orderEdit}</button><button type="button" disabled={busy || orderEditor !== null} onClick={() => setSubmission({ id: order.id, reviewedGeneration: snapshot.generation })}>{e.confirmSubmit}</button><button className="cm-ent-danger" type="button" disabled={busy || orderEditor !== null} onClick={() => setDeleting({ kind: 'order', id: order.id, name: `${t[order.kind]} · ${order.counterparty} · ${money(order.totalMinorUnits)}`, reviewedGeneration: snapshot.generation })}>{t.remove}</button></>}
           </div></td></tr>)}</tbody></table></div>}
         </div>
         {viewed && !orderEditor && <section className="cm-ent-form" aria-label={t.orderDetails}><header><h3>{t.orderDetails}</h3><button type="button" onClick={() => setViewOrderId(null)}>{t.cancel}</button></header><p>{t[viewed.kind]} · {viewed.counterparty} · {viewed.orderDate}</p><small className="cm-ent-help">{e.orderId}: {viewed.id}</small><p>{t[viewed.status]} · {money(viewed.totalMinorUnits)}</p><ul className="cm-ent-impact">{viewed.lines.map(line => <li key={line.itemId}>{snapshot.inventory.find(item => item.id === line.itemId)?.name} × {line.quantity} @ {money(line.unitPriceMinorUnits)}</li>)}</ul><p>{viewed.note}</p>{viewed.status === 'submitted' && <p className="cm-ent-help">{e.viewSubmitted}</p>}</section>}
@@ -324,7 +333,7 @@ export function ERP({ locale = 'zh-CN', client = enterpriseClient }: EnterpriseP
           if (new Set(orderEditor.lines.map(line => line.itemId)).size !== orderEditor.lines.length) { setLocalError(e.duplicateLine); return; }
           let order: OrderInput;
           try { order = toOrderInput(orderEditor); enterpriseOrderTotal(order); } catch (error) { inputError(error); return; }
-          await execute({ type: 'order.save', order });
+          await execute({ type: 'order.save', order }, orderEditor.reviewedGeneration);
         }}><header><h3>{snapshot.orders.some(order => order.id === orderEditor.id) ? t.orderEdit : t.orderNew}</h3><button type="button" disabled={busy} onClick={() => { setOrderEditor(null); setLocalError(null); }}>{t.cancel}</button></header><p className="cm-ent-help">{e.draftHint}</p>
           <fieldset className="cm-ent-fields" disabled={busy}><div className="cm-ent-form-grid">
             <label className="cm-ent-field"><span>{t.orders}</span><select aria-label={t.orders} value={orderEditor.kind} onChange={event => setOrderEditor({ ...orderEditor, kind: event.target.value === 'sale' ? 'sale' : 'purchase' })}><option value="purchase">{t.purchase}</option><option value="sale">{t.sale}</option></select></label>

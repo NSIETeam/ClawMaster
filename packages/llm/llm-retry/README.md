@@ -57,6 +57,8 @@ Each scheduled retry is durable before its wait: the plugin appends a non-surfac
 
 A failure before any final adapter is selected has no provider policy and delegates downstream unchanged. In normal mode, a failure code outside the eligible set, or an exhausted budget, delegates; in always mode, an over-cap provider delay uses the configured local backoff so the policy cannot terminate on that instruction. Nothing here is model-visible: no retry event, delay, provider error, or failed partial output reaches the model or derived messages.
 
+HTTP 401/403 and classified permanent failures do not schedule executor retries in either mode, even if a provider labels them with a transient code. Always mode retains a downstream recovery decision; if that recovery throws for a permanent failure, the executor propagates the error without invoking recovery again.
+
 -----
 
 <a id="understand-the-implementation"></a>

@@ -87,12 +87,12 @@ function retryStateKey(provider: string, policyKey: string): string {
  * unbounded request storm for credentials, quota, or an oversized prompt.
  */
 function isPermanentFailure(failure: LlmFailure): boolean {
-  return (failure.code === 'AUTH' && (
-    failure.status === 401
+  return failure.status === 401
     || failure.status === 403
-    || /\b(?:401|403|unauthori[sz]ed|forbidden)\b/i.test(failure.message)
-    || /\b(?:invalid|missing|expired|bad)\s+(?:api\s+)?(?:key|credential|token)\b/i.test(failure.message)
-  ))
+    || (failure.code === 'AUTH' && (
+      /\b(?:401|403|unauthori[sz]ed|forbidden)\b/i.test(failure.message)
+      || /\b(?:invalid|missing|expired|bad)\s+(?:api\s+)?(?:key|credential|token)\b/i.test(failure.message)
+    ))
     || failure.code === QUOTA_EXCEEDED_CODE
     || failure.code === CONTEXT_WINDOW_EXCEEDED_CODE
     || failure.code === 'INVALID_REQUEST'
@@ -226,6 +226,10 @@ export function apply(ctx: Context, config: Config = {}, internals: RetryInterna
       // An abort then wins before the decision or fallback can mutate later state.
       const downstream = await settleDownstream(next)
       if (fusedSignal.aborted) return
+      if (isPermanentFailure(failure)) {
+        if (downstream.type === 'error') throw downstream.error
+        return downstream.decision
+      }
       if (downstream.type === 'error') {
         ctx.logger.warn(
           `llm-retry: provider "${provider}" always policy ignored a downstream recovery failure: %o`,
@@ -235,10 +239,7 @@ export function apply(ctx: Context, config: Config = {}, internals: RetryInterna
       if (downstream.type === 'decision' && downstream.decision?.kind === 'retry') {
         return downstream.decision
       }
-      if (isPermanentFailure(failure)) {
-        return downstream.type === 'decision' ? downstream.decision : next()
-      }
-    } else if (!policy.retryableCodes.includes(failure.code)) {
+    } else if (isPermanentFailure(failure) || !policy.retryableCodes.includes(failure.code)) {
       return next()
     }
 
