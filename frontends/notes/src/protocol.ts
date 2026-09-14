@@ -127,6 +127,9 @@ export const annotationRequestSchema = z.discriminatedUnion('action', [
 ]);
 export type AnnotationRequest = z.output<typeof annotationRequestSchema>;
 
+/** The authenticated envelope one annotation mutation travels in. */
+export const annotationEnvelopeSchema = z.object({ request: annotationRequestSchema }).strict();
+
 /** What one annotation mutation did. */
 export const annotationReceiptSchema = z.object({
   action: z.string(),
