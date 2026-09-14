@@ -8,9 +8,13 @@
 .cm-dsh-brand-mark {
   display: block;
   flex: 0 0 auto;
-  object-fit: contain;
   border-radius: 22%;
 }
+
+.cm-dsh-brand-mark > img { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: inherit; }
+.cm-dsh-brand-mark > .cm-dsh-brand-dark { display: none; }
+body[data-ds-dark-theme] .cm-dsh-brand-mark > .cm-dsh-brand-light { display: none; }
+body[data-ds-dark-theme] .cm-dsh-brand-mark > .cm-dsh-brand-dark { display: block; }
 
 .cm-dsh-hero-mark {
   box-shadow: 0 8px 28px rgb(40 57 95 / 8%);

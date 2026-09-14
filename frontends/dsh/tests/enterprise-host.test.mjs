@@ -8,7 +8,7 @@ import test from 'node:test';
 import { Worker } from 'node:worker_threads';
 import { applyEnterpriseHost, openEnterpriseStore } from '../src/enterprise-host.ts';
 import { parseEnterpriseRequest, parseEnterpriseSnapshot } from '../src/enterprise-schema.ts';
-import { ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH } from '../src/enterprise-types.ts';
+import { ENTERPRISE_BACKUP_PATH, ENTERPRISE_COMMAND_PATH, ENTERPRISE_RESTORE_PATH, ENTERPRISE_SNAPSHOT_PATH } from '../src/enterprise-types.ts';
 
 async function database(context) {
   const root = await mkdtemp(join(tmpdir(), 'clawmaster-enterprise-'));
@@ -47,6 +47,17 @@ test('CRM edits, SKU corrections, deletion and audit survive reopening the datab
   assert.deepEqual(reopened.snapshot().contacts, []);
   assert.deepEqual(reopened.snapshot().inventory, []);
   assert.equal(reopened.snapshot().audit.length, 6);
+});
+
+test('restore replaces records and audit atomically from a complete backup envelope', async context => {
+  const { store } = await database(context);
+  command(store, { type: 'contact.upsert', contact });
+  const backup = store.backup();
+  command(store, { type: 'contact.upsert', contact: { ...contact, stage: 'lost' } });
+  const restored = store.restore(backup, store.snapshot().revision);
+  assert.deepEqual(restored, backup.snapshot);
+  assert.equal(store.backup().auditCommands.length, backup.auditCommands.length);
+  assert.throws(() => store.restore(backup, 0), { code: 'revision_conflict' });
 });
 
 test('purchase and sale submission change stock exactly once and retain integer money', async context => {
@@ -236,9 +247,15 @@ test('DSH route registration validates JSON, returns conflicts and disposes with
   } } } }, { databasePath: path });
   context.after(dispose);
   const get = routes.get(ENTERPRISE_SNAPSHOT_PATH).fetch;
+  const backup = routes.get(ENTERPRISE_BACKUP_PATH).fetch;
+  const restore = routes.get(ENTERPRISE_RESTORE_PATH).fetch;
   const post = routes.get(ENTERPRISE_COMMAND_PATH).fetch;
   const request = body => new Request(`http://127.0.0.1${ENTERPRISE_COMMAND_PATH}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
   assert.equal((await get(new Request(`http://127.0.0.1${ENTERPRISE_SNAPSHOT_PATH}`))).status, 200);
+  const backupResponse = await backup(new Request(`http://127.0.0.1${ENTERPRISE_BACKUP_PATH}`));
+  assert.equal(backupResponse.status, 200);
+  assert.equal((await backupResponse.json()).schemaVersion, 1);
+  assert.equal((await restore(new Request(`http://127.0.0.1${ENTERPRISE_RESTORE_PATH}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }))).status, 400);
   for (const body of ['{broken', '{}', 'null']) assert.equal((await post(request(body))).status, 400);
   assert.equal((await post(new Request('http://127.0.0.1', { method: 'POST', body: '{}' }))).status, 400);
   const first = JSON.stringify({ revision: 0, commandId: randomUUID(), command: { type: 'contact.upsert', contact } });

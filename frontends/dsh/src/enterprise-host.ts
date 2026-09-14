@@ -5,13 +5,14 @@ import { dirname } from 'node:path';
 import { z } from 'zod';
 import {
   EnterpriseError, ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH,
+  ENTERPRISE_BACKUP_PATH, ENTERPRISE_RESTORE_PATH,
 } from './enterprise-types.ts';
 import type {
-  AuditEntry, BusinessOrder, Contact, EnterpriseCommand, EnterpriseCommandRequest, EnterpriseSnapshot, InventoryItem,
+  AuditEntry, BusinessOrder, Contact, EnterpriseCommand, EnterpriseCommandRequest, EnterpriseSnapshot, InventoryItem, EnterpriseBackup,
 } from './enterprise-types.ts';
 import {
   contactSchema, itemSchema, orderSchema, auditSchema, parseEnterpriseRequest,
-  parseEnterpriseSnapshot, enterpriseOrderTotal,
+  parseEnterpriseBackup, parseEnterpriseRestoreRequest, parseEnterpriseSnapshot, enterpriseOrderTotal,
 } from './enterprise-schema.ts';
 
 const SCHEMA_VERSION = 1;
@@ -80,6 +81,74 @@ export class EnterpriseStore {
       this.db.exec('ROLLBACK');
       if (error instanceof EnterpriseError) throw error;
       throw new EnterpriseError('storage_invalid', 'Enterprise records cannot be read.');
+    }
+  }
+
+  /** Read a restore-capable backup, retaining command receipts for idempotent replay. */
+  backup(): EnterpriseBackup {
+    const snapshot = this.snapshot();
+    const auditCommands = this.db.prepare('SELECT revision, commandId, commandJson FROM enterprise_audit ORDER BY revision').all()
+      .map(value => {
+        const row = sqliteRow.parse(value);
+        return { revision: integer.parse(row.revision), commandId: String(row.commandId) as EnterpriseBackup['auditCommands'][number]['commandId'], commandJson: String(row.commandJson) };
+      });
+    return { schemaVersion: 1, exportedAt: new Date().toISOString(), snapshot, auditCommands };
+  }
+
+  /**
+   * Restore a validated backup only when the caller proves the database has
+   * not changed since its confirmation. The replacement and audit receipts
+   * commit atomically; a failed validation or write leaves the current data.
+   * @param value Complete backup envelope obtained from {@link backup}.
+   * @param expectedRevision Revision the operator explicitly confirmed.
+   * @returns The restored snapshot.
+   */
+  restore(value: unknown, expectedRevision: number): EnterpriseSnapshot {
+    this.assertOpen();
+    const backup = parseEnterpriseBackup(value);
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+      throw new EnterpriseError('invalid_request', 'Restore confirmation revision is invalid.');
+    }
+    if (this.revision() !== expectedRevision) {
+      throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Refresh before restoring.', this.revision());
+    }
+    const commands = new Map(backup.auditCommands.map(entry => {
+      let command: unknown;
+      try { command = JSON.parse(entry.commandJson); } catch { throw new EnterpriseError('storage_invalid', 'Enterprise backup command JSON is malformed.'); }
+      const parsed = parseEnterpriseRequest({ revision: entry.revision - 1, commandId: entry.commandId, command });
+      const audit = backup.snapshot.audit.find(candidate => candidate.revision === entry.revision);
+      if (!audit || audit.type !== parsed.command.type) throw new EnterpriseError('storage_invalid', 'Enterprise backup command does not match its audit entry.');
+      return [entry.revision, entry.commandJson] as const;
+    }));
+    this.db.exec('BEGIN IMMEDIATE');
+    try {
+      this.db.exec('DELETE FROM order_lines; DELETE FROM orders; DELETE FROM contacts; DELETE FROM inventory; DELETE FROM enterprise_audit;');
+      const insertContact = this.db.prepare('INSERT INTO contacts (id, name, company, stage, nextAction, nextActionDate, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      for (const row of backup.snapshot.contacts) insertContact.run(row.id, row.name, row.company, row.stage, row.nextAction, row.nextActionDate, row.updatedAt);
+      const insertItem = this.db.prepare('INSERT INTO inventory (id, sku, name, stock, reorderAt, supplier, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      for (const row of backup.snapshot.inventory) insertItem.run(row.id, row.sku, row.name, row.stock, row.reorderAt, row.supplier, row.updatedAt);
+      const insertOrder = this.db.prepare('INSERT INTO orders (id, kind, counterparty, orderDate, currency, status, totalMinorUnits, note, updatedAt, submittedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+      const insertLine = this.db.prepare('INSERT INTO order_lines (orderId, position, itemId, quantity, unitPriceMinorUnits) VALUES (?, ?, ?, ?, ?)');
+      for (const row of backup.snapshot.orders) {
+        insertOrder.run(row.id, row.kind, row.counterparty, row.orderDate, row.currency, row.status, row.totalMinorUnits, row.note, row.updatedAt, row.submittedAt);
+        row.lines.forEach((line, position) => insertLine.run(row.id, position, line.itemId, line.quantity, line.unitPriceMinorUnits));
+      }
+      const auditByRevision = new Map(backup.snapshot.audit.map(entry => [entry.revision, entry]));
+      const insertAudit = this.db.prepare('INSERT INTO enterprise_audit (revision, commandId, type, entityId, at, commandJson, beforeJson, afterJson) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+      for (let revision = 1; revision <= backup.snapshot.revision; revision++) {
+        const entry = auditByRevision.get(revision);
+        const commandJson = commands.get(revision);
+        if (!entry || commandJson === undefined) throw new EnterpriseError('storage_invalid', 'Enterprise backup audit revisions are incomplete.');
+        insertAudit.run(entry.revision, entry.commandId, entry.type, entry.entityId, entry.at, commandJson, JSON.stringify(entry.before), JSON.stringify(entry.after));
+      }
+      this.db.prepare('UPDATE enterprise_meta SET revision = ? WHERE singleton = 1').run(backup.snapshot.revision);
+      const result = this.readSnapshot();
+      this.db.exec('COMMIT');
+      return result;
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      if (error instanceof EnterpriseError) throw error;
+      throw new EnterpriseError('storage_invalid', 'Enterprise backup could not be restored.');
     }
   }
 
@@ -370,6 +439,27 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
     disposers.push(ctx.connection.fetch.register({
       path: ENTERPRISE_SNAPSHOT_PATH, methods: ['GET'], requestBody: 'buffered',
       fetch: handle(async () => store.snapshot()),
+    }));
+    disposers.push(ctx.connection.fetch.register({
+      path: ENTERPRISE_BACKUP_PATH, methods: ['GET'], requestBody: 'buffered',
+      fetch: async request => {
+        if (closing || request.signal.aborted) return errorResponse(new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.'));
+        return Response.json(store.backup(), { headers: { 'cache-control': 'no-store' } });
+      },
+    }));
+    disposers.push(ctx.connection.fetch.register({
+      path: ENTERPRISE_RESTORE_PATH, methods: ['POST'], requestBody: 'buffered',
+      fetch: async request => {
+        if (closing || request.signal.aborted) return errorResponse(new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.'));
+        if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') return errorResponse(new EnterpriseError('invalid_request', 'Enterprise restore requires application/json.'));
+        let value: unknown;
+        try { value = await request.json(); } catch { return errorResponse(new EnterpriseError('invalid_request', 'Enterprise restore JSON is malformed.')); }
+        try {
+          const restore = parseEnterpriseRestoreRequest(value);
+          return Response.json(store.restore(restore.backup, restore.expectedRevision), { headers: { 'cache-control': 'no-store' } });
+        }
+        catch (error) { return errorResponse(error); }
+      },
     }));
     disposers.push(ctx.connection.fetch.register({
       path: ENTERPRISE_COMMAND_PATH, methods: ['POST'], requestBody: 'buffered',

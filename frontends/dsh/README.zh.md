@@ -68,7 +68,7 @@ CRM 和 ERP 使用 `$DSH_HOME/watchdog/enterprise.sqlite` 中的空数据库开�
 
 以草稿保存带数量和单价的采购或销售订单。提交采购订单增加库存，提交销售订单扣减库存。所有明细、订单状态、版本号以及变更前后的审计信息在同一事务中提交。库存不足时整笔提交回滚。已提交订单不能修改、删除或重复生效。
 
-库存与数量使用安全整数，金额使用人民币最小货币单位的整数。订单引用的 SKU 不能删除。其他视图修改记录后，基于旧版本保存会返回版本冲突：刷新记录、核对当前值，再重新保存。不支持、属于其他应用或已损坏的数据库会报错，不会自动重置。
+库存与数量使用安全整数，金额使用人民币最小货币单位的整数。订单引用的 SKU 不能删除。其他视图修改记录后，基于旧版本保存会返回版本冲突：刷新记录、核对当前值，再重新保存。不支持、属于其他应用或已损坏的数据库会报错，不会自动重置。CRM 和 ERP 标题栏提供“下载本机数据备份”，将完整快照及幂等恢复所需的命令回执封装为带日期且经过校验的 JSON 文件。经过认证的 Host 仅在明确确认 revision 后提供恢复操作；面板不会覆盖数据库，也不会自动恢复。
 
 ### 使用提醒与即时通信连接
 
@@ -84,7 +84,7 @@ CRM 和 ERP 使用 `$DSH_HOME/watchdog/enterprise.sqlite` 中的空数据库开�
 <details>
 <summary>实现与贡献者检查——点击展开</summary>
 
-侧栏与对话欢迎区通过客户端构建的 SVG data URL loader 渲染[共用矢量图案](src/clawmaster.svg)。[桌面资源指南](../../apps/desktop-tauri/README.zh.md#release)负责启动页、favicon 与原生图标分发；[PNG](src/clawmaster.png)仅保留为视觉参考。
+侧栏与对话欢迎区通过客户端构建的 SVG data URL loader 渲染透明的[浅色 SVG](src/clawmaster.svg) 或[深色 SVG](src/clawmaster-dark.svg)。CSS 跟随 DSH 解析后的 `body[data-ds-dark-theme]` 状态，包括手动选择主题与跟随系统模式。[桌面资源指南](../../apps/desktop-tauri/README.zh.md#release)负责启动页、favicon 与原生图标分发；[PNG](src/clawmaster.png)仅保留为视觉参考。
 
 [Profile 补丁](cordis.patch.yml)禁用官方品牌与自适应目录选择行，插入本前端及 DSH 的目录浏览后端与界面，启用 Schedule 与时间上下文，并开启提醒界面。DSH Web 组合包已提供这两个目录浏览软件包。[客户端入口](src/client.tsx)使用 DSH 现有的 slot、主题、会话、工作空间与面板服务。[Host 入口](src/host.ts)在已有、带认证的 DSH Fetch 传输层注册惰性工作空间分配和企业路由，不启动第二个服务。
 

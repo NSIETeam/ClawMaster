@@ -7,9 +7,9 @@ import {
   enterpriseClient, EnterpriseClient, minorUnitsToMoneyInput, moneyInputToMinorUnits,
   quantityInputToInteger, type EnterpriseClientState,
 } from './enterprise-client.ts';
-import { auditSchema, enterpriseOrderTotal } from './enterprise-schema.ts';
+import { auditSchema, enterpriseOrderTotal, parseEnterpriseBackup } from './enterprise-schema.ts';
 import {
-  enterpriseId, EnterpriseError, type AuditEntry, type BusinessOrder, type Contact,
+  enterpriseId, EnterpriseError, type AuditEntry, type BusinessOrder, type Contact, type EnterpriseBackup,
   type ContactInput, type EnterpriseCommand, type EnterpriseId, type EnterpriseSnapshot,
   type InventoryItem, type InventoryItemInput, type OrderInput,
 } from './enterprise-types.ts';
@@ -33,6 +33,17 @@ function today(): string {
 
 function money(value: number): string { return `¥${minorUnitsToMoneyInput(value)}`; }
 function newId(): EnterpriseId { return enterpriseId(crypto.randomUUID()); }
+
+async function downloadEnterpriseBackup(client: EnterpriseClient): Promise<void> {
+  const backup = await client.backup();
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `clawmaster-enterprise-${new Date().toISOString().slice(0, 10)}.json`;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 
 function ClientBanner({ state, client, locale, localError, onRetried }: {
   state: EnterpriseClientState; client: EnterpriseClient; locale: ProductLocale;
@@ -58,11 +69,34 @@ function Panel({ locale, state, client, title, description, children }: {
 }) {
   const t = productCopy(locale);
   const e = enterpriseCopy(locale);
+  const [restore, setRestore] = useState<EnterpriseBackup | null>(null);
+  const [restoreError, setRestoreError] = useState(false);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const chooseRestore = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      setRestore(parseEnterpriseBackup(JSON.parse(await file.text())));
+      setRestoreError(false);
+    } catch {
+      setRestore(null); setRestoreError(true);
+    }
+  };
+  const confirmRestore = async () => {
+    if (!restore || !state.snapshot) return;
+    setRestoreBusy(true); setRestoreError(false);
+    try {
+      await client.restore(restore, state.snapshot.revision);
+      setRestore(null);
+    } catch { setRestoreError(true); }
+    finally { setRestoreBusy(false); }
+  };
   return <section className="cm-enterprise" aria-label={title}>
     <style>{styles}</style>
     <header className="cm-ent-header"><div><small>{e.sourceLocal}</small><h2>{title}</h2><p>{description}</p></div>
-      <div className="cm-ent-actions">{state.snapshot && <small>{t.revision}: {state.snapshot.revision}</small>}<button type="button" disabled={state.loading || state.saving} onClick={() => { void client.refresh(); }}>{state.loading ? t.refreshing : t.refresh}</button></div>
+      <div className="cm-ent-actions">{state.snapshot && <small>{t.revision}: {state.snapshot.revision}</small>}{state.snapshot && <button type="button" disabled={state.loading || state.saving} onClick={() => { void downloadEnterpriseBackup(client); }}>{e.localBackup}</button>}<label className="cm-ent-file-button"><input type="file" accept="application/json,.json" hidden onChange={event => { void chooseRestore(event.target.files?.[0]); event.currentTarget.value = ''; }} />{e.restoreBackup}</label><button type="button" disabled={state.loading || state.saving} onClick={() => { void client.refresh(); }}>{state.loading ? t.refreshing : t.refresh}</button></div>
     </header>
+    {restoreError && <p className="cm-ent-banner is-error" role="alert">{e.restoreInvalid}</p>}
+    {restore && state.snapshot && <section className="cm-ent-banner cm-ent-confirm" aria-label={e.restorePreview}><strong>{e.restorePreview}</strong><p>{t.revision}: {restore.snapshot.revision} · {e.contactsCount}: {restore.snapshot.contacts.length} · {e.inventoryCount}: {restore.snapshot.inventory.length} · {e.allOrders}: {restore.snapshot.orders.length}</p><p>{e.restoreConfirm}？{t.revision} {state.snapshot.revision} → {restore.snapshot.revision}</p><div className="cm-ent-actions"><button className="cm-ent-primary" type="button" disabled={restoreBusy} onClick={() => { void confirmRestore(); }}>{restoreBusy ? t.saving : e.restoreConfirm}</button><button type="button" disabled={restoreBusy} onClick={() => setRestore(null)}>{e.restoreCancel}</button></div></section>}
     {state.snapshot === null && !state.error && <p className="cm-ent-empty" role="status">{t.loadingData}</p>}
     {children}
   </section>;

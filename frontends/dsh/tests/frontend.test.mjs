@@ -94,18 +94,24 @@ test('the shipped factory registers WatchDog and enterprise sidebar components a
   assert.equal(rows.size, 8);
   assert.ok(rows.has('main:clawmaster'));
   assert.ok(rows.has('sidebar.panellist:clawmaster'));
-  const artwork = await readFile(new URL('../src/clawmaster.svg', import.meta.url), 'utf8');
+  const artwork = await Promise.all(['clawmaster.svg', 'clawmaster-dark.svg']
+    .map(name => readFile(new URL(`../src/${name}`, import.meta.url), 'utf8')));
   for (const slot of ['sidebar.brand.mark:', 'conversation.hero.brand.mark:']) {
     const mark = renderToStaticMarkup(React.createElement(rows.get(slot).component));
-    const src = /src="([^"]+)"/u.exec(mark)?.[1]
-      ?.replaceAll('&quot;', '"').replaceAll('&#x27;', "'")
-      .replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&');
-    assert.ok(src?.startsWith('data:image/svg+xml'), `${slot} renders the vector artwork`);
-    const separator = src.indexOf(',');
-    const decoded = src.slice(0, separator).endsWith(';base64')
-      ? Buffer.from(src.slice(separator + 1), 'base64').toString('utf8')
-      : decodeURIComponent(src.slice(separator + 1));
-    assert.equal(decoded, artwork);
+    const sources = [...mark.matchAll(/src="([^"]+)"/gu)].map(match => match[1]
+      .replaceAll('&quot;', '"').replaceAll('&#x27;', "'")
+      .replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&'));
+    assert.equal(sources.length, 2, `${slot} provides both theme variants`);
+    for (const [index, src] of sources.entries()) {
+      assert.ok(src.startsWith('data:image/svg+xml'), `${slot} renders the vector artwork`);
+      const separator = src.indexOf(',');
+      const decoded = src.slice(0, separator).endsWith(';base64')
+        ? Buffer.from(src.slice(separator + 1), 'base64').toString('utf8')
+        : decodeURIComponent(src.slice(separator + 1));
+      assert.equal(decoded, artwork[index]);
+    }
+    assert.match(mark, /class="cm-dsh-brand-light"/u);
+    assert.match(mark, /class="cm-dsh-brand-dark"/u);
   }
   assert.deepEqual([...tabs.keys()], ['clawmaster:crm', 'clawmaster:erp']);
   for (const tab of tabs.values()) {

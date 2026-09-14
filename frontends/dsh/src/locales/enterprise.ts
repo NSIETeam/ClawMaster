@@ -22,7 +22,7 @@ const zh = {
   historyShowing: '已显示记录', loadMore: '显示更多变更', next: '下一步',
   auditContactSave: '保存客户', auditContactDelete: '删除客户', auditItemSave: '保存物料 / 库存校正',
   auditItemDelete: '删除物料', auditOrderSave: '保存订单草稿', auditOrderDelete: '删除订单草稿', auditOrderSubmit: '提交订单 / 库存变动',
-  noRecord: '无记录', lineSummary: '明细', allOrders: '全部订单', localBackup: '下载本机数据备份',
+  noRecord: '无记录', lineSummary: '明细', allOrders: '全部订单', localBackup: '下载本机数据备份', restoreBackup: '恢复本机数据备份', restoreSelect: '选择备份文件', restorePreview: '备份预览', restoreConfirm: '确认恢复', restoreCancel: '取消恢复', restoreSuccess: '备份已恢复。', restoreInvalid: '备份文件无效或已损坏。',
 } as const;
 
 type EnterpriseCopy = { [K in keyof typeof zh]: string };
@@ -46,7 +46,7 @@ const en: EnterpriseCopy = {
   historyShowing: 'Records displayed', loadMore: 'Show more changes', next: 'Next',
   auditContactSave: 'Save contact', auditContactDelete: 'Delete contact', auditItemSave: 'Save item / correct stock',
   auditItemDelete: 'Delete item', auditOrderSave: 'Save order draft', auditOrderDelete: 'Delete order draft', auditOrderSubmit: 'Submit order / move stock',
-  noRecord: 'No record', lineSummary: 'Lines', allOrders: 'All orders', localBackup: 'Download local data backup',
+  noRecord: 'No record', lineSummary: 'Lines', allOrders: 'All orders', localBackup: 'Download local data backup', restoreBackup: 'Restore local backup', restoreSelect: 'Choose backup file', restorePreview: 'Backup preview', restoreConfirm: 'Confirm restore', restoreCancel: 'Cancel restore', restoreSuccess: 'Backup restored.', restoreInvalid: 'The backup file is invalid or damaged.',
 };
 
 /** Resolve labels owned by the enterprise panels. */

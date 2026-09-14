@@ -1,9 +1,9 @@
 /** Authenticated same-origin enterprise requests and observable optimistic-concurrency state. */
 import { z } from 'zod';
-import { parseEnterpriseRequest, parseEnterpriseSnapshot } from './enterprise-schema.ts';
+import { parseEnterpriseBackup, parseEnterpriseRequest, parseEnterpriseSnapshot } from './enterprise-schema.ts';
 import {
-  enterpriseId, EnterpriseError, ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH,
-  type EnterpriseCommand, type EnterpriseCommandRequest, type EnterpriseErrorCode,
+  enterpriseId, EnterpriseError, ENTERPRISE_BACKUP_PATH, ENTERPRISE_COMMAND_PATH, ENTERPRISE_RESTORE_PATH, ENTERPRISE_SNAPSHOT_PATH,
+  type EnterpriseBackup, type EnterpriseCommand, type EnterpriseCommandRequest, type EnterpriseErrorCode,
   type EnterpriseId, type EnterpriseSnapshot,
 } from './enterprise-types.ts';
 
@@ -88,6 +88,28 @@ export class EnterpriseClient {
     } finally {
       if (generation === this.generation) this.set({ loading: false });
     }
+  }
+
+  /** Fetch the complete restore-capable backup envelope without changing client state. */
+  async backup(): Promise<EnterpriseBackup> {
+    const response = await this.fetcher(ENTERPRISE_BACKUP_PATH, { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    const json: unknown = await response.json();
+    if (!response.ok) throw new EnterpriseError('storage_unavailable', 'Enterprise backup could not be read.');
+    return parseEnterpriseBackup(json);
+  }
+
+  /** Restore a previously reviewed backup after confirming the displayed revision. */
+  async restore(backup: EnterpriseBackup, expectedRevision: number): Promise<EnterpriseSnapshot> {
+    const response = await this.fetcher(ENTERPRISE_RESTORE_PATH, {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ confirm: true, expectedRevision, backup }),
+    });
+    const json: unknown = await response.json();
+    if (!response.ok) throw new EnterpriseError('storage_unavailable', 'Enterprise backup could not be restored.');
+    const snapshot = parseEnterpriseSnapshot(json);
+    this.set({ snapshot, error: null });
+    return snapshot;
   }
 
   /**
