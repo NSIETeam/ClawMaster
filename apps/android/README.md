@@ -44,7 +44,7 @@ Use JDK 17, Gradle 8.13, Android SDK 36 and Build Tools 35.0.0. The Android proj
 gradle -p apps/android :core:test :app:lintRelease :app:assembleRelease
 ```
 
-Core tests replay recorded model exchanges against the shipped loop and file stores. On-device instrumentation executes release code, native approvals, Activity recreation and Keystore operations. Recorded providers prove local execution, not live provider availability.
+Core tests replay recorded model exchanges against the shipped loop and file stores. On-device instrumentation executes release code, native approvals, Activity recreation and Keystore operations. The validation workflow retains the installed APK, force-stops it, verifies ordinary launcher navigation, and runs `ColdStartCheck` in a separate process to read the preceding run's note and tool receipt. Recorded providers prove local execution, not live provider availability.
 
 To sign and instrument the release variant, set `ANDROID_KEYSTORE_PATH` and `ANDROID_KEYSTORE_PASSWORD`; the key alias is `clawmaster`. Then run `gradle -p apps/android :app:connectedReleaseAndroidTest`. Never commit the keystore or password.
 

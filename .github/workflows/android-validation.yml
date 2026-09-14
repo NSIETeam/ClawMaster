@@ -56,12 +56,14 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
-            gradle -p apps/android :app:connectedReleaseAndroidTest --no-daemon
+            gradle -p apps/android :app:connectedReleaseAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true -Pandroid.testInstrumentationRunnerArguments.class=team.nsi.clawmaster.android.StandaloneAgentTest --no-daemon
             adb shell am force-stop team.nsi.clawmaster.android
             adb shell am start -W -n team.nsi.clawmaster.android/.MainActivity
             adb shell uiautomator dump /sdcard/clawmaster-relaunch.xml
             adb pull /sdcard/clawmaster-relaunch.xml apps/android/app/build/clawmaster-relaunch.xml
             node apps/android/scripts/verify-relaunch.mjs apps/android/app/build/clawmaster-relaunch.xml
+            gradle -p apps/android :app:connectedReleaseAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true -Pandroid.testInstrumentationRunnerArguments.class=team.nsi.clawmaster.android.ColdStartCheck --no-daemon
+            adb pull /sdcard/Android/data/team.nsi.clawmaster.android/files/release-screen.png apps/android/app/build/release-screen.png
       - name: Record APK integrity and source
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs apps/android/app/build/outputs/apk/release/app-release.apk
@@ -76,5 +78,6 @@ jobs:
             apps/android/app/build/reports/
             apps/android/core/build/reports/tests/
             apps/android/app/build/clawmaster-relaunch.xml
+            apps/android/app/build/release-screen.png
           retention-days: 14
           if-no-files-found: error

@@ -44,7 +44,7 @@ Agent 可以搜索、读取手机本地笔记并提出写入建议。Agent 的�
 gradle -p apps/android :core:test :app:lintRelease :app:assembleRelease
 ```
 
-核心测试使用记录的模型交互，执行随应用交付的循环与文件存储。设备测试执行发布版代码、原生审批、Activity 重建及 Keystore 操作。记录型模型证明本地执行链路，不代表真实服务商可用。
+核心测试使用记录的模型交互，执行随应用交付的循环与文件存储。设备测试执行发布版代码、原生审批、Activity 重建及 Keystore 操作。验证流水线保留已安装 APK，强制结束进程后检查常规启动导航，再在独立进程运行 `ColdStartCheck`，读取上一轮保存的笔记与工具回执。记录型模型证明本地执行链路，不代表真实服务商可用。
 
 要签名并测试 release 变体，设置 `ANDROID_KEYSTORE_PATH` 和 `ANDROID_KEYSTORE_PASSWORD`，密钥别名为 `clawmaster`。随后运行 `gradle -p apps/android :app:connectedReleaseAndroidTest`。不得提交密钥库或密码。
 
