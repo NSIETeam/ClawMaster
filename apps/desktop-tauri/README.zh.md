@@ -143,7 +143,7 @@ NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语
 
 Release 资产归公开的 [ClawMaster-Desktop 仓库](https://github.com/NSIETeam/ClawMaster-Desktop/releases)所有，名称包含操作系统与架构。Tauri 更新签名通过配置的更新公钥验证下载产物。macOS 临时签名检查应用完整性，不认证开发者身份，也不包含 Apple 公证。Windows 安装包没有发布者证书。
 
-[前端 SVG](../../frontends/dsh/src/clawmaster.svg)是应用内、启动页与 Web favicon 共用的图案源，favicon 保留其精确字节。桌面准备过程通过[图标生成脚本](scripts/generate-icons.mjs)从此矢量源生成各原生图标格式。桌面品牌检查拒绝 SVG 内嵌或链接的图片。[原始 PNG](../../frontends/dsh/src/clawmaster.png)保留为视觉参考。macOS 隐藏原生标题文字；外壳不绘制独立顶栏。Windows 安装还携带文件名含版本的 ICO 文件，避免快捷方式图标查询复用旧的可执行文件路径缓存键。
+透明背景的[浅色 SVG](../../frontends/dsh/src/clawmaster.svg)与[深色 SVG](../../frontends/dsh/src/clawmaster-dark.svg)使用同一轮廓，分别以黑色和白色绘制。应用内图标跟随 Web 主题的最终明暗状态，启动页跟随系统外观。Web favicon 保留浅色 SVG 的精确字节。桌面准备过程通过[图标生成脚本](scripts/generate-icons.mjs)从此矢量源生成各原生图标格式。桌面品牌检查拒绝 SVG 内嵌或链接的图片。[原始 PNG](../../frontends/dsh/src/clawmaster.png)保留为视觉参考。macOS 隐藏原生标题文字；外壳不绘制独立顶栏。Windows 安装还携带文件名含版本的 ICO 文件，避免快捷方式图标查询复用旧的可执行文件路径缓存键。
 
 [构建溯源](scripts/build-provenance.mjs)将完整 harness 构建和产品准备过程绑定到完整 Git 提交、已提交树、工作区源码 SHA-256 与相对路径脏文件清单。准备过程拒绝编译后的源码改动或被替换的 Host、客户端与前端产物。默认 `development` 模式生成明确的开发构建编号，源码有改动时包含 `dirty`。`DSH_DESKTOP_BUILD_MODE=release` 要求整个工作流使用干净源码和发布模式记录。生成的原生图标属于受验证的构建输出，不作为源码输入；平台编码器可能在 SVG 不变时改变输出字节。源码变化后，须重新完整执行 `build:harness`，再执行 `prepare:dist`。
 

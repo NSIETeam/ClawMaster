@@ -3,12 +3,14 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import test from 'node:test'
 
 const repository = fileURLToPath(new URL('../../../', import.meta.url))
-const coreRoot = resolve(process.env.DSH_ROUTING_TEST_CORE_ROOT ?? repository)
+const bundledRoot = resolve(repository, 'apps/desktop-tauri/bundled/harness')
+const coreRoot = resolve(process.env.DSH_ROUTING_TEST_CORE_ROOT ?? (existsSync(resolve(bundledRoot, 'apps/cli/package.json')) ? bundledRoot : repository))
 const core = path => import(pathToFileURL(resolve(coreRoot, path)).href)
 const { Context } = await core('vendor/cordis/lib/index.js')
 const { default: SessionStore } = await core('packages/core/session/lib/index.js')
