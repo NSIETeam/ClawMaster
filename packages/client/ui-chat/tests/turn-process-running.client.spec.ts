@@ -50,7 +50,7 @@ function index(specs: readonly NodeSpec[], turn: TurnStub): {
     locations: {
       getTurn: () => order,
       getStep: () => order,
-    } as unknown as ChatLocationNodeIndex,
+    },
     nodes: {
       get: (key: string) => byKey.get(key),
     } as unknown as ChatNodeStore,
