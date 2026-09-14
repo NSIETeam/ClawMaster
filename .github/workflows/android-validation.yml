@@ -25,7 +25,6 @@ jobs:
       matrix:
         api: [26, 36]
     env:
-      ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/clawmaster-validation.jks
       ANDROID_KEYSTORE_PASSWORD: validation-only-not-a-release-key
     steps:
       - uses: actions/checkout@v6
@@ -40,6 +39,8 @@ jobs:
           gradle-version: '8.13'
       - name: Create disposable validation certificate
         run: |
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/clawmaster-validation.jks"
+          echo "ANDROID_KEYSTORE_PATH=$ANDROID_KEYSTORE_PATH" >> "$GITHUB_ENV"
           keytool -genkeypair -noprompt -keystore "$ANDROID_KEYSTORE_PATH" -storepass:env ANDROID_KEYSTORE_PASSWORD -keypass:env ANDROID_KEYSTORE_PASSWORD -alias clawmaster -keyalg RSA -keysize 3072 -validity 30 -dname "CN=ClawMaster CI validation only"
       - name: Build and verify the standalone release code
         run: gradle -p apps/android :core:test :app:lintRelease :app:assembleRelease :app:assembleReleaseAndroidTest --no-daemon
