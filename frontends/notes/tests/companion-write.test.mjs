@@ -12,7 +12,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openVault } from '../src/vault.ts';
-import { NotesService, DEFAULT_LIMITS } from '../src/service.ts';
+import { NotesService, DEFAULT_LIMITS, localDate } from '../src/service.ts';
 import { createNotesAccess } from '../src/access.ts';
 
 async function vault() {
@@ -90,7 +90,7 @@ test('a companion write never touches the day journal it links from', async () =
   try {
     await v.access.writeNote('录音/周会.md', '内容\n');
     const digest = await v.access.digest({ summary: '录了一场会', project: undefined });
-    assert.equal(digest.id, `日记/${new Date().toISOString().slice(0, 10)}.md`);
+    assert.equal(digest.id, `日记/${localDate()}.md`);
     const journal = await readFile(join(v.root, digest.id), 'utf8');
     assert.match(journal, /录了一场会/);
     // Two different notes, two different revision chains.

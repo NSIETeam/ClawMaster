@@ -6,6 +6,12 @@ import { load } from 'js-yaml'
 
 const workflow = load(readFileSync(new URL('../../../.github/workflows/desktop-release.yml', import.meta.url), 'utf8'))
 
+test('the committed desktop lock is unambiguous and includes graph persistence', () => {
+  const lock = load(readFileSync(new URL('../pnpm-desktop-lock.yaml', import.meta.url), 'utf8'))
+  assert.equal(lock.importers['frontends/graph-memory'].dependencies['@deepseek-ai/dsh-storage-sqlite'].version,
+    'link:../../packages/storage/storage-sqlite')
+})
+
 test('manual validation defaults to an immutable branch build without publication', () => {
   assert.equal(workflow.on.workflow_dispatch.inputs.publish.type, 'boolean')
   assert.equal(workflow.on.workflow_dispatch.inputs.publish.default, false)

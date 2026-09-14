@@ -878,9 +878,6 @@ importers:
       '@deepseek-ai/dsh-storage':
         specifier: link:../../packages/storage/storage
         version: link:../../packages/storage/storage
-      '@deepseek-ai/dsh-storage-sqlite':
-        specifier: link:../../packages/storage/storage-sqlite
-        version: link:../../packages/storage/storage-sqlite
       '@deepseek-ai/dsh-storage-domain':
         specifier: link:../../packages/storage/storage-domain
         version: link:../../packages/storage/storage-domain
