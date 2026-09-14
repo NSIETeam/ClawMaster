@@ -1143,6 +1143,9 @@ importers:
       '@deepseek-ai/dsh-atomic-write':
         specifier: link:../../packages/util/atomic-write
         version: link:../../packages/util/atomic-write
+      '@deepseek-ai/dsh-llm':
+        specifier: link:../../packages/llm/llm
+        version: link:../../packages/llm/llm
       '@deepseek-ai/dsh-tools':
         specifier: link:../../packages/core/tools
         version: link:../../packages/core/tools

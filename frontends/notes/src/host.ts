@@ -9,11 +9,13 @@ import type { Context } from '@deepseek-ai/cordis';
 import type ToolRuntime from '@deepseek-ai/dsh-tools';
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools';
 import type ApprovalService from '@deepseek-ai/dsh-user-approval';
+import { createUserMessage } from '@deepseek-ai/dsh-llm';
 import {
   NOTES_ANNOTATIONS_PATH, NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH,
   MAX_ANNOTATION_CHARS, MAX_NOTE_BYTES, MAX_QUOTE_CHARS, annotationEnvelopeSchema, annotationIdSchema, annotationKindSchema, annotationSourceSchema, noteCommandEnvelopeSchema, noteCommandSchema, notesFailureSchema,
   type AnnotationRequest,
 } from './protocol.ts';
+import { DEFAULT_CONTEXT_NOTES, contextTokens, rankRelated, renderRelatedNotes } from './context.ts';
 import { DEFAULT_LIMITS, NotesService, commandSummary, type NotesLimits } from './service.ts';
 import { VaultError, openVault, type VaultEntry } from './vault.ts';
 import { VaultWatcher } from './watcher.ts';
@@ -52,6 +54,64 @@ export interface NotesHostContext {
   provide?(name: string, value: unknown): void;
   /** Read a value another plugin published. */
   get?(name: string): unknown;
+  /**
+   * Ride the agent's step waterfall (`agent/pre-step`). Optional: without it every route and tool
+   * still works, the vault just never volunteers a note of its own accord.
+   */
+  on?(event: 'agent/pre-step', listener: NotesStepListener): void | (() => void);
+  /** Host logger, used when the memory bridge has to stand down. */
+  logger?: { warn(message: string): void };
+}
+
+/** One message as the step waterfall hands it over; only the fields the bridge reads. */
+export interface NotesStepMessage {
+  role?: string;
+  source?: { kind?: string };
+  content?: unknown;
+}
+
+/** The agent step the memory bridge inspects before the model sees the request. */
+export interface NotesStepPayload {
+  /** The agent the step belongs to, used as the identity a note is announced to once. */
+  agent: object;
+  messages: readonly NotesStepMessage[];
+  turn: number;
+  step: number;
+  signal?: AbortSignal;
+}
+
+/** What a step listener may return: refuse the step, or enter it with the messages to send. */
+export type NotesStepDecision =
+  | { kind: 'reject' }
+  | { kind: 'enter'; messages: readonly NotesStepMessage[] };
+
+/** A step listener, shaped like DSH's `agent/pre-step` waterfall. */
+export type NotesStepListener = (
+  payload: NotesStepPayload,
+  next: () => Promise<NotesStepDecision>,
+) => Promise<NotesStepDecision>;
+
+/**
+ * The last thing the human asked for, which is what the vault is matched against.
+ * @param messages - The messages the step is about to send.
+ * @returns The text of the newest human message, or undefined when the step has none.
+ */
+export function requestTextOf(messages: readonly NotesStepMessage[]): string | undefined {
+  const human = [...messages].reverse().find(message => message.source?.kind === 'user');
+  return human === undefined ? undefined : textOfContent(human.content);
+}
+
+/** The plain text of a message's content, whether it is one string or a block list. */
+function textOfContent(content: unknown): string | undefined {
+  if (typeof content === 'string') return content.trim() === '' ? undefined : content;
+  if (!Array.isArray(content)) return undefined;
+  const parts = content.flatMap(block => {
+    if (typeof block !== 'object' || block === null) return [];
+    const candidate = block as { type?: unknown; text?: unknown };
+    return candidate.type === 'text' && typeof candidate.text === 'string' ? [candidate.text] : [];
+  });
+  const text = parts.join('\n').trim();
+  return text === '' ? undefined : text;
 }
 
 const limitsSchema = z.object({
@@ -64,6 +124,14 @@ const configSchema = z.object({
   /** Absolute vault directory. Deployment-varying, so it is configuration, never a constant. */
   vaultRoot: z.string().min(1).optional(),
   limits: limitsSchema.optional(),
+  /**
+   * Memory bridge: `related` names the vault notes whose names match each new request and hands
+   * them to the model as context, so a note the user already wrote is reachable without being asked
+   * for. `off` serves the vault without ever volunteering a note.
+   */
+  notesContext: z.enum(['off', 'related']).default('related'),
+  /** Most notes one injection may name. */
+  maxContextNotes: z.number().int().min(1).max(10).default(DEFAULT_CONTEXT_NOTES),
 }).strict();
 
 export type NotesHostConfig = z.input<typeof configSchema>;
@@ -543,6 +611,42 @@ export async function apply(ctx: NotesHostContext, config: NotesHostConfig = {})
           content: result.content,
         }),
       }));
+
+      // Memory bridge: a note the user already wrote should reach the model without being asked
+      // for, so each turn's opening request is matched against the vault's note names. The block
+      // is attributed to this plugin and marked a snapshot, so a later turn supersedes it instead
+      // of piling up, and no note is named to the same agent twice.
+      if (options.notesContext === 'related' && ctx.on !== undefined) {
+        const announced = new WeakMap<object, Set<string>>();
+        const stop = ctx.on('agent/pre-step', async (payload, next) => {
+          const decision = await next();
+          if (decision.kind !== 'enter' || payload.step !== 1 || lifetime.signal.aborted) return decision;
+          const request = requestTextOf(payload.messages);
+          const tokens = request === undefined ? [] : contextTokens(request);
+          if (tokens.length === 0) return decision;
+          try {
+            const seen = announced.get(payload.agent) ?? new Set<string>();
+            announced.set(payload.agent, seen);
+            const ranked = rankRelated((await service.tree()).notes, tokens, options.maxContextNotes)
+              .filter(note => !seen.has(note.id));
+            const text = renderRelatedNotes(ranked);
+            if (text === '') return decision;
+            for (const note of ranked) seen.add(note.id);
+            return {
+              ...decision,
+              messages: [...decision.messages, createUserMessage({
+                content: [{ type: 'text', text }],
+                source: { kind: 'plugin', plugin: name, form: 'snapshot', sections: [{ name, text }] },
+              })],
+            };
+          } catch (error) {
+            // A vault that cannot be listed must never cost the turn its step.
+            ctx.logger?.warn(`clawmaster-notes: related notes were skipped: ${String(error)}`);
+            return decision;
+          }
+        });
+        if (typeof stop === 'function') removals.push(stop);
+      }
 
       return async () => {
         try { await dispose(); }

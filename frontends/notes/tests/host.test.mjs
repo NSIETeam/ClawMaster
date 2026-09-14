@@ -5,7 +5,7 @@ import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NOTES_ANNOTATIONS_PATH, NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH } from '../src/protocol.ts';
-import { apply, defaultVaultRoot, runQuery } from '../src/host.ts';
+import { apply, defaultVaultRoot, requestTextOf, runQuery } from '../src/host.ts';
 import { NotesService } from '../src/service.ts';
 import { Vault } from '../src/vault.ts';
 
@@ -15,6 +15,8 @@ function harness() {
   const tools = new Map();
   const prompts = [];
   const provided = new Map();
+  const listeners = new Map();
+  const warnings = [];
   let install;
   let answer = 'allowed-once';
   const ctx = {
@@ -24,20 +26,22 @@ function harness() {
     effect(operation) { install = operation(); return install; },
     provide(key, value) { provided.set(key, value); },
     get(key) { return provided.get(key); },
+    on(event, listener) { listeners.set(event, listener); return () => { listeners.delete(event); }; },
+    logger: { warn(message) { warnings.push(message); } },
   };
   return {
-    ctx, routes, tools, prompts, provided,
+    ctx, routes, tools, prompts, provided, listeners, warnings,
     deny() { answer = 'denied'; },
     allow() { answer = 'allowed-once'; },
     async dispose() { const remove = await install; await remove(); },
   };
 }
 
-async function withHost(run) {
+async function withHost(run, config = {}) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'clawmaster-host-')));
   const host = harness();
   try {
-    await apply(host.ctx, { vaultRoot: root });
+    await apply(host.ctx, { vaultRoot: root, ...config });
     return await run(host, root);
   } finally { await host.dispose(); await rm(root, { recursive: true, force: true }); }
 }
@@ -416,6 +420,77 @@ describe('proposals and digests', () => {
     assert.deepEqual(read.annotations.map(annotation => annotation.body), ['值得注意']);
     assert.equal(host.prompts.length, 2, 'reads never prompt');
   }));
+});
+
+describe('memory bridge', () => {
+  /** One step as the agent waterfall presents it. */
+  const step = (payload, agent = {}) => ({ agent, turn: 1, step: 1, signal: new AbortController().signal, ...payload });
+  const enter = messages => async () => ({ kind: 'enter', messages });
+  const human = text => ({ role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text }] });
+  const injected = decision => decision.messages.at(-1);
+
+  it('names a matching note to the model, once per agent', async () => withHost(async host => {
+    await host.routes.get(NOTES_COMMAND_PATH)
+      .fetch(postJson(NOTES_COMMAND_PATH, { request: { action: 'create', id: '设计/WatchDog 三段审查与笔记系统.md', text: '# WatchDog 三段审查与笔记系统\n' } }));
+    const listener = host.listeners.get('agent/pre-step');
+    const agent = {};
+    const first = await listener(step({ messages: [human('继续做笔记批注面板')] }, agent), enter([human('继续做笔记批注面板')]));
+    const block = injected(first);
+    assert.equal(first.kind, 'enter');
+    assert.equal(first.messages.length, 2);
+    assert.equal(block.source.kind, 'plugin');
+    assert.equal(block.source.plugin, 'clawmaster-notes');
+    assert.equal(block.source.form, 'snapshot');
+    assert.match(block.content[0].text, /设计\/WatchDog 三段审查与笔记系统\.md/);
+
+    // The same note is not repeated to the same agent, then a different agent may hear it again.
+    const again = await listener(step({ messages: [human('再看一下笔记审查')] }, agent), enter([human('再看一下笔记审查')]));
+    assert.equal(again.messages.length, 1);
+    const elsewhere = await listener(step({ messages: [human('再看一下笔记审查')] }, {}), enter([human('再看一下笔记审查')]));
+    assert.equal(elsewhere.messages.length, 2);
+  }));
+
+  it('stays silent for a request that matches no note, for a later step, and for injected text', async () => withHost(async host => {
+    const listener = host.listeners.get('agent/pre-step');
+    const nomatch = await listener(step({ messages: [human('zzz nothing in the vault')] }), enter([human('zzz nothing in the vault')]));
+    assert.equal(nomatch.messages.length, 1);
+    const second = await listener(step({ step: 2, messages: [human('欢迎')] }), enter([human('欢迎')]));
+    assert.equal(second.messages.length, 1);
+    const pluginText = await listener(step({
+      messages: [{ role: 'user', source: { kind: 'plugin', plugin: 'other' }, content: [{ type: 'text', text: '欢迎' }] }],
+    }), enter([human('欢迎')]));
+    assert.equal(pluginText.messages.length, 1);
+  }));
+
+  it('respects the note limit and the off switch', async () => withHost(async host => {
+    for (const name of ['守卫一', '守卫二', '守卫三']) {
+      await host.routes.get(NOTES_COMMAND_PATH)
+        .fetch(postJson(NOTES_COMMAND_PATH, { request: { action: 'create', id: `${name}.md`, text: `# ${name}\n` } }));
+    }
+    const listener = host.listeners.get('agent/pre-step');
+    const decision = await listener(step({ messages: [human('守卫')] }), enter([human('守卫')]));
+    assert.equal(decision.messages.length, 2);
+    assert.equal(decision.messages[1].content[0].text.match(/^- /gm).length, 3);
+  }, { maxContextNotes: 3 }));
+
+  it('does not subscribe at all when the bridge is off', async () => withHost(async host => {
+    assert.equal(host.listeners.has('agent/pre-step'), false);
+  }, { notesContext: 'off' }));
+
+  it('never costs the turn its step when the vault cannot be listed', async () => withHost(async (host, root) => {
+    const listener = host.listeners.get('agent/pre-step');
+    await rm(root, { recursive: true, force: true });
+    const decision = await listener(step({ messages: [human('欢迎')] }), enter([human('欢迎')]));
+    assert.equal(decision.messages.length, 1);
+    assert.ok(host.warnings.some(message => message.includes('related notes were skipped')));
+  }));
+
+  it('reads the human request out of either content shape', async () => {
+    assert.equal(requestTextOf([{ source: { kind: 'user' }, content: 'plain' }]), 'plain');
+    assert.equal(requestTextOf([{ source: { kind: 'plugin' } }, { source: { kind: 'user' }, content: [{ type: 'text', text: 'blocks' }] }]), 'blocks');
+    assert.equal(requestTextOf([{ source: { kind: 'user' }, content: [{ type: 'image' }] }]), undefined);
+    assert.equal(requestTextOf([]), undefined);
+  });
 });
 
 describe('runQuery', () => {
