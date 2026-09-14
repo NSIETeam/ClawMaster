@@ -30,6 +30,7 @@ cpSync(join(root, 'splash.html'), join(dist, 'splash.html'))
 cpSync(join(root, 'shell.html'), join(dist, 'shell.html'))
 cpSync(join(root, 'desktop-i18n.js'), join(dist, 'desktop-i18n.js'))
 cpSync(join(root, '..', '..', 'frontends', 'dsh', 'src', 'clawmaster.svg'), join(dist, 'app-icon.svg'))
+cpSync(join(root, '..', '..', 'frontends', 'dsh', 'src', 'clawmaster-dark.svg'), join(dist, 'app-icon-dark.svg'))
 recordPreparedBuild(repository, source, mode)
 
 const bundleScript = join(root, 'scripts', 'bundle-harness-source.mjs')
