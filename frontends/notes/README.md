@@ -34,6 +34,8 @@ A wiki link resolves to its note; when several notes match you choose, and when 
 
 **Annotations** sit above the proposals in that panel: each mark shows its kind (comment, highlight, to-do or risk), who left it — a person or an agent — and the line or quoted fragment it anchors to, without touching the note's own text. Marks are re-read on every poll, so one the agent writes appears while you are reading the note.
 
+**Related notes** reach the agent the same way a memory would: at the start of each turn the host reduces the request to its own words and matches them against the notes' names and paths, then hands the model a short, attributed block naming what matched — at most a few notes, each named once per session, and never a note's contents in place of the note. A request that matches no name injects nothing, and `notesContext: off` serves the vault without volunteering anything.
+
 While the tab is visible the panel polls a cheap vault version, so edits made by another editor or by the agent appear without a manual refresh. An unsaved draft is never discarded by that refresh: the panel reports the external change and offers a reload.
 
 <a id="configuration"></a>
@@ -46,6 +48,8 @@ The [host configuration](src/host.ts) accepts an absolute `vaultRoot`. Its defau
 | `limits.maxReadBytes` | 262144 | Maximum bytes read from one note. |
 | `limits.maxTreeEntries` | 5000 | Maximum notes visited in a listing. |
 | `limits.maxSearchResults` | 50 | Default and maximum search hits; configurable up to 200. |
+| `notesContext` | `related` | Whether each request is matched against the notes' names and the matches handed to the model; `off` never volunteers a note. |
+| `maxContextNotes` | 3 | Most notes one injection may name, up to 10. |
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
@@ -60,6 +64,8 @@ The [vault](src/vault.ts) rejects linked files and linked directories below its 
 Proposals and diffs are separate concerns. The [proposal store](src/proposals.ts) keeps drafts as JSON under the vault's ignored `.clawmaster/` directory — never listed as notes and never visible to an external editor browsing the vault — and records the revision each draft was based on. The [line diff](src/diff.ts) is bounded and dependency-free: it is exact for ordinary notes, degrades to a whole-file replacement above 2000 lines a side rather than building a huge table, and truncates an oversized result with an explicit marker.
 
 [Marks](src/annotations.ts) are stored the same way, one JSON file per annotation under `.clawmaster/annotations`: a note's own text is never rewritten to record a comment, two writers cannot clobber each other, and the vault fingerprint does not move — so marking a note never looks like an external edit. A mark anchors to a line, to a quoted fragment, or to the note as a whole, and records whether a person or an agent wrote it.
+
+The [retrieval policy](src/context.ts) behind related notes is pure and testable: it reduces a request to whole latin words and two-character Han windows, ranks the notes whose *titles* match those tokens (newer first on a tie), and renders a bounded, source-attributed block. Matching names only is a deliberate cost decision — reading note bodies would charge one file read per note on every turn — and the block tells the model to open a note before trusting its contents.
 
 [Live refresh](src/watcher.ts) publishes a vault version from a filesystem fingerprint combined with a recursive watch. The fingerprint is the authority, so a missed, coalesced or unsupported watch event degrades to a slower refresh instead of a stale view, and a watch that cannot be attached is recorded rather than swallowed. A safety poll re-fingerprints on an interval, so that degradation is enforced inside the watcher instead of depending on the caller; the `revision` route additionally recomputes the fingerprint on demand.
 
