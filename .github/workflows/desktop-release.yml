@@ -111,7 +111,9 @@ jobs:
           pnpm run test:notes-client
 
       - name: Build ClawMaster harness
-        run: pnpm --dir apps/desktop-tauri run build:harness
+        run: |
+          pnpm exec vitest run scripts/tsdown-config.spec.ts
+          pnpm --dir apps/desktop-tauri run build:harness
 
       - name: Verify WatchDog business writes and task admission
         shell: bash
