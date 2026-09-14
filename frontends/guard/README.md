@@ -40,6 +40,13 @@ command, `sudo` and `env …` wrappers are stripped so `sudo rm -rf /` is review
 subshells and `&&` chains are read as separate commands, and targets are expanded (`~`, `$HOME`,
 same-line assignments) before they are judged.
 
+Before it decides, the guard takes one read-only look at the targets a command names and puts what
+it found in the reason both the user and the model read — `file, 5 bytes, exists`, `directory,
+exists`, `missing — nothing exists there to destroy`, `a link to /srv/data`. That look can only make
+the answer stricter: a target whose *resolved* path sits under a protected prefix is denied however
+its own text reads, and a missing target is still raised for approval, because existence says
+nothing about what the command will do to it.
+
 ## Use this package
 
 Mount the plugin in the profile. All three stages are on with no other configuration: a reviewed
@@ -115,17 +122,22 @@ profile uses a different one.
 - Shell text is read, not evaluated: a command assembled at runtime through variables, `eval`, a
   script file, or an interpreter (`python -c "shutil.rmtree(…)"`) is not resolved to its real
   target. `denyPaths` and the rule set are the backstop, not a sandbox.
-- No file-inspection step yet: Codex's reviewer stats the target before deciding a narrow deletion
-  is safe. Adding a read-only target probe is the next step, not this version.
+- The read-only [target probe](src/probe.ts) never decides in the permissive direction. It adds
+  facts to the reason and can refuse a target that resolves into a protected prefix, but it will not
+  wave a command through because a path looked small or absent.
 - Non-shell tools are not reviewed. A tool that deletes through its own API (for example the notes
   vault's own delete) keeps its own approval gate.
 
 ## Verification
 
-`npm --prefix frontends/guard test` builds and then runs the suite: 85 cases covering the risk
+`npm --prefix frontends/guard test` builds and then runs the suite: 95 cases covering the risk
 table above, target expansion, `sudo`/`env` prefixes, subshells and chains, the quoted-prose
 false-positive case, decision mapping, `observe` mode, `allowPaths`/`denyPaths`, workdir
 resolution, and the mount itself — including that a denial never reaches the pipeline and that a
-throwing review delegates instead of breaking the agent. The result stage has its own cases: turn
-facts from representative events, unrecognized payloads, first-line-only commands, the composed
-review text, per-session buffering, the `off` switch, a missing vault, and a failing vault write.
+throwing review delegates instead of breaking the agent. The read-only probe has its own cases
+against a real scratch tree: what a file, directory, link and missing path report, the inspection
+bound, a link that resolves into a protected prefix, a path that merely resolves elsewhere, a
+throwing inspection, and that a missing target is never waved through. The result stage has its own
+cases: turn facts from representative events, unrecognized payloads, first-line-only commands, the
+composed review text, per-session buffering, the `off` switch, a missing vault, and a failing vault
+write.
