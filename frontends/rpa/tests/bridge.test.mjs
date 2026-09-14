@@ -111,13 +111,14 @@ test('an unbuilt helper reports unavailability instead of throwing', async () =>
 
 test('a semantic call forwards root, tool and arguments with no approval binding', async () => {
   await withFakeHelper('process.stdout.write(process.argv[4] ?? "");\n', async (spec) => {
-    const handlers = createRpaHandlers({ stateDir: '/tmp/clawmaster-rpa-call', helper: spec });
+    const stateDir = path.resolve(tmpdir(), 'clawmaster-rpa-call');
+    const handlers = createRpaHandlers({ stateDir, helper: spec });
     const outcome = await handlers.call({ tool: 'rpa_status', arguments: { runId: 'r1' } });
 
     assert.equal(outcome.kind, 'native');
     assert.equal(outcome.command, 'rpa-call:rpa_status');
     assert.deepEqual(outcome.payload, {
-      root: '/tmp/clawmaster-rpa-call/native',
+      root: path.join(stateDir, 'native'),
       tool: 'rpa_status',
       arguments: { runId: 'r1' },
       approvalId: null,
