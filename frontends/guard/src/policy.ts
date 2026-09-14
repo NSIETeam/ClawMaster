@@ -13,6 +13,7 @@
 import type { PreToolDecision } from '@deepseek-ai/dsh-tools';
 import { inspectShellCommand, type Finding, type InspectContext } from './classify.ts';
 import { inspectPlan, planReviewReason } from './plan.ts';
+import { describeProbe, probeTargets, resolvedUnder, type TargetProbe, type TargetProbeFn } from './probe.ts';
 
 /** Guard configuration; every field has a working default. */
 export interface GuardOptions {
@@ -63,6 +64,14 @@ export interface Review {
   finding: Finding;
   /** `undefined` delegates to the rest of the pipeline (allow). */
   decision: PreToolDecision | undefined;
+  /** What the read-only target inspection found, when the guard looked. */
+  probes: TargetProbe[];
+}
+
+/** What a review needs beyond the classifier's own inputs. */
+export interface ReviewContext extends InspectContext {
+  /** Read-only target inspection; injectable so a caller can review without touching the disk. */
+  probe?: TargetProbeFn;
 }
 
 /**
@@ -154,38 +163,73 @@ export function workdirOf(call: { name: string; arguments: unknown }): string | 
 export function reviewCall(
   call: { name: string; arguments: unknown },
   options: GuardOptions,
-  context: InspectContext,
+  context: ReviewContext,
 ): Review {
   const command = shellCommandOf(call, options);
   if (command === undefined) {
-    return { finding: { risk: 'low', code: 'unreviewed-tool', reason: 'Not a reviewed shell call.', targets: ['-'] }, decision: undefined };
+    return { finding: { risk: 'low', code: 'unreviewed-tool', reason: 'Not a reviewed shell call.', targets: ['-'] }, decision: undefined, probes: [] };
   }
   const finding = inspectShellCommand(command, context);
-  if (options.mode === 'observe') return { finding, decision: undefined };
-  return { finding, decision: decide(finding, options) };
+  const probes = look(finding, context);
+  if (options.mode === 'observe') return { finding, decision: undefined, probes };
+  return { finding, decision: decide(finding, options, probes), probes };
+}
+
+/**
+ * Inspect the targets a finding names, without ever letting the inspection decide by failing.
+ * @param finding - The classifier's verdict.
+ * @param context - Review inputs, including an optional injected probe.
+ * @returns One probe per real target, or none when the command names no target.
+ */
+function look(finding: Finding, context: ReviewContext): TargetProbe[] {
+  const targets = finding.targets.filter(target => target !== '-');
+  if (targets.length === 0) return [];
+  try {
+    return (context.probe ?? probeTargets)(targets);
+  } catch {
+    // An inspection that throws tells us nothing; the rules still stand on their own.
+    return [];
+  }
 }
 
 /** Map a finding onto a pipeline decision: critical denies, high asks, everything else passes. */
-function decide(finding: Finding, options: GuardOptions): PreToolDecision | undefined {
+function decide(finding: Finding, options: GuardOptions, probes: readonly TargetProbe[]): PreToolDecision | undefined {
   const named = finding.targets.filter(target => target !== '-');
   const denied = named.filter(target => options.denyPaths.some(prefix => target === prefix || target.startsWith(`${prefix.replace(/\/+$/, '')}/`)));
   if (denied.length > 0) {
-    return { kind: 'deny', reason: reason(finding, `Denied by configuration: ${denied.join(', ')} sits under a protected path.`) };
+    return { kind: 'deny', reason: reason(finding, `Denied by configuration: ${denied.join(', ')} sits under a protected path.`, probes) };
+  }
+  // A link — or a path that resolves elsewhere, as `/var` does on macOS — can carry a protected
+  // directory's contents while its own text reads as something harmless.
+  const resolved = probes.find(probe => resolvedUnder(probe, options.denyPaths) !== undefined);
+  if (resolved !== undefined) {
+    const prefix = resolvedUnder(resolved, options.denyPaths);
+    const via = resolved.symlink ? 'is a link to' : 'resolves to';
+    return { kind: 'deny', reason: reason(finding, `Denied by configuration: ${resolved.target} ${via} ${resolved.realPath ?? resolved.target}, under ${prefix}.`, probes) };
   }
   if (finding.risk === 'critical') {
-    return { kind: 'deny', reason: reason(finding, 'This command can cause irreversible damage beyond this task, so the guard refuses it outright.') };
+    return { kind: 'deny', reason: reason(finding, 'This command can cause irreversible damage beyond this task, so the guard refuses it outright.', probes) };
   }
   if (finding.risk === 'high') {
     const allowed = named.length > 0 && named.every(target => options.allowPaths.some(prefix => target === prefix || target.startsWith(`${prefix.replace(/\/+$/, '')}/`)));
     if (allowed) return undefined;
-    return { kind: 'ask', reason: reason(finding, 'Destructive actions need the user\'s own approval; the guard never grants one on the model\'s behalf.') };
+    return { kind: 'ask', reason: reason(finding, 'Destructive actions need the user\'s own approval; the guard never grants one on the model\'s behalf.', probes) };
   }
   return undefined;
 }
 
-/** Compose the model- and user-facing explanation: code, why it fired, targets, and what to do next. */
-function reason(finding: Finding, outcome: string): string {
+/**
+ * Compose the model- and user-facing explanation: code, why it fired, targets, what they are, and
+ * what to do next. The inspection only ever adds facts here; it never softens a verdict.
+ */
+function reason(finding: Finding, outcome: string, probes: readonly TargetProbe[]): string {
   const targets = finding.targets.filter(target => target !== '-');
-  const scope = targets.length > 0 ? ` Target: ${targets.join(', ')}.` : '';
+  const scope = targets.length > 0
+    ? ` Targets: ${targets.map(target => {
+      const probe = probes.find(candidate => candidate.target === target);
+      const detail = probe === undefined ? undefined : describeProbe(probe);
+      return detail === undefined ? target : `${target} (${detail})`;
+    }).join(', ')}.`
+    : '';
   return `ClawMaster Guard ${finding.code} (${finding.risk}): ${finding.reason}${scope} ${outcome}`;
 }
