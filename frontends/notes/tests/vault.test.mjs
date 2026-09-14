@@ -183,6 +183,18 @@ describe('vault io', () => {
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
+  it('resolves a backlink that names the note rather than its folder', async () => {
+    const root = await temporary();
+    try {
+      const vault = await Vault.open(root);
+      // Obsidian links use the note's own name, so a note inside a folder must still be found.
+      await vault.create('设计/架构.md', '# 架构\n');
+      await vault.create('评估/结论.md', '# 结论\n\n见 [[架构]] 与 [[设计/架构]] 与 [[架构.md]]\n');
+      assert.deepEqual((await vault.backlinks('设计/架构.md', QUERY_LIMITS)).map(entry => entry.id), ['评估/结论.md']);
+      assert.deepEqual((await vault.backlinks('评估/结论.md', QUERY_LIMITS)).map(entry => entry.id), []);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
   it('seeds the welcome note only while the vault is empty', async () => {
     const root = await temporary();
     try {
