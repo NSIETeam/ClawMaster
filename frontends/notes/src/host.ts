@@ -10,8 +10,9 @@ import type ToolRuntime from '@deepseek-ai/dsh-tools';
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools';
 import type ApprovalService from '@deepseek-ai/dsh-user-approval';
 import {
-  NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH,
-  MAX_NOTE_BYTES, noteCommandEnvelopeSchema, noteCommandSchema, notesFailureSchema,
+  NOTES_ANNOTATIONS_PATH, NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH,
+  MAX_ANNOTATION_CHARS, MAX_NOTE_BYTES, MAX_QUOTE_CHARS, annotationEnvelopeSchema, annotationIdSchema, annotationKindSchema, annotationSourceSchema, noteCommandEnvelopeSchema, noteCommandSchema, notesFailureSchema,
+  type AnnotationRequest,
 } from './protocol.ts';
 import { DEFAULT_LIMITS, NotesService, commandSummary, type NotesLimits } from './service.ts';
 import { VaultError, openVault, type VaultEntry } from './vault.ts';
@@ -78,6 +79,7 @@ const querySchema = z.discriminatedUnion('mode', [
   z.object({ mode: z.literal('backlinks'), id: z.string().min(1).max(512) }).strict(),
   z.object({ mode: z.literal('tags') }).strict(),
   z.object({ mode: z.literal('proposals') }).strict(),
+  z.object({ mode: z.literal('annotations'), id: z.string().min(1).max(512).optional() }).strict(),
 ]);
 
 const proposeSchema = z.object({
@@ -96,6 +98,46 @@ const digestSchema = z.object({
 }).strict();
 
 const text = (description: string): Record<string, unknown> => ({ type: 'string', description });
+
+/** One annotation mutation as the agent tool takes it: flat, so the model needs no envelope. */
+const annotateSchema = z.object({
+  action: z.enum(['add', 'remove']),
+  id: z.string().min(1).max(512).optional(),
+  body: z.string().min(1).max(MAX_ANNOTATION_CHARS).optional(),
+  kind: annotationKindSchema.optional(),
+  source: annotationSourceSchema.optional(),
+  author: z.string().min(1).max(120).optional(),
+  line: z.number().int().min(1).optional(),
+  quote: z.string().min(1).max(MAX_QUOTE_CHARS).optional(),
+  annotationId: annotationIdSchema.optional(),
+}).strict();
+
+const annotateParameters: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['action'],
+  properties: {
+    action: { type: 'string', enum: ['add', 'remove'], description: 'Add a mark, or remove a stored one.' },
+    id: text('Note the mark belongs to (add).'),
+    body: text('The mark itself (add).'),
+    kind: { type: 'string', enum: ['comment', 'highlight', 'todo', 'risk'], description: 'What the mark means: a remark, a highlight, a to-do, or a risk (add).' },
+    source: { type: 'string', enum: ['human', 'ai'], description: 'Who wrote it; defaults to ai (add).' },
+    author: text('Who or what wrote it — a person, or the model id (add).'),
+    line: { type: 'integer', minimum: 1, description: '1-based line the mark sits on (add).' },
+    quote: text('Quoted text the mark is about, when no line anchors it (add).'),
+    annotationId: text('The annotation to remove (remove).'),
+  },
+};
+
+const annotateOutput: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['action', 'annotation'],
+  properties: {
+    action: { type: 'string' },
+    annotation: { oneOf: [{ type: 'object', additionalProperties: true }, { type: 'null' }] },
+  },
+};
 const noteId = text('Vault-relative note path ending in .md, e.g. "项目/ClawMaster.md".');
 
 const queryParameters: Record<string, unknown> = {
@@ -103,7 +145,7 @@ const queryParameters: Record<string, unknown> = {
   additionalProperties: false,
   required: ['mode'],
   properties: {
-    mode: { type: 'string', enum: ['tree', 'read', 'search', 'backlinks', 'tags', 'proposals'], description: 'Which read to perform.' },
+    mode: { type: 'string', enum: ['tree', 'read', 'search', 'backlinks', 'tags', 'proposals', 'annotations'], description: 'Which read to perform.' },
     id: noteId,
     query: text('Case-insensitive substring to search for.'),
     limit: { type: 'integer', description: 'Maximum hits; clamped by the deployment limit.' },
@@ -228,6 +270,7 @@ export async function runQuery(service: NotesService, value: unknown): Promise<u
     case 'backlinks': return { id: query.id, notes: await service.backlinks(query.id) as VaultEntry[] };
     case 'tags': return { tags: await service.tags() };
     case 'proposals': return { proposals: await service.pendingProposals() };
+    case 'annotations': return service.annotationsOf(query.id);
   }
 }
 
@@ -315,6 +358,23 @@ export async function apply(ctx: NotesHostContext, config: NotesHostConfig = {})
         fetch: handle(() => service.pendingProposals().then(proposals => ({ proposals }))),
       }));
       disposers.push(ctx.connection.fetch.register({
+        path: NOTES_ANNOTATIONS_PATH, methods: ['GET', 'POST'], requestBody: 'buffered',
+        fetch: handle(async request => {
+          if (request.method === 'GET') {
+            const id = new URL(request.url).searchParams.get('id');
+            return service.annotationsOf(id === null ? undefined : id);
+          }
+          const contentType = (request.headers.get('content-type')?.split(';', 1)[0] ?? '').trim().toLowerCase();
+          if (contentType !== 'application/json') {
+            throw new VaultError('invalid_request', 'Annotation requests require application/json.');
+          }
+          let value: unknown;
+          try { value = await request.json(); }
+          catch { throw new VaultError('invalid_request', 'Annotation request JSON is malformed.'); }
+          return service.annotate(annotationEnvelopeSchema.parse(value).request);
+        }),
+      }));
+      disposers.push(ctx.connection.fetch.register({
         path: NOTES_BACKLINKS_PATH, methods: ['GET'], requestBody: 'buffered',
         fetch: handle(async request => {
           const id = new URL(request.url).searchParams.get('id') ?? '';
@@ -394,6 +454,58 @@ export async function apply(ctx: NotesHostContext, config: NotesHostConfig = {})
         presentCall: args => digestSchema.safeParse(args).success
           ? { card: 'generic', title: 'Record work in notes', kind: 'edit', rawInput: JSON.stringify(args) } : undefined,
         presentResult: (_args, result) => ({ card: 'generic', title: 'Work recorded in notes', content: result.content }),
+      }));
+
+      removals.push(ctx.tools.register({
+        name: 'notes_annotate',
+        description: `Mark a note in the built-in ClawMaster notes vault (${root}): a comment, a highlight, a to-do or a risk, anchored to a line, to a quoted fragment, or to the note as a whole. Use it to record what the user should look at — marks stay beside the note and never rewrite its text. Record source "ai" (the default) for your own marks and pass the model id as author. Every call requires an explicit one-shot DSH approval. Read marks back with notes_query mode "annotations".`,
+        parameters: annotateParameters,
+        output: {
+          schema: annotateOutput,
+          render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
+        },
+        execute: (args, exec) => runTool(exec, async () => {
+          const parsed = annotateSchema.parse(args);
+          if (exec.agent === undefined) throw new Error('notes_annotate requires an owning DSH agent session.');
+          let request: AnnotationRequest;
+          let reason: string;
+          if (parsed.action === 'remove') {
+            if (parsed.annotationId === undefined) throw new VaultError('invalid_request', 'notes_annotate action "remove" needs annotationId.');
+            request = { action: 'remove', annotationId: parsed.annotationId };
+            reason = `Remove annotation ${parsed.annotationId} from vault ${root}`;
+          } else {
+            if (parsed.id === undefined || parsed.body === undefined || parsed.kind === undefined) {
+              throw new VaultError('invalid_request', 'notes_annotate action "add" needs id, body and kind.');
+            }
+            request = {
+              action: 'add',
+              annotation: {
+                id: parsed.id,
+                body: parsed.body,
+                kind: parsed.kind,
+                ...parsed.source !== undefined ? { source: parsed.source } : {},
+                ...parsed.author !== undefined ? { author: parsed.author } : {},
+                ...parsed.line !== undefined ? { line: parsed.line } : {},
+                ...parsed.quote !== undefined ? { quote: parsed.quote } : {},
+              },
+            };
+            const where = parsed.line === undefined ? '' : ` at line ${parsed.line}`;
+            reason = `Mark note ${parsed.id}${where} as ${parsed.kind} in vault ${root}: ${parsed.body.slice(0, 300)}`;
+          }
+          const outcome = await ctx.approval.request({
+            agent: exec.agent,
+            callId: exec.callId,
+            toolName: exec.name,
+            reason,
+            signal: exec.signal,
+          });
+          if (outcome !== 'allowed-once') throw new Error(`approval_${outcome}: The annotation was not written.`);
+          exec.signal.throwIfAborted();
+          return service.annotate(request);
+        }),
+        presentCall: args => annotateSchema.safeParse(args).success
+          ? { card: 'generic', title: 'Mark a note', kind: 'edit', rawInput: JSON.stringify(args) } : undefined,
+        presentResult: (_args, result) => ({ card: 'generic', title: 'Note marked', content: result.content }),
       }));
 
       removals.push(ctx.tools.register({

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH } from '../src/protocol.ts';
+import { NOTES_ANNOTATIONS_PATH, NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH } from '../src/protocol.ts';
 import { apply, defaultVaultRoot, runQuery } from '../src/host.ts';
 import { NotesService } from '../src/service.ts';
 import { Vault } from '../src/vault.ts';
@@ -28,6 +28,7 @@ function harness() {
   return {
     ctx, routes, tools, prompts, provided,
     deny() { answer = 'denied'; },
+    allow() { answer = 'allowed-once'; },
     async dispose() { const remove = await install; await remove(); },
   };
 }
@@ -45,6 +46,8 @@ const get = path => new Request(`http://localhost${path}`, { method: 'GET' });
 const post = (path, body, contentType = 'application/json') => new Request(`http://localhost${path}`, {
   method: 'POST', headers: { 'content-type': contentType }, body,
 });
+/** POST one JSON value, the shape every notes command route expects. */
+const postJson = (path, value) => post(path, JSON.stringify(value));
 
 describe('default vault root', () => {
   it('is a real documents folder, never runtime state', () => {
@@ -65,7 +68,7 @@ describe('default vault root', () => {
 describe('route contract', () => {
   it('registers notes routes with the right methods', async () => withHost(async host => {
     assert.deepEqual([...host.routes.keys()].sort(),
-      [NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH].sort());
+      [NOTES_ANNOTATIONS_PATH, NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH].sort());
     for (const route of host.routes.values()) assert.equal(route.requestBody, 'buffered');
     assert.deepEqual(host.routes.get(NOTES_TREE_PATH).methods, ['GET']);
     assert.deepEqual(host.routes.get(NOTES_NOTE_PATH).methods, ['GET']);
@@ -75,6 +78,7 @@ describe('route contract', () => {
     assert.deepEqual(host.routes.get(NOTES_BACKLINKS_PATH).methods, ['GET']);
     assert.deepEqual(host.routes.get(NOTES_REVISION_PATH).methods, ['GET']);
     assert.deepEqual(host.routes.get(NOTES_PROPOSALS_PATH).methods, ['GET']);
+    assert.deepEqual(host.routes.get(NOTES_ANNOTATIONS_PATH).methods, ['GET', 'POST']);
   }));
 
   it('serves the tree and seeds a fresh vault', async () => withHost(async (host, root) => {
@@ -216,7 +220,7 @@ describe('tool surface', () => {
   });
 
   it('registers one read tool and one write tool', async () => withHost(async host => {
-    assert.deepEqual([...host.tools.keys()].sort(), ['notes_digest', 'notes_propose', 'notes_query', 'notes_write']);
+    assert.deepEqual([...host.tools.keys()].sort(), ['notes_annotate', 'notes_digest', 'notes_propose', 'notes_query', 'notes_write']);
     const query = host.tools.get('notes_query');
     assert.equal(query.parameters.type, 'object');
     assert.deepEqual(query.parameters.required, ['mode']);
@@ -347,6 +351,70 @@ describe('proposals and digests', () => {
     assert.equal(receipt.id, '日记/2026-09-14.md');
     assert.match(receipt.revision, /^sha256-[0-9a-f]{64}$/);
     assert.match(await readFile(join(root, '日记/2026-09-14.md'), 'utf8'), /通过访问句柄归档/);
+  }));
+
+  it('marks a note through the route, reads it back and removes it', async () => withHost(async host => {
+    const route = host.routes.get(NOTES_ANNOTATIONS_PATH);
+    const empty = await (await route.fetch(get(NOTES_ANNOTATIONS_PATH))).json();
+    assert.deepEqual(empty.annotations, []);
+
+    const added = await route.fetch(postJson(NOTES_ANNOTATIONS_PATH, {
+      request: { action: 'add', annotation: { id: '欢迎.md', body: '先看这一行', kind: 'highlight', source: 'human', author: 'king', line: 1 } },
+    }));
+    assert.equal(added.status, 200);
+    const receipt = await added.json();
+    assert.equal(receipt.action, 'add');
+    assert.equal(receipt.annotation.source, 'human');
+    assert.equal(host.prompts.length, 0, 'an authenticated UI command is a user edit, not an agent approval');
+
+    const listed = await (await route.fetch(get(`${NOTES_ANNOTATIONS_PATH}?id=${encodeURIComponent('欢迎.md')}`))).json();
+    assert.equal(listed.id, '欢迎.md');
+    assert.deepEqual(listed.annotations.map(annotation => annotation.body), ['先看这一行']);
+
+    const removed = await (await route.fetch(postJson(NOTES_ANNOTATIONS_PATH, {
+      request: { action: 'remove', annotationId: receipt.annotation.annotationId },
+    }))).json();
+    assert.equal(removed.action, 'remove');
+    assert.deepEqual((await (await route.fetch(get(NOTES_ANNOTATIONS_PATH))).json()).annotations, []);
+  }));
+
+  it('maps a malformed, unknown or orphaned annotation request onto its status', async () => withHost(async host => {
+    const route = host.routes.get(NOTES_ANNOTATIONS_PATH);
+    assert.equal((await route.fetch(post(NOTES_ANNOTATIONS_PATH, 'annotation', 'text/plain'))).status, 400);
+    assert.equal((await route.fetch(new Request(`http://localhost${NOTES_ANNOTATIONS_PATH}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{ not json',
+    }))).status, 400);
+    assert.equal((await route.fetch(postJson(NOTES_ANNOTATIONS_PATH, {
+      request: { action: 'remove', annotationId: '00000000-0000-4000-8000-000000000000' },
+    }))).status, 404);
+    assert.equal((await route.fetch(postJson(NOTES_ANNOTATIONS_PATH, {
+      request: { action: 'add', annotation: { id: '不存在.md', body: 'x', kind: 'comment' } },
+    }))).status, 404, 'a mark cannot hang on a note that does not exist');
+  }));
+
+  it('gates an agent mark behind one approval and reads marks without one', async () => withHost(async host => {
+    const tool = host.tools.get('notes_annotate');
+    assert.deepEqual(tool.parameters.required, ['action']);
+    const call = exec({ session: 's' });
+
+    host.deny();
+    await assert.rejects(
+      tool.execute({ action: 'add', id: '欢迎.md', body: '被拒绝的批注', kind: 'risk' }, call),
+      /approval_denied/,
+    );
+    assert.equal(host.prompts.length, 1);
+    assert.match(host.prompts[0].reason, /Mark note 欢迎\.md as risk/);
+
+    host.allow();
+    const receipt = await tool.execute({ action: 'add', id: '欢迎.md', body: '值得注意', kind: 'todo', source: 'ai', author: 'deepseek' }, call);
+    assert.equal(receipt.annotation.body, '值得注意');
+    assert.equal(receipt.annotation.author, 'deepseek');
+    assert.equal(receipt.annotation.line, null);
+    assert.equal(host.prompts.length, 2);
+
+    const read = await host.tools.get('notes_query').execute({ mode: 'annotations' }, exec());
+    assert.deepEqual(read.annotations.map(annotation => annotation.body), ['值得注意']);
+    assert.equal(host.prompts.length, 2, 'reads never prompt');
   }));
 });
 
