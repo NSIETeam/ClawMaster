@@ -1,3 +1,5 @@
+import { globSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { defineConfig } from 'tsdown'
 import { typertPlugin } from './packages/typert/generator/lib/types/tsdown-plugin.js'
 
@@ -5,6 +7,13 @@ function isBuildFaceClient(value: unknown): boolean {
   if (value === undefined || value === 'host') return false
   if (value === 'client') return true
   throw new Error(`tsdown: --env.DSH_BUILD_FACE must be host or client, received ${String(value)}`)
+}
+
+function workspacePackages(client: boolean): string[] {
+  const manifests = client
+    ? ['vendor/*/package.json', 'packages/*/*/package.json', 'apps/cli/package.json']
+    : ['vendor/*/package.json', 'packages/*/*/package.json', 'apps/cli/package.json', 'apps/desktop/package.json', 'apps/desktop-host/package.json']
+  return globSync(manifests, { cwd: import.meta.dirname }).map(dirname).sort()
 }
 
 /**
@@ -16,9 +25,7 @@ function isBuildFaceClient(value: unknown): boolean {
 export default defineConfig(({ env }) => {
   const client = isBuildFaceClient(env?.DSH_BUILD_FACE)
   return {
-    workspace: client
-      ? ['vendor/*', 'packages/*/*', 'apps/cli']
-      : ['vendor/*', 'packages/*/*', 'apps/cli', 'apps/desktop', 'apps/desktop-host'],
+    workspace: workspacePackages(client),
     entry: client ? '' : ['lib/types/{index,invariant,startup}.js'],
     outDir: 'lib',
     format: ['esm'],

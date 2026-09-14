@@ -2,7 +2,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { NotesApi, NotesApiError } from '../src/notes-api.ts';
-import { NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_SEARCH_PATH, NOTES_TREE_PATH } from '../src/protocol.ts';
+import { NOTES_ANNOTATIONS_PATH, NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_SEARCH_PATH, NOTES_TREE_PATH } from '../src/protocol.ts';
 
 const revision = `sha256-${'a'.repeat(64)}`;
 
@@ -25,6 +25,30 @@ describe('requests', () => {
     assert.equal(url.pathname, NOTES_BACKLINKS_PATH);
     assert.equal(url.searchParams.get('id'), '目录/Target #.md');
     assert.equal(calls[0].init.credentials, 'same-origin');
+  });
+
+  it('reads the marks of one note through their own route', async () => {
+    const stored = {
+      annotationId: '11111111-1111-4111-8111-111111111111', id: '目录/Target #.md', line: 4, quote: 'rm -rf',
+      kind: 'risk', source: 'ai', author: 'watchdog', body: '破坏性命令', createdAt: '2026-09-13T00:00:00.000Z',
+    };
+    const { calls, request } = stub(() => ({ body: { id: stored.id, annotations: [stored] } }));
+    const read = await new NotesApi(request).annotations(stored.id);
+    assert.equal(read.annotations[0].kind, 'risk');
+    assert.equal(read.annotations[0].source, 'ai');
+    const url = new URL(calls[0].path, 'http://localhost');
+    assert.equal(url.pathname, NOTES_ANNOTATIONS_PATH);
+    assert.equal(url.searchParams.get('id'), '目录/Target #.md');
+    assert.equal(calls[0].init.credentials, 'same-origin');
+  });
+
+  it('rejects a mark with an unknown kind or source', async () => {
+    const { request } = stub(() => ({ body: {
+      id: 'a.md',
+      annotations: [{ annotationId: '11111111-1111-4111-8111-111111111111', id: 'a.md', line: null, quote: null,
+        kind: 'vibe', source: 'ai', author: null, body: 'x', createdAt: '2026-09-13T00:00:00.000Z' }],
+    } }));
+    await assert.rejects(new NotesApi(request).annotations('a.md'));
   });
 
   it('reads the tree with same-origin credentials', async () => {

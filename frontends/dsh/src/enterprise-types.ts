@@ -75,6 +75,7 @@ export type EnterpriseCommand =
 
 /** Retrying one commandId with the same command never repeats a mutation. */
 export interface EnterpriseCommandRequest {
+  generation: number;
   revision: number;
   commandId: EnterpriseId;
   command: EnterpriseCommand;
@@ -93,11 +94,21 @@ export interface AuditEntry {
 
 /** Complete local business state, independent of browser origin and selected Session. */
 export interface EnterpriseSnapshot {
+  /** Database-local restore counter; never imported from a backup. */
+  generation: number;
   revision: number;
   contacts: Contact[];
   inventory: InventoryItem[];
   orders: BusinessOrder[];
   audit: AuditEntry[];
+}
+
+/** Complete operator backup, including command receipts needed for idempotent restore. */
+export interface EnterpriseBackup {
+  schemaVersion: 1;
+  exportedAt: string;
+  snapshot: EnterpriseSnapshot;
+  auditCommands: { revision: number; commandId: EnterpriseId; commandJson: string }[];
 }
 
 /** Stable failure codes consumed by the UI; messages contain no SQL or filesystem paths. */
@@ -125,5 +136,9 @@ export interface EnterpriseErrorResponse {
 
 /** Authenticated DSH Fetch routes owned by this module. */
 export const ENTERPRISE_SNAPSHOT_PATH = '/api/clawmaster/enterprise';
+/** Authenticated route returning a restore-capable backup envelope. */
+export const ENTERPRISE_BACKUP_PATH = '/api/clawmaster/enterprise/backup';
+/** Authenticated route for an explicitly confirmed atomic restore. */
+export const ENTERPRISE_RESTORE_PATH = '/api/clawmaster/enterprise/restore';
 /** Authenticated command route; successful responses contain the committed snapshot. */
 export const ENTERPRISE_COMMAND_PATH = '/api/clawmaster/enterprise/command';

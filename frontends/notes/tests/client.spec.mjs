@@ -34,7 +34,7 @@ const revision = text => {
 const bare = id => id.replace(/\.(md|canvas)$/, '');
 const note = (id, text) => ({ id, text, title: bare(id), revision: revision(text), links: [], embeds: [], tags: [] });
 
-async function fixture(locale = 'zh', extra = {}, pendingProposals = [], failures = {}) {
+async function fixture(locale = 'zh', extra = {}, pendingProposals = [], marks = [], failures = {}) {
   const old = Object.getOwnPropertyDescriptor(window, '__ModuleLoader__');
   disposers.push(() => { if (old) Object.defineProperty(window, '__ModuleLoader__', old); else Reflect.deleteProperty(window, '__ModuleLoader__'); });
   let factory;
@@ -46,6 +46,8 @@ async function fixture(locale = 'zh', extra = {}, pendingProposals = [], failure
   const disk = new Map([['Alpha.md', '# Alpha\n'], ['Beta.md', '# Beta\n'], ...Object.entries(extra)]);
   const requests = [];
   let delayRead;
+  // Marks live beside the note; the panel must render them and must not require the route.
+  let annotationsFail = false;
   const request = vi.fn(async (path, init) => {
     expect(init.credentials).toBe('same-origin');
     const url = new URL(path, 'http://localhost');
@@ -55,6 +57,11 @@ async function fixture(locale = 'zh', extra = {}, pendingProposals = [], failure
     if (url.pathname.endsWith('/tree')) return Response.json({ vault: '/synthetic/notes', notes: [...disk].map(([id, text]) => ({ id, title: bare(id), dir: '', size: text.length, mtimeMs: 1 })) });
     if (url.pathname.endsWith('/tags')) return Response.json({ tags: [] });
     if (url.pathname.endsWith('/backlinks')) return Response.json({ id: url.searchParams.get('id'), notes: [] });
+    if (url.pathname.endsWith('/annotations')) {
+      if (annotationsFail) return Response.json({ error: { code: 'storage_unavailable', message: 'No annotations' } }, { status: 503 });
+      const id = url.searchParams.get('id');
+      return Response.json({ id, annotations: marks.filter(mark => mark.id === id) });
+    }
     if (url.pathname.endsWith('/note')) {
       const id = url.searchParams.get('id');
       if (delayRead) await delayRead(id);
@@ -131,13 +138,13 @@ async function fixture(locale = 'zh', extra = {}, pendingProposals = [], failure
     : { edit: 'Edit', save: 'Save', reload: 'Reload', cancel: 'Cancel', delete: 'Delete', dirty: 'Unsaved' };
   const open = async id => { fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${id}( |$)`) })); await screen.findByRole('heading', { name: id }); };
   const editor = () => screen.getByRole('textbox', { name: copy.edit });
-  return { disk, requests, view, mount, copy, open, editor, tab: () => tab, delay: handler => { delayRead = handler; } };
+  return { disk, requests, view, mount, copy, open, editor, tab: () => tab, delay: handler => { delayRead = handler; }, failAnnotations: value => { annotationsFail = value; } };
 }
 
 for (const locale of ['zh', 'en']) {
   it(`shows proposal errors with retry while notes remain editable and drafts survive (${locale})`, async () => {
     const failures = { proposals: 'Pending proposal byte limit exceeded' };
-    const f = await fixture(locale, {}, [], failures);
+    const f = await fixture(locale, {}, [], [], failures);
     expect(screen.getByRole('alert').textContent).toContain(failures.proposals);
     await f.open('Alpha');
     fireEvent.change(f.editor(), { target: { value: 'local draft during proposal failure' } });
@@ -157,7 +164,7 @@ for (const locale of ['zh', 'en']) {
 
   it(`preserves the editable draft when the server refuses an oversized save (${locale})`, async () => {
     const failures = {};
-    const f = await fixture(locale, {}, [], failures);
+    const f = await fixture(locale, {}, [], [], failures);
     await f.open('Alpha');
     fireEvent.change(f.editor(), { target: { value: 'oversized local draft' } });
     failures.command = 'The complete note exceeds the 1024 byte limit. Shorten the content before saving; the existing file was not changed.';
@@ -259,6 +266,54 @@ it('uses actual backlinks rather than listing all other notes', async () => {
   await waitFor(() => expect(f.requests.some(item => item.path.endsWith('/backlinks'))).toBe(true));
   expect(screen.getAllByRole('button', { name: 'Beta' })).toHaveLength(1);
   expect(screen.getByText('暂无反向链接')).toBeDefined();
+});
+
+/** One stored mark, shaped exactly as the annotation route returns it. */
+const mark = (overrides = {}) => ({
+  annotationId: '22222222-2222-4222-8222-222222222222', id: 'Alpha.md', line: null, quote: null,
+  kind: 'comment', source: 'human', author: null, body: 'a mark', createdAt: '2026-09-13T00:00:00.000Z',
+  ...overrides,
+});
+
+for (const locale of ['zh', 'en']) {
+  it(`shows who left a mark, its kind and the line it points at (${locale})`, async () => {
+    const f = await fixture(locale, {}, [], [mark({
+      annotationId: '33333333-3333-4333-8333-333333333333', kind: 'risk', source: 'ai', author: 'watchdog',
+      line: 4, quote: 'rm -rf', body: locale === 'zh' ? '这条命令会删除主目录' : 'This deletes the home directory',
+    })]);
+    await f.open('Alpha');
+    await waitFor(() => expect(document.querySelectorAll('.cm-notes-mark')).toHaveLength(1));
+    const card = document.querySelector('.cm-notes-mark');
+    // The kind and the author both ride on the card, so a reader can tell them apart without colour.
+    expect(card.dataset.kind).toBe('risk');
+    expect(card.dataset.source).toBe('ai');
+    expect(within(card).getByText(locale === 'zh' ? '风险' : 'Risk')).toBeDefined();
+    expect(within(card).getByText('AI')).toBeDefined();
+    expect(within(card).getByText('watchdog')).toBeDefined();
+    expect(within(card).getByText('rm -rf')).toBeDefined();
+    expect(card.textContent).toContain(locale === 'zh' ? '第 4' : 'line 4');
+    expect(within(card).getByText(locale === 'zh' ? '这条命令会删除主目录' : 'This deletes the home directory')).toBeDefined();
+  });
+}
+
+it('never shows one note the marks of another, and says when a note has none', async () => {
+  const f = await fixture('zh', {}, [], [mark({ id: 'Beta.md', body: '只有 Beta 才有', source: 'ai' })]);
+  await f.open('Alpha');
+  await waitFor(() => expect(screen.getByText('这篇笔记还没有批注')).toBeDefined());
+  expect(document.querySelectorAll('.cm-notes-mark')).toHaveLength(0);
+  await f.open('Beta');
+  await waitFor(() => expect(screen.getByText('只有 Beta 才有')).toBeDefined());
+  // A person's mark and an agent's mark must never read as the same thing.
+  expect(document.querySelector('.cm-notes-mark').dataset.source).toBe('ai');
+});
+
+it('keeps the note readable when only the annotation route fails', async () => {
+  const f = await fixture();
+  f.failAnnotations(true);
+  await f.open('Alpha');
+  expect(f.requests.some(item => item.path.endsWith('/annotations'))).toBe(true);
+  expect(f.editor().value).toBe('# Alpha\n');
+  expect(screen.getByRole('status').dataset.state).toBe('idle');
 });
 
 it('keeps the open draft when creating a duplicate note is rejected', async () => {

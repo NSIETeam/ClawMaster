@@ -39,6 +39,16 @@ export interface NotesCopy {
   invalidRevision: string;
   backlinks: string;
   noBacklinks: string;
+  /** Marks a person or an agent left on the open note. */
+  annotations: string;
+  noAnnotations: string;
+  /** One label per annotation kind, and per author source. */
+  comment: string;
+  highlight: string;
+  todo: string;
+  risk: string;
+  human: string;
+  ai: string;
   tags: string;
   noTags: string;
   empty: string;
@@ -68,6 +78,8 @@ const copy: Record<NotesLocale, NotesCopy> = {
     reloadConfirm: '重新载入磁盘版本会放弃这篇笔记的本地草稿。继续吗？',
     invalidRevision: '保存结果缺少笔记版本，请保留草稿并重试。',
     backlinks: '反向链接', noBacklinks: '暂无反向链接', tags: '标签', noTags: '暂无标签',
+    annotations: '批注', noAnnotations: '这篇笔记还没有批注',
+    comment: '批注', highlight: '重点', todo: '待办', risk: '风险', human: '人', ai: 'AI',
     empty: '这个笔记库还是空的，先创建一篇笔记。', open: '打开', delete: '删除',
     deleteConfirm: '确定删除这篇笔记？此操作不可恢复。', missingTarget: '链接的目标笔记不存在',
     loading: '载入中…', error: '操作失败', retry: '重试载入', dismiss: '知道了', unsaved: '有未保存的修改',
@@ -85,7 +97,10 @@ const copy: Record<NotesLocale, NotesCopy> = {
     conflict: 'This note changed elsewhere. Your draft is retained and the file was not overwritten.', conflictReload: 'Reload',
     reloadConfirm: 'Reloading the file discards this note’s local draft. Continue?',
     invalidRevision: 'The save response has no note revision. Keep your draft and try again.',
-    backlinks: 'Backlinks', noBacklinks: 'No backlinks yet', tags: 'Tags', noTags: 'No tags yet',
+    backlinks: 'Backlinks', noBacklinks: 'No backlinks yet',
+    annotations: 'Annotations', noAnnotations: 'No annotations on this note yet',
+    comment: 'Comment', highlight: 'Highlight', todo: 'To-do', risk: 'Risk', human: 'Person', ai: 'AI',
+    tags: 'Tags', noTags: 'No tags yet',
     empty: 'This vault is empty. Create the first note.', open: 'Open', delete: 'Delete',
     deleteConfirm: 'Delete this note? This cannot be undone.', missingTarget: 'The linked note does not exist',
     loading: 'Loading…', error: 'The operation failed', retry: 'Retry loading', dismiss: 'Dismiss', unsaved: 'Unsaved changes',

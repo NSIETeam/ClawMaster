@@ -62,6 +62,7 @@ test('fresh home gets every desktop bundle through the DSH profile format', asyn
   await prepareDesktopProfile(f.root, f.home)
   const manifest = JSON.parse(readFileSync(join(f.profile, 'package.json'), 'utf8'))
   assert.deepEqual(manifest.dsh.profile.bundles, ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', ...DESKTOP_BUNDLES])
+  assert.equal(manifest.dsh.profile.bundles.includes('@clawmaster/dsh-graph-memory'), true)
   assert.deepEqual(manifest.dependencies, {})
   const patch = readFileSync(join(f.profile, 'cordis.patch.yml'), 'utf8')
   const edited = { ...manifest, dependencies: { custom: '1.2.3' } }

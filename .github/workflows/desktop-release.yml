@@ -7,9 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing desktop-v* tag to rebuild and publish
+        description: desktop-v* version tag; build-only runs use the selected branch
         required: true
-        default: desktop-v0.2.0-release
+        default: desktop-v0.2.1
+      publish:
+        description: Publish an existing version tag after all platform checks pass
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -56,7 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && !inputs.publish && github.sha || env.RELEASE_TAG }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -95,6 +99,9 @@ jobs:
           npm ci --prefix frontends/dsh --ignore-scripts
           npm ci --prefix frontends/office --ignore-scripts
           npm ci --prefix frontends/notes --ignore-scripts
+          npm ci --prefix frontends/graph-memory --ignore-scripts
+          npm ci --prefix frontends/guard --ignore-scripts
+          npm ci --prefix frontends/rpa --ignore-scripts
 
       - name: Verify Notes storage, approval and rendered client
         shell: bash
@@ -117,6 +124,20 @@ jobs:
 
       - name: Verify sidebar close and replacement lifecycle
         run: pnpm exec vitest run packages/client/ui-sidebar-right/tests/service.client.spec.ts packages/client/ui-sidebar-right/tests/seat.client.spec.tsx packages/client/ui-sidebar-right/tests/guide-body.client.spec.tsx
+
+      - name: Verify Guard and RPA control plane
+        shell: bash
+        run: |
+          npm test --prefix frontends/guard
+          npm run typecheck --prefix frontends/guard
+          npm test --prefix frontends/rpa
+          npm run typecheck --prefix frontends/rpa
+
+      - name: Verify Graph Memory component
+        run: |
+          npm --prefix frontends/graph-memory test
+          npm --prefix frontends/graph-memory run typecheck
+          npm --prefix frontends/graph-memory run check
 
       - name: Verify provenance and plugin rejection cases
         shell: bash
@@ -276,13 +297,14 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: build
+    if: github.event_name == 'push' || inputs.publish == true
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && !inputs.publish && github.sha || env.RELEASE_TAG }}
           fetch-depth: 1
           persist-credentials: false
 

@@ -8,7 +8,6 @@ import { join } from 'node:path';
 import { VaultWatcher, fingerprint } from '../src/watcher.ts';
 
 const temporary = () => mkdtemp(join(tmpdir(), 'clawmaster-watcher-'));
-
 describe('fingerprint', () => {
   it('changes when a note is added, edited or removed', async () => {
     const root = await temporary();

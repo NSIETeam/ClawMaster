@@ -134,7 +134,11 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     const patch = join(home, 'smoke.patch.yml')
     const notesRoot = join(await realpath(home), 'notes-vault')
     // Notes defaults to the real Documents folder, independently of DSH_HOME.
-    await writeFile(patch, `${JSON.stringify([{ id: 'clawmaster-notes', config: { vaultRoot: notesRoot } }])}\n`)
+    await writeFile(patch, `${JSON.stringify([
+      { id: 'clawmaster-notes', config: { vaultRoot: notesRoot, notesContext: 'off' } },
+      { id: 'clawmaster-graph-memory-storage', config: { path: join(home, 'graph-memory.sqlite') } },
+      { id: 'clawmaster-graph-memory', config: { memory: 'off' } },
+    ])}\n`)
     const environment = Object.fromEntries(Object.entries(process.env)
       .filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD/i.test(name)))
     const profile = spawnSync(process.execPath, ['--import', pathToFileURL(join(root, 'desktop-defaults.mjs')).href,
@@ -197,16 +201,20 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     assert.ok(serializedGraph, '首页必须提供客户端启动图')
     const graph = JSON.parse(serializedGraph)
     const entries = new Set(graph.entries.map(entry => entry.id))
-    for (const name of ['@xmanrui/dsh-im', 'dsh-better-sidebar', '@clawmaster/dsh-frontend', '@clawmaster/dsh-notes', '@clawmaster/dsh-office']) {
+    for (const name of ['@xmanrui/dsh-im', 'dsh-better-sidebar', '@clawmaster/dsh-frontend', '@clawmaster/dsh-notes', '@clawmaster/dsh-graph-memory', '@clawmaster/dsh-office']) {
       assert.ok(entries.has(name), `全新主目录缺少默认客户端插件：${name}`)
     }
     const snapshotPath = '/api/clawmaster/enterprise'
     const commandPath = '/api/clawmaster/enterprise/command'
+    const restorePath = '/api/clawmaster/enterprise/restore'
+    const backupPath = '/api/clawmaster/enterprise/backup'
     const workspacePath = '/api/clawmaster/workspace'
     const notesTreePath = '/api/clawmaster/notes/tree'
     const notesCommandPath = '/api/clawmaster/notes/command'
     const notesReadPaths = ['tree', 'note', 'search', 'tags', 'backlinks', 'proposals', 'revision']
       .map(name => `/api/clawmaster/notes/${name}`)
+
+    const graphMemoryPath = '/api/clawmaster/graph-memory/graph'
     const noteId = '验收/冷启动 #1.md'
     const noteText = '# 冷启动验收\n\n仅临时笔记库。\n'
     const editedNoteText = `${noteText}\n已保存的修改。\n`
@@ -221,17 +229,20 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
       id: 'smoke-contact', name: '验收联系人', company: '验收企业', stage: 'lead',
       nextAction: '确认需求', nextActionDate: null,
     }
-    const command = { revision: 0, commandId: 'smoke-command', command: { type: 'contact.upsert', contact } }
+    const command = { generation: 0, revision: 0, commandId: 'smoke-command', command: { type: 'contact.upsert', contact } }
     const post = (base, path, value, headers = {}) => request(new URL(path, base), {
       method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(value),
     })
     assert.equal((await request(new URL(snapshotPath, first.base))).status, 401)
     assert.equal((await post(first.base, commandPath, command)).status, 401)
+    assert.equal((await post(first.base, restorePath, {})).status, 401)
+    assert.equal((await request(new URL(backupPath, first.base))).status, 401)
     assert.equal((await post(first.base, workspacePath, { kind: 'task' })).status, 401)
     for (const path of notesReadPaths) {
       assert.equal((await request(new URL(path, first.base))).status, 401)
     }
     assert.equal((await post(first.base, notesCommandPath, createNote)).status, 401)
+    assert.equal((await request(new URL(graphMemoryPath, first.base))).status, 401)
     const authenticated = { cookie: first.cookie, origin: new URL(first.base).origin }
     const notesEntry = graph.entries.find(entry => entry.id === '@clawmaster/dsh-notes')
     const notesScriptUrl = new URL(notesEntry.url, first.base)
@@ -240,6 +251,10 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     assert.equal(notesScript.status, 200)
     assert.match(notesScript.headers.get('content-type'), /javascript/)
     assert.match(await notesScript.text(), /window\.__ModuleLoader__\.load\(\{ id: "@clawmaster\/dsh-notes"/)
+    const graphMemoryEntry = graph.entries.find(entry => entry.id === '@clawmaster/dsh-graph-memory')
+    const graphMemoryScript = await request(new URL(graphMemoryEntry.url, first.base), { headers: authenticated })
+    assert.equal(graphMemoryScript.status, 200)
+    assert.match(await graphMemoryScript.text(), /window\.__ModuleLoader__\.load\(\{ id: "@clawmaster\/dsh-graph-memory"/)
     const officeUrl = new URL('/clawmaster/office/runtime/index.html', first.base)
     assert.equal((await request(officeUrl)).status, 401)
     const office = await request(officeUrl, { headers: authenticated })
@@ -292,6 +307,11 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
       assert.match(response.headers.get('content-type'), /application\/json/)
       assert.equal(typeof (await response.json()).error.code, 'string')
     }
+
+    const graphMemory = await request(new URL(graphMemoryPath, first.base), { headers: authenticated })
+    assert.equal(graphMemory.status, 200)
+    const indexed = await graphMemory.json()
+    assert.ok(indexed.graph.nodes.some(node => node.path === noteId && node.kind === 'note'))
     const saveNote = { request: { action: 'save', id: noteId, text: editedNoteText, expectedRevision: creation.revision } }
     const savedNote = await post(first.base, notesCommandPath, saveNote, authenticated)
     assert.equal(savedNote.status, 200)
@@ -310,7 +330,7 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     const initial = await request(new URL(snapshotPath, first.base), { headers: authenticated })
     assert.equal(initial.status, 200)
     assert.equal(initial.headers.get('cache-control'), 'no-store')
-    assert.deepEqual(await initial.json(), { revision: 0, contacts: [], inventory: [], orders: [], audit: [] })
+    assert.deepEqual(await initial.json(), { generation: 0, revision: 0, contacts: [], inventory: [], orders: [], audit: [] })
     assert.equal((await post(first.base, workspacePath, { kind: 'invalid' }, authenticated)).status, 400)
     assert.equal((await stat(join(managedRoot, 'im'))).isDirectory(), true)
     for (const kind of ['tasks', 'desk']) await assert.rejects(stat(join(managedRoot, kind)), { code: 'ENOENT' })
@@ -331,12 +351,23 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     assert.equal(desk.path, join(managedRoot, 'desk'))
     const saved = await post(first.base, commandPath, command, authenticated)
     assert.equal(saved.status, 200)
-    const expected = await saved.json()
+    let expected = await saved.json()
     assert.equal(expected.revision, 1)
     assert.deepEqual(expected.contacts, [{ ...contact, updatedAt: expected.contacts[0]?.updatedAt }])
     assert.ok(Number.isFinite(Date.parse(expected.contacts[0].updatedAt)))
     assert.equal(expected.audit.length, 1)
     assert.equal(expected.audit[0].commandId, command.commandId)
+    const backupResponse = await request(new URL(backupPath, first.base), { headers: authenticated })
+    assert.equal(backupResponse.status, 200)
+    const backup = await backupResponse.json()
+    const confirmation = { confirm: true, expectedGeneration: 0, expectedRevision: 1, backup }
+    assert.equal((await post(first.base, restorePath, confirmation, { ...authenticated, origin: 'https://foreign.invalid' })).status, 403)
+    const restoreResponse = await post(first.base, restorePath, confirmation, authenticated)
+    assert.equal(restoreResponse.status, 200)
+    expected = { ...expected, generation: 1 }
+    assert.deepEqual(await restoreResponse.json(), expected)
+    assert.equal((await post(first.base, commandPath, command, authenticated)).status, 409)
+    assert.equal((await post(first.base, restorePath, confirmation, authenticated)).status, 409)
     assert.equal(host.child.signalCode, null)
     assert.equal(host.child.exitCode, null)
     await stopHost(host)

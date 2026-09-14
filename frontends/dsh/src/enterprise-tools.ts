@@ -16,7 +16,7 @@ const querySchema = z.object({
   collection: z.enum(['contacts', 'inventory', 'orders', 'audit']),
   id: z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/).transform(enterpriseId).optional(),
   search: z.string().trim().max(2000).optional(),
-  offset: safeInteger, limit: safeInteger.min(1), revision: safeInteger.optional(),
+  offset: safeInteger, limit: safeInteger.min(1), revision: safeInteger.optional(), generation: safeInteger.optional(),
 }).strict();
 const commandEnvelope = z.object({ request: z.unknown() }).strict();
 const configSchema = z.object({
@@ -46,9 +46,9 @@ function fail(error: unknown): never {
   throw error;
 }
 
-function receipt(revision: number, entry: AuditEntry) {
+function receipt(generation: number, revision: number, entry: AuditEntry) {
   return {
-    revision, commandId: entry.commandId, commandRevision: entry.revision,
+    generation, revision, commandId: entry.commandId, commandRevision: entry.revision,
     entityId: entry.entityId, type: entry.type, at: entry.at,
   };
 }
@@ -97,7 +97,7 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
   };
   const definitions: ToolDefinition[] = [{
     name: 'enterprise_query',
-    description: `Query CRM contacts, inventory, purchase/sale orders or the durable audit log. Select one collection and filter by id or search; use offset/limit (maximum ${config.maxQueryRows}) and nextOffset to page. Carry revision across pages and into writes. Results are limited to ${config.maxQueryBytes} UTF-8 bytes; a page may contain fewer rows than requested. Money is in CNY minor units.`,
+    description: `Query CRM contacts, inventory, purchase/sale orders or the durable audit log. Select one collection and filter by id or search; use offset/limit (maximum ${config.maxQueryRows}) and nextOffset to page. Carry generation and revision across pages and into writes. Results are limited to ${config.maxQueryBytes} UTF-8 bytes; a page may contain fewer rows than requested. Money is in CNY minor units.`,
     parameters: enterpriseQueryParameters,
     output: { schema: enterpriseQueryOutput, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
     execute: (args, exec) => run(exec, async () => readPage(store, args, config)),
@@ -105,7 +105,7 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
     presentResult: (_args, result) => ({ card: 'generic', title: 'Enterprise query', content: result.content }),
   }, {
     name: 'enterprise_command',
-    description: 'Create or update a CRM contact, create/edit an order draft, maintain inventory, submit an order, or delete a record. Pass the complete fields, current enterprise_query revision, and a unique commandId; retry an identical request with the same commandId. Every new business mutation, including contact.upsert and order.save, requires an explicit one-shot DSH approval; never assume approval from a prior action. Sessions with never approval, including read-only delegated sessions, cannot commit changes. Submitting a purchase adds stock; submitting a sale deducts it. Submitted orders are immutable. All changes and before/after audit facts commit atomically; the receipt identifies the audit revision.',
+    description: 'Create or update a CRM contact, create/edit an order draft, maintain inventory, submit an order, or delete a record. Pass the complete fields, current enterprise_query generation and revision, and a unique commandId; retry an identical request with the same commandId. Every new business mutation, including contact.upsert and order.save, requires an explicit one-shot DSH approval; never assume approval from a prior action. Sessions with never approval, including read-only delegated sessions, cannot commit changes. Submitting a purchase adds stock; submitting a sale deducts it. Submitted orders are immutable. All changes and before/after audit facts commit atomically; the receipt identifies the audit revision.',
     parameters: enterpriseCommandParameters,
     output: {
       schema: enterpriseCommandOutput,
@@ -115,7 +115,7 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
     execute: (args, exec) => run(exec, async signal => {
       if (!exec.agent) throw new Error('enterprise_command requires an owning DSH agent session.');
       const prepared = store.prepare(commandEnvelope.parse(args).request);
-      if (prepared.receipt) return receipt(prepared.revision, prepared.receipt);
+      if (prepared.receipt) return receipt(prepared.generation, prepared.revision, prepared.receipt);
       const { request } = prepared;
       const outcome = await ctx.approval.request({
         agent: exec.agent, callId: exec.callId, toolName: exec.name,
@@ -124,7 +124,7 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
       if (outcome !== 'allowed-once') throw new Error(`approval_${outcome}: Enterprise command was not committed.`);
       signal.throwIfAborted();
       const committed = store.executeReceipt(request);
-      return receipt(committed.revision, committed.receipt);
+      return receipt(committed.generation, committed.revision, committed.receipt);
     }),
     presentCall: args => commandEnvelope.safeParse(args).success ? { card: 'generic', title: 'Change enterprise records', kind: 'edit', rawInput: JSON.stringify(args) } : undefined,
     presentResult: (_args, result) => ({ card: 'generic', title: result.isError ? 'Enterprise change failed' : 'Enterprise change committed', content: result.content }),

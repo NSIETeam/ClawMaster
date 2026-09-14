@@ -18,8 +18,11 @@ export const DESKTOP_BUNDLES = Object.freeze([
   ...Object.keys(DESKTOP_PLUGIN_VERSIONS),
   '@clawmaster/dsh-desktop-policy',
   '@clawmaster/dsh-frontend',
+  '@clawmaster/dsh-guard',
   '@clawmaster/dsh-notes',
+  '@clawmaster/dsh-graph-memory',
   '@clawmaster/dsh-office',
+  '@clawmaster/dsh-rpa',
 ])
 
 /** Copy package-declared presets without replacing user files or following directory links. */

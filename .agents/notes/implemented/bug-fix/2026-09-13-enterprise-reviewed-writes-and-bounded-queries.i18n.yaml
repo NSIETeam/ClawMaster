@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-13-enterprise-reviewed-writes-and-bounded-queries.md
-2026-09-13-enterprise-reviewed-writes-and-bounded-queries.md: 9f87996f7c07b966539da672d7ec735ca93232dd
-2026-09-13-enterprise-reviewed-writes-and-bounded-queries.zh.md: 0b3dd6e23a7cc9db97d17a81a5ebba67e8017c23
+2026-09-13-enterprise-reviewed-writes-and-bounded-queries.md: 7b12e9b2fdaceb3873d09667301197a5bd7a9668
+2026-09-13-enterprise-reviewed-writes-and-bounded-queries.zh.md: 8a1caf006906245e54815ac09c96cbaed1e4cc19

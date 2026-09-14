@@ -14,7 +14,7 @@ const contact = { id: 'crm-1', name: '王经理', company: '远航科技', stage
 const item = { id: 'item-1', sku: 'A-001', name: '控制器', stock: 12, reorderAt: 3, supplier: '本地供应商' };
 const order = { id: 'order-1', kind: 'sale', counterparty: '远航科技', orderDate: '2026-09-12', currency: 'CNY', lines: [{ itemId: item.id, quantity: 2, unitPriceMinorUnits: 12345 }], note: '' };
 const resultText = result => result.content.filter(block => block.type === 'text').map(block => block.text).join('');
-const request = (store, command, extra = {}) => ({ revision: store.snapshot().revision, commandId: randomUUID(), command, ...extra });
+const request = (store, command, extra = {}) => ({ generation: store.snapshot().generation, revision: store.snapshot().revision, commandId: randomUUID(), command, ...extra });
 
 async function setup(t, options = {}, policy = 'ask') {
   const ctx = new Context();
@@ -58,7 +58,7 @@ test('approved CRM and draft commands use shared transactions and queries expose
   assert.equal(approvals, 3);
   const first = await h.execute('enterprise_query', { collection: 'contacts', search: '远航', offset: 0, limit: 2 });
   assert.equal(first.isError, false, resultText(first));
-  assert.deepEqual(Object.keys(first.value).sort(), ['collection', 'nextOffset', 'offset', 'records', 'revision', 'total']);
+  assert.deepEqual(Object.keys(first.value).sort(), ['collection', 'generation', 'nextOffset', 'offset', 'records', 'revision', 'total']);
   assert.equal(first.value.records.length, 2);
   assert.equal(first.value.nextOffset, 2);
   assert.equal(first.value.total, 3);
@@ -171,6 +171,26 @@ for (const outcome of ['rejected', 'cancelled']) {
     assert.deepEqual(h.store.snapshot(), before);
   });
 }
+
+test('restore during approval rejects the old reviewed command even when the revision repeats', async t => {
+  const h = await setup(t);
+  seed(h.store);
+  const backup = h.store.backup();
+  const entered = Promise.withResolvers();
+  const answer = Promise.withResolvers();
+  h.ctx.on('approval/request', () => { entered.resolve(); return answer.promise; });
+  const pending = h.command({ type: 'order.submit', id: order.id });
+  await entered.promise;
+  h.store.restore(backup, backup.snapshot.revision, 0);
+  answer.resolve('allowed-once');
+  const result = await pending;
+  assert.equal(result.isError, true);
+  assert.match(resultText(result), /revision_conflict/);
+  assert.equal(h.store.snapshot().orders[0].status, 'draft');
+  assert.equal(h.store.snapshot().inventory[0].stock, item.stock);
+  const page = await h.execute('enterprise_query', { collection: 'orders', offset: 0, limit: 10, revision: backup.snapshot.revision, generation: 0 });
+  assert.equal(page.isError, true);
+});
 
 test('never policy rejects before an answerer can grant permission', async t => {
   const h = await setup(t, {}, 'never');

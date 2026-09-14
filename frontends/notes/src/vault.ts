@@ -501,7 +501,7 @@ export class Vault {
   /** Notes linking to an id, bounded by the same query budgets. */
   async backlinks(id: string, limits: VaultQueryLimits): Promise<VaultEntry[]> {
     const safe = assertNoteId(id);
-    const names = new Set([safe, safe.replace(/\.(md|canvas)$/, '')]);
+    const names = linkNames(safe);
     const sources: VaultEntry[] = [];
     for (const entry of await this.list(limits)) {
       if (entry.id === safe) continue;
@@ -510,6 +510,24 @@ export class Vault {
     }
     return sources;
   }
+}
+
+/**
+ * Every spelling a wiki link may use for one note.
+ *
+ * Obsidian links name the note rather than its folder (`[[产品路线图]]`), so matching only the
+ * vault-relative id reports no backlinks for any note that lives inside a folder — the exact case
+ * a vault of organized notes hits constantly.
+ * @param id - A vault-relative note id.
+ * @returns The id with and without its extension, plus the note's own name in both forms.
+ */
+export function linkNames(id: string): Set<string> {
+  const withoutExtension = id.replace(/\.(md|canvas)$/, '');
+  const name = withoutExtension.slice(withoutExtension.lastIndexOf('/') + 1);
+  const extension = id.slice(withoutExtension.length);
+  const names = new Set([id, withoutExtension, name]);
+  if (extension !== '') names.add(`${name}${extension}`);
+  return names;
 }
 
 /** Open a canonical vault and seed welcome content once while it is empty. */

@@ -27,6 +27,7 @@ const RUNNING_FOLD_KINDS: ReadonlySet<string> = new Set([
 ])
 
 
+
 interface ChatNodeSeatProps extends ChatNodeOwnerProps {
   readonly nodeKey: string
   readonly useChatNode: ChatViewSlotProps['useChatNode']

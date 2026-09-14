@@ -5,16 +5,17 @@ import { dirname } from 'node:path';
 import { z } from 'zod';
 import {
   EnterpriseError, ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH,
+  ENTERPRISE_BACKUP_PATH, ENTERPRISE_RESTORE_PATH,
 } from './enterprise-types.ts';
 import type {
-  AuditEntry, BusinessOrder, Contact, EnterpriseCommand, EnterpriseCommandRequest, EnterpriseSnapshot, InventoryItem, EnterpriseId,
+  EnterpriseBackup, AuditEntry, BusinessOrder, Contact, EnterpriseCommand, EnterpriseCommandRequest, EnterpriseSnapshot, InventoryItem, EnterpriseId,
 } from './enterprise-types.ts';
 import {
   contactSchema, itemSchema, orderSchema, auditSchema, parseEnterpriseRequest,
-  parseEnterpriseSnapshot, enterpriseOrderTotal,
+  parseEnterpriseBackup, parseEnterpriseRestoreRequest, parseEnterpriseSnapshot, enterpriseOrderTotal,
 } from './enterprise-schema.ts';
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const APPLICATION_ID = 0x434d454e;
 const integer = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const sqliteRow = z.record(z.string(), z.unknown());
@@ -35,10 +36,12 @@ export interface EnterpriseQuerySpec {
   offset: number;
   limit: number;
   revision?: number;
+  generation?: number;
 }
 
 /** Bounded tool page; total counts matching records before pagination. */
 export interface EnterpriseQueryPage {
+  generation: number;
   revision: number;
   collection: EnterpriseQuerySpec['collection'];
   offset: number;
@@ -48,11 +51,12 @@ export interface EnterpriseQueryPage {
 }
 
 /** Current revision and one durable command receipt. */
-export interface EnterpriseCommitReceipt { revision: number; receipt: AuditEntry; }
+export interface EnterpriseCommitReceipt { generation: number; revision: number; receipt: AuditEntry; }
 
 /** Facts needed for approval; exact committed replays carry their existing receipt. */
 export interface EnterprisePreparation {
   request: EnterpriseCommandRequest;
+  generation: number;
   revision: number;
   before: Contact | InventoryItem | BusinessOrder | null;
   inventory?: InventoryItem[];
@@ -95,6 +99,15 @@ export class EnterpriseStore {
     return z.object({ revision: integer }).strict().parse(result).revision;
   }
 
+  private generation(): number {
+    const row = this.db.prepare('SELECT generation FROM enterprise_meta WHERE singleton = 1').get();
+    return z.object({ generation: integer }).strict().parse(row).generation;
+  }
+
+  private assertGeneration(expected: number): void {
+    if (expected !== this.generation()) throw new EnterpriseError('revision_conflict', 'Enterprise data was restored. Reload before saving.', this.revision());
+  }
+
   private contacts(): Contact[] {
     return this.db.prepare('SELECT * FROM contacts ORDER BY name, id').all().map(row => contactSchema.parse(row));
   }
@@ -131,7 +144,7 @@ export class EnterpriseStore {
     const revision = this.revision();
     const audit = this.db.prepare('SELECT revision, commandId, type, entityId, at, beforeJson, afterJson FROM enterprise_audit ORDER BY revision DESC')
       .all().map(value => this.auditEntry(value));
-    return parseEnterpriseSnapshot({ revision, contacts: this.contacts(), inventory: this.items(), orders: this.orders(), audit });
+    return parseEnterpriseSnapshot({ generation: this.generation(), revision, contacts: this.contacts(), inventory: this.items(), orders: this.orders(), audit });
   }
 
   /**
@@ -176,14 +189,15 @@ export class EnterpriseStore {
     this.db.exec('BEGIN');
     try {
       const revision = this.revision();
-      if (query.revision !== undefined && query.revision !== revision) {
+      const generation = this.generation();
+      if ((query.revision !== undefined && (query.revision !== revision || (query.generation ?? 0) !== generation)) || (query.generation !== undefined && query.generation !== generation)) {
         throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Restart pagination.', revision);
       }
       const count = this.db.prepare(`SELECT COUNT(*) AS total FROM ${source.table} r${where}`).get(...parameters);
       const total = z.object({ total: integer }).strict().parse(count).total;
       const records: EnterpriseQueryPage['records'] = [];
       const page = (): EnterpriseQueryPage => ({
-        revision, collection: query.collection, offset: query.offset, total,
+        generation, revision, collection: query.collection, offset: query.offset, total,
         nextOffset: query.offset + records.length < total ? query.offset + records.length : null, records,
       });
       const rows = this.db.prepare(`SELECT ${source.json} AS recordJson FROM ${source.table} r${where} ORDER BY ${source.order} LIMIT ? OFFSET ?`);
@@ -208,6 +222,77 @@ export class EnterpriseStore {
     }
   }
 
+  /** Read a restore-capable backup, retaining command receipts for idempotent replay. */
+  backup(): EnterpriseBackup {
+    this.assertOpen();
+    this.db.exec('BEGIN');
+    try {
+      const snapshot = this.readSnapshot();
+      const auditCommands = this.db.prepare('SELECT revision, commandId, commandJson FROM enterprise_audit ORDER BY revision').all()
+        .map(value => {
+          const row = sqliteRow.parse(value);
+          return { revision: integer.parse(row.revision), commandId: String(row.commandId) as EnterpriseBackup['auditCommands'][number]['commandId'], commandJson: String(row.commandJson) };
+        });
+      const result: EnterpriseBackup = { schemaVersion: 1, exportedAt: new Date().toISOString(), snapshot, auditCommands };
+      this.db.exec('COMMIT');
+      return result;
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  /**
+   * Restore a validated backup only when the caller proves the database has
+   * not changed since its confirmation. The replacement and audit receipts
+   * commit atomically; a failed validation or write leaves the current data.
+   * @param value Complete backup envelope obtained from {@link backup}.
+   * @param expectedRevision Revision the operator explicitly confirmed.
+   * @param expectedGeneration Restore counter the operator observed; legacy callers belong to generation zero.
+   * @returns The restored snapshot.
+   */
+  restore(value: unknown, expectedRevision: number, expectedGeneration = 0): EnterpriseSnapshot {
+    this.assertOpen();
+    const backup = parseEnterpriseBackup(value);
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || !Number.isSafeInteger(expectedGeneration) || expectedGeneration < 0) {
+      throw new EnterpriseError('invalid_request', 'Restore confirmation revision is invalid.');
+    }
+    const commands = new Map(backup.auditCommands.map(entry => [entry.revision, entry.commandJson]));
+    this.db.exec('BEGIN IMMEDIATE');
+    try {
+      this.assertGeneration(expectedGeneration);
+      if (this.revision() !== expectedRevision) throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Refresh before restoring.', this.revision());
+      if (!Number.isSafeInteger(expectedGeneration + 1)) throw new EnterpriseError('numeric_overflow', 'Enterprise restore counter exceeds the supported integer range.');
+      this.db.exec('DELETE FROM order_lines; DELETE FROM orders; DELETE FROM contacts; DELETE FROM inventory; DELETE FROM enterprise_audit;');
+      const insertContact = this.db.prepare('INSERT INTO contacts (id, name, company, stage, nextAction, nextActionDate, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      for (const row of backup.snapshot.contacts) insertContact.run(row.id, row.name, row.company, row.stage, row.nextAction, row.nextActionDate, row.updatedAt);
+      const insertItem = this.db.prepare('INSERT INTO inventory (id, sku, name, stock, reorderAt, supplier, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      for (const row of backup.snapshot.inventory) insertItem.run(row.id, row.sku, row.name, row.stock, row.reorderAt, row.supplier, row.updatedAt);
+      const insertOrder = this.db.prepare('INSERT INTO orders (id, kind, counterparty, orderDate, currency, status, totalMinorUnits, note, updatedAt, submittedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+      const insertLine = this.db.prepare('INSERT INTO order_lines (orderId, position, itemId, quantity, unitPriceMinorUnits) VALUES (?, ?, ?, ?, ?)');
+      for (const row of backup.snapshot.orders) {
+        insertOrder.run(row.id, row.kind, row.counterparty, row.orderDate, row.currency, row.status, row.totalMinorUnits, row.note, row.updatedAt, row.submittedAt);
+        row.lines.forEach((line, position) => insertLine.run(row.id, position, line.itemId, line.quantity, line.unitPriceMinorUnits));
+      }
+      const auditByRevision = new Map(backup.snapshot.audit.map(entry => [entry.revision, entry]));
+      const insertAudit = this.db.prepare('INSERT INTO enterprise_audit (revision, commandId, type, entityId, at, commandJson, beforeJson, afterJson) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+      for (let revision = 1; revision <= backup.snapshot.revision; revision++) {
+        const entry = auditByRevision.get(revision);
+        const commandJson = commands.get(revision);
+        if (!entry || commandJson === undefined) throw new EnterpriseError('storage_invalid', 'Enterprise backup audit revisions are incomplete.');
+        insertAudit.run(entry.revision, entry.commandId, entry.type, entry.entityId, entry.at, commandJson, JSON.stringify(entry.before), JSON.stringify(entry.after));
+      }
+      this.db.prepare('UPDATE enterprise_meta SET revision = ?, generation = ? WHERE singleton = 1').run(backup.snapshot.revision, expectedGeneration + 1);
+      const result = this.readSnapshot();
+      this.db.exec('COMMIT');
+      return result;
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      if (error instanceof EnterpriseError) throw error;
+      throw new EnterpriseError('storage_invalid', 'Enterprise backup could not be restored.');
+    }
+  }
+
   private existingReceipt(request: EnterpriseCommandRequest): AuditEntry | undefined {
     const value = this.db.prepare('SELECT * FROM enterprise_audit WHERE commandId = ?').get(request.commandId);
     if (!value) return undefined;
@@ -228,12 +313,13 @@ export class EnterpriseStore {
     const request = parseEnterpriseRequest(value);
     this.db.exec('BEGIN');
     try {
+      this.assertGeneration(request.generation);
       const receipt = this.existingReceipt(request);
       const revision = this.revision();
       if (!receipt && request.revision !== revision) {
         throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Reload before saving.', revision);
       }
-      const result: EnterprisePreparation = { request, revision, before: null };
+      const result: EnterprisePreparation = { request, generation: this.generation(), revision, before: null };
       if (receipt) result.receipt = receipt;
       else {
         const command = request.command;
@@ -276,7 +362,7 @@ export class EnterpriseStore {
    * @returns Current revision and the committed or replayed audit entry, without a full snapshot.
    */
   executeReceipt(value: unknown): EnterpriseCommitReceipt {
-    return this.commit(value, (revision, receipt) => ({ revision, receipt }));
+    return this.commit(value, (revision, receipt) => ({ generation: this.generation(), revision, receipt }));
   }
 
   private commit<T>(value: unknown, project: (revision: number, receipt: AuditEntry) => T): T {
@@ -284,6 +370,7 @@ export class EnterpriseStore {
     const request = parseEnterpriseRequest(value);
     this.db.exec('BEGIN IMMEDIATE');
     try {
+      this.assertGeneration(request.generation);
       const existing = this.existingReceipt(request);
       const revision = this.revision();
       if (existing) {
@@ -402,7 +489,7 @@ export class EnterpriseStore {
 }
 
 /**
- * Open an owned database without migrating, replacing, or resetting existing data.
+ * Open an owned database, adding a restore counter to schema 1 without replacing records.
  * @param databasePath SQLite file path; the caller supplies the DSH home location.
  * @param busyTimeoutMs Maximum SQLite writer-lock wait in milliseconds.
  * @returns An open database owner; callers must close it after removing its routes.
@@ -425,13 +512,13 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
     const version = sqliteRow.parse(db.prepare('PRAGMA user_version').get()).user_version;
     const empty = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().length === 0;
     const fresh = app === 0 && version === 0 && empty;
-    if (!(app === APPLICATION_ID && version === SCHEMA_VERSION) && !fresh) {
+    if (!(app === APPLICATION_ID && (version === 1 || version === SCHEMA_VERSION)) && !fresh) {
       throw new EnterpriseError('storage_invalid', 'Enterprise database version or ownership is unsupported.');
     }
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;');
     if (fresh) db.exec(`BEGIN IMMEDIATE;
-      CREATE TABLE IF NOT EXISTS enterprise_meta (singleton INTEGER PRIMARY KEY CHECK(singleton=1), revision INTEGER NOT NULL CHECK(revision>=0)) STRICT;
-      INSERT OR IGNORE INTO enterprise_meta VALUES (1,0);
+      CREATE TABLE IF NOT EXISTS enterprise_meta (singleton INTEGER PRIMARY KEY CHECK(singleton=1), revision INTEGER NOT NULL CHECK(revision>=0), generation INTEGER NOT NULL DEFAULT 0 CHECK(generation>=0)) STRICT;
+      INSERT OR IGNORE INTO enterprise_meta VALUES (1,0,0);
       CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, name TEXT NOT NULL, company TEXT NOT NULL, stage TEXT NOT NULL, nextAction TEXT NOT NULL, nextActionDate TEXT, updatedAt TEXT NOT NULL) STRICT;
       CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, sku TEXT NOT NULL UNIQUE, name TEXT NOT NULL, stock INTEGER NOT NULL CHECK(stock>=0), reorderAt INTEGER NOT NULL CHECK(reorderAt>=0), supplier TEXT NOT NULL, updatedAt TEXT NOT NULL) STRICT;
       CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('purchase','sale')), counterparty TEXT NOT NULL, orderDate TEXT NOT NULL, currency TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('draft','submitted')), totalMinorUnits INTEGER NOT NULL CHECK(totalMinorUnits>=0), note TEXT NOT NULL, updatedAt TEXT NOT NULL, submittedAt TEXT) STRICT;
@@ -439,6 +526,15 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
       CREATE TABLE IF NOT EXISTS enterprise_audit (revision INTEGER PRIMARY KEY, commandId TEXT NOT NULL UNIQUE, type TEXT NOT NULL, entityId TEXT NOT NULL, at TEXT NOT NULL, commandJson TEXT NOT NULL CHECK(json_valid(commandJson)), beforeJson TEXT NOT NULL CHECK(json_valid(beforeJson)), afterJson TEXT NOT NULL CHECK(json_valid(afterJson))) STRICT;
       PRAGMA application_id = ${APPLICATION_ID}; PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;
     `);
+    if (app === APPLICATION_ID && version === 1) {
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        if (sqliteRow.parse(db.prepare('PRAGMA user_version').get()).user_version === 1) {
+          db.exec(`ALTER TABLE enterprise_meta ADD COLUMN generation INTEGER NOT NULL DEFAULT 0 CHECK(generation>=0); PRAGMA user_version = ${SCHEMA_VERSION};`);
+        }
+        db.exec('COMMIT');
+      } catch (error) { db.exec('ROLLBACK'); throw error; }
+    }
     if (sqliteRow.parse(db.prepare('PRAGMA quick_check').get()).quick_check !== 'ok'
       || db.prepare('PRAGMA foreign_key_check').all().length > 0) {
       throw new EnterpriseError('storage_invalid', 'Enterprise database integrity check failed.');
@@ -504,7 +600,7 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
   const pending = new Set<Promise<Response>>();
   let closing = false;
   let disposing: Promise<void> | undefined;
-  const handle = (operation: (request: Request) => Promise<EnterpriseSnapshot>) => (request: Request): Promise<Response> => {
+  const handle = (operation: (request: Request) => Promise<EnterpriseSnapshot | EnterpriseBackup>) => (request: Request): Promise<Response> => {
     if (closing) return Promise.resolve(errorResponse(new EnterpriseError('storage_unavailable', 'Enterprise routes are closed.')));
     const response = operation(request).then(snapshot => Response.json(snapshot, {
       headers: { 'cache-control': 'no-store' },
@@ -528,6 +624,25 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
     disposers.push(ctx.connection.fetch.register({
       path: ENTERPRISE_SNAPSHOT_PATH, methods: ['GET'], requestBody: 'buffered',
       fetch: handle(async () => store.snapshot()),
+    }));
+    disposers.push(ctx.connection.fetch.register({
+      path: ENTERPRISE_BACKUP_PATH, methods: ['GET'], requestBody: 'buffered',
+      fetch: handle(async request => {
+        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
+        return store.backup();
+      }),
+    }));
+    disposers.push(ctx.connection.fetch.register({
+      path: ENTERPRISE_RESTORE_PATH, methods: ['POST'], requestBody: 'buffered',
+      fetch: handle(async request => {
+        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
+        if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') throw new EnterpriseError('invalid_request', 'Enterprise restore requires application/json.');
+        let value: unknown;
+        try { value = await request.json(); } catch { throw new EnterpriseError('invalid_request', 'Enterprise restore JSON is malformed.'); }
+        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
+        const restore = parseEnterpriseRestoreRequest(value);
+        return store.restore(restore.backup, restore.expectedRevision, restore.expectedGeneration);
+      }),
     }));
     disposers.push(ctx.connection.fetch.register({
       path: ENTERPRISE_COMMAND_PATH, methods: ['POST'], requestBody: 'buffered',

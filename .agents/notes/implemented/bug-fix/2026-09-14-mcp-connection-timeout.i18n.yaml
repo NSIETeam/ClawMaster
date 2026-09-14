@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-14-mcp-connection-timeout.md
+2026-09-14-mcp-connection-timeout.md: 698ee86da5460b9ee5d26414b2a096b287b286b6
+2026-09-14-mcp-connection-timeout.zh.md: 263484a76b84f8c6fea28e2f4ca543dffc45a395

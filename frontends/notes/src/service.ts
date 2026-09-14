@@ -1,12 +1,13 @@
 /** Notes application service: the query and command surface shared by the Fetch routes and the agent tools. */
 import {
-  Vault, VaultError, noteTitle, parseFrontmatter, type NoteMatch as VaultMatch, type VaultEntry,
-} from './vault.ts';
+  Vault, VaultError, assertNoteId, noteTitle, parseFrontmatter, type NoteMatch as VaultMatch, type NoteDocument, type VaultEntry } from './vault.ts';
 import {
-  noteCommandSchema, type NoteCommand, type NoteRead, type NoteReceipt, type NotesSearch, type NotesTree,
+  annotationRequestSchema, noteCommandSchema,
+  type AnnotationReceipt, type NoteCommand, type NoteRead, type NoteReceipt, type NotesAnnotations, type NotesSearch, type NotesTree,
 } from './protocol.ts';
 import { unifiedDiff, type UnifiedDiff } from './diff.ts';
 import { ProposalStore, type Proposal } from './proposals.ts';
+import { AnnotationStore } from './annotations.ts';
 
 /** Directory that holds one note per day. */
 export const DAILY_DIRECTORY = '日记';
@@ -78,9 +79,37 @@ export function composeDigest(entry: DigestEntry, link?: string | undefined, now
 export class NotesService {
   /** Pending proposals for this vault. */
   readonly proposals: ProposalStore;
+  /** Marks a person or an agent left on notes in this vault. */
+  readonly annotations: AnnotationStore;
 
   constructor(readonly vault: Vault, readonly limits: NotesLimits = DEFAULT_LIMITS) {
     this.proposals = new ProposalStore(vault, limits.maxReadBytes, limits.maxTreeEntries);
+    this.annotations = new AnnotationStore(vault);
+  }
+
+  /**
+   * Every annotation, or the annotations of one note.
+   * @param id - Optional note id to filter by.
+   */
+  async annotationsOf(id?: string): Promise<NotesAnnotations> {
+    return { id: id ?? null, annotations: await this.annotations.list(id) };
+  }
+
+  /**
+   * Add or remove one annotation.
+   * A mark hangs on a note that exists, so a removed note cannot leave annotations behind.
+   * @param request - One validated annotation mutation.
+   * @returns The receipt the route and tool report.
+   */
+  async annotate(request: unknown): Promise<AnnotationReceipt> {
+    const parsed = annotationRequestSchema.parse(request);
+    if (parsed.action === 'remove') {
+      const removed = await this.annotations.remove(parsed.annotationId);
+      if (!removed) throw new VaultError('not_found', `Annotation ${parsed.annotationId} does not exist.`);
+      return { action: 'remove', annotation: null };
+    }
+    await this.vault.read(assertNoteId(parsed.annotation.id), this.limits.maxReadBytes);
+    return { action: 'add', annotation: await this.annotations.add(parsed.annotation) };
   }
 
   /**
@@ -139,7 +168,44 @@ export class NotesService {
     return { id, markdown, ...change };
   }
 
-  private async before(proposal: Proposal, maxReadBytes: number = this.limits.maxReadBytes): Promise<string> {
+  /**
+   * Write a note on behalf of a companion plugin.
+   *
+   * The vault has one writer by design, so a companion — the voice component, an archive writer — sends
+   * the text here instead of touching the filesystem. The call is repeatable: writing the same id again
+   * replaces the file with the new text, which is how a meeting note grows while it is being recorded.
+   * It is deliberately not a general "overwrite anything" door: the text must fit the read bound, the id
+   * must be a writable note, and a caller that wants to preserve someone else's edit must read the note
+   * and send it back, which makes the overwrite explicit.
+   * @param id - Vault-relative note id ending in `.md`.
+   * @param text - The complete note body, frontmatter included when the caller writes one.
+   * @returns The note id and the revision the write produced.
+   */
+  async writeFromCompanion(id: string, text: string): Promise<{ id: string; revision: string; previousRevision: string | null }> {
+    const bytes = Buffer.byteLength(text, 'utf8');
+    if (bytes > this.limits.maxReadBytes) {
+      throw new VaultError('invalid_request', `A companion write may not exceed ${this.limits.maxReadBytes} bytes.`);
+    }
+    if (text.trim() === '') throw new VaultError('invalid_request', 'A companion write may not be empty.');
+    // Read first: the vault's save is a compare-and-swap on a revision, and reading it here is what
+    // makes the replace safe against a concurrent human edit — a changed file fails the save rather
+    // than being silently overwritten. The read also validates the id, so a refusal happens before
+    // anything is created.
+    let current: NoteDocument | undefined;
+    try {
+      current = await this.vault.read(id, this.limits.maxReadBytes);
+    } catch (error) {
+      if (!(error instanceof VaultError) || error.code !== 'not_found') throw error;
+    }
+    if (current === undefined) {
+      const revision = await this.vault.create(id, text, this.limits.maxReadBytes);
+      return { id, revision, previousRevision: null };
+    }
+    const revision = await this.vault.save(current.id, text, current.revision, this.limits.maxReadBytes);
+    return { id, revision, previousRevision: current.revision };
+  }
+
+  private async before(proposal: Proposal, maxReadBytes = this.limits.maxReadBytes): Promise<string> {
     if (proposal.baseRevision === null) return '';
     try { return (await this.vault.read(proposal.id, maxReadBytes)).text; }
     catch (error) {

@@ -6,24 +6,38 @@ English | [中文](2026-09-13-clawmaster-notes-vault.zh.md)
 
 ## Problem
 
-A built-in notebook must preserve drafts, share portable files with external editors, and separate an agent's proposed changes from approved note mutations.
+New users need a notebook without installing an external editor. Agent writes and concurrent editors must not silently overwrite work or turn a conflict into deletion.
 
 ## Decision
 
-The [Notes component](../../../../frontends/notes/README.md) uses DSH authentication, tool types, approval and sidebar registration. Host and Client ship together with eight JSON routes. `notes_write` and `notes_digest` require an owning agent and one-shot approval. Every tool joins plugin lifetime tracking; unloading cancels pending approvals and waits for active operations and revision scans.
+The [Notes component](../../../../frontends/notes/README.md) owns plain Markdown files in a configurable user directory. It reuses DSH authentication, tool types, approval and sidebar registration instead of introducing another server. Every agent mutation requires a one-shot approval; unloading cancels pending approval work.
 
-Cooperative writers serialize revision checks through the existing cross-process lock. Every note content write checks its final UTF-8 byte count against the read budget, including headers and append results, so a successful write remains readable. Rejection leaves existing bytes and revisions unchanged. Atomic replacement protects saves; no-replace publication protects occupied destinations. Checked paths reject linked descendants. Proposal JSON under `.clawmaster/proposals` uses the same storage protections. Creation checks cumulative JSON bytes and entry count under the writer lock; reads enforce the same budgets. It remains accessible externally while excluded from the note index. Drafting persists metadata without another approval; source Markdown changes only on application.
+Cooperative writers serialize revision checks and writes through the existing cross-process file lock. Atomic replacement protects complete saved contents; no-replace publication protects occupied destinations. Linked descendants are rejected. Shared text parsing keeps Node filesystem code out of the browser.
 
-The visible panel polls a version covering notes and bounded proposal contents. Revision requests own filesystem scans; native watches are unnecessary for this refresh path and expose Windows short-path roots to [libuv event failures](https://github.com/libuv/libuv/pull/5152). Drafts survive concurrent refresh, navigation, rename and proposal application in Session-scoped plugin memory. Note, tag and proposal refreshes settle independently; a failed proposal listing retains a visible retry without hiding successful note queries. Conflicts preserve drafts and disk contents; explicit reload and deletion require confirmation. Nested folders and inline SVG icons reuse the host's visual conventions.
+The client retains drafts by Session in plugin memory because sidebar closing has no veto callback. Conflicts retain drafts and disk contents; explicit reload and deletion require in-panel confirmation.
+
+Review sits between drafting and writing. `notes_propose` stores a draft and the revision it was based on under the vault's ignored `.clawmaster/` directory and returns a line diff, without touching a note, so it needs no approval; `notes_write` actions `apply-proposal` and `discard-proposal` settle it. Applying is revision-guarded, so a note that moved in the meantime is refused rather than overwritten and the proposal survives for a retry. The diff is computed host-side by a bounded, dependency-free line diff, so the model and the user read the same thing.
+
+Finished work becomes notes through one composed entry: `notes_digest` takes what was done plus optional decisions, evidence and next steps, links a matching project note, and appends a dated section to the daily note in a single write. Scheduling that at the end of a task belongs to the WatchDog task layer, not to this module.
+
+Revision requests scan file metadata on demand and coalesce concurrent scans; the component uses neither native watching nor a background timer. Versions also include the pending-proposal digest, so proposal changes refresh without a note edit. Scan failures reach the request and can be retried; unsaved drafts remain intact.
+
+The panel reads like the host's own file manager rather than a generic list, because a sidebar tab that invents its own metrics looks bolted on. Rows are 34px tall with a 6px icon gap and `depth * 22 + 6` inline indent, folder rows carry the strong label weight, hover uses the interactive token and the open note uses the business tint — values measured from `dsh-better-sidebar`'s explorer styles. `src/tree.ts` derives folders from note ids so the panel actually nests, and `src/icons.tsx` supplies inline SVG glyphs on one 16px grid, so the module still ships no raster asset. Obsidian's `app.css` contributes the smaller cues: a 13px UI type scale, muted letterspaced section headers, a quiet unsaved marker, and prose typography for the rendered view.
 
 ## Alternatives considered
 
-Requiring Obsidian excludes fresh installations. A second server duplicates authentication. Blind overwrite and automatic draft replacement lose user intent. A durable draft database introduces another content owner.
+Requiring Obsidian excludes fresh installations. A separate HTTP server duplicates authentication. Blind overwrite or automatic conflict recovery loses user intent. A durable draft database adds another content owner and is deferred.
 
 ## Consequences
 
-Unsaved drafts do not survive process exit. Filesystem isolation, crash durability, hard-link requirements and fingerprint limitations remain explicit [limitations](../../../../frontends/notes/README.md#known-limitations-and-deferred-work).
+Saved notes remain portable files, while unsaved drafts do not survive process exit. The file lock is cooperative, not OS isolation from hostile writers; crash durability and stale-lock recovery remain explicit [limitations](../../../../frontends/notes/README.md#known-limitations-and-deferred-work). Creation and renaming require hard links.
 
 ## Verification
 
-Storage, lifecycle and built-Host tests exercise synthetic files, late approval after unload, final note write budgets, cumulative proposal budgets, external edits and metadata-only revision changes. Scan barriers verify concurrent request sharing and quiescent unload; native-watch rejection verifies the built routes remain usable. Compiled-client tests cover draft races, automatic proposal refresh and confirmation flows. Type checking and artifact freshness checks pass. These checks do not establish final installed-UI acceptance.
+`npm --prefix frontends/notes test` builds and exercises storage and Host behavior, including concurrent writes, path restrictions, read/write budgets, proposal drift, annotations, denied approval, unloading and on-demand refresh. Artifact tests load `dist/index.js` directly.
+
+`npm run test:notes-client` builds and runs compiled-client tests under jsdom for draft retention, explicit discard, failed proposal-load retry, annotations, out-of-order reads and revision conflicts. The runner pins `NODE_ENV=test` to retain React test APIs.
+
+Real-browser and final installed-UI acceptance remain independent of jsdom and type checks and must use the regenerated installer.
+
+`npm --prefix frontends/notes run typecheck` checks strict types; `node frontends/notes/scripts/build.mjs --check` verifies artifact freshness.

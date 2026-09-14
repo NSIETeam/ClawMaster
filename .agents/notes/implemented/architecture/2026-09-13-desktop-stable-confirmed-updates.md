@@ -10,11 +10,13 @@ SemVer treats `0.2.0-release` as a prerelease, although the product uses that na
 
 ## Decision
 
-The program uses stable version `0.2.0`; the Git tag and release title may append the display-only `-release` suffix. The [release channel resolver](../../../../apps/desktop-tauri/scripts/release-channel.mjs) validates the program version, Tauri version and tag before publication. Stable programs publish to GitHub Latest and cannot replace an existing stable release. Prerelease programs publish as prereleases outside Latest.
+The program uses a stable version without a prerelease suffix; the Git tag and release title may append the display-only `-release` suffix. The [release channel resolver](../../../../apps/desktop-tauri/scripts/release-channel.mjs) validates the program version, Tauri version and tag before publication. Stable programs publish to GitHub Latest and cannot replace an existing stable release. Prerelease programs publish as prereleases outside Latest.
 
 The application uses the public repository’s HTTPS Latest manifest and the existing updater public key. Release startup checks after the main window opens and only announces availability. The tray action asks permission to download, uses Tauri’s signature-verifying download, then asks separately to install and restart. Declining either prompt keeps the current application running. Download or verification failure cannot reach installation. A scoped guard prevents concurrent update operations and releases ownership when a future is cancelled. Windows installation stops the Host before Tauri exits; other platforms stop it through the desktop restart path.
 
 The manifest includes a signed `linux-x86_64-deb` asset and retains the AppImage under `linux-x86_64`. Installer-specific selection prevents the updater from handing AppImage bytes to the DEB installer. This extends the update ownership in [desktop shell overlays](2026-08-14-desktop-shell-overlay-plugins.md); the [desktop README](../../../../apps/desktop-tauri/README.md#release) owns operator guidance.
+
+Manual workflow dispatch defaults to building the selected commit with the same signing, provenance and platform installation checks as publication. Only tag pushes or explicit publication input can enter the release job; build validation never moves Latest. Public candidate branches start from the public release commit so unpublished local history is not uploaded as ancestry.
 
 ## Alternatives considered
 

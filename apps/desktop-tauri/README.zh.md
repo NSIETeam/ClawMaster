@@ -4,7 +4,7 @@
 
 这是 ClawMaster 基于现有 `dsh web` 运行时的 Rust/WebView 外壳。安装包携带 **Harness 源码**，不包含 `node_modules`；首次运行扫描本机兼容的 Node.js、pnpm 和已有的 `~/.dsh` 主目录，下载缺失的 Node.js 或 pnpm，再对安装包内的源码树安装生产依赖。应用元数据、启动页、通知和 Web 界面使用 ClawMaster 名称、图标与口号“开启AI时代的企业协作”。
 
-桌面包版本：**0.2.0**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
+桌面包版本：**0.2.1**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
 
 Tauri 包名为 `@deepseek-ai/dsh-desktop-tauri`，与上游 Electron 应用独立。Host 启动地址只在内存中传给独立 WebView，由上游认证流程签发登录 cookie。应用命令归本地外壳所有；回环 Host 内容仅获得窗口拖动与双击最大化权限。启动日志不记录认证令牌。裁剪包包含 `native/system`，并仅在裁剪树中允许开发工具补丁未使用；实际补丁应用失败仍会阻止安装。
 
@@ -139,7 +139,7 @@ NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语
 <a id="release"></a>
 ## 发布
 
-推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)。它构建 Windows x64 NSIS 安装包、macOS Intel/Apple Silicon DMG 和 Linux x64 AppImage/deb，在所有矩阵任务成功后发布。程序版本 `0.2.0` 对应正式版 `desktop-v0.2.0-release`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
+推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)。它构建 Windows x64 NSIS 安装包、macOS Intel/Apple Silicon DMG 和 Linux x64 AppImage/deb，在所有矩阵任务成功后发布。程序版本 `0.2.1` 对应正式版 `desktop-v0.2.1`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。手动触发默认为仅构建：构建所选分支提交并上传签名安装包，不发布版本或改变更新通道。只有在重建已有发布标签并需要发布时，才启用 `publish`。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
 
 应用包含发布验签公钥，以及公开仓库 Latest 版本的 HTTPS manifest。启动仅检查有无新版本。从托盘更新须分别确认下载与安装，第二次确认出现在签名验证成功后。取消确认或下载失败时，当前应用继续运行。安装会停止所属 Host 进程树并重启桌面；确认安装前请保存编辑并结束任务。端点为空时禁用更新请求，非空时必须配置公钥。
 
@@ -185,3 +185,5 @@ pnpm run dev
 | `overlay/desktop-notify/` | Cordis overlay：把已完成的 turn 发到原生通知端口 |
 
 启动回归：先复制裁剪包到临时目录并安装生产依赖，将 DSH_DESKTOP_SMOKE_ROOT 指向该目录，再运行 pnpm run test:startup；它使用独立主目录验证桌面默认插件、认证、跨源写入拒绝、CRM/ERP 空数据、Workspace 按需创建，以及 Host 换端口重启后保留 CRM 记录，不调用模型 API。
+
+包兼容性：在本目录依次运行 `pnpm run build:harness`、`pnpm run prepare:dist` 和 `pnpm run test:compat`。兼容性运行器要求准备好的源码与载荷摘要对应当前版本，将已验证的包复制到私有临时目录，并在那里安装锁定依赖，不执行生命周期脚本。它下载固定版本的官方 OpenViking 和 Sidebar 压缩包，并在解包前检查已登记哈希。插件安装、路由、OpenViking 会话兼容性和 Office 保存冲突测试使用明确的产物位置。陈旧构建或压缩包变化会导致失败；真实 OpenViking 捕获与检索、IM 送达及原生平台验收仍需独立证据。运行需要网络、pnpm 和 tar。

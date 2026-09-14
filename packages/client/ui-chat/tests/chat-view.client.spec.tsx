@@ -1576,7 +1576,6 @@ describe('ChatView', () => {
     fireEvent.click(toggle)
     expect(view.getAllByText('streaming answer')).toHaveLength(1)
   })
-
   it('folds a live Turn into 工作中 while its answer keeps streaming', () => {
     const process = assistant(2, 'inspect', 1, 1)
     const h = makeHarness({

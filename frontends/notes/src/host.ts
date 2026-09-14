@@ -10,13 +10,17 @@ import type { Context } from '@deepseek-ai/cordis';
 import type ToolRuntime from '@deepseek-ai/dsh-tools';
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools';
 import type ApprovalService from '@deepseek-ai/dsh-user-approval';
+import { createUserMessage } from '@deepseek-ai/dsh-llm';
 import {
-  NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH,
-  MAX_NOTE_BYTES, noteCommandEnvelopeSchema, noteCommandSchema, notesFailureSchema,
+  NOTES_ANNOTATIONS_PATH, NOTES_BACKLINKS_PATH, NOTES_COMMAND_PATH, NOTES_NOTE_PATH, NOTES_PROPOSALS_PATH, NOTES_REVISION_PATH, NOTES_SEARCH_PATH, NOTES_TAGS_PATH, NOTES_TREE_PATH,
+  MAX_ANNOTATION_CHARS, MAX_NOTE_BYTES, MAX_QUOTE_CHARS, annotationEnvelopeSchema, annotationIdSchema, annotationKindSchema, annotationSourceSchema, noteCommandEnvelopeSchema, noteCommandSchema, notesFailureSchema,
+  type AnnotationRequest,
 } from './protocol.ts';
+import { DEFAULT_CONTEXT_NOTES, contextTokens, rankRelated, renderRelatedNotes } from './context.ts';
 import { DEFAULT_LIMITS, NotesService, commandSummary, type NotesLimits } from './service.ts';
 import { VaultError, openVault, type VaultEntry } from './vault.ts';
 import { VaultWatcher } from './watcher.ts';
+import { NOTES_ACCESS_KEY, createNotesAccess } from './access.ts';
 
 export const name = 'clawmaster-notes';
 export const inject = ['connection', 'tools', 'approval'];
@@ -43,6 +47,72 @@ export interface NotesHostContext {
   tools: Pick<ToolRuntime, 'register'>;
   approval: Pick<ApprovalService, 'request'>;
   effect: Context['effect'];
+  /**
+   * Publish the vault access companion plugins read with `get`. Optional: the plugin's declared
+   * injections are the Fetch, tool and approval services, so a host without a service registry
+   * still gets every route and tool — it only loses the shared access handle.
+   */
+  provide?(name: string, value: unknown): void;
+  /** Read a value another plugin published. */
+  get?(name: string): unknown;
+  /**
+   * Ride the agent's step waterfall (`agent/pre-step`). Optional: without it every route and tool
+   * still works, the vault just never volunteers a note of its own accord.
+   */
+  on?(event: 'agent/pre-step', listener: NotesStepListener): void | (() => void);
+  /** Host logger, used when the memory bridge has to stand down. */
+  logger?: { warn(message: string): void };
+}
+
+/** One message as the step waterfall hands it over; only the fields the bridge reads. */
+export interface NotesStepMessage {
+  role?: string;
+  source?: { kind?: string };
+  content?: unknown;
+}
+
+/** The agent step the memory bridge inspects before the model sees the request. */
+export interface NotesStepPayload {
+  /** The agent the step belongs to, used as the identity a note is announced to once. */
+  agent: object;
+  messages: readonly NotesStepMessage[];
+  turn: number;
+  step: number;
+  signal?: AbortSignal;
+}
+
+/** What a step listener may return: refuse the step, or enter it with the messages to send. */
+export type NotesStepDecision =
+  | { kind: 'reject' }
+  | { kind: 'enter'; messages: readonly NotesStepMessage[] };
+
+/** A step listener, shaped like DSH's `agent/pre-step` waterfall. */
+export type NotesStepListener = (
+  payload: NotesStepPayload,
+  next: () => Promise<NotesStepDecision>,
+) => Promise<NotesStepDecision>;
+
+/**
+ * The last thing the human asked for, which is what the vault is matched against.
+ * @param messages - The messages the step is about to send.
+ * @returns The text of the newest human message, or undefined when the step has none.
+ */
+export function requestTextOf(messages: readonly NotesStepMessage[]): string | undefined {
+  const human = [...messages].reverse().find(message => message.source?.kind === 'user');
+  return human === undefined ? undefined : textOfContent(human.content);
+}
+
+/** The plain text of a message's content, whether it is one string or a block list. */
+function textOfContent(content: unknown): string | undefined {
+  if (typeof content === 'string') return content.trim() === '' ? undefined : content;
+  if (!Array.isArray(content)) return undefined;
+  const parts = content.flatMap(block => {
+    if (typeof block !== 'object' || block === null) return [];
+    const candidate = block as { type?: unknown; text?: unknown };
+    return candidate.type === 'text' && typeof candidate.text === 'string' ? [candidate.text] : [];
+  });
+  const text = parts.join('\n').trim();
+  return text === '' ? undefined : text;
 }
 
 const limitsSchema = z.object({
@@ -55,6 +125,14 @@ const configSchema = z.object({
   /** Absolute vault directory. Deployment-varying, so it is configuration, never a constant. */
   vaultRoot: z.string().min(1).optional(),
   limits: limitsSchema.optional(),
+  /**
+   * Memory bridge: `related` names the vault notes whose names match each new request and hands
+   * them to the model as context, so a note the user already wrote is reachable without being asked
+   * for. `off` serves the vault without ever volunteering a note.
+   */
+  notesContext: z.enum(['off', 'related']).default('off'),
+  /** Most notes one injection may name. */
+  maxContextNotes: z.number().int().min(1).max(10).default(DEFAULT_CONTEXT_NOTES),
 }).strict();
 
 export type NotesHostConfig = z.input<typeof configSchema>;
@@ -74,6 +152,7 @@ const querySchema = z.discriminatedUnion('mode', [
   z.object({ mode: z.literal('backlinks'), id: z.string().min(1).max(512) }).strict(),
   z.object({ mode: z.literal('tags') }).strict(),
   z.object({ mode: z.literal('proposals') }).strict(),
+  z.object({ mode: z.literal('annotations'), id: z.string().min(1).max(512).optional() }).strict(),
 ]);
 
 const proposeSchema = z.object({
@@ -92,6 +171,46 @@ const digestSchema = z.object({
 }).strict();
 
 const text = (description: string): Record<string, unknown> => ({ type: 'string', description });
+
+/** One annotation mutation as the agent tool takes it: flat, so the model needs no envelope. */
+const annotateSchema = z.object({
+  action: z.enum(['add', 'remove']),
+  id: z.string().min(1).max(512).optional(),
+  body: z.string().min(1).max(MAX_ANNOTATION_CHARS).optional(),
+  kind: annotationKindSchema.optional(),
+  source: annotationSourceSchema.optional(),
+  author: z.string().min(1).max(120).optional(),
+  line: z.number().int().min(1).optional(),
+  quote: z.string().min(1).max(MAX_QUOTE_CHARS).optional(),
+  annotationId: annotationIdSchema.optional(),
+}).strict();
+
+const annotateParameters: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['action'],
+  properties: {
+    action: { type: 'string', enum: ['add', 'remove'], description: 'Add a mark, or remove a stored one.' },
+    id: text('Note the mark belongs to (add).'),
+    body: text('The mark itself (add).'),
+    kind: { type: 'string', enum: ['comment', 'highlight', 'todo', 'risk'], description: 'What the mark means: a remark, a highlight, a to-do, or a risk (add).' },
+    source: { type: 'string', enum: ['human', 'ai'], description: 'Who wrote it; defaults to ai (add).' },
+    author: text('Who or what wrote it — a person, or the model id (add).'),
+    line: { type: 'integer', minimum: 1, description: '1-based line the mark sits on (add).' },
+    quote: text('Quoted text the mark is about, when no line anchors it (add).'),
+    annotationId: text('The annotation to remove (remove).'),
+  },
+};
+
+const annotateOutput: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['action', 'annotation'],
+  properties: {
+    action: { type: 'string' },
+    annotation: { oneOf: [{ type: 'object', additionalProperties: true }, { type: 'null' }] },
+  },
+};
 const noteId = text('Vault-relative note path ending in .md, e.g. "项目/ClawMaster.md".');
 
 const queryParameters: Record<string, unknown> = {
@@ -99,7 +218,7 @@ const queryParameters: Record<string, unknown> = {
   additionalProperties: false,
   required: ['mode'],
   properties: {
-    mode: { type: 'string', enum: ['tree', 'read', 'search', 'backlinks', 'tags', 'proposals'], description: 'Which read to perform.' },
+    mode: { type: 'string', enum: ['tree', 'read', 'search', 'backlinks', 'tags', 'proposals', 'annotations'], description: 'Which read to perform.' },
     id: noteId,
     query: text('Case-insensitive substring to search for.'),
     limit: { type: 'integer', description: 'Maximum hits; clamped by the deployment limit.' },
@@ -224,6 +343,7 @@ export async function runQuery(service: NotesService, value: unknown): Promise<u
     case 'backlinks': return { id: query.id, notes: await service.backlinks(query.id) as VaultEntry[] };
     case 'tags': return { tags: await service.tags() };
     case 'proposals': return { proposals: await service.pendingProposals() };
+    case 'annotations': return service.annotationsOf(query.id);
   }
 }
 
@@ -240,6 +360,10 @@ export async function apply(ctx: NotesHostContext, config: NotesHostConfig = {})
   await ctx.effect(async () => {
     const service = new NotesService(await openVault(root, limits.maxReadBytes), limits);
     const watcher = await VaultWatcher.open(root);
+    // Companion plugins — the WatchDog reviewers, an archive writer, a memory bridge — consume the
+    // vault through this handle instead of opening the directory themselves and duplicating the
+    // path policy, the lock and the revision discipline.
+    ctx.provide?.(NOTES_ACCESS_KEY, createNotesAccess(service, root));
     const disposers: Array<() => Promise<void>> = [];
     const removals: Array<() => void> = [];
     const pending = new Set<Promise<unknown>>();
@@ -305,6 +429,23 @@ export async function apply(ctx: NotesHostContext, config: NotesHostConfig = {})
       disposers.push(ctx.connection.fetch.register({
         path: NOTES_PROPOSALS_PATH, methods: ['GET'], requestBody: 'buffered',
         fetch: handle(() => service.pendingProposals().then(proposals => ({ proposals }))),
+      }));
+      disposers.push(ctx.connection.fetch.register({
+        path: NOTES_ANNOTATIONS_PATH, methods: ['GET', 'POST'], requestBody: 'buffered',
+        fetch: handle(async request => {
+          if (request.method === 'GET') {
+            const id = new URL(request.url).searchParams.get('id');
+            return service.annotationsOf(id === null ? undefined : id);
+          }
+          const contentType = (request.headers.get('content-type')?.split(';', 1)[0] ?? '').trim().toLowerCase();
+          if (contentType !== 'application/json') {
+            throw new VaultError('invalid_request', 'Annotation requests require application/json.');
+          }
+          let value: unknown;
+          try { value = await request.json(); }
+          catch { throw new VaultError('invalid_request', 'Annotation request JSON is malformed.'); }
+          return service.annotate(annotationEnvelopeSchema.parse(value).request);
+        }),
       }));
       disposers.push(ctx.connection.fetch.register({
         path: NOTES_BACKLINKS_PATH, methods: ['GET'], requestBody: 'buffered',
@@ -393,6 +534,58 @@ export async function apply(ctx: NotesHostContext, config: NotesHostConfig = {})
       }));
 
       removals.push(ctx.tools.register({
+        name: 'notes_annotate',
+        description: `Mark a note in the built-in ClawMaster notes vault (${root}): a comment, a highlight, a to-do or a risk, anchored to a line, to a quoted fragment, or to the note as a whole. Use it to record what the user should look at — marks stay beside the note and never rewrite its text. Record source "ai" (the default) for your own marks and pass the model id as author. Every call requires an explicit one-shot DSH approval. Read marks back with notes_query mode "annotations".`,
+        parameters: annotateParameters,
+        output: {
+          schema: annotateOutput,
+          render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
+        },
+        execute: (args, exec) => runTool(exec, async () => {
+          const parsed = annotateSchema.parse(args);
+          if (exec.agent === undefined) throw new Error('notes_annotate requires an owning DSH agent session.');
+          let request: AnnotationRequest;
+          let reason: string;
+          if (parsed.action === 'remove') {
+            if (parsed.annotationId === undefined) throw new VaultError('invalid_request', 'notes_annotate action "remove" needs annotationId.');
+            request = { action: 'remove', annotationId: parsed.annotationId };
+            reason = `Remove annotation ${parsed.annotationId} from vault ${root}`;
+          } else {
+            if (parsed.id === undefined || parsed.body === undefined || parsed.kind === undefined) {
+              throw new VaultError('invalid_request', 'notes_annotate action "add" needs id, body and kind.');
+            }
+            request = {
+              action: 'add',
+              annotation: {
+                id: parsed.id,
+                body: parsed.body,
+                kind: parsed.kind,
+                ...parsed.source !== undefined ? { source: parsed.source } : {},
+                ...parsed.author !== undefined ? { author: parsed.author } : {},
+                ...parsed.line !== undefined ? { line: parsed.line } : {},
+                ...parsed.quote !== undefined ? { quote: parsed.quote } : {},
+              },
+            };
+            const where = parsed.line === undefined ? '' : ` at line ${parsed.line}`;
+            reason = `Mark note ${parsed.id}${where} as ${parsed.kind} in vault ${root}: ${parsed.body.slice(0, 300)}`;
+          }
+          const outcome = await ctx.approval.request({
+            agent: exec.agent,
+            callId: exec.callId,
+            toolName: exec.name,
+            reason,
+            signal: exec.signal,
+          });
+          if (outcome !== 'allowed-once') throw new Error(`approval_${outcome}: The annotation was not written.`);
+          exec.signal.throwIfAborted();
+          return service.annotate(request);
+        }),
+        presentCall: args => annotateSchema.safeParse(args).success
+          ? { card: 'generic', title: 'Mark a note', kind: 'edit', rawInput: JSON.stringify(args) } : undefined,
+        presentResult: (_args, result) => ({ card: 'generic', title: 'Note marked', content: result.content }),
+      }));
+
+      removals.push(ctx.tools.register({
         name: 'notes_write',
         description: `Create, replace, append to, rename or delete a note in the built-in ClawMaster notes vault (${root}), append a dated work entry with "daily", or apply/discard a stored proposal with "apply-proposal"/"discard-proposal". Every call requires an explicit one-shot DSH approval; never assume approval from a previous action. "save" needs the expectedRevision from notes_query and fails on a conflict instead of overwriting, so re-read before retrying. "delete" is not recoverable from this tool. The receipt reports revision and previousRevision for auditing.`,
         parameters: commandParameters,
@@ -423,6 +616,42 @@ export async function apply(ctx: NotesHostContext, config: NotesHostConfig = {})
           content: result.content,
         }),
       }));
+
+      // Memory bridge: a note the user already wrote should reach the model without being asked
+      // for, so each turn's opening request is matched against the vault's note names. The block
+      // is attributed to this plugin and marked a snapshot, so a later turn supersedes it instead
+      // of piling up, and no note is named to the same agent twice.
+      if (options.notesContext === 'related' && ctx.on !== undefined) {
+        const announced = new WeakMap<object, Set<string>>();
+        const stop = ctx.on('agent/pre-step', async (payload, next) => {
+          const decision = await next();
+          if (decision.kind !== 'enter' || payload.step !== 1 || lifetime.signal.aborted) return decision;
+          const request = requestTextOf(payload.messages);
+          const tokens = request === undefined ? [] : contextTokens(request);
+          if (tokens.length === 0) return decision;
+          try {
+            const seen = announced.get(payload.agent) ?? new Set<string>();
+            announced.set(payload.agent, seen);
+            const ranked = rankRelated((await service.tree()).notes, tokens, options.maxContextNotes)
+              .filter(note => !seen.has(note.id));
+            const text = renderRelatedNotes(ranked);
+            if (text === '') return decision;
+            for (const note of ranked) seen.add(note.id);
+            return {
+              ...decision,
+              messages: [...decision.messages, createUserMessage({
+                content: [{ type: 'text', text }],
+                source: { kind: 'plugin', plugin: name, form: 'snapshot', sections: [{ name, text }] },
+              })],
+            };
+          } catch (error) {
+            // A vault that cannot be listed must never cost the turn its step.
+            ctx.logger?.warn(`clawmaster-notes: related notes were skipped: ${String(error)}`);
+            return decision;
+          }
+        });
+        if (typeof stop === 'function') removals.push(stop);
+      }
 
       return async () => {
         try { await dispose(); }

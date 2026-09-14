@@ -146,6 +146,13 @@ export function TagIcon({ size, className }: GlyphProps): ReactNode {
   </Glyph>;
 }
 
+/** Annotations: a speech bubble carrying a mark. */
+export function CommentIcon({ size, className }: GlyphProps): ReactNode {
+  return <Glyph size={size} className={className}>
+    <path d="M13.1 9.3a1 1 0 0 1-1 1H5.7l-2.8 2.4V3.8a1 1 0 0 1 1-1h8.2a1 1 0 0 1 1 1Z" />
+    <path d="M5.4 5.6h5.2M5.4 7.9h3.4" />
+  </Glyph>;
+}
 /** Read-only notice. */
 export function InfoIcon({ size, className }: GlyphProps): ReactNode {
   return <Glyph size={size} className={className}>

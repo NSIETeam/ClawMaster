@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { NOTE_EXTENSIONS } from './vault.ts';
 
+
 /**
  * Fingerprint the note files under a root.
  * Uses size and mtime rather than content, so a same-size write inside the same millisecond

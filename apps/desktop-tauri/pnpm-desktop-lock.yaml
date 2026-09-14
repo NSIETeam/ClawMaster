@@ -293,12 +293,21 @@ importers:
       '@clawmaster/dsh-frontend':
         specifier: workspace:*
         version: link:../../frontends/dsh
+      '@clawmaster/dsh-graph-memory':
+        specifier: workspace:*
+        version: link:../../frontends/graph-memory
+      '@clawmaster/dsh-guard':
+        specifier: workspace:*
+        version: link:../../frontends/guard
       '@clawmaster/dsh-notes':
         specifier: workspace:*
         version: link:../../frontends/notes
       '@clawmaster/dsh-office':
         specifier: workspace:*
         version: link:../../frontends/office
+      '@clawmaster/dsh-rpa':
+        specifier: workspace:*
+        version: link:../../frontends/rpa
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../vendor/cordis
@@ -869,6 +878,9 @@ importers:
       '@deepseek-ai/dsh-storage':
         specifier: link:../../packages/storage/storage
         version: link:../../packages/storage/storage
+      '@deepseek-ai/dsh-storage-sqlite':
+        specifier: link:../../packages/storage/storage-sqlite
+        version: link:../../packages/storage/storage-sqlite
       '@deepseek-ai/dsh-storage-domain':
         specifier: link:../../packages/storage/storage-domain
         version: link:../../packages/storage/storage-domain
@@ -1135,6 +1147,32 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
+  frontends/graph-memory:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: link:../../vendor/cordis
+      '@deepseek-ai/dsh-storage':
+        specifier: link:../../packages/storage/storage
+        version: link:../../packages/storage/storage
+      '@deepseek-ai/dsh-storage-sqlite':
+        specifier: link:../../packages/storage/storage-sqlite
+        version: link:../../packages/storage/storage-sqlite
+      '@deepseek-ai/dsh-tools':
+        specifier: link:../../packages/core/tools
+        version: link:../../packages/core/tools
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  frontends/guard:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: link:../../vendor/cordis
+      '@deepseek-ai/dsh-tools':
+        specifier: link:../../packages/core/tools
+        version: link:../../packages/core/tools
   frontends/notes:
     dependencies:
       '@deepseek-ai/cordis':
@@ -1143,6 +1181,9 @@ importers:
       '@deepseek-ai/dsh-atomic-write':
         specifier: link:../../packages/util/atomic-write
         version: link:../../packages/util/atomic-write
+      '@deepseek-ai/dsh-llm':
+        specifier: link:../../packages/llm/llm
+        version: link:../../packages/llm/llm
       '@deepseek-ai/dsh-tools':
         specifier: link:../../packages/core/tools
         version: link:../../packages/core/tools

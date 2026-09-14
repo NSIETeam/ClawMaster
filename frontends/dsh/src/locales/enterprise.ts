@@ -6,6 +6,9 @@ const zh = {
   draftChanged: '记录已更新，当前输入已保留。请核对下面的最新记录，再决定是否用当前草稿保存。',
   latestRecord: '最新记录', reviewedDraft: '已核对最新记录，保留草稿继续', recordUnavailable: '记录已删除或订单已提交，请取消编辑并查看最新记录。',
   confirmationChanged: '记录已更新，本次确认已失效。请取消后重新打开并核对。',
+  restoreUncertain: '恢复结果尚未确认。请刷新核对当前数据后再继续操作。',
+  backupFailed: '备份下载失败，请检查连接后重试。',
+  staleForm: '数据已恢复，当前表单或确认属于恢复前的数据。输入已保留；请复制需要的内容，取消并重新打开后核对再提交。',
   pending: '上次保存的结果尚未确认。请重试同一请求，系统会防止重复写入；当前输入已保留。',
   retryPending: '重试同一请求', deleteConfirm: '确认删除这条记录？删除操作会保留变更记录。',
   confirmDelete: '确认删除', confirmSubmit: '确认提交订单', before: '修改前', after: '修改后',
@@ -25,7 +28,7 @@ const zh = {
   historyShowing: '已显示记录', loadMore: '显示更多变更', next: '下一步',
   auditContactSave: '保存客户', auditContactDelete: '删除客户', auditItemSave: '保存物料 / 库存校正',
   auditItemDelete: '删除物料', auditOrderSave: '保存订单草稿', auditOrderDelete: '删除订单草稿', auditOrderSubmit: '提交订单 / 库存变动',
-  noRecord: '无记录', lineSummary: '明细', allOrders: '全部订单', localBackup: '下载本机数据备份',
+  noRecord: '无记录', lineSummary: '明细', allOrders: '全部订单', localBackup: '下载本机数据备份', restoreBackup: '恢复本机数据备份', restoreSelect: '选择备份文件', restorePreview: '备份预览', restoreConfirm: '确认恢复', restoreCancel: '取消恢复', restoreSuccess: '备份已恢复。', restoreInvalid: '备份文件无效或已损坏。',
 } as const;
 
 type EnterpriseCopy = { [K in keyof typeof zh]: string };
@@ -33,6 +36,9 @@ const en: EnterpriseCopy = {
   draftChanged: 'Records changed. Your inputs are retained. Review the latest record below before saving this draft.',
   latestRecord: 'Latest record', reviewedDraft: 'Reviewed latest record; keep my draft', recordUnavailable: 'The record was deleted or the order was submitted. Cancel editing and inspect the latest records.',
   confirmationChanged: 'Records changed and this confirmation expired. Cancel, reopen and review it.',
+  restoreUncertain: 'The restore outcome is unknown. Refresh and review the current records before continuing.',
+  backupFailed: 'Backup download failed. Check the connection and retry.',
+  staleForm: 'The database was restored after this form or confirmation was opened. Your inputs are retained. Copy anything you need, cancel, and reopen to review the current records before submitting.',
   pending: 'The last save has not been confirmed. Retry the same request to resolve it without duplicate writes. Your inputs are retained.',
   retryPending: 'Retry same request', deleteConfirm: 'Delete this record? The change history will be retained.',
   confirmDelete: 'Confirm deletion', confirmSubmit: 'Confirm order submission', before: 'Before', after: 'After',
@@ -52,7 +58,7 @@ const en: EnterpriseCopy = {
   historyShowing: 'Records displayed', loadMore: 'Show more changes', next: 'Next',
   auditContactSave: 'Save contact', auditContactDelete: 'Delete contact', auditItemSave: 'Save item / correct stock',
   auditItemDelete: 'Delete item', auditOrderSave: 'Save order draft', auditOrderDelete: 'Delete order draft', auditOrderSubmit: 'Submit order / move stock',
-  noRecord: 'No record', lineSummary: 'Lines', allOrders: 'All orders', localBackup: 'Download local data backup',
+  noRecord: 'No record', lineSummary: 'Lines', allOrders: 'All orders', localBackup: 'Download local data backup', restoreBackup: 'Restore local backup', restoreSelect: 'Choose backup file', restorePreview: 'Backup preview', restoreConfirm: 'Confirm restore', restoreCancel: 'Cancel restore', restoreSuccess: 'Backup restored.', restoreInvalid: 'The backup file is invalid or damaged.',
 };
 
 /** Resolve labels owned by the enterprise panels. */

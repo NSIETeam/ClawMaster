@@ -3,3 +3,5 @@
 - insert:
     - id: clawmaster-notes
       name: '@clawmaster/dsh-notes'
+      config:
+        notesContext: off

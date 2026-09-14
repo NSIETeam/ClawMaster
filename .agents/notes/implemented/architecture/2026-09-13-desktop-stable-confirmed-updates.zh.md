@@ -10,11 +10,13 @@ SemVer 将 `0.2.0-release` 视为预发行版本，但产品使用该名称表�
 
 ## 决策
 
-程序采用正式版本 `0.2.0`；Git 标签与发布标题可以追加仅供显示的 `-release` 后缀。[发布通道解析器](../../../../apps/desktop-tauri/scripts/release-channel.mjs)在发布前校验程序版本、Tauri 版本和标签。正式程序进入 GitHub Latest，且不能替换已有正式发布。预发行程序以预发布形式发布，不进入 Latest。
+程序采用无预发行后缀的正式版本；Git 标签与发布标题可以追加仅供显示的 `-release` 后缀。[发布通道解析器](../../../../apps/desktop-tauri/scripts/release-channel.mjs)在发布前校验程序版本、Tauri 版本和标签。正式程序进入 GitHub Latest，且不能替换已有正式发布。预发行程序以预发布形式发布，不进入 Latest。
 
 应用使用公开仓库的 HTTPS Latest manifest 和已有更新公钥。Release 启动在主窗口打开后检查，仅提示有可用版本。托盘操作先确认下载，再使用 Tauri 验签下载，最后单独确认安装与重启。任意一次拒绝均让当前应用继续运行。下载或验签失败不能进入安装。作用域守卫阻止并发更新操作，并在 future 取消时释放占用。Windows 安装在 Tauri 退出前停止 Host；其他平台通过桌面重启路径停止 Host。
 
 manifest 包含签名的 `linux-x86_64-deb` 产物，并在 `linux-x86_64` 保留 AppImage。按安装器选择目标可避免把 AppImage 字节交给 DEB 安装器。本决策扩展[桌面壳 overlay](2026-08-14-desktop-shell-overlay-plugins.zh.md)的更新职责；[桌面 README](../../../../apps/desktop-tauri/README.zh.md#release)负责发行操作说明。
+
+手动工作流默认为仅构建选定提交，并保留与发布相同的签名、来源及平台安装检查。只有标签推送或显式发布输入可进入发布任务；构建验证不会移动 Latest。公开候选分支从公开发布提交派生，避免把本地未公开历史作为父提交上传。
 
 ## 曾考虑的替代方案
 

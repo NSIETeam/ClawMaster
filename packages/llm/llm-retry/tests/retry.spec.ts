@@ -435,6 +435,54 @@ describe('provider-routed retry policy', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it.each([
+    ['AUTH', 'invalid credential'],
+    ['QUOTA', 'quota exhausted'],
+    ['CONTEXT_WINDOW_EXCEEDED', 'context is too large'],
+    ['UNKNOWN_MODEL', 'model is not configured'],
+  ])('does not retry permanent %s failures in always mode', async (code, message) => {
+    vi.useFakeTimers()
+    const adapter = new ScriptedAdapter([new LlmError(message, code, code === 'AUTH' ? { status: 401 } : undefined)])
+    ;({ ctx: context } = await harness(adapter, { mock: alwaysConfig() }))
+    const agent = await context.agentLoop.create(SessionId(`retry-always-permanent-${code}`), {
+      provider: 'mock',
+      model: 'mock',
+    })
+    const idle = waitForIdle(context, agent)
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
+    await idle
+
+    expect(adapter.requests).toHaveLength(1)
+    expect(agent.session.snapshotEvents().some(event => event.type === 'llm/retry')).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it.each([401, 403])('does not retry HTTP %s even under a transient provider code', async (status) => {
+    vi.useFakeTimers()
+    const adapter = new ScriptedAdapter([new LlmError('request rejected', 'TRANSPORT', { status })])
+    ;({ ctx: context } = await harness(adapter, { mock: normalConfig() }))
+    const agent = await context.agentLoop.create(SessionId(`retry-http-${status}`), { provider: 'mock', model: 'mock' })
+    const idle = waitForIdle(context, agent)
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
+    await idle
+    expect(adapter.requests).toHaveLength(1)
+    expect(agent.session.snapshotEvents().filter(event => event.type === 'llm/retry')).toHaveLength(0)
+  })
+
+  it('settles permanent failure without invoking a throwing recovery listener twice', async () => {
+    const adapter = new ScriptedAdapter([new LlmError('invalid key', 'AUTH', { status: 401 })])
+    ;({ ctx: context } = await harness(adapter, { mock: alwaysConfig() }))
+    const downstream = vi.fn(async () => { throw new Error('recovery unavailable') })
+    context.on('agent/request-error', downstream)
+    const agent = await context.agentLoop.create(SessionId('retry-permanent-downstream'), { provider: 'mock', model: 'mock' })
+    const idle = waitForIdle(context, agent)
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
+    await idle
+    expect(downstream).toHaveBeenCalledTimes(1)
+    expect(adapter.requests).toHaveLength(1)
+    expect(agent.session.snapshotEvents().filter(event => event.type === 'llm/retry')).toHaveLength(0)
+  })
+
   it('delegates when no final adapter served the failed request', async () => {
     const adapter = new ScriptedAdapter([textResponse('must not run')])
     const mounted = await harness(adapter, { mock: alwaysConfig() })

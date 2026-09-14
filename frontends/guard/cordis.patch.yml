@@ -1,0 +1,6 @@
+# Built-in ClawMaster Guard: a deterministic review layer over destructive tool
+# calls. It mounts on the `tools/pre-execute` waterfall, where `ask` fails closed
+# when the session has no answerer, so a deletion cannot slip through unattended.
+- insert:
+    - id: clawmaster-guard
+      name: '@clawmaster/dsh-guard'

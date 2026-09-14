@@ -602,6 +602,83 @@
   font: var(--cm-font-3);
 }
 
+/* An annotation: a mark that anchors to the note but never changes its bytes. Colour carries
+ * meaning only where the meaning is unambiguous — an agent's mark and a risk mark. */
+.cm-notes-mark {
+  margin-bottom: var(--cm-row-gap);
+  padding: 6px 8px;
+  border: 1px solid var(--cm-line);
+  border-left: 2px solid var(--cm-line-2);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface);
+}
+
+.cm-notes-mark[data-source='ai'] {
+  border-left-color: var(--cm-accent);
+}
+
+.cm-notes-mark[data-kind='risk'] {
+  border-left-color: var(--cm-danger);
+}
+
+.cm-notes-mark-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cm-notes-mark-kind {
+  color: var(--cm-ink-2);
+  font: var(--cm-font-3);
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+/* Who wrote the mark: outlined for a person, filled for an agent. */
+.cm-notes-mark-source {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--cm-line-2);
+  border-radius: 999px;
+  color: var(--cm-ink-3);
+  font: var(--cm-font-3);
+}
+
+.cm-notes-mark-source[data-source='ai'] {
+  border-color: transparent;
+  background: var(--cm-surface-2);
+  color: var(--cm-ink-2);
+}
+
+.cm-notes-mark-author,
+.cm-notes-mark-line {
+  overflow: hidden;
+  color: var(--cm-ink-3);
+  font: var(--cm-font-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-notes-mark-line {
+  margin-left: auto;
+}
+
+.cm-notes-mark-quote {
+  margin: 4px 0 0;
+  padding-left: 6px;
+  border-left: 2px solid var(--cm-line-2);
+  color: var(--cm-ink-3);
+  font: var(--cm-font-3);
+  overflow-wrap: anywhere;
+}
+
+.cm-notes-side .cm-notes-mark-body {
+  margin: 4px 0 0;
+  color: var(--cm-ink);
+  overflow-wrap: anywhere;
+}
 .cm-notes-proposal {
   margin-bottom: var(--cm-row-gap);
   padding: 4px;

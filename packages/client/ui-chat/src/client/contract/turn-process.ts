@@ -60,7 +60,6 @@ export function insideTurnProcessRegion(
   if (openingHumanAnchor === undefined) return anchorSeq >= processStartSeq
   return anchorSeq < openingHumanAnchor || anchorSeq >= processStartSeq
 }
-
 const TURN_PROCESS_INDEPENDENT_KIND_LIST = [
   'user',
   'steering',
