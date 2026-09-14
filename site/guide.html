@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+ <meta charset="utf-8" />
+ <meta name="viewport" content="width=device-width, initial-scale=1" />
+ <meta name="description" content="ClawMaster WatchDog 0.2.0 使用教程：从客户跟进检查开始，明确目标、准备资料、复核审批、落实整改与检查结果。包含可复制练习与故障恢复方法。" />
+ <meta name="theme-color" content="#ffffff" />
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+ <link rel="canonical" href="https://nsieteam.github.io/ClawMaster/guide.html" />
+ <link rel="icon" href="favicon.svg" type="image/svg+xml" media="(prefers-color-scheme: light)" />
+ <link rel="icon" href="assets/clawmaster-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+ <link rel="stylesheet" href="styles.css" />
+ <link rel="stylesheet" href="guide.css" />
+ <title>WatchDog 使用教程 | ClawMaster</title>
+</head>
+<body class="guide-page">
+ <a class="skip-link" href="#main">跳到教程正文</a>
+ <header class="site-header">
+  <a class="brand" href="./" aria-label="ClawMaster 官网首页"><img class="brand-logo" src="assets/clawmaster.svg" width="48" height="48" alt="" /><span>ClawMaster</span></a>
+  <nav aria-label="页面导航"><a href="./">产品首页</a><a href="#contents">教程目录</a><a href="./#download">下载</a></nav>
+  <a class="header-link" href="./#download">下载桌面版 <span aria-hidden="true">↓</span></a>
+ </header>
+ <main id="main">
+  <header class="guide-hero">
+   <p class="eyebrow">WATCHDOG GUIDE · 0.2.0-RELEASE</p>
+   <h1>从一次检查开始，<br /><span>把工作跟进到结果。</span></h1>
+   <p class="hero-lede">用“本周客户跟进”走完一轮管理流程：明确范围、准备资料、检查问题、复核决定，再验证整改。每一步都说明怎么操作、应该看到什么，以及遇到问题如何继续。</p>
+   <p class="guide-meta">适用于 ClawMaster WatchDog 0.2.0 · 中文界面 · 示例均为虚构教学数据</p>
+   <div class="hero-actions"><a class="button button-primary" href="#first-check">直接做第一次检查 <span aria-hidden="true">↓</span></a><a class="button button-secondary" href="#prepare">从安装准备开始</a></div>
+  </header>
+  <div class="guide-layout">
+   <aside class="guide-toc" id="contents" aria-label="教程目录">
+    <p class="section-kicker">教程目录</p>
+    <ol>
+     <li><a href="#scope">先确定使用范围</a></li>
+     <li><a href="#prepare">安装与模型准备</a></li>
+     <li><a href="#onboarding">读懂首次教程五步</a></li>
+     <li><a href="#first-check">完成第一次客户检查</a></li>
+     <li><a href="#materials">换成你的业务资料</a></li>
+     <li><a href="#approval">处理审批与修改</a></li>
+     <li><a href="#review">复核结果与落实整改</a></li>
+     <li><a href="#schedule">安排重复检查</a></li>
+     <li><a href="#save">保存文件与工作记录</a></li>
+     <li><a href="#recovery">常见问题与恢复</a></li>
+    </ol>
+    <a class="guide-back" href="./">← 返回产品首页</a>
+   </aside>
+   <article class="guide-content">
+    <section class="guide-section" id="scope">
+     <p class="section-kicker">01 / 先确定使用范围</p><h2>先管好一个明确的问题。</h2>
+     <p>本版适合由个人或专人负责的本地工作台。你可以让 AI 检查客户跟进、核对库存记录、整理办公资料，并把需要你决定的事项集中到原任务会话。先选一小批资料，把结果与原始记录对照。</p>
+     <div class="guide-pair"><div><h3>这次练习要做到</h3><p>从三条客户记录中找出需要跟进的事项，给出依据和下一步，由你确认谁来处理、何时反馈。</p></div><div><h3>仍由你负责</h3><p>确认业务事实、落实同事分工、复核批准和最终验收。负责人、期限与完成标准目前写在任务说明里，不会自动变成组织账号和人员派单。</p></div></div>
+     <p class="guide-note">CRM/ERP 是本机单用户记录，并非企业现有系统的连接器。本版尚不提供完整的多人共享、部门权限或企业管理中台能力。</p>
+    </section>
+    <section class="guide-section" id="prepare">
+     <p class="section-kicker">02 / 安装与模型准备</p><h2>先确认桌面能打开，模型能回应。</h2>
+     <ol class="guide-steps">
+      <li>在<a href="./#download">官网下载区</a>选择匹配系统与芯片的安装包。macOS 的 Apple Silicon 与 Intel 是两个安装包；Windows 当前提供 x64。</li>
+      <li>安装并打开 ClawMaster。首次启动需要联网准备 Node.js 和运行依赖，请等待准备完成。安装包大小不代表完整运行环境占用。</li>
+      <li>已有 DSH 模型配置可复用。尚未配置时，使用首次教程末页的<strong>模型设置（按需）</strong>入口，填写你自己的模型服务配置；不要把 API Key 写进任务描述。</li>
+      <li>进入 WatchDog 后做下文的虚构数据检查。能正常收到模型结果，才说明本次任务所需的模型连接可用。</li>
+     </ol>
+     <div class="guide-result"><strong>应该看到</strong><p>左侧有 WatchDog 入口，主区有“需要关注什么？”和“检查频率”。右上角“已连接”表示界面连接上了运行时，单凭它不能证明 API Key 或聊天平台已验证。</p></div>
+     <p><strong>没有准备完成：</strong>先查看启动页的具体错误，确认网络可访问依赖来源后重试。若模型报凭据、额度或地址错误，修正模型配置后回到原任务；不要反复新建相同任务。</p>
+     <p class="guide-note">macOS 包尚未公证，Windows 包没有发布者代码签名；下载区提供 SHA-256 与完整发行说明。Windows 已在发布测试机验证安装与重启，微软 Windows Sandbox 的干净环境尚未实测。</p>
+    </section>
+    <section class="guide-section" id="onboarding">
+     <p class="section-kicker">03 / 首次教程五步</p><h2>读完教程，再创建实际任务。</h2>
+     <p>新用户会看到“用 WatchDog 管好企业日常”。用<strong>下一步</strong>和<strong>上一步</strong>浏览，最后选择<strong>进入 WatchDog 管理台</strong>。已有用户可从<strong>设置 → WatchDog 教程</strong>重看。</p>
+     <ol class="guide-steps">
+      <li><strong>确定本周要管的范围：</strong>写明时间段、客户或订单范围，以及想收到的清单。</li>
+      <li><strong>写清负责人、期限和验收标准：</strong>约定谁复核、何时反馈、什么证据算完成。</li>
+      <li><strong>让业务资料支撑管理结论：</strong>指定记录和文件；缺少资料时要求列出缺口，不能猜测。</li>
+      <li><strong>选择巡检节奏，确认业务变更：</strong>先做单次检查，看到实际结果后再考虑重复检查。</li>
+      <li><strong>跟踪任务，复核结果并落实整改：</strong>核对依据、补充要求，再验证后续结果。</li>
+     </ol>
+     <p>阅读、跳过或重看教程不会创建任务、调用模型或连接聊天账号。出现“教程进度未能保存”时，保留当前页面并重试；这不表示模型配置已被修改。</p>
+    </section>
+    <section class="guide-section" id="first-check">
+     <p class="section-kicker">04 / 第一次客户跟进检查</p><h2>用三条示例记录，跑通检查与复核。</h2>
+     <figure class="guide-screen"><a href="assets/watchdog-workspace.png" target="_blank" rel="noreferrer"><img src="assets/watchdog-workspace.png" width="1440" height="1000" alt="WatchDog 实际界面：需要关注什么、检查频率、开始检查，以及下方任务列表" loading="lazy" /></a><figcaption>0.2.0 发布验收时的实际空白工作台截图，不包含真实客户或账号资料。点击查看大图。</figcaption></figure>
+     <ol class="guide-steps">
+      <li>打开左侧 <strong>WatchDog</strong>，将下方完整练习粘贴到<strong>需要关注什么？</strong>文本框。</li>
+      <li>将<strong>检查频率</strong>保持为<strong>单次检查</strong>，点击<strong>开始检查</strong>。系统按任务准备工作空间，无需先挑选目录。</li>
+      <li>查看进入的任务会话及其结果；之后可以回到 WatchDog，用<strong>搜索任务</strong>找到并打开同一会话。</li>
+      <li>按下方验收点核对结果，发现遗漏时在原会话补充要求。</li>
+     </ol>
+     <label class="template-label" for="customer-example">可复制练习：点击文本框后全选复制。以下日期固定用于演示；用于实际业务前，请替换日期、人员与资料。</label>
+     <textarea id="customer-example" class="guide-template" readonly spellcheck="false" rows="24">任务：本周客户跟进检查（教学演练）
+
+本次只分析下方虚构数据，不读取其他本机资料，不写入 CRM、ERP 或笔记，不发送任何消息。
+检查时间：2026 年 9 月 14 日；检查范围：截至 2026 年 9 月 18 日应跟进、且尚未完成的客户事项，包含已逾期事项。
+销售负责人（演示角色）负责复核跟进清单；2026 年 9 月 18 日 17:00 前反馈。人员分工由我自行落实。
+
+客户,公司,下一步行动,跟进日期,完成情况
+示例客户甲,示例甲公司,确认报价反馈,2026-09-13,未完成
+示例客户乙,示例乙公司,核对交付需求,2026-09-16,未完成
+示例客户丙,示例丙公司,回访使用情况,2026-09-17,已完成
+
+请输出：
+1. 待跟进清单，逐项列出客户、原始记录依据、是否逾期、建议行动、复核负责人和期限。
+2. 需要补充或确认的资料。没有依据的内容明确写“待确认”，不要补造事实。
+3. 已完成而不应列入待办的事项及排除理由。
+
+验收标准：所有应跟进事项都有原始记录依据；已完成事项不重复列为待办；只提交分析结果，不执行任何业务修改。
+如果资料不足，先说明缺少什么。</textarea>
+     <div class="guide-result"><strong>应该看到</strong><p>示例客户甲属于已逾期且未完成；示例客户乙在检查期限内；示例客户丙已完成，应被排除并说明原因。表格形式可以不同，但三项判断和原始日期必须可核对。</p></div>
+     <p><strong>结果不符合要求：</strong>在原会话补充：“请按给定日期重新检查，列出每个判断对应的原始行，不要把建议当成已完成的动作。”本练习只是演示分析，不会验证实际 CRM/ERP 接入。</p>
+    </section>
+    <section class="guide-section" id="materials">
+     <p class="section-kicker">05 / 换成你的业务资料</p><h2>先确认资料在哪里，再要求结论。</h2>
+     <p>第一次真实检查，先使用一份范围明确的副本，并在任务中写出文件名、时间范围和允许的操作。任务会话有自己的工作空间；把文件副本放到该空间后，在原会话明确指定。引用一个文件名并不代表系统已经找到或获准读取它。</p>
+     <div class="guide-table-wrap"><table><caption>按资料类型选择工作方式</caption><thead><tr><th scope="col">资料</th><th scope="col">怎么开始</th><th scope="col">如何核验</th></tr></thead><tbody>
+      <tr><th scope="row">CSV / TSV</th><td>提供有表头的文件，说明分隔符、去重或筛选规则。首次要求只读统计；确需输出时另存新文件。</td><td>对照原始行和统计。界面预览有行数上限，不能用预览行数当作完整结果行数。格式错误时先修正源文件。</td></tr>
+      <tr><th scope="row">Word / Excel / PowerPoint</th><td>从<strong>文档编辑器</strong>打开基础 DOCX、XLSX、PPTX，人工核对内容。需要模型分析时，明确指出所需文件和范围，并检查读取结果。</td><td>能在编辑器打开不等于模型已经成功读取。复杂格式或提取失败时，提供相关文本或导出适合分析的数据副本。</td></tr>
+      <tr><th scope="row">CRM / ERP</th><td>在<strong>设置 → 侧边卡片</strong>找到组件，从功能设置选择<strong>在右侧打开</strong>，检查当前本机记录。可人工维护，也可让 AI 在批准后修改。</td><td>新安装的业务库从空记录开始。核对客户、日期、数量与订单状态；不能假定它已同步企业现有系统。</td></tr>
+      <tr><th scope="row">笔记</th><td>从侧栏标签选择器打开<strong>笔记</strong>，新建或打开 Markdown 笔记，编辑后<strong>保存</strong>。需要工作总结时再让 AI 整理。</td><td>重新打开核对已保存内容；AI 建议可先看差异，再决定是否应用。</td></tr>
+     </tbody></table></div>
+     <p class="guide-note">应用和本地记录保存在你的电脑上。模型执行任务时，所需内容会发送到你配置的模型服务；按资料范围选服务和权限。本地存储不代表模型处理完全离线。</p>
+    </section>
+    <section class="guide-section" id="approval">
+     <p class="section-kicker">06 / 审批与修改</p><h2>先核对影响，再允许这一次写入。</h2>
+     <ol class="guide-steps">
+      <li>先在任务中要求只读检查和修改建议。新会话默认采用只读文件访问与询问审批；已有用户保存的权限设置优先，开始真实任务前核对当前设置。</li>
+      <li>需要更新时，要求明确说明目标记录、原值、拟改值和原因。AI 对 CRM/ERP 的每次新业务写入，以及对笔记的修改，都需要单次批准。</li>
+      <li>在原会话逐项读完审批内容。与任务范围相符才批准；内容不符时拒绝或取消，并补充正确要求。写有“只读”的任务描述不能代替权限设置。</li>
+      <li>批准后查看实际回执，并回到对应记录或文件核对。批准代表允许执行，不代表执行已经成功。</li>
+     </ol>
+     <div class="guide-result"><strong>拒绝、取消与冲突</strong><p>被拒绝或取消的该次业务写入不会执行。若记录已被其他操作修改，重新读取并比较最新值，核对后再形成新修改；不要依赖旧草稿覆盖最新记录。</p></div>
+     <p>订单提交会改变库存；销售库存不足时整笔提交回滚。已提交订单不能重复生效。直接在已认证界面点击保存属于你发起的人工编辑，不会再弹一次 AI 写入审批。</p>
+    </section>
+    <section class="guide-section" id="review">
+     <p class="section-kicker">07 / 复核结果与整改</p><h2>任务没有运行，不等于工作完成。</h2>
+     <p>在 WatchDog 的<strong>任务</strong>列表里，先看<strong>待处理</strong>，打开对应任务处理交互。可用<strong>搜索任务</strong>查找原会话，用<strong>刷新</strong>重新读取列表。</p>
+     <div class="guide-table-wrap"><table><caption>任务状态与下一步操作</caption><thead><tr><th scope="col">看到的状态</th><th scope="col">你要做什么</th></tr></thead><tbody>
+      <tr><th scope="row">等待审批</th><td>打开原任务，核对操作范围和影响，批准或拒绝。</td></tr>
+      <tr><th scope="row">等待回答</th><td>补齐问题所需的业务资料；不清楚的事实说明待确认。</td></tr>
+      <tr><th scope="row">等待计划审核</th><td>确认计划是否覆盖目标、资料范围和验收要求。</td></tr>
+      <tr><th scope="row">执行中</th><td>查看当前进度、错误或需要介入的环节，避免重复发起。</td></tr>
+      <tr><th scope="row">当前未运行</th><td>读取实际结果。它只表示当前没有执行，不能直接判定业务成功。</td></tr>
+     </tbody></table></div>
+     <ol class="guide-steps">
+      <li><strong>查依据：</strong>每项结论能否回到具体客户、订单或文件内容？</li>
+      <li><strong>查动作：</strong>“建议跟进”是否真的由负责人接手？需要同事执行时，由你确认并落实。</li>
+      <li><strong>查结果：</strong>要求补齐遗漏，在原任务继续复核，直到符合事先约定的验收标准。</li>
+      <li><strong>留记录：</strong>写明已经确认的事实、待办和下次检查时间，再保存到文件或笔记。</li>
+     </ol>
+     <p class="guide-note">可以补充：“请为每个风险补齐原始记录依据，区分已确认事实、建议与待确认问题；我确认整改后，再按同一标准复查。”不要让一份措辞完整的总结替代实际验收。</p>
+    </section>
+    <section class="guide-section" id="schedule">
+     <p class="section-kicker">08 / 重复检查</p><h2>先验证一次，再约定下一次。</h2>
+     <ol class="guide-steps">
+      <li>先完成并复核<strong>单次检查</strong>，确保读取的资料和输出标准正确。</li>
+      <li>需要重复时，在 WatchDog 填好目标，将<strong>检查频率</strong>选为<strong>每小时</strong>或<strong>每天</strong>，再点<strong>开始检查</strong>创建巡检任务。</li>
+      <li>打开实际任务结果，确认是否安排成功、使用什么时间及对应会话。不能仅凭下拉框的选择就认定已安排。</li>
+      <li>在下一次检查到期后，回到原会话核对真实送达与结果。改变频率前先核查已有安排，避免重复创建。</li>
+     </ol>
+     <p class="guide-note"><strong>必须保持应用与任务会话活动。</strong>提醒由活动的根任务会话接收，并在它能够接收时返回原对话；关闭应用不会启动操作系统后台调度。不要把本版当作关机后仍运行的企业守护服务。</p>
+     <p><strong>没有收到检查：</strong>先确认应用仍在运行、原任务会话有活动任务，并查看安排结果与原会话状态。重新打开应用不等于漏掉的业务检查已自动完成；先核对缺口，必要时明确发起一次补查。</p>
+    </section>
+    <section class="guide-section" id="save">
+     <p class="section-kicker">09 / 保存工作成果</p><h2>把已复核的内容真正保存下来。</h2>
+     <ol class="guide-steps">
+      <li><strong>Office：</strong>使用内嵌编辑器自己的保存按钮。关闭、刷新或替换文件出现未保存提示时，取消可保留当前编辑。保存后重新打开核对。</li>
+      <li><strong>笔记：</strong>编辑后点击<strong>保存</strong>。看到<strong>待审建议</strong>时先检查差异，再决定<strong>应用</strong>或<strong>丢弃</strong>。版本冲突时协调最新内容和草稿后再保存。</li>
+      <li><strong>任务描述：</strong>尚未受理的草稿只在本次前端加载期间保留。刷新页面或退出应用前，先把重要描述保存到自己的文档。</li>
+     </ol>
+     <div class="guide-result"><strong>退出前的具体动作</strong><p>切换会话、移动或移除面板、退出应用前主动保存 Office 与笔记。当前并非所有原生退出路径都有未保存拦截；不要把“没有弹窗”理解为已经保存。</p></div>
+     <p>Office 保存时若磁盘文件已变化，冲突保存会拒绝覆盖；先保留编辑，再核对外部改动。复杂排版、宏、加密文件和旧版二进制格式不在当前兼容验收范围内。删除笔记不进入回收站，确认前先核对对象。</p>
+    </section>
+    <section class="guide-section" id="recovery">
+     <p class="section-kicker">10 / 常见问题与恢复</p><h2>保留原任务，按错误恢复。</h2>
+     <div class="guide-faq">
+      <details open><summary>点击开始后报错，目标和频率被锁住了？</summary><p>这表示原请求可能已经受理。先选择<strong>打开原任务核查</strong>，查看会话是否已有本次任务；需要重试时使用<strong>重试原请求</strong>。该入口复用原请求标识，避免重复创建。确认受理前不要另外创建同样的任务。模型或连接配置有问题时先修正它。</p></details>
+      <details><summary>任务列表没有结果，或者一直显示连接问题？</summary><p>确认当前连接状态后点击<strong>刷新</strong>。如果用了筛选或搜索，先切回<strong>全部</strong>并清空搜索词。刷新失败时保留原会话并重试，不要通过清空数据来恢复列表。</p></details>
+      <details><summary>CRM 或 ERP 是空白，资料没有自动出现？</summary><p>新安装从本地空库开始，不会自动导入浏览器旧记录，也不会连接企业现有系统。先确认本机有没有所需记录，或把指定资料用于任务分析。需要新增时可人工录入，或让 AI 提议并在批准后写入。</p></details>
+      <details><summary>可以扫码连接飞书、微信、企微、钉钉吗？</summary><p>安装内置 IM 插件不等于完成账号连接。各平台的登录方式、账号条件和可用功能由插件及平台决定，需要逐项配置并实测。首次教程的<strong>聊天连接（可选）</strong>只是辅助入口；本教程不自动登录，也不会发送消息。</p></details>
+      <details><summary>装了 OpenViking Memory，为什么没有跨任务记忆？</summary><p>该集成需要另行配置记忆服务，桌面默认在连接前保持禁用。服务健康或插件出现在列表中，都不能证明已成功捕获记忆和跨会话检索。可先使用保存的普通笔记完成工作记录。</p></details>
+      <details><summary>笔记能打开，但待审建议加载失败？</summary><p>使用建议区域自己的重试入口；已加载的笔记仍可使用。不要为刷新建议而丢弃正在编辑的正文。出现外部修改时，先协调最新文件与草稿，再决定是否重新载入。</p></details>
+      <details><summary>遇到无法恢复的问题，反馈什么信息？</summary><p>记录程序版本、系统与芯片、出错步骤、预期结果和实际提示。在<a href="https://github.com/NSIETeam/ClawMaster-Desktop/issues">问题反馈页</a>说明是否可重复；截图先隐藏密钥和业务资料。升级前先保存编辑、结束任务并备份 DSH 主目录，保留该目录以复用凭证和会话。</p></details>
+     </div>
+     <div class="guide-ending"><h3>完成一轮，就是一次可核验的进步。</h3><p>先把一项检查做到资料明确、结论有据、修改获准、结果核实，再逐步增加业务范围。</p><a class="button button-primary" href="./#download">下载并开始使用 <span aria-hidden="true">↓</span></a></div>
+     <p class="guide-source">本教程按 0.2.0-release 界面与行为编写。详细范围以<a href="https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/desktop-v0.2.0-release">发行说明</a>和<a href="https://github.com/NSIETeam/ClawMaster-Desktop/blob/desktop-v0.2.0-release/frontends/dsh/README.zh.md">工作台使用说明</a>为准。</p>
+    </section>
+   </article>
+  </div>
+ </main>
+ <footer><div class="footer-brand"><img class="brand-logo" src="assets/clawmaster.svg" width="48" height="48" alt="" /><strong>ClawMaster</strong></div><p>开启AI时代的企业协作</p><div class="footer-links"><a href="./">产品首页</a><a href="#contents">返回目录</a><span>© 2026 NSIETeam</span></div></footer>
+</body>
+</html>
