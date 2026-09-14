@@ -12,7 +12,7 @@ import LlmRuntime, { createUserMessage } from '../../../packages/llm/llm/src/ind
 import SessionStore, { Session, SessionId } from '../../../packages/core/session/src/index.ts';
 import SessionProjections from '../../../packages/session/session-projection/src/index.ts';
 import SystemPrompt from '../../../packages/core/system-prompt/src/index.ts';
-import ToolRuntime from '../../../packages/core/tools/src/index.ts';
+import ToolRuntime, { defineTool } from '../../../packages/core/tools/src/index.ts';
 import AgentRegistry from '../../../packages/core/agent/src/index.ts';
 import AgentLoop from '../../../packages/core/agent-loop/src/index.ts';
 import ApprovalService from '../../../packages/interaction/user-approval/src/index.ts';
@@ -25,6 +25,7 @@ import { applyDataTools } from '../src/data-tools.ts';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { applyRuntimeGovernance } from '../src/runtime-governance.ts';
+import * as Guard from '../../guard/src/index.ts';
 
 const contact = { id: 'synthetic-lead', name: 'Synthetic Customer', company: 'Fixture Company', stage: 'lead', nextAction: 'Review synthetic lead', nextActionDate: null };
 
@@ -119,6 +120,28 @@ async function fixture(t, script, runtime = false) {
   };
   return { root, store, run, adapter, ctx };
 }
+
+test('Windows tree deletion is denied before execution and its model-visible result survives JSONL replay', { timeout: 30000 }, async t => {
+  const f = await fixture(t, [
+    toolCallResponse('windows-delete', 'bash', { command: 'rm -rf .', workdir: 'C:\\work\\project' }),
+    textResponse('The protected Windows tree was not deleted.'),
+  ]);
+  let executions = 0;
+  await f.ctx.plugin({ name: 'synthetic-shell', inject: ['tools'], apply(ctx) {
+    ctx.effect(() => ctx.tools.register(defineTool({
+      name: 'bash', description: 'Synthetic shell with no filesystem effects.',
+      parameters: { command: { type: 'string', required: true }, workdir: { type: 'string', required: true } },
+      output: { schema: { type: 'string' }, render: text => [{ type: 'text', text }] },
+      async execute() { executions++; return 'must not execute'; },
+    })));
+  } }).await();
+  await f.ctx.plugin(Guard, { resultReview: 'off', planReview: 'off' }).await();
+  const { results } = await f.run();
+  assert.equal(executions, 0);
+  assert.equal(results[0].isError, true);
+  assert.match(results[0].content[0].text, /ClawMaster Guard delete\.broad \(critical\)/);
+  assert.match(results[0].content[0].text, /C:\/work\/project/);
+});
 
 test('live runtime observations reach the model and survive exact Session storage replay', { timeout: 30000 }, async t => {
   const f = await fixture(t, [toolCallResponse('status', 'runtime_status', {}), textResponse('Runtime checked.')], true);

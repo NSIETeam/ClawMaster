@@ -12,7 +12,7 @@ Office 文件需要在任务内编辑并可靠保存。独立文档服务会增�
 
 [Office 组合包](../../../../frontends/office/README.zh.md)在 Better Sidebar 注册 DOCX、XLSX 和 PPTX 查看器。每个 iframe 持有一份文档，使用固定的 onlyoffice-web-local release-8 编辑器与本地 WebAssembly 转换。DSH 现有 WebServer 和 connection 认证提供已校验资源，不引入第二个服务器。HTML 资源策略将连接限制在同源范围内。
 
-显式准备下载由 SHA-256 固定的归档。构建保持离线，并拒绝过期资源或本地依赖链接。分发保留 AGPL-3.0-only 条款、ONLYOFFICE 声明及对应源码入口；ClawMaster 品牌调整不取消这些义务。
+显式准备下载由 SHA-256 固定的归档。桌面发布下载器对暂时性 HTTP 失败最多重试三次；授权失败和哈希校验失败仍然中止。构建保持离线，并拒绝过期资源或本地依赖链接。分发保留 AGPL-3.0-only 条款、ONLYOFFICE 声明及对应源码入口；ClawMaster 品牌调整不取消这些义务。
 
 原生空闲回调缺失会中断 WebKit 初始化，此时编辑器 iframe 使用定时器。资源准备检查 Chromium 内存采样能力并修正演示文稿主题 URL，保留认证、路径检查和法律标记。
 

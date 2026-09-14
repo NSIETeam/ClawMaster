@@ -11,6 +11,7 @@
  */
 
 import type { PreToolDecision } from '@deepseek-ai/dsh-tools';
+import { isWindowsPath, pathUnder } from './paths.ts';
 import { inspectShellCommand, type Finding, type InspectContext } from './classify.ts';
 import { inspectPlan, planReviewReason } from './plan.ts';
 import { describeProbe, probeTargets, resolvedUnder, type TargetProbe, type TargetProbeFn } from './probe.ts';
@@ -150,7 +151,7 @@ export function shellCommandOf(call: { name: string; arguments: unknown }, optio
 export function workdirOf(call: { name: string; arguments: unknown }): string | undefined {
   const args = typeof call.arguments === 'object' && call.arguments !== null ? call.arguments as Record<string, unknown> : {};
   const workdir = args['workdir'];
-  return typeof workdir === 'string' && workdir.startsWith('/') ? workdir : undefined;
+  return typeof workdir === 'string' && (workdir.startsWith('/') || isWindowsPath(workdir)) ? workdir : undefined;
 }
 
 /**
@@ -195,7 +196,7 @@ function look(finding: Finding, context: ReviewContext): TargetProbe[] {
 /** Map a finding onto a pipeline decision: critical denies, high asks, everything else passes. */
 function decide(finding: Finding, options: GuardOptions, probes: readonly TargetProbe[]): PreToolDecision | undefined {
   const named = finding.targets.filter(target => target !== '-');
-  const denied = named.filter(target => options.denyPaths.some(prefix => target === prefix || target.startsWith(`${prefix.replace(/\/+$/, '')}/`)));
+  const denied = named.filter(target => options.denyPaths.some(prefix => pathUnder(target, prefix)));
   if (denied.length > 0) {
     return { kind: 'deny', reason: reason(finding, `Denied by configuration: ${denied.join(', ')} sits under a protected path.`, probes) };
   }
@@ -211,7 +212,7 @@ function decide(finding: Finding, options: GuardOptions, probes: readonly Target
     return { kind: 'deny', reason: reason(finding, 'This command can cause irreversible damage beyond this task, so the guard refuses it outright.', probes) };
   }
   if (finding.risk === 'high') {
-    const allowed = named.length > 0 && named.every(target => options.allowPaths.some(prefix => target === prefix || target.startsWith(`${prefix.replace(/\/+$/, '')}/`)));
+    const allowed = named.length > 0 && named.every(target => options.allowPaths.some(prefix => pathUnder(target, prefix)));
     if (allowed) return undefined;
     return { kind: 'ask', reason: reason(finding, 'Destructive actions need the user\'s own approval; the guard never grants one on the model\'s behalf.', probes) };
   }

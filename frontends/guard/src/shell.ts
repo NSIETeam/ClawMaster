@@ -9,6 +9,8 @@
  * @module @clawmaster/dsh-guard/shell
  */
 
+import { isWindowsPath } from './paths.ts';
+
 /** One command line piece: its argv plus the assignments and redirects around it. */
 export interface ShellSegment {
   /** The raw text of this segment, for diagnostics and reasons. */
@@ -138,7 +140,7 @@ export function expandWord(word: string, context: { home: string; cwd: string; a
   for (const [name, replacement] of Object.entries(context.assignments ?? {})) {
     value = value.replaceAll(`$${name}`, replacement).replaceAll(`\${${name}}`, replacement);
   }
-  if (value.startsWith('/')) return value;
+  if (value.startsWith('/') || isWindowsPath(value)) return value;
   return `${context.cwd === '/' ? '' : context.cwd}/${value}`;
 }
 

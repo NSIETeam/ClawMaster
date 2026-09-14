@@ -12,7 +12,7 @@ Office files need editing and safe persistence within a task. Independent docume
 
 The [Office bundle](../../../../frontends/office/README.md) registers DOCX, XLSX and PPTX viewers in Better Sidebar. Each iframe owns one document and uses the pinned onlyoffice-web-local release-8 editor with local WebAssembly conversion. DSH's existing WebServer and connection authentication serve verified resources; no second server is introduced. HTML resource policy restricts connections to the same origin.
 
-Explicit preparation downloads an archive pinned by SHA-256. Builds remain offline and reject stale resources or local dependency links. Distribution preserves AGPL-3.0-only terms, ONLYOFFICE notices and corresponding-source access; ClawMaster branding does not remove these obligations.
+Explicit preparation downloads an archive pinned by SHA-256. The desktop release downloader retries transient HTTP failures at most three times; authorization failures and failed hash checks remain fatal. Builds remain offline and reject stale resources or local dependency links. Distribution preserves AGPL-3.0-only terms, ONLYOFFICE notices and corresponding-source access; ClawMaster branding does not remove these obligations.
 
 Editor frames use timers when missing native idle callbacks would stop WebKit initialization. Preparation guards Chromium memory sampling and canonicalizes presentation theme URLs, retaining authentication, path checks and legal markup.
 

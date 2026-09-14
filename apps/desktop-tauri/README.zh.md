@@ -153,6 +153,8 @@ Windows 发布 CI 在一次性托管 runner 上执行[已安装桌面检查](scr
 
 资源包的 `.bundle-manifest.json` 包含 `desktopVersion` 与 `buildProvenance`，同内容的 `.build-provenance.json` 参与 `contentSha256`。安装包携带这些记录，不携带 `.git`。每个平台的 `*-build.json` 发布附件标识其源码与产物，发布流程核对其提交、树、版本及干净发布模式与标签一致。溯源检查纳入 `test:bundle`。
 
+发布工作流使用 [Office 下载器](scripts/prepare-office-runtime.mjs)有限重试暂时性 HTTP 失败，随后由 Office 准备程序检查固定的 SHA-256。认证、TLS 和内容校验失败均不能绕过。
+
 在完成 `build:harness` 和 Office 资源准备后，准备载荷而不编译原生壳：
 
 ```powershell

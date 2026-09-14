@@ -149,6 +149,8 @@ Windows release CI runs the [installed desktop check](scripts/verify-windows-nat
 
 The payload's `.bundle-manifest.json` includes `desktopVersion` and `buildProvenance`; the matching `.build-provenance.json` participates in `contentSha256`. The installer carries these records without `.git`. Each platform's `*-build.json` release attachment identifies its source and artifacts, and publication checks its commit, tree, version and clean release mode against the tag. The provenance checks run in `test:bundle`.
 
+The release workflow uses the [Office downloader](scripts/prepare-office-runtime.mjs) for bounded retries of transient HTTP failures, followed by the Office preparer's pinned SHA-256 verification. Authentication, TLS and content-validation failures are not bypassed.
+
 Prepare the payload without compiling the native shell, after `build:harness` and Office resource preparation:
 
 ```powershell

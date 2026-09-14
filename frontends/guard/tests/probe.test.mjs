@@ -92,11 +92,11 @@ describe('decisions', () => {
   });
 
   it('names every target it inspected, and inspects the real ones by default', async () => {
-    const { file } = await tree();
-    const review = reviewCall(call(`rm ${file} /tmp/absent`), DEFAULT_OPTIONS, { home: '/Users/x', cwd: '/tmp' });
+    const { root, file } = await tree();
+    const review = reviewCall(call('rm note.md absent'), DEFAULT_OPTIONS, { home: root, cwd: root });
     assert.equal(review.decision.kind, 'ask');
-    assert.match(review.decision.reason, new RegExp(`${file} \\(file, \\d+ bytes, exists\\)`));
-    assert.match(review.decision.reason, /\/tmp\/absent \(missing/);
+    assert.ok(review.decision.reason.includes(`${file.replaceAll('\\', '/')} (file, 5 bytes, exists)`));
+    assert.match(review.decision.reason, /\/absent \(missing/);
   });
 
   it('leaves the verdict alone when the inspection throws or the command names nothing', () => {

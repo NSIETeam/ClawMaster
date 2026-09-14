@@ -40,6 +40,8 @@ command, `sudo` and `env …` wrappers are stripped so `sudo rm -rf /` is review
 subshells and `&&` chains are read as separate commands, and targets are expanded (`~`, `$HOME`,
 same-line assignments) before they are judged.
 
+Explicit Windows drive and UNC paths use Windows separators and case-insensitive protected-prefix comparisons. POSIX paths retain case and literal backslashes. Home, working-tree and filesystem-root deletion checks use normalized locations; this does not interpret PowerShell syntax or execute shell expansion.
+
 Before it decides, the guard takes one read-only look at the targets a command names and puts what
 it found in the reason both the user and the model read — `file, 5 bytes, exists`, `directory,
 exists`, `missing — nothing exists there to destroy`, `a link to /srv/data`. That look can only make
@@ -130,7 +132,7 @@ profile uses a different one.
 
 ## Verification
 
-`npm --prefix frontends/guard test` builds and then runs the suite: 95 cases covering the risk
+`npm --prefix frontends/guard test` builds and then runs the suite: 100 cases covering the risk
 table above, target expansion, `sudo`/`env` prefixes, subshells and chains, the quoted-prose
 false-positive case, decision mapping, `observe` mode, `allowPaths`/`denyPaths`, workdir
 resolution, and the mount itself — including that a denial never reaches the pipeline and that a

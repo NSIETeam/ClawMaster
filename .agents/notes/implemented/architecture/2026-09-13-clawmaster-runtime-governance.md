@@ -18,6 +18,8 @@ The frontend contributes RSS admission through DSH's monotonic tool guard and li
 
 The ClawMaster profile selects DSH's controlled file preset and ordinary approvals. Child Sessions retain their original delegation events, while canonical DSH setters append narrower permissions before a model step or tool when current ancestors grant less. Missing ancestry fails to read-only; child approvals remain unavailable. This product restriction preserves DSH's historical delegation snapshot rather than rewriting released Session records. Cold-resume tests cover actual filesystem denial and persisted narrowing. The frontend README owns configurable defaults and their precedence.
 
+The [destructive-action guard](../../../../frontends/guard/README.md) normalizes explicit Windows drive and UNC paths independently of the host running its tests. Protected-prefix matching covers literal and resolved paths; POSIX case and backslashes remain literal. Its deny decision enters the ordinary ToolRuntime result and survives JSONL replay without executing the shell body.
+
 ## Alternatives considered
 
 **Store current paths in long-term memory.** A remembered observation cannot establish that a process is still running or that an upgrade has selected another generation.

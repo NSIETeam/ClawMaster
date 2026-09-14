@@ -22,6 +22,8 @@
  */
 
 import { expandWord, hasPattern, splitSegments, type ShellSegment } from './shell.ts';
+import { posix, win32 } from 'node:path';
+import { isWindowsPath, normalizePath as normalize, samePath, pathUnder } from './paths.ts';
 
 /** Ordered risk levels; `critical` is the most severe. */
 export type Risk = 'low' | 'medium' | 'high' | 'critical';
@@ -155,33 +157,17 @@ function resolve(word: string, segment: ShellSegment, context: InspectContext): 
   return normalize(expandWord(word, { home: context.home, cwd: context.cwd, assignments: segment.assignments }));
 }
 
-/**
- * Fold the `.`, `..`, duplicate and trailing slashes a shell would fold, so `rm -rf .` is read as
- * the working directory itself rather than as a child named `.`.
- * @param path - An absolute path.
- * @returns The normalized path.
- */
-function normalize(path: string): string {
-  const parts: string[] = [];
-  for (const part of path.split('/')) {
-    if (part === '' || part === '.') continue;
-    if (part === '..') { parts.pop(); continue; }
-    parts.push(part);
-  }
-  return `/${parts.join('/')}`;
-}
-
 /** The parent of the working directory: deleting it removes the working tree and its siblings. */
 function parentOf(cwd: string): string {
-  const cut = cwd.replace(/\/+$/, '').lastIndexOf('/');
-  return cut <= 0 ? '/' : cwd.slice(0, cut);
+  return normalize(isWindowsPath(cwd) ? win32.dirname(cwd) : posix.dirname(cwd));
 }
 
 /** True when a path is a system, home or other tree root whose deletion is unbounded. */
 function rootish(path: string, context: InspectContext): boolean {
   const trimmed = path.replace(/\/+$/, '') || '/';
   if (SYSTEM_PATHS.has(trimmed)) return true;
-  if (trimmed === context.home.replace(/\/+$/, '')) return true;
+  if (samePath(path, context.home)) return true;
+  if (isWindowsPath(path) && samePath(path, win32.parse(path).root)) return true;
   return false;
 }
 
@@ -258,8 +244,8 @@ function inspectSegment(segment: ShellSegment, context: InspectContext): Finding
  */
 function homeSensitive(path: string, context: InspectContext): boolean {
   const home = normalize(context.home);
-  if (path === home) return true;
-  if (!path.startsWith(`${home}/`)) return false;
+  if (samePath(path, home)) return true;
+  if (!pathUnder(path, home)) return false;
   const rest = path.slice(home.length + 1);
   const first = rest.split('/')[0] ?? '';
   return !rest.includes('/') || HOME_SENSITIVE.includes(first);
@@ -289,7 +275,7 @@ function inspectDelete(segment: ShellSegment, targets: readonly string[], contex
   }
   const parent = parentOf(context.cwd);
   const broad = targets.filter(target => rootish(target, context)
-    || (recursive(segment) && (hasPattern(target) || target === context.cwd || target === parent || /\/\*$/.test(target))));
+    || (recursive(segment) && (hasPattern(target) || samePath(target, context.cwd) || samePath(target, parent) || /\/\*$/.test(target))));
   if (broad.length > 0) {
     return { risk: 'critical', code: 'delete.broad', reason: `This deletes ${broad.join(', ')}, which is a root or an unresolved wildcard rather than a bounded set of files.`, targets: [...targets] };
   }

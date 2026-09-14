@@ -17,6 +17,7 @@
  */
 
 import { lstatSync, realpathSync, statSync, type Stats } from 'node:fs';
+import { pathUnder } from './paths.ts';
 
 /** Most targets one review probes, so a generated command cannot turn a review into a scan. */
 export const MAX_PROBE_TARGETS = 8;
@@ -105,9 +106,7 @@ export function describeProbe(probe: TargetProbe): string | undefined {
 export function resolvedUnder(probe: TargetProbe, prefixes: readonly string[]): string | undefined {
   const candidates = [probe.target, ...probe.realPath === undefined ? [] : [probe.realPath]];
   for (const prefix of prefixes) {
-    const trimmed = prefix.replace(/\/+$/, '');
-    if (trimmed === '') continue;
-    if (candidates.some(candidate => candidate === trimmed || candidate.startsWith(`${trimmed}/`))) return prefix;
+    if (candidates.some(candidate => pathUnder(candidate, prefix))) return prefix;
   }
   return undefined;
 }

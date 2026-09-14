@@ -158,7 +158,9 @@ jobs:
         run: node --import tsx/esm native/system/scripts/build.ts
 
       - name: Prepare verified Office editor resources
-        run: node frontends/office/scripts/prepare-runtime.mjs
+        run: |
+          node --test apps/desktop-tauri/scripts/prepare-office-runtime.test.mjs
+          node apps/desktop-tauri/scripts/prepare-office-runtime.mjs
 
       - name: Build desktop bundles
         env:
