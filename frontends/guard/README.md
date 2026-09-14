@@ -42,13 +42,15 @@ same-line assignments) before they are judged.
 
 ## Use this package
 
-Mount the plugin in the profile. It needs no other configuration:
+Mount the plugin in the profile. All three stages are on with no other configuration: a reviewed
+call is denied or raised for approval, a plan must say how its result will be checked, and every
+finished turn is archived to the notes vault.
 
 ```yaml
 - name: '@clawmaster/dsh-guard'
 ```
 
-Optional configuration:
+Optional configuration, where every field overrides one of those defaults:
 
 ```yaml
 - name: '@clawmaster/dsh-guard'
@@ -67,7 +69,7 @@ logs its verdict and delegates.
 
 ## Result review
 
-With `resultReview: archive` the guard subscribes to the session event stream and, at each
+With `resultReview: archive` (the default) the guard subscribes to the session event stream and, at each
 `turn/end`, composes a review of that turn from the turn's own events: which tools ran, which files
 and commands they named, whether anything reported a failure, and whether a test, build or lint run
 appeared. It states what it could not establish instead of implying success ("No test, build or lint
@@ -99,9 +101,9 @@ auto-reviewer gives.
 | `plan.no-steps` — no ordered steps, so the scope cannot be read from the plan | no |
 | `plan.thin` — the body is too short to review | no |
 
-With `advisory` (the default) the findings are logged and the plan proceeds; with `enforce` a
-**binding** finding turns into an approval request, so a plan that never says how it will be
-verified needs the user's own yes before work starts. A plan that satisfies the rules passes
+With `enforce` (the default) a **binding** finding turns into an approval request, so a plan that
+never says how it will be verified needs the user's own yes before work starts. With `advisory` the
+findings are only logged and the plan proceeds. A plan that satisfies the rules passes
 untouched in both modes. `planTool` names the submitting tool (default `exit_plan_mode`) if a
 profile uses a different one.
 
@@ -120,10 +122,10 @@ profile uses a different one.
 
 ## Verification
 
-`npm --prefix frontends/guard test` builds and then runs the suite: 84 cases covering the risk
+`npm --prefix frontends/guard test` builds and then runs the suite: 85 cases covering the risk
 table above, target expansion, `sudo`/`env` prefixes, subshells and chains, the quoted-prose
 false-positive case, decision mapping, `observe` mode, `allowPaths`/`denyPaths`, workdir
 resolution, and the mount itself — including that a denial never reaches the pipeline and that a
 throwing review delegates instead of breaking the agent. The result stage has its own cases: turn
 facts from representative events, unrecognized payloads, first-line-only commands, the composed
-review text, per-session buffering, the `off` default, a missing vault, and a failing vault write.
+review text, per-session buffering, the `off` switch, a missing vault, and a failing vault write.

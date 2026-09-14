@@ -131,7 +131,7 @@ describe('archive', () => {
 
   it('writes nothing when the review is off or the vault is absent', async () => {
     const quiet = host(undefined);
-    apply(quiet.ctx, {});
+    apply(quiet.ctx, { resultReview: 'off' });
     assert.equal(quiet.listeners.has('session/event'), false, 'off must not subscribe at all');
 
     const noVault = host(undefined);

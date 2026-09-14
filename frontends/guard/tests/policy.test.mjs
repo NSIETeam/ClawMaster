@@ -91,11 +91,20 @@ describe('mounting', () => {
     };
   }
 
-  it('registers one pre-execute listener and reports its mode', () => {
+  it('registers the process and result stages and reports all three defaults', () => {
     const fake = host();
     apply(fake.ctx);
-    assert.deepEqual([...fake.listeners.keys()], ['tools/pre-execute']);
-    assert.match(fake.logs[0], /mounted \(mode enforce, result review off\)/);
+    // The default is a working three-stage guard: review a call, hold a plan to its acceptance,
+    // and archive what the turn actually did.
+    assert.deepEqual([...fake.listeners.keys()], ['tools/pre-execute', 'session/event']);
+    assert.match(fake.logs[0], /mounted \(mode enforce, plan review enforce, result review archive\)/);
+  });
+
+  it('subscribes to the result stage only when a review is wanted', () => {
+    const quiet = host();
+    apply(quiet.ctx, { resultReview: 'off' });
+    assert.deepEqual([...quiet.listeners.keys()], ['tools/pre-execute']);
+    assert.match(quiet.logs[0], /result review off/);
   });
 
   it('denies through the listener and delegates safe calls to the pipeline', async () => {

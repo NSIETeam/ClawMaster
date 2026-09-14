@@ -29,29 +29,31 @@ export interface GuardOptions {
   allowPaths: readonly string[];
   /**
    * Result stage: `archive` appends a checkable review of each finished turn to the notes vault;
-   * `off` records nothing. Defaults to `off`, because an archive that writes noise is worse than no
-   * archive — turn it on when the vault is where work is expected to be remembered.
+   * `off` records nothing. Defaults to `archive`: work that is not written down cannot be checked
+   * later, and the archive is skipped when no notes vault is mounted. Set `off` for a session whose
+   * turns are not worth remembering.
    */
   resultReview: 'off' | 'archive';
   /** Project name an archived entry links to, when the vault has a matching note. */
   resultProject?: string;
   /**
    * Plan stage: `off` ignores plans; `advisory` logs what the review found; `enforce` also asks the
-   * user before accepting a plan that never states how its result will be checked.
+   * user before accepting a plan that never states how its result will be checked. Defaults to
+   * `enforce`: the cheapest moment to catch a plan nobody can verify is before it runs.
    */
   planReview: 'off' | 'advisory' | 'enforce';
   /** Tool that submits a plan for the user's review. */
   planTool: string;
 }
 
-/** Defaults: enforce, review the shell tools, and deny nothing beyond the rule set. */
+/** Defaults: enforce, review the shell tools, archive each finished turn, and hold a plan to its acceptance. */
 export const DEFAULT_OPTIONS: GuardOptions = {
   mode: 'enforce',
   shellTools: ['bash', 'shell', 'run_command', 'exec'],
   denyPaths: [],
   allowPaths: [],
-  resultReview: 'off',
-  planReview: 'advisory',
+  resultReview: 'archive',
+  planReview: 'enforce',
   planTool: 'exit_plan_mode',
 };
 
@@ -79,8 +81,12 @@ export function parseOptions(config: unknown): GuardOptions {
     shellTools: stringList(source['shellTools']) ?? DEFAULT_OPTIONS.shellTools,
     denyPaths: stringList(source['denyPaths']) ?? DEFAULT_OPTIONS.denyPaths,
     allowPaths: stringList(source['allowPaths']) ?? DEFAULT_OPTIONS.allowPaths,
-    resultReview: source['resultReview'] === 'archive' ? 'archive' : DEFAULT_OPTIONS.resultReview,
-    planReview: source['planReview'] === 'off' || source['planReview'] === 'enforce' ? source['planReview'] : DEFAULT_OPTIONS.planReview,
+    resultReview: source['resultReview'] === 'off' || source['resultReview'] === 'archive'
+      ? source['resultReview']
+      : DEFAULT_OPTIONS.resultReview,
+    planReview: source['planReview'] === 'off' || source['planReview'] === 'advisory' || source['planReview'] === 'enforce'
+      ? source['planReview']
+      : DEFAULT_OPTIONS.planReview,
     planTool: typeof source['planTool'] === 'string' && source['planTool'] !== '' ? source['planTool'] : DEFAULT_OPTIONS.planTool,
     ...project !== undefined ? { resultProject: project } : {},
   };

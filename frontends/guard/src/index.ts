@@ -143,5 +143,5 @@ export function apply(ctx: GuardHostContext, config: unknown = {}): void {
     });
   }
 
-  ctx.logger.info(`clawmaster-guard: mounted (mode ${options.mode}, result review ${options.resultReview})`);
+  ctx.logger.info(`clawmaster-guard: mounted (mode ${options.mode}, plan review ${options.planReview}, result review ${options.resultReview})`);
 }
