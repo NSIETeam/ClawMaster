@@ -10,6 +10,7 @@ import type { Context, Events } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { z as zod } from 'zod'
 import type { Agent, RequestErrorAction } from '@deepseek-ai/dsh-agent'
+import { CONTEXT_WINDOW_EXCEEDED_CODE, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
 import type { LlmFailure, ResolvedRetryPolicy } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import { RetryId } from './brand.ts'
@@ -78,6 +79,28 @@ function retryPolicyKey(policy: ResolvedRetryPolicy): string {
 
 function retryStateKey(provider: string, policyKey: string): string {
   return JSON.stringify([provider, policyKey])
+}
+
+/**
+ * Failures that cannot become valid through another identical provider request.
+ * Always mode remains useful for transient outages, but must not create an
+ * unbounded request storm for credentials, quota, or an oversized prompt.
+ */
+function isPermanentFailure(failure: LlmFailure): boolean {
+  return (failure.code === 'AUTH' && (
+    failure.status === 401
+    || failure.status === 403
+    || /\b(?:401|403|unauthori[sz]ed|forbidden)\b/i.test(failure.message)
+    || /\b(?:invalid|missing|expired|bad)\s+(?:api\s+)?(?:key|credential|token)\b/i.test(failure.message)
+  ))
+    || failure.code === QUOTA_EXCEEDED_CODE
+    || failure.code === CONTEXT_WINDOW_EXCEEDED_CODE
+    || failure.code === 'INVALID_REQUEST'
+    || failure.code === 'INVALID_CREDENTIAL'
+    || failure.code === 'MISSING_CREDENTIAL'
+    || failure.code === 'UNKNOWN_MODEL'
+    || failure.code === 'NO_ADAPTER'
+    || failure.code === 'UNSUPPORTED_OPTION'
 }
 
 function cancellableDelay(delayMs: number, signal: AbortSignal): Promise<boolean> {
@@ -211,6 +234,9 @@ export function apply(ctx: Context, config: Config = {}, internals: RetryInterna
       }
       if (downstream.type === 'decision' && downstream.decision?.kind === 'retry') {
         return downstream.decision
+      }
+      if (isPermanentFailure(failure)) {
+        return downstream.type === 'decision' ? downstream.decision : next()
       }
     } else if (!policy.retryableCodes.includes(failure.code)) {
       return next()
