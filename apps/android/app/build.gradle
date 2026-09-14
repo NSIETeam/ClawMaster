@@ -1,0 +1,44 @@
+plugins { id "com.android.application" }
+android {
+    namespace "team.nsi.clawmaster.android"
+    compileSdk 36
+    defaultConfig {
+        applicationId "team.nsi.clawmaster.android"
+        minSdk 26
+        targetSdk 36
+        versionCode 201
+        versionName "0.2.1"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    signingConfigs {
+        validation {
+            if (System.getenv("ANDROID_KEYSTORE_PATH")) {
+                storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias "clawmaster"
+                keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        debug { applicationIdSuffix ".debug" }
+        release {
+            minifyEnabled false
+            debuggable false
+            if (System.getenv("ANDROID_KEYSTORE_PATH")) signingConfig signingConfigs.validation
+        }
+    }
+    testBuildType "release"
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    lint { abortOnError true }
+}
+dependencies {
+    implementation project(":core")
+    androidTestImplementation "androidx.test:runner:1.6.2"
+    androidTestImplementation "androidx.test:rules:1.6.1"
+    androidTestImplementation "androidx.test.ext:junit:1.2.1"
+    androidTestImplementation "androidx.test.espresso:espresso-core:3.6.1"
+}

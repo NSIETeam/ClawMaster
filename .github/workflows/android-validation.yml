@@ -1,0 +1,79 @@
+name: ClawMaster Standalone Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/android-standalone-0.2.1]
+    paths:
+      - apps/android/**
+      - .github/workflows/android-validation.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Android API ${{ matrix.api }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [26, 36]
+    env:
+      ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/clawmaster-validation.jks
+      ANDROID_KEYSTORE_PASSWORD: validation-only-not-a-release-key
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Create disposable validation certificate
+        run: |
+          keytool -genkeypair -noprompt -keystore "$ANDROID_KEYSTORE_PATH" -storepass:env ANDROID_KEYSTORE_PASSWORD -keypass:env ANDROID_KEYSTORE_PASSWORD -alias clawmaster -keyalg RSA -keysize 3072 -validity 30 -dname "CN=ClawMaster CI validation only"
+      - name: Build and verify the standalone release code
+        run: gradle -p apps/android :core:test :app:lintRelease :app:assembleRelease :app:assembleReleaseAndroidTest --no-daemon
+      - name: Enable hardware acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Exercise release APK on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            gradle -p apps/android :app:connectedReleaseAndroidTest --no-daemon
+            adb shell am force-stop team.nsi.clawmaster.android
+            adb shell am start -W -n team.nsi.clawmaster.android/.MainActivity
+            adb shell uiautomator dump /sdcard/clawmaster-relaunch.xml
+            adb pull /sdcard/clawmaster-relaunch.xml apps/android/app/build/clawmaster-relaunch.xml
+            node apps/android/scripts/verify-relaunch.mjs apps/android/app/build/clawmaster-relaunch.xml
+      - name: Record APK integrity and source
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs apps/android/app/build/outputs/apk/release/app-release.apk
+          node apps/android/scripts/record-apk.mjs apps/android/app/build/outputs/apk/release/app-release.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-api-${{ matrix.api }}
+          path: |
+            apps/android/app/build/outputs/apk/release/*.apk
+            apps/android/app/build/outputs/apk/release/*.json
+            apps/android/app/build/reports/
+            apps/android/core/build/reports/tests/
+            apps/android/app/build/clawmaster-relaunch.xml
+          retention-days: 14
+          if-no-files-found: error
