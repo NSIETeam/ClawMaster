@@ -43,7 +43,14 @@ jobs:
           echo "ANDROID_KEYSTORE_PATH=$ANDROID_KEYSTORE_PATH" >> "$GITHUB_ENV"
           keytool -genkeypair -noprompt -keystore "$ANDROID_KEYSTORE_PATH" -storepass:env ANDROID_KEYSTORE_PASSWORD -keypass:env ANDROID_KEYSTORE_PASSWORD -alias clawmaster -keyalg RSA -keysize 3072 -validity 30 -dname "CN=ClawMaster CI validation only"
       - name: Build and verify the standalone release code
-        run: gradle -p apps/android :core:test :app:lintRelease :app:assembleRelease :app:assembleReleaseAndroidTest --no-daemon
+        run: |
+          node --test apps/android/scripts/verify-instrumentation.test.mjs
+          gradle -p apps/android :core:test :app:lintRelease :app:assembleRelease :app:assembleReleaseAndroidTest --no-daemon
+      - name: Prepare the released upgrade fixture
+        run: |
+          curl --fail --location --retry 2 https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.1/clawmaster-0.2.1-android-universal.apk --output "$RUNNER_TEMP/legacy-original.apk"
+          echo "d56d8dd4152c9d8e9a0bfbea118805fa7e3ea9856857e3cd833dcdb107576e41  $RUNNER_TEMP/legacy-original.apk" | sha256sum --check
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$ANDROID_KEYSTORE_PATH" --ks-key-alias clawmaster --ks-pass env:ANDROID_KEYSTORE_PASSWORD --out "$RUNNER_TEMP/legacy-upgrade.apk" "$RUNNER_TEMP/legacy-original.apk"
       - name: Enable hardware acceleration
         run: sudo chmod 666 /dev/kvm
       - name: Exercise release APK on Android
@@ -56,6 +63,13 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
+            adb install "$RUNNER_TEMP/legacy-upgrade.apk"
+            adb install apps/android/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk
+            adb shell am instrument -w -e class team.nsi.clawmaster.android.LegacyUpgradeSeed team.nsi.clawmaster.android.test/androidx.test.runner.AndroidJUnitRunner | tee apps/android/app/build/upgrade-seed.txt
+            node apps/android/scripts/verify-instrumentation.mjs apps/android/app/build/upgrade-seed.txt
+            adb install -r apps/android/app/build/outputs/apk/release/app-release.apk
+            adb shell am instrument -w -e class team.nsi.clawmaster.android.UpgradeCheck team.nsi.clawmaster.android.test/androidx.test.runner.AndroidJUnitRunner | tee apps/android/app/build/upgrade-check.txt
+            node apps/android/scripts/verify-instrumentation.mjs apps/android/app/build/upgrade-check.txt
             gradle -p apps/android :app:connectedReleaseAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true -Pandroid.testInstrumentationRunnerArguments.class=team.nsi.clawmaster.android.StandaloneAgentTest,team.nsi.clawmaster.android.WorkspaceAgentTest --no-daemon
             adb shell am force-stop team.nsi.clawmaster.android
             adb shell am start -W -n team.nsi.clawmaster.android/.MainActivity
@@ -79,5 +93,6 @@ jobs:
             apps/android/core/build/reports/tests/
             apps/android/app/build/clawmaster-relaunch.xml
             apps/android/app/build/release-screen.png
+            apps/android/app/build/upgrade-*.txt
           retention-days: 14
           if-no-files-found: error

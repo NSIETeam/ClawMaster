@@ -34,6 +34,23 @@ public final class OfficeDocumentsTest {
             assertEquals("12", book.getSheetAt(0).getRow(1).getCell(1).getStringCellValue());
         }
     }
+    @Test public void slidesContainValidPositionedTextAndSeparateParagraphs() throws Exception {
+        byte[] bytes = OfficeDocuments.create("pptx", "Title\nBody\fNext slide");
+        try (org.apache.poi.xslf.usermodel.XMLSlideShow slides = new org.apache.poi.xslf.usermodel.XMLSlideShow(new java.io.ByteArrayInputStream(bytes))) {
+            assertEquals(2, slides.getSlides().size());
+            for (org.apache.poi.xslf.usermodel.XSLFSlide slide : slides.getSlides()) {
+                java.util.List<org.apache.xmlbeans.XmlError> errors = new java.util.ArrayList<>();
+                assertTrue(errors.toString(), slide.getXmlObject().validate(new org.apache.xmlbeans.XmlOptions().setErrorListener(errors)));
+                org.openxmlformats.schemas.presentationml.x2006.main.CTShape shape = slide.getXmlObject().getCSld().getSpTree().getSpArray(0);
+                assertEquals(648L * 12700, shape.getSpPr().getXfrm().getExt().getCx());
+                assertEquals(2000, shape.getTxBody().getPArray(0).getRArray(0).getRPr().getSz());
+            }
+        }
+        JSONArray units = OfficeDocuments.read("pptx", bytes);
+        assertEquals(3, units.length());
+        assertEquals("Body", units.getJSONObject(1).getString("text"));
+        assertEquals("Next slide", units.getJSONObject(2).getString("text"));
+    }
     @Test public void concurrentDocumentEditRejectsStaleRevisionAndRetainsOriginalBytes() throws Exception {
         Path root = temporary.newFolder().toPath();
         DocumentStore store = new DocumentStore(root);

@@ -117,15 +117,29 @@ public final class OfficeDocuments {
                     String[] pages = content.split("\f", -1);
                     if (pages.length > 100) throw new IOException("document_unit_limit");
                     for (String page : pages) {
-                        org.apache.poi.xslf.usermodel.XSLFTextBox box = slides.createSlide().createTextBox();
-                        box.setText(page);
-                        org.openxmlformats.schemas.presentationml.x2006.main.CTShape shape = (org.openxmlformats.schemas.presentationml.x2006.main.CTShape) box.getXmlObject();
-                        org.openxmlformats.schemas.drawingml.x2006.main.CTTransform2D transform = shape.getSpPr().isSetXfrm() ? shape.getSpPr().getXfrm() : shape.getSpPr().addNewXfrm();
-                        if (!transform.isSetOff()) transform.addNewOff();
+                        // POI's drawing factory requires desktop AWT; schema objects do not.
+                        org.openxmlformats.schemas.presentationml.x2006.main.CTShape shape = slides.createSlide().getXmlObject().getCSld().getSpTree().addNewSp();
+                        org.openxmlformats.schemas.presentationml.x2006.main.CTShapeNonVisual visual = shape.addNewNvSpPr();
+                        visual.addNewCNvPr().setId(2);
+                        visual.getCNvPr().setName("Text");
+                        visual.addNewCNvSpPr().setTxBox(true);
+                        visual.addNewNvPr();
+                        org.openxmlformats.schemas.drawingml.x2006.main.CTShapeProperties properties = shape.addNewSpPr();
+                        org.openxmlformats.schemas.drawingml.x2006.main.CTTransform2D transform = properties.addNewXfrm();
+                        transform.addNewOff();
                         transform.getOff().setX(36L * 12700); transform.getOff().setY(36L * 12700);
-                        if (!transform.isSetExt()) transform.addNewExt();
+                        transform.addNewExt();
                         transform.getExt().setCx(648L * 12700); transform.getExt().setCy(468L * 12700);
-                        for (XSLFTextParagraph paragraph : box.getTextParagraphs()) for (XSLFTextRun run : paragraph.getTextRuns()) run.setFontSize(20.0);
+                        properties.addNewPrstGeom().setPrst(org.openxmlformats.schemas.drawingml.x2006.main.STShapeType.RECT);
+                        properties.getPrstGeom().addNewAvLst();
+                        org.openxmlformats.schemas.drawingml.x2006.main.CTTextBody body = shape.addNewTxBody();
+                        body.addNewBodyPr();
+                        body.addNewLstStyle();
+                        for (String line : page.split("\n", -1)) {
+                            org.openxmlformats.schemas.drawingml.x2006.main.CTRegularTextRun run = body.addNewP().addNewR();
+                            run.addNewRPr().setSz(2000);
+                            run.setT(line);
+                        }
                     }
                     slides.write(output);
                 }

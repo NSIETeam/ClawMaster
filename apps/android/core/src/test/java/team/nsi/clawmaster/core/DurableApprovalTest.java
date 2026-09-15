@@ -68,4 +68,21 @@ public final class DurableApprovalTest {
         assertTrue(reopened.getJSONArray("messages").toString().contains("outcome_unknown"));
         assertEquals(0, documents.list().length());
     }
+    @Test public void existingConversationGetsWorkspaceToolsWithoutLosingItsRecordedContext() throws Exception {
+        NoteStore notes = new NoteStore(temporary.newFolder("notes").toPath());
+        ConversationStore sessions = new ConversationStore(temporary.newFolder("sessions").toPath());
+        DocumentStore documents = new DocumentStore(temporary.newFolder("documents").toPath());
+        JSONObject record = sessions.create().put("systemPrompt", "Released note-only context").put("tools", AgentEngine.toolSchemas());
+        record.getJSONArray("messages").put(Json.message("user", "Old message")).put(Json.message("assistant", "Old response"));
+        sessions.save(record);
+        new AgentEngine(new Model(), notes, sessions, documents).run(record, "Make a report", background, new AgentEngine.Cancellation());
+        JSONObject restored = sessions.load(record.getString("id"));
+        assertEquals(7, restored.getJSONArray("tools").length());
+        JSONObject previous = restored.getJSONArray("contextHistory").getJSONObject(0);
+        assertEquals(2, previous.getInt("endMessageIndex"));
+        assertEquals("Released note-only context", previous.getString("systemPrompt"));
+        assertEquals(3, previous.getJSONArray("tools").length());
+        assertEquals("Old message", restored.getJSONArray("messages").getJSONObject(0).getString("content"));
+        assertTrue(restored.has("pendingApproval"));
+    }
 }

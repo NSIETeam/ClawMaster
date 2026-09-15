@@ -28,6 +28,8 @@ This partially supersedes the foreground-only scope in the [standalone Android d
 
 ## Consequences
 
+New slide text uses POI's typed OOXML schema objects: its drawing factory depends on AWT classes absent on Android. Schema validation checks textbox structure and dimensions; device tests must also execute slide creation. Existing conversations retain earlier prompt/tool contexts when a new turn adopts the current mobile tools.
+
 Office dependencies increase APK size. Text replacement may flatten mixed formatting within the replaced paragraph; spreadsheet replacements are literal text, and formulas are not evaluated. Macros, digitally signed documents, rendering and complex object editing are excluded. Import and export are explicit copies; original revisions remain recoverable in private storage.
 
 Core tests exercise Office containers, stale revisions, rejected writes, persisted approval and task eligibility. Android instrumentation exercises the shipped Office runtime, foreground services and platform job registration/execution. These checks do not establish vendor-specific battery behavior, real-model availability or long-duration hardware reliability.

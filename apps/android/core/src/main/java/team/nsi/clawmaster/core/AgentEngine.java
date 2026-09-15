@@ -66,8 +66,17 @@ public final class AgentEngine {
         if (prompt.trim().isEmpty() || prompt.length() > 16000) throw new IOException("prompt_limit");
         JSONArray transcript = conversation.getJSONArray("messages");
         if (transcript.length() > 200 || transcript.toString().length() > 180000) throw new IOException("conversation_limit");
-        if (!conversation.has("systemPrompt")) conversation.put("systemPrompt", SYSTEM);
-        if (!conversation.has("tools")) conversation.put("tools", toolSchemas(documents != null));
+        JSONArray tools = toolSchemas(documents != null);
+        if (conversation.has("systemPrompt") && (!SYSTEM.equals(conversation.getString("systemPrompt"))
+            || !tools.toString().equals(conversation.optJSONArray("tools") == null ? "" : conversation.getJSONArray("tools").toString()))) {
+            JSONArray contexts = conversation.optJSONArray("contextHistory");
+            if (contexts == null) contexts = new JSONArray();
+            if (contexts.length() >= 100) throw new IOException("conversation_limit");
+            contexts.put(new JSONObject().put("endMessageIndex", transcript.length()).put("systemPrompt", conversation.getString("systemPrompt"))
+                .put("tools", conversation.optJSONArray("tools")));
+            conversation.put("contextHistory", contexts);
+        }
+        conversation.put("systemPrompt", SYSTEM).put("tools", tools);
         transcript.put(Json.message("user", prompt));
         conversation.put("running", true).put("interrupted", false);
         store.save(conversation);
