@@ -39,7 +39,11 @@ public final class ConversationStore {
         if (record.getBoolean("running")) {
             // A crash can occur after a note commit but before its receipt is saved.
             // Missing receipts are unknown outcomes, never permission to repeat a write.
-            AgentEngine.settlePendingTools(messages);
+            JSONObject approval = record.optJSONObject("pendingApproval");
+            if (approval == null || !"awaiting".equals(approval.optString("state"))) {
+                AgentEngine.settlePendingTools(messages);
+                record.remove("pendingApproval");
+            }
             record.put("running", false).put("interrupted", true);
             save(record);
         }

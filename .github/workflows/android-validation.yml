@@ -3,7 +3,7 @@ name: ClawMaster Standalone Android
 on:
   workflow_dispatch:
   push:
-    branches: [codex/android-standalone-0.2.1]
+    branches: [codex/android-standalone-0.2.1, codex/android-agent-workspace]
     paths:
       - apps/android/**
       - .github/workflows/android-validation.yml
@@ -56,7 +56,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
-            gradle -p apps/android :app:connectedReleaseAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true -Pandroid.testInstrumentationRunnerArguments.class=team.nsi.clawmaster.android.StandaloneAgentTest --no-daemon
+            gradle -p apps/android :app:connectedReleaseAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true -Pandroid.testInstrumentationRunnerArguments.class=team.nsi.clawmaster.android.StandaloneAgentTest,team.nsi.clawmaster.android.WorkspaceAgentTest --no-daemon
             adb shell am force-stop team.nsi.clawmaster.android
             adb shell am start -W -n team.nsi.clawmaster.android/.MainActivity
             adb shell uiautomator dump /sdcard/clawmaster-relaunch.xml

@@ -6,4 +6,4 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = "ClawMasterAndroid"
-include(":core", ":app")
+include(":core", ":app", ":office-runtime")

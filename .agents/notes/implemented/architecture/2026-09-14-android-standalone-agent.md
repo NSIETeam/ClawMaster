@@ -12,7 +12,7 @@ The Android application must execute an agent independently of a desktop or host
 
 [The Android application](../../../../apps/android/README.md) owns a native Java loop, direct HTTPS model transport, app-private notes and versioned conversation records. Its data format is separate from released DSH Session generations. The application neither imports those generations nor claims desktop plugin compatibility.
 
-The mobile executor grants only note search, read and revision-checked write tools. Every model-originated write waits for a one-shot native approval bound to the exact proposed values. Cancellation and commit serialize; a cancellation cannot authorize a pending write. A missing durable tool receipt after interruption is an unknown outcome, not a retry instruction.
+The mobile executor restricts tool execution to its declared phone-local capabilities. Every model-originated write requires native approval bound to the exact proposed values. Cancellation and commit serialize; a cancellation cannot authorize a pending write. A missing durable tool receipt after interruption is an unknown outcome, not a retry instruction. The [document and task decision](2026-09-15-android-document-tasks.md) owns Office tools and persisted approvals.
 
 Provider credentials are encrypted using Android Keystore. Model URLs require HTTPS and contain no user info, query or fragment. Requests do not follow redirects with authorization headers. The APK has no shared-storage, shell or accessibility-control permission.
 
@@ -22,6 +22,6 @@ A remote WebView client would be smaller but would require a desktop or server a
 
 ## Consequences
 
-The phone can complete a model/tool/approval loop without a ClawMaster backend, but a configured model provider and network access are still required. Foreground-only execution avoids claiming Android background reliability without a foreground-service design. Mobile records and credentials are app-private and are removed by uninstall.
+The phone can complete a model/tool/approval loop without a ClawMaster backend, but a configured model provider and network access are still required. The [document and task decision](2026-09-15-android-document-tasks.md) supersedes the foreground-only restriction with Android-owned execution and explicit recovery rules. Mobile records and credentials are app-private and are removed by uninstall.
 
 Core recorded-provider tests cover approval rejection, tampered arguments, revision conflicts, cancellation, unknown tools and interrupted transcripts. Release-variant instrumentation covers native approvals, Activity recreation, local persistence and Keystore round trips. APK and certificate verification remain distinct from live-model or marketplace acceptance.

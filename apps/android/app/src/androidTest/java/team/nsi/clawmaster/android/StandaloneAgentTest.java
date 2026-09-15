@@ -62,7 +62,7 @@ public final class StandaloneAgentTest {
                 try { controller.newConversation(); controller.send("Save a local note", model); }
                 catch (Exception e) { throw new AssertionError(e); }
             });
-            awaitState(controller, "approval");
+            awaitState(controller, "waiting_approval");
             scenario.recreate();
             onView(withText(R.string.approve)).inRoot(isDialog()).perform(click());
             awaitState(controller, "complete");
@@ -84,7 +84,7 @@ public final class StandaloneAgentTest {
                 try { controller.newConversation(); controller.send("Propose a note", model); }
                 catch (Exception e) { throw new AssertionError(e); }
             });
-            awaitState(controller, "approval");
+            awaitState(controller, "waiting_approval");
             onView(withText(R.string.reject)).inRoot(isDialog()).perform(click());
             awaitState(controller, "complete");
             assertEquals(0, controller.notes.search(title).length());
@@ -100,7 +100,7 @@ public final class StandaloneAgentTest {
                 try { controller.newConversation(); controller.send("Propose", new RecordedModel(title)); }
                 catch (Exception e) { throw new AssertionError(e); }
             });
-            awaitState(controller, "approval");
+            awaitState(controller, "waiting_approval");
             scenario.onActivity(activity -> controller.stop());
             awaitState(controller, "stopped");
             assertEquals(0, controller.notes.search(title).length());

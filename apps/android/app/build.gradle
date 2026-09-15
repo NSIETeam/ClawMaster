@@ -6,10 +6,10 @@ android {
         applicationId "team.nsi.clawmaster.android"
         minSdk 26
         targetSdk 36
-        versionCode 201
-        versionName "0.2.1"
+        versionCode 202
+        versionName "0.2.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        testInstrumentationRunnerArguments class: "team.nsi.clawmaster.android.StandaloneAgentTest"
+        testInstrumentationRunnerArguments class: "team.nsi.clawmaster.android.StandaloneAgentTest,team.nsi.clawmaster.android.WorkspaceAgentTest"
     }
     signingConfigs {
         validation {
@@ -35,6 +35,7 @@ android {
         targetCompatibility JavaVersion.VERSION_11
     }
     lint { abortOnError true }
+    packaging { resources { excludes += ['META-INF/DEPENDENCIES', 'META-INF/INDEX.LIST'] } }
 }
 dependencies {
     implementation project(":core")

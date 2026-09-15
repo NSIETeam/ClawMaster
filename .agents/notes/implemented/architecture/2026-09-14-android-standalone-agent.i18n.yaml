@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-14-android-standalone-agent.md
-2026-09-14-android-standalone-agent.md: ea9457a1c501bb3ef48d21fddf9c9cd1b7e38d7b
-2026-09-14-android-standalone-agent.zh.md: 3b8601378d36c7e3b55321bda45b7bcddc877374
+2026-09-14-android-standalone-agent.md: fef38be88e48f75402814259e878a6cfe11706c9
+2026-09-14-android-standalone-agent.zh.md: 98a2282009f125276e576941acb2d2a8f730b678

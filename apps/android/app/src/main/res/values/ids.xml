@@ -11,4 +11,6 @@
     <item name="model_id" type="id" />
     <item name="api_key" type="id" />
     <item name="save_settings" type="id" />
+    <item name="tab_files" type="id" />
+    <item name="tab_tasks" type="id" />
 </resources>
