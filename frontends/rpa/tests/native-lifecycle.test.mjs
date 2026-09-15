@@ -1,7 +1,9 @@
 /** Owned subprocesses are bounded, scrubbed and reaped before a read settles. */
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, watch, writeFile } from 'node:fs/promises';
+import { once } from 'node:events';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -35,20 +37,41 @@ for (const stream of ['stdout', 'stderr']) {
 }
 
 test('an aborted read rejects only after the ready native process has exited', async t => {
-  const f = await fixture(t, `import {writeFileSync,renameSync} from 'node:fs';import path from 'node:path';
-const root=path.dirname(process.argv[1]);writeFileSync(path.join(root,'ready.tmp'),String(process.pid));
-renameSync(path.join(root,'ready.tmp'),path.join(root,'ready'));setInterval(()=>{},1000);`);
-  const deadline = AbortSignal.timeout(15_000);
-  const events = watch(f.root, { signal: deadline });
-  const ready = (async () => {
-    for await (const event of events) if (event.filename === 'ready') return Number(await readFile(path.join(f.root, 'ready'), 'utf8'));
-    throw new Error('helper did not report readiness');
-  })();
+  const connections = new Set();
+  const server = createServer(connection => {
+    connections.add(connection);
+    connection.once('close', () => connections.delete(connection));
+  });
+  server.maxConnections = 1;
   const controller = new AbortController();
-  const pending = createNativeHelper(f.spec).run('wechat-read-selected', [], controller.signal);
-  t.after(async () => { controller.abort(); await pending.catch(() => {}); await events.return(); });
-  const pid = await ready;
-  await events.return();
+  const readiness = new AbortController();
+  const deadline = AbortSignal.any([AbortSignal.timeout(15_000), readiness.signal]);
+  let socket, pending;
+  t.after(async () => {
+    controller.abort();
+    const closed = server.listening ? new Promise(resolve => server.close(resolve)) : Promise.resolve();
+    for (const connection of connections) connection.destroy();
+    await pending?.catch(() => {});
+    await closed;
+  });
+  const listening = once(server, 'listening');
+  server.listen(0, '127.0.0.1');
+  await listening;
+  const source = `import {connect} from 'node:net';
+const socket=connect(${server.address().port},'127.0.0.1');
+socket.once('connect',()=>socket.end(String(process.pid)));socket.on('error',()=>process.exit(2));setInterval(()=>{},1000);`;
+  const connected = once(server, 'connection', { signal: deadline });
+  pending = createNativeHelper({ command: process.execPath, args: ['--input-type=module', '-e', source, '--'] })
+    .run('wechat-read-selected', [], controller.signal);
+  void pending.catch(error => readiness.abort(error));
+  [socket] = await connected;
+  let received = '';
+  socket.setEncoding('utf8');
+  socket.on('data', chunk => { received += chunk; if (received.length > 32) readiness.abort(new Error('Invalid ready PID')); });
+  await once(socket, 'end', { signal: deadline });
+  assert.match(received, /^[1-9]\d{0,9}$/u);
+  const pid = Number(received);
+  assert.doesNotThrow(() => process.kill(pid, 0), 'the helper must be running when cancellation starts');
   controller.abort();
   await assert.rejects(pending, /cancelled/u);
   assert.throws(() => process.kill(pid, 0), error => error.code === 'ESRCH');

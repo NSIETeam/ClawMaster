@@ -124,12 +124,13 @@ test('a different D-Bus owner prevents the command and retains failure diagnosti
   await assert.rejects(execute('bash', [script, process.execPath, '-e', 'console.log("unexpected command")'], {
     env: { ...env, TEST_FOREIGN_OWNER: '1' }, timeout: 20000,
   }), error => {
-    assert.equal(error.code, 1)
+    assert.equal(error.code, 1, error.stderr)
     assert.equal(error.stdout, '')
     assert.match(error.stderr, /not owned by this acceptance command/)
     assert.match(error.stderr, /files retained at/)
     return true
   })
+  assert.equal(readFileSync(env.TEST_DAEMON_TERM, 'utf8'), 'received')
   assert.equal(readdirSync(runnerTemp).length, 1)
 })
 

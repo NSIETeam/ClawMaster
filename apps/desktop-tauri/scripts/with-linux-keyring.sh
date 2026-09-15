@@ -27,8 +27,9 @@ task_child_pending() {
     if [[ "$task_pid" == "$1" ]]; then
       task_observed=$(ps -p "$task_pid" -o ppid= -o stat= 2>/dev/null) || return 1
       read -r task_parent task_state <<< "$task_observed"
-      [[ "$task_parent" == "$$" && "$task_state" != Z* ]]
-      return
+      # Bash 5 can make a bare return inherit the EXIT trap's triggering status.
+      if [[ "$task_parent" == "$$" && "$task_state" != Z* ]]; then return 0; fi
+      return 1
     fi
   done
   return 1
