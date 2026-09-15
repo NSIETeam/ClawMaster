@@ -1,48 +1,58 @@
 {
-  "schemaVersion": 3,
-  "version": "0.2.1",
-  "programVersion": "0.2.1",
-  "tagName": "desktop-v0.2.1",
-  "publishedAt": "2026-09-15T00:09:28Z",
-  "releaseUrl": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/desktop-v0.2.1",
-  "checksumsUrl": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.1/SHA256SUMS.txt",
-  "assets": {
-    "windows": {
-      "name": "clawmaster-0.2.1-windows-x64-setup.exe",
-      "bytes": 75745064,
-      "size": "72.24 MiB",
-      "sha256": "01793569314b97043c853478b1f1543b31ee9f210c43af9e49b9207e22801ab1",
-      "url": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.1/clawmaster-0.2.1-windows-x64-setup.exe"
-    },
-    "mac-arm64": {
-      "name": "clawmaster-0.2.1-macos-arm64.dmg",
-      "bytes": 111075746,
-      "size": "105.93 MiB",
-      "sha256": "321d736ee462de85ac04a42fd426f72a1a1e844190cf3ed568b6b0b2b6bacf20",
-      "url": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.1/clawmaster-0.2.1-macos-arm64.dmg"
-    },
-    "mac-x64": {
-      "name": "clawmaster-0.2.1-macos-x64.dmg",
-      "bytes": 111501463,
-      "size": "106.34 MiB",
-      "sha256": "b4e37c258ee1228eb7b4010ef14d32e787bd2482ebc5aa93591e5a7a7c0b5718",
-      "url": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.1/clawmaster-0.2.1-macos-x64.dmg"
-    },
-    "linux-appimage": {
-      "name": "clawmaster-0.2.1-linux-x64.AppImage",
-      "bytes": 181225976,
-      "size": "172.83 MiB",
-      "sha256": "47c71126cb8271b6fcf040e496467f209767cab02fdfe2233cb6b4fb19cedb79",
-      "url": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.1/clawmaster-0.2.1-linux-x64.AppImage"
-    },
-    "linux-deb": {
-      "name": "clawmaster-0.2.1-linux-x64.deb",
-      "bytes": 111884390,
-      "size": "106.70 MiB",
-      "sha256": "48586366cb680ab0c605b36f6345205e6791fff8a2d59580334df55b29827c5e",
-      "url": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.1/clawmaster-0.2.1-linux-x64.deb"
+  "schemaVersion": 4,
+  "releases": {
+    "desktop": {
+      "version": "0.2.2",
+      "programVersion": "0.2.2",
+      "tagName": "desktop-v0.2.2",
+      "publishedAt": "2026-09-15T08:51:55Z",
+      "releaseUrl": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/desktop-v0.2.2",
+      "checksumsUrl": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.2/SHA256SUMS.txt"
     },
     "android": {
+      "version": "0.2.1",
+      "programVersion": "0.2.1",
+      "tagName": "desktop-v0.2.1",
+      "publishedAt": "2026-09-15T00:09:28Z",
+      "releaseUrl": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/desktop-v0.2.1",
+      "checksumsUrl": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.1/SHA256SUMS.txt"
+    }
+  },
+  "assets": {
+    "windows": {
+      "release": "desktop",
+      "name": "clawmaster-0.2.2-windows-x64-setup.exe",
+      "bytes": 77591603,
+      "size": "74.00 MiB",
+      "sha256": "c38c1e37485f577882adac3e2a0436d3f2961c45710ccba8a52bd51367129215",
+      "url": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.2/clawmaster-0.2.2-windows-x64-setup.exe"
+    },
+    "mac-arm64": {
+      "release": "desktop",
+      "name": "clawmaster-0.2.2-macos-arm64.dmg",
+      "bytes": 113428593,
+      "size": "108.17 MiB",
+      "sha256": "4003cff51505e2da674c2ea60117abc99ba1265ccd17b4a6d1df845c2c1dfe7f",
+      "url": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.2/clawmaster-0.2.2-macos-arm64.dmg"
+    },
+    "linux-appimage": {
+      "release": "desktop",
+      "name": "clawmaster-0.2.2-linux-x64.AppImage",
+      "bytes": 185006584,
+      "size": "176.44 MiB",
+      "sha256": "a886fdd5be7d4b78dcaf01c15b2ff9a516e713b1184898e0739c405fe2f24ad7",
+      "url": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.2/clawmaster-0.2.2-linux-x64.AppImage"
+    },
+    "linux-deb": {
+      "release": "desktop",
+      "name": "clawmaster-0.2.2-linux-x64.deb",
+      "bytes": 116134200,
+      "size": "110.75 MiB",
+      "sha256": "0f50318da65b2f8463a19b677424e6061f280540dd294317199f704a22ae0328",
+      "url": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.2/clawmaster-0.2.2-linux-x64.deb"
+    },
+    "android": {
+      "release": "android",
       "name": "clawmaster-0.2.1-android-universal.apk",
       "bytes": 45759,
       "size": "44.69 KiB",

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+ <meta charset="utf-8" />
+ <meta name="viewport" content="width=device-width, initial-scale=1" />
+ <meta name="description" content="ClawMaster 0.2.2 升级指南：保留模型配置与会话，检查服务器更新，区分组件暂存与生效；在 macOS 按次授权读取已选微信聊天。" />
+ <meta name="theme-color" content="#ffffff" />
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+ <link rel="canonical" href="https://nsieteam.github.io/ClawMaster/updates.html" />
+ <link rel="icon" href="favicon.svg" type="image/svg+xml" media="(prefers-color-scheme: light)" />
+ <link rel="icon" href="assets/clawmaster-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+ <link rel="stylesheet" href="styles.css" />
+ <link rel="stylesheet" href="guide.css" />
+ <title>0.2.2 更新与微信授权指南 | ClawMaster</title>
+</head>
+<body class="guide-page">
+ <a class="skip-link" href="#main">跳到指南正文</a>
+ <header class="site-header">
+  <a class="brand" href="./" aria-label="ClawMaster 官网首页"><img class="brand-logo" src="assets/clawmaster.svg" width="48" height="48" alt="" /><span>ClawMaster</span></a>
+  <nav aria-label="页面导航"><a href="tutorials.html">教程中心</a><a href="#contents">本篇目录</a><a href="./#download">下载</a></nav>
+  <a class="header-link" href="./#download">下载桌面版 <span aria-hidden="true">↓</span></a>
+ </header>
+ <main id="main">
+  <header class="guide-hero">
+   <p class="eyebrow">CLAWMASTER / DESKTOP 0.2.2</p>
+   <h1>保留你的工作，<br /><span>用好这次更新。</span></h1>
+   <p class="hero-lede">先完成桌面升级，再按需使用服务器更新和微信读取。了解每一步会改什么、需要你批准什么，以及怎样确认已经生效。</p>
+   <p class="guide-meta">桌面 0.2.2 · 2026 年 9 月 15 日 · 微信读取为 macOS 试用功能 · 安卓仍为 0.2.1</p>
+   <div class="hero-actions"><a class="button button-primary" href="#upgrade">保留数据，开始升级 <span aria-hidden="true">↓</span></a><a class="button button-secondary" href="#wechat">查看微信授权步骤</a></div>
+  </header>
+  <div class="guide-layout">
+   <aside class="guide-toc" id="contents" aria-label="指南目录">
+    <p class="section-kicker">本篇目录</p>
+    <ol><li><a href="#changes">这次更新了什么</a></li><li><a href="#upgrade">保留数据升级</a></li><li><a href="#components">检查与应用更新</a></li><li><a href="#wechat">按次授权微信读取</a></li><li><a href="#recovery">遇到问题怎么办</a></li><li><a href="#verification">已验证的范围</a></li></ol>
+    <a class="guide-back" href="tutorials.html">← 返回教程中心</a>
+   </aside>
+   <article class="guide-content">
+    <section class="guide-section" id="changes">
+     <p class="section-kicker">01 / 更新内容</p><h2>更新来源更明确，窗口操作更顺手。</h2>
+     <div class="guide-pair"><div><h3>服务器更新与桌面修复</h3><p>桌面优先从 ClawMaster 更新服务器检查正式版本，GitHub 作为备用来源。macOS 红绿灯占用独立标题栏，会话、侧栏与插件内容从下方开始。</p></div><div><h3>按任务使用微信资料</h3><p>macOS 新增每次单独批准的微信读取工具。AI 可以请求读取你已打开的聊天中有限的可见消息，用于整理本次任务。</p></div></div>
+     <p>Windows 修复更新文件缓存复用与知识索引路径匹配；Linux 改用系统密钥服务保存本地执行记录的加密密钥。安装包包含匹配平台的本地执行程序，继续保留笔记批注、WatchDog 业务审批、Office 保存冲突保护与重新启动修复。</p>
+     <p>0.2.2 提供 Apple Silicon Mac、Windows x64、Linux x64 AppImage 和 DEB。不再提供 Intel Mac 新安装包；安卓独立 Agent 保持 <a href="android.html">0.2.1</a>，本次没有安卓 0.2.2。</p>
+    </section>
+    <section class="guide-section" id="upgrade">
+     <p class="section-kicker">02 / 安装与数据</p><h2>替换应用，保留工作资料。</h2>
+     <ol class="guide-steps">
+      <li>保存正在编辑的文件，等待任务结束，正常退出 ClawMaster。若关闭窗口被设置为最小化到托盘，请从应用菜单或托盘选择退出。</li>
+      <li>备份原有模型配置、会话、笔记库、业务工作区和 WatchDog 企业数据。不要用会清理应用数据的卸载器，也不要把密钥放进对话或公开文件。</li>
+      <li>从<a href="./#download">官网下载区</a>选择对应安装包，按卡片中的 SHA-256 核对文件。macOS 安装到原来的应用位置，避免留下两份同名应用；Windows 和 Linux 使用对应安装器升级。</li>
+      <li>打开 ClawMaster，等待运行环境准备完成。首次准备仍需联网；保留原 DSH 主目录后，已有模型配置与会话可以继续使用。</li>
+      <li>查看历史会话、WatchDog 任务和需要的文件，再正常退出并重新打开。安装包版本正确、界面能打开与模型能实际回应，需要分别确认。</li>
+     </ol>
+     <div class="guide-result"><strong>升级完成应看到</strong><p>应用为 0.2.2，原有资料仍在；WatchDog 显示已连接，退出后能够重新打开。已连接只说明界面与运行时相连，模型凭据与额度还需通过实际任务确认。</p></div>
+     <details class="guide-faq"><summary>管理人员：需要备份哪些数据？</summary><p>保留实际使用的 DSH 主目录（常见为 <code>~/.dsh</code>），包括凭据、设置、会话、插件配置和整个 <code>watchdog</code> 目录。macOS 还需保留应用支持目录、外置笔记库及系统钥匙串。从 0.2.0 等旧版升级时，旧格式的企业数据库会迁移；回退到 0.2.0 时，需要同时恢复升级前的数据库备份，不能只换回旧应用。</p></details>
+    </section>
+    <section class="guide-section" id="components">
+     <p class="section-kicker">03 / 更新方式</p><h2>检查、下载与生效，分别确认。</h2>
+     <p>桌面打开后会后台检查正式版本。你也可以从托盘选择检查更新，先确认下载与签名校验，再单独确认安装和重启；取消后当前应用继续运行。后台检查只读取版本信息，不会自动替你批准安装。</p>
+     <p>在会话中输入 <code>/updates</code>，或请 AI“检查当前可用更新，只查看信息”，可以查看更新组件提供的结果。它不会因为检查而下载或改动文件。没有该命令时，先核对更新组件是否已加载。</p>
+     <div class="guide-table-wrap"><table><caption>根据返回状态，判断下一步</caption><thead><tr><th scope="col">更新类型</th><th scope="col">如何生效</th></tr></thead><tbody><tr><th scope="row">允许热更新的组件</th><td>批准具体版本后，下载并校验，交给运行时加载；仍需确认加载成功和功能可用。</td></tr><tr><th scope="row">显示“已暂存”的组件</th><td>文件已准备，尚未替换。更新器自身也属于这一类，需在运行时停止后另行安装；只重启应用不会自动完成。</td></tr><tr><th scope="row">DSH 核心与桌面外壳</th><td>仍需桌面安装流程。插件下载好文件，不代表原生安装已经完成。</td></tr></tbody></table></div>
+     <p class="guide-note">以前通过接入压缩包安装的更新器会保留版本、配置与停用选择，不会被重复安装。旧更新器需要单独升级后才能使用新通道；首次安装接入包不能替换已有更新器。若旧版查不到 0.2.2，可以从本页官方安装包升级桌面。</p>
+     <p>组件是否能更新，取决于服务器实际发布的目录和当前运行时兼容性。提供更新入口不代表所有 DSH 组件都已上线独立更新。</p>
+    </section>
+    <section class="guide-section" id="wechat">
+     <p class="section-kicker">04 / 微信逐次授权</p><h2>先选定聊天，再批准这一次读取。</h2>
+     <p>此功能需要已登录的 macOS 微信和系统辅助功能权限。它是读取你选定聊天的工具，与 IM 机器人登录是两种独立功能。当前不支持 Windows 或 Linux 的个人微信读取。</p>
+     <ol class="guide-steps">
+      <li>先在微信里手动打开一段适合测试的聊天，让目标消息在窗口中可见。准备完整显示标题；群聊需要包含标题上显示的人数后缀。</li>
+      <li>回到 ClawMaster，说明要读取的标题、条数与用途。建议第一次使用少量、不含敏感资料的测试消息；单次可请求 1 到 50 条可见文字条目。</li>
+      <li>AI 发起读取请求后，核对审批卡片上的聊天、数量和用途。每次读取都需要单独批准；取消、拒绝或更换参数后，原批准不能继续使用。</li>
+      <li>批准后保持目标聊天和窗口位置不变，等待返回。标题不匹配或微信界面无法识别时，读取会停止并说明原因。</li>
+      <li>将结果与当前可见消息对照，再用于整理待办。可见消息和辅助功能文字不等于完整聊天记录，不应据此推断未显示的上下文。</li>
+     </ol>
+     <div class="guide-result"><strong>试用任务示例</strong><p>“请使用微信读取工具，申请读取我已经打开的聊天『填写完整显示标题』中最多 5 条当前可见消息，整理其中明确提到的待办。先向我申请本次授权，不发送消息，不读取其他聊天。”</p></div>
+     <p class="guide-note">读到的消息会进入当前会话、会话记录及你配置的模型服务，用于本次任务。请在批准前确认资料范围和模型服务；不要把这个功能理解为消息始终只留在微信或本机。</p>
+     <p>读取器不自动切换聊天、不翻页、不读取数据库或解密历史，不截图、不后台监听，也不发送消息。真实微信版本的兼容性仍需单独授权实测；系统辅助功能权限由你自行决定是否授予。</p>
+    </section>
+    <section class="guide-section" id="recovery">
+     <p class="section-kicker">05 / 常见问题</p><h2>保留现场，按实际错误处理。</h2>
+     <div class="guide-faq">
+      <details><summary>更新检查失败或签名不匹配？</summary><p>先检查网络与错误提示。不要跳过签名验证或改用来历不明的文件；可从本页官方 Release 下载对应版本并核对摘要。校验失败不代表更新已经安装。</p></details>
+      <details><summary>更新后仍像旧版本，或启动没有完成？</summary><p>确认打开的是刚安装的应用，并等待运行环境准备完成。预配失败可能继续使用旧运行时；保留启动错误和数据备份，向维护者反馈应用版本及错误信息，不要先删除整个数据目录。</p></details>
+      <details><summary>微信提示未识别、标题不符或缺少权限？</summary><p>保持微信主窗口中的目标聊天可见，核对完整标题与系统辅助功能权限。布局不支持时停止本次读取，不应扩大到其他聊天或抓取全部历史来绕过。再次尝试仍需一次新的批准。</p></details>
+      <details><summary>Linux 提示密钥服务不可用？</summary><p>本地执行记录使用系统 Secret Service。根据系统提示解锁可用的密钥服务；没有可用服务时会明确报错，不能把失败当成已保存。</p></details>
+     </div>
+    </section>
+    <section class="guide-section" id="verification">
+     <p class="section-kicker">06 / 验证范围</p><h2>知道已经验证到哪一步。</h2>
+     <p>0.2.2 的 macOS 与 Windows 发布测试包含安装、窗口启动、正常退出、重开和数据保留检查。macOS 另检验普通与窄窗口布局。Windows 测试在 GitHub Windows 发布环境完成，尚未进行微软 Windows Sandbox 验收。</p>
+     <p>Linux AppImage 与 DEB 完成解包、本地执行组件、运行时重启、WatchDog 和编辑器检查，尚未完成原生桌面安装点击流程验收。微信审批和读取范围通过隔离测试，尚未据此证明任何用户微信版本的真实读取兼容性。</p>
+     <p>macOS 使用临时签名，未经过 Apple 公证；Windows 没有发布者证书。安卓 0.2.1 的模拟器与模型测试范围见<a href="android.html#verification">安卓指南</a>。</p>
+     <p class="guide-source"><a href="https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/desktop-v0.2.2">0.2.2 发行说明</a> · <a href="https://github.com/NSIETeam/ClawMaster-Desktop/actions/runs/34945103587">桌面发布验收</a> · <a href="https://github.com/NSIETeam/ClawMaster-Desktop/blob/desktop-v0.2.2/frontends/updates/README.zh.md">更新组件说明</a> · <a href="https://github.com/NSIETeam/ClawMaster-Desktop/blob/desktop-v0.2.2/frontends/rpa/README.zh.md">微信读取范围</a></p>
+     <div class="guide-ending"><h3>从一项可核验的工作开始。</h3><p>升级后先确认资料和模型，再用小范围任务验证结果。需要企业工作跟进示例，可以继续阅读 WatchDog 教程。</p><a class="button button-primary" href="guide.html">阅读 WatchDog 教程 <span aria-hidden="true">→</span></a></div>
+    </section>
+   </article>
+  </div>
+ </main>
+ <footer><div class="footer-brand"><img class="brand-logo" src="assets/clawmaster.svg" width="48" height="48" alt="" /><strong>ClawMaster</strong></div><p>开启AI时代的企业协作</p><div class="footer-links"><a href="./">产品首页</a><a href="./#download">下载桌面版</a><span>© 2026 NSIETeam</span></div></footer>
+</body>
+</html>

@@ -11,7 +11,7 @@ document.querySelectorAll('[data-release-copy]').forEach((button) => {
     button.disabled = true;
 
     try {
-      if (!checksum) throw new Error('Missing displayed checksum');
+      if (!/^[a-f0-9]{64}$/.test(checksum ?? '')) throw new Error('Invalid displayed SHA-256');
       await navigator.clipboard.writeText(checksum);
       button.textContent = '已复制';
     } catch {
