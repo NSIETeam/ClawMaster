@@ -138,8 +138,8 @@ struct SystemMasterKeyProvider;
 
 impl MasterKeyProvider for SystemMasterKeyProvider {
     fn load_or_create(&self, store_identity: &str) -> Result<[u8; 32], StateStoreError> {
-        let entry = keyring::Entry::new(KEYRING_SERVICE, store_identity)
-            .map_err(|error| StateStoreError::Credential(error.to_string()))?;
+        let builder = keyring::default::default_credential_builder();
+        let entry = persistent_system_entry(builder.as_ref(), store_identity)?;
         match entry.get_password() {
             Ok(encoded) => decode_master_key(&encoded),
             Err(keyring::Error::NoEntry) => {
@@ -154,6 +154,25 @@ impl MasterKeyProvider for SystemMasterKeyProvider {
             Err(error) => Err(StateStoreError::Credential(error.to_string())),
         }
     }
+}
+
+/// A process-local or login-scoped key cannot decrypt this durable database after restart.
+fn persistent_system_entry(
+    builder: &dyn keyring::credential::CredentialBuilderApi,
+    store_identity: &str,
+) -> Result<keyring::Entry, StateStoreError> {
+    if !matches!(
+        builder.persistence(),
+        keyring::credential::CredentialPersistence::UntilDelete
+    ) {
+        return Err(StateStoreError::Credential(
+            "当前平台缺少持久化安全凭据后端".into(),
+        ));
+    }
+    builder
+        .build(None, KEYRING_SERVICE, store_identity)
+        .map(keyring::Entry::new_with_credential)
+        .map_err(|error| StateStoreError::Credential(error.to_string()))
 }
 
 fn decode_master_key(value: &str) -> Result<[u8; 32], StateStoreError> {
@@ -885,6 +904,24 @@ mod tests {
     use std::fs;
     use std::process::Command;
     use std::sync::Barrier;
+
+    #[test]
+    fn system_database_rejects_ephemeral_credential_backends() {
+        let builder = keyring::mock::default_credential_builder();
+        let error = persistent_system_entry(builder.as_ref(), "synthetic-store")
+            .err()
+            .expect("an ephemeral key must be refused before a database is opened");
+        assert!(error.to_string().contains("持久化安全凭据后端"));
+    }
+
+    #[test]
+    fn shipped_keyring_backend_persists_until_explicit_deletion() {
+        let builder = keyring::default::default_credential_builder();
+        assert!(matches!(
+            builder.persistence(),
+            keyring::credential::CredentialPersistence::UntilDelete
+        ));
+    }
 
     struct FixedKey([u8; 32]);
 

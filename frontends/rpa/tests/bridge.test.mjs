@@ -1,15 +1,15 @@
 /** @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0 */
 
-// Bridge tests. Most cases drive a stand-in helper, so they prove the process
-// contract without a Rust build. The final case runs the real recovered binary
-// when it has been built, and asserts the documented fail-closed behavior when
-// macOS has not granted Accessibility.
+// Stand-in helpers exercise transport failures. Built helpers verify approval,
+// encrypted persistence and URL rejection without inspecting a real desktop.
 
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { promisify } from 'node:util';
 
 import {
   NATIVE_READ_ONLY_COMMANDS,
@@ -200,6 +200,44 @@ test('the helper classifies a tool and words the approval prompt', { skip: nativ
 
   const read = await handlers.approvalFor({ tool: 'rpa_status' });
   assert.equal(read.write, false);
+});
+
+test('a rejected run and its receipt survive independent helper processes', { skip: nativeSkip }, async t => {
+  const stateDir = await mkdtemp(path.join(tmpdir(), 'clawmaster-rpa-persistent-'));
+  t.after(() => rm(stateDir, { recursive: true, force: true }));
+  const handlers = createRpaHandlers({ stateDir });
+  const runId = 'rpa-22222222-2222-4222-8222-222222222222';
+  const rejected = await handlers.call({
+    tool: 'rpa_start',
+    arguments: { runId, tenantId: 'synthetic-tenant', platformId: 'synthetic-platform', url: 'https://example.com' },
+  });
+  assert.equal(rejected.payload.profilePath, '');
+  assert.equal(rejected.payload.receipts.length, 1);
+  assert.equal(rejected.payload.receipts[0].state, 'rejected');
+  for (let read = 0; read < 2; read++) {
+    const reopened = await handlers.call({ tool: 'rpa_status', arguments: { runId } });
+    assert.deepEqual(reopened.payload.run, rejected.payload);
+  }
+});
+
+test('an unavailable Linux Secret Service refuses state access before creating a database', {
+  skip: process.platform !== 'linux' ? 'Linux Secret Service connection semantics' : nativeSkip,
+}, async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'clawmaster-rpa-no-secret-service-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const request = { root, tool: 'rpa_status', arguments: { runId: 'synthetic-run' } };
+  await assert.rejects(promisify(execFile)(defaultHelperPath(), ['--native-tool', 'rpa-call', JSON.stringify(request)], {
+    env: { PATH: process.env.PATH, DBUS_SESSION_BUS_ADDRESS: `unix:path=${path.join(root, 'missing.sock')}` },
+    encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024,
+  }), error => {
+    assert.equal(error.code, 2);
+    assert.equal(error.signal, null);
+    assert.equal(error.killed, false);
+    assert.match(error.stderr, /NativeStateStore 系统密钥错误/u);
+    assert.doesNotMatch(error.stderr, /已隔离损坏记录/u);
+    return true;
+  });
+  assert.deepEqual(await readdir(path.join(root, 'state')), []);
 });
 
 test('an approval binding releases the gate, and the next refusal is the URL policy', { skip: nativeSkip }, async (t) => {

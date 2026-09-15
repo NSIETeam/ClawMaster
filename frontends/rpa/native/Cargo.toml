@@ -20,7 +20,7 @@ url = "2"
 xa11y = "=0.13.0"
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 getrandom = "0.2"
-keyring = { version = "3.6.3", default-features = false, features = ["apple-native", "windows-native"] }
+keyring = { version = "3.6.3", default-features = false, features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust", "vendored"] }
 process-wrap = { version = "9.1.0", default-features = false, features = ["std", "job-object", "process-group"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]

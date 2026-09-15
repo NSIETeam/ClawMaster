@@ -168,7 +168,8 @@ export async function processIdentity(pid) {
   if (!Number.isSafeInteger(pid) || pid <= 1) throw new Error('Invalid owned process id')
   try {
     const { stdout } = await execute('/bin/ps', ['-ww', '-p', String(pid), '-o', 'ppid=', '-o', 'lstart=', '-o', 'comm='], {
-      timeout: 5000, env: { ...acceptanceEnvironment(process.env, process.env.DSH_HOME), LC_ALL: 'C' },
+      // macOS ps escapes non-ASCII paths under C; English UTF-8 also keeps the start time stable.
+      timeout: 5000, env: { ...acceptanceEnvironment(process.env, process.env.DSH_HOME), LC_ALL: process.platform === 'darwin' ? 'en_US.UTF-8' : 'C' },
     })
     const match = /^\s*(\d+)\s+(\S+\s+\S+\s+\d+\s+\d+:\d+:\d+\s+\d+)\s+(.+?)\s*$/u.exec(stdout)
     assert.ok(match, 'Unexpected process identity output')
@@ -284,7 +285,7 @@ export async function verifyMacosNative(options) {
   process.once('SIGINT', interrupt)
   process.once('SIGTERM', interrupt)
   const report = { schemaVersion: 1, platform: 'darwin', closeMode: options.closeMode, runtimeVerified: false, guiCloseVerified: false,
-    installedApp: join(root, 'installed/ClawMaster.app'), appDataRoot, preparedManifestSha256: sha256(prepared), runs: [] }
+    installedApp: join(root, 'installed/ClawMaster.app'), appDataRoot, preparedManifestSha256: sha256(prepared), launches: [], runs: [] }
   try {
     await mkdir(appDataRoot, { mode: 0o700 })
     ownedAppData = true
@@ -324,11 +325,14 @@ export async function verifyMacosNative(options) {
       const startedAtUnixMs = Date.now()
       desktop = spawn(binary, [], { cwd: dirname(binary), env: acceptanceEnvironment(process.env, dshHome), stdio: 'ignore' })
       let exitResult = null, spawnError = null
+      const launch = { startedAtUnixMs, desktopPid: desktop.pid, observedIdentity: null, spawnFailureCode: null, exit: null }
+      report.launches.push(launch)
       exited = new Promise(resolveExit => {
-        desktop.once('error', error => { spawnError = error; resolveExit(null) })
-        desktop.once('exit', (code, signal) => { exitResult = { code, signal }; resolveExit(exitResult) })
+        desktop.once('error', error => { spawnError = error; launch.spawnFailureCode = error.code ?? error.name; resolveExit(null) })
+        desktop.once('exit', (code, signal) => { exitResult = { code, signal }; launch.exit = exitResult; resolveExit(exitResult) })
       })
       const desktopIdentity = await processIdentity(desktop.pid)
+      launch.observedIdentity = desktopIdentity
       assert.ok(desktopIdentity && desktopIdentity.path === binary, 'Could not establish the copied desktop process identity')
       const tracker = watchOwnedDescendants(desktopIdentity)
       trackers.push(tracker)

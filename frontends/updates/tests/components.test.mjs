@@ -6,7 +6,7 @@ import { join, parse, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import test from 'node:test';
-import { Header } from 'tar';
+import { Header, Pax } from 'tar';
 import { parseDocument } from 'yaml';
 import { withFileLock } from '@deepseek-ai/dsh-atomic-write';
 
@@ -22,10 +22,12 @@ const manifest = { name: descriptor.packageName, version: descriptor.version, ty
 // Maintained tar headers let the parser tests express paths and links that the fixture filesystem cannot safely create.
 function archive(entries) {
   const blocks = [];
-  for (const { path, content = '', type = 'File', linkpath } of entries) {
+  for (const { path, content = '', type = 'File', linkpath, paxPath } of entries) {
     const bytes = Buffer.from(content);
     const header = new Header({ path, type, size: type === 'File' ? bytes.length : 0, mode: 0o644, ...(linkpath === undefined ? {} : { linkpath }) });
     header.encode();
+    assert.equal(new Header(header.block).path, path);
+    if (paxPath !== undefined) blocks.push(new Pax({ path: paxPath }).encode());
     blocks.push(header.block);
     if (type === 'File') blocks.push(bytes, Buffer.alloc((512 - bytes.length % 512) % 512));
   }
@@ -152,7 +154,7 @@ test('unexpected files in an installed component prevent activation', async () =
 }));
 
 test('descriptor identity and Host versions are checked before installation', async () => fixture(async ({ options }) => {
-  for (const change of [{ id: '../other' }, { version: '../1.0.0' }, { entry: '../outside.js' }, { entry: '/outside.js' }, { requiresDshVersion: '>=9.0.0' }, { id: 'updates' }]) {
+  for (const change of [{ id: '../other' }, { version: '../1.0.0' }, { entry: '../outside.js' }, { entry: '/outside.js' }, { entry: './dist\\index.js' }, { requiresDshVersion: '>=9.0.0' }, { id: 'updates' }]) {
     await assert.rejects(installComponent({ ...options, descriptor: { ...descriptor, ...change } }), /Invalid|unsafe|different DSH|restart/);
   }
   await assert.rejects(installComponent({ ...options, dshVersion: 'unknown' }), /different DSH/);
@@ -168,9 +170,11 @@ test('traversal, links, device nodes, duplicate names and Windows path aliases a
     { path: 'package/device', type: 'CharacterDevice' }, { path: 'package/dist/index.js', content: 'duplicate' },
     { path: 'package/DIST/INDEX.JS', content: 'case alias' }, { path: 'package/CON.txt', content: 'device alias' },
     { path: 'package/a\\b', content: 'separator alias' },
+    { path: 'package/safe-path', paxPath: 'package/a\\b', content: 'extended separator alias' },
+    { path: 'package/safe-path', paxPath: '../escape', content: 'extended traversal' },
   ]) {
     await writeFile(options.archivePath, archive(entries(manifest, [extra])));
-    await assert.rejects(installComponent(options), /unsafe|only regular|duplicate|case-conflicting/);
+    await assert.rejects(installComponent(options), /unsafe|only regular|duplicate|case-conflicting/, extra.paxPath ?? extra.path);
     const owner = join(options.dshHome, 'clawmaster-updates', 'components', 'fixture');
     assert.deepEqual(await readdir(owner), []);
     await assert.rejects(readFile(join(root, 'escape')), { code: 'ENOENT' });

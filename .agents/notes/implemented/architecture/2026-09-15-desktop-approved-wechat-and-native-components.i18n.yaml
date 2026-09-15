@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-15-desktop-approved-wechat-and-native-components.md
-2026-09-15-desktop-approved-wechat-and-native-components.md: 573349fe52dcb05d18e477693275c7aaf85ef133
-2026-09-15-desktop-approved-wechat-and-native-components.zh.md: 66f122c1e856429e826351dfc67da1be20fc75be
+2026-09-15-desktop-approved-wechat-and-native-components.md: 51fd4c433a892ed0a852f4dd5bc914abeaa38e91
+2026-09-15-desktop-approved-wechat-and-native-components.zh.md: 7ab0b2df46c2643e7940ee1c78315a8a49857412

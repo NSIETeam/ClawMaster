@@ -23991,10 +23991,14 @@ async function downloadVerifiedFile(input, options) {
     try {
       await rename(stage, destination);
     } catch (error51) {
-      if (!(error51 instanceof Error && "code" in error51 && (error51.code === "EEXIST" || error51.code === "ENOTEMPTY"))) throw error51;
-      const folder = await lstat(destination);
+      if (!(error51 instanceof Error && "code" in error51 && ["EEXIST", "ENOTEMPTY", "EPERM"].includes(String(error51.code)))) throw error51;
+      const folder = await lstat(destination).catch((inspectionError) => {
+        if (inspectionError.code === "ENOENT") throw error51;
+        throw inspectionError;
+      });
+      if (!folder.isDirectory() || folder.isSymbolicLink()) throw new Error("Immutable update cache must be a real directory");
       const existing = await lstat(join(destination, "payload"));
-      if (!folder.isDirectory() || folder.isSymbolicLink() || !existing.isFile() || existing.isSymbolicLink() || existing.size !== size || await fileDigest(join(destination, "payload")) !== sha2562) throw new Error("Immutable update cache differs from verified bytes");
+      if (!existing.isFile() || existing.isSymbolicLink() || existing.size !== size || await fileDigest(join(destination, "payload")) !== sha2562) throw new Error("Immutable update cache differs from verified bytes");
     }
     return { path: join(destination, "payload"), sha256: sha2562, size };
   } finally {
@@ -27229,6 +27233,7 @@ function inventory(ceilings) {
   const folded = /* @__PURE__ */ new Set();
   let bytes = 0;
   return { names, files, onReadEntry(entry2) {
+    safeRelative(entry2.header.path.replace(/\/$/, ""));
     const name2 = safeRelative(entry2.path.replace(/\/$/, ""));
     if (name2 !== "package" && !name2.startsWith("package/") || !["File", "Directory"].includes(entry2.type)) {
       throw new Error("Components permit only regular npm package files and directories");

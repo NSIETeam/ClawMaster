@@ -27,3 +27,5 @@ Explicit termination mode records SIGTERM as termination, allows separately reco
 ## Consequences
 
 The script is restricted to disposable GitHub-hosted macOS runners. Its unit tests validate evidence rejection and the executable's local-run refusal without launching ClawMaster. GUI acceptance requires a successful run on the selected image; source inspection and unit tests do not supply that result. The sentinels test file preservation, not model-session replay. DMG drag installation, Gatekeeper/notarization, real accounts and external model operations require separate acceptance.
+
+macOS process observations use an English UTF-8 locale to preserve Unicode executable paths while keeping creation times parseable. A temporary non-GUI executable verifies paths containing Chinese characters, spaces and a hash character; this check supplies process-identity evidence without launching the desktop.

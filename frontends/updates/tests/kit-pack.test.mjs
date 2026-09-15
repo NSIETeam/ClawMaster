@@ -4,6 +4,7 @@ import { createHash, generateKeyPairSync, sign, verify } from 'node:crypto'
 import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import test from 'node:test'
 import { buildKit } from '../scripts/build-kit.mjs'
@@ -128,9 +129,10 @@ test('nonignored output, unsafe input links and immutable output changes fail cl
 })
 
 test('CLI parser requires every explicit option and rejects unknown or repeated flags', async () => {
-  const valid = ['--published-payload-dir', '/tmp/published', '--signing-key', '/tmp/key', '--source-commit', 'a'.repeat(40), '--output-dir', '/tmp/artifacts']
+  const keyPath = join(tmpdir(), 'key')
+  const valid = ['--published-payload-dir', join(tmpdir(), 'published'), '--signing-key', keyPath, '--source-commit', 'a'.repeat(40), '--output-dir', join(tmpdir(), 'artifacts')]
   assert.equal(parseOptions(valid).sourceCommit, 'a'.repeat(40))
-  for (const args of [[], valid.slice(0, -2), [...valid, '--unknown', 'value'], [...valid, '--output-dir', '/tmp/again'], valid.map(value => value === '/tmp/key' ? 'relative' : value), valid.map(value => value === 'a'.repeat(40) ? 'main' : value)]) assert.throws(() => parseOptions(args))
-  await assert.rejects(run(process.execPath, [new URL('../scripts/pack-kit.mjs', import.meta.url).pathname]), error => error.code === 1 && /absolute normalized path/.test(error.stderr))
-  await assert.rejects(run(process.execPath, [new URL('../scripts/build-kit.mjs', import.meta.url).pathname, '--unknown']), error => error.code === 1 && /Usage/.test(error.stderr))
+  for (const args of [[], valid.slice(0, -2), [...valid, '--unknown', 'value'], [...valid, '--output-dir', join(tmpdir(), 'again')], valid.map(value => value === keyPath ? 'relative' : value), valid.map(value => value === 'a'.repeat(40) ? 'main' : value)]) assert.throws(() => parseOptions(args))
+  await assert.rejects(run(process.execPath, [fileURLToPath(new URL('../scripts/pack-kit.mjs', import.meta.url))]), error => error.code === 1 && /absolute normalized path/.test(error.stderr))
+  await assert.rejects(run(process.execPath, [fileURLToPath(new URL('../scripts/build-kit.mjs', import.meta.url)), '--unknown']), error => error.code === 1 && /Usage/.test(error.stderr))
 })

@@ -102,10 +102,44 @@ pub fn candidates() -> Vec<Candidate> {
             },
         ]
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(target_os = "linux")]
+    {
+        vec![
+            Candidate {
+                id: "chrome",
+                label: "Google Chrome",
+                executable: linux_executable(&[
+                    "/usr/bin/google-chrome-stable",
+                    "/usr/bin/google-chrome",
+                    "/opt/google/chrome/chrome",
+                ]),
+                webdriver_contract: false,
+            },
+            Candidate {
+                id: "edge",
+                label: "Microsoft Edge",
+                executable: linux_executable(&[
+                    "/usr/bin/microsoft-edge-stable",
+                    "/usr/bin/microsoft-edge",
+                    "/opt/microsoft/msedge/msedge",
+                ]),
+                webdriver_contract: false,
+            },
+        ]
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         Vec::new()
     }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_executable(paths: &[&str]) -> PathBuf {
+    paths
+        .iter()
+        .map(PathBuf::from)
+        .find(|path| path.is_file())
+        .unwrap_or_else(|| PathBuf::from(paths[0]))
 }
 
 #[cfg(target_os = "windows")]
@@ -282,6 +316,20 @@ fn safe_segment(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn supported_desktop_platforms_declare_browser_candidates_without_launching_them() {
+        let candidates = candidates();
+        let ids = candidates
+            .iter()
+            .map(|candidate| candidate.id)
+            .collect::<Vec<_>>();
+        assert!(ids.contains(&"chrome"));
+        assert!(ids.contains(&"edge"));
+        assert!(candidates
+            .iter()
+            .all(|candidate| !candidate.executable.as_os_str().is_empty()));
+    }
 
     #[test]
     fn owned_browser_enables_the_complete_accessibility_tree() {

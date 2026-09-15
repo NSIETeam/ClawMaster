@@ -2,12 +2,38 @@
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import { once } from 'node:events'
+import { copyFile, mkdtemp, realpath, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { acceptanceEnvironment, assertDisposableRunner, parseOptions, processIdentity, reapOwned, verifyMacosNativeEvidence, watchOwnedDescendants } from './verify-macos-native.mjs'
 
 const runner = { GITHUB_ACTIONS: 'true', RUNNER_ENVIRONMENT: 'github-hosted', RUNNER_OS: 'macOS',
   RUNNER_TEMP: '/private/runner/temp', GITHUB_WORKSPACE: '/private/runner/work' }
+
+test('macOS process identity preserves Unicode, spaces and hash characters in executable paths', {
+  skip: process.platform !== 'darwin' ? 'macOS ps path rendering' : false, timeout: 15000,
+}, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'ClawMaster native 验收 # '))
+  let child, finished
+  t.after(async () => {
+    if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
+    if (finished) await finished
+    await rm(root, { recursive: true, force: true })
+  })
+  const copied = join(root, 'sleep')
+  await copyFile('/bin/sleep', copied)
+  const binary = await realpath(copied)
+  child = spawn(binary, ['60'], { stdio: 'ignore', env: acceptanceEnvironment(process.env) })
+  finished = once(child, 'exit')
+  await once(child, 'spawn')
+  const identity = await processIdentity(child.pid)
+  assert.equal(identity.parentPid, process.pid)
+  assert.equal(identity.path, binary)
+  assert.equal(child.exitCode, null)
+  assert.equal(child.signalCode, null)
+})
 
 function fixture() {
   const bundle = { contentSha256: 'a'.repeat(64), buildProvenance: {

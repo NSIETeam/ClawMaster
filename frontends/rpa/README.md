@@ -46,7 +46,7 @@ The tool does not open chats, scroll, read the database, decrypt history, captur
 
 The [Host reader](src/wechat.ts) owns one-time DSH approval and result validation. The [native reader](native/src/wechat.rs) applies title, layout, visibility and count checks; its macOS adapter uses lazy AX attributes instead of eager whole-tree snapshots. Native subprocesses receive an allowlisted operating-system environment, bounded output and a timeout; cancellation settles after the owned process exits.
 
-The helper resolves from `dist/native/<platform>-<arch>/clawmaster-rpa-native[.exe]`, with local Cargo release/debug paths for development. General RPA retains artifact-scoped references and encrypted state. These read restrictions belong to `wechat_read`; they do not sandbox arbitrary local shell commands or replace the authorization policy of other tools.
+The helper resolves from `dist/native/<platform>-<arch>/clawmaster-rpa-native[.exe]`, with local Cargo release/debug paths for development. General RPA retains artifact-scoped references and encrypted state. These read restrictions belong to `wechat_read`; they do not sandbox arbitrary local shell commands or replace the authorization policy of other tools. Linux stores the database key in the desktop Secret Service, using encrypted D-Bus transport and a bundled D-Bus client library. The service must be available and unlockable; failed credential access refuses state access without process-local keys or plaintext fallbacks. Browser discovery declares Chrome and Edge candidates on Linux without launching them.
 
 </details>
 

@@ -218,7 +218,7 @@ for (const location of ['profile', 'home']) {
   })
 }
 
-test('the published 0.1.0 bootstrap rejects a fresh desktop profile without adding a second updater', async t => {
+test('updater bootstrap rejects a fresh desktop profile without adding a second updater', async t => {
   const f = fixture(t)
   await prepareDesktopProfile(f.root, f.home)
   const updater = await import(new URL('../../../frontends/updates/dist/index.js', import.meta.url).href)

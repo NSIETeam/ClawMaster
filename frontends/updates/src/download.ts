@@ -146,10 +146,15 @@ export async function downloadVerifiedFile(input: { url: string; size?: number; 
     const destination = join(options.cacheDir, `sha256-${sha256}`)
     try { await rename(stage, destination) }
     catch (error) {
-      if (!(error instanceof Error && 'code' in error && (error.code === 'EEXIST' || error.code === 'ENOTEMPTY'))) throw error
-      const folder = await lstat(destination)
+      // Windows reports an occupied directory as EPERM; an absent target still means publication failed.
+      if (!(error instanceof Error && 'code' in error && ['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(String(error.code)))) throw error
+      const folder = await lstat(destination).catch((inspectionError: NodeJS.ErrnoException) => {
+        if (inspectionError.code === 'ENOENT') throw error
+        throw inspectionError
+      })
+      if (!folder.isDirectory() || folder.isSymbolicLink()) throw new Error('Immutable update cache must be a real directory')
       const existing = await lstat(join(destination, 'payload'))
-      if (!folder.isDirectory() || folder.isSymbolicLink() || !existing.isFile() || existing.isSymbolicLink()
+      if (!existing.isFile() || existing.isSymbolicLink()
         || existing.size !== size || await fileDigest(join(destination, 'payload')) !== sha256) throw new Error('Immutable update cache differs from verified bytes')
     }
     return { path: join(destination, 'payload'), sha256, size }

@@ -52,7 +52,7 @@ macOS 读取器识别 `com.tencent.xinWeChat`，要求其主窗口，并只接�
 
 [Host 读取器](src/wechat.ts)负责 DSH 一次性授权和结果校验。[原生读取器](native/src/wechat.rs)落实标题、布局、可见性和数量检查；macOS 适配器惰性查询 AX 属性，不预先抓取整个控件树的文字。原生子进程只继承白名单内的系统环境变量，输出和运行时间有上限；取消后等待所拥有进程退出才结束调用。
 
-助手优先从 `dist/native/<platform>-<arch>/clawmaster-rpa-native[.exe]` 解析，开发时可回退到本地 Cargo release/debug 路径。通用 RPA 保留按产物限定的引用及加密状态。这些读取限制由 `wechat_read` 提供，不会沙箱化任意本机命令，也不替代其它工具的授权策略。
+助手优先从 `dist/native/<platform>-<arch>/clawmaster-rpa-native[.exe]` 解析，开发时可回退到本地 Cargo release/debug 路径。通用 RPA 保留按产物限定的引用及加密状态。这些读取限制由 `wechat_read` 提供，不会沙箱化任意本机命令，也不替代其它工具的授权策略。 Linux 将数据库密钥保存在桌面 Secret Service，使用加密的 D-Bus 传输及内置 D-Bus 客户端库。服务必须可用且能够解锁；凭据访问失败时拒绝访问状态，不接受仅在进程内保存的密钥或明文回退。Linux 浏览器发现声明 Chrome 和 Edge 候选，不启动浏览器。
 
 </details>
 

@@ -115,6 +115,8 @@ function inventory(ceilings: ComponentLimits): { names: Set<string>; files: Set<
   const folded = new Set<string>();
   let bytes = 0;
   return { names, files, onReadEntry(entry) {
+    // ReadEntry normalizes Windows separators; its header retains the archive's original path.
+    safeRelative(entry.header.path!.replace(/\/$/, ''));
     const name = safeRelative(entry.path.replace(/\/$/, ''));
     if ((name !== 'package' && !name.startsWith('package/')) || !['File', 'Directory'].includes(entry.type)) {
       throw new Error('Components permit only regular npm package files and directories');

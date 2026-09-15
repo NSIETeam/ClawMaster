@@ -86,7 +86,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -q
-          sudo apt-get install -yq libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils musl-tools
+          sudo apt-get install -yq libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils musl-tools gnome-keyring libglib2.0-bin dbus
 
       - name: Require clean release source
         run: node apps/desktop-tauri/scripts/build-provenance.mjs
@@ -149,12 +149,18 @@ jobs:
         run: node apps/desktop-tauri/scripts/prepare-rpa-native.mjs --target ${{ matrix.target }} --smoke
 
       - name: Verify RPA control plane and distributed native bridge
-        shell: bash
+        shell: pwsh
         env:
           CLAWMASTER_REQUIRE_NATIVE: '1'
         run: |
-          npm test --prefix frontends/rpa
+          if ($env:RUNNER_OS -eq 'Linux') {
+            dbus-run-session -- bash apps/desktop-tauri/scripts/with-linux-keyring.sh npm test --prefix frontends/rpa
+          } else {
+            npm test --prefix frontends/rpa
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Native RPA bridge acceptance failed' }
           npm run typecheck --prefix frontends/rpa
+          if ($LASTEXITCODE -ne 0) { throw 'Native RPA types failed' }
 
       - name: Verify Graph Memory component
         run: |
@@ -167,7 +173,7 @@ jobs:
         run: |
           pnpm --dir apps/desktop-tauri run test:bundle
           pnpm --dir apps/desktop-tauri run test:update-manifest
-          node --test apps/desktop-tauri/scripts/windows-native-evidence.test.mjs apps/desktop-tauri/scripts/verify-macos-native.test.mjs
+          node --test apps/desktop-tauri/scripts/windows-native-evidence.test.mjs apps/desktop-tauri/scripts/verify-macos-native.test.mjs apps/desktop-tauri/scripts/with-linux-keyring.test.mjs
           node --test apps/desktop-tauri/sys-prompt/tests/assembly.test.mjs
 
       - name: Verify Linux package permission rejection cases
