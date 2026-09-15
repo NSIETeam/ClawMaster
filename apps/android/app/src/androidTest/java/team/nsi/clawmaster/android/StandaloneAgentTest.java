@@ -119,4 +119,47 @@ public final class StandaloneAgentTest {
             assertEquals("https://example.test/v1", settings.base());
         } finally { settings.removeKey(); }
     }
+
+    @Test public void documentApprovalShowsItsContentBeforeCreatingTheWordFile() throws Exception {
+        AgentController controller = controller();
+        String name = "Approved-" + java.util.UUID.randomUUID();
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        AgentEngine.Model model = new AgentEngine.Model() {
+            public JSONObject complete(JSONArray messages, JSONArray tools, AgentEngine.Cancellation token) throws Exception {
+                if (calls.incrementAndGet() == 1) return new JSONObject().put("role", "assistant").put("content", JSONObject.NULL)
+                    .put("tool_calls", new JSONArray().put(new JSONObject().put("id", "document-call").put("type", "function")
+                        .put("function", new JSONObject().put("name", "documents_create").put("arguments", new JSONObject()
+                            .put("name", name).put("format", "docx").put("content", "Review this document content.").toString()))));
+                return Json.message("assistant", "Document created after approval.");
+            }
+            public void cancel() {}
+        };
+        int previousCount = controller.documents.list().length();
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                try { controller.newConversation(); controller.send("Create a Word report", model); }
+                catch (Exception failure) { throw new AssertionError(failure); }
+            });
+            awaitState(controller, "waiting_approval");
+            assertEquals(previousCount, controller.documents.list().length());
+            scenario.recreate();
+            onView(withText(containsString(name + ".docx"))).inRoot(isDialog()).check(matches(isDisplayed()));
+            onView(withText(containsString("Review this document content."))).inRoot(isDialog()).check(matches(isDisplayed()));
+            onView(withText(R.string.approve)).inRoot(isDialog()).perform(click());
+            awaitState(controller, "complete");
+            assertEquals(2, calls.get());
+            JSONArray files = controller.documents.list();
+            assertEquals(previousCount + 1, files.length());
+            boolean found = false;
+            for (int i = 0; i < files.length(); i++) {
+                JSONObject file = files.getJSONObject(i);
+                if ((name + ".docx").equals(file.getString("name"))) {
+                    assertEquals("Review this document content.", controller.documents.read(file.getString("id"))
+                        .getJSONArray("units").getJSONObject(0).getString("text"));
+                    found = true;
+                }
+            }
+            assertTrue(found);
+        } finally { InstrumentationRegistry.getInstrumentation().runOnMainSync(controller::stop); }
+    }
 }
