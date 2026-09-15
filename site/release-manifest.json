@@ -10,12 +10,12 @@
       "checksumsUrl": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.2/SHA256SUMS.txt"
     },
     "android": {
-      "version": "0.2.1",
-      "programVersion": "0.2.1",
-      "tagName": "desktop-v0.2.1",
-      "publishedAt": "2026-09-15T00:09:28Z",
-      "releaseUrl": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/desktop-v0.2.1",
-      "checksumsUrl": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.1/SHA256SUMS.txt"
+      "version": "0.2.2",
+      "programVersion": "0.2.2",
+      "tagName": "android-v0.2.2",
+      "publishedAt": "2026-09-15T12:49:47Z",
+      "releaseUrl": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/android-v0.2.2",
+      "checksumsUrl": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/android-v0.2.2/SHA256SUMS.txt"
     }
   },
   "assets": {
@@ -53,11 +53,11 @@
     },
     "android": {
       "release": "android",
-      "name": "clawmaster-0.2.1-android-universal.apk",
-      "bytes": 45759,
-      "size": "44.69 KiB",
-      "sha256": "d56d8dd4152c9d8e9a0bfbea118805fa7e3ea9856857e3cd833dcdb107576e41",
-      "url": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.1/clawmaster-0.2.1-android-universal.apk"
+      "name": "clawmaster-0.2.2-android-universal.apk",
+      "bytes": 8305983,
+      "size": "7.92 MiB",
+      "sha256": "177813f68175d68852572f1db45dfa6ee15564cb7b5147e6c945247ac2735aff",
+      "url": "https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/android-v0.2.2/clawmaster-0.2.2-android-universal.apk"
     }
   }
 }

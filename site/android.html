@@ -3,7 +3,7 @@
 <head>
  <meta charset="utf-8" />
  <meta name="viewport" content="width=device-width, initial-scale=1" />
- <meta name="description" content="ClawMaster 安卓独立 Agent 0.2.1：安装 APK，连接自己的模型服务，在手机上对话、保存笔记并确认写入。支持 Android 8.0 及以上，不需要电脑。" />
+ <meta name="description" content="ClawMaster 安卓独立 Agent 0.2.2：安装与升级、笔记、Office 文档、后台任务与通知授权。支持 Android 8.0 及以上，写入仍需逐次确认，不需要电脑。" />
  <meta name="theme-color" content="#ffffff" />
  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
  <link rel="canonical" href="https://nsieteam.github.io/ClawMaster/android.html" />
@@ -11,7 +11,7 @@
  <link rel="icon" href="assets/clawmaster-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
  <link rel="stylesheet" href="styles.css" />
  <link rel="stylesheet" href="guide.css" />
- <title>安卓独立 Agent 入门 | ClawMaster 0.2.1</title>
+ <title>安卓笔记、文档与任务教程 | ClawMaster 0.2.2</title>
 </head>
 <body class="guide-page">
  <a class="skip-link" href="#main">跳到教程正文</a>
@@ -22,21 +22,23 @@
  </header>
  <main id="main">
   <header class="guide-hero">
-   <p class="eyebrow">ANDROID AGENT · 0.2.1</p>
-   <h1>手机上的对话和笔记，<br /><span>由你确认每次写入。</span></h1>
-   <p class="hero-lede">独立运行在安卓手机上的 Agent，不是桌面遥控器。连接自己的在线模型服务，把想法整理成笔记，检查建议，再决定是否保存。</p>
+   <p class="eyebrow">ANDROID AGENT · 0.2.2</p>
+   <h1>手机上的笔记、文档和任务，<br /><span>由你确认每次写入。</span></h1>
+   <p class="hero-lede">连接自己的在线模型服务，把想法整理成笔记，检查 Office 文档，安排稍后执行的任务。应用直接在手机上运行；需要修改内容时，先查看建议，再决定是否保存。</p>
    <p class="guide-meta">Android 8.0 及以上 · 通用 APK · 不需要电脑或 Node.js · 不包含离线大模型</p>
-   <p class="guide-meta">安卓独立 Agent 当前为 0.2.1；桌面 0.2.2 的更新不改变本页 APK 版本。</p>
-   <div class="hero-actions"><a class="button button-primary" href="https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/desktop-v0.2.1/clawmaster-0.2.1-android-universal.apk">下载安卓 APK <span aria-hidden="true">↓</span></a><a class="button button-secondary" href="#setup">查看安装步骤</a></div>
+   <p class="guide-meta">安卓 0.2.2 使用独立的安卓发行页。升级已有 0.2.1 时，请保留应用并覆盖安装正式 APK。</p>
+   <div class="hero-actions"><a class="button button-primary" href="https://github.com/NSIETeam/ClawMaster-Desktop/releases/download/android-v0.2.2/clawmaster-0.2.2-android-universal.apk">下载安卓 APK <span aria-hidden="true">↓</span></a><a class="button button-secondary" href="#setup">查看安装步骤</a></div>
   </header>
   <div class="guide-layout">
-   <aside class="guide-toc" id="contents" aria-label="教程目录"><p class="section-kicker">安卓入门</p><ol><li><a href="#scope">能做什么</a></li><li><a href="#setup">安装与配置</a></li><li><a href="#first-note">第一条笔记</a></li><li><a href="#data">数据与升级</a></li><li><a href="#verification">测试与常见问题</a></li></ol><a class="guide-back" href="tutorials.html">← 返回教程中心</a></aside>
+   <aside class="guide-toc" id="contents" aria-label="教程目录"><p class="section-kicker">安卓入门</p><ol><li><a href="#scope">能做什么</a></li><li><a href="#setup">安装与配置</a></li><li><a href="#first-note">第一条笔记</a></li><li><a href="#documents">处理 Office 文档</a></li><li><a href="#tasks">后台任务与通知</a></li><li><a href="#data">数据与升级</a></li><li><a href="#verification">测试与常见问题</a></li></ol><a class="guide-back" href="tutorials.html">← 返回教程中心</a></aside>
    <article class="guide-content">
-    <section class="guide-section" id="scope"><p class="section-kicker">01 / 使用范围</p><h2>从手机里的小任务开始。</h2><div class="guide-pair"><div><h3>现在支持</h3><p>模型对话、本机笔记的查找与读写、对话历史、写入确认、拒绝和取消。笔记与历史记录保存在应用私有目录。</p></div><div><h3>不包含</h3><p>桌面插件、电脑 RPA、网页自动化、后台定时任务、Graph Memory、CRM/ERP、跨设备同步和离线大模型。</p></div></div><p class="guide-note">模型请求需要联网和有效的服务商账户。手机能打开应用，不代表模型账户、余额或网络已经可用。</p></section>
-    <section class="guide-section" id="setup"><p class="section-kicker">02 / 安装与配置</p><h2>装好应用，再连接自己的模型。</h2><ol class="guide-steps"><li>从本页或官网下载区取得 APK，按需核对下载卡片中的 SHA-256。用手机打开文件，仅为当前安装来源按系统提示允许安装。</li><li>打开 ClawMaster 的“设置”，填写模型服务的 HTTPS 地址、模型名称和自己的 API 密钥。地址不要包含 <code>/chat/completions</code>。</li><li>保存配置，在“对话”发送一个简单问题。收到实际回复后，再开始处理需要的笔记。</li></ol><div class="guide-result"><strong>应该看到</strong><p>模型返回对话内容。若提示凭据、额度、地址或网络错误，先修正对应配置，再重试；不要把 API 密钥写进对话或笔记。</p></div><p>安装包没有预置 API 密钥或赠送额度，费用与可用模型由你选择的服务商决定。</p></section>
+    <section class="guide-section" id="scope"><p class="section-kicker">01 / 使用范围</p><h2>从手机里的小任务开始。</h2><div class="guide-pair"><div><h3>现在支持</h3><p>模型对话、本机笔记、对话历史、文档导入与文字预览、审批后修改与导出，以及后台继续运行和定时任务。0.2.2 新增 Office 文档和任务工作区，写入仍可批准、拒绝或取消。</p></div><div><h3>不包含</h3><p>桌面 DSH 插件系统、终端、电脑 RPA、浏览器自动化、Graph Memory、CRM/ERP、跨设备同步和离线大模型。安卓功能与桌面分别实现，不具备全部桌面插件兼容性。</p></div></div><p class="guide-note">模型请求需要联网和有效的服务商账户。手机能打开应用，不代表模型账户、余额或网络已经可用。</p></section>
+    <section class="guide-section" id="setup"><p class="section-kicker">02 / 安装与配置</p><h2>装好应用，再连接自己的模型。</h2><ol class="guide-steps"><li>从本页或官网下载区取得正式 APK，核对下载卡片中的 SHA-256。用手机打开文件，仅为当前安装来源按系统提示允许安装。已有 0.2.1 请直接升级，不要先卸载。</li><li>打开 ClawMaster 的“设置”，填写兼容 Chat Completions 的 HTTPS 模型服务地址、模型名称和自己的 API 密钥。地址不要包含 <code>/chat/completions</code>。</li><li>保存配置，在“对话”发送一个简单问题。收到实际回复后，再处理笔记或文档。</li><li>如需任务完成和审批提醒，在设置中选择“开启任务通知”，按安卓系统提示授权。通知权限只用于提示，不会代替你批准任何写入。</li></ol><div class="guide-result"><strong>应该看到</strong><p>模型返回对话内容。若提示凭据、额度、地址或网络错误，先修正对应配置，再重试；不要把 API 密钥写进对话或笔记。</p></div><p>安装包没有预置 API 密钥或赠送额度，费用与可用模型由你选择的服务商决定。</p></section>
     <section class="guide-section" id="first-note"><p class="section-kicker">03 / 第一条笔记</p><h2>先用一条虚构记录练习。</h2><p>可以发送：“请创建一条名为周计划练习的笔记，内容是：周三整理学习资料。这是虚构练习。”</p><ol class="guide-steps"><li>等待模型提出笔记写入，检查标题与正文。</li><li>需要保存时确认；不需要时拒绝，或取消当前任务。被拒绝或取消的这次写入不应产生新笔记。</li><li>保存后打开笔记核对内容，再正常关闭和重新打开应用，确认笔记仍在。</li></ol><p class="guide-note">笔记在审批期间被其他操作修改时，旧写入会因版本冲突被拒绝。重新读取并复核最新内容，不要用旧建议覆盖变化。</p></section>
-    <section class="guide-section" id="data"><p class="section-kicker">04 / 数据与升级</p><h2>本机保存，不等于从不发送。</h2><p>应用只申请联网权限，API 密钥通过 Android Keystore 加密。执行模型任务时，请求、相关笔记和工具结果会发送到你配置的模型服务；请按资料敏感程度选择服务。</p><p>卸载会删除本机笔记和历史。云备份与设备迁移默认关闭，需要保留的内容请先另行保存。删除模型密钥不会删除笔记与对话。</p><p>应用标识为 <code>team.nsi.clawmaster.android</code>。后续升级需要同一发布签名和更高版本代码；请从官方渠道取得更新，不要混装一次性测试证书签名的 APK。</p></section>
-    <section class="guide-section" id="verification"><p class="section-kicker">05 / 验证与常见问题</p><h2>看清已经测试的范围。</h2><p>0.2.1 在 Android 8 和 Android 16 模拟器完成发布模式验收：写入确认、拒绝、取消、界面重建、密钥加密和重启后数据保留。另有 13 项核心及回环 HTTPS 检查通过。</p><p>设备测试使用记录型模型回复，尚未在实体手机或真实模型账户上完成端到端验证。最终 APK 使用固定发布密钥重新签名，程序和资源与通过验收的 CI APK 一致，签名验证通过。</p><div class="guide-faq"><details><summary>为什么安装包很小？</summary><p>这是原生安卓界面与本机 Agent 逻辑，不携带大模型权重，也不包含桌面运行环境。模型回复来自你配置的在线服务。</p></details><details><summary>需要电脑保持运行吗？</summary><p>不需要。应用在手机上运行，直接请求模型服务；当前不提供跨设备同步或后台定时任务。</p></details><details><summary>已经上架应用商店了吗？</summary><p>当前通过官方 GitHub Release 提供 APK，尚未上架 Google Play。</p></details></div><p class="guide-source"><a href="https://github.com/NSIETeam/ClawMaster-Desktop/actions/runs/34862416075">Android 8 / 16 验收记录</a> · <a href="https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/desktop-v0.2.1">发行说明、源码及公开验签证书</a></p></section>
+    <section class="guide-section" id="documents"><p class="section-kicker">04 / 文档工作区</p><h2>导入副本，检查内容，再导出结果。</h2><ol class="guide-steps"><li>打开“文件”，通过系统文件选择器导入 DOCX、XLSX、PPTX、TXT、Markdown 或 CSV。每份文件最大 8 MiB，导入的是应用内私有副本。</li><li>先用不含隐私的练习文档发送：“请检查这份文档的文字，先列出建议，不要修改。”在文件页核对文字预览。</li><li>需要修改时说明准确内容。批准前检查目标文档、替换参数和当前修订；内容已经变化时，应重新读取后再确认。</li><li>检查保存结果，用文件页的导出操作选择保存位置。应用内修改不会覆盖外部导入原件，导入原件和旧修订仍保留。</li></ol><div class="guide-pair"><div><h3>适合的内容</h3><p>Word 正文段落和顶层表格、Excel 已有单元格、PowerPoint 顶层文字形状。也可以提出新建 Word、表格或幻灯片文件的请求，再复核保存。</p></div><div><h3>需要留意</h3><p>预览以文字为主，不等同于 Office 排版。替换文字可能合并混合格式；表格替换值是普通文字，不是公式。不支持复杂排版、页眉、绘图、嵌入对象、公式计算、宏及数字签名文档。</p></div></div></section>
+    <section class="guide-section" id="tasks"><p class="section-kicker">05 / 后台任务与通知</p><h2>安排执行时间，保留每次写入的决定权。</h2><ol class="guide-steps"><li>在“任务”填写提示词和开始延迟。先安排一个只读练习，例如：“整理我保存的周计划，列出待办，不写入任何文件。”</li><li>需要重复执行时设置重复间隔，至少 15 分钟。保存任务后，在设置中开启任务通知，以接收完成或审批提示。</li><li>遇到写入建议时，任务会暂停并保存建议。打开对应会话核对内容，只批准本次修改；安排定时任务不等于提前批准写入。</li><li>检查任务状态和已有结果，再决定是否重新运行。停止会取消所选定时任务，记录仍保留。</li></ol><p>由你发起的运行可通过可见的前台服务在离开界面后继续。定时任务要求联网，可能产生模型费用；单次运行有八分钟上限，也可能被安卓提前停止。</p><p class="guide-note">后台执行不保证准点或一直运行。省电限制、强制停止及系统额度可能延迟或终止任务。只有成功的重复任务会安排下一次；失败、停止和中断不会。中断后没有保存回执的工具结果视为未知，不会自动重试；请先检查是否已有部分修改完成。</p></section>
+    <section class="guide-section" id="data"><p class="section-kicker">06 / 数据与升级</p><h2>本机保存，不等于从不发送。</h2><p>应用使用联网、网络状态、前台服务、任务通知和重启持久化权限；共享文件由你通过系统选择器指定，不申请广泛存储访问权限。API 密钥通过 Android Keystore 加密。执行模型任务时，请求、按需读取的笔记和文档、工具结果会发送到你配置的模型服务。</p><p>卸载会删除本机笔记、文档、任务记录和历史。云备份与设备迁移均关闭，需要保留的内容请先另行保存或导出。删除模型密钥不会删除笔记与对话。</p><p>从 0.2.1 升级时，先保存编辑并检查任务，再安装官方 0.2.2 APK。应用标识保持 <code>team.nsi.clawmaster.android</code>，版本代码由 201 升至 202；升级要求相同发布签名。若系统提示签名不兼容，保留原应用和数据，核对下载来源，不要通过卸载绕过。</p><div class="guide-result"><strong>升级后检查</strong><p>确认历史会话和笔记仍在，模型设置仍可使用，再用虚构文档试一次批准和拒绝。CI 附件使用临时测试证书，不是供现有用户覆盖安装的正式包。</p></div></section>
+    <section class="guide-section" id="verification"><p class="section-kicker">07 / 验证与常见问题</p><h2>看清已经测试的范围。</h2><p>0.2.2 已在 Android 8 和 Android 16 模拟器检查笔记、Office 文档、原生写入审批、界面重建、后台继续运行、定时执行及冷启动后的结果保留。</p><p>升级测试先向旧 0.2.1 写入虚构笔记、会话和模型设置，再覆盖安装 0.2.2 检查数据与密钥保留。这组模拟器测试将两个版本都签为同一临时 CI 证书，用于验证升级行为；正式发行包的签名和校验资料另见发行页。</p><p>设备测试使用记录型模型回复，尚未在实体手机或真实模型账户上完成端到端验证。这些结果不代表所有 Office 文档的格式兼容，也不保证所有手机的后台调度行为。</p><div class="guide-faq"><details><summary>为什么比 0.2.1 的安装包大？</summary><p>0.2.2 加入了 Office 文档处理所需的组件。应用仍不携带大模型权重或桌面运行环境，模型回复来自你配置的在线服务。</p></details><details><summary>需要电脑保持运行吗？</summary><p>不需要。应用在手机上直接请求模型服务。后台任务受安卓系统调度限制，当前不提供跨设备同步。</p></details><details><summary>已经上架应用商店了吗？</summary><p>当前通过官方 GitHub Release 提供 APK，尚未上架 Google Play。</p></details></div><p class="guide-source"><a href="https://github.com/NSIETeam/ClawMaster-Desktop/actions/runs/34916875941">0.2.2 Android 8 / 16 与覆盖升级验收</a> · <a href="https://github.com/NSIETeam/ClawMaster-Desktop/actions/runs/34862416075">历史 0.2.1 验收记录</a> · <a href="https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/android-v0.2.2">安卓 0.2.2 发行说明、源码及验签资料</a></p></section>
    </article>
   </div>
  </main>

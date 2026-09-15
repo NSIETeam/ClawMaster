@@ -20,10 +20,11 @@ export function verifyManifest(manifest) {
   assert.equal(manifest.schemaVersion, 4);
   assert.deepEqual(Object.keys(manifest.releases).sort(), ['android', 'desktop']);
   assert.deepEqual(Object.keys(manifest.assets).sort(), [...keys].sort());
-  for (const release of Object.values(manifest.releases)) {
+  for (const [channel, release] of Object.entries(manifest.releases)) {
     assert.match(release.version, /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/);
     assert.equal(release.version, release.programVersion);
-    assert.equal(release.tagName, `desktop-v${release.version}`);
+    const legacyAndroid = channel === 'android' && release.version === '0.2.1' && release.tagName === 'desktop-v0.2.1';
+    assert(legacyAndroid || release.tagName === `${channel}-v${release.version}`, `${channel}: release tag must match its platform and version`);
     assert(typeof release.publishedAt === 'string' && Number.isFinite(Date.parse(release.publishedAt)), 'Missing publication date');
     assert.equal(release.releaseUrl, `${repository}/releases/tag/${release.tagName}`);
     assert.equal(release.checksumsUrl, `${repository}/releases/download/${release.tagName}/SHA256SUMS.txt`);
@@ -136,6 +137,7 @@ export function verifyProductSite(directory) {
   assert(/不.{0,12}(自动|持续|后台)监听|非自动监听/.test(updates), 'Upgrade guide must state the listener limitation');
   const android = read('android.html');
   assert(android.includes(`href="${manifest.assets.android.url}"`), 'Android guide download must match the manifest');
+  assert(android.includes(`ANDROID AGENT · ${manifest.releases.android.programVersion}`), 'Android guide version must match the manifest');
   assert(android.includes('Android 8.0'), 'Android guide must state minimum OS');
   assert(android.includes('记录型模型回复'), 'Android guide must state model test limitations');
   assert(android.includes('卸载会删除'), 'Android guide must state uninstall data loss');

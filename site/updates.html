@@ -25,7 +25,7 @@
    <p class="eyebrow">CLAWMASTER / DESKTOP 0.2.2</p>
    <h1>保留你的工作，<br /><span>用好这次更新。</span></h1>
    <p class="hero-lede">先完成桌面升级，再按需使用服务器更新和微信读取。了解每一步会改什么、需要你批准什么，以及怎样确认已经生效。</p>
-   <p class="guide-meta">桌面 0.2.2 · 2026 年 9 月 15 日 · 微信读取为 macOS 试用功能 · 安卓仍为 0.2.1</p>
+   <p class="guide-meta">桌面 0.2.2 · 2026 年 9 月 15 日 · 微信读取为 macOS 试用功能 · 安卓 0.2.2 独立发布</p>
    <div class="hero-actions"><a class="button button-primary" href="#upgrade">保留数据，开始升级 <span aria-hidden="true">↓</span></a><a class="button button-secondary" href="#wechat">查看微信授权步骤</a></div>
   </header>
   <div class="guide-layout">
@@ -39,7 +39,7 @@
      <p class="section-kicker">01 / 更新内容</p><h2>更新来源更明确，窗口操作更顺手。</h2>
      <div class="guide-pair"><div><h3>服务器更新与桌面修复</h3><p>桌面优先从 ClawMaster 更新服务器检查正式版本，GitHub 作为备用来源。macOS 红绿灯占用独立标题栏，会话、侧栏与插件内容从下方开始。</p></div><div><h3>按任务使用微信资料</h3><p>macOS 新增每次单独批准的微信读取工具。AI 可以请求读取你已打开的聊天中有限的可见消息，用于整理本次任务。</p></div></div>
      <p>Windows 修复更新文件缓存复用与知识索引路径匹配；Linux 改用系统密钥服务保存本地执行记录的加密密钥。安装包包含匹配平台的本地执行程序，继续保留笔记批注、WatchDog 业务审批、Office 保存冲突保护与重新启动修复。</p>
-     <p>0.2.2 提供 Apple Silicon Mac、Windows x64、Linux x64 AppImage 和 DEB。不再提供 Intel Mac 新安装包；安卓独立 Agent 保持 <a href="android.html">0.2.1</a>，本次没有安卓 0.2.2。</p>
+     <p>0.2.2 提供 Apple Silicon Mac、Windows x64、Linux x64 AppImage 和 DEB。macOS 集中维护 Apple Silicon，以减少双架构安装包、原生组件适配与测试的维护成本，因此不再提供 Intel Mac 新安装包。Intel 用户的旧版入口与后续支持说明见<a href="./#intel-mac-policy">官网下载区的维护范围说明</a>。安卓独立 Agent 已发布 <a href="android.html">0.2.2</a>，新增文档工作区与后台任务，使用单独的 APK 和发行说明。</p>
     </section>
     <section class="guide-section" id="upgrade">
      <p class="section-kicker">02 / 安装与数据</p><h2>替换应用，保留工作资料。</h2>
@@ -88,7 +88,7 @@
      <p class="section-kicker">06 / 验证范围</p><h2>知道已经验证到哪一步。</h2>
      <p>0.2.2 的 macOS 与 Windows 发布测试包含安装、窗口启动、正常退出、重开和数据保留检查。macOS 另检验普通与窄窗口布局。Windows 测试在 GitHub Windows 发布环境完成，尚未进行微软 Windows Sandbox 验收。</p>
      <p>Linux AppImage 与 DEB 完成解包、本地执行组件、运行时重启、WatchDog 和编辑器检查，尚未完成原生桌面安装点击流程验收。微信审批和读取范围通过隔离测试，尚未据此证明任何用户微信版本的真实读取兼容性。</p>
-     <p>macOS 使用临时签名，未经过 Apple 公证；Windows 没有发布者证书。安卓 0.2.1 的模拟器与模型测试范围见<a href="android.html#verification">安卓指南</a>。</p>
+     <p>macOS 使用临时签名，未经过 Apple 公证；Windows 没有发布者证书。安卓 0.2.2 的模拟器与模型测试范围见<a href="android.html#verification">安卓指南</a>。</p>
      <p class="guide-source"><a href="https://github.com/NSIETeam/ClawMaster-Desktop/releases/tag/desktop-v0.2.2">0.2.2 发行说明</a> · <a href="https://github.com/NSIETeam/ClawMaster-Desktop/actions/runs/34945103587">桌面发布验收</a> · <a href="https://github.com/NSIETeam/ClawMaster-Desktop/blob/desktop-v0.2.2/frontends/updates/README.zh.md">更新组件说明</a> · <a href="https://github.com/NSIETeam/ClawMaster-Desktop/blob/desktop-v0.2.2/frontends/rpa/README.zh.md">微信读取范围</a></p>
      <div class="guide-ending"><h3>从一项可核验的工作开始。</h3><p>升级后先确认资料和模型，再用小范围任务验证结果。需要企业工作跟进示例，可以继续阅读 WatchDog 教程。</p><a class="button button-primary" href="guide.html">阅读 WatchDog 教程 <span aria-hidden="true">→</span></a></div>
     </section>
