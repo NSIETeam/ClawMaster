@@ -65,6 +65,115 @@ function verifyBundle(bundle) {
   assert.match(bundle.buildProvenance.source.gitCommit, /^[a-f0-9]{40}$/)
 }
 
+/** Collect only owned-window geometry; traversal stops before a WebArea's page content.
+ * @param {object} window System Events reference to the already selected main window.
+ * @returns {object} Native viewports and document rectangles without titles, values or page text.
+ */
+export function collectWindowGeometry(window) {
+  function rectangle(element) {
+    var position = element.position(), size = element.size();
+    return { x: position[0], y: position[1], width: size[0], height: size[1] };
+  }
+  var result = { window: rectangle(window), buttons: [], webAreas: [] };
+  function fail(message) {
+    var error = Error(message);
+    error.geometry = result;
+    throw error;
+  }
+  // AppKit gives the green control either of these two standard subroles.
+  var subroles = [['AXCloseButton'], ['AXMinimizeButton'], ['AXZoomButton', 'AXFullScreenButton']];
+  for (var i = 0; i < subroles.length; i++) {
+    var candidates = [];
+    for (var k = 0; k < subroles[i].length; k++) {
+      var buttons = window.buttons.whose({ subrole: subroles[i][k] })();
+      for (var b = 0; b < buttons.length; b++) candidates.push({ subrole: subroles[i][k], element: buttons[b] });
+    }
+    if (candidates.length !== 1) fail('Main window has no unique ' + subroles[i].join('/'));
+    result.buttons.push({ subrole: candidates[0].subrole, bounds: rectangle(candidates[0].element) });
+  }
+  var queue = [{ element: window, depth: 0, viewport: null }], visited = 0;
+  while (queue.length) {
+    if (++visited > 256) fail('Owned window geometry exceeds the accessibility traversal limit');
+    var current = queue.shift();
+    var role = current.element.role();
+    if (role === 'AXWebArea') {
+      result.webAreas.push({ bounds: rectangle(current.element), viewport: current.viewport });
+      continue;
+    }
+    var viewport = role === 'AXScrollArea' ? rectangle(current.element) : current.viewport;
+    var children = current.element.uiElements();
+    if (children.length && current.depth >= 16) fail('Owned window geometry exceeds the accessibility depth limit');
+    for (var j = 0; j < children.length; j++) queue.push({ element: children[j], depth: current.depth + 1, viewport: viewport });
+  }
+  return result;
+}
+
+/** Require every WebArea's native scroll viewport to stay outside all window buttons.
+ * @param {object} geometry Screen rectangles collected from one owned main window.
+ * @returns {void}
+ */
+export function verifyWindowGeometry(geometry) {
+  const rectangle = value => {
+    assert.ok(value && ['x', 'y', 'width', 'height'].every(key => Number.isFinite(value[key])), 'Accessibility rectangle must contain finite coordinates')
+    assert.ok(value.width > 0 && value.height > 0, 'Accessibility rectangle must have positive area')
+  }
+  rectangle(geometry.window)
+  assert.equal(geometry.buttons.length, 3, 'All three native window buttons are required')
+  for (const allowed of [['AXCloseButton'], ['AXMinimizeButton'], ['AXZoomButton', 'AXFullScreenButton']]) {
+    assert.equal(geometry.buttons.filter(button => allowed.includes(button.subrole)).length, 1, 'Native window button must have one unique standard subrole')
+  }
+  assert.ok(geometry.webAreas.length > 0, 'Main window has no accessible WebArea')
+  const contained = bounds => {
+    rectangle(bounds)
+    assert.ok(bounds.x >= geometry.window.x && bounds.y >= geometry.window.y
+      && bounds.x + bounds.width <= geometry.window.x + geometry.window.width
+      && bounds.y + bounds.height <= geometry.window.y + geometry.window.height, 'Accessibility rectangle lies outside its main window')
+  }
+  for (const button of geometry.buttons) contained(button.bounds)
+  for (const { bounds, viewport: area } of geometry.webAreas) {
+    // WebKit reports the document's full contentsSize, including content outside its viewport.
+    rectangle(bounds)
+    assert.ok(area, 'WebArea has no observed native scroll viewport')
+    contained(area)
+    for (const { bounds: button } of geometry.buttons) {
+      assert.ok(Math.min(area.x + area.width, button.x + button.width) <= Math.max(area.x, button.x)
+        || Math.min(area.y + area.height, button.y + button.height) <= Math.max(area.y, button.y),
+      'WebArea overlaps a native window button')
+    }
+  }
+}
+
+/** Wait for two valid, unchanged geometry observations after a window resize.
+ * @param {object} check Report entry that retains the last observation and validation error.
+ * @param {object} dimensions Required outer window width and height.
+ * @returns {Function} Readiness predicate; unexpected observation failures remain fatal.
+ */
+export function windowGeometryReadiness(check, dimensions) {
+  let previous
+  return observed => {
+    check.geometry = observed.geometry ?? null
+    check.error = observed.geometryError ?? null
+    check.validationError = null
+    assert.equal(check.error, null, 'Owned window geometry collection failed; partial rectangles are retained')
+    if (!observed.window?.visible || !check.geometry?.webAreas.length
+      || check.geometry.window.width !== dimensions.width || check.geometry.window.height !== dimensions.height) {
+      previous = undefined
+      return false
+    }
+    try { verifyWindowGeometry(check.geometry) }
+    catch (error) {
+      if (!(error instanceof assert.AssertionError)) throw error
+      check.validationError = error.message
+      previous = undefined
+      return false
+    }
+    const current = JSON.stringify(check.geometry)
+    const settled = current === previous
+    previous = current
+    return settled
+  }
+}
+
 /** Validate collected evidence; process termination never qualifies as normal GUI closing.
  * @param {object} evidence Observations from two owned application launches.
  * @param {object} bundle Prepared release manifest.
@@ -111,6 +220,18 @@ export function verifyMacosNativeEvidence(evidence, bundle, version) {
       assert.equal(run.closeRequested, true)
       assert.equal(run.window.visible, true)
       assert.ok(run.window.width >= 800 && run.window.height >= 600, 'Splash cannot substitute for the main window')
+      assert.deepEqual(run.geometryChecks.map(check => check.mode), ['normal', 'narrow'])
+      for (const check of run.geometryChecks) {
+        assert.equal(check.error ?? null, null, 'Geometry collection did not complete')
+        assert.equal(check.validationError ?? null, null, 'Geometry did not settle to a valid viewport')
+        verifyWindowGeometry(check.geometry)
+      }
+      const [normal, narrow] = run.geometryChecks.map(check => check.geometry.window)
+      assert.equal(normal.width, run.window.width)
+      assert.equal(normal.height, run.window.height)
+      assert.ok(normal.width > narrow.width, 'Narrow-window acceptance must observe an actual width reduction')
+      assert.equal(narrow.width, 900)
+      assert.equal(narrow.height, 600)
       assert.equal(run.desktopExit.code, 0)
       assert.equal(run.desktopExit.signal, null)
       assert.equal(run.hostTerminatedByAcceptance, false)
@@ -121,11 +242,12 @@ export function verifyMacosNativeEvidence(evidence, bundle, version) {
       assert.equal(run.desktopExit.signal, 'SIGTERM')
     }
   }
-  return { ...evidence, runtimeVerified: true, guiCloseVerified: evidence.closeMode === 'gui' }
+  return { ...evidence, runtimeVerified: true, guiCloseVerified: evidence.closeMode === 'gui', windowGeometryVerified: evidence.closeMode === 'gui' }
 }
 
 // System osascript is covered by the runner image's existing Accessibility and System Events grants.
 const JXA = `ObjC.import('ApplicationServices');
+${collectWindowGeometry.toString()}
 function run(args) {
   var trusted = Boolean($.AXIsProcessTrusted());
   if (!trusted) return JSON.stringify({axTrusted:false,guiAvailable:false});
@@ -138,6 +260,18 @@ function run(args) {
     var size = windows[i].size();
     if (size[0] < 800 || size[1] < 600) continue;
     var result = {axTrusted:true,window:{width:size[0],height:size[1],visible:process.visible()}};
+    if (args[0] === 'geometry') {
+      try { result.geometry = collectWindowGeometry(windows[i]); }
+      catch (error) {
+        if (!error.geometry) throw error;
+        result.geometry = error.geometry; result.geometryError = error.message;
+      }
+    }
+    if (args[0] === 'resize') {
+      var width = Number(args[2]), height = Number(args[3]);
+      if (!(width >= 800 && width <= 4096 && height >= 600 && height <= 2160)) throw Error('Invalid acceptance window dimensions');
+      windows[i].size = [width, height];
+    }
     if (args[0] === 'close') {
       var buttons = windows[i].buttons.whose({subrole:'AXCloseButton'})();
       if (buttons.length !== 1) throw Error('Main window has no unique close button');
@@ -154,8 +288,8 @@ async function command(file, args, options = {}) {
   catch { throw new Error(`Native acceptance command failed: ${basename(file)} (timeout, exit, or unavailable permission)`) }
 }
 
-async function gui(mode, pid) {
-  const value = JSON.parse(await command('/usr/bin/osascript', ['-l', 'JavaScript', '-e', JXA, mode, ...(pid === undefined ? [] : [String(pid)])]))
+async function gui(mode, pid, dimensions = []) {
+  const value = JSON.parse(await command('/usr/bin/osascript', ['-l', 'JavaScript', '-e', JXA, mode, ...(pid === undefined ? [] : [String(pid)]), ...dimensions.map(String)]))
   assert.equal(value.axTrusted, true, 'Runner osascript lacks existing Accessibility permission; TCC is not changed')
   return value
 }
@@ -284,7 +418,7 @@ export async function verifyMacosNative(options) {
   const interrupt = () => cancellation.abort(new Error('Native acceptance interrupted'))
   process.once('SIGINT', interrupt)
   process.once('SIGTERM', interrupt)
-  const report = { schemaVersion: 1, platform: 'darwin', closeMode: options.closeMode, runtimeVerified: false, guiCloseVerified: false,
+  const report = { schemaVersion: 1, platform: 'darwin', closeMode: options.closeMode, runtimeVerified: false, guiCloseVerified: false, windowGeometryVerified: false,
     installedApp: join(root, 'installed/ClawMaster.app'), appDataRoot, preparedManifestSha256: sha256(prepared), launches: [], runs: [] }
   try {
     await mkdir(appDataRoot, { mode: 0o700 })
@@ -359,6 +493,16 @@ export async function verifyMacosNative(options) {
         runtimeManifestSha256: sha256(await readFile(join(ready.runtime.harnessRoot, '.bundle-manifest.json'))) }
       report.runs.push(record)
       if (options.closeMode === 'gui') {
+        record.geometryChecks = []
+        for (const mode of ['normal', 'narrow']) {
+          const check = { mode, geometry: null }
+          record.geometryChecks.push(check)
+          if (mode === 'narrow') await gui('resize', desktop.pid, [900, 600])
+          const settled = windowGeometryReadiness(check, mode === 'narrow' ? { width: 900, height: 600 } : record.window)
+          await waitUntil(async () => settled(await gui('geometry', desktop.pid)), 15000,
+            'Owned window geometry did not settle at the requested dimensions', cancellation.signal)
+        }
+        await gui('resize', desktop.pid, [record.window.width, record.window.height])
         record.closeMethod = 'AXCloseButton'
         record.closeRequested = (await gui('close', desktop.pid)).closeRequested === true
       } else { record.closeMethod = 'SIGTERM'; desktop.kill('SIGTERM') }
@@ -427,6 +571,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   try {
     const evidence = await verifyMacosNative(parseOptions(process.argv.slice(2)))
     console.log(JSON.stringify({ preflight: evidence.preflight ?? false, runtimeVerified: evidence.runtimeVerified ?? false,
-      guiCloseVerified: evidence.guiCloseVerified ?? false, closeMode: evidence.closeMode, axTrusted: evidence.axTrusted }))
+      guiCloseVerified: evidence.guiCloseVerified ?? false, windowGeometryVerified: evidence.windowGeometryVerified ?? false,
+      closeMode: evidence.closeMode, axTrusted: evidence.axTrusted }))
   } catch (error) { console.error(error.message); process.exitCode = 1 }
 }

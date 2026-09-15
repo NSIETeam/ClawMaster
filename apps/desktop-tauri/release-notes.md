@@ -9,6 +9,7 @@
 - **旧版更新组件兼容**：已通过更新接入包安装的更新器不会因桌面升级而重复注册；已有配置及停用选择保留。更新器自身更新仍只暂存，不能把暂存或一次重启描述为已经替换成功。
 - **本地执行组件修复**：安装包包含与操作系统和架构匹配的 RPA 原生执行程序，校验产物和实际调用路径。缺失程序不能通过发布验收。取消、超时和输出超限会终止本次子进程并等待退出；子进程不继承模型密钥等敏感环境变量。
 - **Windows 与 Linux 修复**：内置更新组件 0.1.1 修复 Windows 重复下载的缓存复用，并在归档路径被系统规范化之前检查原始路径。Linux 本地执行记录通过系统 Secret Service 保存加密密钥，可供后续进程读取；系统可能要求解锁密钥服务，访问失败时明确报错。已有单独安装的更新组件保留其版本与配置，不被桌面升级静默替换。
+- **macOS 窗口控件**：关闭、最小化和缩放按钮保留在独立的系统标题栏区域，会话、侧栏与插件内容从下方开始，避免遮挡操作。标题栏跟随系统外观，内容区域继续使用应用选择的主题。
 - **保留已有修复**：延续 0.2.1 的笔记批注与写入保护、Graph Memory 输出校验、WatchDog 业务审批、Office 保存冲突保护、Windows 路径处理及关闭后重新启动的修复。
 
 微信读取作为试用功能提供，需要已登录的 macOS 微信和系统辅助功能权限；隔离测试不代表已验证用户所安装微信版本的真实读取。本版不提供 Windows/Linux 个人微信读取、后台监听、全量历史读取或微信发送能力。读取界面上的可见消息不等于完整聊天记录；未识别的微信界面会明确报告不可用。现有 IM 机器人连接仍是独立功能，需要相应平台登录。
@@ -24,6 +25,7 @@ ClawMaster 0.2.2 adds installed-desktop support for the server update channel, a
 - **Compatibility with the portable update kit**: Desktop upgrades do not register a second updater when one is already installed through the kit. Existing configuration and disabled choices remain intact. Self-updates remain staged; staging or restarting alone does not establish replacement.
 - **Native execution packaging**: Installers include the RPA executable for their operating system and architecture, with artifact and invocation checks. Missing executables cannot pass release acceptance. Cancellation, timeouts and output limits terminate the owned child and wait for exit. Children do not inherit model credentials or other sensitive environment variables.
 - **Windows and Linux fixes**: Bundled updater 0.1.1 reuses authenticated download-cache entries on Windows and validates original archive paths before platform normalization. Linux native execution records use the system Secret Service to retain encryption keys across processes; the system may request unlocking, and service-access failures report an error. Previously installed standalone updaters retain their own version and configuration rather than being silently replaced by a desktop upgrade.
+- **macOS window controls**: Close, minimize and zoom buttons occupy a separate system title-bar area. Conversations, sidebars and plugin content start below it, keeping their actions unobstructed. The title bar follows system appearance while content keeps the selected application theme.
 - **Preserved fixes**: Retains 0.2.1 note annotations and write protection, Graph Memory output validation, WatchDog business approvals, Office save-conflict protection, Windows path handling and relaunch fixes.
 
 WeChat reading is an experimental feature requiring a logged-in macOS WeChat client and system Accessibility permission; isolated tests do not establish live reading on the user's installed WeChat version. This release does not provide personal WeChat reads on Windows/Linux, background listening, complete history extraction or WeChat sending. Visible messages are not a complete transcript; unrecognized WeChat interfaces report unavailability. Existing IM robot connections remain separate and require the corresponding platform login.

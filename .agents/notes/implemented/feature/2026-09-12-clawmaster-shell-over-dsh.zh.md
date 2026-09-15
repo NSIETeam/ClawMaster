@@ -36,7 +36,7 @@ Tauri 安装内容将已构建前端及精确版本插件依赖加入 CLI 解析
 
 精确版本的 IM 与 Better Sidebar 补丁负责静态产品文案。IM 包含客户端与 Host 词典、连接状态、审批与提问消息、错误、接入显示名称和 Slack 应用模板。侧栏包含受支持语言词典及 Electron 兼容性标签；Agent Teams、OpenViking 与 Routing Suite 使用产品化的软件包简介。IM Host 产物只修改与源码匹配的字符串，其余可执行 token 字节不变。包身份、DeepSeek 模型提供商名称、许可证、权限、协议字段与凭证路径保持不变。用户名称、模型输出和其他动态文字不进行整页替换。完整性记录与生产锁把每个补丁绑定到已安装字节；聚焦测试覆盖客户端呈现文案、Host 消息、仅元数据修改及可执行 token 不变。
 
-产品拥有的原生字符串与资源在应用元数据、启动页、托盘、通知、关闭对话框、Windows 快捷方式及安装器图标中使用 ClawMaster。[原生窗口决策](2026-09-13-clawmaster-native-window-titlebar.zh.md)负责窗口装饰、macOS 覆盖式顶栏预留空间、分别设置的系统与 Web 主题，以及重开隐藏窗口而不启动另一个 Host 的行为。内部 `dsh` 命令、包名、profile 数据与旧应用数据路径保留兼容义务。
+产品拥有的原生字符串与资源在应用元数据、启动页、托盘、通知、关闭对话框、Windows 快捷方式及安装器图标中使用 ClawMaster。[原生窗口决策](2026-09-13-clawmaster-native-window-titlebar.zh.md)负责窗口装饰、分别设置的系统与 Web 主题，以及重开隐藏窗口而不启动另一个 Host 的行为，并链接 macOS 内容几何布局决策。内部 `dsh` 命令、包名、profile 数据与旧应用数据路径保留兼容义务。
 
 桌面包含发布验签公钥与公开仓库的正式版 manifest 端点。[正式更新决策](../architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责通道选择、启动仅检查可用版本及下载与安装的分别确认。空端点列表禁用更新请求；启用通道须配置公钥。发布要求每项配置的平台构建和安装器检查成功。Tauri 签名认证更新产物；macOS 临时签名不提供 Apple 公证或开发者身份，Windows 没有发布者证书。[桌面 README](../../../../apps/desktop-tauri/README.zh.md#release)负责发行操作。
 

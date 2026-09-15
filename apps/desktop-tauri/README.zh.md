@@ -17,7 +17,7 @@ Tauri 包名为 `@deepseek-ai/dsh-desktop-tauri`，与上游 Electron 应用独�
 | **构建环境** | — | 复用本机 Node 22.19+ 或 24+ 和 pnpm；没有时再从 npmmirror 下载 Node，并通过 npm 安装 pnpm |
 | **依赖** | — | 在平台应用数据目录执行 `pnpm install --prod --no-frozen-lockfile`（裁剪包与 lockfile 不完全相同；移除 `CI`，避免 pnpm 强制冻结安装） |
 | **Host** | — | `node apps/cli/lib/bin.js web --host 127.0.0.1`；启动时加载失败的插件会被禁用，然后重试 Host |
-| **UI** | 原生窗口装饰与本地 `shell.html` 关闭对话框 | 子 WebView 嵌入 `dsh web`；macOS 使用隐藏标题文字的覆盖式顶栏，并为原生交通灯控件预留空间。系统负责窗口外观，Web 设置负责嵌入客户端主题 |
+| **UI** | 原生窗口装饰与本地 `shell.html` 关闭对话框 | 子 WebView 嵌入 `dsh web`；macOS 将原生交通灯控件保留在 WebView 上方独立的标题栏区域，并隐藏标题文字。系统负责窗口外观，Web 设置负责嵌入客户端主题 |
 | **托盘** | 原生托盘图标 | 第一次关闭询问最小化到托盘还是退出，并写入 `desktop-settings.json`；托盘可改该偏好、显示窗口、安装 Sakana 插件库（在当前 Host 主目录执行 `dsh plugin --profile web add github:Sakana-yuyu/dsh-plugins`）、检查更新、重启或退出。重启和退出都会停止 Host 的 Node 进程树；重启随后重新拉起桌面进程。插件库安装成功后走同一条重启路径，以便加载该库。最小化到托盘则保持 Host 运行 |
 | **通知** | Overlay 插件 + 本机 POST | `turn/end` 且 `completed` 时，窗口不在前台则弹出系统通知并播放 `sounds/complete.wav` |
 | **更新** | 更新服务器上的签名正式通道，保留 GitHub 备用地址 | 窗口打开后开始后台检查，应用运行期间定期检查；每次启动对同一可用版本仅提示一次。从托盘检查更新后，先确认下载并校验签名，再单独确认安装与重启。取消时当前应用继续运行 |
@@ -158,11 +158,11 @@ GitHub 仍是构建与发布来源；更新服务器镜像已验证的更新文�
 
 Release 资产归公开的 [ClawMaster-Desktop 仓库](https://github.com/NSIETeam/ClawMaster-Desktop/releases)所有，名称包含操作系统与架构。发布前，[签名校验器](scripts/verify-updater-signatures.mjs)使用已提交的发布公钥校验每份更新产物的签名，并核对 manifest 中的签名与对应产物。Tauri 更新签名通过配置的更新公钥验证下载产物。macOS 临时签名检查应用完整性，不认证开发者身份，也不包含 Apple 公证。Windows 安装包没有发布者证书。
 
-透明背景的[浅色 SVG](../../frontends/dsh/src/clawmaster.svg)与[深色 SVG](../../frontends/dsh/src/clawmaster-dark.svg)使用同一轮廓，分别以黑色和白色绘制。应用内图标跟随 Web 主题的最终明暗状态，启动页跟随系统外观。Web favicon 保留浅色 SVG 的精确字节。桌面准备过程通过[图标生成脚本](scripts/generate-icons.mjs)从浅色矢量源生成各原生图标格式；ICNS 条目按类型排序，并保留其中的编码图像。桌面品牌检查拒绝 SVG 内嵌或链接的图片。[原始 PNG](../../frontends/dsh/src/clawmaster.png)保留为视觉参考。macOS 隐藏原生标题文字；外壳不绘制独立顶栏。Windows 安装还携带文件名含版本的 ICO 文件，避免快捷方式图标查询复用旧的可执行文件路径缓存键。
+透明背景的[浅色 SVG](../../frontends/dsh/src/clawmaster.svg)与[深色 SVG](../../frontends/dsh/src/clawmaster-dark.svg)使用同一轮廓，分别以黑色和白色绘制。应用内图标跟随 Web 主题的最终明暗状态，启动页跟随系统外观。Web favicon 保留浅色 SVG 的精确字节。桌面准备过程通过[图标生成脚本](scripts/generate-icons.mjs)从浅色矢量源生成各原生图标格式；ICNS 条目按类型排序，并保留其中的编码图像。桌面品牌检查拒绝 SVG 内嵌或链接的图片。[原始 PNG](../../frontends/dsh/src/clawmaster.png)保留为视觉参考。macOS 隐藏原生标题栏中的标题文字。Windows 安装还携带文件名含版本的 ICO 文件，避免快捷方式图标查询复用旧的可执行文件路径缓存键。
 
 Windows 发布 CI 在一次性托管 runner 上执行[已安装桌面检查](scripts/verify-windows-native.ps1)：NSIS 安装、可见主窗口、正常关闭与第二次启动必须对应打包源码。已有用户数据或缺少交互桌面时，该检查不能通过。macOS 矩阵还须在签名检查后通过下述原生 GUI 检查。解压后的 Linux 安装器另有平台检查。托管 runner 检查不能证明所有用户机器均已验收。
 
-[macOS 原生检查](scripts/verify-macos-native.mjs)仅支持一次性 GitHub 托管 runner。构建前传入 `--preflight`，检查已有 GUI 及辅助功能权限。打包后提供绝对路径 `--app`、`--prepared-root`、`--output` 和 `--expected-version`。它将应用复制到随机 Unicode 路径，使用独立 DSH 主目录，并通过打包清单、Host 归属、HTTP 鉴权及设置与会话目录哨兵验证两次原生启动。默认 `--close-mode gui` 点击主窗口关闭按钮，要求正常退出且清理 Host。显式 `--close-mode terminate` 只验证进程终止和再次启动，报告 `guiCloseVerified: false`；不会自动降级或修改 TCC。[验收决策](../../.agents/notes/implemented/testing/2026-09-15-macos-native-relaunch-acceptance.zh.md)定义证据范围。
+[macOS 原生检查](scripts/verify-macos-native.mjs)仅支持一次性 GitHub 托管 runner。构建前传入 `--preflight`，检查已有 GUI 及辅助功能权限。打包后提供绝对路径 `--app`、`--prepared-root`、`--output` 和 `--expected-version`。它将应用复制到随机 Unicode 路径，使用独立 DSH 主目录，并通过打包清单、Host 归属、HTTP 鉴权及设置与会话目录哨兵验证两次原生启动。默认 `--close-mode gui` 点击主窗口关闭按钮，要求正常退出且清理 Host。显式 `--close-mode terminate` 只验证进程终止和再次启动，报告 `guiCloseVerified: false`；不会自动降级或修改 TCC。原生验收还必须测量交通灯与内容 WebView 的矩形，确认两者不重叠；[窗口几何布局决策](../../.agents/notes/implemented/architecture/2026-09-15-macos-native-content-rectangle.zh.md)定义这一要求。[验收决策](../../.agents/notes/implemented/testing/2026-09-15-macos-native-relaunch-acceptance.zh.md)定义证据范围。
 
 [构建溯源](scripts/build-provenance.mjs)将完整 harness 构建和产品准备过程绑定到完整 Git 提交、已提交树、工作区源码 SHA-256 与相对路径脏文件清单。准备过程拒绝编译后的源码改动或被替换的 Host、客户端与前端产物。默认 `development` 模式生成明确的开发构建编号，源码有改动时包含 `dirty`。`DSH_DESKTOP_BUILD_MODE=release` 要求整个工作流使用干净源码和发布模式记录。生成的原生图标属于受验证的构建输出，不作为源码输入；平台编码器可能在 SVG 不变时改变输出字节。源码变化后，须重新完整执行 `build:harness`，再执行 `prepare:dist`。
 

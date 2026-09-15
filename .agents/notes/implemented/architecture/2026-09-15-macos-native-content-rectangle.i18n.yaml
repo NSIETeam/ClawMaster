@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-15-macos-native-content-rectangle.md
+2026-09-15-macos-native-content-rectangle.md: e036d2128351708d0753ee0d1214e2d98afa28bd
+2026-09-15-macos-native-content-rectangle.zh.md: 2b79227140d7bc1aff0892f5dc34813f040c2821
