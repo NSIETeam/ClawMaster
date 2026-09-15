@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "op": "initialize"
+    },
+    {
+      "op": "newSession"
+    },
+    {
+      "op": "prompt",
+      "text": "Prepare the ClawMaster native release 0.2.2 for this Intel Mac using clawmaster_update. If this machine has no installer, report that limitation without retrying or downloading another target."
+    }
+  ]
+}

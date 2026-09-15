@@ -35,7 +35,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhGMEMzNDM2MUYwODkyNEYKUldSUGtnZ2ZOalFNajJzdjF5dStuejdYcUw5WWdINmFFN2lXd25Td1hMc0ZpNzNuT3cvdHEwcG0K",
       "endpoints": [
-        "https://8.140.52.117/updates/clawmaster/latest.json",
+        "https://8.140.52.117/updates/clawmaster/v2/latest.json",
         "https://github.com/NSIETeam/ClawMaster-Desktop/releases/latest/download/latest.json"
       ],
       "windows": {

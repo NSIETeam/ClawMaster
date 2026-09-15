@@ -8,7 +8,7 @@ import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { createManifest, normalizedAssets } from './generate-updater-manifest.mjs'
+import { createManifest, normalizedAssets, targetSetForPlatforms } from './generate-updater-manifest.mjs'
 import { verifyUpdaterSignatures } from './verify-updater-signatures.mjs'
 
 const STABLE_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
@@ -132,7 +132,9 @@ async function apiRelease(options, fetchImpl) {
     throw new Error('GitHub Latest must be a published stable desktop release')
   }
   const version = requireVersion(match[1])
-  const artifacts = Object.values(normalizedAssets(version))
+  const intel = normalizedAssets(version, 'legacy')['darwin-x86_64']
+  const targetSet = release.assets.some(asset => asset.name === intel || asset.name === `${intel}.sig`) ? 'legacy' : 'current'
+  const artifacts = Object.values(normalizedAssets(version, targetSet))
   const files = [...artifacts.flatMap(name => [name, `${name}.sig`]), 'latest.json', 'SHA256SUMS.txt']
   const assets = files.map(name => {
     const matches = release.assets.filter(asset => asset.name === name)
@@ -145,6 +147,11 @@ async function apiRelease(options, fetchImpl) {
     return { name, size: asset.size, url, id: asset.id, digest: asset.digest ?? null }
   })
   return { version, tag: release.tag_name, repository: options.repository, assets }
+}
+
+function releaseTargetSet(release) {
+  const intel = normalizedAssets(release.version, 'legacy')['darwin-x86_64']
+  return release.assets.some(asset => asset.name === intel) ? 'legacy' : 'current'
 }
 
 async function download(fetchImpl, asset, destination) {
@@ -183,12 +190,16 @@ async function segmentedDownload(executable, asset, destination, execute) {
 
 function servedManifest(source, release, options) {
   if (source.version !== release.version || typeof source.notes !== 'string') throw new Error('Source manifest differs from its stable release')
+  const targetSet = targetSetForPlatforms(source.platforms)
+  if (targetSet !== releaseTargetSet(release)) throw new Error('Source manifest targets differ from the GitHub release assets')
   const expected = createManifest({ version: source.version, repository: options.repository, releaseTag: release.tag,
+    targetSet,
     notes: source.notes, pubDate: source.pub_date, signatures: Object.fromEntries(Object.entries(source.platforms ?? {}).map(([target, entry]) => [target, entry.signature])) })
   for (const [target, entry] of Object.entries(expected.platforms)) {
     if (source.platforms?.[target]?.url !== entry.url) throw new Error(`Source updater URL differs from the GitHub release: ${target}`)
   }
   return createManifest({ version: source.version, repository: options.repository, releaseTag: release.tag,
+    targetSet,
     notes: source.notes, pubDate: source.pub_date, signatures: Object.fromEntries(Object.entries(source.platforms).map(([target, entry]) => [target, entry.signature])),
     assetBaseUrl: `${options.baseUrl}/versions/${release.version}` })
 }
@@ -199,7 +210,7 @@ async function verifyPublished(options, release, versionDir, evidenceDir) {
   const source = JSON.parse(await readFile(join(evidenceDir, 'latest.json'), 'utf8'))
   const expected = serialized(servedManifest(source, release, options))
   if (await readOptional(join(versionDir, 'latest.json')) !== expected) throw new Error('Immutable server manifest differs from its verified release')
-  const artifacts = Object.values(normalizedAssets(release.version))
+  const artifacts = Object.values(normalizedAssets(release.version, releaseTargetSet(release)))
   await verifyChecksums(versionDir, [...artifacts.flatMap(name => [name, `${name}.sig`]), 'latest.json', 'clawmaster-release-signing.pub'])
   if ((await readFile(join(versionDir, 'clawmaster-release-signing.pub'), 'utf8')).trim() !== (await readFile(options.publicKeyPath, 'utf8')).trim()) {
     throw new Error('Published key differs from the pinned release key')
@@ -250,7 +261,7 @@ export async function syncUpdaterChannel(input, { fetchImpl = fetch, executeFile
       const servedDir = join(stage, 'public')
       await directory(sourceDir, 0o700)
       await directory(servedDir, 0o755)
-      const artifactNames = new Set(Object.values(normalizedAssets(release.version)))
+      const artifactNames = new Set(Object.values(normalizedAssets(release.version, releaseTargetSet(release))))
       for (const asset of release.assets) {
         const destination = join(sourceDir, asset.name)
         if (options.aria2 !== undefined && artifactNames.has(asset.name)) await segmentedDownload(options.aria2, asset, destination, executeFileImpl)

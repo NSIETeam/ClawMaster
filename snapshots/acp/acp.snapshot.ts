@@ -41,6 +41,11 @@ const controllerCases: readonly {
     configPath: join(corpusDir, 'wechat-read-approved', 'cordis.yml'),
   })),
   {
+    name: 'updater-intel-unavailable',
+    hasModelTurn: true,
+    configPath: join(corpusDir, 'updater-intel-unavailable', 'cordis.yml'),
+  },
+  {
     name: 'image-compaction',
     hasModelTurn: true,
     configPath: join(corpusDir, 'image-compaction', 'cordis.yml'),

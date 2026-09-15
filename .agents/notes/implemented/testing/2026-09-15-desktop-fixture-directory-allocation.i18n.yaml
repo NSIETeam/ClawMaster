@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/testing/2026-09-15-desktop-fixture-directory-allocation.md
+2026-09-15-desktop-fixture-directory-allocation.md: de71159f99dba4d85570afe7675e9cb40336872d
+2026-09-15-desktop-fixture-directory-allocation.zh.md: 6fec1bc5936b9c2ac1b2ec0ad6bd573d8700f1dc

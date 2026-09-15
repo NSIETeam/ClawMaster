@@ -36,6 +36,8 @@ Use `/updates` or ask the agent to use `clawmaster_updates` to inspect current u
 
 For an eligible hot component, activation changes only its updater-owned profile row and returns a rollback token. Loader observation establishes whether the component actually loaded. A changed profile revision rejects activation or a maintainer's rollback rather than replacing intervening edits. A component marked `restart`, including `updates` itself, is staged without editing the watched profile: restarting the app alone does not apply that staged change.
 
+Updater `0.1.2` reads the native v2 channel. Separately installed updaters `0.1.0` and `0.1.1`, and the published access kit `0.1.0`, retain their versions and legacy channel until separately upgraded. The kit's first-install operation cannot replace an existing updater. Changing the endpoint alone does not teach an older parser to accept a release without Intel Mac files.
+
 -----
 
 <a id="configuration"></a>
@@ -47,13 +49,15 @@ The [configuration schema](src/config.ts) owns the accepted fields and defaults.
 |---|---|---|
 | `dshHome` | `DSH_HOME`, otherwise `~/.dsh` | Existing selected Host home; update requests cannot override it. |
 | `catalogUrl` | `https://8.140.52.117/updates/clawmaster/components/catalog.json` | Signed component metadata. |
-| `nativeManifestUrl` | `https://8.140.52.117/updates/clawmaster/latest.json` | Native desktop release metadata. |
+| `nativeManifestUrl` | `https://8.140.52.117/updates/clawmaster/v2/latest.json` | Native desktop release metadata. |
 | `publicKeyPem`, `nativePublicKey` | Shipped component and Tauri public keys | Independent trust anchors for the two kinds of artifact. |
 | `checkIntervalMs` | `60000` | Automatic metadata check interval; `0` disables automatic checks. |
 | `nativeTarget` | Observed platform and installation type | Explicit selection is required when the Host cannot establish the installer type. |
 | `locale` | `zh-CN` | Command and approval language; also accepts `en-US`. |
 
 Polling reads metadata only. Network failures appear as unavailable channel information, and the other channel can still be checked. Plugin disposal cancels and waits for its checks and update operations. Request, download and archive limits are configurable in the same schema; profile patches have a fixed 2 MiB safety limit.
+
+Native manifests require Windows x64, Apple Silicon, Linux x64 AppImage and Linux x64 DEB targets. Intel Mac is optional for reading earlier releases; unknown targets and missing required targets are rejected. When the selected machine has no installer in a valid release, discovery reports that native update as unavailable and preparation stops before approval, downloading or writing files. The component catalog remains usable. Native file URLs must match the manifest directory’s `versions/<version>/` subtree and exact target filename; legacy and v2 channels cannot borrow each other’s files.
 
 Updater-owned files live below `DSH_HOME/clawmaster-updates/`. Version directories are immutable; download digests identify cached bytes. The profile edit is confined to `DSH_HOME/profiles/web/cordis.patch.yml`. Existing sessions, credentials and unrelated profile rows are not update targets.
 

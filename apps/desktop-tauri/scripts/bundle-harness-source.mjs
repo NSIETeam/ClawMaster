@@ -251,7 +251,7 @@ export function withDesktopDependencies(manifest, workspaceOverrides = {}) {
  * @returns {object} Desktop-only bundle metadata preserving dependencies and exports.
  */
 export function withDesktopUpdateBundle(manifest) {
-  if (manifest.name !== '@clawmaster/dsh-updates' || manifest.version !== '0.1.1') throw new Error('Desktop requires the reviewed updater package 0.1.1')
+  if (manifest.name !== '@clawmaster/dsh-updates' || manifest.version !== '0.1.2') throw new Error('Desktop requires the reviewed updater package 0.1.2')
   return { ...manifest, dsh: { ...manifest.dsh, bundle: { patch: './desktop.cordis.patch.yml' } } }
 }
 

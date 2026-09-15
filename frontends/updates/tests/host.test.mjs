@@ -188,6 +188,33 @@ test('runtime archives and real Minisign native files are downloads with explici
   await assert.rejects(readFile(join(f.config.dshHome, 'profiles')), { code: 'ENOENT' })
 })
 
+test('four-target native releases remain available on Apple Silicon and refuse Intel before approval or writes', async t => {
+  for (const target of ['darwin-aarch64', 'darwin-x86_64']) {
+    const f = await fixture(t)
+    delete f.native.platforms['darwin-x86_64']
+    f.facts.nativeTarget = target
+    const host = await mount(t, f)
+    const status = await host.execute('clawmaster_updates', {})
+    assert.equal(status.components.status, 'available')
+    if (target === 'darwin-x86_64') {
+      assert.equal(status.native.status, 'unavailable')
+      assert.match(status.native.error, /No native installer for darwin-x86_64/)
+      await assert.rejects(host.execute('clawmaster_update', { kind: 'native', version: '0.2.1' }), /No native installer for darwin-x86_64/)
+      assert.equal(host.approvals.length, 0)
+      assert.deepEqual(await readdir(f.root), [])
+      assert.ok(f.requests.every(url => !url.includes('/versions/')))
+    } else {
+      assert.equal(status.native.status, 'available')
+      assert.equal(status.native.target, target)
+      const result = await host.execute('clawmaster_update', { kind: 'native', version: '0.2.1' })
+      assert.equal(result.status, 'requires-native-installer')
+      assert.equal(result.target, target)
+      assert.equal(host.approvals.length, 1)
+      assert.equal(await readFile(result.path, 'utf8'), 'test')
+    }
+  }
+})
+
 test('untrusted input, incompatible facts and absent owning agents fail before approval or writes', async t => {
   const f = await fixture(t)
   const host = await mount(t, f)

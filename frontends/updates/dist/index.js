@@ -24025,7 +24025,7 @@ var absolutePath = external_exports.string().refine((value) => isAbsolute2(value
 var Config = external_exports.strictObject({
   dshHome: absolutePath.default(() => process.env.DSH_HOME ?? join2(homedir(), ".dsh")),
   catalogUrl: url2.default("https://8.140.52.117/updates/clawmaster/components/catalog.json"),
-  nativeManifestUrl: url2.default("https://8.140.52.117/updates/clawmaster/latest.json"),
+  nativeManifestUrl: url2.default("https://8.140.52.117/updates/clawmaster/v2/latest.json"),
   publicKeyPem: external_exports.string().refine((value) => {
     try {
       return createPublicKey(value).asymmetricKeyType === "ed25519";
@@ -27714,7 +27714,7 @@ var releaseSchema = external_exports.strictObject({
   pub_date: external_exports.iso.datetime(),
   platforms: external_exports.strictObject({
     "windows-x86_64": entry,
-    "darwin-x86_64": entry,
+    "darwin-x86_64": entry.optional(),
     "darwin-aarch64": entry,
     "linux-x86_64": entry,
     "linux-x86_64-deb": entry
@@ -27724,12 +27724,20 @@ async function fetchNativeRelease(options) {
   const endpoint = httpsUrl(options.manifestUrl);
   const release = releaseSchema.parse(JSON.parse((await fetchBytes(options.manifestUrl, options)).toString("utf8")));
   for (const target of Object.keys(suffixes)) {
-    const url3 = httpsUrl(release.platforms[target].url);
-    if (url3.origin !== endpoint.origin || url3.pathname !== `/updates/clawmaster/versions/${release.version}/clawmaster-${release.version}-${suffixes[target]}`) {
+    const artifact = release.platforms[target];
+    if (artifact === void 0) continue;
+    const url3 = httpsUrl(artifact.url);
+    const expected = new URL(`versions/${release.version}/clawmaster-${release.version}-${suffixes[target]}`, endpoint);
+    if (url3.href !== expected.href) {
       throw new Error("Native artifact URL is outside its configured version directory");
     }
   }
   return release;
+}
+function nativeArtifact(release, target) {
+  const artifact = release.platforms[target];
+  if (artifact === void 0) throw new Error(`No native installer for ${target} in ClawMaster ${release.version}.`);
+  return artifact;
 }
 function envelope(value, name2) {
   const encoded = value.trim();
@@ -27787,7 +27795,7 @@ async function verifyNativeFile(path, publicKey, signature, signal) {
   });
 }
 async function prepareNativeUpdate(release, target, options) {
-  const artifact = release.platforms[target];
+  const artifact = nativeArtifact(release, target);
   const file2 = await downloadVerifiedFile({ url: artifact.url }, {
     ...options,
     verify: (path, signal) => verifyNativeFile(path, options.publicKey, artifact.signature, signal)
@@ -27843,6 +27851,24 @@ var UpdatesService = class {
   facts() {
     return (this.dependencies.facts ?? readRuntimeFacts)(this.config.dshHome);
   }
+  nativeStatus(result, facts) {
+    if (result.status === "rejected") return { status: "unavailable", error: failure(result.reason) };
+    const target = this.config.nativeTarget ?? facts.nativeTarget;
+    if (target !== null) {
+      try {
+        nativeArtifact(result.value, target);
+      } catch (error51) {
+        return { status: "unavailable", error: failure(error51) };
+      }
+    }
+    return {
+      status: "available",
+      version: result.value.version,
+      target,
+      updateAvailable: facts.desktopVersion === null ? null : (0, import_semver4.lt)(facts.desktopVersion, result.value.version),
+      requires: "native-installer"
+    };
+  }
   /** @returns The last in-memory check, or null before a check completes; does not access disk or network. */
   cached() {
     return this.latest === null ? null : structuredClone(this.latest);
@@ -27861,13 +27887,7 @@ var UpdatesService = class {
       checkedAt: (/* @__PURE__ */ new Date()).toISOString(),
       facts,
       components: components.status === "fulfilled" ? { status: "available", generatedAt: components.value.generatedAt, items: components.value.components.map((item) => ({ ...item, compatible: facts.dshVersion === null ? null : item.requiresDshVersion === facts.dshVersion })) } : { status: "unavailable", error: failure(components.reason) },
-      native: native.status === "fulfilled" ? {
-        status: "available",
-        version: native.value.version,
-        target: this.config.nativeTarget ?? facts.nativeTarget,
-        updateAvailable: facts.desktopVersion === null ? null : (0, import_semver4.lt)(facts.desktopVersion, native.value.version),
-        requires: "native-installer"
-      } : { status: "unavailable", error: failure(native.reason) }
+      native: this.nativeStatus(native, facts)
     };
     this.latest = structuredClone(status);
     return status;
@@ -27883,6 +27903,7 @@ var UpdatesService = class {
       if (facts.desktopVersion && (0, import_semver4.lt)(release.version, facts.desktopVersion)) throw new Error("Native update would downgrade this desktop");
       const target = this.config.nativeTarget ?? facts.nativeTarget;
       if (!target) throw new Error("Native installer target is unknown; configure nativeTarget for this desktop");
+      nativeArtifact(release, target);
       return freeze({ kind: "native", release: structuredClone(release), target, facts, patchRevision });
     }
     const catalog = await this.catalog(signal);

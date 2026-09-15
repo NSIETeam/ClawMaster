@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { normalizedAssets, validateVersion } from './generate-updater-manifest.mjs'
+import { normalizedAssets, targetSetForPlatforms, validateVersion } from './generate-updater-manifest.mjs'
 
 const execute = promisify(execFile)
 
@@ -26,10 +26,7 @@ function decodeEnvelope(value, label) {
 export async function verifyUpdaterSignatures({ assetsDir, manifestPath, publicKeyPath, minisign = 'minisign' }) {
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
   validateVersion(manifest.version)
-  const assets = normalizedAssets(manifest.version)
-  if (!manifest.platforms || Object.keys(manifest.platforms).sort().join('\n') !== Object.keys(assets).sort().join('\n')) {
-    throw new Error('Updater manifest must contain exactly the supported platform targets')
-  }
+  const assets = normalizedAssets(manifest.version, targetSetForPlatforms(manifest.platforms))
   const publicKey = decodeEnvelope(await readFile(publicKeyPath, 'utf8'), 'updater public key')
   const directory = await mkdtemp(join(tmpdir(), 'clawmaster-update-signatures-'))
   try {

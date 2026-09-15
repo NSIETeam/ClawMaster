@@ -1,0 +1,12 @@
+version: 1
+scenario: updater-intel-unavailable
+profile: acp
+composition: acp-updater
+recording: authored
+header:
+  class: acp-updater
+  pin: true
+  systemPromptSource: escalation-approved
+permission: workspace-write
+workspace:
+  final: true

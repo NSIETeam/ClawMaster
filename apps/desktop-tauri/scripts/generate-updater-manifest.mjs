@@ -17,21 +17,34 @@ const OPTIONS = {
   '--repository': 'repository',
   '--release-tag': 'releaseTag',
   '--asset-base-url': 'assetBaseUrl',
+  '--target-set': 'targetSet',
   '--notes': 'notes',
   '--notes-file': 'notesFile',
   '--pub-date': 'pubDate',
 }
 
-const REQUIRED = ['assetsDir', 'outputPath', 'version', 'repository', 'releaseTag', 'pubDate']
+const REQUIRED = ['assetsDir', 'outputPath', 'version', 'repository', 'releaseTag', 'pubDate', 'targetSet']
 
-/** @param {string} version @returns {Record<string, string>} */
-export function normalizedAssets(version) {
+/** @param {string} version @param {'current'|'legacy'} targetSet Four required targets, optionally with legacy Intel Mac. @returns {Record<string, string>} */
+export function normalizedAssets(version, targetSet = 'current') {
+  if (targetSet !== 'current' && targetSet !== 'legacy') throw new Error('Invalid target set: use current or legacy')
   return Object.fromEntries(
-    Object.entries(PLATFORM_ASSET_SUFFIXES).map(([platform, suffix]) => [
+    Object.entries(PLATFORM_ASSET_SUFFIXES).filter(([platform]) => targetSet === 'legacy' || platform !== 'darwin-x86_64').map(([platform, suffix]) => [
       platform,
       `clawmaster-${version}-${suffix}`,
     ]),
   )
+}
+
+/** @param {unknown} platforms Manifest platform records read from a file or remote response. @returns {'current'|'legacy'} The complete supported target set. */
+export function targetSetForPlatforms(platforms) {
+  if (platforms && typeof platforms === 'object' && !Array.isArray(platforms)) {
+    const keys = Object.keys(platforms).sort().join('\n')
+    for (const targetSet of ['current', 'legacy']) {
+      if (keys === Object.keys(normalizedAssets('0.0.0', targetSet)).sort().join('\n')) return targetSet
+    }
+  }
+  throw new Error('Updater manifest must contain exactly the supported platform targets (current or legacy)')
 }
 
 /** @param {string} version */
@@ -77,7 +90,7 @@ function assetDirectory(value) {
 /**
  * An optional HTTPS asset directory replaces GitHub download URLs without changing artifact names or signatures.
  * The directory may end in a slash; credentials, query, fragment and ambiguous paths are rejected.
- * @param {{ version: string, repository: string, releaseTag: string, assetBaseUrl?: string, notes: string, pubDate: string, signatures: Record<string, string> }} options
+ * @param {{ version: string, repository: string, releaseTag: string, targetSet?: 'current'|'legacy', assetBaseUrl?: string, notes: string, pubDate: string, signatures: Record<string, string> }} options
  * @returns {{ version: string, notes: string, pub_date: string, platforms: Record<string, { signature: string, url: string }> }}
  */
 export function createManifest(options) {
@@ -89,7 +102,7 @@ export function createManifest(options) {
     : assetDirectory(options.assetBaseUrl)
 
   const platforms = Object.fromEntries(
-    Object.entries(normalizedAssets(version)).map(([platform, asset]) => {
+    Object.entries(normalizedAssets(version, options.targetSet)).map(([platform, asset]) => {
       const signature = signatures[platform]?.trim()
       if (!signature) throw new Error(`Missing signature for platform: ${platform}`)
       return [platform, {
@@ -98,13 +111,14 @@ export function createManifest(options) {
       }]
     }),
   )
+  if (Object.keys(signatures).some(platform => !Object.hasOwn(platforms, platform))) throw new Error('Signatures contain targets outside the selected target set')
 
   return { version, notes, pub_date: pubDate, platforms }
 }
 
 /**
  * @param {string[]} args
- * @returns {{ assetsDir: string, outputPath: string, version: string, repository: string, releaseTag: string, assetBaseUrl?: string, notes?: string, notesFile?: string, pubDate: string }}
+ * @returns {{ assetsDir: string, outputPath: string, version: string, repository: string, releaseTag: string, targetSet: 'current'|'legacy', assetBaseUrl?: string, notes?: string, notesFile?: string, pubDate: string }}
  */
 export function parseArguments(args) {
   const values = {}
@@ -112,10 +126,12 @@ export function parseArguments(args) {
     const option = args[index]
     const key = OPTIONS[option]
     if (!key) throw new Error(`Unknown option: ${option}`)
+    if (Object.hasOwn(values, key)) throw new Error(`Duplicate option: ${option}`)
     const value = args[index + 1]
     if (value === undefined) throw new Error(`Missing value for option: ${option}`)
     values[key] = value
   }
+  normalizedAssets(values.version, values.targetSet)
   for (const key of REQUIRED) {
     if (values[key] === undefined) {
       const option = Object.entries(OPTIONS).find(([, name]) => name === key)?.[0]
@@ -144,12 +160,12 @@ export async function resolveNotes(options) {
 }
 
 /**
- * @param {{ assetsDir: string, outputPath: string, version: string, repository: string, releaseTag: string, assetBaseUrl?: string, notes?: string, notesFile?: string, pubDate: string }} options
+ * @param {{ assetsDir: string, outputPath: string, version: string, repository: string, releaseTag: string, targetSet: 'current'|'legacy', assetBaseUrl?: string, notes?: string, notesFile?: string, pubDate: string }} options
  * @returns {Promise<void>}
  */
 export async function writeUpdaterManifest(options) {
   const notes = await resolveNotes(options)
-  const assets = normalizedAssets(options.version)
+  const assets = normalizedAssets(options.version, options.targetSet)
   const signatures = {}
   for (const [platform, asset] of Object.entries(assets)) {
     const assetPath = resolve(options.assetsDir, asset)

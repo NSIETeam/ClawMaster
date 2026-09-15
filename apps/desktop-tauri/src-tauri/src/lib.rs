@@ -143,27 +143,24 @@ mod linux_payload_tests {
     use super::resolve_linux_bundled_source;
     use std::fs;
     use std::path::{Path, PathBuf};
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use tempfile::TempDir;
 
-    struct Fixture(PathBuf);
+    struct Fixture(TempDir);
 
     impl Fixture {
         fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let root = std::env::temp_dir().join(format!(
-                "clawmaster-linux-layout-{}-{nonce}",
-                std::process::id()
-            ));
-            fs::create_dir(&root).unwrap();
-            Self(root)
+            Self(
+                tempfile::Builder::new()
+                    .prefix("clawmaster-linux-layout-")
+                    .tempdir()
+                    .unwrap(),
+            )
         }
 
         fn payload(&self, prefix: &str) -> PathBuf {
             let source = self
                 .0
+                .path()
                 .join(prefix)
                 .join("usr/share/ClawMaster/harness-source");
             fs::create_dir_all(&source).unwrap();
@@ -172,18 +169,12 @@ mod linux_payload_tests {
         }
     }
 
-    impl Drop for Fixture {
-        fn drop(&mut self) {
-            fs::remove_dir_all(&self.0).unwrap();
-        }
-    }
-
     #[test]
     fn linux_payload_resolves_deb_and_appimage_prefixes() {
         let fixture = Fixture::new();
         for prefix in ["", ".mount ClawMaster"] {
             let expected = fixture.payload(prefix);
-            let resources = fixture.0.join(prefix).join("usr/lib/ClawMaster");
+            let resources = fixture.0.path().join(prefix).join("usr/lib/ClawMaster");
             assert_eq!(resolve_linux_bundled_source(&resources), Some(expected));
         }
     }
@@ -191,14 +182,14 @@ mod linux_payload_tests {
     #[test]
     fn linux_payload_rejects_missing_manifest_and_legacy_lib_copy() {
         let fixture = Fixture::new();
-        let resources = fixture.0.join("usr/lib/ClawMaster");
+        let resources = fixture.0.path().join("usr/lib/ClawMaster");
         let legacy = resources.join("harness-source");
         fs::create_dir_all(&legacy).unwrap();
         fs::write(legacy.join(".bundle-manifest.json"), "{}").unwrap();
         assert_eq!(resolve_linux_bundled_source(&resources), None);
         fixture.payload("");
         assert_eq!(
-            resolve_linux_bundled_source(&fixture.0.join("target/debug")),
+            resolve_linux_bundled_source(&fixture.0.path().join("target/debug")),
             None
         );
     }

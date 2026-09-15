@@ -30,11 +30,12 @@ const assets = normalizedAssets(version)
 const minisign = process.env.CLAWMASTER_MINISIGN ?? 'minisign'
 const encode = value => Buffer.from(value).toString('base64')
 
-async function withRelease(run) {
+async function withRelease(run, targetSet = 'current') {
+  const assets = normalizedAssets(version, targetSet)
   const directory = await mkdtemp(join(tmpdir(), 'clawmaster-signed-release-'))
   try {
     const manifest = createManifest({
-      version, repository: 'NSIETeam/ClawMaster-Desktop', releaseTag: `desktop-v${version}`,
+      version, targetSet, repository: 'NSIETeam/ClawMaster-Desktop', releaseTag: `desktop-v${version}`,
       notes: '', pubDate: '2026-09-15T00:00:00.000Z',
       signatures: Object.fromEntries(Object.keys(assets).map((target, index) => [target, encode(signatures[index % signatures.length])])),
     })
@@ -45,7 +46,7 @@ async function withRelease(run) {
       await writeFile(join(directory, asset), 'test')
       await writeFile(join(directory, `${asset}.sig`), `${manifest.platforms[target].signature}\n`)
     }
-    await run({ directory, manifest, options })
+    await run({ directory, manifest, options, assets })
   }
   finally {
     await rm(directory, { recursive: true, force: true })
@@ -68,8 +69,16 @@ test('the release CLI authenticates every platform using real legacy and prehash
       fileURLToPath(new URL('./verify-updater-signatures.mjs', import.meta.url)),
       options.assetsDir, options.manifestPath, options.publicKeyPath, minisign,
     ])
-    assert.match(stdout, /verified 5 updater artifacts/)
+    assert.match(stdout, /verified 4 updater artifacts/)
   })
+})
+
+test('legacy five-target manifests authenticate the additional Intel artifact', async () => {
+  await withRelease(async ({ directory, options, assets }) => {
+    assert.equal((await verifyUpdaterSignatures(options)).length, 5)
+    await writeFile(join(directory, assets['darwin-x86_64']), 'Test')
+    await rejectsSignature(options, 'macos-x64')
+  }, 'legacy')
 })
 
 test('changing updater bytes is rejected by Minisign', async () => {

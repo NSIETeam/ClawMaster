@@ -17,19 +17,19 @@ const releaseSchema = z.strictObject({
   notes: z.string(),
   pub_date: z.iso.datetime(),
   platforms: z.strictObject({
-    'windows-x86_64': entry, 'darwin-x86_64': entry, 'darwin-aarch64': entry,
+    'windows-x86_64': entry, 'darwin-x86_64': entry.optional(), 'darwin-aarch64': entry,
     'linux-x86_64': entry, 'linux-x86_64-deb': entry,
   }),
 })
 
 /** Supported Tauri installer-specific update target. */
 export type NativeTarget = keyof typeof suffixes
-/** Validated native manifest; payload trust is established only by signature verification. */
+/** Four required installer targets and an optional legacy Intel Mac target; payloads still require signature verification. */
 export type NativeRelease = z.infer<typeof releaseSchema>
 /** Verified file requiring the native installer before it becomes active. */
 export interface PreparedNativeUpdate extends VerifiedDownload { status: 'requires-native-installer'; version: string; target: NativeTarget }
 
-/** Read a static Tauri manifest restricted to its configured HTTPS update server.
+/** Read a static Tauri manifest whose payloads use its HTTPS directory's version subtree.
  * @param options Endpoint, metadata limits and optional cancellation.
  * @returns Validated manifest; this does not authenticate or install payload bytes.
  */
@@ -37,12 +37,26 @@ export async function fetchNativeRelease(options: RequestOptions & { manifestUrl
   const endpoint = httpsUrl(options.manifestUrl)
   const release = releaseSchema.parse(JSON.parse((await fetchBytes(options.manifestUrl, options)).toString('utf8')))
   for (const target of Object.keys(suffixes) as NativeTarget[]) {
-    const url = httpsUrl(release.platforms[target].url)
-    if (url.origin !== endpoint.origin || url.pathname !== `/updates/clawmaster/versions/${release.version}/clawmaster-${release.version}-${suffixes[target]}`) {
+    const artifact = release.platforms[target]
+    if (artifact === undefined) continue
+    const url = httpsUrl(artifact.url)
+    const expected = new URL(`versions/${release.version}/clawmaster-${release.version}-${suffixes[target]}`, endpoint)
+    if (url.href !== expected.href) {
       throw new Error('Native artifact URL is outside its configured version directory')
     }
   }
   return release
+}
+
+/** Select an installer present in this release before approval, downloading or filesystem writes.
+ * @param release Validated native release.
+ * @param target Installer target for the receiving machine.
+ * @returns Selected metadata; throws when this release has no installer for the target.
+ */
+export function nativeArtifact(release: NativeRelease, target: NativeTarget): z.infer<typeof entry> {
+  const artifact = release.platforms[target]
+  if (artifact === undefined) throw new Error(`No native installer for ${target} in ClawMaster ${release.version}.`)
+  return artifact
 }
 
 function envelope(value: string, name: string): string {
@@ -112,7 +126,7 @@ export async function verifyNativeFile(path: string, publicKey: string, signatur
  * @returns Verified cache file explicitly requiring the native installer.
  */
 export async function prepareNativeUpdate(release: NativeRelease, target: NativeTarget, options: Omit<DownloadOptions, 'verify'> & { publicKey: string }): Promise<PreparedNativeUpdate> {
-  const artifact = release.platforms[target]
+  const artifact = nativeArtifact(release, target)
   const file = await downloadVerifiedFile({ url: artifact.url }, {
     ...options,
     verify: (path, signal) => verifyNativeFile(path, options.publicKey, artifact.signature, signal),

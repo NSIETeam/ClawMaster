@@ -24,10 +24,10 @@ const baseUrl = 'https://updates.example.test/clawmaster'
 const minisign = process.env.CLAWMASTER_MINISIGN ?? 'minisign'
 const sha256 = value => createHash('sha256').update(value).digest('hex')
 
-function releaseFixture(version = '0.2.1') {
-  const targets = normalizedAssets(version)
+function releaseFixture(version = '0.2.1', targetSet = 'legacy') {
+  const targets = normalizedAssets(version, targetSet)
   const tag = `desktop-v${version}`
-  const manifest = createManifest({ version, repository, releaseTag: tag,
+  const manifest = createManifest({ version, targetSet, repository, releaseTag: tag,
     notes: 'Verified desktop release', pubDate: '2026-09-15T00:00:00Z',
     signatures: Object.fromEntries(Object.keys(targets).map(target => [target, signature])) })
   const files = new Map(Object.values(targets).flatMap(name => [[name, 'test'], [`${name}.sig`, `${signature}\n`]]))
@@ -112,6 +112,86 @@ test('publishing verifies original signatures, preserves asset bytes and serves 
       assert.equal((await lstat(latest)).mode & 0o777, 0o644)
     }
   })
+})
+
+test('the v2 channel publishes four targets without changing the legacy channel and revalidates on a repeated sync', async () => {
+  await withState(async ({ root, options, latest }) => {
+    const legacy = releaseFixture()
+    await syncUpdaterChannel(options, legacy)
+    const originalLatest = await readFile(latest, 'utf8')
+    const originalReceipt = await readFile(join(options.stateDir, 'evidence', '0.2.1', 'release.json'), 'utf8')
+    const v2 = { ...options, stateDir: join(root, 'state-v2'), baseUrl: `${baseUrl}/v2` }
+    const release = releaseFixture('0.2.2', 'current')
+    assert.deepEqual(await syncUpdaterChannel(v2, release), { status: 'published', version: '0.2.2' })
+    const v2Latest = join(v2.stateDir, 'public', 'latest.json')
+    const manifest = JSON.parse(await readFile(v2Latest, 'utf8'))
+    assert.equal(Object.keys(manifest.platforms).length, 4)
+    assert.equal(manifest.platforms['darwin-x86_64'], undefined)
+    assert.ok(release.requests.every(url => !url.includes('macos-x64')))
+    for (const [target, name] of Object.entries(release.targets)) {
+      assert.deepEqual(manifest.platforms[target], { signature, url: `${baseUrl}/v2/versions/0.2.2/${name}` })
+      assert.equal(await readFile(join(v2.stateDir, 'public', 'versions', '0.2.2', name), 'utf8'), 'test')
+    }
+    const before = await lstat(v2Latest)
+    release.requests.length = 0
+    assert.deepEqual(await syncUpdaterChannel(v2, release), { status: 'current', version: '0.2.2' })
+    assert.equal(release.requests.length, 1)
+    assert.equal((await lstat(v2Latest)).mtimeMs, before.mtimeMs)
+    assert.equal(await readFile(latest, 'utf8'), originalLatest)
+    assert.equal(await readFile(join(options.stateDir, 'evidence', '0.2.1', 'release.json'), 'utf8'), originalReceipt)
+    assert.deepEqual(await readdir(join(options.stateDir, 'public', 'versions')), ['0.2.1'])
+  })
+})
+
+test('missing required targets, unknown targets and Intel asset disagreement retain the published channel', async () => {
+  await withState(async ({ options, latest }) => {
+    await syncUpdaterChannel(options, releaseFixture())
+    const before = await readFile(latest, 'utf8')
+    const edits = Object.keys(normalizedAssets('0.2.2')).map(target => fixture => { delete fixture.manifest.platforms[target] })
+    edits.push(
+      fixture => { fixture.manifest.platforms.unknown = fixture.manifest.platforms['windows-x86_64'] },
+      fixture => { fixture.manifest.platforms['darwin-x86_64'] = fixture.manifest.platforms['darwin-aarch64'] },
+      fixture => {
+        const intel = normalizedAssets('0.2.2', 'legacy')['darwin-x86_64']
+        fixture.files.set(intel, 'test')
+        fixture.files.set(`${intel}.sig`, signature)
+      },
+    )
+    for (const edit of edits) {
+      const next = releaseFixture('0.2.2', 'current')
+      edit(next)
+      next.files.set('latest.json', JSON.stringify(next.manifest))
+      next.refresh()
+      await assert.rejects(syncUpdaterChannel(options, next), /exactly the supported platform targets|targets differ/)
+      assert.equal(await readFile(latest, 'utf8'), before)
+      assert.deepEqual(await readdir(join(options.stateDir, 'public', 'versions')), ['0.2.1'])
+    }
+    const absent = releaseFixture('0.2.2', 'current')
+    absent.files.delete(absent.targets['linux-x86_64-deb'])
+    absent.refresh()
+    await assert.rejects(syncUpdaterChannel(options, absent), /Missing or invalid GitHub release asset/)
+    assert.equal(absent.requests.length, 1)
+    const incompleteIntel = releaseFixture('0.2.2', 'legacy')
+    incompleteIntel.files.delete(`${incompleteIntel.targets['darwin-x86_64']}.sig`)
+    incompleteIntel.refresh()
+    await assert.rejects(syncUpdaterChannel(options, incompleteIntel), /Missing or invalid GitHub release asset/)
+    assert.equal(incompleteIntel.requests.length, 1)
+    assert.equal(await readFile(latest, 'utf8'), before)
+  })
+})
+
+test('server configuration directs synchronization only to v2 while legacy and component paths retain their state', async () => {
+  const service = await readFile(new URL('../server-updates/clawmaster-updates.service', import.meta.url), 'utf8')
+  const nginx = await readFile(new URL('../server-updates/clawmaster-updates.nginx.conf', import.meta.url), 'utf8')
+  assert.match(service, /^StateDirectory=clawmaster-updates-v2$/m)
+  assert.match(service, /^WorkingDirectory=\/opt\/clawmaster-updates-v2$/m)
+  assert.match(service, /--state-dir \/var\/lib\/clawmaster-updates-v2 --public-key \/opt\/clawmaster-updates\/release-signing\.pub --base-url https:\/\/8\.140\.52\.117\/updates\/clawmaster\/v2 /)
+  assert.match(nginx, /location = \/updates\/clawmaster\/v2\/latest\.json \{\s+alias \/var\/lib\/clawmaster-updates-v2\/public\/latest\.json;/)
+  assert.match(nginx, /location = \/updates\/clawmaster\/latest\.json \{\s+alias \/var\/lib\/clawmaster-updates\/public\/latest\.json;/)
+  assert.match(nginx, /location \^~ \/updates\/clawmaster\/versions\/ \{\s+alias \/var\/lib\/clawmaster-updates\/public\/versions\/;/)
+  assert.match(nginx, /location \^~ \/updates\/clawmaster\/v2\/versions\/ \{\s+alias \/var\/lib\/clawmaster-updates-v2\/public\/versions\/;/)
+  assert.match(nginx, /location = \/updates\/clawmaster\/components\/catalog\.json \{\s+alias \/var\/lib\/clawmaster-updates\/components\/current\/catalog\.json;/)
+  assert.match(nginx, /location \^~ \/updates\/clawmaster\/kits\/ \{\s+alias \/var\/lib\/clawmaster-updates\/kits\/;/)
 })
 
 test('the same version validates its immutable files without downloading or replacing metadata', async () => {

@@ -45,11 +45,6 @@ jobs:
             bundles: nsis
             asset_platform: windows
             asset_arch: x64
-          - runner: macos-15-intel
-            target: x86_64-apple-darwin
-            bundles: app,dmg
-            asset_platform: macos
-            asset_arch: x64
           - runner: macos-15
             target: aarch64-apple-darwin
             bundles: app,dmg
@@ -239,11 +234,11 @@ jobs:
         shell: bash
         run: node --import tsx/esm native/system/scripts/build.ts
 
-      - name: Replay approved and rejected WeChat reads
+      - name: Replay WeChat approvals and unavailable update targets
         if: runner.os == 'macOS' || runner.os == 'Linux'
         shell: bash
         run: >-
-          pnpm exec vitest run --config vitest.snapshot.config.ts snapshots/acp/acp.snapshot.ts -t 'snapshot: wechat-read-(approved|rejected) matches|snapshot fixtures'
+          pnpm exec vitest run --config vitest.snapshot.config.ts snapshots/acp/acp.snapshot.ts -t 'snapshot: (wechat-read-(approved|rejected)|updater-intel-unavailable) matches|snapshot fixtures'
 
       - name: Prepare verified Office editor resources
         run: |
@@ -465,9 +460,6 @@ jobs:
           $expected = @(
             '*-windows-x64-setup.exe',
             '*-windows-x64-setup.exe.sig',
-            '*-macos-x64.dmg',
-            '*-macos-x64.app.tar.gz',
-            '*-macos-x64.app.tar.gz.sig',
             '*-macos-arm64.dmg',
             '*-macos-arm64.app.tar.gz',
             '*-macos-arm64.app.tar.gz.sig',
@@ -476,7 +468,6 @@ jobs:
             '*-linux-x64.deb',
             '*-linux-x64.deb.sig',
             '*-windows-x64-build.json',
-            '*-macos-x64-build.json',
             '*-macos-arm64-build.json',
             '*-linux-x64-build.json'
           )
@@ -508,6 +499,7 @@ jobs:
             --assets-dir release-assets `
             --output release-assets/latest.json `
             --version $version `
+            --target-set current `
             --repository $env:GITHUB_REPOSITORY `
             --release-tag $env:RELEASE_TAG `
             --notes-file apps/desktop-tauri/release-notes.md `
@@ -517,7 +509,7 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -yq minisign
-          node --test apps/desktop-tauri/scripts/verify-updater-signatures.test.mjs
+          node --test apps/desktop-tauri/scripts/verify-updater-signatures.test.mjs apps/desktop-tauri/scripts/sync-updater-channel.test.mjs
           node apps/desktop-tauri/scripts/verify-updater-signatures.mjs release-assets release-assets/latest.json apps/desktop-tauri/release-signing.pub
 
       - name: Record release checksums

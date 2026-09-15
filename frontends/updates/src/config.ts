@@ -15,7 +15,7 @@ const absolutePath = z.string().refine(value => isAbsolute(value) && resolve(val
 export const Config = z.strictObject({
   dshHome: absolutePath.default(() => process.env.DSH_HOME ?? join(homedir(), '.dsh')),
   catalogUrl: url.default('https://8.140.52.117/updates/clawmaster/components/catalog.json'),
-  nativeManifestUrl: url.default('https://8.140.52.117/updates/clawmaster/latest.json'),
+  nativeManifestUrl: url.default('https://8.140.52.117/updates/clawmaster/v2/latest.json'),
   publicKeyPem: z.string().refine(value => { try { return createPublicKey(value).asymmetricKeyType === 'ed25519' } catch { return false } }, 'Requires an Ed25519 public key').default(COMPONENT_PUBLIC_KEY),
   nativePublicKey: z.string().refine(value => {
     const bytes = Buffer.from(value, 'base64')

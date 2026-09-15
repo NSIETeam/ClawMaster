@@ -12,13 +12,15 @@ Status: implemented
 
 原生更新器优先请求自托管 HTTPS manifest，并保留 GitHub Latest 作为备用地址。服务器镜像 GitHub 最新正式版本；GitHub 继续负责构建、签名发布产物与溯源。[同步器](../../../../apps/desktop-tauri/scripts/sync-updater-channel.mjs)使用专用非特权账户与固定公钥运行。它不持有签名私钥，不能生成新的可信应用版本。
 
-同步器在发布前检查来源校验和与全部五个更新签名，保留载荷字节和签名，仅改写公开 manifest 的产物 URL。下载与证据保存在公开目录外。已验证的不可变版本目录先变为可见，再原子替换 `latest.json`。共享进程锁串行执行发布；预发行版本、降级和冲突的不可变版本均失败，不替换当前 manifest。
+同步器在发布前检查来源校验和与完整目标集合中的每个更新签名，保留载荷字节和签名，仅改写公开 manifest 的产物 URL。下载与证据保存在公开目录外。已验证的不可变版本目录先变为可见，再原子替换 `latest.json`。共享进程锁串行执行发布；预发行版本、降级和冲突的不可变版本均失败，不替换当前 manifest。
 
 重复版本在重新验证本地文件后不作更改。发布中断后可以从完整且已验证的版本继续。公开 manifest 不缓存，版本文件不可变且可缓存。[服务器参考](../../../../apps/desktop-tauri/server-updates/README.zh.md)负责部署路径、选项与运行恢复。
 
 [桌面正式更新决策](2026-09-13-desktop-stable-confirmed-updates.zh.md)仍负责原生版本选择、定期检查、签名验证和用户确认。已安装的 `0.2.1` 程序在后续原生发布前仍保留编译时的 GitHub 端点。服务器同步既不改变该端点，也不重新发布已有 GitHub 版本。
 
 [已安装客户端组件决策](2026-09-15-installed-dsh-component-updates.zh.md)负责独立签名的插件目录及其首次挂载到已有 DSH 配置的规则。
+
+[版本化通道决策](2026-09-15-versioned-native-update-targets.zh.md)负责四目标原生通道，以及为已安装解析器保留五目标旧端点的规则。
 
 ## 考虑过的替代方案
 

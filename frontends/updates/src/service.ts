@@ -8,7 +8,7 @@ import type { ResolvedUpdatesConfig } from './config.ts'
 import { downloadVerifiedFile } from './download.ts'
 import { readRuntimeFacts, type RuntimeFacts } from './facts.ts'
 import { assertManagedHome } from './managed-home.ts'
-import { fetchNativeRelease, prepareNativeUpdate, type NativeRelease, type NativeTarget } from './native.ts'
+import { fetchNativeRelease, nativeArtifact, prepareNativeUpdate, type NativeRelease, type NativeTarget } from './native.ts'
 
 const version = z.string().regex(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u)
 const itemRequest = { id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u), version }
@@ -71,6 +71,17 @@ export class UpdatesService {
   private native(signal: AbortSignal) { return fetchNativeRelease({ ...this.request(signal), manifestUrl: this.config.nativeManifestUrl }) }
   private facts() { return (this.dependencies.facts ?? readRuntimeFacts)(this.config.dshHome) }
 
+  private nativeStatus(result: PromiseSettledResult<NativeRelease>, facts: RuntimeFacts): UpdatesStatus['native'] {
+    if (result.status === 'rejected') return { status: 'unavailable', error: failure(result.reason) }
+    const target = this.config.nativeTarget ?? facts.nativeTarget
+    if (target !== null) {
+      try { nativeArtifact(result.value, target) }
+      catch (error) { return { status: 'unavailable', error: failure(error) } }
+    }
+    return { status: 'available', version: result.value.version, target,
+      updateAvailable: facts.desktopVersion === null ? null : lt(facts.desktopVersion, result.value.version), requires: 'native-installer' }
+  }
+
   /** @returns The last in-memory check, or null before a check completes; does not access disk or network. */
   cached(): UpdatesStatus | null { return this.latest === null ? null : structuredClone(this.latest) }
 
@@ -89,10 +100,7 @@ export class UpdatesService {
       components: components.status === 'fulfilled'
         ? { status: 'available', generatedAt: components.value.generatedAt, items: components.value.components.map(item => ({ ...item, compatible: facts.dshVersion === null ? null : item.requiresDshVersion === facts.dshVersion })) }
         : { status: 'unavailable', error: failure(components.reason) },
-      native: native.status === 'fulfilled'
-        ? { status: 'available', version: native.value.version, target: this.config.nativeTarget ?? facts.nativeTarget,
-          updateAvailable: facts.desktopVersion === null ? null : lt(facts.desktopVersion, native.value.version), requires: 'native-installer' }
-        : { status: 'unavailable', error: failure(native.reason) },
+      native: this.nativeStatus(native, facts),
     }
     this.latest = structuredClone(status)
     return status
@@ -109,6 +117,7 @@ export class UpdatesService {
       if (facts.desktopVersion && lt(release.version, facts.desktopVersion)) throw new Error('Native update would downgrade this desktop')
       const target = this.config.nativeTarget ?? facts.nativeTarget
       if (!target) throw new Error('Native installer target is unknown; configure nativeTarget for this desktop')
+      nativeArtifact(release, target)
       return freeze({ kind: 'native', release: structuredClone(release), target, facts, patchRevision })
     }
     const catalog = await this.catalog(signal)

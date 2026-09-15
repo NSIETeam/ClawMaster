@@ -1,0 +1,4 @@
+# Use production update tools with scenario-owned metadata and machine facts.
+- insert:
+    - id: clawmaster-updates
+      name: ./updater-fixture.ts

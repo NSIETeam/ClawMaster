@@ -9,7 +9,7 @@ import { parseSignedCatalog, type CatalogItem } from './catalog.ts';
 import { installComponent, readComponentPatchRevision } from './components.ts';
 import { bootstrapUpdater } from './bootstrap.ts';
 import { assertManagedHome } from './managed-home.ts';
-import { fetchNativeRelease, prepareNativeUpdate, type NativeTarget } from './native.ts';
+import { fetchNativeRelease, nativeArtifact, prepareNativeUpdate, type NativeTarget } from './native.ts';
 import { COMPONENT_PUBLIC_KEY, NATIVE_PUBLIC_KEY } from './keys.ts';
 
 const CATALOG_URL = 'https://8.140.52.117/updates/clawmaster/components/catalog.json';
@@ -209,7 +209,7 @@ export async function nativeKit(options: KitNativeOptions, trust: KitTrust = pro
   if (!target || !validTargets.includes(target)) throw new Error('Select an installer target supported on this machine; Linux requires an explicit AppImage or DEB target');
   const request = { ...(trust.fetchImpl ? { fetchImpl: trust.fetchImpl } : {}), ...(options.signal ? { signal: options.signal } : {}) };
   const release = await fetchNativeRelease({ ...request, manifestUrl: trust.nativeManifestUrl, requestTimeoutMs: 30_000, maxCatalogBytes: METADATA_BYTES });
-  const artifact = release.platforms[target];
+  const artifact = nativeArtifact(release, target);
   const planDigest = digest(Buffer.from(JSON.stringify({ version: release.version, target, ...artifact })));
   const plan = { status: 'native-download-confirmation-required', version: release.version, target, digest: planDigest, url: artifact.url, installationRequired: true };
   if (!options.confirmed) return plan;

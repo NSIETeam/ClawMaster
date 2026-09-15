@@ -142,11 +142,11 @@ NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语
 <a id="release"></a>
 ## 发布
 
-推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)。它构建 Windows x64 NSIS 安装包、macOS Intel/Apple Silicon DMG 和 Linux x64 AppImage/deb，在所有矩阵任务成功后发布。程序版本 `0.2.2` 对应正式版 `desktop-v0.2.2`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。手动触发默认为仅构建：构建所选分支提交并上传签名安装包，不发布版本或改变更新通道。只有在重建已有发布标签并需要发布时，才启用 `publish`。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
+推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)。它构建 Windows x64 NSIS 安装包、macOS Apple Silicon DMG 和 Linux x64 AppImage/deb，在所有矩阵任务成功后发布。程序版本 `0.2.2` 对应正式版 `desktop-v0.2.2`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。手动触发默认为仅构建：构建所选分支提交并上传签名安装包，不发布版本或改变更新通道。只有在重建已有发布标签并需要发布时，才启用 `publish`。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
 
 Windows 构建步骤使用原生 PowerShell。每个 PowerShell 发布步骤要求 7.4 或更高版本，并在原生命令失败时立即停止；后续成功命令不能覆盖该失败。仅供 macOS/Linux 使用的 Bash 步骤保留 shell 失败处理。[发布命令决策](../../.agents/notes/implemented/process/2026-09-15-desktop-release-native-command-failures.zh.md)负责其理由与反向控制要求。
 
-应用包含发布验签公钥，优先使用[更新服务器](https://8.140.52.117/updates/clawmaster/latest.json)的 HTTPS manifest，并以公开仓库 Latest manifest 为备用地址。[服务器更新参考](server-updates/README.zh.md)负责同步、发布与恢复行为。仅接受更高的正式版本，拒绝预发行版本和降级。Release 构建在主窗口打开后检查，此后在每次后台检查成功的六小时后再次检查。检查失败时，先等待 15 分钟重试，再将等待时间逐次加倍，最长六小时；成功后重置等待时间。若已有其他更新操作，后台检查等待一分钟，不发出请求。每次应用启动对同一可用版本最多提示一次；发现另一个更高版本时可再次提示。Debug 构建和空端点均不发出更新请求；非空端点必须配置公钥。
+应用包含发布验签公钥，优先使用[更新服务器](https://8.140.52.117/updates/clawmaster/v2/latest.json)的 HTTPS manifest，并以公开仓库 Latest manifest 为备用地址。[服务器更新参考](server-updates/README.zh.md)负责同步、发布与恢复行为。仅接受更高的正式版本，拒绝预发行版本和降级。Release 构建在主窗口打开后检查，此后在每次后台检查成功的六小时后再次检查。检查失败时，先等待 15 分钟重试，再将等待时间逐次加倍，最长六小时；成功后重置等待时间。若已有其他更新操作，后台检查等待一分钟，不发出请求。每次应用启动对同一可用版本最多提示一次；发现另一个更高版本时可再次提示。Debug 构建和空端点均不发出更新请求；非空端点必须配置公钥。
 
 后台检查仅提示更新。从托盘更新须分别确认下载与安装，第二次确认出现在签名验证成功后。取消确认或下载失败时，当前应用继续运行。退出和重启会取消并等待后台检查任务结束，再停止所属 Host 进程树。安装会重启桌面；确认安装前请保存编辑并结束任务。
 
@@ -156,7 +156,7 @@ Windows 构建步骤使用原生 PowerShell。每个 PowerShell 发布步骤要�
 
 GitHub 仍是构建与发布来源；更新服务器镜像已验证的更新文件，不重新构建或签名。已安装的 `0.2.1` 程序在后续原生更新前仍保留编译时的 GitHub 端点；更改服务器或 DSH profile 不会改变该端点。
 
-桌面 0.2.2 内置更新器 0.1.1，包含 Windows 缓存冲突处理与原始归档路径校验。用户已经挂载的更新器保留自己的版本和配置；原生桌面升级不会静默替换该组件。已发布的 0.1.0 组件与便携更新包保持不可变。
+桌面 0.2.2 内置更新器 0.1.2，包含 Windows 缓存冲突处理、原始归档路径校验及四目标 v2 原生通道支持。旧端点保留五目标清单，供旧版严格解析器使用。用户已经挂载的更新器保留自己的版本和配置；原生桌面升级不会静默替换该组件。已有独立更新器须单独升级组件后才能使用 v2 通道。已发布的 0.1.0 组件与便携更新包保持不可变。
 
 Release 资产归公开的 [ClawMaster-Desktop 仓库](https://github.com/NSIETeam/ClawMaster-Desktop/releases)所有，名称包含操作系统与架构。发布前，[签名校验器](scripts/verify-updater-signatures.mjs)使用已提交的发布公钥校验每份更新产物的签名，并核对 manifest 中的签名与对应产物。Tauri 更新签名通过配置的更新公钥验证下载产物。macOS 临时签名检查应用完整性，不认证开发者身份，也不包含 Apple 公证。Windows 安装包没有发布者证书。
 

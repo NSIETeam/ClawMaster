@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-15-desktop-self-hosted-update-channel.md
-2026-09-15-desktop-self-hosted-update-channel.md: 823a435cdd2e09a566d884ae8708057d8850276a
-2026-09-15-desktop-self-hosted-update-channel.zh.md: db5e1aa51b98366b3985301dc54044ff7791c639
+2026-09-15-desktop-self-hosted-update-channel.md: b186864f4f61a381a12c82578fb96c842920cebb
+2026-09-15-desktop-self-hosted-update-channel.zh.md: 10163793649f854f61582d14d77b303aac1c8a29

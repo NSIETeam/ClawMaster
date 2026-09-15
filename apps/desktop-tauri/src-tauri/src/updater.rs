@@ -347,7 +347,7 @@ mod tests {
         assert_eq!(
             config["plugins"]["updater"]["endpoints"],
             json!([
-                "https://8.140.52.117/updates/clawmaster/latest.json",
+                "https://8.140.52.117/updates/clawmaster/v2/latest.json",
                 "https://github.com/NSIETeam/ClawMaster-Desktop/releases/latest/download/latest.json"
             ])
         );

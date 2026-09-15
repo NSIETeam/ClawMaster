@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import {
   createManifest,
   normalizedAssets,
+  targetSetForPlatforms,
   parseArguments,
   resolveNotes,
   writeUpdaterManifest,
@@ -20,7 +21,6 @@ const pubDate = '2026-08-14T00:00:00.000Z'
 
 const expectedAssets = {
   'windows-x86_64': `clawmaster-${version}-windows-x64-setup.exe`,
-  'darwin-x86_64': `clawmaster-${version}-macos-x64.app.tar.gz`,
   'darwin-aarch64': `clawmaster-${version}-macos-arm64.app.tar.gz`,
   'linux-x86_64': `clawmaster-${version}-linux-x64.AppImage`,
   'linux-x86_64-deb': `clawmaster-${version}-linux-x64.deb`,
@@ -45,6 +45,42 @@ async function writeAssets(directory) {
 
 test('normalizedAssets maps every required Tauri platform to its release asset', () => {
   assert.deepEqual(normalizedAssets(version), expectedAssets)
+})
+
+test('only the complete current four targets or legacy five targets are accepted', () => {
+  const legacy = normalizedAssets(version, 'legacy')
+  assert.equal(Object.keys(legacy).length, 5)
+  assert.equal(legacy['darwin-x86_64'], `clawmaster-${version}-macos-x64.app.tar.gz`)
+  assert.equal(targetSetForPlatforms(expectedAssets), 'current')
+  assert.equal(targetSetForPlatforms(legacy), 'legacy')
+  for (const platforms of [expectedAssets, legacy]) {
+    for (const missing of Object.keys(expectedAssets)) {
+      const altered = { ...platforms }
+      delete altered[missing]
+      assert.throws(() => targetSetForPlatforms(altered), /exactly the supported platform targets/)
+    }
+    assert.throws(() => targetSetForPlatforms({ ...platforms, unknown: {} }), /exactly the supported platform targets/)
+  }
+  for (const invalid of [null, [], 'current']) assert.throws(() => targetSetForPlatforms(invalid), /exactly the supported platform targets/)
+  assert.throws(() => normalizedAssets(version, 'windows-only'), /Invalid target set/)
+})
+
+test('legacy generation requires Intel bytes and signatures while current generation does not', async () => {
+  await withTempDir(async directory => {
+    await writeAssets(directory)
+    const outputPath = join(directory, 'latest.json')
+    const options = { assetsDir: directory, outputPath, version, repository, releaseTag, notes: '', pubDate, targetSet: 'current' }
+    await writeUpdaterManifest(options)
+    const current = await readFile(outputPath, 'utf8')
+    assert.equal(Object.keys(JSON.parse(current).platforms).length, 4)
+    await assert.rejects(writeUpdaterManifest({ ...options, targetSet: 'legacy' }), /Missing release file.*macos-x64/)
+    assert.equal(await readFile(outputPath, 'utf8'), current)
+    const intel = normalizedAssets(version, 'legacy')['darwin-x86_64']
+    await writeFile(join(directory, intel), 'legacy Intel asset')
+    await writeFile(join(directory, `${intel}.sig`), 'legacy signature')
+    await writeUpdaterManifest({ ...options, targetSet: 'legacy' })
+    assert.equal(JSON.parse(await readFile(outputPath, 'utf8')).platforms['darwin-x86_64'].signature, 'legacy signature')
+  })
 })
 
 test('createManifest emits Tauri v2 static updater fields and trimmed signatures', () => {
@@ -183,6 +219,7 @@ test('CLI accepts explicit arguments and writes latest.json', async () => {
       '--release-tag', releaseTag,
       '--notes', 'Release candidate 5',
       '--pub-date', pubDate,
+      '--target-set', 'current',
     ], { encoding: 'utf8' })
 
     assert.equal(result.status, 0, result.stderr)
@@ -198,6 +235,12 @@ test('parseArguments requires every explicit CLI option', () => {
     () => parseArguments(['--assets-dir', 'assets']),
     /missing required option: --output/i,
   )
+  const args = ['--assets-dir', 'assets', '--output', 'latest.json', '--version', version,
+    '--repository', repository, '--release-tag', releaseTag, '--notes', '', '--pub-date', pubDate]
+  assert.throws(() => parseArguments(args), /missing required option: --target-set/i)
+  assert.throws(() => parseArguments([...args, '--target-set', 'partial']), /Invalid target set/)
+  assert.throws(() => parseArguments([...args, '--target-set', 'current', '--target-set', 'legacy']), /Duplicate option/)
+  assert.equal(parseArguments([...args, '--target-set', 'legacy']).targetSet, 'legacy')
 })
 
 test('parseArguments accepts --notes-file instead of --notes', () => {
@@ -209,6 +252,7 @@ test('parseArguments accepts --notes-file instead of --notes', () => {
     '--release-tag', releaseTag,
     '--notes-file', 'release-notes.md',
     '--pub-date', pubDate,
+      '--target-set', 'current',
   ])
   assert.equal(values.notesFile, 'release-notes.md')
   assert.equal(values.notes, undefined)
@@ -225,6 +269,7 @@ test('parseArguments rejects both --notes and --notes-file', () => {
       '--notes', 'inline',
       '--notes-file', 'release-notes.md',
       '--pub-date', pubDate,
+      '--target-set', 'current',
     ]),
     /either --notes or --notes-file/i,
   )
@@ -257,6 +302,7 @@ test('CLI writes latest.json from --notes-file', async () => {
       '--release-tag', releaseTag,
       '--notes-file', notesFile,
       '--pub-date', pubDate,
+      '--target-set', 'current',
     ], { encoding: 'utf8' })
 
     assert.equal(result.status, 0, result.stderr)
@@ -278,6 +324,7 @@ test('CLI writes a server manifest and leaves the current manifest intact on an 
       '--release-tag', releaseTag,
       '--notes', 'Mirror publication',
       '--pub-date', pubDate,
+      '--target-set', 'current',
       '--asset-base-url', `https://updates.example.test/clawmaster/versions/${version}`,
     ]
     const published = spawnSync(process.execPath, args, { encoding: 'utf8', timeout: 30_000 })

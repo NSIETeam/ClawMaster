@@ -241,7 +241,7 @@ test('desktop lock validation rejects drifted releases, patches and nested DSH c
 });
 
 test('desktop updater metadata preserves the published module and makes first-install detection explicit', () => {
-  const manifest = { name: '@clawmaster/dsh-updates', version: '0.1.1', exports: { '.': './dist/index.js' }, dependencies: { '@threema/wasm-minisign-verify': '0.2.0-rc.1' } }
+  const manifest = { name: '@clawmaster/dsh-updates', version: '0.1.2', exports: { '.': './dist/index.js' }, dependencies: { '@threema/wasm-minisign-verify': '0.2.0-rc.1' } }
   const adapted = withDesktopUpdateBundle(manifest)
   assert.deepEqual(adapted, { ...manifest, dsh: { bundle: { patch: './desktop.cordis.patch.yml' } } })
   assert.equal(manifest.dsh, undefined)

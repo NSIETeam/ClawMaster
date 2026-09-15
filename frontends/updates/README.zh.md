@@ -36,6 +36,8 @@ ClawMaster 可以从服务器检查已签名的组件版本，无须替换桌面
 
 对于符合条件的热更新组件，激活仅修改它所属的 profile 配置行，并返回回滚令牌。是否真正加载成功由 Loader 观测确定。profile 修订号改变时，激活或维护者回滚会被拒绝，避免覆盖期间发生的编辑。标为 `restart` 的组件，包括 `updates` 自身，只会暂存，不修改被监视的 profile：仅重启应用不会应用该暂存变更。
 
+更新器 `0.1.2` 读取原生 v2 通道。单独安装的更新器 `0.1.0`、`0.1.1` 以及已发布的接入包 `0.1.0` 在另行升级前保留其版本和旧通道。接入包的首次安装操作不能替换已有更新器。仅修改端点，不能使旧解析器接受缺少 Intel Mac 文件的版本。
+
 -----
 
 <a id="configuration"></a>
@@ -47,13 +49,15 @@ ClawMaster 可以从服务器检查已签名的组件版本，无须替换桌面
 |---|---|---|
 | `dshHome` | `DSH_HOME`，否则为 `~/.dsh` | 所选现有 Host 主目录；更新请求不能覆盖它。 |
 | `catalogUrl` | `https://8.140.52.117/updates/clawmaster/components/catalog.json` | 已签名的组件元数据。 |
-| `nativeManifestUrl` | `https://8.140.52.117/updates/clawmaster/latest.json` | 原生桌面版本元数据。 |
+| `nativeManifestUrl` | `https://8.140.52.117/updates/clawmaster/v2/latest.json` | 原生桌面版本元数据。 |
 | `publicKeyPem`, `nativePublicKey` | 随包提供的组件及 Tauri 公钥 | 两类产物各自独立的信任密钥。 |
 | `checkIntervalMs` | `60000` | 自动元数据检查间隔；`0` 关闭自动检查。 |
 | `nativeTarget` | 观测到的平台及安装类型 | Host 无法确定安装器类型时须明确配置。 |
 | `locale` | `zh-CN` | 命令及批准提示语言；也接受 `en-US`。 |
 
 轮询仅读取元数据。网络失败显示为通道信息不可用，另一通道仍可检查。插件 dispose（资源释放）会取消并等待其检查及更新操作。请求、下载及归档限制可在同一 schema 中配置；profile patch 的安全上限固定为 2 MiB。
+
+原生清单必须包含 Windows x64、Apple Silicon、Linux x64 AppImage 和 Linux x64 DEB 目标。Intel Mac 为可选项，用于读取早期版本；未知目标或缺失必需目标都会被拒绝。当有效版本未提供所选机器的安装包时，发现操作将该原生更新报告为不可用，准备操作会在审批、下载或写入文件前停止。组件目录仍可使用。原生文件 URL 必须匹配清单所在目录的 `versions/<version>/` 子目录及目标文件名；旧通道和 v2 通道不能引用彼此的文件。
 
 更新器所属文件位于 `DSH_HOME/clawmaster-updates/` 下。版本目录不可变；下载摘要标识缓存字节。profile 编辑范围限定为 `DSH_HOME/profiles/web/cordis.patch.yml`。现有会话、凭据及无关 profile 配置行不属于更新目标。
 

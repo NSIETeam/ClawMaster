@@ -231,7 +231,7 @@ function nativeFixture(trust, payload = 'test') {
   const release = { version: '0.2.1', notes: '', pub_date: '2026-09-15T00:00:00Z', platforms: Object.fromEntries(Object.entries(suffixes).map(([target, suffix]) => [target,
     { url: `https://fixture.invalid/updates/clawmaster/versions/0.2.1/clawmaster-0.2.1-${suffix}`, signature: encode(nativeSignature) }])) };
   const requests = [];
-  return { requests, trust: { ...trust, fetchImpl: async (url, options) => {
+  return { requests, release, trust: { ...trust, fetchImpl: async (url, options) => {
     assert.equal(options.redirect, 'error'); requests.push(url);
     if (url === trust.nativeManifestUrl) return new Response(JSON.stringify(release));
     assert.ok(Object.values(release.platforms).some(item => item.url === url));
@@ -265,6 +265,19 @@ test('confirmed native download verifies both the cached payload and named copy 
   assert.ok(result.path.includes('verified-'));
   assert.equal(await readFile(result.path, 'utf8'), 'test');
   assert.equal(result.sha256, hash(Buffer.from('test')));
+  await unchanged();
+}));
+
+test('four-target kit metadata permits ARM planning but refuses Intel before confirmation or filesystem writes', async () => fixture(async ({ options, trust, unchanged }) => {
+  const server = nativeFixture(trust);
+  delete server.release.platforms['darwin-x86_64'];
+  const plan = await nativeKit({ ...options, platform: 'darwin', arch: 'arm64' }, server.trust);
+  assert.equal(plan.target, 'darwin-aarch64');
+  for (const confirmed of [false, true]) {
+    await assert.rejects(nativeKit({ ...options, platform: 'darwin', arch: 'x64', confirmed }, server.trust), /No native installer for darwin-x86_64/);
+  }
+  assert.ok(server.requests.every(url => url === trust.nativeManifestUrl));
+  await assert.rejects(readdir(join(options.compatibility.dshHome, 'clawmaster-updates')), { code: 'ENOENT' });
   await unchanged();
 }));
 

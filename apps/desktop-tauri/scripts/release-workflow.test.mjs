@@ -26,8 +26,10 @@ test('manual validation defaults to an immutable branch build without publicatio
   const checkout = workflow.jobs.build.steps.find(step => step.uses === 'actions/checkout@v6')
   assert.equal(checkout.with.ref, '${{ github.event_name == \'workflow_dispatch\' && !inputs.publish && github.sha || env.RELEASE_TAG }}')
   assert.deepEqual(workflow.jobs.build.strategy.matrix.include.map(entry => [entry.asset_platform, entry.asset_arch]), [
-    ['windows', 'x64'], ['macos', 'x64'], ['macos', 'arm64'], ['linux', 'x64'],
+    ['windows', 'x64'], ['macos', 'arm64'], ['linux', 'x64'],
   ])
+  assert.match(workflow.jobs.release.steps.find(step => step.name === 'Generate updater manifest').run, /--target-set current/)
+  assert.ok(!workflow.jobs.release.steps.find(step => step.name === 'Verify release asset set').run.includes('macos-x64'))
 })
 
 test('every shipped frontend has frozen build dependencies before product verification', () => {
@@ -44,14 +46,14 @@ test('every shipped frontend has frozen build dependencies before product verifi
   assert.ok(!mac.run.includes('--close-mode terminate'))
 })
 
-test('WeChat approval replay runs on Unix after its built runtime and before packaging', () => {
+test('WeChat approval and updater target replays run on Unix after their built runtime and before packaging', () => {
   const steps = workflow.jobs.build.steps
-  const replay = steps.findIndex(step => step.name === 'Replay approved and rejected WeChat reads')
+  const replay = steps.findIndex(step => step.name === 'Replay WeChat approvals and unavailable update targets')
   assert.ok(replay > steps.findIndex(step => step.name === 'Build ClawMaster harness'))
   assert.ok(replay > steps.findIndex(step => step.name === 'Build complete Linux sandbox binaries'))
   assert.ok(replay < steps.findIndex(step => step.name === 'Build desktop bundles'))
   assert.equal(steps[replay].if, "runner.os == 'macOS' || runner.os == 'Linux'")
-  assert.equal(steps[replay].run, "pnpm exec vitest run --config vitest.snapshot.config.ts snapshots/acp/acp.snapshot.ts -t 'snapshot: wechat-read-(approved|rejected) matches|snapshot fixtures'")
+  assert.equal(steps[replay].run, "pnpm exec vitest run --config vitest.snapshot.config.ts snapshots/acp/acp.snapshot.ts -t 'snapshot: (wechat-read-(approved|rejected)|updater-intel-unavailable) matches|snapshot fixtures'")
 })
 
 function windowsSteps() {
