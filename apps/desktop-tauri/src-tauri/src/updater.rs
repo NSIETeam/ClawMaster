@@ -1,6 +1,12 @@
-//! Signed updates use separate download and installation confirmations; startup only checks.
+//! GitHub release checks run in the background; signed downloads and installation need consent.
+mod monitor;
+
+pub(crate) use monitor::BackgroundUpdates;
+
 use crate::i18n::{self, Msg};
+use crate::runtime::boot_log;
 use crate::{chrome, notify};
+use monitor::{Check, Notice};
 use std::{
     future::Future,
     sync::atomic::{AtomicBool, Ordering},
@@ -85,6 +91,7 @@ async fn available(app: &AppHandle) -> Result<Option<Update>, String> {
     let before_exit = app.clone();
     app.updater_builder()
         .timeout(Duration::from_secs(30))
+        .version_comparator(|current, release| stable_upgrade(&current, &release.version))
         .on_before_exit(move || {
             chrome::stop_host(&before_exit);
             before_exit.cleanup_before_exit();
@@ -96,26 +103,55 @@ async fn available(app: &AppHandle) -> Result<Option<Update>, String> {
         .map_err(|error| error.to_string())
 }
 
-/// Announce a stable update after startup without downloading, prompting, or restarting.
-pub async fn check_available(app: &AppHandle) -> Result<(), String> {
-    if cfg!(debug_assertions) {
-        return Ok(());
-    }
+fn stable_upgrade(current: &semver::Version, candidate: &semver::Version) -> bool {
+    candidate.pre.is_empty() && candidate.cmp_precedence(current).is_gt()
+}
+
+async fn check_background(app: &AppHandle) -> Result<Check, String> {
     let Some(_guard) = OperationGuard::acquire(&UPDATE_BUSY) else {
-        return Ok(());
+        return Ok(Check::Busy);
     };
     with_update_channel(app.config().plugins.0.get("updater"), || async {
-        if let Some(update) = available(app).await? {
-            notify::toast(
-                app,
-                "ClawMaster",
-                &i18n::tf(Msg::UpdaterAvailable, &update.version),
-            );
-        }
-        Ok(())
+        Ok(match available(app).await? {
+            Some(update) => Check::Available(update.version),
+            None => Check::Current,
+        })
     })
     .await
-    .map(|_| ())
+    .map(|result| result.unwrap_or(Check::Disabled))
+}
+
+/// Start release checks after the main window opens, without downloading or interrupting work.
+pub fn start_background(app: &AppHandle) {
+    if cfg!(debug_assertions) {
+        return;
+    }
+    let worker = app.state::<BackgroundUpdates>();
+    let app = app.clone();
+    worker.start(async move {
+        monitor::run(
+            || check_background(&app),
+            tokio::time::sleep,
+            |notice| match notice {
+                Notice::Available(version) => notify::toast(
+                    &app,
+                    "ClawMaster",
+                    &i18n::tf(Msg::UpdaterAvailable, &version),
+                ),
+                Notice::Failed(error) => {
+                    boot_log::info(&format!("desktop update check failed; will retry: {error}"));
+                }
+            },
+        )
+        .await;
+    });
+}
+
+/// Cancel and join the background check before stopping the Host or exiting the desktop.
+pub fn stop_background(app: &AppHandle) {
+    if let Some(worker) = app.try_state::<BackgroundUpdates>() {
+        worker.stop();
+    }
 }
 
 async fn confirm_update(
@@ -186,12 +222,33 @@ pub async fn check_now(app: &AppHandle) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{confirmed_update, with_update_channel, OperationGuard, UpdateStage};
+    use super::{
+        confirmed_update, stable_upgrade, with_update_channel, OperationGuard, UpdateStage,
+    };
     use serde_json::json;
     use std::{
         cell::{Cell, RefCell},
         sync::atomic::AtomicBool,
     };
+
+    #[test]
+    fn stable_channel_accepts_only_newer_stable_versions() {
+        for (current, candidate, expected) in [
+            ("0.2.1", "0.2.2", true),
+            ("0.2.1", "0.2.1", false),
+            ("0.2.1", "0.2.1+rebuild", false),
+            ("0.2.1+first", "0.2.1+second", false),
+            ("0.2.1", "0.2.0", false),
+            ("0.2.1", "0.3.0-beta.1", false),
+            ("0.2.0-release", "0.2.1", true),
+            ("0.2.1", "0.2.2+build-with-hyphen", true),
+        ] {
+            assert_eq!(
+                stable_upgrade(&current.parse().unwrap(), &candidate.parse().unwrap()),
+                expected
+            );
+        }
+    }
 
     #[tokio::test]
     async fn refusing_download_performs_no_download_or_installation() {

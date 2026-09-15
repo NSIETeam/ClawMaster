@@ -373,6 +373,13 @@ jobs:
             --notes-file apps/desktop-tauri/release-notes.md `
             --pub-date $publishedAt
 
+      - name: Verify updater signatures before publication
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq minisign
+          node --test apps/desktop-tauri/scripts/verify-updater-signatures.test.mjs
+          node apps/desktop-tauri/scripts/verify-updater-signatures.mjs release-assets release-assets/latest.json apps/desktop-tauri/release-signing.pub
+
       - name: Record release checksums
         run: |
           cp apps/desktop-tauri/release-signing.pub release-assets/clawmaster-release-signing.pub

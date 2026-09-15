@@ -56,8 +56,9 @@ fn mark_process_end(app: &AppHandle) {
     stop_host(app);
 }
 
-/// Reap the Host Node tree. `app.exit` / `app.restart` skip `Drop`.
+/// Stop background update checks and reap the Host Node tree. Exit and restart skip `Drop`.
 pub fn stop_host(app: &AppHandle) {
+    crate::updater::stop_background(app);
     if let Some(runtime) = app.try_state::<DesktopRuntime>() {
         runtime.host.stop();
     }

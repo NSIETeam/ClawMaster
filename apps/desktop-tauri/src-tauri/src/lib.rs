@@ -36,6 +36,7 @@ pub fn run() {
         std::process::exit(cli_shim::run());
     }
     tauri::Builder::default()
+        .manage(updater::BackgroundUpdates::default())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
@@ -292,12 +293,7 @@ async fn boot_app(app: AppHandle, bundled: Option<PathBuf>) -> Result<(), String
         let _ = splash.close();
     }
     boot_log::info("boot complete");
-    let app_for_update = app.clone();
-    tauri::async_runtime::spawn(async move {
-        if let Err(error) = updater::check_available(&app_for_update).await {
-            boot_log::info(&format!("desktop update skipped: {error}"));
-        }
-    });
+    updater::start_background(&app);
     Ok(())
 }
 
