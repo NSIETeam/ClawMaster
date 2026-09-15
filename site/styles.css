@@ -95,6 +95,9 @@ h1 span { color: var(--orange); white-space: nowrap; }
 .button-secondary { background: transparent; }
 .button-dark { color: white; background: var(--ink); }
 .release-note { margin-top: 18px; color: var(--muted); font-family: "DIN Alternate", monospace; font-size: 12px; }
+.hero-mobile-link { max-width: 650px; font-size: 14px; line-height: 1.8; color: var(--teal); }
+.download-detail { color: var(--muted); font-size: 14px; line-height: 1.8; margin: 20px 0 0; }
+.download-detail a { color: var(--teal); text-underline-offset: 3px; }
 
 .hero-system { position: relative; padding: 26px; background: var(--ink); color: white; border-radius: 28px; box-shadow: var(--shadow); transform: rotate(1.3deg); }
 .hero-system::before { content: ""; position: absolute; inset: -13px 17px 13px -13px; border: 1px dashed rgba(22, 24, 20, 0.42); border-radius: 31px; z-index: -1; }

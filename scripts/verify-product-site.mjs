@@ -8,11 +8,13 @@ const directory = resolve(process.argv[2] ?? 'site');
 const read = (file) => readFileSync(resolve(directory, file), 'utf8');
 const html = read('index.html');
 const manifest = JSON.parse(read('release-manifest.json'));
-const keys = ['windows', 'mac-arm64', 'mac-x64', 'linux-appimage', 'linux-deb'];
-assert.equal(manifest.schemaVersion, 2);
+const keys = ['windows', 'mac-arm64', 'mac-x64', 'linux-appimage', 'linux-deb', 'android'];
+assert.equal(manifest.schemaVersion, 3);
 assert.deepEqual(Object.keys(manifest.assets).sort(), [...keys].sort());
 assert.equal(manifest.tagName, `desktop-v${manifest.version}`);
-assert.equal(manifest.version, `${manifest.programVersion}-release`);
+assert.equal(manifest.version, manifest.programVersion);
+assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
+assert(Number.isFinite(Date.parse(manifest.publishedAt)), 'Missing publication date');
 const repository = 'https://github.com/NSIETeam/ClawMaster-Desktop';
 const download = `${repository}/releases/download/${manifest.tagName}/`;
 assert.equal(manifest.releaseUrl, `${repository}/releases/tag/${manifest.tagName}`);
@@ -32,7 +34,9 @@ for (const key of keys) {
   assert.equal(asset.url, download + asset.name);
   assert.match(asset.sha256, /^[a-f0-9]{64}$/);
   assert(Number.isSafeInteger(asset.bytes) && asset.bytes > 0);
-  assert.equal(asset.size, `${(asset.bytes / 1024 / 1024).toFixed(2)} MiB`);
+  assert.equal(asset.size, asset.bytes < 1024 * 1024
+    ? `${(asset.bytes / 1024).toFixed(2)} KiB`
+    : `${(asset.bytes / 1024 / 1024).toFixed(2)} MiB`);
   assert(element('data-release-link', key, 'a')[0].includes(`href="${asset.url}"`));
   assert.equal(element('data-release-sha', key, 'code')[1], asset.sha256);
   assert.equal(element('data-release-size', key, 'dd')[1], asset.size);
@@ -42,7 +46,7 @@ for (const [key, url] of [['notes', manifest.releaseUrl], ['checksums', manifest
   assert(element('data-release-link', key, 'a')[0].includes(`href="${url}"`));
 }
 const versions = [...html.matchAll(/<dd data-release-version>([^<]+)<\/dd>/g)];
-assert.equal(versions.length, 5);
+assert.equal(versions.length, 6);
 versions.forEach((match) => assert.equal(match[1], manifest.programVersion));
 for (const file of ['styles.css', 'app.js', '.nojekyll', 'favicon.svg', 'assets/clawmaster.svg', 'assets/clawmaster-dark.svg', 'assets/share-card.svg', 'assets/watchdog-workspace.png']) {
   assert(existsSync(resolve(directory, file)), `Missing site asset: ${file}`);
@@ -67,6 +71,14 @@ for (const [name, title] of scenarioTitles) {
   assert(html.includes(`href="${name}"`), `Homepage must link to ${name}`);
 }
 assert(library.includes('href="guide.html"'), 'WatchDog tutorial must remain discoverable');
+assert(library.includes('href="android.html"'), 'Tutorial center must link to Android');
+assert(html.includes('href="android.html"'), 'Homepage must link to Android guide');
+assert.equal(manifest.assets.android.name, `clawmaster-${manifest.programVersion}-android-universal.apk`);
+const android = read('android.html');
+assert(android.includes(`href="${manifest.assets.android.url}"`), 'Android guide download must match the manifest');
+assert(android.includes('Android 8.0'), 'Android guide must state minimum OS');
+assert(android.includes('记录型模型回复'), 'Android guide must state model test limitations');
+assert(android.includes('卸载会删除'), 'Android guide must state uninstall data loss');
 for (const name of readdirSync(directory).filter((file) => file.endsWith('.html'))) {
   const source = read(name);
   const ids = [...source.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
@@ -79,4 +91,4 @@ for (const name of readdirSync(directory).filter((file) => file.endsWith('.html'
     if (anchor) assert(read(target).includes(`id="${anchor}"`), `Missing anchor: ${value}`);
   }
 }
-console.log(`Product site verified: ${manifest.version}, five installers with matching sizes and SHA-256.`);
+console.log(`Product site verified: ${manifest.version}, six installers with matching sizes and SHA-256.`);

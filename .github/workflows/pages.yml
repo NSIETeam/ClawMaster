@@ -6,6 +6,7 @@ on:
     paths:
       - 'site/**'
       - 'scripts/verify-product-site.mjs'
+      - 'scripts/verify-product-site.test.mjs'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -29,6 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check site/app.js
+          node --test scripts/verify-product-site.test.mjs
           node scripts/verify-product-site.mjs
           if grep -R -E 'sk-[[:alnum:]_-]{20,}' site; then
             echo 'site contains a credential-like value' >&2

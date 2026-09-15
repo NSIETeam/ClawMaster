@@ -2,17 +2,17 @@
 
 官网地址：https://nsieteam.github.io/ClawMaster/ 。本目录是直接发布的静态 HTML、CSS 与 JavaScript，无需安装桌面应用依赖。
 
-`tutorials.html` 是教程中心，`office.html`、`development.html`、`personal.html` 分别提供办公、开发与个人管理的独立教程。`guide.html` 保留十节 WatchDog 企业工作跟进教程。首页和各篇教程提供互相导航；每篇包含可复制示例、操作步骤和结果核验方法。
+`tutorials.html` 是教程中心，`office.html`、`development.html`、`personal.html` 分别提供办公、开发与个人管理的独立教程。`guide.html` 保留十节 WatchDog 企业工作跟进教程；`android.html` 提供安卓安装、模型配置、数据保留与测试范围说明。桌面旧教程和截图保留 0.2.0 来源标注，不作为新版截图证据。首页和各篇教程提供互相导航；每篇包含可复制示例、操作步骤和结果核验方法。
 
-当前介绍 ClawMaster WatchDog 0.2.0-release，程序版本为 0.2.0。下载来自 `NSIETeam/ClawMaster-Desktop`；产品范围以该发布版本的发行说明及 `frontends/dsh/README.zh.md` 为依据。CRM/ERP 为本机单用户记录，企业组织权限、外部业务系统和通讯平台的接入需继续验证。
+当前介绍 ClawMaster 0.2.1：桌面工作台与安卓独立 Agent。下载来自 `NSIETeam/ClawMaster-Desktop`；产品范围以该发布版本的发行说明及 `frontends/dsh/README.zh.md` 为依据。CRM/ERP 为本机单用户记录，企业组织权限、外部业务系统和通讯平台的接入需继续验证。
 
 ## 更新与发布
 
 1. 从目标 GitHub Release 核实版本、附件名称、字节数与 SHA-256，更新 `release-manifest.json` 和 `index.html`。HTML 保留完整下载链接和校验值，禁用 JavaScript 也可使用。
-2. 运行 `node --check site/app.js`、`node scripts/verify-product-site.mjs` 和 `git diff --check`。再通过本地静态服务器检查桌面、手机、页面锚点、校验值复制和禁用 JavaScript 时的下载入口。
+2. 运行 `node --check site/app.js`、`node --test scripts/verify-product-site.test.mjs`、`node scripts/verify-product-site.mjs` 和 `git diff --check`。再通过本地静态服务器检查桌面、手机、页面锚点、校验值复制和禁用 JavaScript 时的下载入口。
 3. 推送至本仓库 `main` 后，由 `.github/workflows/pages.yml` 验证并发布 GitHub Pages。确认部署成功后核对线上 HTML、清单和下载地址。
 
-`pages.yml` 是当前官网的发布入口。旧 Tauri 预览工作流仅发布旧应用附件，不再部署产品官网；`scripts/render-release-site.mjs` 的 schema 1 清单属于旧版安装包流程，不能用于此站点。
+`pages.yml` 是当前官网的发布入口。旧 Tauri 预览工作流仅发布旧应用附件，不再部署产品官网；`scripts/render-release-site.mjs` 的 schema 1 清单属于旧版安装包流程，不能用于此站点。当前清单 schema 3 包含五个桌面安装包和一个安卓 APK，小于 1 MiB 的文件使用 KiB 展示。官网只引用已公开 Release，发布草稿不应提前上线链接。
 
 ## 品牌与截图
 
