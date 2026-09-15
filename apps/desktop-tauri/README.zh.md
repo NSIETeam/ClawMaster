@@ -20,7 +20,7 @@ Tauri 包名为 `@deepseek-ai/dsh-desktop-tauri`，与上游 Electron 应用独�
 | **UI** | 原生窗口装饰与本地 `shell.html` 关闭对话框 | 子 WebView 嵌入 `dsh web`；macOS 使用隐藏标题文字的覆盖式顶栏，并为原生交通灯控件预留空间。系统负责窗口外观，Web 设置负责嵌入客户端主题 |
 | **托盘** | 原生托盘图标 | 第一次关闭询问最小化到托盘还是退出，并写入 `desktop-settings.json`；托盘可改该偏好、显示窗口、安装 Sakana 插件库（在当前 Host 主目录执行 `dsh plugin --profile web add github:Sakana-yuyu/dsh-plugins`）、检查更新、重启或退出。重启和退出都会停止 Host 的 Node 进程树；重启随后重新拉起桌面进程。插件库安装成功后走同一条重启路径，以便加载该库。最小化到托盘则保持 Host 运行 |
 | **通知** | Overlay 插件 + 本机 POST | `turn/end` 且 `completed` 时，窗口不在前台则弹出系统通知并播放 `sounds/complete.wav` |
-| **更新** | GitHub 签名正式版通道 | 窗口打开后开始后台检查，应用运行期间定期检查；每次启动对同一可用版本仅提示一次。从托盘检查更新后，先确认下载并校验签名，再单独确认安装与重启。取消时当前应用继续运行 |
+| **更新** | 更新服务器上的签名正式通道，保留 GitHub 备用地址 | 窗口打开后开始后台检查，应用运行期间定期检查；每次启动对同一可用版本仅提示一次。从托盘检查更新后，先确认下载并校验签名，再单独确认安装与重启。取消时当前应用继续运行 |
 | **Agent 环境（Windows）** | Windows（默认）或 WSL | 托盘写入 `desktop-settings.json`；WSL 在默认 WSL2 发行版内启动 Linux `dsh web`；需重启后生效 |
 
 Windows 桌面只交付一个安装包、一个桌面二进制和同一个 Web 客户端（WebView 中的 `dsh web`）；这不是第二个 SKU，也不是第二套 Web UI。托盘中的 Agent 环境开关只改变 Host 进程的运行位置：Windows Node + pwsh，或默认 WSL2 发行版内的 Linux Node + bash。切换是运维操作，不是第二套代码：需要重启；Windows 使用隔离的桌面主目录，WSL 使用发行版内的 `~/.dsh`；会话不共享；当 Linux 主目录同时缺少凭据与 `.env` 时，会从 Windows 主目录各复制一次。再做一个安装包或分叉 Web 客户端会重复更新器、overlay、主目录和 CI，因此不单独交付。WSL 模式下工作区浏览使用 Linux 路径（例如 Windows 盘符对应 `/mnt/d/...`）；不修改 `packages/`；若 Docker Desktop 是默认发行版，需用 `wsl --set-default` 设为可用的 WSL2 发行版。
@@ -141,11 +141,13 @@ NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语
 
 推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)。它构建 Windows x64 NSIS 安装包、macOS Intel/Apple Silicon DMG 和 Linux x64 AppImage/deb，在所有矩阵任务成功后发布。程序版本 `0.2.1` 对应正式版 `desktop-v0.2.1`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。手动触发默认为仅构建：构建所选分支提交并上传签名安装包，不发布版本或改变更新通道。只有在重建已有发布标签并需要发布时，才启用 `publish`。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
 
-应用包含发布验签公钥，以及公开仓库 Latest 版本的 HTTPS manifest。仅接受更高的正式版本，拒绝预发行版本和降级。Release 构建在主窗口打开后检查，此后在每次后台检查成功的六小时后再次检查。检查失败时，先等待 15 分钟重试，再将等待时间逐次加倍，最长六小时；成功后重置等待时间。若已有其他更新操作，后台检查等待一分钟，不发出请求。每次应用启动对同一可用版本最多提示一次；发现另一个更高版本时可再次提示。Debug 构建和空端点均不发出更新请求；非空端点必须配置公钥。
+应用包含发布验签公钥，优先使用[更新服务器](https://8.140.52.117/updates/clawmaster/latest.json)的 HTTPS manifest，并以公开仓库 Latest manifest 为备用地址。[服务器更新参考](server-updates/README.zh.md)负责同步、发布与恢复行为。仅接受更高的正式版本，拒绝预发行版本和降级。Release 构建在主窗口打开后检查，此后在每次后台检查成功的六小时后再次检查。检查失败时，先等待 15 分钟重试，再将等待时间逐次加倍，最长六小时；成功后重置等待时间。若已有其他更新操作，后台检查等待一分钟，不发出请求。每次应用启动对同一可用版本最多提示一次；发现另一个更高版本时可再次提示。Debug 构建和空端点均不发出更新请求；非空端点必须配置公钥。
 
 后台检查仅提示更新。从托盘更新须分别确认下载与安装，第二次确认出现在签名验证成功后。取消确认或下载失败时，当前应用继续运行。退出和重启会取消并等待后台检查任务结束，再停止所属 Host 进程树。安装会重启桌面；确认安装前请保存编辑并结束任务。
 
-此 GitHub 通道分发桌面版本及其内置运行时，不单独更新或热重载 DSH 插件。profile 插件管理仍由 [DSH profile](../../packages/boot/app-boot/README.zh.md)负责；开发期间的客户端重载需要[客户端 HMR（热模块替换）watcher](../../packages/client/hmr/README.zh.md)。
+此通道分发桌面版本及其内置运行时，不单独更新或热重载 DSH 插件。profile 插件管理仍由 [DSH profile](../../packages/boot/app-boot/README.zh.md)负责；开发期间的客户端重载需要[客户端 HMR（热模块替换）watcher](../../packages/client/hmr/README.zh.md)。
+
+GitHub 仍是构建与发布来源；更新服务器镜像已验证的更新文件，不重新构建或签名。已安装的 `0.2.1` 程序在后续原生更新前仍保留编译时的 GitHub 端点；更改服务器或 DSH profile 不会改变该端点。
 
 Release 资产归公开的 [ClawMaster-Desktop 仓库](https://github.com/NSIETeam/ClawMaster-Desktop/releases)所有，名称包含操作系统与架构。发布前，[签名校验器](scripts/verify-updater-signatures.mjs)使用已提交的发布公钥校验每份更新产物的签名，并核对 manifest 中的签名与对应产物。Tauri 更新签名通过配置的更新公钥验证下载产物。macOS 临时签名检查应用完整性，不认证开发者身份，也不包含 Apple 公证。Windows 安装包没有发布者证书。
 

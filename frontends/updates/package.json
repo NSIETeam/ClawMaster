@@ -1,0 +1,37 @@
+{
+  "name": "@clawmaster/dsh-updates",
+  "version": "0.1.0",
+  "description": "Verified server updates for existing ClawMaster DSH profiles",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22.19.0" },
+  "exports": { ".": "./dist/index.js", "./package.json": "./package.json" },
+  "files": ["dist", "README.md", "README.zh.md"],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/build.mjs --check",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx/esm --test tests/*.test.mjs",
+    "pack:plugin": "node scripts/pack.mjs"
+  },
+  "peerDependencies": { "@deepseek-ai/cordis": "4.0.2" },
+  "dependencies": {
+    "@deepseek-ai/dsh-atomic-write": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-commands": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-tools": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-user-approval": "0.1.5-rc.2",
+    "@threema/wasm-minisign-verify": "0.2.0-rc.1",
+    "semver": "7.8.5",
+    "tar": "7.5.22",
+    "yaml": "2.9.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "@types/semver": "7.8.0",
+    "esbuild": "0.25.0",
+    "tsx": "4.22.4",
+    "typescript": "5.9.3"
+  }
+}

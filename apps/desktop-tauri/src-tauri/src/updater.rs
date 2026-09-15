@@ -1,4 +1,4 @@
-//! GitHub release checks run in the background; signed downloads and installation need consent.
+//! Stable release checks run in the background; signed downloads and installation need consent.
 mod monitor;
 
 pub(crate) use monitor::BackgroundUpdates;
@@ -341,14 +341,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn shipped_stable_channel_has_the_committed_key_and_official_endpoint() {
+    async fn shipped_stable_channel_has_the_committed_key_server_and_github_fallback() {
         let config: serde_json::Value =
             serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
         assert_eq!(
             config["plugins"]["updater"]["endpoints"],
             json!([
-            "https://github.com/NSIETeam/ClawMaster-Desktop/releases/latest/download/latest.json"
-        ])
+                "https://8.140.52.117/updates/clawmaster/latest.json",
+                "https://github.com/NSIETeam/ClawMaster-Desktop/releases/latest/download/latest.json"
+            ])
         );
         assert_eq!(
             config["plugins"]["updater"]["pubkey"]

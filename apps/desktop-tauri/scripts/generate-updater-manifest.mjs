@@ -16,6 +16,7 @@ const OPTIONS = {
   '--version': 'version',
   '--repository': 'repository',
   '--release-tag': 'releaseTag',
+  '--asset-base-url': 'assetBaseUrl',
   '--notes': 'notes',
   '--notes-file': 'notesFile',
   '--pub-date': 'pubDate',
@@ -46,14 +47,46 @@ export function validatePubDate(pubDate) {
   }
 }
 
+function assetDirectory(value) {
+  const invalid = () => new Error('Invalid asset base URL: use an absolute HTTPS directory without credentials, query, fragment or ambiguous path segments')
+  const match = /^https:\/\/([^/?#\\\s]+)(\/[^?#\\\s]*)?$/u.exec(value)
+  if (!match || match[1].includes('@')) throw invalid()
+  let url
+  try {
+    url = new URL(value)
+  }
+  catch {
+    // URL parser failures contain the input, which may include credentials.
+    throw invalid()
+  }
+  const pathname = match[2] ?? '/'
+  let segments
+  try {
+    segments = pathname.split('/').map(segment => decodeURIComponent(segment))
+  }
+  catch {
+    // Malformed percent escapes are rejected without exposing the supplied URL.
+    throw invalid()
+  }
+  if (url.pathname !== pathname || pathname.includes('//') || segments.some(segment =>
+    segment === '.' || segment === '..' || /[/%\\?#\s\u0000-\u001f\u007f]/u.test(segment),
+  )) throw invalid()
+  return `${url.href}${url.pathname.endsWith('/') ? '' : '/'}`
+}
+
 /**
- * @param {{ version: string, repository: string, releaseTag: string, notes: string, pubDate: string, signatures: Record<string, string> }} options
+ * An optional HTTPS asset directory replaces GitHub download URLs without changing artifact names or signatures.
+ * The directory may end in a slash; credentials, query, fragment and ambiguous paths are rejected.
+ * @param {{ version: string, repository: string, releaseTag: string, assetBaseUrl?: string, notes: string, pubDate: string, signatures: Record<string, string> }} options
  * @returns {{ version: string, notes: string, pub_date: string, platforms: Record<string, { signature: string, url: string }> }}
  */
 export function createManifest(options) {
   const { version, repository, releaseTag, notes, pubDate, signatures } = options
   validateVersion(version)
   validatePubDate(pubDate)
+  const assetBaseUrl = options.assetBaseUrl === undefined
+    ? `https://github.com/${repository}/releases/download/${releaseTag}/`
+    : assetDirectory(options.assetBaseUrl)
 
   const platforms = Object.fromEntries(
     Object.entries(normalizedAssets(version)).map(([platform, asset]) => {
@@ -61,7 +94,7 @@ export function createManifest(options) {
       if (!signature) throw new Error(`Missing signature for platform: ${platform}`)
       return [platform, {
         signature,
-        url: `https://github.com/${repository}/releases/download/${releaseTag}/${asset}`,
+        url: `${assetBaseUrl}${asset}`,
       }]
     }),
   )
@@ -71,7 +104,7 @@ export function createManifest(options) {
 
 /**
  * @param {string[]} args
- * @returns {{ assetsDir: string, outputPath: string, version: string, repository: string, releaseTag: string, notes?: string, notesFile?: string, pubDate: string }}
+ * @returns {{ assetsDir: string, outputPath: string, version: string, repository: string, releaseTag: string, assetBaseUrl?: string, notes?: string, notesFile?: string, pubDate: string }}
  */
 export function parseArguments(args) {
   const values = {}
@@ -95,6 +128,7 @@ export function parseArguments(args) {
   if (values.notes === undefined && values.notesFile === undefined) {
     throw new Error('Missing required option: --notes or --notes-file')
   }
+  if (values.assetBaseUrl !== undefined) assetDirectory(values.assetBaseUrl)
   return values
 }
 
@@ -110,7 +144,7 @@ export async function resolveNotes(options) {
 }
 
 /**
- * @param {{ assetsDir: string, outputPath: string, version: string, repository: string, releaseTag: string, notes?: string, notesFile?: string, pubDate: string }} options
+ * @param {{ assetsDir: string, outputPath: string, version: string, repository: string, releaseTag: string, assetBaseUrl?: string, notes?: string, notesFile?: string, pubDate: string }} options
  * @returns {Promise<void>}
  */
 export async function writeUpdaterManifest(options) {
