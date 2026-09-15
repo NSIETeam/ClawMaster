@@ -4,7 +4,7 @@
 
 这是 ClawMaster 基于现有 `dsh web` 运行时的 Rust/WebView 外壳。安装包携带 **Harness 源码**，不包含 `node_modules`；首次运行扫描本机兼容的 Node.js、pnpm 和已有的 `~/.dsh` 主目录，下载缺失的 Node.js 或 pnpm，再对安装包内的源码树安装生产依赖。应用元数据、启动页、通知和 Web 界面使用 ClawMaster 名称、图标与口号“开启AI时代的企业协作”。
 
-桌面包版本：**0.2.1**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
+桌面包版本：**0.2.2**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
 
 Tauri 包名为 `@deepseek-ai/dsh-desktop-tauri`，与上游 Electron 应用独立。Host 启动地址只在内存中传给独立 WebView，由上游认证流程签发登录 cookie。应用命令归本地外壳所有；回环 Host 内容仅获得窗口拖动与双击最大化权限。启动日志不记录认证令牌。裁剪包包含 `native/system`，并仅在裁剪树中允许开发工具补丁未使用；实际补丁应用失败仍会阻止安装。
 
@@ -121,25 +121,28 @@ OpenViking 服务使用 AGPL-3.0，DSH 记忆插件使用 Apache-2.0。助手把
 <a id="build"></a>
 ## 构建
 
+[原生 RPA 准备程序](scripts/prepare-rpa-native.mjs)为当前平台或显式 `--target` 编译锁定的 Rust 源码，把可执行文件放入 `frontends/rpa/dist/native/<platform>-<arch>/`。打包拒绝缺失 helper、错误的可执行文件头、架构不符、过期组件版本和 SHA-256 摘要变化。发布矩阵的每个目标都对分发的 helper 执行 `--native-tool capabilities`，不读取桌面内容；生产 Host 检查确认 `wechat_read` 与更新工具已注册。[RPA 组件](../../frontends/rpa/README.zh.md)负责审批与平台支持说明。
+
 macOS 最低要求为 11.0，与预配的 Node.js 22.19 运行时和原生 addon 目标一致。Linux 发行构建安装 `musl-tools`，并完整构建 `native/system` 原生资源，包含静态 Landlock 启动器和两种 libc addon；根目录仅构建 addon 的源码测试命令不足以交付这些资源。Landlock 还需要内核实际执行限制；可用性由功能探测确定，不能只看内核版本。参见[原生支持矩阵](../../native/system/docs/support-matrix.md)。
 
 在仓库根目录执行（需要已构建的 CLI 与 Web dist）。发行负责人通过 `TAURI_SIGNING_PRIVATE_KEY` 与 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 提供发行签名材料：
 
 ```powershell
 pnpm --dir apps/desktop-tauri run build:harness
+node apps/desktop-tauri/scripts/prepare-rpa-native.mjs --smoke
 cd apps/desktop-tauri
 pnpm install
 pnpm run build:win
 ```
 
-安装包输出：`src-tauri/target/release/bundle/nsis/ClawMaster_0.2.0_x64-setup.exe`
+安装包输出：`src-tauri/target/release/bundle/nsis/ClawMaster_0.2.2_x64-setup.exe`
 
 NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语言自动跟随操作系统 locale，不显示语言选择器；不支持的 locale 使用英语。原生启动页、托盘、关闭对话框和启动状态文案遵循同一规则（`zh*` 用中文，其余用英语）。嵌入的 `dsh web` 客户端仍使用自己的 Settings 语言。复制文件前，安装器会静默关闭 `dsh-desktop.exe` 及其子进程树。安装后，安装器使用独立的版本化 ICO 资源重建已有桌面快捷方式，并通知 Explorer 清除陈旧的图标缓存记录。
 
 <a id="release"></a>
 ## 发布
 
-推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)。它构建 Windows x64 NSIS 安装包、macOS Intel/Apple Silicon DMG 和 Linux x64 AppImage/deb，在所有矩阵任务成功后发布。程序版本 `0.2.1` 对应正式版 `desktop-v0.2.1`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。手动触发默认为仅构建：构建所选分支提交并上传签名安装包，不发布版本或改变更新通道。只有在重建已有发布标签并需要发布时，才启用 `publish`。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
+推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)。它构建 Windows x64 NSIS 安装包、macOS Intel/Apple Silicon DMG 和 Linux x64 AppImage/deb，在所有矩阵任务成功后发布。程序版本 `0.2.2` 对应正式版 `desktop-v0.2.2`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。手动触发默认为仅构建：构建所选分支提交并上传签名安装包，不发布版本或改变更新通道。只有在重建已有发布标签并需要发布时，才启用 `publish`。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
 
 应用包含发布验签公钥，优先使用[更新服务器](https://8.140.52.117/updates/clawmaster/latest.json)的 HTTPS manifest，并以公开仓库 Latest manifest 为备用地址。[服务器更新参考](server-updates/README.zh.md)负责同步、发布与恢复行为。仅接受更高的正式版本，拒绝预发行版本和降级。Release 构建在主窗口打开后检查，此后在每次后台检查成功的六小时后再次检查。检查失败时，先等待 15 分钟重试，再将等待时间逐次加倍，最长六小时；成功后重置等待时间。若已有其他更新操作，后台检查等待一分钟，不发出请求。每次应用启动对同一可用版本最多提示一次；发现另一个更高版本时可再次提示。Debug 构建和空端点均不发出更新请求；非空端点必须配置公钥。
 
@@ -147,13 +150,17 @@ NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语
 
 此通道分发桌面版本及其内置运行时，不单独更新或热重载 DSH 插件。profile 插件管理仍由 [DSH profile](../../packages/boot/app-boot/README.zh.md)负责；开发期间的客户端重载需要[客户端 HMR（热模块替换）watcher](../../packages/client/hmr/README.zh.md)。
 
+内置的[更新组件](../../frontends/updates/README.zh.md)提供 `/updates`、`clawmaster_updates` 和受审批控制的 `clawmaster_update` 工具。默认每分钟检查签名服务器元数据；下载和 profile 改动须获一次性批准。打包时仅向更新器的副本补充桌面专用的 `dsh.bundle.patch` 元数据与[桌面补丁](updates/cordis.patch.yml)，其公开模块和原始包保持不变。profile 声明 `@clawmaster/dsh-updates`，因此既有便携更新包会拒绝重复首次安装。桌面补丁与该更新包使用相同的条目 id。既有 profile、主目录补丁或其他 bundle 已插入该更新器时，启动会省略桌面 overlay 并保留用户补丁。运行时激活与原生安装仍受该组件文档中的限制；仅暂存且要求重启的组件不会在桌面重启后自动应用。
+
 GitHub 仍是构建与发布来源；更新服务器镜像已验证的更新文件，不重新构建或签名。已安装的 `0.2.1` 程序在后续原生更新前仍保留编译时的 GitHub 端点；更改服务器或 DSH profile 不会改变该端点。
 
 Release 资产归公开的 [ClawMaster-Desktop 仓库](https://github.com/NSIETeam/ClawMaster-Desktop/releases)所有，名称包含操作系统与架构。发布前，[签名校验器](scripts/verify-updater-signatures.mjs)使用已提交的发布公钥校验每份更新产物的签名，并核对 manifest 中的签名与对应产物。Tauri 更新签名通过配置的更新公钥验证下载产物。macOS 临时签名检查应用完整性，不认证开发者身份，也不包含 Apple 公证。Windows 安装包没有发布者证书。
 
 透明背景的[浅色 SVG](../../frontends/dsh/src/clawmaster.svg)与[深色 SVG](../../frontends/dsh/src/clawmaster-dark.svg)使用同一轮廓，分别以黑色和白色绘制。应用内图标跟随 Web 主题的最终明暗状态，启动页跟随系统外观。Web favicon 保留浅色 SVG 的精确字节。桌面准备过程通过[图标生成脚本](scripts/generate-icons.mjs)从浅色矢量源生成各原生图标格式；ICNS 条目按类型排序，并保留其中的编码图像。桌面品牌检查拒绝 SVG 内嵌或链接的图片。[原始 PNG](../../frontends/dsh/src/clawmaster.png)保留为视觉参考。macOS 隐藏原生标题文字；外壳不绘制独立顶栏。Windows 安装还携带文件名含版本的 ICO 文件，避免快捷方式图标查询复用旧的可执行文件路径缓存键。
 
-Windows 发布 CI 在一次性托管 runner 上执行[已安装桌面检查](scripts/verify-windows-native.ps1)：NSIS 安装、可见主窗口、正常关闭与第二次启动必须对应打包源码。已有用户数据或缺少交互桌面时，该检查不能通过。macOS 安装包签名与解压后的 Linux 安装器另有平台检查；最终本地 macOS 安装由发行操作者在实际机器验收。
+Windows 发布 CI 在一次性托管 runner 上执行[已安装桌面检查](scripts/verify-windows-native.ps1)：NSIS 安装、可见主窗口、正常关闭与第二次启动必须对应打包源码。已有用户数据或缺少交互桌面时，该检查不能通过。macOS 矩阵还须在签名检查后通过下述原生 GUI 检查。解压后的 Linux 安装器另有平台检查。托管 runner 检查不能证明所有用户机器均已验收。
+
+[macOS 原生检查](scripts/verify-macos-native.mjs)仅支持一次性 GitHub 托管 runner。构建前传入 `--preflight`，检查已有 GUI 及辅助功能权限。打包后提供绝对路径 `--app`、`--prepared-root`、`--output` 和 `--expected-version`。它将应用复制到随机 Unicode 路径，使用独立 DSH 主目录，并通过打包清单、Host 归属、HTTP 鉴权及设置与会话目录哨兵验证两次原生启动。默认 `--close-mode gui` 点击主窗口关闭按钮，要求正常退出且清理 Host。显式 `--close-mode terminate` 只验证进程终止和再次启动，报告 `guiCloseVerified: false`；不会自动降级或修改 TCC。[验收决策](../../.agents/notes/implemented/testing/2026-09-15-macos-native-relaunch-acceptance.zh.md)定义证据范围。
 
 [构建溯源](scripts/build-provenance.mjs)将完整 harness 构建和产品准备过程绑定到完整 Git 提交、已提交树、工作区源码 SHA-256 与相对路径脏文件清单。准备过程拒绝编译后的源码改动或被替换的 Host、客户端与前端产物。默认 `development` 模式生成明确的开发构建编号，源码有改动时包含 `dirty`。`DSH_DESKTOP_BUILD_MODE=release` 要求整个工作流使用干净源码和发布模式记录。生成的原生图标属于受验证的构建输出，不作为源码输入；平台编码器可能在 SVG 不变时改变输出字节。源码变化后，须重新完整执行 `build:harness`，再执行 `prepare:dist`。
 
@@ -161,7 +168,7 @@ Windows 发布 CI 在一次性托管 runner 上执行[已安装桌面检查](scr
 
 发布工作流使用 [Office 下载器](scripts/prepare-office-runtime.mjs)有限重试暂时性 HTTP 失败，随后由 Office 准备程序检查固定的 SHA-256。认证、TLS 和内容校验失败均不能绕过。
 
-在完成 `build:harness` 和 Office 资源准备后，准备载荷而不编译原生壳：
+在完成 `build:harness`、原生 RPA helper 和 Office 资源准备后，准备载荷而不编译原生壳：
 
 ```powershell
 node scripts/prepare-dist.mjs

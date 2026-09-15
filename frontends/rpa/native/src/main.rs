@@ -114,6 +114,24 @@ fn main() {
         std::process::exit(print_approval_request(args.get(2), args.get(3)));
     }
 
+    if subcommand == Some("wechat-read-selected") {
+        let result = args
+            .get(2)
+            .ok_or_else(|| "微信读取需要已批准的范围参数。".to_owned())
+            .and_then(|input| clawmaster_rpa_native::wechat::read_from_json(input))
+            .and_then(|value| {
+                serde_json::to_string(&value).map_err(|_| "无法编码微信读取结果。".to_owned())
+            });
+        match result {
+            Ok(json) => println!("{json}"),
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        return;
+    }
+
     match clawmaster_rpa_native::native_tools::dispatch_from_args(&args) {
         Some(Ok(())) => {}
         Some(Err(error)) => {

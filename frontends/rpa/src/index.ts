@@ -27,6 +27,7 @@ import { FileRpaRunStore } from '../seam/file-run-store.ts';
 import type { RpaAuthorization, RpaDriver, RpaPolicyPort } from '../seam/ports.ts';
 import { RpaRunner } from '../seam/runner.ts';
 import { createNativeHelper, resolveHelperSpec, type NativeHelperSpec } from './native-helper.ts';
+import { registerWechatRead } from './wechat.ts';
 
 /**
  * Declare one model-facing tool.
@@ -106,8 +107,7 @@ export interface RpaApprovalQuestion {
 
 /** The one message for a helper that has not been built yet. */
 const UNBUILT_HELPER =
-  'The native helper is not built. Build it with `cargo build --release` in frontends/rpa/native, ' +
-  'or set config.helper to an existing binary.';
+  'The native helper is not built or is missing from this installation. Install a ClawMaster package containing the native component.';
 
 /** Operations a model may request. `approve` is deliberately absent. */
 export const RPA_ACTIONS = ['start', 'run_next', 'recover', 'status', 'take_over'] as const;
@@ -500,8 +500,8 @@ export function apply(ctx: Context, config: RpaConfig = {}): void {
             'Run a recovered ClawMaster native RPA tool, for example rpa_windows, rpa_snapshot, rpa_extract, ' +
             'rpa_wait, rpa_status or rpa_cancel. Use rpa_native with command=definitions to list the exact tool ' +
             'names and their arguments. Window and element references come from a prior snapshot artifact; no ' +
-            'coordinate is ever supplied. A step that acts on the desktop needs an approval binding, and none is ' +
-            'wired yet, so such a step is refused and receipted instead of executed.',
+            'coordinate is ever supplied. A step that acts on the desktop requires one-time user approval; ' +
+            'a refusal prevents native execution. Use wechat_read for approved, selected-chat reading.',
           parameters: {
             tool: { type: 'string', required: true, description: 'Recovered tool name, for example rpa_windows' },
             arguments: {
@@ -545,4 +545,5 @@ export function apply(ctx: Context, config: RpaConfig = {}): void {
       ),
     'clawmaster: recovered native RPA tools',
   );
+  registerWechatRead(ctx, config);
 }

@@ -16,3 +16,4 @@ pub mod native_rpa;
 pub mod native_state_store;
 pub mod native_tools;
 pub mod rpa_cli;
+pub mod wechat;

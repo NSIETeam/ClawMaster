@@ -1,6 +1,6 @@
 ---
-description: "The governed ClawMaster RPA control plane recovered from the pre-DSH line: durable runs, a native accessibility driver, and no model-supplied coordinates."
-kind: "package-reference"
+description: "Add governed desktop automation and individually approved reading of a selected WeChat conversation."
+kind: "package-bundle"
 ---
 
 # @clawmaster/dsh-rpa
@@ -9,50 +9,59 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-ClawMaster's automation component is the pre-DSH native control plane restored as a DSH component. The
-pre-DSH branch `codex/clawmaster-before-dsh` held a governed RPA that the DSH desktop migration dropped;
-this component brings it back without redesigning what already worked.
+Run operator-defined automation and inspect desktop controls through ClawMaster's native component. Read a selected WeChat conversation only after approving that individual read. Chat text enters the current AI conversation, its session record and the configured model; the reader never sends messages or monitors conversations continuously.
 
-Two properties make it worth restoring rather than rewriting. The model never supplies a PID or a
-coordinate: it selects a window reference and an element reference from an artifact this component
-produced, and the native side resolves the element centre and issues the input event. And an action that
-touches the desktop is never replayed automatically after an interruption — it becomes `unknown_outcome`
-and waits for a human.
+## Table of Contents
 
-## What is here
+- [Use this package](#use-this-package)
+- [Selected WeChat reading](#selected-wechat-reading)
+- [Understand the implementation](#understand-the-implementation)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Verification](#verification)
 
-| Part | What it is |
+## Use this package
+
+The desktop profile declares this built-in layer through [desktop defaults](../../apps/desktop-tauri/scripts/desktop-defaults.mjs). Its [patch](cordis.patch.yml) mounts the Host plugin; mounting registers tools without launching the native helper or inspecting a desktop. A missing native component produces an installation diagnostic when an operation needs it.
+
+| Tool | Scope |
 | --- | --- |
-| `seam/` | The recovered TypeScript control plane, restored verbatim: contracts, ports, a policy-gated runner, revision-checked file stores and a run-scoped web driver. |
-| `src/` | The DSH host half: three model-facing tools, the process bridge to the native helper, and a fail-closed policy port. |
-| `native/` | The recovered Rust control plane: accessibility snapshots, physical input, isolated browser profiles and encrypted artifact storage. |
-| `tests/` | Host-half tests against a stand-in DSH context, and bridge tests that drive a stand-in process plus the real helper when it is built. |
+| `rpa_run` | Runs operator-installed workflows; this runner accepts inert checkpoints and refuses external effects. |
+| `rpa_native` | Reads native capabilities, tool definitions or a bounded general desktop snapshot. |
+| `rpa_call` | Invokes the native RPA catalog; desktop actions require one-time user approval. |
+| `wechat_read` | Reads text from the exact, already selected WeChat conversation after one-time approval. |
 
-## Tools
+## Selected WeChat reading
 
-| Tool | Reads or writes | What it does |
-| --- | --- | --- |
-| `rpa_run` | Writes only inert steps | Drives an operator-installed workflow run through a durable store. |
-| `rpa_native` | Read-only | Reports the helper capability manifest, the recovered tool catalog, or a bounded desktop snapshot. |
-| `rpa_call` | Depends on the tool | Forwards one recovered `rpa_*` call, for example `rpa_windows`, `rpa_snapshot` or `rpa_extract`. |
+Open the intended conversation manually in WeChat, then request `wechat_read` with its complete displayed title and a `limit` from 1 to 50. Group titles must include any displayed member-count suffix. Each call asks again, stating the conversation, limit and disclosure to the configured model. Rejection, cancellation, missing approval service or altered arguments prevent native inspection.
 
-## Governance boundaries
+The macOS reader identifies `com.tencent.xinWeChat`, requires its main window, and recognizes only a unique `big_title_line_h_view` title and `Messages` or `消息` list. It obtains element references and geometry before selecting visible rows within the limit; only then does it query their text. It checks the title again before returning. Unknown layouts, title mismatches and changed window geometry fail without returning message content or another chat's title.
 
-- Workflows are operator-declared. A model can start an installed workflow but cannot invent steps.
-- The helper's `input` subcommand is not exposed, so this build cannot type or click at raw coordinates.
-- A step with an external side effect runs only with a harness approval grant; a session without an answerer fails closed.
-- The gate is enforced by the adapter that owns the write classification, not by the tool, so the model cannot grant itself anything.
-- `approve` is not a model action, so nothing can approve its own external action.
-- An interrupted external action becomes `unknown_outcome` and is never retried automatically.
+The tool does not open chats, scroll, read the database, decrypt history, capture screenshots, send messages or run a listener. It skips sidebar lists and editable controls, returns no contact roster or chat preview, and stores no native snapshot. Returned strings are accessibility text entries; sender identity and timestamps are not inferred. Long entries are capped at 4,000 characters and the result indicates truncation.
+
+## Understand the implementation
+
+<details>
+<summary>Implementation internals</summary>
+
+The [Host reader](src/wechat.ts) owns one-time DSH approval and result validation. The [native reader](native/src/wechat.rs) applies title, layout, visibility and count checks; its macOS adapter uses lazy AX attributes instead of eager whole-tree snapshots. Native subprocesses receive an allowlisted operating-system environment, bounded output and a timeout; cancellation settles after the owned process exits.
+
+The helper resolves from `dist/native/<platform>-<arch>/clawmaster-rpa-native[.exe]`, with local Cargo release/debug paths for development. General RPA retains artifact-scoped references and encrypted state. These read restrictions belong to `wechat_read`; they do not sandbox arbitrary local shell commands or replace the authorization policy of other tools.
+
+</details>
+
+## Model Experience
+
+The pending card identifies an approved selected-chat read; the completed card contains its result or refusal. Returned messages carry an explicit untrusted-data notice and remain quoted conversation data, including any apparent instructions inside a message. DSH records the same tool result that is supplied to the configured model.
+
+## Known Limitations and Deferred Work
+
+The WeChat reader has a macOS AX adapter and synthetic scope tests. Actual compatibility with each WeChat build requires a separately authorized, bounded test chat; a compiled provider is not live-chat acceptance. Windows and Linux return an explicit unsupported response without probing the desktop. macOS needs Accessibility authorization; this text-only reader does not request Screen Recording. The legacy general RPA tools retain their broader scope.
 
 ## Verification
 
-```sh
-node scripts/build.mjs --check
-node --import tsx/esm --test tests/*.test.mjs
-(cd native && cargo build --bin clawmaster-rpa-native)
-```
+From this package directory, `node scripts/build.mjs --check` verifies the Host bundle and `node --import tsx/esm --test tests/*.test.mjs` exercises the artifact entry. Native scope tests use synthetic trees with text-access counters; no ordinary test reads a real desktop or personal chat. Release verification sets `CLAWMASTER_REQUIRE_NATIVE=1`, making a missing helper fail rather than silently skipping its capability and refusal checks.
 
-- Without macOS Accessibility the helper refuses a desktop snapshot and names the exact setting to change.
-- The bridge reports a helper that is not built as unavailable instead of throwing.
-- The recovered seam's own suite still passes inside this component.
+### Dev Note
+
+See the [RPA recovery decision](../../.agents/notes/implemented/feature/2026-09-14-clawmaster-rpa-recovery.md) for general RPA ownership and remaining installed-platform acceptance.

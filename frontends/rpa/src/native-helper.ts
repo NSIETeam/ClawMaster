@@ -9,7 +9,7 @@
 // recovered contract keeps raw input and element resolution inside the helper.
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, lstatSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -41,12 +41,15 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 /**
  * Locate the helper next to this component.
  *
- * @returns The release binary if present, otherwise the debug binary, otherwise null.
+ * @returns The platform's packaged binary, a local release/debug build, or null.
  */
 export function defaultHelperPath(): string | null {
+  const binary = `clawmaster-rpa-native${process.platform === 'win32' ? '.exe' : ''}`;
+  const packaged = path.resolve(HERE, '..', 'dist', 'native', `${process.platform}-${process.arch}`, binary);
+  if (existsSync(packaged) && lstatSync(packaged).isFile()) return packaged;
   for (const profile of ['release', 'debug']) {
-    const candidate = path.resolve(HERE, '..', 'native', 'target', profile, 'clawmaster-rpa-native');
-    if (existsSync(candidate)) return candidate;
+    const candidate = path.resolve(HERE, '..', 'native', 'target', profile, binary);
+    if (existsSync(candidate) && lstatSync(candidate).isFile()) return candidate;
   }
   return null;
 }
@@ -76,14 +79,26 @@ export interface NativeHelper {
   run(command: string, args?: readonly string[], signal?: AbortSignal): Promise<unknown>;
 }
 
+/** Only operating-system discovery and locale variables reach the helper. */
+const HELPER_ENV = new Set([
+  'PATH', 'HOME', 'USER', 'LOGNAME', 'TMPDIR', 'TEMP', 'TMP', 'SYSTEMROOT', 'WINDIR',
+  'COMSPEC', 'PATHEXT', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'XDG_RUNTIME_DIR',
+  'XDG_DATA_HOME', 'DISPLAY', 'WAYLAND_DISPLAY', 'DBUS_SESSION_BUS_ADDRESS', 'LANG', 'LC_ALL', 'LC_CTYPE',
+]);
+const MAX_STDOUT_BYTES = 1024 * 1024;
+const MAX_STDERR_BYTES = 64 * 1024;
+
 /**
  * Build a helper client.
  *
  * @param spec How to launch the helper.
  * @param timeoutMs Wall-clock bound for one invocation.
- * @returns A client whose `run` resolves to the parsed stdout payload.
+ * @returns A client with bounded output; cancellation rejects only after its child has exited.
  */
 export function createNativeHelper(spec: NativeHelperSpec, timeoutMs = 30_000): NativeHelper {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000) {
+    throw new Error('Native helper timeout must be an integer from 1 to 120000 milliseconds.');
+  }
   return {
     spec,
     run(command, args = [], signal) {
@@ -95,10 +110,14 @@ export function createNativeHelper(spec: NativeHelperSpec, timeoutMs = 30_000): 
 
         const child = spawn(spec.command, [...spec.args, '--native-tool', command, ...args], {
           stdio: ['ignore', 'pipe', 'pipe'],
+          env: Object.fromEntries(Object.entries(process.env).filter(([key]) => HELPER_ENV.has(key.toUpperCase()))),
         });
 
-        let stdout = '';
-        let stderr = '';
+        const stdout: Buffer[] = [];
+        const stderr: Buffer[] = [];
+        let stdoutBytes = 0;
+        let stderrBytes = 0;
+        let failure: NativeHelperError | undefined;
         let settled = false;
         const finish = (error: Error | null, value?: unknown): void => {
           if (settled) return;
@@ -110,35 +129,45 @@ export function createNativeHelper(spec: NativeHelperSpec, timeoutMs = 30_000): 
         };
 
         const timer = setTimeout(() => {
+          failure ??= new NativeHelperError(`Native invocation timed out after ${timeoutMs}ms: ${command}`, command, null);
           child.kill('SIGKILL');
-          finish(new NativeHelperError(`Native invocation timed out after ${timeoutMs}ms: ${command}`, command, null));
         }, timeoutMs);
 
         const onAbort = (): void => {
+          failure ??= new NativeHelperError(`Native invocation was cancelled: ${command}`, command, null);
           child.kill('SIGKILL');
-          finish(new NativeHelperError(`Native invocation was cancelled: ${command}`, command, null));
         };
         signal?.addEventListener('abort', onAbort, { once: true });
+        if (signal?.aborted) onAbort();
 
-        child.stdout.on('data', (chunk) => {
-          stdout += String(chunk);
+        child.stdout.on('data', (chunk: Buffer) => {
+          stdoutBytes += chunk.length;
+          if (stdoutBytes > MAX_STDOUT_BYTES) {
+            failure ??= new NativeHelperError('Native helper stdout exceeded the output limit.', command, null);
+            child.kill('SIGKILL');
+          } else if (!failure) stdout.push(chunk);
         });
-        child.stderr.on('data', (chunk) => {
-          stderr += String(chunk);
+        child.stderr.on('data', (chunk: Buffer) => {
+          stderrBytes += chunk.length;
+          if (stderrBytes > MAX_STDERR_BYTES) {
+            failure ??= new NativeHelperError('Native helper stderr exceeded the output limit.', command, null);
+            child.kill('SIGKILL');
+          } else if (!failure) stderr.push(chunk);
         });
 
         child.on('error', (error) => {
-          finish(new NativeHelperError(`Native helper could not start: ${error.message}`, command, null));
+          failure ??= new NativeHelperError(`Native helper could not start: ${error.message}`, command, null);
         });
 
         child.on('close', (code) => {
-          const message = stderr.trim();
+          if (failure) { finish(failure); return; }
+          const message = Buffer.concat(stderr).toString('utf8').trim();
           if (code !== 0) {
             finish(new NativeHelperError(message || `Native helper exited with code ${String(code)}.`, command, code));
             return;
           }
           try {
-            finish(null, JSON.parse(stdout) as unknown);
+            finish(null, JSON.parse(Buffer.concat(stdout).toString('utf8')) as unknown);
           } catch {
             finish(new NativeHelperError('Native helper returned a payload that is not JSON.', command, code));
           }

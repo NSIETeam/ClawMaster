@@ -37,6 +37,7 @@ const trimmedPackages = [
   'frontends/graph-memory',
   'frontends/office',
   'frontends/rpa',
+  'frontends/updates',
 ]
 
 /** Reviewed compatibility patches applied by pnpm before any desktop launch. */
@@ -239,8 +240,19 @@ export function withDesktopDependencies(manifest, workspaceOverrides = {}) {
       '@clawmaster/dsh-graph-memory': 'workspace:*',
       '@clawmaster/dsh-office': 'workspace:*',
       '@clawmaster/dsh-rpa': 'workspace:*',
+      '@clawmaster/dsh-updates': 'workspace:*',
     },
   }
+}
+
+/**
+ * Declare the desktop-owned insertion layer without changing the published updater module.
+ * @param {object} manifest - Original updater package metadata copied into the desktop payload.
+ * @returns {object} Desktop-only bundle metadata preserving dependencies and exports.
+ */
+export function withDesktopUpdateBundle(manifest) {
+  if (manifest.name !== '@clawmaster/dsh-updates' || manifest.version !== '0.1.0') throw new Error('Desktop requires the reviewed updater package 0.1.0')
+  return { ...manifest, dsh: { ...manifest.dsh, bundle: { patch: './desktop.cordis.patch.yml' } } }
 }
 
 /**
@@ -266,6 +278,8 @@ export function copyTree(src, dest) {
 }
 
 function assertBuiltArtifacts() {
+  execFileSync(process.execPath, [join(repoRoot, 'frontends/updates/scripts/build.mjs'), '--check'], { cwd: repoRoot, stdio: 'inherit' })
+  execFileSync(process.execPath, [join(desktopRoot, 'scripts/prepare-rpa-native.mjs'), '--check'], { cwd: repoRoot, stdio: 'inherit' })
   execFileSync(process.execPath, ['--import', 'tsx/esm', join(desktopRoot, 'scripts', 'build-harness.ts'), '--check'], {
     cwd: repoRoot,
     stdio: 'inherit',
@@ -366,11 +380,14 @@ copyTree(join(repoRoot, 'apps', 'cli'), join(outRoot, 'apps', 'cli'))
 copyTree(join(repoRoot, 'apps', 'web'), join(outRoot, 'apps', 'web'))
 copyTree(join(desktopRoot, 'defaults'), join(outRoot, 'apps', 'desktop-defaults'))
 copyTree(join(desktopRoot, 'sys-prompt'), join(outRoot, 'apps', 'clawmaster-sys-prompt'))
-for (const frontend of ['dsh', 'guard', 'notes', 'graph-memory', 'office', 'rpa']) {
+for (const frontend of ['dsh', 'guard', 'notes', 'graph-memory', 'office', 'rpa', 'updates']) {
   for (const name of ['package.json', 'dist', 'cordis.patch.yml', 'README.md', 'README.zh.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md']) {
     copyTree(join(repoRoot, 'frontends', frontend, name), join(outRoot, 'frontends', frontend, name))
   }
 }
+const updaterManifestPath = join(outRoot, 'frontends/updates/package.json')
+writeFileSync(updaterManifestPath, `${JSON.stringify(withDesktopUpdateBundle(JSON.parse(readFileSync(updaterManifestPath, 'utf8'))), null, 2)}\n`)
+copyTree(join(desktopRoot, 'updates/cordis.patch.yml'), join(outRoot, 'frontends/updates/desktop.cordis.patch.yml'))
 for (const name of ['runtime', 'patches', 'scripts', 'src', 'vendor', 'package-lock.json']) {
   copyTree(join(repoRoot, 'frontends', 'office', name), join(outRoot, 'frontends', 'office', name))
 }

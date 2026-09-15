@@ -30,6 +30,8 @@ function redact(text) {
 function observeHost(child) {
   const lines = []
   let resolveReady
+  let resolveRegistrations
+  const registrations = new Promise(done => { resolveRegistrations = done })
   let closed = false
   const ready = new Promise(done => { resolveReady = done })
   const append = (stream, line) => {
@@ -40,6 +42,7 @@ function observeHost(child) {
   const stderr = createInterface({ input: child.stderr })
   stdout.on('line', line => {
     append('stdout', line)
+    if (line.startsWith('CLAWMASTER_SMOKE_TOOLS ')) resolveRegistrations(JSON.parse(line.slice('CLAWMASTER_SMOKE_TOOLS '.length)))
     const match = line.match(/^dsh web: (http:\/\/127\.0\.0\.1:\d+\/\?token=\S+)/)
     if (match) resolveReady(match[1])
   })
@@ -54,6 +57,7 @@ function observeHost(child) {
   return {
     child,
     done,
+    registrations,
     isClosed: () => closed,
     diagnostics: () => lines.join('\n') || '(Host 未输出诊断)',
     startup: Promise.race([
@@ -133,8 +137,18 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
   try {
     const patch = join(home, 'smoke.patch.yml')
     const notesRoot = join(await realpath(home), 'notes-vault')
+    const probe = join(home, 'tools-probe.mjs')
+    await writeFile(probe, `export const inject = ['tools'];
+export function apply(ctx) {
+  ctx.effect(() => ctx.get('appReady').onReady(() => {
+    const names = ['wechat_read', 'rpa_native', 'clawmaster_updates', 'clawmaster_update'];
+    console.log('CLAWMASTER_SMOKE_TOOLS ' + JSON.stringify(names.filter(name => ctx.tools.get(name))));
+  }));
+}\n`)
     // Notes defaults to the real Documents folder, independently of DSH_HOME.
     await writeFile(patch, `${JSON.stringify([
+      { insert: [{ id: 'clawmaster-smoke-tools', name: pathToFileURL(probe).href }] },
+      { id: 'clawmaster-update-component-updates', config: { checkIntervalMs: 0 } },
       { id: 'clawmaster-notes', config: { vaultRoot: notesRoot, notesContext: 'off' } },
       { id: 'clawmaster-graph-memory-storage', config: { path: join(home, 'graph-memory.sqlite') } },
       { id: 'clawmaster-graph-memory', config: { memory: 'off' } },
@@ -182,6 +196,7 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
       })
       host = observeHost(child)
       const startup = await withDeadline(host.startup, STARTUP_TIMEOUT_MS, 'Host 启动超时', context.signal)
+      assert.deepEqual(await withDeadline(host.registrations, REQUEST_TIMEOUT_MS, 'Packaged tool registration not observed', context.signal), ['wechat_read', 'rpa_native', 'clawmaster_updates', 'clawmaster_update'])
       const base = new URL('/', startup).href
       assert.equal((await request(base)).status, 401)
       const exchange = await request(startup, { redirect: 'manual' })

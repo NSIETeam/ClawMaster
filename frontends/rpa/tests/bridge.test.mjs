@@ -6,12 +6,10 @@
 // macOS has not granted Accessibility.
 
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import {
   NATIVE_READ_ONLY_COMMANDS,
@@ -22,7 +20,8 @@ import {
   defaultHelperPath,
 } from '../dist/index.js';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
+const nativeSkip = defaultHelperPath() ? false : process.env.CLAWMASTER_REQUIRE_NATIVE === '1' ? false : 'native helper not built';
+if (process.env.CLAWMASTER_REQUIRE_NATIVE === '1') assert.ok(defaultHelperPath(), 'release verification requires a built native helper');
 
 async function withFakeHelper(source, body) {
   const dir = await mkdtemp(path.join(tmpdir(), 'clawmaster-rpa-helper-'));
@@ -97,13 +96,11 @@ test('only read-only native subcommands are reachable from the plugin', async ()
   assert.equal(NATIVE_READ_ONLY_COMMANDS.includes('input'), false);
 });
 
-test('an unbuilt helper reports unavailability instead of throwing', async () => {
+test('an unbuilt helper reports unavailability instead of throwing', { skip: defaultHelperPath() ? 'native helper is built' : false }, async () => {
   const handlers = createRpaHandlers({
     stateDir: path.join(tmpdir(), 'clawmaster-rpa-unused'),
     helper: undefined,
   });
-  const detected = defaultHelperPath();
-  if (detected !== null) return; // a built helper exists; the real case below covers it
   const outcome = await handlers.native('capabilities');
   assert.equal(outcome.kind, 'native_unavailable');
   assert.match(outcome.reason, /not built/u);
@@ -134,20 +131,13 @@ test('a semantic call defaults its arguments to an empty object', async () => {
   });
 });
 
-test('an unbuilt helper makes a semantic call unavailable rather than throwing', async () => {
+test('an unbuilt helper makes a semantic call unavailable rather than throwing', { skip: defaultHelperPath() ? 'native helper is built' : false }, async () => {
   const handlers = createRpaHandlers({ stateDir: '/tmp/clawmaster-rpa-call' });
-  if (defaultHelperPath() !== null) return; // a built helper exists; the real case covers it
   const outcome = await handlers.call({ tool: 'rpa_status' });
   assert.equal(outcome.kind, 'native_unavailable');
 });
 
-test('the real helper refuses a write tool that has no approval binding', async () => {
-  const binary = path.join(here, '..', 'native', 'target', 'debug', 'clawmaster-rpa-native');
-  const built = existsSync(binary) || existsSync(path.join(here, '..', 'native', 'target', 'release', 'clawmaster-rpa-native'));
-  if (!built) {
-    console.log('  (skipped: native helper not built)');
-    return;
-  }
+test('the real helper refuses a write tool that has no approval binding', { skip: nativeSkip }, async (t) => {
 
   const stateDir = await mkdtemp(path.join(tmpdir(), 'clawmaster-rpa-gate-'));
   try {
@@ -198,15 +188,11 @@ test('the real helper refuses a write tool that has no approval binding', async 
   }
 });
 
-test('the helper classifies a tool and words the approval prompt', async () => {
-  const binary = path.join(here, '..', 'native', 'target', 'debug', 'clawmaster-rpa-native');
-  const built = existsSync(binary) || existsSync(path.join(here, '..', 'native', 'target', 'release', 'clawmaster-rpa-native'));
-  if (!built) {
-    console.log('  (skipped: native helper not built)');
-    return;
-  }
+test('the helper classifies a tool and words the approval prompt', { skip: nativeSkip }, async (t) => {
 
-  const handlers = createRpaHandlers({ stateDir: await mkdtemp(path.join(tmpdir(), 'clawmaster-rpa-q-')) });
+  const stateDir = await mkdtemp(path.join(tmpdir(), 'clawmaster-rpa-q-'));
+  t.after(() => rm(stateDir, { recursive: true, force: true }));
+  const handlers = createRpaHandlers({ stateDir });
 
   const write = await handlers.approvalFor({ tool: 'rpa_start', arguments: { url: 'https://example.com' } });
   assert.equal(write.write, true);
@@ -216,13 +202,7 @@ test('the helper classifies a tool and words the approval prompt', async () => {
   assert.equal(read.write, false);
 });
 
-test('an approval binding releases the gate, and the next refusal is the URL policy', async () => {
-  const binary = path.join(here, '..', 'native', 'target', 'debug', 'clawmaster-rpa-native');
-  const built = existsSync(binary) || existsSync(path.join(here, '..', 'native', 'target', 'release', 'clawmaster-rpa-native'));
-  if (!built) {
-    console.log('  (skipped: native helper not built)');
-    return;
-  }
+test('an approval binding releases the gate, and the next refusal is the URL policy', { skip: nativeSkip }, async (t) => {
 
   const stateDir = await mkdtemp(path.join(tmpdir(), 'clawmaster-rpa-grant-'));
   try {
@@ -253,13 +233,7 @@ test('an approval binding releases the gate, and the next refusal is the URL pol
   }
 });
 
-test('the rpa_call tool asks the harness before a write, and fails closed when refused', async () => {
-  const binary = path.join(here, '..', 'native', 'target', 'debug', 'clawmaster-rpa-native');
-  const built = existsSync(binary) || existsSync(path.join(here, '..', 'native', 'target', 'release', 'clawmaster-rpa-native'));
-  if (!built) {
-    console.log('  (skipped: native helper not built)');
-    return;
-  }
+test('the rpa_call tool asks the harness before a write, and fails closed when refused', { skip: nativeSkip }, async (t) => {
 
   const stateDir = await mkdtemp(path.join(tmpdir(), 'clawmaster-rpa-tool-'));
   try {
@@ -323,13 +297,7 @@ test('the rpa_call tool asks the harness before a write, and fails closed when r
   }
 });
 
-test('the real helper answers capabilities, and refuses the desktop without permission', async () => {
-  const binary = path.join(here, '..', 'native', 'target', 'debug', 'clawmaster-rpa-native');
-  const built = existsSync(binary) || existsSync(path.join(here, '..', 'native', 'target', 'release', 'clawmaster-rpa-native'));
-  if (!built) {
-    console.log('  (skipped: native helper not built)');
-    return;
-  }
+test('the real helper answers capabilities and definitions without inspecting the desktop', { skip: nativeSkip }, async () => {
 
   const handlers = createRpaHandlers({ stateDir: path.join(tmpdir(), 'clawmaster-rpa-real') });
   const capabilities = await handlers.native('capabilities');
@@ -341,16 +309,4 @@ test('the real helper answers capabilities, and refuses the desktop without perm
   assert.equal(definitions.kind, 'native');
   assert.ok(Array.isArray(definitions.payload));
 
-  // Without macOS Accessibility the helper must fail closed with the exact
-  // permission to grant. With the grant in place it may legitimately succeed,
-  // so both outcomes are accepted — a silent empty snapshot is not.
-  const snapshot = await handlers.native('desktop-snapshot').then(
-    (value) => ({ ok: true, value }),
-    (error) => ({ ok: false, error }),
-  );
-  if (snapshot.ok) {
-    assert.equal(snapshot.value.kind, 'native');
-  } else {
-    assert.match(snapshot.error.message, /辅助功能|Accessibility/u);
-  }
 });

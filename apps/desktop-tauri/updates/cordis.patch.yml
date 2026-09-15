@@ -1,0 +1,3 @@
+- insert:
+    - id: clawmaster-update-component-updates
+      name: "@clawmaster/dsh-updates"

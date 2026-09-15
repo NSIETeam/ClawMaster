@@ -63,12 +63,13 @@ test('apply registers every tool inside its own effect', async () => {
 
     assert.deepEqual(
       standIn.registrations.map((tool) => tool.name),
-      ['rpa_run', 'rpa_native', 'rpa_call'],
+      ['rpa_run', 'rpa_native', 'rpa_call', 'wechat_read'],
     );
     assert.deepEqual(standIn.effects, [
       'clawmaster: governed RPA control plane',
       'clawmaster: native RPA helper inspection',
       'clawmaster: recovered native RPA tools',
+      'clawmaster: approved selected WeChat reading',
     ]);
   });
 });

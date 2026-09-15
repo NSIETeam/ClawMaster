@@ -1,0 +1,12 @@
+version: 1
+scenario: wechat-read-approved
+profile: acp
+composition: acp-wechat-read
+recording: authored
+header:
+  class: acp-wechat-read
+  pin: true
+  systemPromptSource: escalation-approved
+permission: workspace-write
+workspace:
+  final: true

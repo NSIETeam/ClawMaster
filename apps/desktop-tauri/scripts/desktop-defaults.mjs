@@ -13,6 +13,9 @@ export const DESKTOP_PLUGIN_VERSIONS = Object.freeze({
   'dsh-routing-suite': '0.1.2',
 })
 
+/** Desktop insertion layer omitted when a user-installed updater already owns its row. */
+export const DESKTOP_UPDATES_BUNDLE = '@clawmaster/dsh-updates'
+
 /** Ordered product layers appended after the shipped Web profile. */
 export const DESKTOP_BUNDLES = Object.freeze([
   ...Object.keys(DESKTOP_PLUGIN_VERSIONS),
@@ -23,6 +26,7 @@ export const DESKTOP_BUNDLES = Object.freeze([
   '@clawmaster/dsh-graph-memory',
   '@clawmaster/dsh-office',
   '@clawmaster/dsh-rpa',
+  DESKTOP_UPDATES_BUNDLE,
 ])
 
 /** Copy package-declared presets without replacing user files or following directory links. */
@@ -42,9 +46,10 @@ function copyMissingPreset(source, destination) {
 /**
  * Merge missing desktop layers without changing user dependencies or patch policy.
  * @param {object} manifest - Parsed profile manifest.
+ * @param {boolean} existingUpdater - Preserve a user-installed updater by omitting the desktop insertion layer.
  * @returns {object} A manifest with the desktop layers present once.
  */
-export function withDesktopBundles(manifest) {
+export function withDesktopBundles(manifest, existingUpdater = false) {
   const bundles = manifest.dsh?.profile?.bundles
   if (!Array.isArray(bundles) || bundles.some(name => typeof name !== 'string')) {
     throw new Error('Desktop Web profile must declare dsh.profile.bundles as package names')
@@ -58,7 +63,8 @@ export function withDesktopBundles(manifest) {
       ...manifest.dsh,
       profile: {
         ...manifest.dsh.profile,
-        bundles: [...bundles, ...DESKTOP_BUNDLES.filter(name => !bundles.includes(name))],
+        bundles: [...bundles, ...DESKTOP_BUNDLES.filter(name => !bundles.includes(name))]
+          .filter(name => !existingUpdater || name !== DESKTOP_UPDATES_BUNDLE),
       },
     },
   }
@@ -100,7 +106,17 @@ export async function prepareDesktopProfile(root, home) {
   const template = boot.PROFILE_TEMPLATES.web
   boot.initProfile(dir, template.bundles, template.patchReload)
   const before = boot.readProfileManifest('ClawMaster', dir)
-  const after = withDesktopBundles(before)
+  const userPatches = [dir, home].flatMap(path => boot.loadOptionalPatches('ClawMaster', join(path, 'cordis.patch.yml')) ?? [])
+  const existingLayers = (before.dsh?.profile?.bundles ?? []).filter(name => name !== DESKTOP_UPDATES_BUNDLE)
+    .flatMap(name => {
+      const path = boot.resolveBundleDir('ClawMaster', name, anchor, dir)
+      const manifest = JSON.parse(readFileSync(join(path, 'package.json'), 'utf8'))
+      return boot.loadOverlayPatches('ClawMaster', join(path, manifest.dsh.bundle.patch))
+    })
+  const isUpdater = entry => entry.id === 'clawmaster-update-component-updates' || entry.name === '@clawmaster/dsh-updates'
+    || (entry.group && Array.isArray(entry.config) && entry.config.some(isUpdater))
+  const existingUpdater = [...existingLayers, ...userPatches].some(patch => patch.insert?.some(isUpdater))
+  const after = withDesktopBundles(before, existingUpdater)
   if (JSON.stringify(before) !== JSON.stringify(after)) boot.writeProfileManifest(dir, after)
   for (const preset of presets) copyMissingPreset(preset.source, preset.destination)
   const imWorkspace = join(home, 'watchdog-workspaces', 'im')

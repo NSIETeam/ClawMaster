@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import test from 'node:test'
-import { DESKTOP_BUNDLES, DESKTOP_PLUGIN_VERSIONS, prepareDesktopProfile } from './desktop-defaults.mjs'
+import { DESKTOP_BUNDLES, DESKTOP_PLUGIN_VERSIONS, DESKTOP_UPDATES_BUNDLE, prepareDesktopProfile } from './desktop-defaults.mjs'
 
 const repository = fileURLToPath(new URL('../../..', import.meta.url))
 const require = createRequire(join(repository, 'apps/cli/package.json'))
@@ -47,6 +47,7 @@ function fixture(t) {
     writeFileSync(join(path, 'client.js'), 'export const name = "fixture-client"\n')
     if (hostOnly) writeFileSync(join(path, 'cordis.patch.yml'), '- insert:\n    - id: openviking-memory\n      name: cordis:group\n      group: true\n      config:\n        - id: openviking-memory-runtime\n          name: "@openviking/dsh-memory-plugin"\n')
     if (name === '@xmanrui/dsh-im') writeFileSync(join(path, 'cordis.patch.yml'), '- insert:\n    - id: xmanrui-dsh-im\n      name: "@xmanrui/dsh-im"\n')
+    if (name === DESKTOP_UPDATES_BUNDLE) cpSync(fileURLToPath(new URL('../updates/cordis.patch.yml', import.meta.url)), join(path, 'cordis.patch.yml'))
     if (policy) cpSync(fileURLToPath(new URL('../defaults/cordis.patch.yml', import.meta.url)), join(path, 'cordis.patch.yml'))
     if (name === 'dsh-routing-suite') {
       mkdirSync(join(path, 'preset/routing-suite'), { recursive: true })
@@ -190,4 +191,48 @@ test('Node preload prepares the profile once and consumes its inherited activati
   assert.equal(result.signal, null)
   assert.equal(result.status, 0, result.stderr)
   assert.equal(existsSync(join(f.profile, 'package.json')), true)
+})
+
+for (const location of ['profile', 'home']) {
+  test(`existing ${location} updater insertion retains one Loader row and its exact user patch`, async t => {
+    const f = fixture(t)
+    await prepareDesktopProfile(f.root, f.home)
+    const patchPath = join(location === 'profile' ? f.profile : f.home, 'cordis.patch.yml')
+    const entry = pathToFileURL(join(f.home, 'clawmaster-updates/components/updates/0.1.0/package/dist/index.js')).href
+    const patch = `# User-installed updater and custom settings must survive.\n- insert:\n    - id: clawmaster-update-component-updates\n      name: ${JSON.stringify(entry)}\n      disabled: true\n- id: xmanrui-dsh-im\n  disabled: true\n`
+    writeFileSync(patchPath, patch)
+    await prepareDesktopProfile(f.root, f.home)
+    await prepareDesktopProfile(f.root, f.home)
+    const boot = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-app-boot')).href)
+    const profile = boot.loadProfile('ClawMaster', 'web', join(f.cli, 'package.json'), f.home)
+    assert.equal(profile.layers.some(layer => layer.packageName === DESKTOP_UPDATES_BUNDLE), false)
+    const entries = boot.composeEntries([...profile.layers.map(layer => layer.patches), profile.patches, boot.loadOptionalPatches('ClawMaster', join(f.home, 'cordis.patch.yml')) ?? []])
+    const updaters = entries.filter(entry => entry.id === 'clawmaster-update-component-updates')
+    assert.equal(updaters.length, 1)
+    assert.equal(updaters[0].name, entry)
+    assert.equal(updaters[0].disabled, true)
+    assert.equal(readFileSync(patchPath, 'utf8'), patch)
+    rmSync(patchPath)
+    await prepareDesktopProfile(f.root, f.home)
+    assert.equal(JSON.parse(readFileSync(join(f.profile, 'package.json'), 'utf8')).dsh.profile.bundles.includes(DESKTOP_UPDATES_BUNDLE), true)
+  })
+}
+
+test('the published 0.1.0 bootstrap rejects a fresh desktop profile without adding a second updater', async t => {
+  const f = fixture(t)
+  await prepareDesktopProfile(f.root, f.home)
+  const updater = await import(new URL('../../../frontends/updates/dist/index.js', import.meta.url).href)
+  const { create } = createRequire(new URL('../../../frontends/updates/package.json', import.meta.url))('tar')
+  const source = join(f.root, 'archive-source')
+  mkdirSync(join(source, 'package/dist'), { recursive: true })
+  writeFileSync(join(source, 'package/package.json'), JSON.stringify({ name: '@clawmaster/dsh-updates', version: '0.1.0', type: 'module' }))
+  writeFileSync(join(source, 'package/dist/index.js'), 'export const name = "fixture"\n')
+  const archivePath = join(f.root, 'component.tgz')
+  await create({ cwd: source, file: archivePath, gzip: true }, ['package'])
+  await updater.installComponent({ archivePath, dshHome: f.home, dshVersion: '0.1.5-rc.2', descriptor: { id: 'updates', packageName: '@clawmaster/dsh-updates', version: '0.1.0', entry: './dist/index.js', kind: 'component', activation: 'restart', requiresDshVersion: '>=0.1.5-rc.2' } })
+  const manifest = readFileSync(join(f.profile, 'package.json'), 'utf8')
+  const patch = readFileSync(join(f.profile, 'cordis.patch.yml'), 'utf8')
+  await assert.rejects(updater.bootstrapUpdater({ dshHome: f.home, version: '0.1.0', expectedPatchRevision: await updater.readComponentPatchRevision(f.home), confirmed: true }), /profile already declares the updater/)
+  assert.equal(readFileSync(join(f.profile, 'package.json'), 'utf8'), manifest)
+  assert.equal(readFileSync(join(f.profile, 'cordis.patch.yml'), 'utf8'), patch)
 })

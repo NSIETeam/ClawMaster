@@ -1,7 +1,5 @@
-# Built-in ClawMaster RPA: the governed automation control plane recovered from
-# the pre-DSH line. It registers one model-facing tool over a durable, revision-
-# checked run store. External side effects are denied outright until an approval
-# bridge exists, so an unattended session cannot drive a browser.
+# Register the built-in RPA tools. Native inspection starts only when a tool
+# executes; wechat_read requires one-time user approval before native access.
 - insert:
     - id: clawmaster-rpa
       name: '@clawmaster/dsh-rpa'

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { withDesktopUpdateBundle } from './bundle-harness-source.mjs'
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -82,7 +83,7 @@ patchedDependencies:
   const trimmed = buildTrimmedWorkspaceYaml(source)
 
   assert.match(trimmed, /^packages:\n(?:  - .*\n)+/)
-  for (const name of ['vendor/*', 'packages/*/*', 'native/system', 'native/system/packages/*', 'apps/cli', 'apps/web', 'apps/desktop-defaults', 'apps/clawmaster-sys-prompt', 'frontends/dsh', 'frontends/guard', 'frontends/notes', 'frontends/graph-memory', 'frontends/office']) {
+  for (const name of ['vendor/*', 'packages/*/*', 'native/system', 'native/system/packages/*', 'apps/cli', 'apps/web', 'apps/desktop-defaults', 'apps/clawmaster-sys-prompt', 'frontends/dsh', 'frontends/guard', 'frontends/notes', 'frontends/graph-memory', 'frontends/office', 'frontends/rpa', 'frontends/updates']) {
     assert.ok(trimmed.includes(`  - ${name}\n`), `trimmed packages must include ${name}`)
   }
   assert.ok(!trimmed.includes('apps/*'))
@@ -138,6 +139,7 @@ test('desktop dependencies resolve the built frontend and exact reviewed plugin 
     '@clawmaster/dsh-graph-memory': 'workspace:*',
     '@clawmaster/dsh-office': 'workspace:*',
     '@clawmaster/dsh-rpa': 'workspace:*',
+    '@clawmaster/dsh-updates': 'workspace:*',
   })
   assert.deepEqual(source.dependencies, { kept: 'workspace:^' })
 })
@@ -237,3 +239,11 @@ test('desktop lock validation rejects drifted releases, patches and nested DSH c
     assert.throws(() => assertDesktopLockfile(JSON.stringify({ ...lock, packages: { '@deepseek-ai/dsh-session@0.1.5-rc.1': {} } }), root), /not registry copies/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+test('desktop updater metadata preserves the published module and makes first-install detection explicit', () => {
+  const manifest = { name: '@clawmaster/dsh-updates', version: '0.1.0', exports: { '.': './dist/index.js' }, dependencies: { '@threema/wasm-minisign-verify': '0.2.0-rc.1' } }
+  const adapted = withDesktopUpdateBundle(manifest)
+  assert.deepEqual(adapted, { ...manifest, dsh: { bundle: { patch: './desktop.cordis.patch.yml' } } })
+  assert.equal(manifest.dsh, undefined)
+  assert.throws(() => withDesktopUpdateBundle({ ...manifest, version: '0.1.1' }), /reviewed updater/)
+})

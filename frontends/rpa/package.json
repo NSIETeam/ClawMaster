@@ -1,6 +1,6 @@
 {
   "name": "@clawmaster/dsh-rpa",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Built-in ClawMaster governed RPA control plane",
   "private": true,
   "type": "module",

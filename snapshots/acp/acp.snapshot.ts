@@ -35,6 +35,11 @@ const controllerCases: readonly {
   { name: 'escalation-approved', hasModelTurn: true },
   { name: 'escalation-rejected', hasModelTurn: true },
   { name: 'fs-escalation-approved', hasModelTurn: true },
+  ...['wechat-read-approved', 'wechat-read-rejected'].map(name => ({
+    name,
+    hasModelTurn: true,
+    configPath: join(corpusDir, 'wechat-read-approved', 'cordis.yml'),
+  })),
   {
     name: 'image-compaction',
     hasModelTurn: true,

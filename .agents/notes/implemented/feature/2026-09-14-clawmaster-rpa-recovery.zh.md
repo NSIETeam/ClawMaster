@@ -12,7 +12,7 @@ ClawMaster 需要一个强大的 RPA 组件。但 DSH 桌面化改造把它原�
 
 以恢复出的实现为准，恢复而不是重新设计。它已经具备新设计正在追求的那些性质，有些地方还更强：模型永远不提供 PID 或坐标，而是从控制面产出的加密产物里选择窗口引用（`@wN`）与元素引用（`@eN`）；已经开始的、带外部副作用的动作被中断后会变成 `unknown_outcome`，绝不自动重放；被拒绝的审批会留下持久回执却不冻结整次运行；可编辑值在语义快照中被脱敏。
 
-组件是 `frontends/rpa`（`@clawmaster/dsh-rpa`），分三部分。`seam/` 是逐字还原的 TypeScript 控制面——契约、端口、受策略约束的运行器、带版本校验的文件存储，以及按运行隔离的 Web 驱动。`src/` 是 DSH 宿主半：三个面向模型的工具加一个进程桥。`native/` 是作为独立 crate 的 Rust 控制面。
+组件是 `frontends/rpa`（`@clawmaster/dsh-rpa`），分三部分。`seam/` 是逐字还原的 TypeScript 控制面——契约、端口、受策略约束的运行器、带版本校验的文件存储，以及按运行隔离的 Web 驱动。`src/` 是 DSH 宿主半：通用 RPA 工具加一个进程桥。`native/` 是作为独立 crate 的 Rust 控制面。
 
 Rust 控制面不需要任何改造：它对 `tauri::` 的引用为零，也没有声明任何 Tauri 命令，所以它本来就是"只是恰好住在 `src-tauri/` 下"的控制面。DSH 之前的 `main.rs` 会在命令行响应 `--native-tool <name>`、否则启动 GUI，所以"独立进程、stdout 输出 JSON、stderr 输出错误并以退出码 2 结束"这套助手传输形态同样是恢复出的契约，而不是新做的选择。这个二进制只保留其中的命令行角色。
 
@@ -31,6 +31,8 @@ Rust 控制面不需要任何改造：它对 `tauri::` 的引用为零，也没�
 从零设计一个新组件是最初的计划，在找到那个分支之后被放弃；替代品恰恰在要紧的地方更弱，包括产物作用域的引用与 unknown_outcome 处理。整套复制恢复出的 Rust 闭包在测量之后被否决：基于 `crate::` 计算的闭包报告为 13 个模块 11,393 行，但按 `use` 语句算出的真实闭包是 6 个模块 6,341 行，而与 `native_agent_tools` 的表面耦合只出现在一个 `#[test]` 里。复用已发布的某个 macOS 微信 MCP 被否决，因为这台机器既没有 `uv` 也没有 `bun`，那会让一个无关运行时变成前置条件。在 `native/system` 下加 N-API 插件被否决，因为它的构建阶梯只认识两种类型，而且 darwin-x64 根本没有产物。让恢复出的分发器只能在进程内可达被否决，因为 DSH harness 是另一个 Node 进程。
 
 ## Consequences
+
+每次单独授权的微信读取器由[已选聊天与原生组件决策](../architecture/2026-09-15-desktop-approved-wechat-and-native-components.zh.md)约束；它不使用通用桌面快照提取私人聊天。
 
 `native_tools` 原本是个混合模块：它同时装着 RPA 的操作系统适配层和文档写入器（docx、pptx、pdf、chart），于是一个自动化组件对外宣称了五项文档能力，并为 RPA 路径根本不会走到的代码编译了 `lopdf` 与 `zip`。现在写入器连同它们的 OpenXML 资产与测试一起住在 `native_documents`，分发的各分支委托给它们；`native_tools` 只保留辅助功能与输入适配层。这个 crate 仍然会编译两者，因为那些文档子命令依然是助手命令行的一部分，所以要真正去掉这两个依赖，需要一个独立 crate 或一个可选的 Cargo feature，而不是一次模块搬迁。
 

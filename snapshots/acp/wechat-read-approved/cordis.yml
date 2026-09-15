@@ -1,0 +1,4 @@
+# The shipped ACP profile supplies approval and persistence; only the helper is synthetic.
+- insert:
+    - id: clawmaster-rpa
+      name: ./wechat-rpa.ts

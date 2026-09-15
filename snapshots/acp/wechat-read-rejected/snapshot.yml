@@ -1,0 +1,10 @@
+version: 1
+scenario: wechat-read-rejected
+profile: acp
+composition: acp-wechat-read
+recording: authored
+header:
+  class: acp-wechat-read
+permission: workspace-write
+workspace:
+  final: true

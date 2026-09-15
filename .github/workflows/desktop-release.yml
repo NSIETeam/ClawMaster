@@ -9,7 +9,7 @@ on:
       tag:
         description: desktop-v* version tag; build-only runs use the selected branch
         required: true
-        default: desktop-v0.2.1
+        default: desktop-v0.2.2
       publish:
         description: Publish an existing version tag after all platform checks pass
         type: boolean
@@ -78,6 +78,10 @@ jobs:
         shell: bash
         run: node apps/desktop-tauri/scripts/release-channel.mjs "$RELEASE_TAG"
 
+      - name: Verify macOS acceptance prerequisites
+        if: runner.os == 'macOS'
+        run: node apps/desktop-tauri/scripts/verify-macos-native.mjs --preflight
+
       - name: Install Linux bundle dependencies
         if: runner.os == 'Linux'
         run: |
@@ -102,6 +106,7 @@ jobs:
           npm ci --prefix frontends/graph-memory --ignore-scripts
           npm ci --prefix frontends/guard --ignore-scripts
           npm ci --prefix frontends/rpa --ignore-scripts
+          npm ci --prefix frontends/updates --ignore-scripts
 
       - name: Verify Notes storage, approval and rendered client
         shell: bash
@@ -127,11 +132,27 @@ jobs:
       - name: Verify sidebar close and replacement lifecycle
         run: pnpm exec vitest run packages/client/ui-sidebar-right/tests/service.client.spec.ts packages/client/ui-sidebar-right/tests/seat.client.spec.tsx packages/client/ui-sidebar-right/tests/guide-body.client.spec.tsx
 
-      - name: Verify Guard and RPA control plane
+      - name: Verify Guard control plane
         shell: bash
         run: |
           npm test --prefix frontends/guard
           npm run typecheck --prefix frontends/guard
+
+      - name: Verify immutable updater component
+        shell: bash
+        run: |
+          npm run check --prefix frontends/updates
+          npm run typecheck --prefix frontends/updates
+          npm test --prefix frontends/updates
+
+      - name: Build and verify native RPA helper
+        run: node apps/desktop-tauri/scripts/prepare-rpa-native.mjs --target ${{ matrix.target }} --smoke
+
+      - name: Verify RPA control plane and distributed native bridge
+        shell: bash
+        env:
+          CLAWMASTER_REQUIRE_NATIVE: '1'
+        run: |
           npm test --prefix frontends/rpa
           npm run typecheck --prefix frontends/rpa
 
@@ -146,7 +167,7 @@ jobs:
         run: |
           pnpm --dir apps/desktop-tauri run test:bundle
           pnpm --dir apps/desktop-tauri run test:update-manifest
-          node --test apps/desktop-tauri/scripts/windows-native-evidence.test.mjs
+          node --test apps/desktop-tauri/scripts/windows-native-evidence.test.mjs apps/desktop-tauri/scripts/verify-macos-native.test.mjs
           node --test apps/desktop-tauri/sys-prompt/tests/assembly.test.mjs
 
       - name: Verify Linux package permission rejection cases
@@ -156,6 +177,12 @@ jobs:
       - name: Build complete Linux sandbox binaries
         if: runner.os == 'Linux'
         run: node --import tsx/esm native/system/scripts/build.ts
+
+      - name: Replay approved and rejected WeChat reads
+        if: runner.os == 'macOS' || runner.os == 'Linux'
+        shell: bash
+        run: >-
+          pnpm exec vitest run --config vitest.snapshot.config.ts snapshots/acp/acp.snapshot.ts -t 'snapshot: wechat-read-(approved|rejected) matches|snapshot fixtures'
 
       - name: Prepare verified Office editor resources
         run: |
@@ -178,6 +205,24 @@ jobs:
       - name: Verify macOS signature
         if: runner.os == 'macOS'
         run: codesign --verify --deep --strict apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/macos/ClawMaster.app
+
+      - name: Verify installed macOS desktop and normal relaunch
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          node apps/desktop-tauri/scripts/verify-macos-native.mjs \
+            --app "$GITHUB_WORKSPACE/apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/macos/ClawMaster.app" \
+            --prepared-root "$GITHUB_WORKSPACE/apps/desktop-tauri/bundled/harness" \
+            --expected-version "$(node -p 'JSON.parse(require("node:fs").readFileSync("apps/desktop-tauri/package.json","utf8")).version')" \
+            --output "$GITHUB_WORKSPACE/native-acceptance/macos-${{ matrix.asset_arch }}-native-acceptance.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always() && runner.os == 'macOS'
+        with:
+          name: macos-${{ matrix.asset_arch }}-native-acceptance
+          path: native-acceptance/macos-${{ matrix.asset_arch }}-native-acceptance.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Verify installed Windows desktop and normal relaunch
         if: runner.os == 'Windows'
@@ -217,6 +262,7 @@ jobs:
             task_smoke="$task_root/production $task_format"
             cp -a "$task_payload" "$task_smoke"
             (cd "$task_smoke" && pnpm install --prod --frozen-lockfile)
+            node apps/desktop-tauri/scripts/prepare-rpa-native.mjs --root "$task_smoke" --target ${{ matrix.target }} --check --smoke
             DSH_DESKTOP_SMOKE_ROOT="$task_smoke" node --test apps/desktop-tauri/scripts/desktop-plugin-install.test.mjs apps/desktop-tauri/scripts/harness-startup.test.mjs
             DSH_DESKTOP_SMOKE_ROOT="$task_smoke" pnpm exec vitest run --config frontends/dsh/tests/vitest.navigation.config.ts
             DSH_DESKTOP_SMOKE_ROOT="$task_smoke" pnpm exec vitest run --config apps/desktop-tauri/scripts/vitest.sidebar.config.ts
@@ -234,6 +280,8 @@ jobs:
               pnpm install --prod --frozen-lockfile
               if ($LASTEXITCODE -ne 0) { throw "Production dependency installation failed" }
             } finally { Pop-Location }
+            node apps/desktop-tauri/scripts/prepare-rpa-native.mjs --root $smokeRoot --target ${{ matrix.target }} --check --smoke
+            if ($LASTEXITCODE -ne 0) { throw "Distributed RPA helper acceptance failed" }
             $env:DSH_DESKTOP_SMOKE_ROOT = $smokeRoot
             node --test apps/desktop-tauri/scripts/desktop-plugin-install.test.mjs apps/desktop-tauri/scripts/harness-startup.test.mjs
             if ($LASTEXITCODE -ne 0) { throw "Packaged Host acceptance failed" }

@@ -8,7 +8,7 @@ const workflow = load(readFileSync(new URL('../../../.github/workflows/desktop-r
 
 test('the committed desktop lock is unambiguous and includes graph persistence', () => {
   const lock = load(readFileSync(new URL('../pnpm-desktop-lock.yaml', import.meta.url), 'utf8'))
-  for (const name of ['dsh', 'notes', 'office', 'guard', 'graph-memory', 'rpa']) {
+  for (const name of ['dsh', 'notes', 'office', 'guard', 'graph-memory', 'rpa', 'updates']) {
     assert.ok(lock.importers[`frontends/${name}`], name)
   }
   assert.equal(lock.importers['frontends/graph-memory'].dependencies['@deepseek-ai/dsh-storage-sqlite'].version,
@@ -29,10 +29,24 @@ test('manual validation defaults to an immutable branch build without publicatio
 
 test('every shipped frontend has frozen build dependencies before product verification', () => {
   const step = workflow.jobs.build.steps.find(entry => entry.name === 'Install product frontend build dependencies')
-  for (const name of ['dsh', 'notes', 'office', 'guard', 'graph-memory', 'rpa']) {
+  for (const name of ['dsh', 'notes', 'office', 'guard', 'graph-memory', 'rpa', 'updates']) {
     assert.ok(step.run.includes(`npm ci --prefix frontends/${name} --ignore-scripts`), name)
   }
   const bundle = workflow.jobs.build.steps.find(entry => entry.name === 'Build desktop bundles')
   assert.equal(bundle.env.TAURI_SIGNING_PRIVATE_KEY, '${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}')
   assert.ok(workflow.jobs.build.steps.some(entry => entry.name === 'Verify installed Windows desktop and normal relaunch'))
+  assert.ok(workflow.jobs.build.steps.some(entry => entry.name === 'Verify macOS acceptance prerequisites' && entry.run.includes('--preflight')))
+  const mac = workflow.jobs.build.steps.find(entry => entry.name === 'Verify installed macOS desktop and normal relaunch')
+  assert.ok(mac.run.includes('verify-macos-native.mjs'))
+  assert.ok(!mac.run.includes('--close-mode terminate'))
+})
+
+test('WeChat approval replay runs on Unix after its built runtime and before packaging', () => {
+  const steps = workflow.jobs.build.steps
+  const replay = steps.findIndex(step => step.name === 'Replay approved and rejected WeChat reads')
+  assert.ok(replay > steps.findIndex(step => step.name === 'Build ClawMaster harness'))
+  assert.ok(replay > steps.findIndex(step => step.name === 'Build complete Linux sandbox binaries'))
+  assert.ok(replay < steps.findIndex(step => step.name === 'Build desktop bundles'))
+  assert.equal(steps[replay].if, "runner.os == 'macOS' || runner.os == 'Linux'")
+  assert.equal(steps[replay].run, "pnpm exec vitest run --config vitest.snapshot.config.ts snapshots/acp/acp.snapshot.ts -t 'snapshot: wechat-read-(approved|rejected) matches|snapshot fixtures'")
 })
