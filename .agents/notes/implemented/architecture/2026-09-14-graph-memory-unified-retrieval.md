@@ -20,6 +20,8 @@ The component persists one validated graph snapshot through a `ctx.storage` KV u
 
 Notes remain owned by `clawmasterNotes`; Graph Memory never reads the note directory around that service. OpenViking remains an external read-only source. Optional filesystem sources are explicit configuration. Text files contribute lexical content, while every other file type contributes metadata only.
 
+Filesystem reads use native paths. Graph file IDs and paths use source-relative `/` separators so basename matching and wiki-link resolution do not depend on the operating system. Normalization applies only to those relative paths; source locations, filenames and document text retain their original characters. The derived snapshot is replaced on refresh, so normalized IDs need no migration of source documents.
+
 ## Writeback ownership
 
 The existing Guard result review and Notes tools own note writes. Graph Memory supplies a dry-run classifier: conclusions, decisions, and evidence target notes; preferences and stable facts target memory; each proposed record carries a reciprocal `[[link]]`. The classifier has no write path. Long-term-memory ingestion remains absent because this change has no authority to write or delete memory.
@@ -28,7 +30,7 @@ The existing Guard result review and Notes tools own note writes. Graph Memory s
 
 Output fields use DSH schema descriptors, not raw zod JSON Schema with unsupported `anyOf` or length refinements. Real ToolRuntime registers and executes all three tools and validates their return values. Refresh returns counts; the complete graph remains available to the panel.
 
-Package tests cover `ctx.storage` replacement, direct tool calls, zod-derived parameters and DSH output schemas, equal-source retrieval, per-turn snapshot injection, failure preservation, duplicate evidence, binary metadata-only indexing, and topic/similarity rendering. A separate read-only command indexes the real Notes vault and configured OpenViking service and fails unless one query recalls both kinds.
+Package tests cover `ctx.storage` replacement, direct tool calls, zod-derived parameters and DSH output schemas, equal-source retrieval, per-turn snapshot injection, failure preservation, duplicate evidence, binary metadata-only indexing, native filesystem roots with stable graph paths and unchanged text hashes, and topic/similarity rendering. A separate read-only command indexes the real Notes vault and configured OpenViking service and fails unless one query recalls both kinds.
 
 The adapted algorithm baseline is the independently developed GraphRAG source tree whose stable aggregate SHA-256 was `73c9775d42850789f4e73ea298cfab250eb98dc18917ddeca1772ed60bf7a222`; its observed gates were 50 main tests and 9 tool tests.
 

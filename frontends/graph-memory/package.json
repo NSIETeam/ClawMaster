@@ -1,6 +1,6 @@
 {
   "name": "@clawmaster/dsh-graph-memory",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Built-in graph retrieval across ClawMaster notes and agent memory",
   "private": true,
   "type": "module",

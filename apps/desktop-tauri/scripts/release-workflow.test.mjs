@@ -1,6 +1,9 @@
 /** Build-only dispatch retains release checks without publishing or moving Latest. */
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import test from 'node:test'
 import { load } from 'js-yaml'
 
@@ -49,4 +52,89 @@ test('WeChat approval replay runs on Unix after its built runtime and before pac
   assert.ok(replay < steps.findIndex(step => step.name === 'Build desktop bundles'))
   assert.equal(steps[replay].if, "runner.os == 'macOS' || runner.os == 'Linux'")
   assert.equal(steps[replay].run, "pnpm exec vitest run --config vitest.snapshot.config.ts snapshots/acp/acp.snapshot.ts -t 'snapshot: wechat-read-(approved|rejected) matches|snapshot fixtures'")
+})
+
+function windowsSteps() {
+  const unixOnly = new Set([
+    "runner.os == 'Linux'", "runner.os == 'macOS'", "runner.os == 'macOS' || runner.os == 'Linux'",
+  ])
+  return workflow.jobs.build.steps.filter(step => step.run && !unixOnly.has(step.if))
+}
+
+test('every Windows build command uses PowerShell with native failures enabled before execution', () => {
+  assert.equal(workflow.jobs.build.defaults.run.shell, 'pwsh')
+  for (const step of windowsSteps()) {
+    assert.equal(step.shell ?? workflow.jobs.build.defaults.run.shell, 'pwsh', step.name)
+  }
+  for (const job of Object.values(workflow.jobs)) {
+    for (const step of job.steps.filter(entry => entry.run && (entry.shell ?? job.defaults?.run?.shell) === 'pwsh')) {
+      assert.match(step.run, /^\$ErrorActionPreference = 'Stop'\nif \(\$PSVersionTable\.PSVersion -lt \[version\]'7\.4'\) \{ throw 'PowerShell 7\.4 or later is required' \}\n\$PSNativeCommandUseErrorActionPreference = \$true\n/, step.name)
+    }
+  }
+  const version = windowsSteps().find(step => step.name === 'Validate release version')
+  assert.match(version.run, /release-channel\.mjs \$env:RELEASE_TAG/)
+})
+
+const pwsh = process.env.CLAWMASTER_TEST_PWSH || 'pwsh'
+const probe = spawnSync(pwsh, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$PSVersionTable.PSVersion.ToString()'], {
+  encoding: 'utf8', timeout: 10000,
+})
+const pwshAvailable = !probe.error && probe.status === 0
+
+test('PowerShell is required for workflow regression checks on CI', { skip: !process.env.CI && !process.env.CLAWMASTER_TEST_PWSH }, () => {
+  assert.equal(probe.error, undefined)
+  assert.equal(probe.signal, null)
+  assert.equal(probe.status, 0, probe.stderr)
+  const [major, minor] = probe.stdout.trim().split('.').map(Number)
+  assert.ok(major > 7 || (major === 7 && minor >= 4), probe.stdout)
+})
+
+test('real workflow command sequences stop at the failing native call and retain the negative control', {
+  skip: pwshAvailable ? false : 'PowerShell is unavailable; CI requires it',
+}, t => {
+  const root = mkdtempSync(join(tmpdir(), 'ClawMaster workflow 验收 # '))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const fixture = join(root, 'native-call.cjs')
+  writeFileSync(fixture, `const fs = require('node:fs');
+const path = process.env.CLAWMASTER_TEST_TRACE;
+const calls = fs.readFileSync(path, 'utf8').trim().split('\\n').filter(Boolean);
+fs.appendFileSync(path, JSON.stringify(process.argv.slice(2)) + '\\n');
+if (calls.length === Number(process.env.CLAWMASTER_TEST_FAIL_AT)) process.exit(23);
+`)
+  const env = {}
+  for (const [key, value] of Object.entries(process.env)) {
+    if (/^(PATH|PATHEXT|SYSTEMROOT|WINDIR|HOME|USERPROFILE|TEMP|TMP|TMPDIR)$/i.test(key)) env[key] = value
+  }
+  env.CLAWMASTER_TEST_NODE = process.execPath
+  env.CLAWMASTER_TEST_FIXTURE = fixture
+  const wrappers = ['node', 'npm', 'pnpm'].map(name =>
+    `function ${name} { & $env:CLAWMASTER_TEST_NODE $env:CLAWMASTER_TEST_FIXTURE '${name}' @args }`).join('\n')
+  const epilogue = "if ((Test-Path -LiteralPath variable:\\LASTEXITCODE)) { exit $LASTEXITCODE }\n"
+  for (const name of ['Build ClawMaster harness', 'Verify Graph Memory component', 'Prepare verified Office editor resources']) {
+    const step = windowsSteps().find(entry => entry.name === name)
+    const commands = step.run.split('\n').filter(line => /^(node|npm|pnpm) /.test(line))
+    assert.ok(commands.length > 1, name)
+    for (const enabled of [false, true]) {
+      for (let failure = 0; failure < commands.length - 1; failure++) {
+        const trace = join(root, 'calls.jsonl'), script = join(root, 'step.ps1')
+        writeFileSync(trace, '')
+        const body = enabled ? step.run : step.run.replace('$PSNativeCommandUseErrorActionPreference = $true', '$PSNativeCommandUseErrorActionPreference = $false')
+        writeFileSync(script, `${wrappers}\n${body}\n${epilogue}`)
+        const result = spawnSync(pwsh, ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', script], {
+          cwd: root, env: { ...env, CLAWMASTER_TEST_TRACE: trace, CLAWMASTER_TEST_FAIL_AT: String(failure) },
+          encoding: 'utf8', timeout: 30000,
+        })
+        assert.equal(result.error, undefined, `${name}: ${result.error}`)
+        assert.equal(result.signal, null, name)
+        const calls = readFileSync(trace, 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line))
+        assert.deepEqual(calls.map(args => args.join(' ')), commands.slice(0, enabled ? failure + 1 : commands.length), name)
+        if (enabled) {
+          assert.notEqual(result.status, 0, name)
+          assert.match(result.stderr, /23/, name)
+        } else {
+          assert.equal(result.status, 0, `${name}: ${result.stderr}`)
+        }
+      }
+    }
+  }
 })

@@ -33,6 +33,8 @@ ClawMaster Desktop installs this bundle in its default profile. Its patch disabl
 
 The sidebar lists topic pages and evidence-backed similar-file pairs. Additional file directories are opt-in through `fileSources`. Markdown and text files contribute searchable text; presentations, spreadsheets, PDFs, images, and other binary files contribute names, paths, sizes, timestamps, and extensions only.
 
+File results use `/` between directories on every platform. A file's fallback title uses its filename; configured source locations and text contents retain their original characters.
+
 ### Verify this checkout
 
 ```bash

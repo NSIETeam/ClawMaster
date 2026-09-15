@@ -117,6 +117,24 @@ test('both GUI closes preserve packaged source, markers and owned Host teardown'
   assert.equal(checked.windowGeometryVerified, true)
 })
 
+test('macOS evidence keeps POSIX paths and exact directory ownership on every test host', () => {
+  const { evidence, bundle } = fixture()
+  assert.equal(verifyMacosNativeEvidence(evidence, bundle, '0.2.2').runtimeVerified, true)
+  for (const mutate of [
+    value => { value.runs[0].desktopPath = value.runs[0].desktopPath.replaceAll('/', '\\') },
+    value => { value.runs[0].runtime.harnessRoot = value.runs[0].runtime.harnessRoot.replace('/Users/', '/users/') },
+    value => { value.runs[0].runtime.harnessRoot = `${value.appDataRoot}/../other/runtime` },
+    value => { value.runs[0].runtime.harnessRoot = value.appDataRoot },
+    value => { value.runs[0].runtime.harnessRoot = 'C:\\Users\\runner\\harness-versions\\abc' },
+    value => { value.installedApp = 'C:\\Applications\\ClawMaster.app' },
+    value => { value.appDataRoot = 'C:\\Users\\runner\\AppData\\DeepSeek Harness' },
+  ]) {
+    const candidate = structuredClone(evidence)
+    mutate(candidate)
+    assert.throws(() => verifyMacosNativeEvidence(candidate, bundle, '0.2.2'))
+  }
+})
+
 test('window geometry rejects overlapping or missing viewports and missing window buttons', () => {
   assert.doesNotThrow(() => verifyWindowGeometry(geometry()))
   const touchesEdge = geometry()

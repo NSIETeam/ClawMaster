@@ -1,7 +1,7 @@
 /** In-process adapters that read the Notes service and OpenViking's read-only HTTP API. */
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { z } from 'zod';
 import { buildGraph, contentHash, type IndexedDocument, wikiLinks } from './algorithms.ts';
 import type { GraphSnapshot } from './model.ts';
@@ -119,15 +119,15 @@ async function fileDocuments(source: { label: string; path: string }): Promise<I
   const documents: IndexedDocument[] = [];
   for (const path of await walk(source.path)) {
     const info = await stat(path);
-    const relative = path.slice(source.path.replace(/\/+$/, '').length + 1);
-    const extension = /\.[^.]+$/.exec(relative)?.[0]?.toLocaleLowerCase() ?? '';
+    const relativePath = relative(source.path, path).split(sep).join('/');
+    const extension = /\.[^.]+$/.exec(relativePath)?.[0]?.toLocaleLowerCase() ?? '';
     const textual = TEXT_EXTENSIONS.has(extension);
-    const text = textual ? await readFile(path, 'utf8') : `${relative}\n${extension.slice(1)}\n${source.label}`;
-    const title = textual ? titleOf(text, relative.split('/').at(-1)?.replace(/\.[^.]+$/, '') ?? relative) : relative.split('/').at(-1) ?? relative;
+    const text = textual ? await readFile(path, 'utf8') : `${relativePath}\n${extension.slice(1)}\n${source.label}`;
+    const title = textual ? titleOf(text, relativePath.split('/').at(-1)?.replace(/\.[^.]+$/, '') ?? relativePath) : relativePath.split('/').at(-1) ?? relativePath;
     documents.push({
-      id: `file:${source.label}:${relative}`, kind: 'file', path: `${source.label}/${relative}`, title, text,
+      id: `file:${source.label}:${relativePath}`, kind: 'file', path: `${source.label}/${relativePath}`, title, text,
       tags: textual ? tagsOf(text) : [], links: textual ? wikiLinks(text) : [],
-      hash: textual ? contentHash(text) : contentHash(JSON.stringify({ relative, size: info.size, mtimeMs: Math.round(info.mtimeMs) })),
+      hash: textual ? contentHash(text) : contentHash(JSON.stringify({ relative: relativePath, size: info.size, mtimeMs: Math.round(info.mtimeMs) })),
       mtimeMs: info.mtimeMs, size: info.size,
       meta: { source: source.label, indexed: textual ? 'text' : 'metadata-only', extension },
     });

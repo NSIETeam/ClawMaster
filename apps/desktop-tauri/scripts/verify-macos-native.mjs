@@ -4,7 +4,7 @@ import { execFile, spawn } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, posix, relative, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
 import { parseArgs, promisify } from 'node:util'
@@ -63,6 +63,12 @@ function verifyBundle(bundle) {
   assert.equal(bundle.buildProvenance.source.dirty, false)
   assert.deepEqual(bundle.buildProvenance.source.dirtyFiles, [])
   assert.match(bundle.buildProvenance.source.gitCommit, /^[a-f0-9]{40}$/)
+}
+
+function insideMacosEvidence(root, path) {
+  if (!posix.isAbsolute(root) || !posix.isAbsolute(path)) return false
+  const part = posix.relative(root, path)
+  return part !== '' && part !== '..' && !part.startsWith('../') && !posix.isAbsolute(part)
 }
 
 /** Collect only owned-window geometry; traversal stops before a WebArea's page content.
@@ -184,6 +190,8 @@ export function verifyMacosNativeEvidence(evidence, bundle, version) {
   verifyBundle(bundle)
   assert.equal(evidence.schemaVersion, 1)
   assert.equal(evidence.platform, 'darwin')
+  assert.ok(posix.isAbsolute(evidence.installedApp), 'macOS evidence requires an absolute POSIX application path')
+  assert.ok(posix.isAbsolute(evidence.appDataRoot), 'macOS evidence requires an absolute POSIX application-data path')
   assert.ok(['gui', 'terminate'].includes(evidence.closeMode))
   assert.equal(evidence.installedProductVersion, version)
   assert.equal(evidence.packagedManifestSha256, evidence.preparedManifestSha256)
@@ -201,10 +209,10 @@ export function verifyMacosNativeEvidence(evidence, bundle, version) {
     assert.equal(runtime.desktopPid, run.desktopPid)
     assert.equal(runtime.hostPid, run.hostPid)
     assert.equal(run.hostParentPid, run.desktopPid, 'Host must be owned by this desktop')
-    assert.equal(run.desktopPath, join(evidence.installedApp, 'Contents/MacOS/dsh-desktop'))
+    assert.equal(run.desktopPath, posix.join(evidence.installedApp, 'Contents/MacOS/dsh-desktop'))
     assert.equal(run.desktopAlive, true)
     assert.equal(run.hostAlive, true)
-    assert.ok(inside(evidence.appDataRoot, runtime.harnessRoot), 'Running payload escaped the owned application-data directory')
+    assert.ok(insideMacosEvidence(evidence.appDataRoot, runtime.harnessRoot), 'Running payload escaped the owned application-data directory')
     assert.ok(runtime.observedAtUnixMs >= run.startedAtUnixMs, 'Ready record predates this launch')
     assert.equal(run.httpStatus, 401)
     assert.deepEqual(runtime.disabledPlugins, [])

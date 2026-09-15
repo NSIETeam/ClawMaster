@@ -33,6 +33,9 @@ jobs:
     name: Build ${{ matrix.asset_platform }}-${{ matrix.asset_arch }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
     strategy:
       fail-fast: false
       matrix:
@@ -75,31 +78,50 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Validate release version
-        shell: bash
-        run: node apps/desktop-tauri/scripts/release-channel.mjs "$RELEASE_TAG"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
+          node apps/desktop-tauri/scripts/release-channel.mjs $env:RELEASE_TAG
 
       - name: Verify macOS acceptance prerequisites
         if: runner.os == 'macOS'
+        shell: bash
         run: node apps/desktop-tauri/scripts/verify-macos-native.mjs --preflight
 
       - name: Install Linux bundle dependencies
         if: runner.os == 'Linux'
+        shell: bash
         run: |
           sudo apt-get update -q
           sudo apt-get install -yq libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils musl-tools gnome-keyring libglib2.0-bin dbus
 
       - name: Require clean release source
-        run: node apps/desktop-tauri/scripts/build-provenance.mjs
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
+          node apps/desktop-tauri/scripts/build-provenance.mjs
 
       - name: Install Rust target
-        run: rustup target add ${{ matrix.target }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
+          rustup target add ${{ matrix.target }}
 
       - name: Install workspace dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
+          pnpm install --frozen-lockfile
 
       - name: Install product frontend build dependencies
-        shell: bash
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           npm ci --prefix frontends/dsh --ignore-scripts
           npm ci --prefix frontends/office --ignore-scripts
           npm ci --prefix frontends/notes --ignore-scripts
@@ -109,50 +131,76 @@ jobs:
           npm ci --prefix frontends/updates --ignore-scripts
 
       - name: Verify Notes storage, approval and rendered client
-        shell: bash
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           npm test --prefix frontends/notes
           npm run typecheck --prefix frontends/notes
           pnpm run test:notes-client
 
       - name: Build ClawMaster harness
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           pnpm exec vitest run scripts/tsdown-config.spec.ts
           pnpm --dir apps/desktop-tauri run build:harness
 
       - name: Verify WatchDog business writes and task admission
-        shell: bash
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           npm test --prefix frontends/dsh
           npm run typecheck --prefix frontends/dsh
 
       - name: Verify collapsed process details and approvals
-        run: pnpm exec vitest run packages/client/ui-chat/tests/clawmaster-disclosures.client.spec.tsx packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx packages/client/ui-chat/tests/chat-view.client.spec.tsx packages/client/ui-tool/tests/terminal-card.client.spec.tsx packages/client/ui-tool/tests/tool-row.client.spec.tsx packages/client/ui-chat/tests/turn-process-running.client.spec.ts packages/client/ui-chat/tests/conversation-node-definitions.client.spec.ts packages/client/ui-chat/tests/system-prompt-row.client.spec.tsx packages/client/ui-chat/tests/approval-command.client.spec.tsx packages/client/ui-approval/tests/ui-approval.client.spec.tsx
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
+          pnpm exec vitest run packages/client/ui-chat/tests/clawmaster-disclosures.client.spec.tsx packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx packages/client/ui-chat/tests/chat-view.client.spec.tsx packages/client/ui-tool/tests/terminal-card.client.spec.tsx packages/client/ui-tool/tests/tool-row.client.spec.tsx packages/client/ui-chat/tests/turn-process-running.client.spec.ts packages/client/ui-chat/tests/conversation-node-definitions.client.spec.ts packages/client/ui-chat/tests/system-prompt-row.client.spec.tsx packages/client/ui-chat/tests/approval-command.client.spec.tsx packages/client/ui-approval/tests/ui-approval.client.spec.tsx
 
       - name: Verify sidebar close and replacement lifecycle
-        run: pnpm exec vitest run packages/client/ui-sidebar-right/tests/service.client.spec.ts packages/client/ui-sidebar-right/tests/seat.client.spec.tsx packages/client/ui-sidebar-right/tests/guide-body.client.spec.tsx
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
+          pnpm exec vitest run packages/client/ui-sidebar-right/tests/service.client.spec.ts packages/client/ui-sidebar-right/tests/seat.client.spec.tsx packages/client/ui-sidebar-right/tests/guide-body.client.spec.tsx
 
       - name: Verify Guard control plane
-        shell: bash
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           npm test --prefix frontends/guard
           npm run typecheck --prefix frontends/guard
 
       - name: Verify immutable updater component
-        shell: bash
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           npm run check --prefix frontends/updates
           npm run typecheck --prefix frontends/updates
           npm test --prefix frontends/updates
 
       - name: Build and verify native RPA helper
-        run: node apps/desktop-tauri/scripts/prepare-rpa-native.mjs --target ${{ matrix.target }} --smoke
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
+          node apps/desktop-tauri/scripts/prepare-rpa-native.mjs --target ${{ matrix.target }} --smoke
 
       - name: Verify RPA control plane and distributed native bridge
         shell: pwsh
         env:
           CLAWMASTER_REQUIRE_NATIVE: '1'
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           if ($env:RUNNER_OS -eq 'Linux') {
             dbus-run-session -- bash apps/desktop-tauri/scripts/with-linux-keyring.sh npm test --prefix frontends/rpa
           } else {
@@ -164,13 +212,18 @@ jobs:
 
       - name: Verify Graph Memory component
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           npm --prefix frontends/graph-memory test
           npm --prefix frontends/graph-memory run typecheck
           npm --prefix frontends/graph-memory run check
 
       - name: Verify provenance and plugin rejection cases
-        shell: bash
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           pnpm --dir apps/desktop-tauri run test:bundle
           pnpm --dir apps/desktop-tauri run test:update-manifest
           node --test apps/desktop-tauri/scripts/windows-native-evidence.test.mjs apps/desktop-tauri/scripts/verify-macos-native.test.mjs apps/desktop-tauri/scripts/with-linux-keyring.test.mjs
@@ -178,10 +231,12 @@ jobs:
 
       - name: Verify Linux package permission rejection cases
         if: runner.os == 'Linux'
+        shell: bash
         run: node --test apps/desktop-tauri/scripts/verify-linux-package.test.mjs
 
       - name: Build complete Linux sandbox binaries
         if: runner.os == 'Linux'
+        shell: bash
         run: node --import tsx/esm native/system/scripts/build.ts
 
       - name: Replay approved and rejected WeChat reads
@@ -192,6 +247,9 @@ jobs:
 
       - name: Prepare verified Office editor resources
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           node --test apps/desktop-tauri/scripts/prepare-office-runtime.test.mjs
           node apps/desktop-tauri/scripts/prepare-office-runtime.mjs
 
@@ -200,16 +258,29 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && '-' || '' }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: pnpm --dir apps/desktop-tauri exec tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} ${{ runner.os == 'Linux' && '--verbose' || '' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
+          pnpm --dir apps/desktop-tauri exec tauri build --target ${{ matrix.target }} --bundles '${{ matrix.bundles }}' ${{ runner.os == 'Linux' && '--verbose' || '' }}
 
       - name: Verify prepared payload
-        run: node apps/desktop-tauri/scripts/bundle-harness-source.mjs --check
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
+          node apps/desktop-tauri/scripts/bundle-harness-source.mjs --check
 
       - name: Verify desktop runtime and controlled updates
-        run: cargo test --locked --manifest-path apps/desktop-tauri/src-tauri/Cargo.toml --target ${{ matrix.target }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
+          cargo test --locked --manifest-path apps/desktop-tauri/src-tauri/Cargo.toml --target ${{ matrix.target }}
 
       - name: Verify macOS signature
         if: runner.os == 'macOS'
+        shell: bash
         run: codesign --verify --deep --strict apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/macos/ClawMaster.app
 
       - name: Verify installed macOS desktop and normal relaunch
@@ -234,6 +305,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           $installers = @(Get-ChildItem 'apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/nsis' -File -Filter '*-setup.exe')
           if ($installers.Count -ne 1) { throw 'Expected exactly one NSIS installer' }
           $version = (Get-Content apps/desktop-tauri/package.json -Raw | ConvertFrom-Json).version
@@ -278,6 +352,9 @@ jobs:
         if: runner.os != 'Linux'
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           $smokeRoot = Join-Path $env:RUNNER_TEMP ("ClawMaster 验收 # " + [guid]::NewGuid().ToString())
           Copy-Item apps/desktop-tauri/bundled/harness $smokeRoot -Recurse
           try {
@@ -306,6 +383,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           $version = (Get-Content apps/desktop-tauri/package.json | ConvertFrom-Json).version
           $bundleRoot = "apps/desktop-tauri/src-tauri/target/$env:RUST_TARGET/release/bundle"
           New-Item -ItemType Directory -Force release-assets | Out-Null
@@ -379,6 +459,9 @@ jobs:
       - name: Verify release asset set
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           $expected = @(
             '*-windows-x64-setup.exe',
             '*-windows-x64-setup.exe.sig',
@@ -416,6 +499,9 @@ jobs:
       - name: Generate updater manifest
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
+          $PSNativeCommandUseErrorActionPreference = $true
           $version = (Get-Content apps/desktop-tauri/package.json | ConvertFrom-Json).version
           $publishedAt = (Get-Date).ToUniversalTime().ToString('o')
           node apps/desktop-tauri/scripts/generate-updater-manifest.mjs `
