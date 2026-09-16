@@ -83,6 +83,8 @@ The [native download helper](src/native.ts) verifies desktop payloads with the e
 
 Component publication uses the [build](scripts/build.mjs), [pack](scripts/pack.mjs), [offline signer](scripts/sign-catalog.mjs) and [server publisher](scripts/publish-catalog.mjs). The signer authenticates the catalog and separately signs the finite installer after comparing it with the archived installer. Installer signatures include a domain identifier and the versioned filename, preventing reuse under another version's name. The publisher needs only the pinned public key and a caller-held publication lock. It verifies inputs, refuses version rollback or changed immutable versions, and publishes complete files before switching the active catalog pointer. Private signing material stays off the distribution server.
 
+The three JavaScript artifacts retain package-relative dependency module names even when the installed dependency directory is a symbolic link. With identical source, compiler and pinned dependency bytes, their SHA-256 digests are independent of the checkout path. `npm test` builds at two different directory depths, checks all three hashes and rejects physical checkout paths in the output; `npm run check` still rejects modified artifacts. This guarantee covers these JavaScript bundles, not native installers or dependency-version changes.
+
 </details>
 
 -----

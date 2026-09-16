@@ -8,6 +8,8 @@ import { isBuiltin } from 'node:module'
 const root = fileURLToPath(new URL('..', import.meta.url))
 const common = {
   absWorkingDir: root, bundle: true, platform: 'node', format: 'esm', target: 'node22',
+  // Stable module identities use installed paths, not checkout-dependent symlink targets.
+  preserveSymlinks: true,
   write: false, legalComments: 'inline',
   banner: { js: 'import { createRequire as __createRequire } from "node:module"; const require = __createRequire(import.meta.url);' },
 }
