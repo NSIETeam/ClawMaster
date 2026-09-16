@@ -20,6 +20,7 @@ const zh = {
   approve: '批准本次投递', cancelInstance: '取消本次巡检', inspected: '已在原会话核对本次巡检编号与投递记录',
   acknowledge: '确认已投递', resolveCancel: '结束本次记录', uncertainHint: '不要重新投递。先打开原会话核对；结束记录不会撤销已经产生的外部操作。',
   history: '调度操作历史', loadHistory: '读取调度历史', nextHistory: '下一页调度历史',
+  technicalDetails: '技术详情', unknownAction: '其他调度操作',
   saved: '操作已保存。可刷新查看后续状态。', saving: '正在保存调度操作…', pending: '操作结果尚未确认，其他修改已暂停。请重试原请求。', retry: '重试原调度请求',
   network: '调度连接中断，输入已保留。', invalid: '计划字段或服务响应无效，请核对后再试。', denied: '当前身份无权执行此操作。',
   conflict: '计划或巡检状态已变化，请刷新后核对。', unavailable: '调度服务暂不可用，请稍后刷新。',
@@ -45,9 +46,36 @@ const en: Copy = {
   approve: 'Approve this delivery', cancelInstance: 'Cancel this occurrence', inspected: 'I checked this occurrence ID and delivery record in the original session',
   acknowledge: 'Confirm delivered', resolveCancel: 'End this record', uncertainHint: 'Do not resend. Inspect the original session first. Ending this record does not undo external effects.',
   history: 'Schedule action history', loadHistory: 'Read schedule history', nextHistory: 'Next schedule history page',
+  technicalDetails: 'Technical details', unknownAction: 'Other schedule action',
   saved: 'The action was saved. Refresh to see later status.', saving: 'Saving schedule action…', pending: 'The action is not confirmed. Other changes are paused. Retry the original request.', retry: 'Retry original schedule request',
   network: 'Scheduler connection interrupted. Inputs are retained.', invalid: 'Plan fields or service response are invalid. Check before retrying.', denied: 'The current identity cannot perform this action.',
   conflict: 'The plan or occurrence changed. Refresh and inspect its state.', unavailable: 'The scheduler service is unavailable. Refresh later.',
 };
 /** Return all visible schedule management text for the product locale. */
 export function scheduleCopy(locale: ProductLocale): Copy { return locale === 'zh-CN' ? zh : en; }
+
+const actions: Record<ProductLocale, Readonly<Record<string, string>>> = {
+  'zh-CN': {
+    create: '已创建计划', 'cancel-plan': '已停止后续巡检', approve: '已批准本次投递', 'cancel-instance': '已取消本次巡检',
+    'resolve-uncertain': '已人工核实投递结果', materialized: '已生成到期巡检', deferred: '会话忙碌，已延后尝试',
+    'approval-requested': '正在核验独立审批', 'dispatch-authorized': '独立审批已核验', 'approval-recovery-required': '恢复后需要重新批准',
+  },
+  'en-US': {
+    create: 'Plan created', 'cancel-plan': 'Future checks stopped', approve: 'Occurrence delivery approved', 'cancel-instance': 'Occurrence cancelled',
+    'resolve-uncertain': 'Delivery outcome reviewed by a human', materialized: 'Due occurrence created', deferred: 'Session busy; attempt deferred',
+    'approval-requested': 'Checking independent approval', 'dispatch-authorized': 'Independent approval checked', 'approval-recovery-required': 'Recovery requires fresh approval',
+  },
+};
+
+/** Localize recorded actions, keeping unknown action codes available in the separate details.
+ * @param locale - Selected product locale.
+ * @param action - Persisted schedule action or outcome.
+ * @returns Human-readable action label; unknown future actions use a generic label.
+ */
+export function scheduleHistoryAction(locale: ProductLocale, action: string): string {
+  const copy = scheduleCopy(locale);
+  switch (action) {
+    case 'waiting_approval': case 'ready': case 'leased': case 'dispatching': case 'dispatched': case 'uncertain': case 'failed': case 'cancelled': return copy[action];
+    default: return actions[locale][action] ?? copy.unknownAction;
+  }
+}

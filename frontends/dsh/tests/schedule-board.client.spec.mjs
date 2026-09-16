@@ -86,6 +86,9 @@ it('creates a plan, approves exactly one occurrence and stops future work withou
   fireEvent.click(screen.getByText('Schedule action history'));
   fireEvent.click(screen.getByRole('button', { name: 'Read schedule history' }));
   await waitFor(() => expect(client.getSnapshot().history.some(row => row.action === 'cancel-plan')).toBe(true));
+  expect(screen.getByText('Plan created')).toBeTruthy();
+  expect(screen.getByText('Future checks stopped')).toBeTruthy();
+  expect(screen.getByText('cancel-plan').closest('details').open).toBe(false);
 });
 
 it('requires session inspection before human resolution and never reenqueues an uncertain occurrence', async () => {
@@ -107,6 +110,10 @@ it('requires session inspection before human resolution and never reenqueues an 
   expect(store.instance(instance.id).attempts).toBe(1);
   expect(store.claim('new-worker', now + store.config.leaseMs + 2)).toBeUndefined();
   expect(screen.queryByText('验收通过')).toBeNull();
+  fireEvent.click(screen.getByText('调度操作历史'));
+  fireEvent.click(screen.getByRole('button', { name: '读取调度历史' }));
+  await waitFor(() => expect(screen.getByText('已人工核实投递结果')).toBeTruthy());
+  expect(screen.getByText('resolve-uncertain').closest('details').open).toBe(false);
 });
 
 it('keeps the same pending command across navigation after response loss and accepts an older saved receipt', async () => {

@@ -3,7 +3,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { ProductLocale } from './locales/frontend.ts';
 import type { WorkbenchSession } from './Workbench.tsx';
 import type { SessionId } from './services.ts';
-import { scheduleCopy } from './locales/schedules.ts';
+import { scheduleCopy, scheduleHistoryAction } from './locales/schedules.ts';
 import type { ScheduleInstanceView, WatchdogScheduleClient } from './watchdog-schedule-client.ts';
 
 interface Props { client: WatchdogScheduleClient; locale: ProductLocale; sessions: readonly WorkbenchSession[]; onOpenSession(id: SessionId): void; }
@@ -62,7 +62,8 @@ export function ScheduleBoard({ client, locale, sessions, onOpenSession }: Props
       {state.nextInstance !== null && <button type="button" disabled={state.loading || state.saving} onClick={() => { void client.select(selected, state.nextInstance!); }}>{copy.nextInstance}</button>}
       <details className="cm-task-history"><summary>{copy.history}</summary>
         <button type="button" disabled={state.loading || state.saving} onClick={() => { void client.history(); }}>{copy.loadHistory}</button>
-        {state.history.map(item => <article key={item.seq}><time dateTime={new Date(item.at).toISOString()}>{date(item.at, locale)}</time><code>{item.action}</code>{item.reason && <p>{item.reason}</p>}</article>)}
+        {state.history.map(item => <article key={item.seq}><time dateTime={new Date(item.at).toISOString()}>{date(item.at, locale)}</time><p>{scheduleHistoryAction(locale, item.action)}</p>{item.reason && <p>{item.reason}</p>}
+          <details><summary>{copy.technicalDetails}</summary><code>{item.action}</code></details></article>)}
         {state.nextHistory !== null && <button type="button" disabled={state.loading || state.saving} onClick={() => { void client.history(state.nextHistory!); }}>{copy.nextHistory}</button>}
       </details>
     </section>}
