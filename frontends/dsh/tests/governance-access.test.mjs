@@ -441,3 +441,36 @@ for (const carrier of ['http', 'tool']) for (const type of ['create', 'revise'])
   const last = store.responsibility().records.at(-1);
   assert.equal(last.outcome, 'denied'); assert.equal(last.commandId, input.commandId);
 });
+
+test('malformed authority responses fail closed as unavailable without local fallback', async t => {
+  const h = authorityFixture();
+  const store = await openEnterpriseStore(':memory:', 5000, 'one');
+  const routes = new Map();
+  const dispose = await mountEnterpriseRoutes({ connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return () => routes.delete(route.path); } } } }, store, h.access);
+  t.after(async () => { await dispose(); store.close(); });
+
+  h.authority.http = async () => ({ organizationId: 'one', memberId: 'alice', actor: 'agent' });
+  let response = await routes.get('/api/clawmaster/enterprise')(new Request('http://fixture/enterprise'));
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error.code, 'storage_unavailable');
+
+  h.authority.http = async () => h.principals.get('alice');
+  h.authority.membership = async () => ({ active: 'yes', roles: ['administrator'], policyVersion: 1, resources: ['*'] });
+  response = await routes.get('/api/clawmaster/enterprise')(new Request('http://fixture/enterprise', { headers: { authorization: 'alice' } }));
+  assert.equal(response.status, 503);
+
+  h.authority.membership = async () => ({ active: true, roles: ['executor'], policyVersion: 1, resources: ['*'] });
+  h.authority.consumeApproval = async () => ({ id: 12, approverId: 'bob' });
+  const command = { generation: 0, revision: 0, commandId: 'malformed-approval', command: { type: 'contact.upsert', contact: {
+    id: 'customer', name: 'Must not save', company: '', stage: 'lead', nextAction: '', nextActionDate: null,
+  } } };
+  response = await routes.get('/api/clawmaster/enterprise/command')(new Request('http://fixture/enterprise/command', {
+    method: 'POST', headers: { authorization: 'alice', 'content-type': 'application/json' }, body: JSON.stringify(command),
+  }));
+  assert.equal(response.status, 503);
+  assert.equal(store.snapshot().revision, 0);
+  assert.equal(JSON.stringify(store.responsibility().records).includes('Must not save'), false);
+
+  h.authority.agent = async () => ({ organizationId: 'one', memberId: 'alice', actor: 'agent' });
+  await assert.rejects(h.access.agent('session-alice'), /invalid Session identity response/);
+});

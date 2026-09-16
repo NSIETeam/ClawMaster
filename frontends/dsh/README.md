@@ -103,6 +103,8 @@ Local mode identifies a device operator and uses explicitly labelled local owner
 
 The enterprise overview contains versions, collection counts and configured page limits; it requires organization-wide record and audit read access. Every HTTP write returns only command receipt metadata, including in local desktop mode. Resource-scoped readers use `/api/clawmaster/enterprise/query` or `enterprise_query` with an authorized record ID; audit reads require their own permission.
 
+The Host validates every non-empty response from `GovernanceAuthority` at the provider boundary. A malformed HTTP or Session principal, membership, owner membership or approval response fails closed as service unavailability and cannot become a local operator or an enterprise denial. A missing response remains an ordinary unauthenticated or unapproved result. This distinction prevents a broken identity provider from granting access while keeping provider details out of HTTP errors and responsibility history.
+
 | Role | Allowed actions |
 | --- | --- |
 | Administrator | Read/write records and tasks; export, restore and inspect audit; human task review |

@@ -1,6 +1,7 @@
 /** Shared authorization for HTTP, tool, scheduler and plugin business consumers. */
 import type { ExecutionIdentity } from './governance-audit.ts';
 import { LOCAL_HTTP_IDENTITY } from './governance-audit.ts';
+import { z } from 'zod';
 
 export type GovernanceAction = 'records.read' | 'records.write' | 'backup.export' | 'backup.restore'
   | 'audit.read' | 'task.read' | 'task.write' | 'task.review' | 'attachments.read';
@@ -35,6 +36,39 @@ export interface GovernanceAuthority {
     organizationId: string; executorId: string; action: GovernanceAction; resource: string;
     commandId: string; generation: number; revision: number; commandDigest: string;
   }, signal?: AbortSignal): Promise<{ id: string; approverId: string } | undefined>;
+}
+
+const authorityIdentifier = z.string().min(1).max(128);
+const authorityPrincipalSchema = z.object({
+  organizationId: authorityIdentifier,
+  memberId: authorityIdentifier,
+  actor: z.enum(['human', 'agent']),
+  sessionId: authorityIdentifier.optional(),
+  delegatorId: authorityIdentifier.optional(),
+}).superRefine((value, context) => {
+  if (value.actor === 'agent' && value.sessionId === undefined) {
+    context.addIssue({ code: 'custom', message: 'Agent identity is missing its Session binding.' });
+  }
+});
+const authorityMembershipSchema = z.object({
+  active: z.boolean(), roles: z.array(z.enum(['administrator', 'executor', 'approver', 'auditor'])),
+  policyVersion: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  resources: z.array(authorityIdentifier),
+});
+const authorityApprovalSchema = z.object({ id: authorityIdentifier, approverId: authorityIdentifier });
+
+/**
+ * Parse provider output at the identity boundary and hide provider details from callers.
+ * @param schema Schema for one authority response.
+ * @param value Provider output, including its optional undefined result.
+ * @param label Response kind used only for a stable local diagnostic.
+ * @returns The validated provider value, or undefined when the provider found no identity.
+ * @throws Error when a provider returns a malformed response; consumers map this to unavailable.
+ */
+function authorityResult<T>(schema: z.ZodType<T>, value: unknown, label: string): T | undefined {
+  if (value === undefined) return undefined;
+  try { return schema.parse(value); }
+  catch { throw new Error(`Governance authority returned an invalid ${label} response.`); }
 }
 
 export type GovernanceConfiguration = { mode: 'local' } | {
@@ -137,7 +171,8 @@ export class GovernanceAccess {
     signal.throwIfAborted();
     if (this.config.mode === 'local') return this.local(LOCAL_HTTP_IDENTITY, signal);
     const config = this.config;
-    return this.enterprise(await waitForAuthority(signal, () => config.authority.http(request, signal)), 'http', undefined, signal);
+    const principal = await waitForAuthority(signal, () => config.authority.http(request, signal));
+    return this.enterprise(authorityResult(authorityPrincipalSchema, principal, 'HTTP identity'), 'http', undefined, signal);
   }
 
   /** Resolve the agent's initiating member; model arguments cannot select another identity. */
@@ -147,7 +182,8 @@ export class GovernanceAccess {
     if (this.config.mode === 'local') return this.local({ ...LOCAL_HTTP_IDENTITY,
       actor: { kind: 'agent', id: sessionId }, source: 'tool', sessionId, ...(callId ? { callId } : {}) }, signal);
     const config = this.config;
-    const principal = await waitForAuthority(signal, () => config.authority.agent(sessionId, signal));
+    const result = await waitForAuthority(signal, () => config.authority.agent(sessionId, signal));
+    const principal = authorityResult(authorityPrincipalSchema, result, 'Session identity');
     if (principal?.actor !== 'agent' || principal.sessionId !== sessionId) throw new GovernanceDenied('The Session has no authenticated enterprise owner.');
     return this.enterprise(principal, 'tool', callId, signal);
   }
@@ -173,7 +209,8 @@ export class GovernanceAccess {
     };
     const check = async (action: GovernanceAction, resource = '*'): Promise<ExecutionIdentity> => {
       const memberships = await waitForAuthority(signal, () => Promise.all([principal.memberId, ...(principal.delegatorId ? [principal.delegatorId] : [])]
-        .map(member => config.authority.membership(config.organizationId, member, signal))));
+        .map(async member => authorityResult(authorityMembershipSchema,
+          await config.authority.membership(config.organizationId, member, signal), 'membership'))));
       identity.policyVersion = Math.max(0, ...memberships.map(member => member?.policyVersion ?? 0));
       if (memberships.some(member => !member?.active || !member.roles.some(role => roleActions[role].includes(action))
         || (!member.resources.includes('*') && !member.resources.includes(resource)))
@@ -181,17 +218,23 @@ export class GovernanceAccess {
       return { ...identity };
     };
     return { identity, check, checkOwner: async owner => {
-      if (owner.kind !== 'member' || !(await waitForAuthority(signal, () => config.authority.membership(config.organizationId, owner.id, signal)))?.active) {
+      const membership = owner.kind === 'member'
+        ? await waitForAuthority(signal, () => config.authority.membership(config.organizationId, owner.id, signal))
+        : undefined;
+      const checked = authorityResult(authorityMembershipSchema, membership, 'owner membership');
+      if (owner.kind !== 'member' || !checked?.active) {
         throw new GovernanceDenied('The task owner must be an active member of this organization.');
       }
     }, approve: async (action, resource, commandId, generation, revision, commandDigest) => {
       await check(action, resource);
-      const approval = await waitForAuthority(signal, () => config.authority.consumeApproval({ organizationId: config.organizationId, executorId: principal.memberId,
+      const approvalResult = await waitForAuthority(signal, () => config.authority.consumeApproval({ organizationId: config.organizationId, executorId: principal.memberId,
         action, resource, commandId, generation, revision, commandDigest }, signal));
+      const approval = authorityResult(authorityApprovalSchema, approvalResult, 'approval');
       if (!approval || approval.approverId === principal.memberId) throw new GovernanceDenied('A distinct authorized approver is required.', 'approval_missing');
       const approver = await waitForAuthority(signal, () => config.authority.membership(config.organizationId, approval.approverId, signal));
-      if (!approver?.active || !approver.roles.includes('approver')
-        || (!approver.resources.includes('*') && !approver.resources.includes(resource))) throw new GovernanceDenied('The approver no longer has permission.', 'approver_invalid');
+      const checkedApprover = authorityResult(authorityMembershipSchema, approver, 'approver membership');
+      if (!checkedApprover?.active || !checkedApprover.roles.includes('approver')
+        || (!checkedApprover.resources.includes('*') && !checkedApprover.resources.includes(resource))) throw new GovernanceDenied('The approver no longer has permission.', 'approver_invalid');
       return { ...await check(action, resource), approval: { ...approval, generation, revision } };
     } };
   }
