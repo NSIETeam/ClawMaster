@@ -85,6 +85,8 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
           : checked;
         signal.throwIfAborted();
         if (replay) return Response.json(replay, { headers: { 'cache-control': 'no-store' } });
+        if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
+        signal.throwIfAborted();
         return Response.json(store.tasks.execute(identity, input), { headers: { 'cache-control': 'no-store' } });
       }, signal);
     }).catch(failure) }));
@@ -126,6 +128,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
               createHash('sha256').update(JSON.stringify(input.command)).digest('hex'))
             : await caller.check('task.write', input.id);
           if (access.mode === 'local') identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: 0, revision: input.revision };
+          if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
           signal.throwIfAborted();
           return store.tasks.execute(identity, input);
         }, signal);

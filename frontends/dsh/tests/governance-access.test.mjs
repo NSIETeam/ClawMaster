@@ -373,3 +373,44 @@ test('restore approval refusal and read-tool denials retain only authenticated o
     assert.ok(!JSON.stringify(entry).includes('PRIVATE'));
   }
 });
+
+for (const carrier of ['http', 'tool']) for (const type of ['create', 'revise']) test(`${carrier} ${type} refuses an owner revoked during independent approval`, async t => {
+  const h = authorityFixture();
+  const store = await openEnterpriseStore(':memory:', 5000, 'one');
+  const routes = new Map(); const tools = new Map();
+  const waiting = Promise.withResolvers(); const release = Promise.withResolvers();
+  const consume = h.authority.consumeApproval;
+  h.authority.consumeApproval = async request => { waiting.resolve(); await release.promise; return consume(request); };
+  const dispose = await mountWatchdogTasks({ connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return () => routes.delete(route.path); } } },
+    tools: { register(tool) { tools.set(tool.name, tool); return () => tools.delete(tool.name); } },
+    approval: { request: async () => 'allowed-once' } }, store, h.access);
+  t.after(async () => { release.resolve(); await dispose(); store.close(); });
+  const caller = await h.access.http(new Request('http://fixture', { headers: { authorization: 'alice' } }));
+  const identity = await caller.check('task.write');
+  const definition = { goal: 'Review selected records', scope: 'Synthetic records', owner: { kind: 'member', id: 'audit' },
+    dueAt: null, timezone: 'Asia/Shanghai', risk: 'low', checklist: [{ id: 'checked', description: 'Review evidence' }] };
+  if (type === 'revise') store.tasks.execute(identity, { id: 'owner-task', commandId: 'seed', revision: 0, command: { type: 'create', task: definition } });
+  const revision = type === 'revise' ? 1 : 0;
+  const input = { id: 'owner-task', commandId: 'revoked-owner', revision, command: { type, task: { ...definition, goal: 'Changed goal' } } };
+  h.grants.set(JSON.stringify({ organizationId: 'one', executorId: 'alice', action: 'task.write', resource: input.id,
+    commandId: input.commandId, generation: 0, revision, commandDigest: createHash('sha256').update(JSON.stringify(input.command)).digest('hex') }),
+  { id: 'independent-grant', approverId: 'bob' });
+  const invoke = async () => {
+    if (carrier === 'tool') return tools.get('watchdog_task_command').execute(input, {
+      agent: { id: 'session-alice' }, callId: 'owner-call', name: 'watchdog_task_command', signal: new AbortController().signal });
+    const response = await routes.get('/api/clawmaster/tasks/command')(new Request('http://fixture/tasks/command', {
+      method: 'POST', headers: { authorization: 'alice', 'content-type': 'application/json' }, body: JSON.stringify(input) }));
+    const body = await response.json();
+    if (!response.ok) throw Object.assign(new Error(body.error.message), { code: body.error.code });
+    return body;
+  };
+  const rejected = assert.rejects(invoke(), { code: 'permission_denied' });
+  await waiting.promise;
+  h.members.set('audit', { active: false, roles: ['auditor'], resources: ['*'], policyVersion: 2 });
+  release.resolve(); await rejected;
+  assert.equal(store.tasks.replay(identity, input), undefined);
+  assert.equal(store.tasks.list(identity).tasks.length, revision);
+  if (type === 'revise') assert.equal(store.tasks.get(identity, input.id).goal, definition.goal);
+  const last = store.responsibility().records.at(-1);
+  assert.equal(last.outcome, 'denied'); assert.equal(last.commandId, input.commandId);
+});
