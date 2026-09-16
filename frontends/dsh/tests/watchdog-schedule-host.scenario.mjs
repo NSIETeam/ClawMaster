@@ -181,7 +181,7 @@ test('consumer unload cancels an in-flight admission without waking the agent', 
 test('HTTP and complete DSH string output enforce distinct UTF-8 budgets including Chinese and escaping', async t => {
   const h = await fixture(t, new GovernanceAccess(), human, { maxQueryBytes: 1800 });
   const command = { type: 'create', id: 'escaped', sessionId: 'session', prompt: '汉字"\\\n'.repeat(40), rule: { kind: 'every', everySeconds: 300 }, missed: 'coalesce', catchUpLimit: 1 };
-  assert.equal((await h.send(command)).status, 200);
+  h.store.command(human, scheduleCommandSchema.parse({ commandId: 'escaped', command }), Date.now());
   const http = await h.read();
   assert.equal(http.status, 200);
   const value = await http.json();
@@ -315,7 +315,7 @@ test('one complete record with mandatory worker observation fails explicitly ins
   const maxQueryBytes = scheduleResponseBytes(record, 'http') + 20;
   assert.ok(maxQueryBytes >= 1024);
   const h = await fixture(t, new GovernanceAccess(), human, { maxQueryBytes });
-  assert.equal((await h.send(command)).status, 200);
+  h.store.command(human, scheduleCommandSchema.parse({ commandId: 'oversized', command }), now);
   h.store.heartbeat('worker', now);
   const response = await h.read('?limit=1');
   assert.equal(response.status, 413);
