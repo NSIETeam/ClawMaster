@@ -10,6 +10,9 @@ import { WatchdogTutorial, WatchdogTutorialDialog } from './WatchdogTutorial.tsx
 import { onboardingCopy } from './locales/onboarding.ts';
 import type { MainPanelId } from './services.ts';
 import styles from './styles.css';
+import taskStyles from './task-board.css';
+import { TaskBoard } from './TaskBoard.tsx';
+import { WatchdogTaskClient } from './watchdog-task-client.ts';
 
 export const name = 'clawmaster-frontend';
 export const inject = ['slots', 'theme', 'sessions', 'workspaces', 'connection', 'uiWorkspace', 'layout', 'locale', 'betterSidebar', 'settingsScope'];
@@ -27,6 +30,8 @@ function useSnapshot<T>(source: Observable<T>): T {
 export function apply(ctx: FrontendServices): void {
   const lifetime = new AbortController();
   const actions = createProductActions(ctx, lifetime.signal);
+  const taskClient = new WatchdogTaskClient();
+  ctx.effect(() => () => taskClient.dispose(), 'clawmaster: business task client');
   const initialEntry = createInitialEntry(ctx, lifetime.signal);
   const onboarding = ctx.settingsScope.bind({ namespace: ONBOARDING_NAMESPACE, decode: decodeOnboarding });
   ctx.effect(() => () => lifetime.abort(), 'clawmaster: navigation lifetime');
@@ -45,7 +50,7 @@ export function apply(ctx: FrontendServices): void {
     titleObserver.observe(document.head, { childList: true, subtree: true, characterData: true });
     const style = document.createElement('style');
     style.dataset.plugin = PLUGIN_ID;
-    style.textContent = styles;
+    style.textContent = `${styles}\n${taskStyles}`;
     document.head.appendChild(style);
     return () => {
       titleObserver.disconnect();
@@ -95,6 +100,9 @@ export function apply(ctx: FrontendServices): void {
       onModule={module => actions.open(module, locale)}
       onOpenSession={id => ctx.uiWorkspace.openSession(id)}
       onRefresh={() => ctx.sessions.refresh()}
+      businessTasks={<TaskBoard client={taskClient} locale={locale}
+        sessions={recentSessions(snapshot, workspaces.archivedSessionIds, locale, interactions)}
+        onOpenSession={id => ctx.uiWorkspace.openSession(id)} />}
     />;
   }
 

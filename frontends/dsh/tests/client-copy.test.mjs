@@ -4,7 +4,7 @@ import test from 'node:test';
 import { findUiI18nViolations } from '../../../scripts/verify-client-ui-i18n.ts';
 
 test('product panels keep visible copy in typed locale owners', async () => {
-  const files = ['client.tsx', 'Workbench.tsx', 'BusinessModules.tsx', 'navigation.ts', 'WatchdogTutorial.tsx'];
+  const files = ['client.tsx', 'Workbench.tsx', 'BusinessModules.tsx', 'navigation.ts', 'WatchdogTutorial.tsx', 'TaskBoard.tsx'];
   const failures = (await Promise.all(files.map(async file => findUiI18nViolations(
     `frontends/dsh/src/${file}`, await readFile(new URL(`../src/${file}`, import.meta.url), 'utf8'),
   )))).flat();

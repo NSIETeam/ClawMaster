@@ -16,6 +16,8 @@ One GovernanceAccess instance resolves caller identity through a trusted authori
 
 Task response budgets apply to the final HTTP JSON and DSH value/content envelope, including UTF-8 and JSON escaping. Row counts alone do not bound a task containing long criteria or evidence. Mutations check that the complete next task fits a one-record page before any write; rejected mutations retain their prior revision and history. List and history readers iterate rows until the configured byte or row limit, returning a continuation instead of silently dropping data. History cursors are immutable revisions. Pure wire schemas and task indicators live in a Node-free module shared with the browser.
 
+The management panel reads and writes through the authenticated task routes. Its transport retains an uncertain command verbatim across panel remounts and blocks replacement writes until the result is known. A list refresh never advances the revision open for review. Definite authorization and revision refusals permit correction; lost or malformed responses require exact retry. The task form separates business owners and deadlines from Session activity, supports explicit historical imports, and exposes evidence submission, rejection, resubmission and human acceptance. Browser tests exercise these actions through registered Host routes and SQLite rather than substituting a state reducer.
+
 ## Alternatives considered
 
 **Deriving business state from Session activity.** A stopped Session can mean pending review, failure or cancellation; those outcomes require an explicit task command.

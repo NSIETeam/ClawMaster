@@ -2,7 +2,7 @@
   {
     "introduction": "WatchDog tutorialManage everyday business with WatchDogReview this week’s customer follow-ups and delivery risks, from setting goals to checking corrective action.",
     "title": "Define what to review this week",
-    "body": "Define what to review this weekChoose a concrete question: which customers need follow-up this week, and which orders could face delivery risks from low stock? In the WatchDog task description, specify the period, customers or orders, and the risk list you need.Example goal: review this week’s customer follow-ups and delivery risks; list customers awaiting follow-up, orders with stock shortages, and missing information for my review.",
+    "body": "Define what to review this weekChoose a concrete question: which customers need follow-up this week, and which orders could face delivery risks from low stock? Create a task under Business tasks and acceptance with its goal, period and customer or order scope.Example goal: review this week’s customer follow-ups and delivery risks; list customers awaiting follow-up, orders with stock shortages, and missing information for my review.",
     "auxiliary": null,
     "buttons": [
       {
@@ -42,7 +42,7 @@
   {
     "introduction": "WatchDog tutorialManage everyday business with WatchDogReview this week’s customer follow-ups and delivery risks, from setting goals to checking corrective action.",
     "title": "State owners, deadlines and acceptance criteria",
-    "body": "State owners, deadlines and acceptance criteriaWrite responsibilities in the same task description: who follows up, when they report back, and what counts as resolved. Owners and deadlines are written instructions; confirm and arrange colleagues’ responsibilities yourself.Add: the sales lead reviews customer follow-ups and the purchasing lead checks shortages by Friday at 17:00. Each finding includes customer or order evidence, suggested action and unresolved questions.",
+    "body": "State owners, deadlines and acceptance criteriaFill in the owner, deadline and acceptance criteria, then save the business draft. A local owner records responsibility on this device; it does not authenticate an organization member or notify a colleague.Add: the sales lead reviews customer follow-ups and the purchasing lead checks shortages by Friday at 17:00. Each finding includes customer or order evidence, suggested action and unresolved questions.",
     "auxiliary": null,
     "buttons": [
       {
@@ -162,7 +162,7 @@
   {
     "introduction": "WatchDog tutorialManage everyday business with WatchDogReview this week’s customer follow-ups and delivery risks, from setting goals to checking corrective action.",
     "title": "Track tasks, verify findings and follow through",
-    "body": "Track tasks, verify findings and follow throughUse the WatchDog task list to see Running tasks, search for this review and open it. Check sources, exceptions and proposed actions. Add corrective requirements in the task, then verify the follow-up results.For example: provide stock evidence for affected orders, suggest replenishment quantities and list questions for the purchasing lead to review. Not running only describes current activity; check task results to determine completion.",
+    "body": "Track tasks, verify findings and follow throughLink the actual execution session to the business task. Submit evidence locations, observation times and summaries when ready for review. Inspect sources, enter a review comment and accept the result or request rework. History preserves prior evidence.For example: reject a report missing stock evidence and ask for a new submission. An idle session does not mean completion. Only human review can accept a business task; replace inaccessible evidence before acceptance.",
     "auxiliary": "Open management, then write and start your review. Use these auxiliary settings if you need a model or chat connection; existing configuration can be reused.",
     "buttons": [
       {

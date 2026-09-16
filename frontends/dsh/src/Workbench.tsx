@@ -1,6 +1,6 @@
 /** WatchDog task launcher and projection of the DSH Session list. */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { RefObject } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import clawmasterIcon from './clawmaster.svg';
 import clawmasterDarkIcon from './clawmaster-dark.svg';
 import { productCopy, type ProductLocale, type ProductModule } from './locales/frontend.ts';
@@ -9,6 +9,7 @@ import { ProductNavigationError, type WatchdogCadence, type WatchdogDraft } from
 
 export interface WorkbenchSession { id: SessionId; title: string; updatedAt: number; running: boolean; status: TaskStatus; attention: boolean; }
 export interface WorkbenchProps {
+  businessTasks?: ReactNode;
   locale: ProductLocale;
   sessions: readonly WorkbenchSession[];
   sessionsLoading: boolean;
@@ -77,7 +78,7 @@ export function WorkbenchIcon({ size = 18 }: { size?: number }) {
 }
 
 /** Explicit task creation and tool opening; no model request runs on render. */
-export function Workbench({ locale, sessions, sessionsLoading, connectionLabel, connected, draft, onDraft, onDraftSession, onStart, onModule, onOpenSession, onRefresh }: WorkbenchProps) {
+export function Workbench({ businessTasks, locale, sessions, sessionsLoading, connectionLabel, connected, draft, onDraft, onDraftSession, onStart, onModule, onOpenSession, onRefresh }: WorkbenchProps) {
   const copy = productCopy(locale);
   const { goal, cadence } = draft;
   const [query, setQuery] = useState('');
@@ -105,6 +106,7 @@ export function Workbench({ locale, sessions, sessionsLoading, connectionLabel, 
       <button type="button" disabled={busy || draft.busy || !connected} onClick={() => { void act(() => onStart('', 'once')); }}>{copy.newTask}</button>
     </header>
     <div className="cm-workbench-content">
+      {businessTasks}
       <section className="cm-task-launcher" aria-labelledby="cm-goal-heading">
         <p className="cm-slogan">{copy.slogan}</p>
         <h2 id="cm-goal-heading">{copy.goal}</h2>

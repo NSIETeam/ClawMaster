@@ -30,7 +30,7 @@ Use the ClawMaster Tauri desktop application. Its provisioner includes this fron
 <a id="first-run-tutorial"></a>
 ### First-run tutorial
 
-With no Session or Workspace history, WatchDog teaches a five-step management workflow using this week's customer follow-ups and delivery risks: define scope, write responsibilities and acceptance criteria, inspect CRM/ERP records and supplied documents, choose a review frequency and check approvals, then verify findings and follow up on corrective action. Owners and deadlines are instructions in the task description. The primary action opens WatchDog management; model and IM settings are auxiliary destinations at the end. Reading, skipping or replaying creates no task and sends no prompt or external message. Existing users can open Settings → WatchDog tutorial at any time.
+With no Session or Workspace history, WatchDog teaches a five-step management workflow using this week's customer follow-ups and delivery risks: define scope, write responsibilities and acceptance criteria, inspect CRM/ERP records and supplied documents, choose a review frequency and check approvals, then verify findings and follow up on corrective action. Business drafts store owners, deadlines and acceptance criteria as separate fields. The primary action opens WatchDog management; model and IM settings are auxiliary destinations at the end. Reading, skipping or replaying creates no task and sends no prompt or external message. Existing users can open Settings → WatchDog tutorial at any time.
 
 Skip and finish record a versioned acknowledgement through DSH settings. The desktop keeps it across restarts and local port changes; newer acknowledgement versions are preserved. A refused write keeps the guide open with a retry message. Remote browsers retain acknowledgement only for the current settings-shell lifetime. Tutorial completion does not verify an API key, create a task, schedule a reminder or connect an IM account.
 
@@ -40,7 +40,9 @@ Application startup creates no default workspace. With no session or workspace h
 
 WatchDog keeps the task description and review frequency while you switch between settings, components and Sessions. Once a prompt is sent, an unconfirmed submission keeps its target Session and locks the goal and frequency. Retry the original request or open its Session to inspect it; retries reuse the exact prompt and request identity, including after a UI language change. Failures before sending leave the draft editable. Confirmed acceptance clears and unlocks the draft. Reloading the page or quitting discards an unaccepted task draft.
 
-The task list prioritizes Sessions awaiting approval, an answer or plan review and can filter to those requiring attention. Open the original Session to respond. Running and idle labels report execution activity; neither certifies that the business objective is complete.
+Management first shows durable business tasks, prioritizing pending review, failures and overdue work. Drafts record a goal, scope, owner, deadline, risk and acceptance criteria; an existing Session can be explicitly selected as their source. Saved definitions can be edited, queued and linked to existing DSH Sessions without resending model requests. In-progress work can record waiting conditions, failures or evidence submissions. Humans enter a comment to accept or reject results, and closed tasks can be reopened. Paged history preserves prior submissions and reviews. Evidence references are marked unverified and require inspection of their sources.
+
+Business writes use revisions to prevent overwriting another change. List refresh preserves the revision open in task details; after a conflict, reopen and inspect the current record. An uncertain save pauses other writes and retries the original command and idempotency key. Pending requests survive panel navigation; after reloading the page or quitting, inspect persisted records before continuing. The Session list below prioritizes Sessions awaiting approval, an answer or plan review and can filter to those requiring attention. Open the original Session to respond. Running and idle labels report execution activity; neither certifies that the business objective is complete.
 
 To choose a workspace directory manually, use **Add workspace** in the workspace header. The directory browser opens inside ClawMaster. Browse folders, enter a path or create a folder, then choose **Open** to use the selected directory.
 
@@ -102,7 +104,7 @@ The complete enterprise snapshot includes audit bodies and requires organization
 | Approver | Read records/tasks and review task results; approve exact enterprise commands |
 | Auditor | Read records/tasks, export backups and inspect responsibility metadata |
 
-The authority interface is an integration requirement, not a bundled identity provider or a claim of a validated multi-user deployment. Organization login, identity-provider integration, attachment serving, explicit local-to-enterprise migration, business task UI and the real desktop acceptance flow require deployment-specific integration. External CRM/ERP connectors are separate capabilities.
+The authority interface is an integration requirement, not a bundled identity provider or a claim of a validated multi-user deployment. Organization login, identity-provider integration, attachment serving, explicit local-to-enterprise migration and the real desktop acceptance flow require deployment-specific integration. External CRM/ERP connectors are separate capabilities.
 
 ### Use reminders and IM connections
 
