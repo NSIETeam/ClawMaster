@@ -1,7 +1,7 @@
 /** Browser-safe validation shared by HTTP clients and SQLite record readers. */
 import { z } from 'zod';
 import { enterpriseId, EnterpriseError } from './enterprise-types.ts';
-import type { EnterpriseBackup, EnterpriseCommandRequest, EnterpriseSnapshot, OrderInput } from './enterprise-types.ts';
+import type { EnterpriseBackup, EnterpriseCommandRequest, EnterpriseSnapshot, EnterpriseOverview, EnterpriseQueryPage, EnterpriseQuerySpec, EnterpriseCommandReceipt, OrderInput } from './enterprise-types.ts';
 
 const identifier = z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/).transform(enterpriseId);
 const shortText = z.string().trim().max(200);
@@ -42,6 +42,46 @@ const commandSchema = z.discriminatedUnion('type', [
 // Legacy requests belong only to the initial, never-restored database generation.
 const requestSchema = z.object({ generation: integer.default(0), revision: integer, commandId: identifier, command: commandSchema }).strict();
 
+/** Wire filters shared by browser and model queries; continuations cannot silently rebase. */
+export const enterpriseQuerySchema = z.object({
+  collection: z.enum(['contacts', 'inventory', 'orders', 'audit']),
+  id: identifier.optional(), search: z.string().trim().max(2000).optional(),
+  stage: contactInput.shape.stage.optional(), dueBefore: calendarDate.optional(),
+  lowStock: z.boolean().optional(), kind: z.enum(['purchase', 'sale']).optional(),
+  status: z.enum(['draft', 'submitted']).optional(),
+  offset: integer, limit: integer.min(1), revision: integer.optional(), generation: integer.optional(),
+}).strict().refine(query => query.offset === 0 || (query.revision !== undefined && query.generation !== undefined))
+  .refine(query => (query.stage === undefined && query.dueBefore === undefined || query.collection === 'contacts')
+    && (query.lowStock === undefined || query.collection === 'inventory')
+    && (query.kind === undefined && query.status === undefined || query.collection === 'orders'));
+
+/** Validate query fields from HTTP or a model tool before selecting SQL predicates. */
+export function parseEnterpriseQuery(value: unknown): EnterpriseQuerySpec {
+  const result = enterpriseQuerySchema.safeParse(value);
+  if (!result.success) throw new EnterpriseError('invalid_request', 'Enterprise query fields or continuation versions are invalid.');
+  return result.data;
+}
+
+/** Validate versioned metadata without claiming it contains business records. */
+export function parseEnterpriseOverview(value: unknown): EnterpriseOverview {
+  const result = z.object({ generation: integer, revision: integer,
+    counts: z.object({ contacts: integer, inventory: integer, orders: integer, audit: integer, followups: integer, lowStock: integer }).strict(),
+    limits: z.object({ pageRows: integer.min(1), pageBytes: integer.min(1024) }).strict(),
+  }).strict().refine(value => value.counts.audit === value.revision && value.counts.followups <= value.counts.contacts
+    && value.counts.lowStock <= value.counts.inventory).safeParse(value);
+  if (!result.success) throw new EnterpriseError('storage_invalid', 'Enterprise overview fields are invalid.');
+  return result.data;
+}
+
+/** Validate the durable receipt returned after a mutation or its exact replay. */
+export function parseEnterpriseReceipt(value: unknown): EnterpriseCommandReceipt {
+  const result = z.object({ generation: integer, revision: integer, commandId: identifier, commandRevision: integer.min(1), entityId: identifier,
+    type: z.enum(['contact.upsert', 'contact.remove', 'item.upsert', 'item.remove', 'order.save', 'order.remove', 'order.submit']), at: timestamp,
+  }).strict().refine(value => value.commandRevision <= value.revision).safeParse(value);
+  if (!result.success) throw new EnterpriseError('storage_invalid', 'Enterprise command receipt is invalid.');
+  return result.data;
+}
+
 /** Stored contact JSON, including its modification time. */
 export const contactSchema = contactInput.extend({ updatedAt: timestamp });
 /** Stored inventory JSON, including safe integral stock counts. */
@@ -71,6 +111,21 @@ export const auditSchema = z.discriminatedUnion('type', [
     && entry.before.order.status === 'draft' && entry.after.order.status === 'submitted';
   return (entry.before === null || entry.before.id === entry.entityId) && (entry.after === null || entry.after.id === entry.entityId);
 });
+
+/** Validate records against their collection and require a forward-moving continuation. */
+export function parseEnterprisePage(value: unknown): EnterpriseQueryPage {
+  const fields = { generation: integer, revision: integer, offset: integer, total: integer, nextOffset: integer.nullable() };
+  const result = z.discriminatedUnion('collection', [
+    z.object({ ...fields, collection: z.literal('contacts'), records: z.array(contactSchema) }).strict(),
+    z.object({ ...fields, collection: z.literal('inventory'), records: z.array(itemSchema) }).strict(),
+    z.object({ ...fields, collection: z.literal('orders'), records: z.array(orderSchema) }).strict(),
+    z.object({ ...fields, collection: z.literal('audit'), records: z.array(auditSchema) }).strict(),
+  ]).refine(page => page.records.length <= Math.max(0, page.total - page.offset)
+    && page.nextOffset === (page.offset + page.records.length < page.total ? page.offset + page.records.length : null)
+    && (page.nextOffset === null || page.nextOffset > page.offset)).safeParse(value);
+  if (!result.success) throw new EnterpriseError('storage_invalid', 'Enterprise page records or continuation are invalid.');
+  return result.data;
+}
 const snapshotSchema = z.object({
   generation: integer.default(0), revision: integer, contacts: z.array(contactSchema), inventory: z.array(itemSchema),
   orders: z.array(orderSchema), audit: z.array(auditSchema),

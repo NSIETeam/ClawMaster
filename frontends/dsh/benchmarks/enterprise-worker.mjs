@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import { setImmediate } from 'node:timers/promises';
-import { openEnterpriseStore } from '../src/enterprise-host.ts';
+import { openEnterpriseStore, mountEnterpriseRoutes } from '../src/enterprise-host.ts';
 
 const [mode, databasePath, countText] = process.argv.slice(2);
 const count = Number(countText);
@@ -12,6 +12,7 @@ const contact = index => ({
   stage: 'proposal', nextAction: 'Review the synthetic proposal', nextActionDate: '2026-09-20',
 });
 let store;
+let removeRoutes;
 let revision = 0;
 const execute = command => {
   const receipt = store.executeReceipt({ generation: 0, revision, commandId: `command-${revision + 1}`, command });
@@ -62,6 +63,7 @@ try {
           elapsedMs, eventLoopRoundtripMs: await eventLoop,
           responseBytes: encoded === undefined ? null : Buffer.byteLength(encoded),
           rssBeforeBytes: before.rss, rssAfterBytes: retained.rss, heapAfterBytes: retained.heapUsed,
+          processPeakRssBytes: process.resourceUsage().maxRSS * 1024,
         };
         return result;
       } finally {
@@ -70,26 +72,40 @@ try {
       }
     };
     store = await measure('open', () => openEnterpriseStore(databasePath), false);
-    const page = await measure('list', () => store.queryPage({ collection: 'contacts', offset: 0, limit: 50 }, 64 * 1024));
+    const routes = new Map();
+    removeRoutes = await mountEnterpriseRoutes({ connection: { fetch: { register(route) {
+      routes.set(route.path, route.fetch); return async () => { routes.delete(route.path); };
+    } } } }, store);
+    const fetch = async (suffix = '', init) => {
+      const request = new Request(`http://fixture/api/clawmaster/enterprise${suffix}`, init);
+      const response = await routes.get(new URL(request.url).pathname)(request);
+      if (response.status !== 200) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      return response.json();
+    };
+    const overview = await measure('overview', () => fetch());
+    const query = value => fetch(`/query?${new URLSearchParams({ collection: 'contacts', offset: '0', limit: '50',
+      generation: String(overview.generation), revision: String(overview.revision), ...value })}`);
+    const page = await measure('list', () => query({}));
     assert.equal(page.total, count);
     assert.equal(page.records.length, Math.min(50, count));
     revision = page.revision;
     assert.equal(revision, count * 5);
-    await measure('search', () => store.queryPage({ collection: 'contacts', offset: 0, limit: 50, search: 'Company 7' }, 64 * 1024));
-    const audit = await measure('auditTail', () => store.queryPage({ collection: 'audit', offset: Math.max(0, revision - 50), limit: 50 }, 64 * 1024));
+    await measure('search', () => query({ search: 'Company 7' }));
+    const audit = await measure('auditTail', () => query({ collection: 'audit', offset: String(Math.max(0, revision - 50)) }));
     assert.equal(audit.total, revision);
-    await measure('saveReceipt', () => execute({ type: 'contact.upsert', contact: { ...contact(0), nextAction: 'Measured update' } }));
-    {
-      const snapshot = await measure('snapshot', () => store.snapshot());
-      assert.equal(snapshot.contacts.length, count);
-      assert.equal(snapshot.audit.length, count * 5 + 1);
-    }
-    const backup = await measure('backup', () => store.backup());
-    const restored = await measure('restore', () => store.restore(backup, revision, 0));
+    const saved = await measure('saveReceipt', () => fetch('/command', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ generation: 0, revision, commandId: 'measured-save', command: { type: 'contact.upsert', contact: { ...contact(0), nextAction: 'Measured update' } } }) }));
+    assert.equal(saved.commandRevision, count * 5 + 1);
+    assert.equal(saved.entityId, 'contact-0');
+    revision = saved.revision;
+    const backup = await measure('backup', () => fetch('/backup'));
+    const restored = await measure('restore', () => fetch('/restore', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ backup, expectedRevision: revision, expectedGeneration: 0, confirm: true }) }));
     assert.equal(restored.contacts.length, count);
     assert.equal(restored.generation, 1);
     process.stdout.write(JSON.stringify({ samples, peakRssBytes: process.resourceUsage().maxRSS * 1024 }));
   }
 } finally {
+  await removeRoutes?.();
   store?.close();
 }

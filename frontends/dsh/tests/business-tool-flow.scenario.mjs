@@ -224,6 +224,43 @@ test('CSV processing and CRM maintenance record model-visible tool results and r
   assert.equal(f.store.snapshot().contacts[0].id, contact.id);
 });
 
+test('model pagination records explicit continuations and rejects missing or stale versions in JSONL', { timeout: 30000 }, async t => {
+  const f = await fixture(t, [
+    toolCallResponse('first-page', 'enterprise_query', { collection: 'contacts', offset: 0, limit: 2 }),
+    toolCallResponse('next-page', 'enterprise_query', { collection: 'contacts', offset: 2, limit: 2, generation: 0, revision: 3 }),
+    toolCallResponse('missing-version', 'enterprise_query', { collection: 'contacts', offset: 2, limit: 2 }),
+    toolCallResponse('change-contact', 'enterprise_command', { request: { generation: 0, revision: 3, commandId: 'change-page-data', command: {
+      type: 'contact.upsert', contact: { ...contact, id: 'a', name: 'Changed Customer' },
+    } } }),
+    toolCallResponse('stale-page', 'enterprise_query', { collection: 'contacts', offset: 2, limit: 2, generation: 0, revision: 3 }),
+    textResponse('The records changed. Restart pagination before continuing.'),
+  ]);
+  for (const [index, id] of ['a', 'b', 'c'].entries()) f.store.executeReceipt({ generation: 0, revision: index,
+    commandId: `seed-${id}`, command: { type: 'contact.upsert', contact: { ...contact, id } } });
+  f.ctx.on('approval/request', async event => {
+    assert.equal(event.callId, 'change-contact');
+    return 'allowed-once';
+  });
+  const { events, calls, results } = await f.run();
+  assert.equal(results.length, 5);
+  for (const index of [0, 1, 3]) assert.equal(results[index].isError, false);
+  for (const [index, code] of [[2, 'invalid_request'], [4, 'revision_conflict']]) {
+    assert.equal(results[index].isError, true);
+    assert.match(results[index].content[0].text, new RegExp(`^Error: ${code}:`));
+  }
+  const recorded = {
+    tools: calls.map(call => call.data.name),
+    pages: results.slice(0, 2).map(result => {
+      const page = JSON.parse(result.content[0].text);
+      return { generation: page.generation, revision: page.revision, total: page.total, nextOffset: page.nextOffset, ids: page.records.map(row => row.id) };
+    }),
+    failures: [2, 4].map(index => results[index].content[0].text.split(':')[1].trim()),
+    approvals: events.filter(event => event.type === 'approval/decided').map(event => event.data.outcome),
+    committedRevision: f.store.overview().revision,
+  };
+  assert.deepEqual(recorded, JSON.parse(await readFile(new URL('expected/enterprise-pagination.json', import.meta.url), 'utf8')));
+});
+
 test('an ERP submission from the model records a real unavailable approval and leaves stock unchanged', { timeout: 30000 }, async t => {
   const f = await fixture(t, [
     toolCallResponse('submit-order', 'enterprise_command', { request: { generation: 0, revision: 2, commandId: 'submit-fixture-order', command: { type: 'order.submit', id: 'fixture-order' } } }),

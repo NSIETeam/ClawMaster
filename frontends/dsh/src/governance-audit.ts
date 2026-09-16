@@ -69,7 +69,7 @@ export function initializeResponsibilityHistory(db: DatabaseSync): void {
   if (db.prepare('SELECT sequence FROM responsibility_history LIMIT 1').get()) return;
   const meta = sqliteRow.parse(db.prepare('SELECT generation FROM enterprise_meta WHERE singleton=1').get());
   const generation = Number(meta.generation);
-  for (const value of db.prepare('SELECT revision, commandId, type, entityId FROM enterprise_audit ORDER BY revision').all()) {
+  for (const value of (db.prepare('SELECT revision, commandId, type, entityId FROM enterprise_audit ORDER BY revision') as IterableStatement).iterate()) {
     const row = sqliteRow.parse(value);
     appendResponsibility(db, { identity: { ...UNKNOWN_IDENTITY, source: 'migration' }, operation: String(row.type), outcome: 'legacy',
       commandId: String(row.commandId), entityId: String(row.entityId), generationBefore: generation, generationAfter: generation,

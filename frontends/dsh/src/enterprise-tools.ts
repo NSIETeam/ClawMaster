@@ -3,12 +3,12 @@ import { z } from 'zod';
 import { createHash, randomUUID } from 'node:crypto';
 import type { ExecutionIdentity } from './governance-audit.ts';
 import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
-import { parseEnterpriseRequest } from './enterprise-schema.ts';
+import { parseEnterpriseRequest, enterpriseQuerySchema } from './enterprise-schema.ts';
 import type ToolRuntime from '@deepseek-ai/dsh-tools';
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools';
 import type ApprovalService from '@deepseek-ai/dsh-user-approval';
 import type { EnterpriseStore, EnterprisePreparation } from './enterprise-host.ts';
-import { EnterpriseError, enterpriseId } from './enterprise-types.ts';
+import { EnterpriseError } from './enterprise-types.ts';
 import type { AuditEntry } from './enterprise-types.ts';
 import {
   enterpriseCommandOutput, enterpriseCommandParameters,
@@ -16,12 +16,7 @@ import {
 } from './enterprise-tool-schemas.ts';
 
 const safeInteger = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
-const querySchema = z.object({
-  collection: z.enum(['contacts', 'inventory', 'orders', 'audit']),
-  id: z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/).transform(enterpriseId).optional(),
-  search: z.string().trim().max(2000).optional(),
-  offset: safeInteger, limit: safeInteger.min(1), revision: safeInteger.optional(), generation: safeInteger.optional(),
-}).strict();
+const querySchema = enterpriseQuerySchema;
 const commandEnvelope = z.object({ request: z.unknown() }).strict();
 const configSchema = z.object({
   maxQueryRows: safeInteger.min(1).default(100),
@@ -101,7 +96,7 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
   };
   const definitions: ToolDefinition[] = [{
     name: 'enterprise_query',
-    description: `Query CRM contacts, inventory, purchase/sale orders or the durable audit log. Select one collection and filter by id or search; use offset/limit (maximum ${config.maxQueryRows}) and nextOffset to page. Carry generation and revision across pages and into writes. Results are limited to ${config.maxQueryBytes} UTF-8 bytes; a page may contain fewer rows than requested. Money is in CNY minor units.`,
+    description: `Query CRM contacts, inventory, purchase/sale orders or the durable audit log. Select one collection and filter by id, record text or collection-specific filters; use offset/limit (maximum ${config.maxQueryRows}) and nextOffset to page. Both generation and revision are required for every continuation and writes. Results are limited to ${config.maxQueryBytes} UTF-8 bytes; a page may contain fewer rows than requested. Money is in CNY minor units.`,
     parameters: enterpriseQueryParameters,
     output: { schema: enterpriseQueryOutput, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
     execute: (args, exec) => run(exec, async () => {

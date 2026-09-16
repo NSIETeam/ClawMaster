@@ -10,6 +10,7 @@ import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime';
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client';
 import { readFile, writeFile } from 'node:fs/promises';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
+import { enterpriseTransport } from './enterprise-transport.fixture.mjs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import vm from 'node:vm';
@@ -64,15 +65,15 @@ async function factories() {
 async function fixture(existing = true, enterpriseStore, localeKey = 'zh') {
   const selectedLocale = { active: localeKey };
   const { sidebar, frontend } = await factories();
+  const dataStore = enterpriseStore ?? await openEnterpriseStore(':memory:');
+  if (!enterpriseStore) cleanups.push(() => dataStore.close());
+  const transport = await enterpriseTransport(dataStore);
+  cleanups.push(() => transport.dispose());
   const request = vi.fn(async (path, init) => {
     expect(init.credentials).toBe('same-origin');
     if (path === '/api/clawmaster/workspace') return Response.json({ workspaceId: 'managed', path: '/synthetic/desk' });
     if (path === '/api/clawmaster/tasks?limit=50') return Response.json({ tasks: [], nextCursor: null });
-    if (path === '/api/clawmaster/enterprise') return Response.json(enterpriseStore?.snapshot() ?? { revision: 0, contacts: [], inventory: [], orders: [], audit: [] });
-    if (path === '/api/clawmaster/enterprise/command' && enterpriseStore) {
-      try { return Response.json(enterpriseStore.execute(JSON.parse(init.body))); }
-      catch (error) { return Response.json({ error: { code: error.code, message: error.message, currentRevision: error.currentRevision } }, { status: 409 }); }
-    }
+    if (path.startsWith('/api/clawmaster/enterprise')) return transport.fetch(path, init);
     throw new Error(`Unexpected enterprise request: ${path}`);
   });
   vi.stubGlobal('fetch', request);
@@ -280,7 +281,7 @@ it.each(['inventory', 'order'])('an ERP %s draft keeps its reviewed revision unt
   await openFromSettings(f, 'ERP 库存与订单');
   const panel = within(f.view.container);
   if (kind === 'order') fireEvent.click(panel.getByRole('button', { name: '订单', exact: true }));
-  fireEvent.click(panel.getByRole('button', { name: kind === 'inventory' ? '编辑' : '编辑草稿', exact: true }));
+  fireEvent.click(await panel.findByRole('button', { name: kind === 'inventory' ? '编辑' : '编辑草稿', exact: true }));
   const input = panel.getByRole('textbox', { name: kind === 'inventory' ? '供应商' : '备注', exact: true });
   fireEvent.change(input, { target: { value: 'Retained ERP draft' } });
   f.write(kind === 'inventory' ? { type: 'item.upsert', item: { ...f.item, stock: 6 } } : { type: 'order.save', order: { ...f.order, counterparty: 'Newer buyer' } });
@@ -293,6 +294,7 @@ it.each(['inventory', 'order'])('an ERP %s draft keeps its reviewed revision unt
   fireEvent.submit(panel.getByRole('form', { name: kind === 'inventory' ? '编辑物料' : '编辑草稿' }));
   await waitFor(() => expect(panel.getAllByRole('alert').some(alert => alert.textContent.includes('数据已更新'))).toBe(true));
   expect(f.store.snapshot()).toEqual(before);
+  await waitFor(() => expect(within(review).getByRole('button', { name: '已核对最新记录，保留草稿继续' }).disabled).toBe(false));
   fireEvent.click(within(review).getByRole('button', { name: '已核对最新记录，保留草稿继续' }));
   fireEvent.click(save);
   await waitFor(() => expect(f.store.snapshot().revision).toBe(before.revision + 1));
@@ -303,7 +305,7 @@ it.each(['delete', 'submit'])('a refreshed ERP %s confirmation must be reopened 
   await openFromSettings(f, 'ERP 库存与订单');
   const panel = within(f.view.container);
   fireEvent.click(panel.getByRole('button', { name: '订单', exact: true }));
-  fireEvent.click(panel.getByRole('button', { name: kind === 'delete' ? '删除' : '确认提交订单', exact: true }));
+  fireEvent.click(await panel.findByRole('button', { name: kind === 'delete' ? '删除' : '确认提交订单', exact: true }));
   f.write({ type: 'item.upsert', item: { ...f.item, stock: 5 } });
   const before = f.store.snapshot();
   fireEvent.click(panel.getByRole('button', { name: '刷新', exact: true }));
@@ -311,7 +313,7 @@ it.each(['delete', 'submit'])('a refreshed ERP %s confirmation must be reopened 
   expect(panel.getByRole('button', { name: kind === 'delete' ? '确认删除' : '提交并更新库存', exact: true }).disabled).toBe(true);
   expect(f.store.snapshot()).toEqual(before);
   fireEvent.click(panel.getByRole('button', { name: '取消', exact: true }));
-  fireEvent.click(panel.getByRole('button', { name: kind === 'delete' ? '删除' : '确认提交订单', exact: true }));
+  fireEvent.click(await panel.findByRole('button', { name: kind === 'delete' ? '删除' : '确认提交订单', exact: true }));
   fireEvent.click(panel.getByRole('button', { name: kind === 'delete' ? '确认删除' : '提交并更新库存', exact: true }));
   await waitFor(() => expect(f.store.snapshot().revision).toBe(before.revision + 1));
 });

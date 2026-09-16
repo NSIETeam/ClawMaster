@@ -17,12 +17,13 @@ test('capacity input limits reject unbounded workloads before creating workers',
 
 test('capacity diagnostic exercises built store writes, queries and restoration in isolated processes', async () => {
   const report = await runCapacity([10], 2);
-  assert.equal(report.evidencePlane, 'diagnostic-artifact');
+  assert.equal(report.evidencePlane, 'diagnostic-route-artifact');
   assert.match(report.artifact.sha256, /^[a-f0-9]{64}$/);
   const [tier] = report.observations;
   assert.equal(tier.seededAuditEntries, 50);
   assert.equal(tier.samples.length, 2);
-  assert.deepEqual(Object.keys(tier.metrics), ['open', 'list', 'search', 'auditTail', 'saveReceipt', 'snapshot', 'backup', 'restore']);
-  assert.ok(tier.metrics.snapshot.maxResponseBytes > tier.metrics.list.maxResponseBytes);
+  assert.deepEqual(Object.keys(tier.metrics), ['open', 'overview', 'list', 'search', 'auditTail', 'saveReceipt', 'backup', 'restore']);
+  assert.ok(tier.metrics.backup.maxResponseBytes > tier.metrics.list.maxResponseBytes);
+  assert.ok(tier.metrics.saveReceipt.maxResponseBytes < 400);
   assert.ok(tier.peakRssBytes > 0);
 });

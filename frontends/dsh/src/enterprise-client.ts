@@ -1,21 +1,23 @@
 /** Authenticated same-origin enterprise requests and observable optimistic-concurrency state. */
 import { z } from 'zod';
-import { parseEnterpriseBackup, parseEnterpriseRequest, parseEnterpriseSnapshot } from './enterprise-schema.ts';
+import { parseEnterpriseBackup, parseEnterpriseOverview, parseEnterprisePage, parseEnterpriseReceipt, parseEnterpriseRequest, parseEnterpriseSnapshot } from './enterprise-schema.ts';
 import {
-  enterpriseId, EnterpriseError, ENTERPRISE_BACKUP_PATH, ENTERPRISE_COMMAND_PATH, ENTERPRISE_RESTORE_PATH, ENTERPRISE_SNAPSHOT_PATH,
+  enterpriseId, EnterpriseError, ENTERPRISE_BACKUP_PATH, ENTERPRISE_COMMAND_PATH, ENTERPRISE_QUERY_PATH, ENTERPRISE_RESTORE_PATH, ENTERPRISE_SNAPSHOT_PATH,
   type EnterpriseBackup, type EnterpriseCommand, type EnterpriseCommandRequest, type EnterpriseErrorCode,
-  type EnterpriseId, type EnterpriseSnapshot,
+  type EnterpriseId, type EnterpriseOverview, type EnterpriseQueryPage, type EnterpriseQuerySpec, type EnterpriseSnapshot,
 } from './enterprise-types.ts';
 
 /** User-visible failure categories; transport failures leave mutation outcomes unresolved. */
-export type EnterpriseClientErrorCode = EnterpriseErrorCode | 'networkError' | 'invalidResponse' | 'pending_command' | 'stale_form';
+export type EnterpriseClientErrorCode = EnterpriseErrorCode | 'permission_denied' | 'networkError' | 'invalidResponse' | 'pending_command' | 'stale_form';
 
-/** A complete view of the client's current records and in-flight operations. */
+/** Current database counters and mutation state; records belong to individual bounded pages. */
 export interface EnterpriseClientState {
-  snapshot: EnterpriseSnapshot | null;
+  overview: EnterpriseOverview | null;
   loading: boolean;
   saving: boolean;
   pending: boolean;
+  /** A failed authoritative read requires refresh before further edits. */
+  readUnavailable: boolean;
   /** A restore response was lost; refresh reads the authoritative database before more writes. */
   restoreUncertain?: boolean;
   error: EnterpriseClientErrorCode | null;
@@ -23,19 +25,23 @@ export interface EnterpriseClientState {
 
 const failureSchema = z.object({ error: z.object({
   code: z.enum(['invalid_request', 'revision_conflict', 'command_conflict', 'not_found', 'duplicate_sku',
-    'referenced_item', 'submitted_order', 'insufficient_stock', 'numeric_overflow', 'storage_unavailable', 'storage_invalid']),
+    'referenced_item', 'submitted_order', 'insufficient_stock', 'numeric_overflow', 'storage_unavailable', 'storage_invalid', 'result_too_large', 'permission_denied']),
   message: z.string(), currentRevision: z.number().int().min(0).optional(),
 }) });
 
 /** HTTP implementation injectable for isolated transport tests. */
 export type EnterpriseFetch = (input: string, init: RequestInit) => Promise<Response>;
 
+class EnterpriseClientFailure extends Error {
+  constructor(readonly code: EnterpriseClientErrorCode, message: string) { super(message); }
+}
+
 /**
- * Owns business snapshots and one idempotent mutation at a time. Uncertain writes
+ * Owns business version counters and one idempotent mutation at a time. Uncertain writes
  * retain their original request until an explicit retry obtains a known outcome.
  */
 export class EnterpriseClient {
-  private state: EnterpriseClientState = { snapshot: null, loading: false, saving: false, pending: false, error: null };
+  private state: EnterpriseClientState = { overview: null, loading: false, saving: false, pending: false, readUnavailable: false, error: null };
   private readonly listeners = new Set<() => void>();
   private pendingRequest: EnterpriseCommandRequest | undefined;
   private restoreUncertain = false;
@@ -62,7 +68,7 @@ export class EnterpriseClient {
     for (const listener of this.listeners) listener();
   }
 
-  /** Read a validated snapshot without discarding inputs or unresolved writes. */
+  /** Read current counters without discarding inputs or unresolved writes. */
   async refresh(): Promise<void> {
     if (this.state.saving) return;
     const generation = ++this.generation;
@@ -71,26 +77,58 @@ export class EnterpriseClient {
       const response = await this.fetcher(ENTERPRISE_SNAPSHOT_PATH, { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
       let json: unknown;
       try { json = await response.json(); } catch {
-        if (generation === this.generation) this.set({ error: 'invalidResponse' });
+        if (generation === this.generation) this.set({ error: 'invalidResponse', readUnavailable: true });
         return;
       }
       if (generation !== this.generation) return;
       if (!response.ok) {
         const failure = failureSchema.safeParse(json);
-        this.set({ error: failure.success ? failure.data.error.code : 'invalidResponse' });
+        this.set({ error: failure.success ? failure.data.error.code : 'invalidResponse', readUnavailable: true });
         return;
       }
-      let snapshot: EnterpriseSnapshot;
-      try { snapshot = parseEnterpriseSnapshot(json); } catch {
-        this.set({ error: 'invalidResponse' });
+      let overview: EnterpriseOverview;
+      try { overview = parseEnterpriseOverview(json); } catch {
+        this.set({ error: 'invalidResponse', readUnavailable: true });
         return;
       }
       this.restoreUncertain = false;
-      this.set({ snapshot, pending: this.pendingRequest !== undefined, restoreUncertain: false });
+      this.set({ overview, pending: this.pendingRequest !== undefined, restoreUncertain: false, readUnavailable: false });
     } catch {
-      if (generation === this.generation) this.set({ error: 'networkError' });
+      if (generation === this.generation) this.set({ error: 'networkError', readUnavailable: true });
     } finally {
       if (generation === this.generation) this.set({ loading: false });
+    }
+  }
+
+  /**
+   * Read one page at the caller's reviewed database version.
+   * @param query Collection, bounded window, filters and generation/revision pair.
+   * @param signal Cancel a page whose component or filters have changed.
+   * @returns The validated page, never a partial enterprise snapshot.
+   */
+  async query(query: EnterpriseQuerySpec, signal?: AbortSignal): Promise<EnterpriseQueryPage> {
+    const generation = this.generation;
+    const parameters = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) if (value !== undefined) parameters.set(key, String(value));
+    try {
+      const response = await this.fetcher(`${ENTERPRISE_QUERY_PATH}?${parameters}`, { method: 'GET', credentials: 'same-origin', cache: 'no-store', ...(signal ? { signal } : {}) });
+      const json: unknown = await response.json();
+      if (!response.ok) {
+        const failure = failureSchema.safeParse(json);
+        if (!failure.success) throw new EnterpriseError('storage_invalid', 'Enterprise page response is invalid.');
+        throw new EnterpriseClientFailure(failure.data.error.code, failure.data.error.message);
+      }
+      const page = parseEnterprisePage(json);
+      if (page.collection !== query.collection || page.offset !== query.offset || page.records.length > query.limit
+        || (query.generation !== undefined && page.generation !== query.generation)
+        || (query.revision !== undefined && page.revision !== query.revision)
+        || (query.id !== undefined && page.records.some(record => 'id' in record ? record.id !== query.id : record.entityId !== query.id && record.commandId !== query.id))) {
+        throw new EnterpriseError('storage_invalid', 'Enterprise page does not match its request.');
+      }
+      return page;
+    } catch (error) {
+      if (generation === this.generation && !signal?.aborted) this.set({ error: error instanceof EnterpriseError || error instanceof EnterpriseClientFailure ? error.code : 'invalidResponse', readUnavailable: true });
+      throw error;
     }
   }
 
@@ -108,6 +146,7 @@ export class EnterpriseClient {
     this.generation++;
     this.set({ loading: false, saving: true, error: null });
     let outcomeKnown = false;
+    let restored = false;
     try {
       const response = await this.fetcher(ENTERPRISE_RESTORE_PATH, {
         method: 'POST', credentials: 'same-origin', cache: 'no-store',
@@ -119,19 +158,23 @@ export class EnterpriseClient {
         const failure = failureSchema.safeParse(json);
         if (!failure.success) throw new EnterpriseError('storage_invalid', 'Enterprise restore response is invalid.');
         outcomeKnown = true;
-        throw new EnterpriseError(failure.data.error.code, failure.data.error.message);
+        throw new EnterpriseClientFailure(failure.data.error.code, failure.data.error.message);
       }
       const snapshot = parseEnterpriseSnapshot(json);
       if (snapshot.generation !== expectedGeneration + 1
         || JSON.stringify({ ...snapshot, generation: backup.snapshot.generation }) !== JSON.stringify(backup.snapshot)) throw new EnterpriseError('storage_invalid', 'Enterprise restore acknowledgement is invalid.');
       outcomeKnown = true;
-      this.set({ snapshot, error: null });
+      restored = true;
+      this.set({ error: null });
       return snapshot;
     } catch (error) {
       this.restoreUncertain = !outcomeKnown;
-      this.set({ pending: this.restoreUncertain, restoreUncertain: this.restoreUncertain, error: error instanceof EnterpriseError ? error.code : 'networkError' });
+      this.set({ pending: this.restoreUncertain, restoreUncertain: this.restoreUncertain, error: error instanceof EnterpriseError || error instanceof EnterpriseClientFailure ? error.code : 'networkError' });
       throw error;
-    } finally { this.set({ saving: false }); }
+    } finally {
+      this.set({ saving: false });
+      if (restored) await this.refresh();
+    }
   }
 
   /**
@@ -144,8 +187,8 @@ export class EnterpriseClient {
   async execute(command: EnterpriseCommand, revision: number, reviewedGeneration = 0): Promise<boolean> {
     if (this.state.saving) return false;
     if (this.pendingRequest || this.restoreUncertain) { this.set({ error: 'pending_command' }); return false; }
-    if (!this.state.snapshot) { this.set({ error: 'storage_unavailable' }); return false; }
-    if (reviewedGeneration !== this.state.snapshot.generation) {
+    if (!this.state.overview) { this.set({ error: 'storage_unavailable' }); return false; }
+    if (reviewedGeneration !== this.state.overview.generation) {
       this.set({ error: 'stale_form' });
       return false;
     }
@@ -173,6 +216,7 @@ export class EnterpriseClient {
     this.generation++;
     this.pendingRequest = request;
     this.set({ loading: false, saving: true, pending: true, error: null });
+    let committed = false;
     try {
       const response = await this.fetcher(ENTERPRISE_COMMAND_PATH, {
         method: 'POST', credentials: 'same-origin', cache: 'no-store',
@@ -187,20 +231,27 @@ export class EnterpriseClient {
         this.set({ pending: false, error: failure.data.error.code });
         return false;
       }
-      let snapshot: EnterpriseSnapshot;
-      try { snapshot = parseEnterpriseSnapshot(json); } catch { this.set({ error: 'invalidResponse' }); return false; }
-      if (!snapshot.audit.some(entry => entry.commandId === request.commandId && entry.type === request.command.type)) {
+      let receipt;
+      try { receipt = parseEnterpriseReceipt(json); } catch { this.set({ error: 'invalidResponse' }); return false; }
+      const entityId = request.command.type === 'contact.upsert' ? request.command.contact.id
+        : request.command.type === 'item.upsert' ? request.command.item.id
+        : request.command.type === 'order.save' ? request.command.order.id : request.command.id;
+      if (receipt.commandId !== request.commandId || receipt.type !== request.command.type || receipt.entityId !== entityId
+        || receipt.generation !== request.generation || receipt.commandRevision !== request.revision + 1
+        || receipt.revision < receipt.commandRevision) {
         this.set({ error: 'invalidResponse' });
         return false;
       }
       this.pendingRequest = undefined;
-      this.set({ snapshot, pending: false, error: null });
+      committed = true;
+      this.set({ pending: false, error: null });
       return true;
     } catch {
       this.set({ error: 'networkError' });
       return false;
     } finally {
       this.set({ saving: false });
+      if (committed) await this.refresh();
     }
   }
 }

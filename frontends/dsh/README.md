@@ -95,7 +95,7 @@ The Host option `watchdogTasks.maxResponseBytes` sets the UTF-8 budget for compl
 
 Local mode identifies a device operator and uses explicitly labelled local owners. An embedding Host may configure `governance: { mode: 'enterprise', organizationId, authority }` using the trusted `GovernanceAuthority` interface in `src/governance-access.ts`. That authority must authenticate HTTP requests independently of the DSH desktop token, bind agent Sessions to initiating members, read current membership on each operation and consume object/revision/digest-bound approvals. Each database is bound to one organization; an existing local database cannot silently become enterprise data. HTTP and tool consumers check the same roles and resource grants, including after approval waits. Delegated grants cannot exceed the initiating member's grants. Every enterprise record mutation, task write and restore requires a different active approver; task result review is performed directly by an authorized human, and a submitting member cannot accept their own result. Committed task retries require current access and exact caller/content matching without consuming another approval. An unavailable authority fails the operation without local fallback.
 
-The complete enterprise snapshot includes audit bodies and requires organization-wide record and audit read access. Enterprise HTTP writes return only command receipt metadata, without snapshots or before/after record bodies; local desktop writes retain their snapshot response. Resource-scoped readers use the bounded `enterprise_query` tool.
+The enterprise overview contains versions, collection counts and configured page limits; it requires organization-wide record and audit read access. Every HTTP write returns only command receipt metadata, including in local desktop mode. Resource-scoped readers use `/api/clawmaster/enterprise/query` or `enterprise_query` with an authorized record ID; audit reads require their own permission.
 
 | Role | Allowed actions |
 | --- | --- |
@@ -126,7 +126,9 @@ The [profile patch](cordis.patch.yml) disables the official brand and adaptive d
 
 [PapaParse processing](src/business.ts) owns CSV syntax and serialization. [Enterprise storage](src/enterprise-host.ts) uses Node's SQLite and transactions; the HTTP routes and [AI tools](src/enterprise-tools.ts) share one store, command validation and revision checks. DSH's settings store remains configuration storage. Enterprise data does not enter the model automatically. The [enterprise decision](../../.agents/notes/implemented/bug-fix/2026-09-13-enterprise-reviewed-writes-and-bounded-queries.md) explains approval ownership, reviewed revisions and targeted reads. The [WatchDog request decision](../../.agents/notes/implemented/bug-fix/2026-09-13-watchdog-task-admission-and-attention.md) explains draft lifetime and pending-interaction projection.
 
-AI queries select one SQLite collection, bind user filters and paginate rows in SQL. A Unicode case-insensitive literal search over each record’s JSON text may scan the selected collection to count matches. Approval preparation reads only the target record and referenced stock; AI commits and exact retries return one durable receipt. The [capacity limits](#known-limitations-and-deferred-work) distinguish these paths from full manual snapshots and startup validation.
+Browser and AI queries select one SQLite collection, bind filters and paginate rows in SQL. Literal Unicode case-insensitive search covers text columns and order item IDs; audit search also covers stored before/after JSON. Matching counts can scan the selected collection. Sort and association indexes avoid full JSON construction during search; unfiltered audit continuations select an indexed revision range. Startup validates every record, audit revision, reference and responsibility hash by iteration, without a complete snapshot. Approval preparation reads only the target and referenced stock; all ordinary saves and retries return one durable receipt.
+
+`GET /api/clawmaster/enterprise` returns `{ generation, revision, counts, limits }`; `/query` accepts `collection`, `offset`, `limit`, both version fields and optional `id`, `search`, contact `stage`/`dueBefore`, inventory `lowStock` or order `kind`/`status`. Pages return `{ generation, revision, collection, offset, total, nextOffset, records }`. Every continuation requires both versions; edits or restores return `revision_conflict` rather than mixing datasets. The browser retains one page per visible list and resolves off-page editor records and SKU choices separately. Saving validates a receipt before refreshing counters; refresh failure does not revoke confirmed success. Whole-record byte limits apply to pages and newly committed audit entries: an oversized change rolls back with `result_too_large` (HTTP 413). Existing oversized data is preserved and requires an increased read budget.
 
 The Host plugin accepts these optional settings through its Cordis configuration. Storage paths must be absolute.
 
@@ -138,6 +140,7 @@ The Host plugin accepts these optional settings through its Cordis configuration
 | `dataTools.maxInputBytes` | `16777216` |
 | `dataTools.previewRows` / `previewColumns` / `previewCellChars` / `maxDiagnostics` | `10` / `8` / `120` / `10` |
 | `enterpriseTools.maxQueryRows` / `maxQueryBytes` | `100` / `262144` |
+| `enterpriseRead.maxPageRows` / `maxPageBytes` | `50` / `262144`; browser row limit ≥ 1 and UTF-8 byte limit ≥ 1024 |
 
 With the repository's supported Node runtime and this package's dependencies installed, run these commands from this directory:
 
@@ -187,7 +190,7 @@ The constraints below apply to this frontend and its local records.
 
 - The integration baseline is DSH `0.1.5-rc.2` with Cordis `4.0.2`. Compatibility covers the public services consumed here and the plugin combinations that are actually tested; it does not certify every DSH plugin.
 
-- CRM and ERP are local single-user records, not a shared multi-tenant enterprise system or an external ERP/CRM connector. Audit history is retained in full. Manual HTTP snapshots and save responses, along with startup semantic validation, still load all records and audit history. AI query pages and command receipts avoid unrelated collections, but unrestricted large-database capacity is not established. The data processor supports delimited text, not an XLSX workbook or a persistent spreadsheet service.
+- CRM and ERP are local single-user records, not a shared multi-tenant enterprise system or external ERP/CRM connectors. Audit history is retained in full. Explicit backup/restore still materializes the complete export and runs synchronously; these operations can consume substantial memory and block the Host. [Measured capacity](benchmarks/README.md) separates bounded everyday reads/writes from those operations and is not an unrestricted capacity guarantee. The data processor supports delimited text, not XLSX workbooks or a persistent spreadsheet service.
 
 - This package has no standalone installer-size commitment. The Tauri shell, DSH, Node runtime and third-party components have separate packaging and license obligations; this package uses Apache-2.0.
 

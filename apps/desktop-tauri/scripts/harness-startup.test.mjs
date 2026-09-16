@@ -220,6 +220,7 @@ export function apply(ctx) {
       assert.ok(entries.has(name), `全新主目录缺少默认客户端插件：${name}`)
     }
     const snapshotPath = '/api/clawmaster/enterprise'
+    const queryPath = '/api/clawmaster/enterprise/query?collection=contacts&offset=0&limit=1'
     const commandPath = '/api/clawmaster/enterprise/command'
     const restorePath = '/api/clawmaster/enterprise/restore'
     const backupPath = '/api/clawmaster/enterprise/backup'
@@ -249,6 +250,7 @@ export function apply(ctx) {
       method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(value),
     })
     assert.equal((await request(new URL(snapshotPath, first.base))).status, 401)
+    assert.equal((await request(new URL(queryPath, first.base))).status, 401)
     assert.equal((await post(first.base, commandPath, command)).status, 401)
     assert.equal((await post(first.base, restorePath, {})).status, 401)
     assert.equal((await request(new URL(backupPath, first.base))).status, 401)
@@ -345,7 +347,8 @@ export function apply(ctx) {
     const initial = await request(new URL(snapshotPath, first.base), { headers: authenticated })
     assert.equal(initial.status, 200)
     assert.equal(initial.headers.get('cache-control'), 'no-store')
-    assert.deepEqual(await initial.json(), { generation: 0, revision: 0, contacts: [], inventory: [], orders: [], audit: [] })
+    assert.deepEqual(await initial.json(), { generation: 0, revision: 0,
+      counts: { contacts: 0, inventory: 0, orders: 0, audit: 0, followups: 0, lowStock: 0 }, limits: { pageRows: 50, pageBytes: 262144 } })
     assert.equal((await post(first.base, workspacePath, { kind: 'invalid' }, authenticated)).status, 400)
     assert.equal((await stat(join(managedRoot, 'im'))).isDirectory(), true)
     for (const kind of ['tasks', 'desk']) await assert.rejects(stat(join(managedRoot, kind)), { code: 'ENOENT' })
@@ -366,12 +369,14 @@ export function apply(ctx) {
     assert.equal(desk.path, join(managedRoot, 'desk'))
     const saved = await post(first.base, commandPath, command, authenticated)
     assert.equal(saved.status, 200)
-    let expected = await saved.json()
-    assert.equal(expected.revision, 1)
-    assert.deepEqual(expected.contacts, [{ ...contact, updatedAt: expected.contacts[0]?.updatedAt }])
-    assert.ok(Number.isFinite(Date.parse(expected.contacts[0].updatedAt)))
-    assert.equal(expected.audit.length, 1)
-    assert.equal(expected.audit[0].commandId, command.commandId)
+    const receipt = await saved.json()
+    assert.deepEqual(receipt, { generation: 0, revision: 1, commandId: command.commandId, commandRevision: 1, entityId: contact.id, type: command.command.type, at: receipt.at })
+    assert.ok(Number.isFinite(Date.parse(receipt.at)))
+    const contacts = await request(new URL(queryPath, first.base), { headers: authenticated })
+    const selected = await contacts.json()
+    assert.deepEqual(selected.records, [{ ...contact, updatedAt: receipt.at }])
+    assert.equal(selected.total, 1)
+    assert.equal(selected.nextOffset, null)
     const backupResponse = await request(new URL(backupPath, first.base), { headers: authenticated })
     assert.equal(backupResponse.status, 200)
     const backup = await backupResponse.json()
@@ -379,7 +384,7 @@ export function apply(ctx) {
     assert.equal((await post(first.base, restorePath, confirmation, { ...authenticated, origin: 'https://foreign.invalid' })).status, 403)
     const restoreResponse = await post(first.base, restorePath, confirmation, authenticated)
     assert.equal(restoreResponse.status, 200)
-    expected = { ...expected, generation: 1 }
+    const expected = { ...backup.snapshot, generation: 1 }
     assert.deepEqual(await restoreResponse.json(), expected)
     assert.equal((await post(first.base, commandPath, command, authenticated)).status, 409)
     assert.equal((await post(first.base, restorePath, confirmation, authenticated)).status, 409)
@@ -397,7 +402,11 @@ export function apply(ctx) {
     assert.notEqual(new URL(second.base).port, new URL(first.base).port)
     const restored = await request(new URL(snapshotPath, second.base), { headers: { cookie: second.cookie } })
     assert.equal(restored.status, 200)
-    assert.deepEqual(await restored.json(), expected)
+    assert.deepEqual(await restored.json(), { generation: 1, revision: 1,
+      counts: { contacts: 1, inventory: 0, orders: 0, audit: 1, followups: 0, lowStock: 0 }, limits: { pageRows: 50, pageBytes: 262144 } })
+    const persistedContacts = await request(new URL(`${queryPath}&generation=1&revision=1`, second.base), { headers: { cookie: second.cookie } })
+    assert.equal(persistedContacts.status, 200)
+    assert.deepEqual((await persistedContacts.json()).records, expected.contacts)
     assert.deepEqual(await allocate('tools', second), desk)
     const secondAuthenticated = { cookie: second.cookie, origin: new URL(second.base).origin }
     const restoredNote = await request(noteUrl(second.base), { headers: secondAuthenticated })

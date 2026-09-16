@@ -103,6 +103,52 @@ export interface EnterpriseSnapshot {
   audit: AuditEntry[];
 }
 
+/** Versioned collection selection; continuations require both database versions. */
+export interface EnterpriseQuerySpec {
+  collection: 'contacts' | 'inventory' | 'orders' | 'audit';
+  id?: EnterpriseId;
+  search?: string;
+  stage?: ContactInput['stage'];
+  dueBefore?: string;
+  lowStock?: boolean;
+  kind?: OrderInput['kind'];
+  status?: BusinessOrder['status'];
+  offset: number;
+  limit: number;
+  revision?: number;
+  generation?: number;
+}
+
+/** One bounded collection page; absence here does not prove a record was deleted. */
+export interface EnterpriseQueryPage {
+  generation: number;
+  revision: number;
+  collection: EnterpriseQuerySpec['collection'];
+  offset: number;
+  total: number;
+  nextOffset: number | null;
+  records: Array<Contact | InventoryItem | BusinessOrder | AuditEntry>;
+}
+
+/** Counts and page limits at one database version, without business record bodies. */
+export interface EnterpriseOverview {
+  generation: number;
+  revision: number;
+  counts: { contacts: number; inventory: number; orders: number; audit: number; followups: number; lowStock: number };
+  limits: { pageRows: number; pageBytes: number };
+}
+
+/** Durable acknowledgement independent of all other records and audit history. */
+export interface EnterpriseCommandReceipt {
+  generation: number;
+  revision: number;
+  commandId: EnterpriseId;
+  commandRevision: number;
+  entityId: EnterpriseId;
+  type: EnterpriseCommand['type'];
+  at: string;
+}
+
 /** Complete operator backup, including command receipts needed for idempotent restore. */
 export interface EnterpriseBackup {
   schemaVersion: 1;
@@ -114,7 +160,7 @@ export interface EnterpriseBackup {
 /** Stable failure codes consumed by the UI; messages contain no SQL or filesystem paths. */
 export type EnterpriseErrorCode = 'invalid_request' | 'revision_conflict' | 'command_conflict'
   | 'not_found' | 'duplicate_sku' | 'referenced_item' | 'submitted_order'
-  | 'insufficient_stock' | 'numeric_overflow' | 'storage_unavailable' | 'storage_invalid';
+  | 'insufficient_stock' | 'numeric_overflow' | 'storage_unavailable' | 'storage_invalid' | 'result_too_large';
 
 /** Business failure with a stable client-safe code and optional current revision. */
 export class EnterpriseError extends Error {
@@ -134,11 +180,13 @@ export interface EnterpriseErrorResponse {
   error: { code: EnterpriseErrorCode; message: string; currentRevision?: number };
 }
 
-/** Authenticated DSH Fetch routes owned by this module. */
+/** Authenticated overview route; returns versions, counts and configured page limits. */
 export const ENTERPRISE_SNAPSHOT_PATH = '/api/clawmaster/enterprise';
+/** Authenticated bounded single-collection query route. */
+export const ENTERPRISE_QUERY_PATH = '/api/clawmaster/enterprise/query';
 /** Authenticated route returning a restore-capable backup envelope. */
 export const ENTERPRISE_BACKUP_PATH = '/api/clawmaster/enterprise/backup';
 /** Authenticated route for an explicitly confirmed atomic restore. */
 export const ENTERPRISE_RESTORE_PATH = '/api/clawmaster/enterprise/restore';
-/** Authenticated command route; successful responses contain the committed snapshot. */
+/** Authenticated command route; successful responses contain only the durable receipt. */
 export const ENTERPRISE_COMMAND_PATH = '/api/clawmaster/enterprise/command';

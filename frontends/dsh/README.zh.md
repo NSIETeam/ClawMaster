@@ -95,7 +95,7 @@ Host 选项 `watchdogTasks.maxResponseBytes` 设置完整任务响应的 UTF-8 �
 
 本地模式标识设备操作者，使用明确标记的本地负责人。嵌入式 Host 可通过 `src/governance-access.ts` 中的可信 `GovernanceAuthority` 接口配置 `governance: { mode: 'enterprise', organizationId, authority }`。该权威服务必须独立于 DSH 桌面令牌认证 HTTP 请求，将代理 Session 绑定至发起成员，每次操作读取当前成员权限，并消费绑定对象/修订/摘要的审批。每个数据库绑定一个组织；已有本地数据库不能静默转为企业数据。HTTP 与工具消费者检查相同的角色与资源授权，审批等待后也会重查。委派授权不能超过发起成员的权限。每次企业记录变更、任务写入和恢复都需要另一名有效审批者；任务结果由有权限的人工直接验收，提交结果的成员不能自行验收。已提交任务的重试仍检查当前权限及完全相同的调用者和内容，不再消费另一份批准。权威服务不可用时操作失败，不会回退到本地权限。
 
-完整企业快照包含审计正文，需要组织范围的记录与审计读取权限。企业 HTTP 写入仅返回命令回执元数据，不附带快照或变更前后记录正文；本地桌面写入仍返回快照。仅获部分资源权限的读取者使用有界的 `enterprise_query` 工具。
+企业概览包含版本、集合数量和已配置的分页上限，需要组织范围的记录与审计读取权限。所有 HTTP 写入仅返回命令回执元数据，本地桌面模式也相同。仅获部分资源权限的读取者使用 `/api/clawmaster/enterprise/query` 或 `enterprise_query`，传入有权限的记录 ID；审计读取需要独立权限。
 
 | 角色 | 允许的操作 |
 | --- | --- |
@@ -126,7 +126,9 @@ Host 选项 `watchdogTasks.maxResponseBytes` 设置完整任务响应的 UTF-8 �
 
 [PapaParse 处理代码](src/business.ts)负责 CSV 语法与序列化。[企业存储](src/enterprise-host.ts)使用 Node SQLite 和事务；HTTP 路由与 [AI 工具](src/enterprise-tools.ts)共用存储、命令校验和版本检查。DSH 设置存储仍用于配置。企业数据不会自动进入模型。[企业决策记录](../../.agents/notes/implemented/bug-fix/2026-09-13-enterprise-reviewed-writes-and-bounded-queries.zh.md)说明审批归属、已复核版本与定向读取；[WatchDog 请求决策记录](../../.agents/notes/implemented/bug-fix/2026-09-13-watchdog-task-admission-and-attention.zh.md)说明草稿生命周期与待处理交互投影。
 
-AI 查询选择一个 SQLite 集合，绑定用户筛选参数，并在 SQL 中对行分页。按 Unicode 小写转换的记录 JSON 文本字面搜索可能扫描所选集合以统计匹配数。审批准备只读取目标记录与关联库存；AI 提交和精确重试返回单条持久回执。[容量限制](#known-limitations-and-deferred-work)区分这些路径与完整人工快照及启动校验。
+浏览器与 AI 查询选择一个 SQLite 集合，绑定筛选参数并在 SQL 中分页。忽略 Unicode 大小写的字面搜索覆盖文本列和订单物料 ID；审计搜索还包含持久保存的变更前后 JSON。匹配计数可能扫描所选集合。排序与关联索引避免在搜索时构造全部 JSON；无筛选审计续页按有索引的修订区间读取。启动通过迭代校验每条记录、审计修订、引用和责任哈希，不构造完整快照。审批准备只读取目标与关联库存；所有普通保存和重试均返回单条持久回执。
+
+`GET /api/clawmaster/enterprise` 返回 `{ generation, revision, counts, limits }`；`/query` 接收 `collection`、`offset`、`limit`、两个版本字段，以及可选的 `id`、`search`、联系人 `stage`/`dueBefore`、库存 `lowStock` 或订单 `kind`/`status`。分页返回 `{ generation, revision, collection, offset, total, nextOffset, records }`。每次续页必须携带两个版本；编辑或恢复后返回 `revision_conflict`，不会混合不同数据集。浏览器为每个可见列表保留一页，另行查询页外编辑对象与 SKU 候选。保存先验证回执再刷新计数；刷新失败不撤销已确认成功。分页和新提交的审计条目都受完整记录字节上限约束：超限变更回滚并返回 `result_too_large`（HTTP 413）。已有超限数据原样保留，需要提高读取预算后访问。
 
 Host 插件通过 Cordis 配置接受以下可选设置。存储路径必须为绝对路径。
 
@@ -138,6 +140,7 @@ Host 插件通过 Cordis 配置接受以下可选设置。存储路径必须为�
 | `dataTools.maxInputBytes` | `16777216` |
 | `dataTools.previewRows` / `previewColumns` / `previewCellChars` / `maxDiagnostics` | `10` / `8` / `120` / `10` |
 | `enterpriseTools.maxQueryRows` / `maxQueryBytes` | `100` / `262144` |
+| `enterpriseRead.maxPageRows` / `maxPageBytes` | `50` / `262144`；浏览器行数上限 ≥ 1，UTF-8 字节上限 ≥ 1024 |
 
 在已准备好仓库支持的 Node 运行时和本包依赖后，在本目录执行以下命令：
 
@@ -187,7 +190,7 @@ ClawMaster profile 为新 Session 选择 DSH `read-only` 文件访问与 `ask` �
 
 - 集成基线为 DSH `0.1.5-rc.2` 与 Cordis `4.0.2`。兼容范围限于本包使用的公开服务和实际测试过的插件组合，不代表所有 DSH 插件均已认证兼容。
 
-- CRM 和 ERP 是本地单用户记录功能，不是多人共享的多租户企业系统，也不是外部 ERP/CRM 连接器。审计历史完整保留。人工 HTTP 快照与保存响应、启动语义校验仍会载入全部记录和审计历史。AI 查询分页与命令回执避免读取无关集合，但尚未建立无上限大库容量保证。数据处理器支持分隔文本，不支持 XLSX 工作簿或持久化电子表格服务。
+- CRM 和 ERP 是本地单用户记录功能，不是多人共享的多租户企业系统或外部 ERP/CRM 连接器。审计历史完整保留。显式备份/恢复仍会实体化完整导出并同步执行，可能占用大量内存并阻塞 Host。[容量实测](benchmarks/README.zh.md)区分有界日常读写与这些操作，不构成无限容量保证。数据处理器支持分隔文本，不支持 XLSX 工作簿或持久化电子表格服务。
 
 - 本包不承诺独立安装器体积。Tauri 壳、DSH、Node 运行时与第三方组件分别具有各自的打包和许可要求；本包采用 Apache-2.0。
 

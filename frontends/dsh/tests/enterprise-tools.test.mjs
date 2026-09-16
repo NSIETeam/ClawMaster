@@ -63,7 +63,7 @@ test('approved CRM and draft commands use shared transactions and queries expose
   assert.equal(first.value.nextOffset, 2);
   assert.equal(first.value.total, 3);
   assert.deepEqual(JSON.parse(resultText(first)), first.value);
-  const second = await h.execute('enterprise_query', { collection: 'contacts', offset: 2, limit: 2, revision: first.value.revision });
+  const second = await h.execute('enterprise_query', { collection: 'contacts', offset: 2, limit: 2, revision: first.value.revision, generation: first.value.generation });
   assert.equal(second.value.records.length, 1);
   assert.equal(second.value.nextOffset, null);
   const exact = await h.execute('enterprise_query', { collection: 'contacts', id: 'crm-1', offset: 0, limit: 1 });
@@ -77,7 +77,7 @@ test('approved CRM and draft commands use shared transactions and queries expose
   assert.equal(draft.isError, false, resultText(draft));
   assert.equal((await h.execute('enterprise_query', { collection: 'orders', offset: 0, limit: 1 })).value.records[0].status, 'draft');
   assert.equal(approvals, 4);
-  const stale = await h.execute('enterprise_query', { collection: 'contacts', offset: 2, limit: 2, revision: first.value.revision });
+  const stale = await h.execute('enterprise_query', { collection: 'contacts', offset: 2, limit: 2, revision: first.value.revision, generation: first.value.generation });
   assert.equal(stale.isError, true);
   assert.match(resultText(stale), /revision_conflict/);
   assert.equal((await h.execute('enterprise_query', { collection: 'contacts', offset: 0, limit: 3 })).isError, true);
@@ -346,7 +346,7 @@ test('approved CRM replay returns the committed receipt without asking or applyi
   assert.equal(asked, 1);
 });
 
-test('collection pages preserve Unicode and literal JSON search with revision-checked pagination', async t => {
+test('collection pages search Unicode text fields and retain both versions across pagination', async t => {
   const h = await setup(t, { maxQueryRows: 2 });
   seed(h.store);
   h.store.execute(request(h.store, { type: 'contact.upsert', contact: { ...contact, id: 'unicode-a', name: 'ÉCOLE', company: 'Åsa % _', nextAction: 'quoted "owner"\\path' } }));
@@ -354,11 +354,16 @@ test('collection pages preserve Unicode and literal JSON search with revision-ch
   const baseline = h.store.snapshot();
   for (const collection of ['contacts', 'inventory', 'orders', 'audit']) {
     for (const search of ['', 'ÉCOLE', 'ÅSA', 'owner', '%', '_', '"name":', "' OR 1=1 --"]) {
-      const expected = baseline[collection].filter(row => JSON.stringify(row).toLowerCase().includes(search.toLowerCase()));
+      const expected = baseline[collection].filter(row => {
+        const fields = Object.entries(row).filter(([key, value]) => typeof value === 'string' && key !== 'commandId').map(([, value]) => value);
+        if (collection === 'audit') fields.push(row.commandId, JSON.stringify(row.before), JSON.stringify(row.after));
+        if (collection === 'orders') fields.push(...row.lines.map(line => line.itemId));
+        return fields.some(value => value.toLowerCase().includes(search.toLowerCase()));
+      });
       const received = [];
       let offset = 0;
       do {
-        const result = await h.execute('enterprise_query', { collection, search, offset, limit: 2, revision: baseline.revision });
+        const result = await h.execute('enterprise_query', { collection, search, offset, limit: 2, revision: baseline.revision, generation: baseline.generation });
         assert.equal(result.isError, false, resultText(result));
         assert.equal(result.value.total, expected.length);
         received.push(...result.value.records);
@@ -373,12 +378,12 @@ test('collection pages preserve Unicode and literal JSON search with revision-ch
     assert.deepEqual(result.value.records, expected.slice(0, 2));
     assert.equal(result.value.total, expected.length);
   }
-  const beyond = await h.execute('enterprise_query', { collection: 'contacts', offset: 100, limit: 1 });
+  const beyond = await h.execute('enterprise_query', { collection: 'contacts', offset: 100, limit: 1, revision: baseline.revision, generation: baseline.generation });
   assert.deepEqual(beyond.value.records, []);
   assert.equal(beyond.value.total, baseline.contacts.length);
   assert.equal(beyond.value.nextOffset, null);
   h.store.executeReceipt({ revision: baseline.revision, commandId: randomUUID(), command: { type: 'contact.upsert', contact } });
-  const stale = await h.execute('enterprise_query', { collection: 'contacts', offset: 2, limit: 1, revision: baseline.revision });
+  const stale = await h.execute('enterprise_query', { collection: 'contacts', offset: 2, limit: 1, revision: baseline.revision, generation: baseline.generation });
   assert.equal(stale.isError, true);
   assert.match(resultText(stale), /revision_conflict/);
 });

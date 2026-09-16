@@ -1,0 +1,10 @@
+{
+  "tools": ["enterprise_query", "enterprise_query", "enterprise_query", "enterprise_command", "enterprise_query"],
+  "pages": [
+    {"generation": 0, "revision": 3, "total": 3, "nextOffset": 2, "ids": ["a", "b"]},
+    {"generation": 0, "revision": 3, "total": 3, "nextOffset": null, "ids": ["c"]}
+  ],
+  "failures": ["invalid_request", "revision_conflict"],
+  "approvals": ["allowed-once"],
+  "committedRevision": 4
+}

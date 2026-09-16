@@ -62,12 +62,17 @@ export const enterpriseCommandParameters = {
   additionalProperties: false,
 };
 
-/** Paginated single-collection query, with an optional revision fence across pages. */
+/** Paginated collection query; every continuation retains both database versions. */
 export const enterpriseQueryParameters = {
   ...parameterSchemaSpecToJsonSchema({
     collection: { ...text, enum: ['contacts', 'inventory', 'orders', 'audit'] },
     id: { type: 'string', description: 'Exact record id; audit queries match entityId or commandId.' },
-    search: { type: 'string', description: 'Case-insensitive substring of record text. Combine with id to narrow results.' },
+    search: { type: 'string', description: 'Case-insensitive literal substring of text fields (and order item ids); audit also searches stored before/after JSON. JSON field names and numeric fields are not searched in business collections.' },
+    stage: { type: 'string', enum: ['lead', 'contacted', 'proposal', 'won', 'lost'], description: 'Contacts only.' },
+    dueBefore: { type: 'string', description: 'Contacts only: due on or before YYYY-MM-DD, excluding won/lost.' },
+    lowStock: { type: 'boolean', description: 'Inventory only: stock <= reorderAt when true, otherwise stock > reorderAt.' },
+    kind: { type: 'string', enum: ['purchase', 'sale'], description: 'Orders only.' },
+    status: { type: 'string', enum: ['draft', 'submitted'], description: 'Orders only.' },
     offset: { ...integer, description: 'Zero-based offset in the filtered results.' },
     limit: { ...integer, description: 'Requested positive page size, bounded by the configured maximum.' },
     revision: { type: 'integer', description: 'Use the previous page revision to reject a changed dataset.' },

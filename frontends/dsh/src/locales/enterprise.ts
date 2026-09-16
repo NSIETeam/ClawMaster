@@ -3,6 +3,7 @@ import type { ProductLocale } from './frontend.ts';
 import type { EnterpriseCommand } from '../enterprise-types.ts';
 
 const zh = {
+  previousPage: '上一页', nextPage: '下一页', pageNavigation: '记录分页', itemLookup: '搜索可选物料', resultTooLarge: '这条记录超过当前读取上限，请缩小内容或联系管理员调整容量配置。', permissionDenied: '当前账号没有权限执行此操作，或尚未获得所需审批。',
   draftChanged: '记录已更新，当前输入已保留。请核对下面的最新记录，再决定是否用当前草稿保存。',
   latestRecord: '最新记录', reviewedDraft: '已核对最新记录，保留草稿继续', recordUnavailable: '记录已删除或订单已提交，请取消编辑并查看最新记录。',
   confirmationChanged: '记录已更新，本次确认已失效。请取消后重新打开并核对。',
@@ -33,6 +34,7 @@ const zh = {
 
 type EnterpriseCopy = { [K in keyof typeof zh]: string };
 const en: EnterpriseCopy = {
+  previousPage: 'Previous page', nextPage: 'Next page', pageNavigation: 'Record pages', itemLookup: 'Search available items', resultTooLarge: 'This record exceeds the read limit. Reduce its content or ask an administrator to adjust the capacity settings.', permissionDenied: 'Your account does not have permission for this operation, or the required approval is missing.',
   draftChanged: 'Records changed. Your inputs are retained. Review the latest record below before saving this draft.',
   latestRecord: 'Latest record', reviewedDraft: 'Reviewed latest record; keep my draft', recordUnavailable: 'The record was deleted or the order was submitted. Cancel editing and inspect the latest records.',
   confirmationChanged: 'Records changed and this confirmation expired. Cancel, reopen and review it.',

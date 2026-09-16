@@ -1,0 +1,13 @@
+{
+  "firstPage": [
+    "Contact 0No companyLeadNo next actionNo date scheduled EditDelete",
+    "Contact 1No companyLeadNo next actionNo date scheduled EditDelete"
+  ],
+  "secondPage": [
+    "Contact 2No companyLeadNo next actionNo date scheduled EditDelete",
+    "Contact 3No companyLeadNo next actionNo date scheduled EditDelete"
+  ],
+  "navigation": "Records displayed: 3–4 / 4Previous pageNext page",
+  "latest": "Records changed. Your inputs are retained. Review the latest record below before saving this draft.NameContact 2CompanyLatest off-page companyStageLeadNext actionNo next actionFollow-up dateNo date scheduledReviewed latest record; keep my draft",
+  "retained": "Retained off-page draft"
+}

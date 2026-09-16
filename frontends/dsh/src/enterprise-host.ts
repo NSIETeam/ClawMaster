@@ -9,15 +9,16 @@ import type { ExecutionIdentity } from './governance-audit.ts';
 import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
 import { initializeTasks, resolveWatchdogTaskConfig, WatchdogTaskStore, type WatchdogTaskConfig } from './watchdog-tasks.ts';
 import {
-  EnterpriseError, ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH,
+  EnterpriseError, ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH, ENTERPRISE_QUERY_PATH,
   ENTERPRISE_BACKUP_PATH, ENTERPRISE_RESTORE_PATH,
 } from './enterprise-types.ts';
 import type {
-  EnterpriseBackup, AuditEntry, BusinessOrder, Contact, EnterpriseCommand, EnterpriseCommandRequest, EnterpriseSnapshot, InventoryItem, EnterpriseId,
+  EnterpriseBackup, AuditEntry, BusinessOrder, Contact, EnterpriseCommand, EnterpriseCommandRequest, EnterpriseSnapshot, InventoryItem,
+  EnterpriseQuerySpec, EnterpriseQueryPage, EnterpriseOverview,
 } from './enterprise-types.ts';
 import {
   contactSchema, itemSchema, orderSchema, auditSchema, parseEnterpriseRequest,
-  parseEnterpriseBackup, parseEnterpriseRestoreRequest, parseEnterpriseSnapshot, enterpriseOrderTotal,
+  parseEnterpriseBackup, parseEnterpriseRestoreRequest, parseEnterpriseSnapshot, enterpriseOrderTotal, parseEnterpriseQuery,
 } from './enterprise-schema.ts';
 
 const SCHEMA_VERSION = 4;
@@ -33,27 +34,16 @@ interface IterableStatement extends StatementSync {
   iterate(...parameters: Array<string | number>): IterableIterator<unknown>;
 }
 
-/** Collection-scoped query already validated by the tool parser. */
-export interface EnterpriseQuerySpec {
-  collection: 'contacts' | 'inventory' | 'orders' | 'audit';
-  id?: EnterpriseId;
-  search?: string;
-  offset: number;
-  limit: number;
-  revision?: number;
-  generation?: number;
-}
+export type { EnterpriseQuerySpec, EnterpriseQueryPage } from './enterprise-types.ts';
 
-/** Bounded tool page; total counts matching records before pagination. */
-export interface EnterpriseQueryPage {
-  generation: number;
-  revision: number;
-  collection: EnterpriseQuerySpec['collection'];
-  offset: number;
-  total: number;
-  nextOffset: number | null;
-  records: Array<Contact | InventoryItem | BusinessOrder | AuditEntry>;
+/** Deployment bounds for browser pages and newly committed individual audit records. */
+export interface EnterpriseReadConfig {
+  /** Maximum browser records per page; defaults to 50. */
+  maxPageRows?: number;
+  /** Maximum UTF-8 bytes per browser page; defaults to 262144. */
+  maxPageBytes?: number;
 }
+const readConfigSchema = z.object({ maxPageRows: integer.min(1).default(50), maxPageBytes: integer.min(1024).default(262144) }).strict();
 
 /** Current revision and one durable command receipt. */
 export interface EnterpriseCommitReceipt { generation: number; revision: number; receipt: AuditEntry; }
@@ -73,24 +63,55 @@ const jsonFields = (columns: readonly string[]): string => columns.map(column =>
 const orderLinesJson = `(SELECT json_group_array(json(line)) FROM (SELECT json_object('itemId', itemId, 'quantity', quantity, 'unitPriceMinorUnits', unitPriceMinorUnits) AS line FROM order_lines WHERE orderId = r.id ORDER BY position))`;
 const collections = {
   contacts: { table: 'contacts', order: 'r.name, r.id', schema: contactSchema,
+    search: ['id', 'name', 'company', 'stage', 'nextAction', 'nextActionDate', 'updatedAt'],
     json: `json_object(${jsonFields(['id', 'name', 'company', 'stage', 'nextAction', 'nextActionDate', 'updatedAt'])})` },
   inventory: { table: 'inventory', order: 'r.sku, r.id', schema: itemSchema,
+    search: ['id', 'sku', 'name', 'supplier', 'updatedAt'],
     json: `json_object(${jsonFields(['id', 'sku', 'name', 'stock', 'reorderAt', 'supplier', 'updatedAt'])})` },
   orders: { table: 'orders', order: 'r.updatedAt DESC, r.id', schema: orderSchema,
+    search: ['id', 'kind', 'counterparty', 'orderDate', 'currency', 'note', 'status', 'updatedAt', 'submittedAt'],
     json: `json_object(${jsonFields(['id', 'kind', 'counterparty', 'orderDate', 'currency'])}, 'lines', json(${orderLinesJson}), ${jsonFields(['note', 'status', 'totalMinorUnits', 'updatedAt', 'submittedAt'])})` },
   audit: { table: 'enterprise_audit', order: 'r.revision DESC', schema: auditSchema,
+    search: ['commandId', 'entityId', 'at', 'type', 'beforeJson', 'afterJson'],
     json: `json_object(${jsonFields(['revision', 'commandId', 'entityId', 'at', 'type'])}, 'before', json(r.beforeJson), 'after', json(r.afterJson))` },
 } as const;
+
+function verifyEnterpriseRecords(db: DatabaseSync): void {
+  integer.parse(sqliteRow.parse(db.prepare('SELECT generation FROM enterprise_meta WHERE singleton=1').get()).generation);
+  const revision = integer.parse(sqliteRow.parse(db.prepare('SELECT revision FROM enterprise_meta WHERE singleton=1').get()).revision);
+  for (const [table, column] of [['contacts', 'id'], ['inventory', 'id'], ['inventory', 'sku'], ['orders', 'id'], ['enterprise_audit', 'commandId']]) {
+    if (db.prepare(`SELECT 1 FROM ${table} GROUP BY ${column} HAVING COUNT(*) > 1 LIMIT 1`).get()) {
+      throw new EnterpriseError('storage_invalid', 'Enterprise records contain duplicate identifiers.');
+    }
+  }
+  if (db.prepare('SELECT 1 FROM order_lines l LEFT JOIN inventory i ON i.id=l.itemId WHERE i.id IS NULL LIMIT 1').get()) {
+    throw new EnterpriseError('storage_invalid', 'Enterprise orders reference missing inventory.');
+  }
+  for (const collection of ['contacts', 'inventory', 'orders'] as const) {
+    const source = collections[collection];
+    for (const row of (db.prepare(`SELECT ${source.json} AS recordJson FROM ${source.table} r`) as IterableStatement).iterate()) {
+      source.schema.parse(JSON.parse(String(sqliteRow.parse(row).recordJson)));
+    }
+  }
+  let expected = revision;
+  for (const row of (db.prepare(`SELECT ${collections.audit.json} AS recordJson FROM enterprise_audit r ORDER BY revision DESC`) as IterableStatement).iterate()) {
+    const entry = auditSchema.parse(JSON.parse(String(sqliteRow.parse(row).recordJson)));
+    if (entry.revision !== expected--) throw new EnterpriseError('storage_invalid', 'Enterprise audit revisions are not contiguous.');
+  }
+  if (expected !== 0) throw new EnterpriseError('storage_invalid', 'Enterprise audit history is incomplete.');
+}
 
 /** Public database owner; close is idempotent and rejects all subsequent operations. */
 export class EnterpriseStore {
   readonly tasks: WatchdogTaskStore;
+  readonly readLimits: Readonly<z.output<typeof readConfigSchema>>;
   private closed = false;
   private readonly db: DatabaseSync;
 
-  constructor(db: DatabaseSync, taskConfig: WatchdogTaskConfig = {}) {
+  constructor(db: DatabaseSync, taskConfig: WatchdogTaskConfig = {}, readConfig: EnterpriseReadConfig = {}) {
     this.db = db;
     this.tasks = new WatchdogTaskStore(db, taskConfig);
+    this.readLimits = Object.freeze(readConfigSchema.parse(readConfig));
     (db as SearchDatabase).function('clawmaster_contains', { deterministic: true }, (value, search) => {
       if (typeof value !== 'string' || typeof search !== 'string') throw new Error('Enterprise search requires text.');
       return Number(value.toLowerCase().includes(search));
@@ -202,6 +223,23 @@ export class EnterpriseStore {
     }
   }
 
+  /** Read versions and counts in one transaction without materializing business or audit bodies. */
+  overview(): EnterpriseOverview {
+    this.assertOpen();
+    this.db.exec('BEGIN');
+    try {
+      const counts = z.object({ contacts: integer, inventory: integer, orders: integer, audit: integer, followups: integer, lowStock: integer }).strict().parse(
+        this.db.prepare(`SELECT (SELECT COUNT(*) FROM contacts) AS contacts, (SELECT COUNT(*) FROM inventory) AS inventory,
+          (SELECT COUNT(*) FROM orders) AS orders, (SELECT COUNT(*) FROM enterprise_audit) AS audit,
+          (SELECT COUNT(*) FROM contacts WHERE nextActionDate <= ? AND stage NOT IN ('won','lost')) AS followups,
+          (SELECT COUNT(*) FROM inventory WHERE stock <= reorderAt) AS lowStock`).get(new Date().toISOString().slice(0, 10)));
+      const result = { generation: this.generation(), revision: this.revision(), counts,
+        limits: { pageRows: this.readLimits.maxPageRows, pageBytes: this.readLimits.maxPageBytes } };
+      this.db.exec('COMMIT');
+      return result;
+    } catch (error) { this.db.exec('ROLLBACK'); throw error; }
+  }
+
   /**
    * Read only the requested collection and page in one SQLite read transaction.
    * @param query Validated filters, revision and pagination fields.
@@ -218,10 +256,20 @@ export class EnterpriseStore {
       parameters.push(query.id);
       if (query.collection === 'audit') parameters.push(query.id);
     }
-    if (query.search !== undefined) {
-      conditions.push(`clawmaster_contains(${source.json}, ?) = 1`);
-      parameters.push(query.search.toLowerCase());
+    if (query.search) {
+      const fields: string[] = source.search.map(column => `clawmaster_contains(COALESCE(r.${column}, ''), ?) = 1`);
+      parameters.push(...source.search.map(() => query.search!.toLowerCase()));
+      if (query.collection === 'orders') {
+        fields.push('EXISTS (SELECT 1 FROM order_lines l WHERE l.orderId = r.id AND clawmaster_contains(l.itemId, ?) = 1)');
+        parameters.push(query.search.toLowerCase());
+      }
+      conditions.push(`(${fields.join(' OR ')})`);
     }
+    if (query.stage !== undefined) { conditions.push('r.stage = ?'); parameters.push(query.stage); }
+    if (query.dueBefore !== undefined) { conditions.push("r.nextActionDate <= ? AND r.stage NOT IN ('won', 'lost')"); parameters.push(query.dueBefore); }
+    if (query.lowStock !== undefined) conditions.push(query.lowStock ? 'r.stock <= r.reorderAt' : 'r.stock > r.reorderAt');
+    if (query.kind !== undefined) { conditions.push('r.kind = ?'); parameters.push(query.kind); }
+    if (query.status !== undefined) { conditions.push('r.status = ?'); parameters.push(query.status); }
     const where = conditions.length === 0 ? '' : ` WHERE ${conditions.join(' AND ')}`;
     this.db.exec('BEGIN');
     try {
@@ -237,17 +285,22 @@ export class EnterpriseStore {
         generation, revision, collection: query.collection, offset: query.offset, total,
         nextOffset: query.offset + records.length < total ? query.offset + records.length : null, records,
       });
-      const rows = this.db.prepare(`SELECT ${source.json} AS recordJson FROM ${source.table} r${where} ORDER BY ${source.order} LIMIT ? OFFSET ?`);
-      for (const row of (rows as IterableStatement).iterate(...parameters, query.limit, query.offset)) {
+      const auditRange = query.collection === 'audit' && conditions.length === 0;
+      const rows = auditRange
+        ? this.db.prepare(`SELECT ${source.json} AS recordJson FROM enterprise_audit r WHERE r.revision <= ? ORDER BY r.revision DESC LIMIT ?`)
+        : this.db.prepare(`SELECT ${source.json} AS recordJson FROM ${source.table} r${where} ORDER BY ${source.order} LIMIT ? OFFSET ?`);
+      const rowParameters = auditRange ? [revision - query.offset, query.limit] : [...parameters, query.limit, query.offset];
+      for (const row of (rows as IterableStatement).iterate(...rowParameters)) {
         const serialized = z.object({ recordJson: z.string() }).strict().parse(row).recordJson;
         records.push(source.schema.parse(JSON.parse(serialized)));
         if (Buffer.byteLength(JSON.stringify(page()), 'utf8') > maxBytes) {
           records.pop();
-          if (records.length === 0) throw new Error('result_too_large: A record exceeds maxQueryBytes. Increase the configured page byte budget to read it.');
+          if (records.length === 0) throw new EnterpriseError('result_too_large', 'A record exceeds the configured page byte budget. Increase the budget to read it.');
           break;
         }
       }
       const result = page();
+      if (Buffer.byteLength(JSON.stringify(result), 'utf8') > maxBytes) throw new EnterpriseError('result_too_large', 'Page metadata exceeds the configured byte budget.');
       this.db.exec('COMMIT');
       return result;
     } catch (error) {
@@ -447,6 +500,11 @@ export class EnterpriseStore {
       const at = new Date().toISOString();
       const change = this.apply(request.command, at);
       const receipt = auditSchema.parse({ revision: revision + 1, commandId: request.commandId, type: request.command.type, entityId: change.id, at, before: change.before, after: change.after });
+      const bound = Number.MAX_SAFE_INTEGER;
+      const auditPage: EnterpriseQueryPage = { generation: bound, revision: bound, collection: 'audit', offset: bound - 1, total: bound, nextOffset: bound, records: [receipt] };
+      if (Buffer.byteLength(JSON.stringify(auditPage), 'utf8') > this.readLimits.maxPageBytes) {
+        throw new EnterpriseError('result_too_large', 'The change exceeds the configured audit page byte budget. Reduce the change or increase the budget.');
+      }
       this.db.prepare('INSERT INTO enterprise_audit (revision, commandId, type, entityId, at, commandJson, beforeJson, afterJson) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .run(revision + 1, request.commandId, request.command.type, change.id, at, JSON.stringify(request.command), JSON.stringify(change.before), JSON.stringify(change.after));
       this.db.prepare('UPDATE enterprise_meta SET revision = ? WHERE singleton = 1').run(revision + 1);
@@ -561,10 +619,12 @@ export class EnterpriseStore {
  * @param busyTimeoutMs Maximum SQLite writer-lock wait in milliseconds.
  * @param organizationId Organization bound to this database; local is the device-owned space.
  * @param taskConfig Response budget validated before any database file is created.
+ * @param readConfig Browser page and individual audit-record budgets validated before opening storage.
  * @returns An open database owner; callers must close it after removing its routes. Schema upgrades and ownership validation commit together or roll back together.
  */
-export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 5000, organizationId = 'local', taskConfig: WatchdogTaskConfig = {}): Promise<EnterpriseStore> {
+export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 5000, organizationId = 'local', taskConfig: WatchdogTaskConfig = {}, readConfig: EnterpriseReadConfig = {}): Promise<EnterpriseStore> {
   const taskLimits = resolveWatchdogTaskConfig(taskConfig);
+  const readLimits = readConfigSchema.parse(readConfig);
   z.number().int().min(0).max(60000).parse(busyTimeoutMs);
   z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/).parse(organizationId);
   if (databasePath !== ':memory:') {
@@ -614,14 +674,19 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
       initializeTasks(db);
       verifyResponsibility(db);
       if (sqliteRow.parse(db.prepare('PRAGMA quick_check').get()).quick_check !== 'ok'
-        || db.prepare('PRAGMA foreign_key_check').all().length > 0) {
+        || db.prepare('PRAGMA foreign_key_check').get() !== undefined) {
         throw new EnterpriseError('storage_invalid', 'Enterprise database integrity check failed.');
       }
+      verifyEnterpriseRecords(db);
+      db.exec(`CREATE INDEX IF NOT EXISTS contacts_name_id ON contacts(name, id);
+        CREATE INDEX IF NOT EXISTS contacts_followups ON contacts(nextActionDate, stage);
+        CREATE INDEX IF NOT EXISTS inventory_sku_id ON inventory(sku, id);
+        CREATE INDEX IF NOT EXISTS orders_updated_id ON orders(updatedAt DESC, id);
+        CREATE INDEX IF NOT EXISTS order_lines_item ON order_lines(itemId);
+        CREATE INDEX IF NOT EXISTS enterprise_audit_entity ON enterprise_audit(entityId, revision DESC);`);
       db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`);
     } catch (error) { db.exec('ROLLBACK'); throw error; }
-    const store = new EnterpriseStore(db, taskLimits);
-    store.snapshot();
-    return store;
+    return new EnterpriseStore(db, taskLimits, readLimits);
   } catch (error) {
     db.close();
     if (error instanceof EnterpriseError) throw error;
@@ -642,7 +707,7 @@ function errorResponse(error: unknown): Response {
   if (error instanceof z.ZodError) return Response.json({ error: { code: 'invalid_request', message: 'Request fields are invalid.' } }, { status: 400, headers: { 'cache-control': 'no-store' } });
   const failure = error instanceof EnterpriseError ? error
     : new EnterpriseError('storage_unavailable', 'Enterprise storage is unavailable.');
-  const status = failure.code === 'invalid_request' ? 400 : failure.code === 'not_found' ? 404
+  const status = failure.code === 'invalid_request' ? 400 : failure.code === 'not_found' ? 404 : failure.code === 'result_too_large' ? 413
     : failure.code === 'storage_invalid' || failure.code === 'storage_unavailable' ? 503 : 409;
   return Response.json({ error: {
     code: failure.code, message: failure.message,
@@ -660,8 +725,9 @@ export async function applyEnterpriseHost(ctx: EnterpriseHostContext, config: {
   databasePath: string;
   /** SQLite writer-lock wait, in milliseconds; 0 refuses contention immediately. */
   busyTimeoutMs?: number;
+  enterpriseRead?: EnterpriseReadConfig;
 }): Promise<() => Promise<void>> {
-  const store = await openEnterpriseStore(config.databasePath, config.busyTimeoutMs);
+  const store = await openEnterpriseStore(config.databasePath, config.busyTimeoutMs, 'local', {}, config.enterpriseRead);
   try {
     const remove = await mountEnterpriseRoutes(ctx, store);
     return async () => { try { await remove(); } finally { store.close(); } };
@@ -721,7 +787,32 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
           await caller.check('records.read');
           await caller.check('audit.read');
         });
-        return store.snapshot();
+        return store.overview();
+      }),
+    }));
+    disposers.push(ctx.connection.fetch.register({
+      path: ENTERPRISE_QUERY_PATH, methods: ['GET'], requestBody: 'buffered',
+      fetch: handle(async request => {
+        const search = new URL(request.url).searchParams;
+        if ([...search.keys()].some(key => search.getAll(key).length !== 1)) throw new EnterpriseError('invalid_request', 'Query fields must occur once.');
+        const fields: Record<string, unknown> = Object.fromEntries(search);
+        for (const key of ['offset', 'limit', 'revision', 'generation']) {
+          if (search.has(key)) {
+            if (!/^\d+$/.test(search.get(key)!)) throw new EnterpriseError('invalid_request', 'Pagination fields require nonnegative integers.');
+            fields[key] = Number(search.get(key));
+          }
+        }
+        if (search.has('lowStock')) {
+          if (!['true', 'false'].includes(search.get('lowStock')!)) throw new EnterpriseError('invalid_request', 'Stock filter requires true or false.');
+          fields.lowStock = search.get('lowStock') === 'true';
+        }
+        const query = parseEnterpriseQuery(fields);
+        if (query.limit > store.readLimits.maxPageRows) throw new EnterpriseError('invalid_request', 'Page size exceeds the configured maximum.');
+        const caller = await access.http(request);
+        const action = query.collection === 'audit' ? 'audit.read' : 'records.read';
+        await auditGovernanceOutcome(caller, store, action, undefined, () => caller.check(action, query.id ?? '*'));
+        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
+        return store.queryPage(query, store.readLimits.maxPageBytes);
       }),
     }));
     disposers.push(ctx.connection.fetch.register({
@@ -779,7 +870,6 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
             : checked;
         });
         if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
-        if (access.mode === 'local') return store.execute(parsed, identity);
         const { generation, revision, receipt } = store.executeReceipt(parsed, identity);
         return { generation, revision, commandId: receipt.commandId, commandRevision: receipt.revision,
           entityId: receipt.entityId, type: receipt.type, at: receipt.at };

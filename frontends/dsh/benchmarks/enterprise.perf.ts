@@ -1,4 +1,4 @@
-/** Repeatable, threshold-free capacity diagnostic for the production enterprise store. */
+/** Repeatable capacity measurements through built enterprise HTTP handlers with isolated synthetic storage. */
 import { execFileSync, spawn } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir, cpus, totalmem } from 'node:os';
@@ -10,7 +10,7 @@ import { build } from 'esbuild';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../../..');
-type Metric = { elapsedMs: number; eventLoopRoundtripMs: number; responseBytes: number | null; rssBeforeBytes: number; rssAfterBytes: number; heapAfterBytes: number };
+type Metric = { elapsedMs: number; eventLoopRoundtripMs: number; responseBytes: number | null; rssBeforeBytes: number; rssAfterBytes: number; heapAfterBytes: number; processPeakRssBytes: number };
 type Sample = { samples: Record<string, Metric>; peakRssBytes: number };
 
 /**
@@ -74,15 +74,16 @@ export async function runCapacity(tiers: readonly number[], repetitions: number)
         p95Ms: percentile(samples.map(sample => sample.samples[name]!.elapsedMs), 0.95),
         maxEventLoopRoundtripMs: Math.max(...samples.map(sample => sample.samples[name]!.eventLoopRoundtripMs)),
         maxResponseBytes: Math.max(...samples.map(sample => sample.samples[name]!.responseBytes ?? 0)),
+        maxProcessPeakRssBytes: Math.max(...samples.map(sample => sample.samples[name]!.processPeakRssBytes)),
       }]));
       observations.push({ recordsPerCollection: count, seededAuditEntries: count * 5, metrics, peakRssBytes: Math.max(...samples.map(sample => sample.peakRssBytes)), samples });
     }
     return {
-      schemaVersion: 1, measuredAt: new Date().toISOString(), evidencePlane: 'diagnostic-artifact',
+      schemaVersion: 2, measuredAt: new Date().toISOString(), evidencePlane: 'diagnostic-route-artifact',
       source: { commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), dirty: execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim() !== '' },
       artifact: { sha256: createHash('sha256').update(await readFile(worker)).digest('hex'), packages: 'external' },
       host: { platform: process.platform, arch: process.arch, node: process.version, cpus: cpus().length, totalMemoryBytes: totalmem() },
-      exclusions: ['release installation', 'HTTP authentication and transport', 'browser interaction and paint', 'cold filesystem cache', 'enforced timing budgets'], observations,
+      exclusions: ['release installation', 'DSH authentication carrier and network transport', 'browser interaction and paint', 'cold filesystem cache', 'enforced timing budgets'], observations,
     };
   } finally {
     await rm(artifact, { recursive: true, force: true });

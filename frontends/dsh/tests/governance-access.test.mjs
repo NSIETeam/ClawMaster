@@ -132,7 +132,7 @@ test('database organization binding blocks accidental local-data migration and c
   await assert.rejects(openEnterpriseStore(join(root, 'local.sqlite'), 5000, 'one'), { code: 'storage_invalid' });
 });
 
-test('complete snapshots require audit access and scoped contact writes expose only their receipt', async t => {
+test('global counts require broad access while scoped reads and writes expose only their authorized resource', async t => {
   const h = authorityFixture();
   const store = await openEnterpriseStore(':memory:', 5000, 'one');
   const routes = new Map();
@@ -141,11 +141,11 @@ test('complete snapshots require audit access and scoped contact writes expose o
   store.execute({ generation: 0, revision: 0, commandId: 'secret-seed', command: { type: 'contact.upsert',
     contact: { id: 'secret', name: 'Confidential customer', company: 'Private contract', stage: 'lead', nextAction: '', nextActionDate: null } } });
   const read = identity => routes.get('/api/clawmaster/enterprise')(new Request('http://fixture/enterprise', { headers: { authorization: identity } }));
-  assert.equal((await read('alice')).status, 403, 'records.read does not authorize audit bodies');
+  assert.equal((await read('alice')).status, 403, 'records.read does not authorize audit counts');
   assert.equal((await read('admin')).status, 200);
   h.members.set('alice', { active: true, roles: ['executor'], resources: ['customer'], policyVersion: 2 });
   h.members.set('audit', { active: true, roles: ['auditor'], resources: ['customer'], policyVersion: 2 });
-  assert.equal((await read('audit')).status, 403, 'scoped audit permission cannot read a complete snapshot');
+  assert.equal((await read('audit')).status, 403, 'scoped audit permission cannot inspect global counts');
   const command = { type: 'contact.upsert', contact: { id: 'customer', name: 'Approved customer', company: '', stage: 'lead', nextAction: '', nextActionDate: null } };
   const input = { generation: 0, revision: 1, commandId: 'scoped-write', command };
   h.grants.set(JSON.stringify({ organizationId: 'one', executorId: 'alice', action: 'records.write', resource: 'customer', commandId: input.commandId,
@@ -160,6 +160,16 @@ test('complete snapshots require audit access and scoped contact writes expose o
   assert.equal(body.revision, 2);
   assert.deepEqual(await (await send()).json(), body, 'replay retains the same limited response');
   assert.equal(store.snapshot().contacts.length, 2);
+  const page = (collection, id) => routes.get('/api/clawmaster/enterprise/query')(new Request(`http://fixture/enterprise/query?${new URLSearchParams({ collection, offset: '0', limit: '1', ...(id ? { id } : {}) })}`, {
+    headers: { authorization: 'alice' },
+  }));
+  for (const [collection, id] of [['contacts', undefined], ['contacts', 'secret'], ['audit', 'customer']]) assert.equal((await page(collection, id)).status, 403);
+  const allowed = await page('contacts', 'customer');
+  assert.equal(allowed.status, 200);
+  const selected = await allowed.json();
+  assert.equal(selected.total, 1);
+  assert.deepEqual(selected.records.map(row => row.id), ['customer']);
+  assert.equal(JSON.stringify(selected).includes('Confidential'), false);
 });
 
 for (const carrier of ['http', 'tool']) test(`${carrier} task writes require authoritative approval bound to exact content and retry without another grant`, async t => {

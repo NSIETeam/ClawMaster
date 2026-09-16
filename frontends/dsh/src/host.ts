@@ -2,7 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
-import { openEnterpriseStore, mountEnterpriseRoutes } from './enterprise-host.ts';
+import { openEnterpriseStore, mountEnterpriseRoutes, type EnterpriseReadConfig } from './enterprise-host.ts';
 import { applyEnterpriseTools, type EnterpriseToolConfig } from './enterprise-tools.ts';
 import { applyDataTools, type DataToolsConfig } from './data-tools.ts';
 import { applyManagedWorkspaces, type WorkspaceHostContext } from './workspace-host.ts';
@@ -23,6 +23,7 @@ interface HostConfig {
   busyTimeoutMs?: number;
   dataTools?: DataToolsConfig;
   enterpriseTools?: EnterpriseToolConfig;
+  enterpriseRead?: EnterpriseReadConfig;
   runtimeGovernance?: RuntimeGovernanceConfig;
   watchdogTasks?: WatchdogTaskConfig;
 }
@@ -48,7 +49,7 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
   applyPermissionGovernance(ctx);
   ctx.effect(() => applyManagedWorkspaces(ctx, managedRoot), 'clawmaster: managed Workspace allocation');
   await ctx.effect(async () => {
-    const store = await openEnterpriseStore(databasePath, config.busyTimeoutMs, config.governance?.mode === 'enterprise' ? config.governance.organizationId : 'local', config.watchdogTasks);
+    const store = await openEnterpriseStore(databasePath, config.busyTimeoutMs, config.governance?.mode === 'enterprise' ? config.governance.organizationId : 'local', config.watchdogTasks, config.enterpriseRead);
     const consumers: Array<() => Promise<void>> = [];
     let disposal: Promise<void> | undefined;
     const close = (): Promise<void> => disposal ??= (async () => {
