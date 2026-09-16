@@ -52,7 +52,6 @@ export const enterpriseCommandParameters = {
     request: {
       type: 'object', additionalProperties: false, required: true,
       properties: {
-        generation: { ...integer, description: 'Current restore generation returned by enterprise_query. Requests from before a restore fail.' },
         revision: { ...integer, description: 'Current enterprise revision returned by enterprise_query. Stale writes fail.' },
         commandId: { ...id, description: 'Unique idempotency key. Retry the identical request with the same key.' },
         command,
@@ -71,7 +70,6 @@ export const enterpriseQueryParameters = {
     offset: { ...integer, description: 'Zero-based offset in the filtered results.' },
     limit: { ...integer, description: 'Requested positive page size, bounded by the configured maximum.' },
     revision: { type: 'integer', description: 'Use the previous page revision to reject a changed dataset.' },
-    generation: { type: 'integer', description: 'Carry the previous page restore generation together with revision.' },
   }),
   additionalProperties: false,
 };
@@ -97,7 +95,8 @@ export const enterpriseQueryOutput = valueSchemaSpecToJsonSchema({
 export const enterpriseCommandOutput = valueSchemaSpecToJsonSchema({
   type: 'object', additionalProperties: false,
   properties: {
-    generation: integer, revision: integer, commandId: id, commandRevision: integer, entityId: id,
+    generation: integer,
+    revision: integer, commandId: id, commandRevision: integer, entityId: id,
     type: { ...text, enum: ['contact.upsert', 'contact.remove', 'item.upsert', 'item.remove', 'order.save', 'order.remove', 'order.submit'] },
     at: text,
   },
