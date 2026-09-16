@@ -22,6 +22,8 @@ Status: implemented
 
 工作进程仅在 Host 最终授权检查之后追加成功责任记录。记录保留准确的已消费批准，以及该次检查观察到的策略版本；操作者、发起主体、组织或批准发生变化时，不能提交事务。
 
+下载路由没有请求体；只有上传路由选择流式请求处理。HTTP 传输层保留输入流所有权，直到能够发送结构化拒绝。导出在提供最后一个声明的响应字节前释放文件和容量，因此紧接着的导入不会与清理发生竞争。源码工作进程的选择读取 URL 路径，不受加载器查询元数据影响。
+
 ## 考虑过的替代方案
 
 **通过工作线程共享 Host 进程。** 实测 Node 24 在工作线程堆上限为 32 MiB 时解析 JSON，会触发进程级致命 OOM，终止 Host，而不是产生可捕获的工作线程错误。私有进程隔离此类失败，退出后返回可恢复的存储错误。
@@ -33,5 +35,7 @@ Status: implemented
 **删除校验以降低内存。** 这会放行不一致的引用和回执。原地逐行规范化减少重复保留的对象图，同时保留语义检查。
 
 ## 后果
+
+[HTTP 传输层回归](../../../../frontends/dsh/tests/enterprise-backup-carrier.scenario.mjs)通过实际套接字使用随产品交付的桥接层，验证导出后立即导入、超限分块上传，以及空闲上传在连接关闭前收到拒绝响应。
 
 [工作进程路由回归](../../../../frontends/dsh/tests/enterprise-backup-worker.test.mjs)覆盖真实 SQLite 事务、读取请求体前的字节限制、并发慢请求、过期、审批及最终提交时撤权，以及取消后独立写入者立即取得 SQLite 锁。[客户端测试](../../../../frontends/dsh/tests/enterprise-backup-client.test.mjs)丢弃已提交的响应，再恢复其回执，不覆盖后续编辑。[真实界面测试](../../../../frontends/dsh/tests/enterprise-restore.client.spec.tsx)覆盖文件准备、复核、取消与结果核对。[容量诊断](../../../../frontends/dsh/benchmarks/README.zh.md)使用编译的 Host 和工作进程产物测量三个档位；不包含安装平台与真实模型验收。

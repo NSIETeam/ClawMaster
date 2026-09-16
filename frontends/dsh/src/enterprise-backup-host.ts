@@ -66,7 +66,7 @@ export async function mountEnterpriseBackupRoutes(ctx: EnterpriseHostContext, st
   async function run(mode: 'prepare' | 'export' | 'restore', file: string, signal: AbortSignal,
     phase?: (phase: 'validated' | 'commitReady') => Promise<object>, restore?: RestoreBackupRequest): Promise<unknown> {
     signal.throwIfAborted();
-    const source = import.meta.url.endsWith('.ts');
+    const source = new NodeURL(import.meta.url).pathname.endsWith('.ts');
     // DSH's subprocess service has no IPC channel. This fixed private entry accepts no user argv and spawns no descendants.
     const worker = fork(new NodeURL(source ? './enterprise-backup-worker.ts' : './enterprise-backup-worker.js', import.meta.url), [], {
       cwd: fileURLToPath(new NodeURL('.', import.meta.url)),
@@ -116,12 +116,13 @@ export async function mountEnterpriseBackupRoutes(ctx: EnterpriseHostContext, st
     const fileHandle = await open(file, 'wx', 0o600);
     const reader = request.body.getReader();
     let count = 0;
-    const cancel = () => { void reader.cancel(signal.reason).catch(() => { /* The read loop reports cancellation and owns file cleanup. */ }); };
+    // The HTTP carrier owns the incoming stream; cancellation must not destroy its socket before the error response.
+    const cancel = () => { reader.releaseLock(); };
     signal.addEventListener('abort', cancel, { once: true });
     try {
       for (;;) {
         signal.throwIfAborted();
-        const { value, done } = await reader.read();
+        const { value, done } = await reader.read().catch(error => { signal.throwIfAborted(); throw error; });
         signal.throwIfAborted();
         if (done) break;
         count += value.byteLength;
@@ -131,11 +132,12 @@ export async function mountEnterpriseBackupRoutes(ctx: EnterpriseHostContext, st
       if (length !== null && count !== Number(length)) throw new EnterpriseError('invalid_request', 'Backup body length differs from its header.');
     } finally {
       signal.removeEventListener('abort', cancel);
-      try { await reader.cancel(); } finally { reader.releaseLock(); await fileHandle.close(); }
+      reader.releaseLock();
+      await fileHandle.close();
     }
   }
   const route = (path: string, methods: readonly ('GET' | 'POST')[], operation: (request: Request, signal: AbortSignal) => Promise<Response>) => {
-    removers.push(ctx.connection.fetch.register({ path, methods, requestBody: 'streaming', fetch: request => track((async () => {
+    removers.push(ctx.connection.fetch.register({ path, methods, requestBody: methods.includes('GET') ? 'buffered' : 'streaming', fetch: request => track((async () => {
       const signal = AbortSignal.any([request.signal, lifetime.signal, AbortSignal.timeout(limits.timeoutMs)]);
       signal.throwIfAborted();
       return await operation(request, signal);
@@ -191,14 +193,20 @@ export async function mountEnterpriseBackupRoutes(ctx: EnterpriseHostContext, st
           })());
           const abort = () => { void track(close()); };
           signal.addEventListener('abort', abort, { once: true }); streams.add(close); streaming = true;
+          let sentBytes = 0;
           const body = new ReadableStream<Uint8Array>({
             async pull(controller) {
               try {
                 signal.throwIfAborted();
-                const buffer = Buffer.allocUnsafe(limits.chunkBytes);
+                const buffer = Buffer.allocUnsafe(Math.min(limits.chunkBytes, raw.bytes - sentBytes));
                 const { bytesRead } = await handle.read(buffer);
                 signal.throwIfAborted();
-                if (!bytesRead) { await close(); controller.close(); } else controller.enqueue(buffer.subarray(0, bytesRead));
+                if (!bytesRead) throw new EnterpriseError('storage_invalid', 'Backup file ended before its declared length.');
+                sentBytes += bytesRead;
+                const complete = sentBytes === raw.bytes;
+                if (complete) await close();
+                controller.enqueue(buffer.subarray(0, bytesRead));
+                if (complete) controller.close();
               } catch (error) { await close(); controller.error(error); }
             }, async cancel() { await close(); },
           });

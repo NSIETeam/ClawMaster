@@ -139,7 +139,9 @@ test('disposal cancels a waiting upload without waiting for the sender and leave
   const response = f.fetch('/backup/prepare', { method: 'POST', headers: { 'content-type': 'application/json' }, body, duplex: 'half' });
   await gate.reached;
   await f.dispose();
-  assert.equal((await response).status, 503); assert.equal(cancelled, true);
+  assert.equal((await response).status, 503);
+  assert.equal(body.locked, false); assert.equal(cancelled, false, 'the carrier retains its socket until the refusal is sent');
+  await body.cancel(); assert.equal(cancelled, true);
   assert.equal(f.store.snapshot().generation, 0); assert.equal(f.routes.size, 0);
 });
 test('expired prepared files fail before target writes and concurrent jobs respect configured capacity', async t => {

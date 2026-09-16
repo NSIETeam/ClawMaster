@@ -378,7 +378,7 @@ export function apply(ctx) {
     assert.equal(selected.total, 1)
     assert.equal(selected.nextOffset, null)
     const backupResponse = await request(new URL(backupPath, first.base), { headers: authenticated })
-    assert.equal(backupResponse.status, 200)
+    assert.equal(backupResponse.status, 200, `Backup export: ${redact(await backupResponse.clone().text())}`)
     const backup = await backupResponse.json()
     const prepareResponse = await post(first.base, `${backupPath}/prepare`, backup, authenticated)
     assert.equal(prepareResponse.status, 200)
@@ -409,7 +409,7 @@ export function apply(ctx) {
       counts: { contacts: 1, inventory: 0, orders: 0, audit: 1, followups: 0, lowStock: 0 }, limits: { pageRows: 50, pageBytes: 262144 } })
     const persistedContacts = await request(new URL(`${queryPath}&generation=1&revision=1`, second.base), { headers: { cookie: second.cookie } })
     assert.equal(persistedContacts.status, 200)
-    assert.deepEqual((await persistedContacts.json()).records, expected.contacts)
+    assert.deepEqual((await persistedContacts.json()).records, selected.records)
     assert.deepEqual(await allocate('tools', second), desk)
     const secondAuthenticated = { cookie: second.cookie, origin: new URL(second.base).origin }
     const restoredNote = await request(noteUrl(second.base), { headers: secondAuthenticated })
@@ -432,7 +432,7 @@ export function apply(ctx) {
     assert.equal(host.child.signalCode, null)
     assert.equal(host.child.exitCode, null)
   } catch (error) {
-    throw new Error(`${redact(String(error))}\n${host?.diagnostics() ?? '(Host 尚未启动)'}`)
+    throw new Error(`${redact(error instanceof Error ? error.stack ?? String(error) : String(error))}\n${host?.diagnostics() ?? '(Host 尚未启动)'}`)
   } finally {
     if (previousPort) await withDeadline(new Promise((done, reject) => previousPort.close(error => {
       if (error && error.code !== 'ERR_SERVER_NOT_RUNNING') reject(error)

@@ -22,6 +22,8 @@ The executor is a fixed private Node artifact with no package bin, public argv o
 
 The worker appends the successful responsibility record only after the final Host authorization check. The record retains the exact consumed approval and the policy version observed at that check; a changed actor, principal, organization or approval cannot finalize the transaction.
 
+The download route has no request body; only upload routes select streaming request handling. The HTTP carrier retains ownership of incoming streams until it can send a structured refusal. Export releases its file and capacity before exposing the final declared response byte, so an immediately following import does not race cleanup. Source-worker selection reads the URL pathname independently of loader query metadata.
+
 ## Alternatives considered
 
 **Share the Host process through worker threads.** A tested Node 24 JSON parse at a 32 MiB worker heap cap triggers fatal process OOM, terminating the Host rather than producing a catchable worker error. A private process isolates this failure and returns a recoverable storage error after exit.
@@ -33,5 +35,7 @@ The worker appends the successful responsibility record only after the final Hos
 **Remove validation to lower memory.** It admits inconsistent references and receipts. In-place row normalization removes duplicate retained graphs while preserving semantic checks.
 
 ## Consequences
+
+[HTTP carrier regressions](../../../../frontends/dsh/tests/enterprise-backup-carrier.scenario.mjs) use the shipped bridge over real sockets to verify export followed immediately by import, oversized chunked uploads, and idle-upload refusal before connection close.
 
 [Private-process route regressions](../../../../frontends/dsh/tests/enterprise-backup-worker.test.mjs) exercise actual SQLite transactions, byte limits before body reads, concurrent slow bodies, expiry, approval and final-commit revocation, and cancellation followed by an independent writer acquiring SQLite immediately. [Client tests](../../../../frontends/dsh/tests/enterprise-backup-client.test.mjs) drop a committed response and recover its receipt without replacing later edits. [Rendered UI tests](../../../../frontends/dsh/tests/enterprise-restore.client.spec.tsx) cover file preparation, review, cancellation and result checks. The [capacity diagnostic](../../../../frontends/dsh/benchmarks/README.md) measures three tiers with compiled Host and worker artifacts; it excludes installed-platform and real-model acceptance.
