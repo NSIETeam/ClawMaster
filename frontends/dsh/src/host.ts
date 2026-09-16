@@ -12,6 +12,7 @@ import { applyRuntimeGovernance, type RuntimeGovernanceConfig } from './runtime-
 import { applyPermissionGovernance } from './permission-governance.ts';
 import { GovernanceAccess, type GovernanceConfiguration } from './governance-access.ts';
 import { mountWatchdogTasks } from './watchdog-task-host.ts';
+import type { WatchdogTaskConfig } from './watchdog-tasks.ts';
 
 type HostServices = Context & WorkspaceHostContext & OnboardingHostServices;
 
@@ -23,6 +24,7 @@ interface HostConfig {
   dataTools?: DataToolsConfig;
   enterpriseTools?: EnterpriseToolConfig;
   runtimeGovernance?: RuntimeGovernanceConfig;
+  watchdogTasks?: WatchdogTaskConfig;
 }
 
 export const name = 'clawmaster-watchdog-host';
@@ -46,7 +48,7 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
   applyPermissionGovernance(ctx);
   ctx.effect(() => applyManagedWorkspaces(ctx, managedRoot), 'clawmaster: managed Workspace allocation');
   await ctx.effect(async () => {
-    const store = await openEnterpriseStore(databasePath, config.busyTimeoutMs, config.governance?.mode === 'enterprise' ? config.governance.organizationId : 'local');
+    const store = await openEnterpriseStore(databasePath, config.busyTimeoutMs, config.governance?.mode === 'enterprise' ? config.governance.organizationId : 'local', config.watchdogTasks);
     const consumers: Array<() => Promise<void>> = [];
     let disposal: Promise<void> | undefined;
     const close = (): Promise<void> => disposal ??= (async () => {

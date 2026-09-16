@@ -48,7 +48,7 @@ test('task review rejects agent self-acceptance and stale revisions, preserving 
   const accepted = store.tasks.execute(LOCAL_HTTP_IDENTITY, request);
   assert.equal(accepted.status, 'accepted');
   assert.deepEqual(store.tasks.execute(LOCAL_HTTP_IDENTITY, request), accepted);
-  const history = store.tasks.history(LOCAL_HTTP_IDENTITY, 'task-1');
+  const history = store.tasks.history(LOCAL_HTTP_IDENTITY, 'task-1').tasks;
   assert.equal(history.length, 8);
   assert.deepEqual(history[3].evidence, submitted.evidence);
   assert.equal(history[4].lastReview.comment, 'Need updated evidence');

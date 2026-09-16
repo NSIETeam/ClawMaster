@@ -43,12 +43,14 @@ export const taskCommandParameters = { ...parameterSchemaSpecToJsonSchema({ id: 
 
 /** Bounded lookup arguments accepted by HTTP and the model tool. */
 export const taskQueryParameters = { ...parameterSchemaSpecToJsonSchema({
-  id: { type: 'string' }, offset: { type: 'integer' }, limit: { type: 'integer' }, history: { type: 'boolean' },
+  id: { type: 'string' }, offset: { type: 'integer' }, after: { type: 'integer' }, limit: { type: 'integer' }, history: { type: 'boolean' },
 }), additionalProperties: false };
 /** A committed task includes its business state and reviewed evidence. */
 export const taskCommandOutput = valueSchemaSpecToJsonSchema(task);
-/** Lookup returns exactly one task, a history array or a bounded list page. */
-export const taskQueryOutput = valueSchemaSpecToJsonSchema({ oneOf: [task, { type: 'array', items: task },
+/** Lookup returns one task or a complete-record page with its continuation cursor. */
+export const taskQueryOutput = valueSchemaSpecToJsonSchema({ oneOf: [task,
+  { type: 'object', additionalProperties: false, properties: { tasks: { type: 'array', required: true, items: task },
+    nextAfter: { required: true, oneOf: [{ type: 'integer' }, { type: 'null' }] } } },
   { type: 'object', additionalProperties: false, properties: { tasks: { type: 'array', required: true, items: task },
     nextOffset: { required: true, oneOf: [{ type: 'integer' }, { type: 'null' }] } } },
 ] });

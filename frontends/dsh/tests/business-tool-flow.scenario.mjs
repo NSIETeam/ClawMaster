@@ -25,11 +25,14 @@ import { applyDataTools } from '../src/data-tools.ts';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { applyRuntimeGovernance } from '../src/runtime-governance.ts';
+import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
+import { GovernanceAccess } from '../src/governance-access.ts';
+import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
 import * as Guard from '../../guard/src/index.ts';
 
 const contact = { id: 'synthetic-lead', name: 'Synthetic Customer', company: 'Fixture Company', stage: 'lead', nextAction: 'Review synthetic lead', nextActionDate: null };
 
-async function fixture(t, script, runtime = false) {
+async function fixture(t, script, runtime = false, tasks = false) {
   const root = await mkdtemp(join(tmpdir(), 'clawmaster-business-flow-'));
   const ctx = new Context();
   if (runtime) {
@@ -63,6 +66,11 @@ async function fixture(t, script, runtime = false) {
       if (runtime) applyRuntimeGovernance(context);
       const remove = await applyEnterpriseTools(context, store);
       context.effect(() => remove);
+      if (tasks) {
+        const removeTasks = await mountWatchdogTasks({ tools: context.tools, approval: context.approval,
+          connection: { fetch: { register() { return async () => {}; } } } }, store, new GovernanceAccess());
+        context.effect(() => removeTasks);
+      }
     },
   };
   const entries = [
@@ -214,4 +222,33 @@ test('an ERP submission from the model records a real unavailable approval and l
   assert.equal(decided.data.id, asked.data.id);
   assert.equal(decided.data.outcome, 'unavailable');
   assert.deepEqual(f.store.snapshot(), before);
+});
+
+test('task byte rejection and history continuation reach the model and survive exact JSONL replay', { timeout: 30000 }, async t => {
+  const task = { goal: 'Inspect fixture evidence', scope: 'Synthetic task', owner: { kind: 'local', label: 'Fixture operator' },
+    dueAt: null, timezone: 'UTC', risk: 'low', checklist: [{ id: 'done', description: 'Verify fixture evidence' }] };
+  const f = await fixture(t, [
+    toolCallResponse('create-task', 'watchdog_task_command', { id: 'budget-task', revision: 0, commandId: 'create-task', command: { type: 'create', task } }),
+    toolCallResponse('queue-task', 'watchdog_task_command', { id: 'budget-task', revision: 1, commandId: 'queue-task', command: { type: 'queue' } }),
+    toolCallResponse('history-first', 'watchdog_task_query', { id: 'budget-task', history: true, limit: 1 }),
+    toolCallResponse('history-next', 'watchdog_task_query', { id: 'budget-task', history: true, after: 1, limit: 1 }),
+    toolCallResponse('oversized-task', 'watchdog_task_command', { id: 'budget-task', revision: 2, commandId: 'oversized-task',
+      command: { type: 'revise', task: { ...task, checklist: Array.from({ length: 100 }, (_, i) => ({ id: `criterion-${i}`, description: 'x'.repeat(4000) })) } } }),
+    toolCallResponse('unchanged-task', 'watchdog_task_query', { id: 'budget-task' }),
+    textResponse('The task remains ready at revision two; the oversized revision did not commit.'),
+  ], false, true);
+  f.ctx.on('approval/request', async () => 'allowed-once');
+  const { results } = await f.run();
+  const first = JSON.parse(results[2].content[0].text);
+  const next = JSON.parse(results[3].content[0].text);
+  const current = JSON.parse(results[5].content[0].text);
+  for (const result of results) assert.ok(Buffer.byteLength(JSON.stringify(result)) <= 65536);
+  const recorded = {
+    first: { revisions: first.tasks.map(task => task.revision), nextAfter: first.nextAfter },
+    next: { revisions: next.tasks.map(task => task.revision), nextAfter: next.nextAfter },
+    rejected: { isError: results[4].isError, content: results[4].content },
+    retained: { id: current.id, revision: current.revision, status: current.status, checklist: current.checklist },
+  };
+  assert.deepEqual(recorded, JSON.parse(await readFile(new URL('expected/watchdog-task-budget.json', import.meta.url), 'utf8')));
+  assert.equal(f.store.tasks.history(LOCAL_HTTP_IDENTITY, 'budget-task').tasks.length, 2);
 });

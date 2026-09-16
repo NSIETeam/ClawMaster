@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { appendResponsibility, initializeResponsibilityHistory, queryResponsibility, verifyResponsibility, UNKNOWN_IDENTITY } from './governance-audit.ts';
 import type { ExecutionIdentity } from './governance-audit.ts';
 import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
-import { initializeTasks, WatchdogTaskStore } from './watchdog-tasks.ts';
+import { initializeTasks, resolveWatchdogTaskConfig, WatchdogTaskStore, type WatchdogTaskConfig } from './watchdog-tasks.ts';
 import {
   EnterpriseError, ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH,
   ENTERPRISE_BACKUP_PATH, ENTERPRISE_RESTORE_PATH,
@@ -88,9 +88,9 @@ export class EnterpriseStore {
   private closed = false;
   private readonly db: DatabaseSync;
 
-  constructor(db: DatabaseSync) {
+  constructor(db: DatabaseSync, taskConfig: WatchdogTaskConfig = {}) {
     this.db = db;
-    this.tasks = new WatchdogTaskStore(db);
+    this.tasks = new WatchdogTaskStore(db, taskConfig);
     (db as SearchDatabase).function('clawmaster_contains', { deterministic: true }, (value, search) => {
       if (typeof value !== 'string' || typeof search !== 'string') throw new Error('Enterprise search requires text.');
       return Number(value.toLowerCase().includes(search));
@@ -559,9 +559,12 @@ export class EnterpriseStore {
  * Open an owned database, adding a restore counter to schema 1 without replacing records.
  * @param databasePath SQLite file path; the caller supplies the DSH home location.
  * @param busyTimeoutMs Maximum SQLite writer-lock wait in milliseconds.
+ * @param organizationId Organization bound to this database; local is the device-owned space.
+ * @param taskConfig Response budget validated before any database file is created.
  * @returns An open database owner; callers must close it after removing its routes. Schema upgrades and ownership validation commit together or roll back together.
  */
-export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 5000, organizationId = 'local'): Promise<EnterpriseStore> {
+export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 5000, organizationId = 'local', taskConfig: WatchdogTaskConfig = {}): Promise<EnterpriseStore> {
+  const taskLimits = resolveWatchdogTaskConfig(taskConfig);
   z.number().int().min(0).max(60000).parse(busyTimeoutMs);
   z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/).parse(organizationId);
   if (databasePath !== ':memory:') {
@@ -616,7 +619,7 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
       }
       db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`);
     } catch (error) { db.exec('ROLLBACK'); throw error; }
-    const store = new EnterpriseStore(db);
+    const store = new EnterpriseStore(db, taskLimits);
     store.snapshot();
     return store;
   } catch (error) {

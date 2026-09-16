@@ -205,7 +205,7 @@ for (const carrier of ['http', 'tool']) test(`${carrier} task writes require aut
   const counts = { localApprovals, authorityApprovals };
   assert.deepEqual(await invoke(input), saved);
   assert.deepEqual({ localApprovals, authorityApprovals }, counts);
-  assert.equal(store.tasks.history(caller.identity, input.id).length, 1);
+  assert.equal(store.tasks.history(caller.identity, input.id).tasks.length, 1);
   const history = store.responsibility({ commandId: input.commandId }).records;
   assert.equal(history.length, 6);
   assert.ok(history.slice(0, 5).every(entry => entry.outcome === 'denied' && entry.reasonCode === 'approval_missing'));

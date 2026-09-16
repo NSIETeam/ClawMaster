@@ -1,0 +1,14 @@
+{
+  "first": { "revisions": [1], "nextAfter": 1 },
+  "next": { "revisions": [2], "nextAfter": null },
+  "rejected": {
+    "isError": true,
+    "content": [{ "type": "text", "text": "Error: Task response exceeds the configured byte budget. Shorten task text or ask an administrator to increase the budget." }]
+  },
+  "retained": {
+    "id": "budget-task",
+    "revision": 2,
+    "status": "ready",
+    "checklist": [{ "id": "done", "description": "Verify fixture evidence" }]
+  }
+}

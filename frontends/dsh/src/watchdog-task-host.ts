@@ -6,18 +6,19 @@ import type { EnterpriseToolContext } from './enterprise-tools.ts';
 import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
 import { EnterpriseError } from './enterprise-types.ts';
 import { taskRequestSchema, TaskError } from './watchdog-tasks.ts';
+import { taskQuerySchema as querySchema } from './watchdog-task-format.ts';
 import { taskCommandOutput, taskCommandParameters, taskQueryOutput, taskQueryParameters } from './watchdog-task-schemas.ts';
 
 const tasksPath = '/api/clawmaster/tasks';
 const commandPath = `${tasksPath}/command`;
-const querySchema = z.object({ id: z.string().min(1).max(128).optional(), offset: z.number().int().nonnegative().default(0),
-  limit: z.number().int().min(1).max(100).default(50), history: z.boolean().default(false) }).strict();
 
 function failure(error: unknown): Response {
   const code = error instanceof GovernanceDenied || error instanceof TaskError || error instanceof EnterpriseError ? error.code
     : error instanceof z.ZodError ? 'invalid_request' : 'storage_unavailable';
-  return Response.json({ error: { code, message: error instanceof Error ? error.message : 'Task operation failed.' } },
-    { status: code === 'permission_denied' ? 403 : code === 'invalid_request' ? 400 : code === 'not_found' ? 404 : code === 'storage_unavailable' ? 503 : 409,
+  const message = error instanceof z.ZodError ? 'Task request fields are invalid.'
+    : error instanceof GovernanceDenied || error instanceof TaskError || error instanceof EnterpriseError ? error.message : 'Task operation failed.';
+  return Response.json({ error: { code, message } },
+    { status: code === 'permission_denied' ? 403 : code === 'invalid_request' ? 400 : code === 'response_too_large' ? 413 : code === 'not_found' ? 404 : code === 'storage_unavailable' ? 503 : 409,
       headers: { 'cache-control': 'no-store' } });
 }
 
@@ -28,14 +29,17 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
   const removals: Array<() => unknown> = [];
   let disposal: Promise<void> | undefined;
   const run = <T>(action: () => Promise<T>): Promise<T> => {
-    const operation = Promise.resolve().then(() => { lifetime.signal.throwIfAborted(); return action(); });
+    const operation = Promise.resolve().then(() => { lifetime.signal.throwIfAborted(); return action(); }).catch(error => {
+      if (error instanceof z.ZodError) throw new EnterpriseError('invalid_request', 'Task request fields are invalid.');
+      throw error;
+    });
     pending.add(operation);
     void operation.then(() => pending.delete(operation), () => pending.delete(operation));
     return operation;
   };
   const query = (identity: Awaited<ReturnType<GovernanceAccess['http']>>['identity'], value: unknown) => {
     const parsed = querySchema.parse(value);
-    if (parsed.id) return parsed.history ? store.tasks.history(identity, parsed.id, parsed.offset) : store.tasks.get(identity, parsed.id);
+    if (parsed.id) return parsed.history ? store.tasks.history(identity, parsed.id, parsed.after, parsed.limit) : store.tasks.get(identity, parsed.id);
     if (parsed.history) throw new EnterpriseError('invalid_request', 'History requires a task identifier.');
     return store.tasks.list(identity, { offset: parsed.offset, limit: parsed.limit });
   };
@@ -50,7 +54,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
     removals.push(ctx.connection.fetch.register({ path: tasksPath, methods: ['GET'], requestBody: 'buffered', fetch: request => run(async () => {
       const search = new URL(request.url).searchParams;
       const input = querySchema.parse({ ...(search.has('id') ? { id: search.get('id') } : {}), offset: Number(search.get('offset') ?? 0),
-        limit: Number(search.get('limit') ?? 50), history: search.get('history') === 'true' });
+        after: Number(search.get('after') ?? 0), limit: Number(search.get('limit') ?? 50), history: search.get('history') === 'true' });
       const caller = await access.http(request);
       const identity = await auditGovernanceOutcome(caller, store, 'task.read', undefined, () => caller.check('task.read', input.id ?? '*'));
       lifetime.signal.throwIfAborted(); request.signal.throwIfAborted();
@@ -75,7 +79,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
         return Response.json(store.tasks.execute(identity, input), { headers: { 'cache-control': 'no-store' } });
       }, signal);
     }).catch(failure) }));
-    removals.push(ctx.tools.register({ name: 'watchdog_task_query', description: 'Read durable business tasks independently from Session run state. Read one id, its revision history, or a bounded task page. Idle Sessions do not imply accepted business results.',
+    removals.push(ctx.tools.register({ name: 'watchdog_task_query', description: `Read durable business tasks independently from Session run state. Read one id, its revision history, or a task page bounded to ${store.tasks.maxResponseBytes} UTF-8 bytes including tool output. Continue lists with nextOffset; continue history with nextAfter in the after argument. Idle Sessions do not imply accepted business results.`,
       parameters: taskQueryParameters,
       output: { schema: taskQueryOutput, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
       execute: (args, exec) => run(async () => {

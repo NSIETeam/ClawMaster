@@ -87,6 +87,8 @@ Schema 3 迁移新增业务快照以外的责任历史。业务写入和恢复�
 
 ### 业务任务与身份接口
 
+Host 选项 `watchdogTasks.maxResponseBytes` 设置完整任务响应的 UTF-8 字节预算，包含 DSH 结构化值和渲染文本；默认 65536，接受至少 1024 的整数。超预算的写入在提交任务、历史行或成功回执前失败。列表依次优先显示待验收、失败、逾期及其他任务；每页返回 `{ tasks, nextOffset }`。历史返回 `{ tasks, nextAfter }`：传入 `id`、`history=true`、`after` 和 `limit` 继续读取不可变修订。两种分页都可能为满足字节预算而少于请求数量。已有记录超限会明确返回 `response_too_large`（HTTP 413），不会截断或改写数据。浏览器与 Host 共享 [watchdog-task-format.ts](src/watchdog-task-format.ts) 中不依赖 Node 的校验。
+
 `watchdog_task_query` 和 `watchdog_task_command` 管理持久任务，包含负责人、期限/时区、风险、范围、验收项、证据和关联 DSH Session。业务状态包括草稿、待执行、处理中、待验收、验收通过、失败和取消。等待与逾期标记独立于 Session 活动。代理提交证据，不能验收、重新打开或取消任务。人工驳回使任务回到待执行，同时保留以往证据和验收历史。命令携带任务修订和幂等标识；显式导入 Session 只创建草稿，不会推断历史成功。`/api/clawmaster/tasks` 可读取分页、一个 `id` 或其 `history=true`；`/api/clawmaster/tasks/command` 接收共享命令信封。这些记录不参与 CRM/ERP 恢复。人工检查位置前，证据引用明确属于未核实状态；Host 不会抓取任意证据 URL。
 
 本地模式标识设备操作者，使用明确标记的本地负责人。嵌入式 Host 可通过 `src/governance-access.ts` 中的可信 `GovernanceAuthority` 接口配置 `governance: { mode: 'enterprise', organizationId, authority }`。该权威服务必须独立于 DSH 桌面令牌认证 HTTP 请求，将代理 Session 绑定至发起成员，每次操作读取当前成员权限，并消费绑定对象/修订/摘要的审批。每个数据库绑定一个组织；已有本地数据库不能静默转为企业数据。HTTP 与工具消费者检查相同的角色与资源授权，审批等待后也会重查。委派授权不能超过发起成员的权限。每次企业记录变更、任务写入和恢复都需要另一名有效审批者；任务结果由有权限的人工直接验收，提交结果的成员不能自行验收。已提交任务的重试仍检查当前权限及完全相同的调用者和内容，不再消费另一份批准。权威服务不可用时操作失败，不会回退到本地权限。
