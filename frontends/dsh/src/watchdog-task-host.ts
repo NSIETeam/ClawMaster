@@ -76,9 +76,9 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       const { caller, value } = await commands.receive(request, signal, inputSignal => access.http(request, inputSignal));
       const input = taskRequestSchema.parse(value);
       return auditGovernanceOutcome(caller, store, `task.${input.command.type}`, input.commandId, async () => {
-        if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
         const action = input.command.type === 'review' ? 'task.review' : 'task.write';
         const checked = await caller.check(action, input.id);
+        if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
         const replay = store.tasks.replay(checked, input);
         const identity = access.mode === 'enterprise' && action === 'task.write' && !replay
           ? await caller.approve(action, input.id, input.commandId, 0, input.revision,

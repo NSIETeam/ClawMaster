@@ -374,6 +374,33 @@ test('restore approval refusal and read-tool denials retain only authenticated o
   }
 });
 
+for (const deniedBy of ['inactive', 'role', 'resource']) test(`task HTTP callers denied by ${deniedBy} cannot probe another member's status`, async t => {
+  const h = authorityFixture();
+  h.members.set('alice', { active: deniedBy !== 'inactive', roles: deniedBy === 'role' ? ['auditor'] : ['executor'],
+    resources: deniedBy === 'resource' ? ['unrelated-task'] : ['*'], policyVersion: 2 });
+  const lookups = [];
+  const membership = h.authority.membership;
+  h.authority.membership = async (...args) => { lookups.push(args[1]); return membership(...args); };
+  const store = await openEnterpriseStore(':memory:', 5000, 'one');
+  const routes = new Map();
+  const dispose = await mountWatchdogTasks({ connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return () => routes.delete(route.path); } } },
+    tools: { register() { return () => {}; } }, approval: { request: async () => { throw new Error('No authorized task action'); } } }, store, h.access);
+  t.after(async () => { await dispose(); store.close(); });
+  const responses = [];
+  for (const owner of ['bob', 'unknown-owner']) {
+    const input = { id: 'protected-task', commandId: `probe-${owner}`, revision: 0, command: { type: 'create', task: {
+      goal: 'Synthetic task', scope: 'Selected records', owner: { kind: 'member', id: owner }, dueAt: null,
+      timezone: 'Asia/Shanghai', risk: 'low', checklist: [{ id: 'checked', description: 'Review evidence' }],
+    } } };
+    const response = await routes.get('/api/clawmaster/tasks/command')(new Request('http://fixture/tasks/command', {
+      method: 'POST', headers: { authorization: 'alice', 'content-type': 'application/json' }, body: JSON.stringify(input) }));
+    assert.equal(response.status, 403); responses.push(await response.json());
+  }
+  assert.deepEqual(responses[0], responses[1], 'An unauthorized caller cannot distinguish existing and missing members.');
+  assert.deepEqual(lookups, ['alice', 'alice']);
+  assert.equal(store.tasks.list((await h.access.http(new Request('http://fixture', { headers: { authorization: 'alice' } }))).identity).tasks.length, 0);
+});
+
 for (const carrier of ['http', 'tool']) for (const type of ['create', 'revise']) test(`${carrier} ${type} refuses an owner revoked during independent approval`, async t => {
   const h = authorityFixture();
   const store = await openEnterpriseStore(':memory:', 5000, 'one');
