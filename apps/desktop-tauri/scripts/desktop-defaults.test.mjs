@@ -26,7 +26,7 @@ function fixture(t) {
     mkdirSync(path, { recursive: true })
     writeFileSync(join(path, 'package.json'), JSON.stringify({ name, dsh: { bundle: { patch: './cordis.patch.yml' } } }))
     writeFileSync(join(path, 'cordis.patch.yml'), name === '@deepseek-ai/dsh-base'
-      ? '- insert:\n    - id: system-prompt\n      name: "@deepseek-ai/dsh-system-prompt"\n'
+      ? '- insert:\n    - id: system-prompt\n      name: "@deepseek-ai/dsh-system-prompt"\n    - id: sandbox-policy\n      name: "@deepseek-ai/dsh-sandbox-policy"\n      config:\n        mode: workspace-write\n    - id: approval\n      name: "@deepseek-ai/dsh-user-approval"\n      config:\n        policy: ask\n    - id: permission\n      name: "@deepseek-ai/dsh-permission-presets"\n      config:\n        presets:\n          read-only:\n            sandbox: read-only\n            approval: ask\n          workspace-write:\n            sandbox: workspace-write\n            approval: ask\n          danger-full-access:\n            sandbox: danger-full-access\n            approval: never\n'
       : '[]\n')
   }
   for (const name of DESKTOP_BUNDLES) {
@@ -42,7 +42,9 @@ function fixture(t) {
         ...(name === 'dsh-routing-suite' ? { desktop: { presets: [{ id: 'routing-suite', path: './preset/routing-suite' }] } } : {}),
       },
     }))
-    writeFileSync(join(path, 'cordis.patch.yml'), '[]\n')
+    writeFileSync(join(path, 'cordis.patch.yml'), name === '@clawmaster/dsh-frontend'
+      ? '- id: sandbox-policy\n  config:\n    mode: read-only\n    workspaceRoot: /fixture\n- id: approval\n  config:\n    policy: ask\n- id: permission\n  config:\n    defaultPreset: read-only\n    presets:\n      read-only:\n        sandbox: read-only\n        approval: ask\n      workspace-write:\n        sandbox: workspace-write\n        approval: ask\n      danger-full-access:\n        sandbox: danger-full-access\n        approval: never\n'
+      : '[]\n')
     writeFileSync(join(path, 'index.js'), 'export const name = "fixture"\n')
     writeFileSync(join(path, 'client.js'), 'export const name = "fixture-client"\n')
     if (hostOnly) writeFileSync(join(path, 'cordis.patch.yml'), '- insert:\n    - id: openviking-memory\n      name: cordis:group\n      group: true\n      config:\n        - id: openviking-memory-runtime\n          name: "@openviking/dsh-memory-plugin"\n')
@@ -71,6 +73,23 @@ test('fresh home gets every desktop bundle through the DSH profile format', asyn
   await prepareDesktopProfile(f.root, f.home)
   assert.deepEqual(JSON.parse(readFileSync(join(f.profile, 'package.json'), 'utf8')), edited)
   assert.equal(readFileSync(join(f.profile, 'cordis.patch.yml'), 'utf8'), patch)
+})
+
+test('fresh desktop profile fixes the least-privilege execution defaults', async t => {
+  const f = fixture(t)
+  await prepareDesktopProfile(f.root, f.home)
+  const boot = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-app-boot')).href)
+  const profile = boot.loadProfile('ClawMaster', 'web', join(f.cli, 'package.json'), f.home)
+  const entries = boot.composeEntries([
+    ...profile.layers.map(layer => layer.patches),
+    profile.patches,
+  ])
+  const config = id => entries.find(entry => entry.id === id)?.config
+  assert.equal(config('sandbox-policy').mode, 'read-only')
+  assert.equal(config('approval').policy, 'ask')
+  assert.equal(config('permission').defaultPreset, 'read-only')
+  assert.deepEqual(config('permission').presets['read-only'], { sandbox: 'read-only', approval: 'ask' })
+  assert.deepEqual(config('permission').presets['danger-full-access'], { sandbox: 'danger-full-access', approval: 'never' })
 })
 
 test('IM channel defaults resolve under the selected home and preserve user overrides without selecting a Workspace', async t => {
