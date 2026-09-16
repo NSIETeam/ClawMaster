@@ -66,6 +66,17 @@ test('publication runs the strict installed-evidence gate before manifest genera
   assert.equal(existsSync(join(root, 'publication-reached')), false)
 })
 
+test('publication verifies the final asset bytes and provenance before upload', () => {
+  const steps = workflow.jobs.release.steps
+  const verifierIndex = steps.findIndex(step => step.name === 'Verify immutable release assets and provenance')
+  const checksumIndex = steps.findIndex(step => step.name === 'Record release checksums')
+  const publishIndex = steps.findIndex(step => step.run?.includes('gh release create'))
+  assert.ok(verifierIndex > checksumIndex)
+  assert.ok(verifierIndex < publishIndex)
+  assert.match(steps[verifierIndex].run, /verify-release-assets\.mjs/)
+  assert.match(steps[verifierIndex].run, /rev-parse.*\^\{tree\}/)
+})
+
 test('every shipped frontend has frozen build dependencies before product verification', () => {
   const step = workflow.jobs.build.steps.find(entry => entry.name === 'Install product frontend build dependencies')
   for (const name of ['dsh', 'notes', 'office', 'guard', 'graph-memory', 'rpa', 'updates']) {

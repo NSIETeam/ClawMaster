@@ -146,7 +146,7 @@ NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语
 
 发布矩阵不包含 Intel Mac 安装包。已有 Intel Mac 安装保留原版本；受支持的桌面目标为 Apple Silicon、Windows x64 与 Linux x64。[安装后发布验收说明](acceptance/README.zh.md)定义独立的 Android 证据项及发布前必须具备的证据。
 
-推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)。它构建 Windows x64 NSIS 安装包、macOS Apple Silicon DMG 和 Linux x64 AppImage/deb，只有在所有矩阵任务和安装后发布验收均通过后才会发布。程序版本 `0.2.2` 对应正式版 `desktop-v0.2.2`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。手动触发默认为仅构建：构建所选分支提交并上传签名安装包，不发布版本或改变更新通道。只有在重建已有发布标签并需要发布时，才启用 `publish`。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
+推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)。它构建 Windows x64 NSIS 安装包、macOS Apple Silicon DMG 和 Linux x64 AppImage/deb，只有在所有矩阵任务、安装后发布验收及最终资产与来源不可变校验均通过后才会发布。程序版本 `0.2.2` 对应正式版 `desktop-v0.2.2`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。手动触发默认为仅构建：构建所选分支提交并上传签名安装包，不发布版本或改变更新通道。只有在重建已有发布标签并需要发布时，才启用 `publish`。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
 
 Windows 构建步骤使用原生 PowerShell。每个 PowerShell 发布步骤要求 7.4 或更高版本，并在原生命令失败时立即停止；后续成功命令不能覆盖该失败。仅供 macOS/Linux 使用的 Bash 步骤保留 shell 失败处理。[发布命令决策](../../.agents/notes/implemented/process/2026-09-15-desktop-release-native-command-failures.zh.md)负责其理由与反向控制要求。
 

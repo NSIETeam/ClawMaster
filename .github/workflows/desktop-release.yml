@@ -532,6 +532,14 @@ jobs:
           cp apps/desktop-tauri/release-signing.pub release-assets/clawmaster-release-signing.pub
           node apps/desktop-tauri/scripts/release-checksums.mjs release-assets
 
+      - name: Verify immutable release assets and provenance
+        run: |
+          node apps/desktop-tauri/scripts/verify-release-assets.mjs \
+            --assets-dir release-assets \
+            --version "${RELEASE_TAG#desktop-v}" \
+            --commit "$(git rev-parse "${RELEASE_TAG}^{commit}")" \
+            --tree "$(git rev-parse "${RELEASE_TAG}^{tree}")"
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
