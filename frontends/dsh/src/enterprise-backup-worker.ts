@@ -125,10 +125,12 @@ async function restore(backup: EnterpriseBackup): Promise<unknown> {
     const requestHash = createHash('sha256').update(JSON.stringify({ backupSha256: request.backupSha256, expectedGeneration: request.expectedGeneration,
       expectedRevision: request.expectedRevision, actor: grant.identity.actor, organizationId: grant.identity.organizationId, principalId: grant.identity.principalId ?? null })).digest('hex');
     db.prepare('INSERT INTO restore_receipts(commandId,requestHash,generation,revision) VALUES(?,?,?,?)').run(result.commandId,requestHash,result.generation,result.revision);
-    appendResponsibility(db, { identity: grant.identity, operation: 'backup.restore', outcome: 'succeeded', commandId: result.commandId, backupSha256: result.backupSha256,
-      generationBefore: request.expectedGeneration, revisionBefore: request.expectedRevision, generationAfter: result.generation, revisionAfter: result.revision });
     send({ phase: 'commitReady' });
-    z.object({ phase: z.literal('finalize') }).strict().parse(await next());
+    const final = z.object({ phase: z.literal('finalize'), identity: identitySchema }).strict().parse(await next());
+    const owner = (identity: z.infer<typeof identitySchema>) => JSON.stringify([identity.organizationId, identity.actor, identity.principalId ?? null, identity.approval ?? null]);
+    if (owner(final.identity) !== owner(grant.identity)) throw new EnterpriseError('storage_invalid', 'Restore commit authority changed.');
+    appendResponsibility(db, { identity: final.identity, operation: 'backup.restore', outcome: 'succeeded', commandId: result.commandId, backupSha256: result.backupSha256,
+      generationBefore: request.expectedGeneration, revisionBefore: request.expectedRevision, generationAfter: result.generation, revisionAfter: result.revision });
     db.exec('COMMIT'); transaction = false;
     return result;
   } finally { if (transaction) db.exec('ROLLBACK'); db.close(); }

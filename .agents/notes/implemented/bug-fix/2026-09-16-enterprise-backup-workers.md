@@ -20,6 +20,8 @@ Portable format 1 remains JSON. The pre-stable HTTP interface uses raw-file prep
 
 The executor is a fixed private Node artifact with no package bin, public argv or application profile. The existing DSH subprocess service exposes streams but no IPC channel; the Host uses a private fork with an explicit minimal environment, ignored stdio and metadata-only IPC. It starts no descendants, waits for process close before releasing storage, and exports no general process-launch API. DSH remains the application launcher.
 
+The worker appends the successful responsibility record only after the final Host authorization check. The record retains the exact consumed approval and the policy version observed at that check; a changed actor, principal, organization or approval cannot finalize the transaction.
+
 ## Alternatives considered
 
 **Share the Host process through worker threads.** A tested Node 24 JSON parse at a 32 MiB worker heap cap triggers fatal process OOM, terminating the Host rather than producing a catchable worker error. A private process isolates this failure and returns a recoverable storage error after exit.

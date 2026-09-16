@@ -241,8 +241,9 @@ export async function mountEnterpriseBackupRoutes(ctx: EnterpriseHostContext, st
                 restoreWriterWait = store.withoutWriterWait();
                 return { phase: 'apply', database: store.backupDatabasePath(), identity };
               }
-              await caller.check('backup.restore'); signal.throwIfAborted();
-              return { phase: 'finalize' };
+              const currentIdentity = await caller.check('backup.restore'); signal.throwIfAborted();
+              identity = { ...currentIdentity, ...(identity.approval ? { approval: identity.approval } : {}) };
+              return { phase: 'finalize', identity };
             }, restore);
             return Response.json(restoreBackupReceiptSchema.parse(result), { headers: { 'cache-control': 'no-store' } });
           } catch (error) {

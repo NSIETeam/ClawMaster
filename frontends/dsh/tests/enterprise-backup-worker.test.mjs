@@ -59,17 +59,29 @@ test('cross-record validation rejects corrupt backup before any target write', a
 });
 function enterpriseAuthority() {
   let active = true, afterApproval = false, checks = 0;
+  let policyVersion = 1;
   let finalCheck = async () => {};
   const authority = {
     async http() { return { organizationId: 'acme', memberId: 'admin', actor: 'human' }; }, async agent() { return undefined; },
     async membership(_org, member) {
       if (afterApproval && member === 'admin') await finalCheck(++checks);
-      return { active, roles: member === 'reviewer' ? ['approver'] : ['administrator'], policyVersion: 1, resources: ['*'] };
+      return { active, roles: member === 'reviewer' ? ['approver'] : ['administrator'], policyVersion, resources: ['*'] };
     },
     async consumeApproval() { afterApproval = true; return { id: 'approved', approverId: 'reviewer' }; },
   };
-  return { access: new GovernanceAccess({ mode: 'enterprise', organizationId: 'acme', authority }), revoke() { active = false; }, onFinalCheck(callback) { finalCheck = callback; } };
+  return { access: new GovernanceAccess({ mode: 'enterprise', organizationId: 'acme', authority }), revoke() { active = false; }, changePolicy() { policyVersion++; }, onFinalCheck(callback) { finalCheck = callback; } };
 }
+test('restore responsibility records the final checked policy and retains the independently consumed approval', async t => {
+  const authority = enterpriseAuthority(); const f = await fixture(t, { access: authority.access });
+  const prepared = await (await f.upload(f.store.backup())).json();
+  authority.onFinalCheck(async index => { if (index === 2) authority.changePolicy(); });
+  const response = await f.restore(prepared);
+  assert.equal(response.status, 200, await response.clone().text());
+  const entry = f.store.responsibility().records.find(row => row.operation === 'backup.restore' && row.outcome === 'succeeded');
+  assert.equal(entry.identity.policyVersion, 2);
+  assert.equal(entry.identity.approval.id, 'approved');
+  assert.equal(entry.identity.approval.approverId, 'reviewer');
+});
 test('authority revoked across approval prevents restore and records denial', async t => {
   const authority = enterpriseAuthority();
   const f = await fixture(t, { access: authority.access });
