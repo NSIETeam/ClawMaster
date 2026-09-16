@@ -110,6 +110,8 @@ The authority interface is an integration requirement, not a bundled identity pr
 
 The bundle enables DSH's official Schedule, time context and reminder catalog. Reminder delivery needs the application running and a live root agent in the owning session; closing the application does not create an operating-system background scheduler. Due reminders return to the same conversation when that session can accept them. See the [Schedule guide](../../docs/user/guide/schedule.md) for supported timing and recovery behavior.
 
+Product-level persistent plans use a separate occurrence ledger, per-occurrence approval and independently readable worker status. See [persistent scheduling](scheduling/README.md) for authenticated interfaces, deployment limits, recovery and verification boundaries.
+
 IM account setup and platform login flows belong to the bundled IM plugin. Including the plugin does not establish a live Feishu, WeChat, WeCom or DingTalk connection; each platform's account conditions and connection result must be verified in its settings.
 
 -----

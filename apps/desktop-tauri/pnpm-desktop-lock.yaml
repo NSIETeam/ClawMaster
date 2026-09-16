@@ -1146,6 +1146,21 @@ importers:
       zod:
         specifier: 4.4.3
         version: 4.4.3
+      '@deepseek-ai/dsh-agent':
+        specifier: link:../../packages/core/agent
+        version: link:../../packages/core/agent
+      '@deepseek-ai/dsh-jobs':
+        specifier: link:../../packages/jobs/jobs
+        version: link:../../packages/jobs/jobs
+      '@deepseek-ai/dsh-llm':
+        specifier: link:../../packages/llm/llm
+        version: link:../../packages/llm/llm
+      '@deepseek-ai/dsh-schedule':
+        specifier: link:../../packages/schedule/schedule
+        version: link:../../packages/schedule/schedule
+      '@deepseek-ai/dsh-session':
+        specifier: link:../../packages/core/session
+        version: link:../../packages/core/session
 
   frontends/graph-memory:
     dependencies:

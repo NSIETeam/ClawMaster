@@ -1,7 +1,7 @@
 /** AI business tools, shared storage and lazy Workspaces on the existing DSH Host. */
 import type { Context } from '@deepseek-ai/cordis';
 import { homedir } from 'node:os';
-import { isAbsolute, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { openEnterpriseStore, mountEnterpriseRoutes, type EnterpriseReadConfig } from './enterprise-host.ts';
 import { applyEnterpriseTools, type EnterpriseToolConfig } from './enterprise-tools.ts';
 import { applyDataTools, type DataToolsConfig } from './data-tools.ts';
@@ -13,6 +13,10 @@ import { applyPermissionGovernance } from './permission-governance.ts';
 import { GovernanceAccess, type GovernanceConfiguration } from './governance-access.ts';
 import { mountWatchdogTasks } from './watchdog-task-host.ts';
 import type { WatchdogTaskConfig } from './watchdog-tasks.ts';
+import { openWatchdogScheduleStore } from './watchdog-schedule-store.ts';
+import { mountWatchdogSchedules } from './watchdog-schedule-host.ts';
+import { WatchdogScheduleRuntime } from './watchdog-schedule-runtime.ts';
+import type { WatchdogScheduleConfig } from './watchdog-schedule-format.ts';
 
 type HostServices = Context & WorkspaceHostContext & OnboardingHostServices;
 
@@ -26,10 +30,12 @@ interface HostConfig {
   enterpriseRead?: EnterpriseReadConfig;
   runtimeGovernance?: RuntimeGovernanceConfig;
   watchdogTasks?: WatchdogTaskConfig;
+  watchdogSchedules?: WatchdogScheduleConfig;
+  scheduleDatabasePath?: string;
 }
 
 export const name = 'clawmaster-watchdog-host';
-export const inject = ['workspaceRegistry', 'connection', 'tools', 'approval', 'fs', 'sandboxPolicy', 'settings', 'systemPrompt', 'agents'];
+export const inject = ['workspaceRegistry', 'connection', 'tools', 'approval', 'fs', 'sandboxPolicy', 'settings', 'systemPrompt', 'agents', 'jobs', 'sessions'];
 
 /**
  * Register AI tools and authenticated routes against one shared database.
@@ -41,8 +47,9 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
   const dshHome = process.env.DSH_HOME ?? join(homedir(), '.dsh');
   const managedRoot = config.managedRoot ?? join(dshHome, 'watchdog-workspaces');
   const databasePath = config.databasePath ?? join(dshHome, 'watchdog', 'enterprise.sqlite');
+  const scheduleDatabasePath = config.scheduleDatabasePath ?? join(dirname(databasePath), 'schedules.sqlite');
   const access = new GovernanceAccess(config.governance);
-  if (!isAbsolute(managedRoot) || !isAbsolute(databasePath)) throw new Error('Product storage paths must be absolute');
+  if (!isAbsolute(managedRoot) || !isAbsolute(databasePath) || !isAbsolute(scheduleDatabasePath)) throw new Error('Product storage paths must be absolute');
   ctx.settings.register(ONBOARDING_NAMESPACE, OnboardingSettingsSchema);
   applyDataTools(ctx, config.dataTools);
   applyRuntimeGovernance(ctx, config.runtimeGovernance);
@@ -62,6 +69,17 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
       consumers.push(await mountEnterpriseRoutes(ctx, store, access));
       consumers.push(await applyEnterpriseTools(ctx, store, config.enterpriseTools, access));
       consumers.push(await mountWatchdogTasks(ctx, store, access));
+      const schedules = await openWatchdogScheduleStore(scheduleDatabasePath, config.governance?.mode === 'enterprise' ? config.governance.organizationId : 'local', config.watchdogSchedules);
+      const runtime = new WatchdogScheduleRuntime(ctx, schedules, access);
+      let removeSchedules: (() => Promise<void>) | undefined;
+      consumers.push(async () => {
+        const results = await Promise.allSettled([runtime.dispose(), removeSchedules?.()]);
+        schedules.close();
+        const failures = results.filter(result => result.status === 'rejected').map(result => result.reason);
+        if (failures.length) throw new AggregateError(failures, 'Schedule consumers could not be unloaded.');
+      });
+      removeSchedules = await mountWatchdogSchedules(ctx, schedules, store, access);
+      runtime.start();
     } catch (error) {
       try { await close(); }
       catch (cleanupError) { throw new AggregateError([error, cleanupError], 'Enterprise setup and rollback failed.'); }

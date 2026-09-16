@@ -1,0 +1,5 @@
+{
+  "input": "WatchDog scheduled occurrence a9752390f21c5860af73767f596e6082ab777bb26f51479ceff69313e75d102a at 2026-01-01T00:05:00.000Z. This grant authorizes this prompt only; all tool approvals still apply. Dispatch does not certify business completion.\n{\"task\":\"Inspect selected customer records. Do not make changes.\"}",
+  "dispatchState": "dispatched",
+  "modelResponses": 1
+}

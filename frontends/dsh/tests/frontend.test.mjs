@@ -174,6 +174,9 @@ test('the distributed Host allocates workspaces only on explicit requests and pr
     systemPrompt: { context() { return () => {}; } },
     on() { return () => {}; },
     approval: { request() { throw new Error('workspace allocation must not request approval'); } },
+    agents: { withoutInitiator(action) { return action(); }, get() { return undefined; }, roots() { return []; } },
+    jobs: { attachController() { return () => {}; }, start() { throw new Error('Empty schedule ledger must not start work'); } },
+    sessions: { flush() { throw new Error('Empty schedule ledger must not flush a Session'); } },
     fs: { sandboxMode: 'workspace-write' },
     sandboxPolicy: { resolve() { throw new Error('workspace allocation must not invoke CSV'); } },
     effect(setup) {
