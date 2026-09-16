@@ -127,7 +127,7 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
         : 'item' in candidateCommand ? candidateCommand.item.id : candidateCommand.order.id;
       const { identity, prepared } = await auditGovernanceOutcome(caller, store, candidateCommand.type, candidate.commandId, async () => {
         let identity: ExecutionIdentity = await caller.check('records.write', candidateResource);
-        const prepared = store.prepare(candidate);
+        const prepared = store.prepare(candidate, identity);
         if (prepared.receipt) return { identity, prepared };
         const { request } = prepared;
         const outcome = await ctx.approval.request({

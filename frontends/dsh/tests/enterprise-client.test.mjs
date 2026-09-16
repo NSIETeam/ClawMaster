@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
 import { EnterpriseClient, moneyInputToMinorUnits, minorUnitsToMoneyInput, quantityInputToInteger } from '../src/enterprise-client.ts';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { enterpriseTransport, overviewOf } from './enterprise-transport.fixture.mjs';
@@ -9,7 +10,7 @@ const command = { type: 'contact.upsert', contact };
 const baseline = { generation: 0, revision: 0, contacts: [], inventory: [], orders: [], audit: [] };
 
 function receipt(store, request) {
-  const result = store.executeReceipt(request);
+  const result = store.executeReceipt(request, LOCAL_HTTP_IDENTITY);
   const { commandId, revision: commandRevision, entityId, type, at } = result.receipt;
   return { generation: result.generation, revision: result.revision, commandId, commandRevision, entityId, type, at };
 }

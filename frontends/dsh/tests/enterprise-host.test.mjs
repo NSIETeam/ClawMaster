@@ -7,6 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { Worker } from 'node:worker_threads';
 import { applyEnterpriseHost, mountEnterpriseRoutes, openEnterpriseStore } from '../src/enterprise-host.ts';
+import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
 import { parseEnterpriseRequest, parseEnterpriseSnapshot } from '../src/enterprise-schema.ts';
 import { ENTERPRISE_BACKUP_PATH, ENTERPRISE_COMMAND_PATH, ENTERPRISE_RESTORE_PATH, ENTERPRISE_SNAPSHOT_PATH } from '../src/enterprise-types.ts';
 
@@ -92,7 +93,7 @@ test('schema 1 gains a restore counter without changing business records or audi
   const migrated = await open();
   assert.deepEqual(migrated.snapshot(), expected);
   const inspect = new DatabaseSync(path);
-  try { assert.equal(inspect.prepare('PRAGMA user_version').get().user_version, 4); }
+  try { assert.equal(inspect.prepare('PRAGMA user_version').get().user_version, 5); }
   finally { inspect.close(); }
 });
 
@@ -152,11 +153,11 @@ test('purchase and sale submission change stock exactly once and retain integer 
   command(store, { type: 'item.upsert', item });
   command(store, { type: 'order.save', order: order('purchase-1', 'purchase', 5) });
   const request = { revision: store.snapshot().revision, commandId: randomUUID(), command: { type: 'order.submit', id: 'purchase-1' } };
-  const purchased = store.execute(request);
+  const purchased = store.execute(request, LOCAL_HTTP_IDENTITY);
   assert.equal(purchased.inventory[0].stock, 17);
   assert.equal(purchased.orders[0].totalMinorUnits, 61725);
   assert.equal(purchased.orders[0].status, 'submitted');
-  assert.deepEqual(store.execute(request), purchased);
+  assert.deepEqual(store.execute(request, LOCAL_HTTP_IDENTITY), purchased);
   assert.throws(() => command(store, request.command), { code: 'submitted_order' });
   assert.throws(() => command(store, { type: 'order.save', order: order('purchase-1', 'sale') }), { code: 'submitted_order' });
   assert.throws(() => command(store, { type: 'order.remove', id: 'purchase-1' }), { code: 'submitted_order' });
@@ -370,13 +371,13 @@ test('receipt-only commands retain stock rollback, revision checks and durable e
   command(store, { type: 'item.upsert', item: { ...item, stock: 5 } });
   assert.throws(() => store.executeReceipt(prepared.request), { code: 'revision_conflict' });
   const request = { revision: store.snapshot().revision, commandId: 'durable-receipt', command: { type: 'order.submit', id: 'receipt-sale' } };
-  const first = store.executeReceipt(request);
+  const first = store.executeReceipt(request, LOCAL_HTTP_IDENTITY);
   assert.equal(first.receipt.after.inventory[0].stock, 3);
   command(store, { type: 'contact.upsert', contact });
   const expected = store.snapshot();
   store.close();
   const reopened = await open();
-  const replay = reopened.executeReceipt(request);
+  const replay = reopened.executeReceipt(request, LOCAL_HTTP_IDENTITY);
   assert.equal(replay.revision, expected.revision);
   assert.deepEqual(replay.receipt, first.receipt);
   assert.deepEqual(reopened.snapshot(), expected);

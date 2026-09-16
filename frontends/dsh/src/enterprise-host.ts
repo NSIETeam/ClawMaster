@@ -6,6 +6,7 @@ import { dirname } from 'node:path';
 import { z } from 'zod';
 import { appendResponsibility, initializeResponsibilityHistory, queryResponsibility, verifyResponsibility, UNKNOWN_IDENTITY } from './governance-audit.ts';
 import type { ExecutionIdentity } from './governance-audit.ts';
+import { assertCommandReceipt, initializeCommandReceipts, recordCommandReceipt } from './command-receipts.ts';
 import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
 import { initializeTasks, resolveWatchdogTaskConfig, WatchdogTaskStore, type WatchdogTaskConfig } from './watchdog-tasks.ts';
 import {
@@ -21,7 +22,7 @@ import {
   parseEnterpriseBackup, parseEnterpriseRestoreRequest, parseEnterpriseSnapshot, enterpriseOrderTotal, parseEnterpriseQuery,
 } from './enterprise-schema.ts';
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 const APPLICATION_ID = 0x434d454e;
 const integer = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const sqliteRow = z.record(z.string(), z.unknown());
@@ -130,7 +131,7 @@ export class EnterpriseStore {
     const receipt = this.db.prepare('SELECT requestHash FROM restore_receipts WHERE commandId = ?').get(commandId);
     if (!receipt) return false;
     const backupSha256 = createHash('sha256').update(JSON.stringify(parseEnterpriseBackup(value))).digest('hex');
-    const requestHash = createHash('sha256').update(JSON.stringify({ backupSha256, expectedGeneration, expectedRevision, actor: identity.actor, organizationId: identity.organizationId })).digest('hex');
+    const requestHash = createHash('sha256').update(JSON.stringify({ backupSha256, expectedGeneration, expectedRevision, actor: identity.actor, principalId: identity.principalId ?? null, organizationId: identity.organizationId })).digest('hex');
     if (sqliteRow.parse(receipt).requestHash !== requestHash) throw new EnterpriseError('command_conflict', 'Restore identifier was used for a different request.');
     return true;
   }
@@ -312,7 +313,7 @@ export class EnterpriseStore {
     }
   }
 
-  /** Read a restore-capable backup, retaining command receipts for idempotent replay. */
+  /** Read a restore-capable backup; audit command bodies do not grant replay authority. */
   backup(identity: ExecutionIdentity = UNKNOWN_IDENTITY): EnterpriseBackup {
     this.assertOpen();
     this.db.exec('BEGIN IMMEDIATE');
@@ -354,7 +355,7 @@ export class EnterpriseStore {
     }
     const commands = new Map(backup.auditCommands.map(entry => [entry.revision, entry.commandJson]));
     const backupSha256 = createHash('sha256').update(JSON.stringify(backup)).digest('hex');
-    const requestHash = createHash('sha256').update(JSON.stringify({ backupSha256, expectedGeneration, expectedRevision, actor: identity.actor, organizationId: identity.organizationId })).digest('hex');
+    const requestHash = createHash('sha256').update(JSON.stringify({ backupSha256, expectedGeneration, expectedRevision, actor: identity.actor, principalId: identity.principalId ?? null, organizationId: identity.organizationId })).digest('hex');
     const before = { generation: this.generation(), revision: this.revision() };
     this.db.exec('BEGIN IMMEDIATE');
     try {
@@ -410,10 +411,11 @@ export class EnterpriseStore {
     }
   }
 
-  private existingReceipt(request: EnterpriseCommandRequest): AuditEntry | undefined {
+  private existingReceipt(request: EnterpriseCommandRequest, identity: ExecutionIdentity): AuditEntry | undefined {
     const value = this.db.prepare('SELECT * FROM enterprise_audit WHERE commandId = ?').get(request.commandId);
     if (!value) return undefined;
     const row = sqliteRow.parse(value);
+    assertCommandReceipt(this.db, 'records', identity, request.commandId, request);
     if (row.commandJson !== JSON.stringify(request.command)) {
       throw new EnterpriseError('command_conflict', 'Command identifier was already used for a different command.');
     }
@@ -423,15 +425,16 @@ export class EnterpriseStore {
   /**
    * Read the target records for approval or find one exact committed receipt.
    * @param value Untrusted command envelope, identical to execute's input.
+   * @param identity Authenticated caller required for replaying a committed receipt.
    * @returns Validated request, current revision and the affected records only.
    */
-  prepare(value: unknown): EnterprisePreparation {
+  prepare(value: unknown, identity: ExecutionIdentity = UNKNOWN_IDENTITY): EnterprisePreparation {
     this.assertOpen();
     const request = parseEnterpriseRequest(value);
     this.db.exec('BEGIN');
     try {
       this.assertGeneration(request.generation);
-      const receipt = this.existingReceipt(request);
+      const receipt = this.existingReceipt(request, identity);
       const revision = this.revision();
       if (!receipt && request.revision !== revision) {
         throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Reload before saving.', revision);
@@ -488,7 +491,7 @@ export class EnterpriseStore {
     this.db.exec('BEGIN IMMEDIATE');
     try {
       this.assertGeneration(request.generation);
-      const existing = this.existingReceipt(request);
+      const existing = this.existingReceipt(request, identity);
       const revision = this.revision();
       if (existing) {
         const result = project(revision, existing);
@@ -497,6 +500,7 @@ export class EnterpriseStore {
       }
       if (request.revision !== revision) throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Reload before saving.', revision);
       if (!Number.isSafeInteger(revision + 1)) throw new EnterpriseError('numeric_overflow', 'Enterprise revision exceeds the supported integer range.');
+      recordCommandReceipt(this.db, 'records', identity, request.commandId, request);
       const at = new Date().toISOString();
       const change = this.apply(request.command, at);
       const receipt = auditSchema.parse({ revision: revision + 1, commandId: request.commandId, type: request.command.type, entityId: change.id, at, before: change.before, after: change.after });
@@ -643,7 +647,7 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
     const version = sqliteRow.parse(db.prepare('PRAGMA user_version').get()).user_version;
     const empty = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().length === 0;
     const fresh = app === 0 && version === 0 && empty;
-    if (!(app === APPLICATION_ID && (version === 1 || version === 2 || version === 3 || version === SCHEMA_VERSION)) && !fresh) {
+    if (!(app === APPLICATION_ID && (version === 1 || version === 2 || version === 3 || version === 4 || version === SCHEMA_VERSION)) && !fresh) {
       throw new EnterpriseError('storage_invalid', 'Enterprise database version or ownership is unsupported.');
     }
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;');
@@ -672,6 +676,7 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
       }
       initializeResponsibilityHistory(db);
       initializeTasks(db);
+      initializeCommandReceipts(db);
       verifyResponsibility(db);
       if (sqliteRow.parse(db.prepare('PRAGMA quick_check').get()).quick_check !== 'ok'
         || db.prepare('PRAGMA foreign_key_check').get() !== undefined) {
@@ -863,7 +868,7 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
         const resource = 'id' in command ? command.id : 'contact' in command ? command.contact.id : 'item' in command ? command.item.id : command.order.id;
         const identity = await auditGovernanceOutcome(caller, store, command.type, parsed.commandId, async () => {
           const checked = await caller.check('records.write', resource);
-          const replay = store.prepare(parsed).receipt;
+          const replay = store.prepare(parsed, checked).receipt;
           return access.mode === 'enterprise' && !replay
             ? await caller.approve('records.write', resource, parsed.commandId, parsed.generation, parsed.revision,
               createHash('sha256').update(JSON.stringify(command)).digest('hex'))

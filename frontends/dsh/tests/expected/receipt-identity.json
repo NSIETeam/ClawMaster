@@ -1,0 +1,20 @@
+[
+  {
+    "isError": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "Error: command_conflict: Command receipt does not belong to this authenticated caller and exact request."
+      }
+    ]
+  },
+  {
+    "isError": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "Error: Command receipt does not belong to this authenticated caller and exact request."
+      }
+    ]
+  }
+]

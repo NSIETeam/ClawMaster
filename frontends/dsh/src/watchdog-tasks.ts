@@ -1,5 +1,6 @@
 /** Durable business work is independent of DSH Session execution state. */
 import type { DatabaseSync, StatementSync } from 'node:sqlite';
+import { assertCommandReceipt, recordCommandReceipt } from './command-receipts.ts';
 import { z } from 'zod';
 import { EnterpriseError } from './enterprise-types.ts';
 import { appendResponsibility, type ExecutionIdentity } from './governance-audit.ts';
@@ -163,6 +164,7 @@ export class WatchdogTaskStore {
     const row = this.db.prepare('SELECT actorId, requestJson, body FROM watchdog_task_history WHERE organizationId=? AND commandId=?')
       .get(identity.organizationId, request.commandId);
     if (!row) return undefined;
+    assertCommandReceipt(this.db, 'tasks', identity, request.commandId, request);
     const receipt = z.object({ actorId: z.string(), requestJson: z.string(), body: z.string() }).parse(row);
     if (receipt.actorId !== identity.actor.id || receipt.requestJson !== JSON.stringify(request)) {
       throw new EnterpriseError('command_conflict', 'Task command identifier was already used.');
@@ -207,6 +209,7 @@ export class WatchdogTaskStore {
       if (!Number.isSafeInteger(version)) throw new EnterpriseError('numeric_overflow', 'Task list version is exhausted.');
       this.bounded({ tasks: [next], nextCursor: { version: Number.MAX_SAFE_INTEGER, offset: Number.MAX_SAFE_INTEGER, asOf: at } });
       this.bounded({ tasks: [next], nextAfter: Number.MAX_SAFE_INTEGER });
+      recordCommandReceipt(this.db, 'tasks', identity, request.commandId, request);
       const body = JSON.stringify(next);
       this.db.prepare(`INSERT INTO watchdog_tasks(organizationId,id,revision,body) VALUES (?,?,?,?)
         ON CONFLICT(organizationId,id) DO UPDATE SET revision=excluded.revision,body=excluded.body`)

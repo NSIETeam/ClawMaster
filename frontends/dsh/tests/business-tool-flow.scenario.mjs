@@ -313,3 +313,24 @@ test('task byte rejection and history continuation reach the model and survive e
   assert.deepEqual(recorded, JSON.parse(await readFile(new URL('expected/watchdog-task-budget.json', import.meta.url), 'utf8')));
   assert.equal(f.store.tasks.history(LOCAL_HTTP_IDENTITY, 'budget-task').tasks.length, 2);
 });
+
+test('foreign command receipts are refused in model output and durable Session replay', { timeout: 30000 }, async t => {
+  const record = { generation: 0, revision: 0, commandId: 'human-record', command: { type: 'contact.upsert', contact } };
+  const task = { id: 'human-task', revision: 0, commandId: 'human-task', command: { type: 'create', task: {
+    goal: 'Check synthetic receipt ownership', scope: 'Fixture only', owner: { kind: 'local', label: 'Human operator' },
+    dueAt: null, timezone: 'UTC', risk: 'low', checklist: [{ id: 'proof', description: 'Human owns this receipt' }],
+  } } };
+  const f = await fixture(t, [
+    toolCallResponse('claim-record', 'enterprise_command', { request: record }),
+    toolCallResponse('claim-task', 'watchdog_task_command', task),
+    textResponse('Both receipts belong to a different actor; no command was repeated.'),
+  ], false, true);
+  f.store.execute(record, LOCAL_HTTP_IDENTITY);
+  f.store.tasks.execute(LOCAL_HTTP_IDENTITY, task);
+  const { events, results } = await f.run();
+  const recorded = results.map(result => ({ isError: result.isError, content: result.content }));
+  assert.deepEqual(recorded, JSON.parse(await readFile(new URL('expected/receipt-identity.json', import.meta.url), 'utf8')));
+  assert.equal(events.some(event => event.type === 'approval/asked'), false);
+  assert.equal(f.store.snapshot().revision, 1);
+  assert.equal(f.store.tasks.history(LOCAL_HTTP_IDENTITY, task.id).tasks.length, 1);
+});
