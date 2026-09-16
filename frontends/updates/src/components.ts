@@ -65,7 +65,7 @@ const operationSchema = z.object({
 type ComponentOperation = z.infer<typeof operationSchema>;
 
 /** Persisted progress of a user-approved component change. */
-export interface ComponentOperationStatus {
+interface ValidComponentOperationStatus {
   token: string;
   id: string;
   version: string;
@@ -76,6 +76,13 @@ export interface ComponentOperationStatus {
   failure?: string;
 }
 
+/** Invalid journals remain visible without interpreting their profile content as an approved change. */
+export type ComponentOperationStatus = ValidComponentOperationStatus | {
+  token: string;
+  state: 'invalid';
+  failure: string;
+};
+
 const OPERATION_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 async function readOperation(root: string, token: string): Promise<ComponentOperation> {
@@ -85,7 +92,7 @@ async function readOperation(root: string, token: string): Promise<ComponentOper
 
 /** Read durable progress without creating update directories or exposing profile content.
  * @param dshHome - selected Host home.
- * @returns approved operations in deterministic token order; invalid records reject the observation.
+ * @returns operations in deterministic token order; unreadable records have an invalid state and retain their original bytes.
  */
 export async function listComponentOperations(dshHome: string): Promise<ComponentOperationStatus[]> {
   if (!isAbsolute(dshHome) || resolve(dshHome) !== dshHome || parse(dshHome).root === dshHome) throw new Error('DSH home must be an absolute normalized directory below the filesystem root');
@@ -101,7 +108,13 @@ export async function listComponentOperations(dshHome: string): Promise<Componen
   for (const name of (await readdir(join(root, 'operations'))).sort()) {
     if (!name.endsWith('.json')) continue;
     const token = name.slice(0, -5);
-    const record = await readOperation(root, token);
+    let record: ComponentOperation;
+    try { record = await readOperation(root, token); }
+    catch {
+      // A journal is optional recovery metadata; malformed or unreadable files cannot authorize a profile edit.
+      rows.push({ token, state: 'invalid', failure: 'Component operation record is unreadable or invalid; repair it before changing components.' });
+      continue;
+    }
     rows.push({ token, id: record.id, version: record.version, state: record.state, activation: record.activation,
       ...(record.observedHostPid === undefined ? {} : { observedHostPid: record.observedHostPid }),
       ...(record.observedRunId === undefined ? {} : { observedRunId: record.observedRunId }),
@@ -515,11 +528,15 @@ async function assertDesktopHostStopped(dshHome: string): Promise<void> {
 /** Apply approved updater changes before the desktop starts its Host, or recover an unconfirmed switch.
  * The desktop must serialize its own start/stop lifecycle around this finite operation.
  * A previous switch without a matching loaded-plugin receipt is restored before another attempt.
+ * Any unreadable operation pauses all automatic profile changes and returns invalid status without blocking Host startup.
  * @param dshHome - selected desktop home with a previously published Host identity.
  * @returns per-operation outcomes; no result claims that a newly selected plugin has loaded.
  */
 export async function maintainRestartComponents(dshHome: string): Promise<ComponentOperationStatus[]> {
-  const pending = (await listComponentOperations(dshHome)).filter(record => record.id === 'updates'
+  const operations = await listComponentOperations(dshHome);
+  const invalid = operations.filter(record => record.state === 'invalid');
+  if (invalid.length) return invalid;
+  const pending = operations.filter((record): record is ValidComponentOperationStatus => record.state !== 'invalid' && record.id === 'updates'
     && record.activation === 'restart' && ['staged', 'switching', 'awaiting-health'].includes(record.state));
   if (pending.length === 0) return [];
   await assertDesktopHostStopped(dshHome);
@@ -575,7 +592,7 @@ export async function maintainRestartComponents(dshHome: string): Promise<Compon
 export async function confirmComponentHealth(options: { dshHome: string; entryUrl: string; hostPid: number; runId: string }): Promise<string[]> {
   if (options.hostPid !== process.pid || !options.runId || options.runId !== process.env.CLAWMASTER_RUNTIME_RUN_ID) throw new Error('Health confirmation requires the actual executing desktop Host');
   const operations = await listComponentOperations(options.dshHome);
-  const candidates = operations.filter(operation => operation.id === 'updates' && operation.state === 'awaiting-health');
+  const candidates = operations.filter(operation => operation.state !== 'invalid' && operation.id === 'updates' && operation.state === 'awaiting-health');
   if (!candidates.length) return [];
   const root = await stateRoot(options.dshHome);
   const path = await patchPath(options.dshHome);

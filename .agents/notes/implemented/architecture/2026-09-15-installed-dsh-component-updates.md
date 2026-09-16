@@ -24,6 +24,8 @@ Updater `0.1.2` uses the native v2 endpoint and accepts four required installer 
 
 The [native stable-update decision](2026-09-13-desktop-stable-confirmed-updates.md) continues to own native version selection, scheduling and installation consent. The [self-hosted publication decision](2026-09-15-desktop-self-hosted-update-channel.md) continues to own mirroring and atomic publication of native release files. This plugin adds an independent component consumer without changing either decision or the endpoint in already installed `0.2.1` binaries. The package README owns user operations and limitations; the [server reference](../../../../apps/desktop-tauri/server-updates/README.md) owns publication procedures.
 
+Invalid operation journals retain their original bytes and produce an explicit `invalid` discovery state. Maintenance makes no profile changes while any such record exists. A partial optional recovery record cannot authorize a change or prevent the existing Host from starting. Health confirmation examines only validated operations; unavailable recovery metadata never establishes successful activation.
+
 ## Alternatives considered
 
 **Replace the desktop to introduce every component.** Native packaging remains necessary for native application and core changes. Independent components can use the existing DSH profile loader, avoiding an unnecessary desktop replacement for their first installation or eligible hot updates.

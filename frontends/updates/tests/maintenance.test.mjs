@@ -129,3 +129,22 @@ test('unconfirmed recovery does not overwrite a profile changed after the attemp
   await assert.rejects(maintainRestartComponents(f.dshHome), /manual recovery/)
   assert.equal(await readFile(f.patch, 'utf8'), edited)
 })
+
+test('a malformed journal blocks automatic component changes without preventing startup or hiding the original bytes', async t => {
+  const f = await fixture(t)
+  const token = '11111111-1111-4111-8111-111111111111'
+  const path = join(f.dshHome, 'clawmaster-updates/operations', `${token}.json`)
+  for (const bytes of ['{"state":', '{"state":"staged"}']) {
+    await writeFile(path, bytes)
+    const listed = await listComponentOperations(f.dshHome)
+    assert.equal(listed.find(row => row.token === token).state, 'invalid')
+    assert.equal(listed.find(row => row.token === f.operation.rollbackToken).state, 'staged')
+    assert.deepEqual((await maintainRestartComponents(f.dshHome)).map(row => row.state), ['invalid'])
+    assert.equal(await readFile(f.patch, 'utf8'), f.before)
+    assert.equal(await readFile(path, 'utf8'), bytes)
+    assert.deepEqual(await confirm(t, f, f.first.entryUrl), [])
+  }
+  await rm(path)
+  assert.equal((await maintainRestartComponents(f.dshHome))[0].state, 'awaiting-health')
+  assert.deepEqual(await confirm(t, f, f.second.entryUrl), [f.operation.rollbackToken])
+})

@@ -97,6 +97,35 @@ test('read-only slash command and discovery tool perform no filesystem writes or
   assert.ok(f.requests.every(url => !url.includes('/artifacts/') && !url.includes('/versions/')))
 })
 
+test('desktop Host registration survives a truncated operation journal and discovery reports it invalid', async t => {
+  const f = await fixture(t)
+  const operations = join(f.config.dshHome, 'clawmaster-updates/operations')
+  await mkdir(operations, { recursive: true })
+  const token = '11111111-1111-4111-8111-111111111111'
+  const journal = join(operations, `${token}.json`)
+  const bytes = '{"state":'
+  await writeFile(journal, bytes)
+  const saved = process.env.CLAWMASTER_RUNTIME_RUN_ID
+  process.env.CLAWMASTER_RUNTIME_RUN_ID = 'test-desktop-with-corrupt-journal'
+  let host
+  try { host = await mount(t, f) }
+  finally {
+    if (saved === undefined) delete process.env.CLAWMASTER_RUNTIME_RUN_ID
+    else process.env.CLAWMASTER_RUNTIME_RUN_ID = saved
+  }
+  assert.ok(host.tools.has('clawmaster_updates'))
+  const status = await host.execute('clawmaster_updates', {})
+  assert.equal(status.operations.find(operation => operation.token === token).state, 'invalid')
+  const command = await host.commands.get('updates').handler({ rawInput: '', signal: new AbortController().signal })
+  assert.match(command.text, /更新记录损坏或无法读取/)
+  const english = await mount(t, { ...f, config: { ...f.config, locale: 'en-US' } })
+  const englishCommand = await english.commands.get('updates').handler({ rawInput: '', signal: new AbortController().signal })
+  assert.match(englishCommand.text, /Update record is invalid or unreadable/)
+  await assert.rejects(host.execute('clawmaster_update_rollback', { operation: token }), /invalid/)
+  assert.equal(host.approvals.length, 0)
+  assert.equal(await readFile(journal, 'utf8'), bytes)
+})
+
 test('user rollback requires an owning agent and one approval bound to the selected updater operation', async t => {
   const f = await fixture(t)
   const descriptor = { ...f.item, id: 'updates', packageName: '@clawmaster/dsh-updates', activation: 'restart' }

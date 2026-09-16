@@ -24,6 +24,8 @@ Status: implemented
 
 [原生正式版更新决策](2026-09-13-desktop-stable-confirmed-updates.zh.md)继续负责原生版本选择、检查调度及安装确认。[自托管发布决策](2026-09-15-desktop-self-hosted-update-channel.zh.md)继续负责原生发布文件的镜像及原子发布。此插件新增独立的组件消费方，不改变这两项决策，也不改变已安装 `0.2.1` 二进制的端点。包 README 负责用户操作及限制；[服务器参考](../../../../apps/desktop-tauri/server-updates/README.zh.md)负责发布流程。
 
+无效操作记录保留原始字节，并在发现结果中明确标记 `invalid`。只要存在这类记录，维护就不修改 profile。不完整的可选恢复记录既不能授权变更，也不能阻止已有 Host 启动。健康确认仅检查已验证的操作；恢复元数据不可用不代表激活成功。
+
 ## 考虑过的替代方案
 
 **每次引入组件都替换桌面。** 原生应用及核心变更仍需原生打包。独立组件可以复用 DSH profile loader，使首次安装及符合条件的热更新无需替换桌面。

@@ -203,6 +203,7 @@ export class UpdatesService {
       signal.throwIfAborted()
       const operation = (await listComponentOperations(this.config.dshHome)).find(operation => operation.token === token)
       if (!operation) throw new Error('The selected update operation does not exist')
+      if (operation.state === 'invalid') throw new Error(operation.failure)
       if (operation.id !== 'updates') throw new Error('User rollback is limited to the stateless updater; other components require a reviewed data-compatibility procedure')
       const expectedPatchRevision = await readComponentPatchRevision(this.config.dshHome)
       const facts = await this.facts()

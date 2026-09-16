@@ -33,7 +33,7 @@ const copy = {
     checkDescription: '只读检查服务器更新和当前运行版本。不会下载更新包或更改配置。',
     changeDescription: '准备已签名目录中的指定版本，写入前须获得一次用户批准。热更新组件等待 Loader 激活；更新器由支持维护的桌面在下次启动前应用，并等待实际加载确认。运行时与桌面安装包只下载验签。',
     rollback: '恢复上一版更新器', rollbackDescription: '恢复指定更新操作之前的更新器版本，需要一次用户批准；下次启动前应用，不回退业务数据库。',
-    commandInput: '/updates 只接受无参数的只读检查。', unavailable: '不可用', unknown: '未确认',
+    commandInput: '/updates 只接受无参数的只读检查。', unavailable: '不可用', unknown: '未确认', invalidJournal: '更新记录损坏或无法读取；自动组件切换已暂停，请修复记录',
     runtime: '当前 DSH', desktop: '当前桌面', components: '组件与运行时目录', native: '桌面安装包',
     compatible: '兼容', incompatible: '与当前 DSH 不兼容', pending: '需要后续原生安装',
     empty: '暂无组件版本', guidance: '需要准备某个版本时，告诉 ClawMaster 要更新的组件和版本；写入前会请求确认。',
@@ -44,7 +44,7 @@ const copy = {
     checkDescription: 'Read server update metadata and current running versions. Does not download update artifacts or change configuration.',
     changeDescription: 'Prepare an exact signed candidate after one user approval. Hot components await Loader activation; a maintenance-capable desktop applies staged updater changes before its next Host starts, then waits for actual load confirmation. Runtime and native files are verified downloads only.',
     rollback: 'Restore the previous updater', rollbackDescription: 'Restore the updater version before a selected operation after one user approval; apply before the next Host starts without downgrading business databases.',
-    commandInput: '/updates accepts no arguments and only checks metadata.', unavailable: 'unavailable', unknown: 'unverified',
+    commandInput: '/updates accepts no arguments and only checks metadata.', unavailable: 'unavailable', unknown: 'unverified', invalidJournal: 'Update record is invalid or unreadable; automatic component switching is paused until repair',
     runtime: 'Running DSH', desktop: 'Running desktop', components: 'Component and runtime catalog', native: 'Native installer',
     compatible: 'compatible', incompatible: 'incompatible with running DSH', pending: 'native installation required',
     empty: 'No component versions published', guidance: 'Ask ClawMaster to prepare a component and version. It will request confirmation before writing.',
@@ -59,7 +59,9 @@ function commandText(status: UpdatesStatus, locale: 'zh-CN' | 'en-US'): string {
   else if (status.components.items.length === 0) rows.push(text.empty)
   else for (const item of status.components.items) rows.push(`${item.id} ${item.version}: ${item.compatible === null ? text.unknown : item.compatible ? text.compatible : text.incompatible} (${item.activation})`)
   rows.push(status.native.status === 'available' ? `${text.native}: ${status.native.version} (${text.pending})` : `${text.native}: ${text.unavailable} (${status.native.error})`)
-  for (const operation of status.operations) rows.push(`${operation.id} ${operation.version}: ${operation.state} (${operation.token})`)
+  for (const operation of status.operations) rows.push(operation.state === 'invalid'
+    ? `${text.invalidJournal} (${operation.token})`
+    : `${operation.id} ${operation.version}: ${operation.state} (${operation.token})`)
   rows.push(text.guidance)
   return rows.join('\n')
 }
