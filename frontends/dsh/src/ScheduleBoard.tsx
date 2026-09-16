@@ -46,7 +46,7 @@ export function ScheduleBoard({ client, locale, sessions, onOpenSession }: Props
       <button type="button" disabled={state.loading || state.saving} aria-pressed={selected?.id === plan.id}
         onClick={() => { setReason(''); void client.select(plan); }}>{plan.prompt}</button>
       <p>{plan.active ? copy.active : copy.inactive} · {copy.missedCount}: {plan.missedCount}</p>
-      <p>{copy.nextAt}: {plan.nextAt === null ? copy.noNext : date(plan.nextAt, locale)}</p>
+      <p>{copy.nextAt}: {!plan.active || plan.nextAt === null ? copy.noNext : date(plan.nextAt, locale)}</p>
     </article>)}</div>
     {state.nextPlan !== null && <button type="button" disabled={state.loading || state.saving} onClick={() => { void client.refresh(state.nextPlan!); }}>{copy.nextPlan}</button>}
     {selected && <section className="cm-task-detail" aria-label={copy.occurrences}>

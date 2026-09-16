@@ -112,7 +112,7 @@ The authority interface is an integration requirement, not a bundled identity pr
 
 ### Use reminders and IM connections
 
-The bundle enables DSH's official Schedule, time context and reminder catalog. Reminder delivery needs the application running and a live root agent in the owning session; closing the application does not create an operating-system background scheduler. Due reminders return to the same conversation when that session can accept them. See the [Schedule guide](../../docs/user/guide/schedule.md) for supported timing and recovery behavior.
+The bundle enables DSH's official Schedule, time context and reminder catalog. The Session reminder frequency control asks AI to create a reminder; only its successful tool result confirms creation. Product-level persistent plans use the separate Scheduled checks panel. Reminder delivery needs the application running and a live root agent in the owning session; closing the application does not create an operating-system background scheduler. Due reminders return to the same conversation when that session can accept them. See the [Schedule guide](../../docs/user/guide/schedule.md) for supported timing and recovery behavior.
 
 WatchDog management exposes product-level persistent plans through the Scheduled checks panel. It provides per-occurrence approval, independently observed worker state and human resolution of uncertain delivery. See [persistent scheduling](scheduling/README.md) for the workflow, authenticated interfaces, deployment limits and recovery.
 

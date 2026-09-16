@@ -78,6 +78,7 @@ it('creates a plan, approves exactly one occurrence and stops future work withou
   fireEvent.change(within(detail).getAllByLabelText('Action reason')[0], { target: { value: 'Stop future checks for review' } });
   fireEvent.click(screen.getByRole('button', { name: 'Stop future checks' }));
   await waitFor(() => expect(client.getSnapshot().selected.active).toBe(false));
+  expect(screen.getByText('Next due: No next due time')).toBeTruthy();
   expect(store.instance(id).state).toBe('ready');
   const reopened = await openWatchdogScheduleStore(path, human.organizationId);
   try { expect(reopened.plan(plan.id).active).toBe(false); expect(reopened.instance(id).state).toBe('ready'); }

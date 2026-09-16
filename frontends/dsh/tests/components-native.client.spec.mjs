@@ -321,7 +321,7 @@ it.each(['delete', 'submit'])('a refreshed ERP %s confirmation must be reopened 
 
 it.each(['zh', 'en'])('WatchDog keeps a goal across main-slot remounts and surfaces real DSH pending interactions first (%s)', async locale => {
   const f = await fixture(true, undefined, locale);
-  const labels = locale === 'zh' ? { goal: '需要关注什么？', cadence: '检查频率', attention: '待处理 2' } : { goal: 'What should WatchDog watch?', cadence: 'Frequency', attention: 'Needs attention 2' };
+  const labels = locale === 'zh' ? { goal: '需要关注什么？', cadence: '会话内提醒频率', attention: '待处理 2' } : { goal: 'What should WatchDog watch?', cadence: 'Session reminder frequency', attention: 'Needs attention 2' };
   f.settings.unmount();
   await f.runtime.sessions.add({ id: 'active', summary: { cwd: '/synthetic', displayTitle: 'Active check', blank: false, running: true, updatedAt: 30 } }, { current: false });
   await f.runtime.sessions.add({ id: 'approval', summary: { cwd: '/synthetic', displayTitle: 'Inventory approval', blank: false, running: true, updatedAt: 20 } }, { current: false });
@@ -365,8 +365,8 @@ it.each(['zh', 'en'])('the compiled WatchDog locks uncertain task text and retri
   const f = await fixture(true, undefined, locale);
   f.settings.unmount();
   const labels = locale === 'zh'
-    ? { goal: '需要关注什么？', cadence: '检查频率', start: '开始检查', retry: '重试原请求', inspect: '打开原会话核查' }
-    : { goal: 'What should WatchDog watch?', cadence: 'Frequency', start: 'Start check', retry: 'Retry original request', inspect: 'Inspect existing session' };
+    ? { goal: '需要关注什么？', cadence: '会话内提醒频率', start: '开始检查', retry: '重试原请求', inspect: '打开原会话核查' }
+    : { goal: 'What should WatchDog watch?', cadence: 'Session reminder frequency', start: 'Start check', retry: 'Retry original request', inspect: 'Inspect existing session' };
   const admitted = new Set();
   const prompt = vi.fn(async (_content, _mode, _signal, requestId) => {
     admitted.add(requestId);
