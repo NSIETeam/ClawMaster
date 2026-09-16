@@ -86,6 +86,33 @@ test('schema 2 audit imports unknown identity and chain tampering prevents reope
   await assert.rejects(openEnterpriseStore(path), { code: 'storage_invalid' });
 });
 
+test('rejected schema 1 organization migration leaves the old schema retryable and preserves records', async t => {
+  const { store, path } = await fixture(t);
+  store.execute({ revision: 0, commandId: 'legacy-command', command: contact('Legacy customer') });
+  store.close();
+  const legacy = new DatabaseSync(path);
+  legacy.exec(`DROP TABLE responsibility_history; DROP TABLE restore_receipts;
+    DROP TABLE watchdog_task_history; DROP TABLE watchdog_tasks; DROP TABLE enterprise_organization;
+    ALTER TABLE enterprise_meta DROP COLUMN generation; PRAGMA user_version=1;`);
+  const schema = legacy.prepare("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").all();
+  legacy.close();
+  await assert.rejects(openEnterpriseStore(path, 5000, 'another-organization'), { code: 'storage_invalid' });
+  const unchanged = new DatabaseSync(path);
+  try {
+    assert.equal(unchanged.prepare('PRAGMA user_version').get().user_version, 1);
+    assert.deepEqual(unchanged.prepare("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").all(), schema);
+    assert.equal(unchanged.prepare('SELECT name FROM contacts').get().name, 'Legacy customer');
+  } finally { unchanged.close(); }
+  const migrated = await openEnterpriseStore(path);
+  try {
+    assert.equal(migrated.snapshot().contacts[0].name, 'Legacy customer');
+    assert.equal(migrated.responsibility().records[0].commandId, 'legacy-command');
+  } finally { migrated.close(); }
+  const reopened = await openEnterpriseStore(path);
+  try { assert.equal(reopened.responsibility().records.length, 1); }
+  finally { reopened.close(); }
+});
+
 test('HTTP command rejects forged actor and responsibility query is bounded', async t => {
   const { store } = await fixture(t);
   const routes = new Map();

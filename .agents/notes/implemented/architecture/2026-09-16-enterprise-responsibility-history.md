@@ -14,6 +14,8 @@ SQLite schema 3 owns an append-only responsibility table outside the restore pay
 
 The [business backup decision](../feature/2026-09-14-enterprise-snapshot-backup.md) remains authoritative for portable business snapshots and exact stock restoration. Responsibility history is separate and is neither replaced nor exported by that operation.
 
+Schema changes and their version marker share the same transaction as organization admission and history validation. Committing a generation column before the organization check leaves a rejected schema 1 database marked as schema 1 with that column already present, so retries fail. Rejection preserves the prior schema and records for a valid local retry.
+
 ## Alternatives considered
 
 **Keeping responsibility in the restored business audit.** Replacing that table necessarily loses evidence about changes made after the backup.

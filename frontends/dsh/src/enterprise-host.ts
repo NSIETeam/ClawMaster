@@ -559,7 +559,7 @@ export class EnterpriseStore {
  * Open an owned database, adding a restore counter to schema 1 without replacing records.
  * @param databasePath SQLite file path; the caller supplies the DSH home location.
  * @param busyTimeoutMs Maximum SQLite writer-lock wait in milliseconds.
- * @returns An open database owner; callers must close it after removing its routes.
+ * @returns An open database owner; callers must close it after removing its routes. Schema upgrades and ownership validation commit together or roll back together.
  */
 export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 5000, organizationId = 'local'): Promise<EnterpriseStore> {
   z.number().int().min(0).max(60000).parse(busyTimeoutMs);
@@ -584,7 +584,9 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
       throw new EnterpriseError('storage_invalid', 'Enterprise database version or ownership is unsupported.');
     }
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;');
-    if (fresh) db.exec(`BEGIN IMMEDIATE;
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      if (fresh) db.exec(`
       CREATE TABLE IF NOT EXISTS enterprise_meta (singleton INTEGER PRIMARY KEY CHECK(singleton=1), revision INTEGER NOT NULL CHECK(revision>=0), generation INTEGER NOT NULL DEFAULT 0 CHECK(generation>=0)) STRICT;
       INSERT OR IGNORE INTO enterprise_meta VALUES (1,0,0);
       CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, name TEXT NOT NULL, company TEXT NOT NULL, stage TEXT NOT NULL, nextAction TEXT NOT NULL, nextActionDate TEXT, updatedAt TEXT NOT NULL) STRICT;
@@ -592,19 +594,11 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
       CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('purchase','sale')), counterparty TEXT NOT NULL, orderDate TEXT NOT NULL, currency TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('draft','submitted')), totalMinorUnits INTEGER NOT NULL CHECK(totalMinorUnits>=0), note TEXT NOT NULL, updatedAt TEXT NOT NULL, submittedAt TEXT) STRICT;
       CREATE TABLE IF NOT EXISTS order_lines (orderId TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE, position INTEGER NOT NULL, itemId TEXT NOT NULL REFERENCES inventory(id), quantity INTEGER NOT NULL CHECK(quantity>0), unitPriceMinorUnits INTEGER NOT NULL CHECK(unitPriceMinorUnits>=0), PRIMARY KEY(orderId,itemId), UNIQUE(orderId,position)) STRICT;
       CREATE TABLE IF NOT EXISTS enterprise_audit (revision INTEGER PRIMARY KEY, commandId TEXT NOT NULL UNIQUE, type TEXT NOT NULL, entityId TEXT NOT NULL, at TEXT NOT NULL, commandJson TEXT NOT NULL CHECK(json_valid(commandJson)), beforeJson TEXT NOT NULL CHECK(json_valid(beforeJson)), afterJson TEXT NOT NULL CHECK(json_valid(afterJson))) STRICT;
-      PRAGMA application_id = ${APPLICATION_ID}; PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;
+      PRAGMA application_id = ${APPLICATION_ID};
     `);
-    if (app === APPLICATION_ID && version === 1) {
-      db.exec('BEGIN IMMEDIATE');
-      try {
-        if (sqliteRow.parse(db.prepare('PRAGMA user_version').get()).user_version === 1) {
-          db.exec('ALTER TABLE enterprise_meta ADD COLUMN generation INTEGER NOT NULL DEFAULT 0 CHECK(generation>=0);');
-        }
-        db.exec('COMMIT');
-      } catch (error) { db.exec('ROLLBACK'); throw error; }
-    }
-    db.exec('BEGIN IMMEDIATE');
-    try {
+      if (!fresh && sqliteRow.parse(db.prepare('PRAGMA user_version').get()).user_version === 1) {
+        db.exec('ALTER TABLE enterprise_meta ADD COLUMN generation INTEGER NOT NULL DEFAULT 0 CHECK(generation>=0);');
+      }
       db.exec('CREATE TABLE IF NOT EXISTS enterprise_organization(singleton INTEGER PRIMARY KEY CHECK(singleton=1), organizationId TEXT NOT NULL) STRICT;');
       const organization = db.prepare('SELECT organizationId FROM enterprise_organization WHERE singleton=1').get();
       if (!organization) {
@@ -616,12 +610,12 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
       initializeResponsibilityHistory(db);
       initializeTasks(db);
       verifyResponsibility(db);
+      if (sqliteRow.parse(db.prepare('PRAGMA quick_check').get()).quick_check !== 'ok'
+        || db.prepare('PRAGMA foreign_key_check').all().length > 0) {
+        throw new EnterpriseError('storage_invalid', 'Enterprise database integrity check failed.');
+      }
       db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`);
     } catch (error) { db.exec('ROLLBACK'); throw error; }
-    if (sqliteRow.parse(db.prepare('PRAGMA quick_check').get()).quick_check !== 'ok'
-      || db.prepare('PRAGMA foreign_key_check').all().length > 0) {
-      throw new EnterpriseError('storage_invalid', 'Enterprise database integrity check failed.');
-    }
     const store = new EnterpriseStore(db);
     store.snapshot();
     return store;
