@@ -53,14 +53,15 @@ pub fn kill_process_tree(pid: u32) {
     }
 }
 
-/// Record the Host pid and Node image so a later launch can reap an orphan.
+/// Record the Host pid, Node image and creation token so a later launch can reap only its orphan.
 ///
 /// WSL callers pass the Windows `wsl.exe` stub pid and the Linux Node image
 /// path (`Path::new(linux_node)`). [`reclaim_stale_host`] will not match that
 /// pair (Windows image ≠ Linux path), so live WSL reaping stays on
 /// `HostHandle::stop`.
 pub fn write_host_pid(path: &Path, pid: u32, node: &Path) -> Result<(), String> {
-    std::fs::write(path, format!("{pid}\n{}\n", node.display())).map_err(|e| e.to_string())
+    let token = process_start_token(pid).ok_or("Cannot establish Host process creation identity")?;
+    std::fs::write(path, format!("{pid}\n{}\n{token}\n", node.display())).map_err(|e| e.to_string())
 }
 
 /// Parse a `host.pid` file written by [`write_host_pid`].
@@ -74,26 +75,89 @@ pub fn parse_host_pid(raw: &str) -> Option<(u32, PathBuf)> {
     Some((pid, PathBuf::from(node)))
 }
 
+fn parse_host_pid_record(raw: &str) -> Option<(u32, PathBuf, String)> {
+    let (pid, node) = parse_host_pid(raw)?;
+    let token = raw.lines().nth(2)?.trim();
+    if token.is_empty() {
+        return None;
+    }
+    Some((pid, node, token.to_string()))
+}
+
 /// Kill a previous Host tree when its recorded Node image still matches.
 pub fn reclaim_stale_host(path: &Path) {
     let Ok(raw) = std::fs::read_to_string(path) else {
         return;
     };
     let _ = std::fs::remove_file(path);
-    let Some((pid, node)) = parse_host_pid(&raw) else {
+    let Some((pid, node, token)) = parse_host_pid_record(&raw) else {
         return;
     };
-    if !host_pid_matches(pid, &node) {
+    if !host_pid_matches(pid, &node, &token) {
         return;
     }
     kill_process_tree(pid);
 }
 
-fn host_pid_matches(pid: u32, expected_node: &Path) -> bool {
+fn host_pid_matches(pid: u32, expected_node: &Path, expected_token: &str) -> bool {
     let Some(image) = process_image_path(pid) else {
         return false;
     };
     crate::runtime::env_path::path_eq(&image, expected_node)
+        && process_start_token(pid).as_deref() == Some(expected_token)
+}
+
+fn process_start_token(pid: u32) -> Option<String> {
+    #[cfg(windows)]
+    {
+        use windows::Win32::Foundation::{CloseHandle, FILETIME};
+        use windows::Win32::System::Threading::{
+            GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+        };
+        let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }.ok()?;
+        let mut creation = FILETIME::default();
+        let mut exit = FILETIME::default();
+        let mut kernel = FILETIME::default();
+        let mut user = FILETIME::default();
+        let result = unsafe {
+            GetProcessTimes(handle, &mut creation, &mut exit, &mut kernel, &mut user)
+        };
+        let _ = unsafe { CloseHandle(handle) };
+        result.ok()?;
+        let ticks = (u64::from(creation.dwHighDateTime) << 32) | u64::from(creation.dwLowDateTime);
+        Some(format!("windows:{ticks}"))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let mut info = std::mem::MaybeUninit::<libc::proc_bsdinfo>::zeroed();
+        let size = std::mem::size_of::<libc::proc_bsdinfo>();
+        let result = unsafe {
+            libc::proc_pidinfo(
+                i32::try_from(pid).ok()?,
+                libc::PROC_PIDTBSDINFO,
+                0,
+                info.as_mut_ptr().cast(),
+                i32::try_from(size).ok()?,
+            )
+        };
+        if result != i32::try_from(size).ok()? {
+            return None;
+        }
+        let info = unsafe { info.assume_init() };
+        Some(format!("macos:{}:{}", info.pbi_start_tvsec, info.pbi_start_tvusec))
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let raw = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+        let end = raw.rfind(") ")?;
+        let start_time = raw.get(end + 2..)?.split_whitespace().nth(19)?;
+        Some(format!("linux:{start_time}"))
+    }
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+    {
+        let _ = pid;
+        None
+    }
 }
 
 #[cfg(windows)]
@@ -221,7 +285,7 @@ impl Drop for KillOnCloseJob {
 #[cfg(test)]
 mod tests {
     use super::parse_host_pid;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn parses_pid_and_node_image() {
@@ -231,5 +295,24 @@ mod tests {
         );
         assert_eq!(parse_host_pid("0\nC:\\\\node.exe\n"), None);
         assert_eq!(parse_host_pid("not-a-pid\nC:\\\\node.exe\n"), None);
+    }
+
+    #[test]
+    fn stale_host_records_require_a_creation_identity() {
+        assert_eq!(super::parse_host_pid_record("4321\nnode\n"), None);
+        assert_eq!(
+            super::parse_host_pid_record("4321\nnode\nlinux:123\n"),
+            Some((4321, PathBuf::from("node"), "linux:123".into()))
+        );
+    }
+
+    #[test]
+    fn host_pid_record_writes_the_current_process_creation_token() {
+        let path = std::env::temp_dir().join(format!("clawmaster-host-pid-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        super::write_host_pid(&path, std::process::id(), Path::new("node")).unwrap();
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(super::parse_host_pid_record(&raw).is_some());
+        let _ = std::fs::remove_file(path);
     }
 }
