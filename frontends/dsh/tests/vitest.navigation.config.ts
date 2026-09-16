@@ -19,6 +19,6 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom', pool: 'forks', execArgv: vitestExecArgv,
-    include: ['frontends/dsh/tests/navigation-native.client.spec.tsx', 'frontends/dsh/tests/components-native.client.spec.mjs', 'frontends/dsh/tests/onboarding.client.spec.mjs', 'frontends/dsh/tests/enterprise-restore.client.spec.tsx', 'frontends/dsh/tests/task-board.client.spec.mjs'],
+    include: ['frontends/dsh/tests/navigation-native.client.spec.tsx', 'frontends/dsh/tests/components-native.client.spec.mjs', 'frontends/dsh/tests/onboarding.client.spec.mjs', 'frontends/dsh/tests/enterprise-restore.client.spec.tsx', 'frontends/dsh/tests/task-board.client.spec.mjs', 'frontends/dsh/tests/schedule-board.client.spec.mjs'],
   },
 });

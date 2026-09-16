@@ -315,7 +315,7 @@ test('one complete record with mandatory worker observation fails explicitly ins
   const maxQueryBytes = scheduleResponseBytes(record, 'http') + 20;
   assert.ok(maxQueryBytes >= 1024);
   const h = await fixture(t, new GovernanceAccess(), human, { maxQueryBytes });
-  assert.equal((await h.send(command)).status, 200);
+  assert.equal((await h.send(command, { commandId: 'probe' })).status, 200);
   h.store.heartbeat('worker', now);
   const response = await h.read('?limit=1');
   assert.equal(response.status, 413);

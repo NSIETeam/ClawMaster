@@ -98,7 +98,9 @@ export class WatchdogScheduleStore {
       if (replay) {
         const receipt = sqliteRow.parse(replay);
         if (receipt.request !== serialized || receipt.actor !== actor) fail('command_conflict', 'Schedule command identity was already used.');
-        return JSON.parse(String(receipt.result)) as unknown;
+        const result = { ...sqliteRow.parse(JSON.parse(String(receipt.result))), commandId: request.commandId };
+        if (scheduleResponseBytes(result, transport) > this.config.maxQueryBytes) fail('response_too_large', 'Schedule command receipt exceeds the response budget.');
+        return result;
       }
       const command = request.command;
       if (command.type === 'create') {
@@ -131,7 +133,7 @@ export class WatchdogScheduleStore {
         }
       }
       this.audit(now, command.id, 'instanceId' in command ? command.instanceId : null, command.type, JSON.stringify(identity), 'reason' in command ? command.reason : null);
-      const result = 'instanceId' in command ? this.instance(command.instanceId) : this.plan(command.id);
+      const result = { ...('instanceId' in command ? this.instance(command.instanceId) : this.plan(command.id)), commandId: request.commandId };
       if (scheduleResponseBytes(result, transport) > this.config.maxQueryBytes) fail('response_too_large', 'Schedule command receipt exceeds the response budget.');
       this.db.prepare('INSERT INTO schedule_commands(id,request,actor,result) VALUES(?,?,?,?)').run(request.commandId, serialized, actor, JSON.stringify(result));
       return result;

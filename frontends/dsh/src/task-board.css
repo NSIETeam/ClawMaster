@@ -26,3 +26,6 @@
 .cm-task-history summary { cursor: pointer; margin-bottom: 12px; }
 .cm-task-history article { padding: 12px 0; border-bottom: 1px solid var(--dsw-alias-border-l1); }
 @media (max-width: 700px) { .cm-task-board { padding: 14px; } .cm-task-board-heading { align-items: start; } .cm-business-form-row > label { flex-basis: 100%; } }
+.cm-schedule-board .cm-business-task { margin: 12px 0; overflow-wrap: anywhere; }
+.cm-schedule-board .cm-business-task p { white-space: pre-wrap; }
+.cm-schedule-board .cm-business-task input:not([type="checkbox"]) { padding: 8px; background: var(--dsw-alias-bg-base); color: inherit; border: 1px solid var(--dsw-alias-border-l2); border-radius: 7px; }

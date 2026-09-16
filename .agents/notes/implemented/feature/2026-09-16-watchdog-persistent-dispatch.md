@@ -16,6 +16,8 @@ Each occurrence requires explicit approval. Conversation tools use DSH's turn-en
 
 A durable barrier precedes enqueue. Missing confirmation after that point remains uncertain and requires an audited human acknowledgement or cancellation without replay. The protocol favors preventing an automatic duplicate over pretending that a cross-store SQLite/Session transaction is atomic. Dispatch completion records input durability; business review remains a separate owner.
 
+The management panel binds each successful receipt to its command id. Unconfirmed requests retain their full payload across panel navigation, preventing a second command from silently replacing the first. Human uncertainty resolution requires a Session inspection acknowledgement and reason; neither panel rendering nor worker observation grants execution. Input validation failures remain editable while missing or unrelated receipts remain unresolved.
+
 ## Alternatives considered
 
 Extending the core Schedule runtime to wake cold Sessions violates its live-root ownership rules. Replacing Jobs would duplicate cancellation and teardown. Automatically retrying an ambiguous enqueue risks duplicate external effects; interpreting a healthy worker or completed dispatch as business success hides failures. Independent database copies cannot provide a distributed lease and are outside this deployment model.

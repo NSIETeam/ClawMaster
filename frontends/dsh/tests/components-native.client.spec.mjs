@@ -72,6 +72,7 @@ async function fixture(existing = true, enterpriseStore, localeKey = 'zh') {
   const request = vi.fn(async (path, init) => {
     expect(init.credentials).toBe('same-origin');
     if (path === '/api/clawmaster/workspace') return Response.json({ workspaceId: 'managed', path: '/synthetic/desk' });
+    if (path === '/api/clawmaster/schedules?limit=20&after=0') return Response.json({ mode: 'desktop', workers: [], workerSummary: { total: 0, online: 0, offline: 0, degraded: 0, stopped: 0, nextAfter: null }, records: [], nextAfter: null });
     if (path === '/api/clawmaster/tasks?limit=50') return Response.json({ tasks: [], nextCursor: null });
     if (path.startsWith('/api/clawmaster/enterprise')) return transport.fetch(path, init);
     throw new Error(`Unexpected enterprise request: ${path}`);
@@ -343,7 +344,9 @@ it.each(['zh', 'en'])('WatchDog keeps a goal across main-slot remounts and surfa
   expect(view.getByRole('combobox', { name: labels.cadence }).value).toBe('daily');
   const entries = view.getAllByRole('listitem').map(row => ({ title: row.querySelector('.cm-task-title').textContent, status: row.querySelector('.cm-task-title + span').textContent }));
   const connection = main.container.querySelector('.cm-connection');
-  const snapshot = { draft: goal, cadence: 'daily', entries, connection: { text: connection.textContent, scope: connection.title } };
+  const scheduling = view.getByRole('region', { name: locale === 'zh' ? '定时巡检' : 'Scheduled checks' });
+  const snapshot = { draft: goal, cadence: 'daily', entries, connection: { text: connection.textContent, scope: connection.title },
+    scheduling: { heading: scheduling.querySelector('h2').textContent, actions: within(scheduling).getAllByRole('button').map(button => button.textContent) } };
   const path = resolve(`frontends/dsh/tests/expected/watchdog-management.${locale}.json`);
   if (process.env.DSH_UPDATE_EXPECTED === '1') await writeFile(path, JSON.stringify(snapshot, null, 2) + '\n');
   expect(snapshot).toEqual(JSON.parse(await readFile(path, 'utf8')));

@@ -2,6 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { parameterSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools';
+import { ScheduleInputError } from '@deepseek-ai/dsh-schedule';
 import type { EnterpriseHostContext, EnterpriseStore } from './enterprise-host.ts';
 import type { EnterpriseToolContext } from './enterprise-tools.ts';
 import { GovernanceAccess, GovernanceDenied, auditGovernanceOutcome } from './governance-access.ts';
@@ -19,7 +20,7 @@ const commandParameters = { ...parameterSchemaSpecToJsonSchema({ request: { type
   description: 'JSON command: {commandId,command:{type,id,...}}. create adds sessionId,prompt,rule ({kind:"every",everySeconds>=300} or {kind:"at",at:ISO-with-offset}),missed (skip|coalesce|catch-up),catchUpLimit (1..100). approve adds instanceId. cancel-plan adds reason. cancel-instance adds instanceId and reason. Uncertain resolution is human-only.' } }), additionalProperties: false };
 
 function failure(error: unknown): Response {
-  const code = error instanceof GovernanceDenied || error instanceof WatchdogScheduleError ? error.code : error instanceof z.ZodError || error instanceof SyntaxError ? 'invalid_request' : 'unavailable';
+  const code = error instanceof GovernanceDenied || error instanceof WatchdogScheduleError ? error.code : error instanceof z.ZodError || error instanceof SyntaxError || error instanceof ScheduleInputError ? 'invalid_request' : 'unavailable';
   return Response.json({ error: { code, message: code === 'response_too_large' && error instanceof WatchdogScheduleError ? error.message : 'The schedule operation did not complete.' } }, {
     status: code === 'permission_denied' ? 403 : code === 'invalid_request' ? 400 : code === 'response_too_large' ? 413 : code === 'not_found' ? 404 : code === 'unavailable' ? 503 : 409,
     headers: { 'cache-control': 'no-store' },

@@ -18,5 +18,13 @@
   "connection": {
     "text": "App service connected",
     "scope": "This status covers the connection between this interface and the app service. Model availability, scheduled execution and business outcomes require separate verification."
+  },
+  "scheduling": {
+    "heading": "Scheduled checks",
+    "actions": [
+      "Create check plan",
+      "Refresh scheduler status",
+      "Refresh first worker page"
+    ]
   }
 }
