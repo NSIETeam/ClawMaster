@@ -12,7 +12,7 @@ Status: implemented
 
 主窗口使用原生装饰，macOS 隐藏标题文字。平台负责窗口外观，嵌入的 DSH 客户端负责 Web 主题，两者可以不同。无需自定义主题的标题行、私有 AppKit 遮罩及无边框专用 Tauri feature。
 
-[原生内容矩形决策](../architecture/2026-09-15-macos-native-content-rectangle.zh.md)负责 macOS 控件分区，并替代覆盖式顶栏预留方案。回环 Host 内容仅获得拖动与双击最大化权限；应用命令仍归本地外壳所有。
+[原生内容矩形决策](../architecture/2026-09-15-macos-native-content-rectangle.zh.md)负责 macOS 控件分区，并替代覆盖式顶栏预留方案。[原生权限决策](../architecture/2026-09-16-clawmaster-native-privilege-isolation.zh.md)将命令限定到包内外壳 WebView；Host 内容不获得原生权限。
 
 `shell.html` 负责使用系统配色的关闭确认对话框，打开时隐藏内容 WebView。保存的最小化偏好隐藏主窗口并保持 Host 运行；明确退出时停止 Host 进程树。macOS 的 `RunEvent::Reopen` 调用 `show_main`，显示、取消最小化并聚焦已有主窗口或启动窗口，不创建窗口、Host、Session 或 Workspace。已有 `ExitRequested` 阻止逻辑仍在用户请求退出前保留运行中的应用。
 

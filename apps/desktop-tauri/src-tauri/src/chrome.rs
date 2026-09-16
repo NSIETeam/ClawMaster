@@ -123,10 +123,16 @@ pub fn open_main_window(app: &AppHandle, url: &str) -> Result<(), String> {
 
     // 独立 WebView 提供第一方浏览器环境，保留上游 SameSite=Strict 的认证 cookie。
     let content_url = url.parse::<url::Url>().map_err(|_| "Host 启动地址无效")?;
+    crate::webview_security::validate_host_url(&content_url)?;
+    let host_origin = content_url.clone();
     let native = app.get_window("main").ok_or("main window is missing")?;
     let content = native
         .add_child(
-            WebviewBuilder::new("content", WebviewUrl::External(content_url)),
+            WebviewBuilder::new("content", WebviewUrl::External(content_url))
+                .on_navigation(move |target| {
+                    crate::webview_security::allows_host_navigation(&host_origin, target)
+                })
+                .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny),
             LogicalPosition::new(0.0, f64::from(resolve_controls_layout().titlebar_height)),
             content_size(&native)?,
         )

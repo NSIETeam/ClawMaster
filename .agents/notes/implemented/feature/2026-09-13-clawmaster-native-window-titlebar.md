@@ -12,7 +12,7 @@ An in-window title bar duplicates the platform's controls and product branding w
 
 The main window uses native decorations and macOS hides title text. The platform owns window appearance; the embedded DSH client owns its Web theme. They may differ. A custom themed title row, private AppKit masking, and the frameless-only Tauri feature are unnecessary.
 
-The [native content-rectangle decision](../architecture/2026-09-15-macos-native-content-rectangle.md) owns macOS control separation and supersedes the overlay reservation. Loopback Host content receives only drag and double-click maximization permissions; application commands remain local to the shell.
+The [native content-rectangle decision](../architecture/2026-09-15-macos-native-content-rectangle.md) owns macOS control separation and supersedes the overlay reservation. The [native-privilege decision](../architecture/2026-09-16-clawmaster-native-privilege-isolation.md) confines commands to packaged shell WebViews; Host content receives no native permissions.
 
 `shell.html` owns the close-confirmation dialog, using the system color scheme. It hides the content WebView while the dialog is open. The saved minimize preference hides the main window and keeps the Host running; explicit Quit stops the Host process tree. macOS `RunEvent::Reopen` calls `show_main`, which shows, unminimizes and focuses the existing main or startup window. It creates no window, Host, Session or Workspace. Existing `ExitRequested` prevention still protects the running app until Quit is requested.
 

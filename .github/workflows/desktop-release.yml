@@ -78,6 +78,9 @@ jobs:
           if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
           $PSNativeCommandUseErrorActionPreference = $true
           node apps/desktop-tauri/scripts/release-channel.mjs $env:RELEASE_TAG
+          $expectedCommit = if ('${{ github.event_name }}' -eq 'workflow_dispatch' -and '${{ inputs.publish }}' -ne 'true') { '${{ github.sha }}' } else { (git rev-parse "${env:RELEASE_TAG}^{commit}").Trim() }
+          if ((git rev-parse HEAD).Trim() -ne $expectedCommit) { throw 'Checkout differs from the selected release candidate' }
+          "DSH_DESKTOP_RELEASE_COMMIT=$expectedCommit" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Verify macOS acceptance prerequisites
         if: runner.os == 'macOS'
