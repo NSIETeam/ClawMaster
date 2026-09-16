@@ -12,6 +12,8 @@ A business backup replaces records and their revisioned before/after audit. Trea
 
 SQLite schema 3 owns an append-only responsibility table outside the restore payload. Successful writes and responsibility entries share the business transaction. Restore records retain the backup digest and both revision/generation pairs; independent receipts make explicit restore retries idempotent after a lost response. Failed, denied and cancelled operations record distinct outcomes. Request JSON cannot choose actor or approval fields. HTTP identifies the authenticated local device operator; tools identify the owning Session and call, with a server-minted approval reference. Existing business history imports with unknown actor metadata.
 
+The released request, snapshot and backup types retain their restore generation and command receipts. Both model tool input schemas expose the generation used by the HTTP/domain parser; a reviewed post-restore request can advance in the new generation, while stale commands and pagination remain rejected.
+
 The [business backup decision](../feature/2026-09-14-enterprise-snapshot-backup.md) remains authoritative for portable business snapshots and exact stock restoration. Responsibility history is separate and is neither replaced nor exported by that operation.
 
 Schema changes and their version marker share the same transaction as organization admission and history validation. Committing a generation column before the organization check leaves a rejected schema 1 database marked as schema 1 with that column already present, so retries fail. Rejection preserves the prior schema and records for a valid local retry.

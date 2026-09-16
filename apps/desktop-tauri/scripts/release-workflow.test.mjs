@@ -1,7 +1,7 @@
 /** Build-only dispatch retains release checks without publishing or moving Latest. */
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -30,6 +30,40 @@ test('manual validation defaults to an immutable branch build without publicatio
   ])
   assert.match(workflow.jobs.release.steps.find(step => step.name === 'Generate updater manifest').run, /--target-set current/)
   assert.ok(!workflow.jobs.release.steps.find(step => step.name === 'Verify release asset set').run.includes('macos-x64'))
+})
+
+test('publication runs the strict installed-evidence gate before manifest generation and release upload', t => {
+  const steps = workflow.jobs.release.steps
+  const gateIndex = steps.findIndex(step => step.name === 'Require complete installed acceptance evidence')
+  assert.ok(gateIndex >= 0)
+  const gate = steps[gateIndex]
+  assert.equal(gate.shell, 'bash')
+  assert.equal(gate.if, undefined)
+  assert.notEqual(gate['continue-on-error'], true)
+  assert.ok(gateIndex < steps.findIndex(step => step.name === 'Generate updater manifest'))
+  assert.ok(gateIndex < steps.findIndex(step => step.run?.includes('gh release create')))
+  assert.match(gate.run, /release-acceptance\.mjs/)
+  assert.doesNotMatch(gate.run, /--report-only/)
+  const root = mkdtempSync(join(tmpdir(), 'ClawMaster publication refusal '))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  mkdirSync(join(root, 'apps/desktop-tauri/scripts'), { recursive: true })
+  writeFileSync(join(root, 'apps/desktop-tauri/scripts/release-acceptance.mjs'), readFileSync(new URL('./release-acceptance.mjs', import.meta.url)))
+  const git = args => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  git(['init', '-q'])
+  git(['-c', 'user.name=Acceptance fixture', '-c', 'user.email=fixture@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-qm', 'candidate'])
+  git(['tag', 'desktop-v0.2.3'])
+  const run = () => spawnSync('bash', ['-c', `${gate.run}\ntouch publication-reached`], { cwd: root, env: { ...process.env, RELEASE_TAG: 'desktop-v0.2.3' }, encoding: 'utf8', timeout: 10000 })
+  assert.notEqual(run().status, 0, 'Missing evidence must block publication')
+  assert.equal(existsSync(join(root, 'publication-reached')), false)
+  mkdirSync(join(root, 'release-assets'))
+  const manifest = { schemaVersion: 1, version: '0.2.3', sourceCommit: git(['rev-parse', 'HEAD']), supportedUpgradeVersions: ['0.2.2'],
+    targets: Object.fromEntries(['macos-arm64-dmg', 'windows-x64-nsis', 'linux-x64-appimage', 'linux-x64-deb', 'android-universal-apk'].map(target => [target, { status: 'not-run', reason: 'No installed acceptance evidence' }])) }
+  writeFileSync(join(root, 'release-assets/acceptance-manifest.json'), JSON.stringify(manifest))
+  const result = run()
+  assert.equal(result.error, undefined)
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /Release acceptance is incomplete/)
+  assert.equal(existsSync(join(root, 'publication-reached')), false)
 })
 
 test('every shipped frontend has frozen build dependencies before product verification', () => {

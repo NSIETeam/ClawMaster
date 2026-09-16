@@ -45,4 +45,4 @@ description: "收集并验证已安装 ClawMaster 候选版本的桌面及 Andro
 <a id="current-verification-limits"></a>
 ## 当前验证限制
 
-校验器及拒绝测试在本地运行。完整安装证据、Developer ID／公证凭据、Windows 发布者证书、Android 设备覆盖及授权集成测试账号仍是外部前置条件。当前桌面发布工作流的构建及原生冒烟结果本身不能提供完整矩阵。发布负责人须对最终候选证据运行正常校验，再判断版本是否通过验收。
+校验器及拒绝测试在本地运行。完整安装证据、Developer ID／公证凭据、Windows 发布者证书、Android 设备覆盖及授权集成测试账号仍是外部前置条件。当前桌面发布工作流的构建及原生冒烟结果本身不能提供完整矩阵。发布任务要求存在 `release-assets/acceptance-manifest.json`，并在生成更新元数据或上传版本前，对标签提交与版本运行严格校验。缺失或不完整的证据会阻止发布。`test:update-manifest` 使用缺失及不完整的证据执行实际工作流 shell 步骤，验证其不能进入发布。当前构建任务不能收集完整 manifest；在提供经过独立审核的证据产物前，发布仍处于阻断状态。

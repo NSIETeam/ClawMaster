@@ -108,6 +108,29 @@ test('tool schemas and the HTTP domain parser reject extra, malformed and unsafe
   assert.equal(h.store.snapshot().revision, 0);
 });
 
+test('model tool schemas preserve restore generations and permit a newly reviewed post-restore command', async t => {
+  const h = await setup(t);
+  const schemas = h.ctx.tools.schemas();
+  const commandSchema = schemas.find(schema => schema.name === 'enterprise_command').parameters.properties.request;
+  assert.equal(commandSchema.properties.generation.type, 'integer');
+  assert.ok(commandSchema.required.includes('generation'));
+  const querySchema = schemas.find(schema => schema.name === 'enterprise_query').parameters;
+  assert.equal(querySchema.properties.generation.type, 'integer');
+  assert.equal(querySchema.additionalProperties, false);
+  h.ctx.on('approval/request', async () => 'allowed-once');
+  const backup = h.store.backup();
+  h.store.restore(backup, 0, 0);
+  const page = await h.execute('enterprise_query', { collection: 'contacts', generation: 1, revision: 0, offset: 0, limit: 10 });
+  assert.equal(page.isError, false, resultText(page));
+  assert.equal(page.value.generation, 1);
+  const changed = await h.command({ type: 'contact.upsert', contact });
+  assert.equal(changed.isError, false, resultText(changed));
+  assert.equal(changed.value.generation, 1);
+  const stale = await h.execute('enterprise_query', { collection: 'contacts', generation: 0, revision: 1, offset: 0, limit: 10 });
+  assert.equal(stale.isError, true);
+  assert.match(resultText(stale), /revision_conflict/);
+});
+
 test('every business mutation fails closed without an approval answerer', async t => {
   const h = await setup(t);
   seed(h.store);
