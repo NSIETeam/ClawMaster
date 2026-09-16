@@ -124,18 +124,29 @@ function Wait-NativeReady([Diagnostics.Process]$Desktop) {
             if ($runtime.status -eq 'ready' -and $runtime.desktopPid -eq $Desktop.Id) {
                 $hostInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $($runtime.hostPid)"
                 if (-not $hostInfo -or $hostInfo.ParentProcessId -ne $Desktop.Id) { throw 'Ready Host is not owned by this desktop.' }
+                $hostParentPid = [int]$hostInfo.ParentProcessId
                 $hostProcess = Get-Process -Id $runtime.hostPid
-                $hostIdentity = Get-OwnedProcessIdentity $hostProcess
-                if (-not $hostIdentity -or $hostIdentity.pid -ne $runtime.hostPid -or $hostIdentity.path -ine $script:node) {
+                $hostIdentityObservation = Get-OwnedProcessIdentity $hostProcess
+                if (-not $hostIdentityObservation -or $hostIdentityObservation.pid -ne $runtime.hostPid -or $hostIdentityObservation.path -ine $script:node) {
                     throw 'Ready Host identity is missing or belongs to a different executable.'
                 }
-                $hostIdentityAtRecord = Get-OwnedProcessIdentity $hostProcess
+                # Keep the already verified CIM parent with each process identity; Get-Process does not expose it.
+                $hostIdentity = [ordered]@{
+                    pid = $hostIdentityObservation.pid; parentPid = $hostParentPid
+                    startTimeUnixMs = $hostIdentityObservation.startTimeUnixMs; path = $hostIdentityObservation.path
+                }
+                $hostIdentityObservationAtRecord = Get-OwnedProcessIdentity $hostProcess
+                if (-not $hostIdentityObservationAtRecord) { throw 'Ready Host identity disappeared before evidence capture.' }
+                $hostIdentityAtRecord = [ordered]@{
+                    pid = $hostIdentityObservationAtRecord.pid; parentPid = $hostParentPid
+                    startTimeUnixMs = $hostIdentityObservationAtRecord.startTimeUnixMs; path = $hostIdentityObservationAtRecord.path
+                }
                 Assert-SameProcessIdentity $hostIdentity $hostIdentityAtRecord 'Host'
                 $response = Invoke-WebRequest -Uri "http://127.0.0.1:$($runtime.port)/" -SkipHttpErrorCheck -TimeoutSec 10
                 return @{
                     host = $hostProcess
                     record = [ordered]@{
-                        desktopPid = $Desktop.Id; hostPid = $hostProcess.Id; hostParentPid = [int]$hostInfo.ParentProcessId
+                        desktopPid = $Desktop.Id; hostPid = $hostProcess.Id; hostParentPid = $hostParentPid
                         desktopPath = $script:desktopIdentity.path; desktopIdentity = $script:desktopIdentity
                         desktopIdentityAtLaunch = $script:desktopIdentity; hostIdentity = $hostIdentity
                         hostIdentityAtRecord = $hostIdentityAtRecord

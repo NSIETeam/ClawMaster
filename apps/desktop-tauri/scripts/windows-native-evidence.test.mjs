@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { verifyWindowsNativeEvidence } from './windows-native-evidence.mjs'
+
+const nativeScript = readFileSync(new URL('./verify-windows-native.ps1', import.meta.url), 'utf8')
 
 function fixture() {
   const bundle = { contentSha256: 'a'.repeat(64), buildProvenance: {
@@ -27,6 +30,12 @@ function fixture() {
 test('two installed native launches retain the source build and close their owned Hosts', () => {
   const { evidence, bundle } = fixture()
   assert.equal(verifyWindowsNativeEvidence(evidence, bundle, '0.2.0'), evidence)
+})
+
+test('Windows readiness records the verified parent PID on both Host identities', () => {
+  assert.match(nativeScript, /\$hostParentPid\s*=\s*\[int\]\$hostInfo\.ParentProcessId/u)
+  assert.match(nativeScript, /\$hostIdentity\s*=\s*\[ordered\]@\{[\s\S]*?parentPid\s*=\s*\$hostParentPid[\s\S]*?\}/u)
+  assert.match(nativeScript, /\$hostIdentityAtRecord\s*=\s*\[ordered\]@\{[\s\S]*?parentPid\s*=\s*\$hostParentPid[\s\S]*?\}/u)
 })
 
 test('stale, foreign and abandoned processes cannot satisfy native acceptance', () => {
