@@ -28,6 +28,8 @@ The entry file is `update-kit.mjs`; its default operation is read-only `inspect`
 
 The signed files in the ZIP support offline first installation. Subsequent server checks and native update downloads require network access. A network error during a later check does not mean that the local component failed to install.
 
+The kit also provides an offline repair operation for a staged updater change. After the desktop has exited its Host, run `update-kit.mjs repair --yes --dsh-home <DSH_HOME>` from the extracted kit. The utility authenticates the kit before invoking the finite maintenance helper, applies the approved selection or restores an interrupted switch, and reports the durable operation state. It never downloads a candidate, launches DSH, or restores business data. Without `--yes`, it refuses to modify the selected home; if the Host is still alive, it stops before changing the profile.
+
 After mounting, ask ClawMaster to run `/updates` in the same Host. The command lists current runtime information and available update metadata. Seeing the updater command and tools in that Host establishes that the Loader loaded the plugin; an `activation-pending` installation receipt alone does not.
 
 <a id="understand-the-result"></a>

@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-15-installed-dsh-component-updates.md
-2026-09-15-installed-dsh-component-updates.md: d2eb7f6aafe58746babc406b38b463632e64498b
-2026-09-15-installed-dsh-component-updates.zh.md: 5840eee45e524659eca994d461019c84888edcb8
+2026-09-15-installed-dsh-component-updates.md: d820c92014348d4662f0154b03575d07e559ae56
+2026-09-15-installed-dsh-component-updates.zh.md: 0b819e97fca90e747937b6cb6d54a8e0d4bf3e2f

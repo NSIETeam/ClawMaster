@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import test from 'node:test';
 import { Header } from 'tar';
-import { inspectKit, installKit, nativeKit, verifyKit } from '../src/kit.ts';
-import { installComponent } from '../src/components.ts';
+import { inspectKit, installKit, nativeKit, repairKit, verifyKit } from '../src/kit.ts';
+import { activateComponent, installComponent, readComponentPatchRevision } from '../src/components.ts';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const encode = value => Buffer.from(value).toString('base64');
@@ -224,6 +224,21 @@ test('unknown CLI locations and a signed archive with the wrong package identity
   await assert.rejects(confirm(), /package identity/);
   assert.deepEqual(await readdir(join(options.compatibility.dshHome, 'clawmaster-updates', 'kit-install-stages')), []);
   await unchanged();
+}));
+
+test('an authenticated offline kit applies a staged updater after the Host has exited', async t => fixture(async ({ options, trust, component, payloadPath, patch }) => {
+  const dshHome = options.compatibility.dshHome;
+  await installComponent({ archivePath: join(options.kitRoot, payloadPath), descriptor: component, dshHome,
+    dshVersion: '0.1.5-rc.2', providedPackages: { '@deepseek-ai/cordis': '4.0.2' } });
+  const staged = await activateComponent({ dshHome, id: 'updates', version: component.version, confirmed: true,
+    expectedPatchRevision: await readComponentPatchRevision(dshHome) });
+  await mkdir(join(dshHome, 'desktop'));
+  await writeFile(join(dshHome, 'desktop/current-runtime.json'), JSON.stringify({ schemaVersion: 1, hostPid: 2147483647, runId: 'exited-host', status: 'ready' }));
+
+  const result = await repairKit({ kitRoot: options.kitRoot, dshHome }, trust);
+  assert.equal(result.status, 'offline-maintenance-complete');
+  assert.deepEqual(result.operations.map(operation => ({ token: operation.token, state: operation.state })), [{ token: staged.rollbackToken, state: 'awaiting-health' }]);
+  assert.match(await readFile(patch, 'utf8'), /clawmaster-update-component-updates/);
 }));
 
 function nativeFixture(trust, payload = 'test') {

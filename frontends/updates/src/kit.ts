@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import { inspectCompatibility, type CompatibilityOptions, type CompatibilityReport } from './compatibility.ts';
 import { parseSignedCatalog, type CatalogItem } from './catalog.ts';
-import { installComponent, readComponentPatchRevision } from './components.ts';
+import { installComponent, maintainRestartComponents, readComponentPatchRevision } from './components.ts';
 import { bootstrapUpdater } from './bootstrap.ts';
 import { assertManagedHome } from './managed-home.ts';
 import { fetchNativeRelease, nativeArtifact, prepareNativeUpdate, type NativeTarget } from './native.ts';
@@ -31,6 +31,23 @@ export interface VerifiedKit { kitVersion: string; sourceCommit: string; compone
 export interface KitPlan { status: CompatibilityReport['status']; compatibility: CompatibilityReport; component: CatalogItem; patchRevision: string | null; kitVersion: string; sourceCommit: string }
 /** Explicit local selection and confirmation of a previously inspected plan. */
 export interface KitInstallOptions { kitRoot: string; compatibility: CompatibilityOptions; confirmed: boolean; expectedSha256?: string; expectedPatchRevision?: string }
+
+/** Apply or recover an already approved updater operation from an offline kit.
+ * The kit is authenticated before the stopped-Host maintenance helper runs, so an
+ * old desktop can finish a staged self-update without downloading or executing a
+ * candidate supplied by the running updater.
+ * @param options Extracted kit root and explicitly selected DSH home.
+ * @param trust Pinned component signing key and catalog origin.
+ * @returns Durable operation outcomes; an empty list means no pending updater change.
+ */
+export async function repairKit(options: { kitRoot: string; dshHome: string }, trust: KitTrust = productionTrust): Promise<{
+  status: 'offline-maintenance-complete'; operations: Awaited<ReturnType<typeof maintainRestartComponents>>
+}> {
+  await verifyKit(options.kitRoot, trust)
+  await assertManagedHome(options.dshHome)
+  const operations = await maintainRestartComponents(options.dshHome)
+  return { status: 'offline-maintenance-complete', operations }
+}
 
 async function regularDirectory(path: string): Promise<void> {
   const info = await lstat(path);

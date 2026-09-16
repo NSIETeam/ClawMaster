@@ -31,6 +31,8 @@ Inspect the current ClawMaster installation using this kit, show the user the co
 
 1. Obtain the user's explicit confirmation of the displayed plan. Inspection by itself does not authorize installation. Retain `inspect.component.sha256` and `inspect.patchRevision`, plus any explicit location arguments used for inspection.
 2. Run `update-kit.mjs install --yes --expected-sha256 <inspect.component.sha256> --expected-patch-revision <inspect.patchRevision>` with the same Node executable and locations. Substitute the values actually returned by inspection. Let the tool validate the signed local files, retain its three-file profile backup under `DSH_HOME/clawmaster-updates/kit-backups/`, and mount only the updater's first row. A changed digest or revision requires a new inspection and a new reviewed plan.
+
+3. If an installed updater has already produced a staged operation but the receiving desktop does not include its maintenance helper, exit the Host and run `update-kit.mjs repair --yes --dsh-home <DSH_HOME>` from this kit. The command authenticates the kit, applies or recovers only the approved updater operation, and prints its durable state. It refuses to run while the recorded Host is alive and does not touch business data.
 3. If an updater is already present, use its existing command and tools. Do not bypass that check, remove its row or replace its version. A self-update is a separately staged operation and is not applied by restarting alone.
 4. Retain the installation result and backup location. The kit has no restore command; recovery requires a separate review of the current profile and retained backup. A failure is not permission to overwrite a profile or restore an old backup over later edits.
 

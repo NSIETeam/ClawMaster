@@ -31,6 +31,8 @@ description: "供 ClawMaster 从已解压 ZIP 检查并首次挂载已签名更�
 
 1. 获取用户对已展示计划的明确确认。检查本身不构成安装授权。保留 `inspect.component.sha256` 和 `inspect.patchRevision`，以及检查时使用的明确位置参数。
 2. 使用相同的 Node 可执行文件及位置，运行 `update-kit.mjs install --yes --expected-sha256 <inspect.component.sha256> --expected-patch-revision <inspect.patchRevision>`。占位符须替换为检查实际返回的值。由工具校验已签名本地文件，在 `DSH_HOME/clawmaster-updates/kit-backups/` 下保留三个 profile 文件的备份，并只挂载更新器的首个配置行。摘要或修订号改变时，需要重新检查并查看新计划。
+
+3. 如果已安装更新器产生了暂存操作，而当前桌面不包含维护工具，请退出 Host，然后在本接入包目录运行 `update-kit.mjs repair --yes --dsh-home <DSH_HOME>`。命令认证接入包，只应用或恢复已批准的更新器操作，并输出持久化状态。Host 仍存活时命令会拒绝运行，也不会触碰业务数据。
 3. 已有更新器时，使用它现有的命令和工具。不绕过该检查、不删除已有配置行，也不替换已有版本。更新器自身更新是独立的暂存操作，单纯重启不会应用它。
 4. 保留安装结果及备份位置。接入包没有恢复命令；恢复前须另行查看当前 profile 及所保留备份。失败不构成覆盖 profile 或用旧备份覆盖后续编辑的授权。
 
