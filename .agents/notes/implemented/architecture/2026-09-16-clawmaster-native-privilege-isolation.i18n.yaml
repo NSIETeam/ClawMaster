@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-16-clawmaster-native-privilege-isolation.md
-2026-09-16-clawmaster-native-privilege-isolation.md: 7465a88dcd3d8526153ccc41ccb577c74cc89f23
-2026-09-16-clawmaster-native-privilege-isolation.zh.md: fef0a5c2f59d7459ca351fe20ad790f1275984f4
+2026-09-16-clawmaster-native-privilege-isolation.md: 287520ff484319f6b8d054ab44d2886ad180a1f3
+2026-09-16-clawmaster-native-privilege-isolation.zh.md: 1f3713f1bd293231bb14b1212b281a640d36b6ac

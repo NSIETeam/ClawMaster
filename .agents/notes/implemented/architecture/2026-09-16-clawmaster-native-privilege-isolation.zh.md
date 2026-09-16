@@ -10,7 +10,7 @@ Status: implemented
 
 ## Decision
 
-[Capability](../../../../apps/desktop-tauri/src-tauri/capabilities/default.json) 仅匹配包内 `main` 与 `splash` WebView。应用构建 manifest 注册三个外壳命令，由 Tauri ACL 强制执行。Host 内容及预览 frame 不获得原生权限。[导航校验器](../../../../apps/desktop-tauri/src-tauri/src/webview_security.rs)要求带明确端口的数字回环 HTTP 地址，只允许同一精确来源，拒绝凭据并禁止新窗口。
+[Capability](../../../../apps/desktop-tauri/src-tauri/capabilities/default.json) 仅匹配包内 `main` 与 `splash` WebView。应用构建 manifest 注册三个外壳命令，由 Tauri ACL 强制执行。Host 内容及预览 frame 不获得原生权限。[导航校验器](../../../../apps/desktop-tauri/src-tauri/src/webview_security.rs)要求带明确端口的数字回环 HTTP 地址，并将主 Host 视图限制在同一精确来源。要求新浏览上下文且不含内嵌凭据的 HTTP(S) 引用通过默认浏览器打开；回环监听器与可执行协议被拒绝。只有不带查询参数的同源 Office 许可说明精确路径可创建独立的已认证文档视图。其标签不匹配任何原生 capability，导航仍限于许可说明路径。
 
 包内外壳默认拒绝的 CSP 允许本地脚本与图片、Tauri IPC，以及进度更新所需的内联样式。Tauri 为包内内联脚本生成哈希；不授权任意内联 JavaScript 或 `eval`。该策略不能替代独立 Host 的网页资源策略或 DSH 工具权限。[运行治理决策](2026-09-13-clawmaster-runtime-governance.zh.md)继续负责执行策略；插件仍是具有 Host 进程权限的可信代码。
 
@@ -22,6 +22,6 @@ Status: implemented
 
 ## Consequences
 
-Host 内容不能调用外壳生命周期命令或创建原生窗口。要求新原生窗口的外部链接会被拒绝；普通内嵌浏览器保持独立。后续原生操作需要明确审核的 capability。任意恶意 Host 插件不会被 WebView ACL 隔离。
+Host 内容不能调用外壳生命周期命令。原生回调根据已解析 URL 选择浏览器或无原生权限的 Office 许可说明视图，不暴露任意启动器命令。启动失败日志省略 URL，因为查询参数可能含私人数据。后续原生操作需要明确审核的 capability。任意恶意 Host 插件不会被 WebView ACL 隔离。
 
 Rust URL 测试拒绝错误端口、来源、凭据和非 HTTP 目标。实际应用 ACL 能够编译，策略测试拒绝按窗口或远程来源授权。这些源码检查不能证明跨平台已安装 WebView 行为；打包后原生交互仍是独立验收要求。

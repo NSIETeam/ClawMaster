@@ -125,6 +125,8 @@ pub fn open_main_window(app: &AppHandle, url: &str) -> Result<(), String> {
     let content_url = url.parse::<url::Url>().map_err(|_| "Host 启动地址无效")?;
     crate::webview_security::validate_host_url(&content_url)?;
     let host_origin = content_url.clone();
+    let link_origin = content_url.clone();
+    let link_app = app.clone();
     let native = app.get_window("main").ok_or("main window is missing")?;
     let content = native
         .add_child(
@@ -132,7 +134,9 @@ pub fn open_main_window(app: &AppHandle, url: &str) -> Result<(), String> {
                 .on_navigation(move |target| {
                     crate::webview_security::allows_host_navigation(&host_origin, target)
                 })
-                .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny),
+                .on_new_window(move |target, features| {
+                    open_host_link(&link_app, &link_origin, target, features)
+                }),
             LogicalPosition::new(0.0, f64::from(resolve_controls_layout().titlebar_height)),
             content_size(&native)?,
         )
@@ -161,6 +165,53 @@ pub fn open_main_window(app: &AppHandle, url: &str) -> Result<(), String> {
     window.show().map_err(|e| e.to_string())?;
     window.set_focus().map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// References leave the app; the authenticated Office notice has no native capabilities.
+fn open_host_link(
+    app: &AppHandle,
+    host: &url::Url,
+    target: url::Url,
+    features: tauri::webview::NewWindowFeatures,
+) -> tauri::webview::NewWindowResponse<tauri::Wry> {
+    use crate::webview_security::{link_destination, LinkDestination};
+    use tauri::webview::NewWindowResponse;
+    match link_destination(host, &target) {
+        LinkDestination::ExternalBrowser => {
+            tauri::async_runtime::spawn_blocking(move || {
+                if open::that(target.as_str()).is_err() {
+                    // Launcher errors can contain the target's private query parameters.
+                    boot_log::info("Could not open the web reference in the default browser");
+                }
+            });
+            NewWindowResponse::Deny
+        }
+        LinkDestination::OfficeNotice => {
+            if let Some(existing) = app.get_webview_window("office-notice") {
+                let _ = existing.show();
+                let _ = existing.set_focus();
+                return NewWindowResponse::Deny;
+            }
+            let document_origin = host.clone();
+            match WebviewWindowBuilder::new(app, "office-notice", WebviewUrl::External(target))
+                .window_features(features)
+                .title("ClawMaster")
+                .inner_size(800.0, 640.0)
+                .on_navigation(move |target| {
+                    link_destination(&document_origin, target) == LinkDestination::OfficeNotice
+                })
+                .on_new_window(|_, _| NewWindowResponse::Deny)
+                .build()
+            {
+                Ok(window) => NewWindowResponse::Create { window },
+                Err(_) => {
+                    boot_log::info("Could not open the Office notice");
+                    NewWindowResponse::Deny
+                }
+            }
+        }
+        LinkDestination::Denied => NewWindowResponse::Deny,
+    }
 }
 
 /// Focus or unhide the main window (single-instance and tray).

@@ -10,7 +10,7 @@ A desktop window contains both a packaged shell and a separate authenticated Hos
 
 ## Decision
 
-The [capability](../../../../apps/desktop-tauri/src-tauri/capabilities/default.json) matches only packaged `main` and `splash` WebViews. The application build manifest registers its three shell commands for Tauri ACL enforcement. Host content and preview frames receive no native permissions. The [navigation validator](../../../../apps/desktop-tauri/src-tauri/src/webview_security.rs) requires a numeric loopback HTTP address with an explicit port, allows only that exact origin, rejects credentials, and denies new windows.
+The [capability](../../../../apps/desktop-tauri/src-tauri/capabilities/default.json) matches only packaged `main` and `splash` WebViews. The application build manifest registers its three shell commands for Tauri ACL enforcement. Host content and preview frames receive no native permissions. The [navigation validator](../../../../apps/desktop-tauri/src-tauri/src/webview_security.rs) requires a numeric loopback HTTP address with an explicit port and keeps the main Host view on that exact origin. New-context HTTP(S) references without embedded credentials open through the default browser; loopback listeners and executable protocols are refused. Only the exact same-origin Office notice path, without query parameters, may create a separate authenticated document view. Its label matches no native capability and navigation remains on the notice path.
 
 The packaged shell's deny-by-default CSP allows local scripts and images, Tauri IPC and inline styles for progress updates. Tauri hashes packaged inline scripts; arbitrary inline JavaScript and `eval` are not granted. This policy does not replace the separate Host's web-resource policy or DSH tool permissions. The [runtime-governance decision](2026-09-13-clawmaster-runtime-governance.md) retains execution-policy ownership; plugins remain trusted code with Host-process authority.
 
@@ -22,6 +22,6 @@ The packaged shell's deny-by-default CSP allows local scripts and images, Tauri 
 
 ## Consequences
 
-Host content cannot invoke shell lifecycle commands or create native windows. External links requesting new native windows are refused; the ordinary embedded browser remains separate. Future native actions need explicitly reviewed capabilities. An arbitrary malicious Host plugin is not isolated by WebView ACL.
+Host content cannot invoke shell lifecycle commands. The native callback selects the browser or the unprivileged Office notice view from parsed URLs; it does not expose an arbitrary launcher command. Launcher failures omit the URL from logs because queries can contain private data. Future native actions need explicitly reviewed capabilities. An arbitrary malicious Host plugin is not isolated by WebView ACL.
 
 Rust URL tests reject wrong ports, origins, credentials and non-HTTP targets. The actual application ACL compiles, and policy tests reject window-wide or remote grants. These source checks do not establish installed WebView behavior across platforms; packaged native interaction remains a separate acceptance requirement.
