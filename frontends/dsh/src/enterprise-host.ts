@@ -6,7 +6,7 @@ import { dirname } from 'node:path';
 import { z } from 'zod';
 import { appendResponsibility, initializeResponsibilityHistory, queryResponsibility, verifyResponsibility, UNKNOWN_IDENTITY } from './governance-audit.ts';
 import type { ExecutionIdentity } from './governance-audit.ts';
-import { GovernanceAccess, GovernanceDenied } from './governance-access.ts';
+import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
 import { initializeTasks, WatchdogTaskStore } from './watchdog-tasks.ts';
 import {
   EnterpriseError, ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH,
@@ -704,7 +704,7 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
       path: '/api/clawmaster/enterprise/responsibility', methods: ['GET'], requestBody: 'buffered',
       fetch: handle(async request => {
         const caller = await access.http(request);
-        await caller.check('audit.read');
+        await auditGovernanceOutcome(caller, store, 'audit.read', undefined, () => caller.check('audit.read'));
         const search = new URL(request.url).searchParams;
         return store.responsibility({ after: Number(search.get('after') ?? 0), limit: Number(search.get('limit') ?? 100),
           ...Object.fromEntries(['actorId', 'commandId', 'entityId', 'operation'].filter(key => search.has(key)).map(key => [key, search.get(key)])) });
@@ -714,8 +714,10 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
       path: ENTERPRISE_SNAPSHOT_PATH, methods: ['GET'], requestBody: 'buffered',
       fetch: handle(async request => {
         const caller = await access.http(request);
-        await caller.check('records.read');
-        await caller.check('audit.read');
+        await auditGovernanceOutcome(caller, store, 'records.read', undefined, async () => {
+          await caller.check('records.read');
+          await caller.check('audit.read');
+        });
         return store.snapshot();
       }),
     }));
@@ -724,7 +726,8 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
       fetch: handle(async request => {
         if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
         const caller = await access.http(request);
-        return store.backup(await caller.check('backup.export'));
+        const identity = await auditGovernanceOutcome(caller, store, 'backup.export', undefined, () => caller.check('backup.export'));
+        return store.backup(identity);
       }),
     }));
     disposers.push(ctx.connection.fetch.register({
@@ -738,12 +741,14 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
         const restore = parseEnterpriseRestoreRequest(value);
         const caller = await access.http(request);
         const commandId = restore.commandId ?? randomUUID();
-        const checked = await caller.check('backup.restore');
-        const replay = store.hasRestoreReceipt(restore.backup, restore.expectedRevision, restore.expectedGeneration, checked, commandId);
-        const identity = access.mode === 'enterprise' && !replay
-          ? await caller.approve('backup.restore', '*', commandId, restore.expectedGeneration, restore.expectedRevision,
-            createHash('sha256').update(JSON.stringify(restore.backup)).digest('hex'))
-          : checked;
+        const identity = await auditGovernanceOutcome(caller, store, 'backup.restore', commandId, async () => {
+          const checked = await caller.check('backup.restore');
+          const replay = store.hasRestoreReceipt(restore.backup, restore.expectedRevision, restore.expectedGeneration, checked, commandId);
+          return access.mode === 'enterprise' && !replay
+            ? await caller.approve('backup.restore', '*', commandId, restore.expectedGeneration, restore.expectedRevision,
+              createHash('sha256').update(JSON.stringify(restore.backup)).digest('hex'))
+            : checked;
+        });
         if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
         return store.restore(restore.backup, restore.expectedRevision, restore.expectedGeneration, identity, commandId);
       }),
@@ -762,12 +767,14 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
         const caller = await access.http(request);
         const command = parsed.command;
         const resource = 'id' in command ? command.id : 'contact' in command ? command.contact.id : 'item' in command ? command.item.id : command.order.id;
-        const checked = await caller.check('records.write', resource);
-        const replay = store.prepare(parsed).receipt;
-        const identity = access.mode === 'enterprise' && !replay
-          ? await caller.approve('records.write', resource, parsed.commandId, parsed.generation, parsed.revision,
-            createHash('sha256').update(JSON.stringify(command)).digest('hex'))
-          : checked;
+        const identity = await auditGovernanceOutcome(caller, store, command.type, parsed.commandId, async () => {
+          const checked = await caller.check('records.write', resource);
+          const replay = store.prepare(parsed).receipt;
+          return access.mode === 'enterprise' && !replay
+            ? await caller.approve('records.write', resource, parsed.commandId, parsed.generation, parsed.revision,
+              createHash('sha256').update(JSON.stringify(command)).digest('hex'))
+            : checked;
+        });
         if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
         if (access.mode === 'local') return store.execute(parsed, identity);
         const { generation, revision, receipt } = store.executeReceipt(parsed, identity);

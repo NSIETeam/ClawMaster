@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createHash, randomUUID } from 'node:crypto';
 import type { EnterpriseHostContext, EnterpriseStore } from './enterprise-host.ts';
 import type { EnterpriseToolContext } from './enterprise-tools.ts';
-import { GovernanceAccess, GovernanceDenied } from './governance-access.ts';
+import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
 import { EnterpriseError } from './enterprise-types.ts';
 import { taskRequestSchema, TaskError } from './watchdog-tasks.ts';
 import { taskCommandOutput, taskCommandParameters, taskQueryOutput, taskQueryParameters } from './watchdog-task-schemas.ts';
@@ -52,7 +52,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       const input = querySchema.parse({ ...(search.has('id') ? { id: search.get('id') } : {}), offset: Number(search.get('offset') ?? 0),
         limit: Number(search.get('limit') ?? 50), history: search.get('history') === 'true' });
       const caller = await access.http(request);
-      const identity = await caller.check('task.read', input.id ?? '*');
+      const identity = await auditGovernanceOutcome(caller, store, 'task.read', undefined, () => caller.check('task.read', input.id ?? '*'));
       lifetime.signal.throwIfAborted(); request.signal.throwIfAborted();
       return Response.json(query(identity, input), { headers: { 'cache-control': 'no-store' } });
     }).catch(failure) }));
@@ -60,17 +60,20 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       const caller = await access.http(request);
       if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') throw new EnterpriseError('invalid_request', 'Task commands require JSON.');
       const input = taskRequestSchema.parse(await request.json());
-      if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
-      const action = input.command.type === 'review' ? 'task.review' : 'task.write';
-      const checked = await caller.check(action, input.id);
-      const replay = store.tasks.replay(checked, input);
-      const identity = access.mode === 'enterprise' && action === 'task.write' && !replay
-        ? await caller.approve(action, input.id, input.commandId, 0, input.revision,
-          createHash('sha256').update(JSON.stringify(input.command)).digest('hex'))
-        : checked;
-      lifetime.signal.throwIfAborted(); request.signal.throwIfAborted();
-      if (replay) return Response.json(replay, { headers: { 'cache-control': 'no-store' } });
-      return Response.json(store.tasks.execute(identity, input), { headers: { 'cache-control': 'no-store' } });
+      const signal = AbortSignal.any([request.signal, lifetime.signal]);
+      return auditGovernanceOutcome(caller, store, `task.${input.command.type}`, input.commandId, async () => {
+        if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
+        const action = input.command.type === 'review' ? 'task.review' : 'task.write';
+        const checked = await caller.check(action, input.id);
+        const replay = store.tasks.replay(checked, input);
+        const identity = access.mode === 'enterprise' && action === 'task.write' && !replay
+          ? await caller.approve(action, input.id, input.commandId, 0, input.revision,
+            createHash('sha256').update(JSON.stringify(input.command)).digest('hex'))
+          : checked;
+        signal.throwIfAborted();
+        if (replay) return Response.json(replay, { headers: { 'cache-control': 'no-store' } });
+        return Response.json(store.tasks.execute(identity, input), { headers: { 'cache-control': 'no-store' } });
+      }, signal);
     }).catch(failure) }));
     removals.push(ctx.tools.register({ name: 'watchdog_task_query', description: 'Read durable business tasks independently from Session run state. Read one id, its revision history, or a bounded task page. Idle Sessions do not imply accepted business results.',
       parameters: taskQueryParameters,
@@ -78,7 +81,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       execute: (args, exec) => run(async () => {
         const input = querySchema.parse(args);
         const caller = await access.agent(exec.agent?.id, exec.callId);
-        const identity = await caller.check('task.read', input.id ?? '*');
+        const identity = await auditGovernanceOutcome(caller, store, 'task.read', undefined, () => caller.check('task.read', input.id ?? '*'));
         lifetime.signal.throwIfAborted(); exec.signal.throwIfAborted();
         return query(identity, input);
       }),
@@ -90,26 +93,28 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       output: { schema: taskCommandOutput, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
       execute: (args, exec) => run(async () => {
         const input = taskRequestSchema.parse(args);
-        if (['review', 'cancel', 'reopen'].includes(input.command.type)) throw new GovernanceDenied('This task action requires a human.');
         const caller = await access.agent(exec.agent?.id, exec.callId);
-        const checked = await caller.check('task.write', input.id);
-        if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
-        if (!exec.agent) throw new GovernanceDenied();
         const signal = AbortSignal.any([exec.signal, lifetime.signal]);
-        signal.throwIfAborted();
-        const replay = store.tasks.replay(checked, input);
-        if (replay) return replay;
-        const outcome = await ctx.approval.request({ agent: exec.agent, callId: exec.callId, toolName: exec.name,
-          reason: `Approve this business task action at revision ${input.revision}: ${JSON.stringify(input)}`, signal });
-        if (outcome !== 'allowed-once') throw new GovernanceDenied(`Task action ${outcome}.`);
-        if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
-        const identity = access.mode === 'enterprise'
-          ? await caller.approve('task.write', input.id, input.commandId, 0, input.revision,
-            createHash('sha256').update(JSON.stringify(input.command)).digest('hex'))
-          : await caller.check('task.write', input.id);
-        if (access.mode === 'local') identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: 0, revision: input.revision };
-        signal.throwIfAborted();
-        return store.tasks.execute(identity, input);
+        return auditGovernanceOutcome(caller, store, `task.${input.command.type}`, input.commandId, async () => {
+          if (['review', 'cancel', 'reopen'].includes(input.command.type)) throw new GovernanceDenied('This task action requires a human.');
+          const checked = await caller.check('task.write', input.id);
+          if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
+          if (!exec.agent) throw new GovernanceDenied();
+          signal.throwIfAborted();
+          const replay = store.tasks.replay(checked, input);
+          if (replay) return replay;
+          const outcome = await ctx.approval.request({ agent: exec.agent, callId: exec.callId, toolName: exec.name,
+            reason: `Approve this business task action at revision ${input.revision}: ${JSON.stringify(input)}`, signal });
+          if (outcome !== 'allowed-once') throw new GovernanceDenied(`Task action ${outcome}.`, `approval_${outcome}`);
+          if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
+          const identity = access.mode === 'enterprise'
+            ? await caller.approve('task.write', input.id, input.commandId, 0, input.revision,
+              createHash('sha256').update(JSON.stringify(input.command)).digest('hex'))
+            : await caller.check('task.write', input.id);
+          if (access.mode === 'local') identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: 0, revision: input.revision };
+          signal.throwIfAborted();
+          return store.tasks.execute(identity, input);
+        }, signal);
       }),
       presentCall: args => ({ card: 'generic', title: 'Update business task', kind: 'edit', rawInput: JSON.stringify(args) }),
       presentResult: (_args, result) => ({ card: 'generic', title: result.isError ? 'Task action failed' : 'Task action saved', content: result.content }),

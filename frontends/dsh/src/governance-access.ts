@@ -44,7 +44,11 @@ export type GovernanceConfiguration = { mode: 'local' } | {
 /** Permission errors reveal no records and never trigger a fallback to local access. */
 export class GovernanceDenied extends Error {
   readonly code = 'permission_denied';
-  constructor(message = 'The authenticated caller cannot perform this operation.') { super(message); }
+  readonly reasonCode: 'permission_denied' | 'approval_rejected' | 'approval_cancelled' | 'approval_unavailable' | 'approval_missing' | 'approver_invalid';
+  constructor(message = 'The authenticated caller cannot perform this operation.', reasonCode: GovernanceDenied['reasonCode'] = 'permission_denied') {
+    super(message);
+    this.reasonCode = reasonCode;
+  }
 }
 
 const roleActions: Record<GovernanceRole, readonly GovernanceAction[]> = {
@@ -60,6 +64,34 @@ export interface GovernanceCaller {
   check(action: GovernanceAction, resource?: string): Promise<ExecutionIdentity>;
   checkOwner(owner: { kind: 'local'; label: string } | { kind: 'member'; id: string }): Promise<void>;
   approve(action: GovernanceAction, resource: string, commandId: string, generation: number, revision: number, commandDigest: string): Promise<ExecutionIdentity>;
+}
+
+/** The durable store records metadata without receiving command bodies or exception messages. */
+interface GovernanceOutcomeStore {
+  recordOutcome(identity: ExecutionIdentity, operation: string, outcome: 'denied' | 'cancelled' | 'failed', commandId: string | undefined, reasonCode: string): void;
+}
+
+/**
+ * Audit unsuccessful work only after the carrier has resolved a trusted caller.
+ * @param caller Authenticated caller whose current policy facts accompany the record.
+ * @param store Responsibility history owner.
+ * @param operation Fixed operation name, never request prose.
+ * @param commandId Validated command identifier, when available.
+ * @param action Work without its own unsuccessful-outcome recorder.
+ * @param signal Cancellation source whose exact reason distinguishes cancellation from failure.
+ * @returns The action result; errors propagate after the metadata record commits.
+ */
+export async function auditGovernanceOutcome<T>(caller: GovernanceCaller, store: GovernanceOutcomeStore, operation: string,
+  commandId: string | undefined, action: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  try { return await action(); }
+  catch (error) {
+    const denied = error instanceof Error && 'code' in error && error.code === 'permission_denied';
+    const aborted = signal?.aborted && error === signal.reason;
+    const reason = error instanceof GovernanceDenied ? error.reasonCode : aborted ? 'operation_cancelled' : denied ? 'permission_denied' : 'operation_failed';
+    const outcome = aborted || reason === 'approval_cancelled' ? 'cancelled' : reason === 'approval_unavailable' || !denied ? 'failed' : 'denied';
+    store.recordOutcome(caller.identity, operation, outcome, commandId, reason);
+    throw error;
+  }
 }
 
 /** Local and enterprise callers share admission points without sharing identity semantics. */
@@ -111,10 +143,10 @@ export class GovernanceAccess {
     const check = async (action: GovernanceAction, resource = '*'): Promise<ExecutionIdentity> => {
       const memberships = await Promise.all([principal.memberId, ...(principal.delegatorId ? [principal.delegatorId] : [])]
         .map(member => config.authority.membership(config.organizationId, member)));
+      identity.policyVersion = Math.max(0, ...memberships.map(member => member?.policyVersion ?? 0));
       if (memberships.some(member => !member?.active || !member.roles.some(role => roleActions[role].includes(action))
         || (!member.resources.includes('*') && !member.resources.includes(resource)))
         || (action === 'task.review' && principal.actor !== 'human')) throw new GovernanceDenied();
-      identity.policyVersion = Math.max(...memberships.map(member => member!.policyVersion));
       return { ...identity };
     };
     return { identity, check, checkOwner: async owner => {
@@ -125,10 +157,10 @@ export class GovernanceAccess {
       await check(action, resource);
       const approval = await config.authority.consumeApproval({ organizationId: config.organizationId, executorId: principal.memberId,
         action, resource, commandId, generation, revision, commandDigest });
-      if (!approval || approval.approverId === principal.memberId) throw new GovernanceDenied('A distinct authorized approver is required.');
+      if (!approval || approval.approverId === principal.memberId) throw new GovernanceDenied('A distinct authorized approver is required.', 'approval_missing');
       const approver = await config.authority.membership(config.organizationId, approval.approverId);
       if (!approver?.active || !approver.roles.includes('approver')
-        || (!approver.resources.includes('*') && !approver.resources.includes(resource))) throw new GovernanceDenied('The approver no longer has permission.');
+        || (!approver.resources.includes('*') && !approver.resources.includes(resource))) throw new GovernanceDenied('The approver no longer has permission.', 'approver_invalid');
       return { ...await check(action, resource), approval: { ...approval, generation, revision } };
     } };
   }

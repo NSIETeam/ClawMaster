@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { createHash, randomUUID } from 'node:crypto';
 import type { ExecutionIdentity } from './governance-audit.ts';
-import { GovernanceAccess } from './governance-access.ts';
+import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
 import { parseEnterpriseRequest } from './enterprise-schema.ts';
 import type ToolRuntime from '@deepseek-ai/dsh-tools';
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools';
@@ -107,7 +107,8 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
     execute: (args, exec) => run(exec, async () => {
       const caller = await access.agent(exec.agent?.id, exec.callId);
       const query = querySchema.parse(args);
-      await caller.check(query.collection === 'audit' ? 'audit.read' : 'records.read', query.id ?? '*');
+      const action = query.collection === 'audit' ? 'audit.read' : 'records.read';
+      await auditGovernanceOutcome(caller, store, action, undefined, () => caller.check(action, query.id ?? '*'));
       return readPage(store, args, config);
     }),
     presentCall: args => querySchema.safeParse(args).success ? { card: 'generic', title: 'Query enterprise records', kind: 'search', rawInput: JSON.stringify(args) } : undefined,
@@ -122,33 +123,39 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
       presentationMeta: (_args, value) => value,
     },
     execute: (args, exec) => run(exec, async signal => {
-      if (!exec.agent) throw new Error('enterprise_command requires an owning DSH agent session.');
-      const caller = await access.agent(exec.agent.id, exec.callId);
+      const agent = exec.agent;
+      if (!agent) throw new Error('enterprise_command requires an owning DSH agent session.');
+      const caller = await access.agent(agent.id, exec.callId);
       const candidate = parseEnterpriseRequest(commandEnvelope.parse(args).request);
       const candidateCommand = candidate.command;
       const candidateResource = 'id' in candidateCommand ? candidateCommand.id : 'contact' in candidateCommand ? candidateCommand.contact.id
         : 'item' in candidateCommand ? candidateCommand.item.id : candidateCommand.order.id;
-      let identity: ExecutionIdentity = await caller.check('records.write', candidateResource);
-      const prepared = store.prepare(candidate);
+      const { identity, prepared } = await auditGovernanceOutcome(caller, store, candidateCommand.type, candidate.commandId, async () => {
+        let identity: ExecutionIdentity = await caller.check('records.write', candidateResource);
+        const prepared = store.prepare(candidate);
+        if (prepared.receipt) return { identity, prepared };
+        const { request } = prepared;
+        const outcome = await ctx.approval.request({
+          agent, callId: exec.callId, toolName: exec.name,
+          reason: approvalReason(prepared), signal,
+        });
+        if (outcome !== 'allowed-once') {
+          throw new GovernanceDenied(`approval_${outcome}: Enterprise command was not committed.`, `approval_${outcome}`);
+        }
+        const command = request.command;
+        const resource = 'id' in command ? command.id : 'contact' in command ? command.contact.id : 'item' in command ? command.item.id : command.order.id;
+        if (access.mode === 'enterprise') {
+          identity = await caller.approve('records.write', resource, request.commandId, request.generation, request.revision,
+            createHash('sha256').update(JSON.stringify(command)).digest('hex'));
+        } else {
+          identity = await caller.check('records.write', resource);
+          identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: request.generation, revision: request.revision };
+        }
+        signal.throwIfAborted();
+        return { identity, prepared };
+      }, signal);
       if (prepared.receipt) return receipt(prepared.generation, prepared.revision, prepared.receipt);
       const { request } = prepared;
-      const outcome = await ctx.approval.request({
-        agent: exec.agent, callId: exec.callId, toolName: exec.name,
-        reason: approvalReason(prepared), signal,
-      });
-      if (outcome !== 'allowed-once') {
-        store.recordOutcome(identity, request.command.type, outcome === 'cancelled' ? 'cancelled' : 'denied', request.commandId, `approval_${outcome}`);
-        throw new Error(`approval_${outcome}: Enterprise command was not committed.`);
-      }
-      const command = request.command;
-      const resource = 'id' in command ? command.id : 'contact' in command ? command.contact.id : 'item' in command ? command.item.id : command.order.id;
-      if (access.mode === 'enterprise') {
-        identity = await caller.approve('records.write', resource, request.commandId, request.generation, request.revision,
-          createHash('sha256').update(JSON.stringify(command)).digest('hex'));
-      } else {
-        identity = await caller.check('records.write', resource);
-        identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: request.generation, revision: request.revision };
-      }
       signal.throwIfAborted();
       const committed = store.executeReceipt(request, identity);
       return receipt(committed.generation, committed.revision, committed.receipt);
