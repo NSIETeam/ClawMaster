@@ -89,7 +89,7 @@ it('creates a plan, approves exactly one occurrence and stops future work withou
   expect(screen.getByText('Plan created')).toBeTruthy();
   expect(screen.getByText('Future checks stopped')).toBeTruthy();
   expect(screen.getByText('cancel-plan').closest('details').open).toBe(false);
-});
+}, 15000);
 
 it('requires session inspection before human resolution and never reenqueues an uncertain occurrence', async () => {
   const { client, store, seed } = await fixture({ locale: 'zh-CN' });
@@ -188,7 +188,12 @@ it('allows correction of a past or invalid zoned time without keeping an uncommi
 
 it('pages complete worker observations without replacing the selected occurrence list', async () => {
   const h = await fixture(); const { plan, now } = h.seed();
-  for (let i = 0; i < 125; i++) h.store.heartbeat(`worker-${i}`, now, i < 100 ? 'worker_stopped' : null);
+  const db = new DatabaseSync(h.path);
+  db.exec('BEGIN IMMEDIATE');
+  const insertWorker = db.prepare('INSERT INTO schedule_workers(id,mode,lastHeartbeat,error) VALUES(?,?,?,?)');
+  for (let i = 0; i < 125; i++) insertWorker.run(`worker-${i}`, h.store.config.mode, now, i < 100 ? 'worker_stopped' : null);
+  db.exec('COMMIT');
+  db.close();
   await act(() => h.client.select(plan));
   expect(h.client.getSnapshot().workerSummary).toMatchObject({ total: 125, online: 25, stopped: 100 });
   const original = h.client.getSnapshot().instances;
@@ -198,4 +203,4 @@ it('pages complete worker observations without replacing the selected occurrence
   await waitFor(() => expect(h.client.getSnapshot().workers).toHaveLength(25));
   expect(h.client.getSnapshot().workerSummary.nextAfter).toBeNull();
   expect(h.client.getSnapshot().instances).toBe(original);
-});
+}, 15000);

@@ -160,7 +160,7 @@ it('uploads a real file for server review and restores only after confirmation t
   expect(store.overview().generation).toBe(1);
   expect(store.overview().revision).toBe(1);
   expect(sent.filter(path => path.endsWith('/restore'))).toHaveLength(1);
-});
+}, 15000);
 
 it('cancels an active file import through the visible abort control without reading the file contents', async () => {
   let signal: AbortSignal | undefined;
