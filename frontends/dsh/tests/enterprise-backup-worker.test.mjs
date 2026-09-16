@@ -72,7 +72,7 @@ function enterpriseAuthority() {
   return { access: new GovernanceAccess({ mode: 'enterprise', organizationId: 'acme', authority }), revoke() { active = false; }, changePolicy() { policyVersion++; }, onFinalCheck(callback) { finalCheck = callback; } };
 }
 test('restore responsibility records the final checked policy and retains the independently consumed approval', async t => {
-  const authority = enterpriseAuthority(); const f = await fixture(t, { access: authority.access });
+  const authority = enterpriseAuthority(); const f = await fixture(t, { access: authority.access, organizationId: 'acme' });
   const prepared = await (await f.upload(f.store.backup())).json();
   authority.onFinalCheck(async index => { if (index === 2) authority.changePolicy(); });
   const response = await f.restore(prepared);

@@ -35,6 +35,7 @@ interface PreparedFile { directory: string; file: string; owner: string; summary
  */
 export async function mountEnterpriseBackupRoutes(ctx: EnterpriseHostContext, store: EnterpriseStore, access: GovernanceAccess,
   config: EnterpriseBackupConfig, errorResponse: (error: unknown) => Response): Promise<() => Promise<void>> {
+  access.assertOrganization(store.organizationId);
   const limits = enterpriseBackupConfigSchema.parse(config);
   const lifetime = new AbortController();
   const removers: Array<() => Promise<void>> = [];
