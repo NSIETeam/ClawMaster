@@ -87,6 +87,22 @@ function Get-OwnedProcessIdentity([Diagnostics.Process]$Process) {
     }
 }
 
+function Wait-OwnedProcessIdentity([Diagnostics.Process]$Process) {
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        $identity = Get-OwnedProcessIdentity $Process
+        if ($null -ne $identity) { return $identity }
+        try {
+            if ($Process.HasExited) { return $null }
+        } catch {
+            return $null
+        }
+        # Windows may expose the Process object before StartTime or MainModule is readable.
+        Start-Sleep -Milliseconds 100
+    }
+    return $null
+}
+
 function Assert-SameProcessIdentity($Expected, $Actual, [string]$Label) {
     if (-not $Actual -or $Expected.pid -ne $Actual.pid -or $Expected.startTimeUnixMs -ne $Actual.startTimeUnixMs -or
         $Expected.path -ine $Actual.path) { throw "$Label identity changed; PID reuse or replacement detected." }
@@ -197,7 +213,7 @@ try {
     foreach ($attempt in 1..2) {
         Write-Host "Installed desktop native launch $attempt of 2"
         $desktop = Start-OwnedProgram $exe '' $installRoot
-        $script:desktopIdentity = Get-OwnedProcessIdentity $desktop
+        $script:desktopIdentity = Wait-OwnedProcessIdentity $desktop
         if (-not $script:desktopIdentity) { throw 'Could not establish the installed desktop process identity.' }
         $ready = Wait-NativeReady $desktop
         $ownedHost = $ready.host
