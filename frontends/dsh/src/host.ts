@@ -12,6 +12,7 @@ import { applyRuntimeGovernance, type RuntimeGovernanceConfig } from './runtime-
 import { applyPermissionGovernance } from './permission-governance.ts';
 import { GovernanceAccess, type GovernanceConfiguration } from './governance-access.ts';
 import { mountWatchdogTasks } from './watchdog-task-host.ts';
+import type { EnterpriseBackupConfig } from './enterprise-backup-config.ts';
 import type { WatchdogTaskConfig } from './watchdog-tasks.ts';
 import { openWatchdogScheduleStore } from './watchdog-schedule-store.ts';
 import { mountWatchdogSchedules } from './watchdog-schedule-host.ts';
@@ -28,6 +29,7 @@ interface HostConfig {
   dataTools?: DataToolsConfig;
   enterpriseTools?: EnterpriseToolConfig;
   enterpriseRead?: EnterpriseReadConfig;
+  enterpriseBackup?: EnterpriseBackupConfig;
   runtimeGovernance?: RuntimeGovernanceConfig;
   watchdogTasks?: WatchdogTaskConfig;
   watchdogSchedules?: WatchdogScheduleConfig;
@@ -66,7 +68,7 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
       if (failures.length) throw new AggregateError(failures, 'Enterprise consumers could not be unloaded.');
     })();
     try {
-      consumers.push(await mountEnterpriseRoutes(ctx, store, access));
+      consumers.push(await mountEnterpriseRoutes(ctx, store, access, config.enterpriseBackup));
       consumers.push(await applyEnterpriseTools(ctx, store, config.enterpriseTools, access));
       consumers.push(await mountWatchdogTasks(ctx, store, access));
       const schedules = await openWatchdogScheduleStore(scheduleDatabasePath, config.governance?.mode === 'enterprise' ? config.governance.organizationId : 'local', config.watchdogSchedules);

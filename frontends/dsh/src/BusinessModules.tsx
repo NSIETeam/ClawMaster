@@ -7,10 +7,11 @@ import {
   enterpriseClient, EnterpriseClient, minorUnitsToMoneyInput, moneyInputToMinorUnits,
   quantityInputToInteger, type EnterpriseClientState,
 } from './enterprise-client.ts';
-import { auditSchema, enterpriseOrderTotal, parseEnterpriseBackup } from './enterprise-schema.ts';
+import { auditSchema, enterpriseOrderTotal } from './enterprise-schema.ts';
+import type { PreparedEnterpriseBackup } from './enterprise-backup-format.ts';
 import {
-  enterpriseId, EnterpriseError, type AuditEntry, type BusinessOrder, type Contact, type EnterpriseBackup,
-  type ContactInput, type EnterpriseCommand, type EnterpriseId, type EnterpriseSnapshot, type EnterpriseOverview, type EnterpriseQuerySpec, type EnterpriseQueryPage,
+  enterpriseId, EnterpriseError, type AuditEntry, type BusinessOrder, type Contact,
+  type ContactInput, type EnterpriseCommand, type EnterpriseId, type EnterpriseOverview, type EnterpriseQuerySpec, type EnterpriseQueryPage,
   type InventoryItem, type InventoryItemInput, type OrderInput,
 } from './enterprise-types.ts';
 import styles from './enterprise.css';
@@ -72,8 +73,7 @@ function money(value: number): string { return `¥${minorUnitsToMoneyInput(value
 function newId(): EnterpriseId { return enterpriseId(crypto.randomUUID()); }
 
 async function downloadEnterpriseBackup(client: EnterpriseClient): Promise<void> {
-  const backup = await client.backup();
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const blob = await client.backup();
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -88,7 +88,7 @@ function ClientBanner({ state, client, locale, localError, onRetried }: {
 }) {
   const t = productCopy(locale);
   const e = enterpriseCopy(locale);
-  const error = localError ?? (state.error === 'pending_command' ? e.pending : state.error === 'stale_form' ? e.staleForm : state.error === 'result_too_large' ? e.resultTooLarge : state.error === 'permission_denied' ? e.permissionDenied : state.error ? t[state.error] : null);
+  const error = localError ?? (state.error === 'pending_command' ? e.pending : state.error === 'stale_form' ? e.staleForm : state.error === 'result_too_large' ? e.resultTooLarge : state.error === 'permission_denied' ? e.permissionDenied : state.error === 'operation_cancelled' ? e.operationCancelled : state.error ? t[state.error] : null);
   if (!error && !state.pending) return null;
   return <div className={`cm-ent-banner ${state.pending ? 'is-pending' : 'is-error'}`} role="alert">
     {error && <p>{error}</p>}
@@ -106,31 +106,38 @@ function Panel({ locale, state, client, title, description, children }: {
 }) {
   const t = productCopy(locale);
   const e = enterpriseCopy(locale);
-  const [restore, setRestore] = useState<EnterpriseBackup | null>(null);
-  const [restoreReview, setRestoreReview] = useState<Pick<EnterpriseSnapshot, 'revision' | 'generation'> | null>(null);
+  const [restore, setRestore] = useState<PreparedEnterpriseBackup | null>(null);
+  const [restoreReview, setRestoreReview] = useState<Pick<EnterpriseOverview, 'revision' | 'generation'> | null>(null);
   const [restoreError, setRestoreError] = useState(false);
   const [backupError, setBackupError] = useState(false);
-  const [restoreBusy, setRestoreBusy] = useState(false);
   const chooseRestore = async (file: File | undefined) => {
     if (!file) return;
     const reviewed = client.getSnapshot().overview;
     if (!reviewed) return;
+    setRestore(null); setRestoreReview(null); setRestoreError(false);
     try {
-      setRestore(parseEnterpriseBackup(JSON.parse(await file.text())));
+      setRestore(await client.prepareBackup(file));
       setRestoreReview({ revision: reviewed.revision, generation: reviewed.generation });
       setRestoreError(false);
     } catch {
-      setRestore(null); setRestoreError(true);
+      setRestore(null); setRestoreError(client.getSnapshot().error !== 'operation_cancelled');
     }
   };
   const confirmRestore = async () => {
     if (!restore || !restoreReview) return;
-    setRestoreBusy(true); setRestoreError(false);
+    setRestoreError(false);
     try {
       await client.restore(restore, restoreReview.revision, restoreReview.generation);
       setRestore(null);
-    } catch { /* The client retains the restore outcome and its localized failure. */ }
-    finally { setRestoreBusy(false); }
+    } catch {
+      if (!client.getSnapshot().pending) setRestore(null);
+    }
+  };
+  const retryRestore = async () => {
+    try { if (await client.retryRestore()) setRestore(null); }
+    catch {
+      if (!client.getSnapshot().pending) setRestore(null);
+    }
   };
   return <section className="cm-enterprise" aria-label={title}>
     <style>{styles}</style>
@@ -139,7 +146,9 @@ function Panel({ locale, state, client, title, description, children }: {
     </header>
     {restoreError && <p className="cm-ent-banner is-error" role="alert">{e.restoreInvalid}</p>}
     {backupError && <p className="cm-ent-banner is-error" role="alert">{e.backupFailed}</p>}
-    {restore && state.overview && <section className="cm-ent-banner cm-ent-confirm" aria-label={e.restorePreview}><strong>{e.restorePreview}</strong><p>{t.revision}: {restore.snapshot.revision} · {e.contactsCount}: {restore.snapshot.contacts.length} · {e.inventoryCount}: {restore.snapshot.inventory.length} · {e.allOrders}: {restore.snapshot.orders.length}</p><p>{e.restoreConfirm}？{t.revision} {state.overview.revision} → {restore.snapshot.revision}</p><div className="cm-ent-actions"><button className="cm-ent-primary" type="button" disabled={restoreBusy || state.saving || state.pending || state.loading} onClick={() => { void confirmRestore(); }}>{restoreBusy ? t.saving : e.restoreConfirm}</button><button type="button" disabled={restoreBusy} onClick={() => setRestore(null)}>{e.restoreCancel}</button></div></section>}
+    {state.backupOperation && <section className="cm-ent-banner" aria-label={e.backupProgress}><p role="status">{state.backupOperation === 'prepare' ? e.preparingBackup : e.restoringBackup}</p><button type="button" onClick={() => client.cancelBackupOperation()}>{e.cancelBackupOperation}</button></section>}
+    {state.restoreUncertain && <button type="button" disabled={state.saving || state.loading} onClick={() => { void retryRestore(); }}>{e.retryRestore}</button>}
+    {restore && state.overview && <section className="cm-ent-banner cm-ent-confirm" aria-label={e.restorePreview}><strong>{e.restorePreview}</strong><p>{t.revision}: {restore.revision} · {e.contactsCount}: {restore.counts.contacts} · {e.inventoryCount}: {restore.counts.inventory} · {e.allOrders}: {restore.counts.orders}</p><p>{e.backupExportedAt}: {new Date(restore.exportedAt).toLocaleString(locale)}</p><p className="cm-ent-help">{e.backupDigest}: {restore.backupSha256}</p><p>{e.restoreConfirm}？{t.revision} {restoreReview?.revision} → {restore.revision}</p><div className="cm-ent-actions"><button className="cm-ent-primary" type="button" disabled={state.saving || state.pending || state.loading} onClick={() => { void confirmRestore(); }}>{state.backupOperation === 'restore' ? t.saving : e.restoreConfirm}</button><button type="button" disabled={state.saving || state.pending} onClick={() => { setRestore(null); setRestoreReview(null); }}>{e.restoreCancel}</button></div></section>}
     {state.overview === null && !state.error && <p className="cm-ent-empty" role="status">{t.loadingData}</p>}
     {children}
   </section>;

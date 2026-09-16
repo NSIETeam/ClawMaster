@@ -77,9 +77,11 @@ CRM 和 ERP 使用 `$DSH_HOME/watchdog/enterprise.sqlite` 中的空数据库开�
 库存与数量使用安全整数，金额使用人民币最小货币单位的整数。订单引用的 SKU 不能删除。不支持、属于其他应用或已损坏的数据库会报错，不会自动重置。
 
 联系人、库存和订单表单按开始编辑时取得的版本保存。共享记录刷新会保留输入，版本变化时展示当前值；明确确认已核对并要保留整份草稿后，才可继续保存。此操作不会自动合并字段。原记录被删除或订单已提交时，不能继续编辑。版本变化会使删除或提交确认失效，需要取消并重新打开后再操作。结果不确定的保存保留命令标识，供用户明确重试。
-库存与数量使用安全整数，金额使用人民币最小货币单位的整数。订单引用的 SKU 不能删除。其他视图修改记录后，基于旧版本保存会返回版本冲突：刷新记录、核对当前值，再重新保存。不支持、属于其他应用或已损坏的数据库会报错，不会自动重置。CRM 和 ERP 标题栏提供“下载本机数据备份”，在同一 SQLite 事务中读取完整业务快照和命令回执。此导出仅包含企业记录，不包含会话、Skills、配置档或其他 DSH 主目录数据。
+CRM 和 ERP 标题栏提供**下载本机数据备份**。只读工作进程从同一 SQLite 快照逐条导出记录和命令回执，写入有大小限制的私有文件；浏览器直接下载 JSON 文件，不解析其全部内容。可移植格式 1 只覆盖企业记录，不包含 Session、Skill、配置、任务或其他 DSH 主目录数据。
 
-恢复需要选择已校验的备份，复核记录数量，并确认当前 revision 和恢复代次 generation。Host 在写事务中检查这两个值，每次恢复都递增数据库本地的恢复代次；备份不能降低该计数。即使业务 revision 重复，旧写入、审批结果、分页请求和恢复确认仍会失败。Schema 1 数据库通过 schema 2 迁移增加此计数，不替换业务记录。未提供 generation 的旧请求仅属于代次零。浏览器拒绝重叠修改，并忽略恢复之前发起的读取。恢复响应丢失或无效时，进一步写入会被阻止，直到显式刷新读取数据库；系统不会自动重复恢复。
+选择 JSON 备份后，上传原始文件，检查已校验的数量与摘要，再确认当前修订和恢复代次。准备阶段有字节上限，默认五分钟过期，并绑定已认证调用者。Host 消耗精确审批后才向工作进程提供数据库写入目标，在事务内检查当前版本，并在 COMMIT 前再次核对成员权限。取消会等待工作进程退出与事务回滚；如果已经提交，则由持久回执确认成功。每次恢复递增数据库本地代次，即使修订号重复，旧写入和分页也会失效。
+
+恢复响应丢失或无效时，客户端保留完整原请求和命令标识，并阻止继续写入。使用**核对本次恢复结果**重试该请求：Host 返回已落盘回执，不会再次导入，即使准备文件已过期。单纯刷新不能解除结果未知状态。请保持应用打开，直到结果得到确认；待核对请求不会跨浏览器重载保存。
 
 恢复前打开的表单和确认保留原恢复代次。输入仍然可见，但刷新或编辑不会授权它们写入恢复后的记录。表单草稿可在明确复核当前记录后保留，也可取消并重新打开。删除与提交确认必须重新打开。
 
@@ -134,6 +136,8 @@ WatchDog 管理台通过“定时巡检”面板提供产品级持久计划，�
 
 `GET /api/clawmaster/enterprise` 返回 `{ generation, revision, counts, limits }`；`/query` 接收 `collection`、`offset`、`limit`、两个版本字段，以及可选的 `id`、`search`、联系人 `stage`/`dueBefore`、库存 `lowStock` 或订单 `kind`/`status`。分页返回 `{ generation, revision, collection, offset, total, nextOffset, records }`。每次续页必须携带两个版本；编辑或恢复后返回 `revision_conflict`，不会混合不同数据集。浏览器为每个可见列表保留一页，另行查询页外编辑对象与 SKU 候选。保存先验证回执再刷新计数；刷新失败不撤销已确认成功。分页和新提交的审计条目都受完整记录字节上限约束：超限变更回滚并返回 `result_too_large`（HTTP 413）。已有超限数据原样保留，需要提高读取预算后访问。
 
+`GET /backup` 流式返回格式 1 JSON；`POST /backup/prepare` 接受原始 JSON 文件，返回令牌、摘要、版本和数量。`POST /restore` 只接受该令牌、摘要、已复核版本、稳定命令标识及明确确认，并返回小型持久回执。Host 在解析前限制上传字节，限制并发请求入口，清理过期文件，并在关闭存储前等待工作进程退出。Host 与浏览器产物必须一起部署。
+
 Host 插件通过 Cordis 配置接受以下可选设置。存储路径必须为绝对路径。
 
 | 设置 | 默认值 |
@@ -145,6 +149,11 @@ Host 插件通过 Cordis 配置接受以下可选设置。存储路径必须为�
 | `dataTools.previewRows` / `previewColumns` / `previewCellChars` / `maxDiagnostics` | `10` / `8` / `120` / `10` |
 | `enterpriseTools.maxQueryRows` / `maxQueryBytes` | `100` / `262144` |
 | `enterpriseRead.maxPageRows` / `maxPageBytes` | `50` / `262144`；浏览器行数上限 ≥ 1，UTF-8 字节上限 ≥ 1024 |
+| `enterpriseBackup.maxFileBytes` | `67108864`；上传及导出 JSON 的字节上限 |
+| `enterpriseBackup.workerHeapMb` / `workerYoungHeapMb` | `192` / `4`；每个工作进程的 V8 老生代/半空间上限 |
+| `enterpriseBackup.maxConcurrentJobs` / `maxPreparedFiles` | `1` / `1`；包含慢速上传请求体和正在下载的文件 |
+| `enterpriseBackup.timeoutMs` / `preparedTtlMs` | `60000` / `300000` |
+| `enterpriseBackup.chunkBytes` / `sqliteCacheKiB` | `65536` / `4096` |
 
 在已准备好仓库支持的 Node 运行时和本包依赖后，在本目录执行以下命令：
 
@@ -154,7 +163,7 @@ npm test
 npm pack
 ```
 
-测试命令先构建客户端 factory 和 Host bundle，再执行本包的定向测试。打包时会运行相同构建并生成本地 `.tgz`；本包为 private。React 与 React DOM 来自 DSH 的共享客户端运行时。工具导航先提交会话视图，再打开面板，确保 DSH 面板挂载点已绑定。[桌面构建](../../apps/desktop-tauri/README.zh.md)把前端产物包含在运行时资源中。
+测试命令先构建客户端 factory、Host bundle 和私有备份工作进程，再执行本包的定向测试。打包时会运行相同构建并生成本地 `.tgz`；本包为 private。React 与 React DOM 来自 DSH 的共享客户端运行时。工具导航先提交会话视图，再打开面板，确保 DSH 面板挂载点已绑定。[桌面构建](../../apps/desktop-tauri/README.zh.md)把前端产物包含在运行时资源中。
 
 </details>
 
@@ -194,7 +203,7 @@ ClawMaster profile 为新 Session 选择 DSH `read-only` 文件访问与 `ask` �
 
 - 集成基线为 DSH `0.1.5-rc.2` 与 Cordis `4.0.2`。兼容范围限于本包使用的公开服务和实际测试过的插件组合，不代表所有 DSH 插件均已认证兼容。
 
-- CRM 和 ERP 是本地单用户记录功能，不是多人共享的多租户企业系统或外部 ERP/CRM 连接器。审计历史完整保留。显式备份/恢复仍会实体化完整导出并同步执行，可能占用大量内存并阻塞 Host。[容量实测](benchmarks/README.zh.md)区分有界日常读写与这些操作，不构成无限容量保证。数据处理器支持分隔文本，不支持 XLSX 工作簿或持久化电子表格服务。
+- CRM 与 ERP 是本地单用户记录，不是共享多租户企业系统或外部 ERP/CRM 连接器。审计历史完整保留。备份传输文件与工作进程堆有可配置的上限；解析和语义校验仍随历史增长，较大导入可能被拒绝。V8 上限不能限制原生分配或整个桌面进程树。[容量实测](benchmarks/README.zh.md)记录响应大小、耗时和内存，不承诺无限容量。直接维护调用 `store.backup()`/`store.restore()` 仍然同步执行，不属于生产 HTTP 路径。数据处理器支持分隔文本，不支持 XLSX 工作簿或持久电子表格服务。
 
 - 本包不承诺独立安装器体积。Tauri 壳、DSH、Node 运行时与第三方组件分别具有各自的打包和许可要求；本包采用 Apache-2.0。
 

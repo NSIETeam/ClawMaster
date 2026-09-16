@@ -8,6 +8,8 @@ import { enterpriseTransport, overviewOf } from './enterprise-transport.fixture.
 const contact = { id: 'contact-1', name: 'Contact', company: '', stage: 'lead', nextAction: '', nextActionDate: null };
 const command = { type: 'contact.upsert', contact };
 const baseline = { generation: 0, revision: 0, contacts: [], inventory: [], orders: [], audit: [] };
+const prepared = { token: 'prepared-token', backupSha256: 'a'.repeat(64), exportedAt: '2026-09-14T00:00:00.000Z', generation: 0, revision: 0, counts: { contacts: 0, inventory: 0, orders: 0, audit: 0 } };
+const restoreReceipt = (request, result = { generation: 1, revision: 0 }) => ({ commandId: request.commandId, backupSha256: request.backupSha256, generation: result.generation, revision: result.revision });
 
 function receipt(store, request) {
   const result = store.executeReceipt(request, LOCAL_HTTP_IDENTITY);
@@ -22,11 +24,11 @@ test('retained edits and confirmations cannot acquire a restored generation by r
     if (init.method === 'GET') return Response.json(overviewOf(current));
     sent.push(path);
     current = { ...baseline, generation: 1 };
-    return Response.json(current);
+    return Response.json(restoreReceipt(JSON.parse(init.body), current));
   });
   await client.refresh();
   const reviewedGeneration = client.getSnapshot().overview.generation;
-  await client.restore({ schemaVersion: 1, exportedAt: '2026-09-14T00:00:00.000Z', snapshot: baseline, auditCommands: [] }, 0, 0);
+  await client.restore(prepared, 0, 0);
   await client.refresh();
   for (const operation of [command, ...['contact.remove', 'item.remove', 'order.remove', 'order.submit'].map(type => ({ type, id: 'record-1' }))]) {
     assert.equal(await client.execute(operation, 0, reviewedGeneration), false);
@@ -180,8 +182,8 @@ test('restore fences delayed reads and blocks concurrent mutations until its res
   const client = new EnterpriseClient(async (path, init) => {
     if (path.endsWith('/restore')) {
       const request = JSON.parse(init.body);
-      const result = store.restore(request.backup, request.expectedRevision, request.expectedGeneration);
-      return new Promise(resolve => { delayedRestore = () => resolve(Response.json(result)); });
+      const result = store.restore(backup, request.expectedRevision, request.expectedGeneration);
+      return new Promise(resolve => { delayedRestore = () => resolve(Response.json(restoreReceipt(request, result))); });
     }
     if (init.method === 'POST') return Response.json(receipt(store, JSON.parse(init.body)));
     const snapshot = store.overview();
@@ -191,10 +193,10 @@ test('restore fences delayed reads and blocks concurrent mutations until its res
   await client.refresh();
   deferRead = true;
   const read = client.refresh();
-  const restoring = client.restore(backup, 1, 0);
+  const restoring = client.restore(prepared, 1, 0);
   assert.equal(client.getSnapshot().saving, true);
   assert.equal(await client.execute(command, client.getSnapshot().overview.revision, client.getSnapshot().overview.generation), false);
-  await assert.rejects(client.restore(backup, 1, 0), { code: 'invalid_request' });
+  await assert.rejects(client.restore(prepared, 1, 0), { code: 'invalid_request' });
   delayedRestore();
   await restoring;
   delayedRead();
@@ -204,27 +206,35 @@ test('restore fences delayed reads and blocks concurrent mutations until its res
   assert.equal(await client.execute(command, client.getSnapshot().overview.revision, client.getSnapshot().overview.generation), true);
 });
 
-test('an uncertain restore requires a fresh read before another mutation or restore', async context => {
+test('an uncertain restore retains its exact receipt query across refresh and only then unlocks mutations', async context => {
   const store = await openEnterpriseStore(':memory:');
   context.after(() => store.close());
   const backup = store.backup();
+  const requests = [];
+  let committed;
   const client = new EnterpriseClient(async (path, init) => {
     if (path.endsWith('/restore')) {
       const request = JSON.parse(init.body);
-      store.restore(request.backup, request.expectedRevision, request.expectedGeneration);
+      requests.push(request);
+      if (committed) return Response.json(committed);
+      committed = restoreReceipt(request, store.restore(backup, request.expectedRevision, request.expectedGeneration));
       throw new TypeError('response lost after restore');
     }
     if (init.method === 'POST') return Response.json(receipt(store, JSON.parse(init.body)));
     return Response.json(store.overview());
   }, () => 'client-write');
   await client.refresh();
-  await assert.rejects(client.restore(backup, 0, 0), /response lost/);
+  await assert.rejects(client.restore(prepared, 0, 0), /response lost/);
   assert.equal(client.getSnapshot().pending, true);
-  assert.equal(await client.execute(command, client.getSnapshot().overview.revision, client.getSnapshot().overview.generation), false);
-  await assert.rejects(client.restore(backup, 0, 0));
+  assert.equal(await client.execute(command, 0, 0), false);
+  await assert.rejects(client.restore(prepared, 0, 0));
   await client.refresh();
-  assert.equal(client.getSnapshot().pending, false);
+  assert.equal(client.getSnapshot().pending, true, 'reading counters cannot prove which restore committed');
   assert.equal(client.getSnapshot().overview.generation, 1);
+  assert.deepEqual(await client.retryRestore(), committed);
+  assert.deepEqual(requests[0], requests[1]);
+  assert.equal(client.getSnapshot().pending, false);
+  assert.equal(store.overview().generation, 1);
   assert.equal(await client.execute(command, client.getSnapshot().overview.revision, client.getSnapshot().overview.generation), true);
 });
 
@@ -232,7 +242,7 @@ test('restore preserves a server revision conflict and does not replace the disp
   const client = new EnterpriseClient(async (_path, init) => init.method === 'GET' ? Response.json(overviewOf(baseline))
     : Response.json({ error: { code: 'revision_conflict', message: 'Refresh before restoring.' } }, { status: 409 }));
   await client.refresh();
-  await assert.rejects(client.restore({ schemaVersion: 1, exportedAt: new Date().toISOString(), snapshot: baseline, auditCommands: [] }, 0, 0), { code: 'revision_conflict' });
+  await assert.rejects(client.restore(prepared, 0, 0), { code: 'revision_conflict' });
   assert.equal(client.getSnapshot().error, 'revision_conflict');
   assert.equal(client.getSnapshot().pending, false);
   assert.deepEqual(client.getSnapshot().overview, overviewOf(baseline));

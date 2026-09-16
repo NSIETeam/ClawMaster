@@ -77,9 +77,11 @@ Save purchase or sale orders as drafts with quantities and unit prices. Submitti
 Stock and quantities use safe integers; monetary values use integer CNY minor units. A SKU referenced by an order cannot be deleted. Unsupported, foreign or damaged databases fail without an automatic reset.
 
 Contact, stock and order forms save against the revision captured when editing begins. A shared record refresh preserves your input and shows current values when the revision changes; saving remains disabled until you explicitly confirm that you have reviewed them and want to keep the whole draft. This action does not merge fields automatically. A deleted record or submitted order cannot be resumed for editing. A changed revision invalidates a deletion or submission confirmation; cancel and reopen it before proceeding. Uncertain saves retain their command identity for an explicit retry.
-Stock and quantities use safe integers; monetary values use integer CNY minor units. A SKU referenced by an order cannot be deleted. If another view changes the records, a stale save returns a revision conflict: refresh the records, review the current values, and save again. Unsupported, foreign or damaged databases fail without an automatic reset. The CRM and ERP headers provide **Download local data backup**, which reads the complete business snapshot and command receipts in one SQLite transaction. This export covers enterprise records only, not Sessions, Skills, profiles or other DSH home data.
+The CRM and ERP headers provide **Download local data backup**. A read-only worker streams records and command receipts from one SQLite snapshot into a bounded private file; the browser downloads that JSON file without parsing its complete contents. Portable format 1 covers enterprise records only, not Sessions, Skills, profiles, tasks or other DSH home data.
 
-Restoring requires selecting a validated backup, reviewing its counts and confirming the current revision and restore generation. The Host checks both values inside the write transaction and increments its database-local generation on every restore; a backup cannot lower that counter. Old writes, approval results, pagination requests and restore confirmations fail even when business revision numbers repeat. Schema 1 databases receive the counter through the schema 2 migration without replacing business records. Legacy requests without a generation belong only to generation zero. The browser rejects overlapping mutations and ignores reads started before a restore. A lost or invalid restore response blocks further writes until an explicit refresh reads the database; it does not automatically repeat restoration.
+Select a JSON backup to upload the original file, inspect its validated counts and digest, then confirm the current revision and restore generation. Preparation has a byte limit, expires after five minutes by default and is bound to the authenticated caller. The Host consumes the exact approval before giving its worker a database write target, checks the current versions inside the transaction and rechecks membership before COMMIT. Cancellation waits for worker exit and transaction rollback; if COMMIT already succeeded, the durable receipt establishes success. A restore increments the database-local generation, invalidating older writes and pages even when revisions repeat.
+
+A missing or invalid restore response preserves the exact request and command identifier and blocks further writes. Use **Check this restore outcome** to retry that request: the Host returns its persisted receipt without importing again, including after the prepared file expires. Refreshing alone does not resolve this uncertainty. Keep the application open until the result is known; pending requests are not persisted across a browser reload.
 
 Forms and confirmations opened before a restore keep their original generation. Their inputs remain visible, but refreshing or editing them does not authorize a write to restored records. Explicitly review current records to retain a form draft, or cancel and reopen it. Deletion and submission confirmations must be reopened.
 
@@ -134,6 +136,8 @@ Browser and AI queries select one SQLite collection, bind filters and paginate r
 
 `GET /api/clawmaster/enterprise` returns `{ generation, revision, counts, limits }`; `/query` accepts `collection`, `offset`, `limit`, both version fields and optional `id`, `search`, contact `stage`/`dueBefore`, inventory `lowStock` or order `kind`/`status`. Pages return `{ generation, revision, collection, offset, total, nextOffset, records }`. Every continuation requires both versions; edits or restores return `revision_conflict` rather than mixing datasets. The browser retains one page per visible list and resolves off-page editor records and SKU choices separately. Saving validates a receipt before refreshing counters; refresh failure does not revoke confirmed success. Whole-record byte limits apply to pages and newly committed audit entries: an oversized change rolls back with `result_too_large` (HTTP 413). Existing oversized data is preserved and requires an increased read budget.
 
+`GET /backup` streams format-1 JSON; `POST /backup/prepare` accepts a raw JSON file and returns a token, digest, versions and counts. `POST /restore` accepts only that token, digest, reviewed versions, a stable command identifier and explicit confirmation, returning a small durable receipt. The Host enforces upload bytes before parsing, bounds concurrent ingress, removes expired files and drains workers before closing storage. Host and browser artifacts must deploy together.
+
 The Host plugin accepts these optional settings through its Cordis configuration. Storage paths must be absolute.
 
 | Setting | Default |
@@ -145,6 +149,11 @@ The Host plugin accepts these optional settings through its Cordis configuration
 | `dataTools.previewRows` / `previewColumns` / `previewCellChars` / `maxDiagnostics` | `10` / `8` / `120` / `10` |
 | `enterpriseTools.maxQueryRows` / `maxQueryBytes` | `100` / `262144` |
 | `enterpriseRead.maxPageRows` / `maxPageBytes` | `50` / `262144`; browser row limit ≥ 1 and UTF-8 byte limit ≥ 1024 |
+| `enterpriseBackup.maxFileBytes` | `67108864`; input and exported JSON bytes |
+| `enterpriseBackup.workerHeapMb` / `workerYoungHeapMb` | `192` / `4`; V8 old generation/semi-space limits per child process |
+| `enterpriseBackup.maxConcurrentJobs` / `maxPreparedFiles` | `1` / `1`; includes slow upload bodies and active downloads |
+| `enterpriseBackup.timeoutMs` / `preparedTtlMs` | `60000` / `300000` |
+| `enterpriseBackup.chunkBytes` / `sqliteCacheKiB` | `65536` / `4096` |
 
 With the repository's supported Node runtime and this package's dependencies installed, run these commands from this directory:
 
@@ -154,7 +163,7 @@ npm test
 npm pack
 ```
 
-The test command builds the client factory and Host bundle before running the package's focused tests. Packing runs the same build and produces a local `.tgz`; the package is private. React and React DOM come from DSH's shared client runtime. Tool navigation commits the session view before opening a panel, so the panel's DSH seat is bound. The [desktop build](../../apps/desktop-tauri/README.md) includes the frontend artifacts in its runtime payload.
+The test command builds the client factory, Host bundle and private backup worker before running the package's focused tests. Packing runs the same build and produces a local `.tgz`; the package is private. React and React DOM come from DSH's shared client runtime. Tool navigation commits the session view before opening a panel, so the panel's DSH seat is bound. The [desktop build](../../apps/desktop-tauri/README.md) includes the frontend artifacts in its runtime payload.
 
 </details>
 
@@ -194,7 +203,7 @@ The constraints below apply to this frontend and its local records.
 
 - The integration baseline is DSH `0.1.5-rc.2` with Cordis `4.0.2`. Compatibility covers the public services consumed here and the plugin combinations that are actually tested; it does not certify every DSH plugin.
 
-- CRM and ERP are local single-user records, not a shared multi-tenant enterprise system or external ERP/CRM connectors. Audit history is retained in full. Explicit backup/restore still materializes the complete export and runs synchronously; these operations can consume substantial memory and block the Host. [Measured capacity](benchmarks/README.md) separates bounded everyday reads/writes from those operations and is not an unrestricted capacity guarantee. The data processor supports delimited text, not XLSX workbooks or a persistent spreadsheet service.
+- CRM and ERP are local single-user records, not a shared multi-tenant enterprise system or external ERP/CRM connectors. Audit history is retained in full. Backup transfer files and worker heaps have configured bounds; parsing and semantic validation still grow with history and may refuse a large import. V8 limits do not cap native allocations or the entire desktop process tree. [Measured capacity](benchmarks/README.md) records response sizes, elapsed times and memory; it is not an unrestricted capacity guarantee. Direct maintenance `store.backup()`/`store.restore()` calls remain synchronous and are not the production HTTP path. The data processor supports delimited text, not XLSX workbooks or a persistent spreadsheet service.
 
 - This package has no standalone installer-size commitment. The Tauri shell, DSH, Node runtime and third-party components have separate packaging and license obligations; this package uses Apache-2.0.
 

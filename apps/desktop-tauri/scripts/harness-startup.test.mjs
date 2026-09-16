@@ -380,14 +380,17 @@ export function apply(ctx) {
     const backupResponse = await request(new URL(backupPath, first.base), { headers: authenticated })
     assert.equal(backupResponse.status, 200)
     const backup = await backupResponse.json()
-    const confirmation = { confirm: true, expectedGeneration: 0, expectedRevision: 1, backup }
+    const prepareResponse = await post(first.base, `${backupPath}/prepare`, backup, authenticated)
+    assert.equal(prepareResponse.status, 200)
+    const prepared = await prepareResponse.json()
+    const confirmation = { confirm: true, expectedGeneration: 0, expectedRevision: 1, commandId: 'desktop-restore', token: prepared.token, backupSha256: prepared.backupSha256 }
     assert.equal((await post(first.base, restorePath, confirmation, { ...authenticated, origin: 'https://foreign.invalid' })).status, 403)
     const restoreResponse = await post(first.base, restorePath, confirmation, authenticated)
     assert.equal(restoreResponse.status, 200)
-    const expected = { ...backup.snapshot, generation: 1 }
+    const expected = { commandId: 'desktop-restore', backupSha256: prepared.backupSha256, generation: 1, revision: backup.snapshot.revision }
     assert.deepEqual(await restoreResponse.json(), expected)
     assert.equal((await post(first.base, commandPath, command, authenticated)).status, 409)
-    assert.equal((await post(first.base, restorePath, confirmation, authenticated)).status, 409)
+    assert.deepEqual(await (await post(first.base, restorePath, confirmation, authenticated)).json(), expected)
     assert.equal(host.child.signalCode, null)
     assert.equal(host.child.exitCode, null)
     await stopHost(host)

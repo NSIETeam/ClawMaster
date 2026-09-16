@@ -3,11 +3,14 @@ import type { ProductLocale } from './frontend.ts';
 import type { EnterpriseCommand } from '../enterprise-types.ts';
 
 const zh = {
+  backupProgress: '备份处理进度', preparingBackup: '正在上传并校验备份文件…', restoringBackup: '正在恢复已确认的备份…',
+  cancelBackupOperation: '取消当前操作', retryRestore: '核对本次恢复结果', backupExportedAt: '备份时间', backupDigest: '文件校验值',
+  operationCancelled: '当前请求已取消。若恢复结果尚未确认，请核对本次恢复结果后再继续。',
   previousPage: '上一页', nextPage: '下一页', pageNavigation: '记录分页', itemLookup: '搜索可选物料', resultTooLarge: '这条记录超过当前读取上限，请缩小内容或联系管理员调整容量配置。', permissionDenied: '当前账号没有权限执行此操作，或尚未获得所需审批。',
   draftChanged: '记录已更新，当前输入已保留。请核对下面的最新记录，再决定是否用当前草稿保存。',
   latestRecord: '最新记录', reviewedDraft: '已核对最新记录，保留草稿继续', recordUnavailable: '记录已删除或订单已提交，请取消编辑并查看最新记录。',
   confirmationChanged: '记录已更新，本次确认已失效。请取消后重新打开并核对。',
-  restoreUncertain: '恢复结果尚未确认。请刷新核对当前数据后再继续操作。',
+  restoreUncertain: '恢复结果尚未确认。请核对本次恢复结果；系统会复用原请求，避免重复恢复。刷新数据不会解除此状态。',
   backupFailed: '备份下载失败，请检查连接后重试。',
   staleForm: '数据已恢复，当前表单或确认属于恢复前的数据。输入已保留；请复制需要的内容，取消并重新打开后核对再提交。',
   pending: '上次保存的结果尚未确认。请重试同一请求，系统会防止重复写入；当前输入已保留。',
@@ -34,11 +37,14 @@ const zh = {
 
 type EnterpriseCopy = { [K in keyof typeof zh]: string };
 const en: EnterpriseCopy = {
+  backupProgress: 'Backup operation progress', preparingBackup: 'Uploading and validating the backup file…', restoringBackup: 'Restoring the reviewed backup…',
+  cancelBackupOperation: 'Cancel current operation', retryRestore: 'Check this restore outcome', backupExportedAt: 'Backup time', backupDigest: 'File checksum',
+  operationCancelled: 'The current request was cancelled. If the restore outcome is unknown, check this restore outcome before continuing.',
   previousPage: 'Previous page', nextPage: 'Next page', pageNavigation: 'Record pages', itemLookup: 'Search available items', resultTooLarge: 'This record exceeds the read limit. Reduce its content or ask an administrator to adjust the capacity settings.', permissionDenied: 'Your account does not have permission for this operation, or the required approval is missing.',
   draftChanged: 'Records changed. Your inputs are retained. Review the latest record below before saving this draft.',
   latestRecord: 'Latest record', reviewedDraft: 'Reviewed latest record; keep my draft', recordUnavailable: 'The record was deleted or the order was submitted. Cancel editing and inspect the latest records.',
   confirmationChanged: 'Records changed and this confirmation expired. Cancel, reopen and review it.',
-  restoreUncertain: 'The restore outcome is unknown. Refresh and review the current records before continuing.',
+  restoreUncertain: 'The restore outcome is unknown. Check this restore outcome using the original request to avoid repeating the restore. Refreshing records does not resolve it.',
   backupFailed: 'Backup download failed. Check the connection and retry.',
   staleForm: 'The database was restored after this form or confirmation was opened. Your inputs are retained. Copy anything you need, cancel, and reopen to review the current records before submitting.',
   pending: 'The last save has not been confirmed. Retry the same request to resolve it without duplicate writes. Your inputs are retained.',

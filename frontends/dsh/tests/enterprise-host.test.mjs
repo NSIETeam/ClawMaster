@@ -329,7 +329,7 @@ test('DSH route registration validates JSON, returns conflicts and disposes with
   store.close();
   const routes = new Map();
   const dispose = await applyEnterpriseHost({ connection: { fetch: { register(route) {
-    assert.equal(route.requestBody, 'buffered');
+    assert.equal(route.requestBody, route.path.includes('/backup') || route.path.endsWith('/restore') ? 'streaming' : 'buffered');
     routes.set(route.path, route);
     return async () => { routes.delete(route.path); };
   } } } }, { databasePath: path });

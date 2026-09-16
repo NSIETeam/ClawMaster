@@ -55,15 +55,16 @@ try {
       })();
       try {
         const result = await operation();
-        const encoded = serialize ? JSON.stringify(result) : undefined;
+        const encoded = serialize && !(result instanceof Blob) ? JSON.stringify(result) : undefined;
         const elapsedMs = performance.now() - started;
         const retained = process.memoryUsage();
         finished = true;
         samples[name] = {
           elapsedMs, eventLoopRoundtripMs: await eventLoop,
-          responseBytes: encoded === undefined ? null : Buffer.byteLength(encoded),
+          responseBytes: result instanceof Blob ? result.size : encoded === undefined ? null : Buffer.byteLength(encoded),
           rssBeforeBytes: before.rss, rssAfterBytes: retained.rss, heapAfterBytes: retained.heapUsed,
           processPeakRssBytes: process.resourceUsage().maxRSS * 1024,
+          childPeakRssBytes: store?.backupResourceUsage()[name === 'backup' ? 'export' : name === 'prepareBackup' ? 'prepare' : name] ?? 0,
         };
         return result;
       } finally {
@@ -80,7 +81,7 @@ try {
       const request = new Request(`http://fixture/api/clawmaster/enterprise${suffix}`, init);
       const response = await routes.get(new URL(request.url).pathname)(request);
       if (response.status !== 200) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-      return response.json();
+      return suffix === '/backup' ? response.blob() : response.json();
     };
     const overview = await measure('overview', () => fetch());
     const query = value => fetch(`/query?${new URLSearchParams({ collection: 'contacts', offset: '0', limit: '50',
@@ -99,9 +100,10 @@ try {
     assert.equal(saved.entityId, 'contact-0');
     revision = saved.revision;
     const backup = await measure('backup', () => fetch('/backup'));
+    const prepared = await measure('prepareBackup', () => fetch('/backup/prepare', { method: 'POST', headers: { 'content-type': 'application/json' }, body: backup }));
     const restored = await measure('restore', () => fetch('/restore', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ backup, expectedRevision: revision, expectedGeneration: 0, confirm: true }) }));
-    assert.equal(restored.contacts.length, count);
+      body: JSON.stringify({ token: prepared.token, backupSha256: prepared.backupSha256, commandId: 'capacity-restore', expectedRevision: revision, expectedGeneration: 0, confirm: true }) }));
+    assert.equal(store.overview().counts.contacts, count);
     assert.equal(restored.generation, 1);
     process.stdout.write(JSON.stringify({ samples, peakRssBytes: process.resourceUsage().maxRSS * 1024 }));
   }

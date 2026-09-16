@@ -129,7 +129,9 @@ export function parseEnterprisePage(value: unknown): EnterpriseQueryPage {
 const snapshotSchema = z.object({
   generation: integer.default(0), revision: integer, contacts: z.array(contactSchema), inventory: z.array(itemSchema),
   orders: z.array(orderSchema), audit: z.array(auditSchema),
-}).strict().refine(snapshot => {
+}).strict().refine(validSnapshot);
+
+function validSnapshot(snapshot: EnterpriseSnapshot): boolean {
   const unique = (values: readonly string[]) => new Set(values).size === values.length;
   const itemIds = new Set(snapshot.inventory.map(item => item.id));
   return unique(snapshot.contacts.map(contact => contact.id))
@@ -138,17 +140,21 @@ const snapshotSchema = z.object({
     && snapshot.orders.every(order => order.lines.every(line => itemIds.has(line.itemId)))
     && snapshot.audit.length === snapshot.revision
     && snapshot.audit.every((entry, index) => entry.revision === snapshot.revision - index);
-});
+}
+const receiptSchema = z.object({ revision: integer.min(1), commandId: identifier, commandJson: z.string().min(2) }).strict();
 const backupSchema = z.object({
   schemaVersion: z.literal(1), exportedAt: timestamp, snapshot: snapshotSchema,
-  auditCommands: z.array(z.object({ revision: integer.min(1), commandId: identifier, commandJson: z.string().min(2) }).strict()),
-}).strict().superRefine((backup, context) => {
+  auditCommands: z.array(receiptSchema),
+}).strict().superRefine(validateBackupCommands);
+
+function validateBackupCommands(backup: EnterpriseBackup, context: Pick<z.RefinementCtx, 'addIssue'>): void {
   if (backup.auditCommands.length !== backup.snapshot.audit.length) {
     context.addIssue({ code: 'custom', message: 'Backup command receipts do not cover the complete audit history.' });
     return;
   }
   const byRevision = new Map(backup.auditCommands.map(entry => [entry.revision, entry]));
-  for (const entry of backup.snapshot.audit) {
+  for (const rawEntry of backup.snapshot.audit) {
+    const entry = rawEntry as z.output<typeof auditSchema>;
     const receipt = byRevision.get(entry.revision);
     if (!receipt || receipt.commandId !== entry.commandId) {
       context.addIssue({ code: 'custom', message: 'Backup command receipt does not match its audit entry.' });
@@ -177,7 +183,7 @@ const backupSchema = z.object({
       }
     } catch { context.addIssue({ code: 'custom', message: 'Backup command JSON is invalid.' }); return; }
   }
-});
+}
 
 /**
  * Validate JSON before it enters an enterprise transaction.
@@ -208,11 +214,26 @@ export function parseEnterpriseBackup(value: unknown): EnterpriseBackup {
   return result.data;
 }
 
-/** Validate the explicit restore request envelope before opening SQLite. */
-export function parseEnterpriseRestoreRequest(value: unknown): { expectedGeneration: number; expectedRevision: number; confirm: true; backup: EnterpriseBackup; commandId?: string } {
-  const result = z.object({ expectedGeneration: integer.default(0), expectedRevision: integer, confirm: z.literal(true), backup: backupSchema, commandId: identifier.optional() }).strict().safeParse(value);
-  if (!result.success) throw new EnterpriseError('invalid_request', 'Enterprise restore confirmation is invalid.');
-  return result.data;
+/**
+ * Validate an exclusively owned backup object one row at a time, replacing raw rows in place.
+ * @param value Worker-owned JSON; callers must not retain aliases to its arrays.
+ * @returns Normalized backup without a second complete copy of its records.
+ */
+export function parseOwnedEnterpriseBackup(value: unknown): EnterpriseBackup {
+  const array = z.custom<unknown[]>(Array.isArray);
+  const envelope = z.object({ schemaVersion: z.literal(1), exportedAt: timestamp,
+    snapshot: z.object({ generation: integer.default(0), revision: integer, contacts: array, inventory: array, orders: array, audit: array }).strict(),
+    auditCommands: array,
+  }).strict().parse(value);
+  for (const [rows, schema] of [[envelope.snapshot.contacts, contactSchema], [envelope.snapshot.inventory, itemSchema],
+    [envelope.snapshot.orders, orderSchema], [envelope.snapshot.audit, auditSchema], [envelope.auditCommands, receiptSchema]] as const) {
+    for (let index = 0; index < rows.length; index++) rows[index] = schema.parse(rows[index]);
+  }
+  // Every row and envelope field was parsed above; refinements below check cross-record facts.
+  const backup = envelope as EnterpriseBackup;
+  if (!validSnapshot(backup.snapshot)) throw new EnterpriseError('storage_invalid', 'Enterprise snapshot relationships are invalid.');
+  validateBackupCommands(backup, { addIssue() { throw new EnterpriseError('storage_invalid', 'Enterprise command history is invalid.'); } });
+  return backup;
 }
 
 /**

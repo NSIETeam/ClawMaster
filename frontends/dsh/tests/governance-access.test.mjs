@@ -346,9 +346,10 @@ test('restore approval refusal and read-tool denials retain only authenticated o
   const removeTasks = await mountWatchdogTasks(ctx, store, h.access);
   t.after(async () => { await removeTasks(); await removeTools(); await removeRoutes(); store.close(); });
   const backup = store.backup();
+  const prepared = await (await routes.get('/api/clawmaster/enterprise/backup/prepare')(new Request('http://fixture/prepare', { method: 'POST', headers: { authorization: 'admin', 'content-type': 'application/json' }, body: JSON.stringify(backup) }))).json();
   const response = await routes.get('/api/clawmaster/enterprise/restore')(new Request('http://fixture/restore', { method: 'POST',
     headers: { authorization: 'admin', 'content-type': 'application/json' },
-    body: JSON.stringify({ expectedGeneration: 0, expectedRevision: 0, confirm: true, commandId: 'denied-restore', backup }) }));
+    body: JSON.stringify({ expectedGeneration: 0, expectedRevision: 0, confirm: true, commandId: 'denied-restore', token: prepared.token, backupSha256: prepared.backupSha256 }) }));
   assert.equal(response.status, 403);
   const restored = store.responsibility({ commandId: 'denied-restore' }).records;
   assert.equal(restored.length, 1);

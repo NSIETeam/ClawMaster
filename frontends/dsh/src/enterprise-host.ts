@@ -4,6 +4,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { z } from 'zod';
+import { mountEnterpriseBackupRoutes } from './enterprise-backup-host.ts';
+import type { EnterpriseBackupConfig } from './enterprise-backup-config.ts';
+import type { RestoreBackupRequest, RestoreBackupReceipt } from './enterprise-backup-format.ts';
 import { appendResponsibility, initializeResponsibilityHistory, queryResponsibility, verifyResponsibility, UNKNOWN_IDENTITY } from './governance-audit.ts';
 import type { ExecutionIdentity } from './governance-audit.ts';
 import { assertCommandReceipt, initializeCommandReceipts, recordCommandReceipt } from './command-receipts.ts';
@@ -11,7 +14,6 @@ import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './go
 import { initializeTasks, resolveWatchdogTaskConfig, WatchdogTaskStore, type WatchdogTaskConfig } from './watchdog-tasks.ts';
 import {
   EnterpriseError, ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH, ENTERPRISE_QUERY_PATH,
-  ENTERPRISE_BACKUP_PATH, ENTERPRISE_RESTORE_PATH,
 } from './enterprise-types.ts';
 import type {
   EnterpriseBackup, AuditEntry, BusinessOrder, Contact, EnterpriseCommand, EnterpriseCommandRequest, EnterpriseSnapshot, InventoryItem,
@@ -19,7 +21,7 @@ import type {
 } from './enterprise-types.ts';
 import {
   contactSchema, itemSchema, orderSchema, auditSchema, parseEnterpriseRequest,
-  parseEnterpriseBackup, parseEnterpriseRestoreRequest, parseEnterpriseSnapshot, enterpriseOrderTotal, parseEnterpriseQuery,
+  parseEnterpriseBackup, parseEnterpriseSnapshot, enterpriseOrderTotal, parseEnterpriseQuery,
 } from './enterprise-schema.ts';
 
 const SCHEMA_VERSION = 5;
@@ -59,10 +61,11 @@ export interface EnterprisePreparation {
   receipt?: AuditEntry;
 }
 
+/** Fixed record projections shared by bounded pages and streaming exports. */
 // All SQL identifiers and JSON keys are deployment-independent literals.
 const jsonFields = (columns: readonly string[]): string => columns.map(column => `'${column}', r.${column}`).join(', ');
 const orderLinesJson = `(SELECT json_group_array(json(line)) FROM (SELECT json_object('itemId', itemId, 'quantity', quantity, 'unitPriceMinorUnits', unitPriceMinorUnits) AS line FROM order_lines WHERE orderId = r.id ORDER BY position))`;
-const collections = {
+export const enterpriseCollections = {
   contacts: { table: 'contacts', order: 'r.name, r.id', schema: contactSchema,
     search: ['id', 'name', 'company', 'stage', 'nextAction', 'nextActionDate', 'updatedAt'],
     json: `json_object(${jsonFields(['id', 'name', 'company', 'stage', 'nextAction', 'nextActionDate', 'updatedAt'])})` },
@@ -89,13 +92,13 @@ function verifyEnterpriseRecords(db: DatabaseSync): void {
     throw new EnterpriseError('storage_invalid', 'Enterprise orders reference missing inventory.');
   }
   for (const collection of ['contacts', 'inventory', 'orders'] as const) {
-    const source = collections[collection];
+    const source = enterpriseCollections[collection];
     for (const row of (db.prepare(`SELECT ${source.json} AS recordJson FROM ${source.table} r`) as IterableStatement).iterate()) {
       source.schema.parse(JSON.parse(String(sqliteRow.parse(row).recordJson)));
     }
   }
   let expected = revision;
-  for (const row of (db.prepare(`SELECT ${collections.audit.json} AS recordJson FROM enterprise_audit r ORDER BY revision DESC`) as IterableStatement).iterate()) {
+  for (const row of (db.prepare(`SELECT ${enterpriseCollections.audit.json} AS recordJson FROM enterprise_audit r ORDER BY revision DESC`) as IterableStatement).iterate()) {
     const entry = auditSchema.parse(JSON.parse(String(sqliteRow.parse(row).recordJson)));
     if (entry.revision !== expected--) throw new EnterpriseError('storage_invalid', 'Enterprise audit revisions are not contiguous.');
   }
@@ -107,6 +110,9 @@ export class EnterpriseStore {
   readonly tasks: WatchdogTaskStore;
   readonly readLimits: Readonly<z.output<typeof readConfigSchema>>;
   private closed = false;
+  private readonly backupPeaks: Record<string, number> = {};
+  private writerWaitUsers = 0;
+  private savedWriterWait = 0;
   private readonly db: DatabaseSync;
 
   constructor(db: DatabaseSync, taskConfig: WatchdogTaskConfig = {}, readConfig: EnterpriseReadConfig = {}) {
@@ -134,6 +140,75 @@ export class EnterpriseStore {
     const requestHash = createHash('sha256').update(JSON.stringify({ backupSha256, expectedGeneration, expectedRevision, actor: identity.actor, principalId: identity.principalId ?? null, organizationId: identity.organizationId })).digest('hex');
     if (sqliteRow.parse(receipt).requestHash !== requestHash) throw new EnterpriseError('command_conflict', 'Restore identifier was used for a different request.');
     return true;
+  }
+
+  /** Record a completed private executor peak.
+   * @param operation Fixed backup operation name.
+   * @param bytes Peak child RSS in bytes, reported after successful execution.
+   */
+  observeBackupProcess(operation: string, bytes: number): void {
+    this.backupPeaks[operation] = Math.max(this.backupPeaks[operation] ?? 0, bytes);
+  }
+
+  /** Inspect private executor resource observations.
+   * @returns Per-operation child RSS peaks, separately from the Host.
+   */
+  backupResourceUsage(): Readonly<Record<string, number>> { return { ...this.backupPeaks }; }
+
+  /** Locate the database for an authorized private executor.
+   * @returns Absolute SQLite filename; in-memory databases are unsupported.
+   */
+  backupDatabasePath(): string {
+    this.assertOpen();
+    const file = sqliteRow.parse(this.db.prepare("SELECT file FROM pragma_database_list WHERE name='main'").get()).file;
+    if (typeof file !== 'string' || !file) throw new EnterpriseError('storage_unavailable', 'Backup workers require file-backed storage.');
+    return file;
+  }
+
+  /** Refuse concurrent writers immediately while a worker owns the restore transaction.
+   * @returns Idempotent release that restores the configured wait after all holders leave.
+   */
+  withoutWriterWait(): () => void {
+    this.assertOpen();
+    if (this.writerWaitUsers++ === 0) {
+      this.savedWriterWait = integer.parse(sqliteRow.parse(this.db.prepare('PRAGMA busy_timeout').get()).timeout);
+      this.db.exec('PRAGMA busy_timeout=0');
+    }
+    let released = false;
+    return () => {
+      if (released) return; released = true; this.assertOpen();
+      if (--this.writerWaitUsers === 0) this.db.exec(`PRAGMA busy_timeout=${this.savedWriterWait}`);
+    };
+  }
+
+  /** Find the durable result of this exact restore and owner.
+   * @param request Validated digest, reviewed versions and stable command identifier.
+   * @param identity Trusted caller identity.
+   * @returns Persisted receipt or undefined when the command never committed.
+   */
+  restoreReceipt(request: RestoreBackupRequest, identity: ExecutionIdentity): RestoreBackupReceipt | undefined {
+    this.assertOpen();
+    const raw = this.db.prepare('SELECT requestHash,generation,revision FROM restore_receipts WHERE commandId=?').get(request.commandId);
+    if (!raw) return undefined;
+    const receipt = sqliteRow.parse(raw);
+    const requestHash = createHash('sha256').update(JSON.stringify({ backupSha256: request.backupSha256,
+      expectedGeneration: request.expectedGeneration, expectedRevision: request.expectedRevision,
+      actor: identity.actor, organizationId: identity.organizationId, principalId: identity.principalId ?? null })).digest('hex');
+    if (receipt.requestHash !== requestHash) throw new EnterpriseError('command_conflict', 'Restore identifier belongs to a different request or caller.');
+    return { commandId: request.commandId, backupSha256: request.backupSha256, generation: integer.parse(receipt.generation), revision: integer.parse(receipt.revision) };
+  }
+
+  /** Persist export metadata after current authority is rechecked.
+   * @param identity Trusted caller identity.
+   * @param summary Digest and versions from the completed export process.
+   */
+  backupExported(identity: ExecutionIdentity, summary: { backupSha256: string; generation: number; revision: number }): void {
+    this.assertOpen(); this.db.exec('BEGIN IMMEDIATE');
+    try {
+      appendResponsibility(this.db, { identity, operation: 'backup.export', outcome: 'succeeded', backupSha256: summary.backupSha256,
+        generationBefore: summary.generation, generationAfter: summary.generation, revisionBefore: summary.revision, revisionAfter: summary.revision });
+      this.db.exec('COMMIT');
+    } catch (error) { this.db.exec('ROLLBACK'); throw error; }
   }
 
   /** Record a denied or cancelled action without storing its business body. */
@@ -249,7 +324,7 @@ export class EnterpriseStore {
    */
   queryPage(query: EnterpriseQuerySpec, maxBytes: number): EnterpriseQueryPage {
     this.assertOpen();
-    const source = collections[query.collection];
+    const source = enterpriseCollections[query.collection];
     const conditions: string[] = [];
     const parameters: Array<string | number> = [];
     if (query.id !== undefined) {
@@ -702,7 +777,7 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
 /** Minimal public DSH Connection Fetch registry, whose carrier owns authentication and origin checks. */
 export interface EnterpriseHostContext {
   connection: { fetch: { register(route: {
-    path: string; methods: readonly ('GET' | 'POST')[]; requestBody: 'buffered';
+    path: string; methods: readonly ('GET' | 'POST')[]; requestBody: 'buffered' | 'streaming';
     fetch(request: Request): Promise<Response>;
   }): () => Promise<void> } };
 }
@@ -731,10 +806,11 @@ export async function applyEnterpriseHost(ctx: EnterpriseHostContext, config: {
   /** SQLite writer-lock wait, in milliseconds; 0 refuses contention immediately. */
   busyTimeoutMs?: number;
   enterpriseRead?: EnterpriseReadConfig;
+  enterpriseBackup?: EnterpriseBackupConfig;
 }): Promise<() => Promise<void>> {
   const store = await openEnterpriseStore(config.databasePath, config.busyTimeoutMs, 'local', {}, config.enterpriseRead);
   try {
-    const remove = await mountEnterpriseRoutes(ctx, store);
+    const remove = await mountEnterpriseRoutes(ctx, store, new GovernanceAccess(), config.enterpriseBackup);
     return async () => { try { await remove(); } finally { store.close(); } };
   } catch (error) {
     store.close();
@@ -748,14 +824,16 @@ export async function applyEnterpriseHost(ctx: EnterpriseHostContext, config: {
  * @param store Database shared with other enterprise consumers.
  * @returns Idempotent route withdrawal and request drain; the caller closes the store afterward.
  */
-export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: EnterpriseStore, access = new GovernanceAccess()): Promise<() => Promise<void>> {
+export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: EnterpriseStore, access = new GovernanceAccess(), backupConfig: EnterpriseBackupConfig = {}): Promise<() => Promise<void>> {
   const disposers: (() => Promise<void>)[] = [];
   const pending = new Set<Promise<Response>>();
+  const lifetime = new AbortController();
   let closing = false;
   let disposing: Promise<void> | undefined;
-  const handle = (operation: (request: Request) => Promise<unknown>) => (request: Request): Promise<Response> => {
+  const handle = (operation: (request: Request, signal: AbortSignal) => Promise<unknown>) => (request: Request): Promise<Response> => {
     if (closing) return Promise.resolve(errorResponse(new EnterpriseError('storage_unavailable', 'Enterprise routes are closed.')));
-    const response = operation(request).then(snapshot => Response.json(snapshot, {
+    const signal = AbortSignal.any([request.signal, lifetime.signal]);
+    const response = operation(request, signal).then(snapshot => Response.json(snapshot, {
       headers: { 'cache-control': 'no-store' },
     })).catch(errorResponse);
     pending.add(response);
@@ -765,6 +843,7 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
   const dispose = () => {
     if (disposing) return disposing;
     closing = true;
+    lifetime.abort(new EnterpriseError('storage_unavailable', 'Enterprise routes are closing.'));
     disposing = (async () => {
       const removed = await Promise.allSettled(disposers.map(async remove => remove()));
       await Promise.allSettled(pending);
@@ -776,9 +855,9 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
   try {
     disposers.push(ctx.connection.fetch.register({
       path: '/api/clawmaster/enterprise/responsibility', methods: ['GET'], requestBody: 'buffered',
-      fetch: handle(async request => {
-        const caller = await access.http(request);
-        await auditGovernanceOutcome(caller, store, 'audit.read', undefined, () => caller.check('audit.read'));
+      fetch: handle(async (request, signal) => {
+        const caller = await access.http(request, signal);
+        await auditGovernanceOutcome(caller, store, 'audit.read', undefined, () => caller.check('audit.read'), signal);
         const search = new URL(request.url).searchParams;
         return store.responsibility({ after: Number(search.get('after') ?? 0), limit: Number(search.get('limit') ?? 100),
           ...Object.fromEntries(['actorId', 'commandId', 'entityId', 'operation'].filter(key => search.has(key)).map(key => [key, search.get(key)])) });
@@ -786,18 +865,18 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
     }));
     disposers.push(ctx.connection.fetch.register({
       path: ENTERPRISE_SNAPSHOT_PATH, methods: ['GET'], requestBody: 'buffered',
-      fetch: handle(async request => {
-        const caller = await access.http(request);
+      fetch: handle(async (request, signal) => {
+        const caller = await access.http(request, signal);
         await auditGovernanceOutcome(caller, store, 'records.read', undefined, async () => {
           await caller.check('records.read');
           await caller.check('audit.read');
-        });
+        }, signal);
         return store.overview();
       }),
     }));
     disposers.push(ctx.connection.fetch.register({
       path: ENTERPRISE_QUERY_PATH, methods: ['GET'], requestBody: 'buffered',
-      fetch: handle(async request => {
+      fetch: handle(async (request, signal) => {
         const search = new URL(request.url).searchParams;
         if ([...search.keys()].some(key => search.getAll(key).length !== 1)) throw new EnterpriseError('invalid_request', 'Query fields must occur once.');
         const fields: Record<string, unknown> = Object.fromEntries(search);
@@ -813,57 +892,26 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
         }
         const query = parseEnterpriseQuery(fields);
         if (query.limit > store.readLimits.maxPageRows) throw new EnterpriseError('invalid_request', 'Page size exceeds the configured maximum.');
-        const caller = await access.http(request);
+        const caller = await access.http(request, signal);
         const action = query.collection === 'audit' ? 'audit.read' : 'records.read';
-        await auditGovernanceOutcome(caller, store, action, undefined, () => caller.check(action, query.id ?? '*'));
-        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
+        await auditGovernanceOutcome(caller, store, action, undefined, () => caller.check(action, query.id ?? '*'), signal);
+        if (closing || signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
         return store.queryPage(query, store.readLimits.maxPageBytes);
       }),
     }));
-    disposers.push(ctx.connection.fetch.register({
-      path: ENTERPRISE_BACKUP_PATH, methods: ['GET'], requestBody: 'buffered',
-      fetch: handle(async request => {
-        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
-        const caller = await access.http(request);
-        const identity = await auditGovernanceOutcome(caller, store, 'backup.export', undefined, () => caller.check('backup.export'));
-        return store.backup(identity);
-      }),
-    }));
-    disposers.push(ctx.connection.fetch.register({
-      path: ENTERPRISE_RESTORE_PATH, methods: ['POST'], requestBody: 'buffered',
-      fetch: handle(async request => {
-        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
-        if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') throw new EnterpriseError('invalid_request', 'Enterprise restore requires application/json.');
-        let value: unknown;
-        try { value = await request.json(); } catch { throw new EnterpriseError('invalid_request', 'Enterprise restore JSON is malformed.'); }
-        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
-        const restore = parseEnterpriseRestoreRequest(value);
-        const caller = await access.http(request);
-        const commandId = restore.commandId ?? randomUUID();
-        const identity = await auditGovernanceOutcome(caller, store, 'backup.restore', commandId, async () => {
-          const checked = await caller.check('backup.restore');
-          const replay = store.hasRestoreReceipt(restore.backup, restore.expectedRevision, restore.expectedGeneration, checked, commandId);
-          return access.mode === 'enterprise' && !replay
-            ? await caller.approve('backup.restore', '*', commandId, restore.expectedGeneration, restore.expectedRevision,
-              createHash('sha256').update(JSON.stringify(restore.backup)).digest('hex'))
-            : checked;
-        });
-        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
-        return store.restore(restore.backup, restore.expectedRevision, restore.expectedGeneration, identity, commandId);
-      }),
-    }));
+    disposers.push(await mountEnterpriseBackupRoutes(ctx, store, access, backupConfig, errorResponse));
     disposers.push(ctx.connection.fetch.register({
       path: ENTERPRISE_COMMAND_PATH, methods: ['POST'], requestBody: 'buffered',
-      fetch: handle(async request => {
+      fetch: handle(async (request, signal) => {
         if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
           throw new EnterpriseError('invalid_request', 'Enterprise commands require application/json.');
         }
         let value: unknown;
         try { value = await request.json(); }
         catch { throw new EnterpriseError('invalid_request', 'Enterprise command JSON is malformed.'); }
-        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
+        if (closing || signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
         const parsed = parseEnterpriseRequest(value);
-        const caller = await access.http(request);
+        const caller = await access.http(request, signal);
         const command = parsed.command;
         const resource = 'id' in command ? command.id : 'contact' in command ? command.contact.id : 'item' in command ? command.item.id : command.order.id;
         const identity = await auditGovernanceOutcome(caller, store, command.type, parsed.commandId, async () => {
@@ -873,8 +921,8 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
             ? await caller.approve('records.write', resource, parsed.commandId, parsed.generation, parsed.revision,
               createHash('sha256').update(JSON.stringify(command)).digest('hex'))
             : checked;
-        });
-        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
+        }, signal);
+        if (closing || signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
         const { generation, revision, receipt } = store.executeReceipt(parsed, identity);
         return { generation, revision, commandId: receipt.commandId, commandRevision: receipt.revision,
           entityId: receipt.entityId, type: receipt.type, at: receipt.at };

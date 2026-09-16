@@ -5,14 +5,21 @@ import { CRM, ERP } from '../src/BusinessModules.tsx';
 import { EnterpriseClient } from '../src/enterprise-client.ts';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { enterpriseTransport, overviewOf } from './enterprise-transport.fixture.mjs';
-import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { enterpriseId } from '../src/enterprise-types.ts';
+import { File as NodeFile } from 'node:buffer';
 
 const disposers: Array<() => Promise<void>> = [];
 afterEach(async () => { cleanup(); for (const dispose of disposers.splice(0).reverse()) await dispose(); });
 
 const snapshot = { generation: 0, revision: 0, contacts: [], inventory: [], orders: [], audit: [] };
 const backup = { schemaVersion: 1, exportedAt: '2026-09-14T00:00:00.000Z', snapshot, auditCommands: [] };
+const prepared = { token: 'prepared-token', backupSha256: 'a'.repeat(64), exportedAt: backup.exportedAt, generation: 0, revision: 0, counts: { contacts: 0, inventory: 0, orders: 0, audit: 0 } };
+const restoreRequest = { token: prepared.token, backupSha256: prepared.backupSha256, confirm: true, expectedRevision: 0, expectedGeneration: 0, commandId: 'restore-command' };
+const restoredReceipt = { commandId: restoreRequest.commandId, backupSha256: prepared.backupSha256, generation: 1, revision: 0 };
+const backupFile = () => new NodeFile([JSON.stringify(backup)], 'enterprise.json', { type: 'application/json' });
 
 function readResponse(path: string, current = snapshot): Response {
   if (path.includes('/query?')) {
@@ -33,12 +40,12 @@ it.each([
     if (init.method === 'GET') return readResponse(path, current);
     sent.push(path);
     current = { ...snapshot, generation: 1 };
-    return Response.json(current);
-  });
+    return Response.json(restoredReceipt);
+  }, () => enterpriseId('restore-command'));
   render(<Panel locale="en" client={client} />);
   fireEvent.click(await screen.findByRole('button', { name: create }));
   fireEvent.change(screen.getByLabelText(field), { target: { value: 'Retained draft' } });
-  await act(() => client.restore(backup, 0, 0));
+  await act(() => client.restore(prepared, 0, 0));
   fireEvent.change(screen.getByLabelText(field), { target: { value: 'Still retained' } });
   fireEvent.submit(screen.getByRole('form', { name: create }));
   await screen.findByText(/The database was restored after this form/);
@@ -51,33 +58,50 @@ it('requires explicit confirmation and disables a duplicate restore while saving
   const sent: unknown[] = [];
   const client = new EnterpriseClient(async (path, init) => {
     if (init.method === 'GET') return readResponse(path);
+    if (path.endsWith('/prepare')) return Response.json(prepared);
     sent.push(JSON.parse(String(init.body)));
     return response.promise;
-  });
+  }, () => enterpriseId('restore-command'));
   render(<CRM locale="en" client={client} />);
   await waitFor(() => expect(client.getSnapshot().overview).not.toBeNull());
-  fireEvent.change(screen.getByLabelText('Restore local backup'), { target: { files: [{ text: async () => JSON.stringify(backup) }] } });
+  fireEvent.change(screen.getByLabelText('Restore local backup'), { target: { files: [backupFile()] } });
   const confirm = await screen.findByRole('button', { name: 'Confirm restore' });
+  const preview = screen.getByRole('region', { name: 'Backup preview' });
+  const paragraphs = preview.querySelectorAll('p');
+  const rendered = { counts: paragraphs[0]?.textContent, checksum: paragraphs[2]?.textContent, confirmation: paragraphs[3]?.textContent,
+    actions: within(preview).getAllByRole('button').map(button => button.textContent) };
+  const expected = resolve('frontends/dsh/tests/expected/enterprise-backup-review.en.json');
+  if (process.env.DSH_UPDATE_EXPECTED === '1') await writeFile(expected, JSON.stringify(rendered, null, 2) + '\n');
+  expect(rendered).toEqual(JSON.parse(await readFile(expected, 'utf8')));
   expect(sent).toHaveLength(0);
   fireEvent.click(confirm);
   expect(confirm.hasAttribute('disabled')).toBe(true);
-  expect(sent).toEqual([{ confirm: true, expectedRevision: 0, expectedGeneration: 0, backup }]);
-  response.resolve(Response.json({ ...snapshot, generation: 1 }));
+  expect(sent).toEqual([restoreRequest]);
+  response.resolve(Response.json(restoredReceipt));
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Confirm restore' })).toBeNull());
 });
 
-it('offers refresh instead of command replay after an uncertain restore', async () => {
+it('offers the exact restore receipt query after response loss and keeps it pending through refresh', async () => {
+  const requests: unknown[] = [];
   const client = new EnterpriseClient(async (path, init) => {
-    if (init.method === 'GET') return readResponse(path);
-    throw new TypeError('connection lost');
-  });
+    if (init.method === 'GET') return readResponse(path, { ...snapshot, generation: requests.length ? 1 : 0 });
+    if (path.endsWith('/prepare')) return Response.json(prepared);
+    requests.push(JSON.parse(String(init.body)));
+    if (requests.length === 1) throw new TypeError('connection lost');
+    return Response.json(restoredReceipt);
+  }, () => enterpriseId('restore-command'));
   render(<CRM locale="en" client={client} />);
   await waitFor(() => expect(client.getSnapshot().overview).not.toBeNull());
-  fireEvent.change(screen.getByLabelText('Restore local backup'), { target: { files: [{ text: async () => JSON.stringify(backup) }] } });
+  fireEvent.change(screen.getByLabelText('Restore local backup'), { target: { files: [backupFile()] } });
   fireEvent.click(await screen.findByRole('button', { name: 'Confirm restore' }));
-  await screen.findByText('The restore outcome is unknown. Refresh and review the current records before continuing.');
-  expect(screen.queryByRole('button', { name: 'Retry the same request' })).toBeNull();
+  await screen.findByText(/The restore outcome is unknown. Check this restore outcome/);
+  await act(() => client.refresh());
+  expect(client.getSnapshot().pending).toBe(true);
   expect(screen.getByRole('button', { name: 'Confirm restore' }).hasAttribute('disabled')).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Check this restore outcome' }));
+  await waitFor(() => expect(client.getSnapshot().pending).toBe(false));
+  expect(requests).toEqual([restoreRequest, restoreRequest]);
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Confirm restore' })).toBeNull());
 });
 
 it('does not renew a selected restore confirmation when another restore repeats the revision', async () => {
@@ -85,18 +109,87 @@ it('does not renew a selected restore confirmation when another restore repeats 
   const confirmations: unknown[] = [];
   const client = new EnterpriseClient(async (path, init) => {
     if (init.method === 'GET') return readResponse(path, current);
+    if (path.endsWith('/prepare')) return Response.json(prepared);
     confirmations.push(JSON.parse(String(init.body)));
     return Response.json({ error: { code: 'revision_conflict', message: 'Generation changed.' } }, { status: 409 });
-  });
+  }, () => enterpriseId('restore-command'));
   render(<CRM locale="en" client={client} />);
   await waitFor(() => expect(client.getSnapshot().overview).not.toBeNull());
-  fireEvent.change(screen.getByLabelText('Restore local backup'), { target: { files: [{ text: async () => JSON.stringify(backup) }] } });
+  fireEvent.change(screen.getByLabelText('Restore local backup'), { target: { files: [backupFile()] } });
   const confirm = await screen.findByRole('button', { name: 'Confirm restore' });
   current = { ...snapshot, generation: 1 };
   await act(() => client.refresh());
   fireEvent.click(confirm);
   await waitFor(() => expect(client.getSnapshot().error).toBe('revision_conflict'));
-  expect(confirmations).toEqual([{ confirm: true, expectedRevision: 0, expectedGeneration: 0, backup }]);
+  expect(confirmations).toEqual([restoreRequest]);
+});
+
+it('uploads a real file for server review and restores only after confirmation through the worker routes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'enterprise-backup-ui-'));
+  const store = await openEnterpriseStore(join(root, 'enterprise.sqlite'));
+  const transport = await enterpriseTransport(store);
+  disposers.push(async () => { await transport.dispose(); store.close(); await rm(root, { recursive: true, force: true }); });
+  const contact = { id: enterpriseId('file-contact'), name: 'Backup contact', company: '', stage: 'lead', nextAction: '', nextActionDate: null };
+  store.executeReceipt({ generation: 0, revision: 0, commandId: enterpriseId('seed-backup'), command: { type: 'contact.upsert', contact } });
+  const file = new NodeFile([JSON.stringify(store.backup())], 'records.json', { type: 'application/json' });
+  Object.defineProperty(file, 'text', { value: () => { throw new Error('The browser must not parse the file.'); } });
+  store.executeReceipt({ generation: 0, revision: 1, commandId: enterpriseId('later-contact'), command: { type: 'contact.upsert', contact: { ...contact, name: 'Current contact' } } });
+  const sent: string[] = [];
+  const client = new EnterpriseClient(async (path, init) => { sent.push(path); return transport.fetch(path, init); });
+  render(<CRM locale="en" client={client} />);
+  await screen.findByText('Current contact');
+  fireEvent.change(screen.getByLabelText('Restore local backup'), { target: { files: [file] } });
+  const preview = await screen.findByRole('region', { name: 'Backup preview' });
+  expect(preview.textContent).toContain('Contacts: 1');
+  expect(preview.textContent).toContain('File checksum:');
+  expect(store.overview().generation).toBe(0);
+  expect(sent.filter(path => path.endsWith('/restore'))).toHaveLength(0);
+  fireEvent.click(within(preview).getByRole('button', { name: 'Confirm restore' }));
+  await screen.findByText('Backup contact');
+  expect(store.overview().generation).toBe(1);
+  expect(store.overview().revision).toBe(1);
+  expect(sent.filter(path => path.endsWith('/restore'))).toHaveLength(1);
+});
+
+it('cancels an active file import through the visible abort control without reading the file contents', async () => {
+  let signal: AbortSignal | undefined;
+  const file = backupFile();
+  Object.defineProperty(file, 'text', { value: () => { throw new Error('No browser parsing.'); } });
+  const client = new EnterpriseClient(async (path, init) => {
+    if (init.method === 'GET') return readResponse(path);
+    expect(init.body).toBe(file);
+    signal = init.signal!;
+    return new Promise<Response>((_resolve, reject) => signal!.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError')), { once: true }));
+  });
+  render(<CRM locale="en" client={client} />);
+  await screen.findByRole('button', { name: 'New contact' });
+  fireEvent.change(screen.getByLabelText('Restore local backup'), { target: { files: [file] } });
+  fireEvent.click(await screen.findByRole('button', { name: 'Cancel current operation' }));
+  await waitFor(() => expect(client.getSnapshot().saving).toBe(false));
+  expect(signal?.aborted).toBe(true);
+  expect(client.getSnapshot().pending).toBe(false);
+  expect(screen.queryByRole('region', { name: 'Backup preview' })).toBeNull();
+});
+
+it('cancelling a restore keeps the exact original request available from the visible outcome check', async () => {
+  const requests: unknown[] = [];
+  const client = new EnterpriseClient(async (path, init) => {
+    if (init.method === 'GET') return readResponse(path);
+    if (path.endsWith('/prepare')) return Response.json(prepared);
+    requests.push(JSON.parse(String(init.body)));
+    if (requests.length > 1) return Response.json(restoredReceipt);
+    return new Promise<Response>((_resolve, reject) => init.signal!.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError')), { once: true }));
+  }, () => enterpriseId('restore-command'));
+  render(<CRM locale="en" client={client} />);
+  await screen.findByRole('button', { name: 'New contact' });
+  fireEvent.change(screen.getByLabelText('Restore local backup'), { target: { files: [backupFile()] } });
+  fireEvent.click(await screen.findByRole('button', { name: 'Confirm restore' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Cancel current operation' }));
+  await waitFor(() => expect(client.getSnapshot().saving).toBe(false));
+  expect(client.getSnapshot().pending).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Check this restore outcome' }));
+  await waitFor(() => expect(client.getSnapshot().pending).toBe(false));
+  expect(requests).toEqual([restoreRequest, restoreRequest]);
 });
 
 async function pagedFixture() {

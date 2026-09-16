@@ -15,6 +15,7 @@
   },
   "files": [
     "dist/index.js",
+    "dist/enterprise-backup-worker.js",
     "dist/client.js",
     "cordis.patch.yml",
     "README.md",

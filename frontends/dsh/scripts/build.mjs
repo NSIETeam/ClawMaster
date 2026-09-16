@@ -32,5 +32,7 @@ await build({
   platform: 'node',
   target: 'es2022',
 });
+await build({ absWorkingDir: root, entryPoints: ['src/enterprise-backup-worker.ts'], outfile: 'dist/enterprise-backup-worker.js',
+  bundle: true, packages: 'external', format: 'esm', platform: 'node', target: 'es2022' });
 await writeFile(path.join(root, 'dist/build-meta.json'), JSON.stringify(result.metafile, null, 2) + '\n');
 console.log(`Built ${manifest.name}: WatchDog client factory + managed Workspace host registration.`);

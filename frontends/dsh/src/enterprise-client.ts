@@ -1,14 +1,16 @@
 /** Authenticated same-origin enterprise requests and observable optimistic-concurrency state. */
 import { z } from 'zod';
-import { parseEnterpriseBackup, parseEnterpriseOverview, parseEnterprisePage, parseEnterpriseReceipt, parseEnterpriseRequest, parseEnterpriseSnapshot } from './enterprise-schema.ts';
+import { parseEnterpriseOverview, parseEnterprisePage, parseEnterpriseReceipt, parseEnterpriseRequest } from './enterprise-schema.ts';
+import { ENTERPRISE_BACKUP_PREPARE_PATH, preparedBackupSchema, restoreBackupRequestSchema, restoreBackupReceiptSchema,
+  type PreparedEnterpriseBackup, type RestoreBackupRequest, type RestoreBackupReceipt } from './enterprise-backup-format.ts';
 import {
   enterpriseId, EnterpriseError, ENTERPRISE_BACKUP_PATH, ENTERPRISE_COMMAND_PATH, ENTERPRISE_QUERY_PATH, ENTERPRISE_RESTORE_PATH, ENTERPRISE_SNAPSHOT_PATH,
-  type EnterpriseBackup, type EnterpriseCommand, type EnterpriseCommandRequest, type EnterpriseErrorCode,
-  type EnterpriseId, type EnterpriseOverview, type EnterpriseQueryPage, type EnterpriseQuerySpec, type EnterpriseSnapshot,
+  type EnterpriseCommand, type EnterpriseCommandRequest, type EnterpriseErrorCode,
+  type EnterpriseId, type EnterpriseOverview, type EnterpriseQueryPage, type EnterpriseQuerySpec,
 } from './enterprise-types.ts';
 
 /** User-visible failure categories; transport failures leave mutation outcomes unresolved. */
-export type EnterpriseClientErrorCode = EnterpriseErrorCode | 'permission_denied' | 'networkError' | 'invalidResponse' | 'pending_command' | 'stale_form';
+export type EnterpriseClientErrorCode = EnterpriseErrorCode | 'permission_denied' | 'operation_cancelled' | 'networkError' | 'invalidResponse' | 'pending_command' | 'stale_form';
 
 /** Current database counters and mutation state; records belong to individual bounded pages. */
 export interface EnterpriseClientState {
@@ -18,8 +20,9 @@ export interface EnterpriseClientState {
   pending: boolean;
   /** A failed authoritative read requires refresh before further edits. */
   readUnavailable: boolean;
-  /** A restore response was lost; refresh reads the authoritative database before more writes. */
+  /** A restore response was lost; only its exact receipt retry resolves the outcome. */
   restoreUncertain?: boolean;
+  backupOperation: 'prepare' | 'restore' | null;
   error: EnterpriseClientErrorCode | null;
 }
 
@@ -41,10 +44,12 @@ class EnterpriseClientFailure extends Error {
  * retain their original request until an explicit retry obtains a known outcome.
  */
 export class EnterpriseClient {
-  private state: EnterpriseClientState = { overview: null, loading: false, saving: false, pending: false, readUnavailable: false, error: null };
+  private state: EnterpriseClientState = { overview: null, loading: false, saving: false, pending: false, readUnavailable: false, backupOperation: null, error: null };
   private readonly listeners = new Set<() => void>();
   private pendingRequest: EnterpriseCommandRequest | undefined;
   private restoreUncertain = false;
+  private pendingRestore: { request: RestoreBackupRequest; backupRevision: number } | undefined;
+  private backupController: AbortController | undefined;
   private generation = 0;
   private readonly fetcher: EnterpriseFetch;
   private readonly nextId: () => EnterpriseId;
@@ -91,8 +96,8 @@ export class EnterpriseClient {
         this.set({ error: 'invalidResponse', readUnavailable: true });
         return;
       }
-      this.restoreUncertain = false;
-      this.set({ overview, pending: this.pendingRequest !== undefined, restoreUncertain: false, readUnavailable: false });
+      this.set({ overview, pending: this.pendingRequest !== undefined || this.pendingRestore !== undefined,
+        restoreUncertain: this.restoreUncertain, readUnavailable: false });
     } catch {
       if (generation === this.generation) this.set({ error: 'networkError', readUnavailable: true });
     } finally {
@@ -132,47 +137,114 @@ export class EnterpriseClient {
     }
   }
 
-  /** Fetch the complete restore-capable backup envelope without changing client state. */
-  async backup(): Promise<EnterpriseBackup> {
+  /** Download the backup as a file without materializing its JSON records in the client. */
+  async backup(): Promise<Blob> {
     const response = await this.fetcher(ENTERPRISE_BACKUP_PATH, { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
-    const json: unknown = await response.json();
     if (!response.ok) throw new EnterpriseError('storage_unavailable', 'Enterprise backup could not be read.');
-    return parseEnterpriseBackup(json);
+    return response.blob();
   }
 
-  /** Restore a previously reviewed backup after confirming the displayed revision. */
-  async restore(backup: EnterpriseBackup, expectedRevision: number, expectedGeneration: number): Promise<EnterpriseSnapshot> {
+  /**
+   * Upload a backup file for bounded server validation without reading its text in the browser.
+   * @param file Original user-selected file or blob.
+   * @returns Counts, digest and temporary token for an explicit restore review.
+   */
+  async prepareBackup(file: Blob): Promise<PreparedEnterpriseBackup> {
     if (this.state.saving || this.state.pending) throw new EnterpriseError('invalid_request', 'Resolve the current enterprise operation before restoring.');
     this.generation++;
-    this.set({ loading: false, saving: true, error: null });
-    let outcomeKnown = false;
-    let restored = false;
+    const controller = new AbortController();
+    this.backupController = controller;
+    this.set({ loading: false, saving: true, backupOperation: 'prepare', error: null });
     try {
-      const response = await this.fetcher(ENTERPRISE_RESTORE_PATH, {
+      const response = await this.fetcher(ENTERPRISE_BACKUP_PREPARE_PATH, {
         method: 'POST', credentials: 'same-origin', cache: 'no-store',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ confirm: true, expectedRevision, expectedGeneration, backup }),
+        headers: { 'content-type': 'application/json' }, body: file, signal: controller.signal,
       });
       const json: unknown = await response.json();
       if (!response.ok) {
         const failure = failureSchema.safeParse(json);
-        if (!failure.success) throw new EnterpriseError('storage_invalid', 'Enterprise restore response is invalid.');
-        outcomeKnown = true;
+        if (!failure.success) throw new EnterpriseClientFailure('invalidResponse', 'Backup preparation response is invalid.');
         throw new EnterpriseClientFailure(failure.data.error.code, failure.data.error.message);
       }
-      const snapshot = parseEnterpriseSnapshot(json);
-      if (snapshot.generation !== expectedGeneration + 1
-        || JSON.stringify({ ...snapshot, generation: backup.snapshot.generation }) !== JSON.stringify(backup.snapshot)) throw new EnterpriseError('storage_invalid', 'Enterprise restore acknowledgement is invalid.');
-      outcomeKnown = true;
-      restored = true;
-      this.set({ error: null });
-      return snapshot;
+      if (controller.signal.aborted) throw new EnterpriseClientFailure('operation_cancelled', 'Backup preparation was cancelled.');
+      const prepared = preparedBackupSchema.safeParse(json);
+      if (!prepared.success) throw new EnterpriseClientFailure('invalidResponse', 'Backup preparation metadata is invalid.');
+      return prepared.data;
     } catch (error) {
-      this.restoreUncertain = !outcomeKnown;
-      this.set({ pending: this.restoreUncertain, restoreUncertain: this.restoreUncertain, error: error instanceof EnterpriseError || error instanceof EnterpriseClientFailure ? error.code : 'networkError' });
+      this.set({ error: controller.signal.aborted ? 'operation_cancelled' : error instanceof EnterpriseClientFailure ? error.code : 'networkError' });
       throw error;
     } finally {
-      this.set({ saving: false });
+      this.backupController = undefined;
+      this.set({ saving: false, backupOperation: null });
+    }
+  }
+
+  /** Abort the active upload or restore request; a restore retains its exact unresolved receipt query. */
+  cancelBackupOperation(): void { this.backupController?.abort(); }
+
+  /**
+   * Restore a server-validated file after the operator reviews its metadata and current database version.
+   * @param backup Validated preparation metadata.
+   * @param expectedRevision Database revision explicitly reviewed by the operator.
+   * @param expectedGeneration Database restore generation explicitly reviewed by the operator.
+   * @returns A validated durable receipt for exactly this restore command.
+   */
+  async restore(backup: PreparedEnterpriseBackup, expectedRevision: number, expectedGeneration: number): Promise<RestoreBackupReceipt> {
+    if (this.state.saving || this.state.pending) throw new EnterpriseError('invalid_request', 'Resolve the current enterprise operation before restoring.');
+    const prepared = preparedBackupSchema.parse(backup);
+    const request = restoreBackupRequestSchema.parse({ token: prepared.token, backupSha256: prepared.backupSha256,
+      expectedRevision, expectedGeneration, commandId: this.nextId(), confirm: true });
+    const pending = { request, backupRevision: prepared.revision };
+    this.pendingRestore = pending;
+    return this.sendRestore(pending, false);
+  }
+
+  /** Reissue the original restore request; refreshing or changing panels never changes its command identifier. */
+  async retryRestore(): Promise<RestoreBackupReceipt | null> {
+    if (!this.pendingRestore || this.state.saving) return null;
+    return this.sendRestore(this.pendingRestore, true);
+  }
+
+  private async sendRestore(pending: { request: RestoreBackupRequest; backupRevision: number }, retry: boolean): Promise<RestoreBackupReceipt> {
+    this.generation++;
+    const controller = new AbortController();
+    this.backupController = controller;
+    this.restoreUncertain = true;
+    this.set({ loading: false, saving: true, pending: true, restoreUncertain: true, backupOperation: 'restore', error: null });
+    let knownFailure = false;
+    let restored = false;
+    try {
+      const response = await this.fetcher(ENTERPRISE_RESTORE_PATH, {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(pending.request), signal: controller.signal,
+      });
+      const json: unknown = await response.json();
+      if (!response.ok) {
+        const failure = failureSchema.safeParse(json);
+        if (!failure.success) throw new EnterpriseClientFailure('invalidResponse', 'Enterprise restore response is invalid.');
+        knownFailure = !controller.signal.aborted && (!retry || failure.data.error.code === 'invalid_request')
+          && !['storage_unavailable', 'storage_invalid'].includes(failure.data.error.code);
+        throw new EnterpriseClientFailure(failure.data.error.code, failure.data.error.message);
+      }
+      const result = restoreBackupReceiptSchema.safeParse(json);
+      const request = pending.request;
+      if (!result.success || result.data.commandId !== request.commandId || result.data.backupSha256 !== request.backupSha256
+        || result.data.generation !== request.expectedGeneration + 1 || result.data.revision !== pending.backupRevision) {
+        throw new EnterpriseClientFailure('invalidResponse', 'Enterprise restore acknowledgement is invalid.');
+      }
+      restored = true;
+      this.pendingRestore = undefined;
+      this.restoreUncertain = false;
+      this.set({ pending: false, restoreUncertain: false, error: null });
+      return result.data;
+    } catch (error) {
+      if (knownFailure) { this.pendingRestore = undefined; this.restoreUncertain = false; }
+      this.set({ pending: this.pendingRestore !== undefined, restoreUncertain: this.restoreUncertain,
+        error: controller.signal.aborted ? 'operation_cancelled' : error instanceof EnterpriseClientFailure ? error.code : 'networkError' });
+      throw error;
+    } finally {
+      this.backupController = undefined;
+      this.set({ saving: false, backupOperation: null });
       if (restored) await this.refresh();
     }
   }

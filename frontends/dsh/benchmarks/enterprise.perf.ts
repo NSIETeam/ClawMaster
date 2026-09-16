@@ -10,7 +10,7 @@ import { build } from 'esbuild';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../../..');
-type Metric = { elapsedMs: number; eventLoopRoundtripMs: number; responseBytes: number | null; rssBeforeBytes: number; rssAfterBytes: number; heapAfterBytes: number; processPeakRssBytes: number };
+type Metric = { elapsedMs: number; eventLoopRoundtripMs: number; responseBytes: number | null; rssBeforeBytes: number; rssAfterBytes: number; heapAfterBytes: number; processPeakRssBytes: number; childPeakRssBytes: number };
 type Sample = { samples: Record<string, Metric>; peakRssBytes: number };
 
 /**
@@ -59,6 +59,7 @@ export async function runCapacity(tiers: readonly number[], repetitions: number)
   try {
     const worker = join(artifact, 'worker.mjs');
     await build({ absWorkingDir: root, entryPoints: [join(directory, 'enterprise-worker.mjs')], outfile: worker, bundle: true, packages: 'external', platform: 'node', format: 'esm', target: 'es2022', metafile: false });
+    await build({ absWorkingDir: root, entryPoints: [join(directory, '../src/enterprise-backup-worker.ts')], outfile: join(artifact, 'enterprise-backup-worker.js'), bundle: true, packages: 'external', platform: 'node', format: 'esm', target: 'es2022' });
     const observations = [];
     for (const count of tiers) {
       const seed = join(data, `seed-${count}.sqlite`);
@@ -75,13 +76,16 @@ export async function runCapacity(tiers: readonly number[], repetitions: number)
         maxEventLoopRoundtripMs: Math.max(...samples.map(sample => sample.samples[name]!.eventLoopRoundtripMs)),
         maxResponseBytes: Math.max(...samples.map(sample => sample.samples[name]!.responseBytes ?? 0)),
         maxProcessPeakRssBytes: Math.max(...samples.map(sample => sample.samples[name]!.processPeakRssBytes)),
+        maxChildPeakRssBytes: Math.max(...samples.map(sample => sample.samples[name]!.childPeakRssBytes)),
+        maxCombinedPeakUpperBoundBytes: Math.max(...samples.map(sample => sample.samples[name]!.processPeakRssBytes + sample.samples[name]!.childPeakRssBytes)),
       }]));
       observations.push({ recordsPerCollection: count, seededAuditEntries: count * 5, metrics, peakRssBytes: Math.max(...samples.map(sample => sample.peakRssBytes)), samples });
     }
     return {
       schemaVersion: 2, measuredAt: new Date().toISOString(), evidencePlane: 'diagnostic-route-artifact',
       source: { commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), dirty: execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim() !== '' },
-      artifact: { sha256: createHash('sha256').update(await readFile(worker)).digest('hex'), packages: 'external' },
+      artifact: { sha256: createHash('sha256').update(await readFile(worker)).digest('hex'),
+        backupWorkerSha256: createHash('sha256').update(await readFile(join(artifact, 'enterprise-backup-worker.js'))).digest('hex'), packages: 'external' },
       host: { platform: process.platform, arch: process.arch, node: process.version, cpus: cpus().length, totalMemoryBytes: totalmem() },
       exclusions: ['release installation', 'DSH authentication carrier and network transport', 'browser interaction and paint', 'cold filesystem cache', 'enforced timing budgets'], observations,
     };

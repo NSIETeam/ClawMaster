@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-16-enterprise-paged-workspace.md
-2026-09-16-enterprise-paged-workspace.md: d9e211ffba2359ca88bebe223370dfd56e151dcd
-2026-09-16-enterprise-paged-workspace.zh.md: 0d7f4169cc8e982d91873f0b9efd5679476ba70e
+2026-09-16-enterprise-paged-workspace.md: 469fe29006261dbd0563c0d90a486352f92a6f15
+2026-09-16-enterprise-paged-workspace.zh.md: 105a8014377d12ffcc671454c70aaa566ce7e115

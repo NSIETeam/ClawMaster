@@ -328,6 +328,9 @@ function assertBuiltArtifacts() {
       throw new Error('ClawMaster Graph Memory build missing. Run: node frontends/graph-memory/scripts/build.mjs')
     }
   }
+  if (!existsSync(join(repoRoot, 'frontends/dsh/dist/enterprise-backup-worker.js'))) {
+    throw new Error('ClawMaster backup worker build missing. Run: npm --prefix frontends/dsh run build')
+  }
   if (!existsSync(join(repoRoot, 'frontends/guard/dist/index.js'))) {
     throw new Error('ClawMaster guard build missing. Run: node frontends/guard/scripts/build.mjs')
   }
