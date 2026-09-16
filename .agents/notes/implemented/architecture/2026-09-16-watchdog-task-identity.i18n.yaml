@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-16-watchdog-task-identity.md
+2026-09-16-watchdog-task-identity.md: 03dcd309fda96105ea30bf4d4985911ce0a73de9
+2026-09-16-watchdog-task-identity.zh.md: ad5745ee9e1d5297aa8e924dc10840053b08889d

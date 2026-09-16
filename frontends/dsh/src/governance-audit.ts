@@ -12,6 +12,8 @@ export interface ExecutionIdentity {
   organizationId: string;
   source: 'http' | 'tool' | 'scheduler' | 'plugin' | 'migration';
   policyVersion: number;
+  /** Authenticated initiating member when an agent acts on their behalf. */
+  principalId?: string;
   sessionId?: string;
   callId?: string;
   approval?: { id: string; approverId: string; generation: number; revision: number };

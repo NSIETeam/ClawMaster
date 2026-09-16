@@ -4,8 +4,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { z } from 'zod';
-import { appendResponsibility, initializeResponsibilityHistory, queryResponsibility, verifyResponsibility, LOCAL_HTTP_IDENTITY, UNKNOWN_IDENTITY } from './governance-audit.ts';
+import { appendResponsibility, initializeResponsibilityHistory, queryResponsibility, verifyResponsibility, UNKNOWN_IDENTITY } from './governance-audit.ts';
 import type { ExecutionIdentity } from './governance-audit.ts';
+import { GovernanceAccess, GovernanceDenied } from './governance-access.ts';
+import { initializeTasks, WatchdogTaskStore } from './watchdog-tasks.ts';
 import {
   EnterpriseError, ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH,
   ENTERPRISE_BACKUP_PATH, ENTERPRISE_RESTORE_PATH,
@@ -82,11 +84,13 @@ const collections = {
 
 /** Public database owner; close is idempotent and rejects all subsequent operations. */
 export class EnterpriseStore {
+  readonly tasks: WatchdogTaskStore;
   private closed = false;
   private readonly db: DatabaseSync;
 
   constructor(db: DatabaseSync) {
     this.db = db;
+    this.tasks = new WatchdogTaskStore(db);
     (db as SearchDatabase).function('clawmaster_contains', { deterministic: true }, (value, search) => {
       if (typeof value !== 'string' || typeof search !== 'string') throw new Error('Enterprise search requires text.');
       return Number(value.toLowerCase().includes(search));
@@ -97,6 +101,17 @@ export class EnterpriseStore {
   responsibility(value: unknown = {}) {
     this.assertOpen();
     return queryResponsibility(this.db, value);
+  }
+
+  /** Recognize a committed restore before asking for another one-shot approval. */
+  hasRestoreReceipt(value: unknown, expectedRevision: number, expectedGeneration: number, identity: ExecutionIdentity, commandId: string): boolean {
+    this.assertOpen();
+    const receipt = this.db.prepare('SELECT requestHash FROM restore_receipts WHERE commandId = ?').get(commandId);
+    if (!receipt) return false;
+    const backupSha256 = createHash('sha256').update(JSON.stringify(parseEnterpriseBackup(value))).digest('hex');
+    const requestHash = createHash('sha256').update(JSON.stringify({ backupSha256, expectedGeneration, expectedRevision, actor: identity.actor, organizationId: identity.organizationId })).digest('hex');
+    if (sqliteRow.parse(receipt).requestHash !== requestHash) throw new EnterpriseError('command_conflict', 'Restore identifier was used for a different request.');
+    return true;
   }
 
   /** Record a denied or cancelled action without storing its business body. */
@@ -546,8 +561,9 @@ export class EnterpriseStore {
  * @param busyTimeoutMs Maximum SQLite writer-lock wait in milliseconds.
  * @returns An open database owner; callers must close it after removing its routes.
  */
-export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 5000): Promise<EnterpriseStore> {
+export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 5000, organizationId = 'local'): Promise<EnterpriseStore> {
   z.number().int().min(0).max(60000).parse(busyTimeoutMs);
+  z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/).parse(organizationId);
   if (databasePath !== ':memory:') {
     await mkdir(dirname(databasePath), { recursive: true, mode: 0o700 });
     try {
@@ -589,7 +605,16 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
     }
     db.exec('BEGIN IMMEDIATE');
     try {
+      db.exec('CREATE TABLE IF NOT EXISTS enterprise_organization(singleton INTEGER PRIMARY KEY CHECK(singleton=1), organizationId TEXT NOT NULL) STRICT;');
+      const organization = db.prepare('SELECT organizationId FROM enterprise_organization WHERE singleton=1').get();
+      if (!organization) {
+        if (!fresh && organizationId !== 'local') throw new EnterpriseError('storage_invalid', 'Local records require an explicit migration into an enterprise space.');
+        db.prepare('INSERT INTO enterprise_organization VALUES (1, ?)').run(organizationId);
+      } else if (sqliteRow.parse(organization).organizationId !== organizationId) {
+        throw new EnterpriseError('storage_invalid', 'This database belongs to another organization.');
+      }
       initializeResponsibilityHistory(db);
+      initializeTasks(db);
       verifyResponsibility(db);
       db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`);
     } catch (error) { db.exec('ROLLBACK'); throw error; }
@@ -616,6 +641,8 @@ export interface EnterpriseHostContext {
 }
 
 function errorResponse(error: unknown): Response {
+  if (error instanceof GovernanceDenied) return Response.json({ error: { code: error.code, message: error.message } }, { status: 403, headers: { 'cache-control': 'no-store' } });
+  if (error instanceof z.ZodError) return Response.json({ error: { code: 'invalid_request', message: 'Request fields are invalid.' } }, { status: 400, headers: { 'cache-control': 'no-store' } });
   const failure = error instanceof EnterpriseError ? error
     : new EnterpriseError('storage_unavailable', 'Enterprise storage is unavailable.');
   const status = failure.code === 'invalid_request' ? 400 : failure.code === 'not_found' ? 404
@@ -653,7 +680,7 @@ export async function applyEnterpriseHost(ctx: EnterpriseHostContext, config: {
  * @param store Database shared with other enterprise consumers.
  * @returns Idempotent route withdrawal and request drain; the caller closes the store afterward.
  */
-export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: EnterpriseStore): Promise<() => Promise<void>> {
+export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: EnterpriseStore, access = new GovernanceAccess()): Promise<() => Promise<void>> {
   const disposers: (() => Promise<void>)[] = [];
   const pending = new Set<Promise<Response>>();
   let closing = false;
@@ -682,6 +709,8 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
     disposers.push(ctx.connection.fetch.register({
       path: '/api/clawmaster/enterprise/responsibility', methods: ['GET'], requestBody: 'buffered',
       fetch: handle(async request => {
+        const caller = await access.http(request);
+        await caller.check('audit.read');
         const search = new URL(request.url).searchParams;
         return store.responsibility({ after: Number(search.get('after') ?? 0), limit: Number(search.get('limit') ?? 100),
           ...Object.fromEntries(['actorId', 'commandId', 'entityId', 'operation'].filter(key => search.has(key)).map(key => [key, search.get(key)])) });
@@ -689,13 +718,14 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
     }));
     disposers.push(ctx.connection.fetch.register({
       path: ENTERPRISE_SNAPSHOT_PATH, methods: ['GET'], requestBody: 'buffered',
-      fetch: handle(async () => store.snapshot()),
+      fetch: handle(async request => { await (await access.http(request)).check('records.read'); return store.snapshot(); }),
     }));
     disposers.push(ctx.connection.fetch.register({
       path: ENTERPRISE_BACKUP_PATH, methods: ['GET'], requestBody: 'buffered',
       fetch: handle(async request => {
         if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
-        return store.backup(LOCAL_HTTP_IDENTITY);
+        const caller = await access.http(request);
+        return store.backup(await caller.check('backup.export'));
       }),
     }));
     disposers.push(ctx.connection.fetch.register({
@@ -707,7 +737,16 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
         try { value = await request.json(); } catch { throw new EnterpriseError('invalid_request', 'Enterprise restore JSON is malformed.'); }
         if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
         const restore = parseEnterpriseRestoreRequest(value);
-        return store.restore(restore.backup, restore.expectedRevision, restore.expectedGeneration, LOCAL_HTTP_IDENTITY, restore.commandId);
+        const caller = await access.http(request);
+        const commandId = restore.commandId ?? randomUUID();
+        const checked = await caller.check('backup.restore');
+        const replay = store.hasRestoreReceipt(restore.backup, restore.expectedRevision, restore.expectedGeneration, checked, commandId);
+        const identity = access.mode === 'enterprise' && !replay
+          ? await caller.approve('backup.restore', '*', commandId, restore.expectedGeneration, restore.expectedRevision,
+            createHash('sha256').update(JSON.stringify(restore.backup)).digest('hex'))
+          : checked;
+        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
+        return store.restore(restore.backup, restore.expectedRevision, restore.expectedGeneration, identity, commandId);
       }),
     }));
     disposers.push(ctx.connection.fetch.register({
@@ -720,7 +759,18 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
         try { value = await request.json(); }
         catch { throw new EnterpriseError('invalid_request', 'Enterprise command JSON is malformed.'); }
         if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
-        return store.execute(value, LOCAL_HTTP_IDENTITY);
+        const parsed = parseEnterpriseRequest(value);
+        const caller = await access.http(request);
+        const command = parsed.command;
+        const resource = 'id' in command ? command.id : 'contact' in command ? command.contact.id : 'item' in command ? command.item.id : command.order.id;
+        const checked = await caller.check('records.write', resource);
+        const replay = store.prepare(parsed).receipt;
+        const identity = access.mode === 'enterprise' && !replay
+          ? await caller.approve('records.write', resource, parsed.commandId, parsed.generation, parsed.revision,
+            createHash('sha256').update(JSON.stringify(command)).digest('hex'))
+          : checked;
+        if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
+        return store.execute(parsed, identity);
       }),
     }));
     return dispose;

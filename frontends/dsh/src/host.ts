@@ -10,10 +10,13 @@ import { OnboardingSettingsSchema, type OnboardingHostServices } from './onboard
 import { ONBOARDING_NAMESPACE } from './onboarding.ts';
 import { applyRuntimeGovernance, type RuntimeGovernanceConfig } from './runtime-governance.ts';
 import { applyPermissionGovernance } from './permission-governance.ts';
+import { GovernanceAccess, type GovernanceConfiguration } from './governance-access.ts';
+import { mountWatchdogTasks } from './watchdog-task-host.ts';
 
 type HostServices = Context & WorkspaceHostContext & OnboardingHostServices;
 
 interface HostConfig {
+  governance?: GovernanceConfiguration;
   managedRoot?: string;
   databasePath?: string;
   busyTimeoutMs?: number;
@@ -35,6 +38,7 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
   const dshHome = process.env.DSH_HOME ?? join(homedir(), '.dsh');
   const managedRoot = config.managedRoot ?? join(dshHome, 'watchdog-workspaces');
   const databasePath = config.databasePath ?? join(dshHome, 'watchdog', 'enterprise.sqlite');
+  const access = new GovernanceAccess(config.governance);
   if (!isAbsolute(managedRoot) || !isAbsolute(databasePath)) throw new Error('Product storage paths must be absolute');
   ctx.settings.register(ONBOARDING_NAMESPACE, OnboardingSettingsSchema);
   applyDataTools(ctx, config.dataTools);
@@ -42,7 +46,7 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
   applyPermissionGovernance(ctx);
   ctx.effect(() => applyManagedWorkspaces(ctx, managedRoot), 'clawmaster: managed Workspace allocation');
   await ctx.effect(async () => {
-    const store = await openEnterpriseStore(databasePath, config.busyTimeoutMs);
+    const store = await openEnterpriseStore(databasePath, config.busyTimeoutMs, config.governance?.mode === 'enterprise' ? config.governance.organizationId : 'local');
     const consumers: Array<() => Promise<void>> = [];
     let disposal: Promise<void> | undefined;
     const close = (): Promise<void> => disposal ??= (async () => {
@@ -52,8 +56,9 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
       if (failures.length) throw new AggregateError(failures, 'Enterprise consumers could not be unloaded.');
     })();
     try {
-      consumers.push(await mountEnterpriseRoutes(ctx, store));
-      consumers.push(await applyEnterpriseTools(ctx, store, config.enterpriseTools));
+      consumers.push(await mountEnterpriseRoutes(ctx, store, access));
+      consumers.push(await applyEnterpriseTools(ctx, store, config.enterpriseTools, access));
+      consumers.push(await mountWatchdogTasks(ctx, store, access));
     } catch (error) {
       try { await close(); }
       catch (cleanupError) { throw new AggregateError([error, cleanupError], 'Enterprise setup and rollback failed.'); }

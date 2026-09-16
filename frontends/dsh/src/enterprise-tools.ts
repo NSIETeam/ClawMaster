@@ -1,7 +1,9 @@
 /** CRM/ERP queries and approval-gated mutations over the shared SQLite owner. */
 import { z } from 'zod';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { ExecutionIdentity } from './governance-audit.ts';
+import { GovernanceAccess } from './governance-access.ts';
+import { parseEnterpriseRequest } from './enterprise-schema.ts';
 import type ToolRuntime from '@deepseek-ai/dsh-tools';
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools';
 import type ApprovalService from '@deepseek-ai/dsh-user-approval';
@@ -73,7 +75,7 @@ function readPage(store: EnterpriseStore, value: unknown, config: z.output<typeo
  * @param options Query limits configured by the deployment.
  * @returns Idempotent withdrawal, cancellation and drain. Close the store only after this and route cleanup settle.
  */
-export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: EnterpriseStore, options: EnterpriseToolConfig = {}): Promise<() => Promise<void>> {
+export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: EnterpriseStore, options: EnterpriseToolConfig = {}, access = new GovernanceAccess()): Promise<() => Promise<void>> {
   const config = configSchema.parse(options);
   const lifetime = new AbortController();
   const pending = new Set<Promise<unknown>>();
@@ -102,7 +104,12 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
     description: `Query CRM contacts, inventory, purchase/sale orders or the durable audit log. Select one collection and filter by id or search; use offset/limit (maximum ${config.maxQueryRows}) and nextOffset to page. Carry generation and revision across pages and into writes. Results are limited to ${config.maxQueryBytes} UTF-8 bytes; a page may contain fewer rows than requested. Money is in CNY minor units.`,
     parameters: enterpriseQueryParameters,
     output: { schema: enterpriseQueryOutput, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
-    execute: (args, exec) => run(exec, async () => readPage(store, args, config)),
+    execute: (args, exec) => run(exec, async () => {
+      const caller = await access.agent(exec.agent?.id, exec.callId);
+      const query = querySchema.parse(args);
+      await caller.check(query.collection === 'audit' ? 'audit.read' : 'records.read', query.id ?? '*');
+      return readPage(store, args, config);
+    }),
     presentCall: args => querySchema.safeParse(args).success ? { card: 'generic', title: 'Query enterprise records', kind: 'search', rawInput: JSON.stringify(args) } : undefined,
     presentResult: (_args, result) => ({ card: 'generic', title: 'Enterprise query', content: result.content }),
   }, {
@@ -116,9 +123,13 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
     },
     execute: (args, exec) => run(exec, async signal => {
       if (!exec.agent) throw new Error('enterprise_command requires an owning DSH agent session.');
-      const identity: ExecutionIdentity = { actor: { kind: 'agent', id: exec.agent.id }, organizationId: 'local', source: 'tool',
-        policyVersion: 1, sessionId: exec.agent.id, callId: exec.callId };
-      const prepared = store.prepare(commandEnvelope.parse(args).request);
+      const caller = await access.agent(exec.agent.id, exec.callId);
+      const candidate = parseEnterpriseRequest(commandEnvelope.parse(args).request);
+      const candidateCommand = candidate.command;
+      const candidateResource = 'id' in candidateCommand ? candidateCommand.id : 'contact' in candidateCommand ? candidateCommand.contact.id
+        : 'item' in candidateCommand ? candidateCommand.item.id : candidateCommand.order.id;
+      let identity: ExecutionIdentity = await caller.check('records.write', candidateResource);
+      const prepared = store.prepare(candidate);
       if (prepared.receipt) return receipt(prepared.generation, prepared.revision, prepared.receipt);
       const { request } = prepared;
       const outcome = await ctx.approval.request({
@@ -129,7 +140,15 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
         store.recordOutcome(identity, request.command.type, outcome === 'cancelled' ? 'cancelled' : 'denied', request.commandId, `approval_${outcome}`);
         throw new Error(`approval_${outcome}: Enterprise command was not committed.`);
       }
-      identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: request.generation, revision: request.revision };
+      const command = request.command;
+      const resource = 'id' in command ? command.id : 'contact' in command ? command.contact.id : 'item' in command ? command.item.id : command.order.id;
+      if (access.mode === 'enterprise') {
+        identity = await caller.approve('records.write', resource, request.commandId, request.generation, request.revision,
+          createHash('sha256').update(JSON.stringify(command)).digest('hex'));
+      } else {
+        identity = await caller.check('records.write', resource);
+        identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: request.generation, revision: request.revision };
+      }
       signal.throwIfAborted();
       const committed = store.executeReceipt(request, identity);
       return receipt(committed.generation, committed.revision, committed.receipt);
