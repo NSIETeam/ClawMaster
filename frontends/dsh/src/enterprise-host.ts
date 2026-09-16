@@ -20,7 +20,7 @@ import {
   parseEnterpriseBackup, parseEnterpriseRestoreRequest, parseEnterpriseSnapshot, enterpriseOrderTotal,
 } from './enterprise-schema.ts';
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 const APPLICATION_ID = 0x434d454e;
 const integer = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const sqliteRow = z.record(z.string(), z.unknown());
@@ -583,7 +583,7 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
     const version = sqliteRow.parse(db.prepare('PRAGMA user_version').get()).user_version;
     const empty = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().length === 0;
     const fresh = app === 0 && version === 0 && empty;
-    if (!(app === APPLICATION_ID && (version === 1 || version === 2 || version === SCHEMA_VERSION)) && !fresh) {
+    if (!(app === APPLICATION_ID && (version === 1 || version === 2 || version === 3 || version === SCHEMA_VERSION)) && !fresh) {
       throw new EnterpriseError('storage_invalid', 'Enterprise database version or ownership is unsupported.');
     }
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;');

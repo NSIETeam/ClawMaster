@@ -41,7 +41,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
     const parsed = querySchema.parse(value);
     if (parsed.id) return parsed.history ? store.tasks.history(identity, parsed.id, parsed.after, parsed.limit) : store.tasks.get(identity, parsed.id);
     if (parsed.history) throw new EnterpriseError('invalid_request', 'History requires a task identifier.');
-    return store.tasks.list(identity, { offset: parsed.offset, limit: parsed.limit });
+    return store.tasks.list(identity, { ...(parsed.cursor ? { cursor: parsed.cursor } : {}), limit: parsed.limit });
   };
   const dispose = (): Promise<void> => disposal ??= (async () => {
     lifetime.abort(new Error('Task consumers were unloaded.'));
@@ -53,8 +53,15 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
   try {
     removals.push(ctx.connection.fetch.register({ path: tasksPath, methods: ['GET'], requestBody: 'buffered', fetch: request => run(async () => {
       const search = new URL(request.url).searchParams;
-      const input = querySchema.parse({ ...(search.has('id') ? { id: search.get('id') } : {}), offset: Number(search.get('offset') ?? 0),
-        after: Number(search.get('after') ?? 0), limit: Number(search.get('limit') ?? 50), history: search.get('history') === 'true' });
+      const values: Record<string, unknown> = Object.fromEntries(search);
+      if ([...search.keys()].some(key => search.getAll(key).length !== 1)) throw new EnterpriseError('invalid_request', 'Task query fields must not repeat.');
+      for (const key of ['after', 'limit']) if (search.has(key)) values[key] = Number(search.get(key));
+      if (search.has('history')) values['history'] = search.get('history') === 'true' ? true : search.get('history') === 'false' ? false : search.get('history');
+      if (search.has('cursor')) {
+        try { values['cursor'] = JSON.parse(search.get('cursor')!); }
+        catch { throw new EnterpriseError('invalid_request', 'Task list cursor must be JSON.'); }
+      }
+      const input = querySchema.parse(values);
       const caller = await access.http(request);
       const identity = await auditGovernanceOutcome(caller, store, 'task.read', undefined, () => caller.check('task.read', input.id ?? '*'));
       lifetime.signal.throwIfAborted(); request.signal.throwIfAborted();
@@ -79,7 +86,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
         return Response.json(store.tasks.execute(identity, input), { headers: { 'cache-control': 'no-store' } });
       }, signal);
     }).catch(failure) }));
-    removals.push(ctx.tools.register({ name: 'watchdog_task_query', description: `Read durable business tasks independently from Session run state. Read one id, its revision history, or a task page bounded to ${store.tasks.maxResponseBytes} UTF-8 bytes including tool output. Continue lists with nextOffset; continue history with nextAfter in the after argument. Idle Sessions do not imply accepted business results.`,
+    removals.push(ctx.tools.register({ name: 'watchdog_task_query', description: `Read durable business tasks independently from Session run state. Read one id, its revision history, or a task page bounded to ${store.tasks.maxResponseBytes} UTF-8 bytes including tool output. Pass nextCursor unchanged as cursor to continue a list; refresh from the first page after a revision conflict. Continue history with nextAfter in the after argument. Idle Sessions do not imply accepted business results.`,
       parameters: taskQueryParameters,
       output: { schema: taskQueryOutput, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
       execute: (args, exec) => run(async () => {

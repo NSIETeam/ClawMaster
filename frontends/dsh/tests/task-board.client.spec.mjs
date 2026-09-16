@@ -141,3 +141,24 @@ it('imports an idle Session as a draft, edits its definition and records explici
   await waitFor(() => expect(client.getSnapshot().selected.waitingFor).toBeNull());
   expect(client.getSnapshot().selected.status).toBe('ready');
 });
+
+it('shows one task page and asks for refresh when a concurrent edit invalidates continuation', async () => {
+  const { client, store } = await fixture();
+  const task = { goal: 'Paged work', scope: 'Synthetic records', owner: { kind: 'local', label: 'Reviewer' }, dueAt: null,
+    timezone: 'UTC', risk: 'low', checklist: [{ id: 'done', description: 'Review evidence' }] };
+  for (let index = 0; index < 55; index++) store.tasks.execute(LOCAL_HTTP_IDENTITY, {
+    id: `page-${index}`, revision: 0, commandId: `create-page-${index}`, command: { type: 'create', task: { ...task, goal: `Paged work ${index}` } },
+  });
+  await act(() => client.refresh());
+  const first = client.getSnapshot().tasks.map(row => row.id);
+  fireEvent.click(screen.getByRole('button', { name: 'Next task page' }));
+  await waitFor(() => expect(client.getSnapshot().tasks[0].id).not.toBe(first[0]));
+  expect(client.getSnapshot().tasks.every(row => !first.includes(row.id))).toBe(true);
+  expect(within(screen.getByLabelText('Loaded tasks')).getAllByRole('article').length).toBeLessThanOrEqual(50);
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh business tasks' }));
+  await waitFor(() => expect(client.getSnapshot().tasks[0].id).toBe(first[0]));
+  store.tasks.execute(LOCAL_HTTP_IDENTITY, { id: first[0], revision: 1, commandId: 'concurrent', command: { type: 'queue' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Next task page' }));
+  await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('The task list changed'));
+  expect(client.getSnapshot().tasks.map(row => row.id)).toEqual(first);
+});

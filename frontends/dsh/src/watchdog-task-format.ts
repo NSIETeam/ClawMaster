@@ -60,14 +60,17 @@ export const taskRecordSchema = z.object({ ...taskFields, id, organizationId: id
   submittedBy: id.nullable(), lastReview: z.object({ actorId: id, decision: z.enum(['accept', 'reject']), comment: text, at: z.string().datetime() }).strict().nullable(),
 }).strict();
 
-/** List cursors count records; history cursors identify the last returned immutable revision. */
-export const taskQuerySchema = z.object({ id: id.optional(), offset: revision.default(0), after: revision.default(0),
+/** A list retains its collection version and urgency clock across pages. */
+export const taskListCursorSchema = z.object({ version: revision, offset: revision.min(1), asOf: z.string().datetime() }).strict();
+export type TaskListCursor = z.infer<typeof taskListCursorSchema>;
+/** History cursors identify the last returned immutable revision. */
+export const taskQuerySchema = z.object({ id: id.optional(), cursor: taskListCursorSchema.optional(), after: revision.default(0),
   limit: z.number().int().min(1).max(100).default(50), history: z.boolean().default(false) }).strict()
-  .refine(query => query.history ? query.id !== undefined && query.offset === 0 : query.after === 0,
-    { message: 'History requires an id and uses after rather than offset.' });
+  .refine(query => (!query.id || !query.cursor) && (query.history ? query.id !== undefined : query.after === 0),
+    { message: 'History requires an id and uses after; list cursors cannot select an id.' });
 
 /** Pages always expose continuation when additional complete records remain. */
-export const taskListSchema = z.object({ tasks: z.array(taskRecordSchema), nextOffset: revision.nullable() }).strict();
+export const taskListSchema = z.object({ tasks: z.array(taskRecordSchema), nextCursor: taskListCursorSchema.nullable() }).strict();
 export const taskHistorySchema = z.object({ tasks: z.array(taskRecordSchema), nextAfter: revision.nullable() }).strict();
 export const taskQueryResultSchema = z.union([taskRecordSchema, taskListSchema, taskHistorySchema]);
 export type TaskListPage = z.infer<typeof taskListSchema>;

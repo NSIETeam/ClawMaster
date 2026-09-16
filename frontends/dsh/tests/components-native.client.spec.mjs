@@ -67,7 +67,7 @@ async function fixture(existing = true, enterpriseStore, localeKey = 'zh') {
   const request = vi.fn(async (path, init) => {
     expect(init.credentials).toBe('same-origin');
     if (path === '/api/clawmaster/workspace') return Response.json({ workspaceId: 'managed', path: '/synthetic/desk' });
-    if (path === '/api/clawmaster/tasks?limit=50') return Response.json({ tasks: [], nextOffset: null });
+    if (path === '/api/clawmaster/tasks?limit=50') return Response.json({ tasks: [], nextCursor: null });
     if (path === '/api/clawmaster/enterprise') return Response.json(enterpriseStore?.snapshot() ?? { revision: 0, contacts: [], inventory: [], orders: [], audit: [] });
     if (path === '/api/clawmaster/enterprise/command' && enterpriseStore) {
       try { return Response.json(enterpriseStore.execute(JSON.parse(init.body))); }

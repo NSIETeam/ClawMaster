@@ -1,13 +1,13 @@
 /** Browser transport retains exact task writes until the server confirms their outcome. */
 import { z } from 'zod';
-import { taskHistorySchema, taskListSchema, taskRecordSchema, taskRequestSchema, type TaskRecord, type TaskRequest } from './watchdog-task-format.ts';
+import { taskHistorySchema, taskListSchema, taskRecordSchema, taskRequestSchema, type TaskRecord, type TaskRequest, type TaskListCursor } from './watchdog-task-format.ts';
 
 const tasksPath = '/api/clawmaster/tasks';
 const failureSchema = z.object({ error: z.object({ code: z.string(), message: z.string() }) });
-export type TaskClientError = 'network' | 'invalid' | 'denied' | 'conflict' | 'unavailable' | 'tooLarge';
+export type TaskClientError = 'network' | 'invalid' | 'denied' | 'conflict' | 'listChanged' | 'unavailable' | 'tooLarge';
 export interface TaskClientState {
   tasks: TaskRecord[];
-  nextOffset: number | null;
+  nextCursor: TaskListCursor | null;
   selected: TaskRecord | null;
   history: TaskRecord[];
   nextAfter: number | null;
@@ -19,7 +19,7 @@ export interface TaskClientState {
 
 /** Owns bounded pages and one unresolved command across management-panel remounts. */
 export class WatchdogTaskClient {
-  private state: TaskClientState = { tasks: [], nextOffset: null, selected: null, history: [], nextAfter: null,
+  private state: TaskClientState = { tasks: [], nextCursor: null, selected: null, history: [], nextAfter: null,
     loading: false, saving: false, pending: false, error: null };
   private readonly listeners = new Set<() => void>();
   private readonly request: typeof fetch;
@@ -58,7 +58,7 @@ export class WatchdogTaskClient {
 
   private async json(path: string): Promise<unknown> {
     const response = await this.request(path, { credentials: 'same-origin', cache: 'no-store' });
-    if (!response.ok) throw new TaskTransportFailure(response.status === 403 ? 'denied' : response.status === 413 ? 'tooLarge' : 'unavailable');
+    if (!response.ok) throw new TaskTransportFailure(response.status === 403 ? 'denied' : response.status === 409 ? 'listChanged' : response.status === 413 ? 'tooLarge' : 'unavailable');
     try { return await response.json(); } catch { throw new TaskTransportFailure('invalid'); }
   }
   private parse<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -70,15 +70,12 @@ export class WatchdogTaskClient {
   async refresh(): Promise<void> {
     await this.read(async () => this.parse(taskListSchema, await this.json(`${tasksPath}?limit=50`)));
   }
-  /** Fetch the next bounded page and keep one current row per task identifier. */
+  /** Replace the list with one bounded page at the same collection version and urgency clock. */
   async more(): Promise<void> {
-    const next = this.state.nextOffset;
+    const next = this.state.nextCursor;
     if (next === null || this.state.loading) return;
     await this.read(async () => {
-      const page = this.parse(taskListSchema, await this.json(`${tasksPath}?limit=50&offset=${next}`));
-      const records = new Map(this.state.tasks.map(task => [task.id, task]));
-      for (const task of page.tasks) records.set(task.id, task);
-      return { ...page, tasks: [...records.values()] };
+      return this.parse(taskListSchema, await this.json(`${tasksPath}?limit=50&cursor=${encodeURIComponent(JSON.stringify(next))}`));
     });
   }
   /** Explicitly replace the selected revision and load its first evidence-history page. */
@@ -99,7 +96,7 @@ export class WatchdogTaskClient {
     await this.read(async () => {
       const history = this.parse(taskHistorySchema, await this.json(`${tasksPath}?id=${encodeURIComponent(selected.id)}&history=true&limit=20&after=${nextAfter}`));
       if (history.tasks.some(task => task.id !== selected.id || task.revision <= nextAfter)) throw new TaskTransportFailure('invalid');
-      return { history: [...this.state.history, ...history.tasks], nextAfter: history.nextAfter };
+      return { history: history.tasks, nextAfter: history.nextAfter };
     });
   }
 
@@ -135,8 +132,8 @@ export class WatchdogTaskClient {
       const task = this.parse(taskRecordSchema, body);
       if (task.id !== request.id || task.revision !== request.revision + 1) throw new TaskTransportFailure('invalid');
       this.pendingRequest = undefined;
-      const records = this.state.tasks.filter(row => row.id !== task.id);
-      this.set({ selected: task, tasks: [task, ...records], history: [], nextAfter: null, pending: false });
+      const records = request.command.type === 'create' ? [task] : this.state.tasks.map(row => row.id === task.id ? task : row);
+      this.set({ selected: task, tasks: records, nextCursor: null, history: [], nextAfter: null, pending: false });
       return true;
     } catch (error) {
       this.set({ error: error instanceof TaskTransportFailure ? error.kind : 'network' });

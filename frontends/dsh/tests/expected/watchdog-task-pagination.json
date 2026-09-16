@@ -1,0 +1,10 @@
+{
+  "firstVersion": 2,
+  "firstOffset": 1,
+  "stale": {
+    "isError": true,
+    "content": [{ "type": "text", "text": "Error: Task list changed. Refresh before continuing." }]
+  },
+  "refreshedVersion": 3,
+  "refreshedOffset": 1
+}

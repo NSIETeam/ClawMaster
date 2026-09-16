@@ -108,7 +108,7 @@ test('explicit HTTP denials clear the pending write and do not mutate task data'
   assert.equal(store.tasks.list(LOCAL_HTTP_IDENTITY).tasks.length, 0);
 });
 
-test('history pagination retains every revision in order', async t => {
+test('history pagination replaces the current page while retaining ordered continuation', async t => {
   const { client, store } = await fixture(t);
   for (let revision = 0; revision < 25; revision++) store.tasks.execute(LOCAL_HTTP_IDENTITY, {
     id: 'task', revision, commandId: `edit-${revision}`, command: { type: revision ? 'revise' : 'create', task: { ...definition, goal: `Revision ${revision + 1}` } },
@@ -116,6 +116,30 @@ test('history pagination retains every revision in order', async t => {
   await client.select('task');
   assert.equal(client.getSnapshot().history.length, 20);
   await client.moreHistory();
-  assert.deepEqual(client.getSnapshot().history.map(record => record.revision), Array.from({ length: 25 }, (_, index) => index + 1));
+  assert.deepEqual(client.getSnapshot().history.map(record => record.revision), Array.from({ length: 5 }, (_, index) => index + 21));
   assert.equal(client.getSnapshot().nextAfter, null);
+});
+
+test('task paging bounds browser rows and rejects stale pages without replacing a reviewed task', async t => {
+  const { client, store } = await fixture(t);
+  for (let index = 0; index < 55; index++) store.tasks.execute(LOCAL_HTTP_IDENTITY, {
+    id: `task-${index}`, revision: 0, commandId: `create-${index}`, command: { type: 'create', task: definition },
+  });
+  await client.refresh();
+  const first = client.getSnapshot().tasks.map(task => task.id);
+  assert.ok(first.length <= 50);
+  await client.select(first[0]);
+  await client.more();
+  const second = client.getSnapshot().tasks.map(task => task.id);
+  assert.ok(second.length <= 50);
+  assert.ok(second.every(id => !first.includes(id)));
+  await client.refresh();
+  const before = client.getSnapshot().tasks;
+  store.tasks.execute(LOCAL_HTTP_IDENTITY, { id: first[0], revision: 1, commandId: 'concurrent-edit', command: { type: 'queue' } });
+  await client.more();
+  assert.equal(client.getSnapshot().error, 'listChanged');
+  assert.deepEqual(client.getSnapshot().tasks, before);
+  assert.equal(client.getSnapshot().selected.revision, 1);
+  await client.refresh();
+  assert.equal(client.getSnapshot().error, null);
 });

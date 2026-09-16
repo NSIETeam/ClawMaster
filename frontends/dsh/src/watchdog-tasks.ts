@@ -3,7 +3,7 @@ import type { DatabaseSync, StatementSync } from 'node:sqlite';
 import { z } from 'zod';
 import { EnterpriseError } from './enterprise-types.ts';
 import { appendResponsibility, type ExecutionIdentity } from './governance-audit.ts';
-import { taskRequestSchema, taskRecordSchema, type TaskRequest, type TaskRecord, type TaskStatus, type TaskListPage, type TaskHistoryPage } from './watchdog-task-format.ts';
+import { taskRequestSchema, taskRecordSchema, taskListCursorSchema, type TaskRequest, type TaskRecord, type TaskStatus, type TaskListPage, type TaskHistoryPage } from './watchdog-task-format.ts';
 export { taskRequestSchema, taskRecordSchema, taskIndicators } from './watchdog-task-format.ts';
 export type { TaskRequest, TaskRecord, TaskStatus } from './watchdog-task-format.ts';
 
@@ -38,7 +38,12 @@ export function initializeTasks(db: DatabaseSync): void {
     organizationId TEXT NOT NULL, taskId TEXT NOT NULL, revision INTEGER NOT NULL, commandId TEXT NOT NULL,
     actorId TEXT NOT NULL, requestJson TEXT NOT NULL, body TEXT NOT NULL CHECK(json_valid(body)),
     PRIMARY KEY(organizationId,taskId,revision), UNIQUE(organizationId,commandId)
-  ) STRICT;`);
+  ) STRICT;
+  CREATE TABLE IF NOT EXISTS watchdog_task_versions (
+    organizationId TEXT PRIMARY KEY, version INTEGER NOT NULL CHECK(version>=0)
+  ) STRICT;
+  INSERT OR IGNORE INTO watchdog_task_versions(organizationId,version)
+    SELECT DISTINCT organizationId,1 FROM watchdog_tasks;`);
 }
 
 const rowSchema = z.object({ body: z.string() }).passthrough();
@@ -84,29 +89,42 @@ export class WatchdogTaskStore {
 
   /** Page complete records by business urgency; the byte budget may shorten a page before its row limit. */
   list(identity: ExecutionIdentity, value: unknown = {}): TaskListPage {
-    const query = z.object({ offset: revision.default(0), limit: z.number().int().min(1).max(100).default(50),
-      status: z.enum(['draft', 'ready', 'in_progress', 'awaiting_review', 'accepted', 'failed', 'cancelled']).optional() }).strict().parse(value);
-    const statement = this.db.prepare(`SELECT body FROM watchdog_tasks WHERE organizationId=?
-      ${query.status ? "AND json_extract(body,'$.status')=?" : ''} ORDER BY CASE
-      WHEN json_extract(body,'$.status')='awaiting_review' THEN 0
-      WHEN json_extract(body,'$.status')='failed' THEN 1
-      WHEN json_extract(body,'$.status') NOT IN ('accepted','cancelled') AND julianday(json_extract(body,'$.dueAt'))<julianday(?) THEN 2
-      ELSE 3 END, json_extract(body,'$.updatedAt') DESC,id LIMIT ? OFFSET ?`) as IterableStatement;
-    const tasks: TaskRecord[] = [];
-    for (const row of statement.iterate(identity.organizationId, ...(query.status ? [query.status] : []), new Date().toISOString(), query.limit + 1, query.offset)) {
-      const nextOffset = query.offset + tasks.length;
-      if (tasks.length === query.limit) return this.bounded({ tasks, nextOffset });
-      let task: TaskRecord;
-      try {
-        task = this.readRecord(row);
-        this.bounded({ tasks: [...tasks, task], nextOffset: nextOffset + 1 });
-      } catch (error) {
-        if (error instanceof TaskError && error.code === 'response_too_large' && tasks.length > 0) return this.bounded({ tasks, nextOffset });
-        throw error;
+    const query = z.object({ cursor: taskListCursorSchema.optional(), limit: z.number().int().min(1).max(100).default(50) }).strict().parse(value);
+    // One read transaction binds the collection version to every row, including another process's writes.
+    this.db.exec('BEGIN');
+    try {
+      const version = this.collectionVersion(identity.organizationId);
+      if (query.cursor && query.cursor.version !== version) throw new EnterpriseError('revision_conflict', 'Task list changed. Refresh before continuing.');
+      const asOf = query.cursor?.asOf ?? new Date().toISOString();
+      const offset = query.cursor?.offset ?? 0;
+      const cursor = (position: number) => ({ version, offset: position, asOf });
+      const statement = this.db.prepare(`SELECT body FROM watchdog_tasks WHERE organizationId=?
+        ORDER BY CASE
+        WHEN json_extract(body,'$.status')='awaiting_review' THEN 0
+        WHEN json_extract(body,'$.status')='failed' THEN 1
+        WHEN json_extract(body,'$.status') NOT IN ('accepted','cancelled') AND julianday(json_extract(body,'$.dueAt'))<julianday(?) THEN 2
+        ELSE 3 END, json_extract(body,'$.updatedAt') DESC,id LIMIT ? OFFSET ?`) as IterableStatement;
+      const tasks: TaskRecord[] = [];
+      for (const row of statement.iterate(identity.organizationId, asOf, query.limit + 1, offset)) {
+        const nextCursor = cursor(offset + tasks.length);
+        if (tasks.length === query.limit) return this.bounded({ tasks, nextCursor });
+        let task: TaskRecord;
+        try {
+          task = this.readRecord(row);
+          this.bounded({ tasks: [...tasks, task], nextCursor: cursor(offset + tasks.length + 1) });
+        } catch (error) {
+          if (error instanceof TaskError && error.code === 'response_too_large' && tasks.length > 0) return this.bounded({ tasks, nextCursor });
+          throw error;
+        }
+        tasks.push(task);
       }
-      tasks.push(task);
-    }
-    return this.bounded({ tasks, nextOffset: null });
+      return this.bounded({ tasks, nextCursor: null });
+    } finally { this.db.exec('ROLLBACK'); }
+  }
+
+  private collectionVersion(organizationId: string): number {
+    const row = this.db.prepare('SELECT version FROM watchdog_task_versions WHERE organizationId=?').get(organizationId);
+    return row ? z.object({ version: revision }).parse(row).version : 0;
   }
 
   /** Preserve each submission, review and prior evidence while returning a bounded history page. */
@@ -185,7 +203,9 @@ export class WatchdogTaskStore {
       if (identity.organizationId !== 'local' && next.owner.kind !== 'member') {
         throw new EnterpriseError('invalid_request', 'Organization tasks require a member identifier as owner.');
       }
-      this.bounded({ tasks: [next], nextOffset: Number.MAX_SAFE_INTEGER });
+      const version = this.collectionVersion(identity.organizationId) + 1;
+      if (!Number.isSafeInteger(version)) throw new EnterpriseError('numeric_overflow', 'Task list version is exhausted.');
+      this.bounded({ tasks: [next], nextCursor: { version: Number.MAX_SAFE_INTEGER, offset: Number.MAX_SAFE_INTEGER, asOf: at } });
       this.bounded({ tasks: [next], nextAfter: Number.MAX_SAFE_INTEGER });
       const body = JSON.stringify(next);
       this.db.prepare(`INSERT INTO watchdog_tasks(organizationId,id,revision,body) VALUES (?,?,?,?)
@@ -193,6 +213,8 @@ export class WatchdogTaskStore {
         .run(identity.organizationId, request.id, next.revision, body);
       this.db.prepare('INSERT INTO watchdog_task_history(organizationId,taskId,revision,commandId,actorId,requestJson,body) VALUES (?,?,?,?,?,?,?)')
         .run(identity.organizationId, request.id, next.revision, request.commandId, identity.actor.id, JSON.stringify(request), body);
+      this.db.prepare(`INSERT INTO watchdog_task_versions(organizationId,version) VALUES (?,?)
+        ON CONFLICT(organizationId) DO UPDATE SET version=excluded.version`).run(identity.organizationId, version);
       appendResponsibility(this.db, { identity, operation: `task.${request.command.type}`, outcome: 'succeeded', commandId: request.commandId, entityId: request.id,
         generationBefore: 0, generationAfter: 0, revisionBefore: request.revision, revisionAfter: next.revision });
       this.db.exec('COMMIT');

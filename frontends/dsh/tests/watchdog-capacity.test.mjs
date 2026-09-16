@@ -15,6 +15,7 @@ import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
 import { GovernanceAccess } from '../src/governance-access.ts';
 import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
 import { taskQueryResultSchema } from '../src/watchdog-task-format.ts';
+import { DatabaseSync } from 'node:sqlite';
 
 const definition = { goal: 'Follow up', scope: 'Selected work', owner: { kind: 'local', label: 'Local operator' }, dueAt: null,
   timezone: 'UTC', risk: 'low', checklist: [{ id: 'done', description: 'Review the evidence' }] };
@@ -96,7 +97,7 @@ test('UTF-8 and escaped rendered text count toward the complete DSH result, incl
   const result = await f.tool('watchdog_task_command', input);
   assert.equal(result.isError, false);
   assert.equal(Buffer.byteLength(JSON.stringify(result)), wireBytes(result.value));
-  const maxResponseBytes = wireBytes({ tasks: [result.value], nextOffset: Number.MAX_SAFE_INTEGER });
+  const maxResponseBytes = wireBytes({ tasks: [result.value], nextCursor: { version: Number.MAX_SAFE_INTEGER, offset: Number.MAX_SAFE_INTEGER, asOf: result.value.createdAt } });
   assert.ok(maxResponseBytes > Buffer.byteLength(JSON.stringify(result.value)));
   const exact = await openEnterpriseStore(':memory:', 5000, 'local', { maxResponseBytes });
   const small = await openEnterpriseStore(':memory:', 5000, 'local', { maxResponseBytes: maxResponseBytes - 1 });
@@ -111,24 +112,72 @@ test('list pages fit both transports and continue without skipping complete reco
   const f = await fixture(t);
   for (let index = 0; index < 12; index++) f.store.tasks.execute(LOCAL_HTTP_IDENTITY, request(`task-${index}`));
   const collected = [];
-  let offset = 0;
+  let cursor;
   do {
-    const response = await f.query(`offset=${offset}&limit=100`);
+    const response = await f.query(`limit=100${cursor ? `&cursor=${encodeURIComponent(JSON.stringify(cursor))}` : ''}`);
     assert.equal(response.status, 200);
     const text = await response.text();
     assert.ok(Buffer.byteLength(text) <= f.maxResponseBytes);
     const page = taskQueryResultSchema.parse(JSON.parse(text));
-    const tool = await f.tool('watchdog_task_query', { offset, limit: 100 });
+    const tool = await f.tool('watchdog_task_query', { ...(cursor ? { cursor } : {}), limit: 100 });
     assert.equal(tool.isError, false);
-    assert.deepEqual(tool.value, page);
+    assert.deepEqual(tool.value.tasks, page.tasks);
+    if (cursor) assert.deepEqual(tool.value.nextCursor, page.nextCursor);
     assert.ok(Buffer.byteLength(JSON.stringify(tool)) <= f.maxResponseBytes);
     assert.ok(page.tasks.length > 0 && page.tasks.length < 12);
     collected.push(...page.tasks.map(task => task.id));
-    if (page.nextOffset !== null) assert.ok(page.nextOffset > offset);
-    offset = page.nextOffset;
-  } while (offset !== null);
+    if (page.nextCursor !== null) assert.ok(page.nextCursor.offset > (cursor?.offset ?? 0));
+    cursor = page.nextCursor;
+  } while (cursor !== null);
   assert.equal(collected.length, 12);
   assert.equal(new Set(collected).size, 12);
+});
+
+test('list continuation pins collection version and urgency time across writes and restart', async t => {
+  const f = await fixture(t);
+  for (let index = 0; index < 3; index++) f.store.tasks.execute(LOCAL_HTTP_IDENTITY, request(`task-${index}`));
+  const first = await (await f.query('limit=1')).json();
+  const next = `limit=1&cursor=${encodeURIComponent(JSON.stringify(first.nextCursor))}`;
+  const reopened = await openEnterpriseStore(f.path, 5000, 'local', { maxResponseBytes: f.maxResponseBytes });
+  try { assert.equal(reopened.tasks.list(LOCAL_HTTP_IDENTITY, { cursor: first.nextCursor, limit: 1 }).tasks.length, 1); }
+  finally { reopened.close(); }
+  const second = await (await f.query(next)).json();
+  assert.equal(second.nextCursor.asOf, first.nextCursor.asOf);
+  assert.notEqual(second.tasks[0].id, first.tasks[0].id);
+  assert.equal((await f.query('offset=1')).status, 400);
+  assert.equal((await f.query('cursor=not-json')).status, 400);
+  assert.equal((await f.query('limit=1&limit=2')).status, 400);
+  assert.equal((await f.query(`id=task-0&${next}`)).status, 400);
+  f.store.tasks.execute(LOCAL_HTTP_IDENTITY, request('task-0', 1, { type: 'queue' }));
+  assert.equal((await f.query(next)).status, 409);
+  const tool = await f.tool('watchdog_task_query', { cursor: first.nextCursor, limit: 1 });
+  assert.equal(tool.isError, true);
+  assert.match(JSON.stringify(tool), /revision_conflict|Task list changed/);
+  const fresh = await (await f.query('limit=1')).json();
+  assert.equal(fresh.nextCursor.version, first.nextCursor.version + 1);
+  const replay = request('task-0', 1, { type: 'queue' });
+  f.store.tasks.execute(LOCAL_HTTP_IDENTITY, { ...replay, commandId: 'replay-cursor', revision: 2, command: { type: 'wait', reason: 'Waiting' } });
+  const page = await (await f.query('limit=1')).json();
+  f.store.tasks.execute(LOCAL_HTTP_IDENTITY, { ...replay, commandId: 'replay-cursor', revision: 2, command: { type: 'wait', reason: 'Waiting' } });
+  assert.equal((await f.query(`cursor=${encodeURIComponent(JSON.stringify(page.nextCursor))}`)).status, 200);
+});
+
+test('schema three task rows gain a collection version without rewriting task history', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'watchdog-list-migration-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, 'tasks.sqlite');
+  const old = await openEnterpriseStore(path);
+  const task = old.tasks.execute(LOCAL_HTTP_IDENTITY, request('legacy'));
+  old.close();
+  const legacy = new DatabaseSync(path);
+  try { legacy.exec('DROP TABLE watchdog_task_versions; PRAGMA user_version=3'); } finally { legacy.close(); }
+  const migrated = await openEnterpriseStore(path);
+  try {
+    assert.deepEqual(migrated.tasks.get(LOCAL_HTTP_IDENTITY, 'legacy'), task);
+    assert.deepEqual(migrated.tasks.history(LOCAL_HTTP_IDENTITY, 'legacy').tasks, [task]);
+    migrated.tasks.execute(LOCAL_HTTP_IDENTITY, request('second'));
+    assert.equal(migrated.tasks.list(LOCAL_HTTP_IDENTITY, { limit: 1 }).nextCursor.version, 2);
+  } finally { migrated.close(); }
 });
 
 test('history exposes a revision cursor beyond 100 immutable revisions and obeys the requested limit', async t => {

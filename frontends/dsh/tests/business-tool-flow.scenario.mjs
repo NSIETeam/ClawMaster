@@ -32,6 +32,30 @@ import * as Guard from '../../guard/src/index.ts';
 
 const contact = { id: 'synthetic-lead', name: 'Synthetic Customer', company: 'Fixture Company', stage: 'lead', nextAction: 'Review synthetic lead', nextActionDate: null };
 
+test('task list continuation from a recorded model result refuses a concurrent collection change', { timeout: 30000 }, async t => {
+  const definition = { goal: 'Review synthetic work', scope: 'Fixture records', owner: { kind: 'local', label: 'Local reviewer' }, dueAt: null,
+    timezone: 'UTC', risk: 'low', checklist: [{ id: 'done', description: 'Inspect evidence' }] };
+  let cursor;
+  const f = await fixture(t, [
+    toolCallResponse('first-page', 'watchdog_task_query', { limit: 1 }),
+    options => {
+      const result = options.messages.flatMap(message => message.content).find(block => block.type === 'tool-result' && block.toolCallId === 'first-page');
+      cursor = JSON.parse(result.content[0].text).nextCursor;
+      assert.ok(cursor);
+      f.store.tasks.execute(LOCAL_HTTP_IDENTITY, { id: 'task-a', revision: 1, commandId: 'concurrent-edit', command: { type: 'queue' } });
+      return toolCallResponse('stale-page', 'watchdog_task_query', { cursor, limit: 1 });
+    },
+    toolCallResponse('fresh-page', 'watchdog_task_query', { limit: 1 }),
+    textResponse('The task list changed. Read the first page again before continuing.'),
+  ], false, true);
+  for (const id of ['task-a', 'task-b']) f.store.tasks.execute(LOCAL_HTTP_IDENTITY, { id, revision: 0, commandId: `create-${id}`, command: { type: 'create', task: definition } });
+  const { results } = await f.run();
+  const fresh = JSON.parse(results[2].content[0].text);
+  const recorded = { firstVersion: cursor.version, firstOffset: cursor.offset, stale: { isError: results[1].isError, content: results[1].content },
+    refreshedVersion: fresh.nextCursor.version, refreshedOffset: fresh.nextCursor.offset };
+  assert.deepEqual(recorded, JSON.parse(await readFile(new URL('expected/watchdog-task-pagination.json', import.meta.url), 'utf8')));
+});
+
 async function fixture(t, script, runtime = false, tasks = false) {
   const root = await mkdtemp(join(tmpdir(), 'clawmaster-business-flow-'));
   const ctx = new Context();

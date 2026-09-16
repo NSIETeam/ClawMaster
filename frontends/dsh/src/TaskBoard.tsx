@@ -53,7 +53,7 @@ export function TaskBoard({ client, locale, sessions, onOpenSession }: Props) {
         </article>;
       })}
     </div>
-    {state.nextOffset !== null && <button type="button" disabled={state.loading} onClick={() => { void client.more(); }}>{copy.more}</button>}
+    {state.nextCursor !== null && <button type="button" disabled={state.loading} onClick={() => { void client.more(); }}>{copy.more}</button>}
     {state.selected && <TaskDetail key={`${state.selected.id}:${state.selected.revision}`} task={state.selected} locale={locale} sessions={sessions}
       onOpenSession={onOpenSession} disabled={blocked} onCommand={command => client.command(state.selected!.id, state.selected!.revision, command)} />}
     {state.selected && <details className="cm-task-history"><summary>{copy.history}</summary>
