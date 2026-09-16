@@ -102,7 +102,7 @@ export function Workbench({ businessTasks, locale, sessions, sessionsLoading, co
   return <main className="cm-dsh-workbench" aria-label={copy.watchdog}>
     <header className="cm-workbench-toolbar">
       <h1><WorkbenchIcon /> {copy.watchdog}</h1>
-      <span className={`cm-connection${connected ? ' is-connected' : ''}`} role="status">{connectionLabel}</span>
+      <span className={`cm-connection${connected ? ' is-connected' : ''}`} role="status" title={copy.connectionScope}>{connectionLabel}</span>
       <button type="button" disabled={busy || draft.busy || !connected} onClick={() => { void act(() => onStart('', 'once')); }}>{copy.newTask}</button>
     </header>
     <div className="cm-workbench-content">

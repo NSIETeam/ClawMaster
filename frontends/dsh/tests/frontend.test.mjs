@@ -25,10 +25,10 @@ test('the workbench projects real DSH rows without blank, archived or delegated 
 });
 
 test('unknown connection state never displays connected in either locale', () => {
-  assert.equal(connectionLabel('connected'), '已连接');
-  assert.equal(connectionLabel(undefined), '正在连接');
-  assert.equal(connectionLabel('disconnected'), '连接已断开');
-  assert.equal(connectionLabel(undefined, 'en-US'), 'Connecting');
+  assert.equal(connectionLabel('connected'), '应用服务已连接');
+  assert.equal(connectionLabel(undefined), '正在连接应用服务');
+  assert.equal(connectionLabel('disconnected'), '应用服务连接已断开');
+  assert.equal(connectionLabel(undefined, 'en-US'), 'Connecting to app service');
 });
 
 test('the shipped factory registers WatchDog and enterprise sidebar components and cleans up without creating Sessions', async () => {
@@ -126,7 +126,8 @@ test('the shipped factory registers WatchDog and enterprise sidebar components a
   })), '');
   const main = rows.get('main:clawmaster').component;
   const html = renderToStaticMarkup(React.createElement(main, { useSessionPendingInteraction: selector => selector(new Map()) }));
-  assert.match(html, /已连接/);
+  assert.match(html, /应用服务已连接/);
+  assert.match(html, /此状态仅表示界面与应用服务的连接/);
   assert.match(html, /开启AI时代的企业协作/);
   assert.match(html, /还没有执行会话/);
   assert.match(html, /文档编辑器/);

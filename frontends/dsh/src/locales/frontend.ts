@@ -4,7 +4,7 @@ export type ProductModule = 'editor' | 'browser' | 'terminal' | 'crm' | 'erp';
 
 const zh = {
   brand: 'ClawMaster',
-  watchdog: 'WatchDog', slogan: '开启AI时代的企业协作', connected: '已连接', disconnected: '连接已断开', connecting: '正在连接',
+  watchdog: 'WatchDog', slogan: '开启AI时代的企业协作', connected: '应用服务已连接', disconnected: '应用服务连接已断开', connecting: '正在连接应用服务', connectionScope: '此状态仅表示界面与应用服务的连接；模型、定时执行和业务结果需要分别核实。',
   retryTask: '重试原请求', openDraftTask: '打开原会话核查', taskStartFailed: '目标尚未确认受理，草稿已保留。请检查模型与连接后重试。', taskRetryHint: '原请求可能已经受理，请重试原请求或打开原会话核查。确认受理结果前，目标与频率暂时锁定。' ,
   attention: '待处理', approval: '等待审批', question: '等待回答', planReview: '等待计划审核',
   workspace: '工作空间', newTask: '新建执行会话', preparing: '正在准备…', start: '开始检查',
@@ -47,7 +47,7 @@ const zh = {
 export type ProductCopy = { [K in keyof typeof zh]: string };
 const en: ProductCopy = {
   brand: 'ClawMaster',
-  watchdog: 'WatchDog', slogan: 'Enterprise collaboration for the AI era', connected: 'Connected', disconnected: 'Disconnected', connecting: 'Connecting',
+  watchdog: 'WatchDog', slogan: 'Enterprise collaboration for the AI era', connected: 'App service connected', disconnected: 'App service disconnected', connecting: 'Connecting to app service', connectionScope: 'This status covers the connection between this interface and the app service. Model availability, scheduled execution and business outcomes require separate verification.',
   retryTask: 'Retry original request', openDraftTask: 'Inspect existing session', taskStartFailed: 'Task admission is not confirmed. Your draft is retained. Check the model and connection, then retry.', taskRetryHint: 'The original request may already be accepted. Retry it or inspect the existing session. The goal and frequency stay locked until admission is confirmed.',
   attention: 'Needs attention', approval: 'Waiting for approval', question: 'Waiting for answer', planReview: 'Waiting for plan review',
   workspace: 'Workspace', newTask: 'New execution session', preparing: 'Preparing…', start: 'Start check',

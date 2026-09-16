@@ -342,7 +342,8 @@ it.each(['zh', 'en'])('WatchDog keeps a goal across main-slot remounts and surfa
   expect(view.getByRole('textbox', { name: labels.goal }).value).toBe(goal);
   expect(view.getByRole('combobox', { name: labels.cadence }).value).toBe('daily');
   const entries = view.getAllByRole('listitem').map(row => ({ title: row.querySelector('.cm-task-title').textContent, status: row.querySelector('.cm-task-title + span').textContent }));
-  const snapshot = { draft: goal, cadence: 'daily', entries };
+  const connection = main.container.querySelector('.cm-connection');
+  const snapshot = { draft: goal, cadence: 'daily', entries, connection: { text: connection.textContent, scope: connection.title } };
   const path = resolve(`frontends/dsh/tests/expected/watchdog-management.${locale}.json`);
   if (process.env.DSH_UPDATE_EXPECTED === '1') await writeFile(path, JSON.stringify(snapshot, null, 2) + '\n');
   expect(snapshot).toEqual(JSON.parse(await readFile(path, 'utf8')));
