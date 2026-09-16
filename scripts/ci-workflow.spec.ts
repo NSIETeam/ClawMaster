@@ -113,6 +113,19 @@ describe('CI workflow', () => {
     },
   )
 
+  it('installs disconnected ClawMaster frontend types before the consumer lint gate', () => {
+    const job = workflowJob(loadWorkflow('.github/workflows/ci.yml'), 'node-24-consumers')
+    if (!Array.isArray(job.steps)) throw new TypeError('Consumer job must define steps')
+    const steps = job.steps.filter(isRecord)
+    const install = steps.findIndex(step => step.name === 'Install ClawMaster frontend lint dependencies')
+    const gate = steps.findIndex(step => step.name === 'Run compatibility, snapshot, and artifact gates')
+    expect(install).toBeGreaterThanOrEqual(0)
+    expect(gate).toBeGreaterThan(install)
+    expect(steps[install]?.if).toBe("github.repository == 'NSIETeam/ClawMaster-Desktop'")
+    expect(String(steps[install]?.run)).toContain('npm ci --prefix frontends/dsh --ignore-scripts')
+    expect(String(steps[install]?.run)).toContain('npm ci --prefix frontends/office --ignore-scripts')
+  })
+
   it('isolates the python SDK exe pnpm setup destination per job', () => {
     const workflow: unknown = yaml.load(readFileSync(resolve(root, '.github/workflows/build-exe-for-python-sdk.yml'), 'utf8'))
     if (!isRecord(workflow) || !isRecord(workflow.jobs)) throw new TypeError('build-exe-for-python-sdk.yml must define jobs')
@@ -173,6 +186,7 @@ describe('CI workflow', () => {
       expect(job['runs-on']).toContain('self-hosted')
       expect(job['runs-on']).toContain('dsh-win-ci')
       expect(job['runs-on']).toContain('dsh-windows-2025-16core')
+      expect(job['runs-on']).toContain("|| 'windows-2025'")
       expect(job['runs-on']).toContain('blacksmith-16vcpu-windows-2025')
       expect(job.if).toBe("github.event_name == 'pull_request'")
     }
@@ -327,12 +341,12 @@ describe('CI workflow', () => {
       linuxAggregate: aggregate['runs-on'] as string,
       windows: windowsBuild['runs-on'] as string,
     }
-    const evaluate = (expression: string, vars: Record<string, string>, login = 'maintainer'): unknown => {
+    const evaluate = (expression: string, vars: Record<string, string>, login = 'maintainer', repository = 'deepseek-harness/deepseek-harness'): unknown => {
       const body = expression.trim().slice(3, -2)
       return runInNewContext(body, {
         vars,
         fromJSON: JSON.parse,
-        github: { event: { pull_request: { user: { login } } } },
+        github: { repository, event: { pull_request: { user: { login } } } },
       }, { timeout: 1000 })
     }
     for (const [name, selector, variable, pool, hosted] of [
@@ -348,6 +362,8 @@ describe('CI workflow', () => {
       for (const mode of ['', 'hosted', 'unexpected']) {
         expect(evaluate(selector, { [variable]: mode }), `${name} default on ${mode}`).toBe(hosted)
       }
+      const forkHosted = name === 'linux gates' ? 'ubuntu-24.04' : name === 'windows lanes' ? 'windows-2025' : 'ubuntu-latest'
+      expect(evaluate(selector, {}, 'maintainer', 'NSIETeam/ClawMaster-Desktop'), `${name} fork default`).toBe(forkHosted)
     }
 
     // The run-gates aggregate lanes stop at the first blocking gate failure so
@@ -563,6 +579,7 @@ describe('CI workflow', () => {
       with: {
         targets: 'node24-linux-x64,node24-win-x64',
         ci: true,
+        real_api: "${{ github.repository == 'deepseek-harness/deepseek-harness' }}",
       },
       secrets: {
         DEEPSEEK_API_KEY_EXTERNAL: '${{ secrets.DEEPSEEK_API_KEY_EXTERNAL }}',
@@ -743,6 +760,7 @@ describe('Python release workflows', () => {
     expect(call.inputs).toMatchObject({
       ci: { type: 'boolean', default: false },
       release: { type: 'boolean', default: false },
+      real_api: { type: 'boolean', default: true },
     })
     expect(call.secrets).toMatchObject({
       DEEPSEEK_API_KEY_EXTERNAL: { required: false },
@@ -792,6 +810,10 @@ describe('Python release workflows', () => {
       env: { DEEPSEEK_API_KEY: '${{ secrets.DEEPSEEK_API_KEY_EXTERNAL }}' },
     })
     expect(String(realApiPreflightPosix.if)).toContain('inputs.ci')
+    expect(String(realApiPreflightPosix.if)).toContain('inputs.real_api')
+    expect(String(realApiPreflightWindows.if)).toContain('inputs.real_api')
+    expect(String(installedRealApiPosix.if)).toContain('inputs.real_api')
+    expect(String(installedRealApiWindows.if)).toContain('inputs.real_api')
     expect(String(realApiPreflightPosix.if)).toContain('head.repo.fork')
     expect(String(realApiPreflightPosix.if)).toContain('dependabot[bot]')
     expect(realApiPreflightWindows).toMatchObject({ shell: 'pwsh' })
@@ -934,19 +956,19 @@ describe('Weighted approval workflow', () => {
 })
 
 describe('Issue lifecycle workflow', () => {
-  it('runs the lifecycle job on every PR/review event but gates token and board steps', () => {
+  it('limits Project jobs to their owning repository and gates token and board steps', () => {
     const lifecycle = loadWorkflow('.github/workflows/issue-lifecycle.yml')
     const policy = loadWorkflow('.github/workflows/issue-policy.yml')
     const lifecycleJob = workflowJob(lifecycle, 'lifecycle')
+    const policyJob = workflowJob(policy, 'policy')
     if (!Array.isArray(lifecycleJob.steps)) throw new TypeError('Issue lifecycle job must define steps')
 
-    // The job has no job-level `if`, so it is listed on every pull_request /
-    // pull_request_review event and reports success instead of a gray skip. The
-    // write-capable steps are gated at step level so approved/commented reviews
-    // never mint a Project/Issue App token nor touch the board.
+    // The Project belongs to deepseek-harness. Its jobs do not mint an App token
+    // in other repositories that carry the same workflow sources.
     expect(lifecycle.on).toHaveProperty('pull_request')
     expect(lifecycle.on).toHaveProperty('pull_request_review')
-    expect(lifecycleJob.if).toBeUndefined()
+    expect(lifecycleJob.if).toBe("github.repository == 'deepseek-harness/deepseek-harness'")
+    expect(policyJob.if).toBe("github.repository == 'deepseek-harness/deepseek-harness'")
     // Keep the subscription-type gates: issue-lifecycle does not re-subscribe
     // ready_for_review (issue-policy owns that) and only reacts to submitted
     // review events.
@@ -998,6 +1020,22 @@ describe('Issue lifecycle workflow', () => {
         PROJECT_TOKEN: '${{ steps.app-token.outputs.token }}',
       },
     })
+  })
+})
+
+describe('Build PR preview workflow', () => {
+  it('builds every PR but deploys only from the repository that owns Cloudflare', () => {
+    const workflow = loadWorkflow('.github/workflows/build-preview-cloudflare.yml')
+    const preview = workflowJob(workflow, 'preview')
+    if (!Array.isArray(preview.steps)) throw new TypeError('Preview job must define steps')
+    const steps = preview.steps.filter(isRecord)
+    const build = steps.find(step => step.name === 'Build the preview page and pack the VFS image')
+    const upload = steps.find(step => step.name === 'Upload to Cloudflare Pages')
+    const verify = steps.find(step => step.name === 'Verify the protected deployment serves the image')
+    const owner = "github.repository == 'deepseek-harness/deepseek-harness'"
+    expect(build?.if).toBeUndefined()
+    expect(upload?.if).toBe(owner)
+    expect(verify?.if).toBe(owner)
   })
 })
 
