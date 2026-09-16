@@ -1,5 +1,7 @@
 /** CRM/ERP queries and approval-gated mutations over the shared SQLite owner. */
 import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
+import type { ExecutionIdentity } from './governance-audit.ts';
 import type ToolRuntime from '@deepseek-ai/dsh-tools';
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools';
 import type ApprovalService from '@deepseek-ai/dsh-user-approval';
@@ -114,6 +116,8 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
     },
     execute: (args, exec) => run(exec, async signal => {
       if (!exec.agent) throw new Error('enterprise_command requires an owning DSH agent session.');
+      const identity: ExecutionIdentity = { actor: { kind: 'agent', id: exec.agent.id }, organizationId: 'local', source: 'tool',
+        policyVersion: 1, sessionId: exec.agent.id, callId: exec.callId };
       const prepared = store.prepare(commandEnvelope.parse(args).request);
       if (prepared.receipt) return receipt(prepared.generation, prepared.revision, prepared.receipt);
       const { request } = prepared;
@@ -121,9 +125,13 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
         agent: exec.agent, callId: exec.callId, toolName: exec.name,
         reason: approvalReason(prepared), signal,
       });
-      if (outcome !== 'allowed-once') throw new Error(`approval_${outcome}: Enterprise command was not committed.`);
+      if (outcome !== 'allowed-once') {
+        store.recordOutcome(identity, request.command.type, outcome === 'cancelled' ? 'cancelled' : 'denied', request.commandId, `approval_${outcome}`);
+        throw new Error(`approval_${outcome}: Enterprise command was not committed.`);
+      }
+      identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: request.generation, revision: request.revision };
       signal.throwIfAborted();
-      const committed = store.executeReceipt(request);
+      const committed = store.executeReceipt(request, identity);
       return receipt(committed.generation, committed.revision, committed.receipt);
     }),
     presentCall: args => commandEnvelope.safeParse(args).success ? { card: 'generic', title: 'Change enterprise records', kind: 'edit', rawInput: JSON.stringify(args) } : undefined,

@@ -154,8 +154,8 @@ export function parseEnterpriseBackup(value: unknown): EnterpriseBackup {
 }
 
 /** Validate the explicit restore request envelope before opening SQLite. */
-export function parseEnterpriseRestoreRequest(value: unknown): { expectedGeneration: number; expectedRevision: number; confirm: true; backup: EnterpriseBackup } {
-  const result = z.object({ expectedGeneration: integer.default(0), expectedRevision: integer, confirm: z.literal(true), backup: backupSchema }).strict().safeParse(value);
+export function parseEnterpriseRestoreRequest(value: unknown): { expectedGeneration: number; expectedRevision: number; confirm: true; backup: EnterpriseBackup; commandId?: string } {
+  const result = z.object({ expectedGeneration: integer.default(0), expectedRevision: integer, confirm: z.literal(true), backup: backupSchema, commandId: identifier.optional() }).strict().safeParse(value);
   if (!result.success) throw new EnterpriseError('invalid_request', 'Enterprise restore confirmation is invalid.');
   return result.data;
 }

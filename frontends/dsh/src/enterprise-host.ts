@@ -1,8 +1,11 @@
 /** SQLite enterprise records and authenticated DSH Fetch routes; owns no listener or Session. */
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { z } from 'zod';
+import { appendResponsibility, initializeResponsibilityHistory, queryResponsibility, verifyResponsibility, LOCAL_HTTP_IDENTITY, UNKNOWN_IDENTITY } from './governance-audit.ts';
+import type { ExecutionIdentity } from './governance-audit.ts';
 import {
   EnterpriseError, ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH,
   ENTERPRISE_BACKUP_PATH, ENTERPRISE_RESTORE_PATH,
@@ -15,7 +18,7 @@ import {
   parseEnterpriseBackup, parseEnterpriseRestoreRequest, parseEnterpriseSnapshot, enterpriseOrderTotal,
 } from './enterprise-schema.ts';
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const APPLICATION_ID = 0x434d454e;
 const integer = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const sqliteRow = z.record(z.string(), z.unknown());
@@ -88,6 +91,25 @@ export class EnterpriseStore {
       if (typeof value !== 'string' || typeof search !== 'string') throw new Error('Enterprise search requires text.');
       return Number(value.toLowerCase().includes(search));
     });
+  }
+
+  /** Query responsibility metadata that is never replaced by business restore. */
+  responsibility(value: unknown = {}) {
+    this.assertOpen();
+    return queryResponsibility(this.db, value);
+  }
+
+  /** Record a denied or cancelled action without storing its business body. */
+  recordOutcome(identity: ExecutionIdentity, operation: string, outcome: 'denied' | 'cancelled' | 'failed', commandId: string | undefined, reasonCode: string): void {
+    this.assertOpen();
+    this.db.exec('BEGIN IMMEDIATE');
+    try {
+      const generation = this.generation();
+      const revision = this.revision();
+      appendResponsibility(this.db, { identity, operation, outcome, ...(commandId === undefined ? {} : { commandId }), reasonCode,
+        generationBefore: generation, generationAfter: generation, revisionBefore: revision, revisionAfter: revision });
+      this.db.exec('COMMIT');
+    } catch (error) { this.db.exec('ROLLBACK'); throw error; }
   }
 
   private assertOpen(): void {
@@ -223,9 +245,9 @@ export class EnterpriseStore {
   }
 
   /** Read a restore-capable backup, retaining command receipts for idempotent replay. */
-  backup(): EnterpriseBackup {
+  backup(identity: ExecutionIdentity = UNKNOWN_IDENTITY): EnterpriseBackup {
     this.assertOpen();
-    this.db.exec('BEGIN');
+    this.db.exec('BEGIN IMMEDIATE');
     try {
       const snapshot = this.readSnapshot();
       const auditCommands = this.db.prepare('SELECT revision, commandId, commandJson FROM enterprise_audit ORDER BY revision').all()
@@ -234,6 +256,9 @@ export class EnterpriseStore {
           return { revision: integer.parse(row.revision), commandId: String(row.commandId) as EnterpriseBackup['auditCommands'][number]['commandId'], commandJson: String(row.commandJson) };
         });
       const result: EnterpriseBackup = { schemaVersion: 1, exportedAt: new Date().toISOString(), snapshot, auditCommands };
+      appendResponsibility(this.db, { identity, operation: 'backup.export', outcome: 'succeeded',
+        generationBefore: snapshot.generation, generationAfter: snapshot.generation, revisionBefore: snapshot.revision, revisionAfter: snapshot.revision,
+        backupSha256: createHash('sha256').update(JSON.stringify(result)).digest('hex') });
       this.db.exec('COMMIT');
       return result;
     } catch (error) {
@@ -251,15 +276,27 @@ export class EnterpriseStore {
    * @param expectedGeneration Restore counter the operator observed; legacy callers belong to generation zero.
    * @returns The restored snapshot.
    */
-  restore(value: unknown, expectedRevision: number, expectedGeneration = 0): EnterpriseSnapshot {
+  restore(value: unknown, expectedRevision: number, expectedGeneration = 0, identity: ExecutionIdentity = UNKNOWN_IDENTITY, commandId: string = randomUUID()): EnterpriseSnapshot {
     this.assertOpen();
-    const backup = parseEnterpriseBackup(value);
+    let backup: EnterpriseBackup;
+    try { backup = parseEnterpriseBackup(value); }
+    catch (error) { this.recordOutcome(identity, 'backup.restore', 'failed', commandId, 'backup_invalid'); throw error; }
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || !Number.isSafeInteger(expectedGeneration) || expectedGeneration < 0) {
       throw new EnterpriseError('invalid_request', 'Restore confirmation revision is invalid.');
     }
     const commands = new Map(backup.auditCommands.map(entry => [entry.revision, entry.commandJson]));
+    const backupSha256 = createHash('sha256').update(JSON.stringify(backup)).digest('hex');
+    const requestHash = createHash('sha256').update(JSON.stringify({ backupSha256, expectedGeneration, expectedRevision, actor: identity.actor, organizationId: identity.organizationId })).digest('hex');
+    const before = { generation: this.generation(), revision: this.revision() };
     this.db.exec('BEGIN IMMEDIATE');
     try {
+      const receipt = this.db.prepare('SELECT requestHash FROM restore_receipts WHERE commandId = ?').get(commandId);
+      if (receipt) {
+        if (sqliteRow.parse(receipt).requestHash !== requestHash) throw new EnterpriseError('command_conflict', 'Restore identifier was used for a different request.');
+        const result = this.readSnapshot();
+        this.db.exec('COMMIT');
+        return result;
+      }
       this.assertGeneration(expectedGeneration);
       if (this.revision() !== expectedRevision) throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Refresh before restoring.', this.revision());
       if (!Number.isSafeInteger(expectedGeneration + 1)) throw new EnterpriseError('numeric_overflow', 'Enterprise restore counter exceeds the supported integer range.');
@@ -283,11 +320,23 @@ export class EnterpriseStore {
         insertAudit.run(entry.revision, entry.commandId, entry.type, entry.entityId, entry.at, commandJson, JSON.stringify(entry.before), JSON.stringify(entry.after));
       }
       this.db.prepare('UPDATE enterprise_meta SET revision = ?, generation = ? WHERE singleton = 1').run(backup.snapshot.revision, expectedGeneration + 1);
+      appendResponsibility(this.db, { identity, operation: 'backup.restore', outcome: 'succeeded', commandId, backupSha256,
+        generationBefore: before.generation, revisionBefore: before.revision,
+        generationAfter: expectedGeneration + 1, revisionAfter: backup.snapshot.revision });
+      this.db.prepare('INSERT INTO restore_receipts(commandId, requestHash, generation, revision) VALUES (?, ?, ?, ?)')
+        .run(commandId, requestHash, expectedGeneration + 1, backup.snapshot.revision);
       const result = this.readSnapshot();
       this.db.exec('COMMIT');
       return result;
     } catch (error) {
       this.db.exec('ROLLBACK');
+      this.db.exec('BEGIN IMMEDIATE');
+      try {
+        appendResponsibility(this.db, { identity, operation: 'backup.restore', outcome: 'failed', commandId, backupSha256,
+          generationBefore: before.generation, revisionBefore: before.revision, generationAfter: this.generation(), revisionAfter: this.revision(),
+          reasonCode: error instanceof EnterpriseError ? error.code : 'transaction_failed' });
+        this.db.exec('COMMIT');
+      } catch (auditError) { this.db.exec('ROLLBACK'); throw new EnterpriseError('storage_unavailable', 'Restore failed and its failure could not be recorded.'); }
       if (error instanceof EnterpriseError) throw error;
       throw new EnterpriseError('storage_invalid', 'Enterprise backup could not be restored.');
     }
@@ -352,8 +401,8 @@ export class EnterpriseStore {
    * @param value Untrusted command request JSON.
    * @returns The full snapshot after the command or its idempotent replay.
    */
-  execute(value: unknown): EnterpriseSnapshot {
-    return this.commit(value, () => this.readSnapshot());
+  execute(value: unknown, identity: ExecutionIdentity = UNKNOWN_IDENTITY): EnterpriseSnapshot {
+    return this.commit(value, () => this.readSnapshot(), identity);
   }
 
   /**
@@ -361,11 +410,11 @@ export class EnterpriseStore {
    * @param value Untrusted command request JSON.
    * @returns Current revision and the committed or replayed audit entry, without a full snapshot.
    */
-  executeReceipt(value: unknown): EnterpriseCommitReceipt {
-    return this.commit(value, (revision, receipt) => ({ generation: this.generation(), revision, receipt }));
+  executeReceipt(value: unknown, identity: ExecutionIdentity = UNKNOWN_IDENTITY): EnterpriseCommitReceipt {
+    return this.commit(value, (revision, receipt) => ({ generation: this.generation(), revision, receipt }), identity);
   }
 
-  private commit<T>(value: unknown, project: (revision: number, receipt: AuditEntry) => T): T {
+  private commit<T>(value: unknown, project: (revision: number, receipt: AuditEntry) => T, identity: ExecutionIdentity): T {
     this.assertOpen();
     const request = parseEnterpriseRequest(value);
     this.db.exec('BEGIN IMMEDIATE');
@@ -386,11 +435,14 @@ export class EnterpriseStore {
       this.db.prepare('INSERT INTO enterprise_audit (revision, commandId, type, entityId, at, commandJson, beforeJson, afterJson) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .run(revision + 1, request.commandId, request.command.type, change.id, at, JSON.stringify(request.command), JSON.stringify(change.before), JSON.stringify(change.after));
       this.db.prepare('UPDATE enterprise_meta SET revision = ? WHERE singleton = 1').run(revision + 1);
+      appendResponsibility(this.db, { identity, operation: request.command.type, outcome: 'succeeded', commandId: request.commandId, entityId: change.id,
+        generationBefore: request.generation, generationAfter: request.generation, revisionBefore: revision, revisionAfter: revision + 1 });
       const result = project(revision + 1, receipt);
       this.db.exec('COMMIT');
       return result;
     } catch (error) {
       this.db.exec('ROLLBACK');
+      this.recordOutcome(identity, request.command.type, 'failed', request.commandId, error instanceof EnterpriseError ? error.code : 'transaction_failed');
       if (error instanceof EnterpriseError) throw error;
       throw new EnterpriseError('storage_invalid', 'Enterprise command could not be committed.');
     }
@@ -512,7 +564,7 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
     const version = sqliteRow.parse(db.prepare('PRAGMA user_version').get()).user_version;
     const empty = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().length === 0;
     const fresh = app === 0 && version === 0 && empty;
-    if (!(app === APPLICATION_ID && (version === 1 || version === SCHEMA_VERSION)) && !fresh) {
+    if (!(app === APPLICATION_ID && (version === 1 || version === 2 || version === SCHEMA_VERSION)) && !fresh) {
       throw new EnterpriseError('storage_invalid', 'Enterprise database version or ownership is unsupported.');
     }
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;');
@@ -530,11 +582,17 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
       db.exec('BEGIN IMMEDIATE');
       try {
         if (sqliteRow.parse(db.prepare('PRAGMA user_version').get()).user_version === 1) {
-          db.exec(`ALTER TABLE enterprise_meta ADD COLUMN generation INTEGER NOT NULL DEFAULT 0 CHECK(generation>=0); PRAGMA user_version = ${SCHEMA_VERSION};`);
+          db.exec('ALTER TABLE enterprise_meta ADD COLUMN generation INTEGER NOT NULL DEFAULT 0 CHECK(generation>=0);');
         }
         db.exec('COMMIT');
       } catch (error) { db.exec('ROLLBACK'); throw error; }
     }
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      initializeResponsibilityHistory(db);
+      verifyResponsibility(db);
+      db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`);
+    } catch (error) { db.exec('ROLLBACK'); throw error; }
     if (sqliteRow.parse(db.prepare('PRAGMA quick_check').get()).quick_check !== 'ok'
       || db.prepare('PRAGMA foreign_key_check').all().length > 0) {
       throw new EnterpriseError('storage_invalid', 'Enterprise database integrity check failed.');
@@ -600,7 +658,7 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
   const pending = new Set<Promise<Response>>();
   let closing = false;
   let disposing: Promise<void> | undefined;
-  const handle = (operation: (request: Request) => Promise<EnterpriseSnapshot | EnterpriseBackup>) => (request: Request): Promise<Response> => {
+  const handle = (operation: (request: Request) => Promise<unknown>) => (request: Request): Promise<Response> => {
     if (closing) return Promise.resolve(errorResponse(new EnterpriseError('storage_unavailable', 'Enterprise routes are closed.')));
     const response = operation(request).then(snapshot => Response.json(snapshot, {
       headers: { 'cache-control': 'no-store' },
@@ -622,6 +680,14 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
   };
   try {
     disposers.push(ctx.connection.fetch.register({
+      path: '/api/clawmaster/enterprise/responsibility', methods: ['GET'], requestBody: 'buffered',
+      fetch: handle(async request => {
+        const search = new URL(request.url).searchParams;
+        return store.responsibility({ after: Number(search.get('after') ?? 0), limit: Number(search.get('limit') ?? 100),
+          ...Object.fromEntries(['actorId', 'commandId', 'entityId', 'operation'].filter(key => search.has(key)).map(key => [key, search.get(key)])) });
+      }),
+    }));
+    disposers.push(ctx.connection.fetch.register({
       path: ENTERPRISE_SNAPSHOT_PATH, methods: ['GET'], requestBody: 'buffered',
       fetch: handle(async () => store.snapshot()),
     }));
@@ -629,7 +695,7 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
       path: ENTERPRISE_BACKUP_PATH, methods: ['GET'], requestBody: 'buffered',
       fetch: handle(async request => {
         if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
-        return store.backup();
+        return store.backup(LOCAL_HTTP_IDENTITY);
       }),
     }));
     disposers.push(ctx.connection.fetch.register({
@@ -641,7 +707,7 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
         try { value = await request.json(); } catch { throw new EnterpriseError('invalid_request', 'Enterprise restore JSON is malformed.'); }
         if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
         const restore = parseEnterpriseRestoreRequest(value);
-        return store.restore(restore.backup, restore.expectedRevision, restore.expectedGeneration);
+        return store.restore(restore.backup, restore.expectedRevision, restore.expectedGeneration, LOCAL_HTTP_IDENTITY, restore.commandId);
       }),
     }));
     disposers.push(ctx.connection.fetch.register({
@@ -654,7 +720,7 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
         try { value = await request.json(); }
         catch { throw new EnterpriseError('invalid_request', 'Enterprise command JSON is malformed.'); }
         if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
-        return store.execute(value);
+        return store.execute(value, LOCAL_HTTP_IDENTITY);
       }),
     }));
     return dispose;
