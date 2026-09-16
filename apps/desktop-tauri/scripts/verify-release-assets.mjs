@@ -86,11 +86,20 @@ function verifyBuildRecord(build, file, version, commit, tree) {
     assert.match(provenance.artifacts[stage].sha256 ?? '', hashPattern, `${file} has no ${stage} artifact digest`)
   }
   const inventory = provenance.inventory
-  for (const kind of ['components', 'locks', 'patches']) {
+  assert.ok(Array.isArray(inventory?.components) && inventory.components.length > 0, `${file} has incomplete components inventory`)
+  for (const component of inventory.components) {
+    text(component.name, `${file} component name`)
+    text(component.version, `${file} component version`)
+    for (const entry of [component.manifest, ...(Array.isArray(component.artifacts) ? component.artifacts : [])]) {
+      text(entry?.path, `${file} component inventory path`)
+      assert.match(entry?.sha256 ?? '', hashPattern, `${file} component inventory digest`)
+    }
+  }
+  for (const kind of ['locks', 'patches']) {
     assert.ok(Array.isArray(inventory?.[kind]) && inventory[kind].length > 0, `${file} has incomplete ${kind} inventory`)
     for (const entry of inventory[kind]) {
-      text(entry.path, `${file} inventory path`)
-      assert.match(entry.sha256 ?? '', hashPattern, `${file} inventory digest`)
+      text(entry.path, `${file} ${kind} inventory path`)
+      assert.match(entry.sha256 ?? '', hashPattern, `${file} ${kind} inventory digest`)
     }
   }
 }

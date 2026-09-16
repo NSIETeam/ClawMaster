@@ -1,0 +1,4 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): hashes record the
+# exact blobs after the paired note was reviewed.
+2026-09-16-watchdog-business-result-summary.md: 2b80b59c08041cb303b52e8255def189c862dcc1
+2026-09-16-watchdog-business-result-summary.zh.md: 321df584d326f58bfa9241444e7a3c3054ca2ec6

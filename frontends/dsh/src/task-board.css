@@ -6,6 +6,13 @@
 .cm-task-board button:disabled { opacity: .55; cursor: default; }
 .cm-task-board button:focus-visible, .cm-task-board a:focus-visible, .cm-task-board summary:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 3px; }
 .cm-business-tasks { display: grid; gap: 10px; margin: 16px 0; }
+.cm-task-summary { margin: 16px 0; padding: 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-base); }
+.cm-task-summary h3 { margin: 0 0 6px; }
+.cm-task-summary dl { display: grid; grid-template-columns: repeat(6, minmax(70px, 1fr)); gap: 8px; margin: 12px 0 0; }
+.cm-task-summary dl > div { padding: 8px; border-radius: 7px; background: var(--dsw-alias-bg-layer-1); }
+.cm-task-summary dl > div[data-attention="true"] { color: var(--dsw-alias-brand-primary); }
+.cm-task-summary dt { font-size: 12px; color: var(--dsw-alias-label-secondary); }
+.cm-task-summary dd { margin: 3px 0 0; font-size: 20px; font-variant-numeric: tabular-nums; }
 .cm-business-task { padding: 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; }
 .cm-business-task > button { display: block; text-align: start; border: 0; padding: 0; width: 100%; overflow-wrap: anywhere; }
 .cm-business-task > button[aria-pressed="true"] { color: var(--dsw-alias-brand-primary); }
@@ -25,7 +32,7 @@
 .cm-task-evidence a { color: var(--dsw-alias-brand-primary); }
 .cm-task-history summary { cursor: pointer; margin-bottom: 12px; }
 .cm-task-history article { padding: 12px 0; border-bottom: 1px solid var(--dsw-alias-border-l1); }
-@media (max-width: 700px) { .cm-task-board { padding: 14px; } .cm-task-board-heading { align-items: start; } .cm-business-form-row > label { flex-basis: 100%; } }
+@media (max-width: 700px) { .cm-task-board { padding: 14px; } .cm-task-board-heading { align-items: start; } .cm-business-form-row > label { flex-basis: 100%; } .cm-task-summary dl { grid-template-columns: repeat(3, minmax(70px, 1fr)); } }
 .cm-schedule-board .cm-business-task { margin: 12px 0; overflow-wrap: anywhere; }
 .cm-schedule-board .cm-business-task p { white-space: pre-wrap; }
 .cm-schedule-board .cm-business-task input:not([type="checkbox"]) { padding: 8px; background: var(--dsw-alias-bg-base); color: inherit; border: 1px solid var(--dsw-alias-border-l2); border-radius: 7px; }

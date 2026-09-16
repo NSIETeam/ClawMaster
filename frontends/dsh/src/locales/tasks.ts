@@ -2,6 +2,8 @@
 import type { ProductLocale } from './frontend.ts';
 const zh = {
   heading: '业务任务与验收', hint: '负责人、期限和验收结论保存在任务里；会话空闲不代表工作已经完成。',
+  summaryHeading: '业务结果', summaryHint: '下面的数字来自当前已加载的持久化任务页；需要处理的任务会按逾期、待验收、失败和等待条件计入。',
+  summaryLoaded: '已加载', summaryNeedsAttention: '需要处理', summaryOverdue: '逾期', summaryReview: '待验收', summaryFailed: '失败', summaryWaiting: '等待条件',
   create: '建立业务任务', refresh: '刷新业务任务', more: '下一页任务', loading: '正在读取业务任务…', empty: '还没有业务任务。先明确目标、负责人和验收标准。',
   goal: '业务目标', scope: '范围与资料', owner: '负责人', ownerKind: '负责人类型', local: '本地负责人（未认证成员）', member: '企业成员 ID',
   deadline: '期限', timezone: '时区', risk: '风险等级', low: '低', medium: '中', high: '高', criteria: '验收标准（每行一项）',
@@ -25,6 +27,8 @@ const zh = {
 type Copy = { [K in keyof typeof zh]: string };
 const en: Copy = {
   heading: 'Business tasks and acceptance', hint: 'Owners, deadlines and acceptance belong to the task. An idle session does not mean the work is complete.',
+  summaryHeading: 'Business outcome', summaryHint: 'These numbers come from the currently loaded durable task page. Attention includes overdue, awaiting review, failed and waiting tasks.',
+  summaryLoaded: 'Loaded', summaryNeedsAttention: 'Needs attention', summaryOverdue: 'Overdue', summaryReview: 'Awaiting review', summaryFailed: 'Failed', summaryWaiting: 'Waiting',
   create: 'Create business task', refresh: 'Refresh business tasks', more: 'Next task page', loading: 'Loading business tasks…', empty: 'No business tasks yet. Define a goal, owner and acceptance criteria.',
   goal: 'Business goal', scope: 'Scope and source material', owner: 'Owner', ownerKind: 'Owner type', local: 'Local owner (not an authenticated member)', member: 'Organization member ID',
   deadline: 'Deadline', timezone: 'Time zone', risk: 'Risk', low: 'Low', medium: 'Medium', high: 'High', criteria: 'Acceptance criteria (one per line)',

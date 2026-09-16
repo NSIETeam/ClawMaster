@@ -81,3 +81,35 @@ export function taskIndicators(task: TaskRecord, now = Date.now()) {
   return { overdue: task.dueAt !== null && Date.parse(task.dueAt) < now && task.status !== 'accepted' && task.status !== 'cancelled',
     waiting: task.waitingFor !== null && (task.status === 'ready' || task.status === 'in_progress'), evidenceAvailability: 'unchecked' as const };
 }
+
+/** Counts durable task signals for the WatchDog home result view. */
+export interface TaskAttentionSummary {
+  total: number;
+  needsAttention: number;
+  overdue: number;
+  waiting: number;
+  awaitingReview: number;
+  failed: number;
+}
+
+/** Aggregate durable task signals for the WatchDog home result view. Counts are page-scoped when the caller has loaded a bounded page.
+ * @param tasks - The bounded page of durable tasks currently available to the caller.
+ * @param now - Clock used to classify deadlines, supplied by tests or the browser.
+ * @returns Counts where needsAttention counts each task at most once.
+ */
+export function taskAttentionSummary(tasks: readonly TaskRecord[], now = Date.now()): TaskAttentionSummary {
+  let overdue = 0;
+  let waiting = 0;
+  let awaitingReview = 0;
+  let failed = 0;
+  let needsAttention = 0;
+  for (const task of tasks) {
+    const indicators = taskIndicators(task, now);
+    if (indicators.overdue) overdue += 1;
+    if (indicators.waiting) waiting += 1;
+    if (task.status === 'awaiting_review') awaitingReview += 1;
+    if (task.status === 'failed') failed += 1;
+    if (indicators.overdue || indicators.waiting || task.status === 'awaiting_review' || task.status === 'failed') needsAttention += 1;
+  }
+  return { total: tasks.length, needsAttention, overdue, waiting, awaitingReview, failed };
+}

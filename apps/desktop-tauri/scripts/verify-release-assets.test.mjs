@@ -21,7 +21,7 @@ async function fixture(t) {
       content = JSON.stringify({ desktopVersion: version, contentSha256: 'c'.repeat(64), buildProvenance: {
         schemaVersion: 1, mode: 'release', source: { gitCommit: commit, gitTree: tree, dirty: false, dirtyFiles: [], sourceSha256: 'd'.repeat(64) },
         artifacts: { harness: { fileCount: 1, sha256: 'e'.repeat(64) }, product: { fileCount: 1, sha256: 'f'.repeat(64) } },
-        inventory: { components: [{ path: 'apps/cli/package.json', sha256: '1'.repeat(64) }], locks: [{ path: 'pnpm-lock.yaml', sha256: '2'.repeat(64) }], patches: [{ path: 'patch.patch', sha256: '3'.repeat(64) }] },
+        inventory: { components: [{ name: '@clawmaster/dsh', version: '0.2.3', manifest: { path: 'apps/cli/package.json', sha256: '1'.repeat(64) }, artifacts: [{ path: 'apps/cli/lib/index.js', sha256: '4'.repeat(64) }] }], locks: [{ path: 'pnpm-lock.yaml', sha256: '2'.repeat(64) }], patches: [{ path: 'patch.patch', sha256: '3'.repeat(64) }] },
       } })
     }
     if (file === 'latest.json') content = JSON.stringify({ version, platforms: {

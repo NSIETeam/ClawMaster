@@ -4,7 +4,7 @@ import { taskCopy } from './locales/tasks.ts';
 import type { ProductLocale } from './locales/frontend.ts';
 import type { WorkbenchSession } from './Workbench.tsx';
 import type { SessionId } from './services.ts';
-import { taskIndicators, type TaskRecord, type TaskRequest } from './watchdog-task-format.ts';
+import { taskAttentionSummary, taskIndicators, type TaskRecord, type TaskRequest } from './watchdog-task-format.ts';
 import type { WatchdogTaskClient } from './watchdog-task-client.ts';
 
 interface Props { client: WatchdogTaskClient; locale: ProductLocale; sessions: readonly WorkbenchSession[]; onOpenSession(id: SessionId): void; }
@@ -25,12 +25,20 @@ export function TaskBoard({ client, locale, sessions, onOpenSession }: Props) {
   const [creating, setCreating] = useState(false);
   useEffect(() => { void client.refresh(); }, [client]);
   const blocked = state.saving || state.pending;
+  const summary = taskAttentionSummary(state.tasks);
   return <section className="cm-task-board" aria-label={copy.heading} aria-busy={state.loading}>
     <div className="cm-task-board-heading"><h2>{copy.heading}</h2><div>
       <button type="button" disabled={blocked} onClick={() => setCreating(value => !value)}>{creating ? copy.closeForm : copy.create}</button>
       <button type="button" disabled={state.loading || state.saving} onClick={() => { void client.refresh(); }}>{copy.refresh}</button>
     </div></div>
     <p className="cm-help">{copy.hint}</p>
+    <section className="cm-task-summary" aria-label={copy.summaryHeading}>
+      <h3>{copy.summaryHeading}</h3><p className="cm-help">{copy.summaryHint}</p>
+      <dl><div><dt>{copy.summaryLoaded}</dt><dd>{summary.total}</dd></div><div data-attention={summary.needsAttention > 0 ? 'true' : 'false'}><dt>{copy.summaryNeedsAttention}</dt><dd>{summary.needsAttention}</dd></div>
+        <div><dt>{copy.summaryOverdue}</dt><dd>{summary.overdue}</dd></div><div><dt>{copy.summaryReview}</dt><dd>{summary.awaitingReview}</dd></div>
+        <div><dt>{copy.summaryFailed}</dt><dd>{summary.failed}</dd></div><div><dt>{copy.summaryWaiting}</dt><dd>{summary.waiting}</dd></div>
+      </dl>
+    </section>
     {state.error && <p role="alert" className="cm-error">{copy[state.error]}</p>}
     {state.saving && <p role="status">{copy.saving}</p>}
     {state.pending && !state.saving && <div role="alert"><p>{copy.pending}</p><button type="button" onClick={() => { void client.retry().then(saved => { if (saved) setCreating(false); }); }}>{copy.retry}</button></div>}
