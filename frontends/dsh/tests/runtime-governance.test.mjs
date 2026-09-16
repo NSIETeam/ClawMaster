@@ -8,7 +8,7 @@ import { Context } from '@deepseek-ai/cordis';
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt';
 import ToolRuntime, { defineTool, TOOL_RUNTIME_SCHEDULER } from '@deepseek-ai/dsh-tools';
 import { ToolCallId } from '@deepseek-ai/dsh-llm';
-import { applyRuntimeGovernance, observeRuntime, resolveRuntimeBudgets } from '../src/runtime-governance.ts';
+import { applyRuntimeGovernance, observeProcessTreeRss, observeRuntime, resolveRuntimeBudgets } from '../src/runtime-governance.ts';
 
 test('runtime facts refuse stopped, malformed and different process records without a remembered fallback', async t => {
   const root = await mkdtemp(join(tmpdir(), 'clawmaster-runtime-state-'));
@@ -32,13 +32,13 @@ test('runtime facts refuse stopped, malformed and different process records with
   assert.equal(observeRuntime(undefined).available, false);
 });
 
-async function fixture(t, budgets, body) {
+async function fixture(t, budgets, body, readProcessTreeRss = () => null) {
   const ctx = new Context();
   t.after(() => ctx.fiber.dispose());
   await ctx.plugin(SystemPrompt);
   await ctx.plugin(ToolRuntime);
   const governance = await ctx.plugin({ name: 'runtime-fixture', inject: ['tools', 'systemPrompt'],
-    apply: context => applyRuntimeGovernance(context, budgets) });
+    apply: context => applyRuntimeGovernance(context, budgets, readProcessTreeRss) });
   ctx.tools.register(defineTool({ name: 'heavy', description: 'Synthetic work', parameters: {},
     output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
     isConcurrencySafe: () => true, execute: body }));
@@ -120,7 +120,26 @@ test('concurrent dispatch reserves slots before starting work and releases faile
 });
 
 test('invalid resource budgets fail at load', () => {
-  for (const config of [{ maxRssMiB: 0 }, { maxConcurrentHeavyTools: -1 }, { heavyToolPatterns: [] }, { heavyToolPatterns: ['['] }]) {
+  for (const config of [{ maxRssMiB: 0 }, { maxProcessTreeRssMiB: 0 }, { maxConcurrentHeavyTools: -1 }, { heavyToolPatterns: [] }, { heavyToolPatterns: ['['] }]) {
     assert.throws(() => resolveRuntimeBudgets(config));
   }
+});
+
+test('process-tree observer sums only the Host descendants and refuses malformed tables', () => {
+  const table = '10 1 100\n11 10 200\n12 11 300\n13 999 900\n';
+  assert.deepEqual(observeProcessTreeRss(10, 'darwin', () => table), { totalRssMiB: 1, descendantRssMiB: 1 });
+  assert.equal(observeProcessTreeRss(9999, 'darwin', () => table), null);
+  assert.equal(observeProcessTreeRss(10, 'darwin', () => 'bad'), null);
+});
+
+test('process-tree budget refuses a heavy operation while status stays readable', async t => {
+  let executions = 0;
+  const f = await fixture(t, { maxRssMiB: 100000, maxProcessTreeRssMiB: 10, heavyToolPatterns: ['^heavy$'] }, async () => { executions += 1; return 'done'; }, () => ({ totalRssMiB: 11, descendantRssMiB: 3 }));
+  const denied = await f.call();
+  assert.equal(denied.isError, true);
+  assert.match(denied.content[0].text, /process-tree memory budget reached/);
+  assert.equal(executions, 0);
+  const status = await f.call('runtime_status');
+  assert.equal(status.isError, false);
+  assert.equal(JSON.parse(status.value).resources.processTreeRssMiB, 11);
 });

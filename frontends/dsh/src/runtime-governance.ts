@@ -2,6 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 import type {} from '@deepseek-ai/dsh-system-prompt';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { totalmem } from 'node:os';
 import { z } from 'zod';
@@ -9,8 +10,55 @@ import { z } from 'zod';
 /** Deployment budgets apply to Host RSS and overlapping heavy tool bodies. */
 export interface RuntimeGovernanceConfig {
   maxRssMiB?: number;
+  /** Maximum RSS for the Host and its observed child-process tree. */
+  maxProcessTreeRssMiB?: number;
   maxConcurrentHeavyTools?: number;
   heavyToolPatterns?: string[];
+}
+
+/** One process-table row used to aggregate a Host's descendant RSS. */
+export interface ProcessRssRow { pid: number; parentPid: number; rssKiB: number; }
+
+/** Parse the stable POSIX `ps` columns used by the process-tree observer. */
+export function parseProcessRssTable(output: string): ProcessRssRow[] {
+  return output.split('\n').flatMap(line => {
+    const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s*$/.exec(line);
+    if (!match?.[1] || !match[2] || !match[3]) return [];
+    const pid = Number(match[1]);
+    const parentPid = Number(match[2]);
+    const rssKiB = Number(match[3]);
+    return [Number.isSafeInteger(pid) && pid > 0 && Number.isSafeInteger(parentPid) && parentPid >= 0 && Number.isSafeInteger(rssKiB) && rssKiB >= 0
+      ? { pid, parentPid, rssKiB } : undefined].filter((row): row is ProcessRssRow => row !== undefined);
+  });
+}
+
+/** Observe the RSS of a Host process and all descendants where the platform exposes a parent table.
+ * @param rootPid - Host PID whose descendants are included.
+ * @param platform - Node platform; unsupported platforms return no observation.
+ * @param readTable - Fixed-column process-table reader, injectable for tests.
+ * @returns Total and descendant RSS in MiB, or null when the table is unavailable or the root is absent.
+ */
+export function observeProcessTreeRss(rootPid = process.pid, platform: NodeJS.Platform = process.platform,
+  readTable: () => string = () => String(execFileSync('/bin/ps', ['-axo', 'pid=,ppid=,rss='], { encoding: 'utf8', timeout: 1000 }))): { totalRssMiB: number; descendantRssMiB: number } | null {
+  if (platform === 'win32' || platform === 'android' || platform === 'freebsd' || platform === 'openbsd' || platform === 'sunos' || platform === 'aix') return null;
+  try {
+    const rows = parseProcessRssTable(readTable());
+    const byParent = new Map<number, ProcessRssRow[]>();
+    for (const row of rows) byParent.set(row.parentPid, [...(byParent.get(row.parentPid) ?? []), row]);
+    const root = rows.find(row => row.pid === rootPid);
+    if (!root) return null;
+    const visited = new Set<number>();
+    let totalKiB = 0;
+    const visit = (row: ProcessRssRow): void => {
+      if (visited.has(row.pid)) return;
+      visited.add(row.pid);
+      totalKiB += row.rssKiB;
+      for (const child of byParent.get(row.pid) ?? []) visit(child);
+    };
+    visit(root);
+    const totalRssMiB = Math.ceil(totalKiB / 1024);
+    return { totalRssMiB, descendantRssMiB: Math.ceil(Math.max(0, totalKiB - root.rssKiB) / 1024) };
+  } catch { return null; }
 }
 
 const MiB = 1024 * 1024;
@@ -75,28 +123,39 @@ export function observeRuntime(path: string | undefined, pid = process.pid, runI
  */
 export function resolveRuntimeBudgets(config: RuntimeGovernanceConfig) {
   const maxRssMiB = config.maxRssMiB ?? Math.max(256, Math.min(2048, Math.floor(totalmem() / MiB / 4)));
+  const maxProcessTreeRssMiB = config.maxProcessTreeRssMiB ?? maxRssMiB;
   const maxConcurrentHeavyTools = config.maxConcurrentHeavyTools ?? 2;
-  for (const [key, value] of Object.entries({ maxRssMiB, maxConcurrentHeavyTools })) {
+  for (const [key, value] of Object.entries({ maxRssMiB, maxProcessTreeRssMiB, maxConcurrentHeavyTools })) {
     if (!Number.isSafeInteger(value) || value < 1) throw new Error(`Runtime ${key} must be a positive safe integer`);
   }
   const heavyToolPatterns = config.heavyToolPatterns ?? ['(^|_)(bash|pwsh|shell|subagent|teams?|workflow)(_|$)', '^csv_process$'];
   if (heavyToolPatterns.length === 0) throw new Error('Runtime heavyToolPatterns must not be empty');
   const patterns = heavyToolPatterns.map(pattern => new RegExp(pattern));
-  return { maxRssMiB, maxConcurrentHeavyTools, matches: (name: string) => patterns.some(pattern => pattern.test(name)) };
+  return { maxRssMiB, maxProcessTreeRssMiB, maxConcurrentHeavyTools, matches: (name: string) => patterns.some(pattern => pattern.test(name)) };
 }
 
 /**
  * Register live facts as logged context and a read-only tool; reject excess heavy dispatch.
  * @param ctx - DSH prompt, tool registry and plugin lifetime.
  * @param config - RSS and concurrency budgets, configurable through the frontend Host row.
+ * @param readProcessTreeRss - Process-tree reader, injectable for deterministic tests.
  */
-export function applyRuntimeGovernance(ctx: Context, config: RuntimeGovernanceConfig = {}): void {
+export function applyRuntimeGovernance(ctx: Context, config: RuntimeGovernanceConfig = {}, readProcessTreeRss: () => { totalRssMiB: number; descendantRssMiB: number } | null = () => observeProcessTreeRss()): void {
   const limits = resolveRuntimeBudgets(config);
   let activeHeavyTools = 0;
-  const observe = () => ({ ...observeRuntime(process.env.CLAWMASTER_RUNTIME_STATE), resources: {
-    hostRssMiB: Math.ceil(process.memoryUsage.rss() / MiB),
-    maxRssMiB: limits.maxRssMiB, activeHeavyTools, maxConcurrentHeavyTools: limits.maxConcurrentHeavyTools,
-  } });
+  const resources = () => {
+    const hostRssMiB = Math.ceil(process.memoryUsage.rss() / MiB);
+    const processTree = readProcessTreeRss();
+    return { hostRssMiB, descendantRssMiB: processTree?.descendantRssMiB ?? null, processTreeRssMiB: processTree?.totalRssMiB ?? null,
+      maxRssMiB: limits.maxRssMiB, maxProcessTreeRssMiB: limits.maxProcessTreeRssMiB, activeHeavyTools, maxConcurrentHeavyTools: limits.maxConcurrentHeavyTools };
+  };
+  const observe = () => ({ ...observeRuntime(process.env.CLAWMASTER_RUNTIME_STATE), resources: resources() });
+  const overBudget = (): 'host' | 'process-tree' | null => {
+    const current = resources();
+    if (current.hostRssMiB >= limits.maxRssMiB) return 'host';
+    if (current.processTreeRssMiB !== null && current.processTreeRssMiB >= limits.maxProcessTreeRssMiB) return 'process-tree';
+    return null;
+  };
   ctx.systemPrompt.context({
     name: 'clawmaster-current-runtime', order: 100,
     text: () => process.env.CLAWMASTER_RUNTIME_STATE ? [
@@ -117,15 +176,15 @@ export function applyRuntimeGovernance(ctx: Context, config: RuntimeGovernanceCo
   }));
   ctx.tools.guard(exec => {
     if (!limits.matches(exec.name)) return;
-    if (process.memoryUsage.rss() >= limits.maxRssMiB * MiB) {
-      return `ClawMaster Host memory budget reached (${limits.maxRssMiB} MiB). No new heavy operation was started. Let active work finish and inspect runtime_status before retrying.`;
-    }
+    const exceeded = overBudget();
+    if (exceeded === 'host') return `ClawMaster Host memory budget reached (${limits.maxRssMiB} MiB). No new heavy operation was started. Let active work finish and inspect runtime_status before retrying.`;
+    if (exceeded === 'process-tree') return `ClawMaster Host process-tree memory budget reached (${limits.maxProcessTreeRssMiB} MiB). No new heavy operation was started. Let child work finish and inspect runtime_status before retrying.`;
   });
   ctx.on('tools/execute', async (exec, next) => {
     if (!limits.matches(exec.name)) return next();
-    if (process.memoryUsage.rss() >= limits.maxRssMiB * MiB) {
-      throw new Error(`ClawMaster Host memory budget reached (${limits.maxRssMiB} MiB). No new heavy operation was started.`);
-    }
+    const exceeded = overBudget();
+    if (exceeded === 'host') throw new Error(`ClawMaster Host memory budget reached (${limits.maxRssMiB} MiB). No new heavy operation was started.`);
+    if (exceeded === 'process-tree') throw new Error(`ClawMaster Host process-tree memory budget reached (${limits.maxProcessTreeRssMiB} MiB). No new heavy operation was started.`);
     if (activeHeavyTools >= limits.maxConcurrentHeavyTools) {
       throw new Error(`ClawMaster heavy-operation concurrency budget reached (${limits.maxConcurrentHeavyTools}). Wait for active work to finish before retrying.`);
     }
