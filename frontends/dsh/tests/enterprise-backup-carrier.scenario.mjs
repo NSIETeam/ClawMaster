@@ -47,7 +47,9 @@ test('backup GET and file preparation/restore work through the production node H
 });
 
 for (const path of ['/backup/prepare', '/restore']) for (const mode of ['oversize', 'idle']) test(`${path} ${mode} upload returns structured refusal before server disconnection and releases admission`, async t => {
-  const { base, store } = await fixture(t, { maxFileBytes: 512, timeoutMs: 100 });
+  // Keep the timeout under test bounded while leaving the complete retry request
+  // enough time for Windows' loopback HTTP stack to deliver its small body.
+  const { base, store } = await fixture(t, { maxFileBytes: 512, timeoutMs: 1000 });
   const received = await receiveStreamingRefusal(base + '/api/clawmaster/enterprise' + path, mode === 'oversize' ? '😀'.repeat(600) : '{');
   assert.equal(received.status, mode === 'oversize' ? 413 : 503);
   assert.equal(JSON.parse(received.body).error.code, mode === 'oversize' ? 'result_too_large' : 'storage_unavailable');
