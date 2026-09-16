@@ -299,8 +299,9 @@ export class EnterpriseClient {
       if (!response.ok) {
         const failure = failureSchema.safeParse(json);
         if (!failure.success) { this.set({ error: 'invalidResponse' }); return false; }
-        this.pendingRequest = undefined;
-        this.set({ pending: false, error: failure.data.error.code });
+        const refused = [400, 403, 404, 409, 413].includes(response.status);
+        if (refused) this.pendingRequest = undefined;
+        this.set({ pending: !refused, error: failure.data.error.code });
         return false;
       }
       let receipt;

@@ -1,5 +1,6 @@
 /** SQLite enterprise records and authenticated DSH Fetch routes; owns no listener or Session. */
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
+import { GovernanceCommandInput, CommandInputError, type GovernanceCommandConfig } from './command-input.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -45,8 +46,13 @@ export interface EnterpriseReadConfig {
   maxPageRows?: number;
   /** Maximum UTF-8 bytes per browser page; defaults to 262144. */
   maxPageBytes?: number;
+  /** Maximum responsibility records per page; defaults to 500. */
+  maxResponsibilityRows?: number;
+  /** Complete responsibility response byte budget; defaults to 262144. */
+  maxResponsibilityBytes?: number;
 }
-const readConfigSchema = z.object({ maxPageRows: integer.min(1).default(50), maxPageBytes: integer.min(1024).default(262144) }).strict();
+const readConfigSchema = z.object({ maxPageRows: integer.min(1).default(50), maxPageBytes: integer.min(1024).default(262144),
+  maxResponsibilityRows: integer.min(1).default(500), maxResponsibilityBytes: integer.min(1024).default(262144) }).strict();
 
 /** Current revision and one durable command receipt. */
 export interface EnterpriseCommitReceipt { generation: number; revision: number; receipt: AuditEntry; }
@@ -131,9 +137,9 @@ export class EnterpriseStore {
   get organizationId(): string { this.assertOpen(); return this.boundOrganizationId; }
 
   /** Query responsibility metadata that is never replaced by business restore. */
-  responsibility(value: unknown = {}) {
+  responsibility(value: unknown = {}, transport: 'http' | 'tool' = 'http') {
     this.assertOpen();
-    return queryResponsibility(this.db, value);
+    return queryResponsibility(this.db, value, { maxRows: this.readLimits.maxResponsibilityRows, maxBytes: this.readLimits.maxResponsibilityBytes }, transport);
   }
 
   /** Recognize a committed restore before asking for another one-shot approval. */
@@ -788,6 +794,7 @@ export interface EnterpriseHostContext {
 }
 
 function errorResponse(error: unknown): Response {
+  if (error instanceof CommandInputError) return error.response();
   if (error instanceof GovernanceDenied) return Response.json({ error: { code: error.code, message: error.message } }, { status: 403, headers: { 'cache-control': 'no-store' } });
   if (error instanceof z.ZodError) return Response.json({ error: { code: 'invalid_request', message: 'Request fields are invalid.' } }, { status: 400, headers: { 'cache-control': 'no-store' } });
   const failure = error instanceof EnterpriseError ? error
@@ -812,10 +819,12 @@ export async function applyEnterpriseHost(ctx: EnterpriseHostContext, config: {
   busyTimeoutMs?: number;
   enterpriseRead?: EnterpriseReadConfig;
   enterpriseBackup?: EnterpriseBackupConfig;
+  governanceCommands?: GovernanceCommandConfig;
 }): Promise<() => Promise<void>> {
+  const commands = new GovernanceCommandInput(config.governanceCommands);
   const store = await openEnterpriseStore(config.databasePath, config.busyTimeoutMs, 'local', {}, config.enterpriseRead);
   try {
-    const remove = await mountEnterpriseRoutes(ctx, store, new GovernanceAccess(), config.enterpriseBackup);
+    const remove = await mountEnterpriseRoutes(ctx, store, new GovernanceAccess(), config.enterpriseBackup, commands);
     return async () => { try { await remove(); } finally { store.close(); } };
   } catch (error) {
     store.close();
@@ -829,7 +838,7 @@ export async function applyEnterpriseHost(ctx: EnterpriseHostContext, config: {
  * @param store Database shared with other enterprise consumers.
  * @returns Idempotent route withdrawal and request drain; the caller closes the store afterward.
  */
-export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: EnterpriseStore, access = new GovernanceAccess(), backupConfig: EnterpriseBackupConfig = {}): Promise<() => Promise<void>> {
+export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: EnterpriseStore, access = new GovernanceAccess(), backupConfig: EnterpriseBackupConfig = {}, commands = new GovernanceCommandInput()): Promise<() => Promise<void>> {
   access.assertOrganization(store.organizationId);
   const disposers: (() => Promise<void>)[] = [];
   const pending = new Set<Promise<Response>>();
@@ -865,7 +874,7 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
         const caller = await access.http(request, signal);
         await auditGovernanceOutcome(caller, store, 'audit.read', undefined, () => caller.check('audit.read'), signal);
         const search = new URL(request.url).searchParams;
-        return store.responsibility({ after: Number(search.get('after') ?? 0), limit: Number(search.get('limit') ?? 100),
+        return store.responsibility({ after: Number(search.get('after') ?? 0), limit: Number(search.get('limit') ?? Math.min(100, store.readLimits.maxResponsibilityRows)),
           ...Object.fromEntries(['actorId', 'commandId', 'entityId', 'operation'].filter(key => search.has(key)).map(key => [key, search.get(key)])) });
       }),
     }));
@@ -907,17 +916,11 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
     }));
     disposers.push(await mountEnterpriseBackupRoutes(ctx, store, access, backupConfig, errorResponse));
     disposers.push(ctx.connection.fetch.register({
-      path: ENTERPRISE_COMMAND_PATH, methods: ['POST'], requestBody: 'buffered',
-      fetch: handle(async (request, signal) => {
-        if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
-          throw new EnterpriseError('invalid_request', 'Enterprise commands require application/json.');
-        }
-        let value: unknown;
-        try { value = await request.json(); }
-        catch { throw new EnterpriseError('invalid_request', 'Enterprise command JSON is malformed.'); }
+      path: ENTERPRISE_COMMAND_PATH, methods: ['POST'], requestBody: 'streaming',
+      fetch: handle(async (request, signal) => commands.run(signal, async () => {
+        const { value, caller } = await commands.receive(request, signal, inputSignal => access.http(request, inputSignal));
         if (closing || signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
         const parsed = parseEnterpriseRequest(value);
-        const caller = await access.http(request, signal);
         const command = parsed.command;
         const resource = 'id' in command ? command.id : 'contact' in command ? command.contact.id : 'item' in command ? command.item.id : command.order.id;
         const identity = await auditGovernanceOutcome(caller, store, command.type, parsed.commandId, async () => {
@@ -932,7 +935,7 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
         const { generation, revision, receipt } = store.executeReceipt(parsed, identity);
         return { generation, revision, commandId: receipt.commandId, commandRevision: receipt.revision,
           entityId: receipt.entityId, type: receipt.type, at: receipt.at };
-      }),
+      })),
     }));
     return dispose;
   } catch (error) {

@@ -1,5 +1,6 @@
 /** Authenticated HTTP and DSH tool consumers for the shared business task owner. */
 import { z } from 'zod';
+import { GovernanceCommandInput, CommandInputError } from './command-input.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import type { EnterpriseHostContext, EnterpriseStore } from './enterprise-host.ts';
 import type { EnterpriseToolContext } from './enterprise-tools.ts';
@@ -13,6 +14,7 @@ const tasksPath = '/api/clawmaster/tasks';
 const commandPath = `${tasksPath}/command`;
 
 function failure(error: unknown): Response {
+  if (error instanceof CommandInputError) return error.response();
   const code = error instanceof GovernanceDenied || error instanceof TaskError || error instanceof EnterpriseError ? error.code
     : error instanceof z.ZodError ? 'invalid_request' : 'storage_unavailable';
   const message = error instanceof z.ZodError ? 'Task request fields are invalid.'
@@ -23,7 +25,7 @@ function failure(error: unknown): Response {
 }
 
 /** Register the actual task paths and tools, draining in-flight work before the shared database closes. */
-export async function mountWatchdogTasks(ctx: EnterpriseHostContext & EnterpriseToolContext, store: EnterpriseStore, access: GovernanceAccess): Promise<() => Promise<void>> {
+export async function mountWatchdogTasks(ctx: EnterpriseHostContext & EnterpriseToolContext, store: EnterpriseStore, access: GovernanceAccess, commands = new GovernanceCommandInput()): Promise<() => Promise<void>> {
   access.assertOrganization(store.organizationId);
   const lifetime = new AbortController();
   const pending = new Set<Promise<unknown>>();
@@ -69,11 +71,10 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       lifetime.signal.throwIfAborted(); request.signal.throwIfAborted();
       return Response.json(query(identity, input), { headers: { 'cache-control': 'no-store' } });
     }).catch(failure) }));
-    removals.push(ctx.connection.fetch.register({ path: commandPath, methods: ['POST'], requestBody: 'buffered', fetch: request => run(async () => {
+    removals.push(ctx.connection.fetch.register({ path: commandPath, methods: ['POST'], requestBody: 'streaming', fetch: request => run(() => commands.run(AbortSignal.any([request.signal, lifetime.signal]), async () => {
       const signal = AbortSignal.any([request.signal, lifetime.signal]);
-      const caller = await access.http(request, signal);
-      if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') throw new EnterpriseError('invalid_request', 'Task commands require JSON.');
-      const input = taskRequestSchema.parse(await request.json());
+      const { caller, value } = await commands.receive(request, signal, inputSignal => access.http(request, inputSignal));
+      const input = taskRequestSchema.parse(value);
       return auditGovernanceOutcome(caller, store, `task.${input.command.type}`, input.commandId, async () => {
         if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
         const action = input.command.type === 'review' ? 'task.review' : 'task.write';
@@ -89,7 +90,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
         signal.throwIfAborted();
         return Response.json(store.tasks.execute(identity, input), { headers: { 'cache-control': 'no-store' } });
       }, signal);
-    }).catch(failure) }));
+    })).catch(failure) }));
     removals.push(ctx.tools.register({ name: 'watchdog_task_query', description: `Read durable business tasks independently from Session run state. Read one id, its revision history, or a task page bounded to ${store.tasks.maxResponseBytes} UTF-8 bytes including tool output. Pass nextCursor unchanged as cursor to continue a list; refresh from the first page after a revision conflict. Continue history with nextAfter in the after argument. Idle Sessions do not imply accepted business results.`,
       parameters: taskQueryParameters,
       output: { schema: taskQueryOutput, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
@@ -107,10 +108,11 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
     removals.push(ctx.tools.register({ name: 'watchdog_task_command', description: 'Create a draft with owner, deadline, scope and acceptance criteria; queue, start, link a Session, wait, report failure or submit evidence. Use the current task revision and a unique commandId. Existing Sessions are imported only as drafts. Human review, cancellation and reopening are unavailable to agents. Submission never means acceptance. Every mutation requires one-shot approval.',
       parameters: taskCommandParameters,
       output: { schema: taskCommandOutput, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
-      execute: (args, exec) => run(async () => {
-        const input = taskRequestSchema.parse(args);
+      execute: (args, exec) => run(() => commands.run(AbortSignal.any([exec.signal, lifetime.signal]), async () => {
         const signal = AbortSignal.any([exec.signal, lifetime.signal]);
         const caller = await access.agent(exec.agent?.id, exec.callId, signal);
+        commands.checkArguments(args);
+        const input = taskRequestSchema.parse(args);
         return auditGovernanceOutcome(caller, store, `task.${input.command.type}`, input.commandId, async () => {
           if (['review', 'cancel', 'reopen'].includes(input.command.type)) throw new GovernanceDenied('This task action requires a human.');
           const checked = await caller.check('task.write', input.id);
@@ -132,7 +134,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
           signal.throwIfAborted();
           return store.tasks.execute(identity, input);
         }, signal);
-      }),
+      })),
       presentCall: args => ({ card: 'generic', title: 'Update business task', kind: 'edit', rawInput: JSON.stringify(args) }),
       presentResult: (_args, result) => ({ card: 'generic', title: result.isError ? 'Task action failed' : 'Task action saved', content: result.content }),
     }));

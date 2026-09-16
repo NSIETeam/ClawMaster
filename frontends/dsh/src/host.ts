@@ -1,4 +1,5 @@
 /** AI business tools, shared storage and lazy Workspaces on the existing DSH Host. */
+import { GovernanceCommandInput, type GovernanceCommandConfig } from './command-input.ts';
 import type { Context } from '@deepseek-ai/cordis';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
@@ -23,6 +24,7 @@ type HostServices = Context & WorkspaceHostContext & OnboardingHostServices;
 
 interface HostConfig {
   governance?: GovernanceConfiguration;
+  governanceCommands?: GovernanceCommandConfig;
   managedRoot?: string;
   databasePath?: string;
   busyTimeoutMs?: number;
@@ -51,6 +53,7 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
   const databasePath = config.databasePath ?? join(dshHome, 'watchdog', 'enterprise.sqlite');
   const scheduleDatabasePath = config.scheduleDatabasePath ?? join(dirname(databasePath), 'schedules.sqlite');
   const access = new GovernanceAccess(config.governance);
+  const commands = new GovernanceCommandInput(config.governanceCommands);
   if (!isAbsolute(managedRoot) || !isAbsolute(databasePath) || !isAbsolute(scheduleDatabasePath)) throw new Error('Product storage paths must be absolute');
   ctx.settings.register(ONBOARDING_NAMESPACE, OnboardingSettingsSchema);
   applyDataTools(ctx, config.dataTools);
@@ -68,9 +71,9 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
       if (failures.length) throw new AggregateError(failures, 'Enterprise consumers could not be unloaded.');
     })();
     try {
-      consumers.push(await mountEnterpriseRoutes(ctx, store, access, config.enterpriseBackup));
-      consumers.push(await applyEnterpriseTools(ctx, store, config.enterpriseTools, access));
-      consumers.push(await mountWatchdogTasks(ctx, store, access));
+      consumers.push(await mountEnterpriseRoutes(ctx, store, access, config.enterpriseBackup, commands));
+      consumers.push(await applyEnterpriseTools(ctx, store, config.enterpriseTools, access, commands));
+      consumers.push(await mountWatchdogTasks(ctx, store, access, commands));
       const schedules = await openWatchdogScheduleStore(scheduleDatabasePath, config.governance?.mode === 'enterprise' ? config.governance.organizationId : 'local', config.watchdogSchedules);
       const runtime = new WatchdogScheduleRuntime(ctx, schedules, access);
       let removeSchedules: (() => Promise<void>) | undefined;
@@ -80,7 +83,7 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
         const failures = results.filter(result => result.status === 'rejected').map(result => result.reason);
         if (failures.length) throw new AggregateError(failures, 'Schedule consumers could not be unloaded.');
       });
-      removeSchedules = await mountWatchdogSchedules(ctx, schedules, store, access);
+      removeSchedules = await mountWatchdogSchedules(ctx, schedules, store, access, commands);
       runtime.start();
     } catch (error) {
       try { await close(); }

@@ -1,0 +1,10 @@
+[
+  {
+    "isError": true,
+    "content": [{ "type": "text", "text": "Error: result_too_large: Business command exceeds the configured 1024-byte input budget." }]
+  },
+  {
+    "isError": true,
+    "content": [{ "type": "text", "text": "Error: Business command exceeds the configured 1024-byte input budget." }]
+  }
+]

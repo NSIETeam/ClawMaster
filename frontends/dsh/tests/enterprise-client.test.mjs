@@ -327,3 +327,20 @@ test('an abandoned page cannot overwrite a newer successful read with its late f
   assert.equal(client.getSnapshot().error, null);
   assert.equal(client.getSnapshot().readUnavailable, false);
 });
+
+for (const status of [408, 503]) test(`command ${status} keeps an exact retry instead of permitting a replacement write`, async () => {
+  const store = await openEnterpriseStore(':memory:'); const sent = []; let attempt = 0;
+  const client = new EnterpriseClient(async (path, init) => {
+    if (init.method === 'GET') return Response.json(store.overview());
+    sent.push(JSON.parse(init.body)); attempt++;
+    if (attempt === 1) return Response.json({ error: { code: 'storage_unavailable', message: 'Command admission unavailable' } }, { status });
+    return Response.json(receipt(store, sent.at(-1)));
+  }, () => 'same-command');
+  try {
+    await client.refresh(); assert.equal(await client.execute(command, 0), false);
+    assert.equal(client.getSnapshot().pending, true);
+    assert.equal(await client.execute(command, 0), false); assert.equal(sent.length, 1);
+    assert.deepEqual(await client.retryPending(), command); assert.deepEqual(sent[0], sent[1]);
+    assert.equal(store.overview().revision, 1); assert.equal(client.getSnapshot().pending, false);
+  } finally { store.close(); }
+});

@@ -26,6 +26,7 @@ import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { applyRuntimeGovernance } from '../src/runtime-governance.ts';
 import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
+import { GovernanceCommandInput } from '../src/command-input.ts';
 import { GovernanceAccess } from '../src/governance-access.ts';
 import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
 import * as Guard from '../../guard/src/index.ts';
@@ -56,7 +57,7 @@ test('task list continuation from a recorded model result refuses a concurrent c
   assert.deepEqual(recorded, JSON.parse(await readFile(new URL('expected/watchdog-task-pagination.json', import.meta.url), 'utf8')));
 });
 
-async function fixture(t, script, runtime = false, tasks = false) {
+async function fixture(t, script, runtime = false, tasks = false, commandConfig = {}) {
   const root = await mkdtemp(join(tmpdir(), 'clawmaster-business-flow-'));
   const ctx = new Context();
   if (runtime) {
@@ -83,16 +84,17 @@ async function fixture(t, script, runtime = false, tasks = false) {
   });
   store = await openEnterpriseStore(join(root, 'enterprise.sqlite'));
   const adapter = new MockAdapter(script);
+  const commands = new GovernanceCommandInput(commandConfig);
   const product = {
     name: 'business-tools-fixture', inject: ['tools', 'approval', 'fs', 'sandboxPolicy', 'systemPrompt'],
     async apply(context) {
       applyDataTools(context);
       if (runtime) applyRuntimeGovernance(context);
-      const remove = await applyEnterpriseTools(context, store);
+      const remove = await applyEnterpriseTools(context, store, {}, new GovernanceAccess(), commands);
       context.effect(() => remove);
       if (tasks) {
         const removeTasks = await mountWatchdogTasks({ tools: context.tools, approval: context.approval,
-          connection: { fetch: { register() { return async () => {}; } } } }, store, new GovernanceAccess());
+          connection: { fetch: { register() { return async () => {}; } } } }, store, new GovernanceAccess(), commands);
         context.effect(() => removeTasks);
       }
     },
@@ -333,4 +335,21 @@ test('foreign command receipts are refused in model output and durable Session r
   assert.equal(events.some(event => event.type === 'approval/asked'), false);
   assert.equal(f.store.snapshot().revision, 1);
   assert.equal(f.store.tasks.history(LOCAL_HTTP_IDENTITY, task.id).tasks.length, 1);
+});
+
+test('command input refusals reach the model without approval and survive exact JSONL replay', { timeout: 30000 }, async t => {
+  const f = await fixture(t, [
+    toolCallResponse('large-record', 'enterprise_command', { request: { generation: 0, revision: 0, commandId: 'large-record',
+      command: { type: 'contact.upsert', contact: { ...contact, nextAction: '汉'.repeat(700) } } } }),
+    toolCallResponse('large-task', 'watchdog_task_command', { id: 'large-task', revision: 0, commandId: 'large-task', command: { type: 'create', task: {
+      goal: 'Inspect fixture', scope: '汉'.repeat(700), owner: { kind: 'local', label: 'Operator' }, dueAt: null,
+      timezone: 'UTC', risk: 'low', checklist: [{ id: 'proof', description: 'Verify' }],
+    } } }),
+    textResponse('Both commands exceeded the input budget. No record or task was saved.'),
+  ], false, true, { maxRequestBytes: 1024 });
+  const { results, events } = await f.run();
+  const recorded = results.map(result => ({ isError: result.isError, content: result.content }));
+  assert.deepEqual(recorded, JSON.parse(await readFile(new URL('expected/command-input.json', import.meta.url), 'utf8')));
+  assert.equal(events.some(event => event.type === 'approval/asked'), false);
+  assert.equal(f.store.overview().revision, 0); assert.equal(f.store.tasks.list(LOCAL_HTTP_IDENTITY).tasks.length, 0);
 });

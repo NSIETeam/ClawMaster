@@ -1,6 +1,7 @@
 /** Authenticated schedule management and one-shot occurrence grants. */
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { GovernanceCommandInput, CommandInputError } from './command-input.ts';
 import { parameterSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools';
 import { ScheduleInputError } from '@deepseek-ai/dsh-schedule';
 import type { EnterpriseHostContext, EnterpriseStore } from './enterprise-host.ts';
@@ -20,6 +21,7 @@ const commandParameters = { ...parameterSchemaSpecToJsonSchema({ request: { type
   description: 'JSON command: {commandId,command:{type,id,...}}. create adds sessionId,prompt,rule ({kind:"every",everySeconds>=300} or {kind:"at",at:ISO-with-offset}),missed (skip|coalesce|catch-up),catchUpLimit (1..100). approve adds instanceId. cancel-plan adds reason. cancel-instance adds instanceId and reason. Uncertain resolution is human-only.' } }), additionalProperties: false };
 
 function failure(error: unknown): Response {
+  if (error instanceof CommandInputError) return error.response();
   const code = error instanceof GovernanceDenied || error instanceof WatchdogScheduleError ? error.code : error instanceof z.ZodError || error instanceof SyntaxError || error instanceof ScheduleInputError ? 'invalid_request' : 'unavailable';
   return Response.json({ error: { code, message: code === 'response_too_large' && error instanceof WatchdogScheduleError ? error.message : 'The schedule operation did not complete.' } }, {
     status: code === 'permission_denied' ? 403 : code === 'invalid_request' ? 400 : code === 'response_too_large' ? 413 : code === 'not_found' ? 404 : code === 'unavailable' ? 503 : 409,
@@ -40,7 +42,7 @@ function bounded(value: unknown, maxBytes: number, transport: 'http' | 'tool'): 
  * @returns Idempotent consumer withdrawal and in-flight approval drain.
  */
 export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & EnterpriseToolContext & WatchdogScheduleServices,
-  store: WatchdogScheduleStore, enterprise: EnterpriseStore, access: GovernanceAccess): Promise<() => Promise<void>> {
+  store: WatchdogScheduleStore, enterprise: EnterpriseStore, access: GovernanceAccess, commands = new GovernanceCommandInput()): Promise<() => Promise<void>> {
   access.assertOrganization(store.organizationId);
   access.assertOrganization(enterprise.organizationId);
   const lifetime = new AbortController();
@@ -94,15 +96,14 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
         after: Number(search.get('after') ?? 0), workersAfter: Number(search.get('workersAfter') ?? 0), limit: Number(search.get('limit') ?? 50), history: search.get('history') === 'true' }, 'http');
       return new Response(value, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
     }).catch(failure) }));
-    removals.push(ctx.connection.fetch.register({ path: `${path}/command`, methods: ['POST'], requestBody: 'buffered', fetch: request => run(async () => {
+    removals.push(ctx.connection.fetch.register({ path: `${path}/command`, methods: ['POST'], requestBody: 'streaming', fetch: request => run(() => commands.run(AbortSignal.any([lifetime.signal, request.signal]), async () => {
       const signal = AbortSignal.any([lifetime.signal, request.signal]);
-      if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') throw new WatchdogScheduleError('invalid_request', 'Schedule commands require JSON.');
-      const caller = await access.http(request, signal);
+      const { caller, value: inputValue } = await commands.receive(request, signal, inputSignal => access.http(request, inputSignal));
       if (!['local-human', 'member'].includes(caller.identity.actor.kind)) throw new GovernanceDenied('This path requires a human caller.');
-      const input = scheduleCommandSchema.parse(await request.json());
+      const input = scheduleCommandSchema.parse(inputValue);
       const value = await auditGovernanceOutcome(caller, enterprise, `schedule.${input.command.type}`, input.commandId, () => command(caller, input, signal, 'http'), signal);
       return new Response(value, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
-    }).catch(failure) }));
+    })).catch(failure) }));
     removals.push(ctx.tools.register({ name: 'watchdog_schedule_query', description: 'Read persistent WatchDog plans, occurrences, heartbeats and history. after/nextAfter pages complete records within the output byte budget; workersAfter/workerSummary.nextAfter independently pages workers. workerSummary counts every current worker by status, including those on later pages. A single oversized record fails explicitly. Stale heartbeat means the worker is offline; dispatched confirms durable input delivery, not business completion. HTTP observation requires no live agent.',
       parameters: queryParameters, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: String(value) }] },
       execute: (args, exec) => run(async () => { const signal = AbortSignal.any([lifetime.signal, exec.signal]); signal.throwIfAborted(); return query(await access.agent(exec.agent?.id, exec.callId, signal), args, 'tool'); }),
@@ -111,11 +112,12 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
     }));
     removals.push(ctx.tools.register({ name: 'watchdog_schedule_command', description: 'Manage durable WatchDog prompt plans. Every occurrence waits for its own one-shot approval and expires if nobody approves. Creating a plan grants no future execution. Existing DSH tool approvals remain required. No cold Session is resumed; desktop execution stops when the app stops. Cancel-plan stops future occurrences only; cancel-instance cancels an unstarted occurrence. Only humans can resolve uncertain dispatch; it is never automatically replayed.',
       parameters: commandParameters, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: String(value) }] },
-      execute: (args, exec) => run(async () => {
-        const value = z.object({ request: z.string().max(16000) }).strict().parse(args);
-        const input = scheduleCommandSchema.parse(JSON.parse(value.request));
+      execute: (args, exec) => run(() => commands.run(AbortSignal.any([lifetime.signal, exec.signal]), async () => {
         const signal = AbortSignal.any([lifetime.signal, exec.signal]);
         const caller = await access.agent(exec.agent?.id, exec.callId, signal);
+        commands.checkArguments(args);
+        const value = z.object({ request: z.string().max(16000) }).strict().parse(args);
+        const input = scheduleCommandSchema.parse(JSON.parse(value.request));
         return auditGovernanceOutcome(caller, enterprise, `schedule.${input.command.type}`, input.commandId, async () => {
           if (!exec.agent || input.command.type === 'resolve-uncertain') throw new GovernanceDenied('Only a human may resolve uncertain dispatch.');
           const identity = await caller.check('task.write', input.command.id);
@@ -127,7 +129,7 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
           if (access.mode === 'local') caller.identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: 0, revision: 0 };
           return command(caller, input, signal, 'tool');
         }, signal);
-      }),
+      })),
       presentCall: args => ({ card: 'generic', title: 'Change WatchDog schedule', kind: 'edit', rawInput: JSON.stringify(args) }),
       presentResult: (_args, result) => ({ card: 'generic', title: result.isError ? 'Schedule command failed' : 'Schedule command saved', content: result.content }),
     }));

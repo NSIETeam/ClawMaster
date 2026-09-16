@@ -1,5 +1,6 @@
 /** CRM/ERP queries and approval-gated mutations over the shared SQLite owner. */
 import { z } from 'zod';
+import { GovernanceCommandInput } from './command-input.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import type { ExecutionIdentity } from './governance-audit.ts';
 import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
@@ -70,7 +71,7 @@ function readPage(store: EnterpriseStore, value: unknown, config: z.output<typeo
  * @param options Query limits configured by the deployment.
  * @returns Idempotent withdrawal, cancellation and drain. Close the store only after this and route cleanup settle.
  */
-export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: EnterpriseStore, options: EnterpriseToolConfig = {}, access = new GovernanceAccess()): Promise<() => Promise<void>> {
+export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: EnterpriseStore, options: EnterpriseToolConfig = {}, access = new GovernanceAccess(), commands = new GovernanceCommandInput()): Promise<() => Promise<void>> {
   access.assertOrganization(store.organizationId);
   const config = configSchema.parse(options);
   const lifetime = new AbortController();
@@ -118,10 +119,11 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
       render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
       presentationMeta: (_args, value) => value,
     },
-    execute: (args, exec) => run(exec, async signal => {
+    execute: (args, exec) => run(exec, async signal => commands.run(signal, async () => {
       const agent = exec.agent;
       if (!agent) throw new Error('enterprise_command requires an owning DSH agent session.');
       const caller = await access.agent(agent.id, exec.callId, signal);
+      commands.checkArguments(args);
       const candidate = parseEnterpriseRequest(commandEnvelope.parse(args).request);
       const candidateCommand = candidate.command;
       const candidateResource = 'id' in candidateCommand ? candidateCommand.id : 'contact' in candidateCommand ? candidateCommand.contact.id
@@ -155,7 +157,7 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
       signal.throwIfAborted();
       const committed = store.executeReceipt(request, identity);
       return receipt(committed.generation, committed.revision, committed.receipt);
-    }),
+    })),
     presentCall: args => commandEnvelope.safeParse(args).success ? { card: 'generic', title: 'Change enterprise records', kind: 'edit', rawInput: JSON.stringify(args) } : undefined,
     presentResult: (_args, result) => ({ card: 'generic', title: result.isError ? 'Enterprise change failed' : 'Enterprise change committed', content: result.content }),
   }];
