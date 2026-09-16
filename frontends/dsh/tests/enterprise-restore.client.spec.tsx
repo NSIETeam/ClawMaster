@@ -135,16 +135,27 @@ it('uploads a real file for server review and restores only after confirmation t
   Object.defineProperty(file, 'text', { value: () => { throw new Error('The browser must not parse the file.'); } });
   store.executeReceipt({ generation: 0, revision: 1, commandId: enterpriseId('later-contact'), command: { type: 'contact.upsert', contact: { ...contact, name: 'Current contact' } } });
   const sent: string[] = [];
-  const client = new EnterpriseClient(async (path, init) => { sent.push(path); return transport.fetch(path, init); });
+  const preparedResponse = Promise.withResolvers<void>();
+  const restoredResponse = Promise.withResolvers<void>();
+  const client = new EnterpriseClient(async (path, init) => {
+    sent.push(path);
+    try { return await transport.fetch(path, init); }
+    finally {
+      if (path.endsWith('/prepare')) preparedResponse.resolve();
+      if (path.endsWith('/restore')) restoredResponse.resolve();
+    }
+  });
   render(<CRM locale="en" client={client} />);
   await screen.findByText('Current contact');
   fireEvent.change(screen.getByLabelText('Restore local backup'), { target: { files: [file] } });
+  await act(() => preparedResponse.promise);
   const preview = await screen.findByRole('region', { name: 'Backup preview' });
   expect(preview.textContent).toContain('Contacts: 1');
   expect(preview.textContent).toContain('File checksum:');
   expect(store.overview().generation).toBe(0);
   expect(sent.filter(path => path.endsWith('/restore'))).toHaveLength(0);
   fireEvent.click(within(preview).getByRole('button', { name: 'Confirm restore' }));
+  await act(() => restoredResponse.promise);
   await screen.findByText('Backup contact');
   expect(store.overview().generation).toBe(1);
   expect(store.overview().revision).toBe(1);
