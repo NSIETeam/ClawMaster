@@ -208,6 +208,15 @@ export function verifyMacosNativeEvidence(evidence, bundle, version) {
     assert.equal(runtime.desktopVersion, version)
     assert.equal(runtime.desktopPid, run.desktopPid)
     assert.equal(runtime.hostPid, run.hostPid)
+    assert.equal(run.desktopIdentity?.pid, run.desktopPid, 'Desktop process identity must match this launch')
+    assert.deepEqual(run.desktopIdentity, run.launchIdentity, 'Desktop PID must retain its launch identity')
+    assert.equal(run.desktopIdentity?.path, run.desktopPath, 'Desktop executable identity must match the packaged app')
+    assert.match(run.desktopIdentity?.started ?? '', /^\S+\s+\S+\s+\d+\s+\d+:\d+:\d+\s+\d+$/u)
+    assert.equal(run.hostIdentity?.pid, run.hostPid, 'Host process identity must match this launch')
+    assert.equal(run.hostIdentity?.parentPid, run.desktopPid, 'Host process identity must retain this desktop parent')
+    assert.equal(run.hostIdentity?.path, run.hostPath, 'Host executable identity must match the launched Host')
+    assert.deepEqual(run.hostIdentity, run.hostIdentityAtRecord, 'Host PID must retain its readiness identity')
+    assert.match(run.hostIdentity?.started ?? '', /^\S+\s+\S+\s+\d+\s+\d+:\d+:\d+\s+\d+$/u)
     assert.equal(run.hostParentPid, run.desktopPid, 'Host must be owned by this desktop')
     assert.equal(run.desktopPath, posix.join(evidence.installedApp, 'Contents/MacOS/dsh-desktop'))
     assert.equal(run.desktopAlive, true)
@@ -496,8 +505,12 @@ export async function verifyMacosNative(options) {
       assert.ok(inside(appDataRoot, ready.runtime.harnessRoot), 'Runtime root is outside the owned data directory')
       const response = await fetch(`http://127.0.0.1:${ready.runtime.port}/`, { signal: AbortSignal.timeout(10000), redirect: 'error' })
       await response.body?.cancel()
+      const hostIdentityAtRecord = await processIdentity(host.pid)
+      assert.ok(hostIdentityAtRecord && sameIdentity(hostIdentityAtRecord, host), 'Host process identity changed before evidence capture')
       const record = { ...ready, desktopPid: desktop.pid, hostPid: host.pid, hostParentPid: host.parentPid,
-        desktopPath: binary, startedAtUnixMs, desktopAlive: true, hostAlive: true, httpStatus: response.status,
+        desktopIdentity: identity, launchIdentity: launch.observedIdentity, hostIdentity: host,
+        hostIdentityAtRecord, desktopPath: binary, hostPath: host.path,
+        startedAtUnixMs, desktopAlive: true, hostAlive: true, httpStatus: response.status,
         runtimeManifestSha256: sha256(await readFile(join(ready.runtime.harnessRoot, '.bundle-manifest.json'))) }
       report.runs.push(record)
       if (options.closeMode === 'gui') {

@@ -73,11 +73,31 @@ function Start-OwnedProgram([string]$Path, [string]$Arguments, [string]$WorkingD
     return [Diagnostics.Process]::Start($info)
 }
 
+function Get-OwnedProcessIdentity([Diagnostics.Process]$Process) {
+    try {
+        $Process.Refresh()
+        if ($Process.HasExited) { return $null }
+        return [ordered]@{
+            pid = $Process.Id
+            startTimeUnixMs = ([DateTimeOffset]$Process.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds()
+            path = $Process.MainModule.FileName
+        }
+    } catch {
+        return $null
+    }
+}
+
+function Assert-SameProcessIdentity($Expected, $Actual, [string]$Label) {
+    if (-not $Actual -or $Expected.pid -ne $Actual.pid -or $Expected.startTimeUnixMs -ne $Actual.startTimeUnixMs -or
+        $Expected.path -ine $Actual.path) { throw "$Label identity changed; PID reuse or replacement detected." }
+}
+
 function Wait-NativeReady([Diagnostics.Process]$Desktop) {
     $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     while ([DateTime]::UtcNow -lt $deadline) {
         $Desktop.Refresh()
         if ($Desktop.HasExited) { throw "Desktop exited before readiness with code $($Desktop.ExitCode)." }
+        Assert-SameProcessIdentity $script:desktopIdentity (Get-OwnedProcessIdentity $Desktop) 'Desktop'
         $window = $Desktop.MainWindowHandle
         $rect = [ClawMasterNativeWindow+Rect]::new()
         $mainVisible = $window -ne [IntPtr]::Zero -and [ClawMasterNativeWindow]::IsWindowVisible($window) -and
@@ -89,12 +109,20 @@ function Wait-NativeReady([Diagnostics.Process]$Desktop) {
                 $hostInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $($runtime.hostPid)"
                 if (-not $hostInfo -or $hostInfo.ParentProcessId -ne $Desktop.Id) { throw 'Ready Host is not owned by this desktop.' }
                 $hostProcess = Get-Process -Id $runtime.hostPid
+                $hostIdentity = Get-OwnedProcessIdentity $hostProcess
+                if (-not $hostIdentity -or $hostIdentity.pid -ne $runtime.hostPid -or $hostIdentity.path -ine $script:node) {
+                    throw 'Ready Host identity is missing or belongs to a different executable.'
+                }
+                $hostIdentityAtRecord = Get-OwnedProcessIdentity $hostProcess
+                Assert-SameProcessIdentity $hostIdentity $hostIdentityAtRecord 'Host'
                 $response = Invoke-WebRequest -Uri "http://127.0.0.1:$($runtime.port)/" -SkipHttpErrorCheck -TimeoutSec 10
                 return @{
                     host = $hostProcess
                     record = [ordered]@{
                         desktopPid = $Desktop.Id; hostPid = $hostProcess.Id; hostParentPid = [int]$hostInfo.ParentProcessId
-                        desktopPath = $Desktop.MainModule.FileName
+                        desktopPath = $script:desktopIdentity.path; desktopIdentity = $script:desktopIdentity
+                        desktopIdentityAtLaunch = $script:desktopIdentity; hostIdentity = $hostIdentity
+                        hostIdentityAtRecord = $hostIdentityAtRecord
                         startedAtUnixMs = ([DateTimeOffset]$Desktop.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds()
                         windowHandle = $window.ToInt64(); windowVisible = $true
                         windowWidth = $rect.Right - $rect.Left; windowHeight = $rect.Bottom - $rect.Top
@@ -169,6 +197,8 @@ try {
     foreach ($attempt in 1..2) {
         Write-Host "Installed desktop native launch $attempt of 2"
         $desktop = Start-OwnedProgram $exe '' $installRoot
+        $script:desktopIdentity = Get-OwnedProcessIdentity $desktop
+        if (-not $script:desktopIdentity) { throw 'Could not establish the installed desktop process identity.' }
         $ready = Wait-NativeReady $desktop
         $ownedHost = $ready.host
         $record = $ready.record

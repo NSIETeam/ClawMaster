@@ -54,6 +54,10 @@ function fixture() {
   const makeRun = (desktopPid, startedAtUnixMs) => ({
     desktopPid, hostPid: desktopPid + 1, hostParentPid: desktopPid,
     desktopPath: `${installedApp}/Contents/MacOS/dsh-desktop`, startedAtUnixMs,
+    desktopIdentity: { pid: desktopPid, parentPid: 1, started: 'Mon Jan 1 00:00:00 2026', path: `${installedApp}/Contents/MacOS/dsh-desktop` },
+    launchIdentity: { pid: desktopPid, parentPid: 1, started: 'Mon Jan 1 00:00:00 2026', path: `${installedApp}/Contents/MacOS/dsh-desktop` },
+    hostPath: '/usr/local/bin/node', hostIdentity: { pid: desktopPid + 1, parentPid: desktopPid, started: 'Mon Jan 1 00:00:01 2026', path: '/usr/local/bin/node' },
+    hostIdentityAtRecord: { pid: desktopPid + 1, parentPid: desktopPid, started: 'Mon Jan 1 00:00:01 2026', path: '/usr/local/bin/node' },
     desktopAlive: true, hostAlive: true, httpStatus: 401,
     runtimeManifestSha256: 'c'.repeat(64), window: { visible: true, width: 1024, height: 684 },
     geometryChecks: [{ mode: 'normal', geometry: geometry() }, { mode: 'narrow', geometry: geometry(900, 600) }],
@@ -274,6 +278,10 @@ test('stale identity, another build, lost markers and incomplete teardown fail a
   for (const mutate of [
     e => { e.runs[1].runtime.runId = e.runs[0].runtime.runId },
     e => { e.runs[0].runtime.desktopPid++ }, e => { e.runs[0].runtime.hostPid++ },
+    e => { e.runs[0].desktopIdentity.started = 'Mon Jan 1 00:00:09 2026' },
+    e => { e.runs[0].desktopIdentity.path = '/Applications/ClawMaster.app/Contents/MacOS/dsh-desktop' },
+    e => { e.runs[0].hostIdentity.parentPid++ },
+    e => { e.runs[0].hostIdentity.started = 'Mon Jan 1 00:00:09 2026' },
     e => { e.runs[0].hostParentPid++ }, e => { e.runs[0].runtime.observedAtUnixMs = 1 },
     e => { e.runs[0].desktopPath = '/Applications/ClawMaster.app/Contents/MacOS/dsh-desktop' },
     e => { e.runs[0].runtime.harnessRoot = `${e.appDataRoot}-other/runtime` },

@@ -40,7 +40,7 @@ Every lane needs successful real-model integration. Desktop lanes separately rec
 
 Run `node apps/desktop-tauri/scripts/release-acceptance.mjs --manifest <manifest.json> --root <artifact-directory> --commit <full-commit> --version <candidate>`. The normal command exits unsuccessfully for incomplete acceptance. `--report-only` returns the incomplete list for preparation; its successful exit is not permission to publish. The source commit must identify the candidate that produced the installers, not the later commit that stores an acceptance report.
 
-The [native Windows collector](../scripts/verify-windows-native.ps1) and [macOS collector](../scripts/verify-macos-native.mjs) establish their documented launch, process ownership and restart observations. Retain their output alongside the additional required scenarios. The checker does not fill missing fields from a passing build. It does not publish, alter a release, install a program or migrate user data.
+The [native Windows collector](../scripts/verify-windows-native.ps1) and [macOS collector](../scripts/verify-macos-native.mjs) establish their documented launch, process ownership and restart observations. Their reports retain executable paths and process creation identities at launch and at readiness; a later sample must still match, so PID reuse or replacement cannot be hidden by a matching numeric PID. Retain their output alongside the additional required scenarios. The checker does not fill missing fields from a passing build. It does not publish, alter a release, install a program or migrate user data.
 
 <a id="current-verification-limits"></a>
 ## Current verification limits

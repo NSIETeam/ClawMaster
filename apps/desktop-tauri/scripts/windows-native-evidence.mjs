@@ -27,6 +27,15 @@ export function verifyWindowsNativeEvidence(evidence, bundle, version) {
   assert.notEqual(first.runtime.runId, second.runtime.runId, 'Relaunch must publish a new run')
   for (const run of evidence.runs) {
     const runtime = run.runtime
+    assert.equal(run.desktopIdentity?.pid, run.desktopPid, 'Desktop process identity must match this launch')
+    assert.deepEqual(run.desktopIdentity, run.desktopIdentityAtLaunch, 'Desktop PID must retain its launch identity')
+    assert.equal(run.desktopIdentity?.path?.toLowerCase(), run.desktopPath.toLowerCase(), 'Desktop executable identity must match the installed app')
+    assert.ok(Number.isSafeInteger(run.desktopIdentity?.startTimeUnixMs), 'Desktop process creation time is required')
+    assert.equal(run.hostIdentity?.pid, run.hostPid, 'Host process identity must match this launch')
+    assert.equal(run.hostIdentity?.parentPid, run.desktopPid, 'Host process identity must retain this desktop parent')
+    assert.ok(Number.isSafeInteger(run.hostIdentity?.startTimeUnixMs), 'Host process creation time is required')
+    assert.ok(typeof run.hostIdentity?.path === 'string' && run.hostIdentity.path.length > 0, 'Host executable identity is required')
+    assert.deepEqual(run.hostIdentity, run.hostIdentityAtRecord, 'Host PID must retain its readiness identity')
     assert.equal(runtime.schemaVersion, 1)
     assert.equal(runtime.status, 'ready')
     assert.equal(runtime.desktopVersion, version)

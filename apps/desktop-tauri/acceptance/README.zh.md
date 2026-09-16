@@ -40,7 +40,7 @@ description: "收集并验证已安装 ClawMaster 候选版本的桌面及 Andro
 
 运行 `node apps/desktop-tauri/scripts/release-acceptance.mjs --manifest <manifest.json> --root <artifact-directory> --commit <full-commit> --version <candidate>`。验收不完整时，正常命令以失败状态退出。`--report-only` 为准备过程返回缺失项；其成功退出不代表允许发布。源码提交必须标识产生安装包的候选版本，不能改成后续保存验收报告的提交。
 
-[Windows 原生收集器](../scripts/verify-windows-native.ps1)与 [macOS 收集器](../scripts/verify-macos-native.mjs)提供各自文档约定的启动、进程归属及重启观测。将其输出与其他必需场景一并保留。校验器不会用构建通过补齐缺失字段，也不会发布、修改版本、安装程序或迁移用户数据。
+[Windows 原生收集器](../scripts/verify-windows-native.ps1)与 [macOS 收集器](../scripts/verify-macos-native.mjs)提供各自文档约定的启动、进程归属及重启观测。报告会保留启动和就绪时的可执行文件路径及进程创建身份；后续采样必须仍然匹配，因此不能用相同的数字 PID 隐藏 PID 复用或进程替换。将其输出与其他必需场景一并保留。校验器不会用构建通过补齐缺失字段，也不会发布、修改版本、安装程序或迁移用户数据。
 
 <a id="current-verification-limits"></a>
 ## 当前验证限制
