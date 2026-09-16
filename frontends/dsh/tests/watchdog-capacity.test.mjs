@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { Context } from '@deepseek-ai/cordis';
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt';
@@ -245,7 +246,7 @@ test('business urgency places review, failure and overdue tasks before newly upd
 });
 
 test('shared task format bundles for browsers without Node imports', async () => {
-  const result = await build({ entryPoints: [new URL('../src/watchdog-task-format.ts', import.meta.url).pathname], bundle: true,
+  const result = await build({ entryPoints: [fileURLToPath(new URL('../src/watchdog-task-format.ts', import.meta.url))], bundle: true,
     platform: 'browser', format: 'esm', write: false, metafile: true });
   assert.ok(Object.keys(result.metafile.inputs).every(path => !path.includes('watchdog-tasks.ts')));
   assert.doesNotMatch(result.outputFiles[0].text, /from ["']node:/);

@@ -123,9 +123,10 @@ test('lowering the read budget reports oversized persisted data without rewritin
   await f.write('large', { nextAction: '汉'.repeat(2000) });
   const before = f.store.snapshot();
   const narrow = await openEnterpriseStore(f.path, 5000, 'local', {}, { maxPageBytes: 1024 });
-  t.after(() => narrow.close());
-  assert.throws(() => narrow.queryPage({ collection: 'contacts', offset: 0, limit: 1 }, 1024), { code: 'result_too_large' });
-  assert.deepEqual(narrow.snapshot(), before);
+  try {
+    assert.throws(() => narrow.queryPage({ collection: 'contacts', offset: 0, limit: 1 }, 1024), { code: 'result_too_large' });
+    assert.deepEqual(narrow.snapshot(), before);
+  } finally { narrow.close(); }
 });
 
 test('startup validates records and audit continuity without materializing a full snapshot', async t => {

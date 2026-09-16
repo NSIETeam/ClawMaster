@@ -45,26 +45,28 @@ test('restore validation and transaction failures retain distinct failed outcome
   store.execute({ revision: 0, commandId: 'a', command: contact('A') });
   assert.throws(() => store.restore({}, 1, 0, LOCAL_HTTP_IDENTITY, 'invalid'));
   const fault = new DatabaseSync(path);
-  t.after(() => fault.close());
-  fault.exec("CREATE TRIGGER fail_restore BEFORE DELETE ON contacts BEGIN SELECT RAISE(ABORT, 'fixture'); END;");
-  assert.throws(() => store.restore(backup, 1, 0, LOCAL_HTTP_IDENTITY, 'failed'), { code: 'storage_invalid' });
-  assert.equal(store.snapshot().contacts[0].name, 'A');
-  assert.equal(store.snapshot().generation, 0);
-  assert.equal(store.responsibility({ commandId: 'failed' }).records[0].outcome, 'failed');
-  assert.equal(store.responsibility({ commandId: 'invalid' }).records[0].reasonCode, 'backup_invalid');
-  assert.equal(store.responsibility({ operation: 'backup.restore' }).records.some(row => row.outcome === 'succeeded'), false);
+  try {
+    fault.exec("CREATE TRIGGER fail_restore BEFORE DELETE ON contacts BEGIN SELECT RAISE(ABORT, 'fixture'); END;");
+    assert.throws(() => store.restore(backup, 1, 0, LOCAL_HTTP_IDENTITY, 'failed'), { code: 'storage_invalid' });
+    assert.equal(store.snapshot().contacts[0].name, 'A');
+    assert.equal(store.snapshot().generation, 0);
+    assert.equal(store.responsibility({ commandId: 'failed' }).records[0].outcome, 'failed');
+    assert.equal(store.responsibility({ commandId: 'invalid' }).records[0].reasonCode, 'backup_invalid');
+    assert.equal(store.responsibility({ operation: 'backup.restore' }).records.some(row => row.outcome === 'succeeded'), false);
+  } finally { fault.close(); }
 });
 
 test('audit append failure aborts business changes and immutable history rejects deletion', async t => {
   const { store, path } = await fixture(t);
   store.execute({ revision: 0, commandId: 'a', command: contact('A') });
   const fault = new DatabaseSync(path);
-  t.after(() => fault.close());
-  assert.throws(() => fault.exec('DELETE FROM responsibility_history'));
-  fault.exec("CREATE TRIGGER fail_audit BEFORE INSERT ON responsibility_history BEGIN SELECT RAISE(ABORT, 'fixture'); END;");
-  assert.throws(() => store.execute({ revision: 1, commandId: 'b', command: contact('B') }));
-  assert.equal(store.snapshot().contacts[0].name, 'A');
-  assert.equal(store.snapshot().revision, 1);
+  try {
+    assert.throws(() => fault.exec('DELETE FROM responsibility_history'));
+    fault.exec("CREATE TRIGGER fail_audit BEFORE INSERT ON responsibility_history BEGIN SELECT RAISE(ABORT, 'fixture'); END;");
+    assert.throws(() => store.execute({ revision: 1, commandId: 'b', command: contact('B') }));
+    assert.equal(store.snapshot().contacts[0].name, 'A');
+    assert.equal(store.snapshot().revision, 1);
+  } finally { fault.close(); }
 });
 
 test('schema 2 audit imports unknown identity and chain tampering prevents reopening', async t => {
@@ -117,10 +119,11 @@ test('HTTP command rejects forged actor and responsibility query is bounded', as
   const { store } = await fixture(t);
   const routes = new Map();
   const dispose = await mountEnterpriseRoutes({ connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return async () => routes.delete(route.path); } } } }, store);
-  t.after(dispose);
-  const send = value => routes.get('/api/clawmaster/enterprise/command')(new Request('http://fixture/command', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value) }));
-  assert.equal((await send({ revision: 0, commandId: 'forged', command: contact('X'), actor: { id: 'administrator' }, approvalId: 'fake' })).status, 400);
-  assert.equal((await send({ revision: 0, commandId: 'valid', command: contact('A') })).status, 200);
-  assert.deepEqual(store.responsibility({ commandId: 'valid' }).records[0].identity, LOCAL_HTTP_IDENTITY);
-  assert.throws(() => store.responsibility({ limit: 501 }));
+  try {
+    const send = value => routes.get('/api/clawmaster/enterprise/command')(new Request('http://fixture/command', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value) }));
+    assert.equal((await send({ revision: 0, commandId: 'forged', command: contact('X'), actor: { id: 'administrator' }, approvalId: 'fake' })).status, 400);
+    assert.equal((await send({ revision: 0, commandId: 'valid', command: contact('A') })).status, 200);
+    assert.deepEqual(store.responsibility({ commandId: 'valid' }).records[0].identity, LOCAL_HTTP_IDENTITY);
+    assert.throws(() => store.responsibility({ limit: 501 }));
+  } finally { await dispose(); }
 });

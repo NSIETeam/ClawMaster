@@ -47,7 +47,7 @@
     },
     {
       "name": "clawmaster_update",
-      "description": "Prepare an exact signed candidate after one user approval. Hot components await Loader activation; other components are staged only, and restarting will not apply them automatically: complete installation separately with the Host stopped. Runtime and native files are verified downloads only.",
+      "description": "Prepare an exact signed candidate after one user approval. Hot components await Loader activation; a maintenance-capable desktop applies staged updater changes before its next Host starts, then waits for actual load confirmation. Runtime and native files are verified downloads only.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -69,6 +69,22 @@
         "required": [
           "kind",
           "version"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "clawmaster_update_rollback",
+      "description": "Restore the updater version before a selected operation after one user approval; apply before the next Host starts without downgrading business databases.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation"
         ],
         "additionalProperties": false
       }
