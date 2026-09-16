@@ -18,6 +18,8 @@ Task response budgets apply to the final HTTP JSON and DSH value/content envelop
 
 The management panel reads and writes through the authenticated task routes. Its transport retains an uncertain command verbatim across panel remounts and blocks replacement writes until the result is known. A list refresh never advances the revision open for review. Definite authorization and revision refusals permit correction; lost or malformed responses require exact retry. The execution list is labelled separately from business tasks; saving is shown as pending only after a response becomes uncertain. Failure and cancellation reasons are not presented as active waiting conditions. The task form separates business owners and deadlines from Session activity, supports explicit historical imports, and exposes evidence submission, rejection, resubmission and human acceptance. Browser tests exercise these actions through registered Host routes and SQLite rather than substituting a state reducer.
 
+Governance callers accept a request or consumer lifetime signal. Cancellation rejects each outstanding identity, membership or approval await, passes the signal to the authority, and prevents a late result from starting the next authorization step. Task and schedule consumers drain the cancelled operations before closing storage. This does not undo an approval already consumed by an external authority; dispatch retains a separate recovery state for that uncertainty.
+
 ## Alternatives considered
 
 **Deriving business state from Session activity.** A stopped Session can mean pending review, failure or cancellation; those outcomes require an explicit task command.

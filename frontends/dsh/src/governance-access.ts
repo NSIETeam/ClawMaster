@@ -27,14 +27,14 @@ export interface GovernanceMembership {
 
 /** A deployment supplies a trusted identity provider and binds DSH Sessions server-side. */
 export interface GovernanceAuthority {
-  http(request: Request): Promise<GovernancePrincipal | undefined>;
-  agent(sessionId: string): Promise<GovernancePrincipal | undefined>;
-  membership(organizationId: string, memberId: string): Promise<GovernanceMembership | undefined>;
+  http(request: Request, signal?: AbortSignal): Promise<GovernancePrincipal | undefined>;
+  agent(sessionId: string, signal?: AbortSignal): Promise<GovernancePrincipal | undefined>;
+  membership(organizationId: string, memberId: string, signal?: AbortSignal): Promise<GovernanceMembership | undefined>;
   /** Consume an exact, single-use approval from a different authorized human. */
   consumeApproval(request: {
     organizationId: string; executorId: string; action: GovernanceAction; resource: string;
     commandId: string; generation: number; revision: number; commandDigest: string;
-  }): Promise<{ id: string; approverId: string } | undefined>;
+  }, signal?: AbortSignal): Promise<{ id: string; approverId: string } | undefined>;
 }
 
 export type GovernanceConfiguration = { mode: 'local' } | {
@@ -69,6 +69,20 @@ export interface GovernanceCaller {
 /** The durable store records metadata without receiving command bodies or exception messages. */
 interface GovernanceOutcomeStore {
   recordOutcome(identity: ExecutionIdentity, operation: string, outcome: 'denied' | 'cancelled' | 'failed', commandId: string | undefined, reasonCode: string): void;
+}
+
+/** Cancellation fences each authority await; a late provider result cannot continue authorization. */
+function waitForAuthority<T>(signal: AbortSignal | undefined, start: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const remove = () => signal?.removeEventListener('abort', abort);
+    const abort = () => { remove(); reject(signal!.reason); };
+    if (signal?.aborted) { abort(); return; }
+    signal?.addEventListener('abort', abort, { once: true });
+    void Promise.resolve().then(() => { signal?.throwIfAborted(); return start(); }).then(value => {
+      remove();
+      if (signal?.aborted) reject(signal.reason); else resolve(value);
+    }, error => { remove(); reject(error); });
+  });
 }
 
 /**
@@ -108,31 +122,37 @@ export class GovernanceAccess {
   }
 
   /** Resolve HTTP identity through the configured authority after the DSH carrier authenticates. */
-  async http(request: Request): Promise<GovernanceCaller> {
-    if (this.config.mode === 'local') return this.local(LOCAL_HTTP_IDENTITY);
-    return this.enterprise(await this.config.authority.http(request), 'http');
+  async http(request: Request, signal: AbortSignal = request.signal): Promise<GovernanceCaller> {
+    signal.throwIfAborted();
+    if (this.config.mode === 'local') return this.local(LOCAL_HTTP_IDENTITY, signal);
+    const config = this.config;
+    return this.enterprise(await waitForAuthority(signal, () => config.authority.http(request, signal)), 'http', undefined, signal);
   }
 
   /** Resolve the agent's initiating member; model arguments cannot select another identity. */
-  async agent(sessionId: string | undefined, callId?: string): Promise<GovernanceCaller> {
+  async agent(sessionId: string | undefined, callId?: string, signal?: AbortSignal): Promise<GovernanceCaller> {
+    signal?.throwIfAborted();
     if (!sessionId) throw new GovernanceDenied('Business tools require an owning agent Session.');
     if (this.config.mode === 'local') return this.local({ ...LOCAL_HTTP_IDENTITY,
-      actor: { kind: 'agent', id: sessionId }, source: 'tool', sessionId, ...(callId ? { callId } : {}) });
-    const principal = await this.config.authority.agent(sessionId);
+      actor: { kind: 'agent', id: sessionId }, source: 'tool', sessionId, ...(callId ? { callId } : {}) }, signal);
+    const config = this.config;
+    const principal = await waitForAuthority(signal, () => config.authority.agent(sessionId, signal));
     if (principal?.actor !== 'agent' || principal.sessionId !== sessionId) throw new GovernanceDenied('The Session has no authenticated enterprise owner.');
-    return this.enterprise(principal, 'tool', callId);
+    return this.enterprise(principal, 'tool', callId, signal);
   }
 
-  private local(identity: ExecutionIdentity): GovernanceCaller {
+  private local(identity: ExecutionIdentity, signal?: AbortSignal): GovernanceCaller {
     return { identity, check: async action => {
+      signal?.throwIfAborted();
       if (action === 'task.review' && identity.actor.kind !== 'local-human') throw new GovernanceDenied('Only a human can accept a task.');
       return identity;
     }, checkOwner: async owner => {
+      signal?.throwIfAborted();
       if (owner.kind !== 'local') throw new GovernanceDenied('Local mode has no authenticated organization members.');
     }, approve: async () => { throw new GovernanceDenied('Local approvals are provided by the DSH one-shot approval service.'); } };
   }
 
-  private enterprise(principal: GovernancePrincipal | undefined, source: 'http' | 'tool', callId?: string): GovernanceCaller {
+  private enterprise(principal: GovernancePrincipal | undefined, source: 'http' | 'tool', callId?: string, signal?: AbortSignal): GovernanceCaller {
     const config = this.config;
     if (config.mode !== 'enterprise' || !principal || principal.organizationId !== config.organizationId) throw new GovernanceDenied();
     const identity: ExecutionIdentity = {
@@ -141,8 +161,8 @@ export class GovernanceAccess {
       ...(principal.sessionId ? { sessionId: principal.sessionId } : {}), ...(callId ? { callId } : {}),
     };
     const check = async (action: GovernanceAction, resource = '*'): Promise<ExecutionIdentity> => {
-      const memberships = await Promise.all([principal.memberId, ...(principal.delegatorId ? [principal.delegatorId] : [])]
-        .map(member => config.authority.membership(config.organizationId, member)));
+      const memberships = await waitForAuthority(signal, () => Promise.all([principal.memberId, ...(principal.delegatorId ? [principal.delegatorId] : [])]
+        .map(member => config.authority.membership(config.organizationId, member, signal))));
       identity.policyVersion = Math.max(0, ...memberships.map(member => member?.policyVersion ?? 0));
       if (memberships.some(member => !member?.active || !member.roles.some(role => roleActions[role].includes(action))
         || (!member.resources.includes('*') && !member.resources.includes(resource)))
@@ -150,15 +170,15 @@ export class GovernanceAccess {
       return { ...identity };
     };
     return { identity, check, checkOwner: async owner => {
-      if (owner.kind !== 'member' || !(await config.authority.membership(config.organizationId, owner.id))?.active) {
+      if (owner.kind !== 'member' || !(await waitForAuthority(signal, () => config.authority.membership(config.organizationId, owner.id, signal)))?.active) {
         throw new GovernanceDenied('The task owner must be an active member of this organization.');
       }
     }, approve: async (action, resource, commandId, generation, revision, commandDigest) => {
       await check(action, resource);
-      const approval = await config.authority.consumeApproval({ organizationId: config.organizationId, executorId: principal.memberId,
-        action, resource, commandId, generation, revision, commandDigest });
+      const approval = await waitForAuthority(signal, () => config.authority.consumeApproval({ organizationId: config.organizationId, executorId: principal.memberId,
+        action, resource, commandId, generation, revision, commandDigest }, signal));
       if (!approval || approval.approverId === principal.memberId) throw new GovernanceDenied('A distinct authorized approver is required.', 'approval_missing');
-      const approver = await config.authority.membership(config.organizationId, approval.approverId);
+      const approver = await waitForAuthority(signal, () => config.authority.membership(config.organizationId, approval.approverId, signal));
       if (!approver?.active || !approver.roles.includes('approver')
         || (!approver.resources.includes('*') && !approver.resources.includes(resource))) throw new GovernanceDenied('The approver no longer has permission.', 'approver_invalid');
       return { ...await check(action, resource), approval: { ...approval, generation, revision } };

@@ -52,6 +52,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
   })();
   try {
     removals.push(ctx.connection.fetch.register({ path: tasksPath, methods: ['GET'], requestBody: 'buffered', fetch: request => run(async () => {
+      const signal = AbortSignal.any([lifetime.signal, request.signal]);
       const search = new URL(request.url).searchParams;
       const values: Record<string, unknown> = Object.fromEntries(search);
       if ([...search.keys()].some(key => search.getAll(key).length !== 1)) throw new EnterpriseError('invalid_request', 'Task query fields must not repeat.');
@@ -62,16 +63,16 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
         catch { throw new EnterpriseError('invalid_request', 'Task list cursor must be JSON.'); }
       }
       const input = querySchema.parse(values);
-      const caller = await access.http(request);
+      const caller = await access.http(request, signal);
       const identity = await auditGovernanceOutcome(caller, store, 'task.read', undefined, () => caller.check('task.read', input.id ?? '*'));
       lifetime.signal.throwIfAborted(); request.signal.throwIfAborted();
       return Response.json(query(identity, input), { headers: { 'cache-control': 'no-store' } });
     }).catch(failure) }));
     removals.push(ctx.connection.fetch.register({ path: commandPath, methods: ['POST'], requestBody: 'buffered', fetch: request => run(async () => {
-      const caller = await access.http(request);
+      const signal = AbortSignal.any([request.signal, lifetime.signal]);
+      const caller = await access.http(request, signal);
       if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') throw new EnterpriseError('invalid_request', 'Task commands require JSON.');
       const input = taskRequestSchema.parse(await request.json());
-      const signal = AbortSignal.any([request.signal, lifetime.signal]);
       return auditGovernanceOutcome(caller, store, `task.${input.command.type}`, input.commandId, async () => {
         if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
         const action = input.command.type === 'review' ? 'task.review' : 'task.write';
@@ -91,7 +92,8 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       output: { schema: taskQueryOutput, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
       execute: (args, exec) => run(async () => {
         const input = querySchema.parse(args);
-        const caller = await access.agent(exec.agent?.id, exec.callId);
+        const signal = AbortSignal.any([exec.signal, lifetime.signal]);
+        const caller = await access.agent(exec.agent?.id, exec.callId, signal);
         const identity = await auditGovernanceOutcome(caller, store, 'task.read', undefined, () => caller.check('task.read', input.id ?? '*'));
         lifetime.signal.throwIfAborted(); exec.signal.throwIfAborted();
         return query(identity, input);
@@ -104,8 +106,8 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       output: { schema: taskCommandOutput, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
       execute: (args, exec) => run(async () => {
         const input = taskRequestSchema.parse(args);
-        const caller = await access.agent(exec.agent?.id, exec.callId);
         const signal = AbortSignal.any([exec.signal, lifetime.signal]);
+        const caller = await access.agent(exec.agent?.id, exec.callId, signal);
         return auditGovernanceOutcome(caller, store, `task.${input.command.type}`, input.commandId, async () => {
           if (['review', 'cancel', 'reopen'].includes(input.command.type)) throw new GovernanceDenied('This task action requires a human.');
           const checked = await caller.check('task.write', input.id);

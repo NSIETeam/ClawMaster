@@ -30,6 +30,54 @@ function authorityFixture() {
   return { members, principals, grants, authority, access };
 }
 
+for (const phase of ['http', 'agent', 'membership', 'consumeApproval', 'owner']) test(`cancellation fences ${phase} and does not continue a late authorization`, async () => {
+  const h = authorityFixture(); const control = new AbortController();
+  const arrived = Promise.withResolvers(); const release = Promise.withResolvers();
+  const key = phase === 'owner' ? 'membership' : phase;
+  const original = h.authority[key];
+  h.authority[key] = async (...args) => {
+    assert.equal(args.at(-1), control.signal);
+    arrived.resolve(); await release.promise;
+    return original(...args);
+  };
+  let consumed = 0;
+  if (phase !== 'consumeApproval') h.authority.consumeApproval = async () => { consumed++; return undefined; };
+  const start = async () => {
+    if (phase === 'http') return h.access.http(new Request('http://fixture'), control.signal);
+    const caller = await h.access.agent('session-alice', 'cancelled-operation', control.signal);
+    if (phase === 'agent') return caller;
+    if (phase === 'owner') return caller.checkOwner({ kind: 'member', id: 'alice' });
+    return caller.approve('records.write', 'customer', 'command', 0, 0, 'digest');
+  };
+  let settled = false;
+  const failure = new Error('Operation stopped');
+  const result = start().then(() => ({ ok: true }), error => { settled = true; return { error }; });
+  await arrived.promise; control.abort(failure); await new Promise(setImmediate);
+  const cancelledBeforeProviderFinished = settled;
+  release.resolve(); const output = await result; await new Promise(setImmediate);
+  assert.equal(cancelledBeforeProviderFinished, true);
+  assert.equal(output.error, failure);
+  assert.equal(consumed, 0, 'A late membership result must not initiate approval consumption.');
+});
+
+test('task consumer unload cancels an unresolved identity without waiting for the provider or writing later', async t => {
+  const h = authorityFixture(); const store = await openEnterpriseStore(':memory:', 5000, 'one');
+  const arrived = Promise.withResolvers(); const release = Promise.withResolvers();
+  h.authority.http = async () => { arrived.resolve(); await release.promise; return h.principals.get('alice'); };
+  const routes = new Map();
+  const remove = await mountWatchdogTasks({ connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return () => routes.delete(route.path); } } },
+    tools: { register() { return () => {}; } }, approval: { request: async () => 'allowed-once' } }, store, h.access);
+  t.after(async () => { release.resolve(); await remove(); store.close(); });
+  const result = routes.get('/api/clawmaster/tasks')(new Request('http://fixture/api/clawmaster/tasks'));
+  await arrived.promise;
+  let closed = false; const closing = remove().then(() => { closed = true; });
+  await new Promise(setImmediate); const beforeRelease = closed;
+  release.resolve(); await closing;
+  assert.equal(beforeRelease, true);
+  assert.equal((await result).status, 503);
+  assert.equal(store.responsibility().records.length, 0);
+});
+
 test('current roles and resource grants are rechecked after revocation, including delegator limits', async () => {
   const h = authorityFixture();
   const alice = await h.access.http(new Request('http://fixture', { headers: { authorization: 'alice' } }));
@@ -282,7 +330,7 @@ for (const outcome of ['rejected', 'cancelled', 'unavailable', 'failure', 'abort
   assert.equal(store.tasks.list(entries[0].identity).tasks.length, 0);
   assert.equal(entries[0].revisionBefore, entries[0].revisionAfter);
   assert.equal(entries[0].generationBefore, entries[0].generationAfter);
-  await assert.rejects(tools.get(exec.name).execute(input, { ...exec, agent: { id: 'unbound-session' } }), { code: 'permission_denied' });
+  await assert.rejects(tools.get(exec.name).execute(input, { ...exec, agent: { id: 'unbound-session' }, signal: new AbortController().signal }), { code: 'permission_denied' });
   assert.equal(store.responsibility().records.length, 1);
 });
 

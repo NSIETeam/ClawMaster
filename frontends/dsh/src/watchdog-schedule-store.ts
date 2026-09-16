@@ -88,20 +88,28 @@ export class WatchdogScheduleStore {
     return instanceSchema.parse(row);
   }
 
+  /** Read an exact authenticated command receipt without consuming another execution approval. */
+  replay(identity: ExecutionIdentity, request: ScheduleCommand, transport: 'http' | 'tool' = 'http'): unknown | undefined {
+    this.requireOrganization(identity);
+    const serialized = JSON.stringify(request);
+    const actor = JSON.stringify({ actor: identity.actor, principalId: identity.principalId, organizationId: identity.organizationId });
+    const replay = this.db.prepare('SELECT request,actor,result FROM schedule_commands WHERE id=?').get(request.commandId);
+    if (!replay) return undefined;
+    const receipt = sqliteRow.parse(replay);
+    if (receipt.request !== serialized || receipt.actor !== actor) fail('command_conflict', 'Schedule command identity was already used.');
+    const result = { ...sqliteRow.parse(JSON.parse(String(receipt.result))), commandId: request.commandId };
+    if (scheduleResponseBytes(result, transport) > this.config.maxQueryBytes) fail('response_too_large', 'Schedule command receipt exceeds the response budget.');
+    return result;
+  }
+
   /** Execute a caller-authorized command exactly once, retaining its actor and result. */
   command(identity: ExecutionIdentity, request: ScheduleCommand, now: number, transport: 'http' | 'tool' = 'http'): unknown {
     this.requireOrganization(identity);
     const serialized = JSON.stringify(request);
     const actor = JSON.stringify({ actor: identity.actor, principalId: identity.principalId, organizationId: identity.organizationId });
     return this.transaction(() => {
-      const replay = this.db.prepare('SELECT request,actor,result FROM schedule_commands WHERE id=?').get(request.commandId);
-      if (replay) {
-        const receipt = sqliteRow.parse(replay);
-        if (receipt.request !== serialized || receipt.actor !== actor) fail('command_conflict', 'Schedule command identity was already used.');
-        const result = { ...sqliteRow.parse(JSON.parse(String(receipt.result))), commandId: request.commandId };
-        if (scheduleResponseBytes(result, transport) > this.config.maxQueryBytes) fail('response_too_large', 'Schedule command receipt exceeds the response budget.');
-        return result;
-      }
+      const replay = this.replay(identity, request, transport);
+      if (replay) return replay;
       const command = request.command;
       if (command.type === 'create') {
         const total = countRow.parse(this.db.prepare('SELECT COUNT(*) AS n FROM schedule_plans').get()).n;

@@ -100,6 +100,38 @@ test('missing real DSH approval answerer rejects a tool grant without changing t
   h.runtime.tick(); assert.equal(h.ctx.jobs.list(h.handle.agent).length, 0);
 });
 
+test('an exact committed tool retry reads its authorized receipt without requesting another approval', async t => {
+  const h = await fixture(t); const instance = h.seed();
+  h.handle.agent.session.append('turn/start', { turn: 1 });
+  let approvals = 0;
+  h.services.approval = { request: async () => ++approvals === 1 ? 'allowed-once' : 'rejected' };
+  const definition = h.definitions.get('watchdog_schedule_command');
+  const execution = { agent: h.handle.agent, callId: 'grant-once', name: definition.name, signal: new AbortController().signal };
+  const args = { request: JSON.stringify({ commandId: 'same-grant', command: { type: 'approve', id: 'plan', instanceId: instance.id } }) };
+  const first = await definition.execute(args, execution);
+  const replay = await definition.execute(args, { ...execution, callId: 'read-receipt' });
+  assert.equal(first, replay); assert.equal(approvals, 1);
+  assert.equal(h.store.history(human, 'plan').records.filter(row => row.action === 'approve').length, 1);
+});
+
+for (const phase of ['http', 'membership']) test(`unload cancels a pending ${phase} authority read and fences its late response`, async t => {
+  const auth = enterpriseAccess(); const h = await fixture(t, auth.access, auth.identity);
+  const arrived = Promise.withResolvers(); const release = Promise.withResolvers();
+  t.after(() => release.resolve());
+  const original = auth.authority[phase];
+  auth.authority[phase] = async (...args) => { arrived.resolve(); await release.promise; return original(...args); };
+  const response = h.read('?id=plan');
+  await arrived.promise;
+  let closed = false;
+  const closing = h.remove().then(() => { closed = true; });
+  await new Promise(setImmediate);
+  const beforeRelease = closed;
+  release.resolve(); await closing;
+  assert.equal(beforeRelease, true, 'Unloading must not depend on the authority provider finishing.');
+  assert.equal((await response).status, 503);
+  assert.equal(h.store.query(auth.identity, Date.now()).records.length, 0);
+});
+
 test('keyless scheduled model input matches the owner-local recorded output', async t => {
   const h = await fixture(t);
   const now = Date.now();

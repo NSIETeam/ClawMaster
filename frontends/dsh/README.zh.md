@@ -89,6 +89,8 @@ Schema 3 迁移新增业务快照以外的责任历史。业务写入和恢复�
 
 ### 业务任务与身份接口
 
+治理消费者将请求及插件生命周期取消信号传入身份、成员和审批调用。提供者迟到响应时，被取消的调用不能继续授权；权威服务收到同一个信号，以停止自身工作。取消不撤销外部已消费的批准。
+
 Host 选项 `watchdogTasks.maxResponseBytes` 设置完整任务响应的 UTF-8 字节预算，包含 DSH 结构化值和渲染文本；默认 65536，接受至少 1024 的整数。超预算的写入在提交任务、历史行或成功回执前失败。列表依次优先显示待验收、失败、逾期及其他任务；每页返回 `{ tasks, nextCursor }`。继续读取时原样传入 `cursor`（HTTP 中使用 JSON 编码），保持同一集合版本及紧急程度判断时间；写入后旧游标返回 `revision_conflict`。历史返回 `{ tasks, nextAfter }`：传入 `id`、`history=true`、`after` 和 `limit` 继续读取不可变修订。两种分页都可能为满足字节预算而少于请求数量。浏览器只保留一页任务和一页历史；刷新列表或重新读取历史回到第一页，不推进已打开任务的修订。已有记录超限会明确返回 `response_too_large`（HTTP 413），不会截断或改写数据。浏览器与 Host 共享 [watchdog-task-format.ts](src/watchdog-task-format.ts) 中不依赖 Node 的校验。
 
 `watchdog_task_query` 和 `watchdog_task_command` 管理持久任务，包含负责人、期限/时区、风险、范围、验收项、证据和关联 DSH Session。业务状态包括草稿、待执行、处理中、待验收、验收通过、失败和取消。等待与逾期标记独立于 Session 活动。代理提交证据，不能验收、重新打开或取消任务。人工驳回使任务回到待执行，同时保留以往证据和验收历史。命令携带任务修订和幂等标识；显式导入 Session 只创建草稿，不会推断历史成功。`/api/clawmaster/tasks` 可读取分页、一个 `id` 或其 `history=true`；`/api/clawmaster/tasks/command` 接收共享命令信封。这些记录不参与 CRM/ERP 恢复。人工检查位置前，证据引用明确属于未核实状态；Host 不会抓取任意证据 URL。

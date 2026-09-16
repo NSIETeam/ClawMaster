@@ -99,8 +99,8 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
     description: `Query CRM contacts, inventory, purchase/sale orders or the durable audit log. Select one collection and filter by id, record text or collection-specific filters; use offset/limit (maximum ${config.maxQueryRows}) and nextOffset to page. Both generation and revision are required for every continuation and writes. Results are limited to ${config.maxQueryBytes} UTF-8 bytes; a page may contain fewer rows than requested. Money is in CNY minor units.`,
     parameters: enterpriseQueryParameters,
     output: { schema: enterpriseQueryOutput, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
-    execute: (args, exec) => run(exec, async () => {
-      const caller = await access.agent(exec.agent?.id, exec.callId);
+    execute: (args, exec) => run(exec, async signal => {
+      const caller = await access.agent(exec.agent?.id, exec.callId, signal);
       const query = querySchema.parse(args);
       const action = query.collection === 'audit' ? 'audit.read' : 'records.read';
       await auditGovernanceOutcome(caller, store, action, undefined, () => caller.check(action, query.id ?? '*'));
@@ -120,7 +120,7 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
     execute: (args, exec) => run(exec, async signal => {
       const agent = exec.agent;
       if (!agent) throw new Error('enterprise_command requires an owning DSH agent session.');
-      const caller = await access.agent(agent.id, exec.callId);
+      const caller = await access.agent(agent.id, exec.callId, signal);
       const candidate = parseEnterpriseRequest(commandEnvelope.parse(args).request);
       const candidateCommand = candidate.command;
       const candidateResource = 'id' in candidateCommand ? candidateCommand.id : 'contact' in candidateCommand ? candidateCommand.contact.id

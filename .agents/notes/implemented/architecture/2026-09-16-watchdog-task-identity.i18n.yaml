@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-16-watchdog-task-identity.md
-2026-09-16-watchdog-task-identity.md: cc4ee198a65e973a84fe1a405fdec314ff276261
-2026-09-16-watchdog-task-identity.zh.md: 8a09ca009024f0e8d24e39e69ab86896fa4968d8
+2026-09-16-watchdog-task-identity.md: a7d14cf9183c0a404aa91f13f29ee1d5848c2d6c
+2026-09-16-watchdog-task-identity.zh.md: 9f089eda11e981c2fe156993c4ec24b19d492633

@@ -63,8 +63,11 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
   };
   const command = async (caller: GovernanceCaller, input: ScheduleCommand, signal: AbortSignal, transport: 'http' | 'tool') => {
     const identity = await caller.check('task.write', input.command.id);
+    signal.throwIfAborted();
+    const replay = store.replay(identity, input, transport);
+    if (replay) return bounded(replay, store.config.maxQueryBytes, transport);
     if (input.command.type === 'create') {
-      const bound = await access.agent(input.command.sessionId);
+      const bound = await access.agent(input.command.sessionId, undefined, signal);
       const executor = await bound.check('task.write', input.command.id);
       if (executor.organizationId !== identity.organizationId || (access.mode === 'enterprise' && executor.principalId !== identity.principalId)) throw new GovernanceDenied('Bind a Session owned by the plan creator.');
     }
@@ -81,25 +84,26 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
   })();
   try {
     removals.push(ctx.connection.fetch.register({ path, methods: ['GET'], requestBody: 'buffered', fetch: request => run(async () => {
+      const signal = AbortSignal.any([lifetime.signal, request.signal]);
       const search = new URL(request.url).searchParams;
       for (const key of search.keys()) if (!['id', 'after', 'workersAfter', 'limit', 'history'].includes(key) || search.getAll(key).length !== 1) throw new WatchdogScheduleError('invalid_request', 'Unknown or repeated schedule query field.');
       if (search.has('history') && !['true', 'false'].includes(search.get('history')!)) throw new WatchdogScheduleError('invalid_request', 'history must be true or false.');
-      const value = await query(await access.http(request), { ...(search.has('id') ? { id: search.get('id') } : {}),
+      const value = await query(await access.http(request, signal), { ...(search.has('id') ? { id: search.get('id') } : {}),
         after: Number(search.get('after') ?? 0), workersAfter: Number(search.get('workersAfter') ?? 0), limit: Number(search.get('limit') ?? 50), history: search.get('history') === 'true' }, 'http');
       return new Response(value, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
     }).catch(failure) }));
     removals.push(ctx.connection.fetch.register({ path: `${path}/command`, methods: ['POST'], requestBody: 'buffered', fetch: request => run(async () => {
+      const signal = AbortSignal.any([lifetime.signal, request.signal]);
       if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') throw new WatchdogScheduleError('invalid_request', 'Schedule commands require JSON.');
-      const caller = await access.http(request);
+      const caller = await access.http(request, signal);
       if (!['local-human', 'member'].includes(caller.identity.actor.kind)) throw new GovernanceDenied('This path requires a human caller.');
       const input = scheduleCommandSchema.parse(await request.json());
-      const signal = AbortSignal.any([lifetime.signal, request.signal]);
       const value = await auditGovernanceOutcome(caller, enterprise, `schedule.${input.command.type}`, input.commandId, () => command(caller, input, signal, 'http'), signal);
       return new Response(value, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
     }).catch(failure) }));
     removals.push(ctx.tools.register({ name: 'watchdog_schedule_query', description: 'Read persistent WatchDog plans, occurrences, heartbeats and history. after/nextAfter pages complete records within the output byte budget; workersAfter/workerSummary.nextAfter independently pages workers. workerSummary counts every current worker by status, including those on later pages. A single oversized record fails explicitly. Stale heartbeat means the worker is offline; dispatched confirms durable input delivery, not business completion. HTTP observation requires no live agent.',
       parameters: queryParameters, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: String(value) }] },
-      execute: (args, exec) => run(async () => { exec.signal.throwIfAborted(); return query(await access.agent(exec.agent?.id, exec.callId), args, 'tool'); }),
+      execute: (args, exec) => run(async () => { const signal = AbortSignal.any([lifetime.signal, exec.signal]); signal.throwIfAborted(); return query(await access.agent(exec.agent?.id, exec.callId, signal), args, 'tool'); }),
       presentCall: args => ({ card: 'generic', title: 'Read WatchDog schedules', kind: 'search', rawInput: JSON.stringify(args) }),
       presentResult: (_args, result) => ({ card: 'generic', title: 'WatchDog schedules', content: result.content }),
     }));
@@ -108,11 +112,14 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
       execute: (args, exec) => run(async () => {
         const value = z.object({ request: z.string().max(16000) }).strict().parse(args);
         const input = scheduleCommandSchema.parse(JSON.parse(value.request));
-        const caller = await access.agent(exec.agent?.id, exec.callId);
         const signal = AbortSignal.any([lifetime.signal, exec.signal]);
+        const caller = await access.agent(exec.agent?.id, exec.callId, signal);
         return auditGovernanceOutcome(caller, enterprise, `schedule.${input.command.type}`, input.commandId, async () => {
           if (!exec.agent || input.command.type === 'resolve-uncertain') throw new GovernanceDenied('Only a human may resolve uncertain dispatch.');
-          await caller.check('task.write', input.command.id);
+          const identity = await caller.check('task.write', input.command.id);
+          signal.throwIfAborted();
+          const replay = store.replay(identity, input, 'tool');
+          if (replay) return bounded(replay, store.config.maxQueryBytes, 'tool');
           const outcome = await ctx.approval.request({ agent: exec.agent, callId: exec.callId, toolName: exec.name, reason: `Approve only this schedule command: ${JSON.stringify(input)}`, signal });
           if (outcome !== 'allowed-once') throw new GovernanceDenied('Schedule command was not approved.');
           if (access.mode === 'local') caller.identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: 0, revision: 0 };
