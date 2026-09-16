@@ -41,6 +41,8 @@ function bounded(value: unknown, maxBytes: number, transport: 'http' | 'tool'): 
  */
 export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & EnterpriseToolContext & WatchdogScheduleServices,
   store: WatchdogScheduleStore, enterprise: EnterpriseStore, access: GovernanceAccess): Promise<() => Promise<void>> {
+  access.assertOrganization(store.organizationId);
+  access.assertOrganization(enterprise.organizationId);
   const lifetime = new AbortController();
   const pending = new Set<Promise<unknown>>();
   const removals: Array<() => unknown> = [];

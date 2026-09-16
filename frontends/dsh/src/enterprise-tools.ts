@@ -71,6 +71,7 @@ function readPage(store: EnterpriseStore, value: unknown, config: z.output<typeo
  * @returns Idempotent withdrawal, cancellation and drain. Close the store only after this and route cleanup settle.
  */
 export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: EnterpriseStore, options: EnterpriseToolConfig = {}, access = new GovernanceAccess()): Promise<() => Promise<void>> {
+  access.assertOrganization(store.organizationId);
   const config = configSchema.parse(options);
   const lifetime = new AbortController();
   const pending = new Set<Promise<unknown>>();

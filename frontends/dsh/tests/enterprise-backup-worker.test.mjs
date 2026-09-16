@@ -8,9 +8,9 @@ import { openEnterpriseStore, mountEnterpriseRoutes } from '../src/enterprise-ho
 import { GovernanceAccess } from '../src/governance-access.ts';
 import { parseEnterpriseBackup } from '../src/enterprise-schema.ts';
 const base = '/api/clawmaster/enterprise';
-async function fixture(t, { config = {}, access = new GovernanceAccess() } = {}) {
+async function fixture(t, { config = {}, access = new GovernanceAccess(), organizationId = 'local' } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'cm-backup-test-'));
-  const store = await openEnterpriseStore(join(directory, 'enterprise.sqlite'));
+  const store = await openEnterpriseStore(join(directory, 'enterprise.sqlite'), 5000, organizationId);
   const routes = new Map();
   const dispose = await mountEnterpriseRoutes({ connection: { fetch: { register(route) { routes.set(route.path, route); return async () => routes.delete(route.path); } } } }, store, access, config);
   t.after(async () => { await dispose(); store.close(); await rm(directory, { recursive: true, force: true }); });
@@ -84,7 +84,7 @@ test('restore responsibility records the final checked policy and retains the in
 });
 test('authority revoked across approval prevents restore and records denial', async t => {
   const authority = enterpriseAuthority();
-  const f = await fixture(t, { access: authority.access });
+  const f = await fixture(t, { access: authority.access, organizationId: 'acme' });
   const prepared = await (await f.upload(f.store.backup())).json();
   authority.onFinalCheck(async () => authority.revoke());
   assert.equal((await f.restore(prepared)).status, 403);
@@ -98,7 +98,7 @@ function barrier() {
     arrive: () => arrive(), release: () => release() };
 }
 test('cancel at final authority check waits for worker rollback before accepting another write', async t => {
-  const authority = enterpriseAuthority(); const f = await fixture(t, { access: authority.access });
+  const authority = enterpriseAuthority(); const f = await fixture(t, { access: authority.access, organizationId: 'acme' });
   const prepared = await (await f.upload(f.store.backup())).json();
   const gate = barrier(); const controller = new AbortController();
   authority.onFinalCheck(async index => { if (index === 2) { gate.arrive(); await gate.wait; } });
@@ -115,7 +115,7 @@ test('cancel at final authority check waits for worker rollback before accepting
   assert.equal((await f.restore(prepared)).status, 400);
 });
 test('membership revoked while worker holds transaction prevents final COMMIT', async t => {
-  const authority = enterpriseAuthority(); const f = await fixture(t, { access: authority.access });
+  const authority = enterpriseAuthority(); const f = await fixture(t, { access: authority.access, organizationId: 'acme' });
   const prepared = await (await f.upload(f.store.backup())).json();
   authority.onFinalCheck(async index => { if (index === 2) authority.revoke(); });
   const before = f.store.snapshot();
@@ -209,7 +209,7 @@ for (const path of ['', '/backup/prepare']) test(`disposal cancels unresolved id
     async agent() { return undefined; }, async membership() { throw new Error('Cancelled resolution must not query membership.'); },
     async consumeApproval() { throw new Error('Cancelled resolution must not approve.'); },
   };
-  const f = await fixture(t, { access: new GovernanceAccess({ mode: 'enterprise', organizationId: 'acme', authority }) });
+  const f = await fixture(t, { access: new GovernanceAccess({ mode: 'enterprise', organizationId: 'acme', authority }), organizationId: 'acme' });
   const response = f.fetch(path, path ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' } : undefined);
   await gate.reached;
   await f.dispose();

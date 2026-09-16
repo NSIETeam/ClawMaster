@@ -109,6 +109,7 @@ function verifyEnterpriseRecords(db: DatabaseSync): void {
 export class EnterpriseStore {
   readonly tasks: WatchdogTaskStore;
   readonly readLimits: Readonly<z.output<typeof readConfigSchema>>;
+  private readonly boundOrganizationId: string;
   private closed = false;
   private readonly backupPeaks: Record<string, number> = {};
   private writerWaitUsers = 0;
@@ -117,6 +118,7 @@ export class EnterpriseStore {
 
   constructor(db: DatabaseSync, taskConfig: WatchdogTaskConfig = {}, readConfig: EnterpriseReadConfig = {}) {
     this.db = db;
+    this.boundOrganizationId = z.string().min(1).parse(sqliteRow.parse(db.prepare('SELECT organizationId FROM enterprise_organization WHERE singleton=1').get()).organizationId);
     this.tasks = new WatchdogTaskStore(db, taskConfig);
     this.readLimits = Object.freeze(readConfigSchema.parse(readConfig));
     (db as SearchDatabase).function('clawmaster_contains', { deterministic: true }, (value, search) => {
@@ -124,6 +126,9 @@ export class EnterpriseStore {
       return Number(value.toLowerCase().includes(search));
     });
   }
+
+  /** Organization stored by the database owner; local is the device-owned namespace. */
+  get organizationId(): string { this.assertOpen(); return this.boundOrganizationId; }
 
   /** Query responsibility metadata that is never replaced by business restore. */
   responsibility(value: unknown = {}) {
@@ -825,6 +830,7 @@ export async function applyEnterpriseHost(ctx: EnterpriseHostContext, config: {
  * @returns Idempotent route withdrawal and request drain; the caller closes the store afterward.
  */
 export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: EnterpriseStore, access = new GovernanceAccess(), backupConfig: EnterpriseBackupConfig = {}): Promise<() => Promise<void>> {
+  access.assertOrganization(store.organizationId);
   const disposers: (() => Promise<void>)[] = [];
   const pending = new Set<Promise<Response>>();
   const lifetime = new AbortController();

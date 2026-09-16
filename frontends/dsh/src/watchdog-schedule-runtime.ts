@@ -40,7 +40,7 @@ export class WatchdogScheduleRuntime {
   private detachController: (() => void) | undefined;
   private disposal: Promise<void> | undefined;
 
-  constructor(private readonly services: WatchdogScheduleServices, private readonly store: WatchdogScheduleStore, private readonly access: GovernanceAccess) {}
+  constructor(private readonly services: WatchdogScheduleServices, private readonly store: WatchdogScheduleStore, private readonly access: GovernanceAccess) { access.assertOrganization(store.organizationId); }
 
   /** Start only inside the explicitly loaded Host; no operating-system service is created. */
   start(): void {

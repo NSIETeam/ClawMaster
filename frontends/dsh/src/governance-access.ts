@@ -121,6 +121,17 @@ export class GovernanceAccess {
     }
   }
 
+  /**
+   * Refuse a deployment that connects consumers to another organization's durable data.
+   * @param organizationId Binding read by the database owner, never request JSON.
+   */
+  assertOrganization(organizationId: string): void {
+    const expected = this.config.mode === 'enterprise' ? this.config.organizationId : 'local';
+    if (organizationId !== expected || (this.config.mode === 'enterprise' && expected === 'local')) {
+      throw new Error('Invalid governance configuration: organization mismatch.');
+    }
+  }
+
   /** Resolve HTTP identity through the configured authority after the DSH carrier authenticates. */
   async http(request: Request, signal: AbortSignal = request.signal): Promise<GovernanceCaller> {
     signal.throwIfAborted();

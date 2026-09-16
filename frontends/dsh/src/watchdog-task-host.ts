@@ -24,6 +24,7 @@ function failure(error: unknown): Response {
 
 /** Register the actual task paths and tools, draining in-flight work before the shared database closes. */
 export async function mountWatchdogTasks(ctx: EnterpriseHostContext & EnterpriseToolContext, store: EnterpriseStore, access: GovernanceAccess): Promise<() => Promise<void>> {
+  access.assertOrganization(store.organizationId);
   const lifetime = new AbortController();
   const pending = new Set<Promise<unknown>>();
   const removals: Array<() => unknown> = [];
