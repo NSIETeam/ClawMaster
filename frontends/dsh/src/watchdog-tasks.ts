@@ -124,21 +124,35 @@ export class WatchdogTaskStore {
       .all(identity.organizationId, taskId, after).map(value => taskRecordSchema.parse(JSON.parse(rowSchema.parse(value).body)));
   }
 
+  /**
+   * Return an exact committed command's result; conflicting reuse fails.
+   * @param identity Caller whose current resource authorization was checked by the consumer.
+   * @param value Command envelope to match against the persisted receipt.
+   * @returns The original task revision, or undefined when the command has not committed.
+   */
+  replay(identity: ExecutionIdentity, value: unknown): TaskRecord | undefined {
+    const request = taskRequestSchema.parse(value);
+    if (identity.actor.kind === 'unknown') throw new TaskError('permission_denied', 'Task commands require a known caller.');
+    const row = this.db.prepare('SELECT actorId, requestJson, body FROM watchdog_task_history WHERE organizationId=? AND commandId=?')
+      .get(identity.organizationId, request.commandId);
+    if (!row) return undefined;
+    const receipt = z.object({ actorId: z.string(), requestJson: z.string(), body: z.string() }).parse(row);
+    if (receipt.actorId !== identity.actor.id || receipt.requestJson !== JSON.stringify(request)) {
+      throw new EnterpriseError('command_conflict', 'Task command identifier was already used.');
+    }
+    return taskRecordSchema.parse(JSON.parse(receipt.body));
+  }
+
   /** Commit one state transition and its responsibility record atomically; exact retries return the original result. */
   execute(identity: ExecutionIdentity, value: unknown): TaskRecord {
     const request = taskRequestSchema.parse(value);
     if (identity.actor.kind === 'unknown') throw new TaskError('permission_denied', 'Task commands require a known caller.');
     this.db.exec('BEGIN IMMEDIATE');
     try {
-      const replay = this.db.prepare('SELECT actorId, requestJson, body FROM watchdog_task_history WHERE organizationId=? AND commandId=?')
-        .get(identity.organizationId, request.commandId);
+      const replay = this.replay(identity, request);
       if (replay) {
-        const receipt = z.object({ actorId: z.string(), requestJson: z.string(), body: z.string() }).parse(replay);
-        if (receipt.actorId !== identity.actor.id || receipt.requestJson !== JSON.stringify(request)) {
-          throw new EnterpriseError('command_conflict', 'Task command identifier was already used.');
-        }
         this.db.exec('COMMIT');
-        return taskRecordSchema.parse(JSON.parse(receipt.body));
+        return replay;
       }
       const at = new Date().toISOString();
       let next: TaskRecord;

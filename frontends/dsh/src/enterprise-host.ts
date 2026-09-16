@@ -718,7 +718,12 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
     }));
     disposers.push(ctx.connection.fetch.register({
       path: ENTERPRISE_SNAPSHOT_PATH, methods: ['GET'], requestBody: 'buffered',
-      fetch: handle(async request => { await (await access.http(request)).check('records.read'); return store.snapshot(); }),
+      fetch: handle(async request => {
+        const caller = await access.http(request);
+        await caller.check('records.read');
+        await caller.check('audit.read');
+        return store.snapshot();
+      }),
     }));
     disposers.push(ctx.connection.fetch.register({
       path: ENTERPRISE_BACKUP_PATH, methods: ['GET'], requestBody: 'buffered',
@@ -770,7 +775,10 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
             createHash('sha256').update(JSON.stringify(command)).digest('hex'))
           : checked;
         if (closing || request.signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
-        return store.execute(parsed, identity);
+        if (access.mode === 'local') return store.execute(parsed, identity);
+        const { generation, revision, receipt } = store.executeReceipt(parsed, identity);
+        return { generation, revision, commandId: receipt.commandId, commandRevision: receipt.revision,
+          entityId: receipt.entityId, type: receipt.type, at: receipt.at };
       }),
     }));
     return dispose;

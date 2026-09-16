@@ -1,6 +1,6 @@
 /** Authenticated HTTP and DSH tool consumers for the shared business task owner. */
 import { z } from 'zod';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { EnterpriseHostContext, EnterpriseStore } from './enterprise-host.ts';
 import type { EnterpriseToolContext } from './enterprise-tools.ts';
 import { GovernanceAccess, GovernanceDenied } from './governance-access.ts';
@@ -61,8 +61,15 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') throw new EnterpriseError('invalid_request', 'Task commands require JSON.');
       const input = taskRequestSchema.parse(await request.json());
       if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
-      const identity = await caller.check(input.command.type === 'review' ? 'task.review' : 'task.write', input.id);
+      const action = input.command.type === 'review' ? 'task.review' : 'task.write';
+      const checked = await caller.check(action, input.id);
+      const replay = store.tasks.replay(checked, input);
+      const identity = access.mode === 'enterprise' && action === 'task.write' && !replay
+        ? await caller.approve(action, input.id, input.commandId, 0, input.revision,
+          createHash('sha256').update(JSON.stringify(input.command)).digest('hex'))
+        : checked;
       lifetime.signal.throwIfAborted(); request.signal.throwIfAborted();
+      if (replay) return Response.json(replay, { headers: { 'cache-control': 'no-store' } });
       return Response.json(store.tasks.execute(identity, input), { headers: { 'cache-control': 'no-store' } });
     }).catch(failure) }));
     removals.push(ctx.tools.register({ name: 'watchdog_task_query', description: 'Read durable business tasks independently from Session run state. Read one id, its revision history, or a bounded task page. Idle Sessions do not imply accepted business results.',
@@ -85,15 +92,21 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
         const input = taskRequestSchema.parse(args);
         if (['review', 'cancel', 'reopen'].includes(input.command.type)) throw new GovernanceDenied('This task action requires a human.');
         const caller = await access.agent(exec.agent?.id, exec.callId);
-        await caller.check('task.write', input.id);
+        const checked = await caller.check('task.write', input.id);
         if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
         if (!exec.agent) throw new GovernanceDenied();
         const signal = AbortSignal.any([exec.signal, lifetime.signal]);
+        signal.throwIfAborted();
+        const replay = store.tasks.replay(checked, input);
+        if (replay) return replay;
         const outcome = await ctx.approval.request({ agent: exec.agent, callId: exec.callId, toolName: exec.name,
           reason: `Approve this business task action at revision ${input.revision}: ${JSON.stringify(input)}`, signal });
         if (outcome !== 'allowed-once') throw new GovernanceDenied(`Task action ${outcome}.`);
-        const identity = await caller.check('task.write', input.id);
         if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
+        const identity = access.mode === 'enterprise'
+          ? await caller.approve('task.write', input.id, input.commandId, 0, input.revision,
+            createHash('sha256').update(JSON.stringify(input.command)).digest('hex'))
+          : await caller.check('task.write', input.id);
         if (access.mode === 'local') identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: 0, revision: input.revision };
         signal.throwIfAborted();
         return store.tasks.execute(identity, input);
