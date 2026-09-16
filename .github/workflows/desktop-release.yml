@@ -450,6 +450,17 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Require complete installed acceptance evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f release-assets/acceptance-manifest.json
+          node apps/desktop-tauri/scripts/release-acceptance.mjs \
+            --manifest release-assets/acceptance-manifest.json \
+            --root release-assets \
+            --commit "$(git rev-parse "${RELEASE_TAG}^{commit}")" \
+            --version "${RELEASE_TAG#desktop-v}"
+
       - name: Resolve publication channel
         id: channel
         run: node apps/desktop-tauri/scripts/release-channel.mjs "$RELEASE_TAG"
