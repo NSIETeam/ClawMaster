@@ -131,14 +131,13 @@ test('stale revisions and concurrent first-install calls cannot overwrite a newe
   assert.equal(rows.filter(row => row.insert?.[0]?.id === 'clawmaster-update-component-updates').length, 1);
 }));
 
-test('rolling back a mounted updater is staged instead of disposing the live updater through its own operation', async () => fixture(async ({ dshHome, patch, install, bootstrap }) => {
+test('a first updater installation has no previous version and cannot remove its live entry through rollback', async () => fixture(async ({ dshHome, patch, install, bootstrap }) => {
   await install();
   const result = await bootstrap();
   const mounted = await readFile(patch, 'utf8');
-  const undone = await rollbackComponent({ dshHome, rollbackToken: result.rollbackToken, expectedPatchRevision: result.patchRevision, confirmed: true });
-  assert.equal(undone.status, 'restart-required');
+  await assert.rejects(rollbackComponent({ dshHome, rollbackToken: result.rollbackToken, expectedPatchRevision: result.patchRevision, confirmed: true }), /removes the updater/);
   assert.equal(await readFile(patch, 'utf8'), mounted);
   const operation = JSON.parse(await readFile(join(dshHome, 'clawmaster-updates', 'operations', `${result.rollbackToken}.json`), 'utf8'));
-  assert.equal(operation.state, 'staged');
-  assert.equal(operation.after, '');
+  assert.equal(operation.state, 'applied');
+  assert.equal(operation.after, mounted);
 }));

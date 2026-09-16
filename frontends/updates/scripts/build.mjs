@@ -15,6 +15,7 @@ const outputs = []
 for (const [entry, outfile, external] of [
   ['src/index.ts', 'dist/index.js', ['@threema/wasm-minisign-verify']],
   ['src/install.ts', 'dist/install.mjs', []],
+  ['src/maintenance.ts', 'dist/maintenance.mjs', []],
 ]) {
   const result = await build({ ...common, entryPoints: [entry], outfile, external, metafile: true })
   for (const output of Object.values(result.metafile.outputs)) {

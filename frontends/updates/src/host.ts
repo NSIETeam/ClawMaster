@@ -7,6 +7,7 @@ import type ApprovalService from '@deepseek-ai/dsh-user-approval'
 import { z } from 'zod'
 import { resolveConfig, type UpdatesConfig } from './config.ts'
 import { UpdatesService, type UpdatesDependencies, type UpdatesStatus } from './service.ts'
+import { confirmComponentHealth } from './components.ts'
 
 export { Config, resolveConfig } from './config.ts'
 export type { UpdatesConfig, ResolvedUpdatesConfig } from './config.ts'
@@ -30,7 +31,8 @@ const copy = {
   'zh-CN': {
     check: '检查 ClawMaster 更新', change: '准备 ClawMaster 更新',
     checkDescription: '只读检查服务器更新和当前运行版本。不会下载更新包或更改配置。',
-    changeDescription: '准备已签名目录中的指定版本，写入前须获得一次用户批准。热更新组件等待 Loader 激活；其他组件只暂存，重启不会自动应用，需停止 Host 后另行安装。运行时与桌面安装包只下载验签。',
+    changeDescription: '准备已签名目录中的指定版本，写入前须获得一次用户批准。热更新组件等待 Loader 激活；更新器由支持维护的桌面在下次启动前应用，并等待实际加载确认。运行时与桌面安装包只下载验签。',
+    rollback: '恢复上一版更新器', rollbackDescription: '恢复指定更新操作之前的更新器版本，需要一次用户批准；下次启动前应用，不回退业务数据库。',
     commandInput: '/updates 只接受无参数的只读检查。', unavailable: '不可用', unknown: '未确认',
     runtime: '当前 DSH', desktop: '当前桌面', components: '组件与运行时目录', native: '桌面安装包',
     compatible: '兼容', incompatible: '与当前 DSH 不兼容', pending: '需要后续原生安装',
@@ -40,7 +42,8 @@ const copy = {
   'en-US': {
     check: 'Check ClawMaster updates', change: 'Prepare ClawMaster update',
     checkDescription: 'Read server update metadata and current running versions. Does not download update artifacts or change configuration.',
-    changeDescription: 'Prepare an exact signed candidate after one user approval. Hot components await Loader activation; other components are staged only, and restarting will not apply them automatically: complete installation separately with the Host stopped. Runtime and native files are verified downloads only.',
+    changeDescription: 'Prepare an exact signed candidate after one user approval. Hot components await Loader activation; a maintenance-capable desktop applies staged updater changes before its next Host starts, then waits for actual load confirmation. Runtime and native files are verified downloads only.',
+    rollback: 'Restore the previous updater', rollbackDescription: 'Restore the updater version before a selected operation after one user approval; apply before the next Host starts without downgrading business databases.',
     commandInput: '/updates accepts no arguments and only checks metadata.', unavailable: 'unavailable', unknown: 'unverified',
     runtime: 'Running DSH', desktop: 'Running desktop', components: 'Component and runtime catalog', native: 'Native installer',
     compatible: 'compatible', incompatible: 'incompatible with running DSH', pending: 'native installation required',
@@ -56,6 +59,7 @@ function commandText(status: UpdatesStatus, locale: 'zh-CN' | 'en-US'): string {
   else if (status.components.items.length === 0) rows.push(text.empty)
   else for (const item of status.components.items) rows.push(`${item.id} ${item.version}: ${item.compatible === null ? text.unknown : item.compatible ? text.compatible : text.incompatible} (${item.activation})`)
   rows.push(status.native.status === 'available' ? `${text.native}: ${status.native.version} (${text.pending})` : `${text.native}: ${text.unavailable} (${status.native.error})`)
+  for (const operation of status.operations) rows.push(`${operation.id} ${operation.version}: ${operation.state} (${operation.token})`)
   rows.push(text.guidance)
   return rows.join('\n')
 }
@@ -149,6 +153,19 @@ export async function apply(ctx: UpdatesHostContext, input: UpdatesConfig = {}, 
           return service.change(args, reason => ctx.approval.request({ agent, callId: exec.callId, toolName: exec.name, reason, signal }), signal)
         }),
       }))
+      removals.push(ctx.tools.register({
+        name: 'clawmaster_update_rollback', description: text.rollbackDescription,
+        parameters: { type: 'object', properties: { operation: { type: 'string' } }, required: ['operation'], additionalProperties: false },
+        output, ...presentation(text.rollback, 'edit'),
+        execute: (args, exec: ToolRunContext) => run(exec.signal, async signal => {
+          const { operation } = z.strictObject({ operation: z.string().uuid() }).parse(args)
+          const agent = exec.agent
+          if (agent === undefined) throw new Error(text.owner)
+          return service.rollback(operation, reason => ctx.approval.request({ agent, callId: exec.callId, toolName: exec.name, reason, signal }), signal)
+        }),
+      }))
+      if (process.env.CLAWMASTER_RUNTIME_RUN_ID) await confirmComponentHealth({ dshHome: config.dshHome,
+        entryUrl: import.meta.url, hostPid: process.pid, runId: process.env.CLAWMASTER_RUNTIME_RUN_ID })
       if (config.checkIntervalMs > 0) poll()
       return dispose
     } catch (error) { await dispose(); throw error }

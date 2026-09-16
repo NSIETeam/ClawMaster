@@ -34,7 +34,9 @@ The confirmed installation adds an updater-owned row to the selected profile's `
 
 Use `/updates` or ask the agent to use `clawmaster_updates` to inspect current update information. Neither entry point downloads an artifact or changes files. To prepare a selected update, the agent uses `clawmaster_update` with its kind and version, plus a component id when applicable. One approval covers the concrete operation shown: a hot component is downloaded, verified, installed and submitted to the Loader; a restart-only component is downloaded, verified and staged. The selected bytes and profile revision are pinned before approval.
 
-For an eligible hot component, activation changes only its updater-owned profile row and returns a rollback token. Loader observation establishes whether the component actually loaded. A changed profile revision rejects activation or a maintainer's rollback rather than replacing intervening edits. A component marked `restart`, including `updates` itself, is staged without editing the watched profile: restarting the app alone does not apply that staged change.
+For an eligible hot component, activation changes only its updater-owned profile row and returns a rollback token. Loader observation establishes whether the component actually loaded. A changed profile revision rejects activation or rollback rather than replacing intervening edits. Updates to `updates` are staged without editing the watched profile; a desktop containing the maintenance helper applies the approved selection before its next Host starts. The loaded updater confirms its exact entry URL and executing Host identity after its registrations succeed. Other restart-only components remain staged for a separate stopped-Host installation.
+
+Discovery includes durable operation progress. `staged` means approved and waiting for a supported desktop restart; `awaiting-health` means selected but not confirmed loaded; `completed` includes the observing Host identity. An unconfirmed switch is restored at the next startup, preserving its `rolled-back` record. Candidate verification failures and intervening edits produce `blocked` without replacing the profile. Ask the agent to use `clawmaster_update_rollback` with an operation token to request one approval for a previous verified updater version. This tool is limited to the updater, restores no business database, and refuses first-install removal because no previous updater version exists.
 
 Updater `0.1.2` reads the native v2 channel. Separately installed updaters `0.1.0` and `0.1.1`, and the published access kit `0.1.0`, retain their versions and legacy channel until separately upgraded. The kit's first-install operation cannot replace an existing updater. Changing the endpoint alone does not teach an older parser to accept a release without Intel Mac files.
 
@@ -73,7 +75,7 @@ The [catalog reader](src/catalog.ts) verifies a detached Ed25519 signature over 
 
 The [component installer](src/components.ts) validates the archive before extraction, accepts regular package files and directories, and rejects unsafe paths, links, duplicate paths and incomplete dependency closures. It checks original archive paths before Windows separator conversion, including paths supplied by extended headers. It does not run npm lifecycle scripts. Installation records file hashes; activation rechecks those hashes and uses a file lock plus the reviewed profile revision. Rollback restores the recorded prior profile only when the successor revision still matches.
 
-The [bootstrap](src/bootstrap.ts) permits the updater's first mount while a Host runs; it cannot replace an updater that is already present. Ordinary updates to restart-only components remain operation records awaiting a separate stopped-Host installation. This prevents the updater from unloading itself during its own active operation. The exported `rollbackComponent` API is for confirmed maintainer recovery; it is not exposed by the command or agent tools.
+The [bootstrap](src/bootstrap.ts) permits the updater's first mount while a Host runs; it cannot replace an updater that is already present. The desktop invokes its bundled [finite maintenance helper](src/maintenance.ts) after reclaiming its prior Host and before spawning its next one. The helper rejects a still-live recorded Host, rechecks installed bytes and the approved profile, and journals `switching` before the atomic replacement. A restart during either side of replacement restores the prior verified profile. Recovery refuses to overwrite a later user edit. Maintenance is desktop-owned; it does not launch DSH or unload the updater from its own call.
 
 The [native download helper](src/native.ts) verifies desktop payloads with the existing Tauri Minisign public key in an abortable worker. It returns `requires-native-installer` and never launches an installer. Serving a native manifest, downloading an authenticated file, and installing that file are separate outcomes.
 
@@ -97,7 +99,7 @@ Component publication uses the [build](scripts/build.mjs), [pack](scripts/pack.m
 <a id="model-experience"></a>
 ## Model Experience
 
-`clawmaster_updates` checks update metadata without write approval. `clawmaster_update` selects a component, runtime or native release; its arguments cannot supply an arbitrary URL, trust key, local path or profile row. Mutations require an owning agent Session and an `allowed-once` decision; rejection or cancellation does not authorize a write. Results distinguish pending Loader activation, staged restart-only changes, runtime files requiring desktop support and files requiring native installation. The model must report those states accurately rather than describe a staged or downloaded update as active.
+`clawmaster_updates` checks update metadata and recorded operation states without write approval. `clawmaster_update` selects a component, runtime or native release; `clawmaster_update_rollback` selects an observed updater operation token. Their arguments cannot supply an arbitrary URL, trust key, local path or profile row. Mutations require an owning agent Session and an `allowed-once` decision; rejection or cancellation does not authorize a write. Results distinguish pending Loader activation, staged restart-only changes, observed loaded updater versions, runtime files requiring desktop support and files requiring native installation. The model must report those states accurately rather than describe a staged or downloaded update as active.
 
 <a id="known-limitations-and-deferred-work"></a>
 ## Known Limitations and Deferred Work
@@ -106,9 +108,9 @@ Available operations depend on the catalog and the selected Host.
 
 - The initial component catalog contains only `updates` version `0.1.0`; it does not establish that a new DSH runtime or other component is available.
 - No separate update page or sidebar is provided. The existing command and agent tool are the user entry points.
-- Restart-only changes are staged. This package has no automatic apply-on-restart or stopped-Host replacement command.
+- Updater apply-on-restart requires a desktop containing the maintenance helper and a candidate containing load confirmation. Older desktops, WSL Hosts, and other restart-only components need a separate upgrade path; native cross-platform installation acceptance remains required.
 - DSH core and native application files cannot be hot-replaced. Verified native downloads still require the desktop installation path.
-- Activation and rollback receipts describe profile edits. Loader health and compatibility in a real installed desktop require separate observation.
+- Updater health confirms its registrations and executing version; it does not prove every business integration is healthy. Non-updater rollback requires a reviewed data-compatibility procedure and remains a maintainer API. No database downgrade is performed.
 
 <a id="dev-note"></a>
 ### Dev Note

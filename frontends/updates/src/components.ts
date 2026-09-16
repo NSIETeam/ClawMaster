@@ -10,6 +10,7 @@ import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write';
 import { gt, satisfies, valid, validRange } from 'semver';
 import { list, extract, type ReadEntry } from 'tar';
 import { isScalar, isSeq, parseDocument, visit, type YAMLMap } from 'yaml';
+import { z } from 'zod';
 
 /** Signed component metadata; a component id never names an existing DSH core row. */
 export interface ComponentDescriptor {
@@ -47,6 +48,67 @@ export interface InstalledComponent {
 }
 
 interface StoredComponent extends InstalledComponent { fileHashes: Record<string, string> }
+
+const operationSchema = z.object({
+  before: z.string().max(DEFAULT_LIMITS.patchBytes),
+  after: z.string().max(DEFAULT_LIMITS.patchBytes),
+  afterRevision: z.string().regex(/^sha256-[a-f0-9]{64}$/u),
+  id: z.string().regex(ID), version: z.string().refine(value => valid(value) === value),
+  activation: z.enum(['hot', 'restart']),
+  state: z.enum(['staged', 'applied', 'switching', 'awaiting-health', 'completed', 'rolled-back', 'blocked']),
+  failure: z.string().optional(),
+  direction: z.enum(['update', 'rollback']).optional(),
+  activatedAt: z.string().datetime().optional(),
+  observedHostPid: z.number().int().positive().optional(),
+  observedRunId: z.string().min(1).optional(),
+});
+type ComponentOperation = z.infer<typeof operationSchema>;
+
+/** Persisted progress of a user-approved component change. */
+export interface ComponentOperationStatus {
+  token: string;
+  id: string;
+  version: string;
+  state: ComponentOperation['state'];
+  activation: 'hot' | 'restart';
+  observedHostPid?: number;
+  observedRunId?: string;
+  failure?: string;
+}
+
+const OPERATION_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+
+async function readOperation(root: string, token: string): Promise<ComponentOperation> {
+  if (!OPERATION_TOKEN.test(token)) throw new Error('Invalid component operation token');
+  return operationSchema.parse(JSON.parse((await regularFile(join(root, 'operations', `${token}.json`), DEFAULT_LIMITS.patchBytes * 8)).toString('utf8')));
+}
+
+/** Read durable progress without creating update directories or exposing profile content.
+ * @param dshHome - selected Host home.
+ * @returns approved operations in deterministic token order; invalid records reject the observation.
+ */
+export async function listComponentOperations(dshHome: string): Promise<ComponentOperationStatus[]> {
+  if (!isAbsolute(dshHome) || resolve(dshHome) !== dshHome || parse(dshHome).root === dshHome) throw new Error('DSH home must be an absolute normalized directory below the filesystem root');
+  const root = join(dshHome, 'clawmaster-updates');
+  const paths = [dshHome, root, join(root, 'operations')];
+  for (const path of paths) {
+    try {
+      const info = await lstat(path);
+      if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('Component state directories must not be symbolic links');
+    } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error; }
+  }
+  const rows: ComponentOperationStatus[] = [];
+  for (const name of (await readdir(join(root, 'operations'))).sort()) {
+    if (!name.endsWith('.json')) continue;
+    const token = name.slice(0, -5);
+    const record = await readOperation(root, token);
+    rows.push({ token, id: record.id, version: record.version, state: record.state, activation: record.activation,
+      ...(record.observedHostPid === undefined ? {} : { observedHostPid: record.observedHostPid }),
+      ...(record.observedRunId === undefined ? {} : { observedRunId: record.observedRunId }),
+      ...(record.failure === undefined ? {} : { failure: record.failure }) });
+  }
+  return rows;
+}
 
 /** A profile edit awaits Loader observation or a Host restart; it never reports itself active. */
 export interface ComponentActivation {
@@ -436,6 +498,103 @@ export async function mountFirstUpdaterComponent(options: Omit<ActivationOptions
   return activateInstalled({ ...options, id: 'updates' }, true);
 }
 
+async function assertDesktopHostStopped(dshHome: string): Promise<void> {
+  const path = join(dshHome, 'desktop', 'current-runtime.json');
+  const desktop = await lstat(dirname(path));
+  if (!desktop.isDirectory() || desktop.isSymbolicLink()) throw new Error('Desktop runtime directory must not be a symbolic link');
+  const record = z.object({ schemaVersion: z.literal(1), hostPid: z.number().int().positive(), runId: z.string().min(1), status: z.enum(['ready', 'stopped']) })
+    .parse(JSON.parse((await regularFile(path, 1024 * 1024)).toString('utf8')));
+  try { process.kill(record.hostPid, 0); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ESRCH') return;
+    throw new Error('Cannot verify that the desktop Host has stopped', { cause: error });
+  }
+  throw new Error('The desktop Host is still running; component maintenance requires its exit');
+}
+
+/** Apply approved updater changes before the desktop starts its Host, or recover an unconfirmed switch.
+ * The desktop must serialize its own start/stop lifecycle around this finite operation.
+ * A previous switch without a matching loaded-plugin receipt is restored before another attempt.
+ * @param dshHome - selected desktop home with a previously published Host identity.
+ * @returns per-operation outcomes; no result claims that a newly selected plugin has loaded.
+ */
+export async function maintainRestartComponents(dshHome: string): Promise<ComponentOperationStatus[]> {
+  const pending = (await listComponentOperations(dshHome)).filter(record => record.id === 'updates'
+    && record.activation === 'restart' && ['staged', 'switching', 'awaiting-health'].includes(record.state));
+  if (pending.length === 0) return [];
+  await assertDesktopHostStopped(dshHome);
+  const root = await stateRoot(dshHome);
+  const path = await patchPath(dshHome);
+  const changed: ComponentOperationStatus[] = [];
+  await withFileLock(path, async () => {
+    await assertDesktopHostStopped(dshHome);
+    const owner = join(root, 'components', 'updates');
+    const info = await lstat(owner);
+    if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('Installed component directories must not be symbolic links');
+    await withFileLock(join(owner, 'installation'), async () => {
+      for (const candidate of pending) {
+        const record = await readOperation(root, candidate.token);
+        const recordPath = join(root, 'operations', `${candidate.token}.json`);
+        if (record.id !== 'updates' || record.activation !== 'restart') throw new Error('Restart operation identity changed');
+        const current = await optionalPatch(path, DEFAULT_LIMITS.patchBytes);
+        if (record.state === 'switching' || record.state === 'awaiting-health') {
+          if (current !== record.before && current !== record.after) throw new Error('Unconfirmed update conflicts with user profile changes; manual recovery is required');
+          await verifyRollbackEntry(root, record.id, record.before);
+          if (current === record.after) await writeFileAtomic(path, record.before, { mode: 0o600, dirMode: 0o700 });
+          await writeFileAtomic(recordPath, json({ ...record, state: 'rolled-back', afterRevision: revision(record.before) }), { mode: 0o600, dirMode: 0o700 });
+          changed.push({ ...candidate, state: 'rolled-back' });
+          continue;
+        }
+        if (record.state !== 'staged') continue;
+        try {
+          if (revision(current) !== record.afterRevision || current !== record.before) throw new Error('Staged update conflicts with newer profile changes; inspect and approve a fresh update');
+          const target = await installed(root, record.id, record.version);
+          if (target.descriptor.packageName !== '@clawmaster/dsh-updates' || target.descriptor.activation !== 'restart') throw new Error('Restart maintenance accepts only the verified updater');
+          if (await nextPatch(record.before, root, target) !== record.after) throw new Error('Staged profile differs from the approved component');
+        } catch (error) {
+          const failure = error instanceof Error ? error.message : 'Component verification failed';
+          await writeFileAtomic(recordPath, json({ ...record, state: 'blocked', failure }), { mode: 0o600, dirMode: 0o700 });
+          changed.push({ ...candidate, state: 'blocked', failure });
+          continue;
+        }
+        const switching = { ...record, state: 'switching' as const, afterRevision: revision(record.after) };
+        await writeFileAtomic(recordPath, json(switching), { mode: 0o600, dirMode: 0o700 });
+        await writeFileAtomic(path, record.after, { mode: 0o600, dirMode: 0o700 });
+        await writeFileAtomic(recordPath, json({ ...switching, state: 'awaiting-health' }), { mode: 0o600, dirMode: 0o700 });
+        changed.push({ ...candidate, state: 'awaiting-health' });
+      }
+    });
+  });
+  return changed;
+}
+
+/** Confirm the exact updater entry only after its Host registrations succeed.
+ * @param options - executing module URL and actual process identity, supplied by the loaded plugin.
+ * @returns confirmed operation tokens; unrelated or already-complete operations remain untouched.
+ */
+export async function confirmComponentHealth(options: { dshHome: string; entryUrl: string; hostPid: number; runId: string }): Promise<string[]> {
+  if (options.hostPid !== process.pid || !options.runId || options.runId !== process.env.CLAWMASTER_RUNTIME_RUN_ID) throw new Error('Health confirmation requires the actual executing desktop Host');
+  const operations = await listComponentOperations(options.dshHome);
+  const candidates = operations.filter(operation => operation.id === 'updates' && operation.state === 'awaiting-health');
+  if (!candidates.length) return [];
+  const root = await stateRoot(options.dshHome);
+  const path = await patchPath(options.dshHome);
+  return withFileLock(path, async () => {
+    const confirmed: string[] = [];
+    for (const candidate of candidates) {
+      const record = await readOperation(root, candidate.token);
+      if (record.state !== 'awaiting-health') continue;
+      const target = await installed(root, record.id, record.version);
+      if (target.entryUrl !== options.entryUrl) continue;
+      if (await optionalPatch(path, DEFAULT_LIMITS.patchBytes) !== record.after) throw new Error('Loaded updater profile differs from its approved activation');
+      await writeFileAtomic(join(root, 'operations', `${candidate.token}.json`), json({ ...record, state: 'completed',
+        activatedAt: new Date().toISOString(), observedHostPid: process.pid, observedRunId: options.runId }), { mode: 0o600, dirMode: 0o700 });
+      confirmed.push(candidate.token);
+    }
+    return confirmed;
+  });
+}
+
 async function activateInstalled(options: ActivationOptions, firstUpdater: boolean): Promise<ComponentActivation> {
   if (!options.confirmed) throw new Error('Component activation requires explicit confirmation');
   if (!ID.test(options.id) || valid(options.version) !== options.version) throw new Error('Invalid installed component identity');
@@ -482,10 +641,10 @@ export async function rollbackComponent(options: { dshHome: string; rollbackToke
   const path = await patchPath(options.dshHome);
   return withFileLock(path, async () => {
     const recordPath = join(root, 'operations', `${options.rollbackToken}.json`);
-    const record = JSON.parse((await regularFile(recordPath, DEFAULT_LIMITS.patchBytes * 8)).toString('utf8')) as { before: string; afterRevision: string; activation: string; state: string; id: string; version: string };
+    const record = await readOperation(root, options.rollbackToken);
     if (typeof record.before !== 'string' || Buffer.byteLength(record.before) > DEFAULT_LIMITS.patchBytes
       || typeof record.id !== 'string' || !ID.test(record.id) || valid(record.version) !== record.version
-      || !['hot', 'restart'].includes(record.activation) || !['staged', 'applied'].includes(record.state) || record.afterRevision !== options.expectedPatchRevision
+      || !['hot', 'restart'].includes(record.activation) || !['staged', 'applied', 'completed'].includes(record.state) || record.afterRevision !== options.expectedPatchRevision
       || revision(await optionalPatch(path, DEFAULT_LIMITS.patchBytes)) !== options.expectedPatchRevision) {
       throw new Error('The profile changed after activation; rollback would overwrite newer edits');
     }
@@ -493,14 +652,24 @@ export async function rollbackComponent(options: { dshHome: string; rollbackToke
     const info = await lstat(owner);
     if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('Installed component directories must not be symbolic links');
     return withFileLock(join(owner, 'installation'), async () => {
-      if (record.state === 'applied') await verifyRollbackEntry(root, record.id, record.before);
+      if (record.state !== 'staged') await verifyRollbackEntry(root, record.id, record.before);
       const current = await optionalPatch(path, DEFAULT_LIMITS.patchBytes);
       if (revision(current) !== options.expectedPatchRevision) throw new Error('The profile changed during rollback; no update was applied');
-      if (record.state === 'applied' && record.activation === 'restart') {
-        await writeFileAtomic(recordPath, json({ ...record, before: current, after: record.before, state: 'staged' }), { mode: 0o600, dirMode: 0o700 });
+      if (record.state !== 'staged' && record.activation === 'restart') {
+        const doc = parseDocument(record.before);
+        let entry: string | undefined;
+        visit(doc, { Map(_key, node) {
+          const name = node.get('name');
+          if (node.get('id') === `clawmaster-update-component-${record.id}` && typeof name === 'string') entry = name;
+        } });
+        if (entry === undefined) throw new Error('This rollback removes the updater; use the offline repair installer instead');
+        const previousVersion = relative(join(root, 'components', record.id), fileURLToPath(entry)).split(/[\\/]/)[0]!;
+        await installed(root, record.id, previousVersion);
+        await writeFileAtomic(recordPath, json({ before: current, after: record.before, afterRevision: options.expectedPatchRevision,
+          id: record.id, version: previousVersion, activation: record.activation, direction: 'rollback', state: 'staged' }), { mode: 0o600, dirMode: 0o700 });
         return { status: 'restart-required', patchRevision: options.expectedPatchRevision };
       }
-      if (record.state === 'applied') await writeFileAtomic(path, record.before, { mode: 0o600, dirMode: 0o700 });
+      if (record.state !== 'staged') await writeFileAtomic(path, record.before, { mode: 0o600, dirMode: 0o700 });
       await rm(recordPath);
       return { status: record.activation === 'restart' ? 'restart-required' : 'activation-pending', patchRevision: revision(record.before) };
     });

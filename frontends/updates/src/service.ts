@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { lt } from 'semver'
 import { z } from 'zod'
 import { fetchCatalog, type CatalogItem } from './catalog.ts'
-import { activateComponent, highestInstalledComponentVersion, installComponent, readComponentPatchRevision } from './components.ts'
+import { activateComponent, highestInstalledComponentVersion, installComponent, listComponentOperations, readComponentPatchRevision, rollbackComponent, type ComponentOperationStatus } from './components.ts'
 import type { ResolvedUpdatesConfig } from './config.ts'
 import { downloadVerifiedFile } from './download.ts'
 import { readRuntimeFacts, type RuntimeFacts } from './facts.ts'
@@ -27,6 +27,7 @@ export interface UpdatesStatus {
   facts: RuntimeFacts
   components: { status: 'available'; generatedAt: string; items: Array<CatalogItem & { compatible: boolean | null }> } | { status: 'unavailable'; error: string }
   native: { status: 'available'; version: string; target: NativeTarget | null; updateAvailable: boolean | null; requires: 'native-installer' } | { status: 'unavailable'; error: string }
+  operations: ComponentOperationStatus[]
 }
 
 /** Read-only dependencies; preparation always uses the real verified filesystem writers. */
@@ -101,6 +102,7 @@ export class UpdatesService {
         ? { status: 'available', generatedAt: components.value.generatedAt, items: components.value.components.map(item => ({ ...item, compatible: facts.dshVersion === null ? null : item.requiresDshVersion === facts.dshVersion })) }
         : { status: 'unavailable', error: failure(components.reason) },
       native: this.nativeStatus(native, facts),
+      operations: await listComponentOperations(this.config.dshHome),
     }
     this.latest = structuredClone(status)
     return status
@@ -140,7 +142,9 @@ export class UpdatesService {
       ? `下载并验签 ClawMaster ${plan.release.version}（${plan.target}）安装包到 ${join(this.config.dshHome, 'clawmaster-updates', 'downloads')}；需要原生安装器后续安装，本次不会启动安装器或重启。配置修订：${plan.patchRevision}`
       : `Download and verify ClawMaster ${plan.release.version} (${plan.target}) into ${join(this.config.dshHome, 'clawmaster-updates', 'downloads')}. Native installation remains required; this action does not launch the installer or restart. Profile revision: ${plan.patchRevision}`
     const operation = plan.item.kind === 'runtime' ? (chinese ? '仅下载并验签运行时，当前桌面不支持切换' : 'download and verify runtime; desktop activation support is required')
-      : plan.item.activation === 'restart' ? (chinese ? '安装到独立组件目录并暂存；重启不会自动应用，需停止 Host 后另行安装' : 'install into an isolated component directory and stage; restarting will not apply this automatically, and installation must be completed separately with the Host stopped')
+      : plan.item.activation === 'restart' ? plan.item.id === 'updates'
+        ? (chinese ? '安装到独立组件目录并暂存；支持组件维护的桌面将在 Host 停止后的下次启动应用更新，插件实际加载后才确认成功' : 'install into an isolated component directory and stage; a maintenance-capable desktop applies the update before its next Host starts and confirms success only after the plugin loads')
+        : (chinese ? '安装到独立组件目录并暂存；重启不会自动应用，需停止 Host 后另行安装' : 'install into an isolated component directory and stage; restarting will not apply this automatically, and installation must be completed separately with the Host stopped')
         : (chinese ? '安装到独立组件目录并修改更新器专属配置行；等待 DSH Loader 激活' : 'install into an isolated component directory and edit the updater-owned profile row; await DSH Loader activation')
     return `${plan.item.packageName} ${plan.item.version}: ${operation}. SHA-256: ${plan.item.sha256}. ${chinese ? '目录' : 'Home'}: ${this.config.dshHome}. ${chinese ? '配置修订' : 'Profile revision'}: ${plan.patchRevision}`
   }
@@ -183,6 +187,33 @@ export class UpdatesService {
       const activation = await activateComponent({ dshHome: this.config.dshHome, id: plan.item.id, version: plan.item.version,
         expectedPatchRevision: plan.patchRevision, confirmed: true })
       return { ...activation, kind: 'component', id: plan.item.id, version: plan.item.version, directory: installed.directory }
+    } finally { this.changing = false }
+  }
+
+  /** Request one approval to restore a selected component operation without fetching a different candidate.
+   * @param token Previously observed operation token from discovery.
+   * @param approve Approval provider for the exact token and current profile revision.
+   * @param signal Owning agent lifetime.
+   * @returns pending activation or restart; application data is never restored or migrated by this operation.
+   */
+  async rollback(token: string, approve: (summary: string) => Promise<string>, signal: AbortSignal): Promise<unknown> {
+    if (this.changing) throw new Error('Another update is awaiting approval or being prepared')
+    this.changing = true
+    try {
+      signal.throwIfAborted()
+      const operation = (await listComponentOperations(this.config.dshHome)).find(operation => operation.token === token)
+      if (!operation) throw new Error('The selected update operation does not exist')
+      if (operation.id !== 'updates') throw new Error('User rollback is limited to the stateless updater; other components require a reviewed data-compatibility procedure')
+      const expectedPatchRevision = await readComponentPatchRevision(this.config.dshHome)
+      const facts = await this.facts()
+      const reason = this.config.locale === 'zh-CN'
+        ? `恢复更新操作 ${token} 之前的更新器组件配置；退出后下次启动应用。不会回退业务数据库。配置修订：${expectedPatchRevision}`
+        : `Restore the updater selection before operation ${token}; apply before the next Host starts. Business databases are not downgraded. Profile revision: ${expectedPatchRevision}`
+      if (await approve(reason) !== 'allowed-once') throw new Error('Rollback was not approved; no files were changed')
+      signal.throwIfAborted()
+      const now = await this.facts()
+      if (now.hostPid !== facts.hostPid || now.runId !== facts.runId) throw new Error('The Host changed during rollback approval')
+      return rollbackComponent({ dshHome: this.config.dshHome, rollbackToken: token, expectedPatchRevision, confirmed: true })
     } finally { this.changing = false }
   }
 }

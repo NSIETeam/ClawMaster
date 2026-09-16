@@ -11,7 +11,7 @@ import { Header } from 'tar'
 const moduleUrl = process.env.CLAWMASTER_UPDATES_ARTIFACT
   ? pathToFileURL(resolve(process.env.CLAWMASTER_UPDATES_ARTIFACT)).href : new URL('../src/host.ts', import.meta.url).href
 const { apply } = await import(moduleUrl)
-const { installComponent } = await import(process.env.CLAWMASTER_UPDATES_ARTIFACT ? moduleUrl : new URL('../src/components.ts', import.meta.url).href)
+const { activateComponent, installComponent, readComponentPatchRevision } = await import(process.env.CLAWMASTER_UPDATES_ARTIFACT ? moduleUrl : new URL('../src/components.ts', import.meta.url).href)
 const suffixes = { 'windows-x86_64': 'windows-x64-setup.exe', 'darwin-x86_64': 'macos-x64.app.tar.gz', 'darwin-aarch64': 'macos-arm64.app.tar.gz', 'linux-x86_64': 'linux-x64.AppImage', 'linux-x86_64-deb': 'linux-x64.deb' }
 const publicKey = `untrusted comment: minisign public key E7620F1842B4E81F
 RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3
@@ -95,6 +95,29 @@ test('read-only slash command and discovery tool perform no filesystem writes or
   assert.equal(host.approvals.length, 0)
   assert.deepEqual(await readdir(f.root), [])
   assert.ok(f.requests.every(url => !url.includes('/artifacts/') && !url.includes('/versions/')))
+})
+
+test('user rollback requires an owning agent and one approval bound to the selected updater operation', async t => {
+  const f = await fixture(t)
+  const descriptor = { ...f.item, id: 'updates', packageName: '@clawmaster/dsh-updates', activation: 'restart' }
+  const archivePath = join(f.root, 'updater.tgz')
+  await writeFile(archivePath, archive(descriptor.packageName, descriptor.version))
+  await installComponent({ archivePath, descriptor, dshHome: f.config.dshHome, dshVersion: f.facts.dshVersion })
+  const staged = await activateComponent({ dshHome: f.config.dshHome, id: 'updates', version: descriptor.version,
+    expectedPatchRevision: await readComponentPatchRevision(f.config.dshHome), confirmed: true })
+  const journal = join(f.config.dshHome, 'clawmaster-updates/operations', `${staged.rollbackToken}.json`)
+  const before = await readFile(journal, 'utf8')
+  let outcome = 'denied'
+  const host = await mount(t, f, async () => outcome)
+  await assert.rejects(host.execute('clawmaster_update_rollback', { operation: staged.rollbackToken }, { agent: undefined }), /agent|会话/)
+  assert.equal(host.approvals.length, 0)
+  await assert.rejects(host.execute('clawmaster_update_rollback', { operation: staged.rollbackToken }), /not approved/)
+  assert.equal(await readFile(journal, 'utf8'), before)
+  outcome = 'allowed-once'
+  assert.equal((await host.execute('clawmaster_update_rollback', { operation: staged.rollbackToken })).status, 'restart-required')
+  assert.equal(host.approvals.length, 2)
+  assert.ok(host.approvals.every(request => request.reason.includes(staged.rollbackToken)))
+  await assert.rejects(readFile(journal), { code: 'ENOENT' })
 })
 
 test('rejected, cancelled and unavailable approvals create no update directory or profile', async t => {

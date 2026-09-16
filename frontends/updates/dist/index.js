@@ -35,9 +35,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// node_modules/semver/internal/constants.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/internal/constants.js
 var require_constants = __commonJS({
-  "node_modules/semver/internal/constants.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/internal/constants.js"(exports, module) {
     "use strict";
     var SEMVER_SPEC_VERSION = "2.0.0";
     var MAX_LENGTH = 256;
@@ -67,9 +67,9 @@ var require_constants = __commonJS({
   }
 });
 
-// node_modules/semver/internal/debug.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/internal/debug.js
 var require_debug = __commonJS({
-  "node_modules/semver/internal/debug.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/internal/debug.js"(exports, module) {
     "use strict";
     var debug = typeof process === "object" && process.env && process.env.NODE_DEBUG && /\bsemver\b/i.test(process.env.NODE_DEBUG) ? (...args) => console.error("SEMVER", ...args) : () => {
     };
@@ -77,9 +77,9 @@ var require_debug = __commonJS({
   }
 });
 
-// node_modules/semver/internal/re.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/internal/re.js
 var require_re = __commonJS({
-  "node_modules/semver/internal/re.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/internal/re.js"(exports, module) {
     "use strict";
     var {
       MAX_SAFE_COMPONENT_LENGTH,
@@ -165,9 +165,9 @@ var require_re = __commonJS({
   }
 });
 
-// node_modules/semver/internal/parse-options.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/internal/parse-options.js
 var require_parse_options = __commonJS({
-  "node_modules/semver/internal/parse-options.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/internal/parse-options.js"(exports, module) {
     "use strict";
     var looseOption = Object.freeze({ loose: true });
     var emptyOpts = Object.freeze({});
@@ -184,9 +184,9 @@ var require_parse_options = __commonJS({
   }
 });
 
-// node_modules/semver/internal/identifiers.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/internal/identifiers.js
 var require_identifiers = __commonJS({
-  "node_modules/semver/internal/identifiers.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/internal/identifiers.js"(exports, module) {
     "use strict";
     var numeric = /^[0-9]+$/;
     var compareIdentifiers = (a, b2) => {
@@ -209,9 +209,9 @@ var require_identifiers = __commonJS({
   }
 });
 
-// node_modules/semver/classes/semver.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/classes/semver.js
 var require_semver = __commonJS({
-  "node_modules/semver/classes/semver.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/classes/semver.js"(exports, module) {
     "use strict";
     var debug = require_debug();
     var { MAX_LENGTH, MAX_SAFE_INTEGER } = require_constants();
@@ -501,9 +501,9 @@ var require_semver = __commonJS({
   }
 });
 
-// node_modules/semver/functions/parse.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/parse.js
 var require_parse = __commonJS({
-  "node_modules/semver/functions/parse.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/parse.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var parse6 = (version4, options, throwErrors = false) => {
@@ -523,9 +523,9 @@ var require_parse = __commonJS({
   }
 });
 
-// node_modules/semver/functions/valid.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/valid.js
 var require_valid = __commonJS({
-  "node_modules/semver/functions/valid.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/valid.js"(exports, module) {
     "use strict";
     var parse6 = require_parse();
     var valid4 = (version4, options) => {
@@ -536,9 +536,9 @@ var require_valid = __commonJS({
   }
 });
 
-// node_modules/semver/functions/clean.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/clean.js
 var require_clean = __commonJS({
-  "node_modules/semver/functions/clean.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/clean.js"(exports, module) {
     "use strict";
     var parse6 = require_parse();
     var clean = (version4, options) => {
@@ -549,9 +549,9 @@ var require_clean = __commonJS({
   }
 });
 
-// node_modules/semver/functions/inc.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/inc.js
 var require_inc = __commonJS({
-  "node_modules/semver/functions/inc.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/inc.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var inc = (version4, release, options, identifier, identifierBase) => {
@@ -573,9 +573,9 @@ var require_inc = __commonJS({
   }
 });
 
-// node_modules/semver/functions/diff.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/diff.js
 var require_diff = __commonJS({
-  "node_modules/semver/functions/diff.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/diff.js"(exports, module) {
     "use strict";
     var parse6 = require_parse();
     var diff = (version1, version22) => {
@@ -617,9 +617,9 @@ var require_diff = __commonJS({
   }
 });
 
-// node_modules/semver/functions/major.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/major.js
 var require_major = __commonJS({
-  "node_modules/semver/functions/major.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/major.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var major = (a, loose) => new SemVer(a, loose).major;
@@ -627,9 +627,9 @@ var require_major = __commonJS({
   }
 });
 
-// node_modules/semver/functions/minor.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/minor.js
 var require_minor = __commonJS({
-  "node_modules/semver/functions/minor.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/minor.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var minor = (a, loose) => new SemVer(a, loose).minor;
@@ -637,9 +637,9 @@ var require_minor = __commonJS({
   }
 });
 
-// node_modules/semver/functions/patch.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/patch.js
 var require_patch = __commonJS({
-  "node_modules/semver/functions/patch.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/patch.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var patch = (a, loose) => new SemVer(a, loose).patch;
@@ -647,9 +647,9 @@ var require_patch = __commonJS({
   }
 });
 
-// node_modules/semver/functions/prerelease.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/prerelease.js
 var require_prerelease = __commonJS({
-  "node_modules/semver/functions/prerelease.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/prerelease.js"(exports, module) {
     "use strict";
     var parse6 = require_parse();
     var prerelease = (version4, options) => {
@@ -660,9 +660,9 @@ var require_prerelease = __commonJS({
   }
 });
 
-// node_modules/semver/functions/compare.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/compare.js
 var require_compare = __commonJS({
-  "node_modules/semver/functions/compare.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/compare.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var compare = (a, b2, loose) => new SemVer(a, loose).compare(new SemVer(b2, loose));
@@ -670,9 +670,9 @@ var require_compare = __commonJS({
   }
 });
 
-// node_modules/semver/functions/rcompare.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/rcompare.js
 var require_rcompare = __commonJS({
-  "node_modules/semver/functions/rcompare.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/rcompare.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var rcompare = (a, b2, loose) => compare(b2, a, loose);
@@ -680,9 +680,9 @@ var require_rcompare = __commonJS({
   }
 });
 
-// node_modules/semver/functions/compare-loose.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/compare-loose.js
 var require_compare_loose = __commonJS({
-  "node_modules/semver/functions/compare-loose.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/compare-loose.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var compareLoose = (a, b2) => compare(a, b2, true);
@@ -690,9 +690,9 @@ var require_compare_loose = __commonJS({
   }
 });
 
-// node_modules/semver/functions/compare-build.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/compare-build.js
 var require_compare_build = __commonJS({
-  "node_modules/semver/functions/compare-build.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/compare-build.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var compareBuild = (a, b2, loose) => {
@@ -704,9 +704,9 @@ var require_compare_build = __commonJS({
   }
 });
 
-// node_modules/semver/functions/sort.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/sort.js
 var require_sort = __commonJS({
-  "node_modules/semver/functions/sort.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/sort.js"(exports, module) {
     "use strict";
     var compareBuild = require_compare_build();
     var sort = (list, loose) => list.sort((a, b2) => compareBuild(a, b2, loose));
@@ -714,9 +714,9 @@ var require_sort = __commonJS({
   }
 });
 
-// node_modules/semver/functions/rsort.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/rsort.js
 var require_rsort = __commonJS({
-  "node_modules/semver/functions/rsort.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/rsort.js"(exports, module) {
     "use strict";
     var compareBuild = require_compare_build();
     var rsort = (list, loose) => list.sort((a, b2) => compareBuild(b2, a, loose));
@@ -724,9 +724,9 @@ var require_rsort = __commonJS({
   }
 });
 
-// node_modules/semver/functions/gt.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/gt.js
 var require_gt = __commonJS({
-  "node_modules/semver/functions/gt.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/gt.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var gt3 = (a, b2, loose) => compare(a, b2, loose) > 0;
@@ -734,9 +734,9 @@ var require_gt = __commonJS({
   }
 });
 
-// node_modules/semver/functions/lt.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/lt.js
 var require_lt = __commonJS({
-  "node_modules/semver/functions/lt.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/lt.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var lt3 = (a, b2, loose) => compare(a, b2, loose) < 0;
@@ -744,9 +744,9 @@ var require_lt = __commonJS({
   }
 });
 
-// node_modules/semver/functions/eq.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/eq.js
 var require_eq = __commonJS({
-  "node_modules/semver/functions/eq.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/eq.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var eq = (a, b2, loose) => compare(a, b2, loose) === 0;
@@ -754,9 +754,9 @@ var require_eq = __commonJS({
   }
 });
 
-// node_modules/semver/functions/neq.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/neq.js
 var require_neq = __commonJS({
-  "node_modules/semver/functions/neq.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/neq.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var neq = (a, b2, loose) => compare(a, b2, loose) !== 0;
@@ -764,9 +764,9 @@ var require_neq = __commonJS({
   }
 });
 
-// node_modules/semver/functions/gte.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/gte.js
 var require_gte = __commonJS({
-  "node_modules/semver/functions/gte.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/gte.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var gte = (a, b2, loose) => compare(a, b2, loose) >= 0;
@@ -774,9 +774,9 @@ var require_gte = __commonJS({
   }
 });
 
-// node_modules/semver/functions/lte.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/lte.js
 var require_lte = __commonJS({
-  "node_modules/semver/functions/lte.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/lte.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var lte = (a, b2, loose) => compare(a, b2, loose) <= 0;
@@ -784,9 +784,9 @@ var require_lte = __commonJS({
   }
 });
 
-// node_modules/semver/functions/cmp.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/cmp.js
 var require_cmp = __commonJS({
-  "node_modules/semver/functions/cmp.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/cmp.js"(exports, module) {
     "use strict";
     var eq = require_eq();
     var neq = require_neq();
@@ -834,9 +834,9 @@ var require_cmp = __commonJS({
   }
 });
 
-// node_modules/semver/functions/coerce.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/coerce.js
 var require_coerce = __commonJS({
-  "node_modules/semver/functions/coerce.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/coerce.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var parse6 = require_parse();
@@ -880,9 +880,9 @@ var require_coerce = __commonJS({
   }
 });
 
-// node_modules/semver/functions/truncate.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/truncate.js
 var require_truncate = __commonJS({
-  "node_modules/semver/functions/truncate.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/truncate.js"(exports, module) {
     "use strict";
     var parse6 = require_parse();
     var constants = require_constants();
@@ -921,9 +921,9 @@ var require_truncate = __commonJS({
   }
 });
 
-// node_modules/semver/internal/lrucache.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/internal/lrucache.js
 var require_lrucache = __commonJS({
-  "node_modules/semver/internal/lrucache.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/internal/lrucache.js"(exports, module) {
     "use strict";
     var LRUCache = class {
       constructor() {
@@ -959,9 +959,9 @@ var require_lrucache = __commonJS({
   }
 });
 
-// node_modules/semver/classes/range.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/classes/range.js
 var require_range = __commonJS({
-  "node_modules/semver/classes/range.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/classes/range.js"(exports, module) {
     "use strict";
     var SPACE_CHARACTERS = /\s+/g;
     var Range = class _Range {
@@ -1344,9 +1344,9 @@ var require_range = __commonJS({
   }
 });
 
-// node_modules/semver/classes/comparator.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/classes/comparator.js
 var require_comparator = __commonJS({
-  "node_modules/semver/classes/comparator.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/classes/comparator.js"(exports, module) {
     "use strict";
     var ANY = Symbol("SemVer ANY");
     var Comparator = class _Comparator {
@@ -1457,9 +1457,9 @@ var require_comparator = __commonJS({
   }
 });
 
-// node_modules/semver/functions/satisfies.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/satisfies.js
 var require_satisfies = __commonJS({
-  "node_modules/semver/functions/satisfies.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/functions/satisfies.js"(exports, module) {
     "use strict";
     var Range = require_range();
     var satisfies2 = (version4, range, options) => {
@@ -1474,9 +1474,9 @@ var require_satisfies = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/to-comparators.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/to-comparators.js
 var require_to_comparators = __commonJS({
-  "node_modules/semver/ranges/to-comparators.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/to-comparators.js"(exports, module) {
     "use strict";
     var Range = require_range();
     var toComparators = (range, options) => new Range(range, options).set.map((comp) => comp.map((c) => c.value).join(" ").trim().split(" "));
@@ -1484,9 +1484,9 @@ var require_to_comparators = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/max-satisfying.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/max-satisfying.js
 var require_max_satisfying = __commonJS({
-  "node_modules/semver/ranges/max-satisfying.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/max-satisfying.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var Range = require_range();
@@ -1513,9 +1513,9 @@ var require_max_satisfying = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/min-satisfying.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/min-satisfying.js
 var require_min_satisfying = __commonJS({
-  "node_modules/semver/ranges/min-satisfying.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/min-satisfying.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var Range = require_range();
@@ -1542,9 +1542,9 @@ var require_min_satisfying = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/min-version.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/min-version.js
 var require_min_version = __commonJS({
-  "node_modules/semver/ranges/min-version.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/min-version.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var Range = require_range();
@@ -1601,9 +1601,9 @@ var require_min_version = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/valid.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/valid.js
 var require_valid2 = __commonJS({
-  "node_modules/semver/ranges/valid.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/valid.js"(exports, module) {
     "use strict";
     var Range = require_range();
     var validRange2 = (range, options) => {
@@ -1617,9 +1617,9 @@ var require_valid2 = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/outside.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/outside.js
 var require_outside = __commonJS({
-  "node_modules/semver/ranges/outside.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/outside.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var Comparator = require_comparator();
@@ -1686,9 +1686,9 @@ var require_outside = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/gtr.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/gtr.js
 var require_gtr = __commonJS({
-  "node_modules/semver/ranges/gtr.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/gtr.js"(exports, module) {
     "use strict";
     var outside = require_outside();
     var gtr = (version4, range, options) => outside(version4, range, ">", options);
@@ -1696,9 +1696,9 @@ var require_gtr = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/ltr.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/ltr.js
 var require_ltr = __commonJS({
-  "node_modules/semver/ranges/ltr.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/ltr.js"(exports, module) {
     "use strict";
     var outside = require_outside();
     var ltr = (version4, range, options) => outside(version4, range, "<", options);
@@ -1706,9 +1706,9 @@ var require_ltr = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/intersects.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/intersects.js
 var require_intersects = __commonJS({
-  "node_modules/semver/ranges/intersects.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/intersects.js"(exports, module) {
     "use strict";
     var Range = require_range();
     var intersects = (r1, r2, options) => {
@@ -1720,9 +1720,9 @@ var require_intersects = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/simplify.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/simplify.js
 var require_simplify = __commonJS({
-  "node_modules/semver/ranges/simplify.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/simplify.js"(exports, module) {
     "use strict";
     var satisfies2 = require_satisfies();
     var compare = require_compare();
@@ -1770,9 +1770,9 @@ var require_simplify = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/subset.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/subset.js
 var require_subset = __commonJS({
-  "node_modules/semver/ranges/subset.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/ranges/subset.js"(exports, module) {
     "use strict";
     var Range = require_range();
     var Comparator = require_comparator();
@@ -1932,9 +1932,9 @@ var require_subset = __commonJS({
   }
 });
 
-// node_modules/semver/index.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/index.js
 var require_semver2 = __commonJS({
-  "node_modules/semver/index.js"(exports, module) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/semver/index.js"(exports, module) {
     "use strict";
     var internalRe = require_re();
     var constants = require_constants();
@@ -2029,9 +2029,9 @@ var require_semver2 = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/identity.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS({
-  "node_modules/yaml/dist/nodes/identity.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/identity.js"(exports) {
     "use strict";
     var ALIAS = Symbol.for("yaml.alias");
     var DOC = Symbol.for("yaml.document");
@@ -2086,9 +2086,9 @@ var require_identity = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/visit.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/visit.js
 var require_visit = __commonJS({
-  "node_modules/yaml/dist/visit.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/visit.js"(exports) {
     "use strict";
     var identity = require_identity();
     var BREAK = Symbol("break visit");
@@ -2244,9 +2244,9 @@ var require_visit = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/doc/directives.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/doc/directives.js
 var require_directives = __commonJS({
-  "node_modules/yaml/dist/doc/directives.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/doc/directives.js"(exports) {
     "use strict";
     var identity = require_identity();
     var visit2 = require_visit();
@@ -2415,9 +2415,9 @@ var require_directives = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/doc/anchors.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/doc/anchors.js
 var require_anchors = __commonJS({
-  "node_modules/yaml/dist/doc/anchors.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/doc/anchors.js"(exports) {
     "use strict";
     var identity = require_identity();
     var visit2 = require_visit();
@@ -2485,9 +2485,9 @@ var require_anchors = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/doc/applyReviver.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/doc/applyReviver.js
 var require_applyReviver = __commonJS({
-  "node_modules/yaml/dist/doc/applyReviver.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/doc/applyReviver.js"(exports) {
     "use strict";
     function applyReviver(reviver, obj, key, val) {
       if (val && typeof val === "object") {
@@ -2535,9 +2535,9 @@ var require_applyReviver = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/toJS.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/toJS.js
 var require_toJS = __commonJS({
-  "node_modules/yaml/dist/nodes/toJS.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/toJS.js"(exports) {
     "use strict";
     var identity = require_identity();
     function toJS(value, arg, ctx) {
@@ -2565,9 +2565,9 @@ var require_toJS = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/Node.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/Node.js
 var require_Node = __commonJS({
-  "node_modules/yaml/dist/nodes/Node.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/Node.js"(exports) {
     "use strict";
     var applyReviver = require_applyReviver();
     var identity = require_identity();
@@ -2606,9 +2606,9 @@ var require_Node = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/Alias.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/Alias.js
 var require_Alias = __commonJS({
-  "node_modules/yaml/dist/nodes/Alias.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/Alias.js"(exports) {
     "use strict";
     var anchors = require_anchors();
     var visit2 = require_visit();
@@ -2722,9 +2722,9 @@ var require_Alias = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/Scalar.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/Scalar.js
 var require_Scalar = __commonJS({
-  "node_modules/yaml/dist/nodes/Scalar.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/Scalar.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Node = require_Node();
@@ -2752,9 +2752,9 @@ var require_Scalar = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/doc/createNode.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/doc/createNode.js
 var require_createNode = __commonJS({
-  "node_modules/yaml/dist/doc/createNode.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/doc/createNode.js"(exports) {
     "use strict";
     var Alias = require_Alias();
     var identity = require_identity();
@@ -2827,9 +2827,9 @@ var require_createNode = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/Collection.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/Collection.js
 var require_Collection = __commonJS({
-  "node_modules/yaml/dist/nodes/Collection.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/Collection.js"(exports) {
     "use strict";
     var createNode = require_createNode();
     var identity = require_identity();
@@ -2970,9 +2970,9 @@ var require_Collection = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/stringify/stringifyComment.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringifyComment.js
 var require_stringifyComment = __commonJS({
-  "node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
     "use strict";
     var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
     function indentComment(comment, indent) {
@@ -2987,9 +2987,9 @@ var require_stringifyComment = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/stringify/foldFlowLines.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/foldFlowLines.js
 var require_foldFlowLines = __commonJS({
-  "node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
     "use strict";
     var FOLD_FLOW = "flow";
     var FOLD_BLOCK = "block";
@@ -3123,9 +3123,9 @@ ${indent}${text.slice(fold + 1, end2)}`;
   }
 });
 
-// node_modules/yaml/dist/stringify/stringifyString.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringifyString.js
 var require_stringifyString = __commonJS({
-  "node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var foldFlowLines = require_foldFlowLines();
@@ -3406,9 +3406,9 @@ ${indent}`);
   }
 });
 
-// node_modules/yaml/dist/stringify/stringify.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringify.js
 var require_stringify = __commonJS({
-  "node_modules/yaml/dist/stringify/stringify.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringify.js"(exports) {
     "use strict";
     var anchors = require_anchors();
     var identity = require_identity();
@@ -3530,9 +3530,9 @@ ${ctx.indent}${str}`;
   }
 });
 
-// node_modules/yaml/dist/stringify/stringifyPair.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringifyPair.js
 var require_stringifyPair = __commonJS({
-  "node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -3663,9 +3663,9 @@ ${ctx.indent}`;
   }
 });
 
-// node_modules/yaml/dist/log.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/log.js
 var require_log = __commonJS({
-  "node_modules/yaml/dist/log.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/log.js"(exports) {
     "use strict";
     var node_process = __require("process");
     function debug(logLevel, ...messages) {
@@ -3685,9 +3685,9 @@ var require_log = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/merge.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/merge.js
 var require_merge = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -3745,9 +3745,9 @@ var require_merge = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/addPairToJSMap.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/addPairToJSMap.js
 var require_addPairToJSMap = __commonJS({
-  "node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
     "use strict";
     var log = require_log();
     var merge2 = require_merge();
@@ -3809,9 +3809,9 @@ var require_addPairToJSMap = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/Pair.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/Pair.js
 var require_Pair = __commonJS({
-  "node_modules/yaml/dist/nodes/Pair.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/Pair.js"(exports) {
     "use strict";
     var createNode = require_createNode();
     var stringifyPair = require_stringifyPair();
@@ -3849,9 +3849,9 @@ var require_Pair = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/stringify/stringifyCollection.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringifyCollection.js
 var require_stringifyCollection = __commonJS({
-  "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
     var stringify = require_stringify();
@@ -4000,9 +4000,9 @@ ${indent}${end}`;
   }
 });
 
-// node_modules/yaml/dist/nodes/YAMLMap.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/YAMLMap.js
 var require_YAMLMap = __commonJS({
-  "node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
     "use strict";
     var stringifyCollection = require_stringifyCollection();
     var addPairToJSMap = require_addPairToJSMap();
@@ -4144,9 +4144,9 @@ var require_YAMLMap = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/common/map.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/common/map.js
 var require_map = __commonJS({
-  "node_modules/yaml/dist/schema/common/map.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/common/map.js"(exports) {
     "use strict";
     var identity = require_identity();
     var YAMLMap = require_YAMLMap();
@@ -4166,9 +4166,9 @@ var require_map = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/YAMLSeq.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/YAMLSeq.js
 var require_YAMLSeq = __commonJS({
-  "node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
     "use strict";
     var createNode = require_createNode();
     var stringifyCollection = require_stringifyCollection();
@@ -4282,9 +4282,9 @@ var require_YAMLSeq = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/common/seq.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/common/seq.js
 var require_seq = __commonJS({
-  "node_modules/yaml/dist/schema/common/seq.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/common/seq.js"(exports) {
     "use strict";
     var identity = require_identity();
     var YAMLSeq = require_YAMLSeq();
@@ -4304,9 +4304,9 @@ var require_seq = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/common/string.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/common/string.js
 var require_string = __commonJS({
-  "node_modules/yaml/dist/schema/common/string.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/common/string.js"(exports) {
     "use strict";
     var stringifyString = require_stringifyString();
     var string4 = {
@@ -4323,9 +4323,9 @@ var require_string = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/common/null.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/common/null.js
 var require_null = __commonJS({
-  "node_modules/yaml/dist/schema/common/null.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/common/null.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var nullTag = {
@@ -4341,9 +4341,9 @@ var require_null = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/core/bool.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/core/bool.js
 var require_bool = __commonJS({
-  "node_modules/yaml/dist/schema/core/bool.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/core/bool.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var boolTag = {
@@ -4365,9 +4365,9 @@ var require_bool = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/stringify/stringifyNumber.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringifyNumber.js
 var require_stringifyNumber = __commonJS({
-  "node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
     "use strict";
     function stringifyNumber({ format, minFractionDigits, tag, value }) {
       if (typeof value === "bigint")
@@ -4392,9 +4392,9 @@ var require_stringifyNumber = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/core/float.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/core/float.js
 var require_float = __commonJS({
-  "node_modules/yaml/dist/schema/core/float.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/core/float.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var stringifyNumber = require_stringifyNumber();
@@ -4438,9 +4438,9 @@ var require_float = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/core/int.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/core/int.js
 var require_int = __commonJS({
-  "node_modules/yaml/dist/schema/core/int.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/core/int.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -4483,9 +4483,9 @@ var require_int = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/core/schema.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/core/schema.js
 var require_schema = __commonJS({
-  "node_modules/yaml/dist/schema/core/schema.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/core/schema.js"(exports) {
     "use strict";
     var map2 = require_map();
     var _null4 = require_null();
@@ -4511,9 +4511,9 @@ var require_schema = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/json/schema.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/json/schema.js
 var require_schema2 = __commonJS({
-  "node_modules/yaml/dist/schema/json/schema.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/json/schema.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var map2 = require_map();
@@ -4578,9 +4578,9 @@ var require_schema2 = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/binary.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/binary.js
 var require_binary = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
     "use strict";
     var node_buffer = __require("buffer");
     var Scalar = require_Scalar();
@@ -4644,9 +4644,9 @@ var require_binary = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
 var require_pairs = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Pair = require_Pair();
@@ -4722,9 +4722,9 @@ ${cn2.comment}` : item.comment;
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/omap.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/omap.js
 var require_omap = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
     "use strict";
     var identity = require_identity();
     var toJS = require_toJS();
@@ -4800,9 +4800,9 @@ var require_omap = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/bool.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/bool.js
 var require_bool2 = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     function boolStringify({ value, source }, ctx) {
@@ -4832,9 +4832,9 @@ var require_bool2 = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/float.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/float.js
 var require_float2 = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var stringifyNumber = require_stringifyNumber();
@@ -4881,9 +4881,9 @@ var require_float2 = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/int.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/int.js
 var require_int2 = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -4960,9 +4960,9 @@ var require_int2 = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/set.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/set.js
 var require_set = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Pair = require_Pair();
@@ -5049,9 +5049,9 @@ var require_set = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
 var require_timestamp = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     function parseSexagesimal(str, asBigInt) {
@@ -5137,9 +5137,9 @@ var require_timestamp = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/schema.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/schema.js
 var require_schema3 = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
     "use strict";
     var map2 = require_map();
     var _null4 = require_null();
@@ -5181,9 +5181,9 @@ var require_schema3 = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/tags.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/tags.js
 var require_tags = __commonJS({
-  "node_modules/yaml/dist/schema/tags.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/tags.js"(exports) {
     "use strict";
     var map2 = require_map();
     var _null4 = require_null();
@@ -5275,9 +5275,9 @@ var require_tags = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/Schema.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/Schema.js
 var require_Schema = __commonJS({
-  "node_modules/yaml/dist/schema/Schema.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/schema/Schema.js"(exports) {
     "use strict";
     var identity = require_identity();
     var map2 = require_map();
@@ -5307,9 +5307,9 @@ var require_Schema = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/stringify/stringifyDocument.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringifyDocument.js
 var require_stringifyDocument = __commonJS({
-  "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
     var stringify = require_stringify();
@@ -5387,9 +5387,9 @@ var require_stringifyDocument = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/doc/Document.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/doc/Document.js
 var require_Document = __commonJS({
-  "node_modules/yaml/dist/doc/Document.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/doc/Document.js"(exports) {
     "use strict";
     var Alias = require_Alias();
     var Collection = require_Collection();
@@ -5696,9 +5696,9 @@ var require_Document = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/errors.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/errors.js
 var require_errors = __commonJS({
-  "node_modules/yaml/dist/errors.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/errors.js"(exports) {
     "use strict";
     var YAMLError = class extends Error {
       constructor(name2, pos, code, message) {
@@ -5761,9 +5761,9 @@ ${pointer}
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-props.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-props.js
 var require_resolve_props = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-props.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-props.js"(exports) {
     "use strict";
     function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
       let spaceBefore = false;
@@ -5895,9 +5895,9 @@ var require_resolve_props = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/util-contains-newline.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/util-contains-newline.js
 var require_util_contains_newline = __commonJS({
-  "node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
     "use strict";
     function containsNewline(key) {
       if (!key)
@@ -5937,9 +5937,9 @@ var require_util_contains_newline = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/util-flow-indent-check.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/util-flow-indent-check.js
 var require_util_flow_indent_check = __commonJS({
-  "node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
     "use strict";
     var utilContainsNewline = require_util_contains_newline();
     function flowIndentCheck(indent, fc, onError) {
@@ -5955,9 +5955,9 @@ var require_util_flow_indent_check = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/util-map-includes.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/util-map-includes.js
 var require_util_map_includes = __commonJS({
-  "node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
     "use strict";
     var identity = require_identity();
     function mapIncludes(ctx, items, search) {
@@ -5971,9 +5971,9 @@ var require_util_map_includes = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-block-map.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-block-map.js
 var require_resolve_block_map = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
     "use strict";
     var Pair = require_Pair();
     var YAMLMap = require_YAMLMap();
@@ -6079,9 +6079,9 @@ var require_resolve_block_map = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-block-seq.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-block-seq.js
 var require_resolve_block_seq = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
     "use strict";
     var YAMLSeq = require_YAMLSeq();
     var resolveProps = require_resolve_props();
@@ -6130,9 +6130,9 @@ var require_resolve_block_seq = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-end.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-end.js
 var require_resolve_end = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-end.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-end.js"(exports) {
     "use strict";
     function resolveEnd(end, offset, reqSpace, onError) {
       let comment = "";
@@ -6173,9 +6173,9 @@ var require_resolve_end = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-flow-collection.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-flow-collection.js
 var require_resolve_flow_collection = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Pair = require_Pair();
@@ -6367,9 +6367,9 @@ var require_resolve_flow_collection = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/compose-collection.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/compose-collection.js
 var require_compose_collection = __commonJS({
-  "node_modules/yaml/dist/compose/compose-collection.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/compose-collection.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -6432,9 +6432,9 @@ var require_compose_collection = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-block-scalar.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-block-scalar.js
 var require_resolve_block_scalar = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     function resolveBlockScalar(ctx, scalar, onError) {
@@ -6615,9 +6615,9 @@ var require_resolve_block_scalar = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-flow-scalar.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-flow-scalar.js
 var require_resolve_flow_scalar = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var resolveEnd = require_resolve_end();
@@ -6835,9 +6835,9 @@ var require_resolve_flow_scalar = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/compose-scalar.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/compose-scalar.js
 var require_compose_scalar = __commonJS({
-  "node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -6916,9 +6916,9 @@ var require_compose_scalar = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/util-empty-scalar-position.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/util-empty-scalar-position.js
 var require_util_empty_scalar_position = __commonJS({
-  "node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
     "use strict";
     function emptyScalarPosition(offset, before, pos) {
       if (before) {
@@ -6946,9 +6946,9 @@ var require_util_empty_scalar_position = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/compose-node.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/compose-node.js
 var require_compose_node = __commonJS({
-  "node_modules/yaml/dist/compose/compose-node.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/compose-node.js"(exports) {
     "use strict";
     var Alias = require_Alias();
     var identity = require_identity();
@@ -7052,9 +7052,9 @@ var require_compose_node = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/compose-doc.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/compose-doc.js
 var require_compose_doc = __commonJS({
-  "node_modules/yaml/dist/compose/compose-doc.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/compose-doc.js"(exports) {
     "use strict";
     var Document = require_Document();
     var composeNode = require_compose_node();
@@ -7095,9 +7095,9 @@ var require_compose_doc = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/composer.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/composer.js
 var require_composer = __commonJS({
-  "node_modules/yaml/dist/compose/composer.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/compose/composer.js"(exports) {
     "use strict";
     var node_process = __require("process");
     var directives = require_directives();
@@ -7303,9 +7303,9 @@ ${end.comment}` : end.comment;
   }
 });
 
-// node_modules/yaml/dist/parse/cst-scalar.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/cst-scalar.js
 var require_cst_scalar = __commonJS({
-  "node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
     "use strict";
     var resolveBlockScalar = require_resolve_block_scalar();
     var resolveFlowScalar = require_resolve_flow_scalar();
@@ -7488,9 +7488,9 @@ var require_cst_scalar = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/parse/cst-stringify.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/cst-stringify.js
 var require_cst_stringify = __commonJS({
-  "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
     var stringify = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
@@ -7549,9 +7549,9 @@ var require_cst_stringify = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/parse/cst-visit.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/cst-visit.js
 var require_cst_visit = __commonJS({
-  "node_modules/yaml/dist/parse/cst-visit.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/cst-visit.js"(exports) {
     "use strict";
     var BREAK = Symbol("break visit");
     var SKIP = Symbol("skip children");
@@ -7611,9 +7611,9 @@ var require_cst_visit = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/parse/cst.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/cst.js
 var require_cst = __commonJS({
-  "node_modules/yaml/dist/parse/cst.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/cst.js"(exports) {
     "use strict";
     var cstScalar = require_cst_scalar();
     var cstStringify = require_cst_stringify();
@@ -7713,9 +7713,9 @@ var require_cst = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/parse/lexer.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/lexer.js
 var require_lexer = __commonJS({
-  "node_modules/yaml/dist/parse/lexer.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/lexer.js"(exports) {
     "use strict";
     var cst = require_cst();
     function isEmpty(ch) {
@@ -8302,9 +8302,9 @@ var require_lexer = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/parse/line-counter.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/line-counter.js
 var require_line_counter = __commonJS({
-  "node_modules/yaml/dist/parse/line-counter.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/line-counter.js"(exports) {
     "use strict";
     var LineCounter = class {
       constructor() {
@@ -8333,9 +8333,9 @@ var require_line_counter = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/parse/parser.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/parser.js
 var require_parser = __commonJS({
-  "node_modules/yaml/dist/parse/parser.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/parse/parser.js"(exports) {
     "use strict";
     var node_process = __require("process");
     var cst = require_cst();
@@ -9207,9 +9207,9 @@ var require_parser = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/public-api.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/public-api.js
 var require_public_api = __commonJS({
-  "node_modules/yaml/dist/public-api.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/public-api.js"(exports) {
     "use strict";
     var composer = require_composer();
     var Document = require_Document();
@@ -9304,9 +9304,9 @@ var require_public_api = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/index.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/index.js
 var require_dist = __commonJS({
-  "node_modules/yaml/dist/index.js"(exports) {
+  "../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/yaml/dist/index.js"(exports) {
     "use strict";
     var composer = require_composer();
     var Document = require_Document();
@@ -9356,7 +9356,7 @@ var require_dist = __commonJS({
   }
 });
 
-// node_modules/zod/v4/classic/external.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/classic/external.js
 var external_exports = {};
 __export(external_exports, {
   $brand: () => $brand,
@@ -9599,7 +9599,7 @@ __export(external_exports, {
   xor: () => xor
 });
 
-// node_modules/zod/v4/core/index.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/index.js
 var core_exports2 = {};
 __export(core_exports2, {
   $ZodAny: () => $ZodAny,
@@ -9878,7 +9878,7 @@ __export(core_exports2, {
   version: () => version
 });
 
-// node_modules/zod/v4/core/core.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/core.js
 var _a;
 var NEVER = /* @__PURE__ */ Object.freeze({
   status: "aborted"
@@ -9955,7 +9955,7 @@ function config(newConfig) {
   return globalConfig;
 }
 
-// node_modules/zod/v4/core/util.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/util.js
 var util_exports = {};
 __export(util_exports, {
   BIGINT_FORMAT_RANGES: () => BIGINT_FORMAT_RANGES,
@@ -10651,7 +10651,7 @@ var Class = class {
   }
 };
 
-// node_modules/zod/v4/core/errors.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/errors.js
 var initializer = (inst, def) => {
   inst.name = "$ZodError";
   Object.defineProperty(inst, "_zod", {
@@ -10790,7 +10790,7 @@ function prettifyError(error51) {
   return lines.join("\n");
 }
 
-// node_modules/zod/v4/core/parse.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/parse.js
 var _parse = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? { ..._ctx, async: false } : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -10878,7 +10878,7 @@ var _safeDecodeAsync = (_Err) => async (schema, value, _ctx) => {
 };
 var safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync($ZodRealError);
 
-// node_modules/zod/v4/core/regexes.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/regexes.js
 var regexes_exports = {};
 __export(regexes_exports, {
   base64: () => base64,
@@ -11037,7 +11037,7 @@ var sha512_hex = /^[0-9a-fA-F]{128}$/;
 var sha512_base64 = /* @__PURE__ */ fixedBase64(86, "==");
 var sha512_base64url = /* @__PURE__ */ fixedBase64url(86);
 
-// node_modules/zod/v4/core/checks.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/checks.js
 var $ZodCheck = /* @__PURE__ */ $constructor("$ZodCheck", (inst, def) => {
   var _a3;
   inst._zod ?? (inst._zod = {});
@@ -11585,7 +11585,7 @@ var $ZodCheckOverwrite = /* @__PURE__ */ $constructor("$ZodCheckOverwrite", (ins
   };
 });
 
-// node_modules/zod/v4/core/doc.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/doc.js
 var Doc = class {
   constructor(args = []) {
     this.content = [];
@@ -11621,14 +11621,14 @@ var Doc = class {
   }
 };
 
-// node_modules/zod/v4/core/versions.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/versions.js
 var version = {
   major: 4,
   minor: 4,
   patch: 3
 };
 
-// node_modules/zod/v4/core/schemas.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/schemas.js
 var $ZodType = /* @__PURE__ */ $constructor("$ZodType", (inst, def) => {
   var _a3;
   inst ?? (inst = {});
@@ -13721,7 +13721,7 @@ function handleRefineResult(result, payload, input, inst) {
   }
 }
 
-// node_modules/zod/v4/locales/index.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/index.js
 var locales_exports = {};
 __export(locales_exports, {
   ar: () => ar_default,
@@ -13778,7 +13778,7 @@ __export(locales_exports, {
   zhTW: () => zh_TW_default
 });
 
-// node_modules/zod/v4/locales/ar.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ar.js
 var error = () => {
   const Sizable = {
     string: { unit: "\u062D\u0631\u0641", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
@@ -13885,7 +13885,7 @@ function ar_default() {
   };
 }
 
-// node_modules/zod/v4/locales/az.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/az.js
 var error2 = () => {
   const Sizable = {
     string: { unit: "simvol", verb: "olmal\u0131d\u0131r" },
@@ -13991,7 +13991,7 @@ function az_default() {
   };
 }
 
-// node_modules/zod/v4/locales/be.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/be.js
 function getBelarusianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -14148,7 +14148,7 @@ function be_default() {
   };
 }
 
-// node_modules/zod/v4/locales/bg.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/bg.js
 var error4 = () => {
   const Sizable = {
     string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
@@ -14269,7 +14269,7 @@ function bg_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ca.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ca.js
 var error5 = () => {
   const Sizable = {
     string: { unit: "car\xE0cters", verb: "contenir" },
@@ -14378,7 +14378,7 @@ function ca_default() {
   };
 }
 
-// node_modules/zod/v4/locales/cs.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/cs.js
 var error6 = () => {
   const Sizable = {
     string: { unit: "znak\u016F", verb: "m\xEDt" },
@@ -14490,7 +14490,7 @@ function cs_default() {
   };
 }
 
-// node_modules/zod/v4/locales/da.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/da.js
 var error7 = () => {
   const Sizable = {
     string: { unit: "tegn", verb: "havde" },
@@ -14606,7 +14606,7 @@ function da_default() {
   };
 }
 
-// node_modules/zod/v4/locales/de.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/de.js
 var error8 = () => {
   const Sizable = {
     string: { unit: "Zeichen", verb: "zu haben" },
@@ -14715,7 +14715,7 @@ function de_default() {
   };
 }
 
-// node_modules/zod/v4/locales/el.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/el.js
 var error9 = () => {
   const Sizable = {
     string: { unit: "\u03C7\u03B1\u03C1\u03B1\u03BA\u03C4\u03AE\u03C1\u03B5\u03C2", verb: "\u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9" },
@@ -14825,7 +14825,7 @@ function el_default() {
   };
 }
 
-// node_modules/zod/v4/locales/en.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/en.js
 var error10 = () => {
   const Sizable = {
     string: { unit: "characters", verb: "to have" },
@@ -14938,7 +14938,7 @@ function en_default() {
   };
 }
 
-// node_modules/zod/v4/locales/eo.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/eo.js
 var error11 = () => {
   const Sizable = {
     string: { unit: "karaktrojn", verb: "havi" },
@@ -15048,7 +15048,7 @@ function eo_default() {
   };
 }
 
-// node_modules/zod/v4/locales/es.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/es.js
 var error12 = () => {
   const Sizable = {
     string: { unit: "caracteres", verb: "tener" },
@@ -15181,7 +15181,7 @@ function es_default() {
   };
 }
 
-// node_modules/zod/v4/locales/fa.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/fa.js
 var error13 = () => {
   const Sizable = {
     string: { unit: "\u06A9\u0627\u0631\u0627\u06A9\u062A\u0631", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
@@ -15296,7 +15296,7 @@ function fa_default() {
   };
 }
 
-// node_modules/zod/v4/locales/fi.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/fi.js
 var error14 = () => {
   const Sizable = {
     string: { unit: "merkki\xE4", subject: "merkkijonon" },
@@ -15409,7 +15409,7 @@ function fi_default() {
   };
 }
 
-// node_modules/zod/v4/locales/fr.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/fr.js
 var error15 = () => {
   const Sizable = {
     string: { unit: "caract\xE8res", verb: "avoir" },
@@ -15535,7 +15535,7 @@ function fr_default() {
   };
 }
 
-// node_modules/zod/v4/locales/fr-CA.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/fr-CA.js
 var error16 = () => {
   const Sizable = {
     string: { unit: "caract\xE8res", verb: "avoir" },
@@ -15643,7 +15643,7 @@ function fr_CA_default() {
   };
 }
 
-// node_modules/zod/v4/locales/he.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/he.js
 var error17 = () => {
   const TypeNames = {
     string: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA", gender: "f" },
@@ -15838,7 +15838,7 @@ function he_default() {
   };
 }
 
-// node_modules/zod/v4/locales/hr.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/hr.js
 var error18 = () => {
   const Sizable = {
     string: { unit: "znakova", verb: "imati" },
@@ -15961,7 +15961,7 @@ function hr_default() {
   };
 }
 
-// node_modules/zod/v4/locales/hu.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/hu.js
 var error19 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "legyen" },
@@ -16070,7 +16070,7 @@ function hu_default() {
   };
 }
 
-// node_modules/zod/v4/locales/hy.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/hy.js
 function getArmenianPlural(count, one, many) {
   return Math.abs(count) === 1 ? one : many;
 }
@@ -16218,7 +16218,7 @@ function hy_default() {
   };
 }
 
-// node_modules/zod/v4/locales/id.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/id.js
 var error21 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "memiliki" },
@@ -16325,7 +16325,7 @@ function id_default() {
   };
 }
 
-// node_modules/zod/v4/locales/is.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/is.js
 var error22 = () => {
   const Sizable = {
     string: { unit: "stafi", verb: "a\xF0 hafa" },
@@ -16435,7 +16435,7 @@ function is_default() {
   };
 }
 
-// node_modules/zod/v4/locales/it.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/it.js
 var error23 = () => {
   const Sizable = {
     string: { unit: "caratteri", verb: "avere" },
@@ -16544,7 +16544,7 @@ function it_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ja.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ja.js
 var error24 = () => {
   const Sizable = {
     string: { unit: "\u6587\u5B57", verb: "\u3067\u3042\u308B" },
@@ -16652,7 +16652,7 @@ function ja_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ka.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ka.js
 var error25 = () => {
   const Sizable = {
     string: { unit: "\u10E1\u10D8\u10DB\u10D1\u10DD\u10DA\u10DD", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
@@ -16765,7 +16765,7 @@ function ka_default() {
   };
 }
 
-// node_modules/zod/v4/locales/km.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/km.js
 var error26 = () => {
   const Sizable = {
     string: { unit: "\u178F\u17BD\u17A2\u1780\u17D2\u179F\u179A", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
@@ -16876,12 +16876,12 @@ function km_default() {
   };
 }
 
-// node_modules/zod/v4/locales/kh.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/kh.js
 function kh_default() {
   return km_default();
 }
 
-// node_modules/zod/v4/locales/ko.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ko.js
 var error27 = () => {
   const Sizable = {
     string: { unit: "\uBB38\uC790", verb: "to have" },
@@ -16993,7 +16993,7 @@ function ko_default() {
   };
 }
 
-// node_modules/zod/v4/locales/lt.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/lt.js
 var capitalizeFirstCharacter = (text) => {
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
@@ -17197,7 +17197,7 @@ function lt_default() {
   };
 }
 
-// node_modules/zod/v4/locales/mk.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/mk.js
 var error29 = () => {
   const Sizable = {
     string: { unit: "\u0437\u043D\u0430\u0446\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
@@ -17307,7 +17307,7 @@ function mk_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ms.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ms.js
 var error30 = () => {
   const Sizable = {
     string: { unit: "aksara", verb: "mempunyai" },
@@ -17415,7 +17415,7 @@ function ms_default() {
   };
 }
 
-// node_modules/zod/v4/locales/nl.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/nl.js
 var error31 = () => {
   const Sizable = {
     string: { unit: "tekens", verb: "heeft" },
@@ -17526,7 +17526,7 @@ function nl_default() {
   };
 }
 
-// node_modules/zod/v4/locales/no.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/no.js
 var error32 = () => {
   const Sizable = {
     string: { unit: "tegn", verb: "\xE5 ha" },
@@ -17635,7 +17635,7 @@ function no_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ota.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ota.js
 var error33 = () => {
   const Sizable = {
     string: { unit: "harf", verb: "olmal\u0131d\u0131r" },
@@ -17745,7 +17745,7 @@ function ota_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ps.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ps.js
 var error34 = () => {
   const Sizable = {
     string: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
@@ -17860,7 +17860,7 @@ function ps_default() {
   };
 }
 
-// node_modules/zod/v4/locales/pl.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/pl.js
 var error35 = () => {
   const Sizable = {
     string: { unit: "znak\xF3w", verb: "mie\u0107" },
@@ -17970,7 +17970,7 @@ function pl_default() {
   };
 }
 
-// node_modules/zod/v4/locales/pt.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/pt.js
 var error36 = () => {
   const Sizable = {
     string: { unit: "caracteres", verb: "ter" },
@@ -18079,7 +18079,7 @@ function pt_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ro.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ro.js
 var error37 = () => {
   const Sizable = {
     string: { unit: "caractere", verb: "s\u0103 aib\u0103" },
@@ -18199,7 +18199,7 @@ function ro_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ru.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ru.js
 function getRussianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -18356,7 +18356,7 @@ function ru_default() {
   };
 }
 
-// node_modules/zod/v4/locales/sl.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/sl.js
 var error39 = () => {
   const Sizable = {
     string: { unit: "znakov", verb: "imeti" },
@@ -18466,7 +18466,7 @@ function sl_default() {
   };
 }
 
-// node_modules/zod/v4/locales/sv.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/sv.js
 var error40 = () => {
   const Sizable = {
     string: { unit: "tecken", verb: "att ha" },
@@ -18577,7 +18577,7 @@ function sv_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ta.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ta.js
 var error41 = () => {
   const Sizable = {
     string: { unit: "\u0B8E\u0BB4\u0BC1\u0BA4\u0BCD\u0BA4\u0BC1\u0B95\u0BCD\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
@@ -18688,7 +18688,7 @@ function ta_default() {
   };
 }
 
-// node_modules/zod/v4/locales/th.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/th.js
 var error42 = () => {
   const Sizable = {
     string: { unit: "\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
@@ -18799,7 +18799,7 @@ function th_default() {
   };
 }
 
-// node_modules/zod/v4/locales/tr.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/tr.js
 var error43 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "olmal\u0131" },
@@ -18905,7 +18905,7 @@ function tr_default() {
   };
 }
 
-// node_modules/zod/v4/locales/uk.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/uk.js
 var error44 = () => {
   const Sizable = {
     string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
@@ -19014,12 +19014,12 @@ function uk_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ua.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ua.js
 function ua_default() {
   return uk_default();
 }
 
-// node_modules/zod/v4/locales/ur.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/ur.js
 var error45 = () => {
   const Sizable = {
     string: { unit: "\u062D\u0631\u0648\u0641", verb: "\u06C1\u0648\u0646\u0627" },
@@ -19130,7 +19130,7 @@ function ur_default() {
   };
 }
 
-// node_modules/zod/v4/locales/uz.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/uz.js
 var error46 = () => {
   const Sizable = {
     string: { unit: "belgi", verb: "bo\u2018lishi kerak" },
@@ -19241,7 +19241,7 @@ function uz_default() {
   };
 }
 
-// node_modules/zod/v4/locales/vi.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/vi.js
 var error47 = () => {
   const Sizable = {
     string: { unit: "k\xFD t\u1EF1", verb: "c\xF3" },
@@ -19350,7 +19350,7 @@ function vi_default() {
   };
 }
 
-// node_modules/zod/v4/locales/zh-CN.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/zh-CN.js
 var error48 = () => {
   const Sizable = {
     string: { unit: "\u5B57\u7B26", verb: "\u5305\u542B" },
@@ -19460,7 +19460,7 @@ function zh_CN_default() {
   };
 }
 
-// node_modules/zod/v4/locales/zh-TW.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/zh-TW.js
 var error49 = () => {
   const Sizable = {
     string: { unit: "\u5B57\u5143", verb: "\u64C1\u6709" },
@@ -19568,7 +19568,7 @@ function zh_TW_default() {
   };
 }
 
-// node_modules/zod/v4/locales/yo.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/locales/yo.js
 var error50 = () => {
   const Sizable = {
     string: { unit: "\xE0mi", verb: "n\xED" },
@@ -19676,7 +19676,7 @@ function yo_default() {
   };
 }
 
-// node_modules/zod/v4/core/registries.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/registries.js
 var _a2;
 var $output = Symbol("ZodOutput");
 var $input = Symbol("ZodInput");
@@ -19726,7 +19726,7 @@ function registry() {
 (_a2 = globalThis).__zod_globalRegistry ?? (_a2.__zod_globalRegistry = registry());
 var globalRegistry = globalThis.__zod_globalRegistry;
 
-// node_modules/zod/v4/core/api.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/api.js
 // @__NO_SIDE_EFFECTS__
 function _string(Class2, params) {
   return new Class2({
@@ -20765,7 +20765,7 @@ function _stringFormat(Class2, format, fnOrRegex, _params = {}) {
   return inst;
 }
 
-// node_modules/zod/v4/core/to-json-schema.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/to-json-schema.js
 function initializeContext(params) {
   let target = params?.target ?? "draft-2020-12";
   if (target === "draft-4")
@@ -21124,7 +21124,7 @@ var createStandardJSONSchemaMethod = (schema, io2, processors = {}) => (params) 
   return finalize(ctx, schema);
 };
 
-// node_modules/zod/v4/core/json-schema-processors.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/json-schema-processors.js
 var formatMap = {
   guid: "uuid",
   url: "uri",
@@ -21668,7 +21668,7 @@ function toJSONSchema(input, params) {
   return finalize(ctx, input);
 }
 
-// node_modules/zod/v4/core/json-schema-generator.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/json-schema-generator.js
 var JSONSchemaGenerator = class {
   /** @deprecated Access via ctx instead */
   get metadataRegistry() {
@@ -21743,10 +21743,10 @@ var JSONSchemaGenerator = class {
   }
 };
 
-// node_modules/zod/v4/core/json-schema.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/core/json-schema.js
 var json_schema_exports = {};
 
-// node_modules/zod/v4/classic/schemas.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/classic/schemas.js
 var schemas_exports2 = {};
 __export(schemas_exports2, {
   ZodAny: () => ZodAny,
@@ -21917,7 +21917,7 @@ __export(schemas_exports2, {
   xor: () => xor
 });
 
-// node_modules/zod/v4/classic/checks.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/classic/checks.js
 var checks_exports2 = {};
 __export(checks_exports2, {
   endsWith: () => _endsWith,
@@ -21951,7 +21951,7 @@ __export(checks_exports2, {
   uppercase: () => _uppercase
 });
 
-// node_modules/zod/v4/classic/iso.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/classic/iso.js
 var iso_exports = {};
 __export(iso_exports, {
   ZodISODate: () => ZodISODate,
@@ -21992,7 +21992,7 @@ function duration2(params) {
   return _isoDuration(ZodISODuration, params);
 }
 
-// node_modules/zod/v4/classic/errors.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/classic/errors.js
 var initializer2 = (inst, issues) => {
   $ZodError.init(inst, issues);
   inst.name = "ZodError";
@@ -22032,7 +22032,7 @@ var ZodRealError = /* @__PURE__ */ $constructor("ZodError", initializer2, {
   Parent: Error
 });
 
-// node_modules/zod/v4/classic/parse.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/classic/parse.js
 var parse2 = /* @__PURE__ */ _parse(ZodRealError);
 var parseAsync2 = /* @__PURE__ */ _parseAsync(ZodRealError);
 var safeParse2 = /* @__PURE__ */ _safeParse(ZodRealError);
@@ -22046,7 +22046,7 @@ var safeDecode2 = /* @__PURE__ */ _safeDecode(ZodRealError);
 var safeEncodeAsync2 = /* @__PURE__ */ _safeEncodeAsync(ZodRealError);
 var safeDecodeAsync2 = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 
-// node_modules/zod/v4/classic/schemas.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/classic/schemas.js
 var _installedGroups = /* @__PURE__ */ new WeakMap();
 function _installLazyMethods(inst, group, methods) {
   const proto = Object.getPrototypeOf(inst);
@@ -23336,7 +23336,7 @@ function preprocess(fn, schema) {
   });
 }
 
-// node_modules/zod/v4/classic/compat.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/classic/compat.js
 var ZodIssueCode = {
   invalid_type: "invalid_type",
   too_big: "too_big",
@@ -23362,7 +23362,7 @@ var ZodFirstPartyTypeKind;
 /* @__PURE__ */ (function(ZodFirstPartyTypeKind2) {
 })(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
 
-// node_modules/zod/v4/classic/from-json-schema.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/classic/from-json-schema.js
 var z = {
   ...schemas_exports2,
   ...checks_exports2,
@@ -23842,7 +23842,7 @@ function fromJSONSchema(schema, params) {
   return convertSchema(normalized, ctx);
 }
 
-// node_modules/zod/v4/classic/coerce.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/classic/coerce.js
 var coerce_exports = {};
 __export(coerce_exports, {
   bigint: () => bigint3,
@@ -23867,7 +23867,7 @@ function date4(params) {
   return _coercedDate(ZodDate, params);
 }
 
-// node_modules/zod/v4/classic/external.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/zod/v4/classic/external.js
 config(en_default());
 
 // src/config.ts
@@ -24111,7 +24111,7 @@ import { pipeline as pipeline2 } from "node:stream/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createGunzip } from "node:zlib";
 
-// node_modules/@deepseek-ai/dsh-atomic-write/lib/index.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/@deepseek-ai/dsh-atomic-write/lib/index.js
 import { randomBytes } from "node:crypto";
 import { lstat as lstat2, mkdir as mkdir2, rename as rename2, rm as rm2, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
@@ -24201,7 +24201,7 @@ async function withFileLock(filename, operation, options) {
 // src/components.ts
 var import_semver2 = __toESM(require_semver2(), 1);
 
-// node_modules/tar/dist/esm/index.min.js
+// ../../../../../Users/king/Documents/ChatGPT/ClawMaster/.artifacts/clawmaster-plan-0.2.3/frontends/updates/node_modules/tar/dist/esm/index.min.js
 import Qr from "events";
 import I from "fs";
 import { EventEmitter as Di } from "node:events";
@@ -27179,6 +27179,56 @@ var sha256 = (value) => createHash2("sha256").update(value).digest("hex");
 var revision = (value) => `sha256-${sha256(value)}`;
 var json2 = (value) => `${JSON.stringify(value, null, 2)}
 `;
+var operationSchema = external_exports.object({
+  before: external_exports.string().max(DEFAULT_LIMITS.patchBytes),
+  after: external_exports.string().max(DEFAULT_LIMITS.patchBytes),
+  afterRevision: external_exports.string().regex(/^sha256-[a-f0-9]{64}$/u),
+  id: external_exports.string().regex(ID),
+  version: external_exports.string().refine((value) => (0, import_semver2.valid)(value) === value),
+  activation: external_exports.enum(["hot", "restart"]),
+  state: external_exports.enum(["staged", "applied", "switching", "awaiting-health", "completed", "rolled-back", "blocked"]),
+  failure: external_exports.string().optional(),
+  direction: external_exports.enum(["update", "rollback"]).optional(),
+  activatedAt: external_exports.string().datetime().optional(),
+  observedHostPid: external_exports.number().int().positive().optional(),
+  observedRunId: external_exports.string().min(1).optional()
+});
+var OPERATION_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+async function readOperation(root, token) {
+  if (!OPERATION_TOKEN.test(token)) throw new Error("Invalid component operation token");
+  return operationSchema.parse(JSON.parse((await regularFile(join3(root, "operations", `${token}.json`), DEFAULT_LIMITS.patchBytes * 8)).toString("utf8")));
+}
+async function listComponentOperations(dshHome) {
+  if (!isAbsolute3(dshHome) || resolve2(dshHome) !== dshHome || parse3(dshHome).root === dshHome) throw new Error("DSH home must be an absolute normalized directory below the filesystem root");
+  const root = join3(dshHome, "clawmaster-updates");
+  const paths = [dshHome, root, join3(root, "operations")];
+  for (const path of paths) {
+    try {
+      const info = await lstat3(path);
+      if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("Component state directories must not be symbolic links");
+    } catch (error51) {
+      if (error51.code === "ENOENT") return [];
+      throw error51;
+    }
+  }
+  const rows = [];
+  for (const name2 of (await readdir(join3(root, "operations"))).sort()) {
+    if (!name2.endsWith(".json")) continue;
+    const token = name2.slice(0, -5);
+    const record3 = await readOperation(root, token);
+    rows.push({
+      token,
+      id: record3.id,
+      version: record3.version,
+      state: record3.state,
+      activation: record3.activation,
+      ...record3.observedHostPid === void 0 ? {} : { observedHostPid: record3.observedHostPid },
+      ...record3.observedRunId === void 0 ? {} : { observedRunId: record3.observedRunId },
+      ...record3.failure === void 0 ? {} : { failure: record3.failure }
+    });
+  }
+  return rows;
+}
 function limits(input) {
   const result = { ...DEFAULT_LIMITS, ...input };
   for (const value of Object.values(result)) if (!Number.isSafeInteger(value) || value <= 0) throw new Error("Component limits must be positive integers");
@@ -27527,6 +27577,94 @@ async function activateComponent(options) {
 async function mountFirstUpdaterComponent(options) {
   return activateInstalled({ ...options, id: "updates" }, true);
 }
+async function assertDesktopHostStopped(dshHome) {
+  const path = join3(dshHome, "desktop", "current-runtime.json");
+  const desktop = await lstat3(dirname2(path));
+  if (!desktop.isDirectory() || desktop.isSymbolicLink()) throw new Error("Desktop runtime directory must not be a symbolic link");
+  const record3 = external_exports.object({ schemaVersion: external_exports.literal(1), hostPid: external_exports.number().int().positive(), runId: external_exports.string().min(1), status: external_exports.enum(["ready", "stopped"]) }).parse(JSON.parse((await regularFile(path, 1024 * 1024)).toString("utf8")));
+  try {
+    process.kill(record3.hostPid, 0);
+  } catch (error51) {
+    if (error51.code === "ESRCH") return;
+    throw new Error("Cannot verify that the desktop Host has stopped", { cause: error51 });
+  }
+  throw new Error("The desktop Host is still running; component maintenance requires its exit");
+}
+async function maintainRestartComponents(dshHome) {
+  const pending = (await listComponentOperations(dshHome)).filter((record3) => record3.id === "updates" && record3.activation === "restart" && ["staged", "switching", "awaiting-health"].includes(record3.state));
+  if (pending.length === 0) return [];
+  await assertDesktopHostStopped(dshHome);
+  const root = await stateRoot(dshHome);
+  const path = await patchPath(dshHome);
+  const changed = [];
+  await withFileLock(path, async () => {
+    await assertDesktopHostStopped(dshHome);
+    const owner = join3(root, "components", "updates");
+    const info = await lstat3(owner);
+    if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("Installed component directories must not be symbolic links");
+    await withFileLock(join3(owner, "installation"), async () => {
+      for (const candidate of pending) {
+        const record3 = await readOperation(root, candidate.token);
+        const recordPath = join3(root, "operations", `${candidate.token}.json`);
+        if (record3.id !== "updates" || record3.activation !== "restart") throw new Error("Restart operation identity changed");
+        const current = await optionalPatch(path, DEFAULT_LIMITS.patchBytes);
+        if (record3.state === "switching" || record3.state === "awaiting-health") {
+          if (current !== record3.before && current !== record3.after) throw new Error("Unconfirmed update conflicts with user profile changes; manual recovery is required");
+          await verifyRollbackEntry(root, record3.id, record3.before);
+          if (current === record3.after) await writeFileAtomic(path, record3.before, { mode: 384, dirMode: 448 });
+          await writeFileAtomic(recordPath, json2({ ...record3, state: "rolled-back", afterRevision: revision(record3.before) }), { mode: 384, dirMode: 448 });
+          changed.push({ ...candidate, state: "rolled-back" });
+          continue;
+        }
+        if (record3.state !== "staged") continue;
+        try {
+          if (revision(current) !== record3.afterRevision || current !== record3.before) throw new Error("Staged update conflicts with newer profile changes; inspect and approve a fresh update");
+          const target = await installed(root, record3.id, record3.version);
+          if (target.descriptor.packageName !== "@clawmaster/dsh-updates" || target.descriptor.activation !== "restart") throw new Error("Restart maintenance accepts only the verified updater");
+          if (await nextPatch(record3.before, root, target) !== record3.after) throw new Error("Staged profile differs from the approved component");
+        } catch (error51) {
+          const failure2 = error51 instanceof Error ? error51.message : "Component verification failed";
+          await writeFileAtomic(recordPath, json2({ ...record3, state: "blocked", failure: failure2 }), { mode: 384, dirMode: 448 });
+          changed.push({ ...candidate, state: "blocked", failure: failure2 });
+          continue;
+        }
+        const switching = { ...record3, state: "switching", afterRevision: revision(record3.after) };
+        await writeFileAtomic(recordPath, json2(switching), { mode: 384, dirMode: 448 });
+        await writeFileAtomic(path, record3.after, { mode: 384, dirMode: 448 });
+        await writeFileAtomic(recordPath, json2({ ...switching, state: "awaiting-health" }), { mode: 384, dirMode: 448 });
+        changed.push({ ...candidate, state: "awaiting-health" });
+      }
+    });
+  });
+  return changed;
+}
+async function confirmComponentHealth(options) {
+  if (options.hostPid !== process.pid || !options.runId || options.runId !== process.env.CLAWMASTER_RUNTIME_RUN_ID) throw new Error("Health confirmation requires the actual executing desktop Host");
+  const operations = await listComponentOperations(options.dshHome);
+  const candidates = operations.filter((operation) => operation.id === "updates" && operation.state === "awaiting-health");
+  if (!candidates.length) return [];
+  const root = await stateRoot(options.dshHome);
+  const path = await patchPath(options.dshHome);
+  return withFileLock(path, async () => {
+    const confirmed = [];
+    for (const candidate of candidates) {
+      const record3 = await readOperation(root, candidate.token);
+      if (record3.state !== "awaiting-health") continue;
+      const target = await installed(root, record3.id, record3.version);
+      if (target.entryUrl !== options.entryUrl) continue;
+      if (await optionalPatch(path, DEFAULT_LIMITS.patchBytes) !== record3.after) throw new Error("Loaded updater profile differs from its approved activation");
+      await writeFileAtomic(join3(root, "operations", `${candidate.token}.json`), json2({
+        ...record3,
+        state: "completed",
+        activatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        observedHostPid: process.pid,
+        observedRunId: options.runId
+      }), { mode: 384, dirMode: 448 });
+      confirmed.push(candidate.token);
+    }
+    return confirmed;
+  });
+}
 async function activateInstalled(options, firstUpdater) {
   if (!options.confirmed) throw new Error("Component activation requires explicit confirmation");
   if (!ID.test(options.id) || (0, import_semver2.valid)(options.version) !== options.version) throw new Error("Invalid installed component identity");
@@ -27576,22 +27714,40 @@ async function rollbackComponent(options) {
   const path = await patchPath(options.dshHome);
   return withFileLock(path, async () => {
     const recordPath = join3(root, "operations", `${options.rollbackToken}.json`);
-    const record3 = JSON.parse((await regularFile(recordPath, DEFAULT_LIMITS.patchBytes * 8)).toString("utf8"));
-    if (typeof record3.before !== "string" || Buffer.byteLength(record3.before) > DEFAULT_LIMITS.patchBytes || typeof record3.id !== "string" || !ID.test(record3.id) || (0, import_semver2.valid)(record3.version) !== record3.version || !["hot", "restart"].includes(record3.activation) || !["staged", "applied"].includes(record3.state) || record3.afterRevision !== options.expectedPatchRevision || revision(await optionalPatch(path, DEFAULT_LIMITS.patchBytes)) !== options.expectedPatchRevision) {
+    const record3 = await readOperation(root, options.rollbackToken);
+    if (typeof record3.before !== "string" || Buffer.byteLength(record3.before) > DEFAULT_LIMITS.patchBytes || typeof record3.id !== "string" || !ID.test(record3.id) || (0, import_semver2.valid)(record3.version) !== record3.version || !["hot", "restart"].includes(record3.activation) || !["staged", "applied", "completed"].includes(record3.state) || record3.afterRevision !== options.expectedPatchRevision || revision(await optionalPatch(path, DEFAULT_LIMITS.patchBytes)) !== options.expectedPatchRevision) {
       throw new Error("The profile changed after activation; rollback would overwrite newer edits");
     }
     const owner = join3(root, "components", record3.id);
     const info = await lstat3(owner);
     if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("Installed component directories must not be symbolic links");
     return withFileLock(join3(owner, "installation"), async () => {
-      if (record3.state === "applied") await verifyRollbackEntry(root, record3.id, record3.before);
+      if (record3.state !== "staged") await verifyRollbackEntry(root, record3.id, record3.before);
       const current = await optionalPatch(path, DEFAULT_LIMITS.patchBytes);
       if (revision(current) !== options.expectedPatchRevision) throw new Error("The profile changed during rollback; no update was applied");
-      if (record3.state === "applied" && record3.activation === "restart") {
-        await writeFileAtomic(recordPath, json2({ ...record3, before: current, after: record3.before, state: "staged" }), { mode: 384, dirMode: 448 });
+      if (record3.state !== "staged" && record3.activation === "restart") {
+        const doc = (0, import_yaml.parseDocument)(record3.before);
+        let entry2;
+        (0, import_yaml.visit)(doc, { Map(_key, node) {
+          const name2 = node.get("name");
+          if (node.get("id") === `clawmaster-update-component-${record3.id}` && typeof name2 === "string") entry2 = name2;
+        } });
+        if (entry2 === void 0) throw new Error("This rollback removes the updater; use the offline repair installer instead");
+        const previousVersion = relative(join3(root, "components", record3.id), fileURLToPath(entry2)).split(/[\\/]/)[0];
+        await installed(root, record3.id, previousVersion);
+        await writeFileAtomic(recordPath, json2({
+          before: current,
+          after: record3.before,
+          afterRevision: options.expectedPatchRevision,
+          id: record3.id,
+          version: previousVersion,
+          activation: record3.activation,
+          direction: "rollback",
+          state: "staged"
+        }), { mode: 384, dirMode: 448 });
         return { status: "restart-required", patchRevision: options.expectedPatchRevision };
       }
-      if (record3.state === "applied") await writeFileAtomic(path, record3.before, { mode: 384, dirMode: 448 });
+      if (record3.state !== "staged") await writeFileAtomic(path, record3.before, { mode: 384, dirMode: 448 });
       await rm3(recordPath);
       return { status: record3.activation === "restart" ? "restart-required" : "activation-pending", patchRevision: revision(record3.before) };
     });
@@ -27887,7 +28043,8 @@ var UpdatesService = class {
       checkedAt: (/* @__PURE__ */ new Date()).toISOString(),
       facts,
       components: components.status === "fulfilled" ? { status: "available", generatedAt: components.value.generatedAt, items: components.value.components.map((item) => ({ ...item, compatible: facts.dshVersion === null ? null : item.requiresDshVersion === facts.dshVersion })) } : { status: "unavailable", error: failure(components.reason) },
-      native: this.nativeStatus(native, facts)
+      native: this.nativeStatus(native, facts),
+      operations: await listComponentOperations(this.config.dshHome)
     };
     this.latest = structuredClone(status);
     return status;
@@ -27921,7 +28078,7 @@ var UpdatesService = class {
   summary(plan) {
     const chinese = this.config.locale === "zh-CN";
     if (plan.kind === "native") return chinese ? `\u4E0B\u8F7D\u5E76\u9A8C\u7B7E ClawMaster ${plan.release.version}\uFF08${plan.target}\uFF09\u5B89\u88C5\u5305\u5230 ${join6(this.config.dshHome, "clawmaster-updates", "downloads")}\uFF1B\u9700\u8981\u539F\u751F\u5B89\u88C5\u5668\u540E\u7EED\u5B89\u88C5\uFF0C\u672C\u6B21\u4E0D\u4F1A\u542F\u52A8\u5B89\u88C5\u5668\u6216\u91CD\u542F\u3002\u914D\u7F6E\u4FEE\u8BA2\uFF1A${plan.patchRevision}` : `Download and verify ClawMaster ${plan.release.version} (${plan.target}) into ${join6(this.config.dshHome, "clawmaster-updates", "downloads")}. Native installation remains required; this action does not launch the installer or restart. Profile revision: ${plan.patchRevision}`;
-    const operation = plan.item.kind === "runtime" ? chinese ? "\u4EC5\u4E0B\u8F7D\u5E76\u9A8C\u7B7E\u8FD0\u884C\u65F6\uFF0C\u5F53\u524D\u684C\u9762\u4E0D\u652F\u6301\u5207\u6362" : "download and verify runtime; desktop activation support is required" : plan.item.activation === "restart" ? chinese ? "\u5B89\u88C5\u5230\u72EC\u7ACB\u7EC4\u4EF6\u76EE\u5F55\u5E76\u6682\u5B58\uFF1B\u91CD\u542F\u4E0D\u4F1A\u81EA\u52A8\u5E94\u7528\uFF0C\u9700\u505C\u6B62 Host \u540E\u53E6\u884C\u5B89\u88C5" : "install into an isolated component directory and stage; restarting will not apply this automatically, and installation must be completed separately with the Host stopped" : chinese ? "\u5B89\u88C5\u5230\u72EC\u7ACB\u7EC4\u4EF6\u76EE\u5F55\u5E76\u4FEE\u6539\u66F4\u65B0\u5668\u4E13\u5C5E\u914D\u7F6E\u884C\uFF1B\u7B49\u5F85 DSH Loader \u6FC0\u6D3B" : "install into an isolated component directory and edit the updater-owned profile row; await DSH Loader activation";
+    const operation = plan.item.kind === "runtime" ? chinese ? "\u4EC5\u4E0B\u8F7D\u5E76\u9A8C\u7B7E\u8FD0\u884C\u65F6\uFF0C\u5F53\u524D\u684C\u9762\u4E0D\u652F\u6301\u5207\u6362" : "download and verify runtime; desktop activation support is required" : plan.item.activation === "restart" ? plan.item.id === "updates" ? chinese ? "\u5B89\u88C5\u5230\u72EC\u7ACB\u7EC4\u4EF6\u76EE\u5F55\u5E76\u6682\u5B58\uFF1B\u652F\u6301\u7EC4\u4EF6\u7EF4\u62A4\u7684\u684C\u9762\u5C06\u5728 Host \u505C\u6B62\u540E\u7684\u4E0B\u6B21\u542F\u52A8\u5E94\u7528\u66F4\u65B0\uFF0C\u63D2\u4EF6\u5B9E\u9645\u52A0\u8F7D\u540E\u624D\u786E\u8BA4\u6210\u529F" : "install into an isolated component directory and stage; a maintenance-capable desktop applies the update before its next Host starts and confirms success only after the plugin loads" : chinese ? "\u5B89\u88C5\u5230\u72EC\u7ACB\u7EC4\u4EF6\u76EE\u5F55\u5E76\u6682\u5B58\uFF1B\u91CD\u542F\u4E0D\u4F1A\u81EA\u52A8\u5E94\u7528\uFF0C\u9700\u505C\u6B62 Host \u540E\u53E6\u884C\u5B89\u88C5" : "install into an isolated component directory and stage; restarting will not apply this automatically, and installation must be completed separately with the Host stopped" : chinese ? "\u5B89\u88C5\u5230\u72EC\u7ACB\u7EC4\u4EF6\u76EE\u5F55\u5E76\u4FEE\u6539\u66F4\u65B0\u5668\u4E13\u5C5E\u914D\u7F6E\u884C\uFF1B\u7B49\u5F85 DSH Loader \u6FC0\u6D3B" : "install into an isolated component directory and edit the updater-owned profile row; await DSH Loader activation";
     return `${plan.item.packageName} ${plan.item.version}: ${operation}. SHA-256: ${plan.item.sha256}. ${chinese ? "\u76EE\u5F55" : "Home"}: ${this.config.dshHome}. ${chinese ? "\u914D\u7F6E\u4FEE\u8BA2" : "Profile revision"}: ${plan.patchRevision}`;
   }
   /** Pin authenticated metadata and the current profile, then request one approval before any write.
@@ -27979,6 +28136,32 @@ var UpdatesService = class {
       this.changing = false;
     }
   }
+  /** Request one approval to restore a selected component operation without fetching a different candidate.
+   * @param token Previously observed operation token from discovery.
+   * @param approve Approval provider for the exact token and current profile revision.
+   * @param signal Owning agent lifetime.
+   * @returns pending activation or restart; application data is never restored or migrated by this operation.
+   */
+  async rollback(token, approve, signal) {
+    if (this.changing) throw new Error("Another update is awaiting approval or being prepared");
+    this.changing = true;
+    try {
+      signal.throwIfAborted();
+      const operation = (await listComponentOperations(this.config.dshHome)).find((operation2) => operation2.token === token);
+      if (!operation) throw new Error("The selected update operation does not exist");
+      if (operation.id !== "updates") throw new Error("User rollback is limited to the stateless updater; other components require a reviewed data-compatibility procedure");
+      const expectedPatchRevision = await readComponentPatchRevision(this.config.dshHome);
+      const facts = await this.facts();
+      const reason = this.config.locale === "zh-CN" ? `\u6062\u590D\u66F4\u65B0\u64CD\u4F5C ${token} \u4E4B\u524D\u7684\u66F4\u65B0\u5668\u7EC4\u4EF6\u914D\u7F6E\uFF1B\u9000\u51FA\u540E\u4E0B\u6B21\u542F\u52A8\u5E94\u7528\u3002\u4E0D\u4F1A\u56DE\u9000\u4E1A\u52A1\u6570\u636E\u5E93\u3002\u914D\u7F6E\u4FEE\u8BA2\uFF1A${expectedPatchRevision}` : `Restore the updater selection before operation ${token}; apply before the next Host starts. Business databases are not downgraded. Profile revision: ${expectedPatchRevision}`;
+      if (await approve(reason) !== "allowed-once") throw new Error("Rollback was not approved; no files were changed");
+      signal.throwIfAborted();
+      const now = await this.facts();
+      if (now.hostPid !== facts.hostPid || now.runId !== facts.runId) throw new Error("The Host changed during rollback approval");
+      return rollbackComponent({ dshHome: this.config.dshHome, rollbackToken: token, expectedPatchRevision, confirmed: true });
+    } finally {
+      this.changing = false;
+    }
+  }
 };
 
 // src/host.ts
@@ -27990,7 +28173,9 @@ var copy = {
     check: "\u68C0\u67E5 ClawMaster \u66F4\u65B0",
     change: "\u51C6\u5907 ClawMaster \u66F4\u65B0",
     checkDescription: "\u53EA\u8BFB\u68C0\u67E5\u670D\u52A1\u5668\u66F4\u65B0\u548C\u5F53\u524D\u8FD0\u884C\u7248\u672C\u3002\u4E0D\u4F1A\u4E0B\u8F7D\u66F4\u65B0\u5305\u6216\u66F4\u6539\u914D\u7F6E\u3002",
-    changeDescription: "\u51C6\u5907\u5DF2\u7B7E\u540D\u76EE\u5F55\u4E2D\u7684\u6307\u5B9A\u7248\u672C\uFF0C\u5199\u5165\u524D\u987B\u83B7\u5F97\u4E00\u6B21\u7528\u6237\u6279\u51C6\u3002\u70ED\u66F4\u65B0\u7EC4\u4EF6\u7B49\u5F85 Loader \u6FC0\u6D3B\uFF1B\u5176\u4ED6\u7EC4\u4EF6\u53EA\u6682\u5B58\uFF0C\u91CD\u542F\u4E0D\u4F1A\u81EA\u52A8\u5E94\u7528\uFF0C\u9700\u505C\u6B62 Host \u540E\u53E6\u884C\u5B89\u88C5\u3002\u8FD0\u884C\u65F6\u4E0E\u684C\u9762\u5B89\u88C5\u5305\u53EA\u4E0B\u8F7D\u9A8C\u7B7E\u3002",
+    changeDescription: "\u51C6\u5907\u5DF2\u7B7E\u540D\u76EE\u5F55\u4E2D\u7684\u6307\u5B9A\u7248\u672C\uFF0C\u5199\u5165\u524D\u987B\u83B7\u5F97\u4E00\u6B21\u7528\u6237\u6279\u51C6\u3002\u70ED\u66F4\u65B0\u7EC4\u4EF6\u7B49\u5F85 Loader \u6FC0\u6D3B\uFF1B\u66F4\u65B0\u5668\u7531\u652F\u6301\u7EF4\u62A4\u7684\u684C\u9762\u5728\u4E0B\u6B21\u542F\u52A8\u524D\u5E94\u7528\uFF0C\u5E76\u7B49\u5F85\u5B9E\u9645\u52A0\u8F7D\u786E\u8BA4\u3002\u8FD0\u884C\u65F6\u4E0E\u684C\u9762\u5B89\u88C5\u5305\u53EA\u4E0B\u8F7D\u9A8C\u7B7E\u3002",
+    rollback: "\u6062\u590D\u4E0A\u4E00\u7248\u66F4\u65B0\u5668",
+    rollbackDescription: "\u6062\u590D\u6307\u5B9A\u66F4\u65B0\u64CD\u4F5C\u4E4B\u524D\u7684\u66F4\u65B0\u5668\u7248\u672C\uFF0C\u9700\u8981\u4E00\u6B21\u7528\u6237\u6279\u51C6\uFF1B\u4E0B\u6B21\u542F\u52A8\u524D\u5E94\u7528\uFF0C\u4E0D\u56DE\u9000\u4E1A\u52A1\u6570\u636E\u5E93\u3002",
     commandInput: "/updates \u53EA\u63A5\u53D7\u65E0\u53C2\u6570\u7684\u53EA\u8BFB\u68C0\u67E5\u3002",
     unavailable: "\u4E0D\u53EF\u7528",
     unknown: "\u672A\u786E\u8BA4",
@@ -28011,7 +28196,9 @@ var copy = {
     check: "Check ClawMaster updates",
     change: "Prepare ClawMaster update",
     checkDescription: "Read server update metadata and current running versions. Does not download update artifacts or change configuration.",
-    changeDescription: "Prepare an exact signed candidate after one user approval. Hot components await Loader activation; other components are staged only, and restarting will not apply them automatically: complete installation separately with the Host stopped. Runtime and native files are verified downloads only.",
+    changeDescription: "Prepare an exact signed candidate after one user approval. Hot components await Loader activation; a maintenance-capable desktop applies staged updater changes before its next Host starts, then waits for actual load confirmation. Runtime and native files are verified downloads only.",
+    rollback: "Restore the previous updater",
+    rollbackDescription: "Restore the updater version before a selected operation after one user approval; apply before the next Host starts without downgrading business databases.",
     commandInput: "/updates accepts no arguments and only checks metadata.",
     unavailable: "unavailable",
     unknown: "unverified",
@@ -28036,6 +28223,7 @@ function commandText(status, locale) {
   else if (status.components.items.length === 0) rows.push(text.empty);
   else for (const item of status.components.items) rows.push(`${item.id} ${item.version}: ${item.compatible === null ? text.unknown : item.compatible ? text.compatible : text.incompatible} (${item.activation})`);
   rows.push(status.native.status === "available" ? `${text.native}: ${status.native.version} (${text.pending})` : `${text.native}: ${text.unavailable} (${status.native.error})`);
+  for (const operation of status.operations) rows.push(`${operation.id} ${operation.version}: ${operation.state} (${operation.token})`);
   rows.push(text.guidance);
   return rows.join("\n");
 }
@@ -28126,6 +28314,25 @@ async function apply(ctx, input = {}, dependencies = {}) {
           return service.change(args, (reason) => ctx.approval.request({ agent, callId: exec.callId, toolName: exec.name, reason, signal }), signal);
         })
       }));
+      removals.push(ctx.tools.register({
+        name: "clawmaster_update_rollback",
+        description: text.rollbackDescription,
+        parameters: { type: "object", properties: { operation: { type: "string" } }, required: ["operation"], additionalProperties: false },
+        output,
+        ...presentation(text.rollback, "edit"),
+        execute: (args, exec) => run(exec.signal, async (signal) => {
+          const { operation } = external_exports.strictObject({ operation: external_exports.string().uuid() }).parse(args);
+          const agent = exec.agent;
+          if (agent === void 0) throw new Error(text.owner);
+          return service.rollback(operation, (reason) => ctx.approval.request({ agent, callId: exec.callId, toolName: exec.name, reason, signal }), signal);
+        })
+      }));
+      if (process.env.CLAWMASTER_RUNTIME_RUN_ID) await confirmComponentHealth({
+        dshHome: config2.dshHome,
+        entryUrl: import.meta.url,
+        hostPid: process.pid,
+        runId: process.env.CLAWMASTER_RUNTIME_RUN_ID
+      });
       if (config2.checkIntervalMs > 0) poll();
       return dispose;
     } catch (error51) {
@@ -28144,11 +28351,14 @@ export {
   activateComponent,
   apply,
   bootstrapUpdater,
+  confirmComponentHealth,
   fetchCatalog,
   fetchNativeRelease,
   highestInstalledComponentVersion,
   inject,
   installComponent,
+  listComponentOperations,
+  maintainRestartComponents,
   name,
   parseSignedCatalog,
   prepareNativeUpdate,
