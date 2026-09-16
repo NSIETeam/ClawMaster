@@ -48,6 +48,10 @@ test('task review rejects agent self-acceptance and stale revisions, preserving 
   const accepted = store.tasks.execute(LOCAL_HTTP_IDENTITY, request);
   assert.equal(accepted.status, 'accepted');
   assert.deepEqual(store.tasks.execute(LOCAL_HTTP_IDENTITY, request), accepted);
+  assert.throws(() => store.tasks.execute(LOCAL_HTTP_IDENTITY, {
+    id: 'task-1', revision: accepted.revision, commandId: 'link-accepted',
+    command: { type: 'link', sessionId: 'late-session' },
+  }), { code: 'invalid_transition' });
   const history = store.tasks.history(LOCAL_HTTP_IDENTITY, 'task-1').tasks;
   assert.equal(history.length, 8);
   assert.deepEqual(history[3].evidence, submitted.evidence);

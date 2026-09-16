@@ -236,7 +236,9 @@ export class WatchdogTaskStore {
       case 'start':
         requireState('ready'); next.status = 'in_progress'; next.waitingFor = null;
         next.sessionIds = [...new Set([...next.sessionIds, action.sessionId])]; break;
-      case 'link': next.sessionIds = [...new Set([...next.sessionIds, action.sessionId])]; break;
+      case 'link':
+        requireState('draft', 'ready', 'in_progress', 'awaiting_review', 'failed');
+        next.sessionIds = [...new Set([...next.sessionIds, action.sessionId])]; break;
       case 'wait': requireState('ready', 'in_progress'); next.waitingFor = action.reason; break;
       case 'fail': requireState('ready', 'in_progress'); next.status = 'failed'; next.waitingFor = action.reason; break;
       case 'submit': {
