@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-16-watchdog-windows-process-tree-rss.md
+2026-09-16-watchdog-windows-process-tree-rss.md: 7c1e8490f473a6abe4b93e4e870fc55bb445fd4c
+2026-09-16-watchdog-windows-process-tree-rss.zh.md: 949589b50f99b9bf94156d166b1b870a20e48514

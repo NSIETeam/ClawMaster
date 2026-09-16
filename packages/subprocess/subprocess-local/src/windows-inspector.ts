@@ -20,6 +20,12 @@ export interface ProcessEntry {
   parentPid: number
 }
 
+/** One Windows process's resident working-set measurement. */
+export interface WindowsProcessMemory {
+  pid: number
+  rssBytes: number
+}
+
 /** Creation identity plus the process object's current wait state. */
 export interface WindowsProcessState {
   /** GetProcessTimes creation identity used to fence PID reuse. */
@@ -34,6 +40,8 @@ export interface WindowsProcessInspectorInternals {
   snapshot(): ProcessEntry[]
   /** Return one process's creation identity and wait state, or undefined when unreadable. */
   processState(pid: number): WindowsProcessState | undefined
+  /** Return one process's resident working set in bytes, or undefined when unreadable. */
+  processRssBytes?(pid: number): number | undefined
   /** Terminate one process tree; `force` maps to taskkill `/F`. */
   taskkill(pid: number, force: boolean): void
 }
@@ -75,6 +83,56 @@ export function windowsProcessTree(
   }
   visit(root)
   return result
+}
+
+/**
+ * Sum one Windows process tree's resident working sets.
+ *
+ * The observation is all-or-nothing: a missing process or an unreadable member
+ * returns `undefined` so a protected child cannot make a budget check look
+ * smaller than the process tree that is actually running.
+ * @param entries - one Toolhelp32 process-table snapshot.
+ * @param rootPid - the tree root to include.
+ * @param readRssBytes - resident working-set reader.
+ * @returns total and descendant bytes, or undefined when the tree cannot be observed safely.
+ */
+export function windowsProcessTreeRss(
+  entries: ProcessEntry[],
+  rootPid: number,
+  readRssBytes: (pid: number) => number | undefined,
+): { totalRssBytes: number; descendantRssBytes: number } | undefined {
+  const byPid = new Map(entries.map(entry => [entry.pid, entry]))
+  const root = byPid.get(rootPid)
+  if (root === undefined) return undefined
+  const byParent = new Map<number, ProcessEntry[]>()
+  for (const entry of entries) {
+    const children = byParent.get(entry.parentPid) ?? []
+    children.push(entry)
+    byParent.set(entry.parentPid, children)
+  }
+  const visited = new Set<number>()
+  let totalRssBytes = 0
+  let rootRssBytes: number | undefined
+  let unreadable = false
+  const visit = (entry: ProcessEntry): void => {
+    if (visited.has(entry.pid) || unreadable) return
+    visited.add(entry.pid)
+    const rssBytes = readRssBytes(entry.pid)
+    if (rssBytes === undefined || !Number.isSafeInteger(rssBytes) || rssBytes < 0) {
+      unreadable = true
+      return
+    }
+    totalRssBytes += rssBytes
+    if (!Number.isSafeInteger(totalRssBytes)) {
+      unreadable = true
+      return
+    }
+    if (entry.pid === rootPid) rootRssBytes = rssBytes
+    for (const child of byParent.get(entry.pid) ?? []) visit(child)
+  }
+  visit(root)
+  if (unreadable || rootRssBytes === undefined) return undefined
+  return { totalRssBytes, descendantRssBytes: totalRssBytes - rootRssBytes }
 }
 
 /**
@@ -179,6 +237,7 @@ interface Win32Bindings {
     kernel: NativePtr,
     user: NativePtr,
   ): number
+  getProcessMemoryInfo(process: NativePtr, counters: NativePtr, size: number): number
   waitForSingleObject(handle: NativePtr, milliseconds: number): number
   closeHandle(handle: NativePtr): number
 }
@@ -191,7 +250,11 @@ const PVOID: ReturnType<typeof koffi.pointer> = koffi.pointer('void')
  * re-evaluate this module (a hoisted `vi.mock` re-imports the graph) must not
  * re-register the names.
  */
-function win32Structs(): { PROCESSENTRY32W: ReturnType<typeof koffi.struct>; FILETIME: ReturnType<typeof koffi.struct> } {
+function win32Structs(): {
+  PROCESSENTRY32W: ReturnType<typeof koffi.struct>
+  FILETIME: ReturnType<typeof koffi.struct>
+  PROCESS_MEMORY_COUNTERS_EX: ReturnType<typeof koffi.struct>
+} {
   if (cachedStructs !== undefined) return cachedStructs
   // koffi PROCESSENTRY32W layout (tlhelp32.h); the size assert pins the x64 layout.
   const PROCESSENTRY32W = koffi.struct('PROCESSENTRY32W', {
@@ -211,12 +274,32 @@ function win32Structs(): { PROCESSENTRY32W: ReturnType<typeof koffi.struct>; FIL
     dwLowDateTime: 'uint32',
     dwHighDateTime: 'uint32',
   })
+  // PROCESS_MEMORY_COUNTERS_EX on the supported 64-bit Windows ABI. WorkingSetSize
+  // is the resident-set equivalent; private usage is deliberately not used.
+  const PROCESS_MEMORY_COUNTERS_EX = koffi.struct('PROCESS_MEMORY_COUNTERS_EX', {
+    cb: 'uint32',
+    pageFaultCount: 'uint32',
+    peakWorkingSetSize: 'uint64',
+    workingSetSize: 'uint64',
+    quotaPeakPagedPoolUsage: 'uint64',
+    quotaPagedPoolUsage: 'uint64',
+    quotaPeakNonPagedPoolUsage: 'uint64',
+    quotaNonPagedPoolUsage: 'uint64',
+    pagefileUsage: 'uint64',
+    peakPagefileUsage: 'uint64',
+    privateUsage: 'uint64',
+  })
   /* v8 ignore start -- a layout-mismatch guard fires only on ABI breakage; the windows-native suites exercise the real struct. */
   if (PROCESSENTRY32W.size !== 568) {
     throw new Error(`PROCESSENTRY32W layout mismatch: koffi computed ${PROCESSENTRY32W.size}, Windows headers say 568`)
   }
   /* v8 ignore stop */
-  cachedStructs = { PROCESSENTRY32W, FILETIME }
+  /* v8 ignore start -- this ABI guard fires only on an unsupported Windows data model. */
+  if (PROCESS_MEMORY_COUNTERS_EX.size !== 80) {
+    throw new Error(`PROCESS_MEMORY_COUNTERS_EX layout mismatch: koffi computed ${PROCESS_MEMORY_COUNTERS_EX.size}`)
+  }
+  /* v8 ignore stop */
+  cachedStructs = { PROCESSENTRY32W, FILETIME, PROCESS_MEMORY_COUNTERS_EX }
   return cachedStructs
 }
 
@@ -224,6 +307,8 @@ let cachedStructs: ReturnType<typeof win32Structs> | undefined
 
 const TH32CS_SNAPPROCESS = 0x2
 const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+const PROCESS_QUERY_INFORMATION = 0x0400
+const PROCESS_VM_READ = 0x0010
 const SYNCHRONIZE = 0x00100000
 const WAIT_OBJECT_0 = 0
 const WAIT_TIMEOUT = 0x102
@@ -236,27 +321,30 @@ let cachedBindings: Win32Bindings | undefined
  */
 function win32Bindings(): Win32Bindings {
   if (cachedBindings !== undefined) return cachedBindings
-  const { PROCESSENTRY32W, FILETIME } = win32Structs()
+  const { PROCESSENTRY32W, FILETIME, PROCESS_MEMORY_COUNTERS_EX } = win32Structs()
   const kernel32 = koffi.load('kernel32.dll')
+  const psapi = koffi.load('psapi.dll')
   const bind = (
+    library: ReturnType<typeof koffi.load>,
     name: string,
     result: ReturnType<typeof koffi.pointer> | string,
     args: Array<ReturnType<typeof koffi.pointer> | string>,
-  ): unknown => kernel32.func('__stdcall', name, result, args)
+  ): unknown => library.func('__stdcall', name, result, args)
   cachedBindings = {
-    createToolhelp32Snapshot: bind('CreateToolhelp32Snapshot', PVOID, ['uint32', 'uint32']),
-    process32FirstW: bind('Process32FirstW', 'int', [PVOID, koffi.pointer(PROCESSENTRY32W)]),
-    process32NextW: bind('Process32NextW', 'int', [PVOID, koffi.pointer(PROCESSENTRY32W)]),
-    openProcess: bind('OpenProcess', PVOID, ['uint32', 'int', 'uint32']),
-    getProcessTimes: bind('GetProcessTimes', 'int', [
+    createToolhelp32Snapshot: bind(kernel32, 'CreateToolhelp32Snapshot', PVOID, ['uint32', 'uint32']),
+    process32FirstW: bind(kernel32, 'Process32FirstW', 'int', [PVOID, koffi.pointer(PROCESSENTRY32W)]),
+    process32NextW: bind(kernel32, 'Process32NextW', 'int', [PVOID, koffi.pointer(PROCESSENTRY32W)]),
+    openProcess: bind(kernel32, 'OpenProcess', PVOID, ['uint32', 'int', 'uint32']),
+    getProcessTimes: bind(kernel32, 'GetProcessTimes', 'int', [
       PVOID,
       koffi.pointer(FILETIME),
       koffi.pointer(FILETIME),
       koffi.pointer(FILETIME),
       koffi.pointer(FILETIME),
     ]),
-    waitForSingleObject: bind('WaitForSingleObject', 'uint32', [PVOID, 'uint32']),
-    closeHandle: bind('CloseHandle', 'int', [PVOID]),
+    getProcessMemoryInfo: bind(psapi, 'GetProcessMemoryInfo', 'int', [PVOID, koffi.pointer(PROCESS_MEMORY_COUNTERS_EX), 'uint32']),
+    waitForSingleObject: bind(kernel32, 'WaitForSingleObject', 'uint32', [PVOID, 'uint32']),
+    closeHandle: bind(kernel32, 'CloseHandle', 'int', [PVOID]),
   } as unknown as Win32Bindings
   return cachedBindings
 }
@@ -327,11 +415,37 @@ function windowsProcessState(bindings: Win32Bindings, pid: number): WindowsProce
   }
 }
 
+/** Read one process's resident working set through GetProcessMemoryInfo. */
+function windowsProcessRssBytes(bindings: Win32Bindings, pid: number): number | undefined {
+  const { PROCESS_MEMORY_COUNTERS_EX } = win32Structs()
+  const handle = bindings.openProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0, pid)
+  if (isInvalidHandle(handle)) return undefined
+  try {
+    const counters = allocNative(PROCESS_MEMORY_COUNTERS_EX, 1)
+    koffi.encode(counters, 'uint32', PROCESS_MEMORY_COUNTERS_EX.size)
+    if (bindings.getProcessMemoryInfo(handle, counters, PROCESS_MEMORY_COUNTERS_EX.size) === 0) return undefined
+    const record = koffi.decode(counters, PROCESS_MEMORY_COUNTERS_EX) as { workingSetSize: number | bigint }
+    const rssBytes = typeof record.workingSetSize === 'bigint' ? Number(record.workingSetSize) : record.workingSetSize
+    return Number.isSafeInteger(rssBytes) && rssBytes >= 0 ? rssBytes : undefined
+  } finally {
+    bindings.closeHandle(handle)
+  }
+}
+
+/** Observe the live Windows Host process tree through Toolhelp32 and PSAPI. */
+export function observeWindowsProcessTreeRss(rootPid = process.pid): { totalRssBytes: number; descendantRssBytes: number } | undefined {
+  const internals = defaultWindowsProcessInternals()
+  const entries = internals.snapshot()
+  if (!internals.processRssBytes) return undefined
+  return windowsProcessTreeRss(entries, rootPid, internals.processRssBytes)
+}
+
 /** The koffi-backed default internals; bindings resolve lazily on first use. */
 function defaultWindowsProcessInternals(): WindowsProcessInspectorInternals {
   return {
     snapshot: () => snapshotWindowsProcesses(win32Bindings()),
     processState: pid => windowsProcessState(win32Bindings(), pid),
+    processRssBytes: pid => windowsProcessRssBytes(win32Bindings(), pid),
     taskkill: taskkillTree,
   }
 }

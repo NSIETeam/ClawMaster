@@ -1,6 +1,7 @@
 /** Live desktop facts and bounded tool dispatch on the existing DSH services. */
 import type { Context } from '@deepseek-ai/cordis';
 import { defineTool } from '@deepseek-ai/dsh-tools';
+import * as subprocessLocal from '@deepseek-ai/dsh-subprocess-local';
 import type {} from '@deepseek-ai/dsh-system-prompt';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -59,6 +60,27 @@ export function observeProcessTreeRss(rootPid = process.pid, platform: NodeJS.Pl
     const totalRssMiB = Math.ceil(totalKiB / 1024);
     return { totalRssMiB, descendantRssMiB: Math.ceil(Math.max(0, totalKiB - root.rssKiB) / 1024) };
   } catch { return null; }
+}
+
+/** Observe the current Host tree using the platform-native provider. */
+function observeCurrentProcessTreeRss(): { totalRssMiB: number; descendantRssMiB: number } | null {
+  if (process.platform !== 'win32') return observeProcessTreeRss()
+  try {
+    // The provider is optional at this frontend's published version: older DSH
+    // runtimes have no native RSS export and safely report the observation absent.
+    const observeWindowsProcessTreeRss = (subprocessLocal as unknown as {
+      observeWindowsProcessTreeRss?: () => { totalRssBytes: number; descendantRssBytes: number } | undefined
+    }).observeWindowsProcessTreeRss
+    const observed = observeWindowsProcessTreeRss?.()
+    if (observed === undefined) return null
+    return {
+      totalRssMiB: Math.ceil(observed.totalRssBytes / MiB),
+      descendantRssMiB: Math.ceil(observed.descendantRssBytes / MiB),
+    }
+  } catch {
+    // Native access can be denied for protected processes; unknown is safer than an invented value.
+    return null
+  }
 }
 
 const MiB = 1024 * 1024;
@@ -140,7 +162,7 @@ export function resolveRuntimeBudgets(config: RuntimeGovernanceConfig) {
  * @param config - RSS and concurrency budgets, configurable through the frontend Host row.
  * @param readProcessTreeRss - Process-tree reader, injectable for deterministic tests.
  */
-export function applyRuntimeGovernance(ctx: Context, config: RuntimeGovernanceConfig = {}, readProcessTreeRss: () => { totalRssMiB: number; descendantRssMiB: number } | null = () => observeProcessTreeRss()): void {
+export function applyRuntimeGovernance(ctx: Context, config: RuntimeGovernanceConfig = {}, readProcessTreeRss: () => { totalRssMiB: number; descendantRssMiB: number } | null = observeCurrentProcessTreeRss): void {
   const limits = resolveRuntimeBudgets(config);
   let activeHeavyTools = 0;
   const resources = () => {

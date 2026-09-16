@@ -41,6 +41,9 @@ import { createProcessInspector } from './process-inspector.ts'
 import type { ProcessInspector } from './process-inspector.ts'
 import { LocalTerminalHandle } from './terminal.ts'
 
+export { observeWindowsProcessTreeRss, windowsProcessTreeRss } from './windows-inspector.ts'
+export type { ProcessEntry, WindowsProcessMemory, WindowsProcessInspectorInternals, WindowsProcessState } from './windows-inspector.ts'
+
 /**
  * Local subprocess service: platform-selected managed ranges, Node-shaped stdio
  * dispositions (raw pipes, inherit, bounded tail-keep collection with spill

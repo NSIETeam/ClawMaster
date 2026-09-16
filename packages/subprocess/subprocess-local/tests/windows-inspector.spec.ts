@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createWindowsProcessInspector,
   isInvalidHandle,
+  windowsProcessTreeRss,
   windowsProcessTree,
   WindowsProcessInspector,
 } from '@deepseek-ai/dsh-subprocess-local/src/windows-inspector.ts'
@@ -88,6 +89,25 @@ describe('windowsProcessTree', () => {
       { pid: 11, parentPid: 10 },
     ]
     expect(windowsProcessTree(entries, 10, () => 't')).toHaveLength(2)
+  })
+})
+
+describe('windowsProcessTreeRss', () => {
+  it('sums the root and descendants without double counting cycles', () => {
+    const reads = new Map([[10, 1000], [11, 2000], [12, 3000]])
+    expect(windowsProcessTreeRss([
+      { pid: 10, parentPid: 12 },
+      { pid: 11, parentPid: 10 },
+      { pid: 12, parentPid: 10 },
+    ], 10, pid => reads.get(pid))).toEqual({ totalRssBytes: 6000, descendantRssBytes: 5000 })
+  })
+
+  it('returns unavailable when the root or any descendant cannot be read', () => {
+    const entries = [{ pid: 10, parentPid: 0 }, { pid: 11, parentPid: 10 }]
+    expect(windowsProcessTreeRss(entries, 99, () => 1)).toBeUndefined()
+    expect(windowsProcessTreeRss(entries, 10, pid => pid === 11 ? undefined : 1)).toBeUndefined()
+    expect(windowsProcessTreeRss(entries, 10, () => -1)).toBeUndefined()
+    expect(windowsProcessTreeRss(entries, 10, pid => pid === 10 ? Number.MAX_SAFE_INTEGER : 1)).toBeUndefined()
   })
 })
 
