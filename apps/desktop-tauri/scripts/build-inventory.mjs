@@ -30,7 +30,7 @@ export function captureBuildInventory(root) {
     return { name: manifest.name, version: manifest.version, manifest: digest(path), artifacts }
   })
   const locks = paths(['pnpm-lock.yaml', 'apps/desktop-tauri/pnpm-desktop-lock.yaml', 'frontends/*/package-lock.json']).map(digest)
-  const patches = paths(['apps/desktop-tauri/patches/*.patch', 'apps/desktop-tauri/patches/*.provenance.json']).map(digest)
+  const patches = paths(['apps/desktop-tauri/patches/*.patch', 'apps/desktop-tauri/patches/*.json']).map(digest)
   return { components, locks, patches }
 }
 
