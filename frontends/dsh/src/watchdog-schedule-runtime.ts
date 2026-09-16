@@ -90,7 +90,7 @@ export class WatchdogScheduleRuntime {
   private async dispatch(instance: WatchdogInstance, agent: Agent, signal: AbortSignal): Promise<JobOutcome> {
     try {
       const plan = this.store.plan(instance.planId);
-      const caller = await interruptible(this.access.agent(plan.sessionId), signal);
+      const caller = await interruptible(this.access.agent(plan.sessionId, undefined, signal), signal);
       const checked = await interruptible(caller.check('task.write', plan.id), signal);
       if (checked.organizationId !== this.store.organizationId || (this.access.mode === 'enterprise' && checked.principalId !== plan.creator.principalId)) {
         throw new GovernanceDenied('The scheduled Session owner differs from the plan creator.');
@@ -100,19 +100,30 @@ export class WatchdogScheduleRuntime {
       if (this.services.agents.get(agent.id) !== agent || !this.services.agents.roots().includes(agent)) throw new Error('Bound root was unloaded.');
       const message = createUserMessage({ source: { kind: 'plugin', plugin: 'clawmaster-watchdog-schedules' }, content: [{ type: 'text',
         text: `WatchDog scheduled occurrence ${instance.id} at ${new Date(instance.scheduledAt).toISOString()}. This grant authorizes this prompt only; all tool approvals still apply. Dispatch does not certify business completion.\n${JSON.stringify({ task: plan.prompt })}` }] });
-      await agent.runMaintenance(async maintenanceSignal => {
-        const combined = AbortSignal.any([signal, maintenanceSignal]);
-        // Permission can change while the persistence barrier or idle claim is pending.
-        const authorized = this.access.mode === 'enterprise'
-          ? await interruptible(caller.approve('task.write', plan.id, instance.id, 0, 0,
-            createHash('sha256').update(JSON.stringify({ planId: plan.id, instanceId: instance.id, scheduledAt: instance.scheduledAt, prompt: plan.prompt })).digest('hex')), combined)
-          : checked;
-        const current = await interruptible(caller.check('task.write', plan.id), combined);
-        combined.throwIfAborted();
-        if (this.services.agents.get(agent.id) !== agent || !this.store.beginDispatch(instance, Date.now(), { ...current, ...(authorized.approval ? { approval: authorized.approval } : {}) })) throw new Error('Dispatch lease was withdrawn.');
-        agent.followup(message);
-        if (!await interruptible(this.services.sessions.flush(agent.session), combined)) throw new Error('Inbox durability unavailable.');
-      });
+      let maintenance: Promise<void>;
+      try {
+        // The public DSH call synchronously rejects admission when a turn or maintenance owns the agent.
+        maintenance = agent.runMaintenance(async maintenanceSignal => {
+          const combined = AbortSignal.any([signal, maintenanceSignal]);
+          // Permission can change while the persistence barrier or idle claim is pending.
+          await interruptible(caller.check('task.write', plan.id), combined);
+          combined.throwIfAborted();
+          if (this.access.mode === 'enterprise' && !this.store.beginApproval(instance, Date.now())) throw new Error('Approval lease was withdrawn.');
+          const authorized = this.access.mode === 'enterprise'
+            ? await interruptible(caller.approve('task.write', plan.id, instance.id, 0, 0,
+              createHash('sha256').update(JSON.stringify({ planId: plan.id, instanceId: instance.id, scheduledAt: instance.scheduledAt, prompt: plan.prompt })).digest('hex')), combined)
+            : checked;
+          const current = await interruptible(caller.check('task.write', plan.id), combined);
+          combined.throwIfAborted();
+          if (this.services.agents.get(agent.id) !== agent || !this.store.beginDispatch(instance, Date.now(), { ...current, ...(authorized.approval ? { approval: authorized.approval } : {}) })) throw new Error('Dispatch lease was withdrawn.');
+          agent.followup(message);
+          if (!await interruptible(this.services.sessions.flush(agent.session), combined)) throw new Error('Inbox durability unavailable.');
+        });
+      } catch {
+        this.store.deferBusy(instance, Date.now());
+        return { status: 'completed', detail: 'Dispatch deferred while the Session is busy; no input was delivered.' };
+      }
+      await maintenance;
       this.store.settle(instance, Date.now(), 'dispatched', 'inbox_persisted');
       return { status: 'completed', detail: 'Scheduled prompt persisted; business result requires separate review.' };
     } catch (error) {

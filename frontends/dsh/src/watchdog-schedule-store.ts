@@ -11,6 +11,8 @@ import { scheduleCommandSchema, scheduleResponseBytes, watchdogScheduleConfigSch
 import type { ResolvedScheduleConfig, ScheduleCommand, WatchdogInstanceId, WatchdogPlanId, WatchdogScheduleConfig } from './watchdog-schedule-format.ts';
 
 const APPLICATION_ID = 0x434d5343;
+const SCHEMA_VERSION = 2;
+const APPROVAL_PENDING = 'approval_consumption_pending';
 const integer = z.number().int().nonnegative();
 const instanceSchema = z.object({ id: z.string().transform(value => value as WatchdogInstanceId), planId: z.string().transform(value => value as WatchdogPlanId),
   scheduledAt: integer, createdAt: integer, expiresAt: integer, state: z.enum(['waiting_approval', 'ready', 'leased', 'dispatching', 'dispatched', 'uncertain', 'failed', 'cancelled']),
@@ -181,12 +183,14 @@ export class WatchdogScheduleStore {
       (state IN ('leased','dispatching') AND leaseUntil<=?) OR (state IN ('waiting_approval','ready') AND expiresAt<=?) LIMIT ?`).all(now, now, this.config.maxMaterializePlans).map(value => instanceSchema.parse(value));
     for (const instance of rows) {
       const uncertain = instance.state === 'dispatching';
-      const retry = instance.state === 'leased' && instance.attempts < this.config.maxAttempts && now < instance.expiresAt;
-      const state = uncertain ? 'uncertain' : retry ? 'ready' : 'failed';
-      const reason = uncertain ? 'worker_lost_after_dispatch_barrier' : retry ? 'lease_expired_before_dispatch'
+      const approvalPending = instance.state === 'leased' && instance.reason === APPROVAL_PENDING;
+      const reapprove = approvalPending && now < instance.expiresAt;
+      const retry = instance.state === 'leased' && !approvalPending && instance.attempts < this.config.maxAttempts && now < instance.expiresAt;
+      const state = uncertain ? 'uncertain' : reapprove ? 'waiting_approval' : retry ? 'ready' : 'failed';
+      const reason = uncertain ? 'worker_lost_after_dispatch_barrier' : reapprove ? 'approval_required_after_interrupted_admission' : retry ? 'lease_expired_before_dispatch'
         : instance.state === 'waiting_approval' ? 'approval_timeout' : 'execution_deadline_or_attempts_exhausted';
-      this.db.prepare('UPDATE schedule_instances SET state=?,reason=?,leaseOwner=NULL,leaseUntil=NULL,fence=fence+1,nextAttemptAt=?,finishedAt=? WHERE id=?')
-        .run(state, reason, now + this.backoff(instance.attempts), retry ? null : now, instance.id);
+      this.db.prepare('UPDATE schedule_instances SET state=?,reason=?,leaseOwner=NULL,leaseUntil=NULL,fence=fence+1,nextAttemptAt=?,finishedAt=?,approvedBy=? WHERE id=?')
+        .run(state, reason, now + this.backoff(instance.attempts), retry || reapprove ? null : now, approvalPending ? null : instance.approvedBy, instance.id);
       this.audit(now, instance.planId, instance.id, state, 'scheduler', reason);
     }
   }
@@ -214,6 +218,29 @@ export class WatchdogScheduleStore {
     return current.state === state && current.leaseOwner === instance.leaseOwner && current.fence === instance.fence && current.leaseUntil! > now;
   }
 
+  /** Release busy-agent admission without spending a failed execution attempt or extending the deadline. */
+  deferBusy(instance: WatchdogInstance, now: number): void {
+    this.transaction(() => {
+      const current = this.instance(instance.id);
+      if (current.state !== 'leased' || current.leaseOwner !== instance.leaseOwner || current.fence !== instance.fence || current.reason === APPROVAL_PENDING) return;
+      const ready = now < current.expiresAt;
+      const reason = ready ? 'bound_root_agent_busy' : 'execution_deadline_or_attempts_exhausted';
+      this.db.prepare('UPDATE schedule_instances SET state=?,reason=?,attempts=?,fence=fence+1,leaseOwner=NULL,leaseUntil=NULL,nextAttemptAt=?,finishedAt=? WHERE id=?')
+        .run(ready ? 'ready' : 'failed', reason, Math.max(0, current.attempts - 1), now + this.config.retryBaseMs, ready ? null : now, instance.id);
+      this.audit(now, instance.planId, instance.id, ready ? 'deferred' : 'failed', instance.leaseOwner!, reason);
+    });
+  }
+
+  /** Persist approval admission before contacting the authority; an interrupted consumption requires a fresh grant. */
+  beginApproval(instance: WatchdogInstance, now: number): boolean {
+    return this.transaction(() => {
+      if (!this.owns(instance, now, 'leased') || instance.expiresAt <= now) return false;
+      this.db.prepare('UPDATE schedule_instances SET reason=? WHERE id=?').run(APPROVAL_PENDING, instance.id);
+      this.audit(now, instance.planId, instance.id, 'approval-requested', instance.leaseOwner!, null);
+      return true;
+    });
+  }
+
   /** Commit the non-replay barrier immediately before enqueue; stale owners cannot enter it. */
   beginDispatch(instance: WatchdogInstance, now: number, identity?: ExecutionIdentity): boolean {
     return this.transaction(() => {
@@ -228,18 +255,22 @@ export class WatchdogScheduleStore {
     });
   }
 
-  /** Settle a live lease; any failure after the barrier requires human resolution and is never retried. */
+  /** Settle a lease; interrupted approval consumption needs a fresh grant, and barrier failures need human resolution. */
   settle(instance: WatchdogInstance, now: number, outcome: 'dispatched' | 'retry' | 'failed', reason: string): void {
     this.transaction(() => {
       const current = this.instance(instance.id);
       if (current.fence !== instance.fence || current.leaseOwner !== instance.leaseOwner) return;
       if (!['leased', 'dispatching'].includes(current.state)) return;
       const afterBarrier = current.state === 'dispatching';
+      const approvalPending = !afterBarrier && current.reason === APPROVAL_PENDING;
+      const reapprove = approvalPending && now < current.expiresAt;
       const state = outcome === 'dispatched' && afterBarrier ? 'dispatched' : afterBarrier ? 'uncertain'
+        : reapprove ? 'waiting_approval'
         : outcome === 'retry' && current.attempts < this.config.maxAttempts && now < current.expiresAt ? 'ready' : 'failed';
-      this.db.prepare('UPDATE schedule_instances SET state=?,reason=?,nextAttemptAt=?,leaseOwner=NULL,leaseUntil=NULL,finishedAt=? WHERE id=?')
-        .run(state, reason, now + this.backoff(current.attempts), state === 'ready' ? null : now, instance.id);
-      this.audit(now, instance.planId, instance.id, state, instance.leaseOwner!, reason);
+      const settledReason = reapprove ? 'approval_required_after_interrupted_admission' : reason;
+      this.db.prepare('UPDATE schedule_instances SET state=?,reason=?,nextAttemptAt=?,leaseOwner=NULL,leaseUntil=NULL,finishedAt=?,approvedBy=? WHERE id=?')
+        .run(state, settledReason, now + this.backoff(current.attempts), state === 'ready' || reapprove ? null : now, approvalPending ? null : current.approvedBy, instance.id);
+      this.audit(now, instance.planId, instance.id, state, instance.leaseOwner!, settledReason);
     });
   }
 
@@ -309,7 +340,7 @@ export class WatchdogScheduleStore {
   }
 }
 
-/** Open a private organization-bound ledger; unsupported schemas and divergent worker limits fail closed.
+/** Open a private ledger; schema migration requires every worker stopped and refuses fresh unstopped heartbeats.
  * @param path - Absolute path owned by this deployment.
  * @param organizationId - Trusted organization binding; never inferred from command JSON.
  * @param options - Deployment limits, resolved and matched against the stored configuration.
@@ -325,7 +356,7 @@ export async function openWatchdogScheduleStore(path: string, organizationId: st
     db.exec(`PRAGMA busy_timeout=${config.busyTimeoutMs}; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; BEGIN IMMEDIATE`);
     const application = Number(sqliteRow.parse(db.prepare('PRAGMA application_id').get()).application_id);
     const version = Number(sqliteRow.parse(db.prepare('PRAGMA user_version').get()).user_version);
-    if (application !== 0 && application !== APPLICATION_ID || version > 1 || version > 0 && application !== APPLICATION_ID) fail('invalid_storage', 'Unsupported schedule database.');
+    if (application !== 0 && application !== APPLICATION_ID || version > SCHEMA_VERSION || version > 0 && application !== APPLICATION_ID) fail('invalid_storage', 'Unsupported schedule database.');
     if (!version) {
       const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all();
       if (tables.length) fail('invalid_storage', 'Schedule database already contains unrelated tables.');
@@ -342,11 +373,24 @@ export async function openWatchdogScheduleStore(path: string, organizationId: st
         CREATE TRIGGER schedule_audit_no_delete BEFORE DELETE ON schedule_audit BEGIN SELECT RAISE(ABORT,'Schedule history is append-only'); END;
         CREATE INDEX schedule_audit_plan ON schedule_audit(planId,seq);
         CREATE INDEX schedule_audit_budget ON schedule_audit(action,at);
-        PRAGMA application_id=${APPLICATION_ID}; PRAGMA user_version=1;`);
+        PRAGMA application_id=${APPLICATION_ID}; PRAGMA user_version=${SCHEMA_VERSION};`);
       db.prepare('INSERT INTO schedule_meta(organizationId,config) VALUES(?,?)').run(organizationId, JSON.stringify(config));
     }
     const meta = sqliteRow.parse(db.prepare('SELECT * FROM schedule_meta').get());
     if (meta?.organizationId !== organizationId || meta?.config !== JSON.stringify(config)) fail('invalid_configuration', 'Schedule organization or deployment limits differ from the stored configuration.');
+    if (version === 1) {
+      const now = Date.now();
+      if (db.prepare("SELECT 1 FROM schedule_workers WHERE (error IS NULL OR error!='worker_stopped') AND lastHeartbeat>? LIMIT 1").get(now - config.heartbeatStaleMs)) {
+        fail('invalid_configuration', 'Stop every schedule worker before upgrading the ledger; a fresh unstopped worker was observed.');
+      }
+      const leases = db.prepare("SELECT * FROM schedule_instances WHERE state='leased'").all().map(value => instanceSchema.parse(value));
+      for (const instance of leases) {
+        db.prepare('UPDATE schedule_instances SET reason=? WHERE id=?').run(APPROVAL_PENDING, instance.id);
+        db.prepare('INSERT INTO schedule_audit(at,planId,instanceId,action,actor,reason) VALUES(?,?,?,?,?,?)')
+          .run(now, instance.planId, instance.id, 'approval-recovery-required', 'migration', 'schema_v2_requires_reapproval');
+      }
+      db.exec(`PRAGMA user_version=${SCHEMA_VERSION}`);
+    }
     db.exec('COMMIT');
     return new WatchdogScheduleStore(db, organizationId, config);
   } catch (error) { db.close(); throw error; }

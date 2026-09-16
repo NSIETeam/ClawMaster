@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fork } from 'node:child_process';
 import { once } from 'node:events';
+import { DatabaseSync } from 'node:sqlite';
 import { openWatchdogScheduleStore } from '../src/watchdog-schedule-store.ts';
 import { scheduleCommandSchema } from '../src/watchdog-schedule-format.ts';
 import { LOCAL_HTTP_IDENTITY as human } from '../src/governance-audit.ts';
@@ -116,6 +117,105 @@ test('shared dispatch budget, concurrency, expiry and retry attempts are enforce
   assert.equal(g.store.claim('b', now + 99), undefined);
   const b = g.store.claim('b', now + 100); g.store.settle(b, now + 100, 'retry', 'offline');
   assert.equal(g.store.instance(b.id).state, 'failed');
+});
+
+test('busy admission preserves attempts and deadlines while withdrawing stale worker ownership', async t => {
+  const f = await fixture(t, { maxAttempts: 2 }); f.create(); const now = start + 300000; f.store.materialize(now);
+  const instance = f.instances()[0]; f.command({ type: 'approve', id: 'plan', instanceId: instance.id }, now);
+  const observer = await openWatchdogScheduleStore(f.path, 'local', f.limits);
+  try {
+    for (let index = 0; index < 4; index++) {
+      const at = now + index * 100;
+      const lease = f.store.claim('worker', at);
+      f.store.deferBusy(lease, at);
+      const deferred = observer.instance(instance.id);
+      assert.equal(deferred.state, 'ready'); assert.equal(deferred.attempts, 0);
+      assert.equal(deferred.expiresAt, instance.expiresAt); assert.equal(deferred.finishedAt, null);
+      assert.equal(observer.beginDispatch(lease, at), false);
+    }
+    const current = observer.claim('replacement', now + 400);
+    f.store.deferBusy({ ...current, fence: current.fence - 1 }, now + 400);
+    assert.equal(observer.instance(instance.id).state, 'leased');
+    assert.equal(observer.beginDispatch(current, now + 400), true);
+    observer.settle(current, now + 400, 'dispatched', 'inbox_persisted');
+    assert.equal(f.store.instance(instance.id).attempts, 1);
+    assert.equal(f.store.instance(instance.id).state, 'dispatched');
+  } finally { observer.close(); }
+});
+
+test('approval admission survives worker loss and requires a fresh grant within the original deadline', async t => {
+  const f = await fixture(t); f.create(); const now = start + 300000; f.store.materialize(now);
+  const instance = f.instances()[0]; f.command({ type: 'approve', id: 'plan', instanceId: instance.id }, now);
+  const lease = f.store.claim('lost-worker', now);
+  assert.equal(f.store.beginApproval(lease, now), true);
+  const replacement = await openWatchdogScheduleStore(f.path, 'local', f.limits);
+  try {
+    replacement.heartbeat('replacement', now + 1001);
+    const waiting = replacement.instance(instance.id);
+    assert.equal(waiting.state, 'waiting_approval'); assert.equal(waiting.approvedBy, null);
+    assert.equal(waiting.reason, 'approval_required_after_interrupted_admission');
+    assert.equal(waiting.expiresAt, instance.expiresAt); assert.equal(waiting.finishedAt, null);
+    assert.equal(replacement.claim('replacement', now + 2000), undefined);
+    assert.equal(f.store.beginDispatch(lease, now + 2000), false);
+    f.store.settle(lease, now + 2000, 'dispatched', 'late worker');
+    assert.equal(replacement.instance(instance.id).state, 'waiting_approval');
+    f.command({ type: 'approve', id: 'plan', instanceId: instance.id }, now + 2000);
+    const fresh = replacement.claim('replacement', now + 2000);
+    assert.equal(replacement.beginApproval(fresh, now + 2000), true);
+    replacement.settle(fresh, now + 2001, 'retry', 'authority_unavailable');
+    assert.equal(f.store.instance(instance.id).state, 'waiting_approval');
+    replacement.heartbeat('replacement', instance.expiresAt);
+    assert.equal(f.store.instance(instance.id).state, 'failed');
+    assert.throws(() => f.command({ type: 'approve', id: 'plan', instanceId: instance.id }, instance.expiresAt), { code: 'state_conflict' });
+  } finally { replacement.close(); }
+});
+
+test('approval interruption after the dispatch barrier remains uncertain rather than requesting another grant', async t => {
+  const f = await fixture(t); f.create(); const now = start + 300000; f.store.materialize(now);
+  const instance = f.instances()[0]; f.command({ type: 'approve', id: 'plan', instanceId: instance.id }, now);
+  const lease = f.store.claim('worker', now);
+  assert.equal(f.store.beginApproval(lease, now), true);
+  assert.equal(f.store.beginDispatch(lease, now), true);
+  f.store.settle(lease, now, 'retry', 'inbox_persistence_unconfirmed');
+  assert.equal(f.store.instance(instance.id).state, 'uncertain');
+  assert.equal(f.store.claim('replacement', now + 2000), undefined);
+});
+
+test('schema 1 upgrade refuses fresh workers and retains receipts and audit while recovering old claims conservatively', async t => {
+  const f = await fixture(t); const now = Date.now();
+  for (const id of ['leased', 'dispatching']) f.create(id, 'coalesce', 1, now - 300000);
+  f.store.materialize(now);
+  const instances = ['leased', 'dispatching'].map(id => f.instances(id)[0]);
+  const request = scheduleCommandSchema.parse({ commandId: 'approval-receipt', command: { type: 'approve', id: 'leased', instanceId: instances[0].id } });
+  const receipt = f.store.command(human, request, now);
+  f.command({ type: 'approve', id: 'dispatching', instanceId: instances[1].id }, now);
+  const leases = [f.store.claim('first', now), f.store.claim('second', now)];
+  const dispatching = leases.find(lease => lease.planId === 'dispatching');
+  assert.equal(f.store.beginDispatch(dispatching, now), true);
+  f.store.heartbeat('first', now);
+  const old = new DatabaseSync(f.path);
+  let upgraded;
+  try {
+    old.exec('PRAGMA user_version=1');
+    const records = old.prepare('SELECT * FROM schedule_audit ORDER BY seq').all();
+    const plans = old.prepare('SELECT * FROM schedule_plans ORDER BY id').all();
+    const commands = old.prepare('SELECT * FROM schedule_commands ORDER BY id').all();
+    await assert.rejects(openWatchdogScheduleStore(f.path, 'local', f.limits), { code: 'invalid_configuration' });
+    assert.equal(old.prepare('PRAGMA user_version').get().user_version, 1);
+    assert.deepEqual(old.prepare('SELECT * FROM schedule_audit ORDER BY seq').all(), records, 'A refused upgrade makes no audit or state changes.');
+    f.store.heartbeat('first', now, 'worker_stopped');
+    upgraded = await openWatchdogScheduleStore(f.path, 'local', f.limits);
+    assert.equal(old.prepare('PRAGMA user_version').get().user_version, 2);
+    assert.deepEqual(old.prepare('SELECT * FROM schedule_plans ORDER BY id').all(), plans);
+    assert.deepEqual(old.prepare('SELECT * FROM schedule_commands ORDER BY id').all(), commands);
+    assert.deepEqual(old.prepare('SELECT * FROM schedule_audit ORDER BY seq').all().slice(0, records.length), records);
+    assert.deepEqual(upgraded.command(human, request, now + 1), receipt);
+    upgraded.heartbeat('new-worker', now + 1001);
+    assert.equal(upgraded.instance(instances[0].id).state, 'waiting_approval');
+    assert.equal(upgraded.instance(instances[0].id).approvedBy, null);
+    assert.equal(upgraded.instance(instances[1].id).state, 'uncertain');
+    assert.equal(upgraded.claim('new-worker', now + 2000), undefined);
+  } finally { upgraded?.close(); old.close(); }
 });
 
 test('independent read-only observer sees stale heartbeat and expired lease without an agent or active worker', async t => {

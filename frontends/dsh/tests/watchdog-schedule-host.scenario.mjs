@@ -10,7 +10,7 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop';
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit';
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl';
 import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local';
-import { LlmAdapter } from '@deepseek-ai/dsh-llm';
+import { createUserMessage, LlmAdapter } from '@deepseek-ai/dsh-llm';
 import ApprovalService from '@deepseek-ai/dsh-user-approval';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { openWatchdogScheduleStore } from '../src/watchdog-schedule-store.ts';
@@ -355,4 +355,97 @@ test('one complete record with mandatory worker observation fails explicitly ins
   const tool = await h.ctx.tools.execute({ callId: 'oversized-query', name: 'watchdog_schedule_query', arguments: { limit: 1 }, agent: h.handle.agent, signal: new AbortController().signal });
   assert.equal(tool.isError, true);
   assert.match(tool.content[0].text, /One complete schedule record/);
+});
+
+test('a busy live turn does not consume dispatch attempts and receives the occurrence after becoming idle', async t => {
+  const h = await fixture(t, new GovernanceAccess(), human, { maxAttempts: 2, retryBaseMs: 100 });
+  const instance = h.seed(); await h.send({ type: 'approve', id: 'plan', instanceId: instance.id });
+  const entered = Promise.withResolvers(); const release = Promise.withResolvers();
+  const stream = h.adapter.stream.bind(h.adapter);
+  h.adapter.stream = async function* (options) { entered.resolve(); await release.promise; yield* stream(options); };
+  h.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Hold the current review until its result is ready.' }] }));
+  try {
+    await entered.promise;
+    assert.equal(h.handle.agent.status, 'running');
+    for (let index = 0; index < 4; index++) {
+      h.runtime.tick(Math.max(Date.now(), h.store.instance(instance.id).nextAttemptAt));
+      const job = h.ctx.jobs.list(h.handle.agent).at(-1);
+      assert.equal((await h.ctx.jobs.wait(job.id, 10000, h.handle.agent)).status, 'completed');
+      const waiting = h.store.instance(instance.id);
+      assert.equal(waiting.state, 'ready'); assert.equal(waiting.attempts, 0);
+      assert.equal(waiting.reason, 'bound_root_agent_busy'); assert.equal(waiting.expiresAt, instance.expiresAt);
+    }
+  } finally { release.resolve(); await h.handle.agent.whenIdle(); }
+  h.runtime.tick(Math.max(Date.now(), h.store.instance(instance.id).nextAttemptAt));
+  const job = h.ctx.jobs.list(h.handle.agent).at(-1);
+  await h.ctx.jobs.wait(job.id, 10000, h.handle.agent); await h.handle.agent.whenIdle();
+  assert.equal(h.store.instance(instance.id).state, 'dispatched');
+  assert.equal(h.store.instance(instance.id).attempts, 1);
+  assert.equal(h.adapter.requests.length, 2, 'The existing turn and the scheduled turn each reach the real loop once.');
+});
+
+test('another maintenance task acquiring the idle Session during persistence defers dispatch without spending an attempt', async t => {
+  const h = await fixture(t); const instance = h.seed(); await h.send({ type: 'approve', id: 'plan', instanceId: instance.id });
+  const flushing = Promise.withResolvers(); const releaseFlush = Promise.withResolvers(); const releaseMaintenance = Promise.withResolvers();
+  h.services.sessions = { flush: async session => { flushing.resolve(); await releaseFlush.promise; return h.ctx.sessions.flush(session); } };
+  h.runtime.tick(); await flushing.promise;
+  const maintenance = h.handle.agent.runMaintenance(async () => releaseMaintenance.promise);
+  try {
+    assert.equal(h.handle.agent.status, 'idle', 'Public idle includes maintenance, so checking status alone is insufficient.');
+    releaseFlush.resolve(); await h.waitJob();
+    assert.equal(h.store.instance(instance.id).state, 'ready');
+    assert.equal(h.store.instance(instance.id).attempts, 0); assert.equal(h.adapter.requests.length, 0);
+  } finally { releaseFlush.resolve(); releaseMaintenance.resolve(); await maintenance; }
+  h.runtime.tick(Math.max(Date.now(), h.store.instance(instance.id).nextAttemptAt));
+  const job = h.ctx.jobs.list(h.handle.agent).at(-1);
+  await h.ctx.jobs.wait(job.id, 10000, h.handle.agent); await h.handle.agent.whenIdle();
+  assert.equal(h.store.instance(instance.id).state, 'dispatched'); assert.equal(h.adapter.requests.length, 1);
+});
+
+test('a consumed enterprise grant interrupted before dispatch requires a new grant and explicit occurrence approval', async t => {
+  const auth = enterpriseAccess(); let availableGrant = 'first-grant'; let consumed = false; let interrupt = true; let consumptions = 0;
+  auth.authority.consumeApproval = async () => {
+    consumptions++; const id = availableGrant; availableGrant = undefined; consumed = true;
+    return id ? { id, approverId: 'approver' } : undefined;
+  };
+  auth.authority.membership = async (_org, id) => {
+    if (id === 'owner' && consumed && interrupt) { interrupt = false; throw new Error('Authority connection interrupted after approval consumption.'); }
+    return auth.members.get(id);
+  };
+  const h = await fixture(t, auth.access, auth.identity); const instance = h.seed();
+  await h.send({ type: 'approve', id: 'plan', instanceId: instance.id });
+  h.runtime.tick(); await h.waitJob();
+  const waiting = h.store.instance(instance.id);
+  assert.equal(waiting.state, 'waiting_approval'); assert.equal(waiting.approvedBy, null);
+  assert.equal(waiting.reason, 'approval_required_after_interrupted_admission'); assert.equal(waiting.expiresAt, instance.expiresAt);
+  assert.equal(h.adapter.requests.length, 0);
+  h.runtime.tick(Date.now() + 1000);
+  assert.equal(consumptions, 1, 'A recovered worker cannot automatically consume the same authorization again.');
+  availableGrant = 'second-grant';
+  h.runtime.tick(Date.now() + 1000); assert.equal(consumptions, 1, 'A replacement authority grant alone does not approve the occurrence.');
+  await h.send({ type: 'approve', id: 'plan', instanceId: instance.id });
+  h.runtime.tick(Math.max(Date.now(), h.store.instance(instance.id).nextAttemptAt));
+  const job = h.ctx.jobs.list(h.handle.agent).at(-1);
+  await h.ctx.jobs.wait(job.id, 10000, h.handle.agent); await h.handle.agent.whenIdle();
+  assert.equal(consumptions, 2); assert.equal(h.store.instance(instance.id).state, 'dispatched');
+  assert.equal(h.adapter.requests.length, 1);
+  const authorized = h.store.history(auth.identity, 'plan').records.find(record => record.action === 'dispatch-authorized');
+  assert.equal(JSON.parse(authorized.actor).approval.id, 'second-grant');
+});
+
+test('worker stop during enterprise approval consumption withdraws its lease and requires reapproval before any recovery', async t => {
+  const auth = enterpriseAccess(); const entered = Promise.withResolvers(); const release = Promise.withResolvers(); let consumptions = 0;
+  auth.authority.consumeApproval = async () => { consumptions++; entered.resolve(); await release.promise; return { id: 'consumed-before-stop', approverId: 'approver' }; };
+  const h = await fixture(t, auth.access, auth.identity); const instance = h.seed();
+  await h.send({ type: 'approve', id: 'plan', instanceId: instance.id });
+  h.runtime.tick(); await entered.promise;
+  try {
+    await h.runtime.dispose();
+    const waiting = h.store.instance(instance.id);
+    assert.equal(waiting.state, 'waiting_approval'); assert.equal(waiting.approvedBy, null);
+    assert.equal(waiting.expiresAt, instance.expiresAt); assert.equal(waiting.leaseOwner, null);
+    assert.equal(h.store.claim('replacement', Date.now() + 1000), undefined);
+  } finally { release.resolve(); await h.waitJob(); }
+  assert.equal(consumptions, 1); assert.equal(h.adapter.requests.length, 0);
+  assert.equal(h.store.history(auth.identity, 'plan').records.some(record => record.action === 'dispatching'), false);
 });
