@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createServer, request as httpRequest } from 'node:http';
+import { receiveStreamingRefusal } from './http-stream-fixture.mjs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -168,20 +169,19 @@ test('invalid command configuration fails before consumers are registered', () =
 });
 for (const [label, body, status] of [['chunked excess', 'x'.repeat(1100), 413], ['idle upload', '{', 408]]) {
   test(`real bridge returns a structured ${status} before closing ${label}`, async t => {
-    const h = await fixture(t, { maxRequestBytes: 1024, readTimeoutMs: 50 });
+    const h = await fixture(t, { maxRequestBytes: 1024, maxConcurrentCommands: 1, readTimeoutMs: 50 });
     const handler = { requestBodyMode({ url }) { return h.routes.get(url.pathname)?.requestBody ?? 'buffered'; }, fetch: request => h.routes.get(new URL(request.url).pathname).fetch(request) };
     const server = createServer((req, res) => { void bridge(req, res, handler).catch(error => res.destroy(error)); });
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
     t.after(async () => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
     for (const name of names) {
-      const response = await new Promise((resolve, reject) => {
-        const req = httpRequest({ hostname: '127.0.0.1', port: server.address().port, path: pathFor(name), method: 'POST', headers: { 'content-type': 'application/json' } }, res => {
-          let text = ''; res.setEncoding('utf8'); res.on('data', chunk => { text += chunk; });
-          res.once('end', () => { req.destroy(); resolve({ status: res.statusCode, value: JSON.parse(text) }); });
-        });
-        req.once('error', reject); req.setTimeout(5000, () => req.destroy(new Error('Input refusal did not reach the HTTP client'))); req.write(body);
-      });
-      assert.equal(response.status, status); assert.equal(response.value.error.code, status === 413 ? 'result_too_large' : 'storage_unavailable');
+      const base = `http://127.0.0.1:${server.address().port}`;
+      const response = await receiveStreamingRefusal(base + pathFor(name), body);
+      assert.equal(response.status, status);
+      assert.equal(JSON.parse(response.body).error.code, status === 413 ? 'result_too_large' : 'storage_unavailable');
+      const retry = await fetch(base + pathFor(name), { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      assert.equal(retry.status, 400, await retry.clone().text());
+      assert.equal((await retry.json()).error.code, 'invalid_request', 'The prior upload must release shared admission');
     }
     unchanged(h); assert.equal((await h.send('enterprise', JSON.stringify(payload('enterprise')))).status, 200);
   });

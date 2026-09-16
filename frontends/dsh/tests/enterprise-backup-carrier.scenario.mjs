@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer, request as httpRequest } from 'node:http';
+import { createServer } from 'node:http';
+import { receiveStreamingRefusal } from './http-stream-fixture.mjs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -45,21 +46,13 @@ test('backup GET and file preparation/restore work through the production node H
   assert.equal(store.overview().generation, 1);
 });
 
-for (const mode of ['oversize', 'idle']) test(`backup ${mode} upload returns structured refusal before closing an unread socket`, async t => {
+for (const path of ['/backup/prepare', '/restore']) for (const mode of ['oversize', 'idle']) test(`${path} ${mode} upload returns structured refusal before server disconnection and releases admission`, async t => {
   const { base, store } = await fixture(t, { maxFileBytes: 512, timeoutMs: 100 });
-  const received = await new Promise((resolve, reject) => {
-    const request = httpRequest(base + '/api/clawmaster/enterprise/backup/prepare', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-    }, response => {
-      const parts = [];
-      response.on('data', part => parts.push(part)); response.once('error', reject);
-      response.once('end', () => { resolve({ status: response.statusCode, body: Buffer.concat(parts).toString() }); request.destroy(); });
-    });
-    request.once('error', reject);
-    request.setTimeout(5000, () => request.destroy(new Error('Structured backup rejection was not received')));
-    request.write(mode === 'oversize' ? '😀'.repeat(200) : '{');
-  });
+  const received = await receiveStreamingRefusal(base + '/api/clawmaster/enterprise' + path, mode === 'oversize' ? '😀'.repeat(600) : '{');
   assert.equal(received.status, mode === 'oversize' ? 413 : 503);
   assert.equal(JSON.parse(received.body).error.code, mode === 'oversize' ? 'result_too_large' : 'storage_unavailable');
+  const retry = await fetch(base + '/api/clawmaster/enterprise/restore', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(retry.status, 400, await retry.clone().text());
+  assert.equal((await retry.json()).error.code, 'invalid_request', 'The prior upload must release the backup job');
   assert.equal(store.overview().generation, 0);
 });

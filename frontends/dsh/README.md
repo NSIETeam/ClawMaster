@@ -168,7 +168,7 @@ npm test
 npm pack
 ```
 
-The test command builds the client factory, Host bundle and private backup worker before running the package's focused tests. Packing runs the same build and produces a local `.tgz`; the package is private. React and React DOM come from DSH's shared client runtime. Tool navigation commits the session view before opening a panel, so the panel's DSH seat is bound. The [desktop build](../../apps/desktop-tauri/README.md) includes the frontend artifacts in its runtime payload.
+The test command builds the client factory, Host bundle and private backup worker before running the package's focused tests. Real HTTP regressions leave refused uploads unfinished until the server sends a complete response and closes the socket, then verify admission with another HTTP request. Packing runs the same build and produces a local `.tgz`; the package is private. React and React DOM come from DSH's shared client runtime. Tool navigation commits the session view before opening a panel, so the panel's DSH seat is bound. The [desktop build](../../apps/desktop-tauri/README.md) includes the frontend artifacts in its runtime payload.
 
 </details>
 

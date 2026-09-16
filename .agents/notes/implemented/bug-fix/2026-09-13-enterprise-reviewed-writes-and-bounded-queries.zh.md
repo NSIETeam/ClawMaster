@@ -37,3 +37,5 @@ Host 拥有的命令预算由记录、任务和调度的 HTTP/工具消费者共
 AI 巡检在新的变更获得审批前保持只读。人工保存保留认证与事务行为。搜索可能扫描所选集合以统计匹配数；私有备份执行器负责完整校验和有界文件传输。[前端限制](../../../../frontends/dsh/README.zh.md#known-limitations-and-deferred-work)不承诺无上限大库容量。
 
 [工具测试](../../../../frontends/dsh/tests/enterprise-tools.test.mjs)覆盖真实 ToolRuntime 与 ApprovalService 的拒绝、单次审批和重放。SQL 访问跟踪在 2,000 条合成审计下拒绝无关集合读取，并覆盖字面搜索、字节上限和过期分页。[存储测试](../../../../frontends/dsh/tests/enterprise-host.test.mjs)保持回滚、版本检查和重新打开后的重放；[客户端测试](../../../../frontends/dsh/tests/enterprise-client.test.mjs)拒绝过期命令。[编译组件测试](../../../../frontends/dsh/tests/components-native.client.spec.mjs)在复核前保留旧输入，[录制业务流程](../../../../frontends/dsh/tests/business-tool-flow.test.mjs)记录审批结果，不使用真实模型。
+
+[命令测试](../../../../frontends/dsh/tests/command-input.test.mjs)与[备份连接测试](../../../../frontends/dsh/tests/enterprise-backup-carrier.test.mjs)通过生产 HTTP 桥接层发送未结束的分块上传。超限和闲置上传必须收到完整结构化拒绝，随后由服务端关闭连接。下一条 HTTP 命令必须能够获得已释放的容量；客户端不会主动关闭被拒上传来满足测试。

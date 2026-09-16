@@ -168,7 +168,7 @@ npm test
 npm pack
 ```
 
-测试命令先构建客户端 factory、Host bundle 和私有备份工作进程，再执行本包的定向测试。打包时会运行相同构建并生成本地 `.tgz`；本包为 private。React 与 React DOM 来自 DSH 的共享客户端运行时。工具导航先提交会话视图，再打开面板，确保 DSH 面板挂载点已绑定。[桌面构建](../../apps/desktop-tauri/README.zh.md)把前端产物包含在运行时资源中。
+测试命令先构建客户端 factory、Host bundle 和私有备份工作进程，再执行本包的定向测试。真实 HTTP 回归让被拒上传保持未结束，直到服务端发送完整响应并关闭连接，再通过另一条 HTTP 请求验证准入容量已经释放。打包时会运行相同构建并生成本地 `.tgz`；本包为 private。React 与 React DOM 来自 DSH 的共享客户端运行时。工具导航先提交会话视图，再打开面板，确保 DSH 面板挂载点已绑定。[桌面构建](../../apps/desktop-tauri/README.zh.md)把前端产物包含在运行时资源中。
 
 </details>
 
