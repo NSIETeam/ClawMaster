@@ -76,5 +76,5 @@ export type TaskHistoryPage = z.infer<typeof taskHistorySchema>;
 /** Task indicators never use Session.running as evidence of completion. */
 export function taskIndicators(task: TaskRecord, now = Date.now()) {
   return { overdue: task.dueAt !== null && Date.parse(task.dueAt) < now && task.status !== 'accepted' && task.status !== 'cancelled',
-    waiting: task.waitingFor !== null, evidenceAvailability: 'unchecked' as const };
+    waiting: task.waitingFor !== null && (task.status === 'ready' || task.status === 'in_progress'), evidenceAvailability: 'unchecked' as const };
 }

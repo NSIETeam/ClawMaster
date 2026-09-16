@@ -128,7 +128,7 @@ test('the shipped factory registers WatchDog and enterprise sidebar components a
   const html = renderToStaticMarkup(React.createElement(main, { useSessionPendingInteraction: selector => selector(new Map()) }));
   assert.match(html, /已连接/);
   assert.match(html, /开启AI时代的企业协作/);
-  assert.match(html, /还没有任务/);
+  assert.match(html, /还没有执行会话/);
   assert.match(html, /文档编辑器/);
   assert.match(html, /系统按任务创建工作空间/);
   assert.doesNotMatch(html, /WatchDog 运行中|DeepSeek Harness|HARNESS|数据处理器|CRM 客户|ERP 库存/);

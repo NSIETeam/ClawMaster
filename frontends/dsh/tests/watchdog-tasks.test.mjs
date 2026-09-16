@@ -75,6 +75,7 @@ test('business status, waiting and overdue are independent of one linked idle Se
   for (const task of tasks) {
     assert.deepEqual(task.sessionIds, ['same-idle-session']);
     assert.equal(taskIndicators(task, Date.parse('2026-09-16')).overdue, task.status !== 'cancelled');
+    assert.equal(taskIndicators(task).waiting, false);
     assert.equal(taskIndicators(task).evidenceAvailability, 'unchecked');
   }
 });

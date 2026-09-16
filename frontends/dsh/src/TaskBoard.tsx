@@ -32,7 +32,8 @@ export function TaskBoard({ client, locale, sessions, onOpenSession }: Props) {
     </div></div>
     <p className="cm-help">{copy.hint}</p>
     {state.error && <p role="alert" className="cm-error">{copy[state.error]}</p>}
-    {state.pending && <div role="alert"><p>{copy.pending}</p><button type="button" disabled={state.saving} onClick={() => { void client.retry().then(saved => { if (saved) setCreating(false); }); }}>{copy.retry}</button></div>}
+    {state.saving && <p role="status">{copy.saving}</p>}
+    {state.pending && !state.saving && <div role="alert"><p>{copy.pending}</p><button type="button" onClick={() => { void client.retry().then(saved => { if (saved) setCreating(false); }); }}>{copy.retry}</button></div>}
     {creating && <TaskDraft locale={locale} sessions={sessions} disabled={blocked} onSave={async command => {
       if (await client.command(crypto.randomUUID(), 0, command)) setCreating(false);
     }} />}
@@ -127,7 +128,7 @@ function TaskDetail({ task, locale, sessions, onOpenSession, disabled, onCommand
   return <section className="cm-task-detail" aria-label={copy.details}>
     <h3>{task.goal}</h3><p>{task.scope}</p><p>{copy.status}: {copy[task.status]} · {copy.revision} {task.revision}</p>
     <p>{copy.timezone}: {task.timezone}</p>
-    {task.waitingFor && <p>{copy.waiting}: {task.waitingFor}</p>}
+    {task.waitingFor && <p>{task.status === 'failed' ? copy.failureReason : task.status === 'cancelled' ? copy.cancelReason : copy.waiting}: {task.waitingFor}</p>}
     <p>{task.source === 'imported-session' ? copy.imported : copy.newSource}</p>
     {['draft', 'ready'].includes(task.status) && <button type="button" disabled={disabled} onClick={() => setEditing(value => !value)}>{editing ? copy.closeForm : copy.edit}</button>}
     {editing && <TaskDraft locale={locale} disabled={disabled} sessions={sessions} initial={task} onSave={async command => { if (await onCommand(command)) setEditing(false); }} />}

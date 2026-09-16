@@ -359,8 +359,8 @@ it.each(['zh', 'en'])('the compiled WatchDog locks uncertain task text and retri
   const f = await fixture(true, undefined, locale);
   f.settings.unmount();
   const labels = locale === 'zh'
-    ? { goal: '需要关注什么？', cadence: '检查频率', start: '开始检查', retry: '重试原请求', inspect: '打开原任务核查' }
-    : { goal: 'What should WatchDog watch?', cadence: 'Frequency', start: 'Start check', retry: 'Retry original request', inspect: 'Inspect existing task' };
+    ? { goal: '需要关注什么？', cadence: '检查频率', start: '开始检查', retry: '重试原请求', inspect: '打开原会话核查' }
+    : { goal: 'What should WatchDog watch?', cadence: 'Frequency', start: 'Start check', retry: 'Retry original request', inspect: 'Inspect existing session' };
   const admitted = new Set();
   const prompt = vi.fn(async (_content, _mode, _signal, requestId) => {
     admitted.add(requestId);

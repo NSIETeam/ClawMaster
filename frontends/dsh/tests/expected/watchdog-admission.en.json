@@ -3,7 +3,7 @@
   "cadence": "daily",
   "goalDisabled": true,
   "cadenceDisabled": true,
-  "notice": "Task admission is not confirmed. Your draft is retained. Check the model and connection, then retry. The original request may already be accepted. Retry it or inspect the existing task. The goal and frequency stay locked until admission is confirmed.Inspect existing task",
+  "notice": "Task admission is not confirmed. Your draft is retained. Check the model and connection, then retry. The original request may already be accepted. Retry it or inspect the existing session. The goal and frequency stay locked until admission is confirmed.Inspect existing session",
   "retry": "Retry original request",
-  "inspect": "Inspect existing task"
+  "inspect": "Inspect existing session"
 }
