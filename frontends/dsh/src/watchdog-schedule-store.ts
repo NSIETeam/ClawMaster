@@ -62,6 +62,11 @@ export class WatchdogScheduleStore {
     try { const result = action(); this.db.exec('COMMIT'); return result; }
     catch (error) { this.db.exec('ROLLBACK'); throw error; }
   }
+  private observe<T>(action: () => T): T {
+    this.db.exec('BEGIN');
+    try { const result = action(); this.db.exec('COMMIT'); return result; }
+    catch (error) { this.db.exec('ROLLBACK'); throw error; }
+  }
   private audit(at: number, planId: WatchdogPlanId, instanceId: WatchdogInstanceId | null, action: string, actor: string, reason: string | null): void {
     this.db.prepare('INSERT INTO schedule_audit(at,planId,instanceId,action,actor,reason) VALUES(?,?,?,?,?,?)').run(at, planId, instanceId, action, actor, reason);
   }
@@ -237,29 +242,60 @@ export class WatchdogScheduleStore {
     });
   }
 
-  /** Bounded observer query; stale heartbeats and expired leases remain visible without a worker. */
-  query(identity: ExecutionIdentity, now: number, planId?: WatchdogPlanId, after = 0, limit = 50): unknown {
+  /** Read complete record and worker pages without modifying state; cursors identify the last included row.
+   * @param identity - Trusted organization-scoped reader.
+   * @param now - Wall-clock sample used consistently for heartbeat and lease observations.
+   * @param planId - Select this plan's occurrences; omission lists plans.
+   * @param after - Last record cursor, or zero for the first page.
+   * @param limit - Maximum complete records to return, from one to one hundred.
+   * @param fits - Check the full carrier response, including its final cursors and worker summary.
+   * @param workersAfter - Independent last-worker cursor, or zero for its first page.
+   * @returns A byte-bounded page or an explicit error when the first whole record and worker cannot fit.
+   */
+  query(identity: ExecutionIdentity, now: number, planId?: WatchdogPlanId, after = 0, limit = 50,
+    fits: (value: unknown) => boolean = value => scheduleResponseBytes(value, 'http') <= this.config.maxQueryBytes, workersAfter = 0): unknown {
     this.requireOrganization(identity);
-    if (!Number.isSafeInteger(after) || after < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) fail('invalid_request', 'Schedule pages require after >= 0 and 1 <= limit <= 100.');
-    const workers = this.db.prepare('SELECT * FROM schedule_workers ORDER BY lastHeartbeat DESC LIMIT 100').all().map(value => {
-      const row = sqliteRow.parse(value);
-      const stale = now - Number(row.lastHeartbeat) > this.config.heartbeatStaleMs;
-      return { ...row, stale, status: row.error === 'worker_stopped' ? 'stopped' : stale ? 'offline' : row.error ? 'degraded' : 'online' };
+    if (!Number.isSafeInteger(after) || after < 0 || !Number.isSafeInteger(workersAfter) || workersAfter < 0
+      || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) fail('invalid_request', 'Schedule pages require nonnegative cursors and 1 <= limit <= 100.');
+    return this.observe(() => {
+      const cutoff = now - this.config.heartbeatStaleMs;
+      const summary = sqliteRow.parse(this.db.prepare(`SELECT COUNT(*) AS total,
+        COALESCE(SUM(error IS NULL AND lastHeartbeat>=?),0) AS online,
+        COALESCE(SUM(error IS NOT NULL AND error!='worker_stopped' AND lastHeartbeat>=?),0) AS degraded,
+        COALESCE(SUM((error IS NULL OR error!='worker_stopped') AND lastHeartbeat<?),0) AS offline,
+        COALESCE(SUM(error='worker_stopped'),0) AS stopped FROM schedule_workers`).get(cutoff, cutoff, cutoff));
+      const workers = this.db.prepare('SELECT rowid AS cursor,* FROM schedule_workers WHERE rowid>? ORDER BY rowid LIMIT 101').all(workersAfter).map(value => {
+        const { cursor, ...row } = sqliteRow.parse(value);
+        const stale = now - Number(row.lastHeartbeat) > this.config.heartbeatStaleMs;
+        return { cursor: Number(cursor), value: { ...row, stale, status: row.error === 'worker_stopped' ? 'stopped' : stale ? 'offline' : row.error ? 'degraded' : 'online' } };
+      });
+      const rows = (planId ? this.db.prepare('SELECT rowid AS cursor,* FROM schedule_instances WHERE planId=? AND rowid>? ORDER BY rowid LIMIT ?').all(planId, after, limit + 1)
+        : this.db.prepare('SELECT rowid AS cursor,* FROM schedule_plans WHERE rowid>? ORDER BY rowid LIMIT ?').all(after, limit + 1)).map(value => sqliteRow.parse(value));
+      const records = rows.map(row => planId ? { ...instanceSchema.parse(row), leaseExpired: row.leaseUntil !== null && Number(row.leaseUntil) <= now } : parsePlan(row));
+      const response = (recordCount: number, workerCount: number) => ({ mode: this.config.mode,
+        workers: workers.slice(0, workerCount).map(worker => worker.value),
+        workerSummary: { ...summary, nextAfter: workers.length > workerCount ? workers[workerCount - 1]!.cursor : null },
+        records: records.slice(0, recordCount), nextAfter: rows.length > recordCount ? Number(rows[recordCount - 1]!.cursor) : null });
+      let recordCount = Math.min(1, records.length);
+      let workerCount = Math.min(1, workers.length);
+      if (!fits(response(recordCount, workerCount))) fail('response_too_large', 'One complete schedule record with its worker observation exceeds the response budget.');
+      while (recordCount < Math.min(limit, records.length) && fits(response(recordCount + 1, workerCount))) recordCount++;
+      while (workerCount < Math.min(100, workers.length) && fits(response(recordCount, workerCount + 1))) workerCount++;
+      return response(recordCount, workerCount);
     });
-    const rows = planId ? this.db.prepare('SELECT rowid AS cursor,* FROM schedule_instances WHERE planId=? AND rowid>? ORDER BY rowid LIMIT ?').all(planId, after, limit + 1)
-      : this.db.prepare('SELECT rowid AS cursor,* FROM schedule_plans WHERE rowid>? ORDER BY rowid LIMIT ?').all(after, limit + 1);
-    const page = rows.slice(0, limit).map(value => sqliteRow.parse(value));
-    const records = page.map(row => planId ? { ...instanceSchema.parse(row), leaseExpired: row.leaseUntil !== null && Number(row.leaseUntil) <= now }
-      : parsePlan(row));
-    return { mode: this.config.mode, workers, records, nextAfter: rows.length > limit ? Number(page.at(-1)!.cursor) : null };
   }
 
   /** Read immutable scheduling decisions, grants, retries and human resolutions with a stable cursor. */
-  history(identity: ExecutionIdentity, planId: WatchdogPlanId, after = 0, limit = 50): unknown {
+  history(identity: ExecutionIdentity, planId: WatchdogPlanId, after = 0, limit = 50,
+    fits: (value: unknown) => boolean = value => scheduleResponseBytes(value, 'http') <= this.config.maxQueryBytes): unknown {
     this.requireOrganization(identity);
     if (!Number.isSafeInteger(after) || after < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) fail('invalid_request', 'Invalid schedule history page.');
-    const rows = this.db.prepare('SELECT * FROM schedule_audit WHERE planId=? AND seq>? ORDER BY seq LIMIT ?').all(planId, after, limit + 1);
-    return { records: rows.slice(0, limit), nextAfter: rows.length > limit ? Number(sqliteRow.parse(rows[limit - 1]).seq) : null };
+    const rows = this.db.prepare('SELECT * FROM schedule_audit WHERE planId=? AND seq>? ORDER BY seq LIMIT ?').all(planId, after, limit + 1).map(value => sqliteRow.parse(value));
+    const response = (count: number) => ({ records: rows.slice(0, count), nextAfter: rows.length > count ? Number(rows[count - 1]!.seq) : null });
+    let count = Math.min(1, rows.length);
+    if (!fits(response(count))) fail('response_too_large', 'One complete schedule history entry exceeds the response budget.');
+    while (count < Math.min(limit, rows.length) && fits(response(count + 1))) count++;
+    return response(count);
   }
 }
 

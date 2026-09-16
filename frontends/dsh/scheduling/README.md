@@ -44,17 +44,21 @@ Database-wide active leases and a rolling dispatch-count budget bound admission 
 <a id="authenticated-interfaces"></a>
 ## Authenticated interfaces
 
-All paths use the existing authenticated DSH Fetch carrier and the same governance `task.read` / `task.write` resource checks as business tasks. A specific plan uses its id as the resource; listing all plans requires `*`. Cross-organization callers are rejected. Query results have configurable byte limits and pages of at most 100 records. Tool limits count the complete DSH value and rendered-text envelope, including JSON escaping. A command whose receipt exceeds its carrier budget rolls back before commit. Unknown or repeated query fields and non-boolean history selectors are rejected.
+All paths use the existing authenticated DSH Fetch carrier and the same governance `task.read` / `task.write` resource checks as business tasks. A specific plan uses its id as the resource; listing all plans requires `*`. Cross-organization callers are rejected. Query results have configurable byte limits and pages of at most 100 records. Tool limits count the complete DSH value and rendered-text envelope, including JSON escaping. Pages shorten to retain complete records within that carrier budget; `nextAfter` identifies the last included row, without skipping the next record. A first whole record together with its worker observation that cannot fit fails explicitly with `response_too_large` rather than returning an empty continuation. A command whose receipt exceeds its carrier budget rolls back before commit. Unknown or repeated query fields and non-boolean history selectors are rejected.
 
 | Interface | Input and result |
 | --- | --- |
 | `GET /api/clawmaster/schedules` | Plan page, actual deployment mode and independent worker status. |
 | `GET /api/clawmaster/schedules?id=PLAN` | Occurrence page including scheduled time, approval deadline, lease, attempts, reason and completion time. |
 | `GET /api/clawmaster/schedules?id=PLAN&history=true` | Append-only decisions and actor records. |
-| `after` / `limit` | Continue with the response's `nextAfter` cursor; cursors do not mutate the ledger. |
+| `after` / `limit` | Continue with the response's `nextAfter` cursor; the byte budget can return fewer than `limit` complete records. |
+| `workersAfter` | Independently continue the worker list using `workerSummary.nextAfter`; history queries require this cursor to be zero. |
+| `workerSummary` | Counts every worker as `online`, `degraded`, `offline` or `stopped`, including workers on later pages; `total` and `nextAfter` make partial lists explicit. |
 | `POST /api/clawmaster/schedules/command` | JSON `{commandId,command}` from a human; exact retries return their stored receipt. |
 | `watchdog_schedule_query` | The same bounded read fields for an authorized agent. |
 | `watchdog_schedule_command` | A `request` string containing the command JSON; every command needs one-shot DSH approval. |
+
+Observation uses stable row cursors and does not refresh heartbeats, recover leases, prune workers or append audit entries. Worker pages contain at most 100 complete records and share the carrier byte budget with the requested plan or occurrence page. History pages contain no worker observation.
 
 Commands are immutable definitions or state transitions. `create` takes `id`, `sessionId`, `prompt`, `rule`, `missed` and `catchUpLimit`. A rule is `{kind:"every",everySeconds:300}` or `{kind:"at",at:"2026-12-01T09:00:00+08:00"}`; `at` also accepts DSH's `{date,time,time_zone}` input. `approve` takes the plan `id` and `instanceId`; cancellation additionally takes `reason`; `resolve-uncertain` additionally takes `resolution` and `reason`. Command ids cannot be reused with another actor or payload. No command accepts an identity, organization, permission or approval receipt from model-supplied JSON.
 

@@ -13,14 +13,14 @@ import type { WatchdogScheduleServices } from './watchdog-schedule-runtime.ts';
 
 const path = '/api/clawmaster/schedules';
 const querySchema = z.object({ id: z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/).transform(value => value as WatchdogPlanId).optional(),
-  after: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(100).default(50), history: z.boolean().default(false) }).strict();
-const queryParameters = { ...parameterSchemaSpecToJsonSchema({ id: { type: 'string' }, after: { type: 'integer' }, limit: { type: 'integer' }, history: { type: 'boolean' } }), additionalProperties: false };
+  after: z.number().int().min(0).default(0), workersAfter: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(100).default(50), history: z.boolean().default(false) }).strict();
+const queryParameters = { ...parameterSchemaSpecToJsonSchema({ id: { type: 'string' }, after: { type: 'integer' }, workersAfter: { type: 'integer' }, limit: { type: 'integer' }, history: { type: 'boolean' } }), additionalProperties: false };
 const commandParameters = { ...parameterSchemaSpecToJsonSchema({ request: { type: 'string', required: true,
   description: 'JSON command: {commandId,command:{type,id,...}}. create adds sessionId,prompt,rule ({kind:"every",everySeconds>=300} or {kind:"at",at:ISO-with-offset}),missed (skip|coalesce|catch-up),catchUpLimit (1..100). approve adds instanceId. cancel-plan adds reason. cancel-instance adds instanceId and reason. Uncertain resolution is human-only.' } }), additionalProperties: false };
 
 function failure(error: unknown): Response {
   const code = error instanceof GovernanceDenied || error instanceof WatchdogScheduleError ? error.code : error instanceof z.ZodError || error instanceof SyntaxError ? 'invalid_request' : 'unavailable';
-  return Response.json({ error: { code, message: 'The schedule operation did not complete.' } }, {
+  return Response.json({ error: { code, message: code === 'response_too_large' && error instanceof WatchdogScheduleError ? error.message : 'The schedule operation did not complete.' } }, {
     status: code === 'permission_denied' ? 403 : code === 'invalid_request' ? 400 : code === 'response_too_large' ? 413 : code === 'not_found' ? 404 : code === 'unavailable' ? 503 : 409,
     headers: { 'cache-control': 'no-store' },
   });
@@ -54,8 +54,11 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
     const input = querySchema.parse(value);
     const identity = await caller.check('task.read', input.id ?? '*');
     lifetime.signal.throwIfAborted();
-    if (input.history && !input.id) throw new WatchdogScheduleError('invalid_request', 'History requires a plan id.');
-    return bounded(input.history ? store.history(identity, input.id!, input.after, input.limit) : store.query(identity, Date.now(), input.id, input.after, input.limit), store.config.maxQueryBytes, transport);
+    if (input.history && (!input.id || input.workersAfter !== 0)) throw new WatchdogScheduleError('invalid_request', 'History requires a plan id and does not page workers.');
+    const fits = (result: unknown) => scheduleResponseBytes(result, transport) <= store.config.maxQueryBytes;
+    const result = input.history ? store.history(identity, input.id!, input.after, input.limit, fits)
+      : store.query(identity, Date.now(), input.id, input.after, input.limit, fits, input.workersAfter);
+    return bounded(result, store.config.maxQueryBytes, transport);
   };
   const command = async (caller: GovernanceCaller, input: ScheduleCommand, signal: AbortSignal, transport: 'http' | 'tool') => {
     const identity = await caller.check('task.write', input.command.id);
@@ -78,10 +81,10 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
   try {
     removals.push(ctx.connection.fetch.register({ path, methods: ['GET'], requestBody: 'buffered', fetch: request => run(async () => {
       const search = new URL(request.url).searchParams;
-      for (const key of search.keys()) if (!['id', 'after', 'limit', 'history'].includes(key) || search.getAll(key).length !== 1) throw new WatchdogScheduleError('invalid_request', 'Unknown or repeated schedule query field.');
+      for (const key of search.keys()) if (!['id', 'after', 'workersAfter', 'limit', 'history'].includes(key) || search.getAll(key).length !== 1) throw new WatchdogScheduleError('invalid_request', 'Unknown or repeated schedule query field.');
       if (search.has('history') && !['true', 'false'].includes(search.get('history')!)) throw new WatchdogScheduleError('invalid_request', 'history must be true or false.');
       const value = await query(await access.http(request), { ...(search.has('id') ? { id: search.get('id') } : {}),
-        after: Number(search.get('after') ?? 0), limit: Number(search.get('limit') ?? 50), history: search.get('history') === 'true' }, 'http');
+        after: Number(search.get('after') ?? 0), workersAfter: Number(search.get('workersAfter') ?? 0), limit: Number(search.get('limit') ?? 50), history: search.get('history') === 'true' }, 'http');
       return new Response(value, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
     }).catch(failure) }));
     removals.push(ctx.connection.fetch.register({ path: `${path}/command`, methods: ['POST'], requestBody: 'buffered', fetch: request => run(async () => {
@@ -93,7 +96,7 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
       const value = await auditGovernanceOutcome(caller, enterprise, `schedule.${input.command.type}`, input.commandId, () => command(caller, input, signal, 'http'), signal);
       return new Response(value, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
     }).catch(failure) }));
-    removals.push(ctx.tools.register({ name: 'watchdog_schedule_query', description: 'Read persistent WatchDog plans, occurrence states, independent worker heartbeats and history. after/nextAfter is a cursor. Stale heartbeat means the worker is offline; dispatched means the prompt reached durable Session input, not completed business work. No live agent is required for the HTTP observer.',
+    removals.push(ctx.tools.register({ name: 'watchdog_schedule_query', description: 'Read persistent WatchDog plans, occurrences, heartbeats and history. after/nextAfter pages complete records within the output byte budget; workersAfter/workerSummary.nextAfter independently pages workers. workerSummary counts every current worker by status, including those on later pages. A single oversized record fails explicitly. Stale heartbeat means the worker is offline; dispatched confirms durable input delivery, not business completion. HTTP observation requires no live agent.',
       parameters: queryParameters, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: String(value) }] },
       execute: (args, exec) => run(async () => { exec.signal.throwIfAborted(); return query(await access.agent(exec.agent?.id, exec.callId), args, 'tool'); }),
       presentCall: args => ({ card: 'generic', title: 'Read WatchDog schedules', kind: 'search', rawInput: JSON.stringify(args) }),

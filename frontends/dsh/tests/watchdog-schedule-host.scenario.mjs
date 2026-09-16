@@ -220,3 +220,107 @@ test('plan creation rechecks the human after asynchronous Session binding and re
   assert.equal((await pending).status, 403);
   assert.throws(() => h.store.plan('plan'), { code: 'not_found' });
 });
+
+test('HTTP and tool pages retain every complete Chinese/escaped plan, occurrence and history entry', async t => {
+  const h = await fixture(t, new GovernanceAccess(), human, { maxQueryBytes: 3500 });
+  const now = Date.now();
+  const prompt = '中文"\\\n'.repeat(20);
+  const ids = Array.from({ length: 8 }, (_, index) => `paged-${index}`);
+  for (const id of ids) h.store.command(human, scheduleCommandSchema.parse({ commandId: `create-${id}`, command: {
+    type: 'create', id, sessionId: 'session', prompt, rule: { kind: 'every', everySeconds: 300 }, missed: 'catch-up', catchUpLimit: 8,
+  } }), now - 2400000);
+  h.store.materialize(now);
+  const instances = h.store.query(human, now, ids[0], 0, 100, () => true).records;
+  for (const instance of instances) h.store.command(human, scheduleCommandSchema.parse({ commandId: `cancel-${instance.id}`, command: {
+    type: 'cancel-instance', id: ids[0], instanceId: instance.id, reason: '延期说明"\\\n'.repeat(20),
+  } }), now);
+  h.store.heartbeat('worker', now);
+  const expectedInstances = h.store.query(human, now, ids[0], 0, 100, () => true).records;
+  const expectedHistory = h.store.history(human, ids[0], 0, 100, () => true).records;
+  const expectedPlans = h.store.query(human, now, undefined, 0, 100, () => true).records;
+  for (const transport of ['http', 'tool']) {
+    for (const [args, expected, key] of [[{}, expectedPlans, 'id'], [{ id: ids[0] }, expectedInstances, 'id'], [{ id: ids[0], history: true }, expectedHistory, 'seq']]) {
+      let after = 0; let pages = 0; const received = [];
+      do {
+        const request = { ...args, after, limit: 50 };
+        let result;
+        if (transport === 'http') {
+          const response = await h.read(`?${new URLSearchParams(Object.entries(request).map(([name, value]) => [name, String(value)]))}`);
+          assert.equal(response.status, 200);
+          const text = await response.text(); assert.ok(Buffer.byteLength(text) <= 3500); result = JSON.parse(text);
+        } else {
+          const response = await h.ctx.tools.execute({ callId: randomUUID(), name: 'watchdog_schedule_query', arguments: request,
+            agent: h.handle.agent, signal: new AbortController().signal });
+          assert.equal(response.isError, false, JSON.stringify(response));
+          assert.ok(Buffer.byteLength(JSON.stringify(response)) <= 3500); result = JSON.parse(response.value);
+        }
+        received.push(...result.records); pages++;
+        if (result.nextAfter === null) break;
+        assert.ok(result.records.length > 0 && result.nextAfter > after, 'A continuation always advances past complete records.');
+        after = result.nextAfter;
+        assert.ok(pages <= expected.length);
+      } while (true);
+      assert.ok(pages > 1, `${transport} ${key} must shorten the requested page.`);
+      assert.deepEqual(received, expected, `${transport} must preserve every field without loss or duplication.`);
+      assert.equal(new Set(received.map(record => record[key])).size, expected.length);
+    }
+  }
+  assert.deepEqual(h.store.history(human, ids[0], 0, 100, () => true).records, expectedHistory, 'Observation adds no audit events.');
+});
+
+test('worker counts cover later pages and both carriers can read every worker within the byte budget', async t => {
+  const h = await fixture(t, new GovernanceAccess(), human, { maxQueryBytes: 1600, heartbeatStaleMs: 600000 });
+  const now = Date.now();
+  const ids = Array.from({ length: 125 }, (_, index) => `worker-${String(index).padStart(3, '0')}`);
+  for (const [index, id] of ids.entries()) h.store.heartbeat(id, index < 30 ? now - 600001 : now,
+    index >= 30 && index < 50 ? 'worker_stopped' : index >= 50 && index < 75 ? 'schedule_tick_failed' : null);
+  const expected = { total: 125, offline: 30, stopped: 20, degraded: 25, online: 50 };
+  for (const transport of ['http', 'tool']) {
+    let workersAfter = 0; const received = [];
+    do {
+      let page;
+      if (transport === 'http') {
+        const response = await h.read(`?workersAfter=${workersAfter}`);
+        assert.equal(response.status, 200); const text = await response.text();
+        assert.ok(Buffer.byteLength(text) <= 1600); page = JSON.parse(text);
+      } else {
+        const response = await h.ctx.tools.execute({ callId: randomUUID(), name: 'watchdog_schedule_query', arguments: { workersAfter },
+          agent: h.handle.agent, signal: new AbortController().signal });
+        assert.equal(response.isError, false, JSON.stringify(response)); assert.ok(Buffer.byteLength(JSON.stringify(response)) <= 1600); page = JSON.parse(response.value);
+      }
+      const { nextAfter, ...counts } = page.workerSummary;
+      assert.deepEqual(counts, expected);
+      assert.equal(page.nextAfter, null);
+      assert.ok(page.workers.length > 0);
+      if (workersAfter === 0) {
+        assert.ok(page.workers.length < 100 && nextAfter !== null);
+        assert.equal(page.workers.some(worker => worker.status === 'online'), false);
+        assert.equal(page.workerSummary.online, 50, 'Online workers on later pages cannot be mistaken for no online workers.');
+      }
+      received.push(...page.workers.map(worker => worker.id));
+      if (nextAfter === null) break;
+      assert.ok(nextAfter > workersAfter); workersAfter = nextAfter;
+      assert.ok(received.length <= 125);
+    } while (true);
+    assert.deepEqual(received, ids);
+  }
+  assert.equal(h.store.query(human, now).workerSummary.total, 125, 'Reads neither prune workers nor synthesize a heartbeat.');
+});
+
+test('one complete record with mandatory worker observation fails explicitly instead of returning an empty looping page', async t => {
+  const probe = await fixture(t);
+  const now = Date.now();
+  const command = { type: 'create', id: 'oversized', sessionId: 'session', prompt: '中文"\\\n'.repeat(55), rule: { kind: 'every', everySeconds: 300 }, missed: 'coalesce', catchUpLimit: 1 };
+  const record = probe.store.command(human, scheduleCommandSchema.parse({ commandId: 'probe', command }), now);
+  const maxQueryBytes = scheduleResponseBytes(record, 'http') + 20;
+  assert.ok(maxQueryBytes >= 1024);
+  const h = await fixture(t, new GovernanceAccess(), human, { maxQueryBytes });
+  assert.equal((await h.send(command)).status, 200);
+  h.store.heartbeat('worker', now);
+  const response = await h.read('?limit=1');
+  assert.equal(response.status, 413);
+  const error = await response.json(); assert.equal(error.error.code, 'response_too_large'); assert.match(error.error.message, /One complete schedule record/);
+  const tool = await h.ctx.tools.execute({ callId: 'oversized-query', name: 'watchdog_schedule_query', arguments: { limit: 1 }, agent: h.handle.agent, signal: new AbortController().signal });
+  assert.equal(tool.isError, true);
+  assert.match(tool.content[0].text, /One complete schedule record/);
+});

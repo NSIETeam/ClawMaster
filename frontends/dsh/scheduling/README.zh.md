@@ -44,17 +44,21 @@ Host 只向计划绑定会话中已经在线的根 agent 派发。它不会恢�
 <a id="authenticated-interfaces"></a>
 ## 认证接口
 
-所有路径使用已有的认证 DSH Fetch 传输层，以及业务任务相同的治理 `task.read` / `task.write` 资源检查。单个计划以其标识作为资源；列出所有计划要求 `*`。跨组织调用者会被拒绝。查询有可配置的字节限制，每页最多 100 条。工具限制计算完整的 DSH value 与渲染文本封装，包括 JSON 转义。命令回执超过传输层预算时，事务在提交前回滚。未知或重复的查询字段，以及非布尔形式的 history 选择值都会被拒绝。
+所有路径使用已有的认证 DSH Fetch 传输层，以及业务任务相同的治理 `task.read` / `task.write` 资源检查。单个计划以其标识作为资源；列出所有计划要求 `*`。跨组织调用者会被拒绝。查询有可配置的字节限制，每页最多 100 条。工具限制计算完整的 DSH value 与渲染文本封装，包括 JSON 转义。分页会在传输层预算内缩短，但保留完整记录；`nextAfter` 指向最后一条已返回记录，不会跳过下一条。如果第一条完整记录连同工作进程观察信息仍放不下，会明确返回 `response_too_large`，而不是返回无法前进的空续页。命令回执超过传输层预算时，事务在提交前回滚。未知或重复的查询字段，以及非布尔形式的 history 选择值都会被拒绝。
 
 | 接口 | 输入与结果 |
 | --- | --- |
 | `GET /api/clawmaster/schedules` | 计划分页、实际部署模式和独立工作进程状态。 |
 | `GET /api/clawmaster/schedules?id=PLAN` | 实例分页，包括预定时间、审批期限、租约、尝试次数、原因与完成时间。 |
 | `GET /api/clawmaster/schedules?id=PLAN&history=true` | 只追加的决策和操作者记录。 |
-| `after` / `limit` | 使用响应的 `nextAfter` 游标继续读取；游标不修改账本。 |
+| `after` / `limit` | 使用响应的 `nextAfter` 游标继续读取；字节预算可能使返回的完整记录少于 `limit`。 |
+| `workersAfter` | 使用 `workerSummary.nextAfter` 独立继续读取工作进程列表；历史查询要求此游标为零。 |
+| `workerSummary` | 按 `online`、`degraded`、`offline`、`stopped` 统计所有工作进程，包括后续页中的进程；`total` 和 `nextAfter` 明确标记部分列表。 |
 | `POST /api/clawmaster/schedules/command` | 人提交的 JSON `{commandId,command}`；完全相同的重试返回已保存回执。 |
 | `watchdog_schedule_query` | 已授权 agent 使用的同样有界读取字段。 |
 | `watchdog_schedule_command` | `request` 字符串包含命令 JSON；每个命令都要求 DSH 单次审批。 |
+
+观察使用稳定的行游标，不刷新心跳、不恢复租约、不清理工作进程，也不追加审计条目。工作进程每页至多包含 100 条完整记录，与请求的计划页或实例页共享传输层字节预算。历史分页不携带工作进程观察信息。
 
 命令要么定义不可变计划，要么执行状态迁移。`create` 接收 `id`、`sessionId`、`prompt`、`rule`、`missed` 与 `catchUpLimit`。规则示例为 `{kind:"every",everySeconds:300}` 或 `{kind:"at",at:"2026-12-01T09:00:00+08:00"}`；`at` 也接受 DSH 的 `{date,time,time_zone}` 输入。`approve` 接收计划 `id` 与 `instanceId`；取消操作另需 `reason`；`resolve-uncertain` 另需 `resolution` 和 `reason`。命令标识不能由另一操作者或载荷复用。任何命令都不接受模型 JSON 自报的身份、组织、权限或审批回执。
 
