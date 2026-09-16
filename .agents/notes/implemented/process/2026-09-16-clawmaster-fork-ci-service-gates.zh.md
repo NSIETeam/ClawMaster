@@ -12,11 +12,11 @@ ClawMaster-Desktop 保留了 DSH 工作流源码，却不拥有 DeepSeek Harness
 
 [Issue lifecycle](../../../../.github/workflows/issue-lifecycle.yml) 和 [Issue policy](../../../../.github/workflows/issue-policy.yml) 作业只在所属的 DeepSeek Harness 仓库运行。[预览工作流](../../../../.github/workflows/build-preview-cloudflare.yml) 仍为每个 PR 构建页面，但只在该仓库部署和探测 Cloudflare。因此 ClawMaster-Desktop 不报告 Cloudflare 部署或上游 Project 校验。
 
-[PR CI](../../../../.github/workflows/ci.yml) 在上游仓库保留原有 16 核标签，为 ClawMaster-Desktop 选用 GitHub 标准 `ubuntu-24.04` 和 `windows-2025` 运行器。在根仓库的消费者 lint 门禁之前，ClawMaster CI 安装单独锁定的 DSH 和 Office 前端开发依赖；这些 TypeScript 文件仍参与 lint。可复用的 [Python 运行时构建器](../../../../.github/workflows/build-exe-for-python-sdk.yml) 在两个仓库都继续运行干净安装和无密钥 wheel 检查。经过认证的步骤要求 `real_api` 输入；上游 CI 和发布调用保留默认 `true`，ClawMaster PR CI 传入 `false`，这些步骤明确显示为跳过。缺失密钥不会被算作一次成功的模型调用。
+[PR CI](../../../../.github/workflows/ci.yml) 在上游仓库保留原有 16 核标签，为 ClawMaster-Desktop 选用 GitHub 标准 `ubuntu-24.04` 和 `windows-2025` 运行器。4 核消费者作业通过[预期输出配置](../../../../vitest.expected.config.ts)限制并行门禁和预期输出 worker，保留原断言与超时，上游作业继续使用资源更多的池。Linux 和 Windows 覆盖率仍测量所有归属源码文件，但 ClawMaster 作业使用两个分区、每分区两个 worker，并一次执行一个门禁；上游保留四个分区、六个 worker 和三个并行门禁。在根仓库的消费者 lint 门禁之前，ClawMaster CI 安装单独锁定的 DSH 和 Office 前端开发依赖；这些 TypeScript 文件仍参与 lint。可复用的 [Python 运行时构建器](../../../../.github/workflows/build-exe-for-python-sdk.yml) 在两个仓库都继续运行干净安装和无密钥 wheel 检查。经过认证的步骤要求 `real_api` 输入；上游 CI 和发布调用保留默认 `true`，ClawMaster PR CI 传入 `false`，这些步骤明确显示为跳过。缺失密钥不会被算作一次成功的模型调用。
 
 ## 验证
 
-[工作流规格](../../../../scripts/ci-workflow.spec.ts) 计算两个仓库的运行器选择、锁定外部服务归属，并确认四个 Python 认证步骤共用显式输入。GitHub 托管运行结果和真实模型回复仍需分别从远端取得证据。
+[工作流规格](../../../../scripts/ci-workflow.spec.ts) 计算两个仓库的运行器选择与消费者并发预算、锁定外部服务归属，并确认四个 Python 认证步骤共用显式输入。GitHub 托管运行结果和真实模型回复仍需分别从远端取得证据。
 
 ## 考虑过的替代方案
 

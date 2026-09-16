@@ -126,6 +126,51 @@ describe('CI workflow', () => {
     expect(String(steps[install]?.run)).toContain('npm ci --prefix frontends/office --ignore-scripts')
   })
 
+  it('sizes consumer concurrency to each repository runner pool', () => {
+    const job = workflowJob(loadWorkflow('.github/workflows/ci.yml'), 'node-24-consumers')
+    if (!isRecord(job.env)) throw new TypeError('Consumer job must define an environment')
+    const budgets = {
+      DSH_GATE_CONCURRENCY: ['2', '10'],
+      DSH_OXLINT_THREADS: ['2', '8'],
+      DSH_PUBLINT_CONCURRENCY: ['2', '8'],
+      DSH_WEB_SNAPSHOT_WORKERS: ['2', '6'],
+      DSH_EXPECTED_MAX_WORKERS: ['2', '5'],
+      DSH_SNAPSHOT_MAX_CONCURRENCY: ['4', '32'],
+    } as const
+    for (const [name, [fork, upstream]] of Object.entries(budgets)) {
+      const expression = job.env[name]
+      if (typeof expression !== 'string') throw new TypeError(`${name} must be an expression`)
+      const source = expression.trim().slice(3, -2)
+      const evaluate = (repository: string): unknown => runInNewContext(source, {
+        github: { repository, event: { pull_request: { user: { login: 'maintainer' } } } },
+        vars: {},
+      }, { timeout: 1000 })
+      expect(evaluate('NSIETeam/ClawMaster-Desktop'), `${name} fork`).toBe(fork)
+      expect(evaluate('deepseek-harness/deepseek-harness'), `${name} upstream`).toBe(upstream)
+    }
+  })
+
+  it('keeps full coverage while limiting fork partition overlap', () => {
+    const workflow = loadWorkflow('.github/workflows/ci.yml')
+    for (const jobName of ['node-24-coverage', 'windows-coverage']) {
+      const job = workflowJob(workflow, jobName)
+      if (!isRecord(job.env)) throw new TypeError(`${jobName} must define an environment`)
+      const budgets = {
+        DSH_COVERAGE_MAX_WORKERS: ['2', '6'],
+        DSH_COVERAGE_PARTITIONS: ['2', '4'],
+        DSH_GATE_CONCURRENCY: ['1', '3'],
+      } as const
+      for (const [name, [fork, upstream]] of Object.entries(budgets)) {
+        const expression = job.env[name]
+        if (typeof expression !== 'string') throw new TypeError(`${jobName} ${name} must be an expression`)
+        const source = expression.trim().slice(3, -2)
+        const evaluate = (repository: string): unknown => runInNewContext(source, { github: { repository } }, { timeout: 1000 })
+        expect(evaluate('NSIETeam/ClawMaster-Desktop'), `${jobName} ${name} fork`).toBe(fork)
+        expect(evaluate('deepseek-harness/deepseek-harness'), `${jobName} ${name} upstream`).toBe(upstream)
+      }
+    }
+  })
+
   it('isolates the python SDK exe pnpm setup destination per job', () => {
     const workflow: unknown = yaml.load(readFileSync(resolve(root, '.github/workflows/build-exe-for-python-sdk.yml'), 'utf8'))
     if (!isRecord(workflow) || !isRecord(workflow.jobs)) throw new TypeError('build-exe-for-python-sdk.yml must define jobs')
@@ -228,9 +273,11 @@ describe('CI workflow', () => {
       expect(install!.run).not.toContain('$cloneFlag')
     }
 
-    // windows-coverage uses the lower 4-partition profile.
+    // The upstream Windows coverage profile retains four partitions.
     expect(windowsCoverage.name).toBe('windows node 24 / coverage')
-    expect(windowsCoverage.env).toMatchObject({ DSH_COVERAGE_PARTITIONS: '4' })
+    expect(isRecord(windowsCoverage.env)).toBe(true)
+    if (!isRecord(windowsCoverage.env)) throw new Error('Windows coverage environment is missing')
+    expect(String(windowsCoverage.env.DSH_COVERAGE_PARTITIONS)).toContain("'4'")
     const coverageSteps = windowsCoverage.steps as unknown[]
     const coverageCommands = coverageSteps.filter((step): step is Record<string, unknown> & { run: string } => (
       isRecord(step) && typeof step.run === 'string'
