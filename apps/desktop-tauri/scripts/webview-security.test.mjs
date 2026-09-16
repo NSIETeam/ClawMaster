@@ -9,7 +9,7 @@ function assertShellCapabilities(capabilities) {
   for (const capability of capabilities) {
     assert.equal(capability.remote, undefined, 'Remote web content cannot hold native permissions')
     assert.equal(capability.windows, undefined, 'Window grants also match child WebViews')
-    assert.deepEqual(capability.webviews, ['splash', 'main'])
+    assert.deepEqual(capability.webviews, ['main'])
     assert.deepEqual(capability.permissions, [
       'core:window:allow-start-dragging', 'allow-set-close-action', 'allow-dismiss-close-prompt', 'allow-restart-app',
     ])
@@ -34,7 +34,15 @@ test('packaged pages limit scripts, network, frames and navigation without broad
   const csp = JSON.parse(readFileSync(new URL('tauri.conf.json', native), 'utf8')).app.security.csp
   assert.equal(csp['default-src'], "'none'")
   assert.equal(csp['script-src'], "'self'")
+  assert.equal(csp['style-src'], "'self'")
   assert.equal(csp['connect-src'], 'ipc: http://ipc.localhost')
   for (const name of ['object-src', 'frame-src', 'base-uri', 'form-action']) assert.equal(csp[name], "'none'")
   assert.ok(!Object.values(csp).some(value => value.includes('*') || value.includes('unsafe-eval')))
+  for (const page of ['shell', 'splash']) {
+    const html = readFileSync(new URL(`../${page}.html`, import.meta.url), 'utf8')
+    assert.doesNotMatch(html, /<style[\s>]/u, `${page} must load styles from a CSP-allowed local file`)
+    assert.doesNotMatch(html, /<script>\s*[\s\S]*<\/script>/u, `${page} must load behavior from a CSP-allowed local file`)
+    assert.match(html, new RegExp(`<link rel="stylesheet" href="${page}\\.css">`, 'u'))
+    assert.match(html, new RegExp(`<script src="${page}\\.js"></script>`, 'u'))
+  }
 })

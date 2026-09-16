@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Local packaged shell controls; the Host content WebView receives no native commands.",
-  "webviews": ["splash", "main"],
+  "webviews": ["main"],
   "permissions": [
     "core:window:allow-start-dragging",
     "allow-set-close-action",
