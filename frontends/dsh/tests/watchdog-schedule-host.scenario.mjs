@@ -449,3 +449,19 @@ test('worker stop during enterprise approval consumption withdraws its lease and
   assert.equal(consumptions, 1); assert.equal(h.adapter.requests.length, 0);
   assert.equal(h.store.history(auth.identity, 'plan').records.some(record => record.action === 'dispatching'), false);
 });
+
+test('a flush that stops the worker and rejects is observed even before the cancellation race starts', async t => {
+  const h = await fixture(t); const instance = h.seed(); await h.send({ type: 'approve', id: 'plan', instanceId: instance.id });
+  let stopping;
+  h.services.sessions = { flush: () => {
+    stopping = h.runtime.dispose();
+    return Promise.reject(new Error('Persistence rejected while stopping the worker.'));
+  } };
+  h.runtime.tick();
+  assert.equal((await h.waitJob()).status, 'killed');
+  await stopping;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.adapter.requests.length, 0);
+  assert.equal(h.store.instance(instance.id).state, 'ready');
+  assert.equal(h.store.instance(instance.id).expiresAt, instance.expiresAt);
+});

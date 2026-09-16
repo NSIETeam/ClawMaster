@@ -20,10 +20,14 @@ export interface WatchdogScheduleServices {
 }
 
 async function interruptible<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
-  signal.throwIfAborted();
   let abort: (() => void) | undefined;
-  const stopped = new Promise<never>((_resolve, reject) => { abort = () => reject(signal.reason); signal.addEventListener('abort', abort, { once: true }); });
-  try { return await Promise.race([operation, stopped]); }
+  const stopped = new Promise<never>((_resolve, reject) => {
+    abort = () => reject(signal.reason);
+    if (signal.aborted) abort();
+    else signal.addEventListener('abort', abort, { once: true });
+  });
+  // Observe the already-started operation even when cancellation won before this call.
+  try { return await Promise.race([stopped, operation]); }
   finally { signal.removeEventListener('abort', abort!); }
 }
 
