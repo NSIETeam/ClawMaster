@@ -34,6 +34,8 @@ export interface Config {
    * omission defaults to 10.
    */
   maxConcurrentJobsPerOwner?: number
+  /** Maximum active jobs across all owners and unowned work; omission defaults to 10. */
+  maxConcurrentJobs?: number
 }
 
 /** The registry's mutable per-job record (never handed out — see {@link LocalJobRegistry.snapshot}). */
@@ -95,10 +97,14 @@ export class LocalJobRegistry extends JobRegistry {
       .min(1)
       .max(Number.MAX_SAFE_INTEGER)
       .default(DEFAULT_MAX_CONCURRENT_TASKS_PER_OWNER),
+    maxConcurrentJobs: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER).default(10),
   })
 
   /** Schemastery-defaulted active-job limit. */
   private readonly maxConcurrentJobsPerOwner: number
+  private readonly maxConcurrentJobs: number
+  /** Synchronous starters reserve capacity before they can re-enter start(). */
+  private readonly startingOwners: Array<Agent | undefined> = []
   private store = new Map<JobId, TrackedTask>()
   private counters = new Map<string, number>()
   /**
@@ -124,6 +130,7 @@ export class LocalJobRegistry extends JobRegistry {
     super(ctx)
     // Schemastery validates and fills the default before constructing the service.
     this.maxConcurrentJobsPerOwner = (config as Required<Config>).maxConcurrentJobsPerOwner
+    this.maxConcurrentJobs = (config as Required<Config>).maxConcurrentJobs
     this.selfCtx = ctx
     ctx.effect(() => () => this.disposeAll(), 'jobs teardown')
   }
@@ -141,13 +148,22 @@ export class LocalJobRegistry extends JobRegistry {
     if (spec.owner !== undefined) this.ensureOwnerCleanup(spec.owner)
 
     const active = this.activeTaskCount(spec.owner)
-    if (active >= this.maxConcurrentJobsPerOwner) {
+    if (active.owner >= this.maxConcurrentJobsPerOwner) {
       throw new Error(
         `background job limit reached for this owner (limit: ${this.maxConcurrentJobsPerOwner}); use job_kill to stop an unneeded job, wait for it to finish, then retry`,
       )
     }
 
-    const hooks = spec.run()
+    if (active.total >= this.maxConcurrentJobs) {
+      throw new Error(
+        `background job limit reached for this process (limit: ${this.maxConcurrentJobs}); wait for active jobs to finish, then retry`,
+      )
+    }
+
+    let hooks: ReturnType<JobStart['run']>
+    this.startingOwners.push(spec.owner)
+    try { hooks = spec.run() }
+    finally { this.startingOwners.pop() }
     const count = (this.counters.get(spec.kind) ?? 0) + 1
     this.counters.set(spec.kind, count)
     const id = JobId(`${spec.kind}-${count}`)
@@ -318,13 +334,17 @@ export class LocalJobRegistry extends JobRegistry {
       .some(layer => !layer.controllers.isEmpty())
   }
 
-  /** Count authoritative active records for one exact owner or the shared unowned bucket. */
-  private activeTaskCount(owner: Agent | undefined): number {
-    let count = 0
+  /** Count active records and starters across the process and for one exact owner. */
+  private activeTaskCount(owner: Agent | undefined): { owner: number; total: number } {
+    const counts = { owner: 0, total: this.startingOwners.length }
+    for (const starting of this.startingOwners) if (starting === owner) counts.owner += 1
     for (const job of this.store.values()) {
-      if (job.owner === owner && (job.status === 'running' || job.status === 'stopping')) count += 1
+      if (!isTerminal(job.status)) {
+        counts.total += 1
+        if (job.owner === owner) counts.owner += 1
+      }
     }
-    return count
+    return counts
   }
 
   /**

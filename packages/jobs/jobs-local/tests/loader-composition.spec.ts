@@ -25,7 +25,8 @@ describe('jobs-local through a real Loader composition', () => {
     await writeFile(configPath, [
       "- name: '@deepseek-ai/dsh-jobs-local'",
       '  config:',
-      '    maxConcurrentJobsPerOwner: 1',
+      '    maxConcurrentJobsPerOwner: 2',
+      '    maxConcurrentJobs: 1',
       '',
     ].join('\n'))
 
@@ -61,6 +62,6 @@ describe('jobs-local through a real Loader composition', () => {
       kind: 'bash',
       label: 'blocked loader job',
       run: () => ({ cancel: () => {}, done: Promise.resolve({ status: 'completed' }) }),
-    })).toThrow('(limit: 1)')
+    })).toThrow('for this process (limit: 1)')
   })
 })

@@ -152,6 +152,7 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           npm test --prefix frontends/dsh
           npm run typecheck --prefix frontends/dsh
+          pnpm exec vitest run packages/jobs/jobs-local/tests
 
       - name: Verify collapsed process details and approvals
         run: |

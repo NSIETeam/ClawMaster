@@ -1006,6 +1006,8 @@ export interface Config {
    * omission defaults to 10.
    */
   maxConcurrentJobsPerOwner?: number
+  /** Maximum active jobs across all owners and unowned work; omission defaults to 10. */
+  maxConcurrentJobs?: number
 }
 ```
 

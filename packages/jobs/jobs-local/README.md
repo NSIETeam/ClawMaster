@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-jobs-local` runs background jobs inside the harness process: work keeps running while the agent moves on, and the owning agent can read, wait on, list, and cancel it, with completion delivered as an in-session notice when `dsh-tool-jobs` is also mounted. It implements the `dsh-jobs` contract with in-memory records handed out as fresh snapshots, never live state. A per-owner concurrency limit (default 10) bounds how many jobs one agent can have running or stopping at once; jobs die with the harness process and are not durable across restarts.
+`dsh-jobs-local` runs background jobs inside the harness process: work keeps running while the agent moves on, and the owning agent can read, wait on, list, and cancel it, with completion delivered as an in-session notice when `dsh-tool-jobs` is also mounted. It implements the `dsh-jobs` contract with in-memory records handed out as fresh snapshots, never live state. Per-owner and process-wide concurrency limits (both default 10) bound active jobs across agents and unowned work; jobs die with the harness process and are not durable across restarts.
 
 ## Table of Contents
 
@@ -33,7 +33,7 @@ Choose it when jobs should live in the harness process and die with it. Avoid it
 
 ### Minimal configuration
 
-Loading the plugin registers `ctx.jobs`; `maxConcurrentJobsPerOwner` is optional and defaults to `10`.
+Loading the plugin registers `ctx.jobs`; `maxConcurrentJobsPerOwner` and `maxConcurrentJobs` are optional and each defaults to `10`.
 
 ```yaml
 - name: '@deepseek-ai/dsh-jobs-local'
@@ -41,13 +41,14 @@ Loading the plugin registers `ctx.jobs`; `maxConcurrentJobsPerOwner` is optional
 
 | Field | Default | Meaning |
 |---|---|---|
-| `maxConcurrentJobsPerOwner` | `10` | Maximum `running` plus `stopping` jobs per exact owner, or in the shared unowned bucket |
+| `maxConcurrentJobsPerOwner` | `10` | Maximum active jobs per exact owner, or in the shared unowned bucket |
+| `maxConcurrentJobs` | `10` | Maximum active jobs across every owner and the unowned bucket |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-jobs-local) is the exhaustive source for the accepted field.
+The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-jobs-local) is the exhaustive source for the accepted fields.
 
 ### What each owner gets
 
-The limit counts the exact owner's `running` and `stopping` records; all unowned jobs share one separate service-level bucket. Terminal history does not occupy capacity, and only a producer's `done` settlement releases a stopping job's place. At capacity, `start()` fails before the producer runs, with an error that names the limit and tells the agent to kill an unneeded job, wait for it to finish, and retry — the registry neither queues nor preempts.
+Both limits count `running` and `stopping` records and reserve a place while a synchronous producer starter runs. All unowned jobs share one owner bucket; the process limit also counts work owned by other agents. Terminal history does not occupy capacity, and only a producer's `done` settlement releases a stopping job's place. At either limit, `start()` fails before the producer runs or receives an id. The error names the limit and tells the caller to wait for active work to finish before retrying; the registry neither queues nor preempts.
 
 ### Lifecycle
 
@@ -88,7 +89,7 @@ This section explains the design decisions behind the registry and points at the
 
 ### Admission and settlement
 
-`activeTaskCount` counts authoritative records per exact owner or in the shared unowned bucket. `settle` marks a job reported when waiters are pending, resolves every waiter, records the terminal snapshot, announces the visible-set change, then notifies completion listeners. Pending waits mark the job reported before listeners run so completion reporters do not duplicate notices; a teardown cancel marks it for the same reason — nothing will read a notice addressed to an owner being destroyed.
+`activeTaskCount` derives owner and process occupancy from active records and the synchronous starter stack; a throwing starter releases its reservation. `settle` marks a job reported when waiters are pending, resolves every waiter, records the terminal snapshot, announces the visible-set change, then notifies completion listeners. Pending waits mark the job reported before listeners run so completion reporters do not duplicate notices; a teardown cancel marks it for the same reason — nothing will read a notice addressed to an owner being destroyed.
 
 ### Teardown
 
@@ -128,6 +129,7 @@ No direct invalidation; the named consumers own any request-prefix changes.
 
 These limits define when the registry is a poor fit. They are current package constraints, not a task backlog.
 
+- **Job counts do not cap process memory** — one job may own several subprocesses; WebViews, external applications and work outside this registry are not counted.
 - **Jobs are process-local** — records die with the harness process; durable or cross-restart execution needs a separate backend implementing the seam.
 - **A silently ineffective cancel can stall teardown and hold capacity** — if `cancel` returns without settling `done`, the registry cannot distinguish it from a slow stop; the job keeps one bucket slot for the rest of the service lifetime, and only an explicit throw can be force-failed safely.
 

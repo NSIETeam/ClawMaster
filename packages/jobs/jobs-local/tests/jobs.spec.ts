@@ -262,6 +262,124 @@ describe('LocalJobRegistry.start', () => {
     await disposeAgentScope(oldOwner)
   })
 
+  it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects invalid maxConcurrentJobs config: %s',
+    async (maxConcurrentJobs) => {
+      const ctx = new Context()
+      try { await expect(ctx.plugin(LocalJobRegistry, { maxConcurrentJobs })).rejects.toThrow() }
+      finally { await ctx.fiber.dispose() }
+    },
+  )
+
+  it('shares the process limit across owners and retains stopping jobs until settlement', async () => {
+    const ctx = await harness({ maxConcurrentJobs: 2, maxConcurrentJobsPerOwner: 2 })
+    const alice = stubAgent(ctx, 'capacity-alice')
+    const bob = stubAgent(ctx, 'capacity-bob')
+    ctx.agents.register(alice)
+    ctx.agents.register(bob)
+    const first = producer({ owner: alice })
+    const second = producer({ owner: bob })
+    const replacement = producer()
+    const run = vi.fn(() => replacement.spec.run())
+    try {
+      const id = ctx.jobs.start(first.spec)
+      ctx.jobs.start(second.spec)
+      expect(() => ctx.jobs.start({ ...replacement.spec, run })).toThrow('background job limit reached for this process (limit: 2)')
+      expect(run).not.toHaveBeenCalled()
+      ctx.jobs.kill(id, alice)
+      expect(() => ctx.jobs.start({ ...replacement.spec, run })).toThrow('for this process')
+      expect(run).not.toHaveBeenCalled()
+      first.settle({ status: 'killed' })
+      await ctx.jobs.wait(id, 1000, alice)
+      expect(ctx.jobs.start({ ...replacement.spec, run })).toBe('bash-3')
+      expect(run).toHaveBeenCalledTimes(1)
+    } finally {
+      for (const job of [first, second, replacement]) job.settle({ status: 'completed' })
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it.each(['owner', 'process'] as const)('reserves %s capacity before a producer can start another job', async (limit) => {
+    const ctx = await harness(limit === 'owner'
+      ? { maxConcurrentJobsPerOwner: 1, maxConcurrentJobs: 2 }
+      : { maxConcurrentJobsPerOwner: 2, maxConcurrentJobs: 1 })
+    const outer = producer()
+    const inner = producer()
+    const run = vi.fn(() => inner.spec.run())
+    try {
+      expect(ctx.jobs.start({ ...outer.spec, run: () => {
+        expect(() => ctx.jobs.start({ ...inner.spec, run })).toThrow(`for this ${limit} (limit: 1)`)
+        return outer.spec.run()
+      } })).toBe('bash-1')
+      expect(run).not.toHaveBeenCalled()
+      expect(ctx.jobs.list()).toHaveLength(1)
+    } finally {
+      outer.settle({ status: 'completed' })
+      inner.settle({ status: 'completed' })
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('counts an in-progress starter against another owner before publication', async () => {
+    const ctx = await harness({ maxConcurrentJobs: 1, maxConcurrentJobsPerOwner: 1 })
+    const owner = stubAgent(ctx, 'nested-owner')
+    ctx.agents.register(owner)
+    const outer = producer({ owner })
+    const inner = producer()
+    const run = vi.fn(() => inner.spec.run())
+    try {
+      ctx.jobs.start({ ...outer.spec, run: () => {
+        expect(() => ctx.jobs.start({ ...inner.spec, run })).toThrow('for this process (limit: 1)')
+        return outer.spec.run()
+      } })
+      expect(run).not.toHaveBeenCalled()
+    } finally {
+      outer.settle({ status: 'completed' })
+      inner.settle({ status: 'completed' })
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('releases process capacity before scoped completion listeners start replacement work', async () => {
+    const ctx = await harness({ maxConcurrentJobs: 1 })
+    const scope = createScope(ctx, {})
+    const owner = stubAgent(ctx, 'scoped-capacity', scopeOf(scope.ctx))
+    ctx.agents.register(owner)
+    const first = producer({ owner })
+    const next = producer()
+    const seen: JobId[] = []
+    await scope.ctx.plugin({
+      inject: ['jobs'],
+      apply(pluginCtx: Context) {
+        pluginCtx.jobs.onJobDone(() => { seen.push(ctx.jobs.start(next.spec)) })
+      },
+    })
+    try {
+      const id = ctx.jobs.start(first.spec)
+      first.settle({ status: 'completed' })
+      await ctx.jobs.wait(id, 1000, owner)
+      expect(seen).toEqual(['bash-2'])
+      expect(ctx.jobs.get(seen[0]!)).toMatchObject({ status: 'running' })
+    } finally {
+      first.settle({ status: 'completed' })
+      next.settle({ status: 'completed' })
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('releases a failed starter reservation without consuming an id', async () => {
+    const ctx = await harness({ maxConcurrentJobs: 1, maxConcurrentJobsPerOwner: 1 })
+    const replacement = producer()
+    try {
+      expect(() => ctx.jobs.start({ ...replacement.spec, run: () => { throw new Error('starter failed') } })).toThrow('starter failed')
+      expect(ctx.jobs.list()).toEqual([])
+      expect(ctx.jobs.start(replacement.spec)).toBe('bash-1')
+    } finally {
+      replacement.settle({ status: 'completed' })
+      await ctx.fiber.dispose()
+    }
+  })
+
   it('issues kind-prefixed ids from per-kind counters', async () => {
     const ctx = await harness()
     expect(ctx.jobs.start(producer().spec)).toBe('bash-1')

@@ -197,7 +197,7 @@ ClawMaster profile 为新 Session 选择 DSH `read-only` 文件访问与 `ask` �
 
 #### KV Cache 影响
 
-`runtime_status` 返回带观测时间的桌面身份与源码来源；壳记录不属于当前 Host 时返回不可用。记录到日志的运行时上下文在请求组装时刷新这些事实，并将记忆中的版本、路径、端口和权限视作历史。前端 Host 行的 `runtimeGovernance` 可配置 `maxRssMiB`（默认取 2048 MiB 与物理内存四分之一中的较小值，下限 256 MiB）、`maxConcurrentHeavyTools`（2）和 `heavyToolPatterns`（Shell、子代理、团队、工作流与 CSV 工具名称）。DSH 单调守卫在 Host RSS 达到预算时拒绝新的匹配工具；执行分发拒绝超额重叠调用，并在成功、失败或取消后释放容量。状态读取仍可用。这些限制不约束外部进程内存、工具返回后的后台工作、Office WebView 或其他应用。
+`runtime_status` 返回带观测时间的桌面身份与源码来源；壳记录不属于当前 Host 时返回不可用。记录到日志的运行时上下文在请求组装时刷新这些事实，并将记忆中的版本、路径、端口和权限视作历史。前端 Host 行的 `runtimeGovernance` 可配置 `maxRssMiB`（默认取 2048 MiB 与物理内存四分之一中的较小值，下限 256 MiB）、`maxConcurrentHeavyTools`（2）和 `heavyToolPatterns`（Shell、子代理、团队、工作流与 CSV 工具名称）。DSH 单调守卫在 Host RSS 达到预算时拒绝新的匹配工具；执行分发拒绝超额重叠调用，并在成功、失败或取消后释放容量。状态读取仍可用。通过 [DSH jobs](../../packages/jobs/jobs-local/README.zh.md#use-this-package) 注册的后台工作在工具返回后仍占用所有者与进程总额度，直到生产方结算。任务数量和工具预算不构成子进程总内存、Office WebView、外部应用或上述服务之外工作的硬上限。
 
 前端增加工具 schema、已记录的工具结果与带时间戳的运行时上下文，不添加独立模型提供方或系统提示词前缀。观测与结果变化影响请求后缀。DSH 负责请求组装与缓存处理。
 
