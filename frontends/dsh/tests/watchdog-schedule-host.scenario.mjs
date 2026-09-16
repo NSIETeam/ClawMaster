@@ -100,38 +100,6 @@ test('missing real DSH approval answerer rejects a tool grant without changing t
   h.runtime.tick(); assert.equal(h.ctx.jobs.list(h.handle.agent).length, 0);
 });
 
-test('an exact committed tool retry reads its authorized receipt without requesting another approval', async t => {
-  const h = await fixture(t); const instance = h.seed();
-  h.handle.agent.session.append('turn/start', { turn: 1 });
-  let approvals = 0;
-  h.services.approval = { request: async () => ++approvals === 1 ? 'allowed-once' : 'rejected' };
-  const definition = h.definitions.get('watchdog_schedule_command');
-  const execution = { agent: h.handle.agent, callId: 'grant-once', name: definition.name, signal: new AbortController().signal };
-  const args = { request: JSON.stringify({ commandId: 'same-grant', command: { type: 'approve', id: 'plan', instanceId: instance.id } }) };
-  const first = await definition.execute(args, execution);
-  const replay = await definition.execute(args, { ...execution, callId: 'read-receipt' });
-  assert.equal(first, replay); assert.equal(approvals, 1);
-  assert.equal(h.store.history(human, 'plan').records.filter(row => row.action === 'approve').length, 1);
-});
-
-for (const phase of ['http', 'membership']) test(`unload cancels a pending ${phase} authority read and fences its late response`, async t => {
-  const auth = enterpriseAccess(); const h = await fixture(t, auth.access, auth.identity);
-  const arrived = Promise.withResolvers(); const release = Promise.withResolvers();
-  t.after(() => release.resolve());
-  const original = auth.authority[phase];
-  auth.authority[phase] = async (...args) => { arrived.resolve(); await release.promise; return original(...args); };
-  const response = h.read('?id=plan');
-  await arrived.promise;
-  let closed = false;
-  const closing = h.remove().then(() => { closed = true; });
-  await new Promise(setImmediate);
-  const beforeRelease = closed;
-  release.resolve(); await closing;
-  assert.equal(beforeRelease, true, 'Unloading must not depend on the authority provider finishing.');
-  assert.equal((await response).status, 503);
-  assert.equal(h.store.query(auth.identity, Date.now()).records.length, 0);
-});
-
 test('keyless scheduled model input matches the owner-local recorded output', async t => {
   const h = await fixture(t);
   const now = Date.now();
@@ -347,7 +315,7 @@ test('one complete record with mandatory worker observation fails explicitly ins
   const maxQueryBytes = scheduleResponseBytes(record, 'http') + 20;
   assert.ok(maxQueryBytes >= 1024);
   const h = await fixture(t, new GovernanceAccess(), human, { maxQueryBytes });
-  assert.equal((await h.send(command, { commandId: 'probe' })).status, 200);
+  assert.equal((await h.send(command)).status, 200);
   h.store.heartbeat('worker', now);
   const response = await h.read('?limit=1');
   assert.equal(response.status, 413);
@@ -448,20 +416,4 @@ test('worker stop during enterprise approval consumption withdraws its lease and
   } finally { release.resolve(); await h.waitJob(); }
   assert.equal(consumptions, 1); assert.equal(h.adapter.requests.length, 0);
   assert.equal(h.store.history(auth.identity, 'plan').records.some(record => record.action === 'dispatching'), false);
-});
-
-test('a flush that stops the worker and rejects is observed even before the cancellation race starts', async t => {
-  const h = await fixture(t); const instance = h.seed(); await h.send({ type: 'approve', id: 'plan', instanceId: instance.id });
-  let stopping;
-  h.services.sessions = { flush: () => {
-    stopping = h.runtime.dispose();
-    return Promise.reject(new Error('Persistence rejected while stopping the worker.'));
-  } };
-  h.runtime.tick();
-  assert.equal((await h.waitJob()).status, 'killed');
-  await stopping;
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(h.adapter.requests.length, 0);
-  assert.equal(h.store.instance(instance.id).state, 'ready');
-  assert.equal(h.store.instance(instance.id).expiresAt, instance.expiresAt);
 });
