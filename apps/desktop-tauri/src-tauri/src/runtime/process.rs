@@ -128,6 +128,26 @@ fn process_image_path(pid: u32) -> Option<PathBuf> {
 
 #[cfg(unix)]
 fn process_image_path(pid: u32) -> Option<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        let mut buffer = [0u8; 4096];
+        let length = unsafe {
+            libc::proc_pidpath(
+                i32::try_from(pid).ok()?,
+                buffer.as_mut_ptr().cast(),
+                buffer.len() as u32,
+            )
+        };
+        if length > 0 {
+            return String::from_utf8(buffer[..length as usize].to_vec())
+                .ok()
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from);
+        }
+        return None;
+    }
+
+    #[cfg(not(target_os = "macos"))]
     std::fs::read_link(format!("/proc/{pid}/exe"))
         .ok()
         .or_else(|| {
