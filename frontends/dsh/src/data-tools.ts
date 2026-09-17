@@ -113,12 +113,13 @@ async function workspaceTarget(ctx: Omit<Context, 'sessions'>, root: FsTarget, c
   return target;
 }
 
-async function executionPolicy(ctx: Omit<Context, 'sessions'>, args: CsvArguments, exec: ToolExecution): Promise<SandboxExecutionPolicy> {
+async function executionPolicy(ctx: Omit<Context, 'sessions'>, args: CsvArguments, input: ReturnType<typeof resolveInput>, exec: ToolExecution): Promise<SandboxExecutionPolicy> {
   const standing = ctx.sandboxPolicy.resolve({ session: exec.agent?.session });
   if (args.sandbox_permissions === undefined || args.justification === undefined) return standing;
+  const approvedOperation = `CSV input ${JSON.stringify(input.inputPath)}; output ${JSON.stringify(input.outputPath)}; output format ${args.output_format ?? 'csv'}`;
   const mode = await approveEscalation({
     requestedMode: args.sandbox_permissions,
-    justification: args.justification,
+    justification: `${args.justification} [${approvedOperation}]`,
     effectiveMode: standing.mode,
     subject: 'operation',
   }, {
@@ -215,7 +216,11 @@ export function applyDataTools(ctx: Omit<Context, 'sessions'>, config: DataTools
       const cwd = exec.agent?.session.header.cwd;
       if (cwd === undefined || cwd.trim() === '') throw new Error('csv_process requires a Session workspace');
       exec.signal.throwIfAborted();
-      const policy = await executionPolicy(ctx, args, exec);
+      const approvalBinding = JSON.stringify({ input, mode: args.sandbox_permissions, justification: args.justification, outputFormat: args.output_format });
+      const policy = await executionPolicy(ctx, args, input, exec);
+      const resumedInput = resolveInput(args);
+      const resumedBinding = JSON.stringify({ input: resumedInput, mode: args.sandbox_permissions, justification: args.justification, outputFormat: args.output_format });
+      if (resumedBinding !== approvalBinding) throw new Error('CSV arguments changed while approval was pending; no file was saved. Review the operation and retry.');
       const root = await ctx.fs.resolve(cwd, { signal: exec.signal });
       const source = await workspaceTarget(ctx, root, cwd, input.inputPath, exec);
       const destination = input.outputPath === null ? null : await workspaceTarget(ctx, root, cwd, input.outputPath, exec);

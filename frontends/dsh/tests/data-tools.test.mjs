@@ -143,10 +143,31 @@ test('read-only policy permits preview and denies saving until a logged one-time
   assert.equal(questions.length, 1);
   assert.equal(questions[0].toolName, 'csv_process');
   assert.match(questions[0].reason, /workspace-write/);
+  assert.match(questions[0].reason, /input "input\.csv"; output "output\.csv"/);
   assert.deepEqual(f.session.snapshotEvents().filter(event => event.type.startsWith('approval/')).map(event => event.type), ['approval/asked', 'approval/decided']);
   const later = await f.call({ input_path: 'input.csv', output_path: 'later.csv' });
   assert.equal(later.error.info.code, 'FS_SANDBOX_DENIED');
   assert.deepEqual((await readdir(f.cwd)).sort(), ['input.csv', 'output.csv']);
+});
+
+test('a CSV request changed while its one-shot approval is pending cannot redirect the approved write', async t => {
+  let releaseApproval;
+  let markAsked;
+  const asked = new Promise(resolve => { markAsked = resolve; });
+  const f = await fixture(t, { mode: 'read-only', approval: () => {
+    markAsked();
+    return new Promise(resolve => { releaseApproval = resolve; });
+  } });
+  await writeFile(join(f.cwd, 'input.csv'), 'a\n1');
+  const args = { input_path: 'input.csv', output_path: 'approved.csv', sandbox_permissions: 'workspace-write', justification: 'Save this CSV.' };
+  const pending = f.call(args);
+  await asked;
+  args.output_path = 'changed.csv';
+  releaseApproval('allowed-once');
+  ok(await pending);
+  assert.deepEqual((await readdir(f.cwd)).sort(), ['approved.csv', 'input.csv']);
+  assert.equal(await readFile(join(f.cwd, 'approved.csv'), 'utf8'), '\ufeffa\r\n1');
+  await assert.rejects(readFile(join(f.cwd, 'changed.csv')), { code: 'ENOENT' });
 });
 
 test('rejected and unavailable approvals never save files', async t => {

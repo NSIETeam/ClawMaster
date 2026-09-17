@@ -210,6 +210,20 @@ The frontend adds tool schemas, logged tool results and timestamped runtime cont
 
 The constraints below apply to this frontend and its local records.
 
+### Execution authority
+
+The desktop shell's Tauri CSP permits scripts, styles and images only from its app origin and permits IPC only through Tauri's local IPC origins. The `main` WebView receives window-drag and close/restart commands; the Host content WebView receives no native commands. These rules constrain WebView content, not the Node Host or native process tree.
+
+| Operation | Enforcing component | Limit |
+| --- | --- | --- |
+| CSV file reads and writes | DSH sandboxed filesystem, workspace containment, file observations and one-shot DSH approval for escalation | This does not constrain unrelated plugin filesystem calls. |
+| CRM and ERP writes | DSH tools and `GovernanceAccess` at tool and HTTP entry points | Local identity is not organization identity; no external identity provider is composed by this frontend. |
+| Shell and PowerShell | The DSH shell and subprocess providers selected by the composed profile | Guard string checks are advisory. The frontend does not add a universal kernel sandbox or network restriction. |
+| MCP, Office and RPA | Each mounted plugin, Office WebView or native RPA provider | DSH does not mediate every side effect from extension code running with the Host user's permissions. |
+| Plugin installation and network egress | DSH plugin/configuration and provider-specific controls | There is no frontend-wide managed-mode policy that restricts all plugin code or outbound connections. |
+
+CSV escalation displays the exact input path, output path and output format in its DSH approval reason. The tool runtime snapshots arguments before the asynchronous approval request; a caller changing its original argument object cannot redirect the approved write. DSH sandbox modes govern the providers that consume them; they do not establish complete mediation for arbitrary same-process plugins. macOS, Linux and Windows native permission behavior has not been verified by this source test.
+
 - The integration baseline is DSH `0.1.5-rc.2` with Cordis `4.0.2`. Compatibility covers the public services consumed here and the plugin combinations that are actually tested; it does not certify every DSH plugin.
 
 - CRM and ERP are local single-user records, not a shared multi-tenant enterprise system or external ERP/CRM connectors. Audit history is retained in full. Backup transfer files and worker heaps have configured bounds; parsing and semantic validation still grow with history and may refuse a large import. V8 limits do not cap native allocations or the entire desktop process tree. [Measured capacity](benchmarks/README.md) records response sizes, elapsed times and memory; it is not an unrestricted capacity guarantee. Direct maintenance `store.backup()`/`store.restore()` calls remain synchronous and are not the production HTTP path. The data processor supports delimited text, not XLSX workbooks or a persistent spreadsheet service.
