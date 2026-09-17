@@ -11,6 +11,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import ApprovalService from '@deepseek-ai/dsh-user-approval'
 import { openEnterpriseStore } from '../src/enterprise-host.ts'
 import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts'
+import { EnterpriseError } from '../src/enterprise-types.ts'
 import { GovernanceAccess } from '../src/governance-access.ts'
 import { mountWatchdogTasks } from '../src/watchdog-task-host.ts'
 
@@ -38,8 +39,8 @@ describe('WatchDog durable DSH dispatch replay', () => {
     ['replayed same-request steering move', 'queued-steer-replay', ''],
     ['live same-request queued edit', 'queued-edit-live', ''],
     ['replayed same-request queued edit', 'queued-edit-replay', ''],
-    ['observer audit write failure followed by retry', 'observer-write-fail', 'session_turn_blocked'],
-  ] as const)('reconciles a %s after the task Host observer is remounted', async (_label, mode, reasonCode) => {
+    ['transient observer audit write failure', 'observer-write-fail', 'session_turn_blocked'],
+  ] as const)('reconciles a %s through live observation or durable replay', async (_label, mode, reasonCode) => {
     const root = await mkdtemp(join(tmpdir(), 'watchdog-task-replay-'))
     roots.push(root)
     const ctx = new Context()
@@ -47,7 +48,7 @@ describe('WatchDog durable DSH dispatch replay', () => {
     await ctx.plugin(AgentLoop, { agents: [] })
     await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' })
     await ctx.plugin(ApprovalService, { policy: 'ask' })
-    const store = await openEnterpriseStore(join(root, 'enterprise.sqlite'))
+    const store = await openEnterpriseStore(join(root, 'enterprise.sqlite'), undefined, undefined, { outcomeRetryMs: 10 })
     const routes = new Map<string, (request: Request) => Promise<Response>>()
     Object.assign(ctx, { connection: { fetch: { register(route: { path: string; fetch: (request: Request) => Promise<Response> }) {
       routes.set(route.path, route.fetch)
@@ -116,7 +117,11 @@ describe('WatchDog durable DSH dispatch replay', () => {
         }) as never)
       }
       if (mode === 'observer-write-fail') {
-        store.recordObservedTaskExecutionOutcome = () => { throw new Error('injected terminal audit write failure') }
+        let failuresRemaining = 1
+        store.recordObservedTaskExecutionOutcome = value => {
+          if (failuresRemaining-- > 0) throw new EnterpriseError('storage_unavailable', 'injected terminal audit write failure')
+          return originalRecordObserved(value)
+        }
       } else if (mode !== 'noop-empty' && mode !== 'queued-cancel-live' && mode !== 'queued-cancel-replay'
         && mode !== 'queued-steer-live' && mode !== 'queued-steer-replay'
         && mode !== 'queued-edit-live' && mode !== 'queued-edit-replay') {
@@ -242,11 +247,6 @@ describe('WatchDog durable DSH dispatch replay', () => {
       await handle.agent.whenIdle()
       await ctx.sessions.flush(handle.agent.session)
       if (mode === 'queued-cancel-replay') disposeHost = await mountWatchdogTasks(ctx as never, store, new GovernanceAccess())
-      if (mode === 'observer-write-fail') {
-        store.recordObservedTaskExecutionOutcome = originalRecordObserved
-        await disposeHost?.()
-        disposeHost = undefined
-      }
       const durable = await ctx.sessionPersistence.open(sessionId, 'read')
       const { events } = await durable.read()
       await durable.close()
@@ -257,7 +257,7 @@ describe('WatchDog durable DSH dispatch replay', () => {
         : mode === 'mid-flight-remount' || mode === 'same-turn-pending' || mode === 'persist-pending-remount' ? 'blocked' : mode
       expect(events.findLast(event => event.type === 'turn/end')).toMatchObject({ data: { reason: { kind: expectedTurnReason } } })
 
-      if (mode !== 'mid-flight-remount' && mode !== 'same-turn-pending' && mode !== 'persist-pending-remount' && mode !== 'noop-empty'
+      if (mode !== 'mid-flight-remount' && mode !== 'same-turn-pending' && mode !== 'persist-pending-remount' && mode !== 'noop-empty' && mode !== 'observer-write-fail'
         && mode !== 'queued-cancel-live' && mode !== 'queued-cancel-replay'
         && mode !== 'queued-steer-live' && mode !== 'queued-steer-replay'
         && mode !== 'queued-edit-live' && mode !== 'queued-edit-replay') {

@@ -37,6 +37,13 @@ function taskExecutionOutcome(reason: { kind: string }): { outcome: 'succeeded' 
   }
 }
 
+function retryableAuditFailure(error: unknown): boolean {
+  if (error instanceof EnterpriseError) return error.code === 'storage_unavailable';
+  if (!(error instanceof Error)) return false;
+  return /SQLITE_(?:BUSY|LOCKED|IOERR|CANTOPEN|FULL)|database is locked|disk I\/O error/i.test(
+    `${'code' in error ? String(error.code) : ''} ${error.message}`);
+}
+
 interface PersistedInboxMessage { source?: { kind?: string; rpcId?: string } }
 interface PersistedInboxSplice { target: 'next-turn' | 'next-step'; start: number; removedCount?: number; inserted: PersistedInboxMessage[]; outcome?: string }
 interface PersistedTurnReason { kind: string }
@@ -155,6 +162,25 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
     void operation.then(() => pending.delete(operation), () => pending.delete(operation));
     return operation;
   };
+  const waitForAuditRetry = (signal: AbortSignal): Promise<void> => new Promise((resolve, reject) => {
+    signal.throwIfAborted();
+    const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, store.tasks.outcomeRetryMs);
+    const abort = () => { clearTimeout(timer); reject(signal.reason); };
+    signal.addEventListener('abort', abort, { once: true });
+  });
+  const recordObservedOutcome = async (value: ObservedTaskExecutionOutcome, signal: AbortSignal): Promise<void> => {
+    while (true) {
+      signal.throwIfAborted();
+      try {
+        store.recordObservedTaskExecutionOutcome(value);
+        return;
+      } catch (error) {
+        if (!retryableAuditFailure(error)) throw error;
+        ctx.logger.warn(`WatchDog task Session outcome could not be recorded; retrying: ${String(error)}`);
+        await waitForAuditRetry(signal);
+      }
+    }
+  };
   const reconcileRequest = async (requestId: string, sessionId: string, signal: AbortSignal): Promise<void> => {
     if (!sessionPersistence) return;
     while (true) {
@@ -172,7 +198,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
         await handle.close();
       }
       if (revision !== (sessionEventRevisions.get(sessionId) ?? 0)) continue;
-      if (replay.outcome) store.recordObservedTaskExecutionOutcome({ requestId, sessionId, ...replay.outcome });
+      if (replay.outcome) await recordObservedOutcome({ requestId, sessionId, ...replay.outcome }, signal);
       sessionInboxes.set(sessionId, replay.inboxes);
       if (replay.activeTurn !== undefined) {
         const active = sessionTurns.get(sessionId);
@@ -248,7 +274,9 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       for (const requestId of current.requestIds) {
         if (outcome.outcome === 'succeeded' && !current.inputRequestIds.has(requestId)) continue;
         try {
-          store.recordObservedTaskExecutionOutcome({ sessionId, requestId, ...outcome });
+          void run(() => recordObservedOutcome({ sessionId, requestId, ...outcome }, lifetime.signal)).catch(error => {
+            if (!lifetime.signal.aborted) ctx.logger.warn(`WatchDog task Session outcome reconciliation stopped: ${String(error)}`);
+          });
         } catch (error) {
           ctx.logger.warn(`WatchDog task Session outcome could not be recorded: ${String(error)}`);
         }

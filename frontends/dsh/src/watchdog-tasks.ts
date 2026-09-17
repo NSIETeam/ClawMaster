@@ -10,9 +10,12 @@ export type { TaskRequest, TaskRecord, TaskStatus } from './watchdog-task-format
 
 const revision = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 
-/** Per-response byte budget shared by HTTP and DSH tool consumers. */
-export interface WatchdogTaskConfig { maxResponseBytes?: number; }
-const limitsSchema = z.object({ maxResponseBytes: z.number().int().min(1024).max(Number.MAX_SAFE_INTEGER).default(65536) }).strict();
+/** Task response budget and transient execution-audit retry interval. */
+export interface WatchdogTaskConfig { maxResponseBytes?: number; outcomeRetryMs?: number; }
+const limitsSchema = z.object({
+  maxResponseBytes: z.number().int().min(1024).max(Number.MAX_SAFE_INTEGER).default(65536),
+  outcomeRetryMs: z.number().int().min(10).max(60000).default(1000),
+}).strict();
 
 /** Validate the deployment budget before opening storage or publishing task consumers. */
 export function resolveWatchdogTaskConfig(config: WatchdogTaskConfig = {}): Required<WatchdogTaskConfig> {
@@ -63,9 +66,12 @@ const human = (identity: ExecutionIdentity): void => {
 export class WatchdogTaskStore {
   private readonly db: DatabaseSync;
   readonly maxResponseBytes: number;
+  readonly outcomeRetryMs: number;
   constructor(db: DatabaseSync, config: WatchdogTaskConfig = {}) {
     this.db = db;
-    this.maxResponseBytes = resolveWatchdogTaskConfig(config).maxResponseBytes;
+    const limits = resolveWatchdogTaskConfig(config);
+    this.maxResponseBytes = limits.maxResponseBytes;
+    this.outcomeRetryMs = limits.outcomeRetryMs;
   }
 
   private bounded<T>(value: T): T {
