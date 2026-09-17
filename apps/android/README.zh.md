@@ -58,7 +58,7 @@ Office 工具读取 Word 正文段落及顶层表格、已有电子表格单元�
 gradle -p apps/android :core:test :app:lintRelease :app:assembleRelease
 ```
 
-核心测试使用记录的模型交互，执行随应用交付的循环与文件存储，包括 Office 往返读写、修订冲突、持久化审批和任务恢复。[安卓云端验证工作流](../../.github/workflows/android-cloud-validation.yml)会在 GitHub 托管的 Android 8 和 Android 15 模拟器上构建并测试 release 变体。仪器测试检查原生审批、Activity 重建、Keystore 操作、Office 容器、前台继续运行和系统定时执行。工作流会创建一次性 CI 签名密钥，记录 APK 校验和与签名证书，并将验证产物保留七天。它不会测试从已发布的 0.2.1 APK 升级、普通启动器重启或独立进程冷启动。记录型模型证明本地执行链路，不代表真实服务商可用。
+核心测试使用记录的模型交互，执行随应用交付的循环与文件存储，包括 Office 往返读写、修订冲突、持久化审批和任务恢复。[安卓云端验证工作流](../../.github/workflows/android-cloud-validation.yml)会在 GitHub 托管的 Android 8 和 Android 16 模拟器上构建并测试 release 变体。仪器测试检查原生审批、Activity 重建、Keystore 操作、Office 容器、前台继续运行和系统定时执行。工作流会创建一次性 CI 签名密钥，记录 APK 校验和与签名证书，并将验证产物保留七天。它不会测试从已发布的 0.2.1 APK 升级、普通启动器重启或独立进程冷启动。记录型模型证明本地执行链路，不代表真实服务商可用。
 
 安卓模拟器构建和仪器测试在 GitHub Actions 中运行。CI 验证密钥应为临时密钥；不得用它签署分发 APK，也不得提交密钥库或密码。
 

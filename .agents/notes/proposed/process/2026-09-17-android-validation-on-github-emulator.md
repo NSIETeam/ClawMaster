@@ -10,7 +10,7 @@ Android builds and device tests should not consume resources on the user's compu
 
 ## Proposal
 
-Use a GitHub-hosted Linux runner with hardware-accelerated Android Emulator for Android release builds and instrumentation tests on API 26 and API 35. Generate a disposable CI signing key, verify the APK signature and checksum, and retain the APK and evidence briefly as a validation artifact. The artifact is not a public release and cannot replace signing with the retained release key.
+Use a GitHub-hosted Linux runner with hardware-accelerated Android Emulator for Android release builds and instrumentation tests on API 26 and API 36. Generate a disposable CI signing key, verify the APK signature and checksum, and retain the APK and evidence briefly as a validation artifact. The artifact is not a public release and cannot replace signing with the retained release key.
 
 The workflow covers the current standalone Android implementation. Desktop feature parity remains a separate product requirement and must not be inferred from a successful build or emulator run.
 
