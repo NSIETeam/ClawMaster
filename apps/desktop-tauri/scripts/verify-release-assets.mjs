@@ -48,6 +48,8 @@ export function requiredReleaseAssetNames(version) {
     `clawmaster-${version}-windows-x64-build.json`,
     `clawmaster-${version}-macos-arm64-build.json`,
     `clawmaster-${version}-linux-x64-build.json`,
+    'macos-arm64-native-acceptance.json',
+    'windows-native-acceptance.json',
     'latest.json',
     'clawmaster-release-signing.pub',
     'acceptance-manifest.json',
@@ -146,6 +148,30 @@ export async function verifyReleaseAssets(options) {
   await verifyReleaseAcceptance(acceptance, { root, expectedCommit: options.expectedCommit, expectedVersion: options.version })
   for (const [target, file] of Object.entries(installerAssets(options.version))) {
     assert.equal(acceptance.targets[target].artifact.file, file, `${target} installer differs from the published asset`)
+  }
+  const nativeReports = [
+    { file: 'macos-arm64-native-acceptance.json', target: 'macos-arm64-dmg', platform: 'darwin' },
+    { file: 'windows-native-acceptance.json', target: 'windows-x64-nsis', platform: 'win32' },
+  ]
+  for (const report of nativeReports) {
+    const native = JSON.parse(await readFile(join(root, report.file), 'utf8'))
+    assert.equal(native.schemaVersion, 1, `${report.file} has an unsupported schema`)
+    assert.equal(native.platform, report.platform, `${report.file} belongs to another platform`)
+    assert.equal(acceptance.targets[report.target].scenarios['exit-restart'].evidence.some(entry => entry.file === report.file), true,
+      `${report.target} exit-restart evidence must cite its original candidate-run native report`)
+    const runtime = native.runs?.[0]?.runtime
+    assert.equal(runtime?.desktopVersion, options.version, `${report.file} observed another desktop version`)
+    assert.equal(runtime?.buildProvenance?.source?.gitCommit, options.expectedCommit, `${report.file} observed another source commit`)
+    assert.equal(runtime?.buildProvenance?.source?.gitTree, options.expectedTree, `${report.file} observed another source tree`)
+    if (report.platform === 'darwin') {
+      assert.equal(native.closeMode, 'gui', 'macOS evidence must use normal GUI close')
+      assert.equal(native.runtimeVerified, true)
+      assert.equal(native.guiCloseVerified, true, 'macOS normal GUI close was not verified')
+      assert.equal(native.windowGeometryVerified, true)
+    } else {
+      assert.equal(native.verified, true)
+      assert.equal(native.installedProductVersion, options.version)
+    }
   }
   return { files: files.sort(), version: options.version, sourceCommit: options.expectedCommit }
 }

@@ -11,12 +11,21 @@ on:
         required: true
         default: desktop-v0.2.3
       publish:
-        description: Publish an existing version tag after all platform checks pass
+        description: Publish only after a successful build run and complete reviewed acceptance evidence are supplied
         type: boolean
         default: false
+      build_run_id:
+        description: Successful desktop-release build run ID containing the original installers
+        required: false
+        type: string
+      acceptance_ref:
+        description: Git ref containing release-evidence/acceptance-manifest.json and its evidence files
+        required: false
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: desktop-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -30,6 +39,7 @@ env:
 
 jobs:
   build:
+    if: github.event_name == 'push' || inputs.publish != true
     name: Build ${{ matrix.asset_platform }}-${{ matrix.asset_arch }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
@@ -433,23 +443,83 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs: build
-    if: github.event_name == 'push' || inputs.publish == true
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      actions: read
+    environment: desktop-release
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && !inputs.publish && github.sha || env.RELEASE_TAG }}
-          fetch-depth: 1
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Validate publication inputs
+        env:
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          ACCEPTANCE_REF: ${{ inputs.acceptance_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$ACCEPTANCE_REF" =~ ^[a-f0-9]{40}$ ]]
+
+      - name: Check the original successful candidate build run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" > source-build-run.json
+          node apps/desktop-tauri/scripts/verify-release-build-run.mjs \
+            --run-file source-build-run.json \
+            --run-id "$BUILD_RUN_ID" \
+            --commit "$(git rev-parse "${RELEASE_TAG}^{commit}")" \
+            --tag "$RELEASE_TAG" \
+            --repository "$GITHUB_REPOSITORY"
 
       - uses: actions/download-artifact@v4
         with:
           pattern: desktop-*
           path: release-assets
           merge-multiple: true
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-arm64-native-acceptance
+          path: release-assets
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-native-acceptance
+          path: release-assets
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.acceptance_ref }}
+          path: acceptance-input
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Add reviewed acceptance manifest and evidence
+        env:
+          ACCEPTANCE_REF: ${{ inputs.acceptance_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node apps/desktop-tauri/scripts/copy-release-evidence.mjs \
+            --source acceptance-input/release-evidence \
+            --destination release-assets
+          [[ "$(git -C acceptance-input rev-parse HEAD)" == "$ACCEPTANCE_REF" ]]
 
       - name: Require complete installed acceptance evidence
         shell: bash

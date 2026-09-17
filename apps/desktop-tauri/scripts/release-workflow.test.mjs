@@ -21,8 +21,29 @@ test('the committed desktop lock is unambiguous and includes graph persistence',
 test('manual validation defaults to an immutable branch build without publication', () => {
   assert.equal(workflow.on.workflow_dispatch.inputs.publish.type, 'boolean')
   assert.equal(workflow.on.workflow_dispatch.inputs.publish.default, false)
-  assert.equal(workflow.jobs.release.if, "github.event_name == 'push' || inputs.publish == true")
-  assert.equal(workflow.jobs.release.needs, 'build')
+  assert.equal(workflow.jobs.build.if, "github.event_name == 'push' || inputs.publish != true")
+  assert.equal(workflow.jobs.release.if, "github.event_name == 'workflow_dispatch' && inputs.publish == true")
+  assert.equal(workflow.jobs.release.needs, undefined)
+  assert.equal(workflow.jobs.release.environment, 'desktop-release')
+  assert.equal(workflow.jobs.release.permissions.actions, 'read')
+  assert.equal(workflow.jobs.release.permissions.contents, 'write')
+  assert.equal(workflow.on.workflow_dispatch.inputs.build_run_id.type, 'string')
+  assert.equal(workflow.on.workflow_dispatch.inputs.acceptance_ref.type, 'string')
+  const releaseSteps = workflow.jobs.release.steps
+  assert.ok(!releaseSteps.some(step => step.uses === 'actions/download-artifact@v4' && !step.with))
+  const originalArtifacts = releaseSteps.filter(step => step.uses === 'actions/download-artifact@v4')
+  assert.equal(originalArtifacts.length, 3)
+  for (const step of originalArtifacts) {
+    assert.equal(step.with['run-id'], '${{ inputs.build_run_id }}')
+    assert.equal(step.with['github-token'], '${{ github.token }}')
+  }
+  assert.deepEqual(originalArtifacts.slice(1).map(step => step.with.name), ['macos-arm64-native-acceptance', 'windows-native-acceptance'])
+  assert.match(releaseSteps.find(step => step.name === 'Check the original successful candidate build run').run, /verify-release-build-run\.mjs/)
+  assert.doesNotMatch(releaseSteps.find(step => step.name === 'Check the original successful candidate build run').run, /\$\{\{ inputs\.build_run_id \}\}/u)
+  assert.match(releaseSteps.find(step => step.name === 'Add reviewed acceptance manifest and evidence').run, /copy-release-evidence\.mjs/)
+  assert.doesNotMatch(releaseSteps.find(step => step.name === 'Validate publication inputs').run, /\$\{\{ inputs\./u)
+  assert.equal(workflow.jobs.release.steps.find(step => step.uses === 'actions/checkout@v6' && !step.with.path).with.ref, '${{ env.RELEASE_TAG }}')
+  assert.match(releaseSteps.find(step => step.uses === 'actions/checkout@v6' && step.with.path === 'acceptance-input').with.ref, /^\$\{\{ inputs\.acceptance_ref \}\}$/u)
   const checkout = workflow.jobs.build.steps.find(step => step.uses === 'actions/checkout@v6')
   assert.equal(checkout.with.ref, '${{ github.event_name == \'workflow_dispatch\' && !inputs.publish && github.sha || env.RELEASE_TAG }}')
   assert.deepEqual(workflow.jobs.build.strategy.matrix.include.map(entry => [entry.asset_platform, entry.asset_arch]), [

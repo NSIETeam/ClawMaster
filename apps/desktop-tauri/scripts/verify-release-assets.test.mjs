@@ -42,6 +42,10 @@ async function fixture(t) {
     if (file === 'latest.json') content = JSON.stringify({ version, platforms: {
       'windows-x86_64': {}, 'darwin-aarch64': {}, 'linux-x86_64': {}, 'linux-x86_64-deb': {},
     } })
+    if (file === 'macos-arm64-native-acceptance.json') content = JSON.stringify({ schemaVersion: 1, platform: 'darwin', closeMode: 'gui', runtimeVerified: true,
+      guiCloseVerified: true, windowGeometryVerified: true, runs: [{ runtime: { desktopVersion: version, buildProvenance: { source: { gitCommit: commit, gitTree: tree } } } }] })
+    if (file === 'windows-native-acceptance.json') content = JSON.stringify({ schemaVersion: 1, platform: 'win32', verified: true, installedProductVersion: version,
+      runs: [{ runtime: { desktopVersion: version, buildProvenance: { source: { gitCommit: commit, gitTree: tree } } } }] })
     await writeFile(join(root, file), content)
   }
   const evidence = [{ file: 'acceptance-evidence.txt', sha256: hash(await readFile(join(root, 'acceptance-evidence.txt'))) }]
@@ -60,6 +64,9 @@ async function fixture(t) {
         'wechat-selected-read': { status: 'not-run', availability: 'experimental', reason: 'No authorized test account' },
         'im-login': { status: 'not-run', availability: 'unavailable', reason: 'No configured test tenant' } },
     }
+  }
+  for (const [target, file] of [['macos-arm64-dmg', 'macos-arm64-native-acceptance.json'], ['windows-x64-nsis', 'windows-native-acceptance.json']]) {
+    targets[target].scenarios['exit-restart'].evidence.push({ file, sha256: hash(await readFile(join(root, file))) })
   }
   const manifest = { schemaVersion: 1, version, sourceCommit: commit, supportedUpgradeVersions: ['0.2.2'], targets }
   await writeFile(join(root, 'acceptance-manifest.json'), JSON.stringify(manifest))
@@ -133,6 +140,35 @@ test('installed acceptance must describe the exact installer offered in the rele
   await writeFile(join(f.root, 'acceptance-manifest.json'), JSON.stringify(f.manifest))
   await checksum(f.root)
   await assert.rejects(verifyReleaseAssets(f.options), /installer differs from the published asset/)
+})
+
+test('native reports remain bound to the candidate and required close evidence after checksums are regenerated', async t => {
+  const f = await fixture(t)
+  const reportFile = 'macos-arm64-native-acceptance.json'
+  const reportPath = join(f.root, reportFile)
+  const report = JSON.parse(await readFile(reportPath, 'utf8'))
+  report.runs[0].runtime.buildProvenance.source.gitTree = '9'.repeat(40)
+  report.guiCloseVerified = false
+  await writeFile(reportPath, JSON.stringify(report))
+  const descriptor = f.manifest.targets['macos-arm64-dmg'].scenarios['exit-restart'].evidence.find(entry => entry.file === reportFile)
+  descriptor.sha256 = hash(await readFile(reportPath))
+  await writeFile(join(f.root, 'acceptance-manifest.json'), JSON.stringify(f.manifest))
+  await checksum(f.root)
+  await assert.rejects(verifyReleaseAssets({ assetsDir: f.root, version, expectedCommit: commit, expectedTree: tree }), /another source tree/u)
+})
+
+test('native evidence cannot claim a passing restart when normal GUI close failed', async t => {
+  const f = await fixture(t)
+  const reportFile = 'macos-arm64-native-acceptance.json'
+  const reportPath = join(f.root, reportFile)
+  const report = JSON.parse(await readFile(reportPath, 'utf8'))
+  report.guiCloseVerified = false
+  await writeFile(reportPath, JSON.stringify(report))
+  const descriptor = f.manifest.targets['macos-arm64-dmg'].scenarios['exit-restart'].evidence.find(entry => entry.file === reportFile)
+  descriptor.sha256 = hash(await readFile(reportPath))
+  await writeFile(join(f.root, 'acceptance-manifest.json'), JSON.stringify(f.manifest))
+  await checksum(f.root)
+  await assert.rejects(verifyReleaseAssets({ assetsDir: f.root, version, expectedCommit: commit, expectedTree: tree }), /normal GUI close/u)
 })
 
 test('regenerated release checksums cannot certify an installer changed after installed acceptance', async t => {
