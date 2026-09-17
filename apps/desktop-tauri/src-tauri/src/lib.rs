@@ -3,6 +3,7 @@ mod cli_shim;
 mod desktop_settings;
 mod i18n;
 mod notify;
+mod native_broker;
 mod overlay;
 mod runtime;
 mod tray;
@@ -318,7 +319,7 @@ async fn boot_windows_runtime(
             }
         });
 
-        match DesktopRuntime::start(paths.clone(), host_overlay.as_ref(), Arc::clone(&progress))
+        match DesktopRuntime::start(app.clone(), paths.clone(), host_overlay.as_ref(), Arc::clone(&progress))
             .await
         {
             Ok(runtime) => return Ok(runtime),
@@ -386,7 +387,8 @@ async fn boot_wsl_runtime(
     let bundled = bundled.ok_or_else(|| i18n::t(Msg::BootMissingBundle).to_string())?;
     let bundle_hash = read_bundle_hash(&bundled)?;
     let isolated_home = app_data_root()?.join("dsh-home");
-    let windows_dsh_home = resolve_user_home(&isolated_home).path;
+    let resolved_windows_home = resolve_user_home(&isolated_home);
+    let windows_credential_roots = resolved_windows_home.credential_source_roots;
     let overlay_src = overlay::resolve_overlay_source(app.path().resource_dir().ok().as_deref());
     let overlay_for_provision = notify.map(|_| overlay_src.as_path());
     let notify_url = notify.map(|server| server.url.as_str());
@@ -396,7 +398,7 @@ async fn boot_wsl_runtime(
         &distro.name,
         &bundled,
         &bundle_hash,
-        &windows_dsh_home,
+        &windows_credential_roots,
         overlay_for_provision,
         notify_url,
         {
@@ -414,7 +416,7 @@ async fn boot_wsl_runtime(
     });
 
     progress(ProvisionEvent::Status(i18n::t(Msg::StatusStartWeb).into()));
-    let host = spawn_wsl_web_host(&wsl_paths, host_overlay.as_ref(), &runner).await?;
+    let host = spawn_wsl_web_host(app.clone(), &wsl_paths, host_overlay.as_ref(), &runner).await?;
     Ok(DesktopRuntime::start_wsl(host, wsl_paths))
 }
 

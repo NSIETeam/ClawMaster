@@ -122,6 +122,7 @@ async function fixture(existing = true, enterpriseStore, localeKey = 'zh') {
     slots: { inject(_name, setup) { pluginCleanups.push(setup()); }, register(options, component) { slots.push({ options, component }); return options.name === 'main' ? runtime.slots.register(options, component) : () => {}; } },
     theme: { overrideTokens: () => () => {} },
     sessions: runtime.sessions, workspaces: runtime.workspaces, layout, uiWorkspace, betterSidebar: service,
+    get(name) { return name === 'betterSidebar' ? service : undefined; }, on() { return () => true; },
     locale: { getSnapshot: () => selectedLocale, subscribe: () => () => {} },
     settingsScope: { bind() { return { getSnapshot: () => ({ mode: 'host', status: 'ready', value: { acknowledgedVersion: 0 } }), subscribe: () => () => {} }; } },
     connection: { state: { getSnapshot: () => 'connected', subscribe: () => () => {} } },

@@ -681,6 +681,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         patchPath: join(profileDir, 'cordis.patch.yml'),
         patches: [],
         patchReload: 'startup',
+        optionalClientPackages: [],
       },
     })
     await mkdir(profileDir, { recursive: true })

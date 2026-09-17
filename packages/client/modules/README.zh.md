@@ -9,7 +9,9 @@ kind: "package-reference"
 
 ## 概述
 
-`dsh-client-modules` 把插件包的 `dsh.client` 声明变成可加载的浏览器 bundle：宿主半侧扫描已启用的 Loader 条目并组合启动图，可用的 Web 载体通过 `/plugins` 提供每个 bundle，由 shell 持有的载体则通过 `fetchBundle()` 分派完全相同的 bundle 响应。浏览器半侧按需惰性加载这些 bundle。插件 bundle 惰性执行——运行 bundle 只注册 factory，模块副作用在物化时运行——因此插件首次被使用之前什么都不会运行。这里的一切都是浏览器内核机制；模型永远看不到它。
+`dsh-client-modules` 把插件包的 `dsh.client` 声明变成可加载的浏览器 bundle：宿主半侧扫描已启用的 Loader 条目并组合启动图，可用的 Web 载体通过 `/plugins` 提供每个 bundle，由 shell 持有的载体则通过 `fetchBundle()` 分派完全相同的 bundle 响应。可选功能客户端设置 `optional: true` 并使用独立启动脚本。可选性会沿动态模块依赖传递，因此可选客户端故障时，其消费方也会被移除，核心启动仍可继续。插件 bundle 惰性执行——运行 bundle 只注册 factory，模块副作用在物化时运行——因此插件首次被使用之前什么都不会运行。这里的一切都是浏览器内核机制；模型永远看不到它。
+
+ClawMaster WatchDog 前端、浏览器模块引导、DSH 渲染器、审批界面和权限预设界面均为必需组件。组合时若将其中任何包声明为可选会直接报错，避免核心界面故障后被静默跳过。
 
 ## 目录
 
@@ -31,7 +33,7 @@ kind: "package-reference"
 
 ### 声明客户端插件
 
-浏览器插件包在其 `package.json` 中以 `platform: 'web'` 声明 `dsh.client`，导出 `./client` bundle，并在 `dsh.client.external` 下列出任何基座之外的模块请求。宿主半侧把每份声明变成 `/plugins` 下提供的 bundle，并让动态提供方先于其消费方加载。
+浏览器插件包在其 `package.json` 中以 `platform: 'web'` 声明 `dsh.client`，导出 `./client` bundle，并在 `dsh.client.external` 下列出任何基座之外的模块请求。可选功能客户端可设置 `optional: true`，并使用独立启动脚本。可选包的客户端元数据格式错误、缺少 `./client` 导出或缺少已构建 bundle 时，会跳过该包并记录警告。宿主半侧会通过动态模块依赖和服务注入依赖传递可选性；应用核心包 id 仍保持必需。宿主半侧让动态提供方先于其消费方加载。
 
 ### 浏览器加载什么
 
@@ -67,7 +69,9 @@ application combo 脚本在启动时仅注册一次插件 factory；模块主体
 
 Node 半侧逐包增量扫描——没有全量重扫路径。每次发出 `internal/plugin` 事件时，系统都会把该 fiber 的 entry 名标脏；微任务 flush 会把每个脏名与当前 loader 条目对账，激活 pass 会初始化同一个脏集合并同步 flush，因此首次扫描与稳态共用同一实现。包元数据按 Loader specifier 与所属 tree base URL 缓存至重启，解析出的 manifest（元数据清单）包名作为浏览器模块身份。若不同的 active Loader source 解析到同一包名，组合会失败；移除冲突来源后，剩余来源无需重启 fiber 即可接替。bundle 内容变更只能通过 `rebuilt()`（HMR 钩子）进入图。
 
-Node 半侧会在发布前快照每个客户端 bundle 及其现有 source map。它把资源分组到 `/plugins/??...&rev=...` combo URL：modules row 使用一个 bootstrap combo，其余 row 使用一个或多个 application combo；每个阶段都会在 URL 超过 3 KiB 之前分区。每个 combo map 都是 Indexed Source Map v3，并在可用时使用作者提供的 section，否则为已打包 bundle 生成 identity section。初始逐插件 revision 使用进程 nonce，所以启动时不哈希每个插件；HMR 只哈希被报告为已变化的产物。已公告响应不可变；未知组合或 revision 返回 404。
+Node 半侧会在发布前快照每个客户端 bundle 及其现有 source map。它把资源分组到 `/plugins/??...&rev=...` combo URL：modules row 使用一个 bootstrap combo，其余 row 使用一个或多个 application combo；每个阶段都会在 URL 超过 3 KiB 之前分区。每个 combo map 都是 Indexed Source Map v3，并在可用时使用作者提供的 section，否则为已打包 bundle 生成 identity section。缺失、格式错误或无法解析的作者映射会退回 identity map，不会禁用客户端。初始逐插件 revision 使用进程 nonce，所以启动时不哈希每个插件；HMR 只哈希被报告为已变化的产物。已公告响应不可变；未知组合或 revision 返回 404。
+
+Registry 接受宿主可信 profile 配置中的 `optionalPackages`。桌面启动器只会把通过安装预检的 bundle 名单传入；即使第三方清单没有声明 `dsh.client.optional`，对应 row 也会标为可选并获得独立的 application combo。若名单误含 shell、renderer、审批或权限核心客户端，启动仍会失败，不会降级。
 
 ### 启动 manifest 注入
 

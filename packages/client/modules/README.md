@@ -9,7 +9,9 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-client-modules` turns a plugin package's `dsh.client` declaration into a loadable browser bundle: the host half scans enabled Loader entries and composes the boot graph, an available Web carrier serves each bundle over `/plugins`, and a shell-owned carrier dispatches the same exact bundle responses through `fetchBundle()`. The browser half loads those bundles lazily on demand. Plugin bundles execute lazily — running a bundle only registers a factory, and module side effects run at materialization — so nothing runs until a plugin is first used. Everything here is browser-kernel machinery; the model never sees it.
+`dsh-client-modules` lets the host serve versioned browser bundles and the shell load them as a module graph. Optional feature clients run in isolated scripts; if one fails, its non-core dynamic-module consumers are removed too, so required core clients can still boot. The module table loads bundle code lazily and caches each materialized module. The WatchDog frontend, bootstrap, renderer, approval, and permission clients remain required.
+
+The ClawMaster WatchDog frontend, browser module bootstrap, DSH renderer, approval UI and permission-preset UI are required surfaces. Declaring any of these packages optional is rejected during composition, so a broken core surface cannot be silently skipped.
 
 ## Table of Contents
 
@@ -31,7 +33,7 @@ Use it when you compose or build a browser client plugin: the package turns a pa
 
 ### Declaring a client plugin
 
-A browser plugin package declares `dsh.client` in its `package.json` with `platform: 'web'`, exports a `./client` bundle, and lists any non-baseline module requests under `dsh.client.external`. The host half turns each declaration into a served bundle under `/plugins`, ordered so dynamic providers load before their consumers.
+A browser plugin package declares `dsh.client` in its `package.json` with `platform: 'web'`, exports a `./client` bundle, and lists any non-baseline module requests under `dsh.client.external`. Optional feature clients may set `optional: true`; each then receives an isolated startup script. An optional package with malformed client metadata, no `./client` export, or a missing built bundle is skipped with a warning. The host half propagates optionality through dynamic-module and service-injection dependencies, while required application-core package ids remain required. The host half orders dynamic providers before their consumers.
 
 ### What the browser loads
 
@@ -67,7 +69,9 @@ Executing a plugin bundle only registers its factory; every module-body side eff
 
 The Node half scans incrementally per package — no full-rescan path. Every `internal/plugin` emission marks the fiber's entry name dirty; a microtask flush reconciles each dirty name against the live loader entries, and the activation pass seeds the same dirty set and flushes synchronously, so first scan and steady state share one implementation. Package metadata is cached per Loader specifier and owning-tree base URL until restart, while the resolved manifest package name identifies the browser module. Distinct active Loader sources resolving to one package name are rejected; removing the conflict promotes the remaining source without requiring its fiber to restart. Bundle content changes reach the graph only through `rebuilt()` (the HMR hook).
 
-The Node half snapshots each client bundle and available source map before publication. It groups resources into `/plugins/??...&rev=...` combo URLs, with one bootstrap combo for the modules row and one or more application combos for the other rows; each phase is partitioned before a URL exceeds 3 KiB. Every combo map is Indexed Source Map v3 and uses an authored section when available or an identity section for the packaged bundle. Initial per-plugin revisions use process nonces, so startup does not hash every plugin; HMR hashes only an artifact reported as changed. Advertised responses are immutable, and an unknown combination or revision returns 404.
+The Node half snapshots each client bundle and available source map before publication. It groups resources into `/plugins/??...&rev=...` combo URLs, with one bootstrap combo for the modules row and one or more application combos for the other rows; each phase is partitioned before a URL exceeds 3 KiB. Every combo map is Indexed Source Map v3 and uses an authored section when available or an identity section for the packaged bundle. Missing, malformed, or unresolvable authored maps fall back to identity maps without disabling the client. Initial per-plugin revisions use process nonces, so startup does not hash every plugin; HMR hashes only an artifact reported as changed. Advertised responses are immutable, and an unknown combination or revision returns 404.
+
+The registry accepts `optionalPackages` from its host-owned profile config. Desktop launchers populate it only after a bundle passes installation preflight; those rows are marked optional even when a third-party manifest omits `dsh.client.optional`, and each gets its own application combo. Required shell, renderer, approval, and permission clients remain fail-closed if listed by mistake.
 
 ### Boot manifest injection
 

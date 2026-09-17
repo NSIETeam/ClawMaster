@@ -10,15 +10,38 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
+import { PassThrough } from 'node:stream';
 
 import {
   NATIVE_READ_ONLY_COMMANDS,
   NativeHelperError,
   apply,
   createNativeHelper,
+  createApprovalBroker,
   createRpaHandlers,
   defaultHelperPath,
 } from '../dist/index.js';
+
+test('the RPA broker restores a missed startup handshake and cancels timed out native requests', async () => {
+  const stdin = new PassThrough();
+  const stdout = new PassThrough();
+  let output = '';
+  stdout.setEncoding('utf8').on('data', chunk => { output += chunk; });
+  const broker = createApprovalBroker({ stdin, stdout, readyTimeoutMs: 2_000, requestTimeoutMs: 30 });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(output, /"type":"hello"/u);
+  stdin.write('{"protocol":"clawmaster-rpa/1","type":"ready","supported":true}\n');
+  const pending = broker.execute({ callId: 'timeout-call', tool: 'rpa_click', root: '/tmp', arguments: {}, summary: 'Click', });
+  await assert.rejects(pending, /timed out/u);
+  assert.match(output, /"type":"cancel","callId":"timeout-call"/u);
+  stdin.write('{"protocol":"clawmaster-rpa/1","type":"ready","supported":true}\n');
+  const read = broker.read({ callId: 'read-call', tool: 'rpa_status', root: '/tmp', arguments: {} });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(output, /"type":"read","request":\{"callId":"read-call"/u);
+  stdin.write('{"protocol":"clawmaster-rpa/1","type":"result","callId":"read-call","result":{"run":null}}\n');
+  assert.deepEqual(await read, { run: null });
+  stdin.destroy(); stdout.destroy();
+});
 
 const nativeSkip = defaultHelperPath() ? false : process.env.CLAWMASTER_REQUIRE_NATIVE === '1' ? false : 'native helper not built';
 if (process.env.CLAWMASTER_REQUIRE_NATIVE === '1') assert.ok(defaultHelperPath(), 'release verification requires a built native helper');
@@ -363,6 +386,68 @@ test('the rpa_call tool asks the harness before a write, and fails closed when r
   } finally {
     await rm(stateDir, { recursive: true, force: true });
   }
+});
+
+test('DSH refusal never reaches the desktop broker; approval forwards the exact HTTPS request', async (t) => {
+  const stateDir = await mkdtemp(path.join(tmpdir(), 'clawmaster-rpa-broker-'));
+  t.after(() => rm(stateDir, { recursive: true, force: true }));
+  await withFakeHelper(
+    'process.stdout.write(JSON.stringify({ write: process.argv[4] === "rpa_start", summary: "Allow RPA execute rpa_start?" }));\n',
+    async (helper) => {
+      const asked = [];
+      const brokerCalls = [];
+      const registrations = [];
+      let approvalAnswer = 'rejected';
+      const ctx = {
+        tools: { register: (tool) => { registrations.push(tool); return () => {}; } },
+        effect: (factory) => factory(),
+        approval: { request: async (request) => { asked.push(request); return approvalAnswer; } },
+      };
+      apply(ctx, {
+        stateDir,
+        helper,
+        approvalBroker: {
+          execute: async (request) => { brokerCalls.push(request); return { accepted: true }; },
+          read: async (request) => { brokerCalls.push({ ...request, readOnly: true }); return { run: { state: 'ok' } }; },
+        },
+      });
+      const tool = registrations.find((entry) => entry.name === 'rpa_call');
+      const write = {
+        tool: 'rpa_start',
+        arguments: {
+          runId: 'rpa-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          tenantId: 'tenant-a',
+          platformId: 'platform-a',
+          url: 'https://example.com',
+        },
+      };
+      const exec = { agent: { id: 'agent-1' }, callId: 'call-exact-1', name: 'rpa_call', signal: new AbortController().signal };
+
+      await assert.rejects(() => tool.execute(write, exec), /approval_rejected/u);
+      assert.equal(brokerCalls.length, 0);
+      assert.equal(asked.length, 1);
+
+      approvalAnswer = 'allowed-once';
+      const result = await tool.execute(write, exec);
+      assert.match(result, /"accepted": true/u);
+      assert.equal(brokerCalls.length, 1);
+      assert.deepEqual(brokerCalls[0], {
+        callId: 'call-exact-1',
+        tool: 'rpa_start',
+        root: path.join(stateDir, 'native'),
+        arguments: write.arguments,
+        summary: 'Allow RPA execute rpa_start?',
+      });
+      assert.equal(asked.length, 2);
+
+      const status = await tool.execute({
+        tool: 'rpa_status',
+        arguments: { runId: 'rpa-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+      }, { ...exec, callId: 'call-status-1' });
+      assert.match(status, /"state":\s*"ok"/u);
+      assert.equal(brokerCalls[1].readOnly, true);
+    },
+  );
 });
 
 test('the real helper answers capabilities and definitions without inspecting the desktop', { skip: nativeSkip }, async () => {

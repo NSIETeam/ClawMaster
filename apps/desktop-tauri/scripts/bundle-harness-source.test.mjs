@@ -132,6 +132,7 @@ test('desktop dependencies resolve the built frontend and exact reviewed plugin 
   assert.deepEqual(bundled.dependencies, {
     kept: 'workspace:^', ...DESKTOP_PLUGIN_VERSIONS,
     '@clawmaster/dsh-desktop-policy': 'workspace:*',
+    '@clawmaster/dsh-credentials-keychain': 'workspace:*',
     'clawmaster-sys-prompt': 'workspace:*',
     '@clawmaster/dsh-frontend': 'workspace:*',
     '@clawmaster/dsh-guard': 'workspace:*',

@@ -529,8 +529,8 @@ describe('assertEntriesActivated', () => {
     await(): Promise<unknown>
   }
 
-  const ctxWith = (entries: Array<{ fiber?: FakeFiber; disabled?: boolean; options: { name: string } }>): Context => ({
-    loader: { entries: () => entries },
+  const ctxWith = (entries: Array<{ fiber?: FakeFiber; disabled?: boolean; options: { id?: string; name: string } }>): Context => ({
+    loader: { entries: () => entries.map(entry => ({ ...entry, id: entry.options.id ?? entry.options.name })) },
   }) as unknown as Context
 
   const fiber = (
@@ -584,9 +584,9 @@ describe('assertEntriesActivated', () => {
     let awaitCalls = 0
     const expected = [
       `${NAME}: 3 entries did not activate`,
-      'waiting: pending (waiting for services: missingA, missingB)',
-      'single-wait: pending (waiting for service: missing)',
-      'unknown-wait: pending (waiting for services: unknown)',
+      'failed to activate loader entry group:waiting (waiting): pending (waiting for services: missingA, missingB)',
+      'failed to activate loader entry single-wait (single-wait): pending (waiting for service: missing)',
+      'failed to activate loader entry unknown-wait (unknown-wait): pending (waiting for services: unknown)',
     ].join('\n')
     const waiting = fiber(0, undefined, { ready: {}, missingA: {}, missingB: {} }, ['ready'])
     const singleWait = fiber(0, undefined, { missing: {} })
@@ -598,9 +598,9 @@ describe('assertEntriesActivated', () => {
       }
     }
     await expect(assertEntriesActivated(ctxWith([
-      { fiber: waiting, options: { name: 'waiting' } },
-      { fiber: singleWait, options: { name: 'single-wait' } },
-      { fiber: unknownWait, options: { name: 'unknown-wait' } },
+      { fiber: waiting, options: { id: 'group:waiting', name: 'waiting' } },
+      { fiber: singleWait, options: { id: 'single-wait', name: 'single-wait' } },
+      { fiber: unknownWait, options: { id: 'unknown-wait', name: 'unknown-wait' } },
     ]), NAME)).rejects.toThrow(expected)
     expect(awaitCalls).toBe(0)
   })
@@ -640,6 +640,27 @@ describe('boot', () => {
     try {
       const entries = [...ctx.loader.entries()]
       expect(entries.some(entry => entry.options.name === './noop.mjs' && entry.fiber !== undefined)).toBe(true)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('reaches ready when an optional child entry is disabled by its local id', async () => {
+    const dir = tmp()
+    writeFileSync(join(dir, 'optional.mjs'), 'export function apply() { throw new Error("optional entry should be disabled") }\n')
+    writeFileSync(join(dir, 'healthy.mjs'), 'export function apply(ctx) { ctx.provide("healthyReady", true) }\n')
+    writeFileSync(join(dir, 'cordis.yml'), [
+      '- id: optional-feature',
+      '  name: ./optional.mjs',
+      '- id: healthy-core',
+      '  name: ./healthy.mjs',
+      '',
+    ].join('\n'))
+    const ctx = await boot(NAME, join(dir, 'cordis.yml'), [{ id: 'optional-feature', disabled: true }])
+    try {
+      expect(ctx.get('healthyReady')).toBe(true)
+      expect(ctx.loader.resolve('include:optional-feature').disabled).toBe(true)
+      expect(ctx.loader.resolve('include:healthy-core').fiber?.state).toBe(2)
     } finally {
       await ctx.fiber.dispose()
     }
@@ -883,10 +904,9 @@ describe('boot', () => {
     const dir = tmp()
     writeFileSync(join(dir, 'waiting.mjs'), 'export const inject = ["neverProvided"]\nexport function apply() {}\n')
     writeFileSync(join(dir, 'cordis.yml'), '- id: waiting\n  name: ./waiting.mjs\n')
-    await expect(boot(NAME, join(dir, 'cordis.yml'))).rejects.toThrow([
-      `${NAME}: 1 entry did not activate`,
-      './waiting.mjs: pending (waiting for service: neverProvided)',
-    ].join('\n'))
+    await expect(boot(NAME, join(dir, 'cordis.yml'))).rejects.toThrow(
+      /failed to activate loader entry include:waiting \(\.\/waiting\.mjs\): pending \(waiting for service: neverProvided\)/,
+    )
   })
 })
 

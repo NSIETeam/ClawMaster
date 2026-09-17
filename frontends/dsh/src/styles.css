@@ -41,6 +41,7 @@ body[data-ds-dark-theme] .cm-dsh-brand-mark > .cm-dsh-brand-dark { display: bloc
 .cm-home-health dd { margin:0; font-size:13px; font-weight:600; }
 .cm-home-health dd[data-health="attention"],.cm-home-health dd[data-health="disconnected"] { color:#b54735; }
 .cm-home-health dd[data-health="connected"],.cm-home-health dd[data-health="observed"] { color:#238267; }
+.cm-home-health dd[data-health="unobserved"] { color:var(--cm-muted); }
 .cm-home-health small { color:var(--cm-muted); font-size:11px; line-height:1.45; }
 @media (max-width:620px) { .cm-home-health dl { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 .cm-workbench-content { max-width:1060px; margin:0 auto; padding:40px clamp(18px,4vw,48px); }

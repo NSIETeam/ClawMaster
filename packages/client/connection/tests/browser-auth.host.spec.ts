@@ -140,6 +140,56 @@ describe('BrowserAuth', () => {
     })
   })
 
+  it('keeps the Host usable with a process-only cookie secret when credential storage is unavailable', async () => {
+    const unavailable: CredentialProvider = {
+      modifyRecord: async () => { throw new Error('credential store unavailable') },
+    } as unknown as CredentialProvider
+    const onUnavailable = vi.fn()
+    const processOwner = {}
+    const first = await BrowserAuth.create(processOwner, unavailable, 30, onUnavailable)
+    const login = exchange(first)
+
+    expect(onUnavailable).toHaveBeenCalledOnce()
+    expect(first.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: login.cookie }))).toBe(true)
+
+    const reloaded = await BrowserAuth.create(processOwner, unavailable, 30)
+    expect(reloaded.authenticatedUrl('http://127.0.0.1:3080')).toBe(login.launchUrl)
+    expect(reloaded.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: login.cookie }))).toBe(true)
+
+    const restarted = await BrowserAuth.create({}, unavailable, 30)
+    expect(restarted.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: login.cookie }))).toBe(false)
+  })
+
+  it('keeps the selected process secret when credential storage recovers or becomes unavailable', async () => {
+    const store = new RecordCredentials()
+    let unavailable = true
+    const provider: CredentialProvider = {
+      modifyRecord: async (
+        key: Parameters<CredentialProvider['modifyRecord']>[0],
+        mutate: Parameters<CredentialProvider['modifyRecord']>[1],
+      ) => {
+        if (unavailable) throw new Error('credential store unavailable')
+        return store.modifyRecord(key, mutate)
+      },
+    } as unknown as CredentialProvider
+    const processOwner = {}
+    const first = await BrowserAuth.create(processOwner, provider, 30)
+    const login = exchange(first)
+
+    unavailable = false
+    const recovered = await BrowserAuth.create(processOwner, provider, 30)
+    expect(recovered.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: login.cookie }))).toBe(true)
+    expect(store.record).toBeUndefined()
+
+    const availableOwner = {}
+    unavailable = false
+    const durable = await BrowserAuth.create(availableOwner, provider, 30)
+    const durableLogin = exchange(durable)
+    unavailable = true
+    const degraded = await BrowserAuth.create(availableOwner, provider, 30)
+    expect(degraded.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: durableLogin.cookie }))).toBe(true)
+  })
+
   it('accepts the cookie for index serving and gives every unauthenticated request one response', async () => {
     const auth = await createAuth(new RecordCredentials())
     const { cookie } = exchange(auth)

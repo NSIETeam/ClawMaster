@@ -8,7 +8,7 @@ Source: [`packages/client/modules/src/client/manifest.ts`](../../packages/client
 
 ## The wire
 
-The graph is the wire single source between the Node and browser halves. The host composes `WebBootEntry` rows and `WebBootBatch` descriptors from scanned packages, then contributes the registration facade, application preloads, bootstrap scripts, and graph global to the structured index-injection table before the Vite entry. The `global` row renders as `globalThis["__DSH_BOOT__"]` with `<` escaped so plugin-controlled strings cannot break out of the script element. A page without a valid manifest cannot boot: the browser parser rejects malformed rows or batches, unknown members, and entries without exactly one initial combo descriptor.
+The graph is the wire single source between the Node and browser halves. The host composes `WebBootEntry` rows and `WebBootBatch` descriptors from scanned packages, then contributes the registration facade, application preloads, bootstrap scripts, and graph global to the structured index-injection table before the Vite entry. Optionality propagates to non-core consumers of optional dynamic modules, so a feature load failure does not fail the core boot. The `global` row renders as `globalThis["__DSH_BOOT__"]` with `<` escaped so plugin-controlled strings cannot break out of the script element. A page without a valid manifest cannot boot: the browser parser rejects malformed rows or batches, unknown members, and entries without exactly one initial combo descriptor.
 
 ```ts type-equiv
 /**
@@ -26,6 +26,8 @@ interface WebBootEntry {
   url: string
   /** Opaque plugin-artifact revision used for HMR cache busting. */
   rev: string
+  /** Optional client rows may fail without blocking core client boot. */
+  optional?: boolean
   /** Package-name dependency edges used for factory arrival and plugin composition. */
   inject?: string[]
   /** Stage-one prefetch mark: load the script for factory registration during module-face boot. */
@@ -114,7 +116,7 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
 
 ### `ctx.clientModules` — `ClientModuleRegistry`
 
-The web plugin table service: incremental `dsh.client` scan + wire composition + bundle route + index injection rows. Construction runs the activation scan synchronously — a malformed declaration or missing bundle among the already-loaded entries aggregates into one loud throw (FAILED fiber; the boot activation audit reports it).
+The web plugin table service: incremental `dsh.client` scan + wire composition + bundle route + index injection rows. Construction runs the activation scan synchronously. Malformed metadata and missing artifacts skip explicitly optional feature clients with a warning; required clients fail activation.
 
 ```ts cordis-catalog
 /**

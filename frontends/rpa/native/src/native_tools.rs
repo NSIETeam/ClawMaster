@@ -497,7 +497,7 @@ pub fn dispatch_from_args(args: &[String]) -> Option<Result<(), String>> {
                 serde_json::to_string(&snapshot).map_err(|error| error.to_string())
             })
             .map(|json| println!("{json}")),
-        Some("input") => input_tool(&args[2..]),
+        Some("input") => Err("desktop input is only available through the ClawMaster approval broker".into()),
         Some("pdf-merge") => {
             let output = args
                 .get(2)
@@ -529,6 +529,13 @@ pub fn dispatch_from_args(args: &[String]) -> Option<Result<(), String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn standalone_input_command_is_refused_before_desktop_access() {
+        let arguments = vec!["--native-tool".into(), "input".into(), "click".into()];
+        let error = dispatch_from_args(&arguments).unwrap().unwrap_err();
+        assert!(error.contains("ClawMaster approval broker"));
+    }
 
     #[test]
     fn bounds_desktop_labels_without_control_characters() {

@@ -266,6 +266,61 @@ describe('mode-aware wire contribution', () => {
     expect(result.content).toEqual([{ type: 'text', text: 'echo:"echo:still available"' }])
   })
 
+  it('keeps malformed nested schemas out of generated PTC bindings while healthy tools remain callable', async () => {
+    const { ctx, systemPrompt, runtime } = await setup({ mode: 'ptc' })
+    const echoCalls = registerEcho(ctx)
+    let malformedCalls = 0
+    let advancedCalls = 0
+    ctx.tools.register({
+      name: 'advanced',
+      description: 'preserves valid extension schemas',
+      parameters: {
+        type: 'object',
+        properties: { contact: { type: 'string', format: 'email' } },
+        $defs: { contact: { type: 'string', format: 'email' } },
+        anyOf: [{ required: ['contact'] }, { properties: { legacy: { type: 'boolean' } } }],
+        allOf: [{ type: 'object' }],
+        prefixItems: [{ type: 'string' }],
+      },
+      output: {
+        schema: { type: 'string' },
+        render: (_args: unknown, value: unknown) => [{ type: 'text' as const, text: String(value) }],
+      },
+      async execute() { advancedCalls++; return 'advanced' },
+    } as unknown as Parameters<typeof ctx.tools.register>[0])
+    ctx.tools.register({
+      name: 'malformed',
+      description: 'must be quarantined',
+      parameters: { type: 'object', properties: { child: { type: 'imaginary' } } },
+      output: {
+        schema: { type: 'string' },
+        render: (_args: unknown, value: unknown) => [{ type: 'text' as const, text: String(value) }],
+      },
+      async execute() { malformedCalls++; return 'must not run' },
+    } as unknown as Parameters<typeof ctx.tools.register>[0])
+
+    const assembly = await systemPrompt.assemble()
+    expect(assembly.tools.map(tool => tool.name)).toEqual([RUN_CODE_NAME])
+    const sdk = assembly.sections.find(section => section.name === 'tools:sdk')?.text
+    expect(sdk).toContain('advanced: unknown')
+    expect(sdk).not.toContain('malformed: {')
+    runtime.behavior = async (request) => {
+      const functions = request.bindings[0]!.functions
+      expect(Object.hasOwn(functions, 'malformed')).toBe(false)
+      expect(Object.hasOwn(functions, 'advanced')).toBe(true)
+      const echo = await functions.echo!({ value: 'available' })
+      const advanced = await functions.advanced!({ contact: 'valid@example.com' })
+      return { logs: [], value: JSON.stringify([echo, advanced]) }
+    }
+
+    const result = await runCode(ctx, 'return tools.echo({ value: "available" })')
+    expect(result.isError).toBe(false)
+    expect(result.content).toEqual([{ type: 'text', text: '["echo:available","advanced"]' }])
+    expect(echoCalls).toHaveLength(1)
+    expect(malformedCalls).toBe(0)
+    expect(advancedCalls).toBe(1)
+  })
+
   it.each(['ptc', 'both'] as const)('keeps the run_code transport outside scoped allow-list filtering in mode %s', async (mode) => {
     const { ctx, systemPrompt, runtime } = await setup({ mode })
     registerEcho(ctx, 'echo')

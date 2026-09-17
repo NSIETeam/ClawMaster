@@ -1,7 +1,7 @@
 //! Provision a Linux harness tree, Node runtime, and `$HOME/.dsh` inside WSL.
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::i18n::{self, Msg};
 use crate::overlay::{linux_plugin_file_url, overlay_yaml};
@@ -34,19 +34,20 @@ pub struct WslRuntimePaths {
     pub linux_cli: String,
     pub linux_harness_root: String,
     pub linux_dsh_home: String,
+    /// Explicit canonical roots from the resolved Windows DSH home for legacy migration.
+    pub linux_credential_roots: Vec<String>,
     pub linux_path: String,
     pub linux_patch: Option<String>,
 }
 
-/// Copy the bundled tree onto the Linux disk, ensure a Linux Node, install
-/// harness dependencies when the dependency store is absent, seed `$HOME/.dsh`
-/// credentials once, and implant the overlay.
+/// Provision the Linux runtime and map approved Windows credential roots into WSL.
+/// Credentials are read by the profile provider through the host broker, not copied here.
 pub async fn ensure_wsl_runtime(
     runner: &dyn WslRunner,
     distro: &str,
     bundled_windows: &Path,
     bundle_hash: &str,
-    windows_dsh_home: &Path,
+    windows_credential_roots: &[PathBuf],
     overlay_src: Option<&Path>,
     _notify_url: Option<&str>,
     progress: impl Fn(ProvisionEvent),
@@ -62,6 +63,13 @@ pub async fn ensure_wsl_runtime(
     let linux_runtime_root = format!("{linux_home}/.local/share/dsh-desktop/runtime");
     let preferred_node = format!("{linux_runtime_root}/node/bin/node");
     let linux_dsh_home = format!("{linux_home}/.dsh");
+    let mut linux_credential_roots = Vec::new();
+    for root in windows_credential_roots {
+        match windows_to_wsl_mount(root) {
+            Ok(root) => linux_credential_roots.push(root),
+            Err(error) => boot_log::info(&format!("WSL credential source is unavailable: {error}")),
+        }
+    }
 
     ensure_harness_tree(
         runner,
@@ -101,7 +109,6 @@ pub async fn ensure_wsl_runtime(
     }
     progress(ProvisionEvent::Progress(75));
 
-    seed_linux_home(runner, distro, windows_dsh_home, &linux_dsh_home)?;
 
     let linux_patch = if let Some(src) = overlay_src {
         Some(implant_overlay(runner, distro, src, &linux_dsh_home)?)
@@ -116,6 +123,7 @@ pub async fn ensure_wsl_runtime(
         linux_cli,
         linux_harness_root,
         linux_dsh_home,
+        linux_credential_roots,
         linux_path,
         linux_patch,
     })
@@ -328,43 +336,6 @@ fn run_pnpm_install(
     Ok(())
 }
 
-fn seed_linux_home(
-    runner: &dyn WslRunner,
-    distro: &str,
-    windows_dsh_home: &Path,
-    linux_dsh_home: &str,
-) -> Result<(), String> {
-    let cred_dest = format!("{linux_dsh_home}/.credentials.yaml");
-    let env_dest = format!("{linux_dsh_home}/.env");
-    let cred_present = wsl_test_f(runner, distro, &cred_dest)?;
-    let env_present = wsl_test_f(runner, distro, &env_dest)?;
-    if cred_present || env_present {
-        return Ok(());
-    }
-
-    let mkdir = wsl_exec(runner, distro, &["mkdir", "-p", linux_dsh_home])
-        .map_err(|e| format!("{}: {e}", err_harness()))?;
-    require_success(&mkdir, err_harness())?;
-
-    let win_cred = windows_dsh_home.join(".credentials.yaml");
-    if win_cred.is_file() {
-        let src = windows_to_wsl_mount(&win_cred).map_err(|e| format!("{}: {e}", err_harness()))?;
-        let copy = wsl_exec(runner, distro, &["cp", &src, &cred_dest])
-            .map_err(|e| format!("{}: {e}", err_harness()))?;
-        require_success(&copy, err_harness())?;
-    }
-
-    let win_env = windows_dsh_home.join(".env");
-    if win_env.is_file() {
-        let src = windows_to_wsl_mount(&win_env).map_err(|e| format!("{}: {e}", err_harness()))?;
-        let copy = wsl_exec(runner, distro, &["cp", &src, &env_dest])
-            .map_err(|e| format!("{}: {e}", err_harness()))?;
-        require_success(&copy, err_harness())?;
-    }
-
-    Ok(())
-}
-
 fn implant_overlay(
     runner: &dyn WslRunner,
     distro: &str,
@@ -520,10 +491,9 @@ mod tests {
         dir
     }
 
-    // This fixture copies real Windows files into a mocked WSL mount.
     #[test]
     #[cfg(windows)]
-    fn copies_credentials_once_and_skips_sessions() {
+    fn WSL_setup_does_not_inspect_or_copy_plaintext_credentials() {
         let bundled = temp_dir("bundled");
         let windows_home = temp_dir("win-home");
         fs::write(windows_home.join(".credentials.yaml"), "token: test\n").unwrap();
@@ -535,8 +505,6 @@ mod tests {
         let harness_bin =
             format!("/home/u/.local/share/dsh-desktop/harness-versions/{hash}/apps/cli/lib/bin.js");
         let preferred_node = "/home/u/.local/share/dsh-desktop/runtime/node/bin/node";
-        let cred_dest = "/home/u/.dsh/.credentials.yaml";
-        let env_dest = "/home/u/.dsh/.env";
 
         let runner = Scripted::new(vec![
             (
@@ -689,7 +657,7 @@ mod tests {
                 "Ubuntu",
                 &bundled,
                 hash,
-                &windows_home,
+                &[windows_home.clone()],
                 None,
                 None,
                 |_| {},
@@ -697,6 +665,10 @@ mod tests {
             .expect("ensure_wsl_runtime");
 
         assert_eq!(paths.linux_dsh_home, "/home/u/.dsh");
+        assert_eq!(
+            paths.linux_credential_roots,
+            vec![super::windows_to_wsl_mount(&fs::canonicalize(&windows_home).unwrap()).unwrap()]
+        );
         assert_eq!(
             paths.linux_harness_root,
             format!("/home/u/.local/share/dsh-desktop/harness-versions/{hash}")
@@ -711,26 +683,9 @@ mod tests {
             .filter(|args| args.iter().any(|a| a == "cp"))
             .collect();
 
-        let credentials_cp = cp_args
-            .iter()
-            .find(|args| args.iter().any(|a| a.contains(".credentials.yaml")));
-        assert!(
-            credentials_cp.is_some(),
-            "expected a cp of .credentials.yaml, recorded: {recorded:?}"
-        );
-        let credentials_cp = credentials_cp.unwrap();
-        assert!(
-            credentials_cp
-                .iter()
-                .any(|a| a.starts_with("/mnt/") && a.contains(".credentials.yaml")),
-            "credentials cp source must be under /mnt/: {credentials_cp:?}"
-        );
-        assert!(
-            credentials_cp
-                .iter()
-                .any(|a| a == cred_dest || a.ends_with("/.dsh/.credentials.yaml")),
-            "credentials cp dest under /home/u/.dsh: {credentials_cp:?}"
-        );
+        assert!(recorded.iter().flatten().all(|arg| {
+            !arg.contains(".credentials.yaml") && !arg.ends_with("/.env")
+        }), "WSL setup must not inspect or copy plaintext credentials: {recorded:?}");
 
         for args in &cp_args {
             assert!(
@@ -857,29 +812,6 @@ mod tests {
                 ],
                 ok_out(""),
             ),
-            // Linux home already seeded — skip credential copy.
-            (
-                vec![
-                    "-d".into(),
-                    "Ubuntu".into(),
-                    "--exec".into(),
-                    "test".into(),
-                    "-f".into(),
-                    "/home/u/.dsh/.credentials.yaml".into(),
-                ],
-                ok_out(""),
-            ),
-            (
-                vec![
-                    "-d".into(),
-                    "Ubuntu".into(),
-                    "--exec".into(),
-                    "test".into(),
-                    "-f".into(),
-                    "/home/u/.dsh/.env".into(),
-                ],
-                ok_out(""),
-            ),
         ]);
 
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -892,7 +824,7 @@ mod tests {
                 "Ubuntu",
                 &bundled,
                 hash,
-                &windows_home,
+                &[windows_home.clone()],
                 None,
                 None,
                 |_| {},
@@ -1002,29 +934,6 @@ mod tests {
                 ],
                 ok_out(""),
             ),
-            // Linux home already seeded — skip credential copy.
-            (
-                vec![
-                    "-d".into(),
-                    "Ubuntu".into(),
-                    "--exec".into(),
-                    "test".into(),
-                    "-f".into(),
-                    "/home/u/.dsh/.credentials.yaml".into(),
-                ],
-                ok_out(""),
-            ),
-            (
-                vec![
-                    "-d".into(),
-                    "Ubuntu".into(),
-                    "--exec".into(),
-                    "test".into(),
-                    "-f".into(),
-                    "/home/u/.dsh/.env".into(),
-                ],
-                ok_out(""),
-            ),
         ]);
 
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -1037,7 +946,7 @@ mod tests {
                 "Ubuntu",
                 &bundled,
                 hash,
-                &windows_home,
+                &[windows_home.clone()],
                 None,
                 None,
                 |_| {},

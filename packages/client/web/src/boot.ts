@@ -102,7 +102,7 @@ export class AppWebEntry {
   /** Prefetch stage-one bundles and their dynamic requests before concurrent plugin imports. */
   private async prefetchImmediateTier(): Promise<void> {
     await Promise.all(this.manifest.plugins
-      .filter(row => row.immediately)
+      .filter(row => row.immediately && !row.optional)
       .map(row => this.modules.prefetch(row.id).catch((_prefetchError: unknown) => {
         // Prefetch only starts transport early; the Loader import retries and reports this bundle failure.
       })))

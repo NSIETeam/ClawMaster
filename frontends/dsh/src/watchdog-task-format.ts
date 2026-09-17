@@ -1,12 +1,15 @@
 /** Browser-safe validation and presentation data for durable WatchDog business tasks. */
 import { z } from 'zod';
+import { stateCapsuleDataSchema, stateCapsuleScopeSchema, stateCapsulesSchema } from './watchdog-state-capsule.ts';
+import { trustedAuthorityIdentifierSchema } from './governance-identity.ts';
 
 const id = z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/);
+const authorityId = trustedAuthorityIdentifierSchema;
 const text = z.string().trim().min(1).max(4000);
 const revision = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const owner = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('local'), label: z.string().trim().min(1).max(200) }).strict(),
-  z.object({ kind: z.literal('member'), id }).strict(),
+  z.object({ kind: z.literal('member'), id: authorityId }).strict(),
 ]);
 const timezone = z.string().min(1).max(100).refine(value => {
   try { new Intl.DateTimeFormat('en', { timeZone: value }); return true; } catch { return false; }
@@ -27,6 +30,7 @@ const command = z.discriminatedUnion('type', [
   z.object({ type: z.literal('wait'), reason: text.nullable() }).strict(),
   z.object({ type: z.literal('fail'), reason: text }).strict(),
   z.object({ type: z.literal('submit'), evidence: z.array(evidence).min(1).max(100), completedCriteria: z.array(id).min(1).max(100) }).strict(),
+  z.object({ type: z.literal('capsule'), scope: stateCapsuleScopeSchema, data: stateCapsuleDataSchema }).strict(),
   z.object({ type: z.literal('review'), decision: z.enum(['accept', 'reject']), comment: text }).strict(),
   z.object({ type: z.literal('reopen'), reason: text }).strict(),
   z.object({ type: z.literal('cancel'), reason: text }).strict(),
@@ -48,18 +52,19 @@ export interface TaskRecord extends z.infer<typeof definition> {
   execution: { sessionId: string; requestId: string; locale: 'zh-CN' | 'en-US'; commandId?: string } | null;
   waitingFor: string | null;
   evidence: Array<z.infer<typeof evidence>>;
+  stateCapsules: z.infer<typeof stateCapsulesSchema>;
   completedCriteria: string[];
   submittedBy: string | null;
   lastReview: { actorId: string; decision: 'accept' | 'reject'; comment: string; at: string } | null;
 }
 
 /** Validate durable task rows and the same fields received by the browser. */
-export const taskRecordSchema = z.object({ ...taskFields, id, organizationId: id, revision: revision.min(1),
+export const taskRecordSchema = z.object({ ...taskFields, id, organizationId: authorityId, revision: revision.min(1),
   status: z.enum(['draft', 'ready', 'in_progress', 'awaiting_review', 'accepted', 'failed', 'cancelled']),
   createdAt: z.string().datetime(), updatedAt: z.string().datetime(), source: z.enum(['new', 'imported-session']),
   sessionIds: z.array(id), execution: z.object({ sessionId: id, requestId: id, locale: z.enum(['zh-CN', 'en-US']).default('en-US'), commandId: id.optional() }).strict().nullable().default(null),
-  waitingFor: text.nullable(), evidence: z.array(evidence), completedCriteria: z.array(id),
-  submittedBy: id.nullable(), lastReview: z.object({ actorId: id, decision: z.enum(['accept', 'reject']), comment: text, at: z.string().datetime() }).strict().nullable(),
+  waitingFor: text.nullable(), evidence: z.array(evidence), stateCapsules: stateCapsulesSchema.default([]), completedCriteria: z.array(id),
+  submittedBy: authorityId.nullable(), lastReview: z.object({ actorId: authorityId, decision: z.enum(['accept', 'reject']), comment: text, at: z.string().datetime() }).strict().nullable(),
 }).strict();
 
 /** A list retains its collection version and urgency clock across pages. */

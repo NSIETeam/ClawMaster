@@ -41,6 +41,7 @@ test('the shipped factory registers WatchDog and enterprise sidebar components a
   let themeCount = 0;
   let disposedSlots = 0;
   let registration;
+  const eventListeners = new Map();
   class FakeMutationObserver { observe() {} disconnect() {} }
   const doc = {
     createElement: () => ({ dataset: {}, textContent: '', remove() { styleCount--; } }),
@@ -85,6 +86,13 @@ test('the shipped factory registers WatchDog and enterprise sidebar components a
     settingsScope: { bind() { return sourceOf({ mode: 'host', status: 'ready', value: { acknowledgedVersion: 0 } }); } },
     layout: { selectPanel() { throw new Error('must not navigate on load'); } },
     betterSidebar: { registerTab(tab) { tabs.set(tab.id, tab); return () => tabs.delete(tab.id); } },
+    get(name) { return name === 'betterSidebar' ? this.betterSidebar : undefined; },
+    on(name, listener) {
+      const listeners = eventListeners.get(name) ?? new Set();
+      listeners.add(listener);
+      eventListeners.set(name, listeners);
+      return () => listeners.delete(listener);
+    },
     uiWorkspace: { openSession() { throw new Error('must not change selection on load'); } },
     effect(setup) { cleanups.push(setup()); },
   };
@@ -119,7 +127,38 @@ test('the shipped factory registers WatchDog and enterprise sidebar components a
     assert.equal(tab.single, true);
     assert.match(renderToStaticMarkup(tab.settings.render({ close() {} })), /在右侧打开/);
   }
-  assert.ok(manifest.dsh.client.inject.includes('dsh-better-sidebar'));
+  assert.ok(!manifest.dsh.client.inject.includes('dsh-better-sidebar'));
+  const noSidebarRows = new Map();
+  const noSidebarCleanups = [];
+  const noSidebarTabs = new Map();
+  const noSidebarEvents = new Map();
+  const noSidebarServices = {
+    ...services,
+    betterSidebar: undefined,
+    get(name) { return name === 'betterSidebar' ? this.betterSidebar : undefined; },
+    on(name, listener) {
+      const listeners = noSidebarEvents.get(name) ?? new Set();
+      listeners.add(listener);
+      noSidebarEvents.set(name, listeners);
+      return () => listeners.delete(listener);
+    },
+    slots: {
+      inject(_name, setup) { noSidebarCleanups.push(setup()); },
+      register(options, component) { noSidebarRows.set(`${options.name}:${options.key ?? options.id ?? ''}`, { options, component }); return () => {}; },
+    },
+    theme: { overrideTokens() { return () => {}; } },
+    effect(setup) { noSidebarCleanups.push(setup()); },
+  };
+  assert.doesNotThrow(() => plugin.apply(noSidebarServices));
+  assert.ok(noSidebarRows.has('main:clawmaster'));
+  assert.ok(noSidebarRows.has('sidebar.panellist:clawmaster'));
+  noSidebarServices.betterSidebar = { registerTab(tab) { noSidebarTabs.set(tab.id, tab); return () => noSidebarTabs.delete(tab.id); } };
+  for (const listener of noSidebarEvents.get('internal/service') ?? []) listener('betterSidebar', noSidebarServices.betterSidebar);
+  assert.deepEqual([...noSidebarTabs.keys()], ['clawmaster:crm', 'clawmaster:erp']);
+  noSidebarServices.betterSidebar = undefined;
+  for (const listener of noSidebarEvents.get('internal/service') ?? []) listener('betterSidebar', undefined);
+  assert.equal(noSidebarTabs.size, 0);
+  for (const cleanup of noSidebarCleanups.reverse()) cleanup();
   assert.equal(tabs.get('clawmaster:crm').title(), 'CRM 客户');
   const initialEntry = rows.get('shell.overlay:clawmaster-initial-entry').component;
   assert.equal(renderToStaticMarkup(React.createElement(initialEntry, {

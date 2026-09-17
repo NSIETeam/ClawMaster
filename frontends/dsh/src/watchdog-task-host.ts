@@ -17,13 +17,77 @@ import { taskRequestSchema, TaskError } from './watchdog-tasks.ts';
 import { taskExecutionOutcomeSchema, taskQuerySchema as querySchema } from './watchdog-task-format.ts';
 import { taskCommandOutput, taskCommandParameters, taskQueryOutput, taskQueryParameters } from './watchdog-task-schemas.ts';
 import type { ObservedTaskExecutionOutcome } from './governance-audit.ts';
+import type { ExecutionIdentity } from './governance-audit.ts';
+import type { TaskHistoryPage, TaskListPage, TaskRecord } from './watchdog-task-format.ts';
+import type { StateCapsuleScope } from './watchdog-state-capsule.ts';
 
 const tasksPath = '/api/clawmaster/tasks';
 const commandPath = `${tasksPath}/command`;
-type WatchdogTaskHostContext = Omit<Context, 'sessions' | 'sessionPersistence'> & {
+type WatchdogTaskHostContext = Omit<Context, 'sessions' | 'sessionPersistence' | 'workspaceRegistry'> & {
   sessions: SessionStore;
   sessionPersistence: SessionPersistence;
+  workspaceRegistry?: { get(id: string): { sessionIds: readonly string[] } | undefined };
 };
+
+function capsuleOwnerId(identity: ExecutionIdentity): string {
+  return identity.organizationId === 'local' ? 'local-operator' : (identity.principalId ?? identity.actor.id);
+}
+
+/** Apply principal ownership and current Workspace/Session membership to persisted task capsules.
+ * @param task - Durable task record whose capsules are being projected.
+ * @param identity - Authenticated caller identity.
+ * @param ctx - Host registry used to verify current project membership.
+ * @returns The task with capsules visible to this caller.
+ */
+export function taskWithVisibleCapsules(task: TaskRecord, identity: ExecutionIdentity, ctx: WatchdogTaskHostContext): TaskRecord {
+  const ownerId = capsuleOwnerId(identity);
+  return { ...task, stateCapsules: task.stateCapsules.filter(capsule => {
+    if (capsule.ownerId !== ownerId) return false;
+    if (capsule.scope.kind === 'session') return task.sessionIds.includes(capsule.scope.id);
+    if (capsule.scope.kind === 'project') {
+      const workspace = ctx.workspaceRegistry?.get(capsule.scope.id);
+      return workspace !== undefined && task.sessionIds.some(sessionId => workspace.sessionIds.includes(sessionId));
+    }
+    return true;
+  }) };
+}
+
+/** Reject capsule writes outside the caller's task-linked Workspace and Session scope.
+ * @param ctx - Host registry used to verify project membership.
+ * @param access - Governance policy used to authorize linked Sessions.
+ * @param identity - Authenticated caller identity.
+ * @param task - Current durable task record.
+ * @param scope - Requested capsule scope.
+ * @param taskId - Durable task identifier.
+ * @param signal - Cancellation signal for governance checks.
+ * @returns Resolves only when the scope is valid and authorized.
+ */
+export async function validateCapsuleScope(ctx: WatchdogTaskHostContext, access: GovernanceAccess, identity: ExecutionIdentity,
+  task: TaskRecord, scope: StateCapsuleScope, taskId: string, signal: AbortSignal): Promise<void> {
+  if (scope.kind === 'user') return;
+  if (scope.kind === 'project') {
+    const workspace = ctx.workspaceRegistry?.get(scope.id);
+    if (workspace === undefined) {
+      throw new EnterpriseError('invalid_request', 'State capsule project must name an existing Workspace.');
+    }
+    const linkedSessionId = task.sessionIds.find(sessionId => workspace.sessionIds.includes(sessionId));
+    if (!linkedSessionId) {
+      throw new GovernanceDenied('Task is not linked to a Session in this project.');
+    }
+    await assertExecutionSessionOwner(access, identity, linkedSessionId, taskId, signal);
+    return;
+  }
+  if (!task.sessionIds.includes(scope.id)) {
+    throw new EnterpriseError('invalid_request', 'State capsule Session must already be linked to this task.');
+  }
+  await assertExecutionSessionOwner(access, identity, scope.id, taskId, signal);
+}
+
+function taskQueryWithVisibleCapsules(value: TaskRecord | TaskListPage | TaskHistoryPage,
+  identity: ExecutionIdentity, ctx: WatchdogTaskHostContext): TaskRecord | TaskListPage | TaskHistoryPage {
+  if ('tasks' in value) return { ...value, tasks: value.tasks.map(task => taskWithVisibleCapsules(task, identity, ctx)) };
+  return taskWithVisibleCapsules(value, identity, ctx);
+}
 
 function taskExecutionOutcome(reason: { kind: string }): { outcome: 'succeeded' } | { outcome: 'failed'; reasonCode: string } | undefined {
   switch (reason.kind) {
@@ -225,9 +289,11 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
   };
   const query = (identity: Awaited<ReturnType<GovernanceAccess['http']>>['identity'], value: unknown) => {
     const parsed = querySchema.parse(value);
-    if (parsed.id) return parsed.history ? store.tasks.history(identity, parsed.id, parsed.after, parsed.limit) : store.tasks.get(identity, parsed.id);
+    if (parsed.id) return taskQueryWithVisibleCapsules(parsed.history
+      ? store.tasks.history(identity, parsed.id, parsed.after, parsed.limit)
+      : store.tasks.get(identity, parsed.id), identity, ctx);
     if (parsed.history) throw new EnterpriseError('invalid_request', 'History requires a task identifier.');
-    return store.tasks.list(identity, { ...(parsed.cursor ? { cursor: parsed.cursor } : {}), limit: parsed.limit });
+    return taskQueryWithVisibleCapsules(store.tasks.list(identity, { ...(parsed.cursor ? { cursor: parsed.cursor } : {}), limit: parsed.limit }), identity, ctx);
   };
   const dispose = (): Promise<void> => disposal ??= (async () => {
     lifetime.abort(new Error('Task consumers were unloaded.'));
@@ -314,6 +380,8 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
         const resource = governanceResource('task', input.id);
         const checked = await caller.check(action, resource);
         if (input.command.type === 'start') await assertExecutionSessionOwner(access, checked, input.command.sessionId, input.id, signal);
+        if (input.command.type === 'capsule') await validateCapsuleScope(ctx, access, checked,
+          store.tasks.get(checked, input.id), input.command.scope, input.id, signal);
         if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
         const replay = store.tasks.replay(checked, input);
         const identity = access.mode === 'enterprise' && action === 'task.write' && !replay
@@ -321,11 +389,13 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
             createHash('sha256').update(JSON.stringify(input.command)).digest('hex'))
           : checked;
         signal.throwIfAborted();
-        if (replay) return Response.json(replay, { headers: { 'cache-control': 'no-store' } });
+        if (replay) return Response.json(taskWithVisibleCapsules(replay, checked, ctx), { headers: { 'cache-control': 'no-store' } });
         if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
         if (input.command.type === 'start') await assertExecutionSessionOwner(access, await caller.check(action, resource), input.command.sessionId, input.id, signal);
+        if (input.command.type === 'capsule') await validateCapsuleScope(ctx, access, identity,
+          store.tasks.get(identity, input.id), input.command.scope, input.id, signal);
         signal.throwIfAborted();
-        return Response.json(store.tasks.execute(identity, input), { headers: { 'cache-control': 'no-store' } });
+        return Response.json(taskWithVisibleCapsules(store.tasks.execute(identity, input), identity, ctx), { headers: { 'cache-control': 'no-store' } });
       }, signal);
     })).catch(failure) }));
     removals.push(ctx.connection.fetch.register({ path: `${tasksPath}/execution-outcome`, methods: ['POST'], requestBody: 'streaming', fetch: request => run(() => commands.run(AbortSignal.any([request.signal, lifetime.signal]), async () => {
@@ -376,11 +446,13 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
           const resource = governanceResource('task', input.id);
           const checked = await caller.check('task.write', resource);
           if (input.command.type === 'start') await assertExecutionSessionOwner(access, checked, input.command.sessionId, input.id, signal);
+          if (input.command.type === 'capsule') await validateCapsuleScope(ctx, access, checked,
+            store.tasks.get(checked, input.id), input.command.scope, input.id, signal);
           if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
           if (!exec.agent) throw new GovernanceDenied();
           signal.throwIfAborted();
           const replay = store.tasks.replay(checked, input);
-          if (replay) return replay;
+          if (replay) return taskWithVisibleCapsules(replay, checked, ctx);
           const outcome = await ctx.approval.request({ agent: exec.agent, callId: exec.callId, toolName: exec.name,
             reason: `Approve this business task action at revision ${input.revision}: ${JSON.stringify(input)}`, signal });
           if (outcome !== 'allowed-once') throw new GovernanceDenied(`Task action ${outcome}.`, `approval_${outcome}`);
@@ -391,10 +463,12 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
               createHash('sha256').update(JSON.stringify(input.command)).digest('hex'))
             : await caller.check('task.write', resource);
           if (input.command.type === 'start') await assertExecutionSessionOwner(access, identity, input.command.sessionId, input.id, signal);
+          if (input.command.type === 'capsule') await validateCapsuleScope(ctx, access, identity,
+            store.tasks.get(identity, input.id), input.command.scope, input.id, signal);
           if (access.mode === 'local') identity.approval = { kind: 'dsh-one-shot' };
           if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
           signal.throwIfAborted();
-          return store.tasks.execute(identity, input);
+          return taskWithVisibleCapsules(store.tasks.execute(identity, input), identity, ctx);
         }, signal);
       })),
       presentCall: args => ({ card: 'generic', title: 'Update business task', kind: 'edit', rawInput: JSON.stringify(args) }),

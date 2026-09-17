@@ -15,10 +15,25 @@ export const ACCEPTANCE_TARGETS = Object.freeze({
   'linux-x64-deb': { platform: 'linux', architecture: 'x64', signature: 'minisign', extension: '.deb' },
   'android-universal-apk': { platform: 'android', architecture: 'universal', signature: 'android-apk', extension: '.apk' },
 })
+/** The explicitly narrower beta installer matrix; stable releases retain ACCEPTANCE_TARGETS. */
+export const BETA_ACCEPTANCE_TARGETS = Object.freeze({
+  'macos-arm64-dmg': ACCEPTANCE_TARGETS['macos-arm64-dmg'],
+  'windows-x64-nsis': ACCEPTANCE_TARGETS['windows-x64-nsis'],
+})
+
+/** @param {string} version @returns {typeof ACCEPTANCE_TARGETS} Installed target matrix selected by the exact program version. */
+export function acceptanceTargetsForVersion(version) {
+  return /^\d+\.\d+\.\d+-beta\.[1-9]\d*$/u.test(version) ? BETA_ACCEPTANCE_TARGETS : ACCEPTANCE_TARGETS
+}
 
 const COMMON_SCENARIOS = ['install', 'first-start-clean-user', 'network-failure-recovery', 'exit-restart', 'upgrade-data-preservation', 'uninstall-data-policy']
-const DESKTOP_SCENARIOS = [...COMMON_SCENARIOS, 'unicode-space-path', 'update-rollback']
+const DESKTOP_SCENARIOS = [...COMMON_SCENARIOS, 'unicode-space-path', 'update-rollback', 'optional-component-failure-recovery', 'approval-allow', 'approval-deny', 'cancel-task', 'write-failure-no-commit']
 const ANDROID_SCENARIOS = [...COMMON_SCENARIOS, 'approval-allow', 'approval-deny', 'cancel-task', 'conversation-persistence']
+const DESKTOP_INTEGRATIONS = [
+  'real-model', 'office-save', 'wechat-selected-read', 'native-rpa-browser-click',
+  'im-weixin-ui', 'im-feishu-ui', 'im-dingtalk-ui', 'im-qq-ui', 'im-wecom-ui',
+]
+const IM_UI_INTEGRATIONS = new Set(['im-weixin-ui', 'im-feishu-ui', 'im-dingtalk-ui', 'im-qq-ui', 'im-wecom-ui'])
 const sha256Pattern = /^[a-f0-9]{64}$/u
 const commitPattern = /^[a-f0-9]{40}$/u
 const statuses = ['passed', 'failed', 'blocked', 'not-run']
@@ -44,7 +59,7 @@ export function createAcceptanceTemplate(version, sourceCommit, supportedUpgrade
   nonempty(version, 'Candidate version')
   assert.ok(Array.isArray(supportedUpgradeVersions) && supportedUpgradeVersions.length > 0)
   return { schemaVersion: 1, version, sourceCommit, supportedUpgradeVersions,
-    targets: Object.fromEntries(Object.keys(ACCEPTANCE_TARGETS).map(target => [target, { status: 'not-run', reason: 'Installed candidate acceptance has not been collected for this target' }])) }
+    targets: Object.fromEntries(Object.keys(acceptanceTargetsForVersion(version)).map(target => [target, { status: 'not-run', reason: 'Installed candidate acceptance has not been collected for this target' }])) }
 }
 async function fileWithin(root, file) {
   assert.equal(typeof file, 'string', 'Evidence file path must be a string')
@@ -91,10 +106,11 @@ export async function verifyReleaseAcceptance(manifest, options) {
   assert.equal(new Set(manifest.supportedUpgradeVersions).size, manifest.supportedUpgradeVersions.length, 'Upgrade support versions must be unique')
   for (const version of manifest.supportedUpgradeVersions) assert.match(version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u)
   object(manifest.targets, 'Acceptance targets')
-  assert.deepEqual(Object.keys(manifest.targets).sort(), Object.keys(ACCEPTANCE_TARGETS).sort(), 'Every supported installer needs its own acceptance lane; Intel Mac is not a release target')
+  const targets = acceptanceTargetsForVersion(manifest.version)
+  assert.deepEqual(Object.keys(manifest.targets).sort(), Object.keys(targets).sort(), 'Every supported installer needs its own acceptance lane; Intel Mac is not a release target')
   const incomplete = []
   const artifacts = new Set()
-  for (const [target, policy] of Object.entries(ACCEPTANCE_TARGETS)) {
+  for (const [target, policy] of Object.entries(targets)) {
     const lane = object(manifest.targets[target], target)
     assert.ok(statuses.includes(lane.status), `${target} has an invalid status`)
     if (lane.status !== 'passed') {
@@ -133,17 +149,44 @@ export async function verifyReleaseAcceptance(manifest, options) {
       }
     }
     object(lane.integrations, `${target} integrations`)
-    for (const integration of policy.platform === 'android' ? ['real-model'] : ['real-model', 'office-save', 'wechat-selected-read', 'im-login']) {
+    for (const integration of policy.platform === 'android' ? ['real-model'] : DESKTOP_INTEGRATIONS) {
       const result = object(lane.integrations[integration], `${target}/${integration}`)
       assert.ok(statuses.includes(result.status), `${target}/${integration} has an invalid status`)
       assert.ok(['available', 'experimental', 'unavailable'].includes(result.availability), `${target}/${integration} availability must be explicit`)
-      if (integration === 'real-model' && result.status !== 'passed') incomplete.push(`${target}/real-model: no successful real provider integration`)
+      if (['real-model', 'native-rpa-browser-click'].includes(integration) && result.status !== 'passed') {
+        incomplete.push(`${target}/${integration}: no successful installed integration`)
+      }
+        if (IM_UI_INTEGRATIONS.has(integration)) {
+        if (result.status !== 'passed') incomplete.push(`${target}/${integration}: blocked-state UI behavior was not verified`)
+        else {
+          assert.ok(['available', 'unavailable'].includes(result.availability), `${integration} availability must be available or unavailable`)
+          if (result.availability === 'unavailable') {
+            assert.equal(result.uiState, 'blocked', `${integration} must show a blocked state when no connector is configured`)
+            nonempty(result.reason, `${integration} blocked reason`)
+          } else {
+            assert.equal(result.uiState, 'connected', `${integration} claims availability without a connected UI state`)
+            assert.equal(result.testAccountConsent, true, `${integration} needs explicit test-account consent`)
+            nonempty(result.clientVersion, `${integration} tested client version`)
+          }
+          await evidenceFiles(root, result, `${target}/${integration}`)
+        }
+      }
+      if (integration === 'native-rpa-browser-click' && result.status === 'passed') {
+        assert.equal(result.availability, 'available', `${integration} must execute in the installed candidate`)
+        nonempty(result.browserVersion, `${integration} tested browser version`)
+      }
       if (result.status === 'passed') {
-        if (['wechat-selected-read', 'im-login'].includes(integration)) {
+        if (integration === 'real-model') {
+          const credentialStore = {
+            darwin: 'macos-keychain', win32: 'windows-credential-manager', linux: 'linux-secret-service', android: 'android-keystore',
+          }[policy.platform]
+          assert.equal(result.credentialStore, credentialStore, `${target} real-model must resolve its key from the OS secure credential store`)
+        }
+        if (integration === 'wechat-selected-read') {
           assert.equal(result.testAccountConsent, true, `${integration} needs explicit test-account consent`)
           nonempty(result.clientVersion, `${integration} tested client version`)
         }
-        await evidenceFiles(root, result, `${target}/${integration}`)
+        if (!IM_UI_INTEGRATIONS.has(integration)) await evidenceFiles(root, result, `${target}/${integration}`)
       } else {
         nonempty(result.reason, `${integration} unverified reason`)
         if (result.availability === 'available') incomplete.push(`${target}/${integration}: advertised available without passing integration evidence`)

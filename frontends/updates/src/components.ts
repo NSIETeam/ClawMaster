@@ -9,8 +9,9 @@ import { createGunzip } from 'node:zlib';
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write';
 import { gt, satisfies, valid, validRange } from 'semver';
 import { list, extract, type ReadEntry } from 'tar';
-import { isScalar, isSeq, parseDocument, visit, type YAMLMap } from 'yaml';
+import { isMap, isScalar, isSeq, parseDocument, visit, type YAMLMap } from 'yaml';
 import { z } from 'zod';
+import { Config } from './config.ts';
 
 /** Signed component metadata; a component id never names an existing DSH core row. */
 export interface ComponentDescriptor {
@@ -37,6 +38,8 @@ const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
 const sha256 = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
 const revision = (value: string) => `sha256-${sha256(value)}`;
 const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
+const updaterRowKeys = new Set(['id', 'name', 'config', 'disabled']);
+const offlineRecovery = 'This updater profile cannot be migrated automatically; no profile change was made. Quit ClawMaster and confirm its Host has exited, then make byte-for-byte backups of DSH_HOME/profiles/web/cordis.patch.yml and DSH_HOME/clawmaster-updates. Restore only a known-good pre-update profile backup; if none exists, leave the files untouched and request an administrator-led offline repair. Do not delete component data or retry automatic activation.';
 
 /** Immutable installation receipt. Installation does not establish that the Loader activated the plugin. */
 export interface InstalledComponent {
@@ -55,7 +58,7 @@ const operationSchema = z.object({
   afterRevision: z.string().regex(/^sha256-[a-f0-9]{64}$/u),
   id: z.string().regex(ID), version: z.string().refine(value => valid(value) === value),
   activation: z.enum(['hot', 'restart']),
-  state: z.enum(['staged', 'applied', 'switching', 'awaiting-health', 'completed', 'rolled-back', 'blocked']),
+  state: z.enum(['staged', 'applied', 'switching', 'awaiting-health', 'completed', 'selected-unverified', 'rolled-back', 'blocked']),
   failure: z.string().optional(),
   direction: z.enum(['update', 'rollback']).optional(),
   activatedAt: z.string().datetime().optional(),
@@ -427,9 +430,22 @@ async function nextPatch(text: string, root: string, target: InstalledComponent)
     return `${prefix}${prefix && !prefix.endsWith('\n') ? '\n' : ''}- insert:\n    - id: ${rowId}\n      name: ${JSON.stringify(target.entryUrl)}\n${text.slice(at)}`;
   }
   const name = node.get('name', true);
-  if (node.items.length !== 2 || !isScalar(name) || typeof name.value !== 'string' || !name.range) throw new Error('The updater-owned row was edited outside the updater');
+  if (target.descriptor.id === 'updates') validateUpdaterRow(node, name);
+  else if (node.items.length !== 2 || !isScalar(name) || typeof name.value !== 'string' || !name.range) throw new Error('The updater-owned row was edited outside the updater');
+  if (!isScalar(name) || typeof name.value !== 'string' || !name.range) throw new Error('The updater-owned row was edited outside the updater');
   await verifyOwnedEntry(root, target.descriptor.id, name.value);
   return `${text.slice(0, name.range[0])}${JSON.stringify(target.entryUrl)}${text.slice(name.range[1])}`;
+}
+
+/** Validate only the published updater row fields while leaving their original YAML bytes untouched. */
+function validateUpdaterRow(row: YAMLMap, name: ReturnType<YAMLMap['get']>): void {
+  const fail = () => { throw new Error(offlineRecovery); };
+  if (row.items.some(pair => !isScalar(pair.key) || typeof pair.key.value !== 'string' || !updaterRowKeys.has(pair.key.value))) fail();
+  if (row.get('id') !== 'clawmaster-update-component-updates' || !isScalar(name) || typeof name.value !== 'string' || !name.range) fail();
+  const disabled = row.get('disabled', true);
+  if (disabled !== undefined && (!isScalar(disabled) || typeof disabled.value !== 'boolean')) fail();
+  const config = row.get('config', true);
+  if (config !== undefined && (!isMap(config) || !Config.safeParse(config.toJSON()).success)) fail();
 }
 
 async function verifyOwnedEntry(root: string, id: string, name: string): Promise<void> {
@@ -449,7 +465,9 @@ async function verifyRollbackEntry(root: string, id: string, text: string): Prom
   const previous = matches[0];
   if (!previous) return;
   const name = previous.get('name');
-  if (previous.items.length !== 2 || typeof name !== 'string') throw new Error('Invalid rollback component row');
+  if (id === 'updates') validateUpdaterRow(previous, previous.get('name', true));
+  else if (previous.items.length !== 2 || typeof name !== 'string') throw new Error('Invalid rollback component row');
+  if (typeof name !== 'string') throw new Error('Invalid rollback component row');
   await verifyOwnedEntry(root, id, name);
 }
 
@@ -577,12 +595,27 @@ export async function maintainRestartComponents(dshHome: string): Promise<Compon
         const switching = { ...record, state: 'switching' as const, afterRevision: revision(record.after) };
         await writeFileAtomic(recordPath, json(switching), { mode: 0o600, dirMode: 0o700 });
         await writeFileAtomic(path, record.after, { mode: 0o600, dirMode: 0o700 });
-        await writeFileAtomic(recordPath, json({ ...switching, state: 'awaiting-health' }), { mode: 0o600, dirMode: 0o700 });
-        changed.push({ ...candidate, state: 'awaiting-health' });
+        const selectedDisabled = disabledUpdaterSelected(record.after);
+        const legacyTarget = !gt(record.version, '0.1.1');
+        const state = selectedDisabled || legacyTarget ? 'selected-unverified' : 'awaiting-health';
+        await writeFileAtomic(recordPath, json({ ...switching, state }), { mode: 0o600, dirMode: 0o700 });
+        changed.push({ ...candidate, state });
       }
     });
   });
   return changed;
+}
+
+/** Detect profile selection that cannot produce an updater health receipt. */
+function disabledUpdaterSelected(text: string): boolean {
+  const doc = parseDocument(text);
+  let disabled = false;
+  visit(doc, { Map(_key, node) {
+    if (node.get('id') !== 'clawmaster-update-component-updates') return;
+    const value = node.get('disabled', true);
+    disabled = isScalar(value) && value.value === true;
+  } });
+  return disabled;
 }
 
 /** Confirm the exact updater entry only after its Host registrations succeed.
@@ -661,7 +694,7 @@ export async function rollbackComponent(options: { dshHome: string; rollbackToke
     const record = await readOperation(root, options.rollbackToken);
     if (typeof record.before !== 'string' || Buffer.byteLength(record.before) > DEFAULT_LIMITS.patchBytes
       || typeof record.id !== 'string' || !ID.test(record.id) || valid(record.version) !== record.version
-      || !['hot', 'restart'].includes(record.activation) || !['staged', 'applied', 'completed'].includes(record.state) || record.afterRevision !== options.expectedPatchRevision
+      || !['hot', 'restart'].includes(record.activation) || !['staged', 'applied', 'completed', 'selected-unverified'].includes(record.state) || record.afterRevision !== options.expectedPatchRevision
       || revision(await optionalPatch(path, DEFAULT_LIMITS.patchBytes)) !== options.expectedPatchRevision) {
       throw new Error('The profile changed after activation; rollback would overwrite newer edits');
     }

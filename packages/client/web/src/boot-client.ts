@@ -1,13 +1,14 @@
 /**
  * Production client composition without the page: mount the Loader over a
- * module system, create every manifest row, wait for quiescence, and audit
- * activation. `AppWebEntry` and the whole-client test carrier both call it.
+ * module system, activate required rows, audit them, and start optional rows
+ * without waiting for their activation. `AppWebEntry` and the whole-client
+ * test carrier both call it.
  * @module @deepseek-ai/dsh-client-web/src/boot-client
  */
 import type { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import type { BootManifest, ClientModuleLoader } from '@deepseek-ai/dsh-client-modules/client'
-import { STATE_LABELS } from './loader-status.ts'
+import { FIBER_STATE, STATE_LABELS } from './loader-status.ts'
 
 /** Entry state label as the boot page renders it. */
 export type EntryStateLabel = (typeof STATE_LABELS)[keyof typeof STATE_LABELS] | 'loading' | 'failed'
@@ -25,10 +26,9 @@ export interface ClientBootOptions {
 }
 
 /**
- * Compose the client: `ctx.plugin(Loader)`, `loader.internal = modules`, one
- * `loader.create({ name })` per manifest row, `loader.await()`, then
- * {@link assertEntriesActive}. A row whose module cannot be imported rejects
- * `loader.create`, so that import error propagates from here as-is.
+ * Compose the client: activate and audit required rows before returning, then
+ * start optional rows in the background. A required row whose module cannot be
+ * imported rejects `loader.create`, so that import error propagates from here.
  * @param options - context, module system, manifest, optional progress sink.
  * @returns resolves after every entry is active; rejects with the audit report otherwise.
  */
@@ -44,15 +44,43 @@ export async function bootClient(options: ClientBootOptions): Promise<void> {
     onEntryState?.(entry.options.name, STATE_LABELS[entry.fiber.state])
   })
 
-  const rows = manifest.plugins.map(row => row.id)
-  await Promise.all(rows.map(async (name) => {
+  const requiredRows = manifest.plugins.filter(row => !row.optional)
+  await Promise.all(requiredRows.map(async ({ id: name }) => {
     onEntryState?.(name, 'loading')
     const id = await loader.create({ name })
     if (loader.resolve(id).fiber === undefined) onEntryState?.(name, 'failed')
   }))
-
   await loader.await()
   assertEntriesActive(ctx)
+  void activateOptionalRows(loader, manifest.plugins.filter(row => row.optional), onEntryState)
+}
+
+/** Activate optional rows after required services are ready without holding page startup open. */
+async function activateOptionalRows(
+  loader: Context['loader'],
+  rows: BootManifest['plugins'],
+  onEntryState: ClientBootOptions['onEntryState'],
+): Promise<void> {
+  await Promise.all(rows.map(async ({ id }) => {
+    onEntryState?.(id, 'loading')
+    try {
+      await loader.create({ name: id })
+    } catch (error) {
+      const entry = Array.from(loader.entries()).find(item => item.options.name === id)
+      if (entry) await loader.remove(entry.id)
+      onEntryState?.(id, 'failed')
+      console.error(`web boot: optional client component ${id} could not be loaded`, error)
+    }
+  }))
+  try { await loader.await() } catch { /* Optional rows are removed and reported below. */ }
+  for (const { id } of rows) {
+    const entry = Array.from(loader.entries()).find(item => item.options.name === id)
+    if (entry && (entry.fiber === undefined || entry.fiber.state !== FIBER_STATE.ACTIVE)) {
+      await loader.remove(entry.id)
+      onEntryState?.(id, 'failed')
+      console.error(`web boot: optional client component ${id} did not activate and was disabled`)
+    }
+  }
 }
 
 /**

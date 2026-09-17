@@ -55,6 +55,8 @@ export interface WebBootEntry {
   url: string
   /** Opaque plugin-artifact revision used for HMR cache busting. */
   rev: string
+  /** Optional client rows may fail without blocking core client boot. */
+  optional?: boolean
   /** Package-name dependency edges used for factory arrival and plugin composition. */
   inject?: string[]
   /** Stage-one prefetch mark: load the script for factory registration during module-face boot. */
@@ -102,6 +104,8 @@ export interface BootModuleRow {
   initialUrl: string
   /** Opaque plugin-artifact revision used after HMR invalidation. */
   rev: string
+  /** Whether failure in this client module may be isolated. */
+  optional: boolean
   /** Injected package rows whose factories arrive before this row materializes. */
   inject: string[]
   /** Module specifiers this row requests from the module table ([] when the wire omits them). */
@@ -112,6 +116,8 @@ export interface BootModuleRow {
 export interface BootPluginRow {
   /** Entry name == package name. */
   id: string
+  /** Whether failure in this client plugin may be isolated. */
+  optional: boolean
   /** Package-name dependency edges ([] when the wire omits them). */
   inject: string[]
   /** Stage-one prefetch tier (false when the wire omits it). */
@@ -165,11 +171,15 @@ export function parseDshClient(pkgName: string, value: unknown): DshClientManife
   }
   const inject = optionalStringArray(pkgName, 'dsh.client.inject', decl.inject)
   const external = optionalStringArray(pkgName, 'dsh.client.external', decl.external)
+  if (decl.optional !== undefined && typeof decl.optional !== 'boolean') {
+    throw new Error(`client-modules: ${pkgName} dsh.client.optional must be a boolean`)
+  }
   if (decl.immediately !== undefined && typeof decl.immediately !== 'boolean') {
     throw new Error(`client-modules: ${pkgName} dsh.client.immediately must be a boolean`)
   }
   return {
     platform: decl.platform,
+    ...(decl.optional !== undefined ? { optional: decl.optional } : {}),
     ...(inject !== undefined ? { inject } : {}),
     ...(external !== undefined ? { external } : {}),
     ...(decl.immediately !== undefined ? { immediately: decl.immediately } : {}),
@@ -244,15 +254,20 @@ export function parseBootManifest(wire: unknown): BootManifest {
     if (row.immediately !== undefined && typeof row.immediately !== 'boolean') {
       throw new Error(`client-modules: boot manifest entry ${where} immediately must be a boolean`)
     }
+    if (row.optional !== undefined && typeof row.optional !== 'boolean') {
+      throw new Error(`client-modules: boot manifest entry ${where} optional must be a boolean`)
+    }
     moduleFields.push({
       id: row.id,
       url: row.url,
       rev: row.rev,
+      optional: row.optional === true,
       inject: inject === undefined ? [] : [...inject],
       external: external === undefined ? [] : [...external],
     })
     plugins.push({
       id: row.id,
+      optional: row.optional === true,
       inject: inject === undefined ? [] : [...inject],
       immediately: row.immediately === true,
     })

@@ -38,6 +38,23 @@ struct RpaCallRequest {
     approval_id: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RpaValidationRequest {
+    tool: String,
+    #[serde(default)]
+    arguments: Value,
+}
+
+/// Validate a recovered tool call without opening profile state or dispatching it.
+pub fn validate_request(request_json: &str) -> Result<Value, String> {
+    let request: RpaValidationRequest = serde_json::from_str(request_json)
+        .map_err(|error| format!("RPA 请求 JSON 无效: {error}"))?;
+    let call = ModelToolCall { id: "preflight".into(), name: request.tool, arguments: request.arguments };
+    crate::native_rpa::validate_model_call(&call)?;
+    Ok(serde_json::json!({"valid": true}))
+}
+
 /// Run one `rpa_*` tool call against a profile root.
 ///
 /// @param request_json A JSON object with `root`, `tool`, optional `arguments`
@@ -46,15 +63,18 @@ struct RpaCallRequest {
 pub fn run_blocking(request_json: &str) -> Result<Value, String> {
     let request: RpaCallRequest =
         serde_json::from_str(request_json).map_err(|error| format!("RPA 请求 JSON 无效: {error}"))?;
+    let store = NativeStateStore::open(&request.root.join("state"))
+        .map_err(|error| format!("无法打开 RPA 状态库: {error}"))?;
+    run_request_blocking(request, store)
+}
 
+fn run_request_blocking(request: RpaCallRequest, store: NativeStateStore) -> Result<Value, String> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .map_err(|error| format!("无法启动 RPA 运行时: {error}"))?;
 
     runtime.block_on(async move {
-        let store = NativeStateStore::open(&request.root.join("state"))
-            .map_err(|error| format!("无法打开 RPA 状态库: {error}"))?;
         let rpa = NativeRpa::open(&request.root, store)?;
 
         let call = ModelToolCall {
@@ -67,7 +87,9 @@ pub fn run_blocking(request_json: &str) -> Result<Value, String> {
         // as touching the outside world executes only with an approval binding;
         // otherwise the refusal is receipted through the recovered path, so an
         // unattended call leaves evidence instead of an action.
-        if is_write_call(&call) && request.approval_id.is_none() {
+        // A helper subprocess has no trusted link to the Tauri broker. A
+        // caller-controlled approvalId therefore never authorizes a write.
+        if is_write_call(&call) {
             return rpa.record_rejection(&call, &approval_summary(&call));
         }
 
@@ -93,11 +115,19 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    fn run_with_test_key(request: &str, root: &std::path::Path) -> Result<Value, String> {
+        let request: RpaCallRequest = serde_json::from_str(request)
+            .map_err(|error| format!("RPA 请求 JSON 无效: {error}"))?;
+        let store = NativeStateStore::open_for_test(&root.join("state"), [7; 32])
+            .map_err(|error| error.to_string())?;
+        run_request_blocking(request, store)
+    }
+
     /// The gate this adapter owns. `is_write` classifies `rpa_start` as external,
     /// and `execute` reaches `launch` without checking approval itself, so an
     /// unapproved start must produce a receipted refusal instead of a browser.
     #[test]
-    fn refuses_a_write_tool_without_an_approval_binding() {
+    fn refuses_a_write_tool_even_with_a_forged_approval_binding() {
         let root = tempfile::tempdir().unwrap();
         let request = json!({
             "root": root.path(),
@@ -108,10 +138,11 @@ mod tests {
                 "platformId": "p1",
                 "url": "https://example.com",
             },
-            "approvalId": null,
+            "approvalId": "forged-without-host-authorization",
         });
 
-        let value = run_blocking(&request.to_string()).expect("a refusal is a successful call");
+        let value = run_with_test_key(&request.to_string(), root.path())
+            .expect("a refusal is a successful call");
 
         assert_eq!(value["profilePath"], "", "no browser profile may be created");
         let receipt = &value["receipts"][0];
@@ -142,7 +173,7 @@ mod tests {
             "approvalId": null,
         });
 
-        let value = run_blocking(&request.to_string()).unwrap();
+        let value = run_with_test_key(&request.to_string(), root.path()).unwrap();
         assert_eq!(value, json!({ "run": null }));
     }
 

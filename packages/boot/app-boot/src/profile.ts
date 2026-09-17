@@ -84,6 +84,8 @@ export interface Profile {
   patches: PatchOptions[]
   /** Whether the launcher watches user patch files after boot. */
   patchReload: ProfilePatchReload
+  /** Loader package names approved as optional by the owning desktop runtime. */
+  optionalClientPackages: string[]
 }
 
 /**
@@ -781,6 +783,12 @@ export function loadProfileDirectory(
     )
   }
   const patchReload = rawPatchReload ?? DEFAULT_PROFILE_PATCH_RELOAD
+  const optionalClientPackages = manifest.dsh?.profile?.optionalClientPackages ?? []
+  if (!Array.isArray(optionalClientPackages) || optionalClientPackages.some(name => typeof name !== 'string')) {
+    throw new Error(
+      `${binName}: profile manifest ${join(dir, 'package.json')} dsh.profile.optionalClientPackages must be package names`,
+    )
+  }
   const layers = bundles.map((packageName): ProfileLayer => {
     const packageDir = resolveBundleDir(binName, packageName, installAnchor, dir)
     const bundleManifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8')) as ProfileManifest
@@ -795,7 +803,7 @@ export function loadProfileDirectory(
   const patches = options.userLayer !== false && existsSync(patchPath)
     ? loadOverlayPatches(binName, patchPath)
     : []
-  return { name: basename(dir), dir, layers, patchPath, patches, patchReload }
+  return { name: basename(dir), dir, layers, patchPath, patches, patchReload, optionalClientPackages }
 }
 
 /**

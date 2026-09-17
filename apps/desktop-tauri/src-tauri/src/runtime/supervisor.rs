@@ -13,9 +13,11 @@ use super::process::{
 use super::provision::RuntimePaths;
 use super::wsl::{build_wsl_web_command, WslLaunchSpec, WslRunner, WslRuntimePaths};
 use crate::i18n::{self, Msg};
+use crate::native_broker::{self, BrokerState};
+use tauri::AppHandle;
 
 /// Maximum allowlisted feature plugins one boot disables before giving up on the Host.
-const MAX_PLUGIN_RESCUES: usize = 4;
+const MAX_PLUGIN_RESCUES: usize = 16;
 /// Bound for reading the Linux pid handshake from WSL stderr.
 const WSL_PID_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -87,6 +89,7 @@ pub struct HostOverlay {
 /// plugin disabled through a rescue `--patch` overlay. Core and unknown entry
 /// failures remain fatal; a rescued disable lasts only this boot.
 pub async fn spawn_web_host(
+    app: AppHandle,
     paths: &RuntimePaths,
     overlay: Option<&HostOverlay>,
     host_path: &str,
@@ -100,6 +103,7 @@ pub async fn spawn_web_host(
 
     reclaim_stale_host(&host_pid_path());
     super::component_maintenance::before_host_start(paths).await?;
+    spawn_environment_credential_migration(&app);
     let port = pick_port(DEFAULT_WEB_PORT)?;
     let web_url = format!("http://127.0.0.1:{port}/");
     let mut disabled_plugins: Vec<String> = Vec::new();
@@ -120,7 +124,14 @@ pub async fn spawn_web_host(
             }
         ));
         let run_id = super::current::new_run_id()?;
-        let child = spawn_child(paths, port, overlay, host_path, rescue_patch.as_deref(), &run_id)?;
+        let child = spawn_child(
+            paths,
+            port,
+            overlay,
+            host_path,
+            rescue_patch.as_deref(),
+            &run_id,
+        )?;
         let pid = child.id();
         #[cfg(windows)]
         let job = attach_host_job(&child);
@@ -141,13 +152,22 @@ pub async fn spawn_web_host(
         }
 
         let startup_url = Arc::new(Mutex::new(None));
+        let broker_writer = child_handle
+            .lock()
+            .map_err(|e| e.to_string())?
+            .as_mut()
+            .and_then(|child| child.stdin.take())
+            .map(|stdin| Arc::new(Mutex::new(Box::new(stdin) as Box<dyn std::io::Write + Send>)));
+        if let Some(writer) = &broker_writer {
+            native_broker::announce_ready(writer, &BrokerState::default());
+        }
         if let Some(stdout) = child_handle
             .lock()
             .map_err(|e| e.to_string())?
             .as_mut()
-            .and_then(|c| c.stdout.take())
+            .and_then(|child| child.stdout.take())
         {
-            collect_startup_url(stdout, &web_url, Arc::clone(&startup_url));
+            collect_startup_url(stdout, &web_url, Arc::clone(&startup_url), Some(app.clone()), broker_writer, BrokerState::default());
         }
 
         let ready = wait_for_http(
@@ -171,6 +191,7 @@ pub async fn spawn_web_host(
             last_error = error.clone();
             match failing_loader_entry(&error)
                 .filter(|entry| is_rescuable_desktop_plugin(entry))
+                .map(|entry| normalize_rescue_entry_id(&entry).to_string())
                 .filter(|entry| !disabled_plugins.contains(entry))
             {
                 Some(entry) => {
@@ -188,16 +209,25 @@ pub async fn spawn_web_host(
         let current = if super::config::dev_launch_mode().as_deref() == Some("local") {
             None
         } else {
-            match super::current::CurrentRuntime::ready(paths, pid, port, &disabled_plugins, &run_id) {
+            match super::current::CurrentRuntime::ready(
+                paths,
+                pid,
+                port,
+                &disabled_plugins,
+                &run_id,
+            ) {
                 Ok(current) => Some(current),
                 Err(error) => {
-                    if let Some(mut child) = child_handle.lock().map_err(|e| e.to_string())?.take() {
+                    if let Some(mut child) = child_handle.lock().map_err(|e| e.to_string())?.take()
+                    {
                         kill_process_tree(child.id());
                         let _ = child.kill();
                         let _ = child.wait();
                     }
                     let _ = std::fs::remove_file(host_pid_path());
-                    return Err(format!("Cannot record the current desktop runtime: {error}"));
+                    return Err(format!(
+                        "Cannot record the current desktop runtime: {error}"
+                    ));
                 }
             }
         };
@@ -221,10 +251,12 @@ pub async fn spawn_web_host(
 /// `runner` is reserved for callers that already hold a `WslRunner`; the long-lived
 /// Host is spawned via `wsl.exe` directly so stdout/stderr stay piped.
 pub async fn spawn_wsl_web_host(
+    app: AppHandle,
     paths: &WslRuntimePaths,
     overlay: Option<&HostOverlay>,
     _runner: &dyn WslRunner,
 ) -> Result<HostHandle, String> {
+    spawn_environment_credential_migration(&app);
     reclaim_stale_host(&host_pid_path());
     let port = pick_port(DEFAULT_WEB_PORT)?;
     let web_url = format!("http://127.0.0.1:{port}/");
@@ -235,6 +267,7 @@ pub async fn spawn_wsl_web_host(
         linux_cli: paths.linux_cli.clone(),
         linux_harness_root: paths.linux_harness_root.clone(),
         linux_dsh_home: paths.linux_dsh_home.clone(),
+        linux_credential_roots: paths.linux_credential_roots.clone(),
         linux_path: paths.linux_path.clone(),
         linux_patch: paths.linux_patch.clone(),
         notify_url: overlay.map(|o| o.notify_url.clone()),
@@ -267,8 +300,11 @@ pub async fn spawn_wsl_web_host(
     }
 
     let startup_url = Arc::new(Mutex::new(None));
+    let broker_state = BrokerState::credentials_only();
+    let broker_writer = child.stdin.take().map(|stdin| Arc::new(Mutex::new(Box::new(stdin) as Box<dyn std::io::Write + Send>)));
+    if let Some(writer) = &broker_writer { native_broker::announce_ready(writer, &broker_state); }
     if let Some(stdout) = child.stdout.take() {
-        collect_startup_url(stdout, &web_url, Arc::clone(&startup_url));
+        collect_startup_url(stdout, &web_url, Arc::clone(&startup_url), Some(app), broker_writer, broker_state);
     }
 
     let child_handle = Arc::new(Mutex::new(Some(child)));
@@ -402,6 +438,7 @@ fn spawn_wsl_child(command: &super::wsl::WslCommand) -> Result<Child, String> {
     let mut cmd = Command::new(&command.program);
     cmd.args(&command.args)
         .stdout(Stdio::piped())
+        .stdin(Stdio::piped())
         .stderr(Stdio::piped());
     hide_console(&mut cmd);
     cmd.spawn()
@@ -502,25 +539,44 @@ fn write_rescue_patch(ids: &[String]) -> Result<PathBuf, String> {
 /// One `disabled: true` patch row per plugin entry id.
 fn rescue_patch_body(ids: &[String]) -> String {
     ids.iter()
-        .map(|id| format!("- id: {id}\n  disabled: true\n"))
+        .map(|id| {
+            format!(
+                "- id: {}\n  disabled: true\n",
+                normalize_rescue_entry_id(id)
+            )
+        })
         .collect()
+}
+
+/// Remove the synthetic root Include id before targeting a row in its child tree.
+fn normalize_rescue_entry_id(id: &str) -> &str {
+    id.strip_prefix("include:").unwrap_or(id)
 }
 
 /// The plugin entry id named by a loader failure message, e.g.
 /// "failed to apply loader entry dsh-plugins-catalog (…): invalid plugin".
-/// The innermost (last) occurrence is taken; nested causes repeat the id.
+/// The innermost (last) import, apply, or activation marker is taken.
 fn failing_loader_entry(message: &str) -> Option<String> {
-    const NEEDLE: &str = "failed to apply loader entry ";
-    let start = message.rfind(NEEDLE)? + NEEDLE.len();
+    const NEEDLES: [&str; 3] = [
+        "failed to import loader entry ",
+        "failed to apply loader entry ",
+        "failed to activate loader entry ",
+    ];
+    let (position, needle) = NEEDLES
+        .iter()
+        .filter_map(|needle| message.rfind(needle).map(|position| (position, *needle)))
+        .max_by_key(|(position, _)| *position)?;
+    let start = position + needle.len();
     let id: String = message[start..]
         .chars()
-        .take_while(|c| !c.is_whitespace() && *c != '(' && *c != ':')
+        .take_while(|c| !c.is_whitespace() && *c != '(')
         .collect();
     (!id.is_empty()).then_some(id)
 }
 
 /// Only feature integrations may be disabled during desktop startup recovery.
 fn is_rescuable_desktop_plugin(id: &str) -> bool {
+    let id = id.rsplit(':').next().unwrap_or(id);
     matches!(
         id,
         "xmanrui-dsh-im"
@@ -585,6 +641,11 @@ fn spawn_child(
     run_id: &str,
 ) -> Result<Child, String> {
     let mut cmd = Command::new(&paths.node_binary);
+    cmd.env_clear();
+    cmd.envs(sanitized_host_environment(std::env::vars_os()));
+    if let Ok(data_root) = app_data_root() {
+        cmd.env("CLAWMASTER_CREDENTIAL_ISOLATED_HOME", data_root.join("dsh-home"));
+    }
     if super::config::dev_launch_mode().as_deref() != Some("local") {
         cmd.arg("--import")
             .arg(desktop_preload_url(&paths.harness_root)?.as_str());
@@ -604,18 +665,40 @@ fn spawn_child(
         .arg("--port")
         .arg(port.to_string())
         .env("DSH_HOME", &paths.dsh_home)
-        .env("CLAWMASTER_RUNTIME_STATE", super::current::state_path(&paths.dsh_home))
+        .env("CLAWMASTER_CREDENTIAL_LEGACY_ROOTS", "[]")
+        .env(
+            "CLAWMASTER_RUNTIME_STATE",
+            super::current::state_path(&paths.dsh_home),
+        )
         .env("CLAWMASTER_RUNTIME_RUN_ID", run_id)
         .env("PATH", host_path)
         .env("NODE_ENV", "production")
         .current_dir(&paths.harness_root)
         .stdout(Stdio::piped())
+        .stdin(Stdio::piped())
         .stderr(Stdio::piped());
 
     isolate_host_group(&mut cmd);
     hide_console(&mut cmd);
 
     cmd.spawn().map_err(|e| format!("无法启动 dsh web: {e}"))
+}
+
+/// Import inherited model credentials without delaying the desktop Host startup.
+fn spawn_environment_credential_migration(app: &AppHandle) {
+    let app = app.clone();
+    let environment = std::env::vars_os().collect::<Vec<_>>();
+    std::thread::spawn(move || native_broker::migrate_environment_credentials(&app, environment));
+}
+
+/// Remove inherited model credentials before Node plugins load.
+fn sanitized_host_environment(
+    environment: impl IntoIterator<Item = (std::ffi::OsString, std::ffi::OsString)>,
+) -> Vec<(std::ffi::OsString, std::ffi::OsString)> {
+    environment
+        .into_iter()
+        .filter(|(name, _)| !native_broker::is_secret_environment_name(name))
+        .collect()
 }
 
 fn drain_lines<R: std::io::Read>(reader: R, sink: Arc<Mutex<Vec<String>>>) {
@@ -746,6 +829,9 @@ fn collect_startup_url(
     stdout: impl std::io::Read + Send + 'static,
     base: &str,
     target: Arc<Mutex<Option<String>>>,
+    app: Option<AppHandle>,
+    writer: Option<Arc<Mutex<Box<dyn std::io::Write + Send>>>>,
+    broker_state: BrokerState,
 ) {
     let base = base.to_string();
     std::thread::spawn(move || {
@@ -754,6 +840,9 @@ fn collect_startup_url(
                 if let Ok(mut value) = target.lock() {
                     *value = Some(url);
                 }
+            }
+            if let (Some(app), Some(writer)) = (&app, &writer) {
+                native_broker::handle_line(app.clone(), Arc::clone(writer), broker_state.clone(), &line);
             }
         }
     });
@@ -776,18 +865,47 @@ fn port_free(port: u16) -> bool {
 mod tests {
     use super::{
         failing_loader_entry, is_missing_dependency_failure, is_rescuable_desktop_plugin,
-        parse_linux_pid_from_stderr, read_linux_pid_handshake, rescue_patch_body, wsl_stop_args,
+        parse_linux_pid_from_stderr, read_linux_pid_handshake, rescue_patch_body,
+        sanitized_host_environment, wsl_stop_args,
     };
+    use std::ffi::OsString;
     use std::io::Read;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
+
+    #[test]
+    fn child_environment_drops_secret_variables_and_preserves_runtime_variables() {
+        let filtered = sanitized_host_environment([
+            (OsString::from("PATH"), OsString::from("/usr/bin")),
+            (OsString::from("HOME"), OsString::from("/home/user")),
+            (OsString::from("LANG"), OsString::from("en_US.UTF-8")),
+            (OsString::from("DEEPSEEK_API_KEY"), OsString::from("secret")),
+            (OsString::from("AWS_ACCESS_KEY_ID"), OsString::from("secret")),
+            (OsString::from("MONKEY"), OsString::from("secret")),
+            (OsString::from("OpenAI_Api_Key"), OsString::from("secret")),
+            (OsString::from("OAUTH_TOKEN"), OsString::from("secret")),
+            (OsString::from("DB_PASSWORD"), OsString::from("secret")),
+            (OsString::from("SERVICE_SECRET"), OsString::from("secret")),
+        ]);
+        let names: Vec<_> = filtered
+            .iter()
+            .map(|(name, _)| name.to_string_lossy().into_owned())
+            .collect();
+        assert!(names.iter().any(|name| name == "PATH"));
+        assert!(names.iter().any(|name| name == "HOME"));
+        assert!(names.iter().any(|name| name == "LANG"));
+        assert_eq!(names.len(), 3);
+    }
 
     #[test]
     fn preload_url_preserves_native_paths_and_encodes_url_delimiters() {
         let root = std::env::temp_dir().join("ClawMaster 空间 # %");
         let url = super::desktop_preload_url(&root).unwrap();
         assert_eq!(url.scheme(), "file");
-        assert_eq!(url.to_file_path().unwrap(), root.join("desktop-defaults.mjs"));
+        assert_eq!(
+            url.to_file_path().unwrap(),
+            root.join("desktop-defaults.mjs")
+        );
         assert!(url.as_str().contains("%20"));
         assert!(url.as_str().contains("%23"));
         assert!(url.as_str().contains("%25"));
@@ -797,8 +915,8 @@ mod tests {
 
     #[test]
     fn preload_url_rejects_a_relative_harness_path() {
-        let error = super::desktop_preload_url(std::path::Path::new("relative-harness"))
-            .unwrap_err();
+        let error =
+            super::desktop_preload_url(std::path::Path::new("relative-harness")).unwrap_err();
         assert!(error.contains("relative-harness"));
         assert!(error.contains("file URL"));
     }
@@ -838,6 +956,26 @@ invalid plugin, expect function or object with an \"apply\" method, received obj
         );
         assert_eq!(failing_loader_entry("dsh web 进程已退出 (code 1)"), None);
         assert_eq!(failing_loader_entry("failed to apply loader entry "), None);
+        assert_eq!(
+            failing_loader_entry(
+                "failed to import loader entry clawmaster-rpa (./rpa.mjs): missing"
+            ),
+            Some("clawmaster-rpa".to_string())
+        );
+        assert_eq!(
+            failing_loader_entry(
+                "failed to apply loader entry include (cordis:include): failed to import loader entry include:clawmaster-rpa (./rpa.mjs): missing"
+            ),
+            Some("include:clawmaster-rpa".to_string())
+        );
+        assert_eq!(
+            failing_loader_entry("failed to activate loader entry clawmaster-graph-memory (Graph Memory): pending (waiting for service: clawmasterNotes)"),
+            Some("clawmaster-graph-memory".to_string())
+        );
+        assert_eq!(
+            failing_loader_entry("failed to activate loader entry include:clawmaster-graph-memory (Graph Memory): pending (waiting for service: clawmasterNotes)"),
+            Some("include:clawmaster-graph-memory".to_string())
+        );
     }
 
     #[test]
@@ -856,6 +994,7 @@ invalid plugin, expect function or object with an \"apply\" method, received obj
         ] {
             assert!(is_rescuable_desktop_plugin(id), "{id}");
         }
+        assert!(is_rescuable_desktop_plugin("include:clawmaster-rpa"));
         for id in [
             "clawmaster-frontend",
             "clawmaster-guard",
@@ -866,6 +1005,7 @@ invalid plugin, expect function or object with an \"apply\" method, received obj
         ] {
             assert!(!is_rescuable_desktop_plugin(id), "{id}");
         }
+        assert!(!is_rescuable_desktop_plugin("include:clawmaster-guard"));
     }
 
     #[test]
@@ -886,6 +1026,10 @@ imported from C:\\harness\\apps\\cli\\lib\\bin.js";
         assert_eq!(
             rescue_patch_body(&["a-b".to_string(), "c.d".to_string()]),
             "- id: a-b\n  disabled: true\n- id: c.d\n  disabled: true\n"
+        );
+        assert_eq!(
+            rescue_patch_body(&["include:clawmaster-rpa".to_string()]),
+            "- id: clawmaster-rpa\n  disabled: true\n"
         );
     }
 

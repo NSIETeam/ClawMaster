@@ -183,6 +183,16 @@ pub fn is_write(name: &str) -> bool {
     )
 }
 
+/// Validate write arguments that can be rejected without opening RPA state or touching the desktop.
+pub fn validate_model_call(call: &ModelToolCall) -> Result<(), String> {
+    if call.name == "rpa_start" {
+        let url = call.arguments.get("url").and_then(Value::as_str)
+            .ok_or_else(|| "RPA 参数 url 缺失".to_owned())?;
+        browser::validate_navigation_url(url)?;
+    }
+    Ok(())
+}
+
 pub fn is_write_call(call: &ModelToolCall) -> bool {
     if call.name != "opencli" {
         return is_write(&call.name);

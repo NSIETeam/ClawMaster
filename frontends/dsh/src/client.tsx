@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { BrandMark, BrandName, HeroMark, Workbench, WorkbenchIcon } from './Workbench.tsx';
-import { connectionLabel, enterpriseTabTypes, recentSessions, type FrontendServices, type Observable, type WorkbenchRuntimeProps } from './services.ts';
+import { connectionLabel, enterpriseTabTypes, observeBetterSidebar, recentSessions, type FrontendServices, type Observable, type WorkbenchRuntimeProps } from './services.ts';
 import { productCopy, type ProductLocale } from './locales/frontend.ts';
 import { createProductActions, ProductNavigationError } from './navigation.ts';
 import { createInitialEntry, type InitialEntryProps } from './initial-entry.ts';
@@ -20,7 +20,7 @@ import { prepareTaskExecution, retryTaskExecution, type PreparedTaskExecution } 
 import { observeModelResponses } from './home-model-evidence.ts';
 
 export const name = 'clawmaster-frontend';
-export const inject = ['slots', 'theme', 'sessions', 'workspaces', 'connection', 'uiWorkspace', 'layout', 'locale', 'betterSidebar', 'settingsScope'];
+export const inject = ['slots', 'theme', 'sessions', 'workspaces', 'connection', 'uiWorkspace', 'layout', 'locale', 'settingsScope'];
 const PLUGIN_ID = '@clawmaster/dsh-frontend';
 type SessionBinding = NonNullable<ReturnType<FrontendServices['sessions']['binding']>>;
 
@@ -242,15 +242,24 @@ export function apply(ctx: FrontendServices): void {
       }}>{busy ? copy.preparing : copy.openInSidebar}</button>
     </div>;
   }
-  for (const [module, Component, order] of [['crm', ConnectedCRM, 200], ['erp', ConnectedERP, 210]] as const) {
-    ctx.effect(() => ctx.betterSidebar.registerTab({
-      id: enterpriseTabTypes[module], single: true, order,
-      title: () => productCopy(selectedLocale())[module],
-      description: () => productCopy(selectedLocale())[`${module}Hint`],
-      icon: size => <WorkbenchIcon size={size} />, component: () => <Component />,
-      settings: { render: ({ close }) => <ComponentSettings module={module} close={close} /> },
-    }), `clawmaster: ${module} sidebar component`);
-  }
+  observeBetterSidebar(ctx, betterSidebar => {
+    const unregister: (() => void)[] = [];
+    try {
+      for (const [module, Component, order] of [['crm', ConnectedCRM, 200], ['erp', ConnectedERP, 210]] as const) {
+        unregister.push(betterSidebar.registerTab({
+          id: enterpriseTabTypes[module], single: true, order,
+          title: () => productCopy(selectedLocale())[module],
+          description: () => productCopy(selectedLocale())[`${module}Hint`],
+          icon: size => <WorkbenchIcon size={size} />, component: () => <Component />,
+          settings: { render: ({ close }) => <ComponentSettings module={module} close={close} /> },
+        }));
+      }
+    } catch (error) {
+      for (const dispose of unregister.reverse()) dispose();
+      throw error;
+    }
+    return () => { for (const dispose of unregister.reverse()) dispose(); };
+  });
   function InitialEntry({ usePanelInfo }: InitialEntryProps) {
     const selected = usePanelInfo(panel => panel.activePanelId);
     useEffect(() => { initialEntry.start(selected); }, [selected]);

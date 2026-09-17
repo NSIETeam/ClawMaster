@@ -21,6 +21,7 @@ pub struct WslLaunchSpec {
     pub linux_cli: String,
     pub linux_harness_root: String,
     pub linux_dsh_home: String,
+    pub linux_credential_roots: Vec<String>,
     pub linux_path: String,
     pub linux_patch: Option<String>,
     pub notify_url: Option<String>,
@@ -48,6 +49,11 @@ pub fn build_wsl_web_command(spec: &WslLaunchSpec) -> Result<WslCommand, String>
         "/usr/bin/env".into(),
         format!("PATH={}", spec.linux_path),
         format!("DSH_HOME={}", spec.linux_dsh_home),
+        format!(
+            "CLAWMASTER_CREDENTIAL_LEGACY_ROOTS={}",
+            serde_json::to_string(&spec.linux_credential_roots)
+                .map_err(|error| format!("credential root serialization failed: {error}"))?
+        ),
         "DSH_DESKTOP_DEFAULTS=1".into(),
         "NODE_ENV=production".into(),
     ];
@@ -96,6 +102,7 @@ mod tests {
                 .into(),
             linux_harness_root: "/home/u/.local/share/dsh-desktop/harness-versions/abc".into(),
             linux_dsh_home: "/home/u/.dsh".into(),
+            linux_credential_roots: vec!["/mnt/c/Users/u/.dsh".into()],
             linux_path: "/home/u/.local/share/dsh-desktop/runtime/node/bin:/usr/bin".into(),
             linux_patch: Some("/home/u/.dsh/desktop-overlay/cordis.yml".into()),
             notify_url: Some("http://127.0.0.1:17991/".into()),
@@ -118,6 +125,7 @@ mod tests {
             "/usr/bin/env".to_string(),
             "PATH=/home/u/.local/share/dsh-desktop/runtime/node/bin:/usr/bin".to_string(),
             "DSH_HOME=/home/u/.dsh".to_string(),
+            "CLAWMASTER_CREDENTIAL_LEGACY_ROOTS=[\"/mnt/c/Users/u/.dsh\"]".to_string(),
             "DSH_DESKTOP_DEFAULTS=1".to_string(),
             "NODE_ENV=production".to_string(),
             "DSH_DESKTOP_NOTIFY_URL=http://127.0.0.1:17991/".to_string(),
@@ -141,6 +149,17 @@ mod tests {
         assert_eq!(cmd.args, expected);
         assert!(cmd.args.iter().any(|a| a == "--exec"));
         assert!(!cmd.args.iter().any(|a| a == "bash" || a == "-lc"));
+    }
+
+    #[test]
+    fn empty_credential_roots_override_inherited_wsl_values() {
+        let mut s = spec();
+        s.linux_credential_roots.clear();
+        let cmd = build_wsl_web_command(&s).unwrap();
+        assert!(cmd
+            .args
+            .iter()
+            .any(|arg| arg == "CLAWMASTER_CREDENTIAL_LEGACY_ROOTS=[]"));
     }
 
     #[test]

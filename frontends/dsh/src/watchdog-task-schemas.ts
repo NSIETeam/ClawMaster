@@ -17,11 +17,42 @@ const taskFields = {
 const definition = { type: 'object', additionalProperties: false, required: true, properties: taskFields } as const;
 const evidence = { type: 'array', required: true, items: { type: 'object', additionalProperties: false,
   properties: { id: text, location: text, observedAt: text, summary: text } } } as const;
+const capsuleScope = { required: true, oneOf: [
+  { type: 'object', additionalProperties: false, properties: { kind: { ...text, const: 'user' } } },
+  { type: 'object', additionalProperties: false, properties: { kind: { ...text, const: 'project' }, id: text } },
+  { type: 'object', additionalProperties: false, properties: { kind: { ...text, const: 'session' }, id: text } },
+] } as const;
+const capsuleData = { type: 'object', required: true, additionalProperties: false, properties: {
+  decisions: { type: 'array', required: true, items: { type: 'object', additionalProperties: false,
+    properties: { id: text, decision: text, rationale: text, recordedAt: text } } },
+  fileHashes: { type: 'array', required: true, items: { type: 'object', additionalProperties: false,
+    properties: { path: text, sha256: text, observedAt: text } } },
+  verificationResults: { type: 'array', required: true, items: { type: 'object', additionalProperties: false,
+    properties: { id: text, status: { ...text, enum: ['passed', 'failed', 'blocked', 'pending'] }, summary: text, verifiedAt: text } } },
+  unfinishedActions: { type: 'array', required: true, items: { type: 'object', additionalProperties: false,
+    properties: { id: text, description: text, status: { ...text, enum: ['pending', 'in_progress', 'blocked'] }, ownerId: { type: 'string' } } } },
+  memoryIds: strings,
+} } as const;
+const stateCapsules = { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+  ownerId: text,
+  target: text,
+  approvalState: { type: 'object', required: true, additionalProperties: false, properties: {
+    status: { ...text, enum: ['draft', 'ready', 'in_progress', 'awaiting_review', 'accepted', 'failed', 'cancelled'] },
+    lastReview: { required: true, oneOf: [{ type: 'null' }, { type: 'object', additionalProperties: false,
+      properties: { actorId: text, decision: { ...text, enum: ['accept', 'reject'] }, comment: text, at: text } }] },
+  } },
+  scope: { required: true, oneOf: [
+    { type: 'object', additionalProperties: false, properties: { kind: { ...text, const: 'user' }, id: text } },
+    { type: 'object', additionalProperties: false, properties: { kind: { ...text, const: 'project' }, id: text } },
+    { type: 'object', additionalProperties: false, properties: { kind: { ...text, const: 'session' }, id: text } },
+  ] },
+  data: capsuleData, updatedAt: text,
+} } } as const;
 const task = { type: 'object', additionalProperties: false, properties: { ...taskFields,
   id: text, organizationId: text, revision: integer, status: { ...text, enum: ['draft', 'ready', 'in_progress', 'awaiting_review', 'accepted', 'failed', 'cancelled'] },
   createdAt: text, updatedAt: text, source: { ...text, enum: ['new', 'imported-session'] }, sessionIds: strings,
   execution: { required: true, oneOf: [{ type: 'null' }, { type: 'object', additionalProperties: false, properties: { sessionId: text, requestId: text, locale: { type: 'string', enum: ['zh-CN', 'en-US'] }, commandId: { type: 'string' } } }] },
-  waitingFor: nullableText, evidence, completedCriteria: strings, submittedBy: nullableText,
+  waitingFor: nullableText, evidence, stateCapsules, completedCriteria: strings, submittedBy: nullableText,
   lastReview: { required: true, oneOf: [{ type: 'null' }, { type: 'object', additionalProperties: false,
     properties: { actorId: text, decision: { ...text, enum: ['accept', 'reject'] }, comment: text, at: text } }] },
 } } as const;
@@ -37,6 +68,7 @@ export const taskCommandParameters = { ...parameterSchemaSpecToJsonSchema({ id: 
     { type: 'object', additionalProperties: false, properties: { type: { ...text, const: 'wait' }, reason: nullableText } },
     { type: 'object', additionalProperties: false, properties: { type: { ...text, const: 'fail' }, reason: text } },
     { type: 'object', additionalProperties: false, properties: { type: { ...text, const: 'submit' }, evidence, completedCriteria: strings } },
+    { type: 'object', additionalProperties: false, properties: { type: { ...text, const: 'capsule' }, scope: capsuleScope, data: capsuleData } },
     { type: 'object', additionalProperties: false, properties: { type: { ...text, const: 'review' }, decision: { ...text, enum: ['accept', 'reject'] }, comment: text } },
     { type: 'object', additionalProperties: false, properties: { type: { ...text, const: 'reopen' }, reason: text } },
     { type: 'object', additionalProperties: false, properties: { type: { ...text, const: 'cancel' }, reason: text } },

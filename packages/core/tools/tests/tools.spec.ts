@@ -1998,6 +1998,10 @@ describe('ToolRuntime', () => {
         type: 'object',
         properties: { value: { $ref: '#/$defs/value' } },
         $defs: { value: { type: 'string', format: 'email' } },
+        anyOf: [{ required: ['value'] }, { properties: { legacy: { type: 'integer' } } }],
+        prefixItems: [{ type: 'string' }, { type: 'integer' }],
+        dependencies: { value: ['legacy'] },
+        'x-mcp-hint': { vendor: ['preserved'] },
       },
     }
     ctx.tools.register(advanced)
@@ -2018,13 +2022,75 @@ describe('ToolRuntime', () => {
       async execute() { calls++; return 'should not run' },
     })
     let asks = 0
-    ctx.on('tools/pre-execute', () => { asks++; return { kind: 'ask', reason: 'must not reach approval' } })
+    ctx.on('tools/pre-execute', async () => { asks++; return { kind: 'ask', reason: 'must not reach approval' } })
 
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('invalid'), name: 'invalid-root', arguments: {} })
 
     expect(result).toMatchObject({ isError: true, error: { info: { code: 'INVALID_TOOL_SCHEMA' } } })
     expect(calls).toBe(0)
     expect(asks).toBe(0)
+  })
+
+  it.each([
+    ['properties is not a schema map', { type: 'object', properties: 'broken' }],
+    ['a nested schema has an unknown type', { type: 'object', properties: { child: { type: 'imaginary' } } }],
+    ['an anyOf branch is not a schema', { type: 'object', anyOf: [{ type: 'string' }, 'broken'] }],
+    ['allOf is empty', { type: 'object', allOf: [] }],
+    ['anyOf is empty', { type: 'object', anyOf: [] }],
+    ['oneOf is empty', { type: 'object', oneOf: [] }],
+    ['prefixItems is empty', { type: 'object', prefixItems: [] }],
+    ['tuple items is empty', { type: 'object', properties: { values: { type: 'array', items: [] } } }],
+    ['dependencies contains repeated names', { type: 'object', dependencies: { value: ['legacy', 'legacy'] } }],
+    ['enum contains duplicate JSON values', { type: 'object', properties: { value: { enum: [{ a: 1, b: 2 }, { b: 2, a: 1 }] } } }],
+    ['additionalItems uses a tuple array', { type: 'object', additionalItems: [{ type: 'string' }] }],
+    ['pattern is an invalid regular expression', { type: 'object', properties: { value: { type: 'string', pattern: '[' } } }],
+    ['patternProperties key is an invalid regular expression', { type: 'object', patternProperties: { '[': { type: 'string' } } }],
+    ['additionalProperties is malformed', { type: 'object', additionalProperties: 'broken' }],
+  ])('quarantines malformed JSON Schema structure: %s', async (_label, parameters) => {
+    const ctx = await setup()
+    let calls = 0
+    let approvals = 0
+    ctx.tools.register({
+      ...echoTool,
+      name: 'malformed-schema',
+      parameters,
+      async execute() { calls++; return 'must not run' },
+    })
+    ctx.on('tools/pre-execute', async () => { approvals++; return { kind: 'allow' } })
+
+    expect(ctx.tools.schemas().map(schema => schema.name)).not.toContain('malformed-schema')
+    const result = await ctx.tools.execute({
+      signal: testToolSignal,
+      callId: ToolCallId(`malformed-${_label}`),
+      name: 'malformed-schema',
+      arguments: {},
+    })
+
+    expect(result).toMatchObject({ isError: true, error: { info: { code: 'INVALID_TOOL_SCHEMA' } } })
+    expect(approvals).toBe(0)
+    expect(calls).toBe(0)
+  })
+
+  it('retains a valid empty Draft-07 dependency list in the model schema', async () => {
+    const ctx = await setup()
+    ctx.tools.register({
+      ...echoTool,
+      name: 'empty-dependency-schema',
+      parameters: { type: 'object', dependencies: { value: [] } },
+    })
+    expect(ctx.tools.schemas().map(schema => schema.name)).toContain('empty-dependency-schema')
+  })
+
+  it('checks deeply nested enum values without overflowing the stack', async () => {
+    const ctx = await setup()
+    let value: unknown = 'leaf'
+    for (let depth = 0; depth < 5_000; depth++) value = [value]
+    ctx.tools.register({
+      ...echoTool,
+      name: 'deep-enum-schema',
+      parameters: { type: 'object', properties: { deep: { enum: [value] } } } as never,
+    })
+    expect(ctx.tools.schemas().map(schema => schema.name)).toContain('deep-enum-schema')
   })
 
   it('does not dispatch a quarantined tool hidden by the caller view', async () => {

@@ -5,10 +5,24 @@ use std::path::{Path, PathBuf};
 
 use super::boot_log;
 use super::env_path::{durable_dsh_home, path_eq};
-use crate::i18n::{self, tf, tf2, Msg};
+use crate::i18n::{self, Msg, tf, tf2};
 
 const HOME_DIR_NAME: &str = ".dsh";
-const SKIP_IMPORT: &[&str] = &["desktop-overlay", "node_modules"];
+const SKIP_IMPORT: &[&str] = &["desktop-overlay", "node_modules", ".credentials.yaml", ".env"];
+const CREDENTIAL_SOURCES_MANIFEST: &str = ".clawmaster-credential-sources.json";
+/// Desktop feature bundles that can be absent without repairing the whole Web profile.
+const DESKTOP_OPTIONAL_CLIENT_PACKAGES: &[&str] = &[
+    "@xmanrui/dsh-im",
+    "dsh-better-sidebar",
+    "@nanmicoder/dsh-agent-teams",
+    "@openviking/dsh-memory-plugin",
+    "dsh-routing-suite",
+    "@clawmaster/dsh-notes",
+    "@clawmaster/dsh-graph-memory",
+    "@clawmaster/dsh-office",
+    "@clawmaster/dsh-rpa",
+    "@clawmaster/dsh-updates",
+];
 const HOME_MARKERS: &[&str] = &[
     "sessions",
     ".credentials.yaml",
@@ -24,6 +38,8 @@ const HOME_MARKERS: &[&str] = &[
 pub struct ResolvedUserHome {
     pub path: PathBuf,
     pub imported: usize,
+    /// Canonical legacy credential roots selected by the desktop home resolver.
+    pub credential_source_roots: Vec<PathBuf>,
 }
 
 /// Pick `$DSH_HOME` or `~/.dsh` when they already hold Harness data, then
@@ -42,6 +58,7 @@ pub fn resolve_user_home(isolated: &Path) -> ResolvedUserHome {
             ResolvedUserHome {
                 path: isolated.to_path_buf(),
                 imported: 0,
+                credential_source_roots: Vec::new(),
             }
         }
     }
@@ -78,6 +95,8 @@ fn adopt_homes(isolated: &Path, homes: Vec<PathBuf>) -> Result<ResolvedUserHome,
         };
     }
 
+    let credential_source_roots = write_credential_sources_manifest(&selected, &homes);
+
     boot_log::info(&format!(
         "dsh home selected={} imported={imported} candidates={}",
         selected.display(),
@@ -86,7 +105,54 @@ fn adopt_homes(isolated: &Path, homes: Vec<PathBuf>) -> Result<ResolvedUserHome,
     Ok(ResolvedUserHome {
         path: selected,
         imported,
+        credential_source_roots,
     })
+}
+
+#[derive(serde::Serialize)]
+struct CredentialSourcesManifest {
+    version: u8,
+    roots: Vec<String>,
+}
+
+fn write_credential_sources_manifest(selected: &Path, discovered: &[PathBuf]) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    let mut canonical_roots = Vec::new();
+    let default_home = dirs::home_dir().map(|home| home.join(HOME_DIR_NAME));
+    for candidate in std::iter::once(selected).chain(default_home.as_deref()).chain(discovered.iter().map(PathBuf::as_path)) {
+        let Ok(metadata) = fs::symlink_metadata(candidate) else { continue };
+        if !metadata.is_dir() || is_reparse_meta(&metadata) { continue; }
+        let Ok(canonical) = fs::canonicalize(candidate) else { continue };
+        let value = canonical.to_string_lossy().into_owned();
+        if !roots.contains(&value) {
+            roots.push(value);
+            canonical_roots.push(canonical);
+        }
+    }
+    let manifest = CredentialSourcesManifest { version: 1, roots };
+    let Ok(contents) = serde_json::to_vec(&manifest) else { return canonical_roots };
+    let path = selected.join(CREDENTIAL_SOURCES_MANIFEST);
+    let temporary = selected.join(format!("{CREDENTIAL_SOURCES_MANIFEST}.tmp-{}", std::process::id()));
+    let result = (|| -> std::io::Result<()> {
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        use std::io::Write;
+        let mut file = options.open(&temporary)?;
+        file.write_all(&contents)?;
+        file.sync_all()?;
+        fs::rename(&temporary, &path)?;
+        Ok(())
+    })();
+    if let Err(error) = result {
+        let _ = fs::remove_file(&temporary);
+        boot_log::info(&format!("credential source manifest unavailable; legacy files were preserved: {error}"));
+    }
+    canonical_roots
 }
 
 /// Splash line after home matching.
@@ -198,7 +264,7 @@ fn scrub_profile_node_modules(home: &Path) {
     }
 }
 
-/// True when a profile directory declares dependencies that its `node_modules`
+/// True when a profile directory declares required dependencies that its `node_modules`
 /// cannot resolve: a declared package without a readable manifest, or a
 /// dangling pnpm junction. `exists()` follows reparse points, so a junction
 /// into a removed harness or store tree reads as missing. A profile without
@@ -217,7 +283,7 @@ fn profile_install_broken(profile: &Path) -> bool {
     profile_dependencies_unresolved(profile)
 }
 
-/// True when a profile declares at least one dependency that cannot be
+/// True when a profile declares at least one required dependency that cannot be
 /// resolved under its `node_modules` — the install-is-needed view that, unlike
 /// {@link profile_install_broken}, also covers a profile whose `node_modules`
 /// is absent altogether.
@@ -235,12 +301,25 @@ pub fn profile_dependencies_unresolved(profile: &Path) -> bool {
     else {
         return false;
     };
-    dependencies
-        .keys()
-        .any(|name| !node_modules.join(name).join("package.json").exists())
+    let optional_client_packages = manifest
+        .get("dsh")
+        .and_then(|value| value.get("profile"))
+        .and_then(|value| value.get("optionalClientPackages"))
+        .and_then(|value| value.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|value| value.as_str())
+        .collect::<std::collections::HashSet<_>>();
+    let is_desktop_web_profile = profile.file_name().and_then(|name| name.to_str()) == Some("web");
+    dependencies.keys().any(|name| {
+        !optional_client_packages.contains(name.as_str())
+            && !(is_desktop_web_profile
+                && DESKTOP_OPTIONAL_CLIENT_PACKAGES.contains(&name.as_str()))
+            && !node_modules.join(name).join("package.json").exists()
+    })
 }
 
-/// Profile names under `home/profiles` whose declared dependencies cannot be
+/// Profile names under `home/profiles` whose required dependencies cannot be
 /// resolved — the set `dsh plugin --profile <name> install` must repair.
 pub fn profiles_needing_install(home: &Path) -> Vec<String> {
     let profiles = home.join("profiles");
@@ -429,7 +508,10 @@ fn display_home(path: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{adopt_homes, import_missing, is_harness_home, user_home_status};
+    use super::{
+        adopt_homes, import_missing, is_harness_home, profile_dependencies_unresolved,
+        user_home_status,
+    };
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -468,7 +550,7 @@ mod tests {
     }
 
     #[test]
-    fn imports_missing_sessions_and_keys_without_overwriting() {
+    fn imports_sessions_without_copying_plaintext_credentials() {
         let root = temp_root();
         let from = root.join("cli");
         let to = root.join("desktop");
@@ -485,7 +567,7 @@ mod tests {
         fs::write(to.join(".credentials.yaml"), "from: desktop\n").unwrap();
 
         let copied = import_missing(&from, &to).unwrap();
-        assert_eq!(copied, 1);
+        assert_eq!(copied, 0);
         assert_eq!(
             fs::read_to_string(to.join("sessions").join("old").join("log.jsonl")).unwrap(),
             "desktop\n"
@@ -494,10 +576,17 @@ mod tests {
             fs::read_to_string(to.join(".credentials.yaml")).unwrap(),
             "from: desktop\n"
         );
-        assert_eq!(
-            fs::read_to_string(to.join(".env")).unwrap(),
-            "DEEPSEEK_API_KEY=cli\n"
-        );
+        assert!(!to.join(".env").exists());
+        assert!(from.join(".env").is_file());
+        let roots = super::write_credential_sources_manifest(&to, &[from.clone(), to.clone()]);
+        let manifest: serde_json::Value = serde_json::from_slice(
+            &fs::read(to.join(".clawmaster-credential-sources.json")).unwrap(),
+        ).unwrap();
+        assert_eq!(manifest["version"], 1);
+        assert!(manifest["roots"].as_array().unwrap().contains(&serde_json::Value::String(fs::canonicalize(&to).unwrap().to_string_lossy().into_owned())));
+        assert!(manifest["roots"].as_array().unwrap().contains(&serde_json::Value::String(fs::canonicalize(&from).unwrap().to_string_lossy().into_owned())));
+        assert!(roots.contains(&fs::canonicalize(&from).unwrap()));
+        assert!(roots.contains(&fs::canonicalize(&to).unwrap()));
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -511,9 +600,10 @@ mod tests {
         fs::write(from.join(".env"), "DEEPSEEK_API_KEY=cli\n").unwrap();
         fs::create_dir_all(&to).unwrap();
 
-        assert_eq!(import_missing(&from, &to).unwrap(), 1);
+        assert_eq!(import_missing(&from, &to).unwrap(), 0);
         assert!(!to.join("desktop-overlay").exists());
-        assert!(to.join(".env").is_file());
+        assert!(!to.join(".env").exists());
+        assert!(from.join(".env").is_file());
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -639,11 +729,12 @@ mod tests {
 
         let resolved = adopt_homes(&isolated, vec![cli.clone()]).unwrap();
         assert_eq!(resolved.path, cli);
-        assert!(web
-            .join("node_modules")
-            .join("dsh-plugins-catalog")
-            .join("package.json")
-            .is_file());
+        assert!(
+            web.join("node_modules")
+                .join("dsh-plugins-catalog")
+                .join("package.json")
+                .is_file()
+        );
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -671,6 +762,66 @@ mod tests {
         let resolved = adopt_homes(&isolated, vec![cli.clone()]).unwrap();
         assert_eq!(resolved.path, cli);
         assert!(!web.join("node_modules").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn missing_optional_client_dependency_does_not_mark_profile_for_repair() {
+        let root = temp_root();
+        let web = root.join("profiles").join("web");
+        fs::create_dir_all(web.join("node_modules")).unwrap();
+        fs::write(
+            web.join("package.json"),
+            r#"{"dependencies":{"notes":"1.0.0"},"dsh":{"profile":{"optionalClientPackages":["notes"]}}}"#,
+        )
+        .unwrap();
+
+        assert!(!profile_dependencies_unresolved(&web));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn legacy_desktop_bundle_metadata_skips_missing_optional_dependency() {
+        let root = temp_root();
+        let web = root.join("profiles").join("web");
+        fs::create_dir_all(web.join("node_modules")).unwrap();
+        fs::write(
+            web.join("package.json"),
+            r#"{"dependencies":{"@clawmaster/dsh-notes":"1.0.0"},"dsh":{"profile":{"bundles":["@deepseek-ai/dsh-base","@clawmaster/dsh-notes"]}}}"#,
+        )
+        .unwrap();
+
+        assert!(!profile_dependencies_unresolved(&web));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn legacy_web_profile_without_optional_metadata_skips_missing_desktop_component() {
+        let root = temp_root();
+        let web = root.join("profiles").join("web");
+        fs::create_dir_all(web.join("node_modules")).unwrap();
+        fs::write(
+            web.join("package.json"),
+            r#"{"dependencies":{"@clawmaster/dsh-notes":"1.0.0"},"dsh":{"profile":{"bundles":["@deepseek-ai/dsh-base"]}}}"#,
+        )
+        .unwrap();
+
+        assert!(!profile_dependencies_unresolved(&web));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn missing_required_dependency_still_marks_profile_for_repair() {
+        let root = temp_root();
+        let web = root.join("profiles").join("web");
+        fs::create_dir_all(web.join("node_modules")).unwrap();
+        fs::write(
+            web.join("package.json"),
+            r#"{"dependencies":{"dsh-web-app":"1.0.0"},"dsh":{"profile":{"optionalClientPackages":["notes"]}}}"#,
+        )
+        .unwrap();
+
+        assert!(profile_dependencies_unresolved(&web));
         let _ = fs::remove_dir_all(&root);
     }
 

@@ -199,7 +199,7 @@ export class WatchdogTaskStore {
         next = { ...request.command.task, id: request.id, organizationId: identity.organizationId, revision: 1,
           status: 'draft', createdAt: at, updatedAt: at, source: request.command.importedSessionId ? 'imported-session' : 'new',
           sessionIds: request.command.importedSessionId ? [request.command.importedSessionId] : [], execution: null, waitingFor: null,
-          evidence: [], completedCriteria: [], submittedBy: null, lastReview: null };
+          evidence: [], stateCapsules: [], completedCriteria: [], submittedBy: null, lastReview: null };
       } else {
         const previous = this.get(identity, request.id);
         if (request.revision !== previous.revision) throw new EnterpriseError('revision_conflict', 'Task changed. Reload before saving.', previous.revision);
@@ -208,9 +208,12 @@ export class WatchdogTaskStore {
         next.revision++;
         next.updatedAt = at;
       }
+      next.stateCapsules = next.stateCapsules.map(capsule => ({ ...capsule, target: next.goal,
+        approvalState: { status: next.status, lastReview: next.lastReview } }));
       if (identity.organizationId !== 'local' && next.owner.kind !== 'member') {
         throw new EnterpriseError('invalid_request', 'Organization tasks require a member identifier as owner.');
       }
+      taskRecordSchema.parse(next);
       const version = this.collectionVersion(identity.organizationId) + 1;
       if (!Number.isSafeInteger(version)) throw new EnterpriseError('numeric_overflow', 'Task list version is exhausted.');
       this.bounded({ tasks: [next], nextCursor: { version: Number.MAX_SAFE_INTEGER, offset: Number.MAX_SAFE_INTEGER, asOf: at } });
@@ -259,6 +262,18 @@ export class WatchdogTaskStore {
         if (new Set(action.evidence.map(item => item.id)).size !== action.evidence.length) throw new EnterpriseError('invalid_request', 'Evidence identifiers must be unique.');
         next.evidence = action.evidence; next.completedCriteria = action.completedCriteria; next.submittedBy = identity.principalId ?? identity.actor.id;
         next.status = 'awaiting_review'; next.waitingFor = null; break;
+      }
+      case 'capsule': {
+        const ownerId = identity.organizationId === 'local' ? 'local-operator' : (identity.principalId ?? identity.actor.id);
+        const scopeId = action.scope.kind === 'user' ? ownerId : action.scope.id;
+        const scope = { kind: action.scope.kind, id: scopeId } as const;
+        const existing = next.stateCapsules.findIndex(item => item.ownerId === ownerId
+          && item.scope.kind === scope.kind && item.scope.id === scope.id);
+        const capsule = { ownerId, scope, target: next.goal,
+          approvalState: { status: next.status, lastReview: next.lastReview }, data: action.data, updatedAt: at };
+        if (existing === -1) next.stateCapsules.push(capsule);
+        else next.stateCapsules[existing] = capsule;
+        break;
       }
       case 'review':
         human(identity); requireState('awaiting_review');

@@ -47,22 +47,30 @@ test('normalizedAssets maps every required Tauri platform to its release asset',
   assert.deepEqual(normalizedAssets(version), expectedAssets)
 })
 
-test('only the complete current four targets or legacy five targets are accepted', () => {
+test('only complete current, legacy, or beta platform target sets are accepted', () => {
   const legacy = normalizedAssets(version, 'legacy')
   assert.equal(Object.keys(legacy).length, 5)
   assert.equal(legacy['darwin-x86_64'], `clawmaster-${version}-macos-x64.app.tar.gz`)
   assert.equal(targetSetForPlatforms(expectedAssets), 'current')
   assert.equal(targetSetForPlatforms(legacy), 'legacy')
+  const beta = normalizedAssets('0.2.4-beta.1', 'beta')
+  assert.deepEqual(beta, {
+    'windows-x86_64': 'clawmaster-0.2.4-beta.1-windows-x64-setup.exe',
+    'darwin-aarch64': 'clawmaster-0.2.4-beta.1-macos-arm64.app.tar.gz',
+  })
+  assert.equal(targetSetForPlatforms(beta), 'beta')
   for (const platforms of [expectedAssets, legacy]) {
     for (const missing of Object.keys(expectedAssets)) {
       const altered = { ...platforms }
       delete altered[missing]
-      assert.throws(() => targetSetForPlatforms(altered), /exactly the supported platform targets/)
+      assert.throws(() => targetSetForPlatforms(altered), /exactly a supported stable, legacy, or beta/u)
     }
-    assert.throws(() => targetSetForPlatforms({ ...platforms, unknown: {} }), /exactly the supported platform targets/)
+    assert.throws(() => targetSetForPlatforms({ ...platforms, unknown: {} }), /exactly a supported stable, legacy, or beta/u)
   }
-  for (const invalid of [null, [], 'current']) assert.throws(() => targetSetForPlatforms(invalid), /exactly the supported platform targets/)
+  for (const invalid of [null, [], 'current']) assert.throws(() => targetSetForPlatforms(invalid), /exactly a supported stable, legacy, or beta/u)
   assert.throws(() => normalizedAssets(version, 'windows-only'), /Invalid target set/)
+  assert.throws(() => normalizedAssets(version, 'beta'), /beta.N version/u)
+  assert.throws(() => normalizedAssets('0.2.4-beta.0', 'beta'), /beta.N version/u)
 })
 
 test('legacy generation requires Intel bytes and signatures while current generation does not', async () => {
@@ -81,6 +89,26 @@ test('legacy generation requires Intel bytes and signatures while current genera
     await writeUpdaterManifest({ ...options, targetSet: 'legacy' })
     assert.equal(JSON.parse(await readFile(outputPath, 'utf8')).platforms['darwin-x86_64'].signature, 'legacy signature')
   })
+})
+
+test('beta generation includes only Windows and macOS ARM64 installer payloads and signatures', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'updater-beta-targets-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const betaVersion = '0.2.4-beta.1'
+  const outputPath = join(directory, 'beta.json')
+  const assets = normalizedAssets(betaVersion, 'beta')
+  const signatures = {}
+  for (const [platform, asset] of Object.entries(assets)) {
+    await writeFile(join(directory, asset), `payload ${asset}`)
+    signatures[platform] = `signature ${platform}`
+    await writeFile(join(directory, `${asset}.sig`), signatures[platform])
+  }
+  await writeUpdaterManifest({ assetsDir: directory, outputPath, version: betaVersion, repository, releaseTag: `desktop-v${betaVersion}`,
+    notes: '', pubDate, targetSet: 'beta' })
+  const manifest = JSON.parse(await readFile(outputPath, 'utf8'))
+  assert.deepEqual(Object.keys(manifest.platforms).sort(), Object.keys(assets).sort())
+  assert.deepEqual(Object.values(manifest.platforms).map(platform => platform.signature).sort(), Object.values(signatures).sort())
+  assert.ok(Object.values(manifest.platforms).every(platform => platform.url.includes(`/desktop-v${betaVersion}/`)))
 })
 
 test('createManifest emits Tauri v2 static updater fields and trimmed signatures', () => {

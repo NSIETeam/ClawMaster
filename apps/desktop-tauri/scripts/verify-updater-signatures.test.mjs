@@ -111,7 +111,7 @@ test('an unverified extra platform or a URL naming different bytes cannot enter 
   await withRelease(async ({ manifest, options }) => {
     manifest.platforms['unverified-target'] = manifest.platforms['windows-x86_64']
     await writeFile(options.manifestPath, JSON.stringify(manifest))
-    await assert.rejects(verifyUpdaterSignatures(options), /exactly the supported platform targets/)
+    await assert.rejects(verifyUpdaterSignatures(options), /exactly a supported .* platform target set/u)
     delete manifest.platforms['unverified-target']
     manifest.platforms['windows-x86_64'].url = 'https://example.test/different.exe'
     await writeFile(options.manifestPath, JSON.stringify(manifest))
@@ -134,7 +134,7 @@ test('missing targets and manifest-sidecar disagreement fail before publication'
     const entry = manifest.platforms[target]
     delete manifest.platforms[target]
     await writeFile(options.manifestPath, JSON.stringify(manifest))
-    await assert.rejects(verifyUpdaterSignatures(options), /exactly the supported platform targets/)
+    await assert.rejects(verifyUpdaterSignatures(options), /exactly a supported .* platform target set/u)
     manifest.platforms[target] = { ...entry, signature: 'different' }
     await writeFile(options.manifestPath, JSON.stringify(manifest))
     await assert.rejects(verifyUpdaterSignatures(options), /differs from its sidecar/)

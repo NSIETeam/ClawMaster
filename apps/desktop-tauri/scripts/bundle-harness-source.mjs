@@ -32,6 +32,7 @@ const trimmedPackages = [
   'apps/desktop-defaults',
   'apps/clawmaster-sys-prompt',
   'frontends/dsh',
+  'frontends/credentials-keychain',
   'frontends/guard',
   'frontends/notes',
   'frontends/graph-memory',
@@ -234,6 +235,7 @@ export function withDesktopDependencies(manifest, workspaceOverrides = {}) {
       ...DESKTOP_PLUGIN_VERSIONS,
       '@clawmaster/dsh-desktop-policy': 'workspace:*',
       'clawmaster-sys-prompt': 'workspace:*',
+      '@clawmaster/dsh-credentials-keychain': 'workspace:*',
       '@clawmaster/dsh-frontend': 'workspace:*',
       '@clawmaster/dsh-guard': 'workspace:*',
       '@clawmaster/dsh-notes': 'workspace:*',
@@ -279,6 +281,7 @@ export function copyTree(src, dest) {
 
 function assertBuiltArtifacts() {
   execFileSync(process.execPath, [join(repoRoot, 'frontends/updates/scripts/build.mjs'), '--check'], { cwd: repoRoot, stdio: 'inherit' })
+  execFileSync(process.execPath, [join(repoRoot, 'frontends/credentials-keychain/scripts/build.mjs'), '--check'], { cwd: repoRoot, stdio: 'inherit' })
   execFileSync(process.execPath, [join(desktopRoot, 'scripts/prepare-rpa-native.mjs'), '--check'], { cwd: repoRoot, stdio: 'inherit' })
   execFileSync(process.execPath, ['--import', 'tsx/esm', join(desktopRoot, 'scripts', 'build-harness.ts'), '--check'], {
     cwd: repoRoot,
@@ -334,6 +337,9 @@ function assertBuiltArtifacts() {
   if (!existsSync(join(repoRoot, 'frontends/guard/dist/index.js'))) {
     throw new Error('ClawMaster guard build missing. Run: node frontends/guard/scripts/build.mjs')
   }
+  if (!existsSync(join(repoRoot, 'frontends/credentials-keychain/dist/index.js'))) {
+    throw new Error('ClawMaster secure credentials build missing. Run: node frontends/credentials-keychain/scripts/build.mjs')
+  }
   if (!existsSync(join(repoRoot, 'frontends/rpa/dist/index.js'))) {
     throw new Error('ClawMaster RPA build missing. Run: node frontends/rpa/scripts/build.mjs')
   }
@@ -383,7 +389,7 @@ copyTree(join(repoRoot, 'apps', 'cli'), join(outRoot, 'apps', 'cli'))
 copyTree(join(repoRoot, 'apps', 'web'), join(outRoot, 'apps', 'web'))
 copyTree(join(desktopRoot, 'defaults'), join(outRoot, 'apps', 'desktop-defaults'))
 copyTree(join(desktopRoot, 'sys-prompt'), join(outRoot, 'apps', 'clawmaster-sys-prompt'))
-for (const frontend of ['dsh', 'guard', 'notes', 'graph-memory', 'office', 'rpa', 'updates']) {
+for (const frontend of ['dsh', 'credentials-keychain', 'guard', 'notes', 'graph-memory', 'office', 'rpa', 'updates']) {
   for (const name of ['package.json', 'dist', 'cordis.patch.yml', 'README.md', 'README.zh.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md']) {
     copyTree(join(repoRoot, 'frontends', frontend, name), join(outRoot, 'frontends', frontend, name))
   }

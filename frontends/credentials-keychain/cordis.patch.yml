@@ -1,0 +1,8 @@
+# Use the desktop-owned OS credential broker for every DSH credential consumer.
+- id: credentials
+  name: '@deepseek-ai/dsh-credentials-local'
+  disabled: true
+
+- insert:
+    - id: credentials-keychain
+      name: '@clawmaster/dsh-credentials-keychain'

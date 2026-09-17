@@ -58,6 +58,8 @@ export interface DshBundleManifest {
 export interface DshProfileManifest {
   /** Ordered bundle layer list, using installed package names. */
   bundles?: string[]
+  /** Desktop-preflighted optional bundles whose browser modules may be isolated on failure. */
+  optionalClientPackages?: string[]
   /** User patch lifecycle; omitted means `live` for custom profiles. */
   patchReload?: ProfilePatchReload
 }
@@ -69,6 +71,8 @@ export type ProfilePatchReload = 'live' | 'startup'
 export interface DshClientManifest {
   /** Client platform identifier; the Web consumer selects `web`. */
   platform: string
+  /** Whether client import/apply failure may be isolated while core boot continues. */
+  optional?: boolean
   /** Informational package-name dependencies, not Cordis service injection. */
   inject?: string[]
   /** Boot phase-one registration barrier; absent means the shared application batch. */

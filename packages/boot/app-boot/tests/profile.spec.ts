@@ -86,6 +86,7 @@ function stageProfile(home: string, name: string, bundleAnchor: string): Profile
     patchPath: join(dir, PROFILE_PATCH_FILENAME),
     patches: [],
     patchReload: 'live',
+    optionalClientPackages: [],
   }
 }
 
@@ -443,6 +444,7 @@ describe('healProfilesModuleFallback', () => {
       patchPath: join(dir, PROFILE_PATCH_FILENAME),
       patches: [],
       patchReload: 'live',
+      optionalClientPackages: [],
     }
 
     await healProfilesModuleFallback({ installAnchor: installationAnchor, profile, home })
@@ -488,6 +490,7 @@ describe('healProfilesModuleFallback', () => {
       patchPath: join(dir, PROFILE_PATCH_FILENAME),
       patches: [],
       patchReload: 'live',
+      optionalClientPackages: [],
     }
 
     await healProfilesModuleFallback({ installAnchor: installationAnchor, profile, home })
@@ -528,6 +531,7 @@ describe('healProfilesModuleFallback', () => {
       patchPath: join(dir, PROFILE_PATCH_FILENAME),
       patches: [],
       patchReload: 'live',
+      optionalClientPackages: [],
     }
 
     await healProfilesModuleFallback({ installAnchor: installationAnchor, profile, home })

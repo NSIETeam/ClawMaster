@@ -18,6 +18,7 @@ const COOKIE_PAYLOAD_VERSION = 1
 const STORED_SECRET_VERSION = 1
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]*$/
 const PROCESS_LAUNCH_TOKENS = new WeakMap<object, string>()
+const PROCESS_SIGNING_SECRETS = new WeakMap<object, Promise<Buffer>>()
 
 interface StoredSecretPayload {
   readonly version: typeof STORED_SECRET_VERSION
@@ -158,23 +159,43 @@ function decodeCookie(value: string, secret: Buffer): BrowserCookiePayload | und
   return decoded as unknown as BrowserCookiePayload
 }
 
-async function initializeSecret(credentials: CredentialProvider): Promise<Buffer> {
+async function initializeSecret(
+  credentials: CredentialProvider,
+  onUnavailable: () => void,
+): Promise<Buffer> {
   const generated: StoredSecretPayload = {
     version: STORED_SECRET_VERSION,
     secret: encodeBase64Url(randomBytes(SECRET_BYTES)),
   }
-  const record = await credentials.modifyRecord(AUTH_RECORD_KEY, (current) => {
-    if (current !== undefined) {
-      storedSecret(current)
-      return Promise.resolve(undefined)
-    }
-    return Promise.resolve({ kind: 'grant', payload: generated })
-  })
+  let record: CredentialRecord | undefined
+  try {
+    record = await credentials.modifyRecord(AUTH_RECORD_KEY, (current) => {
+      if (current !== undefined) return Promise.resolve(undefined)
+      return Promise.resolve({ kind: 'grant', payload: generated })
+    })
+  } catch {
+    // Keep the local application usable when durable credentials are unavailable.
+    // This secret exists only for this Host lifetime, so its cookies expire on restart.
+    onUnavailable()
+    return randomBytes(SECRET_BYTES)
+  }
   const secret = storedSecret(record)
   if (secret === undefined) {
     throw new Error('client-connection: browser-session credential record was not created')
   }
   return secret
+}
+
+function processSigningSecret(
+  processOwner: object,
+  credentials: CredentialProvider,
+  onUnavailable: () => void,
+): Promise<Buffer> {
+  const existing = PROCESS_SIGNING_SECRETS.get(processOwner)
+  if (existing !== undefined) return existing
+  const initialized = initializeSecret(credentials, onUnavailable)
+  PROCESS_SIGNING_SECRETS.set(processOwner, initialized)
+  return initialized
 }
 
 /**
@@ -201,18 +222,21 @@ export class BrowserAuth {
 
   /**
    * Initialize browser authentication and create its durable signing secret
-   * when this Harness home has none.
+   * when this Harness home has none. If the credential provider is unavailable,
+   * use a process-only secret so the Host can still serve the application.
    * @param processOwner - root application context retaining one token across Connection reloads.
    * @param credentials - persistent credential provider for the Web profile.
    * @param maxAgeDays - positive absolute browser-cookie lifetime in days.
+   * @param onCredentialStoreUnavailable - notification for process-only fallback when durable signing storage is unavailable.
    * @returns initialized authentication owner with the process owner's launch token.
    */
   static async create(
     processOwner: object,
     credentials: CredentialProvider,
     maxAgeDays: number,
+    onCredentialStoreUnavailable: () => void = () => {},
   ): Promise<BrowserAuth> {
-    return new BrowserAuth(processOwner, await initializeSecret(credentials), maxAgeDays)
+    return new BrowserAuth(processOwner, await processSigningSecret(processOwner, credentials, onCredentialStoreUnavailable), maxAgeDays)
   }
 
   /**

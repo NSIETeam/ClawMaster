@@ -31,6 +31,7 @@ import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
 import type { Entry } from '@deepseek-ai/cordis-plugin-loader'
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 import { exactPackageSpecifier, parseDshClient, stripClientSuffix } from './client/manifest.ts'
@@ -50,6 +51,7 @@ declare module '@deepseek-ai/cordis' {
 
 /** The declared fields a graph row carries, normalized (absent array declarations become empty). */
 interface WebBootRowFields {
+  optional: boolean
   inject?: string[]
   /** Module specifiers the package requests from the module table. */
   external: string[]
@@ -88,6 +90,30 @@ interface ClientPackageSource extends ResolvedPkgMeta {
 
 /** Recovery instruction shared by grouped startup and steady-state bundle diagnostics. */
 const CLIENT_BUNDLE_BUILD_INSTRUCTION = 'run `pnpm run build` before launch'
+
+/** Required app surfaces whose failure must never be treated as an optional feature failure. */
+const REQUIRED_CLIENT_IDS = new Set([
+  '@clawmaster/dsh-frontend',
+  '@deepseek-ai/dsh-client-modules',
+  '@deepseek-ai/dsh-client-ui-renderer',
+  '@deepseek-ai/dsh-client-ui-approval',
+  '@deepseek-ai/dsh-client-ui-permission-presets',
+])
+
+/** Client rows whose owning desktop bundle passed installation preflight. */
+export const Config = z.object({
+  optionalPackages: z.array(z.string()).default([]),
+})
+/** Host profile configuration accepted by the client module registry. */
+export interface Config {
+  /** Package names whose failed browser bundles may be isolated after desktop preflight. */
+  optionalPackages: string[]
+}
+
+/** Whether a parsed opt-in belongs to a client surface the application requires. */
+function maySkipClientFailure(packageName: string, optional: boolean): boolean {
+  return optional && !REQUIRED_CLIENT_IDS.has(packageName)
+}
 
 /** Missing built client export, retained as structured data for activation-error grouping. */
 class MissingClientBundleError extends Error {
@@ -289,6 +315,12 @@ function sourceMapSnapshot(clientPath: string): WebPluginRecord['sourceMap'] {
   ) {
     throw new Error(`client-modules: ${clientPath}.map is not a regular Source Map v3 object`)
   }
+  const sourceRoot = typeof parsed.sourceRoot === 'string' ? parsed.sourceRoot : ''
+  const base = new URL('/plugins/source-map-validation/client.js.map', 'http://dsh.invalid')
+  for (const source of parsed.sources as string[]) {
+    const separator = sourceRoot !== '' && !sourceRoot.endsWith('/') && !source.startsWith('/') ? '/' : ''
+    new URL(`${sourceRoot}${separator}${source}`, base)
+  }
   return { body, parsed }
 }
 
@@ -371,6 +403,7 @@ function graphRow(id: string, rev: string, fields: WebBootRowFields): WebBootEnt
     id,
     url: comboUrl([id], rev),
     rev,
+    ...(fields.optional ? { optional: true } : {}),
     ...(fields.inject !== undefined ? { inject: fields.inject } : {}),
     ...(fields.immediately ? { immediately: true } : {}),
     ...(fields.external.length > 0 ? { external: fields.external } : {}),
@@ -383,13 +416,18 @@ function graphRow(id: string, rev: string, fields: WebBootRowFields): WebBootEnt
  * (`<pkg>/client` aliases the bare package) or a static-table name that adds no
  * graph edge.
  * @param entries - composed rows in scan order.
+ * @param optionalPackages - optional packages whose artifacts may be absent from the graph.
  * @returns the same rows reordered; scan order breaks every tie.
  * @throws {Error} when a row requests itself or when the module graph has a
  * cycle; the message lists the packages on it.
  */
-export function orderByModuleGraph(entries: readonly WebBootEntry[]): WebBootEntry[] {
+export function orderByModuleGraph(
+  entries: readonly WebBootEntry[],
+  optionalPackages: ReadonlySet<string> = new Set(),
+): WebBootEntry[] {
   const rowsById = new Map<string, WebBootEntry>()
   for (const entry of entries) rowsById.set(entry.id, entry)
+  const optionalIds = effectiveOptionalClientIds(entries, optionalPackages)
   const ordered: WebBootEntry[] = []
   const placed = new Set<string>()
   const open: string[] = []
@@ -418,7 +456,37 @@ export function orderByModuleGraph(entries: readonly WebBootEntry[]): WebBootEnt
     ordered.push(entry)
   }
   for (const entry of entries) visit(entry)
-  return ordered
+  return ordered.map(entry => optionalIds.has(entry.id) && !entry.optional && !REQUIRED_CLIENT_IDS.has(entry.id)
+    ? { ...entry, optional: true }
+    : entry)
+}
+
+/** Classify every non-core consumer whose dynamic package dependency is optional. */
+function effectiveOptionalClientIds(
+  entries: readonly WebBootEntry[],
+  optionalPackages: ReadonlySet<string>,
+): Set<string> {
+  const rowsById = new Map(entries.map(entry => [entry.id, entry]))
+  const optionalIds = new Set([
+    ...[...optionalPackages].filter(id => !REQUIRED_CLIENT_IDS.has(id)),
+    ...entries.filter(entry => entry.optional && !REQUIRED_CLIENT_IDS.has(entry.id)).map(entry => entry.id),
+  ])
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const entry of entries) {
+      if (optionalIds.has(entry.id) || REQUIRED_CLIENT_IDS.has(entry.id)) continue
+      if ([...(entry.external ?? []), ...(entry.inject ?? [])].some((name) => {
+        const dependencyId = rowsById.has(name) ? name : stripClientSuffix(name)
+        const dependency = rowsById.get(dependencyId)
+        return dependency !== undefined ? optionalIds.has(dependency.id) : optionalIds.has(dependencyId)
+      })) {
+        optionalIds.add(entry.id)
+        changed = true
+      }
+    }
+  }
+  return optionalIds
 }
 
 /** Bootstrap package whose ordinary client bundle supplies the module-system implementation. */
@@ -478,15 +546,16 @@ window.__ModuleLoader__={
 /**
  * The web plugin table service: incremental `dsh.client` scan + wire composition
  * + bundle route + index injection rows. Construction runs the activation scan
- * synchronously — a malformed declaration or missing bundle among the
- * already-loaded entries aggregates into one loud throw (FAILED fiber; the
- * boot activation audit reports it).
+ * synchronously. Malformed metadata and missing artifacts skip explicitly
+ * optional feature clients with a warning; required clients fail activation.
  */
 export class ClientModuleRegistry extends Service {
   static inject = ['loader']
+  static Config = Config
 
   private readonly table = new Map<string, WebPluginRecord>()
   private readonly sources = new Map<string, ClientPackageSource>()
+  private readonly knownOptionalClientIds = new Set<string>()
   // Resolution is entry-local: the same specifier can resolve differently in
   // separate config trees. Negative verdicts remain stable until restart.
   private readonly pkgMeta = new Map<string, ResolvedPkgMeta | null>()
@@ -506,8 +575,11 @@ export class ClientModuleRegistry extends Service {
    * Build the service: subscribe, seed, and run the activation flush.
    * @param ctx - plugin context carrying Loader and an optional Web carrier.
    */
-  constructor(ctx: Context) {
+  constructor(ctx: Context, private readonly config: Config = { optionalPackages: [] }) {
     super(ctx, 'clientModules')
+    for (const packageName of config.optionalPackages) {
+      if (!REQUIRED_CLIENT_IDS.has(packageName)) this.knownOptionalClientIds.add(packageName)
+    }
     // Subscribe before seeding so a fiber arriving mid-activation lands in the
     // same dirty set (Set idempotence makes the overlap harmless). An entry-less
     // fiber is a child plugin or a manual mount — never a loader row; O(1) drop.
@@ -648,7 +720,31 @@ export class ClientModuleRegistry extends Service {
   }
 
   private compose(): WebBootGraph {
-    const entries = orderByModuleGraph([...this.table.values()].map(record => record.entry))
+    let entries: WebBootEntry[]
+    while (true) {
+      try {
+        entries = orderByModuleGraph(
+          [...this.table.values()].map(record => record.entry),
+          this.knownOptionalClientIds,
+        )
+        break
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        const cycle = /module graph cycle (.+?) —/.exec(message)?.[1]
+        const selfRequest = /^client-modules: "(.+?)" requests module /.exec(message)?.[1]
+        const members = new Set(cycle?.split(' -> ') ?? (selfRequest === undefined ? [] : [selfRequest]))
+        const effectiveOptional = effectiveOptionalClientIds(
+          [...this.table.values()].map(record => record.entry),
+          this.knownOptionalClientIds,
+        )
+        const optional = [...this.table.values()].find(record =>
+          effectiveOptional.has(record.entry.id) && members.has(record.entry.id))
+        if (optional === undefined) throw error
+        this.knownOptionalClientIds.add(optional.entry.id)
+        this.table.delete(optional.entry.id)
+        this.ctx.logger.warn(`client-modules: optional client ${optional.entry.id} was skipped: ${message}`)
+      }
+    }
     const bootstrap = PARSER_PRELOAD_IDS
       .map(id => this.table.get(id))
       .filter((record): record is WebPluginRecord => record !== undefined)
@@ -657,12 +753,16 @@ export class ClientModuleRegistry extends Service {
       .filter(entry => !bootstrapIds.has(entry.id))
       .map(entry => this.table.get(entry.id))
       .filter((record): record is WebPluginRecord => record !== undefined)
+    const optionalIds = new Set(entries.filter(entry => entry.optional).map(entry => entry.id))
     const artifacts: BatchArtifact[] = []
     for (const records of partitionComboRecords(bootstrap)) {
       artifacts.push(buildBatch('bootstrap', records))
     }
-    for (const records of partitionComboRecords(application)) {
+    for (const records of partitionComboRecords(application.filter(record => !optionalIds.has(record.entry.id)))) {
       artifacts.push(buildBatch('application', records))
+    }
+    for (const record of application.filter(item => optionalIds.has(item.entry.id))) {
+      artifacts.push(buildBatch('application', [record]))
     }
 
     const batchResponses = new Map<string, { body: Buffer; contentType: string }>()
@@ -721,20 +821,53 @@ export class ClientModuleRegistry extends Service {
     const { packageName, path: pkgPath } = located
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as Record<string, unknown>
     const dsh = pkg.dsh
-    const decl = parseDshClient(
-      packageName,
-      dsh !== null && typeof dsh === 'object' ? (dsh as Record<string, unknown>).client : undefined,
+    const rawDecl = dsh !== null && typeof dsh === 'object' ? (dsh as Record<string, unknown>).client : undefined
+    const desktopOptional = this.config.optionalPackages.includes(loaderName)
+      || this.config.optionalPackages.includes(packageName)
+    const explicitlyOptional = desktopOptional || (rawDecl !== null && typeof rawDecl === 'object'
+      && (rawDecl as Record<string, unknown>).optional === true
     )
+    if (explicitlyOptional && !REQUIRED_CLIENT_IDS.has(packageName)) {
+      this.knownOptionalClientIds.add(packageName)
+    }
+    let decl: ReturnType<typeof parseDshClient>
+    try {
+      decl = parseDshClient(packageName, rawDecl)
+    } catch (error) {
+      if (!maySkipClientFailure(packageName, explicitlyOptional)) throw error
+      return this.skipOptionalClient(
+        sourceKey,
+        packageName,
+        error instanceof Error ? error.message : String(error),
+      )
+    }
     if (decl === undefined || decl.platform !== 'web') {
       this.pkgMeta.set(sourceKey, null)
       return null
     }
-    const clientRel = clientExportOf(packageName, pkg.exports)
+    if ((desktopOptional || decl.optional === true) && REQUIRED_CLIENT_IDS.has(packageName)) {
+      throw new Error(`client-modules: required client ${packageName} cannot declare dsh.client.optional`)
+    }
+    let clientRel: string | undefined
+    try {
+      clientRel = clientExportOf(packageName, pkg.exports)
+    } catch (error) {
+      if (!maySkipClientFailure(packageName, explicitlyOptional)) throw error
+      return this.skipOptionalClient(
+        sourceKey,
+        packageName,
+        error instanceof Error ? error.message : String(error),
+      )
+    }
     if (clientRel === undefined) {
+      if (maySkipClientFailure(packageName, explicitlyOptional)) {
+        return this.skipOptionalClient(sourceKey, packageName, 'dsh.client is missing the "./client" export')
+      }
       throw new Error(`client-modules: ${packageName} declares dsh.client but exports no "./client" bundle`)
     }
     const meta: PkgMeta = {
       clientPath: join(dirname(pkgPath), clientRel),
+      optional: desktopOptional || decl.optional === true,
       ...(decl.inject !== undefined ? { inject: decl.inject } : {}),
       external: decl.external ?? [],
       immediately: decl.immediately === true,
@@ -742,6 +875,13 @@ export class ClientModuleRegistry extends Service {
     const resolved = { packageName, meta }
     this.pkgMeta.set(sourceKey, resolved)
     return resolved
+  }
+
+  /** Omit one explicitly optional feature package and retain an actionable diagnostic. */
+  private skipOptionalClient(sourceKey: string, packageName: string, reason: string): null {
+    this.pkgMeta.set(sourceKey, null)
+    this.ctx.logger.warn(`client-modules: optional client ${packageName} was skipped: ${reason}`)
+    return null
   }
 
   /**
@@ -872,6 +1012,7 @@ export class ClientModuleRegistry extends Service {
 
   /** Reconcile one entry name against the live Loader sources. @returns whether the table changed. */
   private processOne(entryName: string, onError: (err: Error) => void): boolean {
+    const optionalPackageCount = this.knownOptionalClientIds.size
     const nextSources = new Map<string, ClientPackageSource>()
     for (const entry of this.ctx.loader.entries()) {
       if (entry.options.name !== entryName || entry.fiber === undefined || entry.disabled) continue
@@ -894,10 +1035,19 @@ export class ClientModuleRegistry extends Service {
       try {
         if (this.reconcilePackage(packageName)) changed = true
       } catch (error) {
-        onError(error instanceof Error ? error : new Error(String(error)))
+        const optionalSource = [...this.sources.values()].find(source => source.packageName === packageName)
+        if (optionalSource !== undefined
+          && maySkipClientFailure(packageName, optionalSource.meta.optional)) {
+          this.knownOptionalClientIds.add(packageName)
+          const reason = error instanceof Error ? error.message : String(error)
+          this.ctx.logger.warn(`client-modules: optional client ${packageName} was skipped: ${reason}`)
+          if (this.table.delete(packageName)) changed = true
+        } else {
+          onError(error instanceof Error ? error : new Error(String(error)))
+        }
       }
     }
-    return changed
+    return changed || this.knownOptionalClientIds.size !== optionalPackageCount
   }
 
   private resolveSource(entry: Entry): ClientPackageSource | undefined {

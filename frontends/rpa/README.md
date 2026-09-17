@@ -28,8 +28,10 @@ The desktop profile declares this built-in layer through [desktop defaults](../.
 | --- | --- |
 | `rpa_run` | Runs operator-installed workflows; this runner accepts inert checkpoints and refuses external effects. |
 | `rpa_native` | Reads native capabilities, tool definitions or a bounded general desktop snapshot. |
-| `rpa_call` | Invokes the native RPA catalog; desktop actions require one-time user approval. |
+| `rpa_call` | Invokes the native RPA catalog; each desktop write requires DSH approval and a separate ClawMaster system confirmation. |
 | `wechat_read` | Reads text from the exact, already selected WeChat conversation after one-time approval. |
+
+When supported, state-backed RPA reads and desktop writes run through the bidirectional stdio broker inherited from the ClawMaster desktop process, so they share one controller and database handle. A helper fallback occurs only when the broker reports unsupported before dispatch; transport failures never replay the call in another process. The Rust process refuses writes on the read channel. Approved writes also verify the exact tool, call id, arguments hash and approval summary, then require a separate native confirmation before dispatch. The helper CLI cannot authorize writes. An unavailable RPA component does not prevent the Host or other features from starting.
 
 ## Selected WeChat reading
 
@@ -64,4 +66,4 @@ From this package directory, `node scripts/build.mjs --check` verifies the Host 
 
 ### Dev Note
 
-See the [RPA recovery decision](../../.agents/notes/implemented/feature/2026-09-14-clawmaster-rpa-recovery.md) for general RPA ownership and remaining installed-platform acceptance.
+See the [RPA recovery decision](../../.agents/notes/implemented/feature/2026-09-14-clawmaster-rpa-recovery.md) for general RPA ownership and the [native approval broker decision](../../.agents/notes/implemented/feature/2026-09-18-clawmaster-rpa-native-approval-broker.md) for the write authorization protocol.

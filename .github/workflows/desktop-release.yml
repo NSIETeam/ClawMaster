@@ -9,7 +9,7 @@ on:
       tag:
         description: desktop-v* version tag; build-only runs use the selected branch
         required: true
-        default: desktop-v0.2.3
+        default: desktop-v0.2.4
       publish:
         description: Publish only after a successful build run and complete reviewed acceptance evidence are supplied
         type: boolean
@@ -38,7 +38,25 @@ env:
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
 jobs:
+  plan-build:
+    name: Select release platform builders
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.ref_name }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Select builders from the explicit tag
+        id: matrix
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: node apps/desktop-tauri/scripts/release-build-matrix.mjs "$RELEASE_TAG"
+
   build:
+    needs: plan-build
     if: github.event_name == 'push' || inputs.publish != true
     name: Build ${{ matrix.asset_platform }}-${{ matrix.asset_arch }}
     runs-on: ${{ matrix.runner }}
@@ -48,23 +66,7 @@ jobs:
         shell: pwsh
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runner: windows-2025
-            target: x86_64-pc-windows-msvc
-            bundles: nsis
-            asset_platform: windows
-            asset_arch: x64
-          - runner: macos-15
-            target: aarch64-apple-darwin
-            bundles: app,dmg
-            asset_platform: macos
-            asset_arch: arm64
-          - runner: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            bundles: appimage,deb
-            asset_platform: linux
-            asset_arch: x64
+      matrix: ${{ fromJSON(needs.plan-build.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -536,41 +538,26 @@ jobs:
         id: channel
         run: node apps/desktop-tauri/scripts/release-channel.mjs "$RELEASE_TAG"
 
-      - name: Verify release asset set
-        shell: pwsh
+      - name: Record installer package sizes
+        shell: bash
         run: |
-          $ErrorActionPreference = 'Stop'
-          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'PowerShell 7.4 or later is required' }
-          $PSNativeCommandUseErrorActionPreference = $true
-          $expected = @(
-            '*-windows-x64-setup.exe',
-            '*-windows-x64-setup.exe.sig',
-            '*-macos-arm64.dmg',
-            '*-macos-arm64.app.tar.gz',
-            '*-macos-arm64.app.tar.gz.sig',
-            '*-linux-x64.AppImage',
-            '*-linux-x64.AppImage.sig',
-            '*-linux-x64.deb',
-            '*-linux-x64.deb.sig',
-            '*-windows-x64-build.json',
-            '*-macos-arm64-build.json',
-            '*-linux-x64-build.json'
-          )
-          foreach ($pattern in $expected) {
-            if (-not (Get-ChildItem release-assets -File -Filter $pattern)) {
-              throw "Missing release asset matching $pattern"
-            }
-          }
-          $commit = (git rev-parse HEAD).Trim()
-          $tree = (git rev-parse 'HEAD^{tree}').Trim()
-          $version = (Get-Content apps/desktop-tauri/package.json | ConvertFrom-Json).version
-          foreach ($file in Get-ChildItem release-assets -File -Filter '*-build.json') {
-            $manifest = Get-Content $file.FullName | ConvertFrom-Json
-            $build = $manifest.buildProvenance
-            if ($manifest.desktopVersion -ne $version -or $manifest.contentSha256 -notmatch '^[a-f0-9]{64}$' -or $build.schemaVersion -ne 1 -or $build.mode -ne 'release' -or $build.source.dirty -ne $false -or $build.source.dirtyFiles.Count -ne 0 -or $build.source.gitCommit -ne $commit -or $build.source.gitTree -ne $tree) {
-              throw "Build provenance does not match clean release source: $($file.Name)"
-            }
-          }
+          set -euo pipefail
+          node apps/desktop-tauri/scripts/package-size-report.mjs \
+            --assets-dir release-assets \
+            --version "${RELEASE_TAG#desktop-v}" \
+            --commit "$(git rev-parse "${RELEASE_TAG}^{commit}")"
+
+      - name: Verify beta download Page before publication
+        if: contains(env.RELEASE_TAG, '-beta.')
+        env:
+          CLAWMASTER_DOWNLOAD_PAGE_URL: ${{ vars.CLAWMASTER_DOWNLOAD_PAGE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node apps/desktop-tauri/scripts/verify-download-page.mjs \
+            --version "${RELEASE_TAG#desktop-v}" \
+            --tag "$RELEASE_TAG" \
+            --repository "$GITHUB_REPOSITORY"
 
       - name: Generate updater manifest
         shell: pwsh
@@ -584,7 +571,7 @@ jobs:
             --assets-dir release-assets `
             --output release-assets/latest.json `
             --version $version `
-            --target-set current `
+            --target-set '${{ steps.channel.outputs.targetSet }}' `
             --repository $env:GITHUB_REPOSITORY `
             --release-tag $env:RELEASE_TAG `
             --notes-file apps/desktop-tauri/release-notes.md `
@@ -628,3 +615,32 @@ jobs:
           else
             gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TITLE" --notes-file apps/desktop-tauri/release-notes.md --prerelease="$RELEASE_PRERELEASE" --latest="$RELEASE_LATEST"
           fi
+
+      - name: Re-download and verify the published GitHub assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir published-release-assets
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir published-release-assets
+          node apps/desktop-tauri/scripts/verify-release-assets.mjs \
+            --assets-dir published-release-assets \
+            --version "${RELEASE_TAG#desktop-v}" \
+            --commit "$(git rev-parse "${RELEASE_TAG}^{commit}")" \
+            --tree "$(git rev-parse "${RELEASE_TAG}^{tree}")" \
+            --expected-checksums release-assets/SHA256SUMS.txt
+          node apps/desktop-tauri/scripts/verify-updater-signatures.mjs \
+            published-release-assets published-release-assets/latest.json apps/desktop-tauri/release-signing.pub
+
+      - name: Verify beta download Page after publication
+        if: contains(env.RELEASE_TAG, '-beta.')
+        env:
+          CLAWMASTER_DOWNLOAD_PAGE_URL: ${{ vars.CLAWMASTER_DOWNLOAD_PAGE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node apps/desktop-tauri/scripts/verify-download-page.mjs \
+            --version "${RELEASE_TAG#desktop-v}" \
+            --tag "$RELEASE_TAG" \
+            --repository "$GITHUB_REPOSITORY"

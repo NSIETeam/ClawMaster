@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-13-clawmaster-runtime-governance.md
-2026-09-13-clawmaster-runtime-governance.md: 041a0118c0fb4a6b14c1c4c6b9a33878c4c2dffa
-2026-09-13-clawmaster-runtime-governance.zh.md: e6e726ff87bf2fb274e70863caf491e3c9a50aa0
+2026-09-13-clawmaster-runtime-governance.md: 617c3dfac38fb7a8d138d08cce88cd6c35fc4473
+2026-09-13-clawmaster-runtime-governance.zh.md: 97e664a0bf8ba7c97a6940620fd222136b5fc6e9

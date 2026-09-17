@@ -4,7 +4,7 @@ import { resolveReleaseChannel } from './release-channel.mjs'
 
 test('release display suffix publishes a stable program version as the latest release', () => {
   assert.deepEqual(resolveReleaseChannel({ version: '0.2.0', tauriVersion: '0.2.0', tag: 'desktop-v0.2.0-release' }), {
-    version: '0.2.0', tag: 'desktop-v0.2.0-release', title: 'ClawMaster WatchDog 0.2.0-release', prerelease: false, latest: true,
+    version: '0.2.0', tag: 'desktop-v0.2.0-release', title: 'ClawMaster WatchDog 0.2.0-release', prerelease: false, latest: true, targetSet: 'current',
   })
   assert.equal(resolveReleaseChannel({ version: '0.2.1', tauriVersion: '0.2.1', tag: 'desktop-v0.2.1' }).latest, true)
 })
@@ -14,6 +14,7 @@ test('beta and release-candidate programs stay outside the stable channel', () =
     const result = resolveReleaseChannel({ version, tauriVersion: version, tag: `desktop-v${version}` })
     assert.equal(result.prerelease, true)
     assert.equal(result.latest, false)
+    assert.equal(result.targetSet, version.includes('-beta.') ? 'beta' : 'current')
   }
 })
 

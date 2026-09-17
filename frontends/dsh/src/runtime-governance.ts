@@ -5,6 +5,7 @@ import * as subprocessLocal from '@deepseek-ai/dsh-subprocess-local';
 import type {} from '@deepseek-ai/dsh-system-prompt';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { totalmem } from 'node:os';
 import { z } from 'zod';
 
@@ -84,6 +85,20 @@ function observeCurrentProcessTreeRss(): { totalRssMiB: number; descendantRssMiB
 }
 
 const MiB = 1024 * 1024;
+const MAX_RUNTIME_COMPONENTS = 128;
+const MAX_RUNTIME_ARTIFACTS_PER_COMPONENT = 4096;
+const MAX_RUNTIME_PATCHES = 128;
+const runtimeFileIdentitySchema = z.object({
+  path: z.string().min(1).max(1024), bytes: z.number().int().nonnegative(), sha256: z.string().regex(/^[a-f0-9]{64}$/),
+});
+const runtimeInventorySchema = z.object({
+  components: z.array(z.object({
+    name: z.string().min(1).max(128), version: z.string().min(1).max(64),
+    manifest: runtimeFileIdentitySchema,
+    artifacts: z.array(runtimeFileIdentitySchema).max(MAX_RUNTIME_ARTIFACTS_PER_COMPONENT),
+  }).strict()).min(1).max(MAX_RUNTIME_COMPONENTS),
+  patches: z.array(runtimeFileIdentitySchema).max(MAX_RUNTIME_PATCHES),
+}).passthrough();
 const RuntimeRecord = z.object({
   schemaVersion: z.literal(1), status: z.literal('ready'), runId: z.string().min(1), hostPid: z.number().int().positive(),
   observedAtUnixMs: z.number().int().nonnegative(),
@@ -92,18 +107,48 @@ const RuntimeRecord = z.object({
   disabledPlugins: z.array(z.string()),
   buildProvenance: z.object({ mode: z.enum(['release', 'development']), source: z.object({
     gitCommit: z.string(), gitTree: z.string(), dirty: z.boolean(), sourceSha256: z.string(),
-  }) }).nullable(),
+  }), inventory: runtimeInventorySchema.optional() }).nullable(),
 });
+
+type RuntimeInventory = z.infer<typeof runtimeInventorySchema>;
 
 type RuntimeObservation = {
   available: boolean; observedAt: string; reason: string | null;
   identity: null | {
     startedAtUnixMs: number; desktopVersion: string; harnessVersion: string;
-    contentSha256: string; harnessRoot: string; hostPid: number; port: number;
+    contentSha256: string; hostPid: number; port: number;
     source: null | { gitCommit: string; gitTree: string; dirty: boolean; sourceSha256: string; mode: string };
     disabledPlugins: string[];
+    inventory: null | {
+      components: Array<{ name: string; version: string; manifestSha256: string; artifactCount: number; artifactsSha256: string }>;
+      patches: Array<{ name: string; sha256: string }>;
+    };
   };
 };
+
+/** Project build inventory without disclosing source or installation paths. */
+function projectRuntimeInventory(inventory: RuntimeInventory): NonNullable<RuntimeObservation['identity']>['inventory'] {
+  const components = inventory.components.map(component => {
+    const artifactHash = createHash('sha256');
+    for (const artifact of [...component.artifacts].sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0)) {
+      artifactHash.update(JSON.stringify([artifact.path, artifact.bytes, artifact.sha256]));
+      artifactHash.update('\n');
+    }
+    return {
+      name: component.name,
+      version: component.version,
+      manifestSha256: component.manifest.sha256,
+      artifactCount: component.artifacts.length,
+      artifactsSha256: artifactHash.digest('hex'),
+    };
+  }).sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : left.version < right.version ? -1 : left.version > right.version ? 1 : 0);
+  const patches = inventory.patches.map(patch => {
+    const name = patch.path.slice(patch.path.lastIndexOf('/') + 1);
+    if (!/^[A-Za-z0-9@][A-Za-z0-9@._+-]{0,127}$/u.test(name)) throw new Error('Runtime patch identity is invalid');
+    return { name, sha256: patch.sha256 };
+  }).sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
+  return { components, patches };
+}
 
 /**
  * Read the shell's current identity and refuse a stopped or different Host's record.
@@ -125,11 +170,12 @@ export function observeRuntime(path: string | undefined, pid = process.pid, runI
     return {
       available: true, observedAt, reason: null, identity: { startedAtUnixMs: value.observedAtUnixMs,
       desktopVersion: value.desktopVersion, harnessVersion: value.harnessVersion,
-      contentSha256: value.contentSha256, harnessRoot: value.harnessRoot,
+      contentSha256: value.contentSha256,
       hostPid: value.hostPid, port: value.port,
       source: source ? { gitCommit: source.gitCommit, gitTree: source.gitTree, dirty: source.dirty,
         sourceSha256: source.sourceSha256, mode: value.buildProvenance!.mode } : null,
       disabledPlugins: value.disabledPlugins,
+      inventory: value.buildProvenance?.inventory === undefined ? null : projectRuntimeInventory(value.buildProvenance.inventory),
       },
     };
   } catch {
@@ -182,13 +228,13 @@ export function applyRuntimeGovernance(ctx: Omit<Context, 'sessions'>, config: R
     name: 'clawmaster-current-runtime', order: 100,
     text: () => process.env.CLAWMASTER_RUNTIME_STATE ? [
       'Current ClawMaster runtime observation: ' + JSON.stringify(observe()),
-      'Runtime versions, paths, ports, PIDs, permissions and resource measurements are volatile. '
+      'Runtime versions, component digests, ports, PIDs, permissions and resource measurements are volatile. '
       + 'Treat remembered values as dated history. Use runtime_status and the owning live settings before reporting current facts. '
       + 'Record an as-of timestamp for historical observations; never present a runtime directory as a durable business workspace.',
     ].join('\n') : '',
   });
   ctx.tools.register(defineTool({
-    name: 'runtime_status', description: 'Read current ClawMaster desktop identity, source provenance and Host resource budgets with an observation timestamp. No credentials or business data. Remembered runtime facts are historical; call this tool to verify current state.',
+    name: 'runtime_status', description: 'Read current ClawMaster desktop identity, source provenance, bounded component and patch identities, and Host resource budgets with an observation timestamp. Filesystem paths, credentials and business data are omitted. Remembered runtime facts are historical; call this tool to verify current state.',
     parameters: {},
     output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
     isConcurrencySafe: () => true,

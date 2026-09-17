@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { flushSync } from 'react-dom';
 import { productCopy, type ProductLocale, type ProductModule } from './locales/frontend.ts';
-import { enterpriseTabTypes, type FrontendServices, type SessionId, type SessionRequestId, type WorkspaceId } from './services.ts';
+import { enterpriseTabTypes, getBetterSidebar, type FrontendServices, type SessionId, type SessionRequestId, type WorkspaceId } from './services.ts';
 
 export type WatchdogCadence = 'once' | 'hourly' | 'daily';
 /** Task text survives navigation; an unconfirmed prompt locks edits until admission succeeds. */
@@ -114,7 +114,8 @@ export function createProductActions(ctx: FrontendServices, lifetime: AbortSigna
     open(module: ProductModule, locale: ProductLocale): Promise<void> {
       return exclusive(async () => {
         const type = module === 'crm' || module === 'erp' ? enterpriseTabTypes[module] : module;
-        if (!ctx.betterSidebar.isTabEnabled(type)) throw new ProductNavigationError('toolDisabled');
+        const betterSidebar = getBetterSidebar(ctx);
+        if (!betterSidebar || !betterSidebar.isTabEnabled(type)) throw new ProductNavigationError('toolDisabled');
         const navigation = AbortSignal.any([lifetime, ctx.layout.beginNavigation()]);
         navigation.throwIfAborted();
         const snapshot = ctx.sessions.list.getSnapshot();
@@ -140,7 +141,7 @@ export function createProductActions(ctx: FrontendServices, lifetime: AbortSigna
         });
         if (!displayed || displayed.aborted || lifetime.aborted
           || ctx.sessions.list.getSnapshot().current !== scope.sessionId) return;
-        ctx.betterSidebar.openTab({ type, title: productCopy(locale)[module], target: module === 'terminal' ? 'bottom' : 'right' }, scope);
+        betterSidebar.openTab({ type, title: productCopy(locale)[module], target: module === 'terminal' ? 'bottom' : 'right' }, scope);
       });
     },
   };

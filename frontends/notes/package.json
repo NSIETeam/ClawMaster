@@ -25,6 +25,7 @@
     },
     "client": {
       "platform": "web",
+      "optional": true,
       "inject": [
         "dsh-better-sidebar",
         "@deepseek-ai/dsh-client-locale"

@@ -226,6 +226,7 @@ mod tests {
                 .into(),
             linux_harness_root: "/home/u/.local/share/dsh-desktop/harness-versions/abc".into(),
             linux_dsh_home: "/home/u/.dsh".into(),
+            linux_credential_roots: Vec::new(),
             linux_path: "/home/u/.local/share/dsh-desktop/runtime/node/bin:/usr/bin".into(),
             linux_patch: None,
         }

@@ -19,7 +19,7 @@ import type { CodeRuntime } from '@deepseek-ai/dsh-code-runtime'
 // augmentation. The seam stays optional at runtime — see `serviceAsk`.
 import type {} from '@deepseek-ai/dsh-user-approval'
 import type { ToolCallView, ToolResultView } from './presentation.ts'
-import { assertSupportedJsonSchema, isJsonSchemaRecord, validateJsonSchemaValue } from './json-schema.ts'
+import { assertObjectParameterJsonSchema, assertSupportedJsonSchema, validateJsonSchemaValue } from './json-schema.ts'
 import type { JsonSchemaNode } from './json-schema.ts'
 import { createRunCodeTool, RUN_CODE_NAME } from './ptc.ts'
 import type { CodeSdkLanguage } from './ptc.ts'
@@ -963,7 +963,6 @@ export class ToolRuntime extends Service {
         yield ctx.systemPrompt.section(this.sdkSection())
       }
     }.bind(this), 'tools.presentAs()')
-    // oxlint-disable-next-line typescript/no-misused-promises -- synchronous composite teardown
     return dispose
   }
 
@@ -1284,7 +1283,7 @@ export class ToolRuntime extends Service {
     return { name, description, parameters }
   }
 
-  /** Snapshot parameters and require the model function's object root without narrowing JSON Schema keywords. */
+  /** Snapshot parameters and validate JSON Schema structure without narrowing extension keywords. */
   private readParameterSchema(definition: ToolDefinition, name: string): Record<string, unknown> | undefined {
     let parameters: unknown
     try {
@@ -1299,9 +1298,11 @@ export class ToolRuntime extends Service {
       this.failParameterSchema(definition, name, 'parameters are not lossless JSON')
       return undefined
     }
-    if (!isJsonSchemaRecord(parameters) || parameters.type !== 'object') {
-      if (name === RUN_CODE_NAME) throw new Error('run_code parameters root must declare type "object"')
-      this.failParameterSchema(definition, name, 'parameters root must declare type "object"')
+    try {
+      assertObjectParameterJsonSchema(parameters)
+    } catch (error) {
+      if (name === RUN_CODE_NAME) throw new Error(`run_code parameters are invalid: ${errorMessage(error)}`)
+      this.failParameterSchema(definition, name, `parameters schema is invalid: ${errorMessage(error)}`)
       return undefined
     }
     this.parameterSchemaFailures.delete(definition)

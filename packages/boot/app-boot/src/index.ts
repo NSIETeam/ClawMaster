@@ -740,7 +740,7 @@ export async function assertEntriesActivated(ctx: Context, binName: string): Pro
     if (state === FIBER_PENDING) {
       const missing = Object.keys(fiber.inject).filter(service => fiber.ctx.get(service) === undefined)
       const subject = missing.length === 1 ? 'service' : 'services'
-      failures.push(`${entry.options.name}: pending (waiting for ${subject}: ${missing.join(', ') || 'unknown'})`)
+      failures.push(`failed to activate loader entry ${entry.id} (${entry.options.name}): pending (waiting for ${subject}: ${missing.join(', ') || 'unknown'})`)
     } else {
       failures.push(`${entry.options.name}: fiber state ${String(state)}`)
     }

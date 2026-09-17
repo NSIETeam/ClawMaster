@@ -1,6 +1,7 @@
 /** Shared authorization for HTTP, tool, scheduler and plugin business consumers. */
 import type { ExecutionIdentity } from './governance-audit.ts';
 import { LOCAL_HTTP_IDENTITY } from './governance-audit.ts';
+import { trustedAuthorityIdentifierSchema } from './governance-identity.ts';
 import { z } from 'zod';
 
 export type GovernanceAction = 'records.read' | 'records.write' | 'backup.export' | 'backup.restore'
@@ -73,13 +74,12 @@ export interface GovernanceAuthority {
   }, signal?: AbortSignal): Promise<{ id: string; approverId: string } | undefined>;
 }
 
-const authorityIdentifier = z.string().min(1).max(128);
 const authorityPrincipalSchema = z.object({
-  organizationId: authorityIdentifier,
-  memberId: authorityIdentifier,
+  organizationId: trustedAuthorityIdentifierSchema,
+  memberId: trustedAuthorityIdentifierSchema,
   actor: z.enum(['human', 'agent']),
-  sessionId: authorityIdentifier.optional(),
-  delegatorId: authorityIdentifier.optional(),
+  sessionId: trustedAuthorityIdentifierSchema.optional(),
+  delegatorId: trustedAuthorityIdentifierSchema.optional(),
 }).superRefine((value, context) => {
   if (value.actor === 'agent' && value.sessionId === undefined) {
     context.addIssue({ code: 'custom', message: 'Agent identity is missing its Session binding.' });
@@ -88,9 +88,9 @@ const authorityPrincipalSchema = z.object({
 const authorityMembershipSchema = z.object({
   active: z.boolean(), roles: z.array(z.enum(['administrator', 'executor', 'approver', 'auditor'])),
   policyVersion: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  resources: z.array(authorityIdentifier),
+  resources: z.array(trustedAuthorityIdentifierSchema),
 });
-const authorityApprovalSchema = z.object({ id: authorityIdentifier, approverId: authorityIdentifier });
+const authorityApprovalSchema = z.object({ id: trustedAuthorityIdentifierSchema, approverId: trustedAuthorityIdentifierSchema });
 
 /**
  * Parse provider output at the identity boundary and hide provider details from callers.

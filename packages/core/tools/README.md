@@ -156,9 +156,13 @@ The package-level contract is enough for most consumers; read these when you nee
 
 #### What the model sees
 
-In normal mode the model sees each visible definition's exact name, description, and JSON Schema; the shipped definitions are recorded in the generated [tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tools). Agent-scoped restrictions, shadows, and extension registrations change that agent's end-tool set.
+In normal mode the model sees each visible definition's exact name, description, and JSON Schema; the shipped definitions are recorded in the generated [tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tools). Agent-scoped restrictions, shadows, and extension registrations change that agent's end-tool set. Raw tool parameter schemas must be lossless JSON objects with a root `type: "object"`. The registry validates standard schema keywords and nested schema locations, including non-empty composition arrays and valid `pattern` expressions, while preserving other lossless JSON Schema or MCP extension keywords without applying the narrower DSH value-validator subset. A tool with an unreadable description or parameter snapshot, malformed known schema keywords, lossy parameters, or another root type is omitted from native and PTC projections and fails before approval or execution when dispatched. Other tools remain available.
 
-Raw tool parameter schemas must be lossless JSON objects with a root `type: "object"`. The registry preserves their JSON Schema keywords without applying the narrower DSH argument-validator subset to external schemas. A tool whose description or parameter snapshot cannot be read, or whose parameters are lossy or have another root type, is omitted from native and PTC projections and fails before approval or execution when dispatched. Other tools remain available.
+##### Object-root schema example
+
+```markdown
+{ "type": "object", "properties": {}, "additionalProperties": false }
+```
 
 #### Token effect
 

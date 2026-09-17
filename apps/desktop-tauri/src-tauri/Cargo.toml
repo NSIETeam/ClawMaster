@@ -1,6 +1,6 @@
 [package]
 name = "dsh-desktop"
-version = "0.2.3"
+version = "0.2.4"
 description = "ClawMaster desktop shell powered by DSH (Tauri)"
 authors = ["DeepSeek"]
 edition = "2021"
@@ -31,6 +31,9 @@ flate2 = "1"
 tar = "0.4"
 tauri-plugin-updater = "2"
 tauri-plugin-dialog = "2"
+clawmaster-rpa-native = { path = "../../../frontends/rpa/native" }
+keyring = { version = "3.6.3", default-features = false, features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust", "vendored"] }
+fs2 = "0.4.3"
 url = "2"
 sys-locale = "0.3"
 open = { version = "5.4.2", default-features = false }

@@ -18,6 +18,7 @@
 //    as a model action, so nothing can approve its own external action.
 
 import { homedir } from 'node:os';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import type { Context } from '@deepseek-ai/cordis';
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools';
@@ -27,6 +28,7 @@ import { FileRpaRunStore } from '../seam/file-run-store.ts';
 import type { RpaAuthorization, RpaDriver, RpaPolicyPort } from '../seam/ports.ts';
 import { RpaRunner } from '../seam/runner.ts';
 import { createNativeHelper, resolveHelperSpec, type NativeHelperSpec } from './native-helper.ts';
+import { createNativeApprovalBroker, type NativeApprovalBroker } from './native-broker.ts';
 import { registerWechatRead } from './wechat.ts';
 
 /**
@@ -78,6 +80,7 @@ export {
   type NativeHelper,
   type NativeHelperSpec,
 } from './native-helper.ts';
+export { createApprovalBroker } from './native-broker.ts';
 
 /**
  * Services this component consumes.
@@ -141,6 +144,8 @@ export interface RpaConfig {
   helper?: NativeHelperSpec;
   /** Wall-clock bound for one native invocation. Defaults to 30000. */
   nativeTimeoutMs?: number;
+  /** Desktop-shell broker; supplied by the inherited stdio transport. */
+  approvalBroker?: NativeApprovalBroker;
 }
 
 export interface RpaInvocation {
@@ -372,18 +377,36 @@ export function createRpaHandlers(config: RpaConfig = {}): RpaHandlers {
       return { kind: 'native_unavailable', reason: UNBUILT_HELPER };
     }
     const helper = createNativeHelper(spec, config.nativeTimeoutMs ?? 30_000);
-    const payload = await helper.run(
-      'rpa-call',
-      [
-        JSON.stringify({
-          root: path.join(stateDir, 'native'),
-          tool: request.tool,
-          arguments: request.arguments ?? {},
-          approvalId: approvalId ?? null,
-        }),
-      ],
-      signal,
-    );
+    if (approvalId !== undefined) {
+      const args = request.arguments ?? {};
+      await helper.run('validate-call', [JSON.stringify({ tool: request.tool, arguments: args })], signal);
+      const payload = await (config.approvalBroker ?? createNativeApprovalBroker()).execute({
+        callId: approvalId,
+        tool: request.tool,
+        root: path.join(stateDir, 'native'),
+        arguments: args,
+        summary: (await approvalFor(request)).summary,
+      }, signal);
+      return { kind: 'native', command: `rpa-call:${request.tool}`, payload };
+    }
+    const readRequest = {
+      callId: randomUUID(),
+      root: path.join(stateDir, 'native'),
+      tool: request.tool,
+      arguments: request.arguments ?? {},
+    };
+    let payload: unknown;
+    try {
+      payload = await (config.approvalBroker ?? createNativeApprovalBroker()).read(readRequest, signal);
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.startsWith('Native RPA confirmation broker is unavailable')) throw error;
+      payload = await helper.run('rpa-call', [JSON.stringify({
+        root: readRequest.root,
+        tool: readRequest.tool,
+        arguments: readRequest.arguments,
+        approvalId: null,
+      })], signal);
+    }
     return { kind: 'native', command: `rpa-call:${request.tool}`, payload };
   }
 
@@ -509,7 +532,8 @@ export function apply(ctx: Context, config: RpaConfig = {}): void {
             'rpa_wait, rpa_status or rpa_cancel. Use rpa_native with command=definitions to list the exact tool ' +
             'names and their arguments. Window and element references come from a prior snapshot artifact; no ' +
             'coordinate is ever supplied. A step that acts on the desktop requires one-time user approval; ' +
-            'a refusal prevents native execution. Use wechat_read for approved, selected-chat reading.',
+            'a refusal prevents native execution. DSH approval is followed by a separate ClawMaster system confirmation ' +
+            'before the exact call is dispatched. Use wechat_read for approved, selected-chat reading.',
           parameters: objectParameters({
             tool: { type: 'string', description: 'Recovered tool name, for example rpa_windows' },
             arguments: {

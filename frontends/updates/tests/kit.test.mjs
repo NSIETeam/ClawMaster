@@ -238,7 +238,7 @@ test('an authenticated offline kit applies a staged updater after the Host has e
 
   const result = await repairKit({ kitRoot: options.kitRoot, dshHome }, trust);
   assert.equal(result.status, 'offline-maintenance-complete');
-  assert.deepEqual(result.operations.map(operation => ({ token: operation.token, state: operation.state })), [{ token: staged.rollbackToken, state: 'awaiting-health' }]);
+  assert.deepEqual(result.operations.map(operation => ({ token: operation.token, state: operation.state })), [{ token: staged.rollbackToken, state: 'selected-unverified' }]);
   assert.match(await readFile(patch, 'utf8'), /clawmaster-update-component-updates/);
 }));
 
@@ -293,20 +293,11 @@ test('kit 0.1.0 repairs staged operations from updater 0.1.0 and 0.1.1 through h
         expectedPatchRevision: await readComponentPatchRevision(dshHome), confirmed: true });
       assert.equal(rollback.status, 'restart-required');
       await writeFile(runtimeState, JSON.stringify({ schemaVersion: 1, hostPid: 2147483647, runId: `rollback-${oldVersion}`, status: 'ready' }));
-      assert.equal((await maintainRestartComponents(dshHome))[0].state, 'awaiting-health');
+      assert.equal((await maintainRestartComponents(dshHome))[0].state, 'selected-unverified');
       assert.ok((await readFile(patch, 'utf8')).includes(previousEntryUrl));
-      const rollbackRunId = process.env.CLAWMASTER_RUNTIME_RUN_ID;
-      process.env.CLAWMASTER_RUNTIME_RUN_ID = `rollback-loaded-${oldVersion}`;
-      try {
-        assert.deepEqual(await confirmComponentHealth({ dshHome, entryUrl: previousEntryUrl, hostPid: process.pid,
-          runId: `rollback-loaded-${oldVersion}` }), [staged.rollbackToken]);
-      } finally {
-        if (rollbackRunId === undefined) delete process.env.CLAWMASTER_RUNTIME_RUN_ID;
-        else process.env.CLAWMASTER_RUNTIME_RUN_ID = rollbackRunId;
-      }
       assert.equal((await import(previousEntryUrl)).version, oldVersion);
       assert.ok((await readFile(patch, 'utf8')).includes(`/${oldVersion}/`));
-      assert.equal((await listComponentOperations(dshHome)).find(row => row.token === staged.rollbackToken).state, 'completed');
+      assert.equal((await listComponentOperations(dshHome)).find(row => row.token === staged.rollbackToken).state, 'selected-unverified');
     });
   }
 });

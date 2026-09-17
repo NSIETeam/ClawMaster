@@ -30,6 +30,7 @@ const row = (id: string, fields: Partial<BootModuleRow> = {}): BootModuleRow =>
     url: comboUrl([id], '0'),
     initialUrl: id === MODULES_ID ? BOOTSTRAP_URL : APPLICATION_URL,
     rev: '0',
+    optional: false,
     inject: [],
     external: [],
     ...fields,
@@ -363,8 +364,8 @@ describe('boot manifest wire', () => {
       batches: [{ phase: 'application', url: '/batch.js', rev: 'batch', entries: ['a', 'b'] }],
     })
     expect(manifest.modules).toEqual([
-      { id: 'a', url: '/plugins/a/client.js', initialUrl: '/batch.js', rev: '1', inject: ['b'], external: [] },
-      { id: 'b', url: '/plugins/b/client.js', initialUrl: '/batch.js', rev: '2', inject: [], external: ['react'] },
+      { id: 'a', url: '/plugins/a/client.js', initialUrl: '/batch.js', rev: '1', optional: false, inject: ['b'], external: [] },
+      { id: 'b', url: '/plugins/b/client.js', initialUrl: '/batch.js', rev: '2', optional: false, inject: [], external: ['react'] },
     ])
   })
 

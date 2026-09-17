@@ -9,7 +9,7 @@ kind: "package-library"
 
 ## 概述
 
-使用 `DshPackageManifest` 描述包元数据、`DshManifest` 描述 `dsh` 下的公共字段，以及 `DshClientManifest` 等成员类型描述单个领域。各读取方负责 JSON 解析、校验和默认值解析。
+使用 `DshPackageManifest` 描述包元数据、`DshManifest` 描述 `dsh` 下的公共字段，以及 `DshClientManifest` 等成员类型描述单个领域。各读取方负责 JSON 解析、校验和默认值解析。`DshClientManifest.optional` 用于标记可隔离导入或激活故障的功能客户端，让必需客户端继续启动。
 
 ## 目录
 

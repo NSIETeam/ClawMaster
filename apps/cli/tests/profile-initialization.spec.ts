@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   initProfile,
+  composeEntries,
   PROFILE_PATCH_FILENAME,
   PROFILE_TEMPLATES,
   readProfileManifest,
@@ -14,11 +15,21 @@ import {
 } from '@deepseek-ai/dsh-app-boot'
 import { describe, expect, it } from 'vitest'
 import { execa } from 'execa'
-import { initializeProfileFromDefault } from '../src/profile-boot.ts'
+import { initializeProfileFromDefault, optionalClientPackagesPatch } from '../src/profile-boot.ts'
 
 const childEntry = fileURLToPath(new URL('./fixtures/initialize-profile-from-default.ts', import.meta.url))
 const tsxLoader = import.meta.resolve('tsx/esm')
 const CHILD_TIMEOUT_MS = 30_000
+
+it('keeps desktop-preflighted client packages optional above user patch layers', () => {
+  const optionalClientPackages = ['@xmanrui/dsh-im', 'dsh-better-sidebar', '@nanmicoder/dsh-agent-teams']
+  const entries = composeEntries([
+    [{ insert: [{ id: 'modules', name: '@deepseek-ai/dsh-client-modules' }] }],
+    [{ id: 'modules', config: { optionalPackages: [] } }],
+    optionalClientPackagesPatch({ optionalClientPackages }),
+  ])
+  expect(entries.find(entry => entry.id === 'modules')?.config).toEqual({ optionalPackages: optionalClientPackages })
+})
 
 /** Wait until a child has reached the shared creation barrier. */
 async function waitForFile(file: string): Promise<void> {

@@ -61,7 +61,9 @@ async function fixture({ history = false, acknowledgedVersion = 0, mode = 'host'
     connection: { state: source('connected') }, locale: source({ active: locale }),
     settingsScope: { bind(spec) { expect(spec.namespace).toBe('clawmaster-watchdog-onboarding'); return scope; } },
     layout: { selectPanel: actions.selectPanel }, uiWorkspace: { openSession: actions.openSession },
-    betterSidebar: { registerTab: () => () => {} }, effect(setup) { disposers.push(setup()); },
+    betterSidebar: { registerTab: () => () => {} },
+    get(name) { return name === 'betterSidebar' ? this.betterSidebar : undefined; }, on() { return () => true; },
+    effect(setup) { disposers.push(setup()); },
   });
   const Automatic = slots.get('settings.onboarding:clawmaster-watchdog');
   const Settings = slots.get('settings.section:clawmaster-watchdog');

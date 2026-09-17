@@ -21,6 +21,7 @@ function fixture() {
     },
     uiWorkspace: { openSession(id) { snapshot.current = id; calls.push(['open', id]); ctx.layout.selectPanel(null); } },
     betterSidebar: { isTabEnabled: () => true, openTab(seed, scope) { calls.push(['tab', seed, scope]); } },
+    get(name) { return name === 'betterSidebar' ? this.betterSidebar : undefined; },
   };
   const request = async (path, options) => {
     calls.push(['allocate', path, JSON.parse(options.body), options.credentials]);

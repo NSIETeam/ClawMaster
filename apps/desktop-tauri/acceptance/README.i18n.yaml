@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write apps/desktop-tauri/acceptance/README.md
-README.md: 13908f86cf26f8e4d3763913ff28447608b49815
-README.zh.md: bef873c14b172994ff2b630d28ceaeda0b16aa89
+README.md: f145a318d026720c412e6a15a3d7b0b9fb620279
+README.zh.md: fbb3fe08f10c2b31762dbd4340146ce379242875

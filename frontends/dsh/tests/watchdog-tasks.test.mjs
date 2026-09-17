@@ -8,8 +8,11 @@ import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
 import { EnterpriseError } from '../src/enterprise-types.ts';
 import { taskIndicators } from '../src/watchdog-tasks.ts';
-import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
+import { mountWatchdogTasks, taskWithVisibleCapsules, validateCapsuleScope } from '../src/watchdog-task-host.ts';
 import { GovernanceAccess } from '../src/governance-access.ts';
+import { taskRecordSchema } from '../src/watchdog-task-format.ts';
+import { taskCommandOutput } from '../src/watchdog-task-schemas.ts';
+import { trustedAuthorityIdentifierSchema } from '../src/governance-identity.ts';
 import { Context } from '@deepseek-ai/cordis';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt';
@@ -92,6 +95,63 @@ test('business status, waiting and overdue are independent of one linked idle Se
     assert.equal(taskIndicators(task).waiting, false);
     assert.equal(taskIndicators(task).evidenceAvailability, 'unchecked');
   }
+});
+
+test('state capsules survive store reopen, refresh target and approval state, and enforce owner and scope ACLs', async t => {
+  const { store, path } = await fixture(t);
+  const owner = { ...LOCAL_HTTP_IDENTITY, organizationId: 'org-1', principalId: 'alice+工作@example.com', actor: { kind: 'member', id: 'member-1' } };
+  const other = { ...owner, principalId: 'bob@example.com', actor: { kind: 'member', id: 'member-2' } };
+  const execute = (identity, revision, commandId, command) => store.tasks.execute(identity,
+    { id: 'task-1', revision, commandId, command });
+  execute(owner, 0, 'create-capsule-task', { type: 'create', task: { ...definition, owner: { kind: 'member', id: 'member-1' } }, importedSessionId: 'session-1' });
+  const capsuleData = { decisions: [{ id: 'decision-1', decision: 'Use staged rollout', rationale: 'Reduce impact', recordedAt: '2026-09-18T00:00:00.000Z' }],
+    fileHashes: [{ path: 'report.md', sha256: 'a'.repeat(64), observedAt: '2026-09-18T00:00:00.000Z' }],
+    verificationResults: [{ id: 'check-1', status: 'passed', summary: 'Focused checks pass', verifiedAt: '2026-09-18T00:00:00.000Z' }],
+    unfinishedActions: [{ id: 'action-1', description: 'Review the report', status: 'pending' }], memoryIds: ['memory-1'] };
+  const saved = execute(owner, 1, 'save-capsule', { type: 'capsule', scope: { kind: 'session', id: 'session-1' }, data: capsuleData });
+  assert.equal(saved.stateCapsules[0].target, definition.goal);
+  assert.equal(saved.stateCapsules[0].ownerId, 'alice+工作@example.com');
+  assert.equal(saved.stateCapsules[0].approvalState.status, 'draft');
+  assert.equal(saved.stateCapsules[0].approvalState.lastReview, null);
+  assert.deepEqual(taskWithVisibleCapsules(saved, other, {}).stateCapsules, []);
+  assert.deepEqual(taskWithVisibleCapsules(saved, owner, {}).stateCapsules.map(row => row.scope.id), ['session-1']);
+  assert.deepEqual(taskWithVisibleCapsules(saved, owner, { workspaceRegistry: { get: () => undefined } }).stateCapsules.map(row => row.scope.kind), ['session']);
+  const queued = execute(owner, 2, 'queue-capsule-task', { type: 'queue' });
+  assert.equal(queued.stateCapsules[0].approvalState.status, 'ready');
+  const reopened = await openEnterpriseStore(path);
+  try {
+    const restored = reopened.tasks.get(owner, 'task-1');
+    assert.deepEqual(restored.stateCapsules[0].data, capsuleData);
+    assert.equal(restored.stateCapsules[0].target, definition.goal);
+    assert.deepEqual(restored.stateCapsules[0].approvalState, { status: 'ready', lastReview: null });
+    assert.equal(reopened.tasks.history(owner, 'task-1').tasks.at(-1).stateCapsules.length, 1);
+  } finally { reopened.close(); }
+});
+
+test('capsule projects require a task-linked Workspace session, and credential export fields are rejected', async t => {
+  const { store } = await fixture(t);
+  const workspaces = new Map([['project-1', { sessionIds: ['session-1'] }]]);
+  const identity = LOCAL_HTTP_IDENTITY;
+  const ctx = { workspaceRegistry: { get: id => workspaces.get(id) }, connection: { fetch: { register() { return () => {}; } } },
+    tools: { register() { return () => {}; } }, approval: { request: async () => 'allowed-once' }, on: () => () => {}, logger: { warn() {} } };
+  const remove = await mountWatchdogTasks(ctx, store, new GovernanceAccess());
+  t.after(remove);
+  const create = { id: 'task-1', revision: 0, commandId: 'create', command: { type: 'create', task: definition, importedSessionId: 'session-1' } };
+  store.tasks.execute(identity, create);
+  const task = store.tasks.get(identity, 'task-1');
+  const visibleWorkspace = { workspaceRegistry: { get: () => ({ sessionIds: ['session-1', 'other'] }) } };
+  const capsuleRequest = { id: 'task-1', revision: task.revision, commandId: 'project-capsule', command: { type: 'capsule', scope: { kind: 'project', id: 'project-1' },
+    data: { decisions: [], fileHashes: [], verificationResults: [], unfinishedActions: [], memoryIds: [] } } };
+  assert.equal(taskWithVisibleCapsules({ ...task, stateCapsules: [{ ownerId: 'local-operator', target: task.goal, approvalState: { status: task.status, lastReview: null },
+    scope: { kind: 'project', id: 'project-1' }, data: capsuleRequest.command.data, updatedAt: '2026-09-18T00:00:00.000Z' }] }, identity, visibleWorkspace).stateCapsules.length, 1);
+  assert.deepEqual(taskWithVisibleCapsules({ ...task, stateCapsules: [{ ownerId: 'local-operator', target: task.goal, approvalState: { status: task.status, lastReview: null },
+    scope: { kind: 'project', id: 'project-1' }, data: capsuleRequest.command.data, updatedAt: '2026-09-18T00:00:00.000Z' }] }, identity,
+    { workspaceRegistry: { get: () => ({ sessionIds: ['unrelated-session'] }) } }).stateCapsules, []);
+  await validateCapsuleScope(ctx, new GovernanceAccess(), identity, task, { kind: 'project', id: 'project-1' }, 'task-1', new AbortController().signal);
+  await assert.rejects(validateCapsuleScope({ workspaceRegistry: { get: () => ({ sessionIds: ['unrelated-session'] }) } },
+    new GovernanceAccess(), identity, task, { kind: 'project', id: 'project-1' }, 'task-1', new AbortController().signal), { code: 'permission_denied' });
+  assert.throws(() => store.tasks.execute(identity, { ...capsuleRequest, revision: task.revision, commandId: 'credential-capsule',
+    command: { ...capsuleRequest.command, data: { ...capsuleRequest.command.data, credentials: { apiKey: 'secret' } } } }), { name: 'ZodError' });
 });
 
 test('real registered HTTP and tool paths reject forged actor and agent human-only commands', async t => {
@@ -290,18 +350,64 @@ test('a permanent audit failure is reported without interrupting Session event p
   assert.match(warnings[0], /injected audit write failure/);
 });
 
-test('task scope refuses another organization and a submitting member cannot approve through their agent', async t => {
+test('authority member IDs remain valid in task ownership, submission history, and review checks', async t => {
   const { store } = await fixture(t);
-  const member = { ...LOCAL_HTTP_IDENTITY, organizationId: 'org-one', actor: { kind: 'member', id: 'alice' } };
-  const delegated = { ...member, actor: { kind: 'agent', id: 'delegated-session' }, principalId: 'alice', source: 'tool' };
+  const memberId = 'alice+工作@example.com';
+  const member = { ...LOCAL_HTTP_IDENTITY, organizationId: 'org-one', actor: { kind: 'member', id: memberId } };
+  const delegated = { ...member, actor: { kind: 'agent', id: 'delegated-session' }, principalId: memberId, source: 'tool' };
   const apply = (revision, command, identity = member) => store.tasks.execute(identity, { id: 'org-task', revision, commandId: randomUUID(), command });
-  apply(0, { type: 'create', task: { ...definition, owner: { kind: 'member', id: 'alice' } } });
+  apply(0, { type: 'create', task: { ...definition, owner: { kind: 'member', id: memberId } } });
   apply(1, { type: 'queue' });
   apply(2, { type: 'start', sessionId: 'delegated-session', requestId: 'submit-delegated' }, delegated);
   apply(3, { type: 'submit', evidence: [{ id: 'ev', location: 'file:///result.txt', observedAt: '2026-09-16T00:00:00.000Z', summary: 'Result' }], completedCriteria: ['follow-up'] }, delegated);
+  assert.equal(store.tasks.get(member, 'org-task').submittedBy, memberId);
   assert.throws(() => apply(4, { type: 'review', decision: 'accept', comment: 'Self acceptance' }), { code: 'permission_denied' });
   assert.throws(() => store.tasks.get({ ...member, organizationId: 'org-two' }, 'org-task'), { code: 'not_found' });
   assert.equal(store.tasks.list({ ...member, organizationId: 'org-two' }).tasks.length, 0);
+});
+
+test('trusted email and Unicode authority IDs round-trip through task and capsule schemas', async t => {
+  const { store } = await fixture(t);
+  const memberId = 'Zoë+工作@example.com';
+  const organizationId = '研发部';
+  const authority = {
+    http: async () => ({ organizationId, memberId, actor: 'human' }),
+    agent: async () => undefined,
+    membership: async (_organizationId, checkedId) => checkedId === memberId
+      ? { active: true, roles: ['administrator'], policyVersion: 1, resources: ['*'] }
+      : undefined,
+    consumeApproval: async () => ({ id: '审批-42', approverId: '审核者@example.com' }),
+  };
+  const access = new GovernanceAccess({ mode: 'enterprise', organizationId, authority });
+  const caller = await access.http(new Request('http://fixture', { headers: { authorization: 'trusted' } }));
+  const identity = caller.identity;
+  await caller.checkOwner({ kind: 'member', id: memberId });
+  assert.equal(trustedAuthorityIdentifierSchema.parse(memberId), memberId);
+  assert.throws(() => trustedAuthorityIdentifierSchema.parse('x'.repeat(129)));
+  await assert.rejects(caller.checkOwner({ kind: 'member', id: 'x'.repeat(129) }), { code: 'permission_denied' });
+  const execute = (revision, commandId, command) => store.tasks.execute(identity,
+    { id: 'unicode-task', revision, commandId, command });
+  const saved = execute(0, 'create-unicode-task', { type: 'create', task: { ...definition,
+    owner: { kind: 'member', id: memberId } } });
+  assert.equal(saved.owner.id, memberId);
+  taskRecordSchema.parse(saved);
+  execute(1, 'queue-unicode-task', { type: 'queue' });
+  execute(2, 'start-unicode-task', { type: 'start', sessionId: 'session-1', requestId: 'request-1' });
+  const submitted = execute(3, 'submit-unicode-task', { type: 'submit',
+    evidence: [{ id: 'evidence-1', location: 'report.md', observedAt: '2026-09-18T00:00:00.000Z', summary: 'Verified' }],
+    completedCriteria: ['follow-up'] });
+  assert.equal(submitted.submittedBy, memberId);
+  taskRecordSchema.parse(submitted);
+  assert.equal(store.responsibility({ commandId: 'submit-unicode-task' }).records[0].identity.principalId, memberId);
+  const capsule = execute(4, 'save-unicode-capsule', { type: 'capsule', scope: { kind: 'user' },
+    data: { decisions: [], fileHashes: [], verificationResults: [], unfinishedActions: [], memoryIds: [] } });
+  assert.equal(capsule.stateCapsules[0].ownerId, memberId);
+  assert.equal(capsule.stateCapsules[0].scope.id, memberId);
+  taskRecordSchema.parse(capsule);
+
+  const memberOwner = taskCommandOutput.properties.owner.oneOf.find(value => value.properties.kind.const === 'member');
+  assert.equal(memberOwner.properties.id.type, 'string');
+  assert.deepEqual(taskCommandOutput.properties.submittedBy.oneOf.map(value => value.type), ['string', 'null']);
 });
 
 test('enterprise task start rejects a target Session owned by another member', async t => {
@@ -362,6 +468,12 @@ test('task tools execute through the real DSH schema, approval and output pipeli
   const list = await execute('watchdog_task_query', {});
   assert.equal(list.isError, false, JSON.stringify(list));
   assert.equal(list.value.tasks.length, 1);
+  const capsule = await execute('watchdog_task_command', { id: 'model-task', revision: 1, commandId: 'capsule', command: {
+    type: 'capsule', scope: { kind: 'user' }, data: { decisions: [], fileHashes: [], verificationResults: [], unfinishedActions: [], memoryIds: ['memory-1'] },
+  } });
+  assert.equal(capsule.isError, false, JSON.stringify(capsule));
+  assert.equal(capsule.value.stateCapsules[0].scope.id, 'local-operator');
+  assert.deepEqual(capsule.value.stateCapsules[0].approvalState, { status: 'draft', lastReview: null });
 });
 
 test('a denied DSH one-shot approval records no approver identity and commits no task', async t => {
@@ -385,4 +497,14 @@ test('a denied DSH one-shot approval records no approver identity and commits no
   assert.equal(history[0].outcome, 'failed');
   assert.equal(history[0].reasonCode, 'approval_unavailable');
   assert.equal(history[0].identity.approval, undefined);
+  store.tasks.execute(LOCAL_HTTP_IDENTITY, { id: 'denied-capsule-task', revision: 0, commandId: 'seed-task',
+    command: { type: 'create', task: definition, importedSessionId: String(session.id) } });
+  const deniedCapsule = await ctx.tools.execute({ callId: 'denied-capsule-call', name: 'watchdog_task_command', arguments: {
+    id: 'denied-capsule-task', revision: 1, commandId: 'denied-capsule-command', command: {
+      type: 'capsule', scope: { kind: 'session', id: String(session.id) },
+      data: { decisions: [], fileHashes: [], verificationResults: [], unfinishedActions: [], memoryIds: [] },
+    },
+  }, agent: { id: session.id, session }, signal: new AbortController().signal });
+  assert.equal(deniedCapsule.isError, true);
+  assert.deepEqual(store.tasks.get(LOCAL_HTTP_IDENTITY, 'denied-capsule-task').stateCapsules, []);
 });

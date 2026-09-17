@@ -14,7 +14,8 @@ import { withFileLock } from '@deepseek-ai/dsh-atomic-write';
 const moduleUrl = process.env.CLAWMASTER_COMPONENT_ARTIFACT
   ? pathToFileURL(resolve(process.env.CLAWMASTER_COMPONENT_ARTIFACT)).href
   : new URL('../src/components.ts', import.meta.url).href;
-const { activateComponent, highestInstalledComponentVersion, installComponent, readComponentPatchRevision, rollbackComponent } = await import(moduleUrl);
+const { activateComponent, confirmComponentHealth, highestInstalledComponentVersion, installComponent, maintainRestartComponents,
+  mountFirstUpdaterComponent, readComponentPatchRevision, rollbackComponent } = await import(moduleUrl);
 
 const descriptor = { id: 'fixture', packageName: '@clawmaster/fixture', version: '1.0.0', entry: './dist/index.js', kind: 'component', activation: 'hot', requiresDshVersion: '>=0.1.5-rc.2' };
 const manifest = { name: descriptor.packageName, version: descriptor.version, type: 'module' };
@@ -220,6 +221,76 @@ test('activation preserves user YAML and comments, switches only its row, and su
   assert.equal(await readFile(patch, 'utf8'), firstPatch);
   await rollbackComponent({ dshHome: options.dshHome, rollbackToken: applied.rollbackToken, expectedPatchRevision: applied.patchRevision, confirmed: true });
   assert.equal(await readFile(patch, 'utf8'), user);
+}));
+
+test('updater 0.1.0 and 0.1.1 selections migrate without changing channel or disabled preference and can roll back', async () => {
+ for (const oldVersion of ['0.1.0', '0.1.1']) await fixture(async ({ root, options }) => {
+  const dshHome = options.dshHome;
+  await mkdir(join(dshHome, 'profiles', 'web'), { recursive: true });
+  const patch = join(dshHome, 'profiles', 'web', 'cordis.patch.yml');
+  const operationDirectory = join(dshHome, 'clawmaster-updates', 'operations');
+  const runtimeDirectory = join(dshHome, 'desktop');
+  await mkdir(runtimeDirectory, { recursive: true });
+  const knownConfig = { nativeManifestUrl: 'https://updates.example.test/custom/latest.json', catalogUrl: 'https://updates.example.test/custom/catalog.json', checkIntervalMs: 0 };
+    const updater = version => ({ id: 'updates', packageName: '@clawmaster/dsh-updates', version, entry: './dist/index.js', kind: 'component',
+      activation: 'restart', requiresDshVersion: '>=0.1.5-rc.2' });
+    const oldDescriptor = updater(oldVersion);
+    const oldArchivePath = join(root, `old-${oldVersion}.tgz`);
+    await writeFile(oldArchivePath, archive(entries({ name: oldDescriptor.packageName, version: oldVersion, type: 'module' })));
+    const old = await installComponent({ ...options, archivePath: oldArchivePath, descriptor: oldDescriptor });
+    await mountFirstUpdaterComponent({ dshHome, version: oldVersion, confirmed: true, expectedPatchRevision: await readComponentPatchRevision(dshHome) });
+    const before = `# keep channel and disabled preference\n- id: clawmaster-update-component-updates\n  name: ${JSON.stringify(old.entryUrl)}\n  disabled: true\n  config:\n    nativeManifestUrl: ${knownConfig.nativeManifestUrl}\n    catalogUrl: ${knownConfig.catalogUrl}\n    checkIntervalMs: 0\n`;
+    await writeFile(patch, before);
+
+    const nextDescriptor = updater('0.1.2');
+    const nextArchivePath = join(root, `next-${oldVersion}.tgz`);
+    await writeFile(nextArchivePath, archive(entries({ name: nextDescriptor.packageName, version: nextDescriptor.version, type: 'module' })));
+    const next = await installComponent({ ...options, archivePath: nextArchivePath, descriptor: nextDescriptor });
+    const activated = await activateComponent({ dshHome, id: 'updates', version: nextDescriptor.version,
+      expectedPatchRevision: await readComponentPatchRevision(dshHome), confirmed: true });
+    assert.equal(activated.status, 'restart-required');
+    const journalPath = join(operationDirectory, `${activated.rollbackToken}.json`);
+    const operation = JSON.parse(await readFile(journalPath, 'utf8'));
+    const expected = before.replace(JSON.stringify(old.entryUrl), JSON.stringify(next.entryUrl));
+    assert.equal(operation.before, before);
+    assert.equal(operation.after, expected, 'The migration changes only the verified entry URL.');
+    assert.equal(await readFile(patch, 'utf8'), before, 'Restart activation leaves the live selection untouched until maintenance.');
+
+    await writeFile(join(runtimeDirectory, 'current-runtime.json'), JSON.stringify({ schemaVersion: 1, hostPid: 2147483647, runId: oldVersion, status: 'ready' }));
+    assert.equal((await maintainRestartComponents(dshHome))[0].state, 'selected-unverified');
+    assert.equal(await readFile(patch, 'utf8'), expected);
+    const previousRunId = process.env.CLAWMASTER_RUNTIME_RUN_ID;
+    process.env.CLAWMASTER_RUNTIME_RUN_ID = `migrated-${oldVersion}`;
+    try { assert.deepEqual(await confirmComponentHealth({ dshHome, entryUrl: next.entryUrl, hostPid: process.pid, runId: `migrated-${oldVersion}` }), []); }
+    finally { if (previousRunId === undefined) delete process.env.CLAWMASTER_RUNTIME_RUN_ID; else process.env.CLAWMASTER_RUNTIME_RUN_ID = previousRunId; }
+    const rollback = await rollbackComponent({ dshHome, rollbackToken: activated.rollbackToken,
+      expectedPatchRevision: await readComponentPatchRevision(dshHome), confirmed: true });
+    assert.equal(rollback.status, 'restart-required');
+    await writeFile(join(runtimeDirectory, 'current-runtime.json'), JSON.stringify({ schemaVersion: 1, hostPid: 2147483647, runId: `rollback-${oldVersion}`, status: 'ready' }));
+    assert.equal((await maintainRestartComponents(dshHome))[0].state, 'selected-unverified');
+    assert.equal(await readFile(patch, 'utf8'), before);
+
+ });
+});
+
+test('updater migration rejects unknown config or row fields without changing profile bytes', async () => fixture(async ({ root, options, patch, initializePatch }) => {
+  const oldDescriptor = { id: 'updates', packageName: '@clawmaster/dsh-updates', version: '0.1.0', entry: './dist/index.js', kind: 'component', activation: 'restart', requiresDshVersion: '>=0.1.5-rc.2' };
+  const oldArchive = join(root, 'old-updates.tgz');
+  await writeFile(oldArchive, archive(entries({ name: oldDescriptor.packageName, version: oldDescriptor.version, type: 'module' })));
+  const old = await installComponent({ ...options, archivePath: oldArchive, descriptor: oldDescriptor });
+  await mountFirstUpdaterComponent({ dshHome: options.dshHome, version: oldDescriptor.version, confirmed: true,
+    expectedPatchRevision: await readComponentPatchRevision(options.dshHome) });
+  const nextDescriptor = { ...oldDescriptor, version: '0.1.2' };
+  const nextArchive = join(root, 'next-updates.tgz');
+  await writeFile(nextArchive, archive(entries({ name: nextDescriptor.packageName, version: nextDescriptor.version, type: 'module' })));
+  await installComponent({ ...options, archivePath: nextArchive, descriptor: nextDescriptor });
+  for (const extra of ['  config:\n    futureOption: true\n', '  futureRowField: true\n']) {
+    const text = `- id: clawmaster-update-component-updates\n  name: ${JSON.stringify(old.entryUrl)}\n${extra}`;
+    await initializePatch(text);
+    await assert.rejects(activateComponent({ dshHome: options.dshHome, id: 'updates', version: nextDescriptor.version,
+      expectedPatchRevision: await readComponentPatchRevision(options.dshHome), confirmed: true }), /administrator-led offline repair/);
+    assert.equal(await readFile(patch, 'utf8'), text);
+  }
 }));
 
 test('rollback re-verifies the previous component and leaves the active profile untouched when old bytes changed', async () => fixture(async ({ options, patch, activate }) => {

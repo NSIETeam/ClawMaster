@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
-import { ACCEPTANCE_TARGETS, verifyReleaseAcceptance } from './release-acceptance.mjs'
+import { ACCEPTANCE_TARGETS, createAcceptanceTemplate, verifyReleaseAcceptance } from './release-acceptance.mjs'
 
 const commit = 'a'.repeat(40)
 const version = '0.2.3'
@@ -29,11 +29,17 @@ async function fixture(t) {
       installedVersion: version, sourceCommit: commit, artifact: { file, sha256: hash(`synthetic ${name}`) },
       signature: { ...passed(), kind: policy.signature, publisher: 'Fixture Publisher' },
       scenarios: Object.fromEntries(['install', 'first-start-clean-user', 'network-failure-recovery', 'exit-restart', 'upgrade-data-preservation',
-        'uninstall-data-policy', 'unicode-space-path', 'update-rollback', 'approval-allow', 'approval-deny', 'cancel-task', 'conversation-persistence'].map(key => [key, passed()])),
+        'uninstall-data-policy', 'unicode-space-path', 'update-rollback', 'optional-component-failure-recovery', 'approval-allow', 'approval-deny', 'cancel-task', 'write-failure-no-commit',
+        'conversation-persistence'].map(key => [key, passed()])),
       upgrades: { '0.2.2': { ...passed(), preserved: { settings: true, credentials: true, sessions: true, businessData: true } } },
-      integrations: { 'real-model': { ...passed(), availability: 'available' }, 'office-save': { ...passed(), availability: 'available' },
+      integrations: { 'real-model': { ...passed(), availability: 'available', credentialStore: {
+        darwin: 'macos-keychain', win32: 'windows-credential-manager', linux: 'linux-secret-service', android: 'android-keystore',
+      }[policy.platform] }, 'office-save': { ...passed(), availability: 'available' },
         'wechat-selected-read': { status: 'not-run', availability: 'experimental', reason: 'No authorized test account' },
-        'im-login': { status: 'not-run', availability: 'unavailable', reason: 'No configured test tenant' } },
+        'native-rpa-browser-click': { ...passed(), availability: 'available', browserVersion: 'Fixture Browser 1' },
+        ...Object.fromEntries(['weixin', 'feishu', 'dingtalk', 'qq', 'wecom'].map(channel => [`im-${channel}-ui`, {
+          ...passed(), availability: 'unavailable', uiState: 'blocked', reason: 'No configured connector',
+        }])) },
     }
   }
   return { root, manifest: { schemaVersion: 1, version, sourceCommit: commit, supportedUpgradeVersions: ['0.2.2'], targets },
@@ -98,7 +104,7 @@ test('unverified trial integrations stay explicitly unavailable and real-model v
   await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /advertised available/)
   f.manifest.targets['macos-arm64-dmg'].integrations['wechat-selected-read'].availability = 'experimental'
   f.manifest.targets['android-universal-apk'].integrations['real-model'] = { status: 'blocked', availability: 'unavailable', reason: 'No provider test credentials' }
-  await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /real provider integration/)
+  await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /successful installed integration/)
 })
 
 test('passing account integrations need explicit consent and exact client compatibility evidence', async t => {
@@ -108,6 +114,44 @@ test('passing account integrations need explicit consent and exact client compat
   await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /test-account consent/)
   lane.integrations['wechat-selected-read'].testAccountConsent = true
   await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /tested client version/)
+})
+
+test('desktop acceptance requires installed approval and no-partial-write scenarios', async t => {
+  const f = await fixture(t)
+  for (const scenario of ['approval-allow', 'approval-deny', 'cancel-task', 'write-failure-no-commit']) {
+    delete f.manifest.targets['windows-x64-nsis'].scenarios[scenario]
+  }
+  await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /windows-x64-nsis\/approval-allow/)
+})
+
+test('desktop acceptance requires failed optional components to leave core use available', async t => {
+  const f = await fixture(t)
+  delete f.manifest.targets['macos-arm64-dmg'].scenarios['optional-component-failure-recovery']
+  await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /macos-arm64-dmg\/optional-component-failure-recovery/)
+})
+
+test('desktop acceptance requires OS credential stores, installed RPA, and five honest connector states', async t => {
+  const f = await fixture(t)
+  const lane = f.manifest.targets['windows-x64-nsis']
+  lane.integrations['real-model'].credentialStore = 'plaintext-file'
+  await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /OS secure credential store/)
+  lane.integrations['real-model'].credentialStore = 'windows-credential-manager'
+  lane.integrations['native-rpa-browser-click'] = {
+    ...lane.integrations['real-model'], status: 'blocked', availability: 'unavailable', reason: 'No interactive browser fixture',
+  }
+  const blocked = await verifyReleaseAcceptance(f.manifest, { ...f.options, requireComplete: false })
+  assert.equal(blocked.ready, false)
+  assert.ok(blocked.incomplete.some(item => item.includes('native-rpa-browser-click')))
+  lane.integrations['native-rpa-browser-click'].status = 'passed'
+  lane.integrations['native-rpa-browser-click'].availability = 'available'
+  lane.integrations['native-rpa-browser-click'].browserVersion = 'Fixture Browser 1'
+  lane.integrations['im-qq-ui'].uiState = 'connected'
+  await assert.rejects(verifyReleaseAcceptance(f.manifest, f.options), /blocked state/)
+})
+
+test('beta template contains only the Windows and macOS installer lanes', () => {
+  const template = createAcceptanceTemplate('0.2.3-beta.1', commit, ['0.2.2'])
+  assert.deepEqual(Object.keys(template.targets).sort(), ['macos-arm64-dmg', 'windows-x64-nsis'])
 })
 
 test('an evidence path cannot escape its root or replace a retained file with a symlink', async t => {

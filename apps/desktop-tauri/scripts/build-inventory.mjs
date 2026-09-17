@@ -1,7 +1,7 @@
 /** Explicit component and dependency identities carried by the desktop build record. */
-import { createHash } from 'node:crypto'
 import { globSync, lstatSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
 
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex')
 
@@ -32,6 +32,12 @@ export function captureBuildInventory(root) {
   const locks = paths(['pnpm-lock.yaml', 'apps/desktop-tauri/pnpm-desktop-lock.yaml', 'frontends/*/package-lock.json']).map(digest)
   const patches = paths(['apps/desktop-tauri/patches/*.patch', 'apps/desktop-tauri/patches/*.json']).map(digest)
   return { components, locks, patches }
+}
+
+/** @param {object[]} locks @returns {string} SHA-256 for the sorted lockfile path, byte-count and content-digest records. */
+export function digestLockfiles(locks) {
+  const identity = [...locks].map(({ path, bytes, sha256: digest }) => ({ path, bytes, sha256: digest })).sort((a, b) => a.path.localeCompare(b.path))
+  return createHash('sha256').update(JSON.stringify(identity)).digest('hex')
 }
 
 /**

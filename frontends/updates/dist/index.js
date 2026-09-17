@@ -2042,7 +2042,7 @@ var require_identity = __commonJS({
     var NODE_TYPE = Symbol.for("yaml.node.type");
     var isAlias = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === ALIAS;
     var isDocument = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === DOC;
-    var isMap = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
+    var isMap2 = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
     var isPair = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === PAIR;
     var isScalar2 = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SCALAR;
     var isSeq2 = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SEQ;
@@ -2078,7 +2078,7 @@ var require_identity = __commonJS({
     exports.isAlias = isAlias;
     exports.isCollection = isCollection;
     exports.isDocument = isDocument;
-    exports.isMap = isMap;
+    exports.isMap = isMap2;
     exports.isNode = isNode;
     exports.isPair = isPair;
     exports.isScalar = isScalar2;
@@ -6188,9 +6188,9 @@ var require_resolve_flow_collection = __commonJS({
     var blockMsg = "Block collections are not allowed within flow collections";
     var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
     function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag) {
-      const isMap = fc.start.source === "{";
-      const fcName = isMap ? "flow map" : "flow sequence";
-      const NodeClass = tag?.nodeClass ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
+      const isMap2 = fc.start.source === "{";
+      const fcName = isMap2 ? "flow map" : "flow sequence";
+      const NodeClass = tag?.nodeClass ?? (isMap2 ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
       const coll = new NodeClass(ctx.schema);
       coll.flow = true;
       const atRoot = ctx.atRoot;
@@ -6226,7 +6226,7 @@ var require_resolve_flow_collection = __commonJS({
             offset = props.end;
             continue;
           }
-          if (!isMap && ctx.options.strict && utilContainsNewline.containsNewline(key))
+          if (!isMap2 && ctx.options.strict && utilContainsNewline.containsNewline(key))
             onError(
               key,
               // checked by containsNewline()
@@ -6266,7 +6266,7 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep && !props.found) {
+        if (!isMap2 && !sep && !props.found) {
           const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
@@ -6289,7 +6289,7 @@ var require_resolve_flow_collection = __commonJS({
             startOnNewline: false
           });
           if (valueProps.found) {
-            if (!isMap && !props.found && ctx.options.strict) {
+            if (!isMap2 && !props.found && ctx.options.strict) {
               if (sep)
                 for (const st2 of sep) {
                   if (st2 === valueProps.found)
@@ -6321,7 +6321,7 @@ var require_resolve_flow_collection = __commonJS({
           const pair = new Pair.Pair(keyNode, valueNode);
           if (ctx.options.keepSourceTokens)
             pair.srcToken = collItem;
-          if (isMap) {
+          if (isMap2) {
             const map2 = coll;
             if (utilMapIncludes.mapIncludes(ctx, map2.items, keyNode))
               onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
@@ -6337,7 +6337,7 @@ var require_resolve_flow_collection = __commonJS({
           offset = valueNode ? valueNode.range[2] : valueProps.end;
         }
       }
-      const expectedEnd = isMap ? "}" : "]";
+      const expectedEnd = isMap2 ? "}" : "]";
       const [ce2, ...ee2] = fc.end;
       let cePos = offset;
       if (ce2?.source === expectedEnd)
@@ -27179,6 +27179,8 @@ var sha256 = (value) => createHash2("sha256").update(value).digest("hex");
 var revision = (value) => `sha256-${sha256(value)}`;
 var json2 = (value) => `${JSON.stringify(value, null, 2)}
 `;
+var updaterRowKeys = /* @__PURE__ */ new Set(["id", "name", "config", "disabled"]);
+var offlineRecovery = "This updater profile cannot be migrated automatically; no profile change was made. Quit ClawMaster and confirm its Host has exited, then make byte-for-byte backups of DSH_HOME/profiles/web/cordis.patch.yml and DSH_HOME/clawmaster-updates. Restore only a known-good pre-update profile backup; if none exists, leave the files untouched and request an administrator-led offline repair. Do not delete component data or retry automatic activation.";
 var operationSchema = external_exports.object({
   before: external_exports.string().max(DEFAULT_LIMITS.patchBytes),
   after: external_exports.string().max(DEFAULT_LIMITS.patchBytes),
@@ -27186,7 +27188,7 @@ var operationSchema = external_exports.object({
   id: external_exports.string().regex(ID),
   version: external_exports.string().refine((value) => (0, import_semver2.valid)(value) === value),
   activation: external_exports.enum(["hot", "restart"]),
-  state: external_exports.enum(["staged", "applied", "switching", "awaiting-health", "completed", "rolled-back", "blocked"]),
+  state: external_exports.enum(["staged", "applied", "switching", "awaiting-health", "completed", "selected-unverified", "rolled-back", "blocked"]),
   failure: external_exports.string().optional(),
   direction: external_exports.enum(["update", "rollback"]).optional(),
   activatedAt: external_exports.string().datetime().optional(),
@@ -27523,9 +27525,22 @@ async function nextPatch(text, root, target) {
 ${text.slice(at2)}`;
   }
   const name2 = node.get("name", true);
-  if (node.items.length !== 2 || !(0, import_yaml.isScalar)(name2) || typeof name2.value !== "string" || !name2.range) throw new Error("The updater-owned row was edited outside the updater");
+  if (target.descriptor.id === "updates") validateUpdaterRow(node, name2);
+  else if (node.items.length !== 2 || !(0, import_yaml.isScalar)(name2) || typeof name2.value !== "string" || !name2.range) throw new Error("The updater-owned row was edited outside the updater");
+  if (!(0, import_yaml.isScalar)(name2) || typeof name2.value !== "string" || !name2.range) throw new Error("The updater-owned row was edited outside the updater");
   await verifyOwnedEntry(root, target.descriptor.id, name2.value);
   return `${text.slice(0, name2.range[0])}${JSON.stringify(target.entryUrl)}${text.slice(name2.range[1])}`;
+}
+function validateUpdaterRow(row, name2) {
+  const fail = () => {
+    throw new Error(offlineRecovery);
+  };
+  if (row.items.some((pair) => !(0, import_yaml.isScalar)(pair.key) || typeof pair.key.value !== "string" || !updaterRowKeys.has(pair.key.value))) fail();
+  if (row.get("id") !== "clawmaster-update-component-updates" || !(0, import_yaml.isScalar)(name2) || typeof name2.value !== "string" || !name2.range) fail();
+  const disabled = row.get("disabled", true);
+  if (disabled !== void 0 && (!(0, import_yaml.isScalar)(disabled) || typeof disabled.value !== "boolean")) fail();
+  const config2 = row.get("config", true);
+  if (config2 !== void 0 && (!(0, import_yaml.isMap)(config2) || !Config.safeParse(config2.toJSON()).success)) fail();
 }
 async function verifyOwnedEntry(root, id, name2) {
   let oldPath;
@@ -27549,7 +27564,9 @@ async function verifyRollbackEntry(root, id, text) {
   const previous = matches[0];
   if (!previous) return;
   const name2 = previous.get("name");
-  if (previous.items.length !== 2 || typeof name2 !== "string") throw new Error("Invalid rollback component row");
+  if (id === "updates") validateUpdaterRow(previous, previous.get("name", true));
+  else if (previous.items.length !== 2 || typeof name2 !== "string") throw new Error("Invalid rollback component row");
+  if (typeof name2 !== "string") throw new Error("Invalid rollback component row");
   await verifyOwnedEntry(root, id, name2);
 }
 function rejectUpdaterRows(text, componentRoot) {
@@ -27640,12 +27657,25 @@ async function maintainRestartComponents(dshHome) {
         const switching = { ...record3, state: "switching", afterRevision: revision(record3.after) };
         await writeFileAtomic(recordPath, json2(switching), { mode: 384, dirMode: 448 });
         await writeFileAtomic(path, record3.after, { mode: 384, dirMode: 448 });
-        await writeFileAtomic(recordPath, json2({ ...switching, state: "awaiting-health" }), { mode: 384, dirMode: 448 });
-        changed.push({ ...candidate, state: "awaiting-health" });
+        const selectedDisabled = disabledUpdaterSelected(record3.after);
+        const legacyTarget = !(0, import_semver2.gt)(record3.version, "0.1.1");
+        const state = selectedDisabled || legacyTarget ? "selected-unverified" : "awaiting-health";
+        await writeFileAtomic(recordPath, json2({ ...switching, state }), { mode: 384, dirMode: 448 });
+        changed.push({ ...candidate, state });
       }
     });
   });
   return changed;
+}
+function disabledUpdaterSelected(text) {
+  const doc = (0, import_yaml.parseDocument)(text);
+  let disabled = false;
+  (0, import_yaml.visit)(doc, { Map(_key, node) {
+    if (node.get("id") !== "clawmaster-update-component-updates") return;
+    const value = node.get("disabled", true);
+    disabled = (0, import_yaml.isScalar)(value) && value.value === true;
+  } });
+  return disabled;
 }
 async function confirmComponentHealth(options) {
   if (options.hostPid !== process.pid || !options.runId || options.runId !== process.env.CLAWMASTER_RUNTIME_RUN_ID) throw new Error("Health confirmation requires the actual executing desktop Host");
@@ -27724,7 +27754,7 @@ async function rollbackComponent(options) {
   return withFileLock(path, async () => {
     const recordPath = join3(root, "operations", `${options.rollbackToken}.json`);
     const record3 = await readOperation(root, options.rollbackToken);
-    if (typeof record3.before !== "string" || Buffer.byteLength(record3.before) > DEFAULT_LIMITS.patchBytes || typeof record3.id !== "string" || !ID.test(record3.id) || (0, import_semver2.valid)(record3.version) !== record3.version || !["hot", "restart"].includes(record3.activation) || !["staged", "applied", "completed"].includes(record3.state) || record3.afterRevision !== options.expectedPatchRevision || revision(await optionalPatch(path, DEFAULT_LIMITS.patchBytes)) !== options.expectedPatchRevision) {
+    if (typeof record3.before !== "string" || Buffer.byteLength(record3.before) > DEFAULT_LIMITS.patchBytes || typeof record3.id !== "string" || !ID.test(record3.id) || (0, import_semver2.valid)(record3.version) !== record3.version || !["hot", "restart"].includes(record3.activation) || !["staged", "applied", "completed", "selected-unverified"].includes(record3.state) || record3.afterRevision !== options.expectedPatchRevision || revision(await optionalPatch(path, DEFAULT_LIMITS.patchBytes)) !== options.expectedPatchRevision) {
       throw new Error("The profile changed after activation; rollback would overwrite newer edits");
     }
     const owner = join3(root, "components", record3.id);

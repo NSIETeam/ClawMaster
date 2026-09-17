@@ -407,6 +407,8 @@ type PostToolDecision =
 
 subagent、工作流、MCP 和动态注册提供的原始 schema 使用作者侧 DSL 在协议层的对应表示。`assertSupportedJsonSchema()` 接受任意 JSON 根，`validateJsonSchemaValue()` 强制执行该 schema，`JsonSchemaError` 则报告每条不受支持或格式错误的 schema 路径。仅含注解的空节点表示不受约束的无损 JSON。`oneOf` 至少要求两个分支，且一个值必须恰好匹配其中一个。仍要求对象根的消费方调用 `assertObjectJsonSchema()` 并携带 `ObjectJsonSchema`；这样，subagent/工作流中由调用方定义的结构化输出可以继续以对象为根，而不会限制共享词汇。
 
+面向模型的工具参数 schema 使用独立的结构校验：根节点必须是对象 schema，标准关键字必须具有符合 JSON Schema 的值类型，组合、`prefixItems` 和元组 `items` 数组必须非空，依赖名称和 enum 值必须唯一，`additionalItems` 必须是 schema 或布尔值，`pattern` 值和 `patternProperties` 键都必须能编译为正则表达式，并递归检查所有承载 schema 的关键字。其他可无损读取的 JSON 关键字会保留在投影中，包括方言关键字和 MCP 扩展；PTC SDK 类型生成会将强制执行值子集之外的结构映射为 `unknown` 或 `Any`。格式错误的参数 schema 会从两种投影中隔离，并在审批或执行前拒绝派发。
+
 ```ts type-equiv
 /** Scalar JSON values supported by `enum` and `const`. */
 type JsonSchemaScalar = string | number | boolean | null
@@ -498,6 +500,8 @@ presentAs(mode: ToolPresentationMode): () => void
 /**
  * Register globally or in the calling agent scope. Scoped tools shadow
  * globals; duplicates within one layer and the reserved `run_code` name fail.
+ * A definition with unreadable, lossy, or non-object-rooted parameters is
+ * registered but quarantined from prompt projection and dispatch.
  * @param definition - tool schema, execution, and optional finalization/presentation callbacks.
  * @returns the exact disposer that unregisters the tool.
  */

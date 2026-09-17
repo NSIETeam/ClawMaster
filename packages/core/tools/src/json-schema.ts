@@ -153,6 +153,250 @@ export function isJsonSchemaRecord(value: unknown): value is Record<string, unkn
   return isPlainJsonRecord(value) && hasOnlyEnumerableStringKeys(value)
 }
 
+type StructuralTask = { readonly schema: unknown; readonly path: string }
+
+/** Canonicalize one lossless JSON value for JSON Schema `enum` uniqueness. */
+function jsonSchemaValueKey(value: unknown): string {
+  const output: string[] = []
+  const tasks: ({ readonly kind: 'value'; readonly value: unknown } | { readonly kind: 'text'; readonly text: string })[] = [
+    { kind: 'value', value },
+  ]
+  for (let task = tasks.pop(); task !== undefined; task = tasks.pop()) {
+    if (task.kind === 'text') {
+      output.push(task.text)
+      continue
+    }
+    if (task.value === null || typeof task.value !== 'object') {
+      output.push(JSON.stringify(task.value) ?? 'null')
+      continue
+    }
+    if (Array.isArray(task.value)) {
+      output.push('[')
+      tasks.push({ kind: 'text', text: ']' })
+      for (let index = task.value.length - 1; index >= 0; index--) {
+        tasks.push({ kind: 'value', value: task.value[index] })
+        if (index > 0) tasks.push({ kind: 'text', text: ',' })
+      }
+      continue
+    }
+    output.push('{')
+    tasks.push({ kind: 'text', text: '}' })
+    const record = task.value as Record<string, unknown>
+    const keys = Object.keys(record).sort()
+    for (const key of keys.reverse()) {
+      tasks.push({ kind: 'value', value: record[key] })
+      tasks.push({ kind: 'text', text: ':' })
+      tasks.push({ kind: 'text', text: JSON.stringify(key) })
+      if (index > 0) tasks.push({ kind: 'text', text: ',' })
+    }
+  }
+  return output.join('')
+}
+
+const SCHEMA_MAP_KEYWORDS = ['$defs', 'definitions', 'properties', 'patternProperties', 'dependentSchemas'] as const
+const SCHEMA_ARRAY_KEYWORDS = ['allOf', 'anyOf', 'oneOf'] as const
+const SCHEMA_TUPLE_KEYWORDS = ['prefixItems'] as const
+const SCHEMA_SINGLE_KEYWORDS = [
+  'additionalItems', 'additionalProperties', 'contains', 'contentSchema', 'else', 'if', 'items', 'not',
+  'propertyNames', 'then', 'unevaluatedItems', 'unevaluatedProperties',
+] as const
+const STRING_KEYWORDS = [
+  '$anchor', '$comment', '$dynamicAnchor', '$dynamicRef', '$id', '$ref', '$recursiveRef', '$schema', 'contentEncoding',
+  'contentMediaType', 'description', 'format', 'pattern', 'title',
+] as const
+const BOOLEAN_KEYWORDS = ['deprecated', 'readOnly', 'uniqueItems', 'writeOnly'] as const
+const NUMBER_KEYWORDS = ['maximum', 'minimum', 'multipleOf'] as const
+const NON_NEGATIVE_INTEGER_KEYWORDS = [
+  'maxContains', 'maxItems', 'maxLength', 'maxProperties', 'minContains', 'minItems', 'minLength', 'minProperties',
+] as const
+
+/** Validate schema-bearing fields while retaining every lossless JSON Schema extension keyword. */
+function inspectSchemaStructure(root: unknown): string[] {
+  const violations: string[] = []
+  const tasks: StructuralTask[] = [{ schema: root, path: 'schema' }]
+  for (let task = tasks.pop(); task !== undefined; task = tasks.pop()) {
+    const { schema, path } = task
+    if (typeof schema === 'boolean') continue
+    if (!isJsonSchemaRecord(schema)) {
+      violations.push(`${path} must be a schema object or boolean`)
+      continue
+    }
+
+    for (const keyword of STRING_KEYWORDS) {
+      if (Object.hasOwn(schema, keyword) && typeof schema[keyword] !== 'string') {
+        violations.push(`${path}.${keyword} must be a string`)
+      }
+    }
+    if (Object.hasOwn(schema, 'pattern') && typeof schema.pattern === 'string') {
+      try {
+        new RegExp(schema.pattern)
+      } catch {
+        violations.push(`${path}.pattern must be a valid regular expression`)
+      }
+    }
+    for (const keyword of BOOLEAN_KEYWORDS) {
+      if (Object.hasOwn(schema, keyword) && typeof schema[keyword] !== 'boolean') {
+        violations.push(`${path}.${keyword} must be a boolean`)
+      }
+    }
+    for (const keyword of NUMBER_KEYWORDS) {
+      if (Object.hasOwn(schema, keyword) && !isJsonNumber(schema[keyword])) {
+        violations.push(`${path}.${keyword} must be a finite JSON number`)
+      }
+    }
+    for (const keyword of ['exclusiveMaximum', 'exclusiveMinimum'] as const) {
+      const value = schema[keyword]
+      if (Object.hasOwn(schema, keyword) && typeof value !== 'boolean' && !isJsonNumber(value)) {
+        violations.push(`${path}.${keyword} must be a finite JSON number or boolean`)
+      }
+    }
+    if (Object.hasOwn(schema, 'multipleOf') && isJsonNumber(schema.multipleOf) && schema.multipleOf <= 0) {
+      violations.push(`${path}.multipleOf must be greater than zero`)
+    }
+    for (const keyword of NON_NEGATIVE_INTEGER_KEYWORDS) {
+      const value = schema[keyword]
+      if (Object.hasOwn(schema, keyword) && (!Number.isSafeInteger(value) || (value as number) < 0)) {
+        violations.push(`${path}.${keyword} must be a non-negative integer`)
+      }
+    }
+    if (Object.hasOwn(schema, 'type')) {
+      const type = schema.type
+      const validType = (value: unknown): value is string =>
+        typeof value === 'string' && ['array', 'boolean', 'integer', 'null', 'number', 'object', 'string'].includes(value)
+      if (typeof type === 'string') {
+        if (!validType(type)) violations.push(`${path}.type must name a JSON Schema type`)
+      } else if (!isPlainJsonArray(type) || type.length === 0 || !type.every(validType)
+        || new Set(type).size !== type.length) {
+        violations.push(`${path}.type must be a type name or a non-empty array of unique type names`)
+      }
+    }
+
+    for (const keyword of ['required', 'dependentRequired'] as const) {
+      if (!Object.hasOwn(schema, keyword)) continue
+      const value = schema[keyword]
+      const arrays = keyword === 'required'
+        ? [value]
+        : isJsonSchemaRecord(value) ? Object.values(value) : undefined
+      if (!arrays || arrays.some(entry => !isPlainJsonArray(entry)
+        || !entry.every(name => typeof name === 'string')
+        || new Set(entry).size !== entry.length)) {
+        violations.push(`${path}.${keyword} must contain arrays of strings`)
+      }
+    }
+    for (const keyword of ['enum', 'examples'] as const) {
+      if (!Object.hasOwn(schema, keyword)) continue
+      const value = schema[keyword]
+      if (keyword === 'enum' && (!isPlainJsonArray(value) || value.length === 0)) {
+        violations.push(`${path}.enum must be a non-empty array`)
+      } else if (keyword === 'examples' && !isPlainJsonArray(value)) {
+        violations.push(`${path}.examples must be an array`)
+      }
+      if (keyword === 'enum' && isPlainJsonArray(value) && value.length > 0
+        && new Set(value.filter(safelyIsJsonValue).map(jsonSchemaValueKey)).size !== value.length) {
+        violations.push(`${path}.enum must contain unique JSON values`)
+      }
+    }
+    if (Object.hasOwn(schema, 'const') && !safelyIsJsonValue(schema.const)) {
+      violations.push(`${path}.const must be lossless JSON data`)
+    }
+    if (Object.hasOwn(schema, 'default') && !safelyIsJsonValue(schema.default)) {
+      violations.push(`${path}.default must be lossless JSON data`)
+    }
+    if (Object.hasOwn(schema, '$vocabulary')) {
+      const vocabulary = schema.$vocabulary
+      if (!isJsonSchemaRecord(vocabulary) || Object.values(vocabulary).some(value => typeof value !== 'boolean')) {
+        violations.push(`${path}.$vocabulary must map URIs to booleans`)
+      }
+    }
+
+    for (const keyword of SCHEMA_MAP_KEYWORDS) {
+      if (!Object.hasOwn(schema, keyword)) continue
+      const map = schema[keyword]
+      if (!isJsonSchemaRecord(map)) {
+        violations.push(`${path}.${keyword} must be an object of schemas`)
+        continue
+      }
+      if (keyword === 'patternProperties') {
+        for (const pattern of Object.keys(map)) {
+          try {
+            new RegExp(pattern)
+          } catch {
+            violations.push(`${path}.patternProperties key ${JSON.stringify(pattern)} must be a valid regular expression`)
+          }
+        }
+      }
+      for (const [key, child] of Object.entries(map)) tasks.push({ schema: child, path: `${path}.${keyword}.${key}` })
+    }
+    for (const keyword of SCHEMA_ARRAY_KEYWORDS) {
+      if (!Object.hasOwn(schema, keyword)) continue
+      const branches = schema[keyword]
+      if (!isPlainJsonArray(branches) || branches.length === 0) {
+        violations.push(`${path}.${keyword} must be a non-empty array of schemas`)
+        continue
+      }
+      branches.forEach((child, index) => tasks.push({ schema: child, path: `${path}.${keyword}[${index}]` }))
+    }
+    for (const keyword of SCHEMA_TUPLE_KEYWORDS) {
+      if (!Object.hasOwn(schema, keyword)) continue
+      const branches = schema[keyword]
+      if (!isPlainJsonArray(branches) || branches.length === 0) {
+        violations.push(`${path}.${keyword} must be a non-empty array of schemas`)
+        continue
+      }
+      branches.forEach((child, index) => tasks.push({ schema: child, path: `${path}.${keyword}[${index}]` }))
+    }
+    if (Object.hasOwn(schema, 'dependencies')) {
+      const dependencies = schema.dependencies
+      if (!isJsonSchemaRecord(dependencies)) {
+        violations.push(`${path}.dependencies must be an object of schemas or property-name arrays`)
+      } else {
+        for (const [key, dependency] of Object.entries(dependencies)) {
+          if (isPlainJsonArray(dependency)) {
+            if (!dependency.every(name => typeof name === 'string')
+              || new Set(dependency).size !== dependency.length) {
+              violations.push(`${path}.dependencies.${key} must contain unique property names`)
+            }
+          } else {
+            tasks.push({ schema: dependency, path: `${path}.dependencies.${key}` })
+          }
+        }
+      }
+    }
+    for (const keyword of SCHEMA_SINGLE_KEYWORDS) {
+      if (!Object.hasOwn(schema, keyword)) continue
+      const child = schema[keyword]
+      if (keyword === 'items') {
+        if (isPlainJsonArray(child)) {
+          if (child.length === 0) {
+            violations.push(`${path}.items tuple must contain at least one schema`)
+            continue
+          }
+          child.forEach((item, index) => tasks.push({ schema: item, path: `${path}.${keyword}[${index}]` }))
+          continue
+        }
+      }
+      if (typeof child !== 'boolean' && !isJsonSchemaRecord(child)) {
+        violations.push(`${path}.${keyword} must be a schema object or boolean`)
+      } else {
+        tasks.push({ schema: child, path: `${path}.${keyword}` })
+      }
+    }
+  }
+  return violations
+}
+
+/** Assert a lossless JSON Schema has a valid object root and structurally valid keywords.
+ * @param schema - untrusted tool parameter schema to validate.
+ * @returns asserts that `schema` is a record rooted at `type: "object"`.
+ */
+export function assertObjectParameterJsonSchema(schema: unknown): asserts schema is Record<string, unknown> {
+  const violations = inspectSchemaStructure(schema)
+  if (!isJsonSchemaRecord(schema) || schema.type !== 'object') {
+    violations.push('schema.type must be "object" (tool parameters are object-rooted)')
+  }
+  if (violations.length > 0) throw new JsonSchemaError(violations)
+}
+
 /**
  * Test for a dense ordinary array with no JSON-invisible decorations.
  * @param value - candidate array from any JavaScript realm.

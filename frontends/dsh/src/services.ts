@@ -1,5 +1,6 @@
 /** Public DSH services consumed by the product UI; DSH owns Session execution. */
 import type { Branded } from '@deepseek-ai/dsh-brand';
+import type { Context } from '@deepseek-ai/cordis';
 import type { ReactNode } from 'react';
 import { productCopy, type ProductLocale } from './locales/frontend.ts';
 import type { OnboardingScope, OnboardingSettings } from './onboarding.ts';
@@ -28,7 +29,17 @@ export interface WorkspaceListSnapshot {
   items: readonly { workspaceId: WorkspaceId; path: string; title: string; sessionIds: readonly SessionId[] }[];
   archivedSessionIds: readonly SessionId[]; phase: 'pending' | 'ready';
 }
-export interface FrontendServices {
+export interface BetterSidebarService {
+  /** Register a native tab and its existing Better Sidebar settings card. */
+  registerTab(descriptor: {
+    id: string; title: () => string; description: () => string; single: boolean; order: number;
+    icon: (size: number) => ReactNode; component: () => ReactNode;
+    settings: { render: (props: { close(): void }) => ReactNode };
+  }): () => void;
+  isTabEnabled(id: string): boolean;
+  openTab(seed: { type: string; title?: string; target?: 'right' | 'bottom' }, scope: { sessionId: SessionId; cwd: string }): void;
+}
+export interface FrontendServices extends Pick<Context, 'get' | 'on'> {
   slots: {
     inject(name: string, effect: () => (() => void)): unknown;
     register(options: Record<string, unknown>, component: unknown): () => void;
@@ -49,17 +60,53 @@ export interface FrontendServices {
   layout: { selectPanel(key: MainPanelId | null): void; beginNavigation(): AbortSignal };
   locale: Observable<{ active: string }>;
   settingsScope: { bind(spec: { namespace: string; decode(value: unknown): OnboardingSettings | undefined }): OnboardingScope };
-  betterSidebar: {
-    /** Register a native tab and its existing Better Sidebar settings card. */
-    registerTab(descriptor: {
-      id: string; title: () => string; description: () => string; single: boolean; order: number;
-      icon: (size: number) => ReactNode; component: () => ReactNode;
-      settings: { render: (props: { close(): void }) => ReactNode };
-    }): () => void;
-    isTabEnabled(id: string): boolean;
-    openTab(seed: { type: string; title?: string; target?: 'right' | 'bottom' }, scope: { sessionId: SessionId; cwd: string }): void;
-  };
   effect(setup: () => (() => void), label?: string): unknown;
+}
+
+/** Read the optional service through Cordis instead of its throwing proxy property access.
+ * @param ctx - Cordis service context.
+ * @returns the active Better Sidebar service, if available.
+ */
+export function getBetterSidebar(ctx: Pick<FrontendServices, 'get'>): BetterSidebarService | undefined {
+  return ctx.get('betterSidebar') as BetterSidebarService | undefined;
+}
+
+/** Follow Better Sidebar's active lifetime and register feature tabs whenever it becomes available.
+ * @param ctx - Cordis service context.
+ * @param register - register product tabs and return their disposer.
+ * @returns nothing; registration is owned by the calling Cordis effect.
+ */
+export function observeBetterSidebar(
+  ctx: Pick<FrontendServices, 'effect' | 'get' | 'on'>,
+  register: (service: BetterSidebarService) => () => void,
+): void {
+  ctx.effect(() => {
+    let active: BetterSidebarService | undefined;
+    let disposeTabs: (() => void) | undefined;
+    const refresh = () => {
+      const next = getBetterSidebar(ctx);
+      if (next === active) return;
+      disposeTabs?.();
+      disposeTabs = undefined;
+      active = next;
+      if (next === undefined) return;
+      try {
+        disposeTabs = register(next);
+      } catch (error) {
+        console.error('ClawMaster: Better Sidebar tabs could not be registered', error);
+      }
+    };
+    const stopService = ctx.on('internal/service', name => {
+      if (name === 'betterSidebar') refresh();
+    });
+    const stopStatus = ctx.on('internal/status', refresh);
+    refresh();
+    return () => {
+      stopStatus();
+      stopService();
+      disposeTabs?.();
+    };
+  }, 'clawmaster: optional Better Sidebar tabs');
 }
 
 /** Project durable user Sessions, excluding blank, archived and delegated entries. */

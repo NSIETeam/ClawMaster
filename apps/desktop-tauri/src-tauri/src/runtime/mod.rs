@@ -39,6 +39,7 @@ impl DesktopRuntime {
     /// Applies the Windows PATH bridge and profile repair, then spawns the
     /// Host with `node.exe`. WSL mode must use [`Self::start_wsl`] instead.
     pub async fn start(
+        app: tauri::AppHandle,
         paths: RuntimePaths,
         overlay: Option<&HostOverlay>,
         progress: Arc<dyn Fn(ProvisionEvent) + Send + Sync>,
@@ -64,7 +65,7 @@ impl DesktopRuntime {
             return Err(error);
         }
         progress(ProvisionEvent::Status(i18n::t(Msg::StatusStartWeb).into()));
-        let host = supervisor::spawn_web_host(&paths, overlay, &host_path).await?;
+        let host = supervisor::spawn_web_host(app, &paths, overlay, &host_path).await?;
         boot_log::info("dsh web ready");
         Ok(Self {
             paths: paths.clone(),

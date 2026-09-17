@@ -1,5 +1,6 @@
 /** Real tool dispatch proves resource denial and fresh identity reads without model calls. */
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -21,6 +22,8 @@ test('runtime facts refuse stopped, malformed and different process records with
   assert.equal(observe().available, false);
   await writeFile(path, JSON.stringify(state));
   assert.equal(observe().identity.contentSha256, 'a'.repeat(64));
+  assert.equal(observe().identity.inventory, null, 'older build records without an inventory must not claim an empty inventory');
+  assert.equal(JSON.stringify(observe()).includes(root), false, 'runtime identity must not disclose its installation path');
   await writeFile(path, JSON.stringify({ ...state, contentSha256: 'b'.repeat(64) }));
   assert.equal(observe().identity.contentSha256, 'b'.repeat(64));
   for (const invalid of [{ ...state, status: 'stopped' }, { ...state, hostPid: process.pid + 1 }, { ...state, runId: 'older-run' }, { ...state, port: '17890' }]) {
@@ -30,6 +33,52 @@ test('runtime facts refuse stopped, malformed and different process records with
   await writeFile(path, '{');
   assert.equal(observe().available, false);
   assert.equal(observeRuntime(undefined).available, false);
+});
+
+test('runtime identity reports bounded component and patch digests without their paths', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'clawmaster-runtime-inventory-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, 'current.json');
+  const fileIdentity = (filePath, sha256) => ({ path: filePath, bytes: 42, sha256 });
+  const component = {
+    name: '@clawmaster/dsh-notes', version: '0.1.0',
+    manifest: fileIdentity('frontends/notes/package.json', 'b'.repeat(64)),
+    artifacts: [
+      fileIdentity('frontends/notes/dist/client.js', 'c'.repeat(64)),
+      fileIdentity('frontends/notes/dist/index.js', 'd'.repeat(64)),
+    ],
+  };
+  const state = {
+    schemaVersion: 1, status: 'ready', runId: 'fixture-run', hostPid: process.pid, port: 17890,
+    observedAtUnixMs: 1, desktopVersion: 'fixture', harnessVersion: 'fixture',
+    contentSha256: 'a'.repeat(64), harnessRoot: root, disabledPlugins: [],
+    buildProvenance: {
+      mode: 'release', source: { gitCommit: 'e'.repeat(40), gitTree: 'f'.repeat(40), dirty: false, sourceSha256: '1'.repeat(64) },
+      inventory: { components: [component], locks: [], patches: [fileIdentity('apps/desktop-tauri/patches/dsh-im@4.20.0.patch', '2'.repeat(64))] },
+    },
+  };
+  await writeFile(path, JSON.stringify(state));
+  const observation = observeRuntime(path, process.pid, 'fixture-run');
+  assert.equal(observation.available, true);
+  assert.ok(Number.isFinite(Date.parse(observation.observedAt)), 'the observation itself carries its as-of time');
+  const expectedArtifactHash = createHash('sha256');
+  for (const artifact of component.artifacts.slice().sort((left, right) => left.path.localeCompare(right.path))) {
+    expectedArtifactHash.update(JSON.stringify([artifact.path, artifact.bytes, artifact.sha256]));
+    expectedArtifactHash.update('\n');
+  }
+  assert.deepEqual(observation.identity.inventory.components, [{
+    name: '@clawmaster/dsh-notes', version: '0.1.0', manifestSha256: 'b'.repeat(64), artifactCount: 2,
+    artifactsSha256: expectedArtifactHash.digest('hex'),
+  }]);
+  assert.deepEqual(observation.identity.inventory.patches, [{ name: 'dsh-im@4.20.0.patch', sha256: '2'.repeat(64) }]);
+  const rendered = JSON.stringify(observation);
+  for (const secretPath of [root, 'frontends/notes', 'apps/desktop-tauri/patches']) assert.equal(rendered.includes(secretPath), false);
+  assert.equal(rendered.includes('harnessRoot'), false);
+  assert.equal(rendered.includes('credentials'), false);
+  await writeFile(path, JSON.stringify({ ...state,
+    buildProvenance: { ...state.buildProvenance, inventory: { components: Array.from({ length: 129 }, (_, index) => ({ ...component, name: `component-${index}` })), patches: [] } },
+  }));
+  assert.equal(observeRuntime(path, process.pid, 'fixture-run').available, false, 'oversized inventories are rejected instead of producing unbounded output');
 });
 
 async function fixture(t, budgets, body, readProcessTreeRss = () => null) {

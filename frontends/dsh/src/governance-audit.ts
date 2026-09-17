@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { DatabaseSync, StatementSync } from 'node:sqlite';
 import { z } from 'zod';
 import { EnterpriseError } from './enterprise-types.ts';
+import { trustedAuthorityIdentifierSchema } from './governance-identity.ts';
 
 const sqliteRow = z.record(z.string(), z.unknown());
 interface IterableStatement extends StatementSync { iterate(...parameters: Array<string | number>): IterableIterator<unknown>; }
@@ -124,17 +125,17 @@ const observedTaskExecutionOutcomeSchema = z.object({
   }
 });
 const executionIdentitySchema = z.object({
-  actor: z.object({ kind: z.enum(['local-human', 'member', 'agent', 'unknown']), id: z.string() }).strict(),
-  organizationId: z.string(), source: z.enum(['http', 'tool', 'scheduler', 'plugin', 'migration']),
-  policyVersion: z.number().int(), principalId: z.string().optional(), sessionId: z.string().optional(), callId: z.string().optional(),
+  actor: z.object({ kind: z.enum(['local-human', 'member', 'agent', 'unknown']), id: trustedAuthorityIdentifierSchema }).strict(),
+  organizationId: trustedAuthorityIdentifierSchema, source: z.enum(['http', 'tool', 'scheduler', 'plugin', 'migration']),
+  policyVersion: z.number().int(), principalId: trustedAuthorityIdentifierSchema.optional(), sessionId: trustedAuthorityIdentifierSchema.optional(), callId: trustedAuthorityIdentifierSchema.optional(),
   approval: z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('authority'), id: z.string(), approverId: z.string(), generation: z.number().int(), revision: z.number().int() }).strict(),
+    z.object({ kind: z.literal('authority'), id: trustedAuthorityIdentifierSchema, approverId: trustedAuthorityIdentifierSchema, generation: z.number().int(), revision: z.number().int() }).strict(),
     z.object({ kind: z.literal('dsh-one-shot') }).strict(),
   ]).optional(),
 }).strict();
 const persistedExecutionIdentitySchema = executionIdentitySchema.extend({
   approval: z.union([executionIdentitySchema.shape.approval.unwrap(), z.object({
-    id: z.string(), approverId: z.string(), generation: z.number().int(), revision: z.number().int(), kind: z.undefined().optional(),
+    id: trustedAuthorityIdentifierSchema, approverId: trustedAuthorityIdentifierSchema, generation: z.number().int(), revision: z.number().int(), kind: z.undefined().optional(),
   }).strict()]).optional(),
 });
 

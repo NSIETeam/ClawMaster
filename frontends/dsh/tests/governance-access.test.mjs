@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Context } from '@deepseek-ai/cordis';
@@ -340,6 +340,103 @@ test('workspace allocation checks live organization identity and the requested r
   h.authority.http = async () => { throw new Error('Authority unavailable'); };
   assert.equal((await send('alice', 'task')).status, 503, 'authority outage does not fall back to local access');
   assert.equal(created.length, 1);
+});
+
+test('workspace allocation rechecks membership before creating its directory', async t => {
+  const h = authorityFixture();
+  const root = await mkdtemp(join(tmpdir(), 'workspace-before-mkdir-'));
+  const managedRoot = join(root, 'workspaces');
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const arrived = Promise.withResolvers(); const release = Promise.withResolvers();
+  h.authority.membership = async (_organizationId, memberId) => {
+    arrived.resolve(); await release.promise;
+    return memberId === 'alice' ? { active: false, roles: ['executor'], resources: ['*'], policyVersion: 2 } : h.members.get(memberId);
+  };
+  const routes = new Map(); const created = [];
+  const dispose = applyManagedWorkspaces({
+    workspaceRegistry: { async create(path) { created.push(path); return { id: 'workspace', path }; } },
+    connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return async () => routes.delete(route.path); } } },
+  }, managedRoot, h.access);
+  t.after(dispose);
+  const pending = routes.get('/api/clawmaster/workspace')(new Request('http://fixture/api/clawmaster/workspace', {
+    method: 'POST', headers: { authorization: 'alice' }, body: JSON.stringify({ kind: 'task' }),
+  }));
+  await arrived.promise;
+  release.resolve();
+  assert.equal((await pending).status, 403);
+  assert.deepEqual(created, []);
+  await assert.rejects(stat(managedRoot), { code: 'ENOENT' });
+});
+
+test('workspace allocation removes its empty directory when membership is revoked before registration', async t => {
+  const h = authorityFixture();
+  const root = await mkdtemp(join(tmpdir(), 'workspace-before-register-'));
+  const managedRoot = join(root, 'workspaces');
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const arrived = Promise.withResolvers(); const release = Promise.withResolvers();
+  let membershipReads = 0;
+  h.authority.membership = async (_organizationId, memberId) => {
+    if (memberId === 'alice' && ++membershipReads === 2) { arrived.resolve(); await release.promise; }
+    return h.members.get(memberId);
+  };
+  const routes = new Map(); const created = [];
+  const dispose = applyManagedWorkspaces({
+    workspaceRegistry: { async create(path) { created.push(path); return { id: 'workspace', path }; } },
+    connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return async () => routes.delete(route.path); } } },
+  }, managedRoot, h.access);
+  t.after(dispose);
+  const pending = routes.get('/api/clawmaster/workspace')(new Request('http://fixture/api/clawmaster/workspace', {
+    method: 'POST', headers: { authorization: 'alice' }, body: JSON.stringify({ kind: 'task' }),
+  }));
+  await arrived.promise;
+  assert.deepEqual(await readdir(join(managedRoot, 'tasks')).then(entries => entries.length), 1, 'the allocation directory exists while final authorization is pending');
+  h.members.set('alice', { active: false, roles: ['executor'], resources: ['*'], policyVersion: 3 });
+  release.resolve();
+  assert.equal((await pending).status, 403);
+  assert.equal(membershipReads, 2);
+  assert.deepEqual(created, []);
+  assert.deepEqual(await readdir(join(managedRoot, 'tasks')), [], 'revocation removes the empty allocated directory');
+});
+
+test('a revoked desk allocation cannot remove the desk registered by a concurrent authorized caller', async t => {
+  const h = authorityFixture();
+  h.members.set('bob', { active: true, roles: ['executor'], resources: [governanceResource('workspace', 'tools')], policyVersion: 2 });
+  const root = await mkdtemp(join(tmpdir(), 'workspace-shared-desk-'));
+  const managedRoot = join(root, 'workspaces'); const desk = join(managedRoot, 'desk');
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const aliceFinalCheck = Promise.withResolvers(); const releaseAlice = Promise.withResolvers();
+  const bobIdentityResolved = Promise.withResolvers(); let aliceMembershipReads = 0;
+  h.authority.membership = async (_organizationId, memberId) => {
+    if (memberId === 'alice' && ++aliceMembershipReads === 2) { aliceFinalCheck.resolve(); await releaseAlice.promise; }
+    return h.members.get(memberId);
+  };
+  const originalHttp = h.authority.http;
+  h.authority.http = async request => {
+    if (request.headers.get('authorization') === 'bob') bobIdentityResolved.resolve();
+    return originalHttp(request);
+  };
+  const routes = new Map(); const created = [];
+  const dispose = applyManagedWorkspaces({
+    workspaceRegistry: { async create(path) { created.push(path); return { id: `workspace-${created.length}`, path }; } },
+    connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return async () => routes.delete(route.path); } } },
+  }, managedRoot, h.access);
+  t.after(dispose);
+  const send = (identity, kind) => routes.get('/api/clawmaster/workspace')(new Request('http://fixture/api/clawmaster/workspace', {
+    method: 'POST', headers: { authorization: identity }, body: JSON.stringify({ kind }),
+  }));
+  const revoked = send('alice', 'tools');
+  await aliceFinalCheck.promise;
+  assert.ok(await stat(desk), 'the first caller created the shared directory before its final authorization');
+
+  const authorized = send('bob', 'tools');
+  await bobIdentityResolved.promise;
+  h.members.set('alice', { active: false, roles: ['executor'], resources: [], policyVersion: 3 });
+  releaseAlice.resolve();
+
+  assert.equal((await revoked).status, 403);
+  assert.equal((await authorized).status, 200);
+  assert.deepEqual(created, [desk]);
+  assert.ok((await stat(desk)).isDirectory());
 });
 
 test('workspace consumer unload cancels an unresolved identity without waiting or allocating later', async t => {

@@ -287,6 +287,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@clawmaster/dsh-credentials-keychain':
+        specifier: workspace:*
+        version: link:../../frontends/credentials-keychain
       '@clawmaster/dsh-desktop-policy':
         specifier: workspace:*
         version: link:../desktop-defaults
@@ -1215,6 +1218,30 @@ importers:
       zod:
         specifier: 4.4.3
         version: 4.4.3
+
+  frontends/credentials-keychain:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: link:../../vendor/cordis
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: link:../../packages/util/atomic-write
+        version: link:../../packages/util/atomic-write
+      '@deepseek-ai/dsh-credentials':
+        specifier: link:../../packages/credentials/credentials
+        version: link:../../packages/credentials/credentials
+      '@deepseek-ai/dsh-credentials-local':
+        specifier: link:../../packages/credentials/credentials-local
+        version: link:../../packages/credentials/credentials-local
+      '@deepseek-ai/dsh-home-paths':
+        specifier: link:../../packages/util/home-paths
+        version: link:../../packages/util/home-paths
+      '@deepseek-ai/dsh-launch-environment':
+        specifier: link:../../packages/util/launch-environment
+        version: link:../../packages/util/launch-environment
+      '@deepseek-ai/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
 
   frontends/office:
     dependencies:
@@ -2363,6 +2390,9 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../../vendor/cordis
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
 
   packages/client/resources:
     dependencies:

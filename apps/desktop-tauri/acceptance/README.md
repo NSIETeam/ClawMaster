@@ -8,7 +8,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Each candidate needs evidence from its installed applications. The [acceptance checker](../scripts/release-acceptance.mjs) binds a candidate version and full source commit to five separate installer lanes, verifies the retained installer and evidence hashes, and rejects missing mandatory checks. It validates evidence integrity and completeness; it cannot turn a fabricated test report into a real device observation.
+Each candidate needs evidence from its installed applications. The [acceptance checker](../scripts/release-acceptance.mjs) binds a candidate version and full source commit to the install lanes selected for that release, verifies the retained installer and evidence hashes, and rejects missing mandatory checks. Beta versions require Windows x64 NSIS and Apple Silicon DMG; other release versions require the full five-lane matrix. It validates evidence integrity and completeness; it cannot turn a fabricated test report into a real device observation.
 
 ## Table of Contents
 
@@ -29,11 +29,11 @@ A completed lane includes `artifact: { file, sha256 }`, a `signature` result, `s
 <a id="required-observations"></a>
 ## Required observations
 
-Desktop checks cover installation, first startup in a clean user profile, network-failure recovery, normal exit and restart, Chinese and space-containing paths, supported-version upgrades, uninstall data policy, and update rollback. Every upgrade records preservation of settings, credentials, sessions and business data. Android additionally owns allow/deny approval, cancellation and conversation persistence checks; desktop Office or shell behavior is not inferred for Android.
+Desktop checks cover installation, first startup in a clean user profile, network-failure recovery, normal exit and restart, Chinese and space-containing paths, supported-version upgrades, uninstall data policy, update rollback, optional-component-failure recovery, approval allow/deny, cancellation, and failed writes with no partial commit. The optional-component scenario disables one feature component and verifies that the app stays open, that feature reports unavailable, and core session use plus unrelated features continue. Every upgrade records preservation of settings, credentials, sessions and business data. Android additionally owns allow/deny approval, cancellation and conversation persistence checks; desktop Office or shell behavior is not inferred for Android.
 
 Publisher verification uses `developer-id-notarized` on macOS, `authenticode` on Windows, `minisign` for Linux release payloads, and `android-apk` for Android signing. Record the observed publisher identity and retain the operating system's verification output. An ad-hoc macOS signature and a Tauri download signature cannot substitute for Developer ID, Apple notarization or Authenticode. Missing certificates produce `blocked`, with the missing prerequisite in `reason`.
 
-Every lane needs successful real-model integration. Desktop lanes separately record Office saving, selected-chat WeChat reading and IM login. Unverified optional integrations must say `experimental` or `unavailable`, with a reason; `available` requires passing evidence. A passing account integration records explicit test-account consent and the exact client version. This matrix neither grants access to a personal account nor creates approval for collecting real messages.
+Every lane needs a successful real-model request whose credential came from that platform's OS secure credential store. Desktop lanes also need an installed browser click through Native RPA, with approved execution evidence; selected-chat WeChat reading retains its own account-consent evidence. Each desktop lane separately exercises the blocked or connected state for Weixin, Feishu, DingTalk, QQ and WeCom. An unconfigured channel passes this UI check only with evidence that the application shows `blocked`, reports why it is unavailable, and does not claim a successful connection; a connected channel records explicit test-account consent and the exact client version. This matrix neither grants access to a personal account nor creates approval for collecting real messages.
 
 <a id="validate-publication-readiness"></a>
 ## Validate publication readiness

@@ -7,7 +7,7 @@ import { LayoutController } from '../../../packages/client/ui-layout/src/client/
 import { apply, inject } from '../../../packages/client/ui-sidebar-right/src/client/index.ts';
 import { UiWorkspaceService } from '../../../packages/client/ui-workspace/src/client/navigation.ts';
 import { createProductActions } from '../src/navigation.ts';
-import type { FrontendServices, SessionId } from '../src/services.ts';
+import { observeBetterSidebar, type FrontendServices, type SessionId } from '../src/services.ts';
 
 const runtimes: SlotTestRuntime[] = [];
 let animations: PropertyDescriptor | undefined;
@@ -72,7 +72,7 @@ async function fixture(existing: boolean) {
   };
   const lifetime = new AbortController();
   runtime.ctx.effect(() => () => lifetime.abort());
-  const services = { sessions: runtime.sessions, workspaces: runtime.workspaces, layout, uiWorkspace, betterSidebar } as unknown as FrontendServices;
+  const services = { sessions: runtime.sessions, workspaces: runtime.workspaces, layout, uiWorkspace, betterSidebar, get(name: string) { return name === 'betterSidebar' ? betterSidebar : undefined; } } as unknown as FrontendServices;
   const actions = createProductActions(services, lifetime.signal, async () => Response.json({ workspaceId: 'managed', path: '/managed/desk' }));
   return { runtime, layout, controller, uiWorkspace, trace, actions, lifetime, view,
     onBind(callback: () => void) { afterBind = callback; },
@@ -87,6 +87,32 @@ it('the original same-turn open fails before the real RightbarSeat effect binds'
     expect(() => f.controller.openTab('files')).toThrow('no session surface is mounted');
   });
   expect(f.trace).toContain('bind:existing');
+});
+
+it('uses Cordis optional service lookup and registers tabs when Better Sidebar activates later', async () => {
+  const runtime = await SlotTestRuntime.create();
+  runtimes.push(runtime);
+  let actions: ReturnType<typeof createProductActions> | undefined;
+  const registered: string[] = [];
+  const unregistered: string[] = [];
+  await runtime.mount({
+    inject: [],
+    apply(ctx) {
+      expect(() => Reflect.get(ctx, 'betterSidebar')).toThrow(/cannot get property "betterSidebar" without inject/);
+      actions = createProductActions(ctx as unknown as FrontendServices, new AbortController().signal);
+      observeBetterSidebar(ctx as unknown as FrontendServices, service => {
+        registered.push(String(service));
+        return () => { unregistered.push(String(service)); };
+      });
+    },
+  });
+  await expect(actions!.open('editor', 'en-US')).rejects.toMatchObject({ code: 'toolDisabled' });
+  expect(registered).toEqual([]);
+
+  const sidebarService = {};
+  await runtime.mount({ inject: [], apply(ctx) { ctx.provide('betterSidebar', sidebarService); } });
+  expect(registered).toEqual(['[object Object]']);
+  expect(unregistered).toEqual([]);
 });
 
 it.each([false, true])('commits the native Session seat before opening editor (existing=%s)', async existing => {

@@ -7,21 +7,28 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { normalizedAssets } from './generate-updater-manifest.mjs'
-import { verifyReleaseAcceptance } from './release-acceptance.mjs'
+import { acceptanceTargetsForVersion, verifyReleaseAcceptance } from './release-acceptance.mjs'
+import { PACKAGE_OPTIMIZATION_TARGET_BYTES } from './package-size-report.mjs'
 
 const hashPattern = /^[a-f0-9]{64}$/u
 const commitPattern = /^[a-f0-9]{40}$/u
 
 /** @param {string} version @returns {Record<string,string>} Installed acceptance lanes bound to the public installer filenames. */
-function installerAssets(version) {
-  const assets = normalizedAssets(version, 'current')
-  return {
-    'macos-arm64-dmg': `clawmaster-${version}-macos-arm64.dmg`,
-    'windows-x64-nsis': assets['windows-x86_64'],
-    'linux-x64-appimage': assets['linux-x86_64'],
-    'linux-x64-deb': assets['linux-x86_64-deb'],
-    'android-universal-apk': `clawmaster-${version}-android-universal.apk`,
+function targetSetForVersion(version) {
+  return /^\d+\.\d+\.\d+-beta\.[1-9]\d*$/u.test(version) ? 'beta' : 'current'
+}
+
+export function installerAssetsForVersion(version) {
+  const assets = normalizedAssets(version, targetSetForVersion(version))
+  const result = {}
+  for (const target of Object.keys(acceptanceTargetsForVersion(version))) {
+    if (target === 'macos-arm64-dmg') result[target] = `clawmaster-${version}-macos-arm64.dmg`
+    else if (target === 'windows-x64-nsis') result[target] = assets['windows-x86_64']
+    else if (target === 'linux-x64-appimage') result[target] = assets['linux-x86_64']
+    else if (target === 'linux-x64-deb') result[target] = assets['linux-x86_64-deb']
+    else if (target === 'android-universal-apk') result[target] = `clawmaster-${version}-android-universal.apk`
   }
+  return result
 }
 
 /** @param {string} path @returns {Promise<string>} The SHA-256 digest of one regular file. */
@@ -40,16 +47,17 @@ function text(value, label) {
 
 /** @param {string} version @returns {string[]} Names required in the current desktop release set. */
 export function requiredReleaseAssetNames(version) {
-  const assets = normalizedAssets(version, 'current')
+  const targetSet = targetSetForVersion(version)
+  const assets = normalizedAssets(version, targetSet)
+  const buildPlatforms = targetSet === 'beta' ? ['windows-x64', 'macos-arm64'] : ['windows-x64', 'macos-arm64', 'linux-x64']
   const names = [...new Set([
     ...Object.values(assets),
     ...Object.values(assets).map(name => `${name}.sig`),
-    ...Object.values(installerAssets(version)),
-    `clawmaster-${version}-windows-x64-build.json`,
-    `clawmaster-${version}-macos-arm64-build.json`,
-    `clawmaster-${version}-linux-x64-build.json`,
+    ...Object.values(installerAssetsForVersion(version)),
+    ...buildPlatforms.map(platform => `clawmaster-${version}-${platform}-build.json`),
     'macos-arm64-native-acceptance.json',
     'windows-native-acceptance.json',
+    'package-size-report.json',
     'latest.json',
     'clawmaster-release-signing.pub',
     'acceptance-manifest.json',
@@ -84,7 +92,17 @@ async function verifyChecksums(root) {
   return declared
 }
 
-/** @param {object} build @param {string} file @param {string} version @param {string} commit @param {string} tree @returns {void} Validate one public build identity record. */
+/** @param {string} path @returns {Promise<Map<string,string>>} Trusted checksum records from a pre-upload snapshot. */
+async function readChecksumManifest(path) {
+  const lines = (await readFile(path, 'utf8')).trimEnd().split('\n')
+  assert.ok(lines.length > 0 && lines.every(line => line.length > 0), 'Trusted checksum manifest must contain records')
+  const records = lines.map(parseChecksumLine)
+  const result = new Map()
+  for (const record of records) assert.equal(result.has(record.file), false, `Duplicate trusted checksum record: ${record.file}`), result.set(record.file, record.sha256)
+  return result
+}
+
+/** @param {object} build @param {string} file @param {string} version @param {string} commit @param {string} tree @returns {string} Validate one public build record and return its complete lockfile digest. */
 function verifyBuildRecord(build, file, version, commit, tree) {
   assert.equal(build.desktopVersion, version, `${file} has another desktop version`)
   assert.match(build.contentSha256 ?? '', hashPattern, `${file} has no payload digest`)
@@ -118,11 +136,36 @@ function verifyBuildRecord(build, file, version, commit, tree) {
       assert.match(entry.sha256 ?? '', hashPattern, `${file} ${kind} inventory digest`)
     }
   }
+  const lockIdentity = inventory.locks.map(({ path, bytes, sha256 }) => ({ path, bytes, sha256 })).sort((a, b) => a.path.localeCompare(b.path))
+  const lockfilesSha256 = createHash('sha256').update(JSON.stringify(lockIdentity)).digest('hex')
+  assert.equal(provenance.lockfilesSha256, lockfilesSha256, `${file} lockfile digest differs from its inventory`)
+  assert.ok(inventory.locks.some(entry => entry.path === 'pnpm-lock.yaml'), `${file} omits the workspace lockfile`)
+  assert.ok(inventory.locks.some(entry => entry.path === 'apps/desktop-tauri/pnpm-desktop-lock.yaml'), `${file} omits the desktop lockfile`)
+  return lockfilesSha256
+}
+
+async function verifyPackageSizeReport(root, version, commit) {
+  const path = join(root, 'package-size-report.json')
+  const report = JSON.parse(await readFile(path, 'utf8'))
+  assert.equal(report.schemaVersion, 1)
+  assert.equal(report.version, version)
+  assert.equal(report.sourceCommit, commit)
+  assert.equal(report.optimizationTargetBytes, PACKAGE_OPTIMIZATION_TARGET_BYTES)
+  const expected = installerAssetsForVersion(version)
+  assert.ok(Array.isArray(report.installers), 'Installer size report needs an installer list')
+  assert.deepEqual(report.installers.map(entry => entry.target).sort(), Object.keys(expected).sort())
+  for (const entry of report.installers) {
+    assert.equal(entry.file, expected[entry.target], `${entry.target} size report names another installer`)
+    const info = await lstat(join(root, entry.file))
+    assert.ok(info.isFile() && !info.isSymbolicLink())
+    assert.equal(entry.sizeBytes, info.size, `${entry.file} size differs from its measured bytes`)
+    assert.equal(entry.withinOptimizationTarget, info.size <= PACKAGE_OPTIMIZATION_TARGET_BYTES)
+  }
 }
 
 /**
  * Verify final checksums, installed acceptance and source provenance against the exact public installers.
- * @param {{assetsDir:string, version:string, expectedCommit:string, expectedTree:string}} options Release directory and candidate identity.
+ * @param {{assetsDir:string, version:string, expectedCommit:string, expectedTree:string, expectedChecksumsPath?:string}} options Release directory and candidate identity.
  * @returns {Promise<{files:string[],version:string,sourceCommit:string}>} Verified release identity.
  */
 export async function verifyReleaseAssets(options) {
@@ -136,19 +179,28 @@ export async function verifyReleaseAssets(options) {
   for (const name of files) assert.ok(!name.includes('macos-x64'), `Intel Mac asset is outside the current release set: ${name}`)
   const required = requiredReleaseAssetNames(options.version)
   for (const name of required) assert.ok(files.includes(name), `Missing release asset: ${name}`)
-  await verifyChecksums(root)
+  const observedChecksums = await verifyChecksums(root)
+  if (options.expectedChecksumsPath) {
+    const expectedChecksums = await readChecksumManifest(options.expectedChecksumsPath)
+    assert.deepEqual([...observedChecksums].sort(([a], [b]) => a.localeCompare(b)),
+      [...expectedChecksums].sort(([a], [b]) => a.localeCompare(b)),
+      'Published assets differ from the verified pre-upload release files')
+  }
   const buildFiles = required.filter(name => name.endsWith('-build.json'))
-  for (const file of buildFiles) verifyBuildRecord(JSON.parse(await readFile(join(root, file), 'utf8')), file, options.version, options.expectedCommit, options.expectedTree)
+  const lockfileDigests = new Set()
+  for (const file of buildFiles) lockfileDigests.add(verifyBuildRecord(JSON.parse(await readFile(join(root, file), 'utf8')), file, options.version, options.expectedCommit, options.expectedTree))
+  assert.equal(lockfileDigests.size, 1, 'Platform builds for one release must use identical lockfile bytes')
   const latest = JSON.parse(await readFile(join(root, 'latest.json'), 'utf8'))
   assert.equal(latest.version, options.version, 'Updater manifest has another version')
-  assert.deepEqual(Object.keys(latest.platforms ?? {}).sort(), Object.keys(normalizedAssets(options.version, 'current')).sort(), 'Updater manifest target set differs from the release set')
+  assert.deepEqual(Object.keys(latest.platforms ?? {}).sort(), Object.keys(normalizedAssets(options.version, targetSetForVersion(options.version))).sort(), 'Updater manifest target set differs from the release set')
   const acceptancePath = join(root, 'acceptance-manifest.json')
   assert.ok((await lstat(acceptancePath)).size <= 2 * 1024 * 1024, 'Acceptance manifest must be bounded')
   const acceptance = JSON.parse(await readFile(acceptancePath, 'utf8'))
   await verifyReleaseAcceptance(acceptance, { root, expectedCommit: options.expectedCommit, expectedVersion: options.version })
-  for (const [target, file] of Object.entries(installerAssets(options.version))) {
+  for (const [target, file] of Object.entries(installerAssetsForVersion(options.version))) {
     assert.equal(acceptance.targets[target].artifact.file, file, `${target} installer differs from the published asset`)
   }
+  await verifyPackageSizeReport(root, options.version, options.expectedCommit)
   const nativeReports = [
     { file: 'macos-arm64-native-acceptance.json', target: 'macos-arm64-dmg', platform: 'darwin' },
     { file: 'windows-native-acceptance.json', target: 'windows-x64-nsis', platform: 'win32' },
@@ -173,12 +225,13 @@ export async function verifyReleaseAssets(options) {
       assert.equal(native.installedProductVersion, options.version)
     }
   }
-  return { files: files.sort(), version: options.version, sourceCommit: options.expectedCommit }
+  return { files: files.sort(), version: options.version, sourceCommit: options.expectedCommit, targetSet: targetSetForVersion(options.version) }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const { values } = parseArgs({ options: { 'assets-dir': { type: 'string' }, version: { type: 'string' }, commit: { type: 'string' }, tree: { type: 'string' } } })
+  const { values } = parseArgs({ options: { 'assets-dir': { type: 'string' }, version: { type: 'string' }, commit: { type: 'string' }, tree: { type: 'string' }, 'expected-checksums': { type: 'string' } } })
   assert.ok(values['assets-dir'] && values.version && values.commit && values.tree, 'Required: --assets-dir <dir> --version <version> --commit <full SHA> --tree <full tree SHA>')
-  const result = await verifyReleaseAssets({ assetsDir: values['assets-dir'], version: values.version, expectedCommit: values.commit, expectedTree: values.tree })
+  const result = await verifyReleaseAssets({ assetsDir: values['assets-dir'], version: values.version, expectedCommit: values.commit, expectedTree: values.tree,
+    ...(values['expected-checksums'] ? { expectedChecksumsPath: values['expected-checksums'] } : {}) })
   console.log(`Release assets verified: ${result.files.length} files, source ${result.sourceCommit}`)
 }

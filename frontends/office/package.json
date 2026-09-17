@@ -10,7 +10,7 @@
   "files": ["dist", "runtime", "cordis.patch.yml", "README.md", "README.zh.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "patches", "scripts", "src"],
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
-    "client": { "platform": "web", "inject": ["dsh-better-sidebar", "@deepseek-ai/dsh-client-locale"] }
+    "client": { "platform": "web", "optional": true, "inject": ["dsh-better-sidebar", "@deepseek-ai/dsh-client-locale"] }
   },
   "scripts": {
     "build": "node scripts/build.mjs",

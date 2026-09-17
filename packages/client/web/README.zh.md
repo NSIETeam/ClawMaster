@@ -9,7 +9,7 @@ kind: "package-library"
 
 ## 概述
 
-`dsh-client-web` 启动 web GUI：它先从 Host 提供的启动图加载客户端模块系统，再在应用挂载前激活每一个客户端插件，因此只有当所有插件都就绪时完整 UI 才会出现。无框架启动页会逐 entry 报告状态，因此失败的 bundle 或插件保持可见，而不是白屏。它还定义共享模块表（`PLATFORM_MODULES`），每个动态 bundle 都依据它解析 external。模型永远看不到本包。
+`dsh-client-web` 启动 web GUI：它从 Host 启动图加载客户端模块系统，在挂载主界面前激活必需客户端，并移除启动失败的可选功能客户端，让核心界面继续可用。无框架启动页会逐 entry 报告状态。它还定义共享模块表（`PLATFORM_MODULES`），每个动态 bundle 都依据它解析 external。模型永远看不到本包。
 
 ## 目录
 
@@ -31,7 +31,7 @@ kind: "package-library"
 
 ### 启动过程是怎样的
 
-启动分两个阶段：模块阶段接纳 parser 已加载的 bootstrap 批次，从 Host 提供的启动图构建模块系统，并通过只执行一次的共享 application 批次 URL 预取 `immediately` 层级。插件阶段随后激活每个图 entry 并等待全部就绪，之后才把带标记的启动 DOM 交给 UI 渲染器，由它 hydrate 并切换到完整 UI。
+启动分两个阶段：模块阶段接纳 parser 已加载的 bootstrap 批次，从 Host 提供的启动图构建模块系统，并通过只执行一次的共享 application 批次 URL 预取必需的 `immediately` entry。插件阶段先激活必需客户端并挂载 UI；可选客户端及其通过动态模块或服务注入依赖的消费方随后在后台激活，因此可选组件停滞不会阻塞页面启动。
 
 ### 启动页
 
@@ -61,7 +61,7 @@ kind: "package-library"
 
 ### 两阶段启动
 
-`run()` 调用 Host 安装的 `window.__ModuleLoader__.create({ boot, staticModules, ...seams })`；facade 接纳 parser 已加载的 bootstrap 批次后返回构造好的模块系统与已解析 manifest（元数据清单）。模块阶段通过一个共享的 application 批次 URL 预取 `immediately` 层级。插件阶段挂载 Loader、把 `loader.internal` 赋为 `modules`、统一创建全部图 entry、等待完全停稳，然后审计激活：任何导入失败、因缺失服务而 pending，或落入其他非 active 状态的 entry，都会抛出一个聚合错误，点名每个失败 entry。
+`run()` 调用 Host 安装的 `window.__ModuleLoader__.create({ boot, staticModules, ...seams })`；facade 接纳 parser 已加载的 bootstrap 批次后返回构造好的模块系统与已解析 manifest（元数据清单）。可选功能客户端使用独立 application 脚本，可选性也会沿动态模块依赖传递。插件阶段挂载 Loader、把 `loader.internal` 赋为 `modules`、创建图 entry 并等待完全停稳，然后移除启动失败的可选客户端及其依赖方。必需 entry 若导入失败、因缺失服务而 pending，或落入其他非 active 状态，启动会以聚合诊断失败。
 
 ### 启动页机制
 
@@ -73,7 +73,7 @@ kind: "package-library"
 |---|---|
 | [`src/index.ts`](src/index.ts) | 库入口：`AppWebEntry`、`getStaticModules`、平台表 |
 | [`src/boot.ts`](src/boot.ts) | `AppWebEntry`：模块阶段、启动页、immediately 层级预取，随后调用 `bootClient` + `mountClient` |
-| [`src/boot-client.ts`](src/boot-client.ts) | `bootClient` / `assertEntriesActive`：挂载 Loader、每个 manifest 行一个 entry、激活审计 |
+| [`src/boot-client.ts`](src/boot-client.ts) | `bootClient` / `assertEntriesActive`：先激活必需客户端，再后台启动可选客户端并隔离启动故障 |
 | [`src/mount.ts`](src/mount.ts) | `mountClient`：经 `uiRenderer` 依赖 fiber 完成渲染器交接 |
 | [`src/boot-page.ts`](src/boot-page.ts) | 无框架启动页：spinner、逐 entry 状态、失败渲染 |
 | [`src/platform.ts`](src/platform.ts) | `PLATFORM_MODULES` / `PRELOADED_CLIENT_EXTERNALS`：隐式 external 基座 |
@@ -112,7 +112,7 @@ kind: "package-library"
 
 这些限制说明启动内核不支持什么。它们是当前包约束，不是任务积压。
 
-- **应用会等待全部 entry 就绪**——只要一个 entry 失败，无框架启动页就会保留并逐项报告；不支持部分 UI 可用。
+- **必需 entry 仍要求成功**——必需 entry 若导入失败、因缺失服务而 pending，或处于其他非 active 状态，无框架启动页会逐项报告原因；可选 entry 失败时会移除它及依赖方，并继续启动可用 UI。
 
 <a id="dev-note"></a>
 ### 开发备注

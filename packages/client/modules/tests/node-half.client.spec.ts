@@ -64,9 +64,14 @@ function constructWithRoute(
     contextBaseUrl?: string
     entryBaseUrl?: string
     internal?: NonNullable<Context['loader']['internal']>
+    onWarning?: (message: unknown) => void
+    config?: { optionalPackages: string[] }
   } = {},
 ): { context: Context; service: ClientModuleRegistry; route: WebRoute } {
   const ctx = new Context()
+  if (options.onWarning !== undefined) {
+    ctx.logger.warn = (...messages: unknown[]) => { options.onWarning?.(messages[0]) }
+  }
   ctx.baseUrl = options.contextBaseUrl ?? pathToFileURL(root!).href + '/'
   ctx.provide('loader', {
     internal: options.internal,
@@ -91,7 +96,7 @@ function constructWithRoute(
     tapIndex: () => () => {},
   }
   ctx.provide('webServer', webServer as WebServer)
-  const service = new ClientModuleRegistry(ctx)
+  const service = new ClientModuleRegistry(ctx, options.config)
   if (route === undefined) throw new Error('client bundle route was not registered')
   return { context: ctx, service, route }
 }
@@ -661,6 +666,37 @@ describe('client bundle activation', () => {
     })
   })
 
+  it('falls back to an identity map when a source map contains an invalid source URL', async () => {
+    const core = '@fixture/core-with-optional-invalid-source-map'
+    const optional = '@fixture/optional-invalid-source-map'
+    writeBuiltPackage(core, {})
+    const optionalPath = writePackage(optional, {
+      dsh: { client: { platform: 'web', optional: true } },
+    })
+    mkdirSync(dirname(optionalPath), { recursive: true })
+    writeFileSync(optionalPath, 'module.exports = { available: true }\n')
+    writeFileSync(`${optionalPath}.map`, JSON.stringify({
+      version: 3,
+      sources: ['http://['],
+      names: [],
+      mappings: '',
+    }))
+    const warnings: unknown[] = []
+
+    const { service, route } = constructWithRoute([optional, core], {
+      onWarning: warning => warnings.push(warning),
+    })
+    const graph = service.graph()
+    expect(graph.entries.map(entry => entry.id)).toEqual([optional, core])
+    expect(warnings).toHaveLength(1)
+    const batch = graph.batches.find(candidate => candidate.entries.includes(optional))!
+    expect((await routeRequest(route, batch.url)).status).toBe(200)
+    const payload = JSON.parse((await routeRequest(route, mapUrl(batch.url))).body.toString('utf8')) as {
+      sections: { map: { sources: string[] } }[]
+    }
+    expect(payload.sections.flatMap(section => section.map.sources)).toEqual([`/plugins/${optional}/client.js`])
+  })
+
   it('applies sourceRoot before relocating absolute-looking section sources', async () => {
     const packageName = '@fixture/source-root'
     const clientPath = writePackage(packageName)
@@ -777,6 +813,150 @@ describe('shared module declarations', () => {
     expect(() => construct([packageName]))
       .toThrow(`client-modules: ${packageName} dsh.client.external must be a string array`)
   })
+
+  it('skips an explicitly optional package whose dsh.client fields are malformed', () => {
+    const core = '@fixture/required-client-survives-bad-optional-declaration'
+    const optional = '@fixture/optional-bad-declaration'
+    writeBuiltPackage(core, {})
+    writeBuiltPackage(optional, { optional: true, inject: 'broken' })
+    const warnings: string[] = []
+    const { service } = constructWithRoute([optional, core], { onWarning: message => warnings.push(String(message)) })
+
+    expect(service.graph().entries.map(entry => entry.id)).toEqual([core])
+    expect(warnings).toContain(
+      `client-modules: optional client ${optional} was skipped: client-modules: ${optional} dsh.client.inject must be a string array`,
+    )
+  })
+
+  it('skips an explicitly optional package without a client export and reports it', () => {
+    const core = '@fixture/required-client-survives-no-optional-export'
+    const optional = '@fixture/optional-no-client-export'
+    writeBuiltPackage(core, {})
+    writePackage(optional, {
+      exports: { './package.json': './package.json' },
+      dsh: { client: { platform: 'web', optional: true } },
+    })
+    const warnings: string[] = []
+    const { service } = constructWithRoute([optional, core], { onWarning: message => warnings.push(String(message)) })
+
+    expect(service.graph().entries.map(entry => entry.id)).toEqual([core])
+    expect(warnings).toContain(
+      `client-modules: optional client ${optional} was skipped: dsh.client is missing the "./client" export`,
+    )
+  })
+
+  it('skips a desktop-preflighted package without a client export', () => {
+    const core = '@fixture/required-client-survives-desktop-no-export'
+    const optional = '@xmanrui/dsh-im'
+    writeBuiltPackage(core, {})
+    writePackage(optional, {
+      exports: { './package.json': './package.json' },
+      dsh: { client: { platform: 'web' } },
+    })
+    const warnings: string[] = []
+    const { service } = constructWithRoute([optional, core], {
+      config: { optionalPackages: [optional] },
+      onWarning: message => warnings.push(String(message)),
+    })
+
+    expect(service.graph().entries.map(entry => entry.id)).toEqual([core])
+    expect(warnings).toContain(
+      `client-modules: optional client ${optional} was skipped: dsh.client is missing the "./client" export`,
+    )
+  })
+
+  it('skips a desktop-preflighted package with malformed client exports', () => {
+    const core = '@fixture/required-client-survives-desktop-bad-exports'
+    const optional = 'dsh-better-sidebar'
+    writeBuiltPackage(core, {})
+    writePackage(optional, {
+      exports: { './client': { default: 42 }, './package.json': './package.json' },
+      dsh: { client: { platform: 'web' } },
+    })
+    const warnings: string[] = []
+    const { service } = constructWithRoute([optional, core], {
+      config: { optionalPackages: [optional] },
+      onWarning: message => warnings.push(String(message)),
+    })
+
+    expect(service.graph().entries.map(entry => entry.id)).toEqual([core])
+    expect(warnings).toContain(
+      `client-modules: optional client ${optional} was skipped: client-modules: ${optional} exports["./client"] must be a string or an object with a string default`,
+    )
+  })
+
+  it('skips an explicitly optional package whose built client file is missing and reports it', () => {
+    const core = '@fixture/required-client-survives-missing-optional-file'
+    const optional = '@fixture/optional-missing-client-file'
+    writeBuiltPackage(core, {})
+    writePackage(optional, { dsh: { client: { platform: 'web', optional: true } } })
+    const warnings: string[] = []
+    const { service } = constructWithRoute([optional, core], { onWarning: message => warnings.push(String(message)) })
+
+    expect(service.graph().entries.map(entry => entry.id)).toEqual([core])
+    expect(warnings.some(message => message.includes(`optional client ${optional} was skipped`))).toBe(true)
+  })
+
+  it('skips a desktop-preflighted client artifact whose path is a directory', () => {
+    const core = '@fixture/required-client-survives-desktop-eisdir'
+    const optional = '@nanmicoder/dsh-agent-teams'
+    writeBuiltPackage(core, {})
+    const clientPath = writePackage(optional, { dsh: { client: { platform: 'web' } } })
+    mkdirSync(dirname(clientPath), { recursive: true })
+    mkdirSync(clientPath)
+    const warnings: string[] = []
+    const { service } = constructWithRoute([optional, core], {
+      config: { optionalPackages: [optional] },
+      onWarning: message => warnings.push(String(message)),
+    })
+
+    expect(service.graph().entries.map(entry => entry.id)).toEqual([core])
+    expect(warnings.some(message => message.includes(`optional client ${optional} was skipped: EISDIR`))).toBe(true)
+  })
+
+  it('fails closed when a required client declares malformed client exports', () => {
+    const packageName = '@deepseek-ai/dsh-client-ui-renderer'
+    writePackage(packageName, {
+      exports: { './client': { default: 42 }, './package.json': './package.json' },
+      dsh: { client: { platform: 'web' } },
+    })
+    expect(() => construct([packageName])).toThrow(
+      `client-modules: ${packageName} exports["./client"] must be a string or an object with a string default`,
+    )
+  })
+
+  it('fails closed when a required core client has malformed fields even when optional is true', () => {
+    const packageName = '@deepseek-ai/dsh-client-ui-renderer'
+    writeBuiltPackage(packageName, { optional: true, inject: 'broken' })
+    expect(() => construct([packageName]))
+      .toThrow(`client-modules: ${packageName} dsh.client.inject must be a string array`)
+  })
+
+  it('fails closed when desktop metadata mistakenly marks a required core client optional', () => {
+    const packageName = '@deepseek-ai/dsh-client-ui-renderer'
+    writeBuiltPackage(packageName, {})
+    expect(() => constructWithRoute([packageName], { config: { optionalPackages: [packageName] } }))
+      .toThrow(`client-modules: required client ${packageName} cannot declare dsh.client.optional`)
+  })
+
+  it('rejects a non-boolean optional client declaration', () => {
+    const packageName = '@fixture/optional-not-boolean'
+    writeBuiltPackage(packageName, { optional: 'yes' })
+    expect(() => construct([packageName]))
+      .toThrow(`client-modules: ${packageName} dsh.client.optional must be a boolean`)
+  })
+
+  it.each([
+    '@clawmaster/dsh-frontend',
+    '@deepseek-ai/dsh-client-modules',
+    '@deepseek-ai/dsh-client-ui-renderer',
+    '@deepseek-ai/dsh-client-ui-approval',
+    '@deepseek-ai/dsh-client-ui-permission-presets',
+  ])('keeps required app client %s out of optional recovery', (packageName) => {
+    writeBuiltPackage(packageName, { optional: true })
+    expect(() => construct([packageName]))
+      .toThrow(`client-modules: required client ${packageName} cannot declare dsh.client.optional`)
+  })
 })
 
 describe('module graph order', () => {
@@ -806,6 +986,61 @@ describe('module graph order', () => {
       entry('ui', { external: ['runtime/client'] }),
       entry('runtime'),
     ]))).toEqual(['runtime', 'ui'])
+  })
+
+  it('isolates consumers whose dynamic module dependency is optional', () => {
+    const rows = orderByModuleGraph([
+      entry('screen', { external: ['addon/client'] }),
+      entry('addon', { optional: true }),
+    ])
+    expect(rows).toMatchObject([
+      { id: 'addon', optional: true },
+      { id: 'screen', optional: true },
+    ])
+  })
+
+  it('propagates optional recovery through a chain of dynamic module dependencies', () => {
+    const rows = orderByModuleGraph([
+      entry('screen', { external: ['adapter'] }),
+      entry('adapter', { external: ['addon'] }),
+      entry('addon', { optional: true }),
+    ])
+    expect(rows).toMatchObject([
+      { id: 'addon', optional: true },
+      { id: 'adapter', optional: true },
+      { id: 'screen', optional: true },
+    ])
+  })
+
+  it('propagates optional recovery through client service-injection edges', () => {
+    const rows = orderByModuleGraph([
+      entry('consumer', { inject: ['addon'] }),
+      entry('addon', { optional: true }),
+      entry('core'),
+    ])
+    expect(rows).toMatchObject([
+      { id: 'consumer', optional: true },
+      { id: 'addon', optional: true },
+      { id: 'core' },
+    ])
+  })
+
+  it('propagates optional recovery through service-injection dependencies', () => {
+    const rows = orderByModuleGraph([
+      entry('consumer', { inject: ['addon'] }),
+      entry('addon', { optional: true }),
+      entry('core'),
+    ])
+    expect(rows).toMatchObject([
+      { id: 'consumer', optional: true },
+      { id: 'addon', optional: true },
+      { id: 'core' },
+    ])
+  })
+
+  it('keeps required application rows required when an optional set names them', () => {
+    const [row] = orderByModuleGraph([entry(UI_RENDERER_ID)], new Set([UI_RENDERER_ID]))
+    expect(row?.optional).toBeUndefined()
   })
 
   it('leaves a request no row answers to the static assembly channel', () => {
@@ -841,5 +1076,216 @@ describe('module graph order', () => {
     writeBuiltPackage('@fixture/cycle-b', { external: ['@fixture/cycle-a'] })
     expect(() => construct(['@fixture/cycle-a', '@fixture/cycle-b']))
       .toThrow('module graph cycle @fixture/cycle-a -> @fixture/cycle-b -> @fixture/cycle-a')
+  })
+})
+
+describe('optional client startup batches', () => {
+  it('serves every optional client component in its own application script', () => {
+    const core = '@fixture/core-batch'
+    const optionalA = '@fixture/optional-a'
+    const optionalB = '@fixture/optional-b'
+    writeBuiltPackage(core, {})
+    writeBuiltPackage(optionalA, { optional: true })
+    writeBuiltPackage(optionalB, { optional: true })
+    const batches = construct([optionalA, core, optionalB]).graph().batches
+      .filter(batch => batch.phase === 'application')
+
+    expect(batches).toEqual(expect.arrayContaining([
+      expect.objectContaining({ entries: [core] }),
+      expect.objectContaining({ entries: [optionalA] }),
+      expect.objectContaining({ entries: [optionalB] }),
+    ]))
+    expect(batches).toHaveLength(3)
+  })
+
+  it('gives transitive optional consumers isolated scripts', async () => {
+    const core = '@fixture/core-isolated-from-optional-consumer'
+    const provider = '@fixture/optional-script-provider'
+    const consumer = '@fixture/optional-script-consumer'
+    writeBuiltPackage(core, {})
+    writeBuiltPackage(provider, { optional: true })
+    const consumerPath = writePackage(consumer, {
+      dsh: { client: { platform: 'web', external: [provider] } },
+    })
+    mkdirSync(dirname(consumerPath), { recursive: true })
+    const providerPath = join(root!, 'node_modules', ...provider.split('/'), 'lib', 'client.js')
+    writeFileSync(providerPath, `window.__ModuleLoader__.load({ id: ${JSON.stringify(provider)}, factory: () => ({}) })\n`)
+    writeFileSync(join(root!, 'node_modules', ...core.split('/'), 'lib', 'client.js'),
+      `window.__ModuleLoader__.load({ id: ${JSON.stringify(core)}, factory: () => ({}) })\n`)
+    writeFileSync(consumerPath, 'const = broken optional consumer\n')
+
+    const { service, route } = constructWithRoute([consumer, provider, core])
+    const graph = service.graph()
+    expect(graph.entries.find(entry => entry.id === consumer)?.optional).toBe(true)
+    const batches = graph.batches.filter(batch => batch.phase === 'application')
+    expect(batches.map(batch => batch.entries)).toEqual([[core], [provider], [consumer]])
+    const { target } = injectedFacade(graph)
+    const context = { window: { __ModuleLoader__: target } }
+    for (const batch of batches.slice(1)) {
+      const script = (await routeRequest(route, batch.url)).body.toString('utf8')
+      if (batch.entries.includes(consumer)) {
+        expect(() => { runInNewContext(script, context) }).toThrow(/Unexpected token/)
+      } else {
+        runInNewContext(script, context)
+      }
+    }
+    runInNewContext((await routeRequest(route, batches[0]!.url)).body.toString('utf8'), context)
+    expect(target.pendingQueue.map(registration => registration.id)).toEqual([provider, core])
+  })
+
+  it('keeps consumers optional when the declared optional provider bundle is missing', () => {
+    const core = '@fixture/core-with-missing-optional-provider'
+    const provider = '@fixture/missing-optional-provider'
+    const consumer = '@fixture/consumer-of-missing-optional-provider'
+    writeBuiltPackage(core, {})
+    writePackage(provider, { dsh: { client: { platform: 'web', optional: true } } })
+    writeBuiltPackage(consumer, { external: [`${provider}/client`] })
+
+    const warnings: unknown[] = []
+    const { service } = constructWithRoute([provider, consumer, core], {
+      onWarning: warning => warnings.push(warning),
+    })
+    const graph = service.graph()
+    const rows = new Map(graph.entries.map(entry => [entry.id, entry]))
+    expect(rows.get(core)?.optional).toBeUndefined()
+    expect(rows.get(consumer)).toMatchObject({ optional: true, external: [`${provider}/client`] })
+    expect(graph.batches.filter(batch => batch.phase === 'application').map(batch => batch.entries))
+      .toEqual([[core], [consumer]])
+    expect(warnings.some(warning => String(warning).includes(`optional client ${provider} was skipped`))).toBe(true)
+  })
+
+  it('keeps consumers optional when desktop preflight removes the provider Loader row', () => {
+    const core = UI_RENDERER_ID
+    const provider = '@fixture/preflight-removed-provider'
+    const consumer = '@fixture/preflight-removed-provider-consumer'
+    writeBuiltPackage(core, {})
+    writeBuiltPackage(consumer, { external: [`${provider}/client`] })
+
+    const { service } = constructWithRoute([core, consumer], {
+      config: { optionalPackages: [provider] },
+    })
+    const graph = service.graph()
+    const rows = new Map(graph.entries.map(entry => [entry.id, entry]))
+
+    expect(rows.has(provider)).toBe(false)
+    expect(rows.get(core)?.optional).toBeUndefined()
+    expect(rows.get(consumer)).toMatchObject({ optional: true, external: [`${provider}/client`] })
+    expect(graph.batches.filter(batch => batch.phase === 'application').map(batch => batch.entries))
+      .toEqual([[core], [consumer]])
+  })
+
+  it('keeps a syntax-broken optional script from preventing the core factory registration', async () => {
+    const core = '@fixture/core-survives-broken-optional'
+    const optional = '@fixture/optional-syntax-error'
+    writeBuiltPackage(core, {})
+    writeBuiltPackage(optional, { optional: true })
+    const corePath = join(root!, 'node_modules', ...core.split('/'), 'lib', 'client.js')
+    const optionalPath = join(root!, 'node_modules', ...optional.split('/'), 'lib', 'client.js')
+    writeFileSync(corePath, `window.__ModuleLoader__.load({ id: ${JSON.stringify(core)}, factory: () => ({}) })\n`)
+    writeFileSync(optionalPath, 'const = invalid javascript\n')
+
+    const { service, route } = constructWithRoute([optional, core])
+    const graph = service.graph()
+    const batches = graph.batches.filter(batch => batch.phase === 'application')
+    expect(batches.map(batch => batch.entries)).toEqual([[core], [optional]])
+    const { target } = injectedFacade(graph)
+    const context = { window: { __ModuleLoader__: target } }
+    const optionalScript = (await routeRequest(route, batches[1]!.url)).body.toString('utf8')
+    expect(() => { runInNewContext(optionalScript, context) }).toThrow(/Unexpected token/)
+
+    const coreScript = (await routeRequest(route, batches[0]!.url)).body.toString('utf8')
+    runInNewContext(coreScript, context)
+    expect(target.pendingQueue.map(registration => registration.id)).toEqual([core])
+  })
+
+  it('isolates desktop-preflighted IM, Better Sidebar, and Agent Teams clients without manifest flags', async () => {
+    const core = '@fixture/core-survives-desktop-optionals'
+    const optional = ['@xmanrui/dsh-im', 'dsh-better-sidebar', '@nanmicoder/dsh-agent-teams']
+    writeBuiltPackage(core, {})
+    const corePath = join(root!, 'node_modules', ...core.split('/'), 'lib', 'client.js')
+    writeFileSync(corePath, `window.__ModuleLoader__.load({ id: ${JSON.stringify(core)}, factory: () => ({}) })\n`)
+    for (const id of optional) {
+      writeBuiltPackage(id, {})
+      writeFileSync(join(root!, 'node_modules', ...id.split('/'), 'lib', 'client.js'), 'const = invalid javascript\n')
+    }
+    const { service, route } = constructWithRoute([...optional, core], {
+      config: { optionalPackages: optional },
+    })
+    expect(service.graph().entries.filter(entry => optional.includes(entry.id)).every(entry => entry.optional)).toBe(true)
+    const batches = service.graph().batches.filter(batch => batch.phase === 'application')
+    expect(batches.map(batch => batch.entries)).toEqual([[core], ...optional.map(id => [id])])
+    const { target } = injectedFacade(service.graph())
+    const context = { window: { __ModuleLoader__: target } }
+    for (const batch of batches.slice(1)) {
+      const script = (await routeRequest(route, batch.url)).body.toString('utf8')
+      expect(() => { runInNewContext(script, context) }).toThrow(/Unexpected token/)
+    }
+    const coreScript = (await routeRequest(route, batches[0]!.url)).body.toString('utf8')
+    runInNewContext(coreScript, context)
+    expect(target.pendingQueue.map(registration => registration.id)).toEqual([core])
+  })
+
+  it('skips an optional self-cycle while retaining healthy optional and core rows', () => {
+    const core = '@fixture/core-survives-optional-cycle'
+    const broken = '@nanmicoder/dsh-agent-teams'
+    const healthy = 'dsh-better-sidebar'
+    writeBuiltPackage(core, {})
+    writeBuiltPackage(broken, { external: [broken] })
+    writeBuiltPackage(healthy, {})
+    const warnings: string[] = []
+    const { service } = constructWithRoute([broken, healthy, core], {
+      config: { optionalPackages: [broken, healthy] },
+      onWarning: message => warnings.push(String(message)),
+    })
+
+    expect(service.graph().entries.map(entry => entry.id)).toEqual([healthy, core])
+    expect(service.graph().batches.filter(batch => batch.phase === 'application').map(batch => batch.entries))
+      .toEqual([[core], [healthy]])
+    expect(warnings.some(message => message.includes(`optional client ${broken} was skipped: client-modules: "${broken}" requests module`)))
+      .toBe(true)
+  })
+
+  it('keeps deeper consumers optional after removing a broken optional adapter', () => {
+    const core = '@fixture/core-survives-optional-adapter-cycle'
+    const addon = '@fixture/optional-adapter-cycle-provider'
+    const adapter = '@fixture/optional-adapter-cycle-broken'
+    const screen = '@fixture/optional-adapter-cycle-screen'
+    writeBuiltPackage(core, {})
+    writeBuiltPackage(addon, { optional: true })
+    writeBuiltPackage(adapter, { external: [`${addon}/client`, `${adapter}/client`] })
+    writeBuiltPackage(screen, { external: [`${adapter}/client`] })
+    const { service } = constructWithRoute([screen, adapter, addon, core])
+    const graph = service.graph()
+    expect(graph.entries.map(row => row.id)).toEqual([screen, addon, core])
+    expect(graph.entries.find(row => row.id === screen)?.optional).toBe(true)
+    expect(graph.batches.filter(batch => batch.phase === 'application').map(batch => batch.entries))
+      .toEqual([[core], [screen], [addon]])
+  })
+
+  it('skips a malformed transitive optional consumer without blocking core composition', () => {
+    const core = '@fixture/core-survives-transitive-optional-cycle'
+    const provider = '@nanmicoder/dsh-agent-teams'
+    const consumer = '@fixture/transitive-optional-self-cycle'
+    writeBuiltPackage(core, {})
+    writeBuiltPackage(provider, {})
+    writeBuiltPackage(consumer, { external: [`${provider}/client`, `${consumer}/client`] })
+    const warnings: string[] = []
+
+    const { service } = constructWithRoute([consumer, provider, core], {
+      config: { optionalPackages: [provider] },
+      onWarning: message => warnings.push(String(message)),
+    })
+
+    expect(service.graph().entries.map(entry => entry.id)).toEqual([provider, core])
+    expect(warnings.some(message => message.includes(`optional client ${consumer} was skipped: client-modules: "${consumer}" requests module`)))
+      .toBe(true)
+  })
+
+  it('fails closed when required client rows form a cycle', () => {
+    const first = '@fixture/required-cycle-first'
+    const second = '@fixture/required-cycle-second'
+    writeBuiltPackage(first, { external: [second] })
+    writeBuiltPackage(second, { external: [first] })
+    expect(() => construct([first, second])).toThrow(/client-modules: module graph cycle/)
   })
 })

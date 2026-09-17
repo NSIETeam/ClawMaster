@@ -22,6 +22,10 @@ test('manual validation defaults to an immutable branch build without publicatio
   assert.equal(workflow.on.workflow_dispatch.inputs.publish.type, 'boolean')
   assert.equal(workflow.on.workflow_dispatch.inputs.publish.default, false)
   assert.equal(workflow.jobs.build.if, "github.event_name == 'push' || inputs.publish != true")
+  assert.equal(workflow.jobs.build.needs, 'plan-build')
+  assert.equal(workflow.jobs['plan-build'].outputs.matrix, '${{ steps.matrix.outputs.matrix }}')
+  assert.equal(workflow.jobs.build.strategy.matrix, '${{ fromJSON(needs.plan-build.outputs.matrix) }}')
+  assert.match(workflow.jobs['plan-build'].steps.find(step => step.name === 'Select builders from the explicit tag').run, /release-build-matrix\.mjs/u)
   assert.equal(workflow.jobs.release.if, "github.event_name == 'workflow_dispatch' && inputs.publish == true")
   assert.equal(workflow.jobs.release.needs, undefined)
   assert.equal(workflow.jobs.release.environment, 'desktop-release')
@@ -46,11 +50,13 @@ test('manual validation defaults to an immutable branch build without publicatio
   assert.match(releaseSteps.find(step => step.uses === 'actions/checkout@v6' && step.with.path === 'acceptance-input').with.ref, /^\$\{\{ inputs\.acceptance_ref \}\}$/u)
   const checkout = workflow.jobs.build.steps.find(step => step.uses === 'actions/checkout@v6')
   assert.equal(checkout.with.ref, '${{ github.event_name == \'workflow_dispatch\' && !inputs.publish && github.sha || env.RELEASE_TAG }}')
-  assert.deepEqual(workflow.jobs.build.strategy.matrix.include.map(entry => [entry.asset_platform, entry.asset_arch]), [
-    ['windows', 'x64'], ['macos', 'arm64'], ['linux', 'x64'],
-  ])
-  assert.match(workflow.jobs.release.steps.find(step => step.name === 'Generate updater manifest').run, /--target-set current/)
-  assert.ok(!workflow.jobs.release.steps.find(step => step.name === 'Verify release asset set').run.includes('macos-x64'))
+  assert.match(workflow.jobs.release.steps.find(step => step.name === 'Generate updater manifest').run, /--target-set '\$\{\{ steps\.channel\.outputs\.targetSet \}\}'/u)
+  for (const name of ['Record installer package sizes', 'Verify beta download Page before publication', 'Re-download and verify the published GitHub assets', 'Verify beta download Page after publication']) {
+    assert.ok(workflow.jobs.release.steps.some(step => step.name === name), name)
+  }
+  const beforePage = workflow.jobs.release.steps.find(step => step.name === 'Verify beta download Page before publication')
+  assert.match(beforePage.if, /-beta\./u)
+  assert.equal(beforePage.env.CLAWMASTER_DOWNLOAD_PAGE_URL, '${{ vars.CLAWMASTER_DOWNLOAD_PAGE_URL }}')
 })
 
 test('publication runs the strict installed-evidence gate before manifest generation and release upload', t => {
@@ -96,6 +102,10 @@ test('publication verifies the final asset bytes and provenance before upload', 
   assert.ok(verifierIndex < publishIndex)
   assert.match(steps[verifierIndex].run, /verify-release-assets\.mjs/)
   assert.match(steps[verifierIndex].run, /rev-parse.*\^\{tree\}/)
+  const remote = steps.findIndex(step => step.name === 'Re-download and verify the published GitHub assets')
+  assert.ok(remote > publishIndex)
+  assert.match(steps[remote].run, /gh release download/u)
+  assert.match(steps[remote].run, /verify-release-assets\.mjs/u)
 })
 
 test('every shipped frontend has frozen build dependencies before product verification', () => {

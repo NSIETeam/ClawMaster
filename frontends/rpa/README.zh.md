@@ -30,8 +30,10 @@ kind: "package-bundle"
 | --- | --- |
 | `rpa_run` | 运行运维安装的工作流；此运行器接受无副作用检查点，并拒绝外部副作用。 |
 | `rpa_native` | 读取原生能力、工具定义或有界的通用桌面快照。 |
-| `rpa_call` | 调用原生 RPA 目录；桌面操作需要一次性用户授权。 |
+| `rpa_call` | 调用原生 RPA 目录；每次桌面写操作都需要 DSH 批准和 ClawMaster 系统二次确认。 |
 | `wechat_read` | 一次性授权后读取名称完全匹配、已由用户选定的微信聊天文字。 |
+
+broker 支持时，有状态 RPA 读取和桌面写操作通过 ClawMaster 桌面进程继承的双向 stdio broker 执行，共用同一个控制器和数据库句柄。只有 broker 在派发前明确报告不支持时，才退回助手；传输故障不会把同一调用交给另一个进程重试。Rust 主进程拒绝读通道上的写请求；已批准的写操作还会核对工具、调用编号、参数哈希和批准摘要，并在派发前要求独立系统确认。助手 CLI 无法批准写操作。RPA 组件不可用不会阻止 Host 或其他功能启动。
 
 <a id="selected-wechat-reading"></a>
 
@@ -76,4 +78,4 @@ macOS 读取器识别 `com.tencent.xinWeChat`，要求其主窗口，并只接�
 
 ### 开发备注
 
-通用 RPA 的职责及尚待安装后验收的平台行为，见 [RPA 恢复决策](../../.agents/notes/implemented/feature/2026-09-14-clawmaster-rpa-recovery.zh.md)。
+通用 RPA 的职责及尚待安装后验收的平台行为见 [RPA 恢复决策](../../.agents/notes/implemented/feature/2026-09-14-clawmaster-rpa-recovery.zh.md)；写操作授权协议见[原生批准 broker 决策](../../.agents/notes/implemented/feature/2026-09-18-clawmaster-rpa-native-approval-broker.zh.md)。

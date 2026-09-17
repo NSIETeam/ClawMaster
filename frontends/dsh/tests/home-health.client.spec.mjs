@@ -61,5 +61,6 @@ it('reports a recorded model response without claiming current provider availabi
     business: { total: 0, review: 0, failed: 0, overdue: 0, error: false },
   } }));
   expect(screen.getByText('Successful model response recorded').getAttribute('data-health')).toBe('verified');
+  expect(screen.getByText('No worker heartbeat observed').getAttribute('data-health')).toBe('unobserved');
   expect(screen.getByText('This proves a Session response succeeded before; it does not prove current availability.')).toBeTruthy();
 });

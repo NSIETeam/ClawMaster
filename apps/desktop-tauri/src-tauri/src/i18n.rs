@@ -100,6 +100,9 @@ pub enum Msg {
     ProfileReady,
     ProfileInstallFailed,
     StatusDownloadLinuxNode,
+    RpaConfirmTitle,
+    RpaConfirmAllowOnce,
+    RpaConfirmDeny,
 }
 
 static TEST_LOCALE: OnceLock<Locale> = OnceLock::new();
@@ -233,6 +236,9 @@ fn zh(msg: Msg) -> &'static str {
         Msg::NotifyBody => "ClawMaster 已完成本轮任务",
         Msg::ProfileInstalling => "正在安装工作台插件…",
         Msg::ProfileReady => "工作台插件已就绪",
+        Msg::RpaConfirmTitle => "ClawMaster 系统二次确认",
+        Msg::RpaConfirmAllowOnce => "仅允许本次",
+        Msg::RpaConfirmDeny => "拒绝",
         Msg::ProfileInstallFailed => {
             "profile {0} 依赖安装失败: {1}\n请检查网络后重试，或手动运行 dsh plugin --profile {0} install"
         }
@@ -333,6 +339,9 @@ fn en(msg: Msg) -> &'static str {
         Msg::NotifyBody => "ClawMaster finished this turn",
         Msg::ProfileInstalling => "Installing workbench plugins…",
         Msg::ProfileReady => "Workbench plugins are ready",
+        Msg::RpaConfirmTitle => "ClawMaster system confirmation",
+        Msg::RpaConfirmAllowOnce => "Allow once",
+        Msg::RpaConfirmDeny => "Deny",
         Msg::ProfileInstallFailed => {
             "Profile {0} dependency install failed: {1}\nCheck the network and retry, or run: dsh plugin --profile {0} install"
         }

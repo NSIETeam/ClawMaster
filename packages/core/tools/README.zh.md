@@ -156,9 +156,13 @@ ctx.tools.register(defineTool({
 
 #### 模型看到什么
 
-在普通模式下，模型会看到每个可见定义的确切名称、描述与 JSON Schema；已交付定义记录在生成的[工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tools)中。agent 作用域的限制、遮蔽与扩展注册会改变该 agent 的最终工具集合。
+在普通模式下，模型会看到每个可见定义的确切名称、描述与 JSON Schema；已交付定义记录在生成的[工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tools)中。agent 作用域的限制、遮蔽与扩展注册会改变该 agent 的最终工具集合。原始工具参数 schema 必须是可无损读取的 JSON 对象，根节点的 `type` 必须为 `"object"`。注册表会校验标准 schema 关键字及其嵌套位置，包括非空组合数组和有效的 `pattern` 正则表达式，同时保留其他无损读取的 JSON Schema 或 MCP 扩展关键字，不会用 DSH 值校验器较窄的子集拒绝外部 schema。描述或参数快照无法读取、已知 schema 关键字格式错误、参数有损或根类型不符的工具，会从原生模式和 PTC 投影中移除，并在派发时、审批或执行之前失败。其他工具仍可用。
 
-原始工具参数 schema 必须是可无损读取的 JSON 对象，根节点的 `type` 必须为 `"object"`。注册表会保留 JSON Schema 关键字，不会用 DSH 参数校验器较窄的子集去拒绝外部 schema。描述或参数快照无法读取、参数不是无损 JSON 或根类型不符的工具，会从原生模式和 PTC 投影中移除；直接派发时会在审批和执行之前失败。其他工具仍可用。
+##### 对象根节点示例
+
+```markdown
+{ "type": "object", "properties": {}, "additionalProperties": false }
+```
 
 #### Token 影响
 

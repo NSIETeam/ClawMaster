@@ -9,6 +9,10 @@ const PLATFORM_ASSET_SUFFIXES = {
   'linux-x86_64': 'linux-x64.AppImage',
   'linux-x86_64-deb': 'linux-x64.deb',
 }
+const BETA_ASSET_SUFFIXES = {
+  'windows-x86_64': 'windows-x64-setup.exe',
+  'darwin-aarch64': 'macos-arm64.app.tar.gz',
+}
 
 const OPTIONS = {
   '--assets-dir': 'assetsDir',
@@ -25,26 +29,31 @@ const OPTIONS = {
 
 const REQUIRED = ['assetsDir', 'outputPath', 'version', 'repository', 'releaseTag', 'pubDate', 'targetSet']
 
-/** @param {string} version @param {'current'|'legacy'} targetSet Four required targets, optionally with legacy Intel Mac. @returns {Record<string, string>} */
+/** @param {string} version @param {'current'|'legacy'|'beta'} targetSet Stable targets, legacy Intel targets, or the two-platform beta targets. @returns {Record<string, string>} */
 export function normalizedAssets(version, targetSet = 'current') {
-  if (targetSet !== 'current' && targetSet !== 'legacy') throw new Error('Invalid target set: use current or legacy')
+  if (targetSet !== 'current' && targetSet !== 'legacy' && targetSet !== 'beta') throw new Error('Invalid target set: use current, legacy, or beta')
+  if (targetSet === 'beta' && !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-beta\.[1-9]\d*$/u.test(version)) {
+    throw new Error('The beta target set requires a desktop-vX.Y.Z-beta.N version')
+  }
+  const suffixes = targetSet === 'beta' ? BETA_ASSET_SUFFIXES : PLATFORM_ASSET_SUFFIXES
   return Object.fromEntries(
-    Object.entries(PLATFORM_ASSET_SUFFIXES).filter(([platform]) => targetSet === 'legacy' || platform !== 'darwin-x86_64').map(([platform, suffix]) => [
+    Object.entries(suffixes).filter(([platform]) => targetSet === 'legacy' || platform !== 'darwin-x86_64').map(([platform, suffix]) => [
       platform,
       `clawmaster-${version}-${suffix}`,
     ]),
   )
 }
 
-/** @param {unknown} platforms Manifest platform records read from a file or remote response. @returns {'current'|'legacy'} The complete supported target set. */
+/** @param {unknown} platforms Manifest platform records read from a file or remote response. @returns {'current'|'legacy'|'beta'} The complete supported target set. */
 export function targetSetForPlatforms(platforms) {
   if (platforms && typeof platforms === 'object' && !Array.isArray(platforms)) {
     const keys = Object.keys(platforms).sort().join('\n')
-    for (const targetSet of ['current', 'legacy']) {
-      if (keys === Object.keys(normalizedAssets('0.0.0', targetSet)).sort().join('\n')) return targetSet
+    for (const targetSet of ['current', 'legacy', 'beta']) {
+      const sampleVersion = targetSet === 'beta' ? '0.0.0-beta.1' : '0.0.0'
+      if (keys === Object.keys(normalizedAssets(sampleVersion, targetSet)).sort().join('\n')) return targetSet
     }
   }
-  throw new Error('Updater manifest must contain exactly the supported platform targets (current or legacy)')
+  throw new Error('Updater manifest must contain exactly a supported stable, legacy, or beta platform target set')
 }
 
 /** @param {string} version */
@@ -90,7 +99,7 @@ function assetDirectory(value) {
 /**
  * An optional HTTPS asset directory replaces GitHub download URLs without changing artifact names or signatures.
  * The directory may end in a slash; credentials, query, fragment and ambiguous paths are rejected.
- * @param {{ version: string, repository: string, releaseTag: string, targetSet?: 'current'|'legacy', assetBaseUrl?: string, notes: string, pubDate: string, signatures: Record<string, string> }} options
+ * @param {{ version: string, repository: string, releaseTag: string, targetSet?: 'current'|'legacy'|'beta', assetBaseUrl?: string, notes: string, pubDate: string, signatures: Record<string, string> }} options
  * @returns {{ version: string, notes: string, pub_date: string, platforms: Record<string, { signature: string, url: string }> }}
  */
 export function createManifest(options) {
@@ -118,7 +127,7 @@ export function createManifest(options) {
 
 /**
  * @param {string[]} args
- * @returns {{ assetsDir: string, outputPath: string, version: string, repository: string, releaseTag: string, targetSet: 'current'|'legacy', assetBaseUrl?: string, notes?: string, notesFile?: string, pubDate: string }}
+ * @returns {{ assetsDir: string, outputPath: string, version: string, repository: string, releaseTag: string, targetSet: 'current'|'legacy'|'beta', assetBaseUrl?: string, notes?: string, notesFile?: string, pubDate: string }}
  */
 export function parseArguments(args) {
   const values = {}

@@ -5,19 +5,20 @@ import { fileURLToPath } from 'node:url'
 import { validateVersion } from './generate-updater-manifest.mjs'
 
 /**
- * Stable tags may carry a display-only `-release` suffix; installer versions remain stable SemVer.
+ * Beta tags use a two-platform prerelease lane; stable tags keep the complete release target set.
  * @param {{ version: string, tauriVersion: string, tag: string }} input
- * @returns {{ version: string, tag: string, title: string, prerelease: boolean, latest: boolean }}
+ * @returns {{ version: string, tag: string, title: string, prerelease: boolean, latest: boolean, targetSet: 'beta'|'current' }}
  */
 export function resolveReleaseChannel({ version, tauriVersion, tag }) {
   validateVersion(version)
   if (tauriVersion !== version) throw new Error('Desktop package and Tauri versions must match')
   const stable = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)
+  const beta = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-beta\.[1-9]\d*$/.test(version)
   const expected = `desktop-v${version}`
   if (tag !== expected && !(stable && tag === `${expected}-release`)) {
     throw new Error('Release tag does not match the desktop version and channel')
   }
-  return { version, tag, title: `ClawMaster WatchDog ${tag.slice('desktop-v'.length)}`, prerelease: !stable, latest: stable }
+  return { version, tag, title: `ClawMaster WatchDog ${tag.slice('desktop-v'.length)}`, prerelease: !stable, latest: stable, targetSet: beta ? 'beta' : 'current' }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

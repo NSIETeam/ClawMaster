@@ -4,7 +4,7 @@ import {
   createClientModuleSystem, parseBootManifest,
   type ClientBundleRegistration, type ClientModuleLoader, type ClientModuleLoaderTarget, type WebBootEntry, type WebBootGraph,
 } from '@deepseek-ai/dsh-client-modules/client'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { assertEntriesActive, bootClient, type EntryStateLabel } from '../src/boot-client.ts'
 import { FIBER_STATE } from '../src/loader-status.ts'
 
@@ -74,6 +74,114 @@ describe('bootClient', () => {
     await expect(bootClient({ ctx, modules, manifest: modules.manifest })).rejects.toThrow(
       'orphan: pending (waiting for service: nothing)',
     )
+    await ctx.fiber.dispose()
+  })
+
+  it('removes an optional row that waits on an unavailable service while keeping core boot active', async () => {
+    const graph: WebBootGraph = {
+      ...graphOf(['core', 'addon']),
+      entries: [
+        { id: 'core', url: '/core.js', rev: '1' },
+        { id: 'addon', url: '/addon.js', rev: '1', optional: true },
+      ],
+    }
+    const { modules } = modulesOf(graph, {
+      core: { apply: () => {} },
+      addon: { inject: ['unavailableAddonService'], apply: () => {} },
+    })
+    const ctx = new Context()
+    await bootClient({ ctx, modules, manifest: modules.manifest })
+    expect(Array.from(ctx.loader.entries(), entry => entry.options.name)).toEqual(['core', 'addon'])
+    expect(ctx.loader.resolve(Array.from(ctx.loader.entries()).find(entry => entry.options.name === 'addon')!.id).fiber?.state)
+      .not.toBe(FIBER_STATE.ACTIVE)
+    await ctx.fiber.dispose()
+  })
+
+  it('removes an optional row when its apply function fails', async () => {
+    const graph = graphOf(['core', 'addon'])
+    graph.entries[1]!.optional = true
+    const { modules } = modulesOf(graph, {
+      core: { apply: () => {} },
+      addon: { apply: () => { throw new Error('optional failure') } },
+    })
+    const ctx = new Context()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await bootClient({ ctx, modules, manifest: modules.manifest })
+      await new Promise(resolve => setTimeout(resolve, 0))
+      expect(Array.from(ctx.loader.entries(), entry => entry.options.name)).toEqual(['core'])
+    } finally {
+      log.mockRestore()
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('removes an optional row whose bundle never registers a factory while preserving required entries', async () => {
+    const graph = graphOf(['core', 'addon'])
+    graph.entries[1]!.optional = true
+    const { modules } = modulesOf(graph, { core: { apply: () => {} } })
+    const ctx = new Context()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await bootClient({ ctx, modules, manifest: modules.manifest })
+      await new Promise(resolve => setTimeout(resolve, 0))
+      expect(Array.from(ctx.loader.entries(), entry => entry.options.name)).toEqual(['core'])
+      expect(log).toHaveBeenCalledWith(
+        expect.stringContaining('optional client component addon could not be loaded'),
+        expect.any(Error),
+      )
+    } finally {
+      log.mockRestore()
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('keeps the app booted when an optional dependency and its consumer cannot load', async () => {
+    const graph: WebBootGraph = {
+      rev: 'graph',
+      entries: [
+        { id: 'core', url: '/core.js', rev: '1' },
+        { id: 'addon', url: '/addon.js', rev: '1', optional: true },
+        { id: 'screen', url: '/screen.js', rev: '1', optional: true, external: ['addon/client'] },
+      ],
+      batches: [{ phase: 'application', url: '/application.js', rev: 'batch', entries: ['core', 'addon', 'screen'] }],
+    }
+    const { modules } = modulesOf(graph, { core: { apply: () => {} } })
+    const ctx = new Context()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await bootClient({ ctx, modules, manifest: modules.manifest })
+      await new Promise(resolve => setTimeout(resolve, 0))
+      expect(Array.from(ctx.loader.entries(), entry => entry.options.name)).toEqual(['core'])
+    } finally {
+      log.mockRestore()
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('activates a healthy optional service provider and its optional consumer after core boot', async () => {
+    const graph: WebBootGraph = {
+      rev: 'graph',
+      entries: [
+        { id: 'core', url: '/core.js', rev: '1' },
+        { id: 'addon', url: '/addon.js', rev: '1', optional: true },
+        { id: 'consumer', url: '/consumer.js', rev: '1', optional: true, inject: ['addon'] },
+      ],
+      batches: [{ phase: 'application', url: '/application.js', rev: 'batch', entries: ['core', 'addon', 'consumer'] }],
+    }
+    const { modules } = modulesOf(graph, {
+      core: { apply: () => {} },
+      addon: { apply: (ctx: Context) => { ctx.provide('addon', { available: true }) } },
+      consumer: { inject: ['addon'], apply: (ctx: Context) => { expect(ctx.get('addon')).toEqual({ available: true }) } },
+    })
+    const ctx = new Context()
+    const sink = stateSink()
+    await bootClient({ ctx, modules, manifest: modules.manifest, onEntryState: sink.onEntryState })
+    for (let attempt = 0; attempt < 10 && sink.states.get('consumer')?.at(-1) !== 'active'; attempt++) {
+      await new Promise(resolve => setImmediate(resolve))
+    }
+    expect(sink.states.get('addon')?.at(-1)).toBe('active')
+    expect(sink.states.get('consumer')?.at(-1)).toBe('active')
     await ctx.fiber.dispose()
   })
 

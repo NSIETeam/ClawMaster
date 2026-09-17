@@ -1,27 +1,25 @@
-# ClawMaster WatchDog 0.2.3
+# ClawMaster WatchDog 0.2.4
 
 ## 中文
 
-开启 AI 时代的企业协作。ClawMaster WatchDog 0.2.3 加强了企业任务从提交、分派、审批到验收的可追溯流程，并完善桌面运行时的资源控制和进程恢复。
+开启 AI 时代的企业协作。WatchDog 0.2.4 集中修复企业任务治理、组件故障隔离、桌面凭据迁移和更新恢复中的可靠性问题，让单个可选能力不可用时核心应用仍能打开并继续工作。
 
-- **WatchDog 任务与调度**：管理业务任务、负责人、期限、待审批事项和结果；相同任务请求的并发重试不会重复入队，重载后可从会话日志核对执行结果。排队任务编辑、插入当前对话和取消分别处理；旧尝试的迟到结果保留在原记录中。调度执行仍受在线状态、授权和一次性审批约束。
-- **企业治理与审计**：在解析责任归属前验证写入权限；核对权威服务响应；在审计记录中关联操作者、审批和命令回执，降低恢复覆盖责任历史的风险。
-- **备份与数据处理**：备份请求超时后等待原工作器退出，再释放并发名额供重试使用；分页读取并限制业务结果和命令输出，支持按 Unicode 字符检索中文与多语言内容。
-- **首页运行状态**：展示任务与运行状态；模型响应验证只依据已加载会话中实际记录的未中断回复，并明确区分历史响应与当前服务可用性。
-- **桌面资源与进程安全**：按进程树限制后台任务准入和资源预算；改进 Windows Host 身份采集与启动恢复；防止过期清理操作误杀复用 PID 的进程。
-- **外壳安全**：收紧打包外壳的内容安全策略及原生权限范围，避免外部内容获得桌面原生命令。
+- **企业任务与权限**：加强任务状态回执、重试幂等、审计责任归属、审批绑定和恢复冲突保护；工作区分配会在写入前重新核对权限与资源状态。
+- **运行状态与调度恢复**：补充 WatchDog 状态胶囊、队列和调度故障可见性、容量准入约束及恢复后的一致性校验。
+- **组件故障隔离**：可选客户端改为后台启动并传递动态模块及服务依赖；损坏的工具 schema 按工具隔离，不影响其他可用工具或主界面。认证、权限、审批、Guard 与主前端仍保持必需。
+- **桌面凭据与更新**：修复 OS 安全凭据通道在混合协议大帧、启动握手和热重载中的问题；旧更新器迁移保留通道和停用偏好，并把无法确认加载的旧版本准确标记为未验证。
+- **可用性与平台**：改善 Windows Host 启动及进程恢复，继续提供 Apple Silicon macOS、Windows x64、Linux x64 桌面构建。
 
-桌面支持包覆盖 Windows x64、macOS Apple Silicon 与 Linux x64。macOS Developer ID 公证和 Windows Authenticode 发布者签名需要对应证书；Tauri 更新签名不等于操作系统发布者签名。此桌面版本与独立 Android 应用分别构建、签名和验收；不要将桌面包或临时 Android 验证签名当作 Android 更新包。
+原生桌面 RPA 执行本版仍未启用；相关操作会报告不可用，不作为本版已支持能力。正式发布还需要通过仓库要求的跨平台安装验收；本次版本标签仅触发构建，不会自动创建公开 Release。
 
 ## English
 
-ClawMaster WatchDog 0.2.3 strengthens traceability from business-task admission through assignment, approval and review, and improves desktop resource controls and process recovery.
+ClawMaster WatchDog 0.2.4 opens the era of AI-powered enterprise collaboration. This release strengthens enterprise task governance, optional-component isolation, desktop credential migration and update recovery so an unavailable optional capability does not prevent the core application from opening and working.
 
-- **WatchDog tasks and schedules**: Track business tasks, owners, deadlines, pending approvals and outcomes. Concurrent retries of one task request do not enqueue duplicate input, and Session logs reconcile execution outcomes after reload. Queue edits, steering into the active conversation and cancellation remain distinct. Delayed results stay attached to their original attempt. Scheduled execution remains subject to agent availability, authorization and one-shot approval.
-- **Governance and audit**: Validate write authority before resolving responsibility, validate authority-service responses, and associate operators, approvals and command receipts in audit records.
-- **Backup and data handling**: A timed-out backup request waits for its worker to exit before releasing capacity for retry. Paginate business results, bound command output and search Chinese and multilingual text by Unicode characters.
-- **Home status**: Display task and runtime status. Model-response verification uses only recorded, uninterrupted replies in loaded Sessions and distinguishes historical responses from current service availability.
-- **Desktop resource and process safety**: Bound background admission and resource budgets across process trees; improve Windows Host identity capture and startup recovery; prevent stale cleanup from terminating a process after PID reuse.
-- **Shell security**: Tighten the packaged shell content-security policy and native permission scope so external content cannot access desktop commands.
+- **Enterprise tasks and permissions**: Improve task outcome receipts, retry idempotency, audit responsibility, approval binding and recovery conflict protection. Workspace allocation rechecks permissions and resource state before writes.
+- **Runtime status and schedule recovery**: Add WatchDog state capsules, visible queue and scheduler failures, capacity admission controls and consistency checks after recovery.
+- **Component isolation**: Optional clients start in the background with dynamic-module and service dependencies propagated. A malformed tool schema is isolated to that tool, leaving other available tools and the main UI usable. Authentication, permissions, approvals, Guard and the main frontend remain required.
+- **Desktop credentials and updates**: Fix OS secure-credential transport across mixed-protocol large frames, startup handshakes and hot reload. Legacy updater migrations preserve channel and disabled preferences and accurately mark older selections whose activation cannot be confirmed.
+- **Availability and platforms**: Improve Windows Host startup and process recovery; desktop builds continue to target Apple Silicon macOS, Windows x64 and Linux x64.
 
-Desktop packages target Windows x64, Apple Silicon macOS and Linux x64. Developer ID notarization and Windows Authenticode publisher signing require their respective certificates; a Tauri updater signature is not an operating-system publisher signature. The desktop and standalone Android app have separate build, signing and acceptance paths. A desktop package or a temporary Android validation signature is not an Android update package.
+Native desktop RPA execution remains disabled in this release; affected actions report unavailable and are not presented as supported. A public stable release still requires the repository's cross-platform installation acceptance. This version tag starts a build only and does not automatically publish a GitHub Release.

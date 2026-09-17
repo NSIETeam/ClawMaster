@@ -94,6 +94,20 @@ fn run_rpa_call(request_json: Option<&String>) -> i32 {
     }
 }
 
+fn validate_rpa_call(request_json: Option<&String>) -> i32 {
+    let Some(request_json) = request_json else {
+        eprintln!("validate-call requires a JSON request argument");
+        return 64;
+    };
+    match clawmaster_rpa_native::rpa_cli::validate_request(request_json) {
+        Ok(value) => match serde_json::to_string(&value) {
+            Ok(json) => { println!("{json}"); 0 }
+            Err(error) => { eprintln!("{error}"); 2 }
+        },
+        Err(error) => { eprintln!("{error}"); 2 }
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let subcommand = if args.first().map(String::as_str) == Some("--native-tool") {
@@ -108,6 +122,10 @@ fn main() {
 
     if subcommand == Some("rpa-call") {
         std::process::exit(run_rpa_call(args.get(2)));
+    }
+
+    if subcommand == Some("validate-call") {
+        std::process::exit(validate_rpa_call(args.get(2)));
     }
 
     if subcommand == Some("approval-request") {

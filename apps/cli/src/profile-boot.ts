@@ -212,6 +212,12 @@ function allPatches(composed: ComposedProfile): PatchOptions[] {
   ]
 }
 
+/** Apply trusted desktop preflight results after user overlays to the browser registry. */
+export function optionalClientPackagesPatch(profile: Pick<Profile, 'optionalClientPackages'>): PatchOptions[] {
+  if (profile.optionalClientPackages.length === 0) return []
+  return [{ id: 'modules', config: { optionalPackages: [...profile.optionalClientPackages] } }]
+}
+
 /**
  * Load `name` and compose its effective patch stack: bundle layers in
  * `dsh.profile.bundles` order (a base-backed profile gets the base bundle's
@@ -240,6 +246,7 @@ async function composeProfile(
   const composedOverlays = [...overlays]
   const telemetryPatch = resolveTelemetryPatch(process.env.DSH_TELEMETRY_DISABLED, rows.has(TELEMETRY_ROW_ID))
   if (telemetryPatch !== undefined) composedOverlays.push(telemetryPatch)
+  composedOverlays.push(...optionalClientPackagesPatch(profile))
   return { profile, bundlePatches, homePatches, overlays: composedOverlays }
 }
 

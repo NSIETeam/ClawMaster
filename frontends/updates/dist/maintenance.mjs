@@ -2042,7 +2042,7 @@ var require_identity = __commonJS({
     var NODE_TYPE = Symbol.for("yaml.node.type");
     var isAlias = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === ALIAS;
     var isDocument = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === DOC;
-    var isMap = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
+    var isMap2 = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
     var isPair = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === PAIR;
     var isScalar2 = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SCALAR;
     var isSeq2 = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SEQ;
@@ -2078,7 +2078,7 @@ var require_identity = __commonJS({
     exports.isAlias = isAlias;
     exports.isCollection = isCollection;
     exports.isDocument = isDocument;
-    exports.isMap = isMap;
+    exports.isMap = isMap2;
     exports.isNode = isNode;
     exports.isPair = isPair;
     exports.isScalar = isScalar2;
@@ -6188,9 +6188,9 @@ var require_resolve_flow_collection = __commonJS({
     var blockMsg = "Block collections are not allowed within flow collections";
     var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
     function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag) {
-      const isMap = fc.start.source === "{";
-      const fcName = isMap ? "flow map" : "flow sequence";
-      const NodeClass = tag?.nodeClass ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
+      const isMap2 = fc.start.source === "{";
+      const fcName = isMap2 ? "flow map" : "flow sequence";
+      const NodeClass = tag?.nodeClass ?? (isMap2 ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
       const coll = new NodeClass(ctx.schema);
       coll.flow = true;
       const atRoot = ctx.atRoot;
@@ -6226,7 +6226,7 @@ var require_resolve_flow_collection = __commonJS({
             offset = props.end;
             continue;
           }
-          if (!isMap && ctx.options.strict && utilContainsNewline.containsNewline(key))
+          if (!isMap2 && ctx.options.strict && utilContainsNewline.containsNewline(key))
             onError(
               key,
               // checked by containsNewline()
@@ -6266,7 +6266,7 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep && !props.found) {
+        if (!isMap2 && !sep && !props.found) {
           const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
@@ -6289,7 +6289,7 @@ var require_resolve_flow_collection = __commonJS({
             startOnNewline: false
           });
           if (valueProps.found) {
-            if (!isMap && !props.found && ctx.options.strict) {
+            if (!isMap2 && !props.found && ctx.options.strict) {
               if (sep)
                 for (const st2 of sep) {
                   if (st2 === valueProps.found)
@@ -6321,7 +6321,7 @@ var require_resolve_flow_collection = __commonJS({
           const pair = new Pair.Pair(keyNode, valueNode);
           if (ctx.options.keepSourceTokens)
             pair.srcToken = collItem;
-          if (isMap) {
+          if (isMap2) {
             const map2 = coll;
             if (utilMapIncludes.mapIncludes(ctx, map2.items, keyNode))
               onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
@@ -6337,7 +6337,7 @@ var require_resolve_flow_collection = __commonJS({
           offset = valueNode ? valueNode.range[2] : valueProps.end;
         }
       }
-      const expectedEnd = isMap ? "}" : "]";
+      const expectedEnd = isMap2 ? "}" : "]";
       const [ce2, ...ee2] = fc.end;
       let cePos = offset;
       if (ce2?.source === expectedEnd)
@@ -9357,13 +9357,13 @@ var require_dist = __commonJS({
 });
 
 // src/maintenance.ts
-import { resolve as resolve2 } from "node:path";
+import { resolve as resolve3 } from "node:path";
 import { parseArgs } from "node:util";
 
 // src/components.ts
 import { createHash, randomUUID } from "node:crypto";
 import { lstat as lstat2, mkdir as mkdir2, mkdtemp, readFile, readdir, rename as rename2, rm as rm2, writeFile as writeFile2 } from "node:fs/promises";
-import { dirname as dirname2, isAbsolute, join, parse as parse3, relative, resolve } from "node:path";
+import { dirname as dirname2, isAbsolute as isAbsolute2, join as join2, parse as parse3, relative, resolve as resolve2 } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 // node_modules/@deepseek-ai/dsh-atomic-write/lib/index.js
@@ -9392,7 +9392,7 @@ async function renameAtomicTemp(temp, filename) {
       if (!isTransientWindowsRenameError(error51)) throw error51;
       if (retries >= WINDOWS_RENAME_RETRY_LIMIT) throw error51;
     }
-    await new Promise((resolve3) => setTimeout(resolve3, delay));
+    await new Promise((resolve4) => setTimeout(resolve4, delay));
     delay = Math.min(delay * 2, WINDOWS_RENAME_RETRY_MAX_MS);
   }
 }
@@ -9443,7 +9443,7 @@ async function withFileLock(filename, operation, options) {
       if (!await isLockContention(error51, lockPath)) throw error51;
     }
     if (Date.now() >= deadline) throw new Error(`atomic-write: timed out waiting for the writer lock at ${lockPath}`);
-    await new Promise((resolve3) => setTimeout(resolve3, delay));
+    await new Promise((resolve4) => setTimeout(resolve4, delay));
     delay = Math.min(delay * 2, LOCK_RETRY_MAX_MS);
   }
   try {
@@ -14882,10 +14882,10 @@ var $ZodURL = /* @__PURE__ */ $constructor("$ZodURL", (inst, def) => {
           return;
         }
       }
-      const url2 = new URL(trimmed);
+      const url3 = new URL(trimmed);
       if (def.hostname) {
         def.hostname.lastIndex = 0;
-        if (!def.hostname.test(url2.hostname)) {
+        if (!def.hostname.test(url3.hostname)) {
           payload.issues.push({
             code: "invalid_format",
             format: "url",
@@ -14899,7 +14899,7 @@ var $ZodURL = /* @__PURE__ */ $constructor("$ZodURL", (inst, def) => {
       }
       if (def.protocol) {
         def.protocol.lastIndex = 0;
-        if (!def.protocol.test(url2.protocol.endsWith(":") ? url2.protocol.slice(0, -1) : url2.protocol)) {
+        if (!def.protocol.test(url3.protocol.endsWith(":") ? url3.protocol.slice(0, -1) : url3.protocol)) {
           payload.issues.push({
             code: "invalid_format",
             format: "url",
@@ -14912,7 +14912,7 @@ var $ZodURL = /* @__PURE__ */ $constructor("$ZodURL", (inst, def) => {
         }
       }
       if (def.normalize) {
-        payload.value = url2.href;
+        payload.value = url3.href;
       } else {
         payload.value = trimmed;
       }
@@ -26942,6 +26942,80 @@ function date4(params) {
 // node_modules/zod/v4/classic/external.js
 config(en_default());
 
+// src/config.ts
+import { createPublicKey } from "node:crypto";
+import { homedir } from "node:os";
+import { isAbsolute, join, resolve } from "node:path";
+
+// src/download.ts
+function httpsUrl(value) {
+  let url3;
+  try {
+    url3 = new URL(value);
+  } catch {
+    throw new Error("Update URL must be absolute HTTPS");
+  }
+  if (url3.protocol !== "https:" || url3.username || url3.password || url3.search || url3.hash || !/^https:\/\/[^/?#\\\s]+(?:\/[^?#\\\s]*)?$/u.test(value)) throw new Error("Invalid update HTTPS URL");
+  const path = value.slice(value.indexOf("/", 8));
+  if (value.indexOf("/", 8) >= 0 && path !== url3.pathname) throw new Error("Ambiguous update URL path");
+  let decoded;
+  try {
+    decoded = url3.pathname.split("/").map(decodeURIComponent);
+  } catch {
+    throw new Error("Invalid update URL encoding");
+  }
+  if (url3.pathname.includes("//") || decoded.some((segment) => segment === "." || segment === ".." || /[/%\\?#\s\u0000-\u001f\u007f]/u.test(segment))) {
+    throw new Error("Ambiguous update URL path");
+  }
+  return url3;
+}
+
+// src/keys.ts
+var COMPONENT_PUBLIC_KEY = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEANxI5EUsbzF1SVVywiZugKD0BZRxBjgiQMqV9iKfwn5g=\n-----END PUBLIC KEY-----\n";
+var NATIVE_PUBLIC_KEY = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhGMEMzNDM2MUYwODkyNEYKUldSUGtnZ2ZOalFNajJzdjF5dStuejdYcUw5WWdINmFFN2lXd25Td1hMc0ZpNzNuT3cvdHEwcG0K";
+
+// src/config.ts
+var positive = external_exports.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+var duration3 = positive.max(2147483647);
+var url2 = external_exports.string().refine((value) => {
+  try {
+    httpsUrl(value);
+    return true;
+  } catch {
+    return false;
+  }
+}, "Requires an unambiguous HTTPS URL");
+var absolutePath = external_exports.string().refine((value) => isAbsolute(value) && resolve(value) === value && !/[\u0000-\u001f\u007f]/u.test(value), "Requires an absolute normalized path");
+var Config = external_exports.strictObject({
+  dshHome: absolutePath.default(() => process.env.DSH_HOME ?? join(homedir(), ".dsh")),
+  catalogUrl: url2.default("https://8.140.52.117/updates/clawmaster/components/catalog.json"),
+  nativeManifestUrl: url2.default("https://8.140.52.117/updates/clawmaster/v2/latest.json"),
+  publicKeyPem: external_exports.string().refine((value) => {
+    try {
+      return createPublicKey(value).asymmetricKeyType === "ed25519";
+    } catch {
+      return false;
+    }
+  }, "Requires an Ed25519 public key").default(COMPONENT_PUBLIC_KEY),
+  nativePublicKey: external_exports.string().refine((value) => {
+    const bytes = Buffer.from(value, "base64");
+    if (bytes.toString("base64") !== value) return false;
+    const lines = bytes.toString("utf8").trim().split(/\r?\n/u);
+    const key = Buffer.from(lines[1] ?? "", "base64");
+    return lines.length === 2 && lines[0]?.startsWith("untrusted comment:") === true && key.length === 42 && key.subarray(0, 2).toString() === "Ed";
+  }, "Requires a Tauri Minisign public-key envelope").default(NATIVE_PUBLIC_KEY),
+  checkIntervalMs: external_exports.number().int().min(0).max(2147483647).default(6e4),
+  requestTimeoutMs: duration3.default(3e4),
+  downloadTimeoutMs: duration3.default(6e5),
+  maxCatalogBytes: positive.default(2 * 1024 * 1024),
+  maxDownloadBytes: positive.default(512 * 1024 * 1024),
+  maxComponentArchiveBytes: positive.default(64 * 1024 * 1024),
+  maxExpandedBytes: positive.default(256 * 1024 * 1024),
+  maxArchiveEntries: positive.default(1e4),
+  nativeTarget: external_exports.enum(["windows-x86_64", "darwin-x86_64", "darwin-aarch64", "linux-x86_64", "linux-x86_64-deb"]).optional(),
+  locale: external_exports.enum(["zh-CN", "en-US"]).default("zh-CN")
+}).prefault({});
+
 // src/components.ts
 var DEFAULT_LIMITS = { archiveBytes: 64 * 1024 * 1024, expandedBytes: 256 * 1024 * 1024, entries: 1e4, patchBytes: 2 * 1024 * 1024 };
 var ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -26950,6 +27024,8 @@ var sha256 = (value) => createHash("sha256").update(value).digest("hex");
 var revision = (value) => `sha256-${sha256(value)}`;
 var json2 = (value) => `${JSON.stringify(value, null, 2)}
 `;
+var updaterRowKeys = /* @__PURE__ */ new Set(["id", "name", "config", "disabled"]);
+var offlineRecovery = "This updater profile cannot be migrated automatically; no profile change was made. Quit ClawMaster and confirm its Host has exited, then make byte-for-byte backups of DSH_HOME/profiles/web/cordis.patch.yml and DSH_HOME/clawmaster-updates. Restore only a known-good pre-update profile backup; if none exists, leave the files untouched and request an administrator-led offline repair. Do not delete component data or retry automatic activation.";
 var operationSchema = external_exports.object({
   before: external_exports.string().max(DEFAULT_LIMITS.patchBytes),
   after: external_exports.string().max(DEFAULT_LIMITS.patchBytes),
@@ -26957,7 +27033,7 @@ var operationSchema = external_exports.object({
   id: external_exports.string().regex(ID),
   version: external_exports.string().refine((value) => (0, import_semver.valid)(value) === value),
   activation: external_exports.enum(["hot", "restart"]),
-  state: external_exports.enum(["staged", "applied", "switching", "awaiting-health", "completed", "rolled-back", "blocked"]),
+  state: external_exports.enum(["staged", "applied", "switching", "awaiting-health", "completed", "selected-unverified", "rolled-back", "blocked"]),
   failure: external_exports.string().optional(),
   direction: external_exports.enum(["update", "rollback"]).optional(),
   activatedAt: external_exports.string().datetime().optional(),
@@ -26967,12 +27043,12 @@ var operationSchema = external_exports.object({
 var OPERATION_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 async function readOperation(root, token) {
   if (!OPERATION_TOKEN.test(token)) throw new Error("Invalid component operation token");
-  return operationSchema.parse(JSON.parse((await regularFile(join(root, "operations", `${token}.json`), DEFAULT_LIMITS.patchBytes * 8)).toString("utf8")));
+  return operationSchema.parse(JSON.parse((await regularFile(join2(root, "operations", `${token}.json`), DEFAULT_LIMITS.patchBytes * 8)).toString("utf8")));
 }
 async function listComponentOperations(dshHome) {
-  if (!isAbsolute(dshHome) || resolve(dshHome) !== dshHome || parse3(dshHome).root === dshHome) throw new Error("DSH home must be an absolute normalized directory below the filesystem root");
-  const root = join(dshHome, "clawmaster-updates");
-  const paths = [dshHome, root, join(root, "operations")];
+  if (!isAbsolute2(dshHome) || resolve2(dshHome) !== dshHome || parse3(dshHome).root === dshHome) throw new Error("DSH home must be an absolute normalized directory below the filesystem root");
+  const root = join2(dshHome, "clawmaster-updates");
+  const paths = [dshHome, root, join2(root, "operations")];
   for (const path of paths) {
     try {
       const info = await lstat2(path);
@@ -26983,7 +27059,7 @@ async function listComponentOperations(dshHome) {
     }
   }
   const rows = [];
-  for (const name of (await readdir(join(root, "operations"))).sort()) {
+  for (const name of (await readdir(join2(root, "operations"))).sort()) {
     if (!name.endsWith(".json")) continue;
     const token = name.slice(0, -5);
     let record2;
@@ -27026,12 +27102,12 @@ async function directory(path) {
   if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("Component state directories must not be symbolic links");
 }
 async function stateRoot(dshHome) {
-  if (!isAbsolute(dshHome) || resolve(dshHome) !== dshHome || parse3(dshHome).root === dshHome) throw new Error("DSH home must be an absolute normalized directory below the filesystem root");
+  if (!isAbsolute2(dshHome) || resolve2(dshHome) !== dshHome || parse3(dshHome).root === dshHome) throw new Error("DSH home must be an absolute normalized directory below the filesystem root");
   await directory(dshHome);
-  const root = join(dshHome, "clawmaster-updates");
+  const root = join2(dshHome, "clawmaster-updates");
   await directory(root);
-  await directory(join(root, "components"));
-  await directory(join(root, "operations"));
+  await directory(join2(root, "components"));
+  await directory(join2(root, "operations"));
   return root;
 }
 async function regularFile(path, maximum) {
@@ -27050,24 +27126,24 @@ async function optionalPatch(path, maximum) {
   }
 }
 async function patchPath(dshHome) {
-  await directory(join(dshHome, "profiles"));
-  await directory(join(dshHome, "profiles", "web"));
-  return join(dshHome, "profiles", "web", "cordis.patch.yml");
+  await directory(join2(dshHome, "profiles"));
+  await directory(join2(dshHome, "profiles", "web"));
+  return join2(dshHome, "profiles", "web", "cordis.patch.yml");
 }
 async function installed(root, id, version2) {
   if (!ID.test(id) || (0, import_semver.valid)(version2) !== version2) throw new Error("Invalid installed component identity");
-  const path = join(root, "components", id, version2);
-  for (const directory2 of [join(root, "components", id), path]) {
+  const path = join2(root, "components", id, version2);
+  for (const directory2 of [join2(root, "components", id), path]) {
     const info = await lstat2(directory2);
     if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("Installed component directories must not be symbolic links");
   }
-  const value = JSON.parse((await regularFile(join(path, "receipt.json"), 16 * 1024 * 1024)).toString("utf8"));
+  const value = JSON.parse((await regularFile(join2(path, "receipt.json"), 16 * 1024 * 1024)).toString("utf8"));
   validateDescriptor(value.descriptor);
-  if (value.descriptor.id !== id || value.descriptor.version !== version2 || value.directory !== path || value.entryUrl !== pathToFileURL(join(path, "package", safeRelative(value.descriptor.entry))).href) throw new Error("Invalid installed component receipt");
+  if (value.descriptor.id !== id || value.descriptor.version !== version2 || value.directory !== path || value.entryUrl !== pathToFileURL(join2(path, "package", safeRelative(value.descriptor.entry))).href) throw new Error("Invalid installed component receipt");
   if (!value.fileHashes || !Object.hasOwn(value.fileHashes, `package/${safeRelative(value.descriptor.entry)}`)) throw new Error("Installed component has no entry digest");
   async function inspect(directory2) {
     for (const entry of await readdir(directory2, { withFileTypes: true })) {
-      const child = join(directory2, entry.name);
+      const child = join2(directory2, entry.name);
       const name = relative(path, child).split("\\").join("/");
       if (name === "receipt.json" && entry.isFile()) continue;
       if (entry.isSymbolicLink() || !entry.isDirectory() && !entry.isFile() || entry.isFile() && !Object.hasOwn(value.fileHashes, name)) throw new Error("Installed component contains an unverified file");
@@ -27077,13 +27153,13 @@ async function installed(root, id, version2) {
   await inspect(path);
   for (const [name, digest] of Object.entries(value.fileHashes)) {
     if (!safeRelative(name).startsWith("package/") || !/^[a-f0-9]{64}$/.test(digest)) throw new Error("Invalid installed file digest");
-    let parent = dirname2(join(path, name));
+    let parent = dirname2(join2(path, name));
     while (parent !== path) {
       const info = await lstat2(parent);
       if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("Installed component directories must not be symbolic links");
       parent = dirname2(parent);
     }
-    if (sha256(await regularFile(join(path, name), DEFAULT_LIMITS.expandedBytes)) !== digest) throw new Error("Installed component file digest differs from its verified archive");
+    if (sha256(await regularFile(join2(path, name), DEFAULT_LIMITS.expandedBytes)) !== digest) throw new Error("Installed component file digest differs from its verified archive");
   }
   const { fileHashes: _hashes, ...receipt } = value;
   return receipt;
@@ -27113,9 +27189,22 @@ async function nextPatch(text, root, target) {
 ${text.slice(at2)}`;
   }
   const name = node.get("name", true);
-  if (node.items.length !== 2 || !(0, import_yaml.isScalar)(name) || typeof name.value !== "string" || !name.range) throw new Error("The updater-owned row was edited outside the updater");
+  if (target.descriptor.id === "updates") validateUpdaterRow(node, name);
+  else if (node.items.length !== 2 || !(0, import_yaml.isScalar)(name) || typeof name.value !== "string" || !name.range) throw new Error("The updater-owned row was edited outside the updater");
+  if (!(0, import_yaml.isScalar)(name) || typeof name.value !== "string" || !name.range) throw new Error("The updater-owned row was edited outside the updater");
   await verifyOwnedEntry(root, target.descriptor.id, name.value);
   return `${text.slice(0, name.range[0])}${JSON.stringify(target.entryUrl)}${text.slice(name.range[1])}`;
+}
+function validateUpdaterRow(row, name) {
+  const fail = () => {
+    throw new Error(offlineRecovery);
+  };
+  if (row.items.some((pair) => !(0, import_yaml.isScalar)(pair.key) || typeof pair.key.value !== "string" || !updaterRowKeys.has(pair.key.value))) fail();
+  if (row.get("id") !== "clawmaster-update-component-updates" || !(0, import_yaml.isScalar)(name) || typeof name.value !== "string" || !name.range) fail();
+  const disabled = row.get("disabled", true);
+  if (disabled !== void 0 && (!(0, import_yaml.isScalar)(disabled) || typeof disabled.value !== "boolean")) fail();
+  const config2 = row.get("config", true);
+  if (config2 !== void 0 && (!(0, import_yaml.isMap)(config2) || !Config.safeParse(config2.toJSON()).success)) fail();
 }
 async function verifyOwnedEntry(root, id, name) {
   let oldPath;
@@ -27124,7 +27213,7 @@ async function verifyOwnedEntry(root, id, name) {
   } catch {
     throw new Error("Existing profile row does not belong to this updater");
   }
-  const version2 = relative(join(root, "components", id), oldPath).split(/[\\/]/)[0] ?? "";
+  const version2 = relative(join2(root, "components", id), oldPath).split(/[\\/]/)[0] ?? "";
   const previous = await installed(root, id, version2);
   if (name !== previous.entryUrl) throw new Error("Existing profile row does not belong to this updater");
 }
@@ -27139,11 +27228,13 @@ async function verifyRollbackEntry(root, id, text) {
   const previous = matches[0];
   if (!previous) return;
   const name = previous.get("name");
-  if (previous.items.length !== 2 || typeof name !== "string") throw new Error("Invalid rollback component row");
+  if (id === "updates") validateUpdaterRow(previous, previous.get("name", true));
+  else if (previous.items.length !== 2 || typeof name !== "string") throw new Error("Invalid rollback component row");
+  if (typeof name !== "string") throw new Error("Invalid rollback component row");
   await verifyOwnedEntry(root, id, name);
 }
 async function assertDesktopHostStopped(dshHome) {
-  const path = join(dshHome, "desktop", "current-runtime.json");
+  const path = join2(dshHome, "desktop", "current-runtime.json");
   const desktop = await lstat2(dirname2(path));
   if (!desktop.isDirectory() || desktop.isSymbolicLink()) throw new Error("Desktop runtime directory must not be a symbolic link");
   const record2 = external_exports.object({ schemaVersion: external_exports.literal(1), hostPid: external_exports.number().int().positive(), runId: external_exports.string().min(1), status: external_exports.enum(["ready", "stopped"]) }).parse(JSON.parse((await regularFile(path, 1024 * 1024)).toString("utf8")));
@@ -27167,13 +27258,13 @@ async function maintainRestartComponents(dshHome) {
   const changed = [];
   await withFileLock(path, async () => {
     await assertDesktopHostStopped(dshHome);
-    const owner = join(root, "components", "updates");
+    const owner = join2(root, "components", "updates");
     const info = await lstat2(owner);
     if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("Installed component directories must not be symbolic links");
-    await withFileLock(join(owner, "installation"), async () => {
+    await withFileLock(join2(owner, "installation"), async () => {
       for (const candidate of pending) {
         const record2 = await readOperation(root, candidate.token);
-        const recordPath = join(root, "operations", `${candidate.token}.json`);
+        const recordPath = join2(root, "operations", `${candidate.token}.json`);
         if (record2.id !== "updates" || record2.activation !== "restart") throw new Error("Restart operation identity changed");
         const current = await optionalPatch(path, DEFAULT_LIMITS.patchBytes);
         if (record2.state === "switching" || record2.state === "awaiting-health") {
@@ -27199,17 +27290,30 @@ async function maintainRestartComponents(dshHome) {
         const switching = { ...record2, state: "switching", afterRevision: revision(record2.after) };
         await writeFileAtomic(recordPath, json2(switching), { mode: 384, dirMode: 448 });
         await writeFileAtomic(path, record2.after, { mode: 384, dirMode: 448 });
-        await writeFileAtomic(recordPath, json2({ ...switching, state: "awaiting-health" }), { mode: 384, dirMode: 448 });
-        changed.push({ ...candidate, state: "awaiting-health" });
+        const selectedDisabled = disabledUpdaterSelected(record2.after);
+        const legacyTarget = !(0, import_semver.gt)(record2.version, "0.1.1");
+        const state = selectedDisabled || legacyTarget ? "selected-unverified" : "awaiting-health";
+        await writeFileAtomic(recordPath, json2({ ...switching, state }), { mode: 384, dirMode: 448 });
+        changed.push({ ...candidate, state });
       }
     });
   });
   return changed;
 }
+function disabledUpdaterSelected(text) {
+  const doc = (0, import_yaml.parseDocument)(text);
+  let disabled = false;
+  (0, import_yaml.visit)(doc, { Map(_key, node) {
+    if (node.get("id") !== "clawmaster-update-component-updates") return;
+    const value = node.get("disabled", true);
+    disabled = (0, import_yaml.isScalar)(value) && value.value === true;
+  } });
+  return disabled;
+}
 
 // src/maintenance.ts
 var { values } = parseArgs({ options: { "dsh-home": { type: "string" } } });
 if (!values["dsh-home"]) throw new Error("Component maintenance requires the desktop-selected --dsh-home");
-var result = await maintainRestartComponents(resolve2(values["dsh-home"]));
+var result = await maintainRestartComponents(resolve3(values["dsh-home"]));
 process.stdout.write(`${JSON.stringify(result)}
 `);
