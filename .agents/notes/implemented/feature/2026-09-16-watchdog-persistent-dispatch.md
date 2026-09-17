@@ -20,7 +20,7 @@ A durable barrier precedes enqueue. Missing confirmation after that point remain
 
 The management panel binds each successful receipt to its command id. Unconfirmed requests retain their full payload across panel navigation, preventing a second command from silently replacing the first. Human uncertainty resolution requires a Session inspection acknowledgement and reason; neither panel rendering nor worker observation grants execution. Input validation failures remain editable while missing or unrelated receipts remain unresolved.
 
-An active plan with no online worker raises an in-app alert after a status read. The Home health view also reports ledger-wide counts of failed and uncertain occurrences, including instances outside the visible plan page. While the app is open, the panel refreshes every 30 seconds and on window focus or network recovery. These reads do not refresh worker heartbeats or drive recovery; they cannot notify an operator while the app or host is offline.
+An active plan with no online worker raises an in-app alert after a status read. The Home health view also reports ledger-wide counts of failed and uncertain occurrences, including instances outside the visible plan page. While the schedule panel is mounted and the app is visible and online, the panel refreshes every 30 seconds and on window focus or network recovery. Automatic observations preserve page cursors and loaded history, update selected occurrences, and defer while a read or unresolved write is active. These reads do not refresh worker heartbeats or drive recovery; they cannot notify an operator while the app or host is offline.
 
 ## Alternatives considered
 

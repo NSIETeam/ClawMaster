@@ -19,9 +19,9 @@ export function ScheduleBoard({ client, locale, sessions, onOpenSession }: Props
   const [reason, setReason] = useState('');
   useEffect(() => {
     const refreshIfAvailable = () => {
-      if (document.visibilityState === 'visible' && navigator.onLine) void client.refresh();
+      if (document.visibilityState === 'visible' && navigator.onLine) void client.refreshCurrent();
     };
-    void client.refresh();
+    void client.refreshCurrent();
     const timer = window.setInterval(refreshIfAvailable, 30_000);
     window.addEventListener('focus', refreshIfAvailable);
     window.addEventListener('online', refreshIfAvailable);

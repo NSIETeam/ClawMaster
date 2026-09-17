@@ -127,6 +127,31 @@ it('refreshes persisted status after the app regains connectivity', async () => 
   await waitFor(() => expect(reads).toBeGreaterThan(1));
 });
 
+it('automatic refresh retains the displayed plan page and history while updating selected occurrences', async () => {
+  const { client, store } = await fixture();
+  const now = Date.now();
+  for (let index = 0; index < 25; index++) {
+    store.command(human, scheduleCommandSchema.parse({ commandId: randomUUID(), command: create() }), now - 300000);
+  }
+  store.materialize(now);
+  await act(() => client.refresh());
+  await act(() => client.refresh(client.getSnapshot().nextPlan));
+  const pageIds = client.getSnapshot().plans.map(plan => plan.id);
+  expect(pageIds).toHaveLength(5);
+  const selected = client.getSnapshot().plans[0];
+  await act(() => client.select(selected));
+  await act(() => client.history());
+  const history = client.getSnapshot().history;
+  const instance = client.getSnapshot().instances[0];
+  expect(instance.state).toBe('waiting_approval');
+  store.command(human, scheduleCommandSchema.parse({ commandId: randomUUID(), command: { type: 'approve', id: selected.id, instanceId: instance.id } }), now);
+  await act(async () => { window.dispatchEvent(new Event('online')); });
+  await waitFor(() => expect(client.getSnapshot().instances[0].state).toBe('ready'));
+  expect(client.getSnapshot().plans.map(plan => plan.id)).toEqual(pageIds);
+  expect(client.getSnapshot().selected.id).toBe(selected.id);
+  expect(client.getSnapshot().history).toEqual(history);
+});
+
 it('requires session inspection before human resolution and never reenqueues an uncertain occurrence', async () => {
   const { client, store, seed } = await fixture({ locale: 'zh-CN' });
   const { plan, instance, now } = seed();

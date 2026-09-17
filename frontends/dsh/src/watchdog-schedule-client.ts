@@ -47,6 +47,9 @@ export class WatchdogScheduleClient {
   private readonly listeners = new Set<() => void>();
   private pending: ScheduleCommand | undefined;
   private readVersion = 0;
+  private planAfter = 0;
+  private instanceAfter = 0;
+  private workersAfter = 0;
   private disposed = false;
   constructor(private readonly request: typeof fetch = globalThis.fetch.bind(globalThis), private readonly nextId: () => string = () => crypto.randomUUID()) {}
   /** Read the stable React external-store snapshot. */
@@ -69,11 +72,11 @@ export class WatchdogScheduleClient {
     if (!value.success) throw new Failure('invalid');
     return value.data;
   }
-  private async read(action: () => Promise<Partial<ScheduleClientState>>): Promise<void> {
+  private async read(action: () => Promise<Partial<ScheduleClientState>>, applied?: () => void): Promise<void> {
     if (this.disposed || this.state.saving) return;
     const version = ++this.readVersion;
     this.set({ loading: true, error: null });
-    try { const value = await action(); if (version === this.readVersion) this.set(value); }
+    try { const value = await action(); if (version === this.readVersion) { applied?.(); this.set(value); } }
     catch (error) { if (version === this.readVersion) this.set({ error: error instanceof Failure ? error.kind : 'network' }); }
     finally { if (version === this.readVersion) this.set({ loading: false }); }
   }
@@ -82,6 +85,20 @@ export class WatchdogScheduleClient {
     await this.read(async () => {
       const value = await this.get(plans, `?limit=20&after=${after}`);
       return { plans: value.records, nextPlan: value.nextAfter, workers: value.workers, workerSummary: value.workerSummary, attentionSummary: value.attentionSummary, mode: value.mode, observedAt: Date.now() };
+    }, () => { this.planAfter = after; this.workersAfter = 0; });
+  }
+  /** Refresh the displayed pages without interrupting an active read or unresolved command. */
+  async refreshCurrent(): Promise<void> {
+    if (this.state.loading || this.state.pending) return;
+    const selected = this.state.selected;
+    await this.read(async () => {
+      const value = await this.get(plans, `?limit=20&after=${this.planAfter}&workersAfter=${this.workersAfter}`);
+      const current = selected ? await this.get(instances, `?id=${encodeURIComponent(selected.id)}&limit=20&after=${this.instanceAfter}`) : null;
+      if (current?.records.some(item => item.planId !== selected!.id)) throw new Failure('invalid');
+      return { plans: value.records, nextPlan: value.nextAfter, workers: value.workers, workerSummary: value.workerSummary,
+        attentionSummary: value.attentionSummary, mode: value.mode, observedAt: Date.now(),
+        ...(selected && current ? { selected: value.records.find(item => item.id === selected.id) ?? selected,
+          instances: current.records, nextInstance: current.nextAfter } : {}) };
     });
   }
   /** Show the selected plan's occurrence page; its Session is opened separately by the user. */
@@ -90,14 +107,14 @@ export class WatchdogScheduleClient {
       const value = await this.get(instances, `?id=${encodeURIComponent(selected.id)}&limit=20&after=${after}`);
       if (value.records.some(item => item.planId !== selected.id)) throw new Failure('invalid');
       return { selected, instances: value.records, nextInstance: value.nextAfter, workers: value.workers, workerSummary: value.workerSummary, attentionSummary: value.attentionSummary, mode: value.mode, observedAt: Date.now(), history: [], nextHistory: null };
-    });
+    }, () => { this.instanceAfter = after; this.workersAfter = 0; });
   }
   /** Page worker observations independently without replacing the selected business records. */
   async workers(after = 0): Promise<void> {
     await this.read(async () => {
       const value = await this.get(plans, `?limit=1&workersAfter=${after}`);
       return { workers: value.workers, workerSummary: value.workerSummary, attentionSummary: value.attentionSummary, mode: value.mode, observedAt: Date.now() };
-    });
+    }, () => { this.workersAfter = after; });
   }
   /** Read one immutable history page without accumulating the complete log in the WebView. */
   async history(after = 0): Promise<void> {
@@ -140,6 +157,8 @@ export class WatchdogScheduleClient {
       } else {
         const value = plan.safeParse(body);
         if (!value.success || value.data.id !== pending.command.id) throw new Failure('invalid');
+        if (pending.command.type === 'create') this.planAfter = 0;
+        this.instanceAfter = 0;
         this.set({ selected: value.data, plans: pending.command.type === 'create' ? [value.data] : this.state.plans.map(item => item.id === value.data.id ? value.data : item),
           nextPlan: null, instances: [], nextInstance: null, history: [], nextHistory: null });
       }
