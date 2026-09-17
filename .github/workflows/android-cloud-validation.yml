@@ -51,7 +51,7 @@ jobs:
         run: |
           cd "$RUNNER_TEMP/node-v22.19.0"
           ./android-configure "$ANDROID_HOME/ndk/28.2.13676358" 26 "${{ matrix.arch }}"
-          make -j2
+          make -j2 CC_host=gcc CXX_host=g++ AR_host=gcc-ar
 
       - name: Verify Android ELF alignment and collect runtime files
         shell: bash
