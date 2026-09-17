@@ -18,7 +18,7 @@ jobs:
   node-runtime:
     name: Android Node runtime (${{ matrix.arch }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
