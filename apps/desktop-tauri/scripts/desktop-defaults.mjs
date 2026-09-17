@@ -112,6 +112,7 @@ export async function prepareDesktopProfile(root, home) {
       readFileSync(join(packageDir, manifest.dsh.bundle.patch))
       if (manifest.main || manifest.exports?.['.']) require.resolve(name)
       if (manifest.dsh.client) require.resolve(`${name}/client`)
+      const bundlePresets = []
       for (const preset of manifest.dsh.desktop?.presets ?? []) {
         if (!/^[a-zA-Z0-9_-]+$/.test(preset.id) || typeof preset.path !== 'string') throw new Error(`invalid desktop preset metadata in ${name}`)
         const source = resolve(packageDir, preset.path)
@@ -119,8 +120,9 @@ export async function prepareDesktopProfile(root, home) {
         if (!path || isAbsolute(path) || path === '..' || path.startsWith(`..${sep}`)) throw new Error(`desktop preset path escapes ${name}`)
         readFileSync(join(source, 'preset.yml'))
         readFileSync(join(source, 'agent.cordis.yml'))
-        presets.push({ source, destination: join(home, '.agent-presets', preset.id) })
+        bundlePresets.push({ source, destination: join(home, '.agent-presets', preset.id) })
       }
+      presets.push(...bundlePresets)
       availableBundles.push(name)
     } catch (error) {
       if (!DESKTOP_OPTIONAL_BUNDLES.includes(name)) throw error
