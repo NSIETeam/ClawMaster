@@ -104,8 +104,13 @@ describe('tsdown client artifact', () => {
   })
 
   it.skipIf(code === undefined)('injects plugin-tagged module CSS during factory execution', async () => {
+    const meta = document.createElement('meta')
+    meta.name = 'dsh-style-nonce'
+    meta.content = 'test-style-nonce'
+    document.head.append(meta)
     await loadArtifact()
-    const tags = document.querySelectorAll(`style[data-plugin=${JSON.stringify(PLUGIN_ID)}]`)
+    const tags = document.querySelectorAll<HTMLStyleElement>(`style[data-plugin=${JSON.stringify(PLUGIN_ID)}]`)
     expect(tags.length).toBeGreaterThan(0)
+    for (const tag of tags) expect(tag.nonce).toBe('test-style-nonce')
   })
 })

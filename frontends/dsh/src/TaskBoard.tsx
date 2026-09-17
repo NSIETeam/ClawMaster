@@ -7,7 +7,8 @@ import type { SessionId } from './services.ts';
 import { taskAttentionSummary, taskIndicators, type TaskRecord, type TaskRequest } from './watchdog-task-format.ts';
 import type { WatchdogTaskClient } from './watchdog-task-client.ts';
 
-interface Props { client: WatchdogTaskClient; locale: ProductLocale; sessions: readonly WorkbenchSession[]; onOpenSession(id: SessionId): void; }
+interface Props { client: WatchdogTaskClient; locale: ProductLocale; sessions: readonly WorkbenchSession[]; onOpenSession(id: SessionId): void;
+  onPrepareExecution(task: TaskRecord, sessionId: string): string; onRunExecution(task: TaskRecord): Promise<void>; onAbandonExecution(requestId: string): void; }
 function dateText(value: string, locale: ProductLocale): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
@@ -17,12 +18,23 @@ function externalEvidence(location: string): string | undefined {
     return ['https:', 'http:'].includes(value.protocol) && !value.username && !value.password ? value.href : undefined;
   } catch { return undefined; }
 }
+function nextStep(task: TaskRecord, copy: ReturnType<typeof taskCopy>): string {
+  if (task.status === 'in_progress' && task.waitingFor) return copy.nextWaiting;
+  const keys = { draft: 'nextDraft', ready: 'nextReady', in_progress: 'nextProgress', awaiting_review: 'nextReview',
+    accepted: 'nextAccepted', failed: 'nextFailed', cancelled: 'nextCancelled' } as const;
+  return copy[keys[task.status]];
+}
 
 /** Reads only on entry; task writes originate from explicit form submissions. */
-export function TaskBoard({ client, locale, sessions, onOpenSession }: Props) {
+export function TaskBoard({ client, locale, sessions, onOpenSession, onPrepareExecution, onRunExecution, onAbandonExecution }: Props) {
   const copy = taskCopy(locale);
   const state = useSyncExternalStore(client.subscribe, client.getSnapshot, client.getSnapshot);
   const [creating, setCreating] = useState(false);
+  const [executionError, setExecutionError] = useState(false);
+  const run = async (task: TaskRecord): Promise<void> => {
+    setExecutionError(false);
+    try { await onRunExecution(task); } catch { setExecutionError(true); }
+  };
   useEffect(() => { void client.refresh(); }, [client]);
   const blocked = state.saving || state.pending;
   const summary = taskAttentionSummary(state.tasks);
@@ -41,7 +53,17 @@ export function TaskBoard({ client, locale, sessions, onOpenSession }: Props) {
     </section>
     {state.error && <p role="alert" className="cm-error">{copy[state.error]}</p>}
     {state.saving && <p role="status">{copy.saving}</p>}
-    {state.pending && !state.saving && <div role="alert"><p>{copy.pending}</p><button type="button" onClick={() => { void client.retry().then(saved => { if (saved) setCreating(false); }); }}>{copy.retry}</button></div>}
+    {state.pending && !state.saving && <div role="alert"><p>{copy.pending}</p><button type="button" onClick={() => { void (async () => {
+      const pending = client.getPendingCommand();
+      const isStart = pending?.command.type === 'start';
+      const saved = await client.retry();
+      if (saved) {
+        setCreating(false);
+        const task = client.getSnapshot().selected;
+        if (isStart && task?.execution) await run(task);
+      } else if (pending?.command.type === 'start' && !client.getSnapshot().pending) onAbandonExecution(pending.command.requestId);
+    })(); }}>{copy.retry}</button></div>}
+    {executionError && <p role="alert" className="cm-error">{copy.executionFailed}</p>}
     {creating && <TaskDraft locale={locale} sessions={sessions} disabled={blocked} onSave={async command => {
       if (await client.command(crypto.randomUUID(), 0, command)) setCreating(false);
     }} />}
@@ -53,17 +75,23 @@ export function TaskBoard({ client, locale, sessions, onOpenSession }: Props) {
         return <article key={task.id} className="cm-business-task">
           <button type="button" aria-pressed={state.selected?.id === task.id} disabled={state.saving} onClick={() => { void client.select(task.id); }}><strong>{task.goal}</strong></button>
           <div className="cm-business-task-facts"><span data-task-status={task.status}>{copy[task.status]}</span>
+            <span>{task.source === 'imported-session' ? copy.imported : copy.newSource}</span>
             {flags.overdue && <strong className="cm-attention">{copy.overdue}</strong>}
             {flags.waiting && <span>{copy.waiting}</span>}
             <span>{copy.owner}: {task.owner.kind === 'local' ? task.owner.label : task.owner.id}</span>
             {task.dueAt ? <time dateTime={task.dueAt}>{dateText(task.dueAt, locale)}</time> : <span>{copy.noDeadline}</span>}
+            <span>{copy.nextStep}: {nextStep(task, copy)}</span>
           </div>
         </article>;
       })}
     </div>
     {state.nextCursor !== null && <button type="button" disabled={state.loading} onClick={() => { void client.more(); }}>{copy.more}</button>}
     {state.selected && <TaskDetail key={`${state.selected.id}:${state.selected.revision}`} task={state.selected} locale={locale} sessions={sessions}
-      onOpenSession={onOpenSession} disabled={blocked} onCommand={command => client.command(state.selected!.id, state.selected!.revision, command)} />}
+      onOpenSession={onOpenSession} disabled={blocked} onCommand={async command => {
+        const saved = await client.command(state.selected!.id, state.selected!.revision, command);
+        if (!saved && command.type === 'start' && !client.getSnapshot().pending) onAbandonExecution(command.requestId);
+        return saved;
+      }} onPrepareExecution={onPrepareExecution} onAbandonExecution={onAbandonExecution} onRunExecution={run} />}
     {state.selected && <details className="cm-task-history"><summary>{copy.history}</summary>
       <button type="button" disabled={state.loading || state.saving} onClick={() => { void client.select(state.selected!.id); }}>{copy.loadHistory}</button>
       {!state.history.length && <p>{copy.noHistory}</p>}
@@ -124,11 +152,11 @@ function Evidence({ task, locale }: { task: TaskRecord; locale: ProductLocale })
   </div>;
 }
 
-function TaskDetail({ task, locale, sessions, onOpenSession, disabled, onCommand }: Omit<Props, 'client'> & {
+function TaskDetail({ task, locale, sessions, onOpenSession, disabled, onCommand, onPrepareExecution, onRunExecution }: Omit<Props, 'client'> & {
   task: TaskRecord; disabled: boolean; onCommand(command: TaskRequest['command']): Promise<boolean>;
 }) {
   const copy = taskCopy(locale);
-  const [sessionId, setSessionId] = useState('');
+  const [sessionId, setSessionId] = useState(task.execution?.sessionId ?? task.sessionIds.at(-1) ?? '');
   const [comment, setComment] = useState('');
   const [dateError, setDateError] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -142,9 +170,18 @@ function TaskDetail({ task, locale, sessions, onOpenSession, disabled, onCommand
     {editing && <TaskDraft locale={locale} disabled={disabled} sessions={sessions} initial={task} onSave={async command => { if (await onCommand(command)) setEditing(false); }} />}
     <fieldset disabled={disabled}>
       {['draft', 'failed'].includes(task.status) && <button type="button" onClick={() => { void onCommand({ type: 'queue' }); }}>{copy.queue}</button>}
-      {!closed && <div className="cm-business-form-row"><label>{copy.session}<select value={sessionId} onChange={event => setSessionId(event.target.value)}>
+      {!closed && <div className="cm-business-form-row"><label>{copy.session}<select value={sessionId} disabled={disabled || task.execution !== null} onChange={event => setSessionId(event.target.value)}>
         <option value="">{copy.selectSession}</option>{sessions.map(session => <option key={session.id} value={session.id}>{session.title}</option>)}
-      </select></label><button type="button" disabled={!sessionId} onClick={() => { void onCommand({ type: task.status === 'ready' ? 'start' : 'link', sessionId }); }}>{task.status === 'ready' ? copy.start : copy.link}</button></div>}
+      </select></label>{task.status === 'ready' || (task.status === 'in_progress' && !task.execution)
+        ? <button type="button" disabled={!sessionId} onClick={() => { void (async () => {
+          const requestId = onPrepareExecution(task, sessionId);
+          if (!await onCommand({ type: 'start', sessionId, requestId, locale })) return;
+          await onRunExecution({ ...task, status: 'in_progress', revision: task.revision + 1,
+            sessionIds: [...new Set([...task.sessionIds, sessionId])], execution: { sessionId, requestId, locale } });
+        })(); }}>{task.status === 'ready' ? copy.start : copy.resumeExecution}</button>
+        : task.status === 'in_progress' && task.execution
+          ? <button type="button" onClick={() => { void onRunExecution(task); }}>{copy.retryExecution}</button>
+          : <button type="button" disabled={!sessionId} onClick={() => { void onCommand({ type: 'link', sessionId }); }}>{copy.link}</button>}</div>}
       {!closed && <p className="cm-help">{copy.sessionHint}</p>}
       {task.sessionIds.map(id => <div key={id}><button type="button" onClick={() => onOpenSession(id as SessionId)}>{copy.openSession} · {sessions.find(session => session.id === id)?.title ?? id}</button>
         {sessions.some(session => session.id === id) && <span>{sessions.find(session => session.id === id)?.running ? copy.running : copy.idle}</span>}</div>)}

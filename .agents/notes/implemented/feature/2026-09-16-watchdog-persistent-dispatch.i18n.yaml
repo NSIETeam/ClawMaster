@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-16-watchdog-persistent-dispatch.md
-2026-09-16-watchdog-persistent-dispatch.md: b43fc727ff91fe32cdb9b360d87dba3367896985
-2026-09-16-watchdog-persistent-dispatch.zh.md: 884c1a1890d860706abefc935dc0f3fd5e225e87
+2026-09-16-watchdog-persistent-dispatch.md: c05433d2064ac6f4aaa57d73649884056ef16925
+2026-09-16-watchdog-persistent-dispatch.zh.md: 9cbc5622c9329d7997a7acc1f072a557d5d88915

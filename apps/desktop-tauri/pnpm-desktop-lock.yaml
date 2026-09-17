@@ -1161,6 +1161,9 @@ importers:
       '@deepseek-ai/dsh-session':
         specifier: link:../../packages/core/session
         version: link:../../packages/core/session
+      '@deepseek-ai/dsh-session-persistence':
+        specifier: link:../../packages/session/session-persistence
+        version: link:../../packages/session/session-persistence
       '@deepseek-ai/dsh-subprocess-local':
         specifier: link:../../packages/subprocess/subprocess-local
         version: link:../../packages/subprocess/subprocess-local

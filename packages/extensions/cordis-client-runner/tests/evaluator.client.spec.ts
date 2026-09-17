@@ -105,15 +105,23 @@ describe('evaluateClientHalf', () => {
 
   it('propagates a non-syntax construction failure untouched', async () => {
     const boom = new TypeError('engine refused')
-    // The constructor is the only failure seam before evaluation; a
-    // non-SyntaxError must not be reinterpreted as a source problem.
-    vi.stubGlobal('Function', function stub(): never { throw boom })
+    const append = vi.spyOn(document.head, 'append').mockImplementation(() => { throw boom })
     try {
       await expect(run('return () => {}')).rejects.toBe(boom)
     } finally {
-      vi.unstubAllGlobals()
+      append.mockRestore()
     }
-    expect(typeof Function).toBe('function')
+    expect(document.querySelectorAll('script')).toHaveLength(0)
+  })
+
+  it('reports a browser refusal and removes the temporary evaluator', async () => {
+    const append = vi.spyOn(document.head, 'append').mockImplementation(() => {})
+    try {
+      await expect(run('return () => {}')).rejects.toThrow(/Content Security Policy refused/)
+    } finally {
+      append.mockRestore()
+    }
+    expect(document.querySelectorAll('script')).toHaveLength(0)
   })
 })
 

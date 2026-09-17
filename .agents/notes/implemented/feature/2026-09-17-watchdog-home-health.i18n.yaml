@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-17-watchdog-home-health.md
+2026-09-17-watchdog-home-health.md: 108c0da129501270888d201c671647bbb4736c22
+2026-09-17-watchdog-home-health.zh.md: a555830661f8e6f7184fb56c778a40a8f04be629

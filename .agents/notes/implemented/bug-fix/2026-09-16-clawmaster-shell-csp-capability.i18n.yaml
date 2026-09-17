@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-16-clawmaster-shell-csp-capability.md
-2026-09-16-clawmaster-shell-csp-capability.md: ae4dfef1e7b0b61d0a695a63200ccf85515bbf01
-2026-09-16-clawmaster-shell-csp-capability.zh.md: 56f1ec0ecb03dad04edac567d37d80c9d7e6a5c5
+2026-09-16-clawmaster-shell-csp-capability.md: 38285a38dacf14bcaafcac51be729fdd6efefc6d
+2026-09-16-clawmaster-shell-csp-capability.zh.md: 40da453ce6d42d343a2631ff9d728cc884898aef

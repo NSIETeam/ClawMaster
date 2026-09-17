@@ -105,7 +105,7 @@ function previewTable(table: ProcessedTable, columns: number, limits: Limits) {
   };
 }
 
-async function workspaceTarget(ctx: Context, root: FsTarget, cwd: string, path: string, exec: ToolExecution): Promise<FsTarget> {
+async function workspaceTarget(ctx: Omit<Context, 'sessions'>, root: FsTarget, cwd: string, path: string, exec: ToolExecution): Promise<FsTarget> {
   const target = await ctx.fs.resolve(path, { cwd, signal: exec.signal });
   if (!ctx.fs.contains(root, target)) {
     throw new FsError('CSV files must be inside the current Session workspace; choose a workspace path', 'FS_PERMISSION_DENIED');
@@ -113,7 +113,7 @@ async function workspaceTarget(ctx: Context, root: FsTarget, cwd: string, path: 
   return target;
 }
 
-async function executionPolicy(ctx: Context, args: CsvArguments, exec: ToolExecution): Promise<SandboxExecutionPolicy> {
+async function executionPolicy(ctx: Omit<Context, 'sessions'>, args: CsvArguments, exec: ToolExecution): Promise<SandboxExecutionPolicy> {
   const standing = ctx.sandboxPolicy.resolve({ session: exec.agent?.session });
   if (args.sandbox_permissions === undefined || args.justification === undefined) return standing;
   const mode = await approveEscalation({
@@ -170,7 +170,7 @@ const resultSchema = {
  * @param config Deployment limits for file size, preview, and parser diagnostics.
  * @throws Error for invalid limits or a filesystem provider that does not enforce sandbox policy.
  */
-export function applyDataTools(ctx: Context, config: DataToolsConfig = {}): void {
+export function applyDataTools(ctx: Omit<Context, 'sessions'>, config: DataToolsConfig = {}): void {
   const limits = resolveLimits(config);
   if (ctx.fs.sandboxMode === undefined) throw new Error('csv_process requires a sandbox-enforcing DSH filesystem provider');
   const tool = defineTool({

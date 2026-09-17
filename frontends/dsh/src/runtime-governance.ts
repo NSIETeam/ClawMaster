@@ -162,7 +162,7 @@ export function resolveRuntimeBudgets(config: RuntimeGovernanceConfig) {
  * @param config - RSS and concurrency budgets, configurable through the frontend Host row.
  * @param readProcessTreeRss - Process-tree reader, injectable for deterministic tests.
  */
-export function applyRuntimeGovernance(ctx: Context, config: RuntimeGovernanceConfig = {}, readProcessTreeRss: () => { totalRssMiB: number; descendantRssMiB: number } | null = observeCurrentProcessTreeRss): void {
+export function applyRuntimeGovernance(ctx: Omit<Context, 'sessions'>, config: RuntimeGovernanceConfig = {}, readProcessTreeRss: () => { totalRssMiB: number; descendantRssMiB: number } | null = observeCurrentProcessTreeRss): void {
   const limits = resolveRuntimeBudgets(config);
   let activeHeavyTools = 0;
   const resources = () => {

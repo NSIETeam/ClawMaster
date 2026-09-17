@@ -1,4 +1,6 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): hashes record the
-# exact blobs after the paired note was reviewed.
-2026-09-16-watchdog-business-result-summary.md: 2b80b59c08041cb303b52e8255def189c862dcc1
-2026-09-16-watchdog-business-result-summary.zh.md: 321df584d326f58bfa9241444e7a3c3054ca2ec6
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-16-watchdog-business-result-summary.md
+2026-09-16-watchdog-business-result-summary.md: 6227be2542c4cb281b3ae3e5f9cee7c2bad88a28
+2026-09-16-watchdog-business-result-summary.zh.md: 7828ac659b025a1bd7f7b37afe8be8fcc414693b

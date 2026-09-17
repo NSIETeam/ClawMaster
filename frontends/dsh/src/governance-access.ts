@@ -235,7 +235,7 @@ export class GovernanceAccess {
       const checkedApprover = authorityResult(authorityMembershipSchema, approver, 'approver membership');
       if (!checkedApprover?.active || !checkedApprover.roles.includes('approver')
         || (!checkedApprover.resources.includes('*') && !checkedApprover.resources.includes(resource))) throw new GovernanceDenied('The approver no longer has permission.', 'approver_invalid');
-      return { ...await check(action, resource), approval: { ...approval, generation, revision } };
+      return { ...await check(action, resource), approval: { kind: 'authority', ...approval, generation, revision } };
     } };
   }
 }

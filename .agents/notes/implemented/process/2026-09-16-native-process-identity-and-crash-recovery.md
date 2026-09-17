@@ -16,6 +16,12 @@ The desktop's crash-recovery `host.pid` record now stores a platform process-cre
 
 The desktop runtime state already publishes a new run id on each successful launch and checks that id before marking a run stopped. Native acceptance retains failed observations after an interrupted launch, while a later launch writes a successor record through the same desktop-owned state path. A native crash or device restart still requires real platform evidence; unit tests and normal-close runs cannot establish that result.
 
+## Alternatives considered
+
+**Identify a process only by PID and executable path.** Operating systems can reuse a PID, and another process can run from the same path; neither value proves that the observed process is the one originally launched.
+
+**Reclaim a legacy PID record without a creation token.** The older record cannot distinguish a stale Host from an unrelated process that reused its PID. Leaving it for review avoids signaling a process without matching creation identity, though it can require manual cleanup.
+
 ## Consequences
 
 Cross-platform native reports now carry enough process identity to detect replacement during the observed run. This strengthens the install and restart lanes without treating a process probe as publisher signature or device evidence. Developer ID notarization, Authenticode, Android coverage and real-device crash recovery remain external prerequisites for a complete release matrix.

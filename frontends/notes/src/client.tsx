@@ -574,6 +574,8 @@ export function apply(ctx: NotesClientServices): void {
   }, 'clawmaster: unsaved note drafts');
   ctx.effect(() => {
     const style = document.createElement('style');
+    const nonce = document.querySelector<HTMLMetaElement>('meta[name="dsh-style-nonce"]')?.content;
+    if (nonce) style.nonce = nonce;
     style.dataset.plugin = name;
     style.textContent = styles;
     document.head.appendChild(style);

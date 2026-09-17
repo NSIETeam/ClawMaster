@@ -93,7 +93,7 @@ test('schema 1 gains a restore counter without changing business records or audi
   const migrated = await open();
   assert.deepEqual(migrated.snapshot(), expected);
   const inspect = new DatabaseSync(path);
-  try { assert.equal(inspect.prepare('PRAGMA user_version').get().user_version, 5); }
+  try { assert.equal(inspect.prepare('PRAGMA user_version').get().user_version, 6); }
   finally { inspect.close(); }
 });
 

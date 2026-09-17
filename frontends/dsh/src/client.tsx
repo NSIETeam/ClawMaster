@@ -8,17 +8,21 @@ import { CRM, ERP } from './BusinessModules.tsx';
 import { acknowledgeOnboarding, decodeOnboarding, ONBOARDING_NAMESPACE, ONBOARDING_VERSION } from './onboarding.ts';
 import { WatchdogTutorial, WatchdogTutorialDialog } from './WatchdogTutorial.tsx';
 import { onboardingCopy } from './locales/onboarding.ts';
-import type { MainPanelId } from './services.ts';
+import type { MainPanelId, SessionId, SessionRequestId } from './services.ts';
 import styles from './styles.css';
 import taskStyles from './task-board.css';
 import { TaskBoard } from './TaskBoard.tsx';
 import { WatchdogTaskClient } from './watchdog-task-client.ts';
 import { WatchdogScheduleClient } from './watchdog-schedule-client.ts';
 import { ScheduleBoard } from './ScheduleBoard.tsx';
+import { taskAttentionSummary, type TaskRecord } from './watchdog-task-format.ts';
+import { prepareTaskExecution, retryTaskExecution, type PreparedTaskExecution } from './task-execution.ts';
+import { observeModelResponses } from './home-model-evidence.ts';
 
 export const name = 'clawmaster-frontend';
 export const inject = ['slots', 'theme', 'sessions', 'workspaces', 'connection', 'uiWorkspace', 'layout', 'locale', 'betterSidebar', 'settingsScope'];
 const PLUGIN_ID = '@clawmaster/dsh-frontend';
+type SessionBinding = NonNullable<ReturnType<FrontendServices['sessions']['binding']>>;
 
 function useSnapshot<T>(source: Observable<T>): T {
   return useSyncExternalStore(
@@ -33,6 +37,12 @@ export function apply(ctx: FrontendServices): void {
   const lifetime = new AbortController();
   const actions = createProductActions(ctx, lifetime.signal);
   const taskClient = new WatchdogTaskClient();
+  const taskSubmissions = new Map<string, { session: SessionBinding['session']; prepared: PreparedTaskExecution }>();
+  const activeTaskExecutions = new Map<string, Promise<void>>();
+  ctx.effect(() => () => {
+    for (const submission of taskSubmissions.values()) submission.prepared.abandon();
+    taskSubmissions.clear();
+  }, 'clawmaster: pending task submissions');
   const scheduleClient = new WatchdogScheduleClient();
   ctx.effect(() => () => scheduleClient.dispose(), 'clawmaster: schedule client');
   ctx.effect(() => () => taskClient.dispose(), 'clawmaster: business task client');
@@ -54,6 +64,8 @@ export function apply(ctx: FrontendServices): void {
     titleObserver.observe(document.head, { childList: true, subtree: true, characterData: true });
     const style = document.createElement('style');
     style.dataset.plugin = PLUGIN_ID;
+    const styleNonce = document.querySelector<HTMLMetaElement>('meta[name="dsh-style-nonce"]')?.content;
+    if (styleNonce) style.nonce = styleNonce;
     style.textContent = `${styles}\n${taskStyles}`;
     document.head.appendChild(style);
     return () => {
@@ -91,7 +103,22 @@ export function apply(ctx: FrontendServices): void {
     const snapshot = useSnapshot(ctx.sessions.list);
     const workspaces = useSnapshot(ctx.workspaces.list);
     const connection = useSnapshot(ctx.connection.state);
+    const taskState = useSyncExternalStore(taskClient.subscribe, taskClient.getSnapshot, taskClient.getSnapshot);
+    const scheduleState = useSyncExternalStore(scheduleClient.subscribe, scheduleClient.getSnapshot, scheduleClient.getSnapshot);
+    const taskSummary = taskAttentionSummary(taskState.tasks);
+    const [model, setModel] = useState<'unverified' | 'verified'>('unverified');
+    useEffect(() => {
+      const eventSources = snapshot.ids.flatMap(id => {
+        const binding = ctx.sessions.binding(id);
+        return binding ? [binding.eventSource] : [];
+      });
+      return observeModelResponses(eventSources, () => setModel('verified'));
+    }, [ctx.sessions, snapshot.ids]);
     return <Workbench
+      health={{ app: connection ?? 'connecting', model,
+        schedule: { error: scheduleState.error !== null, observedAt: scheduleState.observedAt, total: scheduleState.workerSummary?.total ?? null,
+          online: scheduleState.workerSummary?.online ?? 0, offline: scheduleState.workerSummary?.offline ?? 0, degraded: scheduleState.workerSummary?.degraded ?? 0 },
+        business: { total: taskSummary.total, review: taskSummary.awaitingReview, failed: taskSummary.failed, overdue: taskSummary.overdue, error: taskState.error !== null } }}
       locale={locale}
       sessions={recentSessions(snapshot, workspaces.archivedSessionIds, locale, interactions)}
       sessionsLoading={snapshot.phase === 'pending' || workspaces.phase === 'pending'}
@@ -106,10 +133,56 @@ export function apply(ctx: FrontendServices): void {
       onRefresh={() => ctx.sessions.refresh()}
       businessTasks={<><TaskBoard client={taskClient} locale={locale}
         sessions={recentSessions(snapshot, workspaces.archivedSessionIds, locale, interactions)}
-        onOpenSession={id => ctx.uiWorkspace.openSession(id)} />
+        onOpenSession={id => ctx.uiWorkspace.openSession(id)}
+        onPrepareExecution={(task, sessionId) => prepareTaskSubmission(task, sessionId, locale)}
+        onAbandonExecution={requestId => abandonTaskExecution(requestId)}
+        onRunExecution={task => runTaskExecution(task, locale)} />
         <ScheduleBoard client={scheduleClient} locale={locale} sessions={recentSessions(snapshot, workspaces.archivedSessionIds, locale, interactions)}
           onOpenSession={id => ctx.uiWorkspace.openSession(id)} /></>}
     />;
+  }
+
+  function prepareTaskSubmission(task: TaskRecord, targetId: string, locale: ProductLocale): string {
+    const sessionId = targetId as SessionId;
+    const binding = ctx.sessions.binding(sessionId);
+    if (!binding) throw new Error('The selected DSH Session is unavailable.');
+    const prepared = prepareTaskExecution(task, locale, binding.session);
+    taskSubmissions.set(prepared.requestId, { session: binding.session, prepared });
+    return prepared.requestId;
+  }
+
+  function abandonTaskExecution(requestId: string): void {
+    taskSubmissions.get(requestId)?.prepared.abandon();
+    taskSubmissions.delete(requestId);
+  }
+
+  function runTaskExecution(task: TaskRecord, locale: ProductLocale): Promise<void> {
+    if (!task.execution) throw new Error('Task execution has no persisted request identity.');
+    const requestId = task.execution.requestId;
+    const active = activeTaskExecutions.get(requestId);
+    if (active) return active;
+    const operation = dispatchTaskExecution(task, locale, requestId);
+    activeTaskExecutions.set(requestId, operation);
+    void operation.finally(() => {
+      if (activeTaskExecutions.get(requestId) === operation) activeTaskExecutions.delete(requestId);
+    }).catch(() => {});
+    return operation;
+  }
+
+  async function dispatchTaskExecution(task: TaskRecord, locale: ProductLocale, requestId: string): Promise<void> {
+    const sessionId = task.execution!.sessionId as SessionId;
+    const pending = taskSubmissions.get(requestId);
+    const session = pending?.session ?? ctx.sessions.binding(sessionId)?.session;
+    if (!session) throw new Error('The selected DSH Session is unavailable.');
+    try {
+      const recordOutcome = (record: TaskRecord) => taskClient.recordExecutionOutcome(record);
+      if (pending) await pending.prepared.submit(task, locale, recordOutcome, lifetime.signal);
+      else await retryTaskExecution(task, session, recordOutcome, lifetime.signal);
+    } catch (error) {
+      pending?.prepared.abandon();
+      throw error;
+    } finally { taskSubmissions.delete(requestId); }
+    ctx.uiWorkspace.openSession(sessionId);
   }
 
   function ConnectedCRM() { return <CRM locale={useLocale()} />; }

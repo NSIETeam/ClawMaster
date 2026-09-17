@@ -8,7 +8,10 @@ import { openEnterpriseStore, mountEnterpriseRoutes } from '../src/enterprise-ho
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
 import { mountEnterpriseBackupRoutes } from '../src/enterprise-backup-host.ts';
 import { enterpriseBackupConfigSchema } from '../src/enterprise-backup-config.ts';
-import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
+import { mountWatchdogTasks as mountWatchdogTasksImpl } from '../src/watchdog-task-host.ts';
+import { watchdogTaskTestContext } from './watchdog-task-test-context.mjs';
+
+const mountWatchdogTasks = (context, ...args) => mountWatchdogTasksImpl(watchdogTaskTestContext(context), ...args);
 import { mountWatchdogSchedules } from '../src/watchdog-schedule-host.ts';
 import { openWatchdogScheduleStore } from '../src/watchdog-schedule-store.ts';
 import { WatchdogScheduleRuntime } from '../src/watchdog-schedule-runtime.ts';

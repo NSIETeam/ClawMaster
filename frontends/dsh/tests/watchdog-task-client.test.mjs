@@ -7,7 +7,10 @@ import { join } from 'node:path';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { GovernanceAccess } from '../src/governance-access.ts';
 import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
-import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
+import { mountWatchdogTasks as mountWatchdogTasksImpl } from '../src/watchdog-task-host.ts';
+import { watchdogTaskTestContext } from './watchdog-task-test-context.mjs';
+
+const mountWatchdogTasks = (context, ...args) => mountWatchdogTasksImpl(watchdogTaskTestContext(context), ...args);
 import { WatchdogTaskClient } from '../src/watchdog-task-client.ts';
 
 const definition = { goal: 'Review customer follow-up', scope: 'Selected customer records', owner: { kind: 'local', label: 'Manager' },

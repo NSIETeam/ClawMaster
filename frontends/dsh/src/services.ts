@@ -3,6 +3,7 @@ import type { Branded } from '@deepseek-ai/dsh-brand';
 import type { ReactNode } from 'react';
 import { productCopy, type ProductLocale } from './locales/frontend.ts';
 import type { OnboardingScope, OnboardingSettings } from './onboarding.ts';
+import type { SessionEventWindow } from '@deepseek-ai/dsh-api-session-controller/client';
 
 export type SessionId = Branded<'SessionId'>;
 export type SessionRequestId = Branded<'SessionRequestId'>;
@@ -40,7 +41,7 @@ export interface FrontendServices {
     binding(id: SessionId): { session: {
       beginSubmission(input: { mode: 'queue'; text: string; attachments: readonly [] }): { requestId: SessionRequestId; abandon(): void };
       prompt(content: { type: 'text'; text: string }[], mode: 'queue', signal?: AbortSignal, requestId?: SessionRequestId): Promise<{ ok: true; value: unknown } | { ok: false; error: { code: string; message: string } }>;
-    } } | undefined;
+    }; eventSource: Observable<SessionEventWindow> } | undefined;
   };
   workspaces: { list: Observable<WorkspaceListSnapshot> };
   connection: { state: Observable<'connected' | 'disconnected' | 'connecting' | undefined> };

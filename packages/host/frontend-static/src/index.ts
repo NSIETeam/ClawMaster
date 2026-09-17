@@ -13,7 +13,7 @@
  */
 
 import type { ServerResponse } from 'node:http'
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
@@ -60,7 +60,7 @@ const STATIC_MISS_CODES: ReadonlySet<string | undefined> = new Set([
 ])
 
 /** Restrict executable page resources to local assets and exact inline blocks. */
-function pageContentSecurityPolicy(html: string): string {
+function pageContentSecurityPolicy(html: string, styleNonce: string, scriptNonce: string): string {
   const hashes = (tag: 'script' | 'style'): string[] => {
     const expression = tag === 'script'
       ? /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/giu
@@ -79,9 +79,9 @@ function pageContentSecurityPolicy(html: string): string {
   const styleHashes = hashes('style')
   return [
     "default-src 'self'",
-    `script-src 'self' 'wasm-unsafe-eval' ${scriptHashes.join(' ')}`.trim(),
+    `script-src 'self' 'wasm-unsafe-eval' 'nonce-${scriptNonce}' ${scriptHashes.join(' ')}`.trim(),
     'script-src-attr \'none\'',
-    `style-src 'self' ${styleHashes.join(' ')}`.trim(),
+    `style-src 'self' 'nonce-${styleNonce}' ${styleHashes.join(' ')}`.trim(),
     "style-src-attr 'unsafe-inline'",
     "connect-src 'self'",
     "img-src 'self' data: blob:",
@@ -126,9 +126,14 @@ export async function serveStatic(
   try {
     if (target === distRoot || target === distIndex) {
       if (!authorizeIndex()) return
+      const styleNonce = randomBytes(18).toString('base64')
+      const scriptNonce = randomBytes(18).toString('base64')
       body = await renderIndex()
+      const head = /<head(?:\s[^>]*)?>/iu
+      if (!head.test(body)) throw new Error('Rendered index must contain a head element for runtime nonces.')
+      body = body.replace(head, open => `${open}<meta name="dsh-style-nonce" content="${styleNonce}"><meta name="dsh-script-nonce" content="${scriptNonce}">`)
       type = HTML_MIME
-      contentSecurityPolicy = pageContentSecurityPolicy(body)
+      contentSecurityPolicy = pageContentSecurityPolicy(body, styleNonce, scriptNonce)
     } else {
       body = await readFile(target)
       type = MIME[extname(target)] ?? 'application/octet-stream'

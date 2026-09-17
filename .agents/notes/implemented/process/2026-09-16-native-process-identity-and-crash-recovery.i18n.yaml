@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-09-16-native-process-identity-and-crash-recovery.md
-2026-09-16-native-process-identity-and-crash-recovery.md: 51c8c8ae7832d294f844d272e98c412d17568555
-2026-09-16-native-process-identity-and-crash-recovery.zh.md: c4434401bb0957f0e0902142526af076503547f6
+2026-09-16-native-process-identity-and-crash-recovery.md: 6df102624077d404aed5ccfc267e60b9da300fa7
+2026-09-16-native-process-identity-and-crash-recovery.zh.md: 479ab2033f0d8ceb298c4a37c80de8b33224a752

@@ -69,6 +69,11 @@ test('real file routes confirm a lost restore receipt after token disposal witho
   assert.deepEqual(Object.keys(requests[0]).sort(), ['backupSha256', 'commandId', 'confirm', 'expectedGeneration', 'expectedRevision', 'token']);
   assert.equal(store.snapshot().contacts[0].name, 'Later after restore');
   assert.equal(store.overview().generation, 1);
+  const restoreEvents = store.responsibility({ commandId: 'same-restore-request' }).records;
+  assert.equal(restoreEvents.length, 1, 'the committed restore and its response-loss retry share one responsibility event');
+  assert.equal(restoreEvents[0].outcome, 'succeeded');
+  assert.equal(restoreEvents[0].generationBefore, 0);
+  assert.equal(restoreEvents[0].generationAfter, 1);
   assert.equal(client.getSnapshot().pending, false);
   assert.equal(client.getSnapshot().overview.revision, 2);
 });

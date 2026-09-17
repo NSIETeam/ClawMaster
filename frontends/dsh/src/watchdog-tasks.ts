@@ -192,13 +192,13 @@ export class WatchdogTaskStore {
         }
         next = { ...request.command.task, id: request.id, organizationId: identity.organizationId, revision: 1,
           status: 'draft', createdAt: at, updatedAt: at, source: request.command.importedSessionId ? 'imported-session' : 'new',
-          sessionIds: request.command.importedSessionId ? [request.command.importedSessionId] : [], waitingFor: null,
+          sessionIds: request.command.importedSessionId ? [request.command.importedSessionId] : [], execution: null, waitingFor: null,
           evidence: [], completedCriteria: [], submittedBy: null, lastReview: null };
       } else {
         const previous = this.get(identity, request.id);
         if (request.revision !== previous.revision) throw new EnterpriseError('revision_conflict', 'Task changed. Reload before saving.', previous.revision);
         if (!Number.isSafeInteger(previous.revision + 1)) throw new EnterpriseError('numeric_overflow', 'Task revision is exhausted.');
-        next = this.transition(identity, previous, request.command, at);
+        next = this.transition(identity, previous, request.command, at, request.commandId);
         next.revision++;
         next.updatedAt = at;
       }
@@ -225,7 +225,7 @@ export class WatchdogTaskStore {
     } catch (error) { this.db.exec('ROLLBACK'); throw error; }
   }
 
-  private transition(identity: ExecutionIdentity, task: TaskRecord, action: Exclude<TaskRequest['command'], { type: 'create' }>, at: string): TaskRecord {
+  private transition(identity: ExecutionIdentity, task: TaskRecord, action: Exclude<TaskRequest['command'], { type: 'create' }>, at: string, commandId: string): TaskRecord {
     const next = structuredClone(task);
     const requireState = (...states: TaskStatus[]) => {
       if (!states.includes(task.status)) throw new TaskError('invalid_transition', `Cannot ${action.type} a task in ${task.status}.`);
@@ -234,8 +234,11 @@ export class WatchdogTaskStore {
       case 'revise': requireState('draft', 'ready'); Object.assign(next, action.task); break;
       case 'queue': requireState('draft', 'failed'); next.status = 'ready'; next.waitingFor = null; break;
       case 'start':
-        requireState('ready'); next.status = 'in_progress'; next.waitingFor = null;
-        next.sessionIds = [...new Set([...next.sessionIds, action.sessionId])]; break;
+        if (task.status === 'ready') next.status = 'in_progress';
+        else if (task.status !== 'in_progress' || task.execution !== null) requireState('ready');
+        next.waitingFor = null;
+        next.sessionIds = [...new Set([...next.sessionIds, action.sessionId])];
+        next.execution = { sessionId: action.sessionId, requestId: action.requestId, locale: action.locale, commandId }; break;
       case 'link':
         requireState('draft', 'ready', 'in_progress', 'awaiting_review', 'failed');
         next.sessionIds = [...new Set([...next.sessionIds, action.sessionId])]; break;

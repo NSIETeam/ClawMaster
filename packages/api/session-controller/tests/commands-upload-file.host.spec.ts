@@ -1,6 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
-import { createInboxStub } from '@deepseek-ai/dsh-agent-loop-testkit'
+import { createInboxStub, mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
 import type { Agent, ModelSelectionRef } from '@deepseek-ai/dsh-agent'
 import AttachmentStore, { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import type {
@@ -14,9 +14,11 @@ import { createScope } from '@deepseek-ai/dsh-scope'
 import FileUploads from '@deepseek-ai/dsh-client-file-upload'
 import type { FileUploadReceiptId } from '@deepseek-ai/dsh-client-file-upload/types'
 import { describe, expect, it, vi } from 'vitest'
-import type { ApiSessionAgentController } from '../src/agent.ts'
+import { ApiSessionAgentController } from '../src/agent.ts'
 import { SessionCommandController } from '../src/commands.ts'
-import type { SessionRequestId } from '../src/types.ts'
+import { installModelSelectionProjection } from '../src/model-selection-projection.ts'
+import type { SessionPromptRequest, SessionRequestId } from '../src/types.ts'
+import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 
 const SESSION = SessionId('upload-session')
 
@@ -341,6 +343,29 @@ describe('Session file uploads', () => {
     expect(followup).toHaveBeenCalledOnce()
   })
 
+  it('coalesces concurrent prompt admissions by request id and rejects an in-flight payload change', async () => {
+    const { ctx, controller, agent, followup } = await uploadHarness()
+    const request = promptRequest([{ type: 'text', text: 'once' }])
+    const barrier = Promise.withResolvers<undefined>()
+    const entered = Promise.withResolvers<undefined>()
+    const admission = vi.spyOn(ctx.attachments, 'admitPromptContent').mockImplementation(async (content) => {
+      entered.resolve(undefined)
+      await barrier.promise
+      return content.map(part => ({ type: 'text', text: part.type === 'text' ? part.text : '' }))
+    })
+    const first = controller.prompt(request)
+    await entered.promise
+    const second = controller.prompt(request)
+    await expect(controller.prompt({ ...request, content: [{ type: 'text', text: 'changed' }] }))
+      .rejects.toMatchObject({ code: 'gateway/bad-request' })
+    expect(admission).toHaveBeenCalledOnce()
+    barrier.resolve(undefined)
+    await expect(Promise.all([first, second])).resolves.toEqual([{ accepted: true }, { accepted: true }])
+    expect(admission).toHaveBeenCalledOnce()
+    expect(followup).toHaveBeenCalledOnce()
+    expect(agent.inbox.nextTurn).toHaveLength(0)
+  })
+
   it('deduplicates a retried rpcId already present in the durable log', async () => {
     const { controller, agent, followup } = await uploadHarness()
     const request = promptRequest([{ type: 'text', text: 'once' }])
@@ -356,6 +381,55 @@ describe('Session file uploads', () => {
 
     await expect(controller.prompt(request)).resolves.toEqual({ accepted: true })
     expect(followup).not.toHaveBeenCalled()
+  })
+
+  it('deduplicates a retried rpcId after real AgentLoop claim and before pre-step admission', async () => {
+    const ctx = new Context()
+    await mountAgentLoopTestDependencies(ctx)
+    installModelSelectionProjection(ctx)
+    const loop = await mountAgentLoopTestHarness(ctx)
+    const adapter = new MockAdapter([textResponse('one model response'), textResponse('duplicate response')])
+    ctx.llm.registerAdapter(['mock'], adapter)
+    const agent = await loop.create(SessionId('claimed-prompt-idempotency'), { provider: 'mock', model: 'mock' }, { cwd: '/workspace' })
+    ctx.provide('agentDefaultModel', {
+      currentSelection: () => ({ provider: 'mock', model: 'mock' }), saveSelection: async () => {},
+    } as never)
+    ctx.provide('attachments', { admitPromptContent: async (content: readonly unknown[]) => content } as never)
+    ctx.provide('fileUploads', {
+      resolve: () => undefined,
+      bindPrompt: () => ({ commit: () => {}, [Symbol.dispose]: () => {} }),
+      retirePrompt: () => {},
+    } as never)
+    ctx.provide('typert', { lookups: { configure: () => () => {} }, contexts: { configureHost: () => () => {} } } as never)
+    const controller = new SessionCommandController(ctx, new ApiSessionAgentController(ctx), '/workspace')
+    const request: SessionPromptRequest = { sessionId: agent.id, requestId: 'claimed-request' as SessionRequestId,
+      mode: 'queue', content: [{ type: 'text', text: 'once' }] }
+    const claimed = Promise.withResolvers<undefined>()
+    const release = Promise.withResolvers<undefined>()
+    ctx.on('agent/pre-step', async ({ agent: subject, messages }, next) => {
+      if (subject === agent && messages.some(message => message.source.kind === 'user'
+        && 'rpcId' in message.source && message.source.rpcId === request.requestId)) {
+        claimed.resolve(undefined)
+        await release.promise
+      }
+      return next()
+    })
+    try {
+      await expect(controller.prompt(request)).resolves.toEqual({ accepted: true })
+      await claimed.promise
+      await expect(controller.prompt(request)).resolves.toEqual({ accepted: true })
+      expect(agent.inbox.nextTurn).toHaveLength(0)
+      release.resolve(undefined)
+      await agent.whenIdle()
+      // oxlint-disable-next-line typescript/no-deprecated -- The test asserts exact persisted Session events.
+      const accepted = agent.session.snapshotEvents().filter(event => event.type === 'user/message'
+        && event.data.source.kind === 'user' && 'rpcId' in event.data.source && event.data.source.rpcId === request.requestId)
+      expect(accepted).toHaveLength(1)
+      expect(adapter.requests).toHaveLength(1)
+    } finally {
+      release.resolve(undefined)
+      await ctx.fiber.dispose()
+    }
   })
 
   it('rejects when the Agent disappears during prompt admission', async () => {

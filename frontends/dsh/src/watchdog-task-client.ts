@@ -1,6 +1,7 @@
 /** Browser transport retains exact task writes until the server confirms their outcome. */
 import { z } from 'zod';
-import { taskHistorySchema, taskListSchema, taskRecordSchema, taskRequestSchema, type TaskRecord, type TaskRequest, type TaskListCursor } from './watchdog-task-format.ts';
+import { taskExecutionOutcomeResultSchema, taskExecutionOutcomeSchema, taskHistorySchema, taskListSchema, taskRecordSchema,
+  taskRequestSchema, type TaskRecord, type TaskRequest, type TaskListCursor } from './watchdog-task-format.ts';
 
 const tasksPath = '/api/clawmaster/tasks';
 const failureSchema = z.object({ error: z.object({ code: z.string(), message: z.string() }) });
@@ -34,6 +35,8 @@ export class WatchdogTaskClient {
   }
   /** Stable snapshot suitable for React's external-store subscription. */
   getSnapshot = (): TaskClientState => this.state;
+  /** Return the unresolved command so its owner can resume adjacent work after an exact retry. */
+  getPendingCommand(): TaskRequest | undefined { return this.pendingRequest; }
   /** Subscribe until the returned disposer is called. */
   subscribe = (listener: () => void): (() => void) => { this.listeners.add(listener); return () => this.listeners.delete(listener); };
   private set(patch: Partial<TaskClientState>): void {
@@ -98,6 +101,26 @@ export class WatchdogTaskClient {
       if (history.tasks.some(task => task.id !== selected.id || task.revision <= nextAfter)) throw new TaskTransportFailure('invalid');
       return { history: history.tasks, nextAfter: history.nextAfter };
     });
+  }
+
+  /** Record DSH admission progress against the Session identity saved by the task start. */
+  async recordExecutionOutcome(task: TaskRecord): Promise<'uncertain' | 'succeeded' | 'failed'> {
+    if (!task.execution) throw new TaskTransportFailure('invalid');
+    const input = taskExecutionOutcomeSchema.parse({ taskId: task.id, requestId: task.execution.requestId,
+      sessionId: task.execution.sessionId, outcome: 'uncertain' });
+    let response: Response;
+    try {
+      response = await this.request(`${tasksPath}/execution-outcome`, { method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+    } catch { throw new TaskTransportFailure('network'); }
+    let body: unknown;
+    try { body = await response.json(); } catch { throw new TaskTransportFailure('invalid'); }
+    if (!response.ok) {
+      const failure = failureSchema.safeParse(body);
+      throw new TaskTransportFailure(response.status === 403 ? 'denied'
+        : failure.success && failure.data.error.code === 'revision_conflict' ? 'conflict' : 'unavailable');
+    }
+    return this.parse(taskExecutionOutcomeResultSchema, body).outcome;
   }
 
   /** Save against the revision actually reviewed; only exact pending requests may retry. */

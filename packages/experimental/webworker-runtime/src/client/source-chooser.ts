@@ -230,6 +230,7 @@ export async function choosePreviewSource(manifestUrl: URL): Promise<readonly UR
   if (root === null) throw new Error('preview source chooser: missing #root')
   const selected = manifest.defaultFixture ?? EMPTY_SOURCE
   const style = document.createElement('style')
+  style.nonce = document.querySelector<HTMLMetaElement>('meta[name="dsh-style-nonce"]')?.content ?? ''
   style.dataset.previewSourceStyle = ''
   style.textContent = CHOOSER_STYLE
   document.head.append(style)

@@ -15,7 +15,10 @@ import { GovernanceAccess } from '../src/governance-access.ts';
 import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
 import { mountEnterpriseRoutes, openEnterpriseStore } from '../src/enterprise-host.ts';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
-import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
+import { mountWatchdogTasks as mountWatchdogTasksImpl } from '../src/watchdog-task-host.ts';
+import { watchdogTaskTestContext } from './watchdog-task-test-context.mjs';
+
+const mountWatchdogTasks = (context, ...args) => mountWatchdogTasksImpl(watchdogTaskTestContext(context), ...args);
 
 const contact = { id: 'customer', name: 'Receipt owner', company: '', stage: 'lead', nextAction: '', nextActionDate: null };
 const recordRequest = { generation: 0, revision: 0, commandId: 'records-create', command: { type: 'contact.upsert', contact } };

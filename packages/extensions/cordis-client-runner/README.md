@@ -70,6 +70,8 @@ The browser half is built on one principle: a dynamic package must ride the same
 
 A `cordis/request-run` event asks this page whether to run a definition. Whoever answers — the page after an approval, or the user pressing run — drives the orchestration: the host half first (so a host-half failure short-circuits before the browser has moved), then the source fetch, then the browser half, then one resolution carrying what happened. The browser half's source is evaluated as an async function body with the symbol surface as parameters, the returned plugin is guard-wrapped and mounted through the loader, and the resolution reports the loaded revision or the failing stage with the closure's, guard's, or fiber's message. `host.call` routes through the Remote namespace; an omitted argument travels as `null`, and a payload the generated codec refuses becomes a teaching error naming the call and the contract.
 
+Source comes only from `getClientCode` for the owning Session's authorized active run. The evaluator compiles it in a temporary script authorized by the Host page's script nonce, then removes the script and its private callback before calling the closure. It never reads executable text from rendered content and does not require CSP `unsafe-eval`. This is approved page code, not a sandbox for malicious approved plugins; the nonce protects against unapproved script injection.
+
 </details>
 
 -----

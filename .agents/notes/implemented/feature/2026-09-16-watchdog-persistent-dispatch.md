@@ -20,6 +20,8 @@ A durable barrier precedes enqueue. Missing confirmation after that point remain
 
 The management panel binds each successful receipt to its command id. Unconfirmed requests retain their full payload across panel navigation, preventing a second command from silently replacing the first. Human uncertainty resolution requires a Session inspection acknowledgement and reason; neither panel rendering nor worker observation grants execution. Input validation failures remain editable while missing or unrelated receipts remain unresolved.
 
+An active plan with no online worker raises an in-app alert after a status read. The alert identifies a delivery outage but does not notify the operator while the host is offline.
+
 ## Alternatives considered
 
 Extending the core Schedule runtime to wake cold Sessions violates its live-root ownership rules. Replacing Jobs would duplicate cancellation and teardown. Automatically retrying an ambiguous enqueue risks duplicate external effects; interpreting a healthy worker or completed dispatch as business success hides failures. Independent database copies cannot provide a distributed lease and are outside this deployment model.
@@ -32,4 +34,4 @@ Workers sharing one local database agree on organization and deployment limits. 
 
 ## Verification
 
-The [store tests](../../../../frontends/dsh/tests/watchdog-schedule.test.mjs) exercise bounded missed work, DST validation, command receipts, isolated organization state, expiry, lease fencing, rolling admission and a real two-process crash after a single recorded side effect. The [Host replay](../../../../frontends/dsh/tests/watchdog-schedule-host.scenario.mjs) mounts production AgentLoop, Jobs, approval and JSONL persistence to verify one durable dispatch, missing approval, delegated revocation during persistence, uncertainty and cancellation. Its owner-local fixture fixes the scheduled model input independently of the wall clock.
+The [store tests](../../../../frontends/dsh/tests/watchdog-schedule.test.mjs) exercise bounded missed work, DST validation, command receipts, isolated organization state, expiry, lease fencing, rolling admission and a real two-process crash after a single recorded side effect. The [Host replay](../../../../frontends/dsh/tests/watchdog-schedule-host.scenario.mjs) mounts production AgentLoop, Jobs, approval and JSONL persistence to verify one durable dispatch, missing approval, delegated revocation during persistence, uncertainty and cancellation. The [management-panel test](../../../../frontends/dsh/tests/schedule-board.client.spec.mjs) verifies the no-worker alert appears for an active plan and clears when a live heartbeat returns. The Host replay's owner-local fixture fixes scheduled model input independently of the wall clock.

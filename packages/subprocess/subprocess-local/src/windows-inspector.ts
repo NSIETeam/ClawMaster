@@ -432,7 +432,11 @@ function windowsProcessRssBytes(bindings: Win32Bindings, pid: number): number | 
   }
 }
 
-/** Observe the live Windows Host process tree through Toolhelp32 and PSAPI. */
+/**
+ * Observe the live Windows Host process tree through Toolhelp32 and PSAPI.
+ * @param rootPid - process tree root; defaults to this Host process.
+ * @returns total and descendant resident bytes, or undefined when observation is unavailable.
+ */
 export function observeWindowsProcessTreeRss(rootPid = process.pid): { totalRssBytes: number; descendantRssBytes: number } | undefined {
   const internals = defaultWindowsProcessInternals()
   const entries = internals.snapshot()

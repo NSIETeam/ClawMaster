@@ -140,7 +140,7 @@ function Panel({ locale, state, client, title, description, children }: {
     }
   };
   return <section className="cm-enterprise" aria-label={title}>
-    <style>{styles}</style>
+    <style nonce={document.querySelector<HTMLMetaElement>('meta[name="dsh-style-nonce"]')?.content}>{styles}</style>
     <header className="cm-ent-header"><div><small>{e.sourceLocal}</small><h2>{title}</h2><p>{description}</p></div>
       <div className="cm-ent-actions">{state.overview && <small>{t.revision}: {state.overview.revision}</small>}{state.overview && <button type="button" disabled={state.loading || state.saving} onClick={() => { setBackupError(false); void downloadEnterpriseBackup(client).catch(() => setBackupError(true)); }}>{e.localBackup}</button>}<label className="cm-ent-file-button"><input type="file" accept="application/json,.json" hidden disabled={state.saving || state.pending} onChange={event => { void chooseRestore(event.target.files?.[0]); event.currentTarget.value = ''; }} />{e.restoreBackup}</label><button type="button" disabled={state.loading || state.saving} onClick={() => { void client.refresh(); }}>{state.loading ? t.refreshing : t.refresh}</button></div>
     </header>

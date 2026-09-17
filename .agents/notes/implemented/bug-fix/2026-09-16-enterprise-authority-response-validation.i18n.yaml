@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-16-enterprise-authority-response-validation.md
-2026-09-16-enterprise-authority-response-validation.md: 12777ee2304b8f993ba65dbe0e1786e07327634c
-2026-09-16-enterprise-authority-response-validation.zh.md: 1bd9d74ed5742d40cb7b08b4eb7dce36f92b559e
+2026-09-16-enterprise-authority-response-validation.md: ab56c1d3383ad4f4bece3514cba1c869d06c2f88
+2026-09-16-enterprise-authority-response-validation.zh.md: 006164227844845375af695fc1e94e7b65115b6e

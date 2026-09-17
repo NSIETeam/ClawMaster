@@ -79,6 +79,7 @@ test('restore responsibility records the final checked policy and retains the in
   assert.equal(response.status, 200, await response.clone().text());
   const entry = f.store.responsibility().records.find(row => row.operation === 'backup.restore' && row.outcome === 'succeeded');
   assert.equal(entry.identity.policyVersion, 2);
+  assert.equal(entry.identity.approval.kind, 'authority');
   assert.equal(entry.identity.approval.id, 'approved');
   assert.equal(entry.identity.approval.approverId, 'reviewer');
 });
@@ -135,13 +136,16 @@ test('late insertion failure rolls back imported records and leaves no success r
 test('disposal cancels a waiting upload without waiting for the sender and leaves storage usable', async t => {
   const f = await fixture(t); const gate = barrier();
   let cancelled = false;
-  const body = new ReadableStream({ pull() { gate.arrive(); }, cancel() { cancelled = true; } }, { highWaterMark: 0 });
+  let controller;
+  const body = new ReadableStream({ start(value) { controller = value; }, pull() { gate.arrive(); }, cancel() { cancelled = true; } }, { highWaterMark: 0 });
   const response = f.fetch('/backup/prepare', { method: 'POST', headers: { 'content-type': 'application/json' }, body, duplex: 'half' });
   await gate.reached;
   await f.dispose();
   assert.equal((await response).status, 503);
-  assert.equal(body.locked, false); assert.equal(cancelled, false, 'the carrier retains its socket until the refusal is sent');
-  await body.cancel(); assert.equal(cancelled, true);
+  assert.equal(body.locked, true); assert.equal(cancelled, false, 'the carrier retains its socket until the refusal is sent');
+  controller.close();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(body.locked, false, 'the reader lock releases after the transport settles its outstanding read');
   assert.equal(f.store.snapshot().generation, 0); assert.equal(f.routes.size, 0);
 });
 test('expired prepared files fail before target writes and concurrent jobs respect configured capacity', async t => {
@@ -197,12 +201,16 @@ test('a worker heap limit rejects an import without exiting the Host or changing
   try { probe.exec('BEGIN IMMEDIATE; ROLLBACK;'); } finally { probe.close(); }
 });
 test('a configured operation timeout cancels an idle upload and releases its reserved job', async t => {
-  const f = await fixture(t, { config: { timeoutMs: 20 } });
+  // Keep enough time for the immediate filesystem-backed retry on slow CI hosts.
+  const f = await fixture(t, { config: { timeoutMs: 1000 } });
   const body = new ReadableStream({ pull() {} }, { highWaterMark: 0 });
   const response = await f.fetch('/backup/prepare', { method: 'POST', headers: { 'content-type': 'application/json' }, body, duplex: 'half' });
   assert.equal(response.status, 503);
   assert.equal(f.store.snapshot().generation, 0);
   assert.ok(f.store.responsibility().records.some(row => row.operation === 'backup.prepare' && row.outcome === 'cancelled'));
+  const retry = await f.fetch('/restore', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(retry.status, 400, await retry.clone().text());
+  assert.equal((await retry.json()).error.code, 'invalid_request', 'The timed-out upload must release the backup job before its body source settles.');
 });
 for (const path of ['', '/backup/prepare']) test(`disposal cancels unresolved identity for ${path || 'ordinary overview'} without accessing closed storage`, async t => {
   const gate = barrier();

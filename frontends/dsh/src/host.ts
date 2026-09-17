@@ -1,6 +1,7 @@
 /** AI business tools, shared storage and lazy Workspaces on the existing DSH Host. */
 import { GovernanceCommandInput, type GovernanceCommandConfig } from './command-input.ts';
 import type { Context } from '@deepseek-ai/cordis';
+import type { SessionStore } from '@deepseek-ai/dsh-session';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
 import { openEnterpriseStore, mountEnterpriseRoutes, type EnterpriseReadConfig } from './enterprise-host.ts';
@@ -20,7 +21,7 @@ import { mountWatchdogSchedules } from './watchdog-schedule-host.ts';
 import { WatchdogScheduleRuntime } from './watchdog-schedule-runtime.ts';
 import type { WatchdogScheduleConfig } from './watchdog-schedule-format.ts';
 
-type HostServices = Context & WorkspaceHostContext & OnboardingHostServices;
+type HostServices = Omit<Context, 'sessions'> & { sessions: SessionStore } & WorkspaceHostContext & OnboardingHostServices;
 
 interface HostConfig {
   governance?: GovernanceConfiguration;

@@ -351,9 +351,10 @@ test('collection pages search Unicode text fields and retain both versions acros
   seed(h.store);
   h.store.execute(request(h.store, { type: 'contact.upsert', contact: { ...contact, id: 'unicode-a', name: 'ÉCOLE', company: 'Åsa % _', nextAction: 'quoted "owner"\\path' } }));
   h.store.execute(request(h.store, { type: 'contact.upsert', contact: { ...contact, id: 'unicode-b', name: 'école', company: 'Different', nextAction: 'literal search' } }));
+  h.store.execute(request(h.store, { type: 'contact.upsert', contact: { ...contact, id: 'unicode-c', name: 'İstanbul', company: 'Different', nextAction: 'literal search' } }));
   const baseline = h.store.snapshot();
   for (const collection of ['contacts', 'inventory', 'orders', 'audit']) {
-    for (const search of ['', 'ÉCOLE', 'ÅSA', 'owner', '%', '_', '"name":', "' OR 1=1 --"]) {
+    for (const search of ['', 'ÉCOLE', 'ÅSA', 'i\u0307st', 'owner', '%', '_', '"name":', "' OR 1=1 --"]) {
       const expected = baseline[collection].filter(row => {
         const fields = Object.entries(row).filter(([key, value]) => typeof value === 'string' && key !== 'commandId').map(([, value]) => value);
         if (collection === 'audit') fields.push(row.commandId, JSON.stringify(row.before), JSON.stringify(row.after));

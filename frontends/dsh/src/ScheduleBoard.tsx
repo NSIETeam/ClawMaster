@@ -20,6 +20,7 @@ export function ScheduleBoard({ client, locale, sessions, onOpenSession }: Props
   useEffect(() => { void client.refresh(); }, [client]);
   const disabled = state.saving || state.pending;
   const selected = state.selected;
+  const workerUnavailable = state.plans.some(plan => plan.active) && state.workerSummary !== null && state.workerSummary.online === 0;
   return <section className="cm-task-board cm-schedule-board" aria-label={copy.heading} aria-busy={state.loading}>
     <div className="cm-task-board-heading"><h2>{copy.heading}</h2><div>
       <button type="button" disabled={disabled} onClick={() => setCreating(value => !value)}>{creating ? copy.close : copy.create}</button>
@@ -27,6 +28,7 @@ export function ScheduleBoard({ client, locale, sessions, onOpenSession }: Props
     </div></div>
     <p>{state.mode ? copy[state.mode] : copy.unavailableMode}</p><p className="cm-help">{copy.hint}</p>
     {state.observedAt !== null && <p className="cm-help">{copy.observedAt}: {date(state.observedAt, locale)}</p>}
+    {workerUnavailable && <p role="alert" className="cm-error">{copy.activePlanWorkerUnavailable}</p>}
     {state.workerSummary && <p>{copy.workerCount}: {state.workerSummary.total} · {copy.online}: {state.workerSummary.online} · {copy.offline}: {state.workerSummary.offline} · {copy.degraded}: {state.workerSummary.degraded} · {copy.stopped}: {state.workerSummary.stopped}</p>}
     <details><summary>{copy.workerDetails}</summary><div aria-live="polite">{!state.workers.length ? <p>{copy.noWorkers}</p> : state.workers.map(item => <p key={item.id}>
       <code>{item.id}</code> ·

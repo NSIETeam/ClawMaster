@@ -89,6 +89,8 @@ export class DynamicCordisStyles {
   insert(css: string): () => void {
     if (typeof css !== 'string') throw new Error('styles.insert(css) needs a CSS string')
     const tag = document.createElement('style')
+    const nonce = document.querySelector<HTMLMetaElement>('meta[name="dsh-style-nonce"]')?.content
+    if (nonce) tag.nonce = nonce
     tag.dataset.dyn = this.pluginId
     tag.textContent = css
     document.head.append(tag)
@@ -114,6 +116,7 @@ export class DynamicCordisStyles {
 /** Stringify one console argument for the error mirror. */
 function errorText(arg: unknown): string {
   if (arg instanceof Error) return arg.message
+  if (Object.prototype.toString.call(arg) === '[object Error]') return (arg as Error).message
   if (typeof arg === 'string') return arg
   if (arg === undefined) return 'undefined'
   try {
@@ -154,10 +157,45 @@ export function isDynamicCordisPlugin(value: unknown): value is DynamicCordisEva
     && typeof (value as { apply?: unknown }).apply === 'function'
 }
 
+type ClientClosure = (...args: unknown[]) => Promise<unknown>
+let compilationSequence = 0
+
+/** Compile Host-authorized source through an ephemeral, nonce-authorized script. */
+function compileClientHalf(parameters: string[], clientCode: string): ClientClosure {
+  const script = document.createElement('script') as HTMLScriptElement & {
+    receive?: (closure: ClientClosure) => void
+  }
+  const nonce = document.querySelector<HTMLMetaElement>('meta[name="dsh-script-nonce"]')?.content
+  if (nonce) script.nonce = nonce
+  const sourceUrl = new URL(`dsh-dynamic-client-${String(++compilationSequence)}.js`, document.baseURI).href
+  let compiled: ClientClosure | undefined
+  let parseFailure: ErrorEvent | undefined
+  script.receive = (closure) => { compiled = closure }
+  // Only getClientCode for an authorized, Session-owned active run reaches here.
+  // textContent preserves source text without interpreting HTML delimiters.
+  script.textContent = `document.currentScript.receive(function(${parameters.join(',')}) { return (async () => {\n${clientCode}\n})() });\n//# sourceURL=${sourceUrl}`
+  const onError = (event: ErrorEvent): void => {
+    if (event.filename !== sourceUrl && document.currentScript !== script) return
+    parseFailure = event
+    event.preventDefault()
+  }
+  window.addEventListener('error', onError)
+  try {
+    document.head.append(script)
+  } finally {
+    window.removeEventListener('error', onError)
+    script.remove()
+    delete script.receive
+  }
+  if (parseFailure !== undefined) throw new SyntaxError(parseFailure.message)
+  if (compiled === undefined) throw new Error('Content Security Policy refused the dynamic client half script.')
+  return compiled
+}
+
 /**
  * Evaluate one package's browser half and return the (un-guarded) plugin.
  * @param pluginId - stable Plugin ID (console tag and style ownership).
- * @param clientCode - the browser half's source: an async function body returning a plugin.
+ * @param clientCode - source fetched from the Host for this Session's authorized active run, never rendered content.
  * @param env - runner wiring for `host.call` and error mirroring.
  * @param styles - the package's style bookkeeping (owned by the caller so unload can dispose it).
  * @returns the plugin the closure returned.
@@ -171,14 +209,9 @@ export async function evaluateClientHalf(
 ): Promise<DynamicCordisEvaluatedPlugin | ((ctx: unknown) => unknown)> {
   const traps = closureTraps()
   const parameters = ['React', 'console', 'styles', 'host', 'harness', ...Object.keys(traps), 'process', 'Buffer']
-  let closure: (...args: unknown[]) => Promise<unknown>
+  let closure: ClientClosure
   try {
-    // The wrapper mirrors the host precheck exactly, so line offsets match.
-    // Evaluating a definition's browser half IS this package's product: the
-    // source arrived from a host process that accepted and prechecked it.
-    // oxlint-disable-next-line typescript/no-implied-eval -- see above
-    const factory = new Function(...parameters, `return (async () => {\n${clientCode}\n})()`)
-    closure = factory as (...args: unknown[]) => Promise<unknown>
+    closure = compileClientHalf(parameters, clientCode)
   } catch (error) {
     if (!(error instanceof SyntaxError)) throw error
     // Engine-divergence fallback: the host precheck already carried the

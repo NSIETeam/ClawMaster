@@ -42,6 +42,8 @@ function styleInjectionModule(
     `const tagId = ${JSON.stringify(`${id}/${basename(fileId)}`)};`,
     'if (typeof document !== \'undefined\' && document.querySelector(\'style[data-plugin-css=\' + JSON.stringify(tagId) + \']\') === null) {',
     '  const tag = document.createElement(\'style\');',
+    '  const nonce = document.querySelector(\'meta[name="dsh-style-nonce"]\')?.getAttribute(\'content\');',
+    '  if (nonce) tag.nonce = nonce;',
     `  tag.dataset.plugin = ${JSON.stringify(id)};`,
     '  tag.dataset.pluginCss = tagId;',
     '  tag.textContent = css;',

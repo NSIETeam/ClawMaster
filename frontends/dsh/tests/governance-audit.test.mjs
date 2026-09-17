@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { openEnterpriseStore, mountEnterpriseRoutes } from '../src/enterprise-host.ts';
-import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
+import { LOCAL_HTTP_IDENTITY, initializeResponsibilityHistory, listPendingTaskExecutionOutcomes, recordTaskExecutionOutcome } from '../src/governance-audit.ts';
 
 const contact = name => ({ type: 'contact.upsert', contact: { id: 'customer', name, company: '', stage: 'lead', nextAction: '', nextActionDate: null } });
 async function fixture(t) {
@@ -21,7 +21,7 @@ test('A backup, B mutation and restore retain B responsibility with actor and ap
   store.execute({ revision: 0, commandId: 'a', command: contact('A') }, LOCAL_HTTP_IDENTITY);
   const backup = store.backup(LOCAL_HTTP_IDENTITY);
   const agent = { ...LOCAL_HTTP_IDENTITY, actor: { kind: 'agent', id: 'session-1' }, source: 'tool', sessionId: 'session-1', callId: 'call-2',
-    approval: { id: 'approved-2', approverId: 'local-operator', generation: 0, revision: 1 } };
+    approval: { kind: 'authority', id: 'approved-2', approverId: 'reviewer-2', generation: 0, revision: 1 } };
   store.execute({ revision: 1, commandId: 'b', command: contact('B') }, agent);
   const restored = store.restore(backup, 2, 0, LOCAL_HTTP_IDENTITY, 'restore-a');
   assert.equal(restored.contacts[0].name, 'A');
@@ -126,4 +126,42 @@ test('HTTP command rejects forged actor and responsibility query is bounded', as
     assert.deepEqual(store.responsibility({ commandId: 'valid' }).records[0].identity, LOCAL_HTTP_IDENTITY);
     assert.throws(() => store.responsibility({ limit: 501 }));
   } finally { await dispose(); }
+});
+
+
+test('task dispatch responsibility preserves uncertain and terminal facts with exact request idempotency', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(`CREATE TABLE enterprise_meta(singleton INTEGER PRIMARY KEY, generation INTEGER NOT NULL); INSERT INTO enterprise_meta VALUES (1, 0);
+    CREATE TABLE enterprise_audit(revision INTEGER, commandId TEXT, type TEXT, entityId TEXT);`);
+  initializeResponsibilityHistory(db);
+  const identity = { ...LOCAL_HTTP_IDENTITY, actor: { kind: 'member', id: 'member-1' }, organizationId: 'org-1', principalId: 'member-1', policyVersion: 7 };
+  const value = { taskId: 'task-1', requestId: 'request-1', sessionId: 'session-1' };
+  const binding = () => ({ taskRevision: 4, commandId: 'start-1' });
+  try {
+    const uncertain = recordTaskExecutionOutcome(db, identity, { ...value, outcome: 'uncertain' }, binding);
+    assert.equal(uncertain.sequence, 1);
+    assert.deepEqual(uncertain.taskExecution, { requestId: 'request-1', sessionId: 'session-1' });
+    assert.deepEqual(listPendingTaskExecutionOutcomes(db), [{ requestId: 'request-1', sessionId: 'session-1' }]);
+    assert.equal(recordTaskExecutionOutcome(db, identity, { ...value, outcome: 'uncertain' }, binding).hash, uncertain.hash);
+    const succeeded = recordTaskExecutionOutcome(db, identity, { ...value, outcome: 'succeeded' }, binding);
+    assert.equal(succeeded.sequence, 2);
+    assert.equal(succeeded.outcome, 'succeeded');
+    assert.deepEqual(listPendingTaskExecutionOutcomes(db), []);
+    assert.equal(recordTaskExecutionOutcome(db, identity, { ...value, outcome: 'uncertain' }, binding).hash, succeeded.hash);
+    assert.equal(recordTaskExecutionOutcome(db, identity, { ...value, outcome: 'succeeded' }, binding).hash, succeeded.hash);
+    assert.throws(() => recordTaskExecutionOutcome(db, identity, { ...value, outcome: 'failed', reasonCode: 'session_submission_failed' }, binding), { code: 'command_conflict' });
+    const failedInput = { ...value, requestId: 'request-2' };
+    const failedBinding = () => ({ taskRevision: 4, commandId: 'start-2' });
+    recordTaskExecutionOutcome(db, identity, { ...failedInput, outcome: 'uncertain' }, failedBinding);
+    const failed = recordTaskExecutionOutcome(db, identity, { ...failedInput, outcome: 'failed', reasonCode: 'session_submission_failed' }, failedBinding);
+    assert.equal(failed.outcome, 'failed');
+    assert.equal(recordTaskExecutionOutcome(db, identity, { ...failedInput, outcome: 'failed', reasonCode: 'session_submission_failed' }, failedBinding).hash, failed.hash);
+    assert.throws(() => recordTaskExecutionOutcome(db, { ...identity, actor: { kind: 'member', id: 'other' } },
+      { ...value, outcome: 'uncertain' }, binding), { code: 'command_conflict' });
+    assert.throws(() => recordTaskExecutionOutcome(db, identity, { ...value, outcome: 'uncertain' },
+      () => ({ taskRevision: 5, commandId: 'start-1' })), { code: 'command_conflict' });
+    const beforeRejectedBinding = db.prepare('SELECT COUNT(*) AS count FROM responsibility_history').get().count;
+    assert.throws(() => recordTaskExecutionOutcome(db, identity, { ...failedInput, outcome: 'uncertain' }, () => { throw new Error('stale binding'); }));
+    assert.equal(db.prepare('SELECT COUNT(*) AS count FROM responsibility_history').get().count, beforeRejectedBinding);
+  } finally { db.close(); }
 });

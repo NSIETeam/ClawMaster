@@ -7,7 +7,10 @@ import { EnterpriseError } from './enterprise-types.ts';
 const sqliteRow = z.record(z.string(), z.unknown());
 interface IterableStatement extends StatementSync { iterate(...parameters: Array<string | number>): IterableIterator<unknown>; }
 
-/** Trusted caller facts resolved by the Host, never parsed from command JSON. */
+/** Host-resolved caller facts; local device labels do not identify enterprise members. */
+export type ExecutionApproval = { kind: 'authority'; id: string; approverId: string; generation: number; revision: number }
+  | { kind: 'dsh-one-shot' };
+
 export interface ExecutionIdentity {
   actor: { kind: 'local-human' | 'member' | 'agent' | 'unknown'; id: string };
   organizationId: string;
@@ -17,7 +20,7 @@ export interface ExecutionIdentity {
   principalId?: string;
   sessionId?: string;
   callId?: string;
-  approval?: { id: string; approverId: string; generation: number; revision: number };
+  approval?: ExecutionApproval;
 }
 
 /** Local desktop identity names the authenticated device operator, not an organization member. */
@@ -36,7 +39,7 @@ export const UNKNOWN_IDENTITY: ExecutionIdentity = Object.freeze({
 export interface ResponsibilityInput {
   identity: ExecutionIdentity;
   operation: string;
-  outcome: 'succeeded' | 'failed' | 'denied' | 'cancelled' | 'legacy';
+  outcome: 'succeeded' | 'failed' | 'denied' | 'cancelled' | 'uncertain' | 'legacy';
   commandId?: string;
   entityId?: string;
   generationBefore: number;
@@ -44,16 +47,26 @@ export interface ResponsibilityInput {
   generationAfter: number;
   revisionAfter: number;
   backupSha256?: string;
+  taskExecution?: { requestId: string; sessionId: string };
   reasonCode?: string;
 }
 
 /** A hash links the exact persisted JSON to its predecessor. */
-export interface ResponsibilityRecord extends ResponsibilityInput {
+type UnlabelledLegacyApproval = { id: string; approverId: string; generation: number; revision: number; kind?: undefined };
+
+/** Older stored rows may contain unlabelled approval fields; they are not trusted approval evidence. */
+export type ResponsibilityIdentity = Omit<ExecutionIdentity, 'approval'> & { approval?: ExecutionApproval | UnlabelledLegacyApproval };
+
+export interface ResponsibilityRecord extends Omit<ResponsibilityInput, 'identity'> {
+  identity: ResponsibilityIdentity;
   sequence: number;
   at: string;
   previousHash: string;
   hash: string;
 }
+
+/** An uncertain task dispatch whose target Session log can still confirm an outcome. */
+export interface PendingTaskExecutionOutcome { requestId: string; sessionId: string }
 
 /** Install independent history and import old receipts once, with explicitly unknown actors. */
 export function initializeResponsibilityHistory(db: DatabaseSync): void {
@@ -66,7 +79,10 @@ export function initializeResponsibilityHistory(db: DatabaseSync): void {
   CREATE TRIGGER IF NOT EXISTS responsibility_no_update BEFORE UPDATE ON responsibility_history
     BEGIN SELECT RAISE(ABORT, 'Responsibility history is append-only'); END;
   CREATE TRIGGER IF NOT EXISTS responsibility_no_delete BEFORE DELETE ON responsibility_history
-    BEGIN SELECT RAISE(ABORT, 'Responsibility history is append-only'); END;`);
+    BEGIN SELECT RAISE(ABORT, 'Responsibility history is append-only'); END;
+  CREATE INDEX IF NOT EXISTS responsibility_execution_request ON responsibility_history(
+    json_extract(body, '$.taskExecution.requestId'), sequence
+  ) WHERE json_extract(body, '$.operation') = 'task.dispatch';`);
   if (db.prepare('SELECT sequence FROM responsibility_history LIMIT 1').get()) return;
   const meta = sqliteRow.parse(db.prepare('SELECT generation FROM enterprise_meta WHERE singleton=1').get());
   const generation = Number(meta.generation);
@@ -86,6 +102,164 @@ export function appendResponsibility(db: DatabaseSync, input: ResponsibilityInpu
   const hash = createHash('sha256').update(encoded).digest('hex');
   db.prepare('INSERT INTO responsibility_history(sequence, body, hash) VALUES (?, ?, ?)').run(body.sequence, encoded, hash);
   return { ...body, hash };
+}
+
+const taskExecutionOutcomeReportSchema = z.object({
+  taskId: z.string().min(1).max(128), requestId: z.string().min(1).max(128), sessionId: z.string().min(1).max(128),
+  outcome: z.enum(['uncertain', 'succeeded', 'failed']), reasonCode: z.string().regex(/^[a-z0-9_]{1,64}$/).optional(),
+}).strict().superRefine((value, context) => {
+  if ((value.outcome === 'failed') !== (value.reasonCode !== undefined)) {
+    context.addIssue({ code: 'custom', message: 'Only failed task execution outcomes require a fixed reason code.' });
+  }
+});
+const taskExecutionOutcomeSchema = taskExecutionOutcomeReportSchema.extend({
+  taskRevision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), commandId: z.string().min(1).max(128),
+}).strict();
+const observedTaskExecutionOutcomeSchema = z.object({
+  requestId: z.string().min(1).max(128), sessionId: z.string().min(1).max(128),
+  outcome: z.enum(['succeeded', 'failed']), reasonCode: z.string().regex(/^[a-z0-9_]{1,64}$/).optional(),
+}).strict().superRefine((value, context) => {
+  if ((value.outcome === 'failed') !== (value.reasonCode !== undefined)) {
+    context.addIssue({ code: 'custom', message: 'Failed Session outcomes require a fixed reason code.' });
+  }
+});
+const executionIdentitySchema = z.object({
+  actor: z.object({ kind: z.enum(['local-human', 'member', 'agent', 'unknown']), id: z.string() }).strict(),
+  organizationId: z.string(), source: z.enum(['http', 'tool', 'scheduler', 'plugin', 'migration']),
+  policyVersion: z.number().int(), principalId: z.string().optional(), sessionId: z.string().optional(), callId: z.string().optional(),
+  approval: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('authority'), id: z.string(), approverId: z.string(), generation: z.number().int(), revision: z.number().int() }).strict(),
+    z.object({ kind: z.literal('dsh-one-shot') }).strict(),
+  ]).optional(),
+}).strict();
+const persistedExecutionIdentitySchema = executionIdentitySchema.extend({
+  approval: z.union([executionIdentitySchema.shape.approval.unwrap(), z.object({
+    id: z.string(), approverId: z.string(), generation: z.number().int(), revision: z.number().int(), kind: z.undefined().optional(),
+  }).strict()]).optional(),
+});
+
+/** Task Session outcome report; the Host resolves its command and revision from durable task history. */
+export type TaskExecutionOutcomeReport = z.input<typeof taskExecutionOutcomeReportSchema>;
+/** Audited task execution fields after the Host verifies the persisted start receipt. */
+export type TaskExecutionOutcomeInput = z.input<typeof taskExecutionOutcomeSchema>;
+/** Terminal task outcome emitted only after the Host observes the correlated Session turn. */
+export type ObservedTaskExecutionOutcome = Omit<TaskExecutionOutcomeReport, 'taskId' | 'outcome'>
+  & { outcome: 'succeeded' | 'failed' };
+
+type TaskExecutionBinding = Pick<TaskExecutionOutcomeInput, 'commandId' | 'taskRevision'>;
+
+/**
+ * Append or resolve one persisted task Session submission without overwriting earlier outcomes.
+ * @param db The enterprise database that owns responsibility history.
+ * @param identity Host-resolved caller; request JSON cannot supply this identity.
+ * @param value Task, DSH request, Session and observed outcome.
+ * @param resolveBinding Resolve the task revision and start command from its durable receipt inside this transaction.
+ * @returns The existing idempotent outcome or the newly appended outcome.
+ * @throws EnterpriseError when the binding conflicts or an invalid outcome transition is requested.
+ */
+export function recordTaskExecutionOutcome(db: DatabaseSync, identity: ExecutionIdentity, value: TaskExecutionOutcomeReport,
+  resolveBinding: () => TaskExecutionBinding): ResponsibilityRecord {
+  const report = taskExecutionOutcomeReportSchema.parse(value);
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const input = taskExecutionOutcomeSchema.parse({ ...report, ...resolveBinding() });
+    const record = appendTaskExecutionOutcomeInTransaction(db, identity, input);
+    db.exec('COMMIT');
+    return record;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
+/** Append a terminal outcome using only the trusted identity already recorded for an admitted Session request. */
+export function recordObservedTaskExecutionOutcome(db: DatabaseSync,
+  value: ObservedTaskExecutionOutcome,
+  resolveBinding: (identity: ExecutionIdentity, taskId: string) => TaskExecutionBinding): ResponsibilityRecord | undefined {
+  const request = observedTaskExecutionOutcomeSchema.parse(value);
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const matches = [...(db.prepare(`SELECT body FROM responsibility_history
+      WHERE json_extract(body, '$.operation') = 'task.dispatch'
+        AND json_extract(body, '$.outcome') = 'uncertain'
+        AND json_extract(body, '$.taskExecution.requestId') = ?
+        AND json_extract(body, '$.taskExecution.sessionId') = ? ORDER BY sequence`) as IterableStatement)
+      .iterate(request.requestId, request.sessionId)];
+    if (matches.length === 0) { db.exec('COMMIT'); return undefined; }
+    if (matches.length !== 1) throw new EnterpriseError('command_conflict', 'Session request matches multiple task executions.');
+    const row = sqliteRow.parse(matches[0]);
+    const prior = z.object({ entityId: z.string().min(1), identity: persistedExecutionIdentitySchema }).passthrough()
+      .parse(JSON.parse(String(row.body)));
+    const { approval, ...identityFields } = prior.identity;
+    const identity = executionIdentitySchema.parse({ ...identityFields,
+      ...(approval && 'kind' in approval && approval.kind !== undefined && approval.kind !== null
+        && (approval.kind === 'authority' || approval.kind === 'dsh-one-shot') ? { approval } : {}),
+    });
+    const input = taskExecutionOutcomeSchema.parse({ ...request, taskId: prior.entityId, ...resolveBinding(identity, prior.entityId) });
+    const record = appendTaskExecutionOutcomeInTransaction(db, identity, input);
+    db.exec('COMMIT');
+    return record;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
+/** List only the latest uncertain receipt for each Session request identity. */
+export function listPendingTaskExecutionOutcomes(db: DatabaseSync): PendingTaskExecutionOutcome[] {
+  const rows = db.prepare(`WITH latest AS (
+    SELECT json_extract(body, '$.taskExecution.requestId') AS requestId,
+      json_extract(body, '$.taskExecution.sessionId') AS sessionId, MAX(sequence) AS sequence
+    FROM responsibility_history
+    WHERE json_extract(body, '$.operation') = 'task.dispatch'
+      AND json_extract(body, '$.taskExecution.requestId') IS NOT NULL
+      AND json_extract(body, '$.taskExecution.sessionId') IS NOT NULL
+    GROUP BY requestId, sessionId
+  ) SELECT body FROM responsibility_history JOIN latest USING(sequence)
+    WHERE json_extract(body, '$.outcome') = 'uncertain' ORDER BY sequence`) as IterableStatement;
+  return [...rows.iterate()].map(value => {
+    const record = z.object({ outcome: z.literal('uncertain'), taskExecution: z.object({
+      requestId: z.string().min(1), sessionId: z.string().min(1),
+    }).strict() }).passthrough().parse(JSON.parse(String(sqliteRow.parse(value).body)));
+    return record.taskExecution;
+  });
+}
+
+/** Append one task execution fact after the caller has established its binding in the active transaction. */
+function appendTaskExecutionOutcomeInTransaction(db: DatabaseSync, identity: ExecutionIdentity,
+  input: TaskExecutionOutcomeInput): ResponsibilityRecord {
+  const matches = (db.prepare(`SELECT sequence, body, hash FROM responsibility_history
+    WHERE json_extract(body, '$.operation') = 'task.dispatch'
+      AND json_extract(body, '$.taskExecution.requestId') = ? ORDER BY sequence`) as IterableStatement).iterate(input.requestId);
+  let previous: ResponsibilityRecord | undefined;
+  for (const raw of matches) {
+    const row = sqliteRow.parse(raw);
+    const record = { ...JSON.parse(String(row.body)) as Omit<ResponsibilityRecord, 'hash'>, hash: String(row.hash) };
+    const priorIdentity = record.identity;
+    if (record.entityId !== input.taskId || record.commandId !== input.commandId
+      || record.revisionBefore !== input.taskRevision || record.revisionAfter !== input.taskRevision
+      || record.taskExecution?.sessionId !== input.sessionId || priorIdentity.organizationId !== identity.organizationId
+      || priorIdentity.actor.kind !== identity.actor.kind || priorIdentity.actor.id !== identity.actor.id
+      || priorIdentity.principalId !== identity.principalId) {
+      throw new EnterpriseError('command_conflict', 'Task execution request identifier is bound to different responsibility metadata.');
+    }
+    previous = record;
+  }
+  if (previous) {
+    if (input.outcome === 'uncertain' || previous.outcome === input.outcome) {
+      if (previous.outcome === input.outcome && previous.reasonCode !== input.reasonCode) {
+        throw new EnterpriseError('command_conflict', 'Task execution outcome was replayed with a different reason.');
+      }
+      return previous;
+    }
+    if (previous.outcome !== 'uncertain') throw new EnterpriseError('command_conflict', 'Task execution outcome is already final.');
+  } else if (input.outcome !== 'uncertain') {
+    throw new EnterpriseError('command_conflict', 'Task execution must be admitted as uncertain before it can finish.');
+  }
+  return appendResponsibility(db, { identity, operation: 'task.dispatch', outcome: input.outcome,
+    commandId: input.commandId, entityId: input.taskId, generationBefore: 0, generationAfter: 0,
+    revisionBefore: input.taskRevision, revisionAfter: input.taskRevision, taskExecution: { requestId: input.requestId, sessionId: input.sessionId },
+    ...(input.reasonCode === undefined ? {} : { reasonCode: input.reasonCode }) });
 }
 
 const querySchema = z.object({

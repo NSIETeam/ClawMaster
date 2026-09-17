@@ -13,7 +13,7 @@ const modes: readonly SandboxMode[] = ['read-only', 'workspace-write', 'danger-f
  * @param ctx - Existing DSH Agent registry, sandbox resolver and approval owner.
  * @param agent - Agent about to request a model step or execute a tool.
  */
-export function constrainDelegatedPermissions(ctx: Context, agent: ActingAgent): void {
+export function constrainDelegatedPermissions(ctx: Omit<Context, 'sessions'>, agent: ActingAgent): void {
   if (agent.session.header.origin !== 'subagent') return;
   let mode = ctx.sandboxPolicy.resolve({ session: agent.session }).mode;
   let ancestorId = agent.session.header.parentSession;
@@ -39,7 +39,7 @@ export function constrainDelegatedPermissions(ctx: Context, agent: ActingAgent):
  * Apply current ancestor restrictions before model context and before each tool's file effects.
  * @param ctx - ClawMaster Host plugin context; DSH owns the logged setters and execution mechanisms.
  */
-export function applyPermissionGovernance(ctx: Context): void {
+export function applyPermissionGovernance(ctx: Omit<Context, 'sessions'>): void {
   ctx.on('agent/pre-step', ({ agent }, next) => {
     constrainDelegatedPermissions(ctx, agent);
     return next();

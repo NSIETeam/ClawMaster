@@ -51,7 +51,10 @@ function OfficeViewer({ scope, path, locale, onToolbarState }: OfficeViewerProps
 export function apply(ctx: OfficeServices): void {
   const locale = (): OfficeLocale => ctx.locale.getSnapshot().active.startsWith('zh') ? 'zh-CN' : 'en-US';
   ctx.effect(() => {
-    const style = document.createElement('style'); style.textContent = styles; style.dataset.plugin = name;
+    const style = document.createElement('style');
+    const nonce = document.querySelector<HTMLMetaElement>('meta[name="dsh-style-nonce"]')?.content;
+    if (nonce) style.nonce = nonce;
+    style.textContent = styles; style.dataset.plugin = name;
     document.head.appendChild(style);
     return () => style.remove();
   }, 'clawmaster: office viewer styles');

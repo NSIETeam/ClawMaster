@@ -11,12 +11,17 @@ import { WatchdogTaskClient } from '../src/watchdog-task-client.ts';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { GovernanceAccess } from '../src/governance-access.ts';
 import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
-import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
+import { mountWatchdogTasks as mountWatchdogTasksImpl } from '../src/watchdog-task-host.ts';
+import { watchdogTaskTestContext } from './watchdog-task-test-context.mjs';
+
+const mountWatchdogTasks = (context, ...args) => mountWatchdogTasksImpl(watchdogTaskTestContext(context), ...args);
+import { prepareTaskExecution } from '../src/task-execution.ts';
+import { retryTaskExecution } from '../src/task-execution.ts';
 
 const disposals = [];
 afterEach(async () => { cleanup(); for (const dispose of disposals.splice(0).reverse()) await dispose(); });
 
-async function fixture(locale = 'en-US') {
+async function fixture(locale = 'en-US', onRunExecution = async () => {}) {
   const root = await mkdtemp(join(tmpdir(), 'watchdog-ui-'));
   const path = join(root, 'enterprise.sqlite');
   disposals.push(() => rm(root, { force: true, recursive: true }));
@@ -36,7 +41,7 @@ async function fixture(locale = 'en-US') {
   const opened = [];
   const view = render(createElement(TaskBoard, { client, locale,
     sessions: [{ id: 'follow-up-session', title: 'Customer follow-up check', running: false, status: 'idle', updatedAt: 0, attention: false }],
-    onOpenSession: id => opened.push(id) }));
+    onOpenSession: id => opened.push(id), onPrepareExecution: () => randomUUID(), onAbandonExecution() {}, onRunExecution }));
   await waitFor(() => expect(client.getSnapshot().loading).toBe(false));
   return { client, store, path, opened, view };
 }
@@ -44,7 +49,8 @@ function fill(label, value) { fireEvent.change(screen.getByLabelText(label), { t
 async function status(client, value) { await waitFor(() => expect(client.getSnapshot().selected?.status).toBe(value)); }
 
 it('creates, links, submits, rejects, resubmits and accepts a durable task without treating idle as success', async () => {
-  const { client, store, path, opened } = await fixture();
+  const submitted = [];
+  const { client, store, path, opened } = await fixture('en-US', async task => submitted.push(task));
   fireEvent.click(screen.getByRole('button', { name: 'Create business task' }));
   fill('Business goal', 'Customer follow-up risk');
   fill('Scope and source material', 'Review selected follow-up records');
@@ -57,8 +63,13 @@ it('creates, links, submits, rejects, resubmits and accepts a durable task witho
   fireEvent.click(screen.getByRole('button', { name: 'Queue for execution' }));
   await status(client, 'ready');
   fill('Execution session', 'follow-up-session');
-  fireEvent.click(screen.getByRole('button', { name: 'Record execution start' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Start and submit task goal' }));
   await status(client, 'in_progress');
+  await waitFor(() => expect(submitted.length).toBe(1));
+  expect(submitted[0].goal).toBe('Customer follow-up risk');
+  expect(submitted[0].scope).toBe('Review selected follow-up records');
+  expect(submitted[0].checklist[0].description).toBe('Inspect the follow-up report');
+  expect(submitted[0].execution).toEqual({ sessionId: 'follow-up-session', requestId: expect.any(String), locale: 'en-US' });
   expect(screen.getByText('Session idle')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: /Open execution session/ }));
   expect(opened).toEqual(['follow-up-session']);
@@ -76,12 +87,15 @@ it('creates, links, submits, rejects, resubmits and accepts a durable task witho
   fireEvent.click(screen.getByRole('button', { name: 'Request rework' }));
   await status(client, 'ready');
   fill('Execution session', 'follow-up-session');
-  fireEvent.click(screen.getByRole('button', { name: 'Record execution start' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Start and submit task goal' }));
   await status(client, 'in_progress');
   await submit('Updated report with customer response');
   fill('Review comment or action reason', 'Reviewed the report and response');
   fireEvent.click(screen.getByRole('button', { name: 'Accept result' }));
   await status(client, 'accepted');
+  const taskCard = screen.getAllByText('Customer follow-up risk')[0].closest('article');
+  expect(within(taskCard).getByText('New business task')).toBeTruthy();
+  expect(within(taskCard).getByText(/Next step: Review the acceptance record/)).toBeTruthy();
   const persisted = store.tasks.get(LOCAL_HTTP_IDENTITY, id);
   expect(persisted.owner).toEqual({ kind: 'local', label: 'Follow-up manager' });
   expect(persisted.dueAt).not.toBeNull();
@@ -112,6 +126,157 @@ it('renders the Chinese management flow and keeps denied commands out of the res
   expect(client.getSnapshot().selected.status).toBe('draft');
   expect(screen.getByRole('alert')).toBeTruthy();
   expect(within(screen.getByRole('region', { name: '任务详情' })).queryByRole('button', { name: '验收通过' })).toBeNull();
+});
+
+it('retries an uncertain Session start with the persisted request identity and task brief', async () => {
+  const attempted = [];
+  const { client, store } = await fixture('en-US', async task => {
+    attempted.push(task);
+    if (attempted.length === 1) throw new Error('Session admission response was lost');
+  });
+  const definition = { goal: 'Inspect selected orders', scope: 'Only overdue customer orders', owner: { kind: 'local', label: 'Order manager' },
+    dueAt: null, timezone: 'UTC', risk: 'high', checklist: [{ id: 'inspect', description: 'List affected orders' }] };
+  await act(() => client.command('retry-task', 0, { type: 'create', task: definition }));
+  await act(() => client.command('retry-task', 1, { type: 'queue' }));
+  fill('Execution session', 'follow-up-session');
+  fireEvent.click(screen.getByRole('button', { name: 'Start and submit task goal' }));
+  await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('did not confirm admission'));
+  const persisted = store.tasks.get(LOCAL_HTTP_IDENTITY, 'retry-task');
+  expect(persisted.execution.sessionId).toBe('follow-up-session');
+  expect(attempted[0].goal).toBe(definition.goal);
+  fireEvent.click(screen.getByRole('button', { name: 'Retry with original request' }));
+  await waitFor(() => expect(attempted.length).toBe(2));
+  expect(attempted[1].execution).toEqual(persisted.execution);
+  expect(attempted[1].goal).toBe(definition.goal);
+  expect(store.tasks.history(LOCAL_HTTP_IDENTITY, 'retry-task').tasks).toHaveLength(3);
+});
+
+it('dispatches the started task through the selected DSH Session only after its task link is durable', async () => {
+  const calls = [];
+  const preparedById = new Map();
+  let store;
+  const dshSession = {
+    beginSubmission(input) {
+      calls.push(['beginSubmission', input]);
+      return { requestId: 'dsh-task-request', abandon() {} };
+    },
+    async prompt(content, mode, _signal, requestId) {
+      calls.push(['prompt', content, mode, requestId, store.tasks.get(LOCAL_HTTP_IDENTITY, 'dispatch-task').execution]);
+      return { ok: true, value: { accepted: true } };
+    },
+  };
+  const root = await mkdtemp(join(tmpdir(), 'watchdog-dispatch-'));
+  const db = await openEnterpriseStore(join(root, 'enterprise.sqlite'));
+  store = db;
+  disposals.push(() => rm(root, { force: true, recursive: true }));
+  disposals.push(() => db.close());
+  const routes = new Map();
+  const remove = await mountWatchdogTasks({
+    connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return async () => routes.delete(route.path); } } },
+    tools: { register() { return () => {}; } }, approval: { request: async () => 'allowed-once' },
+  }, db, new GovernanceAccess());
+  disposals.push(remove);
+  const client = new WatchdogTaskClient(async (input, init) => {
+    const url = new URL(input, 'http://fixture');
+    return routes.get(url.pathname)(new Request(url, init));
+  }, randomUUID);
+  disposals.push(() => client.dispose());
+  render(createElement(TaskBoard, { client, locale: 'en-US',
+    sessions: [{ id: 'follow-up-session', title: 'Customer follow-up check', running: false, status: 'idle', updatedAt: 0, attention: false }],
+    onOpenSession() {},
+    onPrepareExecution(task) {
+      const prepared = prepareTaskExecution(task, 'en-US', dshSession);
+      preparedById.set(prepared.requestId, prepared);
+      return prepared.requestId;
+    },
+    onAbandonExecution(id) { preparedById.get(id)?.abandon(); preparedById.delete(id); },
+    async onRunExecution(task) {
+      const prepared = preparedById.get(task.execution.requestId);
+      await prepared.submit(task, 'en-US', record => client.recordExecutionOutcome(record),
+        new AbortController().signal);
+    },
+  }));
+  await waitFor(() => expect(client.getSnapshot().loading).toBe(false));
+  await act(() => client.command('dispatch-task', 0, { type: 'create', task: {
+    goal: 'Review the selected customer follow-up', scope: 'Use only selected follow-up records',
+    owner: { kind: 'local', label: 'Follow-up manager' }, dueAt: null, timezone: 'Asia/Shanghai', risk: 'medium',
+    checklist: [{ id: 'report', description: 'Return the follow-up report' }],
+  } }));
+  await act(() => client.command('dispatch-task', 1, { type: 'queue' }));
+  fill('Execution session', 'follow-up-session');
+  fireEvent.click(screen.getByRole('button', { name: 'Start and submit task goal' }));
+  await waitFor(() => expect(calls.some(call => call[0] === 'prompt')).toBe(true));
+  expect(calls[0][0]).toBe('beginSubmission');
+  expect(calls[0][1]).toMatchObject({ mode: 'queue', attachments: [] });
+  expect(calls[0][1].text).toContain('Review the selected customer follow-up');
+  expect(calls[1]).toMatchObject({
+    0: 'prompt', 1: [{ type: 'text', text: calls[0][1].text }], 2: 'queue', 3: 'dsh-task-request',
+    4: { sessionId: 'follow-up-session', requestId: 'dsh-task-request' },
+  });
+});
+
+it('records only uncertain admission and retries the exact Session request after response loss', async () => {
+  const calls = [];
+  let prepared;
+  let prompts = 0;
+  const dshSession = {
+    beginSubmission(input) {
+      calls.push(['beginSubmission', input]);
+      return { requestId: 'durable-task-request', abandon() {} };
+    },
+    async prompt(content, mode, _signal, requestId) {
+      calls.push(['prompt', content, mode, requestId]);
+      prompts++;
+      if (prompts === 1) throw new Error('Session admission response was lost');
+      return { ok: true, value: { accepted: true } };
+    },
+  };
+  const root = await mkdtemp(join(tmpdir(), 'watchdog-dispatch-outcome-'));
+  const db = await openEnterpriseStore(join(root, 'enterprise.sqlite'));
+  disposals.push(() => rm(root, { force: true, recursive: true }));
+  disposals.push(() => db.close());
+  const routes = new Map();
+  const remove = await mountWatchdogTasks({
+    connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return async () => routes.delete(route.path); } } },
+    tools: { register() { return () => {}; } }, approval: { request: async () => 'allowed-once' },
+  }, db, new GovernanceAccess());
+  disposals.push(remove);
+  const transport = new WatchdogTaskClient(async (input, init) => {
+    const url = new URL(input, 'http://fixture');
+    return routes.get(url.pathname)(new Request(url, init));
+  }, randomUUID);
+  disposals.push(() => transport.dispose());
+  const auditRequests = [];
+  const record = task => { auditRequests.push('uncertain'); return transport.recordExecutionOutcome(task); };
+  const view = render(createElement(TaskBoard, { client: transport, locale: 'en-US',
+    sessions: [{ id: 'follow-up-session', title: 'Customer follow-up check', running: false, status: 'idle', updatedAt: 0, attention: false }],
+    onOpenSession() {},
+    onPrepareExecution(task) { prepared = prepareTaskExecution(task, 'en-US', dshSession); return prepared.requestId; },
+    onAbandonExecution() {},
+    async onRunExecution(task) {
+      if (prepared) { const attempt = prepared; prepared = undefined; return attempt.submit(task, 'en-US', record, new AbortController().signal); }
+      return retryTaskExecution(task, dshSession, record, new AbortController().signal);
+    },
+  }));
+  await waitFor(() => expect(transport.getSnapshot().loading).toBe(false));
+  await act(() => transport.command('outcome-task', 0, { type: 'create', task: {
+    goal: 'Review selected customer records', scope: 'Use only selected follow-up records',
+    owner: { kind: 'local', label: 'Follow-up manager' }, dueAt: null, timezone: 'Asia/Shanghai', risk: 'medium',
+    checklist: [{ id: 'report', description: 'Return the follow-up report' }],
+  } }));
+  await act(() => transport.command('outcome-task', 1, { type: 'queue' }));
+  fill('Execution session', 'follow-up-session');
+  fireEvent.click(screen.getByRole('button', { name: 'Start and submit task goal' }));
+  await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('did not confirm admission'));
+  const uncertain = db.responsibility({ operation: 'task.dispatch' }).records;
+  expect(uncertain.map(row => row.outcome)).toEqual(['uncertain']);
+  fireEvent.click(screen.getByRole('button', { name: 'Retry with original request' }));
+  await waitFor(() => expect(prompts).toBe(2));
+  expect(calls.filter(call => call[0] === 'prompt').map(call => call[3])).toEqual(['durable-task-request', 'durable-task-request']);
+  expect(auditRequests).toEqual(['uncertain', 'uncertain']);
+  expect(db.responsibility({ operation: 'task.dispatch' }).records.map(row => row.outcome)).toEqual(['uncertain']);
+  view.unmount();
+  cleanup();
 });
 
 it('imports an idle Session as a draft, edits its definition and records explicit waiting without accepting it', async () => {

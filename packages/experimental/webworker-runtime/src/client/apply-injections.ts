@@ -40,6 +40,8 @@ export async function applyIndexInjections(
         break
       case 'style': {
         const el = document.createElement('style')
+        const nonce = document.querySelector<HTMLMetaElement>('meta[name="dsh-style-nonce"]')?.content
+        if (nonce) el.nonce = nonce
         el.textContent = row.text
         document.head.append(el)
         break

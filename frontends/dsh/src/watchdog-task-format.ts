@@ -22,7 +22,7 @@ const command = z.discriminatedUnion('type', [
   z.object({ type: z.literal('create'), task: definition, importedSessionId: id.optional() }).strict(),
   z.object({ type: z.literal('revise'), task: definition }).strict(),
   z.object({ type: z.literal('queue') }).strict(),
-  z.object({ type: z.literal('start'), sessionId: id }).strict(),
+  z.object({ type: z.literal('start'), sessionId: id, requestId: id, locale: z.enum(['zh-CN', 'en-US']).default('en-US') }).strict(),
   z.object({ type: z.literal('link'), sessionId: id }).strict(),
   z.object({ type: z.literal('wait'), reason: text.nullable() }).strict(),
   z.object({ type: z.literal('fail'), reason: text }).strict(),
@@ -45,6 +45,7 @@ export interface TaskRecord extends z.infer<typeof definition> {
   updatedAt: string;
   source: 'new' | 'imported-session';
   sessionIds: string[];
+  execution: { sessionId: string; requestId: string; locale: 'zh-CN' | 'en-US'; commandId?: string } | null;
   waitingFor: string | null;
   evidence: Array<z.infer<typeof evidence>>;
   completedCriteria: string[];
@@ -56,7 +57,8 @@ export interface TaskRecord extends z.infer<typeof definition> {
 export const taskRecordSchema = z.object({ ...taskFields, id, organizationId: id, revision: revision.min(1),
   status: z.enum(['draft', 'ready', 'in_progress', 'awaiting_review', 'accepted', 'failed', 'cancelled']),
   createdAt: z.string().datetime(), updatedAt: z.string().datetime(), source: z.enum(['new', 'imported-session']),
-  sessionIds: z.array(id), waitingFor: text.nullable(), evidence: z.array(evidence), completedCriteria: z.array(id),
+  sessionIds: z.array(id), execution: z.object({ sessionId: id, requestId: id, locale: z.enum(['zh-CN', 'en-US']).default('en-US'), commandId: id.optional() }).strict().nullable().default(null),
+  waitingFor: text.nullable(), evidence: z.array(evidence), completedCriteria: z.array(id),
   submittedBy: id.nullable(), lastReview: z.object({ actorId: id, decision: z.enum(['accept', 'reject']), comment: text, at: z.string().datetime() }).strict().nullable(),
 }).strict();
 
@@ -72,6 +74,12 @@ export const taskQuerySchema = z.object({ id: id.optional(), cursor: taskListCur
 /** Pages always expose continuation when additional complete records remain. */
 export const taskListSchema = z.object({ tasks: z.array(taskRecordSchema), nextCursor: taskListCursorSchema.nullable() }).strict();
 export const taskHistorySchema = z.object({ tasks: z.array(taskRecordSchema), nextAfter: revision.nullable() }).strict();
+/** A Session dispatch receipt is bound to the persisted task start and cannot assert caller identity. */
+export const taskExecutionOutcomeSchema = z.object({ taskId: id, requestId: id, sessionId: id,
+  outcome: z.enum(['uncertain', 'succeeded', 'failed']), reasonCode: z.enum([
+    'session_rejected', 'session_turn_error', 'session_turn_blocked', 'session_turn_aborted', 'session_turn_interrupted', 'session_max_tokens',
+  ]).optional() }).strict();
+export const taskExecutionOutcomeResultSchema = z.object({ outcome: z.enum(['uncertain', 'succeeded', 'failed']) }).strict();
 export const taskQueryResultSchema = z.union([taskRecordSchema, taskListSchema, taskHistorySchema]);
 export type TaskListPage = z.infer<typeof taskListSchema>;
 export type TaskHistoryPage = z.infer<typeof taskHistorySchema>;

@@ -14,7 +14,10 @@ import { Session, SessionId } from '@deepseek-ai/dsh-session';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
 import { GovernanceAccess } from '../src/governance-access.ts';
-import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
+import { mountWatchdogTasks as mountWatchdogTasksImpl } from '../src/watchdog-task-host.ts';
+import { watchdogTaskTestContext } from './watchdog-task-test-context.mjs';
+
+const mountWatchdogTasks = (context, ...args) => mountWatchdogTasksImpl(watchdogTaskTestContext(context), ...args);
 import { taskQueryResultSchema } from '../src/watchdog-task-format.ts';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -237,7 +240,7 @@ test('business urgency places review, failure and overdue tasks before newly upd
     if (id === 'failed' || id === 'review') f.store.tasks.execute(LOCAL_HTTP_IDENTITY, request(id, 1, { type: 'queue' }));
     if (id === 'failed') f.store.tasks.execute(LOCAL_HTTP_IDENTITY, request(id, 2, { type: 'fail', reason: 'Needs attention' }));
     if (id === 'review') {
-      f.store.tasks.execute(LOCAL_HTTP_IDENTITY, request(id, 2, { type: 'start', sessionId: 'session' }));
+      f.store.tasks.execute(LOCAL_HTTP_IDENTITY, request(id, 2, { type: 'start', sessionId: 'session', requestId: `submit-${id}` }));
       f.store.tasks.execute(LOCAL_HTTP_IDENTITY, request(id, 3, { type: 'submit', completedCriteria: ['done'],
         evidence: [{ id: 'ev', location: 'file:///fixture.txt', observedAt: '2026-09-16T00:00:00.000Z', summary: 'Review evidence' }] }));
     }

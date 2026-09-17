@@ -26,6 +26,8 @@ export function installThemeStyles(ctx: Context): void {
   for (const [name, css] of STYLES) {
     ctx.effect(() => {
       const tag = document.createElement('style')
+      const nonce = document.querySelector<HTMLMetaElement>('meta[name="dsh-style-nonce"]')?.content
+      if (nonce) tag.nonce = nonce
       tag.dataset.plugin = PLUGIN_ID
       tag.dataset.pluginCss = `${PLUGIN_ID}/${name}`
       tag.textContent = css

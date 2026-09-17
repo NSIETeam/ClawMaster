@@ -91,6 +91,16 @@ it('creates a plan, approves exactly one occurrence and stops future work withou
   expect(screen.getByText('cancel-plan').closest('details').open).toBe(false);
 }, 15000);
 
+it('alerts when an active plan has no online worker and clears after a live heartbeat', async () => {
+  const { client, store, seed } = await fixture();
+  seed();
+  await act(() => client.refresh());
+  expect(screen.getByRole('alert').textContent).toContain('An active plan has no online scheduler worker');
+  store.heartbeat('live-scheduler', Date.now());
+  await act(() => client.refresh());
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
 it('requires session inspection before human resolution and never reenqueues an uncertain occurrence', async () => {
   const { client, store, seed } = await fixture({ locale: 'zh-CN' });
   const { plan, instance, now } = seed();

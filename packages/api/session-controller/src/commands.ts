@@ -1,6 +1,6 @@
 /** Session commands whose activation policy is explicit at each Remote method. */
 
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { Agent, ModelSelection as AgentModelSelection } from '@deepseek-ai/dsh-agent'
@@ -68,6 +68,9 @@ function hasPromptContent(content: readonly PromptContentCandidate[]): boolean {
 
 /** Implements Session business commands delegated by the Session Controller Remote service. */
 export class SessionCommandController {
+  private readonly pendingPromptAdmissions = new WeakMap<
+    Agent, Map<SessionRequestId, { fingerprint: string; promise: Promise<SessionPromptValue> }>
+  >()
   /**
    * @param ctx - Host context carrying Agent, model, attachment, title, and Workspace services.
    * @param agents - sole owner of create, resume, and Session-local model selection.
@@ -318,6 +321,12 @@ export class SessionCommandController {
       )
     }
     const agent = await this.resolveAgent(request.sessionId)
+    const fingerprint = createHash('sha256').update(JSON.stringify({ mode: request.mode, content: request.content, clientTimeZone })).digest('hex')
+    const active = this.pendingPromptAdmissions.get(agent)?.get(request.requestId)
+    if (active) {
+      if (active.fingerprint !== fingerprint) throw new RemoteError('gateway/bad-request', 'prompt request id is already being admitted with different content.', {})
+      return active.promise
+    }
     if (hasPromptRequest(agent, request.requestId)) return { accepted: true }
     const selection = this.agents.selectionFor(agent).current
     if (!routeServed(this.ctx, selection.provider)) {
@@ -372,7 +381,16 @@ export class SessionCommandController {
       }
       return { accepted: true }
     }
-    return hasImage ? this.agents.serializeImageAdmission(agent, admit) : admit()
+    let pending = this.pendingPromptAdmissions.get(agent)
+    if (!pending) { pending = new Map(); this.pendingPromptAdmissions.set(agent, pending) }
+    const promise = Promise.resolve().then(() => hasImage ? this.agents.serializeImageAdmission(agent, admit) : admit())
+    const entry = { fingerprint, promise }
+    pending.set(request.requestId, entry)
+    void promise.finally(() => {
+      if (pending?.get(request.requestId) === entry) pending.delete(request.requestId)
+      if (pending?.size === 0) this.pendingPromptAdmissions.delete(agent)
+    }).catch(() => {})
+    return promise
   }
 
   /**
@@ -590,9 +608,11 @@ function hasPromptRequest(agent: Agent, requestId: SessionRequestId): boolean {
   if (agent.inbox.nextTurn.some(matches) || agent.inbox.nextStep.some(matches)) return true
   // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
   return agent.session.snapshotEvents().some((event) => {
-    if (event.type !== 'user/message') return false
-    const source = event.data.source
-    return source.kind === 'user' && 'rpcId' in source && source.rpcId === requestId
+    if (event.type === 'user/message') return matches(event.data)
+    // Inbox insertion is durably logged before AgentLoop can claim the item.
+    // The claim removes it from the live projection before `user/message` is
+    // appended, so this historical receipt closes that interval too.
+    return event.type === 'agent/inbox/spliced' && event.data.inserted.some(matches)
   })
 }
 function imageBlockIn(

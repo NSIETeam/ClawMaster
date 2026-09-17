@@ -8,8 +8,9 @@ import { z } from 'zod';
 import { mountEnterpriseBackupRoutes } from './enterprise-backup-host.ts';
 import type { EnterpriseBackupConfig } from './enterprise-backup-config.ts';
 import type { RestoreBackupRequest, RestoreBackupReceipt } from './enterprise-backup-format.ts';
-import { appendResponsibility, initializeResponsibilityHistory, queryResponsibility, verifyResponsibility, UNKNOWN_IDENTITY } from './governance-audit.ts';
-import type { ExecutionIdentity } from './governance-audit.ts';
+import { appendResponsibility, initializeResponsibilityHistory, listPendingTaskExecutionOutcomes, queryResponsibility, recordObservedTaskExecutionOutcome as appendObservedTaskExecutionOutcome,
+  recordTaskExecutionOutcome as appendTaskExecutionOutcome, verifyResponsibility, UNKNOWN_IDENTITY } from './governance-audit.ts';
+import type { ExecutionIdentity, ObservedTaskExecutionOutcome, PendingTaskExecutionOutcome, TaskExecutionOutcomeReport, ResponsibilityRecord } from './governance-audit.ts';
 import { assertCommandReceipt, initializeCommandReceipts, recordCommandReceipt } from './command-receipts.ts';
 import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
 import { initializeTasks, resolveWatchdogTaskConfig, WatchdogTaskStore, type WatchdogTaskConfig } from './watchdog-tasks.ts';
@@ -25,7 +26,7 @@ import {
   parseEnterpriseBackup, parseEnterpriseSnapshot, enterpriseOrderTotal, parseEnterpriseQuery,
 } from './enterprise-schema.ts';
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 const APPLICATION_ID = 0x434d454e;
 const integer = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const sqliteRow = z.record(z.string(), z.unknown());
@@ -71,6 +72,41 @@ export interface EnterprisePreparation {
 // All SQL identifiers and JSON keys are deployment-independent literals.
 const jsonFields = (columns: readonly string[]): string => columns.map(column => `'${column}', r.${column}`).join(', ');
 const orderLinesJson = `(SELECT json_group_array(json(line)) FROM (SELECT json_object('itemId', itemId, 'quantity', quantity, 'unitPriceMinorUnits', unitPriceMinorUnits) AS line FROM order_lines WHERE orderId = r.id ORDER BY position))`;
+const searchIndexes = {
+  contacts: { table: 'contacts', columns: ['id', 'name', 'company', 'stage', 'nextAction', 'nextActionDate', 'updatedAt'] },
+  inventory: { table: 'inventory', columns: ['id', 'sku', 'name', 'supplier', 'updatedAt'] },
+  orders: { table: 'orders', columns: ['id', 'kind', 'counterparty', 'orderDate', 'currency', 'note', 'status', 'updatedAt', 'submittedAt'] },
+  audit: { table: 'enterprise_audit', columns: ['commandId', 'entityId', 'at', 'type', 'beforeJson', 'afterJson'] },
+  orderLines: { table: 'order_lines', columns: ['itemId'] },
+} as const;
+
+function initializeSearchIndexes(db: DatabaseSync): void {
+  for (const [name, index] of Object.entries(searchIndexes)) {
+    const columns = index.columns.join(', ');
+    const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(`${name}_search`) !== undefined;
+    db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS ${name}_search USING fts5(${columns}, content='${index.table}', content_rowid='rowid', tokenize='trigram');
+      CREATE TRIGGER IF NOT EXISTS ${name}_search_insert AFTER INSERT ON ${index.table} BEGIN
+        INSERT INTO ${name}_search(rowid, ${columns}) VALUES (new.rowid, ${index.columns.map(column => `new.${column}`).join(', ')});
+      END;
+      CREATE TRIGGER IF NOT EXISTS ${name}_search_delete AFTER DELETE ON ${index.table} BEGIN
+        INSERT INTO ${name}_search(${name}_search, rowid, ${columns}) VALUES ('delete', old.rowid, ${index.columns.map(column => `old.${column}`).join(', ')});
+      END;
+      CREATE TRIGGER IF NOT EXISTS ${name}_search_update AFTER UPDATE ON ${index.table} BEGIN
+        INSERT INTO ${name}_search(${name}_search, rowid, ${columns}) VALUES ('delete', old.rowid, ${index.columns.map(column => `old.${column}`).join(', ')});
+        INSERT INTO ${name}_search(rowid, ${columns}) VALUES (new.rowid, ${index.columns.map(column => `new.${column}`).join(', ')});
+      END;`);
+    if (!exists) db.exec(`INSERT INTO ${name}_search(${name}_search) VALUES ('rebuild');`);
+  }
+}
+
+function searchPhrase(search: string): string | undefined {
+  // SQLite's trigram tokenizer folds ASCII, while JavaScript's exact matcher
+  // uses Unicode lowercasing. Keep non-ASCII queries on the exact scan path.
+  if (Array.from(search).length < 3 || !/^[\x20-\x7e]+$/.test(search)
+    || search.includes('\0') || Buffer.from(search, 'utf8').toString('utf8') !== search) return undefined;
+  return `"${search.replaceAll('"', '""')}"`;
+}
+
 export const enterpriseCollections = {
   contacts: { table: 'contacts', order: 'r.name, r.id', schema: contactSchema,
     search: ['id', 'name', 'company', 'stage', 'nextAction', 'nextActionDate', 'updatedAt'],
@@ -140,6 +176,61 @@ export class EnterpriseStore {
   responsibility(value: unknown = {}, transport: 'http' | 'tool' = 'http') {
     this.assertOpen();
     return queryResponsibility(this.db, value, { maxRows: this.readLimits.maxResponsibilityRows, maxBytes: this.readLimits.maxResponsibilityBytes }, transport);
+  }
+
+  /** Persist one observed result for a Session submission already bound to a task start revision. */
+  recordTaskExecutionOutcome(identity: ExecutionIdentity, value: TaskExecutionOutcomeReport): ResponsibilityRecord {
+    this.assertOpen();
+    return appendTaskExecutionOutcome(this.db, identity, value, () => this.resolveTaskExecutionBinding(identity, value));
+  }
+
+  /** Record a terminal result after the Host observes the correlated Session turn boundary. */
+  recordObservedTaskExecutionOutcome(value: ObservedTaskExecutionOutcome): ResponsibilityRecord | undefined {
+    this.assertOpen();
+    return appendObservedTaskExecutionOutcome(this.db, value,
+      (identity, taskId) => this.resolveTaskExecutionBinding(identity, { ...value, taskId }, true));
+  }
+
+  /** Return task dispatches whose last durable outcome is still uncertain. */
+  pendingTaskExecutionOutcomes(): PendingTaskExecutionOutcome[] {
+    this.assertOpen();
+    return listPendingTaskExecutionOutcomes(this.db);
+  }
+
+  private resolveTaskExecutionBinding(identity: ExecutionIdentity, value: TaskExecutionOutcomeReport,
+    allowHistorical = false): { taskRevision: number; commandId: string } {
+    const taskRow = this.db.prepare('SELECT body FROM watchdog_tasks WHERE organizationId=? AND id=?').get(identity.organizationId, value.taskId);
+    if (!taskRow) throw new EnterpriseError('command_conflict', 'Task execution is no longer bound to a persisted task.');
+    const task = z.object({ revision: integer.min(1), execution: z.object({ requestId: z.string(), sessionId: z.string(),
+      locale: z.enum(['zh-CN', 'en-US']).optional(), commandId: z.string().optional() }).strict().nullable() })
+      .passthrough().parse(JSON.parse(String(sqliteRow.parse(taskRow).body)));
+    if (!allowHistorical && (!task.execution || task.execution.requestId !== value.requestId || task.execution.sessionId !== value.sessionId)) {
+      throw new EnterpriseError('command_conflict', 'Task execution request is no longer current.');
+    }
+    const rawReceipt = this.db.prepare(`SELECT revision,commandId,requestJson,body FROM watchdog_task_history
+      WHERE organizationId=? AND taskId=? AND json_extract(requestJson,'$.command.type')='start'
+        AND json_extract(requestJson,'$.command.requestId')=? ORDER BY revision DESC LIMIT 1`)
+      .get(identity.organizationId, value.taskId, value.requestId);
+    if (!rawReceipt) throw new EnterpriseError('command_conflict', 'Task start command receipt was not found.');
+    const stored = sqliteRow.parse(rawReceipt);
+    const revision = integer.parse(stored.revision);
+    const commandId = z.string().min(1).parse(stored.commandId);
+    const receipt = z.object({ id: z.string(), revision: integer, commandId: z.string(),
+      command: z.object({ type: z.literal('start'), sessionId: z.string(), requestId: z.string(),
+        locale: z.enum(['zh-CN', 'en-US']).optional() }).strict() }).passthrough()
+      .parse(JSON.parse(String(stored.requestJson)));
+    const startState = z.object({ revision: integer, execution: z.object({ requestId: z.string(), sessionId: z.string(),
+      locale: z.enum(['zh-CN', 'en-US']).optional(), commandId: z.string().optional() }).strict().nullable() })
+      .passthrough().parse(JSON.parse(String(stored.body)));
+    if (receipt.id !== value.taskId || receipt.revision + 1 !== revision || receipt.commandId !== commandId
+      || startState.revision !== revision || startState.execution?.requestId !== value.requestId
+      || startState.execution.sessionId !== value.sessionId
+      || (startState.execution.commandId !== undefined && startState.execution.commandId !== commandId)
+      || (!allowHistorical && task.execution?.commandId !== undefined && task.execution.commandId !== commandId)
+      || revision > task.revision || receipt.command.sessionId !== value.sessionId || receipt.command.requestId !== value.requestId) {
+      throw new EnterpriseError('command_conflict', 'Task execution request differs from its start command receipt.');
+    }
+    return { taskRevision: revision, commandId };
   }
 
   /** Recognize a committed restore before asking for another one-shot approval. */
@@ -344,13 +435,27 @@ export class EnterpriseStore {
       if (query.collection === 'audit') parameters.push(query.id);
     }
     if (query.search) {
-      const fields: string[] = source.search.map(column => `clawmaster_contains(COALESCE(r.${column}, ''), ?) = 1`);
-      parameters.push(...source.search.map(() => query.search!.toLowerCase()));
-      if (query.collection === 'orders') {
-        fields.push('EXISTS (SELECT 1 FROM order_lines l WHERE l.orderId = r.id AND clawmaster_contains(l.itemId, ?) = 1)');
-        parameters.push(query.search.toLowerCase());
+      const lowered = query.search.toLowerCase();
+      const phrase = searchPhrase(query.search);
+      const candidates: string[] = [];
+      if (phrase) {
+        const index = query.collection === 'audit' ? 'audit_search' : `${query.collection}_search`;
+        candidates.push(`r.rowid IN (SELECT rowid FROM ${index} WHERE ${index} MATCH ?)`);
+        parameters.push(phrase);
+        if (query.collection === 'orders') {
+          candidates.push(`EXISTS (SELECT 1 FROM order_lines l WHERE l.orderId = r.id AND l.rowid IN
+            (SELECT rowid FROM orderLines_search WHERE orderLines_search MATCH ?))`);
+          parameters.push(phrase);
+        }
       }
-      conditions.push(`(${fields.join(' OR ')})`);
+      const exactFields = source.search.map(column => `clawmaster_contains(COALESCE(r.${column}, ''), ?) = 1`);
+      parameters.push(...source.search.map(() => lowered));
+      if (query.collection === 'orders') {
+        exactFields.push('EXISTS (SELECT 1 FROM order_lines l WHERE l.orderId = r.id AND clawmaster_contains(l.itemId, ?) = 1)');
+        parameters.push(lowered);
+      }
+      const exact = `(${exactFields.join(' OR ')})`;
+      conditions.push(phrase ? `((${candidates.join(' OR ')}) AND ${exact})` : exact);
     }
     if (query.stage !== undefined) { conditions.push('r.stage = ?'); parameters.push(query.stage); }
     if (query.dueBefore !== undefined) { conditions.push("r.nextActionDate <= ? AND r.stage NOT IN ('won', 'lost')"); parameters.push(query.dueBefore); }
@@ -730,10 +835,10 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
   try {
     db.exec(`PRAGMA busy_timeout = ${busyTimeoutMs}; PRAGMA foreign_keys = ON;`);
     const app = sqliteRow.parse(db.prepare('PRAGMA application_id').get()).application_id;
-    const version = sqliteRow.parse(db.prepare('PRAGMA user_version').get()).user_version;
+    const version = integer.parse(sqliteRow.parse(db.prepare('PRAGMA user_version').get()).user_version);
     const empty = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().length === 0;
     const fresh = app === 0 && version === 0 && empty;
-    if (!(app === APPLICATION_ID && (version === 1 || version === 2 || version === 3 || version === 4 || version === SCHEMA_VERSION)) && !fresh) {
+    if (!(app === APPLICATION_ID && (version === 1 || version === 2 || version === 3 || version === 4 || version === 5 || version === SCHEMA_VERSION)) && !fresh) {
       throw new EnterpriseError('storage_invalid', 'Enterprise database version or ownership is unsupported.');
     }
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;');
@@ -775,6 +880,7 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
         CREATE INDEX IF NOT EXISTS orders_updated_id ON orders(updatedAt DESC, id);
         CREATE INDEX IF NOT EXISTS order_lines_item ON order_lines(itemId);
         CREATE INDEX IF NOT EXISTS enterprise_audit_entity ON enterprise_audit(entityId, revision DESC);`);
+      if (fresh || version < SCHEMA_VERSION) initializeSearchIndexes(db);
       db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`);
     } catch (error) { db.exec('ROLLBACK'); throw error; }
     return new EnterpriseStore(db, taskLimits, readLimits);

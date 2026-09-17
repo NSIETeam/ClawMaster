@@ -116,13 +116,20 @@ export async function mountEnterpriseBackupRoutes(ctx: EnterpriseHostContext, st
     const fileHandle = await open(file, 'wx', 0o600);
     const reader = request.body.getReader();
     let count = 0;
-    // The HTTP carrier owns the incoming stream; cancellation must not destroy its socket before the error response.
-    const cancel = () => { reader.releaseLock(); };
+    let activeRead: Promise<ReadableStreamReadResult<Uint8Array>> | undefined;
+    let rejectAbort!: (reason: unknown) => void;
+    const aborted = new Promise<never>((_resolve, reject) => { rejectAbort = reject; });
+    // Keep the incoming HTTP stream alive until the carrier has sent its refusal.
+    const cancel = () => { rejectAbort(signal.reason); };
     signal.addEventListener('abort', cancel, { once: true });
+    if (signal.aborted) cancel();
+    void aborted.catch(() => {});
     try {
       for (;;) {
         signal.throwIfAborted();
-        const { value, done } = await reader.read().catch(error => { signal.throwIfAborted(); throw error; });
+        activeRead = reader.read();
+        const { value, done } = await Promise.race([activeRead, aborted]);
+        activeRead = undefined;
         signal.throwIfAborted();
         if (done) break;
         count += value.byteLength;
@@ -132,7 +139,8 @@ export async function mountEnterpriseBackupRoutes(ctx: EnterpriseHostContext, st
       if (length !== null && count !== Number(length)) throw new EnterpriseError('invalid_request', 'Backup body length differs from its header.');
     } finally {
       signal.removeEventListener('abort', cancel);
-      reader.releaseLock();
+      if (activeRead) void activeRead.then(() => reader.releaseLock(), () => reader.releaseLock());
+      else reader.releaseLock();
       await fileHandle.close();
     }
   }

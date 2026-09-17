@@ -1,5 +1,4 @@
 /** Authenticated schedule management and one-shot occurrence grants. */
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { GovernanceCommandInput, CommandInputError } from './command-input.ts';
 import { parameterSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools';
@@ -126,7 +125,7 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
           if (replay) return bounded(replay, store.config.maxQueryBytes, 'tool');
           const outcome = await ctx.approval.request({ agent: exec.agent, callId: exec.callId, toolName: exec.name, reason: `Approve only this schedule command: ${JSON.stringify(input)}`, signal });
           if (outcome !== 'allowed-once') throw new GovernanceDenied('Schedule command was not approved.');
-          if (access.mode === 'local') caller.identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: 0, revision: 0 };
+          if (access.mode === 'local') caller.identity.approval = { kind: 'dsh-one-shot' };
           return command(caller, input, signal, 'tool');
         }, signal);
       })),

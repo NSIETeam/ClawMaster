@@ -7,7 +7,10 @@ import { join } from 'node:path';
 import { GovernanceAccess } from '../src/governance-access.ts';
 import { mountEnterpriseRoutes, openEnterpriseStore } from '../src/enterprise-host.ts';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
-import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
+import { mountWatchdogTasks as mountWatchdogTasksImpl } from '../src/watchdog-task-host.ts';
+import { watchdogTaskTestContext } from './watchdog-task-test-context.mjs';
+
+const mountWatchdogTasks = (context, ...args) => mountWatchdogTasksImpl(watchdogTaskTestContext(context), ...args);
 import { applyManagedWorkspaces } from '../src/workspace-host.ts';
 
 function authorityFixture() {
@@ -103,6 +106,7 @@ test('approval is object/revision/digest bound, single use and separated from th
   h.grants.set(JSON.stringify(request), { id: 'valid-grant', approverId: 'bob' });
   await assert.rejects(alice.approve('records.write', 'customer', 'write-1', 1, 5, 'digest'), { code: 'permission_denied' });
   const approved = await alice.approve('records.write', 'customer', 'write-1', 0, 5, 'digest');
+  assert.equal(approved.approval.kind, 'authority');
   assert.equal(approved.approval.approverId, 'bob');
   await assert.rejects(alice.approve('records.write', 'customer', 'write-1', 0, 5, 'digest'), { code: 'permission_denied' });
 });
@@ -129,6 +133,7 @@ test('HTTP read/export/write paths refuse cross-organization and missing identit
   assert.equal(denied[0].outcome, 'denied');
   assert.equal(denied[0].operation, 'contact.upsert');
   assert.equal(denied[0].reasonCode, 'approval_missing');
+  assert.equal(denied[0].identity.policyVersion, 1);
   assert.ok(!JSON.stringify(denied).includes('Reviewed'));
   h.grants.set(JSON.stringify({ organizationId: 'one', executorId: 'alice', action: 'records.write', resource: 'customer', commandId: 'write', generation: 0, revision: 0,
     commandDigest: createHash('sha256').update(JSON.stringify(command)).digest('hex') }), { id: 'approved-write', approverId: 'bob' });

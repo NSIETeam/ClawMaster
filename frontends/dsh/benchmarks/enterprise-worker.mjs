@@ -38,6 +38,7 @@ try {
     assert.equal(mode, 'sample');
     const samples = {};
     const measure = async (name, operation, serialize = true) => {
+      process.stderr.write(`measuring ${name}\n`);
       globalThis.gc?.();
       const before = process.memoryUsage();
       const started = performance.now();

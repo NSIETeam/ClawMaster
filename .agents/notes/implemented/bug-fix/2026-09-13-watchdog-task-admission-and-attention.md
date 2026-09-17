@@ -26,6 +26,6 @@ The [shell decision](../feature/2026-09-12-clawmaster-shell-over-dsh.md) retains
 
 ## Consequences
 
-Draft retention covers panel navigation, not page reload or application exit. The frontend adds no durable draft store or business completion authority. Starting work remains explicit; rendering, filtering and navigation send no model request. Cadence instructions use the existing Schedule behavior and do not create an operating-system scheduler.
+Draft retention covers panel navigation, not page reload or application exit. The frontend adds no durable draft store or business completion authority. Starting work remains explicit; rendering, filtering and navigation send no model request. Business-task starts submit the saved task brief through the selected Session with a durable request identity. Cadence instructions use the existing Schedule behavior and do not create an operating-system scheduler.
 
 [Navigation tests](../../../../frontends/dsh/tests/navigation.test.mjs) cover retained drafts, editable failures before submission, locked uncertain inputs, unchanged retry identity across locale changes and cancellation. [Compiled component tests](../../../../frontends/dsh/tests/components-native.client.spec.mjs) exercise the registered WatchDog entry with pending interactions and record both languages. These are synthetic source and compiled-client checks; the desktop task owns final native interaction and real provider acceptance.

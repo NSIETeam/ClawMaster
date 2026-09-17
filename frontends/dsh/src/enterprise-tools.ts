@@ -1,7 +1,7 @@
 /** CRM/ERP queries and approval-gated mutations over the shared SQLite owner. */
 import { z } from 'zod';
 import { GovernanceCommandInput } from './command-input.ts';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import type { ExecutionIdentity } from './governance-audit.ts';
 import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
 import { parseEnterpriseRequest, enterpriseQuerySchema } from './enterprise-schema.ts';
@@ -147,7 +147,7 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
             createHash('sha256').update(JSON.stringify(command)).digest('hex'));
         } else {
           identity = await caller.check('records.write', resource);
-          identity.approval = { id: randomUUID(), approverId: 'local-operator', generation: request.generation, revision: request.revision };
+          identity.approval = { kind: 'dsh-one-shot' };
         }
         signal.throwIfAborted();
         return { identity, prepared };

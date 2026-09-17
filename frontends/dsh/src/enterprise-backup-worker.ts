@@ -22,7 +22,10 @@ const data = messageSchema.parse(await next());
 const identitySchema = z.object({ actor: z.object({ kind: z.enum(['local-human', 'member', 'agent', 'unknown']), id: z.string() }).strict(),
   organizationId: z.string(), source: z.enum(['http', 'tool', 'scheduler', 'plugin', 'migration']), policyVersion: z.number().int().nonnegative(),
   principalId: z.string().optional(), sessionId: z.string().optional(), callId: z.string().optional(),
-  approval: z.object({ id: z.string(), approverId: z.string(), generation: z.number().int().nonnegative(), revision: z.number().int().nonnegative() }).strict().optional(),
+  approval: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('authority'), id: z.string(), approverId: z.string(), generation: z.number().int().nonnegative(), revision: z.number().int().nonnegative() }).strict(),
+    z.object({ kind: z.literal('dsh-one-shot') }).strict(),
+  ]).optional(),
 }).strict();
 const rowSchema = z.record(z.string(), z.unknown());
 

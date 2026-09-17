@@ -25,7 +25,10 @@ import { applyDataTools } from '../src/data-tools.ts';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { applyRuntimeGovernance } from '../src/runtime-governance.ts';
-import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
+import { mountWatchdogTasks as mountWatchdogTasksImpl } from '../src/watchdog-task-host.ts';
+import { watchdogTaskTestContext } from './watchdog-task-test-context.mjs';
+
+const mountWatchdogTasks = (context, ...args) => mountWatchdogTasksImpl(watchdogTaskTestContext(context), ...args);
 import { GovernanceCommandInput } from '../src/command-input.ts';
 import { GovernanceAccess } from '../src/governance-access.ts';
 import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';

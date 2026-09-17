@@ -209,10 +209,10 @@ describe('load', () => {
 
   it('loads the function form, which declares no services', async () => {
     const bench = await boot()
-    await expect(bench.runner.load(half({ code: 'return (ctx) => { globalThis.__dynFnForm = true }' })))
+    await expect(bench.runner.load(half({ code: 'return (ctx) => { document.__dynFnForm = true }' })))
       .resolves.toEqual({ ok: true, pluginRunId: RUN })
-    expect((globalThis as { __dynFnForm?: boolean }).__dynFnForm).toBe(true)
-    delete (globalThis as { __dynFnForm?: boolean }).__dynFnForm
+    expect((document as unknown as { __dynFnForm?: boolean }).__dynFnForm).toBe(true)
+    delete (document as unknown as { __dynFnForm?: boolean }).__dynFnForm
   })
 
   it('serializes operations of one package id', async () => {
@@ -258,7 +258,7 @@ describe('failure stages', () => {
         cause: 'activate',
         message: 'apply exploded',
         stack: expect.any(String),
-        error: expect.any(Error),
+        error: expect.objectContaining({ name: 'Error', message: 'apply exploded' }),
       })
     expect(bench.removed).toEqual(['entry-1'])
     expect(bench.runner.isLoaded(PLUGIN)).toBe(false)

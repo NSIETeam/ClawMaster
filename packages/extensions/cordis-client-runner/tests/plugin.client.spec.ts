@@ -223,12 +223,12 @@ describe('browser half', () => {
   it('routes host.call through the namespace and unwraps the result', async () => {
     const bench = await boot()
     bench.source.current = { ...bench.source.current,
-      code: 'return { apply: () => { globalThis.__dynCall = host.call("ping", { a: 1 })'
+      code: 'return { apply: () => { document.__dynCall = host.call("ping", { a: 1 })'
         + '.then((value) => value, (error) => error.message) } }',
     }
     await bench.ctx.dynamicCordisRunner.startUserRun(USER_RUN)
-    const call = (globalThis as { __dynCall?: Promise<unknown> }).__dynCall
-    delete (globalThis as { __dynCall?: Promise<unknown> }).__dynCall
+    const call = (document as unknown as { __dynCall?: Promise<unknown> }).__dynCall
+    delete (document as unknown as { __dynCall?: Promise<unknown> }).__dynCall
     await expect(call).resolves.toBe('pong')
     expect(bench.invoked).toEqual([{
       pluginId: PLUGIN, pluginRunId: RUN, method: 'ping', args: { a: 1 },
@@ -238,11 +238,11 @@ describe('browser half', () => {
   it('carries an omitted host.call argument to the namespace as null', async () => {
     const bench = await boot()
     bench.source.current = { ...bench.source.current,
-      code: 'return { apply: () => { globalThis.__dynCall = host.call("listServices") } }',
+      code: 'return { apply: () => { document.__dynCall = host.call("listServices") } }',
     }
     await bench.ctx.dynamicCordisRunner.startUserRun(USER_RUN)
-    const call = (globalThis as { __dynCall?: Promise<unknown> }).__dynCall
-    delete (globalThis as { __dynCall?: Promise<unknown> }).__dynCall
+    const call = (document as unknown as { __dynCall?: Promise<unknown> }).__dynCall
+    delete (document as unknown as { __dynCall?: Promise<unknown> }).__dynCall
     await call
     // `undefined` is not JSON, so the wire would refuse the call the model wrote
     // most naturally; the omission travels as null instead.
@@ -257,12 +257,12 @@ describe('browser half', () => {
     // name, with no idea which call it belonged to or what to write instead.
     bench.invokeThrow.current = new Error('client api: dynamicCordisRunner/invoke rejected "args"')
     bench.source.current = { ...bench.source.current,
-      code: 'return { apply: () => { globalThis.__dynCall = host.call("ping", 1)'
+      code: 'return { apply: () => { document.__dynCall = host.call("ping", 1)'
         + '.then(() => "resolved", (error) => error.message) } }',
     }
     await bench.ctx.dynamicCordisRunner.startUserRun(USER_RUN)
-    const call = (globalThis as { __dynCall?: Promise<string> }).__dynCall
-    delete (globalThis as { __dynCall?: Promise<string> }).__dynCall
+    const call = (document as unknown as { __dynCall?: Promise<string> }).__dynCall
+    delete (document as unknown as { __dynCall?: Promise<string> }).__dynCall
     await expect(call).resolves.toMatch(/host\.call\("ping"\) on dyn-1 did not complete: client api: .*rejected "args"/)
     await expect(call).resolves.toMatch(/omit it, and the handler receives null/)
     await expect(call).resolves.toMatch(/`return null` when there is nothing to report/)
@@ -272,12 +272,12 @@ describe('browser half', () => {
     const bench = await boot()
     bench.invokeThrow.current = 'stream gone'
     bench.source.current = { ...bench.source.current,
-      code: 'return { apply: () => { globalThis.__dynCall = host.call("ping")'
+      code: 'return { apply: () => { document.__dynCall = host.call("ping")'
         + '.then(() => "resolved", (error) => error.message) } }',
     }
     await bench.ctx.dynamicCordisRunner.startUserRun(USER_RUN)
-    const call = (globalThis as { __dynCall?: Promise<string> }).__dynCall
-    delete (globalThis as { __dynCall?: Promise<string> }).__dynCall
+    const call = (document as unknown as { __dynCall?: Promise<string> }).__dynCall
+    delete (document as unknown as { __dynCall?: Promise<string> }).__dynCall
     await expect(call).resolves.toMatch(/did not complete: stream gone/)
   })
 
@@ -328,12 +328,12 @@ describe('browser half', () => {
       const bench = await boot()
       bench.invokeResult.current = { ok: false, code, message: 'boom' }
       bench.source.current = { ...bench.source.current,
-        code: 'return { apply: () => { globalThis.__dynCall = host.call("ping", 1)'
+        code: 'return { apply: () => { document.__dynCall = host.call("ping", 1)'
           + '.then(() => "resolved", (error) => error.message) } }',
       }
       await bench.ctx.dynamicCordisRunner.startUserRun(USER_RUN)
-      const call = (globalThis as { __dynCall?: Promise<string> }).__dynCall
-      delete (globalThis as { __dynCall?: Promise<string> }).__dynCall
+      const call = (document as unknown as { __dynCall?: Promise<string> }).__dynCall
+      delete (document as unknown as { __dynCall?: Promise<string> }).__dynCall
       await expect(call).resolves.toMatch(expected)
     }
   })

@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-13-watchdog-task-admission-and-attention.md
-2026-09-13-watchdog-task-admission-and-attention.md: 9b69b73b4e731918f8ccda3300066fc1a2ce4218
-2026-09-13-watchdog-task-admission-and-attention.zh.md: 0851cb092ce885f93784ac90423c915c6f686b4d
+2026-09-13-watchdog-task-admission-and-attention.md: 1859b2d2f7673642433405c88bea67f947d9fe3f
+2026-09-13-watchdog-task-admission-and-attention.zh.md: 86985b0c891007a54913dadb53eb99195d8b6a7f

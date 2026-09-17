@@ -11,7 +11,10 @@ import { GovernanceAccess } from '../src/governance-access.ts';
 import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
 import { openEnterpriseStore, mountEnterpriseRoutes } from '../src/enterprise-host.ts';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
-import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
+import { mountWatchdogTasks as mountWatchdogTasksImpl } from '../src/watchdog-task-host.ts';
+import { watchdogTaskTestContext } from './watchdog-task-test-context.mjs';
+
+const mountWatchdogTasks = (context, ...args) => mountWatchdogTasksImpl(watchdogTaskTestContext(context), ...args);
 import { mountWatchdogSchedules } from '../src/watchdog-schedule-host.ts';
 import { openWatchdogScheduleStore } from '../src/watchdog-schedule-store.ts';
 const names = ['enterprise', 'tasks', 'schedules'];
