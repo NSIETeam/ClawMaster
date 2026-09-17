@@ -10,15 +10,15 @@ Status: implemented
 
 ## Decision
 
-[Capability](../../../../apps/desktop-tauri/src-tauri/capabilities/default.json) 仅匹配包内 `main` 与 `splash` WebView。应用构建 manifest 注册三个外壳命令，由 Tauri ACL 强制执行。Host 内容及预览 frame 不获得原生权限。[导航校验器](../../../../apps/desktop-tauri/src-tauri/src/webview_security.rs)要求带明确端口的数字回环 HTTP 地址，并将主 Host 视图限制在同一精确来源。要求新浏览上下文且不含内嵌凭据的 HTTP(S) 引用通过默认浏览器打开；回环监听器与可执行协议被拒绝。只有不带查询参数的同源 Office 许可说明精确路径可创建独立的已认证文档视图。其标签不匹配任何原生 capability，导航仍限于许可说明路径。
+[Capability](../../../../apps/desktop-tauri/src-tauri/capabilities/default.json) 仅匹配包内 `main` WebView，授予窗口拖动权限，以及由应用构建 manifest 注册并交给 Tauri ACL 强制执行的三个外壳命令。`splash` WebView、Host 内容及预览 frame 不获得原生权限。[导航校验器](../../../../apps/desktop-tauri/src-tauri/src/webview_security.rs)要求带明确端口的数字回环 HTTP 地址，并将主 Host 视图限制在同一精确来源。要求新浏览上下文且不含内嵌凭据的 HTTP(S) 引用通过默认浏览器打开；回环监听器与可执行协议被拒绝。只有不带查询参数的同源 Office 许可说明精确路径可创建独立的已认证文档视图。其标签不匹配任何原生 capability，导航仍限于许可说明路径。
 
-包内外壳默认拒绝的 CSP 允许本地脚本与图片、Tauri IPC，以及进度更新所需的内联样式。Tauri 为包内内联脚本生成哈希；不授权任意内联 JavaScript 或 `eval`。该策略不能替代独立 Host 的网页资源策略或 DSH 工具权限。[运行治理决策](2026-09-13-clawmaster-runtime-governance.zh.md)继续负责执行策略；插件仍是具有 Host 进程权限的可信代码。
+[包内页面 CSP](../../../../apps/desktop-tauri/src-tauri/tauri.conf.json) 默认拒绝资源，仅允许同源脚本、样式与图片，连接限于 Tauri IPC。外壳和启动页加载本地脚本及样式表文件；策略不授予 `unsafe-inline` 或 `unsafe-eval`。frame、对象嵌入、表单提交与基础 URL 覆盖均被拒绝。该策略不能替代独立 Host 的网页资源策略或 DSH 工具权限。[运行治理决策](2026-09-13-clawmaster-runtime-governance.zh.md)继续负责执行策略；插件仍是具有 Host 进程权限的可信代码。
 
 ## Alternatives considered
 
 **授权给父窗口或 localhost 通配符。** 这些规则会授权子视图或无关监听器。[原生窗口决策](../feature/2026-09-13-clawmaster-native-window-titlebar.zh.md)已经将拖动与窗口控件交给原生装饰。
 
-**同时禁止内联样式与脚本。** 现有进度渲染会更新样式属性。这一有限样式例外既不授权脚本执行，也不授权远程资源访问。
+**为进度更新允许内联资源。** 本地脚本和样式表文件提供包内页面的行为与外观；进度更新由本地脚本设置样式属性，无需授予通用的内联资源例外。
 
 ## Consequences
 
