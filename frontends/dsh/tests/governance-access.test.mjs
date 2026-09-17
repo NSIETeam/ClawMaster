@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GovernanceAccess } from '../src/governance-access.ts';
 import { mountEnterpriseRoutes, openEnterpriseStore } from '../src/enterprise-host.ts';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
 import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
+import { applyManagedWorkspaces } from '../src/workspace-host.ts';
 
 function authorityFixture() {
   const members = new Map([
@@ -138,6 +139,69 @@ test('HTTP read/export/write paths refuse cross-organization and missing identit
   h.authority.http = async () => { throw new Error('Authority unavailable'); };
   assert.equal((await send('alice')).status, 503);
   assert.equal(store.snapshot().revision, 1);
+});
+
+test('workspace allocation checks live organization identity and the requested resource before creating a directory', async t => {
+  const h = authorityFixture();
+  h.members.set('alice', { active: true, roles: ['executor'], resources: ['task'], policyVersion: 2 });
+  const root = await mkdtemp(join(tmpdir(), 'workspace-governance-'));
+  const managedRoot = join(root, 'workspaces');
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const routes = new Map();
+  const created = [];
+  const dispose = applyManagedWorkspaces({
+    workspaceRegistry: { async create(path) { created.push(path); return { id: 'workspace', path }; } },
+    connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return async () => routes.delete(route.path); } } },
+  }, managedRoot, h.access);
+  t.after(dispose);
+  const send = (identity, kind) => routes.get('/api/clawmaster/workspace')(new Request('http://fixture/api/clawmaster/workspace', {
+    method: 'POST', headers: identity === undefined ? {} : { authorization: identity }, body: JSON.stringify({ kind }),
+  }));
+
+  assert.equal((await send('other', 'task')).status, 403);
+  assert.equal((await send(undefined, 'task')).status, 403);
+  assert.equal((await send('alice', 'tools')).status, 403, 'a task-only grant cannot allocate the tools workspace');
+  assert.deepEqual(created, []);
+  await assert.rejects(stat(managedRoot), { code: 'ENOENT' });
+
+  assert.equal((await send('alice', 'task')).status, 200);
+  assert.equal(created.length, 1);
+  h.authority.http = async () => { throw new Error('Authority unavailable'); };
+  assert.equal((await send('alice', 'task')).status, 503, 'authority outage does not fall back to local access');
+  assert.equal(created.length, 1);
+});
+
+test('workspace consumer unload cancels an unresolved identity without waiting or allocating later', async t => {
+  const h = authorityFixture();
+  const root = await mkdtemp(join(tmpdir(), 'workspace-unload-'));
+  const managedRoot = join(root, 'workspaces');
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const arrived = Promise.withResolvers(); const release = Promise.withResolvers();
+  let authoritySignal;
+  h.authority.http = async (_request, signal) => {
+    authoritySignal = signal;
+    arrived.resolve();
+    await release.promise;
+    return h.principals.get('alice');
+  };
+  const routes = new Map(); const created = [];
+  const dispose = applyManagedWorkspaces({
+    workspaceRegistry: { async create(path) { created.push(path); return { id: 'workspace', path }; } },
+    connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return () => routes.delete(route.path); } } },
+  }, managedRoot, h.access);
+  t.after(async () => { release.resolve(); await dispose(); });
+  const pending = routes.get('/api/clawmaster/workspace')(new Request('http://fixture/api/clawmaster/workspace', {
+    method: 'POST', headers: { authorization: 'alice' }, body: JSON.stringify({ kind: 'task' }),
+  }));
+  await arrived.promise;
+
+  await dispose();
+  assert.equal(authoritySignal.aborted, true);
+  assert.equal((await pending).status, 503);
+  release.resolve();
+  await new Promise(setImmediate);
+  assert.deepEqual(created, []);
+  await assert.rejects(stat(managedRoot), { code: 'ENOENT' });
 });
 
 test('revocation while a tool awaits DSH approval prevents the queued write', async t => {

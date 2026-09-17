@@ -1,6 +1,0 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
-#   pnpm run verify-translation-pairing --write .agents/notes/implemented/security/2026-09-16-clawmaster-shell-csp-capability.md
-2026-09-16-clawmaster-shell-csp-capability.md: 0cc66cd3e8b732bf18faf9b135c6c3331f1494e0
-2026-09-16-clawmaster-shell-csp-capability.zh.md: a45c9bedd64c4a1436793a801e21069a2b09459b

@@ -13,6 +13,7 @@
  */
 
 import type { ServerResponse } from 'node:http'
+import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
@@ -58,6 +59,43 @@ const STATIC_MISS_CODES: ReadonlySet<string | undefined> = new Set([
   'ENOTDIR',
 ])
 
+/** Restrict executable page resources to local assets and exact inline blocks. */
+function pageContentSecurityPolicy(html: string): string {
+  const hashes = (tag: 'script' | 'style'): string[] => {
+    const expression = tag === 'script'
+      ? /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/giu
+      : /<style\b([^>]*)>([\s\S]*?)<\/style\s*>/giu
+    const values = new Set<string>()
+    for (const match of html.matchAll(expression)) {
+      const attributes = match[1] ?? ''
+      const content = match[2] ?? ''
+      if (tag === 'script' && /(?:^|\s)src\s*=/iu.test(attributes)) continue
+      const digest = createHash('sha256').update(content.replace(/\r\n?/gu, '\n')).digest('base64')
+      values.add(`'sha256-${digest}'`)
+    }
+    return [...values]
+  }
+  const scriptHashes = hashes('script')
+  const styleHashes = hashes('style')
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'wasm-unsafe-eval' ${scriptHashes.join(' ')}`.trim(),
+    'script-src-attr \'none\'',
+    `style-src 'self' ${styleHashes.join(' ')}`.trim(),
+    "style-src-attr 'unsafe-inline'",
+    "connect-src 'self'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "media-src 'self' data: blob:",
+    "worker-src 'self' blob:",
+    "frame-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join('; ')
+}
+
 /**
  * Serve one GET/HEAD static request from the dist root.
  * @param pathname - decoded URL pathname of the request.
@@ -84,11 +122,13 @@ export async function serveStatic(
   }
   let body: string | Buffer
   let type: string
+  let contentSecurityPolicy: string | undefined
   try {
     if (target === distRoot || target === distIndex) {
       if (!authorizeIndex()) return
       body = await renderIndex()
       type = HTML_MIME
+      contentSecurityPolicy = pageContentSecurityPolicy(body)
     } else {
       body = await readFile(target)
       type = MIME[extname(target)] ?? 'application/octet-stream'
@@ -101,7 +141,10 @@ export async function serveStatic(
     res.end()
     return
   }
-  res.writeHead(200, { 'content-type': type })
+  res.writeHead(200, {
+    'content-type': type,
+    ...(contentSecurityPolicy === undefined ? {} : { 'content-security-policy': contentSecurityPolicy }),
+  })
   res.end(body)
 }
 

@@ -4,7 +4,7 @@ import { LOCAL_HTTP_IDENTITY } from './governance-audit.ts';
 import { z } from 'zod';
 
 export type GovernanceAction = 'records.read' | 'records.write' | 'backup.export' | 'backup.restore'
-  | 'audit.read' | 'task.read' | 'task.write' | 'task.review' | 'attachments.read';
+  | 'audit.read' | 'task.read' | 'task.write' | 'task.review' | 'attachments.read' | 'workspace.create';
 export type GovernanceRole = 'administrator' | 'executor' | 'approver' | 'auditor';
 
 /** A principal is resolved from authenticated transport state, never caller JSON or a desktop token. */
@@ -86,8 +86,8 @@ export class GovernanceDenied extends Error {
 }
 
 const roleActions: Record<GovernanceRole, readonly GovernanceAction[]> = {
-  administrator: ['records.read', 'records.write', 'backup.export', 'backup.restore', 'audit.read', 'task.read', 'task.write', 'task.review', 'attachments.read'],
-  executor: ['records.read', 'records.write', 'task.read', 'task.write', 'attachments.read'],
+  administrator: ['records.read', 'records.write', 'backup.export', 'backup.restore', 'audit.read', 'task.read', 'task.write', 'task.review', 'attachments.read', 'workspace.create'],
+  executor: ['records.read', 'records.write', 'task.read', 'task.write', 'attachments.read', 'workspace.create'],
   approver: ['records.read', 'task.read', 'task.review', 'attachments.read'],
   auditor: ['records.read', 'backup.export', 'audit.read', 'task.read', 'attachments.read'],
 };

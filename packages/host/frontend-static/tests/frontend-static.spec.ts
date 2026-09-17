@@ -7,6 +7,7 @@
  */
 
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -35,7 +36,7 @@ async function loadComposition(): Promise<Context> {
   const dist = join(root, 'dist')
   await mkdir(dist)
   const distIndex = join(dist, 'index.html')
-  await writeFile(distIndex, '<head></head><body>shell</body>')
+  await writeFile(distIndex, '<head>\r\n<script>window.__BASE__=1;\r\nwindow.__BASE__=2;</script>\r\n</head><body>shell</body>')
   await writeFile(join(dist, 'app.js'), 'export {}')
   await writeFile(join(dist, 'blob.bin'), 'BLOB')
   await writeFile(join(dist, 'manifest.webmanifest'), '{}')
@@ -140,19 +141,42 @@ describe('real Loader composition', () => {
     expect(await request(port, '/blob.bin')).toMatchObject({ status: 200, type: 'application/octet-stream', body: 'BLOB' })
 
     // Only the root and index path render index.html through registered taps.
-    const untap = server.tapIndex(html => html.replace('<head>', '<head><script>window.__T__=1</script>'))
+    const untap = server.tapIndex(html => html.replace('<head>', '<head><style>body{color:red}</style><script>window.__T__=1</script>'))
     for (const path of ['/', '/index.html', '/?fixture']) {
       const got = await request(port, path, authenticated())
       expect(got.status).toBe(200)
       expect(got.type).toBe('text/html; charset=utf-8')
       expect(got.body).toContain('__T__')
       expect(got.body).toContain('shell')
+      const response = await fetch(`http://127.0.0.1:${String(port)}${path}`, authenticated())
+      const csp = response.headers.get('content-security-policy')
+      expect(csp).not.toBeNull()
+      expect(csp).toContain("default-src 'self'")
+      expect(csp).toContain("script-src-attr 'none'")
+      expect(csp).toContain("object-src 'none'")
+      expect(csp).toContain("frame-ancestors 'none'")
+      expect(csp).not.toMatch(/(?:^|;)\s*script-src\s[^;]*'unsafe-inline'/u)
+      expect(csp).not.toMatch(/(?:^|;)\s*style-src\s[^;]*'unsafe-inline'/u)
+      expect(csp).not.toContain("'unsafe-eval'")
+      expect(csp).not.toContain('https:')
+      expect(csp).not.toContain('*')
+      const inlineHash = `'sha256-${createHash('sha256').update('window.__T__=1').digest('base64')}'`
+      expect(csp).toContain(inlineHash)
+      const changedHash = `'sha256-${createHash('sha256').update('window.__T__=2').digest('base64')}'`
+      expect(csp).not.toContain(changedHash)
+      const inlineStyleHash = `'sha256-${createHash('sha256').update('body{color:red}').digest('base64')}'`
+      expect(csp).toContain(inlineStyleHash)
+      const changedStyleHash = `'sha256-${createHash('sha256').update('body{color:blue}').digest('base64')}'`
+      expect(csp).not.toContain(changedStyleHash)
+      const normalizedLineEndingHash = `'sha256-${createHash('sha256').update('window.__BASE__=1;\nwindow.__BASE__=2;').digest('base64')}'`
+      expect(csp).toContain(normalizedLineEndingHash)
     }
     expect(await request(port, '/', authenticated({ method: 'HEAD' }))).toEqual({
       status: 200,
       type: 'text/html; charset=utf-8',
       body: '',
     })
+    expect((await fetch(`http://127.0.0.1:${String(port)}/app.js`)).headers.get('content-security-policy')).toBeNull()
     untap()
     expect((await request(port, '/', authenticated())).body).not.toContain('__T__')
 

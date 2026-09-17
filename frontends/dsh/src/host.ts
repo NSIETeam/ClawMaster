@@ -59,7 +59,7 @@ export async function apply(ctx: HostServices, config: HostConfig = {}): Promise
   applyDataTools(ctx, config.dataTools);
   applyRuntimeGovernance(ctx, config.runtimeGovernance);
   applyPermissionGovernance(ctx);
-  ctx.effect(() => applyManagedWorkspaces(ctx, managedRoot), 'clawmaster: managed Workspace allocation');
+  ctx.effect(() => applyManagedWorkspaces(ctx, managedRoot, access), 'clawmaster: managed Workspace allocation');
   await ctx.effect(async () => {
     const store = await openEnterpriseStore(databasePath, config.busyTimeoutMs, config.governance?.mode === 'enterprise' ? config.governance.organizationId : 'local', config.watchdogTasks, config.enterpriseRead);
     const consumers: Array<() => Promise<void>> = [];
