@@ -42,6 +42,10 @@ jobs:
           echo '0272acfce50ce9ad060288321b1092719a7f19966f81419835410c59c09daa46  '"$RUNNER_TEMP/node-v22.19.0.tar.xz" | sha256sum --check
           tar -xJf "$RUNNER_TEMP/node-v22.19.0.tar.xz" -C "$RUNNER_TEMP"
 
+      - name: Apply Android V8 compatibility patch
+        shell: bash
+        run: patch --directory "$RUNNER_TEMP/node-v22.19.0" --strip=1 < apps/android/patches/node-v22.19.0-android-no-execinfo.patch
+
       - name: Cross-build Node.js for Android
         shell: bash
         run: |
