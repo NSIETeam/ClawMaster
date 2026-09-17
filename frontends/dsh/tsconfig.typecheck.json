@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "../..",
+    "paths": {
+      "@deepseek-ai/cordis": ["vendor/cordis/lib/types/index.d.ts"],
+      "@deepseek-ai/schemastery": ["vendor/schemastery/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-agent": ["packages/core/agent/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-api-session-controller/client": ["packages/api/session-controller/lib/types/client/index.d.ts"],
+      "@deepseek-ai/dsh-brand": ["packages/util/brand/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-fs": ["packages/fs/fs/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-jobs": ["packages/jobs/jobs/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-llm": ["packages/llm/llm/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-sandbox": ["packages/sandbox/sandbox/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-sandbox-policy": ["packages/sandbox/sandbox-policy/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-schedule": ["packages/schedule/schedule/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-session": ["packages/core/session/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-session/types": ["packages/core/session/lib/types/types.d.ts"],
+      "@deepseek-ai/dsh-session-persistence": ["packages/session/session-persistence/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-subprocess-local": ["packages/subprocess/subprocess-local/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-system-prompt": ["packages/core/system-prompt/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-tools": ["packages/core/tools/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-user-approval": ["packages/interaction/user-approval/lib/types/index.d.ts"]
+    }
+  },
+  "include": ["src"]
+}

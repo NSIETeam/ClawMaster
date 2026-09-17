@@ -45,7 +45,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "test": "npm run build && node --import tsx/esm --test tests/*.test.mjs",
     "prepack": "npm run build"
   },
