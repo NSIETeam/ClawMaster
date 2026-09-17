@@ -9,7 +9,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt';
 import ToolRuntime from '@deepseek-ai/dsh-tools';
 import ApprovalService from '@deepseek-ai/dsh-user-approval';
 import { Session, SessionId } from '@deepseek-ai/dsh-session';
-import { GovernanceAccess, governanceResource, governanceResourceCollection } from '../src/governance-access.ts';
+import { auditGovernanceOutcome, GovernanceAccess, governanceResource, governanceResourceCollection } from '../src/governance-access.ts';
 import { mountEnterpriseRoutes, openEnterpriseStore } from '../src/enterprise-host.ts';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
 import { mountWatchdogTasks as mountWatchdogTasksImpl } from '../src/watchdog-task-host.ts';
@@ -162,6 +162,7 @@ test('HTTP order submission rechecks inventory grants after independent approval
   assert.equal(store.snapshot().inventory[0].stock, 1);
   assert.equal(store.snapshot().orders[0].status, 'draft');
   assert.equal(store.responsibility().records.at(-1).outcome, 'denied');
+  assert.equal(store.responsibility().records.at(-1).identity.approval.id, 'inventory-approval');
 });
 
 test('HTTP order submission records the final policy version and retains its independent approval', async t => {
@@ -206,6 +207,7 @@ test('the final order and inventory check uses one membership snapshot', async t
   assert.equal(response.status, 403);
   assert.equal(store.snapshot().inventory[0].stock, 1);
   assert.equal(store.snapshot().orders[0].status, 'draft');
+  assert.equal(store.responsibility().records.at(-1).identity.approval.id, 'approved-submit');
 });
 
 test('DSH order submission rechecks inventory grants after the real tool approval wait', async t => {
@@ -250,10 +252,29 @@ test('approval is object/revision/digest bound, single use and separated from th
   assert.equal(approved.approval.kind, 'authority');
   assert.equal(approved.approval.approverId, 'bob');
   await assert.rejects(alice.approve('records.write', resource, 'write-1', 0, 5, 'digest'), { code: 'permission_denied' });
+  assert.equal(alice.identity.approval, undefined, 'a failed new approval attempt does not retain an earlier receipt');
   h.members.set('bob', { active: true, roles: ['approver'], resources: [governanceResourceCollection('record/contact')], policyVersion: 2 });
   h.grants.set(JSON.stringify(request), { id: 'family-grant', approverId: 'bob' });
   const familyApproved = await alice.approve('records.write', resource, 'write-1', 0, 5, 'digest');
   assert.equal(familyApproved.approval.id, 'family-grant');
+});
+
+test('an approval consumed before the post-consumption permission check remains in the denial audit', async t => {
+  const h = authorityFixture(); const store = await openEnterpriseStore(':memory:', 5000, 'one');
+  t.after(() => store.close());
+  const resource = governanceResource('record/contact', 'customer');
+  h.members.set('alice', { active: true, roles: ['administrator'], resources: [resource], policyVersion: 2 });
+  h.authority.consumeApproval = async () => {
+    h.members.set('alice', { active: false, roles: ['administrator'], resources: [], policyVersion: 3 });
+    return { id: 'consumed-then-revoked', approverId: 'bob' };
+  };
+  const caller = await h.access.http(new Request('http://fixture', { headers: { authorization: 'alice' } }));
+  await assert.rejects(auditGovernanceOutcome(caller, store, 'records.write', 'revoked-during-approval', () =>
+    caller.approve('records.write', resource, 'revoked-during-approval', 0, 0, 'digest')), { code: 'permission_denied' });
+  const [entry] = store.responsibility().records;
+  assert.equal(entry.outcome, 'denied');
+  assert.equal(entry.identity.approval.id, 'consumed-then-revoked');
+  assert.equal(entry.identity.approval.approverId, 'bob');
 });
 
 test('HTTP read/export/write paths refuse cross-organization and missing identity without local fallback', async t => {

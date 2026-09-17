@@ -10,7 +10,7 @@ Submitting an order changes the order and each referenced inventory row. Separat
 
 ## Decision
 
-`GovernanceCaller.checkMany` reads the executor and delegator memberships once and requires every requested resource grant from that policy snapshot. HTTP and DSH tool order submissions call it after approval for the order and every referenced inventory item. The resulting identity carries that snapshot's policy version and retains the approval evidence already consumed for the command.
+`GovernanceCaller.checkMany` reads the executor and delegator memberships once and requires every requested resource grant from that policy snapshot. HTTP and DSH tool order submissions call it after approval for the order and every referenced inventory item. The resulting identity carries that snapshot's policy version and retains the approval evidence already consumed for the command. Once an authority approver is validated, later permission denial records retain that approval evidence; each new approval attempt clears evidence from an earlier attempt.
 
 Approver grant checks use the same exact, family-wildcard and global resource matcher as executor checks. A family grant remains limited to its resource family.
 
@@ -28,4 +28,5 @@ Governance tests revoke inventory access during both HTTP authority approval and
 
 - One multi-resource decision uses one authority membership snapshot instead of combining independent snapshots.
 - Revocation observed at the post-approval check prevents the transaction.
+- A denial after approval consumption retains the validated approval reference in responsibility history, while a later failed attempt cannot inherit it.
 - An authority can still change after that check and before SQLite commits; eliminating that interval requires the authority and business mutation to share a transactional authorization protocol.

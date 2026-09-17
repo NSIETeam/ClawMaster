@@ -270,6 +270,7 @@ export class GovernanceAccess {
         throw new GovernanceDenied('The task owner must be an active member of this organization.');
       }
     }, approve: async (action, resource, commandId, generation, revision, commandDigest) => {
+      delete identity.approval;
       await check(action, resource);
       const approvalResult = await waitForAuthority(signal, () => config.authority.consumeApproval({ organizationId: config.organizationId, executorId: principal.memberId,
         action, resource, commandId, generation, revision, commandDigest }, signal));
@@ -279,7 +280,9 @@ export class GovernanceAccess {
       const checkedApprover = authorityResult(authorityMembershipSchema, approver, 'approver membership');
       if (!checkedApprover?.active || !checkedApprover.roles.includes('approver')
         || !hasResourceGrant(checkedApprover.resources, resource)) throw new GovernanceDenied('The approver no longer has permission.', 'approver_invalid');
-      return { ...await check(action, resource), approval: { kind: 'authority', ...approval, generation, revision } };
+      const evidence = { kind: 'authority' as const, ...approval, generation, revision };
+      identity.approval = evidence;
+      return { ...await check(action, resource), approval: evidence };
     } };
   }
 }
