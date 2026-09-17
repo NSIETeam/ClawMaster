@@ -9,7 +9,7 @@ on:
       tag:
         description: desktop-v* version tag; build-only runs use the selected branch
         required: true
-        default: desktop-v0.2.2
+        default: desktop-v0.2.3
       publish:
         description: Publish an existing version tag after all platform checks pass
         type: boolean

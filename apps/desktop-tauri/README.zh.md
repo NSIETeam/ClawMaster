@@ -4,7 +4,7 @@
 
 这是 ClawMaster 基于现有 `dsh web` 运行时的 Rust/WebView 外壳。安装包携带 **Harness 源码**，不包含 `node_modules`；首次运行扫描本机兼容的 Node.js、pnpm 和已有的 `~/.dsh` 主目录，下载缺失的 Node.js 或 pnpm，再对安装包内的源码树安装生产依赖。应用元数据、启动页、通知和 Web 界面使用 ClawMaster 名称、图标与口号“开启AI时代的企业协作”。
 
-桌面包版本：**0.2.2**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
+桌面包版本：**0.2.3**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
 
 Tauri 包名为 `@deepseek-ai/dsh-desktop-tauri`，与上游 Electron 应用独立。Host 启动地址只在内存中传给独立 WebView，由上游认证流程签发登录 cookie。原生 capability 只匹配包内 `main` 外壳 WebView；启动页、独立 Host 内容及其文档 frame 不获得原生命令。Host 主视图导航限定到包含端口的精确回环来源。不含凭据的外部 HTTP(S) 链接使用 `target="_blank"` 时交系统默认浏览器打开；回环目标与可执行 scheme 被拒绝。同源 `/clawmaster/office/runtime/NOTICE.html` 页面在没有查询参数时通过独立的 `office-notice` WebView 打开，该标签没有原生权限。启动日志不记录认证令牌。裁剪包包含 `native/system`，并仅在裁剪树中允许开发工具补丁未使用；实际补丁应用失败仍会阻止安装。
 
@@ -137,7 +137,7 @@ pnpm install
 pnpm run build:win
 ```
 
-安装包输出：`src-tauri/target/release/bundle/nsis/ClawMaster_0.2.2_x64-setup.exe`
+安装包输出：`src-tauri/target/release/bundle/nsis/ClawMaster_0.2.3_x64-setup.exe`
 
 NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语言自动跟随操作系统 locale，不显示语言选择器；不支持的 locale 使用英语。原生启动页、托盘、关闭对话框和启动状态文案遵循同一规则（`zh*` 用中文，其余用英语）。嵌入的 `dsh web` 客户端仍使用自己的 Settings 语言。复制文件前，安装器会静默关闭 `dsh-desktop.exe` 及其子进程树。安装后，安装器使用独立的版本化 ICO 资源重建已有桌面快捷方式，并通知 Explorer 清除陈旧的图标缓存记录。
 
@@ -146,7 +146,7 @@ NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语
 
 发布矩阵不包含 Intel Mac 安装包。已有 Intel Mac 安装保留原版本；受支持的桌面目标为 Apple Silicon、Windows x64 与 Linux x64。[安装后发布验收说明](acceptance/README.zh.md)定义独立的 Android 证据项及发布前必须具备的证据。
 
-推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)。它构建 Windows x64 NSIS 安装包、macOS Apple Silicon DMG 和 Linux x64 AppImage/deb，只有在所有矩阵任务、安装后发布验收及最终资产与来源不可变校验均通过后才会发布。程序版本 `0.2.2` 对应正式版 `desktop-v0.2.2`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。手动触发默认为仅构建：构建所选分支提交并上传签名安装包，不发布版本或改变更新通道。只有在重建已有发布标签并需要发布时，才启用 `publish`。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
+推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)。它构建 Windows x64 NSIS 安装包、macOS Apple Silicon DMG 和 Linux x64 AppImage/deb，只有在所有矩阵任务、安装后发布验收及最终资产与来源不可变校验均通过后才会发布。程序版本 `0.2.3` 对应正式版 `desktop-v0.2.3`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。手动触发默认为仅构建：构建所选分支提交并上传签名安装包，不发布版本或改变更新通道。只有在重建已有发布标签并需要发布时，才启用 `publish`。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
 
 Windows 构建步骤使用原生 PowerShell。每个 PowerShell 发布步骤要求 7.4 或更高版本，并在原生命令失败时立即停止；后续成功命令不能覆盖该失败。仅供 macOS/Linux 使用的 Bash 步骤保留 shell 失败处理。[发布命令决策](../../.agents/notes/implemented/process/2026-09-15-desktop-release-native-command-failures.zh.md)负责其理由与反向控制要求。
 
