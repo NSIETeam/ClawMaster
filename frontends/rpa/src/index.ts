@@ -46,6 +46,14 @@ function defineRpaTool(definition: ToolDefinition): ToolDefinition {
   return definition;
 }
 
+/** Build the object-rooted JSON Schema required by model tool APIs. */
+function objectParameters(
+  properties: Record<string, unknown>,
+  required: string[],
+): Record<string, unknown> {
+  return { type: 'object', properties, required, additionalProperties: false };
+}
+
 /**
  * Render a canonical tool value as one text content block.
  *
@@ -446,12 +454,12 @@ export function apply(ctx: Context, config: RpaConfig = {}): void {
             'Drive a governed RPA workflow run. Workflows are operator-installed; a model can start one and advance it ' +
             'step by step but cannot define steps. Steps with an external side effect are refused while no approval ' +
             'bridge is wired, and an interrupted external action is never replayed automatically.',
-          parameters: {
-            action: { type: 'string', required: true, description: RPA_ACTIONS.join(' | ') },
+          parameters: objectParameters({
+            action: { type: 'string', description: RPA_ACTIONS.join(' | ') },
             workflowId: { type: 'string', description: 'Installed workflow id, for action=start' },
             runId: { type: 'string', description: 'Run id returned by a previous call' },
             note: { type: 'string', description: 'Human takeover note, for action=take_over' },
-          },
+          }, ['action']),
           output: {
             schema: { type: 'string' },
             render: (_args, value) => renderAsText(value),
@@ -475,9 +483,9 @@ export function apply(ctx: Context, config: RpaConfig = {}): void {
             'Inspect the ClawMaster native RPA helper. Read-only: it reports the helper capability manifest, the ' +
             'recovered native tool catalog, or a bounded accessibility snapshot of the desktop. It cannot click, ' +
             'type or otherwise act, and it reports the exact macOS permission to grant when access is missing.',
-          parameters: {
-            command: { type: 'string', required: true, description: NATIVE_READ_ONLY_COMMANDS.join(' | ') },
-          },
+          parameters: objectParameters({
+            command: { type: 'string', description: NATIVE_READ_ONLY_COMMANDS.join(' | ') },
+          }, ['command']),
           output: {
             schema: { type: 'string' },
             render: (_args, value) => renderAsText(value),
@@ -502,14 +510,14 @@ export function apply(ctx: Context, config: RpaConfig = {}): void {
             'names and their arguments. Window and element references come from a prior snapshot artifact; no ' +
             'coordinate is ever supplied. A step that acts on the desktop requires one-time user approval; ' +
             'a refusal prevents native execution. Use wechat_read for approved, selected-chat reading.',
-          parameters: {
-            tool: { type: 'string', required: true, description: 'Recovered tool name, for example rpa_windows' },
+          parameters: objectParameters({
+            tool: { type: 'string', description: 'Recovered tool name, for example rpa_windows' },
             arguments: {
               type: 'object',
               additionalProperties: true,
               description: 'Tool arguments exactly as the definitions catalog documents them',
             },
-          },
+          }, ['tool']),
           output: {
             schema: { type: 'string' },
             render: (_args, value) => renderAsText(value),

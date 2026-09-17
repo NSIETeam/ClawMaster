@@ -137,6 +137,30 @@ test('an unbuilt helper makes a semantic call unavailable rather than throwing',
   assert.equal(outcome.kind, 'native_unavailable');
 });
 
+test('model-facing RPA tools publish object-rooted parameter schemas', async () => {
+  const stateDir = await mkdtemp(path.join(tmpdir(), 'clawmaster-rpa-schema-'));
+  try {
+    const registrations = [];
+    apply({
+      tools: { register: (tool) => { registrations.push(tool); return () => {}; } },
+      effect: (factory) => factory(),
+      approval: { request: async () => 'rejected' },
+    }, { stateDir });
+    for (const name of ['rpa_run', 'rpa_native', 'rpa_call']) {
+      const parameters = registrations.find((entry) => entry.name === name)?.parameters;
+      assert.equal(parameters?.type, 'object', `${name} must publish an object-rooted JSON Schema`);
+      assert.equal(typeof parameters?.properties, 'object');
+      assert.deepEqual(parameters?.required, [name === 'rpa_run' ? 'action' : name === 'rpa_native' ? 'command' : 'tool']);
+      assert.equal(parameters?.additionalProperties, false);
+    }
+    const call = registrations.find((entry) => entry.name === 'rpa_call');
+    assert.deepEqual(call.parameters.required, ['tool']);
+    assert.equal(call.parameters.properties.arguments.additionalProperties, true);
+  } finally {
+    await rm(stateDir, { recursive: true, force: true });
+  }
+});
+
 test('the real helper refuses a write tool that has no approval binding', { skip: nativeSkip }, async (t) => {
 
   const stateDir = await mkdtemp(path.join(tmpdir(), 'clawmaster-rpa-gate-'));
@@ -288,6 +312,12 @@ test('the rpa_call tool asks the harness before a write, and fails closed when r
     apply(ctx, { stateDir });
     const tool = registrations.find((entry) => entry.name === 'rpa_call');
     assert.ok(tool, 'rpa_call must be registered');
+    for (const name of ['rpa_run', 'rpa_native', 'rpa_call']) {
+      const parameters = registrations.find((entry) => entry.name === name)?.parameters;
+      assert.equal(parameters?.type, 'object', `${name} must publish an object-rooted JSON Schema`);
+      assert.equal(typeof parameters?.properties, 'object');
+    }
+    assert.deepEqual(tool.parameters.required, ['tool']);
 
     const exec = {
       agent: { id: 'agent-1' },
