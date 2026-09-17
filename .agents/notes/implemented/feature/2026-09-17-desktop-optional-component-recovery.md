@@ -4,6 +4,10 @@ Status: implemented
 
 English | [中文](2026-09-17-desktop-optional-component-recovery.zh.md)
 
+## Problem
+
+One missing or failing feature component could prevent the desktop Host from starting, making unrelated ClawMaster features unavailable.
+
 ## Decision
 
 ClawMaster keeps the core desktop usable when a feature bundle is unavailable. Profile preparation omits invalid or missing optional bundles and logs the component failure. Startup recovery retries after disabling only allowlisted feature entries. The main frontend, desktop policy, Guard, permission, and approval entries are not recoverable; their failures remain fatal.

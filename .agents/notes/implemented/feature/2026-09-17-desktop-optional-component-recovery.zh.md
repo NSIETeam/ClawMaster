@@ -4,6 +4,10 @@ Status: implemented
 
 [English](2026-09-17-desktop-optional-component-recovery.md) | 中文
 
+## Problem
+
+单个功能组件缺失或故障可能阻止桌面 Host 启动，导致 ClawMaster 的其它功能也无法使用。
+
 ## 决策
 
 功能组件不可用时，ClawMaster 仍保持桌面核心可用。配置文件准备阶段会跳过无效或缺失的可选组件包，并记录组件故障日志。启动恢复仅在禁用白名单内的功能条目后重试。主前端、桌面策略、Guard、权限和审批条目不可恢复；这些条目失败仍会阻止启动。
