@@ -158,6 +158,8 @@ The package-level contract is enough for most consumers; read these when you nee
 
 In normal mode the model sees each visible definition's exact name, description, and JSON Schema; the shipped definitions are recorded in the generated [tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tools). Agent-scoped restrictions, shadows, and extension registrations change that agent's end-tool set.
 
+Raw tool parameter schemas must be lossless JSON objects with a root `type: "object"`. The registry preserves their JSON Schema keywords without applying the narrower DSH argument-validator subset to external schemas. A tool whose description or parameter snapshot cannot be read, or whose parameters are lossy or have another root type, is omitted from native and PTC projections and fails before approval or execution when dispatched. Other tools remain available.
+
 #### Token effect
 
 Fixed per-request cost proportional to the visible definitions. Restrictions that hide tools remove their entire schema cost for that agent.

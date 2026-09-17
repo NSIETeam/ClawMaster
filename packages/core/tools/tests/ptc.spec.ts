@@ -232,6 +232,40 @@ describe('mode-aware wire contribution', () => {
     expect(assembly.sections.some(section => section.name === 'tools:sdk')).toBe(true)
   })
 
+  it('quarantines one unreadable schema consistently from PTC schemas and bindings', async () => {
+    const { ctx, systemPrompt, runtime } = await setup({ mode: 'ptc' })
+    registerEcho(ctx)
+    const broken = {
+      name: 'broken',
+      description: 'must be isolated',
+      output: {
+        schema: { type: 'string' },
+        render: (_args: unknown, value: unknown) => [{ type: 'text' as const, text: String(value) }],
+      },
+      async execute() { throw new Error('must never be called') },
+    }
+    Object.defineProperty(broken, 'parameters', {
+      enumerable: true,
+      get() { throw new Error('private schema detail') },
+    })
+    ctx.tools.register(broken as unknown as Parameters<typeof ctx.tools.register>[0])
+
+    const assembly = await systemPrompt.assemble()
+    expect(assembly.tools.map(tool => tool.name)).toEqual([RUN_CODE_NAME])
+    const sdk = assembly.sections.find(section => section.name === 'tools:sdk')?.text
+    expect(sdk).toContain('echo: {')
+    expect(sdk).not.toContain('broken:')
+
+    runtime.behavior = async (request) => {
+      const functions = request.bindings[0]!.functions
+      const echo = await functions.echo!({ value: 'still available' })
+      return { logs: [], value: `${Object.keys(functions).sort().join(',')}:${JSON.stringify(echo)}` }
+    }
+    const result = await runCode(ctx, 'return Object.keys(tools)')
+    expect(result.isError).toBe(false)
+    expect(result.content).toEqual([{ type: 'text', text: 'echo:"echo:still available"' }])
+  })
+
   it.each(['ptc', 'both'] as const)('keeps the run_code transport outside scoped allow-list filtering in mode %s', async (mode) => {
     const { ctx, systemPrompt, runtime } = await setup({ mode })
     registerEcho(ctx, 'echo')

@@ -19,7 +19,7 @@ import type { CodeRuntime } from '@deepseek-ai/dsh-code-runtime'
 // augmentation. The seam stays optional at runtime — see `serviceAsk`.
 import type {} from '@deepseek-ai/dsh-user-approval'
 import type { ToolCallView, ToolResultView } from './presentation.ts'
-import { assertSupportedJsonSchema, validateJsonSchemaValue } from './json-schema.ts'
+import { assertSupportedJsonSchema, isJsonSchemaRecord, validateJsonSchemaValue } from './json-schema.ts'
 import type { JsonSchemaNode } from './json-schema.ts'
 import { createRunCodeTool, RUN_CODE_NAME } from './ptc.ts'
 import type { CodeSdkLanguage } from './ptc.ts'
@@ -801,6 +801,8 @@ export class ToolRuntime extends Service {
   private cancellationStates = new WeakMap<ToolRunContext, ToolCancellationState>()
   /** Definition-owned final content transform snapshotted before policy begins. */
   private contentFinalizers = new WeakMap<ToolRunContext, ToolDefinition['finalizeContent']>()
+  /** Definitions whose latest parameter projection was invalid or unreadable. */
+  private readonly parameterSchemaFailures = new WeakMap<ToolDefinition, string>()
   private readonly layers = new ScopedLayers(
     scope => new ToolLayer(scope),
     () => { this.ctx.emit('tools/change') },
@@ -973,7 +975,7 @@ export class ToolRuntime extends Service {
     const view = this.view(scope)
     const mode = this.modeFor(scope)
     if (mode === 'native') {
-      const schemas = [...view.visible.values()].map(definition => this.schemaOf(definition, false))
+      const schemas = this.projectSchemas(view.visible.values())
       return { schemas, knownNames: [...view.knownNames] }
     }
     // Validate the runtime language BEFORE projecting schemas: schemaOf reads
@@ -982,7 +984,7 @@ export class ToolRuntime extends Service {
     // renderer-table rejection the canonical assembly-time error for a
     // language with no SDK renderer.
     this.requireCodeRuntime(mode)
-    const schemas = [...view.visible.values()].map(definition => this.schemaOf(definition, false))
+    const schemas = this.projectSchemas(view.visible.values())
     if (mode === 'ptc') {
       return {
         schemas: schemas.filter(schema => schema.name === RUN_CODE_NAME),
@@ -1021,6 +1023,8 @@ export class ToolRuntime extends Service {
   /**
    * Register globally or in the calling agent scope. Scoped tools shadow
    * globals; duplicates within one layer and the reserved `run_code` name fail.
+   * A definition with unreadable, lossy, or non-object-rooted parameters is
+   * registered but quarantined from prompt projection and dispatch.
    * @param definition - tool schema, execution, and optional finalization/presentation callbacks.
    * @returns the exact disposer that unregisters the tool.
    */
@@ -1033,6 +1037,7 @@ export class ToolRuntime extends Service {
       throw new TypeError(`tool "${name}" must declare output { schema, render, presentationMeta? }`)
     }
     assertSupportedJsonSchema(output.schema)
+    this.readParameterSchema(definition, name)
     const timeoutMs = definition.timeoutMs
     if (timeoutMs !== undefined
       && (!Number.isFinite(timeoutMs) || timeoutMs <= 0)) {
@@ -1212,6 +1217,7 @@ export class ToolRuntime extends Service {
     const tool = this.get(name, scope)
     if (tool === undefined) return undefined
     if (this.collapses(name, scope, nested)) return undefined
+    if (this.schemaOf(tool) === undefined) return undefined
     return tool
   }
 
@@ -1222,38 +1228,93 @@ export class ToolRuntime extends Service {
    * @returns one deep-cloned schema per visible tool.
    */
   schemas(scope?: ScopeKey): ToolSchema[] {
-    return [...this.view(scope).visible.values()].map(definition => this.schemaOf(definition, true))
+    return this.projectSchemas(this.view(scope).visible.values())
   }
 
   /** Project visible callable tools onto the generated PTC mode SDK contract. */
   private sdkSchemas(scope?: ScopeKey): ToolSdkSchema[] {
     return [...this.view(scope).visible.values()]
       .filter(definition => definition.name !== RUN_CODE_NAME)
-      .map((definition): ToolSdkSchema => {
+      .flatMap((definition): ToolSdkSchema[] => {
+        const schema = this.schemaOf(definition)
+        if (schema === undefined) return []
         const output = snapshotJsonValue(definition.output.schema)
         /* v8 ignore next -- registration already validated and retained this schema as lossless JSON. */
         if (output === undefined) {
           throw new Error(`tool "${definition.name}" output schema must be lossless JSON before SDK projection`)
         }
-        return {
-          ...this.schemaOf(definition, true),
+        return [{
+          ...schema,
           output,
-        }
+        }]
       })
   }
 
-  /** Project one definition onto the model-facing schema fields. */
-  private schemaOf(definition: ToolDefinition, detachParameters: boolean): ToolSchema {
-    const { name, description, parameters } = definition
-    const detached = detachParameters ? snapshotJsonValue(parameters) : parameters
-    if (detached === undefined) {
-      throw new Error(`tool "${name}" parameters must be lossless JSON before schema projection`)
+  /** Project every valid definition independently so one schema cannot abort its siblings. */
+  private projectSchemas(definitions: Iterable<ToolDefinition>): ToolSchema[] {
+    const schemas: ToolSchema[] = []
+    for (const definition of definitions) {
+      const schema = this.schemaOf(definition)
+      if (schema !== undefined) schemas.push(schema)
     }
-    return {
-      name,
-      description,
-      parameters: detached,
+    return schemas
+  }
+
+  /** Snapshot one model-function schema, quarantining only its owning definition on failure. */
+  private schemaOf(definition: ToolDefinition): ToolSchema | undefined {
+    const name = definition.name
+    let description: string
+    try {
+      description = definition.description
+    } catch {
+      if (name === RUN_CODE_NAME) throw new Error('run_code description could not be read')
+      this.failParameterSchema(definition, name, 'description could not be read')
+      return undefined
     }
+    if (typeof description !== 'string') {
+      if (name === RUN_CODE_NAME) throw new Error('run_code description must be a string')
+      this.failParameterSchema(definition, name, 'description must be a string')
+      return undefined
+    }
+    const parameters = this.readParameterSchema(definition, name)
+    if (parameters === undefined && name === RUN_CODE_NAME) {
+      throw new Error('run_code parameters are unavailable or invalid')
+    }
+    if (parameters === undefined) return undefined
+    return { name, description, parameters }
+  }
+
+  /** Snapshot parameters and require the model function's object root without narrowing JSON Schema keywords. */
+  private readParameterSchema(definition: ToolDefinition, name: string): Record<string, unknown> | undefined {
+    let parameters: unknown
+    try {
+      parameters = snapshotJsonValue(definition.parameters)
+    } catch {
+      if (name === RUN_CODE_NAME) throw new Error('run_code parameters could not be read')
+      this.failParameterSchema(definition, name, 'parameters could not be read')
+      return undefined
+    }
+    if (parameters === undefined) {
+      if (name === RUN_CODE_NAME) throw new Error('run_code parameters are not lossless JSON')
+      this.failParameterSchema(definition, name, 'parameters are not lossless JSON')
+      return undefined
+    }
+    if (!isJsonSchemaRecord(parameters) || parameters.type !== 'object') {
+      if (name === RUN_CODE_NAME) throw new Error('run_code parameters root must declare type "object"')
+      this.failParameterSchema(definition, name, 'parameters root must declare type "object"')
+      return undefined
+    }
+    this.parameterSchemaFailures.delete(definition)
+    return parameters
+  }
+
+  /** Record a failed projection once and return no schema for the definition. */
+  private failParameterSchema(definition: ToolDefinition, name: string, reason: string): undefined {
+    if (this.parameterSchemaFailures.get(definition) !== reason) {
+      this.parameterSchemaFailures.set(definition, reason)
+      this.ctx.logger.warn(`tool "${name}" is quarantined: ${reason}`)
+    }
+    return undefined
   }
 
   /**
@@ -1369,6 +1430,8 @@ export class ToolRuntime extends Service {
     // listeners still see every name that reaches the registry.
     const visible = this.get(name, agent)
     const collapsed = visible !== undefined && this.collapses(name, agent, parent !== undefined)
+    const schemaInvalid = visible !== undefined && !collapsed
+      && this.schemaOf(visible) === undefined
     const concludingExecutions = this.concludingExecutions
     const base = {
       token,
@@ -1429,6 +1492,16 @@ export class ToolRuntime extends Service {
           result: toolErrorResult(new ToolNotFoundError(
             name,
             `only \`${RUN_CODE_NAME}\` is callable directly — call \`${name}\` from inside a \`${RUN_CODE_NAME}\` program instead`,
+          )),
+        }
+      }
+      if (schemaInvalid) {
+        return {
+          kind: 'final-result',
+          exec: execution,
+          result: toolErrorResult(new HarnessError(
+            `tool "${name}" is unavailable because its parameter schema is invalid`,
+            'INVALID_TOOL_SCHEMA',
           )),
         }
       }

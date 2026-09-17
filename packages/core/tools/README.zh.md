@@ -158,6 +158,8 @@ ctx.tools.register(defineTool({
 
 在普通模式下，模型会看到每个可见定义的确切名称、描述与 JSON Schema；已交付定义记录在生成的[工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tools)中。agent 作用域的限制、遮蔽与扩展注册会改变该 agent 的最终工具集合。
 
+原始工具参数 schema 必须是可无损读取的 JSON 对象，根节点的 `type` 必须为 `"object"`。注册表会保留 JSON Schema 关键字，不会用 DSH 参数校验器较窄的子集去拒绝外部 schema。描述或参数快照无法读取、参数不是无损 JSON 或根类型不符的工具，会从原生模式和 PTC 投影中移除；直接派发时会在审批和执行之前失败。其他工具仍可用。
+
 #### Token 影响
 
 每次请求的固定成本与可见定义成正比。隐藏工具的限制会为该 agent 移除其全部 schema 成本。

@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import { createScope } from '@deepseek-ai/dsh-scope'
 import LlmRuntime, { createUserMessage, ToolCallId, HarnessError, type ContentBlock  } from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
@@ -1961,16 +1962,90 @@ describe('ToolRuntime', () => {
     expect(cursor).toEqual({ type: 'string' })
   })
 
-  it('rejects schema projection when a raw registration is not lossless JSON', async () => {
+  it('quarantines one lossy raw schema while retaining healthy siblings', async () => {
     const ctx = await setup()
+    const warnings: string[] = []
+    const warn = ctx.logger.warn.bind(ctx.logger)
+    ctx.logger.warn = (message: string, ...args: unknown[]) => { warnings.push(message); warn(message, ...args) }
+    ctx.tools.register(echoTool)
     ctx.tools.register({
       ...echoTool,
       name: 'lossy-schema',
       parameters: { type: 'object', default: Number.NaN },
     })
 
-    expect(() => ctx.tools.schemas())
-      .toThrow('tool "lossy-schema" parameters must be lossless JSON before schema projection')
+    expect(ctx.tools.schemas().map(schema => schema.name)).toEqual(['echo'])
+    expect(warnings).toContain('tool "lossy-schema" is quarantined: parameters are not lossless JSON')
+  })
+
+  it('quarantines unreadable and non-object roots without losing valid advanced MCP keywords', async () => {
+    const ctx = await setup()
+    const warnings: string[] = []
+    ctx.logger.warn = (message: string) => { warnings.push(message) }
+    ctx.tools.register(echoTool)
+    const throwing = { ...echoTool, name: 'throwing-schema' }
+    Object.defineProperty(throwing, 'parameters', {
+      enumerable: true,
+      get() { throw new Error('private getter detail') },
+    })
+    ctx.tools.register(throwing)
+    ctx.tools.register({ ...echoTool, name: 'array-root', parameters: { type: 'array', items: { type: 'string' } } })
+    ctx.tools.register({ ...echoTool, name: 'null-root', parameters: null as unknown as ToolDefinition['parameters'] })
+    const advanced = {
+      ...echoTool,
+      name: 'advanced-schema',
+      parameters: {
+        type: 'object',
+        properties: { value: { $ref: '#/$defs/value' } },
+        $defs: { value: { type: 'string', format: 'email' } },
+      },
+    }
+    ctx.tools.register(advanced)
+
+    const schemas = ctx.tools.schemas()
+    expect(schemas.map(schema => schema.name)).toEqual(['echo', 'advanced-schema'])
+    expect(schemas[1]!.parameters).toEqual(advanced.parameters)
+    expect(warnings.some(message => message.includes('private getter detail'))).toBe(false)
+  })
+
+  it('fails direct dispatch closed before approval or body for a quarantined schema', async () => {
+    const ctx = await setup()
+    let calls = 0
+    ctx.tools.register({
+      ...echoTool,
+      name: 'invalid-root',
+      parameters: { type: 'array', items: { type: 'string' } },
+      async execute() { calls++; return 'should not run' },
+    })
+    let asks = 0
+    ctx.on('tools/pre-execute', () => { asks++; return { kind: 'ask', reason: 'must not reach approval' } })
+
+    const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('invalid'), name: 'invalid-root', arguments: {} })
+
+    expect(result).toMatchObject({ isError: true, error: { info: { code: 'INVALID_TOOL_SCHEMA' } } })
+    expect(calls).toBe(0)
+    expect(asks).toBe(0)
+  })
+
+  it('does not dispatch a quarantined tool hidden by the caller view', async () => {
+    const ctx = await setup()
+    let calls = 0
+    ctx.tools.register(echoTool)
+    ctx.tools.register({
+      ...echoTool,
+      name: 'hidden-invalid',
+      parameters: { type: 'null' },
+      async execute() { calls++; return 'should not run' },
+    })
+    const agent = { id: SessionId('restricted') } as Agent
+    let agentScope!: ReturnType<typeof createScope>
+    await ctx.plugin(Object.assign((inner: Context) => { agentScope = createScope(inner, agent) }, { inject: ['tools'] }))
+    agentScope.ctx.tools.restrict({ allow: ['echo'] })
+
+    const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('hidden'), name: 'hidden-invalid', arguments: {}, agent })
+
+    expect(result).toMatchObject({ isError: true, error: { info: { code: 'UNKNOWN_TOOL' } } })
+    expect(calls).toBe(0)
   })
 
   it('rejects a non-positive or non-finite registration timeout', async () => {
