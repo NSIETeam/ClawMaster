@@ -15,6 +15,93 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  node-runtime:
+    name: Android Node runtime (${{ matrix.arch }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x86_64]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Android NDK
+        shell: bash
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;28.2.13676358"
+
+      - name: Fetch checksum-pinned Node.js source
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 \
+            https://nodejs.org/dist/v22.19.0/node-v22.19.0.tar.xz \
+            --output "$RUNNER_TEMP/node-v22.19.0.tar.xz"
+          echo '0272acfce50ce9ad060288321b1092719a7f19966f81419835410c59c09daa46  '"$RUNNER_TEMP/node-v22.19.0.tar.xz" | sha256sum --check
+          tar -xJf "$RUNNER_TEMP/node-v22.19.0.tar.xz" -C "$RUNNER_TEMP"
+
+      - name: Cross-build Node.js for Android
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/node-v22.19.0"
+          ./android-configure "$ANDROID_HOME/ndk/28.2.13676358" 26 "${{ matrix.arch }}"
+          make -j2
+
+      - name: Verify Android ELF alignment and collect runtime files
+        shell: bash
+        run: |
+          set -euo pipefail
+          ndk="$ANDROID_HOME/ndk/28.2.13676358"
+          node="$RUNNER_TEMP/node-v22.19.0/out/Release/node"
+          case "${{ matrix.arch }}" in
+            arm64) libcxx="$ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" ;;
+            x86_64) libcxx="$ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/libc++_shared.so" ;;
+          esac
+          test -x "$node"
+          test -s "$libcxx"
+          llvm_readelf="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$llvm_readelf" -lW "$node" | tee node-program-headers.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          headers = Path('node-program-headers.txt').read_text().splitlines()
+          loads = [line.split()[-1] for line in headers if line.lstrip().startswith('LOAD ')]
+          if not loads:
+              raise SystemExit('Node executable has no LOAD segments')
+          alignment = [int(value, 0) for value in loads]
+          if any(value < 16384 for value in alignment):
+              raise SystemExit(f'Node executable is not 16 KB aligned: {alignment}')
+          PY
+          mkdir -p "node-runtime-${{ matrix.arch }}"
+          cp "$node" "node-runtime-${{ matrix.arch }}/node"
+          cp "$libcxx" "node-runtime-${{ matrix.arch }}/libc++_shared.so"
+          cp node-program-headers.txt "node-runtime-${{ matrix.arch }}/"
+          (cd "node-runtime-${{ matrix.arch }}" && sha256sum node libc++_shared.so > SHA256SUMS.txt)
+
+      - name: Run Node.js on a 16 KB Android 16 emulator
+        if: matrix.arch == 'x86_64'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis_ps16k
+          arch: x86_64
+          profile: pixel_7_pro
+          disable-animations: true
+          script: >-
+            adb push "$RUNNER_TEMP/node-v22.19.0/out/Release/node" /data/local/tmp/clawmaster-node &&
+            adb push "$ANDROID_HOME/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/libc++_shared.so" /data/local/tmp/libc++_shared.so &&
+            adb push apps/android/scripts/node-runtime-smoke.cjs /data/local/tmp/node-runtime-smoke.cjs &&
+            adb shell 'LD_LIBRARY_PATH=/data/local/tmp /system/bin/linker64 /data/local/tmp/clawmaster-node /data/local/tmp/node-runtime-smoke.cjs'
+
+      - name: Upload experimental Android Node runtime
+        if: always() && hashFiles('node-runtime-*/*') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: clawmaster-node-android-${{ matrix.arch }}-${{ github.sha }}
+          path: node-runtime-${{ matrix.arch }}/
+          if-no-files-found: error
+          retention-days: 7
+
   android:
     name: Android ${{ matrix.api-level }} emulator
     runs-on: ubuntu-24.04

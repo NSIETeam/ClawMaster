@@ -10,7 +10,9 @@ Android builds and device tests should not consume resources on the user's compu
 
 ## Proposal
 
-Use a GitHub-hosted Linux runner with hardware-accelerated Android Emulator for Android release builds and instrumentation tests on API 26 and API 36. Generate a disposable CI signing key, verify the APK signature and checksum, and retain the APK and evidence briefly as a validation artifact. The artifact is not a public release and cannot replace signing with the retained release key.
+Use GitHub-hosted Linux runners with hardware-accelerated Android Emulator for Android release builds and instrumentation tests on API 26 and API 36. Generate a disposable CI signing key, verify the APK signature and checksum, and retain the APK and evidence briefly as a validation artifact. The artifact is not a public release and cannot replace signing with the retained release key.
+
+The same workflow cross-compiles the pinned Node.js 22.19.0 source for Android arm64 and x86_64 with NDK r28.2, checks 16 KB ELF segment alignment, and launches the x86_64 binary on an Android 16 16 KB emulator. This is a feasibility gate for a future on-device DSH Host. Node.js does not support Android upstream; a successful runtime smoke does not mean the Android app embeds DSH, supports its native add-ons, or passes the Node.js suite.
 
 The workflow covers the current standalone Android implementation. Desktop feature parity remains a separate product requirement and must not be inferred from a successful build or emulator run.
 
@@ -23,6 +25,7 @@ The workflow covers the current standalone Android implementation. Desktop featu
 ## Acceptance criteria
 
 - The workflow runs Android build and instrumentation checks on a GitHub-hosted Android emulator without starting a local emulator.
+- The workflow cross-builds both Android 64-bit Node targets, checks load-segment alignment, and runs Node child-process smoke coverage on the 16 KB Android emulator.
 - It records the CI APK checksum and signer certificate and retains a clearly labeled validation artifact for seven days.
 - The Android documentation describes only checks the workflow actually performs and says that validation does not establish desktop feature parity or release signing.
 
