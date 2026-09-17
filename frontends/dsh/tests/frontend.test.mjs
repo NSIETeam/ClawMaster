@@ -45,6 +45,7 @@ test('the shipped factory registers WatchDog and enterprise sidebar components a
   const doc = {
     createElement: () => ({ dataset: {}, textContent: '', remove() { styleCount--; } }),
     head: { appendChild() { styleCount++; } },
+    querySelector: () => null,
   };
   runInNewContext(source, {
     window: { __ModuleLoader__: { load: value => { registration = value; } } },
