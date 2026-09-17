@@ -17,7 +17,22 @@ export function ScheduleBoard({ client, locale, sessions, onOpenSession }: Props
   const state = useSyncExternalStore(client.subscribe, client.getSnapshot, client.getSnapshot);
   const [creating, setCreating] = useState(false);
   const [reason, setReason] = useState('');
-  useEffect(() => { void client.refresh(); }, [client]);
+  useEffect(() => {
+    const refreshIfAvailable = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) void client.refresh();
+    };
+    void client.refresh();
+    const timer = window.setInterval(refreshIfAvailable, 30_000);
+    window.addEventListener('focus', refreshIfAvailable);
+    window.addEventListener('online', refreshIfAvailable);
+    document.addEventListener('visibilitychange', refreshIfAvailable);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshIfAvailable);
+      window.removeEventListener('online', refreshIfAvailable);
+      document.removeEventListener('visibilitychange', refreshIfAvailable);
+    };
+  }, [client]);
   const disabled = state.saving || state.pending;
   const selected = state.selected;
   const workerUnavailable = state.plans.some(plan => plan.active) && state.workerSummary !== null && state.workerSummary.online === 0;

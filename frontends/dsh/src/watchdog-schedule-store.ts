@@ -289,7 +289,7 @@ export class WatchdogScheduleStore {
    * @param planId - Select this plan's occurrences; omission lists plans.
    * @param after - Last record cursor, or zero for the first page.
    * @param limit - Maximum complete records to return, from one to one hundred.
-   * @param fits - Check the full carrier response, including its final cursors and worker summary.
+   * @param fits - Check the full carrier response, including worker and occurrence attention summaries.
    * @param workersAfter - Independent last-worker cursor, or zero for its first page.
    * @returns A byte-bounded page or an explicit error when the first whole record and worker cannot fit.
    */
@@ -305,6 +305,10 @@ export class WatchdogScheduleStore {
         COALESCE(SUM(error IS NOT NULL AND error!='worker_stopped' AND lastHeartbeat>=?),0) AS degraded,
         COALESCE(SUM((error IS NULL OR error!='worker_stopped') AND lastHeartbeat<?),0) AS offline,
         COALESCE(SUM(error='worker_stopped'),0) AS stopped FROM schedule_workers`).get(cutoff, cutoff, cutoff));
+      const attention = sqliteRow.parse(this.db.prepare(`SELECT
+        COALESCE(SUM(state='failed'),0) AS failed,
+        COALESCE(SUM(state='uncertain'),0) AS uncertain
+        FROM schedule_instances`).get());
       const workers = this.db.prepare('SELECT rowid AS cursor,* FROM schedule_workers WHERE rowid>? ORDER BY rowid LIMIT 101').all(workersAfter).map(value => {
         const { cursor, ...row } = sqliteRow.parse(value);
         const stale = now - Number(row.lastHeartbeat) > this.config.heartbeatStaleMs;
@@ -316,6 +320,7 @@ export class WatchdogScheduleStore {
       const response = (recordCount: number, workerCount: number) => ({ mode: this.config.mode,
         workers: workers.slice(0, workerCount).map(worker => worker.value),
         workerSummary: { ...summary, nextAfter: workers.length > workerCount ? workers[workerCount - 1]!.cursor : null },
+        attentionSummary: attention,
         records: records.slice(0, recordCount), nextAfter: rows.length > recordCount ? Number(rows[recordCount - 1]!.cursor) : null });
       let recordCount = Math.min(1, records.length);
       let workerCount = Math.min(1, workers.length);

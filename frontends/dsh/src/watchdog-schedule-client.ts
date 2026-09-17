@@ -12,7 +12,8 @@ const occurrence = z.object({ id: z.string(), planId: z.string(), scheduledAt: i
   attempts: integer, reason: z.string().nullable(), finishedAt: integer.nullable() });
 const worker = z.object({ id: z.string(), lastHeartbeat: integer, status: z.enum(['online', 'offline', 'degraded', 'stopped']) });
 const workerSummary = z.object({ total: integer, online: integer, offline: integer, degraded: integer, stopped: integer, nextAfter: integer.nullable() });
-const summary = { mode: z.enum(['desktop', 'server']), workers: z.array(worker), workerSummary, nextAfter: integer.nullable() };
+const attentionSummary = z.object({ failed: integer, uncertain: integer });
+const summary = { mode: z.enum(['desktop', 'server']), workers: z.array(worker), workerSummary, attentionSummary, nextAfter: integer.nullable() };
 const plans = z.object({ ...summary, records: z.array(plan) });
 const instances = z.object({ ...summary, records: z.array(occurrence) });
 const history = z.object({ records: z.array(z.object({ seq: integer, at: integer, action: z.string(), reason: z.string().nullable() })), nextAfter: integer.nullable() });
@@ -29,6 +30,7 @@ export interface ScheduleClientState {
   nextHistory: number | null;
   workers: z.infer<typeof worker>[];
   workerSummary: z.infer<typeof workerSummary> | null;
+  attentionSummary: z.infer<typeof attentionSummary> | null;
   mode: 'desktop' | 'server' | null;
   observedAt: number | null;
   loading: boolean;
@@ -41,7 +43,7 @@ export interface ScheduleClientState {
 /** One current page per collection and one exact unconfirmed write survive panel navigation. */
 export class WatchdogScheduleClient {
   private state: ScheduleClientState = { plans: [], nextPlan: null, selected: null, instances: [], nextInstance: null,
-    history: [], nextHistory: null, workers: [], workerSummary: null, mode: null, observedAt: null, loading: false, saving: false, pending: false, saved: false, error: null };
+    history: [], nextHistory: null, workers: [], workerSummary: null, attentionSummary: null, mode: null, observedAt: null, loading: false, saving: false, pending: false, saved: false, error: null };
   private readonly listeners = new Set<() => void>();
   private pending: ScheduleCommand | undefined;
   private readVersion = 0;
@@ -79,7 +81,7 @@ export class WatchdogScheduleClient {
   async refresh(after = 0): Promise<void> {
     await this.read(async () => {
       const value = await this.get(plans, `?limit=20&after=${after}`);
-      return { plans: value.records, nextPlan: value.nextAfter, workers: value.workers, workerSummary: value.workerSummary, mode: value.mode, observedAt: Date.now() };
+      return { plans: value.records, nextPlan: value.nextAfter, workers: value.workers, workerSummary: value.workerSummary, attentionSummary: value.attentionSummary, mode: value.mode, observedAt: Date.now() };
     });
   }
   /** Show the selected plan's occurrence page; its Session is opened separately by the user. */
@@ -87,14 +89,14 @@ export class WatchdogScheduleClient {
     await this.read(async () => {
       const value = await this.get(instances, `?id=${encodeURIComponent(selected.id)}&limit=20&after=${after}`);
       if (value.records.some(item => item.planId !== selected.id)) throw new Failure('invalid');
-      return { selected, instances: value.records, nextInstance: value.nextAfter, workers: value.workers, workerSummary: value.workerSummary, mode: value.mode, observedAt: Date.now(), history: [], nextHistory: null };
+      return { selected, instances: value.records, nextInstance: value.nextAfter, workers: value.workers, workerSummary: value.workerSummary, attentionSummary: value.attentionSummary, mode: value.mode, observedAt: Date.now(), history: [], nextHistory: null };
     });
   }
   /** Page worker observations independently without replacing the selected business records. */
   async workers(after = 0): Promise<void> {
     await this.read(async () => {
       const value = await this.get(plans, `?limit=1&workersAfter=${after}`);
-      return { workers: value.workers, workerSummary: value.workerSummary, mode: value.mode, observedAt: Date.now() };
+      return { workers: value.workers, workerSummary: value.workerSummary, attentionSummary: value.attentionSummary, mode: value.mode, observedAt: Date.now() };
     });
   }
   /** Read one immutable history page without accumulating the complete log in the WebView. */

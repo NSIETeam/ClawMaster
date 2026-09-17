@@ -72,7 +72,7 @@ async function fixture(existing = true, enterpriseStore, localeKey = 'zh') {
   const request = vi.fn(async (path, init) => {
     expect(init.credentials).toBe('same-origin');
     if (path === '/api/clawmaster/workspace') return Response.json({ workspaceId: 'managed', path: '/synthetic/desk' });
-    if (path === '/api/clawmaster/schedules?limit=20&after=0') return Response.json({ mode: 'desktop', workers: [], workerSummary: { total: 0, online: 0, offline: 0, degraded: 0, stopped: 0, nextAfter: null }, records: [], nextAfter: null });
+    if (path === '/api/clawmaster/schedules?limit=20&after=0') return Response.json({ mode: 'desktop', workers: [], workerSummary: { total: 0, online: 0, offline: 0, degraded: 0, stopped: 0, nextAfter: null }, attentionSummary: { failed: 0, uncertain: 0 }, records: [], nextAfter: null });
     if (path === '/api/clawmaster/tasks?limit=50') return Response.json({ tasks: [], nextCursor: null });
     if (path.startsWith('/api/clawmaster/enterprise')) return transport.fetch(path, init);
     throw new Error(`Unexpected enterprise request: ${path}`);

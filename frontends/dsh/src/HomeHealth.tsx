@@ -4,7 +4,7 @@ import { businessHealthSummary, productCopy, type ProductLocale } from './locale
 export interface HomeHealthState {
   app: 'connected' | 'disconnected' | 'connecting';
   model: 'unverified' | 'verified';
-  schedule: { error: boolean; observedAt: number | null; total: number | null; online: number; offline: number; degraded: number };
+  schedule: { error: boolean; observedAt: number | null; total: number | null; online: number; offline: number; degraded: number; failed: number; uncertain: number };
   business: { total: number; review: number; failed: number; overdue: number; error: boolean };
 }
 
@@ -23,6 +23,7 @@ export function HomeHealth({ locale, state }: { locale: ProductLocale; state: Ho
         <small>{state.model === 'verified' ? copy.modelEvidenceLimit : copy.modelNextStep}</small></div>
       <div><dt>{copy.healthSchedule}</dt><dd data-health={state.schedule.error || state.schedule.offline + state.schedule.degraded > 0 || (state.schedule.total !== null && state.schedule.online === 0) ? 'attention' : 'observed'}>{scheduleStatus}</dd>
         {state.schedule.total !== null && <small>{copy.scheduleWorkers}: {state.schedule.online}/{state.schedule.total} · {copy.scheduleNeedsAttention}: {state.schedule.offline + state.schedule.degraded}</small>}
+        {(state.schedule.failed > 0 || state.schedule.uncertain > 0) && <small role="alert">{copy.scheduleOccurrencesAttention.replace('{failed}', String(state.schedule.failed)).replace('{uncertain}', String(state.schedule.uncertain))}</small>}
         {state.schedule.observedAt !== null && <small>{copy.observedAt}: <time dateTime={new Date(state.schedule.observedAt).toISOString()}>{new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(state.schedule.observedAt)}</time></small>}
       </div>
       <div><dt>{copy.healthBusiness}</dt><dd data-health={state.business.error ? 'attention' : state.business.review + state.business.failed + state.business.overdue > 0 ? 'attention' : 'observed'}>

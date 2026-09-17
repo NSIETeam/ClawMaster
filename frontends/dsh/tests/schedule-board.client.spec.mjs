@@ -101,6 +101,32 @@ it('alerts when an active plan has no online worker and clears after a live hear
   expect(screen.queryByRole('alert')).toBeNull();
 });
 
+it('surfaces persisted failed and uncertain outcomes in the global attention summary', async () => {
+  const { client, store, seed } = await fixture();
+  const { plan, instance, now } = seed();
+  store.command(human, scheduleCommandSchema.parse({ commandId: randomUUID(), command: { type: 'approve', id: plan.id, instanceId: instance.id } }), now);
+  const lease = store.claim('dispatch-worker', now + 1);
+  expect(store.beginDispatch(lease, now + 2)).toBe(true);
+  store.heartbeat('recovery-observer', now + store.config.leaseMs + 3);
+  store.materialize(now + 300000);
+  const next = store.query(human, now + 300000, plan.id).records.find(item => item.id !== instance.id);
+  expect(next).toBeTruthy();
+  store.heartbeat('approval-timeout-observer', next.expiresAt);
+  await act(() => client.refresh());
+  expect(client.getSnapshot().attentionSummary).toEqual({ failed: 1, uncertain: 1 });
+});
+
+it('refreshes persisted status after the app regains connectivity', async () => {
+  let reads = 0;
+  const h = await fixture({ intercept: async (input, init, next) => {
+    if (init?.method !== 'POST') reads++;
+    return next();
+  } });
+  expect(reads).toBe(1);
+  await act(async () => { window.dispatchEvent(new Event('online')); });
+  await waitFor(() => expect(reads).toBeGreaterThan(1));
+});
+
 it('requires session inspection before human resolution and never reenqueues an uncertain occurrence', async () => {
   const { client, store, seed } = await fixture({ locale: 'zh-CN' });
   const { plan, instance, now } = seed();

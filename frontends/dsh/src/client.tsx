@@ -117,7 +117,8 @@ export function apply(ctx: FrontendServices): void {
     return <Workbench
       health={{ app: connection ?? 'connecting', model,
         schedule: { error: scheduleState.error !== null, observedAt: scheduleState.observedAt, total: scheduleState.workerSummary?.total ?? null,
-          online: scheduleState.workerSummary?.online ?? 0, offline: scheduleState.workerSummary?.offline ?? 0, degraded: scheduleState.workerSummary?.degraded ?? 0 },
+          online: scheduleState.workerSummary?.online ?? 0, offline: scheduleState.workerSummary?.offline ?? 0, degraded: scheduleState.workerSummary?.degraded ?? 0,
+          failed: scheduleState.attentionSummary?.failed ?? 0, uncertain: scheduleState.attentionSummary?.uncertain ?? 0 },
         business: { total: taskSummary.total, review: taskSummary.awaitingReview, failed: taskSummary.failed, overdue: taskSummary.overdue, error: taskState.error !== null } }}
       locale={locale}
       sessions={recentSessions(snapshot, workspaces.archivedSessionIds, locale, interactions)}

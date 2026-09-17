@@ -31,20 +31,21 @@ it('observes newly recorded responses on loaded Session event sources and unsubs
 it('shows app, model, schedule and business health as separate observations', () => {
   render(createElement(HomeHealth, { locale: 'en-US', state: {
     app: 'connected', model: 'unverified',
-    schedule: { error: false, observedAt: 1_800_000_000_000, total: 2, online: 1, offline: 1, degraded: 0 },
+    schedule: { error: false, observedAt: 1_800_000_000_000, total: 2, online: 1, offline: 1, degraded: 0, failed: 2, uncertain: 1 },
     business: { total: 7, review: 2, failed: 1, overdue: 1, error: false },
   } }));
   expect(screen.getByRole('region', { name: 'Service health and business outcomes' })).toBeTruthy();
   expect(screen.getByText('App service connected').getAttribute('data-health')).toBe('connected');
   expect(screen.getByText('No successful response observed in loaded Sessions').getAttribute('data-health')).toBe('unverified');
   expect(screen.getByText('Some workers are offline or degraded').getAttribute('data-health')).toBe('attention');
+  expect(screen.getByRole('alert').textContent).toContain('2 failed, 1 delivery outcomes uncertain');
   expect(screen.getByText('7 loaded; 2 awaiting review, 1 failed, 1 overdue').getAttribute('data-health')).toBe('attention');
 });
 
 it('reports missing worker observations and unavailable business data without inventing health', () => {
   render(createElement(HomeHealth, { locale: 'zh-CN', state: {
     app: 'disconnected', model: 'unverified',
-    schedule: { error: true, observedAt: null, total: null, online: 0, offline: 0, degraded: 0 },
+    schedule: { error: true, observedAt: null, total: null, online: 0, offline: 0, degraded: 0, failed: 0, uncertain: 0 },
     business: { total: 0, review: 0, failed: 0, overdue: 0, error: true },
   } }));
   expect(screen.getByText('应用服务连接已断开').getAttribute('data-health')).toBe('disconnected');
@@ -56,7 +57,7 @@ it('reports missing worker observations and unavailable business data without in
 it('reports a recorded model response without claiming current provider availability', () => {
   render(createElement(HomeHealth, { locale: 'en-US', state: {
     app: 'connected', model: 'verified',
-    schedule: { error: false, observedAt: null, total: null, online: 0, offline: 0, degraded: 0 },
+    schedule: { error: false, observedAt: null, total: null, online: 0, offline: 0, degraded: 0, failed: 0, uncertain: 0 },
     business: { total: 0, review: 0, failed: 0, overdue: 0, error: false },
   } }));
   expect(screen.getByText('Successful model response recorded').getAttribute('data-health')).toBe('verified');
