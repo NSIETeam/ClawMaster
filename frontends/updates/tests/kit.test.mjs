@@ -7,7 +7,8 @@ import { gzipSync } from 'node:zlib';
 import test from 'node:test';
 import { Header } from 'tar';
 import { inspectKit, installKit, nativeKit, repairKit, verifyKit } from '../src/kit.ts';
-import { activateComponent, installComponent, readComponentPatchRevision } from '../src/components.ts';
+import { activateComponent, confirmComponentHealth, installComponent, listComponentOperations, maintainRestartComponents,
+  mountFirstUpdaterComponent, readComponentPatchRevision, rollbackComponent } from '../src/components.ts';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const encode = value => Buffer.from(value).toString('base64');
@@ -17,7 +18,7 @@ const nativeSignature = 'untrusted comment: signature from minisign secret key\n
 
 function archive(version = '0.1.0', name = '@clawmaster/dsh-updates') {
   const files = [['package/package.json', JSON.stringify({ name, version, type: 'module', peerDependencies: { '@deepseek-ai/cordis': '4.0.2' } })],
-    ['package/dist/index.js', 'export const name="clawmaster-updates"; export function apply() {}\n']];
+    ['package/dist/index.js', `export const name="clawmaster-updates"; export const version=${JSON.stringify(version)}; export function apply() {}\n`]];
   const blocks = [];
   for (const [path, content] of files) {
     const bytes = Buffer.from(content);
@@ -240,6 +241,75 @@ test('an authenticated offline kit applies a staged updater after the Host has e
   assert.deepEqual(result.operations.map(operation => ({ token: operation.token, state: operation.state })), [{ token: staged.rollbackToken, state: 'awaiting-health' }]);
   assert.match(await readFile(patch, 'utf8'), /clawmaster-update-component-updates/);
 }));
+
+test('kit 0.1.0 repairs staged operations from updater 0.1.0 and 0.1.1 through health and rollback', async t => {
+  for (const oldVersion of ['0.1.0', '0.1.1']) {
+    await fixture(async ({ options, trust, component, payloadPath, patch, confirm }) => {
+      const dshHome = options.compatibility.dshHome;
+      let previousEntryUrl;
+      if (oldVersion === '0.1.0') {
+        previousEntryUrl = (await confirm()).entryUrl;
+      } else {
+        const previousArchive = join(options.compatibility.dshHome, `old-${oldVersion}.tgz`);
+        await writeFile(previousArchive, archive(oldVersion));
+        await installComponent({ archivePath: previousArchive, descriptor: { ...component, version: oldVersion }, dshHome,
+          dshVersion: '0.1.5-rc.2', providedPackages: { '@deepseek-ai/cordis': '4.0.2' } });
+        previousEntryUrl = (await mountFirstUpdaterComponent({ dshHome, version: oldVersion, confirmed: true,
+          expectedPatchRevision: await readComponentPatchRevision(dshHome) })).entryUrl;
+      }
+      const before = await readFile(patch, 'utf8');
+      const nextVersion = '0.1.2';
+      const nextArchive = join(options.compatibility.dshHome, `next-${nextVersion}.tgz`);
+      await writeFile(nextArchive, archive(nextVersion));
+      const next = await installComponent({ archivePath: nextArchive, descriptor: { ...component, version: nextVersion }, dshHome,
+        dshVersion: '0.1.5-rc.2', providedPackages: { '@deepseek-ai/cordis': '4.0.2' } });
+      const staged = await activateComponent({ dshHome, id: 'updates', version: nextVersion, confirmed: true,
+        expectedPatchRevision: await readComponentPatchRevision(dshHome) });
+      const journal = join(dshHome, 'clawmaster-updates', 'operations', `${staged.rollbackToken}.json`);
+      const record = JSON.parse(await readFile(journal, 'utf8'));
+      // Updater 0.1.0 and 0.1.1 persisted this finite field set for restart-only operations.
+      await writeFile(journal, JSON.stringify({ before: record.before, after: record.after, afterRevision: record.afterRevision,
+        id: record.id, version: record.version, activation: record.activation, state: record.state }));
+      assert.equal(await readFile(patch, 'utf8'), before);
+
+      await mkdir(join(dshHome, 'desktop'));
+      const runtimeState = join(dshHome, 'desktop', 'current-runtime.json');
+      await writeFile(runtimeState, JSON.stringify({ schemaVersion: 1, hostPid: 2147483647, runId: `legacy-${oldVersion}`, status: 'ready' }));
+      const repaired = await repairKit({ kitRoot: options.kitRoot, dshHome }, trust);
+      assert.deepEqual(repaired.operations.map(row => ({ token: row.token, state: row.state })),
+        [{ token: staged.rollbackToken, state: 'awaiting-health' }]);
+      assert.ok((await readFile(patch, 'utf8')).includes(next.entryUrl));
+      assert.equal((await import(next.entryUrl)).version, nextVersion);
+
+      const oldRunId = process.env.CLAWMASTER_RUNTIME_RUN_ID;
+      process.env.CLAWMASTER_RUNTIME_RUN_ID = `loaded-${oldVersion}`;
+      try {
+        assert.deepEqual(await confirmComponentHealth({ dshHome, entryUrl: next.entryUrl, hostPid: process.pid, runId: `loaded-${oldVersion}` }), [staged.rollbackToken]);
+      } finally {
+        if (oldRunId === undefined) delete process.env.CLAWMASTER_RUNTIME_RUN_ID;
+        else process.env.CLAWMASTER_RUNTIME_RUN_ID = oldRunId;
+      }
+      const rollback = await rollbackComponent({ dshHome, rollbackToken: staged.rollbackToken,
+        expectedPatchRevision: await readComponentPatchRevision(dshHome), confirmed: true });
+      assert.equal(rollback.status, 'restart-required');
+      await writeFile(runtimeState, JSON.stringify({ schemaVersion: 1, hostPid: 2147483647, runId: `rollback-${oldVersion}`, status: 'ready' }));
+      assert.equal((await maintainRestartComponents(dshHome))[0].state, 'awaiting-health');
+      assert.ok((await readFile(patch, 'utf8')).includes(previousEntryUrl));
+      const rollbackRunId = process.env.CLAWMASTER_RUNTIME_RUN_ID;
+      process.env.CLAWMASTER_RUNTIME_RUN_ID = `rollback-loaded-${oldVersion}`;
+      try {
+        assert.deepEqual(await confirmComponentHealth({ dshHome, entryUrl: previousEntryUrl, hostPid: process.pid,
+          runId: `rollback-loaded-${oldVersion}` }), [staged.rollbackToken]);
+      } finally {
+        if (rollbackRunId === undefined) delete process.env.CLAWMASTER_RUNTIME_RUN_ID;
+        else process.env.CLAWMASTER_RUNTIME_RUN_ID = rollbackRunId;
+      }
+      assert.equal((await import(previousEntryUrl)).version, oldVersion);
+      assert.ok((await readFile(patch, 'utf8')).includes(`/${oldVersion}/`));
+      assert.equal((await listComponentOperations(dshHome)).find(row => row.token === staged.rollbackToken).state, 'completed');
+    });
+  }
+});
 
 function nativeFixture(trust, payload = 'test') {
   const suffixes = { 'windows-x86_64': 'windows-x64-setup.exe', 'darwin-x86_64': 'macos-x64.app.tar.gz', 'darwin-aarch64': 'macos-arm64.app.tar.gz', 'linux-x86_64': 'linux-x64.AppImage', 'linux-x86_64-deb': 'linux-x64.deb' };
