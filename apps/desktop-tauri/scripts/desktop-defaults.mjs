@@ -16,6 +16,20 @@ export const DESKTOP_PLUGIN_VERSIONS = Object.freeze({
 /** Desktop insertion layer omitted when a user-installed updater already owns its row. */
 export const DESKTOP_UPDATES_BUNDLE = '@clawmaster/dsh-updates'
 
+/** Desktop layers that add features but are not required to open the core application. */
+export const DESKTOP_OPTIONAL_BUNDLES = Object.freeze([
+  '@xmanrui/dsh-im',
+  'dsh-better-sidebar',
+  '@nanmicoder/dsh-agent-teams',
+  '@openviking/dsh-memory-plugin',
+  'dsh-routing-suite',
+  '@clawmaster/dsh-notes',
+  '@clawmaster/dsh-graph-memory',
+  '@clawmaster/dsh-office',
+  '@clawmaster/dsh-rpa',
+  DESKTOP_UPDATES_BUNDLE,
+])
+
 /** Ordered product layers appended after the shipped Web profile. */
 export const DESKTOP_BUNDLES = Object.freeze([
   ...Object.keys(DESKTOP_PLUGIN_VERSIONS),
@@ -49,7 +63,7 @@ function copyMissingPreset(source, destination) {
  * @param {boolean} existingUpdater - Preserve a user-installed updater by omitting the desktop insertion layer.
  * @returns {object} A manifest with the desktop layers present once.
  */
-export function withDesktopBundles(manifest, existingUpdater = false) {
+export function withDesktopBundles(manifest, existingUpdater = false, availableBundles = DESKTOP_BUNDLES) {
   const bundles = manifest.dsh?.profile?.bundles
   if (!Array.isArray(bundles) || bundles.some(name => typeof name !== 'string')) {
     throw new Error('Desktop Web profile must declare dsh.profile.bundles as package names')
@@ -57,14 +71,17 @@ export function withDesktopBundles(manifest, existingUpdater = false) {
   if (!bundles.includes('@deepseek-ai/dsh-web-app')) {
     throw new Error('Desktop Web profile must include @deepseek-ai/dsh-web-app')
   }
+  const available = new Set(availableBundles)
   return {
     ...manifest,
     dsh: {
       ...manifest.dsh,
       profile: {
         ...manifest.dsh.profile,
-        bundles: [...bundles, ...DESKTOP_BUNDLES.filter(name => !bundles.includes(name))]
-          .filter(name => !existingUpdater || name !== DESKTOP_UPDATES_BUNDLE),
+        bundles: [
+          ...bundles.filter(name => !DESKTOP_OPTIONAL_BUNDLES.includes(name) || available.has(name)),
+          ...availableBundles.filter(name => DESKTOP_BUNDLES.includes(name) && !bundles.includes(name)),
+        ].filter(name => !existingUpdater || name !== DESKTOP_UPDATES_BUNDLE),
       },
     },
   }
@@ -83,31 +100,40 @@ export async function prepareDesktopProfile(root, home) {
   const boot = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-app-boot')).href)
   const dir = boot.resolveProfileDir('web', home)
   const presets = []
+  const availableBundles = []
   for (const name of DESKTOP_BUNDLES) {
-    const packageDir = boot.resolveBundleDir('ClawMaster', name, anchor, dir)
-    const manifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'))
-    if (DESKTOP_PLUGIN_VERSIONS[name] && manifest.version !== DESKTOP_PLUGIN_VERSIONS[name]) {
-      throw new Error(`Desktop requires ${name}@${DESKTOP_PLUGIN_VERSIONS[name]}; installed ${manifest.version}`)
-    }
-    if (!manifest.dsh?.bundle?.patch) throw new Error(`Desktop bundle ${name} has no dsh.bundle.patch`)
-    readFileSync(join(packageDir, manifest.dsh.bundle.patch))
-    if (manifest.main || manifest.exports?.['.']) require.resolve(name)
-    if (manifest.dsh.client) require.resolve(`${name}/client`)
-    for (const preset of manifest.dsh.desktop?.presets ?? []) {
-      if (!/^[a-zA-Z0-9_-]+$/.test(preset.id) || typeof preset.path !== 'string') throw new Error(`Invalid desktop preset metadata in ${name}`)
-      const source = resolve(packageDir, preset.path)
-      const path = relative(packageDir, source)
-      if (!path || isAbsolute(path) || path === '..' || path.startsWith(`..${sep}`)) throw new Error(`Desktop preset path escapes ${name}`)
-      readFileSync(join(source, 'preset.yml'))
-      readFileSync(join(source, 'agent.cordis.yml'))
-      presets.push({ source, destination: join(home, '.agent-presets', preset.id) })
+    try {
+      const packageDir = boot.resolveBundleDir('ClawMaster', name, anchor, dir)
+      const manifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'))
+      if (DESKTOP_PLUGIN_VERSIONS[name] && manifest.version !== DESKTOP_PLUGIN_VERSIONS[name]) {
+        throw new Error(`requires ${name}@${DESKTOP_PLUGIN_VERSIONS[name]}; installed ${manifest.version}`)
+      }
+      if (!manifest.dsh?.bundle?.patch) throw new Error(`bundle ${name} has no dsh.bundle.patch`)
+      readFileSync(join(packageDir, manifest.dsh.bundle.patch))
+      if (manifest.main || manifest.exports?.['.']) require.resolve(name)
+      if (manifest.dsh.client) require.resolve(`${name}/client`)
+      for (const preset of manifest.dsh.desktop?.presets ?? []) {
+        if (!/^[a-zA-Z0-9_-]+$/.test(preset.id) || typeof preset.path !== 'string') throw new Error(`invalid desktop preset metadata in ${name}`)
+        const source = resolve(packageDir, preset.path)
+        const path = relative(packageDir, source)
+        if (!path || isAbsolute(path) || path === '..' || path.startsWith(`..${sep}`)) throw new Error(`desktop preset path escapes ${name}`)
+        readFileSync(join(source, 'preset.yml'))
+        readFileSync(join(source, 'agent.cordis.yml'))
+        presets.push({ source, destination: join(home, '.agent-presets', preset.id) })
+      }
+      availableBundles.push(name)
+    } catch (error) {
+      if (!DESKTOP_OPTIONAL_BUNDLES.includes(name)) throw error
+      const reason = error instanceof Error ? error.message : String(error)
+      process.stderr.write(`ClawMaster: optional component ${name} is unavailable and was skipped: ${reason}\n`)
     }
   }
   const template = boot.PROFILE_TEMPLATES.web
   boot.initProfile(dir, template.bundles, template.patchReload)
   const before = boot.readProfileManifest('ClawMaster', dir)
   const userPatches = [dir, home].flatMap(path => boot.loadOptionalPatches('ClawMaster', join(path, 'cordis.patch.yml')) ?? [])
-  const existingLayers = (before.dsh?.profile?.bundles ?? []).filter(name => name !== DESKTOP_UPDATES_BUNDLE)
+  const existingLayers = (before.dsh?.profile?.bundles ?? []).filter(name => name !== DESKTOP_UPDATES_BUNDLE
+    && (!DESKTOP_OPTIONAL_BUNDLES.includes(name) || availableBundles.includes(name)))
     .flatMap(name => {
       const path = boot.resolveBundleDir('ClawMaster', name, anchor, dir)
       const manifest = JSON.parse(readFileSync(join(path, 'package.json'), 'utf8'))
@@ -116,7 +142,7 @@ export async function prepareDesktopProfile(root, home) {
   const isUpdater = entry => entry.id === 'clawmaster-update-component-updates' || entry.name === '@clawmaster/dsh-updates'
     || (entry.group && Array.isArray(entry.config) && entry.config.some(isUpdater))
   const existingUpdater = [...existingLayers, ...userPatches].some(patch => patch.insert?.some(isUpdater))
-  const after = withDesktopBundles(before, existingUpdater)
+  const after = withDesktopBundles(before, existingUpdater, availableBundles)
   if (JSON.stringify(before) !== JSON.stringify(after)) boot.writeProfileManifest(dir, after)
   for (const preset of presets) copyMissingPreset(preset.source, preset.destination)
   const imWorkspace = join(home, 'watchdog-workspaces', 'im')

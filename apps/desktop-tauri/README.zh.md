@@ -20,7 +20,7 @@ Tauri 包名为 `@deepseek-ai/dsh-desktop-tauri`，与上游 Electron 应用独�
 | **安装包** | Tauri 二进制、启动页、裁剪后的 monorepo 子集（`bundled/harness/`） | — |
 | **构建环境** | — | 复用本机 Node 22.19+ 或 24+ 和 pnpm；没有时再从 npmmirror 下载 Node，并通过 npm 安装 pnpm |
 | **依赖** | — | 在平台应用数据目录执行 `pnpm install --prod --no-frozen-lockfile`（裁剪包与 lockfile 不完全相同；移除 `CI`，避免 pnpm 强制冻结安装） |
-| **Host** | — | `node apps/cli/lib/bin.js web --host 127.0.0.1`；启动时加载失败的插件会被禁用，然后重试 Host |
+| **Host** | — | `node apps/cli/lib/bin.js web --host 127.0.0.1`；缺失的可选组件会记录日志并跳过，启动失败的白名单功能插件会被禁用后重试。主界面、权限、审批与 Guard 失败仍会停止启动 |
 | **UI** | 原生窗口装饰与本地 `shell.html` 关闭对话框 | 子 WebView 嵌入 `dsh web`；macOS 将原生交通灯控件保留在 WebView 上方独立的标题栏区域，并隐藏标题文字。系统负责窗口外观，Web 设置负责嵌入客户端主题 |
 | **托盘** | 原生托盘图标 | 第一次关闭询问最小化到托盘还是退出，并写入 `desktop-settings.json`；托盘可改该偏好、显示窗口、安装 Sakana 插件库（在当前 Host 主目录执行 `dsh plugin --profile web add github:Sakana-yuyu/dsh-plugins`）、检查更新、重启或退出。重启和退出都会停止 Host 的 Node 进程树；重启随后重新拉起桌面进程。插件库安装成功后走同一条重启路径，以便加载该库。最小化到托盘则保持 Host 运行 |
 | **通知** | Overlay 插件 + 本机 POST | `turn/end` 且 `completed` 时，窗口不在前台则弹出系统通知并播放 `sounds/complete.wav` |

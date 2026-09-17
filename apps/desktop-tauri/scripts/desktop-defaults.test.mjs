@@ -150,14 +150,24 @@ test('IM directory provisioning rejects a link and preserves its target', async 
   assert.equal(readFileSync(join(outside, 'kept.txt'), 'utf8'), 'user data\n')
 })
 
-test('missing or different bundled releases reject before touching the home', async t => {
+test('an unavailable optional bundle is omitted while the core profile is provisioned', async t => {
   const f = fixture(t)
+  await prepareDesktopProfile(f.root, f.home)
   const manifestPath = join(f.modules, '@xmanrui/dsh-im/package.json')
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
   writeFileSync(manifestPath, JSON.stringify({ ...manifest, version: '4.19.0' }))
-  await assert.rejects(prepareDesktopProfile(f.root, f.home), /requires @xmanrui\/dsh-im@4.20.0/)
-  assert.equal(existsSync(f.home), false)
-  rmSync(manifestPath)
+  await prepareDesktopProfile(f.root, f.home)
+  const profile = JSON.parse(readFileSync(join(f.profile, 'package.json'), 'utf8'))
+  assert.equal(profile.dsh.profile.bundles.includes('@xmanrui/dsh-im'), false)
+  assert.equal(profile.dsh.profile.bundles.includes('@clawmaster/dsh-frontend'), true)
+  rmSync(join(f.modules, '@xmanrui/dsh-im'), { recursive: true })
+  await prepareDesktopProfile(f.root, f.home)
+  assert.equal(JSON.parse(readFileSync(join(f.profile, 'package.json'), 'utf8')).dsh.profile.bundles.includes('@xmanrui/dsh-im'), false)
+})
+
+test('a missing desktop core bundle still rejects startup', async t => {
+  const f = fixture(t)
+  rmSync(join(f.modules, '@clawmaster/dsh-frontend'), { recursive: true })
   await assert.rejects(prepareDesktopProfile(f.root, f.home), /cannot resolve profile bundle/)
   assert.equal(existsSync(f.home), false)
 })

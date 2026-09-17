@@ -14,7 +14,7 @@ use super::provision::RuntimePaths;
 use super::wsl::{build_wsl_web_command, WslLaunchSpec, WslRunner, WslRuntimePaths};
 use crate::i18n::{self, Msg};
 
-/// Maximum broken plugins one boot disables before giving up on the Host.
+/// Maximum allowlisted feature plugins one boot disables before giving up on the Host.
 const MAX_PLUGIN_RESCUES: usize = 4;
 /// Bound for reading the Linux pid handshake from WSL stderr.
 const WSL_PID_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
@@ -83,10 +83,9 @@ pub struct HostOverlay {
 }
 
 /// Spawn `dsh web --host 127.0.0.1 --port <port>` and wait until HTTP responds.
-/// A Host that dies naming a loader entry (`failed to apply loader entry <id>`)
-/// is respawned with that plugin disabled through a rescue `--patch` overlay,
-/// so one broken community plugin cannot keep the desktop closed; the disable
-/// lasts only this boot, so a fixed or updated plugin loads again on restart.
+/// A Host that dies naming an allowlisted feature entry is respawned with that
+/// plugin disabled through a rescue `--patch` overlay. Core and unknown entry
+/// failures remain fatal; a rescued disable lasts only this boot.
 pub async fn spawn_web_host(
     paths: &RuntimePaths,
     overlay: Option<&HostOverlay>,
@@ -170,7 +169,10 @@ pub async fn spawn_web_host(
             }
             let _ = std::fs::remove_file(host_pid_path());
             last_error = error.clone();
-            match failing_loader_entry(&error).filter(|entry| !disabled_plugins.contains(entry)) {
+            match failing_loader_entry(&error)
+                .filter(|entry| is_rescuable_desktop_plugin(entry))
+                .filter(|entry| !disabled_plugins.contains(entry))
+            {
                 Some(entry) => {
                     boot_log::error(&format!(
                         "plugin {entry} failed to load; retrying with it disabled"
@@ -517,6 +519,25 @@ fn failing_loader_entry(message: &str) -> Option<String> {
     (!id.is_empty()).then_some(id)
 }
 
+/// Only feature integrations may be disabled during desktop startup recovery.
+fn is_rescuable_desktop_plugin(id: &str) -> bool {
+    matches!(
+        id,
+        "xmanrui-dsh-im"
+            | "dsh-better-sidebar"
+            | "dsh-plugins-catalog"
+            | "agent-teams"
+            | "openviking-memory-runtime"
+            | "dsh-routing-suite"
+            | "clawmaster-notes"
+            | "clawmaster-graph-memory-storage"
+            | "clawmaster-graph-memory"
+            | "clawmaster-office"
+            | "clawmaster-rpa"
+            | "clawmaster-update-component-updates"
+    )
+}
+
 /// True when the Host exited because Node could not resolve a dependency of
 /// the provisioned tree (`ERR_MODULE_NOT_FOUND` from ESM resolution or
 /// `Cannot find module` from CJS). Unlike a plugin loader failure this names
@@ -754,8 +775,8 @@ fn port_free(port: u16) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        failing_loader_entry, is_missing_dependency_failure, parse_linux_pid_from_stderr,
-        read_linux_pid_handshake, rescue_patch_body, wsl_stop_args,
+        failing_loader_entry, is_missing_dependency_failure, is_rescuable_desktop_plugin,
+        parse_linux_pid_from_stderr, read_linux_pid_handshake, rescue_patch_body, wsl_stop_args,
     };
     use std::io::Read;
     use std::sync::{Arc, Mutex};
@@ -817,6 +838,34 @@ invalid plugin, expect function or object with an \"apply\" method, received obj
         );
         assert_eq!(failing_loader_entry("dsh web 进程已退出 (code 1)"), None);
         assert_eq!(failing_loader_entry("failed to apply loader entry "), None);
+    }
+
+    #[test]
+    fn startup_rescue_can_disable_optional_features_but_never_core_policy() {
+        for id in [
+            "xmanrui-dsh-im",
+            "dsh-better-sidebar",
+            "dsh-plugins-catalog",
+            "agent-teams",
+            "dsh-routing-suite",
+            "clawmaster-notes",
+            "clawmaster-office",
+            "clawmaster-rpa",
+            "clawmaster-graph-memory",
+            "clawmaster-update-component-updates",
+        ] {
+            assert!(is_rescuable_desktop_plugin(id), "{id}");
+        }
+        for id in [
+            "clawmaster-frontend",
+            "clawmaster-guard",
+            "sandbox-policy",
+            "approval",
+            "permission",
+            "unknown-plugin",
+        ] {
+            assert!(!is_rescuable_desktop_plugin(id), "{id}");
+        }
     }
 
     #[test]
