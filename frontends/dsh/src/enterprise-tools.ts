@@ -157,6 +157,10 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
           identity = await caller.check('records.write', resource);
           identity.approval = { kind: 'dsh-one-shot' };
         }
+        if (command.type === 'order.submit' && prepared.before && 'lines' in prepared.before) {
+          const finalCheck = await caller.checkMany('records.write', [resource, ...prepared.before.lines.map(line => governanceResource('record/inventory', line.itemId))]);
+          identity = { ...finalCheck, ...identity, policyVersion: finalCheck.policyVersion };
+        }
         signal.throwIfAborted();
         return { identity, prepared };
       }, signal);

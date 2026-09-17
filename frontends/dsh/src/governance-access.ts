@@ -37,6 +37,11 @@ function resourceMatchesAction(action: GovernanceAction, resource: string): bool
   return false;
 }
 
+function hasResourceGrant(grants: readonly string[], resource: string): boolean {
+  return grants.includes('*') || grants.includes(resource)
+    || grants.some(grant => grant.endsWith('/*') && resource.startsWith(grant.slice(0, -1)));
+}
+
 /** A principal is resolved from authenticated transport state, never caller JSON or a desktop token. */
 export interface GovernancePrincipal {
   organizationId: string;
@@ -126,6 +131,12 @@ const roleActions: Record<GovernanceRole, readonly GovernanceAction[]> = {
 export interface GovernanceCaller {
   identity: ExecutionIdentity;
   check(action: GovernanceAction, resource?: string): Promise<ExecutionIdentity>;
+  /** Re-read memberships once and require every resource from that same policy snapshot.
+   * @param action The requested permission.
+   * @param resources Every resource the operation will affect.
+   * @returns The authenticated identity with the snapshot's policy version.
+   */
+  checkMany(action: GovernanceAction, resources: readonly string[]): Promise<ExecutionIdentity>;
   checkOwner(owner: { kind: 'local'; label: string } | { kind: 'member'; id: string }): Promise<void>;
   approve(action: GovernanceAction, resource: string, commandId: string, generation: number, revision: number, commandDigest: string): Promise<ExecutionIdentity>;
 }
@@ -219,11 +230,12 @@ export class GovernanceAccess {
   }
 
   private local(identity: ExecutionIdentity, signal?: AbortSignal): GovernanceCaller {
-    return { identity, check: async action => {
+    const checkMany = async (action: GovernanceAction): Promise<ExecutionIdentity> => {
       signal?.throwIfAborted();
       if (action === 'task.review' && identity.actor.kind !== 'local-human') throw new GovernanceDenied('Only a human can accept a task.');
       return identity;
-    }, checkOwner: async owner => {
+    };
+    return { identity, check: action => checkMany(action), checkMany, checkOwner: async owner => {
       signal?.throwIfAborted();
       if (owner.kind !== 'local') throw new GovernanceDenied('Local mode has no authenticated organization members.');
     }, approve: async () => { throw new GovernanceDenied('Local approvals are provided by the DSH one-shot approval service.'); } };
@@ -237,18 +249,19 @@ export class GovernanceAccess {
       principalId: principal.memberId, organizationId: config.organizationId, source, policyVersion: 0,
       ...(principal.sessionId ? { sessionId: principal.sessionId } : {}), ...(callId ? { callId } : {}),
     };
-    const check = async (action: GovernanceAction, resource = '*'): Promise<ExecutionIdentity> => {
+    const checkMany = async (action: GovernanceAction, resources: readonly string[]): Promise<ExecutionIdentity> => {
       const memberships = await waitForAuthority(signal, () => Promise.all([principal.memberId, ...(principal.delegatorId ? [principal.delegatorId] : [])]
         .map(async member => authorityResult(authorityMembershipSchema,
           await config.authority.membership(config.organizationId, member, signal), 'membership'))));
       identity.policyVersion = Math.max(0, ...memberships.map(member => member?.policyVersion ?? 0));
-      if (!resourceMatchesAction(action, resource) || memberships.some(member => !member?.active || !member.roles.some(role => roleActions[role].includes(action))
-        || (!member.resources.includes('*') && !member.resources.includes(resource)
-          && !member.resources.some(grant => grant.endsWith('/*') && resource.startsWith(grant.slice(0, -1)))))
+      if (resources.length === 0 || resources.some(resource => !resourceMatchesAction(action, resource)) || memberships.some(member => !member?.active
+        || !member.roles.some(role => roleActions[role].includes(action))
+        || resources.some(resource => !hasResourceGrant(member.resources, resource)))
         || (action === 'task.review' && principal.actor !== 'human')) throw new GovernanceDenied();
       return { ...identity };
     };
-    return { identity, check, checkOwner: async owner => {
+    const check = (action: GovernanceAction, resource = '*'): Promise<ExecutionIdentity> => checkMany(action, [resource]);
+    return { identity, check, checkMany, checkOwner: async owner => {
       const membership = owner.kind === 'member'
         ? await waitForAuthority(signal, () => config.authority.membership(config.organizationId, owner.id, signal))
         : undefined;
@@ -265,7 +278,7 @@ export class GovernanceAccess {
       const approver = await waitForAuthority(signal, () => config.authority.membership(config.organizationId, approval.approverId, signal));
       const checkedApprover = authorityResult(authorityMembershipSchema, approver, 'approver membership');
       if (!checkedApprover?.active || !checkedApprover.roles.includes('approver')
-        || (!checkedApprover.resources.includes('*') && !checkedApprover.resources.includes(resource))) throw new GovernanceDenied('The approver no longer has permission.', 'approver_invalid');
+        || !hasResourceGrant(checkedApprover.resources, resource)) throw new GovernanceDenied('The approver no longer has permission.', 'approver_invalid');
       return { ...await check(action, resource), approval: { kind: 'authority', ...approval, generation, revision } };
     } };
   }

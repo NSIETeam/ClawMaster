@@ -1015,10 +1015,15 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
             await Promise.all(prepared.before.lines.map(line => caller.check('records.write', governanceResource('record/inventory', line.itemId))));
           }
           const replay = prepared.receipt;
-          return access.mode === 'enterprise' && !replay
+          const authorized = access.mode === 'enterprise' && !replay
             ? await caller.approve('records.write', resource, parsed.commandId, parsed.generation, parsed.revision,
               createHash('sha256').update(JSON.stringify(command)).digest('hex'))
             : checked;
+          if (command.type === 'order.submit' && prepared.before && 'lines' in prepared.before) {
+            const finalCheck = await caller.checkMany('records.write', [resource, ...prepared.before.lines.map(line => governanceResource('record/inventory', line.itemId))]);
+            return { ...finalCheck, ...authorized, policyVersion: finalCheck.policyVersion };
+          }
+          return authorized;
         }, signal);
         if (closing || signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
         const { generation, revision, receipt } = store.executeReceipt(parsed, identity);

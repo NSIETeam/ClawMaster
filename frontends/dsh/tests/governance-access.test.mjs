@@ -4,6 +4,11 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Context } from '@deepseek-ai/cordis';
+import SystemPrompt from '@deepseek-ai/dsh-system-prompt';
+import ToolRuntime from '@deepseek-ai/dsh-tools';
+import ApprovalService from '@deepseek-ai/dsh-user-approval';
+import { Session, SessionId } from '@deepseek-ai/dsh-session';
 import { GovernanceAccess, governanceResource, governanceResourceCollection } from '../src/governance-access.ts';
 import { mountEnterpriseRoutes, openEnterpriseStore } from '../src/enterprise-host.ts';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
@@ -135,6 +140,103 @@ test('order submission requires write permission for every referenced inventory 
   assert.equal(store.snapshot().orders[0].status, 'draft');
 });
 
+test('HTTP order submission rechecks inventory grants after independent approval and records the final policy version', async t => {
+  const h = authorityFixture(); const store = await openEnterpriseStore(':memory:', 5000, 'one'); const routes = new Map();
+  const arrived = Promise.withResolvers(); const release = Promise.withResolvers();
+  h.authority.consumeApproval = async () => { arrived.resolve(); await release.promise; return { id: 'inventory-approval', approverId: 'bob' }; };
+  const remove = await mountEnterpriseRoutes({ connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return () => routes.delete(route.path); } } } }, store, h.access);
+  t.after(async () => { release.resolve(); await remove(); store.close(); });
+  store.execute({ generation: 0, revision: 0, commandId: 'seed-stock', command: { type: 'item.upsert', item: { id: 'item-one', sku: 'SKU-1', name: 'Stock', stock: 1, reorderAt: 0, supplier: '' } } });
+  store.execute({ generation: 0, revision: 1, commandId: 'seed-order', command: { type: 'order.save', order: { id: 'order-one', kind: 'sale', counterparty: 'Buyer', orderDate: '2026-09-17', currency: 'CNY', lines: [{ itemId: 'item-one', quantity: 1, unitPriceMinorUnits: 100 }], note: '' } } });
+  const orderResource = governanceResource('record/order', 'order-one');
+  const itemResource = governanceResource('record/inventory', 'item-one');
+  h.members.set('alice', { active: true, roles: ['administrator'], resources: [orderResource, itemResource], policyVersion: 2 });
+  h.grants.set(JSON.stringify({ organizationId: 'one', executorId: 'alice', action: 'records.write', resource: orderResource, commandId: 'submit-http', generation: 0, revision: 2,
+    commandDigest: createHash('sha256').update(JSON.stringify({ type: 'order.submit', id: 'order-one' })).digest('hex') }), { id: 'approved-submit', approverId: 'bob' });
+  const result = routes.get('/api/clawmaster/enterprise/command')(new Request('http://fixture/command', { method: 'POST', headers: { authorization: 'alice', 'content-type': 'application/json' },
+    body: JSON.stringify({ generation: 0, revision: 2, commandId: 'submit-http', command: { type: 'order.submit', id: 'order-one' } }) }));
+  await arrived.promise;
+  h.members.set('alice', { active: true, roles: ['administrator'], resources: [orderResource], policyVersion: 3 });
+  release.resolve();
+  assert.equal((await result).status, 403);
+  assert.equal(store.snapshot().inventory[0].stock, 1);
+  assert.equal(store.snapshot().orders[0].status, 'draft');
+  assert.equal(store.responsibility().records.at(-1).outcome, 'denied');
+});
+
+test('HTTP order submission records the final policy version and retains its independent approval', async t => {
+  const h = authorityFixture(); const store = await openEnterpriseStore(':memory:', 5000, 'one'); const routes = new Map();
+  h.authority.consumeApproval = async () => {
+    h.members.set('alice', { active: true, roles: ['administrator'], resources: [governanceResource('record/order', 'order-one'), governanceResource('record/inventory', 'item-one')], policyVersion: 4 });
+    return { id: 'approved-version-change', approverId: 'bob' };
+  };
+  const remove = await mountEnterpriseRoutes({ connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return () => routes.delete(route.path); } } } }, store, h.access);
+  t.after(async () => { await remove(); store.close(); });
+  store.execute({ generation: 0, revision: 0, commandId: 'seed-stock', command: { type: 'item.upsert', item: { id: 'item-one', sku: 'SKU-1', name: 'Stock', stock: 1, reorderAt: 0, supplier: '' } } });
+  store.execute({ generation: 0, revision: 1, commandId: 'seed-order', command: { type: 'order.save', order: { id: 'order-one', kind: 'sale', counterparty: 'Buyer', orderDate: '2026-09-17', currency: 'CNY', lines: [{ itemId: 'item-one', quantity: 1, unitPriceMinorUnits: 100 }], note: '' } } });
+  h.members.set('alice', { active: true, roles: ['administrator'], resources: [governanceResource('record/order', 'order-one'), governanceResource('record/inventory', 'item-one')], policyVersion: 2 });
+  const command = { type: 'order.submit', id: 'order-one' };
+  const response = await routes.get('/api/clawmaster/enterprise/command')(new Request('http://fixture/command', { method: 'POST', headers: { authorization: 'alice', 'content-type': 'application/json' },
+    body: JSON.stringify({ generation: 0, revision: 2, commandId: 'submit-version', command }) }));
+  assert.equal(response.status, 200, await response.clone().text());
+  const finalRecord = store.responsibility().records.find(record => record.commandId === 'submit-version');
+  assert.equal(finalRecord.identity.policyVersion, 4);
+  assert.equal(finalRecord.identity.approval.id, 'approved-version-change');
+  assert.equal(store.snapshot().inventory[0].stock, 0);
+});
+
+test('the final order and inventory check uses one membership snapshot', async t => {
+  const h = authorityFixture(); const store = await openEnterpriseStore(':memory:', 5000, 'one'); const routes = new Map();
+  const originalMembership = h.authority.membership; let aliceMembershipReads = 0;
+  h.authority.membership = async (organizationId, memberId, signal) => {
+    // The fifth Alice read is the final post-approval check after order, inventory, and approval-bound checks.
+    if (memberId === 'alice' && ++aliceMembershipReads === 5) {
+      return { active: true, roles: ['administrator'], resources: [governanceResource('record/inventory', 'item-one')], policyVersion: 5 };
+    }
+    return originalMembership(organizationId, memberId, signal);
+  };
+  h.authority.consumeApproval = async () => ({ id: 'approved-submit', approverId: 'bob' });
+  const remove = await mountEnterpriseRoutes({ connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return () => routes.delete(route.path); } } } }, store, h.access);
+  t.after(async () => { await remove(); store.close(); });
+  store.execute({ generation: 0, revision: 0, commandId: 'seed-stock', command: { type: 'item.upsert', item: { id: 'item-one', sku: 'SKU-1', name: 'Stock', stock: 1, reorderAt: 0, supplier: '' } } });
+  store.execute({ generation: 0, revision: 1, commandId: 'seed-order', command: { type: 'order.save', order: { id: 'order-one', kind: 'sale', counterparty: 'Buyer', orderDate: '2026-09-17', currency: 'CNY', lines: [{ itemId: 'item-one', quantity: 1, unitPriceMinorUnits: 100 }], note: '' } } });
+  h.members.set('alice', { active: true, roles: ['administrator'], resources: [governanceResource('record/order', 'order-one'), governanceResource('record/inventory', 'item-one')], policyVersion: 2 });
+  const response = await routes.get('/api/clawmaster/enterprise/command')(new Request('http://fixture/command', { method: 'POST', headers: { authorization: 'alice', 'content-type': 'application/json' },
+    body: JSON.stringify({ generation: 0, revision: 2, commandId: 'submit-shared-snapshot', command: { type: 'order.submit', id: 'order-one' } }) }));
+  assert.equal(response.status, 403);
+  assert.equal(store.snapshot().inventory[0].stock, 1);
+  assert.equal(store.snapshot().orders[0].status, 'draft');
+});
+
+test('DSH order submission rechecks inventory grants after the real tool approval wait', async t => {
+  const h = authorityFixture(); const store = await openEnterpriseStore(':memory:', 5000, 'one'); const ctx = new Context();
+  const arrived = Promise.withResolvers(); const release = Promise.withResolvers();
+  await ctx.plugin(SystemPrompt).await();
+  await ctx.plugin(ToolRuntime, { mode: 'native' }).await();
+  await ctx.plugin(ApprovalService, { policy: 'ask' }).await();
+  ctx.on('approval/request', async () => { arrived.resolve(); await release.promise; return 'allowed-once'; });
+  const remove = await applyEnterpriseTools(ctx, store, {}, h.access);
+  t.after(async () => { release.resolve(); await remove(); await ctx.fiber.dispose(); store.close(); });
+  store.execute({ generation: 0, revision: 0, commandId: 'seed-stock', command: { type: 'item.upsert', item: { id: 'item-one', sku: 'SKU-1', name: 'Stock', stock: 1, reorderAt: 0, supplier: '' } } });
+  store.execute({ generation: 0, revision: 1, commandId: 'seed-order', command: { type: 'order.save', order: { id: 'order-one', kind: 'sale', counterparty: 'Buyer', orderDate: '2026-09-17', currency: 'CNY', lines: [{ itemId: 'item-one', quantity: 1, unitPriceMinorUnits: 100 }], note: '' } } });
+  h.members.set('alice', { active: true, roles: ['administrator'], resources: [governanceResource('record/order', 'order-one'), governanceResource('record/inventory', 'item-one')], policyVersion: 2 });
+  const input = { request: { generation: 0, revision: 2, commandId: 'submit-tool', command: { type: 'order.submit', id: 'order-one' } } };
+  h.grants.set(JSON.stringify({ organizationId: 'one', executorId: 'alice', action: 'records.write', resource: governanceResource('record/order', 'order-one'), commandId: input.request.commandId,
+    generation: 0, revision: 2, commandDigest: createHash('sha256').update(JSON.stringify(input.request.command)).digest('hex') }), { id: 'tool-approved-submit', approverId: 'bob' });
+  const session = Session.create(SessionId('session-alice'));
+  session.append('turn/start', { turn: 1 });
+  const operation = ctx.tools.execute({ name: 'enterprise_command', arguments: input, agent: { id: session.id, session }, callId: 'submit-call', signal: new AbortController().signal });
+  await arrived.promise;
+  h.members.set('alice', { active: true, roles: ['administrator'], resources: [governanceResource('record/order', 'order-one')], policyVersion: 3 });
+  release.resolve();
+  const result = await operation;
+  assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /authenticated caller cannot perform/);
+  assert.equal(store.snapshot().inventory[0].stock, 1);
+  assert.equal(store.snapshot().orders[0].status, 'draft');
+  assert.equal(store.responsibility().records.at(-1).outcome, 'denied');
+});
+
 test('approval is object/revision/digest bound, single use and separated from the executor', async () => {
   const h = authorityFixture();
   const alice = await h.access.agent('session-alice', 'call-1');
@@ -148,6 +250,10 @@ test('approval is object/revision/digest bound, single use and separated from th
   assert.equal(approved.approval.kind, 'authority');
   assert.equal(approved.approval.approverId, 'bob');
   await assert.rejects(alice.approve('records.write', resource, 'write-1', 0, 5, 'digest'), { code: 'permission_denied' });
+  h.members.set('bob', { active: true, roles: ['approver'], resources: [governanceResourceCollection('record/contact')], policyVersion: 2 });
+  h.grants.set(JSON.stringify(request), { id: 'family-grant', approverId: 'bob' });
+  const familyApproved = await alice.approve('records.write', resource, 'write-1', 0, 5, 'digest');
+  assert.equal(familyApproved.approval.id, 'family-grant');
 });
 
 test('HTTP read/export/write paths refuse cross-organization and missing identity without local fallback', async t => {
