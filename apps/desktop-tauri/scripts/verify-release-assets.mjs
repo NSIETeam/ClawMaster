@@ -7,9 +7,22 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { normalizedAssets } from './generate-updater-manifest.mjs'
+import { verifyReleaseAcceptance } from './release-acceptance.mjs'
 
 const hashPattern = /^[a-f0-9]{64}$/u
 const commitPattern = /^[a-f0-9]{40}$/u
+
+/** @param {string} version @returns {Record<string,string>} Installed acceptance lanes bound to the public installer filenames. */
+function installerAssets(version) {
+  const assets = normalizedAssets(version, 'current')
+  return {
+    'macos-arm64-dmg': `clawmaster-${version}-macos-arm64.dmg`,
+    'windows-x64-nsis': assets['windows-x86_64'],
+    'linux-x64-appimage': assets['linux-x86_64'],
+    'linux-x64-deb': assets['linux-x86_64-deb'],
+    'android-universal-apk': `clawmaster-${version}-android-universal.apk`,
+  }
+}
 
 /** @param {string} path @returns {Promise<string>} The SHA-256 digest of one regular file. */
 async function sha256File(path) {
@@ -31,6 +44,7 @@ export function requiredReleaseAssetNames(version) {
   const names = [...new Set([
     ...Object.values(assets),
     ...Object.values(assets).map(name => `${name}.sig`),
+    ...Object.values(installerAssets(version)),
     `clawmaster-${version}-windows-x64-build.json`,
     `clawmaster-${version}-macos-arm64-build.json`,
     `clawmaster-${version}-linux-x64-build.json`,
@@ -105,7 +119,7 @@ function verifyBuildRecord(build, file, version, commit, tree) {
 }
 
 /**
- * Verify the release directory after the acceptance gate and checksum generation.
+ * Verify final checksums, installed acceptance and source provenance against the exact public installers.
  * @param {{assetsDir:string, version:string, expectedCommit:string, expectedTree:string}} options Release directory and candidate identity.
  * @returns {Promise<{files:string[],version:string,sourceCommit:string}>} Verified release identity.
  */
@@ -126,6 +140,13 @@ export async function verifyReleaseAssets(options) {
   const latest = JSON.parse(await readFile(join(root, 'latest.json'), 'utf8'))
   assert.equal(latest.version, options.version, 'Updater manifest has another version')
   assert.deepEqual(Object.keys(latest.platforms ?? {}).sort(), Object.keys(normalizedAssets(options.version, 'current')).sort(), 'Updater manifest target set differs from the release set')
+  const acceptancePath = join(root, 'acceptance-manifest.json')
+  assert.ok((await lstat(acceptancePath)).size <= 2 * 1024 * 1024, 'Acceptance manifest must be bounded')
+  const acceptance = JSON.parse(await readFile(acceptancePath, 'utf8'))
+  await verifyReleaseAcceptance(acceptance, { root, expectedCommit: options.expectedCommit, expectedVersion: options.version })
+  for (const [target, file] of Object.entries(installerAssets(options.version))) {
+    assert.equal(acceptance.targets[target].artifact.file, file, `${target} installer differs from the published asset`)
+  }
   return { files: files.sort(), version: options.version, sourceCommit: options.expectedCommit }
 }
 

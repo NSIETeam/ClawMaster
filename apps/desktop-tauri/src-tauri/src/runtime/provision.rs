@@ -12,8 +12,8 @@ use zip::ZipArchive;
 
 use super::boot_log;
 use super::config::{
-    dev_launch_mode, node_mirror_base, npm_registry, DEFAULT_NODE_VERSION, DEFAULT_PNPM_VERSION,
-    HARNESS_VERSIONS_DIR,
+    dev_launch_mode, node_archive_sha256, node_mirror_base, npm_registry, DEFAULT_NODE_VERSION,
+    DEFAULT_PNPM_VERSION, HARNESS_VERSIONS_DIR,
 };
 use super::env_path::path_eq;
 use super::host_env::{
@@ -58,6 +58,7 @@ pub(crate) struct NodeArchiveSpec {
     pub(crate) inner_folder: String,
     kind: ArchiveKind,
     pub(crate) url: String,
+    sha256: String,
 }
 
 /// Ensure bundled harness + Node + pnpm deps exist; mirror-fetch only build tools.
@@ -838,9 +839,7 @@ async fn fetch_node(
     fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
     let archive_path = cache.join(&spec.archive_name);
 
-    if !archive_path.is_file() {
-        download_file(&spec.url, &archive_path, 15, 30, progress).await?;
-    }
+    download_node_archive(&spec, &archive_path, 15, 30, progress).await?;
 
     if node_dir.exists() {
         fs::remove_dir_all(node_dir).map_err(|e| e.to_string())?;
@@ -977,49 +976,77 @@ pub(crate) fn node_archive_spec_for(
     };
     let inner_folder = format!("node-v{version}-{target}");
     let archive_name = format!("{inner_folder}.{extension}");
+    let sha256 = node_archive_sha256(&archive_name)?.to_string();
     let url = format!("{base}/v{version}/{archive_name}");
     Ok(NodeArchiveSpec {
         archive_name,
         inner_folder,
         kind,
         url,
+        sha256,
     })
 }
 
-pub(crate) async fn download_file(
-    url: &str,
+/// Reuse only verified Node archives; failed or cancelled downloads never replace the cache.
+pub(crate) async fn download_node_archive(
+    spec: &NodeArchiveSpec,
     dest: &Path,
     progress_start: u8,
     progress_end: u8,
     progress: &impl Fn(ProvisionEvent),
 ) -> Result<(), String> {
+    match fs::symlink_metadata(dest) {
+        Ok(info) if !info.is_file() || info.file_type().is_symlink() => {
+            return Err("Node archive cache must be a regular file".into());
+        }
+        Ok(_) if file_sha256(dest)? == spec.sha256 => return Ok(()),
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.to_string()),
+    }
+    let parent = dest
+        .parent()
+        .ok_or("Node archive cache has no parent directory")?;
     let client = reqwest::Client::builder()
         .user_agent("dsh-desktop/0.1")
         .timeout(NODE_DOWNLOAD_TIMEOUT)
         .build()
         .map_err(|e| e.to_string())?;
 
-    let response = client.get(url).send().await.map_err(|e| e.to_string())?;
+    let response = client
+        .get(&spec.url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     if !response.status().is_success() {
-        return Err(format!("下载失败 {}: HTTP {}", url, response.status()));
+        return Err(format!("下载失败 {}: HTTP {}", spec.url, response.status()));
     }
 
     let total = response.content_length();
     let mut stream = response.bytes_stream();
-    let mut file = File::create(dest).map_err(|e| e.to_string())?;
+    let mut temporary = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
+    let mut hasher = Sha256::new();
     let mut downloaded: u64 = 0;
 
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|e| e.to_string())?;
-        file.write_all(&chunk).map_err(|e| e.to_string())?;
+        temporary.write_all(&chunk).map_err(|e| e.to_string())?;
+        hasher.update(&chunk);
         downloaded += chunk.len() as u64;
-        if let Some(total) = total {
+        if let Some(total) = total.filter(|total| *total > 0) {
             let frac = downloaded as f64 / total as f64;
             let pct = progress_start as f64 + frac * (progress_end - progress_start) as f64;
             progress(ProvisionEvent::Progress(pct as u8));
         }
     }
-
+    if hex::encode(hasher.finalize()) != spec.sha256 {
+        return Err(format!(
+            "Node archive SHA-256 differs: {}; no runtime files were replaced",
+            spec.archive_name
+        ));
+    }
+    temporary.as_file().sync_all().map_err(|e| e.to_string())?;
+    temporary.persist(dest).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1230,15 +1257,18 @@ fn spawn_pipe_reader<T: Read + Send + 'static>(pipe: Option<T>) -> std::thread::
 #[cfg(test)]
 mod tests {
     use super::{
-        find_existing_harness, gc_harness_versions, harness_root_for_bundle, harness_tree_bootable,
-        invalidate_provisioned_tree, manifest_ready, node_archive_spec_for, node_matches_manifest,
-        registered_workspace_paths, safe_archive_relative_path, seed_harness_tree,
-        sort_harness_trees_newest_first, RuntimePaths, HARNESS_TREES_KEPT,
+        download_node_archive, find_existing_harness, gc_harness_versions, harness_root_for_bundle,
+        harness_tree_bootable, invalidate_provisioned_tree, manifest_ready, node_archive_spec_for,
+        node_matches_manifest, registered_workspace_paths, safe_archive_relative_path,
+        seed_harness_tree, sort_harness_trees_newest_first, NodeArchiveSpec, RuntimePaths,
+        HARNESS_TREES_KEPT,
     };
+    use sha2::{Digest, Sha256};
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     static NEXT_CLEANUP_DIR: AtomicU64 = AtomicU64::new(0);
 
@@ -1581,7 +1611,173 @@ mod tests {
                 format!("node-v22.19.0-{node_target}.{extension}")
             );
             assert_eq!(spec.inner_folder, format!("node-v22.19.0-{node_target}"));
+            assert_eq!(spec.sha256.len(), 64);
         }
+        assert!(node_archive_spec_for("22.20.0", "linux", "x86_64")
+            .unwrap_err()
+            .contains("No trusted SHA-256"));
+    }
+
+    async fn node_archive_server(
+        response: Vec<u8>,
+        wait_for_disconnect: bool,
+    ) -> (String, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/node.tar.gz", listener.local_addr().unwrap());
+        let task = tokio::spawn(async move {
+            let (mut peer, _) = listener.accept().await.unwrap();
+            let mut header = Vec::new();
+            let mut bytes = [0_u8; 1024];
+            while !header.windows(4).any(|window| window == b"\r\n\r\n") {
+                let count = peer.read(&mut bytes).await.unwrap();
+                assert!(count > 0 && header.len() < 16_384);
+                header.extend_from_slice(&bytes[..count]);
+            }
+            peer.write_all(&response).await.unwrap();
+            if wait_for_disconnect {
+                let mut remaining = Vec::new();
+                // Windows can report an abortive socket close when a request is cancelled.
+                match peer.read_to_end(&mut remaining).await {
+                    Ok(_) => {}
+                    Err(error)
+                        if matches!(
+                            error.kind(),
+                            std::io::ErrorKind::ConnectionReset
+                                | std::io::ErrorKind::ConnectionAborted
+                        ) => {}
+                    Err(error) => panic!("download connection cleanup: {error}"),
+                }
+            }
+        });
+        (url, task)
+    }
+
+    async fn join_node_archive_server(mut server: tokio::task::JoinHandle<()>) {
+        match tokio::time::timeout(Duration::from_secs(10), &mut server).await {
+            Ok(result) => result.unwrap(),
+            Err(error) => {
+                server.abort();
+                let _ = server.await;
+                panic!("download server did not finish: {error}");
+            }
+        }
+    }
+
+    fn download_spec(url: String, bytes: &[u8]) -> NodeArchiveSpec {
+        let mut spec = node_archive_spec_for("22.19.0", "linux", "x86_64").unwrap();
+        spec.url = url;
+        spec.sha256 = hex::encode(Sha256::digest(bytes));
+        spec
+    }
+
+    #[tokio::test]
+    async fn node_archive_download_replaces_corrupt_cache_only_after_digest_verification() {
+        let root = tempfile::tempdir().unwrap();
+        let dest = root.path().join("node.tar.gz");
+        fs::write(&dest, b"incomplete old archive").unwrap();
+        let bytes = b"verified archive";
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            bytes.len(),
+            String::from_utf8_lossy(bytes)
+        );
+        let (url, server) = node_archive_server(response.into_bytes(), false).await;
+        let mut spec = download_spec(url, bytes);
+        let result = tokio::time::timeout(
+            Duration::from_secs(10),
+            download_node_archive(&spec, &dest, 15, 30, &|_| {}),
+        )
+        .await;
+        join_node_archive_server(server).await;
+        result.unwrap().unwrap();
+        assert_eq!(fs::read(&dest).unwrap(), bytes);
+        spec.url = "http://127.0.0.1:0/unreachable".into();
+        download_node_archive(&spec, &dest, 15, 30, &|_| {})
+            .await
+            .unwrap();
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+    }
+
+    #[tokio::test]
+    async fn node_archive_rejects_truncation_and_wrong_digest_without_publishing_partial_bytes() {
+        for existing in [false, true] {
+            for response in [
+                b"HTTP/1.1 200 OK\r\nContent-Length: 20\r\nConnection: close\r\n\r\npartial"
+                    .to_vec(),
+                b"HTTP/1.1 200 OK\r\nContent-Length: 7\r\nConnection: close\r\n\r\npartial"
+                    .to_vec(),
+            ] {
+                let root = tempfile::tempdir().unwrap();
+                let dest = root.path().join("node.tar.gz");
+                if existing {
+                    fs::write(&dest, b"existing cache").unwrap();
+                }
+                let (url, server) = node_archive_server(response, false).await;
+                let spec = download_spec(url, b"trusted archive");
+                let result = tokio::time::timeout(
+                    Duration::from_secs(10),
+                    download_node_archive(&spec, &dest, 15, 30, &|_| {}),
+                )
+                .await;
+                join_node_archive_server(server).await;
+                assert!(result.unwrap().is_err());
+                if existing {
+                    assert_eq!(fs::read(&dest).unwrap(), b"existing cache");
+                } else {
+                    assert!(!dest.exists());
+                }
+                assert_eq!(
+                    fs::read_dir(root.path()).unwrap().count(),
+                    usize::from(existing)
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn cancelling_node_archive_download_removes_its_private_temporary_file() {
+        let root = tempfile::tempdir().unwrap();
+        let dest = root.path().join("node.tar.gz");
+        let (url, server) = node_archive_server(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\npartial".to_vec(),
+            true,
+        )
+        .await;
+        let spec = download_spec(url, b"trusted archive");
+        let (progress, observed) = tokio::sync::oneshot::channel();
+        let progress = std::sync::Mutex::new(Some(progress));
+        let request = tokio::spawn(async move {
+            download_node_archive(&spec, &dest, 15, 30, &|_| {
+                if let Some(sender) = progress.lock().unwrap().take() {
+                    let _ = sender.send(());
+                }
+            })
+            .await
+        });
+        let progressed = tokio::time::timeout(Duration::from_secs(10), observed).await;
+        request.abort();
+        let cancelled = request.await;
+        join_node_archive_server(server).await;
+        assert!(cancelled.unwrap_err().is_cancelled());
+        progressed.unwrap().unwrap();
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 0);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn node_archive_cache_rejects_symlinks_without_reading_or_replacing_the_target() {
+        let root = tempfile::tempdir().unwrap();
+        let target = root.path().join("original");
+        let dest = root.path().join("node.tar.gz");
+        fs::write(&target, b"trusted archive").unwrap();
+        std::os::unix::fs::symlink(&target, &dest).unwrap();
+        let spec = download_spec("http://127.0.0.1:0/unreachable".into(), b"trusted archive");
+        let error = download_node_archive(&spec, &dest, 15, 30, &|_| {})
+            .await
+            .unwrap_err();
+        assert!(error.contains("regular file"));
+        assert_eq!(fs::read(target).unwrap(), b"trusted archive");
+        assert!(fs::symlink_metadata(dest).unwrap().file_type().is_symlink());
     }
 
     #[test]

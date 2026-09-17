@@ -8,7 +8,7 @@ use crate::overlay::{linux_plugin_file_url, overlay_yaml};
 use crate::runtime::boot_log;
 use crate::runtime::config::{npm_registry, DEFAULT_NODE_VERSION, DEFAULT_PNPM_VERSION};
 use crate::runtime::host_env::node_version_compatible;
-use crate::runtime::provision::{download_file, node_archive_spec_for};
+use crate::runtime::provision::{download_node_archive, node_archive_spec_for};
 use crate::runtime::ProvisionEvent;
 
 use super::{windows_to_wsl_mount, WslOutput, WslRunner};
@@ -240,15 +240,13 @@ async fn install_linux_node(
         .join("cache");
     fs::create_dir_all(&cache).map_err(|e| format!("{}: {e}", err_node()))?;
     let archive_path = cache.join(&spec.archive_name);
-    if !archive_path.is_file() {
-        progress(ProvisionEvent::Status(i18n::tf(
-            Msg::StatusDownloadLinuxNode,
-            DEFAULT_NODE_VERSION,
-        )));
-        download_file(&spec.url, &archive_path, 30, 40, progress)
-            .await
-            .map_err(|e| format!("{}: {e}", err_node()))?;
-    }
+    progress(ProvisionEvent::Status(i18n::tf(
+        Msg::StatusDownloadLinuxNode,
+        DEFAULT_NODE_VERSION,
+    )));
+    download_node_archive(&spec, &archive_path, 30, 40, progress)
+        .await
+        .map_err(|e| format!("{}: {e}", err_node()))?;
 
     let archive_mnt =
         windows_to_wsl_mount(&archive_path).map_err(|e| format!("{}: {e}", err_node()))?;

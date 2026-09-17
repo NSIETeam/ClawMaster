@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-09-16-release-asset-provenance-verification.md
-2026-09-16-release-asset-provenance-verification.md: f5f6042daf15f6538a383635204daefb8e12a675
-2026-09-16-release-asset-provenance-verification.zh.md: 193f168008868314b3e7c128228e77dd88912a1c
+2026-09-16-release-asset-provenance-verification.md: 5b9a383f97dc66d454d75d1547d497a0c5f25a21
+2026-09-16-release-asset-provenance-verification.zh.md: a8a09dac0adc0743d6b60ce444dfff7f341bf85f

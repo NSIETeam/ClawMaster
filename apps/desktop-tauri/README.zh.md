@@ -4,6 +4,8 @@
 
 这是 ClawMaster 基于现有 `dsh web` 运行时的 Rust/WebView 外壳。安装包携带 **Harness 源码**，不包含 `node_modules`；首次运行扫描本机兼容的 Node.js、pnpm 和已有的 `~/.dsh` 主目录，下载缺失的 Node.js 或 pnpm，再对安装包内的源码树安装生产依赖。应用元数据、启动页、通知和 Web 界面使用 ClawMaster 名称、图标与口号“开启AI时代的企业协作”。
 
+下载的 Node 压缩包必须匹配所选 Node 版本与平台对应的官方固定 SHA-256。配置镜像只改变下载地址，不改变预期摘要。预配仅复用经过校验的缓存，将替代下载写入私有临时文件，校验通过后才原子替换缓存；中断、取消或摘要错误都会保留现有缓存，并保持已安装 Node 不变。后续尝试会重新下载无效缓存。原生与 WSL 预配共用此检查。这些压缩包检查不能证明主机提供的 Node 二进制可信，也不能替代已安装平台验收。
+
 桌面包版本：**0.2.3**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
 
 Tauri 包名为 `@deepseek-ai/dsh-desktop-tauri`，与上游 Electron 应用独立。Host 启动地址只在内存中传给独立 WebView，由上游认证流程签发登录 cookie。原生 capability 只匹配包内 `main` 外壳 WebView；启动页、独立 Host 内容及其文档 frame 不获得原生命令。Host 主视图导航限定到包含端口的精确回环来源。不含凭据的外部 HTTP(S) 链接使用 `target="_blank"` 时交系统默认浏览器打开；回环目标与可执行 scheme 被拒绝。同源 `/clawmaster/office/runtime/NOTICE.html` 页面在没有查询参数时通过独立的 `office-notice` WebView 打开，该标签没有原生权限。启动日志不记录认证令牌。裁剪包包含 `native/system`，并仅在裁剪树中允许开发工具补丁未使用；实际补丁应用失败仍会阻止安装。

@@ -10,9 +10,9 @@ The publication job can bind an acceptance manifest to the tagged commit, but th
 
 ## Decision
 
-`verify-release-assets.mjs` runs after checksum generation and before publication. It requires the current four-target updater set, the three platform build records, the acceptance manifest and the release signing key. It rejects Intel Mac names, symlinks, missing or extra checksum records, changed bytes, foreign source commits or trees, dirty source records, incomplete component/lock/patch inventories, and updater manifests that name another target set or version.
+`verify-release-assets.mjs` runs after checksum generation and before publication. It requires the current four-target updater set, the Apple Silicon DMG and Android APK, the three platform build records, the acceptance manifest and the release signing key. It rejects Intel Mac names, symlinks, missing or extra checksum records, changed bytes, foreign source commits or trees, dirty source records, incomplete component/lock/patch inventories, and updater manifests that name another target set or version.
 
-The verifier accepts evidence files referenced by the acceptance manifest as release assets and includes them in the checksum set. It does not infer platform installation, publisher signing, device coverage or integrations; `release-acceptance.mjs` remains responsible for those independently retained observations.
+The verifier reruns `release-acceptance.mjs` against the final directory and requires each installer lane to name its canonical public artifact. It includes the manifest and referenced evidence in the checksum set. A replacement installer fails even if its SHA256SUMS entry is regenerated, because the independently retained acceptance digest must still match. Platform installation, publisher signing, device coverage and integrations require real observations; parser fixtures do not supply them.
 
 ## Alternatives considered
 
@@ -22,4 +22,4 @@ The verifier accepts evidence files referenced by the acceptance manifest as rel
 
 ## Consequences
 
-Publication fails after staging if a release file is missing, extra, edited or associated with another source tree. Build-only dispatches remain unaffected, and missing external acceptance evidence still blocks publication through the earlier acceptance check. The verifier does not create certificates or replace real platform and account testing.
+Publication fails after staging if a release file is missing, extra, edited or associated with another source tree. Build-only dispatches remain unaffected, and missing external acceptance evidence blocks both the initial and final publication checks. The verifier does not create certificates or replace real platform and account testing.

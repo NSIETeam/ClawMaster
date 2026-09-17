@@ -16,7 +16,7 @@ Status: implemented
 
 **每个源码包使用隔离的可写目录。** 内容哈希选择 `harness-versions/<bundle-hash>`，因此更新不会删除旧 Host 正在占用的文件。兼容的 Node 和 pnpm 运行时保持共享，并在源码更新之间复用。原生外壳只允许一个应用实例，再次启动时会聚焦已有窗口。回退只接受可启动的树，预配步骤带有期限，被取代的树会被清理（[桌面 rc.7 预配失败与不可启动的回退](../bug-fix/2026-08-19-desktop-rc7-provision-fallback.zh.md)）。
 
-**已选定的 Node 负责执行所有预配命令。** Windows x64 和 x86 使用官方 zip 布局；macOS x64/arm64 与 Linux x64/arm64 使用 tar.gz 布局。压缩包条目必须位于预期的带版本 Node 目录之下。tar 解压保留 Unix 权限位，npm 按平台对应的 Node 分发布局解析，私有安装的 pnpm 由已选定的 Node 二进制直接执行其 JavaScript 入口。扫描到主机 pnpm 时则直接调用它。
+**已选定的 Node 负责执行所有预配命令。** Windows x64 和 x86 使用官方 zip 布局；macOS x64/arm64 与 Linux x64/arm64 使用 tar.gz 布局。压缩包条目必须位于预期的带版本 Node 目录之下。tar 解压保留 Unix 权限位，npm 按平台对应的 Node 分发布局解析，私有安装的 pnpm 由已选定的 Node 二进制直接执行其 JavaScript 入口。扫描到主机 pnpm 时则直接调用它。 参见[下载压缩包完整性和缓存恢复](../bug-fix/2026-09-17-node-archive-integrity-and-recovery.zh.md)。
 
 **一个 tag 发布一套完整桌面矩阵和一份签名更新 manifest。** `desktop-v*` tag 构建 Windows x64/x86 NSIS 安装包、macOS Intel/Apple Silicon DMG，以及 Linux x64 AppImage/deb。每个矩阵任务为其 Tauri 更新产物签名并上传带操作系统和架构标识的文件；下游 release 任务先验证集合完整，再创建或更新一个 GitHub 预发布版本，并替换稳定 `desktop-updater` Release 通道中的 `latest.json`。更新公钥内置于应用，私钥和密码只存在于 Release Secrets 和维护者受保护的备份中。更新签名用于验证下载，但可执行文件仍没有操作系统代码签名，也未经过 notarization。
 
