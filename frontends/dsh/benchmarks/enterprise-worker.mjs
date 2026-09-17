@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import { setImmediate } from 'node:timers/promises';
+import { DatabaseSync } from 'node:sqlite';
 import { openEnterpriseStore, mountEnterpriseRoutes } from '../src/enterprise-host.ts';
 
 const [mode, databasePath, countText] = process.argv.slice(2);
@@ -14,25 +15,61 @@ const contact = index => ({
 let store;
 let removeRoutes;
 let revision = 0;
-const execute = command => {
-  const receipt = store.executeReceipt({ generation: 0, revision, commandId: `command-${revision + 1}`, command });
-  revision = receipt.revision;
-  return receipt;
-};
 try {
   if (mode === 'seed') {
     store = await openEnterpriseStore(databasePath);
-    for (let index = 0; index < count; index++) {
-      execute({ type: 'contact.upsert', contact: contact(index) });
-      execute({ type: 'item.upsert', item: {
-        id: `item-${index}`, sku: `SKU-${index}`, name: `Item ${index}`, stock: 1000, reorderAt: 10, supplier: `Supplier ${index % 10}`,
-      } });
-      execute({ type: 'order.save', order: {
-        id: `order-${index}`, kind: 'sale', counterparty: `Company ${index % 20}`, orderDate: '2026-09-16', currency: 'CNY',
-        lines: [{ itemId: `item-${index}`, quantity: 2, unitPriceMinorUnits: 12345 }], note: 'Synthetic draft',
-      } });
-      for (let edit = 0; edit < 2; edit++) execute({ type: 'contact.upsert', contact: { ...contact(index), nextAction: `Review ${edit}` } });
-    }
+    store.close();
+    const db = new DatabaseSync(databasePath);
+    const insertContact = db.prepare('INSERT INTO contacts (id,name,company,stage,nextAction,nextActionDate,updatedAt) VALUES (?,?,?,?,?,?,?)');
+    const insertItem = db.prepare('INSERT INTO inventory (id,sku,name,stock,reorderAt,supplier,updatedAt) VALUES (?,?,?,?,?,?,?)');
+    const insertOrder = db.prepare('INSERT INTO orders (id,kind,counterparty,orderDate,currency,status,totalMinorUnits,note,updatedAt,submittedAt) VALUES (?,?,?,?,?,?,?,?,?,NULL)');
+    const insertLine = db.prepare('INSERT INTO order_lines (orderId,position,itemId,quantity,unitPriceMinorUnits) VALUES (?,0,?,2,12345)');
+    const insertAudit = db.prepare('INSERT INTO enterprise_audit (revision,commandId,type,entityId,at,commandJson,beforeJson,afterJson) VALUES (?,?,?,?,?,?,?,?)');
+    const timestamp = '2026-09-16T00:00:00.000Z';
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      for (let index = 0; index < count; index++) {
+        const contactRecord = { ...contact(index), updatedAt: timestamp };
+        const itemRecord = { id: `item-${index}`, sku: `SKU-${index}`, name: `Item ${index}`, stock: 1000, reorderAt: 10,
+          supplier: `Supplier ${index % 10}`, updatedAt: timestamp };
+        const orderRecord = { id: `order-${index}`, kind: 'sale', counterparty: `Company ${index % 20}`, orderDate: '2026-09-16',
+          currency: 'CNY', lines: [{ itemId: `item-${index}`, quantity: 2, unitPriceMinorUnits: 12345 }], note: 'Synthetic draft',
+          status: 'draft', totalMinorUnits: 24690, updatedAt: timestamp, submittedAt: null };
+        const commands = [
+          { type: 'contact.upsert', entity: contactRecord, before: null },
+          { type: 'item.upsert', entity: itemRecord, before: null },
+          { type: 'order.save', entity: orderRecord, before: null },
+          { type: 'contact.upsert', entity: { ...contactRecord, nextAction: 'Review 0' }, before: contactRecord },
+          { type: 'contact.upsert', entity: { ...contactRecord, nextAction: 'Review 1' }, before: { ...contactRecord, nextAction: 'Review 0' } },
+        ];
+        insertContact.run(contactRecord.id, contactRecord.name, contactRecord.company, contactRecord.stage, 'Review 1',
+          contactRecord.nextActionDate, timestamp);
+        insertItem.run(itemRecord.id, itemRecord.sku, itemRecord.name, itemRecord.stock, itemRecord.reorderAt, itemRecord.supplier, timestamp);
+        insertOrder.run(orderRecord.id, orderRecord.kind, orderRecord.counterparty, orderRecord.orderDate, orderRecord.currency,
+          orderRecord.status, orderRecord.totalMinorUnits, orderRecord.note, timestamp);
+        insertLine.run(orderRecord.id, `item-${index}`);
+        for (const [offset, { type, entity, before }] of commands.entries()) {
+          const revision = index * 5 + offset + 1;
+          const command = type === 'contact.upsert' ? { type, contact: { id: entity.id, name: entity.name, company: entity.company,
+            stage: entity.stage, nextAction: entity.nextAction, nextActionDate: entity.nextActionDate } }
+            : type === 'item.upsert' ? { type, item: { id: entity.id, sku: entity.sku, name: entity.name, stock: entity.stock,
+              reorderAt: entity.reorderAt, supplier: entity.supplier } } : { type, order: { id: entity.id, kind: entity.kind,
+              counterparty: entity.counterparty, orderDate: entity.orderDate, currency: entity.currency, lines: entity.lines, note: entity.note } };
+          insertAudit.run(revision, `command-${revision}`, type, entity.id, timestamp, JSON.stringify(command), JSON.stringify(before), JSON.stringify(entity));
+        }
+      }
+      db.prepare('UPDATE enterprise_meta SET revision=? WHERE singleton=1').run(count * 5);
+      db.exec('COMMIT');
+    } catch (error) { db.exec('ROLLBACK'); db.close(); throw error; }
+    db.close();
+    store = await openEnterpriseStore(databasePath);
+    const overview = store.overview();
+    assert.equal(overview.revision, count * 5);
+    assert.equal(overview.counts.contacts, count);
+    assert.equal(overview.counts.inventory, count);
+    assert.equal(overview.counts.orders, count);
+    store.close();
+    revision = count * 5;
     process.stdout.write(JSON.stringify({ revision, recordsPerCollection: count }));
   } else {
     assert.equal(mode, 'sample');

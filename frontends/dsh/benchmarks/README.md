@@ -31,7 +31,7 @@ The defaults are 100, 1,000 and 10,000 records per collection with five independ
 <a id="measurements"></a>
 ## Measurements
 
-Each tier has the same number of customers, inventory items and one-line draft orders, plus five audit entries per record count. Twenty companies and ten suppliers create repeated search terms. Seeding uses the production receipt command API. Each sample receives a copy of the closed seed database in a private temporary directory.
+Each tier has the same number of customers, inventory items and one-line draft orders, plus five audit entries per record count. Twenty companies and ten suppliers create repeated search terms. The diagnostic inserts deterministic rows and matching audit history in one SQLite transaction, then reopens the database through production initialization before sampling; schema, foreign keys, record formats, audit continuity and responsibility history are validated. Each sample receives a copy of the closed seed database in a private temporary directory.
 
 | Operation | Timed completion |
 | --- | --- |
@@ -72,7 +72,7 @@ The [93d05b1 candidate report](2026-09-17-candidate-93d05b.json) records three s
 
 The saved receipt stays effectively constant in size across these two tiers. Export files are about 0.4 MB and 4.1 MB. The greatest sum of Host and child peak RSS across measured operations is 181.7 MiB and 214.1 MiB; these are conservative sums of separately observed process peaks, not simultaneous measurements. This single local run reports diagnostic costs, not an acceptance budget or user-capacity promise. It excludes installation, authenticated DSH transport, browser input and painting, cold filesystem caches, and external applications. The [whole-snapshot baseline](2026-09-16-paged-enterprise.json) and [worker-backup report](2026-09-16-worker-backups.json) remain historical observations from older dirty checkouts and are not evidence for this candidate.
 
-An isolated 10,000-record run on this commit also timed out at the configured two-minute worker deadline. Fixture seeding uses production receipt commands and is outside operation timing; the timeout is therefore a diagnostic preparation limit, not a measured operation latency. Do not raise it to turn the unfinished tier into a capacity claim.
+The earlier 10,000-record run on commit `93d05b1` timed out while preparing fixture data through individual production commands; that result is a preparation limit, not a measured operation latency. The current fixture uses one transaction and still passes production initialization and integrity validation before measurements. This does not change or claim a production command-throughput result.
 
 ### Historical report
 
