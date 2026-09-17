@@ -130,7 +130,7 @@ function assertIncrementalContactSearch(store) {
   write(store, { type: 'contact.remove', id: 'one' });
   assert.equal(searchCount(store, 'contacts', 'incrementalupdate'), 0);
 }
-test('bulk restore replaces every search index atomically while existing WAL readers retain their snapshot', { timeout: 20000 }, async t => {
+test('bulk restore replaces every search index atomically while existing WAL readers retain their snapshot', async t => {
   const donor = await fixture(t); seedSearch(donor.store, 'restoredneedle');
   const authority = enterpriseAuthority();
   const f = await fixture(t, { access: authority.access, organizationId: 'acme' });
@@ -145,7 +145,9 @@ test('bulk restore replaces every search index atomically while existing WAL rea
     reader.exec('BEGIN');
     assert.deepEqual(indexedNames(), ['currentneedle']);
     response = f.restore(prepared, { expectedRevision: f.store.overview().revision });
-    await gate.reached;
+    await Promise.race([gate.reached, response.then(result => {
+      throw new Error(`Restore returned before final authorization: ${result.status}`);
+    })]);
     assertSearch(f.store, 'currentneedle', true);
     assertSearch(f.store, 'restoredneedle', false);
     gate.release();
@@ -187,17 +189,21 @@ test('cancel at final authority check waits for worker rollback before accepting
   authority.onFinalCheck(async index => { if (index === 2) { gate.arrive(); await gate.wait; } });
   const before = f.store.snapshot();
   const response = f.restore(prepared, { expectedRevision: before.revision }, controller.signal);
-  await gate.reached;
-  controller.abort(new Error('operator cancelled'));
-  assert.equal((await response).status, 503);
-  assert.deepEqual(f.store.snapshot(), before);
-  assertSearch(f.store, 'currentneedle', true);
-  assertIncrementalContactSearch(f.store);
-  const independent = new DatabaseSync(f.store.backupDatabasePath());
-  try { independent.exec('PRAGMA busy_timeout=0; BEGIN IMMEDIATE; ROLLBACK;'); } finally { independent.close(); }
-  assert.ok(f.store.responsibility().records.some(row => row.operation === 'backup.restore' && row.outcome === 'cancelled'));
-  gate.release();
-  assert.equal((await f.restore(prepared)).status, 400);
+  try {
+    await Promise.race([gate.reached, response.then(result => {
+      throw new Error(`Restore returned before final authorization: ${result.status}`);
+    })]);
+    controller.abort(new Error('operator cancelled'));
+    assert.equal((await response).status, 503);
+    assert.deepEqual(f.store.snapshot(), before);
+    assertSearch(f.store, 'currentneedle', true);
+    assertIncrementalContactSearch(f.store);
+    const independent = new DatabaseSync(f.store.backupDatabasePath());
+    try { independent.exec('PRAGMA busy_timeout=0; BEGIN IMMEDIATE; ROLLBACK;'); } finally { independent.close(); }
+    assert.ok(f.store.responsibility().records.some(row => row.operation === 'backup.restore' && row.outcome === 'cancelled'));
+    gate.release();
+    assert.equal((await f.restore(prepared)).status, 400);
+  } finally { controller.abort(); gate.release(); await response; }
 });
 test('membership revoked while worker holds transaction prevents final COMMIT', async t => {
   const authority = enterpriseAuthority(); const f = await fixture(t, { access: authority.access, organizationId: 'acme' });
