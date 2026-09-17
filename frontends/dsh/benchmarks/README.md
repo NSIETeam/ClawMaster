@@ -56,7 +56,27 @@ List and receipt size can stay bounded while startup validation, backup and rest
 <a id="measured-workload"></a>
 ## Measured workload
 
-The [worker-backup report](2026-09-16-worker-backups.json) contains three samples per tier on a shared macOS arm64 machine: 6 logical CPUs, 8 GiB RAM, Node 24.20.0. Both compiled artifacts have SHA-256 records; the checkout is marked dirty during verification. p95 is the largest of three observations. Values below are milliseconds as p50/p95, not release guarantees. The [whole-snapshot baseline](2026-09-16-paged-enterprise.json) retains its original observations.
+The [93d05b1 candidate report](2026-09-17-candidate-93d05b.json) records three samples per tier on macOS arm64 with 6 logical CPUs, 8 GiB RAM and Node 24.20.0. It identifies a clean source commit and hashes both compiled artifacts. Each p95 is the largest of three observations, not a population estimate. Values are milliseconds as p50/p95. The run completed 100-record and 1,000-record tiers; the 10,000-record seed exceeded the existing 120-second worker deadline, so the required three-tier acceptance remains incomplete and no supported capacity tier is established.
+
+| Operation | 100 records / 500 audit | 1,000 records / 5,000 audit | Response bytes, 100 / 1,000 |
+| --- | --- | --- | --- |
+| Open and full validation | 81.1 / 137.8 | 437.7 / 727.2 | — |
+| Overview | 61.0 / 84.9 | 80.4 / 124.1 | 169 / 174 |
+| First page | 12.3 / 14.5 | 13.2 / 27.7 | 9,016 / 9,018 |
+| Search | 4.2 / 7.7 | 11.8 / 15.8 | 995 / 9,052 |
+| Audit tail | 10.0 / 17.6 | 18.6 / 29.2 | 20,559 / 20,562 |
+| Save receipt | 10.3 / 21.9 | 18.5 / 29.4 | 160 / 162 |
+| Download backup | 401.2 / 422.2 | 950.1 / 3,358.8 | 405,127 / 4,091,334 |
+| Upload and validate | 264.2 / 299.2 | 851.4 / 2,329.6 | 267 / 272 |
+| Confirm restore | 495.0 / 498.0 | 4,362.6 / 7,566.9 | 144 / 145 |
+
+The saved receipt stays effectively constant in size across these two tiers. Export files are about 0.4 MB and 4.1 MB. The greatest sum of Host and child peak RSS across measured operations is 181.7 MiB and 214.1 MiB; these are conservative sums of separately observed process peaks, not simultaneous measurements. This single local run reports diagnostic costs, not an acceptance budget or user-capacity promise. It excludes installation, authenticated DSH transport, browser input and painting, cold filesystem caches, and external applications. The [whole-snapshot baseline](2026-09-16-paged-enterprise.json) and [worker-backup report](2026-09-16-worker-backups.json) remain historical observations from older dirty checkouts and are not evidence for this candidate.
+
+An isolated 10,000-record run on this commit also timed out at the configured two-minute worker deadline. Fixture seeding uses production receipt commands and is outside operation timing; the timeout is therefore a diagnostic preparation limit, not a measured operation latency. Do not raise it to turn the unfinished tier into a capacity claim.
+
+### Historical report
+
+The following 2026-09-16 table belongs to the older dirty checkout recorded in the linked report. It is retained for historical comparison only; it does not complete the 93d05b1 candidate's three-tier acceptance.
 
 | Operation | 100 records / 500 audit | 1,000 records / 5,000 audit | 10,000 records / 50,000 audit |
 | --- | --- | --- | --- |

@@ -176,7 +176,6 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
         return;
       } catch (error) {
         if (!retryableAuditFailure(error)) throw error;
-        ctx.logger.warn(`WatchDog task Session outcome could not be recorded; retrying: ${String(error)}`);
         await waitForAuditRetry(signal);
       }
     }

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openEnterpriseStore } from '../src/enterprise-host.ts';
 import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
+import { EnterpriseError } from '../src/enterprise-types.ts';
 import { taskIndicators } from '../src/watchdog-tasks.ts';
 import { mountWatchdogTasks } from '../src/watchdog-task-host.ts';
 import { GovernanceAccess } from '../src/governance-access.ts';
@@ -19,10 +20,10 @@ import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session';
 const definition = { goal: 'Customer risk review', scope: 'Selected customers', owner: { kind: 'local', label: 'Local manager' },
   dueAt: '2026-01-01T00:00:00.000Z', timezone: 'Asia/Shanghai', risk: 'medium', checklist: [{ id: 'follow-up', description: 'Document follow-up result' }] };
 const agent = { ...LOCAL_HTTP_IDENTITY, actor: { kind: 'agent', id: 'agent-1' }, source: 'tool', sessionId: 'agent-1' };
-async function fixture(t) {
+async function fixture(t, taskConfig) {
   const root = await mkdtemp(join(tmpdir(), 'watchdog-tasks-'));
   const path = join(root, 'enterprise.sqlite');
-  const store = await openEnterpriseStore(path);
+  const store = await openEnterpriseStore(path, undefined, undefined, taskConfig);
   t.after(async () => { store.close(); await rm(root, { recursive: true, force: true }); });
   let latest;
   const apply = (command, identity = LOCAL_HTTP_IDENTITY, extra = {}) => {
@@ -115,7 +116,7 @@ test('real registered HTTP and tool paths reject forged actor and agent human-on
 });
 
 test('only correlated Host Session turn events can finalize task dispatch responsibility', async t => {
-  const { store } = await fixture(t);
+  const { store } = await fixture(t, { outcomeRetryMs: 10 });
   const ctx = new Context();
   await ctx.plugin(SessionStore);
   await ctx.plugin(SystemPrompt).await();
@@ -123,6 +124,19 @@ test('only correlated Host Session turn events can finalize task dispatch respon
   await ctx.plugin(ApprovalService, { policy: 'ask' }).await();
   const routes = new Map();
   const observerWarnings = [];
+  const originalRecord = store.recordObservedTaskExecutionOutcome.bind(store);
+  const retryCounts = new Map();
+  const recorded = new Map();
+  const recordedResolvers = new Map();
+  for (const outcome of ['succeeded', 'failed']) recorded.set(outcome, new Promise(resolve => recordedResolvers.set(outcome, resolve)));
+  store.recordObservedTaskExecutionOutcome = value => {
+    const count = retryCounts.get(value.requestId) ?? 0;
+    retryCounts.set(value.requestId, count + 1);
+    if (count === 0) throw new EnterpriseError('storage_unavailable', 'injected transient task audit failure');
+    const result = originalRecord(value);
+    recordedResolvers.get(value.outcome)?.();
+    return result;
+  };
   ctx.logger.warn = message => observerWarnings.push(message);
   ctx.connection = { fetch: { register(route) { routes.set(route.path, route.fetch); return () => routes.delete(route.path); } } };
   const remove = await mountWatchdogTasks(ctx, store, new GovernanceAccess());
@@ -154,15 +168,21 @@ test('only correlated Host Session turn events can finalize task dispatch respon
   }))).status, 403);
   assert.deepEqual(store.responsibility({ operation: 'task.dispatch' }).records.map(record => record.outcome), ['uncertain']);
   turn(1, 'request-completed', { kind: 'completed' });
+  await recorded.get('succeeded');
   assert.deepEqual(observerWarnings, []);
+  assert.deepEqual(store.responsibility({ operation: 'task.dispatch' }).records.map(record => record.outcome), ['uncertain', 'succeeded']);
+  assert.equal((await postOutcome('completed-task', 'request-completed')).status, 200);
   assert.deepEqual(store.responsibility({ operation: 'task.dispatch' }).records.map(record => record.outcome), ['uncertain', 'succeeded']);
 
   start('blocked-task', 'request-blocked');
   assert.equal((await postOutcome('blocked-task', 'request-blocked')).status, 200);
   turn(2, 'request-blocked', { kind: 'blocked' });
+  await recorded.get('failed');
   const records = store.responsibility({ operation: 'task.dispatch' }).records;
   assert.deepEqual(records.filter(record => record.entityId === 'blocked-task').map(record => record.outcome), ['uncertain', 'failed']);
   assert.equal(records.at(-1).reasonCode, 'session_turn_blocked');
+  assert.equal(retryCounts.get('request-completed'), 2);
+  assert.equal(retryCounts.get('request-blocked'), 2);
 });
 
 test('a delayed Host outcome remains bound to its historical start after the task starts another request', async t => {
@@ -178,6 +198,14 @@ test('a delayed Host outcome remains bound to its historical start after the tas
   t.after(async () => { await remove(); await ctx.fiber.dispose(); });
   const sessionId = SessionId('task-execution-historical-attempt');
   const session = ctx.sessions.create(sessionId);
+  let resolveAttemptA;
+  const attemptARecorded = new Promise(resolve => { resolveAttemptA = resolve; });
+  const originalRecord = store.recordObservedTaskExecutionOutcome.bind(store);
+  store.recordObservedTaskExecutionOutcome = value => {
+    const result = originalRecord(value);
+    if (value.requestId === 'request-attempt-a' && value.outcome === 'failed') resolveAttemptA();
+    return result;
+  };
   let task;
   const execute = command => {
     task = store.tasks.execute(LOCAL_HTTP_IDENTITY, { id: 'historical-attempt-task', revision: task?.revision ?? 0,
@@ -203,6 +231,7 @@ test('a delayed Host outcome remains bound to its historical start after the tas
   start('request-attempt-b');
   assert.equal((await postOutcome('request-attempt-b')).status, 200);
   session.append('turn/end', { turn: 1, reason: { kind: 'blocked' } });
+  await attemptARecorded;
 
   const records = store.responsibility({ operation: 'task.dispatch' }).records;
   assert.deepEqual(records.filter(record => record.taskExecution?.requestId === 'request-attempt-a').map(record => record.outcome), ['uncertain', 'failed']);
@@ -210,7 +239,7 @@ test('a delayed Host outcome remains bound to its historical start after the tas
   assert.deepEqual(records.filter(record => record.taskExecution?.requestId === 'request-attempt-b').map(record => record.outcome), ['uncertain']);
 });
 
-test('a synchronous audit failure is reported without interrupting Session event persistence', async t => {
+test('a permanent audit failure is reported without interrupting Session event persistence', async t => {
   const { store } = await fixture(t);
   const ctx = new Context();
   await ctx.plugin(SessionStore);
@@ -219,7 +248,9 @@ test('a synchronous audit failure is reported without interrupting Session event
   await ctx.plugin(ApprovalService, { policy: 'ask' }).await();
   const routes = new Map();
   const warnings = [];
-  ctx.logger.warn = message => warnings.push(message);
+  let resolveWarning;
+  const warningSeen = new Promise(resolve => { resolveWarning = resolve; });
+  ctx.logger.warn = message => { warnings.push(message); resolveWarning(); };
   ctx.connection = { fetch: { register(route) { routes.set(route.path, route.fetch); return () => routes.delete(route.path); } } };
   const remove = await mountWatchdogTasks(ctx, store, new GovernanceAccess());
   t.after(async () => { await remove(); await ctx.fiber.dispose(); });
@@ -244,6 +275,7 @@ test('a synchronous audit failure is reported without interrupting Session event
     } }), { surfaceOp: 'append' });
     session.append('turn/end', { turn: 1, reason: { kind: 'completed' } });
   });
+  await warningSeen;
   assert.equal(session.snapshotEvents().some(event => event.type === 'turn/end' && event.data.turn === 1), true);
   assert.deepEqual(store.responsibility({ operation: 'task.dispatch' }).records.map(record => record.outcome), ['uncertain']);
   assert.equal(warnings.length, 1);

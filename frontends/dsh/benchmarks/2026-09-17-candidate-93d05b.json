@@ -1,0 +1,780 @@
+{
+  "schemaVersion": 2,
+  "measuredAt": "2026-09-17T09:16:05.968Z",
+  "evidencePlane": "diagnostic-route-artifact",
+  "source": {
+    "commit": "93d05b121ee42369f791b3be6d3a78e5eb73d426",
+    "dirty": false
+  },
+  "artifact": {
+    "sha256": "7b246dba57ddd7bca60cc082f18242bf72ef6edd0561905694c92b6a6a449b67",
+    "backupWorkerSha256": "8750ed3a86e681a2c1b5b63bb7720a2f2bd9cac06995d7ae3a4928a35f52800e",
+    "packages": "external"
+  },
+  "host": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v24.20.0",
+    "cpus": 6,
+    "totalMemoryBytes": 8589934592
+  },
+  "exclusions": [
+    "release installation",
+    "DSH authentication carrier and network transport",
+    "browser interaction and paint",
+    "cold filesystem cache",
+    "enforced timing budgets"
+  ],
+  "observations": [
+    {
+      "recordsPerCollection": 100,
+      "seededAuditEntries": 500,
+      "metrics": {
+        "open": {
+          "p50Ms": 81.12941699999999,
+          "p95Ms": 137.808667,
+          "maxEventLoopRoundtripMs": 129.19441600000002,
+          "maxResponseBytes": 0,
+          "maxProcessPeakRssBytes": 87212032,
+          "maxChildPeakRssBytes": 0,
+          "maxCombinedPeakUpperBoundBytes": 87212032
+        },
+        "overview": {
+          "p50Ms": 61.03195900000003,
+          "p95Ms": 84.92787500000003,
+          "maxEventLoopRoundtripMs": 85.18912500000005,
+          "maxResponseBytes": 169,
+          "maxProcessPeakRssBytes": 92635136,
+          "maxChildPeakRssBytes": 0,
+          "maxCombinedPeakUpperBoundBytes": 92635136
+        },
+        "list": {
+          "p50Ms": 12.310917000000018,
+          "p95Ms": 14.536166999999978,
+          "maxEventLoopRoundtripMs": 15.566624999999988,
+          "maxResponseBytes": 9016,
+          "maxProcessPeakRssBytes": 93716480,
+          "maxChildPeakRssBytes": 0,
+          "maxCombinedPeakUpperBoundBytes": 93716480
+        },
+        "search": {
+          "p50Ms": 4.204082999999969,
+          "p95Ms": 7.734041999999988,
+          "maxEventLoopRoundtripMs": 7.882292000000007,
+          "maxResponseBytes": 995,
+          "maxProcessPeakRssBytes": 94142464,
+          "maxChildPeakRssBytes": 0,
+          "maxCombinedPeakUpperBoundBytes": 94142464
+        },
+        "auditTail": {
+          "p50Ms": 9.953167000000008,
+          "p95Ms": 17.626333999999986,
+          "maxEventLoopRoundtripMs": 21.093166999999994,
+          "maxResponseBytes": 20559,
+          "maxProcessPeakRssBytes": 94863360,
+          "maxChildPeakRssBytes": 0,
+          "maxCombinedPeakUpperBoundBytes": 94863360
+        },
+        "saveReceipt": {
+          "p50Ms": 10.339584000000002,
+          "p95Ms": 21.936040999999932,
+          "maxEventLoopRoundtripMs": 23.243582999999944,
+          "maxResponseBytes": 160,
+          "maxProcessPeakRssBytes": 95420416,
+          "maxChildPeakRssBytes": 0,
+          "maxCombinedPeakUpperBoundBytes": 95420416
+        },
+        "backup": {
+          "p50Ms": 401.24925,
+          "p95Ms": 422.18833299999994,
+          "maxEventLoopRoundtripMs": 39.642165999999975,
+          "maxResponseBytes": 405127,
+          "maxProcessPeakRssBytes": 97796096,
+          "maxChildPeakRssBytes": 93323264,
+          "maxCombinedPeakUpperBoundBytes": 189956096
+        },
+        "prepareBackup": {
+          "p50Ms": 264.205334,
+          "p95Ms": 299.210958,
+          "maxEventLoopRoundtripMs": 39.749374999999986,
+          "maxResponseBytes": 267,
+          "maxProcessPeakRssBytes": 98009088,
+          "maxChildPeakRssBytes": 90112000,
+          "maxCombinedPeakUpperBoundBytes": 188121088
+        },
+        "restore": {
+          "p50Ms": 494.97966599999995,
+          "p95Ms": 497.9932920000001,
+          "maxEventLoopRoundtripMs": 8.3884579999999,
+          "maxResponseBytes": 144,
+          "maxProcessPeakRssBytes": 99418112,
+          "maxChildPeakRssBytes": 91144192,
+          "maxCombinedPeakUpperBoundBytes": 190562304
+        }
+      },
+      "peakRssBytes": 99434496,
+      "samples": [
+        {
+          "samples": {
+            "open": {
+              "elapsedMs": 137.808667,
+              "eventLoopRoundtripMs": 129.19441600000002,
+              "responseBytes": null,
+              "rssBeforeBytes": 75825152,
+              "rssAfterBytes": 87212032,
+              "heapAfterBytes": 14602560,
+              "processPeakRssBytes": 87212032,
+              "childPeakRssBytes": 0
+            },
+            "overview": {
+              "elapsedMs": 84.92787500000003,
+              "eventLoopRoundtripMs": 85.18912500000005,
+              "responseBytes": 169,
+              "rssBeforeBytes": 87343104,
+              "rssAfterBytes": 92618752,
+              "heapAfterBytes": 14760464,
+              "processPeakRssBytes": 92635136,
+              "childPeakRssBytes": 0
+            },
+            "list": {
+              "elapsedMs": 14.536166999999978,
+              "eventLoopRoundtripMs": 15.566624999999988,
+              "responseBytes": 9016,
+              "rssBeforeBytes": 93241344,
+              "rssAfterBytes": 93700096,
+              "heapAfterBytes": 17970912,
+              "processPeakRssBytes": 93716480,
+              "childPeakRssBytes": 0
+            },
+            "search": {
+              "elapsedMs": 7.734041999999988,
+              "eventLoopRoundtripMs": 7.882292000000007,
+              "responseBytes": 995,
+              "rssBeforeBytes": 93782016,
+              "rssAfterBytes": 94142464,
+              "heapAfterBytes": 14341568,
+              "processPeakRssBytes": 94142464,
+              "childPeakRssBytes": 0
+            },
+            "auditTail": {
+              "elapsedMs": 17.626333999999986,
+              "eventLoopRoundtripMs": 21.093166999999994,
+              "responseBytes": 20559,
+              "rssBeforeBytes": 94142464,
+              "rssAfterBytes": 94863360,
+              "heapAfterBytes": 18332344,
+              "processPeakRssBytes": 94863360,
+              "childPeakRssBytes": 0
+            },
+            "saveReceipt": {
+              "elapsedMs": 21.936040999999932,
+              "eventLoopRoundtripMs": 23.243582999999944,
+              "responseBytes": 160,
+              "rssBeforeBytes": 94896128,
+              "rssAfterBytes": 95420416,
+              "heapAfterBytes": 14767424,
+              "processPeakRssBytes": 95420416,
+              "childPeakRssBytes": 0
+            },
+            "backup": {
+              "elapsedMs": 422.18833299999994,
+              "eventLoopRoundtripMs": 39.642165999999975,
+              "responseBytes": 405127,
+              "rssBeforeBytes": 95436800,
+              "rssAfterBytes": 97796096,
+              "heapAfterBytes": 19839832,
+              "processPeakRssBytes": 97796096,
+              "childPeakRssBytes": 78594048
+            },
+            "prepareBackup": {
+              "elapsedMs": 264.205334,
+              "eventLoopRoundtripMs": 4.466875000000073,
+              "responseBytes": 267,
+              "rssBeforeBytes": 97861632,
+              "rssAfterBytes": 98009088,
+              "heapAfterBytes": 19761560,
+              "processPeakRssBytes": 98009088,
+              "childPeakRssBytes": 90112000
+            },
+            "restore": {
+              "elapsedMs": 467.31066699999997,
+              "eventLoopRoundtripMs": 8.3884579999999,
+              "responseBytes": 144,
+              "rssBeforeBytes": 98074624,
+              "rssAfterBytes": 99418112,
+              "heapAfterBytes": 16640256,
+              "processPeakRssBytes": 99418112,
+              "childPeakRssBytes": 91144192
+            }
+          },
+          "peakRssBytes": 99434496
+        },
+        {
+          "samples": {
+            "open": {
+              "elapsedMs": 76.588,
+              "eventLoopRoundtripMs": 73.16137499999999,
+              "responseBytes": null,
+              "rssBeforeBytes": 75694080,
+              "rssAfterBytes": 86130688,
+              "heapAfterBytes": 15036408,
+              "processPeakRssBytes": 86147072,
+              "childPeakRssBytes": 0
+            },
+            "overview": {
+              "elapsedMs": 60.5,
+              "eventLoopRoundtripMs": 60.604250000000036,
+              "responseBytes": 169,
+              "rssBeforeBytes": 86540288,
+              "rssAfterBytes": 91897856,
+              "heapAfterBytes": 14767088,
+              "processPeakRssBytes": 91897856,
+              "childPeakRssBytes": 0
+            },
+            "list": {
+              "elapsedMs": 12.310917000000018,
+              "eventLoopRoundtripMs": 12.438083000000006,
+              "responseBytes": 9016,
+              "rssBeforeBytes": 92536832,
+              "rssAfterBytes": 93372416,
+              "heapAfterBytes": 17940024,
+              "processPeakRssBytes": 93372416,
+              "childPeakRssBytes": 0
+            },
+            "search": {
+              "elapsedMs": 4.204082999999969,
+              "eventLoopRoundtripMs": 4.372833000000014,
+              "responseBytes": 995,
+              "rssBeforeBytes": 93405184,
+              "rssAfterBytes": 93650944,
+              "heapAfterBytes": 14356288,
+              "processPeakRssBytes": 93650944,
+              "childPeakRssBytes": 0
+            },
+            "auditTail": {
+              "elapsedMs": 9.953167000000008,
+              "eventLoopRoundtripMs": 10.055207999999993,
+              "responseBytes": 20559,
+              "rssBeforeBytes": 93650944,
+              "rssAfterBytes": 94240768,
+              "heapAfterBytes": 18342512,
+              "processPeakRssBytes": 94240768,
+              "childPeakRssBytes": 0
+            },
+            "saveReceipt": {
+              "elapsedMs": 10.339584000000002,
+              "eventLoopRoundtripMs": 10.465250000000026,
+              "responseBytes": 160,
+              "rssBeforeBytes": 94289920,
+              "rssAfterBytes": 94863360,
+              "heapAfterBytes": 14774824,
+              "processPeakRssBytes": 94863360,
+              "childPeakRssBytes": 0
+            },
+            "backup": {
+              "elapsedMs": 280.604542,
+              "eventLoopRoundtripMs": 5.91291700000005,
+              "responseBytes": 405127,
+              "rssBeforeBytes": 94863360,
+              "rssAfterBytes": 96632832,
+              "heapAfterBytes": 19161992,
+              "processPeakRssBytes": 96632832,
+              "childPeakRssBytes": 93323264
+            },
+            "prepareBackup": {
+              "elapsedMs": 299.210958,
+              "eventLoopRoundtripMs": 39.749374999999986,
+              "responseBytes": 267,
+              "rssBeforeBytes": 96665600,
+              "rssAfterBytes": 96731136,
+              "heapAfterBytes": 17706496,
+              "processPeakRssBytes": 96731136,
+              "childPeakRssBytes": 78970880
+            },
+            "restore": {
+              "elapsedMs": 494.97966599999995,
+              "eventLoopRoundtripMs": 7.918291999999838,
+              "responseBytes": 144,
+              "rssBeforeBytes": 96813056,
+              "rssAfterBytes": 98795520,
+              "heapAfterBytes": 17904824,
+              "processPeakRssBytes": 98795520,
+              "childPeakRssBytes": 90931200
+            }
+          },
+          "peakRssBytes": 98811904
+        },
+        {
+          "samples": {
+            "open": {
+              "elapsedMs": 81.12941699999999,
+              "eventLoopRoundtripMs": 77.232584,
+              "responseBytes": null,
+              "rssBeforeBytes": 76447744,
+              "rssAfterBytes": 86835200,
+              "heapAfterBytes": 14609344,
+              "processPeakRssBytes": 86835200,
+              "childPeakRssBytes": 0
+            },
+            "overview": {
+              "elapsedMs": 61.03195900000003,
+              "eventLoopRoundtripMs": 61.12287500000002,
+              "responseBytes": 169,
+              "rssBeforeBytes": 87031808,
+              "rssAfterBytes": 91897856,
+              "heapAfterBytes": 14763704,
+              "processPeakRssBytes": 91897856,
+              "childPeakRssBytes": 0
+            },
+            "list": {
+              "elapsedMs": 11.769083000000023,
+              "eventLoopRoundtripMs": 12.352125000000001,
+              "responseBytes": 9016,
+              "rssBeforeBytes": 92585984,
+              "rssAfterBytes": 93372416,
+              "heapAfterBytes": 17702536,
+              "processPeakRssBytes": 93388800,
+              "childPeakRssBytes": 0
+            },
+            "search": {
+              "elapsedMs": 3.1855840000000057,
+              "eventLoopRoundtripMs": 3.2785840000000235,
+              "responseBytes": 995,
+              "rssBeforeBytes": 93536256,
+              "rssAfterBytes": 93700096,
+              "heapAfterBytes": 14343152,
+              "processPeakRssBytes": 93700096,
+              "childPeakRssBytes": 0
+            },
+            "auditTail": {
+              "elapsedMs": 9.694749999999999,
+              "eventLoopRoundtripMs": 9.828417000000002,
+              "responseBytes": 20559,
+              "rssBeforeBytes": 93732864,
+              "rssAfterBytes": 94502912,
+              "heapAfterBytes": 18327440,
+              "processPeakRssBytes": 94502912,
+              "childPeakRssBytes": 0
+            },
+            "saveReceipt": {
+              "elapsedMs": 10.071124999999995,
+              "eventLoopRoundtripMs": 10.228166999999985,
+              "responseBytes": 160,
+              "rssBeforeBytes": 94519296,
+              "rssAfterBytes": 95125504,
+              "heapAfterBytes": 14770080,
+              "processPeakRssBytes": 95125504,
+              "childPeakRssBytes": 0
+            },
+            "backup": {
+              "elapsedMs": 401.24925,
+              "eventLoopRoundtripMs": 10.156333000000018,
+              "responseBytes": 405127,
+              "rssBeforeBytes": 95125504,
+              "rssAfterBytes": 87949312,
+              "heapAfterBytes": 17181256,
+              "processPeakRssBytes": 95289344,
+              "childPeakRssBytes": 90963968
+            },
+            "prepareBackup": {
+              "elapsedMs": 257.9805000000001,
+              "eventLoopRoundtripMs": 4.764042000000018,
+              "responseBytes": 267,
+              "rssBeforeBytes": 88260608,
+              "rssAfterBytes": 88752128,
+              "heapAfterBytes": 17356720,
+              "processPeakRssBytes": 95289344,
+              "childPeakRssBytes": 88948736
+            },
+            "restore": {
+              "elapsedMs": 497.9932920000001,
+              "eventLoopRoundtripMs": 5.9320829999999205,
+              "responseBytes": 144,
+              "rssBeforeBytes": 88817664,
+              "rssAfterBytes": 91160576,
+              "heapAfterBytes": 16084736,
+              "processPeakRssBytes": 95289344,
+              "childPeakRssBytes": 85966848
+            }
+          },
+          "peakRssBytes": 95289344
+        }
+      ]
+    },
+    {
+      "recordsPerCollection": 1000,
+      "seededAuditEntries": 5000,
+      "metrics": {
+        "open": {
+          "p50Ms": 437.717667,
+          "p95Ms": 727.24675,
+          "maxEventLoopRoundtripMs": 722.045083,
+          "maxResponseBytes": 0,
+          "maxProcessPeakRssBytes": 96387072,
+          "maxChildPeakRssBytes": 0,
+          "maxCombinedPeakUpperBoundBytes": 96387072
+        },
+        "overview": {
+          "p50Ms": 80.42512499999998,
+          "p95Ms": 124.12533299999996,
+          "maxEventLoopRoundtripMs": 124.25025000000005,
+          "maxResponseBytes": 174,
+          "maxProcessPeakRssBytes": 100761600,
+          "maxChildPeakRssBytes": 0,
+          "maxCombinedPeakUpperBoundBytes": 100761600
+        },
+        "list": {
+          "p50Ms": 13.216874999999959,
+          "p95Ms": 27.741665999999896,
+          "maxEventLoopRoundtripMs": 27.930458000000044,
+          "maxResponseBytes": 9018,
+          "maxProcessPeakRssBytes": 101679104,
+          "maxChildPeakRssBytes": 0,
+          "maxCombinedPeakUpperBoundBytes": 101679104
+        },
+        "search": {
+          "p50Ms": 11.847915999999941,
+          "p95Ms": 15.786124999999856,
+          "maxEventLoopRoundtripMs": 16.590708999999833,
+          "maxResponseBytes": 9052,
+          "maxProcessPeakRssBytes": 101957632,
+          "maxChildPeakRssBytes": 0,
+          "maxCombinedPeakUpperBoundBytes": 101957632
+        },
+        "auditTail": {
+          "p50Ms": 18.629332999999974,
+          "p95Ms": 29.234042000000045,
+          "maxEventLoopRoundtripMs": 32.72283300000004,
+          "maxResponseBytes": 20562,
+          "maxProcessPeakRssBytes": 102006784,
+          "maxChildPeakRssBytes": 0,
+          "maxCombinedPeakUpperBoundBytes": 102006784
+        },
+        "saveReceipt": {
+          "p50Ms": 18.485333000000082,
+          "p95Ms": 29.417791999999963,
+          "maxEventLoopRoundtripMs": 29.968457999999828,
+          "maxResponseBytes": 162,
+          "maxProcessPeakRssBytes": 102367232,
+          "maxChildPeakRssBytes": 0,
+          "maxCombinedPeakUpperBoundBytes": 102367232
+        },
+        "backup": {
+          "p50Ms": 950.1007079999999,
+          "p95Ms": 3358.777542,
+          "maxEventLoopRoundtripMs": 77.5932499999999,
+          "maxResponseBytes": 4091334,
+          "maxProcessPeakRssBytes": 114769920,
+          "maxChildPeakRssBytes": 89505792,
+          "maxCombinedPeakUpperBoundBytes": 204275712
+        },
+        "prepareBackup": {
+          "p50Ms": 851.4134170000002,
+          "p95Ms": 2329.623875,
+          "maxEventLoopRoundtripMs": 45.812457999999424,
+          "maxResponseBytes": 272,
+          "maxProcessPeakRssBytes": 114868224,
+          "maxChildPeakRssBytes": 109608960,
+          "maxCombinedPeakUpperBoundBytes": 224477184
+        },
+        "restore": {
+          "p50Ms": 4362.6145830000005,
+          "p95Ms": 7566.932667,
+          "maxEventLoopRoundtripMs": 67.98899999999958,
+          "maxResponseBytes": 145,
+          "maxProcessPeakRssBytes": 115032064,
+          "maxChildPeakRssBytes": 102318080,
+          "maxCombinedPeakUpperBoundBytes": 212484096
+        }
+      },
+      "peakRssBytes": 115032064,
+      "samples": [
+        {
+          "samples": {
+            "open": {
+              "elapsedMs": 382.14425,
+              "eventLoopRoundtripMs": 377.79774999999995,
+              "responseBytes": null,
+              "rssBeforeBytes": 76021760,
+              "rssAfterBytes": 96387072,
+              "heapAfterBytes": 22169760,
+              "processPeakRssBytes": 96387072,
+              "childPeakRssBytes": 0
+            },
+            "overview": {
+              "elapsedMs": 55.388665999999944,
+              "eventLoopRoundtripMs": 55.465082999999936,
+              "responseBytes": 174,
+              "rssBeforeBytes": 96436224,
+              "rssAfterBytes": 100761600,
+              "heapAfterBytes": 14932768,
+              "processPeakRssBytes": 100761600,
+              "childPeakRssBytes": 0
+            },
+            "list": {
+              "elapsedMs": 13.216874999999959,
+              "eventLoopRoundtripMs": 13.317250000000058,
+              "responseBytes": 9018,
+              "rssBeforeBytes": 101367808,
+              "rssAfterBytes": 101629952,
+              "heapAfterBytes": 17867624,
+              "processPeakRssBytes": 101629952,
+              "childPeakRssBytes": 0
+            },
+            "search": {
+              "elapsedMs": 11.691542000000027,
+              "eventLoopRoundtripMs": 11.840000000000032,
+              "responseBytes": 9052,
+              "rssBeforeBytes": 101629952,
+              "rssAfterBytes": 101957632,
+              "heapAfterBytes": 17811744,
+              "processPeakRssBytes": 101957632,
+              "childPeakRssBytes": 0
+            },
+            "auditTail": {
+              "elapsedMs": 10.298208999999929,
+              "eventLoopRoundtripMs": 10.441666999999939,
+              "responseBytes": 20562,
+              "rssBeforeBytes": 101957632,
+              "rssAfterBytes": 102006784,
+              "heapAfterBytes": 18433664,
+              "processPeakRssBytes": 102006784,
+              "childPeakRssBytes": 0
+            },
+            "saveReceipt": {
+              "elapsedMs": 11.165875000000028,
+              "eventLoopRoundtripMs": 11.293000000000006,
+              "responseBytes": 162,
+              "rssBeforeBytes": 102023168,
+              "rssAfterBytes": 102367232,
+              "heapAfterBytes": 14799296,
+              "processPeakRssBytes": 102367232,
+              "childPeakRssBytes": 0
+            },
+            "backup": {
+              "elapsedMs": 700.8186250000001,
+              "eventLoopRoundtripMs": 6.207917000000066,
+              "responseBytes": 4091334,
+              "rssBeforeBytes": 102367232,
+              "rssAfterBytes": 114769920,
+              "heapAfterBytes": 16669400,
+              "processPeakRssBytes": 114769920,
+              "childPeakRssBytes": 89505792
+            },
+            "prepareBackup": {
+              "elapsedMs": 496.364959,
+              "eventLoopRoundtripMs": 14.85674999999992,
+              "responseBytes": 272,
+              "rssBeforeBytes": 114737152,
+              "rssAfterBytes": 114868224,
+              "heapAfterBytes": 19593560,
+              "processPeakRssBytes": 114868224,
+              "childPeakRssBytes": 109608960
+            },
+            "restore": {
+              "elapsedMs": 3108.4352499999995,
+              "eventLoopRoundtripMs": 8.54424999999992,
+              "responseBytes": 145,
+              "rssBeforeBytes": 114966528,
+              "rssAfterBytes": 69222400,
+              "heapAfterBytes": 20499664,
+              "processPeakRssBytes": 115032064,
+              "childPeakRssBytes": 96616448
+            }
+          },
+          "peakRssBytes": 115032064
+        },
+        {
+          "samples": {
+            "open": {
+              "elapsedMs": 437.717667,
+              "eventLoopRoundtripMs": 433.37862500000006,
+              "responseBytes": null,
+              "rssBeforeBytes": 75710464,
+              "rssAfterBytes": 96239616,
+              "heapAfterBytes": 21812936,
+              "processPeakRssBytes": 96239616,
+              "childPeakRssBytes": 0
+            },
+            "overview": {
+              "elapsedMs": 80.42512499999998,
+              "eventLoopRoundtripMs": 80.56241599999998,
+              "responseBytes": 174,
+              "rssBeforeBytes": 96239616,
+              "rssAfterBytes": 100614144,
+              "heapAfterBytes": 14920024,
+              "processPeakRssBytes": 100630528,
+              "childPeakRssBytes": 0
+            },
+            "list": {
+              "elapsedMs": 11.863375000000019,
+              "eventLoopRoundtripMs": 11.999042000000031,
+              "responseBytes": 9018,
+              "rssBeforeBytes": 101253120,
+              "rssAfterBytes": 101679104,
+              "heapAfterBytes": 17867752,
+              "processPeakRssBytes": 101679104,
+              "childPeakRssBytes": 0
+            },
+            "search": {
+              "elapsedMs": 11.847915999999941,
+              "eventLoopRoundtripMs": 12.37845799999991,
+              "responseBytes": 9052,
+              "rssBeforeBytes": 101695488,
+              "rssAfterBytes": 100155392,
+              "heapAfterBytes": 17811416,
+              "processPeakRssBytes": 101924864,
+              "childPeakRssBytes": 0
+            },
+            "auditTail": {
+              "elapsedMs": 18.629332999999974,
+              "eventLoopRoundtripMs": 18.77937499999996,
+              "responseBytes": 20562,
+              "rssBeforeBytes": 100171776,
+              "rssAfterBytes": 99827712,
+              "heapAfterBytes": 18312576,
+              "processPeakRssBytes": 101924864,
+              "childPeakRssBytes": 0
+            },
+            "saveReceipt": {
+              "elapsedMs": 18.485333000000082,
+              "eventLoopRoundtripMs": 18.647083000000066,
+              "responseBytes": 162,
+              "rssBeforeBytes": 99827712,
+              "rssAfterBytes": 99303424,
+              "heapAfterBytes": 14802992,
+              "processPeakRssBytes": 101924864,
+              "childPeakRssBytes": 0
+            },
+            "backup": {
+              "elapsedMs": 950.1007079999999,
+              "eventLoopRoundtripMs": 19.645250000000033,
+              "responseBytes": 4091334,
+              "rssBeforeBytes": 99319808,
+              "rssAfterBytes": 109953024,
+              "heapAfterBytes": 20830208,
+              "processPeakRssBytes": 109953024,
+              "childPeakRssBytes": 85229568
+            },
+            "prepareBackup": {
+              "elapsedMs": 851.4134170000002,
+              "eventLoopRoundtripMs": 14.688208000000031,
+              "responseBytes": 272,
+              "rssBeforeBytes": 110067712,
+              "rssAfterBytes": 74973184,
+              "heapAfterBytes": 15141992,
+              "processPeakRssBytes": 110166016,
+              "childPeakRssBytes": 98582528
+            },
+            "restore": {
+              "elapsedMs": 4362.6145830000005,
+              "eventLoopRoundtripMs": 47.0507090000001,
+              "responseBytes": 145,
+              "rssBeforeBytes": 82018304,
+              "rssAfterBytes": 67305472,
+              "heapAfterBytes": 19017096,
+              "processPeakRssBytes": 110166016,
+              "childPeakRssBytes": 102318080
+            }
+          },
+          "peakRssBytes": 110166016
+        },
+        {
+          "samples": {
+            "open": {
+              "elapsedMs": 727.24675,
+              "eventLoopRoundtripMs": 722.045083,
+              "responseBytes": null,
+              "rssBeforeBytes": 73678848,
+              "rssAfterBytes": 90144768,
+              "heapAfterBytes": 21764096,
+              "processPeakRssBytes": 90390528,
+              "childPeakRssBytes": 0
+            },
+            "overview": {
+              "elapsedMs": 124.12533299999996,
+              "eventLoopRoundtripMs": 124.25025000000005,
+              "responseBytes": 174,
+              "rssBeforeBytes": 92553216,
+              "rssAfterBytes": 95485952,
+              "heapAfterBytes": 14931752,
+              "processPeakRssBytes": 97468416,
+              "childPeakRssBytes": 0
+            },
+            "list": {
+              "elapsedMs": 27.741665999999896,
+              "eventLoopRoundtripMs": 27.930458000000044,
+              "responseBytes": 9018,
+              "rssBeforeBytes": 95961088,
+              "rssAfterBytes": 95551488,
+              "heapAfterBytes": 17866632,
+              "processPeakRssBytes": 97468416,
+              "childPeakRssBytes": 0
+            },
+            "search": {
+              "elapsedMs": 15.786124999999856,
+              "eventLoopRoundtripMs": 16.590708999999833,
+              "responseBytes": 9052,
+              "rssBeforeBytes": 95010816,
+              "rssAfterBytes": 96763904,
+              "heapAfterBytes": 17804888,
+              "processPeakRssBytes": 97468416,
+              "childPeakRssBytes": 0
+            },
+            "auditTail": {
+              "elapsedMs": 29.234042000000045,
+              "eventLoopRoundtripMs": 32.72283300000004,
+              "responseBytes": 20562,
+              "rssBeforeBytes": 95731712,
+              "rssAfterBytes": 95535104,
+              "heapAfterBytes": 18432672,
+              "processPeakRssBytes": 97468416,
+              "childPeakRssBytes": 0
+            },
+            "saveReceipt": {
+              "elapsedMs": 29.417791999999963,
+              "eventLoopRoundtripMs": 29.968457999999828,
+              "responseBytes": 162,
+              "rssBeforeBytes": 95338496,
+              "rssAfterBytes": 96223232,
+              "heapAfterBytes": 14798040,
+              "processPeakRssBytes": 97468416,
+              "childPeakRssBytes": 0
+            },
+            "backup": {
+              "elapsedMs": 3358.777542,
+              "eventLoopRoundtripMs": 77.5932499999999,
+              "responseBytes": 4091334,
+              "rssBeforeBytes": 96256000,
+              "rssAfterBytes": 82198528,
+              "heapAfterBytes": 16749424,
+              "processPeakRssBytes": 97468416,
+              "childPeakRssBytes": 77889536
+            },
+            "prepareBackup": {
+              "elapsedMs": 2329.623875,
+              "eventLoopRoundtripMs": 45.812457999999424,
+              "responseBytes": 272,
+              "rssBeforeBytes": 89341952,
+              "rssAfterBytes": 67059712,
+              "heapAfterBytes": 20830672,
+              "processPeakRssBytes": 97468416,
+              "childPeakRssBytes": 88768512
+            },
+            "restore": {
+              "elapsedMs": 7566.932667,
+              "eventLoopRoundtripMs": 67.98899999999958,
+              "responseBytes": 145,
+              "rssBeforeBytes": 76480512,
+              "rssAfterBytes": 64225280,
+              "heapAfterBytes": 20460192,
+              "processPeakRssBytes": 97468416,
+              "childPeakRssBytes": 91193344
+            }
+          },
+          "peakRssBytes": 97468416
+        }
+      ]
+    }
+  ]
+}
