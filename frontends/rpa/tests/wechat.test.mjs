@@ -36,6 +36,15 @@ test('installation discovers the read tool without starting a helper or writing 
   const f = await fixture(t, 'rejected');
   assert.ok(f.tools.has('wechat_read'));
   assert.deepEqual([...f.tools.keys()].filter(name => /wechat/u.test(name)), ['wechat_read']);
+  assert.deepEqual(f.tools.get('wechat_read').parameters, {
+    type: 'object',
+    properties: {
+      chatName: { type: 'string', description: 'Exact title of the conversation already selected by the user in WeChat, including any group member count suffix.' },
+      limit: { type: 'integer', description: 'Maximum visible text entries, from 1 to 50. No history scrolling.' },
+    },
+    required: ['chatName', 'limit'],
+    additionalProperties: false,
+  });
   assert.deepEqual(await readdir(f.root), ['helper.mjs']);
   for (const dispose of f.disposers) dispose();
   assert.equal(f.tools.size, 0);
