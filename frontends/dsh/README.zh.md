@@ -142,7 +142,7 @@ WatchDog 管理台通过“定时巡检”面板提供产品级持久计划，�
 
 `GET /api/clawmaster/enterprise` 返回 `{ generation, revision, counts, limits }`；`/query` 接收 `collection`、`offset`、`limit`、两个版本字段，以及可选的 `id`、`search`、联系人 `stage`/`dueBefore`、库存 `lowStock` 或订单 `kind`/`status`。分页返回 `{ generation, revision, collection, offset, total, nextOffset, records }`。每次续页必须携带两个版本；编辑或恢复后返回 `revision_conflict`，不会混合不同数据集。浏览器为每个可见列表保留一页，另行查询页外编辑对象与 SKU 候选。保存先验证回执再刷新计数；刷新失败不撤销已确认成功。分页和新提交的审计条目都受完整记录字节上限约束：超限变更回滚并返回 `result_too_large`（HTTP 413）。已有超限数据原样保留，需要提高读取预算后访问。
 
-`GET /backup` 流式返回格式 1 JSON；`POST /backup/prepare` 接受原始 JSON 文件，返回令牌、摘要、版本和数量。`POST /restore` 只接受该令牌、摘要、已复核版本、稳定命令标识及明确确认，并返回小型持久回执。Host 在解析前限制上传字节，限制并发请求入口，清理过期文件，并在关闭存储前等待工作进程退出。Host 与浏览器产物必须一起部署。
+`GET /backup` 流式返回格式 1 JSON；`POST /backup/prepare` 接受原始 JSON 文件，返回令牌、摘要、版本和数量。`POST /restore` 只接受该令牌、摘要、已复核版本、稳定命令标识及明确确认，并返回小型持久回执。Host 在解析前限制上传字节，限制并发请求入口，清理过期文件，并在关闭存储前等待工作进程退出。恢复在记录事务内重建全文索引；取消与失败会同时回滚记录和索引。Host 与浏览器产物必须一起部署。
 
 Host 插件通过 Cordis 配置接受以下可选设置。存储路径必须为绝对路径。
 

@@ -4,6 +4,7 @@ import { closeSync, openSync, readFileSync, writeSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { enterpriseCollections } from './enterprise-host.ts';
+import { pauseEnterpriseSearchIndexes, rebuildEnterpriseSearchIndexes } from './enterprise-search-indexes.ts';
 import { parseOwnedEnterpriseBackup } from './enterprise-schema.ts';
 import { EnterpriseError, type EnterpriseBackup } from './enterprise-types.ts';
 import { appendResponsibility } from './governance-audit.ts';
@@ -106,6 +107,7 @@ async function restore(backup: EnterpriseBackup): Promise<unknown> {
     const before = rowSchema.parse(db.prepare('SELECT generation, revision FROM enterprise_meta WHERE singleton=1').get());
     if (before.generation !== request.expectedGeneration || before.revision !== request.expectedRevision) throw new EnterpriseError('revision_conflict', 'Enterprise data changed before restore.');
     if (!Number.isSafeInteger(request.expectedGeneration + 1)) throw new EnterpriseError('numeric_overflow', 'Restore generation exceeds the integer limit.');
+    pauseEnterpriseSearchIndexes(db);
     db.exec('DELETE FROM order_lines; DELETE FROM orders; DELETE FROM contacts; DELETE FROM inventory; DELETE FROM enterprise_audit;');
     const insertContact = db.prepare('INSERT INTO contacts(id,name,company,stage,nextAction,nextActionDate,updatedAt) VALUES(?,?,?,?,?,?,?)');
     for (const row of backup.snapshot.contacts) insertContact.run(row.id,row.name,row.company,row.stage,row.nextAction,row.nextActionDate,row.updatedAt);
@@ -123,6 +125,7 @@ async function restore(backup: EnterpriseBackup): Promise<unknown> {
       const row = backup.snapshot.audit[index]!;
       insertAudit.run(row.revision,row.commandId,row.type,row.entityId,row.at,commands.get(row.revision)!,JSON.stringify(row.before),JSON.stringify(row.after));
     }
+    rebuildEnterpriseSearchIndexes(db);
     const result = { commandId: request.commandId, backupSha256: request.backupSha256, generation: request.expectedGeneration + 1, revision: backup.snapshot.revision };
     db.prepare('UPDATE enterprise_meta SET generation=?,revision=? WHERE singleton=1').run(result.generation,result.revision);
     const requestHash = createHash('sha256').update(JSON.stringify({ backupSha256: request.backupSha256, expectedGeneration: request.expectedGeneration,

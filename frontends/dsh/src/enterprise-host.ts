@@ -6,6 +6,7 @@ import { mkdir, open } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { z } from 'zod';
 import { mountEnterpriseBackupRoutes } from './enterprise-backup-host.ts';
+import { initializeEnterpriseSearchIndexes } from './enterprise-search-indexes.ts';
 import type { EnterpriseBackupConfig } from './enterprise-backup-config.ts';
 import type { RestoreBackupRequest, RestoreBackupReceipt } from './enterprise-backup-format.ts';
 import { appendResponsibility, initializeResponsibilityHistory, listPendingTaskExecutionOutcomes, queryResponsibility, recordObservedTaskExecutionOutcome as appendObservedTaskExecutionOutcome,
@@ -72,33 +73,6 @@ export interface EnterprisePreparation {
 // All SQL identifiers and JSON keys are deployment-independent literals.
 const jsonFields = (columns: readonly string[]): string => columns.map(column => `'${column}', r.${column}`).join(', ');
 const orderLinesJson = `(SELECT json_group_array(json(line)) FROM (SELECT json_object('itemId', itemId, 'quantity', quantity, 'unitPriceMinorUnits', unitPriceMinorUnits) AS line FROM order_lines WHERE orderId = r.id ORDER BY position))`;
-const searchIndexes = {
-  contacts: { table: 'contacts', columns: ['id', 'name', 'company', 'stage', 'nextAction', 'nextActionDate', 'updatedAt'] },
-  inventory: { table: 'inventory', columns: ['id', 'sku', 'name', 'supplier', 'updatedAt'] },
-  orders: { table: 'orders', columns: ['id', 'kind', 'counterparty', 'orderDate', 'currency', 'note', 'status', 'updatedAt', 'submittedAt'] },
-  audit: { table: 'enterprise_audit', columns: ['commandId', 'entityId', 'at', 'type', 'beforeJson', 'afterJson'] },
-  orderLines: { table: 'order_lines', columns: ['itemId'] },
-} as const;
-
-function initializeSearchIndexes(db: DatabaseSync): void {
-  for (const [name, index] of Object.entries(searchIndexes)) {
-    const columns = index.columns.join(', ');
-    const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(`${name}_search`) !== undefined;
-    db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS ${name}_search USING fts5(${columns}, content='${index.table}', content_rowid='rowid', tokenize='trigram');
-      CREATE TRIGGER IF NOT EXISTS ${name}_search_insert AFTER INSERT ON ${index.table} BEGIN
-        INSERT INTO ${name}_search(rowid, ${columns}) VALUES (new.rowid, ${index.columns.map(column => `new.${column}`).join(', ')});
-      END;
-      CREATE TRIGGER IF NOT EXISTS ${name}_search_delete AFTER DELETE ON ${index.table} BEGIN
-        INSERT INTO ${name}_search(${name}_search, rowid, ${columns}) VALUES ('delete', old.rowid, ${index.columns.map(column => `old.${column}`).join(', ')});
-      END;
-      CREATE TRIGGER IF NOT EXISTS ${name}_search_update AFTER UPDATE ON ${index.table} BEGIN
-        INSERT INTO ${name}_search(${name}_search, rowid, ${columns}) VALUES ('delete', old.rowid, ${index.columns.map(column => `old.${column}`).join(', ')});
-        INSERT INTO ${name}_search(rowid, ${columns}) VALUES (new.rowid, ${index.columns.map(column => `new.${column}`).join(', ')});
-      END;`);
-    if (!exists) db.exec(`INSERT INTO ${name}_search(${name}_search) VALUES ('rebuild');`);
-  }
-}
-
 function searchPhrase(search: string): string | undefined {
   // SQLite's trigram tokenizer folds ASCII, while JavaScript's exact matcher
   // uses Unicode lowercasing. Keep non-ASCII queries on the exact scan path.
@@ -880,7 +854,7 @@ export async function openEnterpriseStore(databasePath: string, busyTimeoutMs = 
         CREATE INDEX IF NOT EXISTS orders_updated_id ON orders(updatedAt DESC, id);
         CREATE INDEX IF NOT EXISTS order_lines_item ON order_lines(itemId);
         CREATE INDEX IF NOT EXISTS enterprise_audit_entity ON enterprise_audit(entityId, revision DESC);`);
-      if (fresh || version < SCHEMA_VERSION) initializeSearchIndexes(db);
+      if (fresh || version < SCHEMA_VERSION) initializeEnterpriseSearchIndexes(db);
       db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`);
     } catch (error) { db.exec('ROLLBACK'); throw error; }
     return new EnterpriseStore(db, taskLimits, readLimits);

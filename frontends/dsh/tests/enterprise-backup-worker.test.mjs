@@ -98,17 +98,101 @@ function barrier() {
   return { reached: new Promise(resolve => { arrive = resolve; }), wait: new Promise(resolve => { release = resolve; }),
     arrive: () => arrive(), release: () => release() };
 }
+function write(store, command) {
+  const { generation, revision } = store.overview();
+  return store.execute({ generation, revision, commandId: `search-${generation}-${revision}`, command });
+}
+function searchContact(name) {
+  return { id: 'one', name, company: '', stage: 'lead', nextAction: '', nextActionDate: null };
+}
+function seedSearch(store, marker) {
+  write(store, { type: 'contact.upsert', contact: searchContact(marker) });
+  write(store, { type: 'item.upsert', item: { id: `line-${marker}`, sku: marker, name: marker, stock: 12, reorderAt: 3, supplier: '' } });
+  write(store, { type: 'order.save', order: { id: 'order', kind: 'sale', counterparty: 'Buyer', orderDate: '2026-09-17', currency: 'CNY', lines: [{ itemId: `line-${marker}`, quantity: 2, unitPriceMinorUnits: 100 }], note: `order-${marker}` } });
+}
+function searchCount(store, collection, search) {
+  return store.queryPage({ collection, search, offset: 0, limit: 10 }, 65536).total;
+}
+function assertSearch(store, marker, present) {
+  for (const collection of ['contacts', 'inventory', 'orders', 'audit']) {
+    assert.equal(searchCount(store, collection, marker) > 0, present, `${collection}: ${marker}`);
+  }
+  for (const search of [`line-${marker}`, `order-${marker}`]) {
+    assert.equal(searchCount(store, 'orders', search) > 0, present, `orders: ${search}`);
+  }
+}
+function assertIncrementalContactSearch(store) {
+  write(store, { type: 'contact.upsert', contact: searchContact('incrementalinsert') });
+  assert.equal(searchCount(store, 'contacts', 'incrementalinsert'), 1);
+  write(store, { type: 'contact.upsert', contact: searchContact('incrementalupdate') });
+  assert.equal(searchCount(store, 'contacts', 'incrementalinsert'), 0);
+  assert.equal(searchCount(store, 'contacts', 'incrementalupdate'), 1);
+  write(store, { type: 'contact.remove', id: 'one' });
+  assert.equal(searchCount(store, 'contacts', 'incrementalupdate'), 0);
+}
+test('bulk restore replaces every search index atomically while existing WAL readers retain their snapshot', { timeout: 20000 }, async t => {
+  const donor = await fixture(t); seedSearch(donor.store, 'restoredneedle');
+  const authority = enterpriseAuthority();
+  const f = await fixture(t, { access: authority.access, organizationId: 'acme' });
+  seedSearch(f.store, 'currentneedle');
+  const prepared = await (await f.upload(donor.store.backup())).json();
+  const gate = barrier();
+  const reader = new DatabaseSync(f.store.backupDatabasePath());
+  const indexedNames = () => reader.prepare('SELECT name FROM contacts WHERE rowid IN (SELECT rowid FROM contacts_search WHERE contacts_search MATCH ?)').all('currentneedle').map(row => row.name);
+  authority.onFinalCheck(async index => { if (index === 2) { gate.arrive(); await gate.wait; } });
+  let response;
+  try {
+    reader.exec('BEGIN');
+    assert.deepEqual(indexedNames(), ['currentneedle']);
+    response = f.restore(prepared, { expectedRevision: f.store.overview().revision });
+    await gate.reached;
+    assertSearch(f.store, 'currentneedle', true);
+    assertSearch(f.store, 'restoredneedle', false);
+    gate.release();
+    const restored = await response;
+    assert.equal(restored.status, 200, await restored.clone().text());
+    assert.deepEqual(indexedNames(), ['currentneedle'], 'an already open read transaction keeps its old index snapshot');
+    reader.exec('COMMIT');
+    assert.deepEqual(indexedNames(), []);
+    assertSearch(f.store, 'restoredneedle', true);
+    assertSearch(f.store, 'currentneedle', false);
+    assertIncrementalContactSearch(f.store);
+  } finally {
+    gate.release();
+    if (response) await response;
+    reader.close();
+  }
+});
+test('insertion failure restores the old search indexes and their incremental triggers', async t => {
+  const donor = await fixture(t); seedSearch(donor.store, 'restoredneedle');
+  const f = await fixture(t); seedSearch(f.store, 'currentneedle');
+  const prepared = await (await f.upload(donor.store.backup())).json();
+  const db = new DatabaseSync(f.store.backupDatabasePath());
+  try {
+    db.exec("CREATE TRIGGER reject_search_restore BEFORE INSERT ON orders BEGIN SELECT RAISE(ABORT, 'fixture'); END;");
+    const before = f.store.snapshot();
+    assert.equal((await f.restore(prepared, { expectedRevision: before.revision })).status, 503);
+    assert.deepEqual(f.store.snapshot(), before);
+    assertSearch(f.store, 'currentneedle', true);
+    assertSearch(f.store, 'restoredneedle', false);
+    db.exec('DROP TRIGGER reject_search_restore');
+    assertIncrementalContactSearch(f.store);
+  } finally { db.close(); }
+});
 test('cancel at final authority check waits for worker rollback before accepting another write', async t => {
   const authority = enterpriseAuthority(); const f = await fixture(t, { access: authority.access, organizationId: 'acme' });
+  seedSearch(f.store, 'currentneedle');
   const prepared = await (await f.upload(f.store.backup())).json();
   const gate = barrier(); const controller = new AbortController();
   authority.onFinalCheck(async index => { if (index === 2) { gate.arrive(); await gate.wait; } });
   const before = f.store.snapshot();
-  const response = f.restore(prepared, {}, controller.signal);
+  const response = f.restore(prepared, { expectedRevision: before.revision }, controller.signal);
   await gate.reached;
   controller.abort(new Error('operator cancelled'));
   assert.equal((await response).status, 503);
   assert.deepEqual(f.store.snapshot(), before);
+  assertSearch(f.store, 'currentneedle', true);
+  assertIncrementalContactSearch(f.store);
   const independent = new DatabaseSync(f.store.backupDatabasePath());
   try { independent.exec('PRAGMA busy_timeout=0; BEGIN IMMEDIATE; ROLLBACK;'); } finally { independent.close(); }
   assert.ok(f.store.responsibility().records.some(row => row.operation === 'backup.restore' && row.outcome === 'cancelled'));
@@ -117,11 +201,16 @@ test('cancel at final authority check waits for worker rollback before accepting
 });
 test('membership revoked while worker holds transaction prevents final COMMIT', async t => {
   const authority = enterpriseAuthority(); const f = await fixture(t, { access: authority.access, organizationId: 'acme' });
-  const prepared = await (await f.upload(f.store.backup())).json();
+  const donor = await fixture(t); seedSearch(donor.store, 'restoredneedle');
+  seedSearch(f.store, 'currentneedle');
+  const prepared = await (await f.upload(donor.store.backup())).json();
   authority.onFinalCheck(async index => { if (index === 2) authority.revoke(); });
   const before = f.store.snapshot();
-  assert.equal((await f.restore(prepared)).status, 403);
+  assert.equal((await f.restore(prepared, { expectedRevision: before.revision })).status, 403);
   assert.deepEqual(f.store.snapshot(), before);
+  assertSearch(f.store, 'currentneedle', true);
+  assertSearch(f.store, 'restoredneedle', false);
+  assertIncrementalContactSearch(f.store);
 });
 test('late insertion failure rolls back imported records and leaves no success receipt', async t => {
   const f = await fixture(t); const prepared = await (await f.upload(f.store.backup())).json();
