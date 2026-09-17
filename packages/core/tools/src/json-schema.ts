@@ -183,11 +183,12 @@ function jsonSchemaValueKey(value: unknown): string {
     tasks.push({ kind: 'text', text: '}' })
     const record = task.value as Record<string, unknown>
     const keys = Object.keys(record).sort()
-    for (const key of keys.reverse()) {
+    const reversedKeys = keys.reverse()
+    for (const [position, key] of reversedKeys.entries()) {
       tasks.push({ kind: 'value', value: record[key] })
       tasks.push({ kind: 'text', text: ':' })
       tasks.push({ kind: 'text', text: JSON.stringify(key) })
-      if (index > 0) tasks.push({ kind: 'text', text: ',' })
+      if (position < reversedKeys.length - 1) tasks.push({ kind: 'text', text: ',' })
     }
   }
   return output.join('')
