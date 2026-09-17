@@ -27,7 +27,8 @@ async function fixture(t, taskConfig) {
   t.after(async () => { store.close(); await rm(root, { recursive: true, force: true }); });
   let latest;
   const apply = (command, identity = LOCAL_HTTP_IDENTITY, extra = {}) => {
-    latest = store.tasks.execute(identity, { id: 'task-1', revision: latest?.revision ?? 0, commandId: randomUUID(), command, ...extra });
+    const revision = latest ? store.tasks.get(LOCAL_HTTP_IDENTITY, 'task-1').revision : 0;
+    latest = store.tasks.execute(identity, { id: 'task-1', revision, commandId: randomUUID(), command, ...extra });
     return latest;
   };
   return { store, path, apply };
@@ -43,7 +44,14 @@ test('task review rejects agent self-acceptance and stale revisions, preserving 
   const submitted = apply({ type: 'submit', evidence, completedCriteria: ['follow-up'] }, agent);
   assert.throws(() => apply({ type: 'review', decision: 'accept', comment: 'Agent self review' }, agent), { code: 'permission_denied' });
   assert.throws(() => apply({ type: 'review', decision: 'accept', comment: 'Old review' }, LOCAL_HTTP_IDENTITY, { revision: 1 }), { code: 'revision_conflict' });
-  apply({ type: 'review', decision: 'reject', comment: 'Need updated evidence' });
+  const rejection = { id: 'task-1', revision: submitted.revision, commandId: 'reject-once',
+    command: { type: 'review', decision: 'reject', comment: 'Need updated evidence' } };
+  const rejected = store.tasks.execute(LOCAL_HTTP_IDENTITY, rejection);
+  assert.equal(rejected.status, 'ready');
+  assert.deepEqual(store.tasks.execute(LOCAL_HTTP_IDENTITY, rejection), rejected);
+  assert.throws(() => store.tasks.execute(LOCAL_HTTP_IDENTITY, { ...rejection,
+    command: { type: 'review', decision: 'reject', comment: 'Changed rejection' } }), { code: 'command_conflict' });
+  assert.equal(store.tasks.history(LOCAL_HTTP_IDENTITY, 'task-1').tasks.length, 5);
   apply({ type: 'start', sessionId: 'idle-session', requestId: 'submit-2' }, agent);
   apply({ type: 'submit', evidence: [{ ...evidence[0], id: 'report-2', summary: 'Updated result' }], completedCriteria: ['follow-up'] }, agent);
   const request = { id: 'task-1', revision: 7, commandId: 'accept-once', command: { type: 'review', decision: 'accept', comment: 'Evidence inspected' } };
