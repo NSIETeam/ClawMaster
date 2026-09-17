@@ -247,6 +247,7 @@ async function enterpriseFixture() {
   return { ...await fixture(true, store), store, write, contact, item, order };
 }
 
+// The production smoke runs this multi-panel path beside other forked suites. Its ten sequential Testing Library waits can each use the 1s default, so allow 50% scheduling headroom without extending individual assertions.
 it('a CRM draft survives another component refresh but cannot overwrite its newer record without review', async () => {
   const f = await enterpriseFixture();
   await openFromSettings(f, 'CRM 客户');
@@ -275,7 +276,7 @@ it('a CRM draft survives another component refresh but cannot overwrite its newe
   fireEvent.click(panel.getByRole('button', { name: '保存', exact: true }));
   await waitFor(() => expect(f.store.snapshot().contacts[0].nextAction).toBe('Retained draft action'));
   expect(f.store.snapshot().revision).toBe(before.revision + 1);
-});
+}, 15_000);
 
 it.each(['inventory', 'order'])('an ERP %s draft keeps its reviewed revision until the latest record is explicitly checked', async kind => {
   const f = await enterpriseFixture();
