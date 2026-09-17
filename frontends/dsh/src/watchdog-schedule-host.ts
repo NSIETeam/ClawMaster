@@ -5,7 +5,7 @@ import { parameterSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools';
 import { ScheduleInputError } from '@deepseek-ai/dsh-schedule';
 import type { EnterpriseHostContext, EnterpriseStore } from './enterprise-host.ts';
 import type { EnterpriseToolContext } from './enterprise-tools.ts';
-import { GovernanceAccess, GovernanceDenied, auditGovernanceOutcome } from './governance-access.ts';
+import { GovernanceAccess, GovernanceDenied, auditGovernanceOutcome, governanceResource, governanceResourceCollection } from './governance-access.ts';
 import type { GovernanceCaller } from './governance-access.ts';
 import { scheduleCommandSchema, scheduleResponseBytes, WatchdogScheduleError } from './watchdog-schedule-format.ts';
 import type { ScheduleCommand, WatchdogPlanId } from './watchdog-schedule-format.ts';
@@ -56,7 +56,7 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
   };
   const query = async (caller: GovernanceCaller, value: unknown, transport: 'http' | 'tool') => {
     const input = querySchema.parse(value);
-    const identity = await caller.check('task.read', input.id ?? '*');
+    const identity = await caller.check('task.read', input.id ? governanceResource('schedule', input.id) : governanceResourceCollection('schedule'));
     lifetime.signal.throwIfAborted();
     if (input.history && (!input.id || input.workersAfter !== 0)) throw new WatchdogScheduleError('invalid_request', 'History requires a plan id and does not page workers.');
     const fits = (result: unknown) => scheduleResponseBytes(result, transport) <= store.config.maxQueryBytes;
@@ -65,16 +65,17 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
     return bounded(result, store.config.maxQueryBytes, transport);
   };
   const command = async (caller: GovernanceCaller, input: ScheduleCommand, signal: AbortSignal, transport: 'http' | 'tool') => {
-    const identity = await caller.check('task.write', input.command.id);
+    const resource = governanceResource('schedule', input.command.id);
+    const identity = await caller.check('task.write', resource);
     signal.throwIfAborted();
     const replay = store.replay(identity, input, transport);
     if (replay) return bounded(replay, store.config.maxQueryBytes, transport);
     if (input.command.type === 'create') {
       const bound = await access.agent(input.command.sessionId, undefined, signal);
-      const executor = await bound.check('task.write', input.command.id);
+      const executor = await bound.check('task.write', resource);
       if (executor.organizationId !== identity.organizationId || (access.mode === 'enterprise' && executor.principalId !== identity.principalId)) throw new GovernanceDenied('Bind a Session owned by the plan creator.');
     }
-    const current = await caller.check('task.write', input.command.id);
+    const current = await caller.check('task.write', resource);
     signal.throwIfAborted(); lifetime.signal.throwIfAborted();
     return bounded(store.command(current, input, Date.now(), transport), store.config.maxQueryBytes, transport);
   };
@@ -119,7 +120,7 @@ export async function mountWatchdogSchedules(ctx: EnterpriseHostContext & Enterp
         const input = scheduleCommandSchema.parse(JSON.parse(value.request));
         return auditGovernanceOutcome(caller, enterprise, `schedule.${input.command.type}`, input.commandId, async () => {
           if (!exec.agent || input.command.type === 'resolve-uncertain') throw new GovernanceDenied('Only a human may resolve uncertain dispatch.');
-          const identity = await caller.check('task.write', input.command.id);
+          const identity = await caller.check('task.write', governanceResource('schedule', input.command.id));
           signal.throwIfAborted();
           const replay = store.replay(identity, input, 'tool');
           if (replay) return bounded(replay, store.config.maxQueryBytes, 'tool');

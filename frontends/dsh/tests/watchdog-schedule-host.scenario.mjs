@@ -182,7 +182,7 @@ test('keyless scheduled model input matches the owner-local recorded output', as
 });
 
 function enterpriseAccess() {
-  const members = new Map([['owner', { active: true, roles: ['executor'], resources: ['plan'], policyVersion: 1 }], ['approver', { active: true, roles: ['approver'], resources: ['plan'], policyVersion: 1 }], ['delegate', { active: true, roles: ['executor'], resources: ['plan'], policyVersion: 1 }]]);
+  const members = new Map([['owner', { active: true, roles: ['executor'], resources: ['schedule/plan'], policyVersion: 1 }], ['approver', { active: true, roles: ['approver'], resources: ['schedule/plan'], policyVersion: 1 }], ['delegate', { active: true, roles: ['executor'], resources: ['schedule/plan'], policyVersion: 1 }]]);
   let grants = 1;
   const authority = {
     http: async () => ({ organizationId: 'company', memberId: 'owner', actor: 'human' }),
@@ -198,7 +198,7 @@ function enterpriseAccess() {
 test('dispatch rechecks resource ownership and revoked delegators after approval and refuses foreign HTTP callers', async t => {
   const auth = enterpriseAccess(); const h = await fixture(t, auth.access, auth.identity); const instance = h.seed();
   assert.equal((await h.send({ type: 'approve', id: 'plan', instanceId: instance.id })).status, 200);
-  auth.members.set('delegate', { active: false, roles: ['executor'], resources: ['plan'], policyVersion: 2 });
+  auth.members.set('delegate', { active: false, roles: ['executor'], resources: ['schedule/plan'], policyVersion: 2 });
   h.runtime.tick(); assert.equal((await h.waitJob()).status, 'failed');
   assert.equal(h.store.instance(instance.id).state, 'failed'); assert.equal(h.adapter.requests.length, 0);
   auth.authority.http = async () => ({ organizationId: 'other-company', memberId: 'owner', actor: 'human' });
@@ -213,7 +213,7 @@ test('permission revocation while persistence is pending fences the final enqueu
   const arrived = Promise.withResolvers(); const released = Promise.withResolvers();
   h.services.sessions = { flush: async () => { arrived.resolve(); await released.promise; return true; } };
   h.runtime.tick(); await arrived.promise;
-  auth.members.set('owner', { active: false, roles: ['executor'], resources: ['plan'], policyVersion: 2 });
+  auth.members.set('owner', { active: false, roles: ['executor'], resources: ['schedule/plan'], policyVersion: 2 });
   released.resolve(); await h.waitJob();
   assert.equal(h.store.instance(instance.id).state, 'failed'); assert.equal(h.adapter.requests.length, 0);
 });
@@ -278,7 +278,7 @@ test('plan creation rechecks the human after asynchronous Session binding and re
   };
   const pending = h.send({ type: 'create', id: 'plan', sessionId: 'session', prompt: 'Review', rule: { kind: 'every', everySeconds: 300 }, missed: 'skip', catchUpLimit: 1 });
   await arrived.promise;
-  auth.members.set('owner', { active: false, roles: ['executor'], resources: ['plan'], policyVersion: 2 });
+  auth.members.set('owner', { active: false, roles: ['executor'], resources: ['schedule/plan'], policyVersion: 2 });
   released.resolve();
   assert.equal((await pending).status, 403);
   assert.throws(() => h.store.plan('plan'), { code: 'not_found' });

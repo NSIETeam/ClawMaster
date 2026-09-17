@@ -5,7 +5,7 @@ import type { JobRegistry, JobOutcome } from '@deepseek-ai/dsh-jobs';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
 import { SessionId } from '@deepseek-ai/dsh-session';
 import type { SessionStore } from '@deepseek-ai/dsh-session';
-import { GovernanceAccess, GovernanceDenied } from './governance-access.ts';
+import { GovernanceAccess, GovernanceDenied, governanceResource } from './governance-access.ts';
 import type { WatchdogInstance, WatchdogScheduleStore } from './watchdog-schedule-store.ts';
 
 declare module '@deepseek-ai/dsh-jobs' {
@@ -95,7 +95,8 @@ export class WatchdogScheduleRuntime {
     try {
       const plan = this.store.plan(instance.planId);
       const caller = await interruptible(this.access.agent(plan.sessionId, undefined, signal), signal);
-      const checked = await interruptible(caller.check('task.write', plan.id), signal);
+      const resource = governanceResource('schedule', plan.id);
+      const checked = await interruptible(caller.check('task.write', resource), signal);
       if (checked.organizationId !== this.store.organizationId || (this.access.mode === 'enterprise' && checked.principalId !== plan.creator.principalId)) {
         throw new GovernanceDenied('The scheduled Session owner differs from the plan creator.');
       }
@@ -110,14 +111,14 @@ export class WatchdogScheduleRuntime {
         maintenance = agent.runMaintenance(async maintenanceSignal => {
           const combined = AbortSignal.any([signal, maintenanceSignal]);
           // Permission can change while the persistence barrier or idle claim is pending.
-          await interruptible(caller.check('task.write', plan.id), combined);
+          await interruptible(caller.check('task.write', resource), combined);
           combined.throwIfAborted();
           if (this.access.mode === 'enterprise' && !this.store.beginApproval(instance, Date.now())) throw new Error('Approval lease was withdrawn.');
           const authorized = this.access.mode === 'enterprise'
-            ? await interruptible(caller.approve('task.write', plan.id, instance.id, 0, 0,
+            ? await interruptible(caller.approve('task.write', resource, instance.id, 0, 0,
               createHash('sha256').update(JSON.stringify({ planId: plan.id, instanceId: instance.id, scheduledAt: instance.scheduledAt, prompt: plan.prompt })).digest('hex')), combined)
             : checked;
-          const current = await interruptible(caller.check('task.write', plan.id), combined);
+          const current = await interruptible(caller.check('task.write', resource), combined);
           combined.throwIfAborted();
           if (this.services.agents.get(agent.id) !== agent || !this.store.beginDispatch(instance, Date.now(), { ...current, ...(authorized.approval ? { approval: authorized.approval } : {}) })) throw new Error('Dispatch lease was withdrawn.');
           agent.followup(message);

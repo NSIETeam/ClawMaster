@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GovernanceAccess } from '../src/governance-access.ts';
+import { GovernanceAccess, governanceResource, governanceResourceCollection } from '../src/governance-access.ts';
 import { mountEnterpriseRoutes, openEnterpriseStore } from '../src/enterprise-host.ts';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
 import { mountWatchdogTasks as mountWatchdogTasksImpl } from '../src/watchdog-task-host.ts';
@@ -51,7 +51,7 @@ for (const phase of ['http', 'agent', 'membership', 'consumeApproval', 'owner'])
     const caller = await h.access.agent('session-alice', 'cancelled-operation', control.signal);
     if (phase === 'agent') return caller;
     if (phase === 'owner') return caller.checkOwner({ kind: 'member', id: 'alice' });
-    return caller.approve('records.write', 'customer', 'command', 0, 0, 'digest');
+    return caller.approve('records.write', governanceResource('record/contact', 'customer'), 'command', 0, 0, 'digest');
   };
   let settled = false;
   const failure = new Error('Operation stopped');
@@ -88,27 +88,66 @@ test('current roles and resource grants are rechecked after revocation, includin
   assert.equal((await alice.check('records.write')).principalId, 'alice');
   await assert.rejects(alice.check('audit.read'), { code: 'permission_denied' });
   h.members.set('alice', { active: true, roles: ['executor'], resources: ['customer-one'], policyVersion: 2 });
+  await assert.rejects(alice.check('records.read', 'customer-one'), { code: 'permission_denied' }, 'bare resource IDs are not valid enterprise resource keys');
+  const contactResource = governanceResource('record/contact', 'customer-one');
+  await assert.rejects(alice.check('records.read', contactResource), { code: 'permission_denied' });
+  h.members.set('alice', { active: true, roles: ['executor'], resources: [contactResource], policyVersion: 2 });
   await assert.rejects(alice.check('records.read'), { code: 'permission_denied' });
-  assert.equal((await alice.check('records.read', 'customer-one')).policyVersion, 2);
+  assert.equal((await alice.check('records.read', contactResource)).policyVersion, 2);
   h.members.set('alice', { active: false, roles: ['executor'], resources: ['*'], policyVersion: 3 });
-  await assert.rejects(alice.check('records.write', 'customer-one'), { code: 'permission_denied' });
+  await assert.rejects(alice.check('records.write', contactResource), { code: 'permission_denied' });
   h.principals.set('child', { organizationId: 'one', memberId: 'admin', actor: 'agent', sessionId: 'child', delegatorId: 'alice' });
   const child = await h.access.agent('child');
   await assert.rejects(child.check('records.write'), { code: 'permission_denied' });
 });
 
+test('resource-family wildcard grants do not cross record, task or workspace families', async () => {
+  const h = authorityFixture();
+  h.members.set('alice', { active: true, roles: ['executor'], resources: [governanceResourceCollection('record/contact')], policyVersion: 4 });
+  const caller = await h.access.http(new Request('http://fixture', { headers: { authorization: 'alice' } }));
+  assert.equal((await caller.check('records.read', governanceResource('record/contact', 'same-id'))).policyVersion, 4);
+  await assert.rejects(caller.check('records.read', governanceResource('record/inventory', 'same-id')), { code: 'permission_denied' });
+  await assert.rejects(caller.check('records.write', governanceResource('task', 'same-id')), { code: 'permission_denied' });
+  await assert.rejects(caller.check('workspace.create', governanceResource('workspace', 'task')), { code: 'permission_denied' });
+});
+
+test('order submission requires write permission for every referenced inventory item', async t => {
+  const h = authorityFixture(); const store = await openEnterpriseStore(':memory:', 5000, 'one'); const routes = new Map();
+  let approvalRequests = 0;
+  h.authority.consumeApproval = async () => { approvalRequests++; return { id: 'unused', approverId: 'bob' }; };
+  const remove = await mountEnterpriseRoutes({ connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return () => routes.delete(route.path); } } } }, store, h.access);
+  t.after(async () => { await remove(); store.close(); });
+  store.execute({ generation: 0, revision: 0, commandId: 'seed-stock', command: { type: 'item.upsert', item: {
+    id: 'item-one', sku: 'SKU-1', name: 'Restricted stock', stock: 1, reorderAt: 0, supplier: '',
+  } } });
+  store.execute({ generation: 0, revision: 1, commandId: 'seed-order', command: { type: 'order.save', order: {
+    id: 'order-one', kind: 'sale', counterparty: 'Buyer', orderDate: '2026-09-17', currency: 'CNY',
+    lines: [{ itemId: 'item-one', quantity: 1, unitPriceMinorUnits: 100 }], note: '',
+  } } });
+  h.members.set('alice', { active: true, roles: ['administrator'], resources: [governanceResource('record/order', 'order-one')], policyVersion: 2 });
+  const response = await routes.get('/api/clawmaster/enterprise/command')(new Request('http://fixture/command', { method: 'POST',
+    headers: { authorization: 'alice', 'content-type': 'application/json' }, body: JSON.stringify({ generation: 0, revision: 2,
+      commandId: 'submit-order', command: { type: 'order.submit', id: 'order-one' } }) }));
+  assert.equal(response.status, 403);
+  assert.equal(approvalRequests, 0, 'the approval provider is not called when an affected stock item is outside scope');
+  assert.equal(store.snapshot().revision, 2);
+  assert.equal(store.snapshot().inventory[0].stock, 1);
+  assert.equal(store.snapshot().orders[0].status, 'draft');
+});
+
 test('approval is object/revision/digest bound, single use and separated from the executor', async () => {
   const h = authorityFixture();
   const alice = await h.access.agent('session-alice', 'call-1');
-  const request = { organizationId: 'one', executorId: 'alice', action: 'records.write', resource: 'customer', commandId: 'write-1', generation: 0, revision: 5, commandDigest: 'digest' };
+  const resource = governanceResource('record/contact', 'customer');
+  const request = { organizationId: 'one', executorId: 'alice', action: 'records.write', resource, commandId: 'write-1', generation: 0, revision: 5, commandDigest: 'digest' };
   h.grants.set(JSON.stringify(request), { id: 'self-grant', approverId: 'alice' });
-  await assert.rejects(alice.approve('records.write', 'customer', 'write-1', 0, 5, 'digest'), { code: 'permission_denied' });
+  await assert.rejects(alice.approve('records.write', resource, 'write-1', 0, 5, 'digest'), { code: 'permission_denied' });
   h.grants.set(JSON.stringify(request), { id: 'valid-grant', approverId: 'bob' });
-  await assert.rejects(alice.approve('records.write', 'customer', 'write-1', 1, 5, 'digest'), { code: 'permission_denied' });
-  const approved = await alice.approve('records.write', 'customer', 'write-1', 0, 5, 'digest');
+  await assert.rejects(alice.approve('records.write', resource, 'write-1', 1, 5, 'digest'), { code: 'permission_denied' });
+  const approved = await alice.approve('records.write', resource, 'write-1', 0, 5, 'digest');
   assert.equal(approved.approval.kind, 'authority');
   assert.equal(approved.approval.approverId, 'bob');
-  await assert.rejects(alice.approve('records.write', 'customer', 'write-1', 0, 5, 'digest'), { code: 'permission_denied' });
+  await assert.rejects(alice.approve('records.write', resource, 'write-1', 0, 5, 'digest'), { code: 'permission_denied' });
 });
 
 test('HTTP read/export/write paths refuse cross-organization and missing identity without local fallback', async t => {
@@ -135,7 +174,7 @@ test('HTTP read/export/write paths refuse cross-organization and missing identit
   assert.equal(denied[0].reasonCode, 'approval_missing');
   assert.equal(denied[0].identity.policyVersion, 1);
   assert.ok(!JSON.stringify(denied).includes('Reviewed'));
-  h.grants.set(JSON.stringify({ organizationId: 'one', executorId: 'alice', action: 'records.write', resource: 'customer', commandId: 'write', generation: 0, revision: 0,
+  h.grants.set(JSON.stringify({ organizationId: 'one', executorId: 'alice', action: 'records.write', resource: governanceResource('record/contact', 'customer'), commandId: 'write', generation: 0, revision: 0,
     commandDigest: createHash('sha256').update(JSON.stringify(command)).digest('hex') }), { id: 'approved-write', approverId: 'bob' });
   assert.equal((await send('alice')).status, 200);
   assert.equal((await send('alice')).status, 200);
@@ -148,7 +187,7 @@ test('HTTP read/export/write paths refuse cross-organization and missing identit
 
 test('workspace allocation checks live organization identity and the requested resource before creating a directory', async t => {
   const h = authorityFixture();
-  h.members.set('alice', { active: true, roles: ['executor'], resources: ['task'], policyVersion: 2 });
+  h.members.set('alice', { active: true, roles: ['executor'], resources: [governanceResource('workspace', 'task')], policyVersion: 2 });
   const root = await mkdtemp(join(tmpdir(), 'workspace-governance-'));
   const managedRoot = join(root, 'workspaces');
   t.after(() => rm(root, { force: true, recursive: true }));
@@ -252,20 +291,21 @@ test('database organization binding blocks accidental local-data migration and c
 test('global counts require broad access while scoped reads and writes expose only their authorized resource', async t => {
   const h = authorityFixture();
   const store = await openEnterpriseStore(':memory:', 5000, 'one');
-  const routes = new Map();
+  const routes = new Map(); const tools = new Map();
   const dispose = await mountEnterpriseRoutes({ connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return () => routes.delete(route.path); } } } }, store, h.access);
-  t.after(async () => { await dispose(); store.close(); });
+  const disposeTools = await applyEnterpriseTools({ tools: { register(tool) { tools.set(tool.name, tool); return () => tools.delete(tool.name); } }, approval: { request: async () => 'allowed-once' } }, store, {}, h.access);
+  t.after(async () => { await disposeTools(); await dispose(); store.close(); });
   store.execute({ generation: 0, revision: 0, commandId: 'secret-seed', command: { type: 'contact.upsert',
     contact: { id: 'secret', name: 'Confidential customer', company: 'Private contract', stage: 'lead', nextAction: '', nextActionDate: null } } });
   const read = identity => routes.get('/api/clawmaster/enterprise')(new Request('http://fixture/enterprise', { headers: { authorization: identity } }));
   assert.equal((await read('alice')).status, 403, 'records.read does not authorize audit counts');
   assert.equal((await read('admin')).status, 200);
-  h.members.set('alice', { active: true, roles: ['executor'], resources: ['customer'], policyVersion: 2 });
-  h.members.set('audit', { active: true, roles: ['auditor'], resources: ['customer'], policyVersion: 2 });
+  h.members.set('alice', { active: true, roles: ['executor'], resources: [governanceResource('record/contact', 'customer')], policyVersion: 2 });
+  h.members.set('audit', { active: true, roles: ['auditor'], resources: [governanceResource('record/contact', 'customer')], policyVersion: 2 });
   assert.equal((await read('audit')).status, 403, 'scoped audit permission cannot inspect global counts');
   const command = { type: 'contact.upsert', contact: { id: 'customer', name: 'Approved customer', company: '', stage: 'lead', nextAction: '', nextActionDate: null } };
   const input = { generation: 0, revision: 1, commandId: 'scoped-write', command };
-  h.grants.set(JSON.stringify({ organizationId: 'one', executorId: 'alice', action: 'records.write', resource: 'customer', commandId: input.commandId,
+  h.grants.set(JSON.stringify({ organizationId: 'one', executorId: 'alice', action: 'records.write', resource: governanceResource('record/contact', 'customer'), commandId: input.commandId,
     generation: 0, revision: 1, commandDigest: createHash('sha256').update(JSON.stringify(command)).digest('hex') }), { id: 'scoped-grant', approverId: 'bob' });
   const send = () => routes.get('/api/clawmaster/enterprise/command')(new Request('http://fixture/command', {
     method: 'POST', headers: { authorization: 'alice', 'content-type': 'application/json' }, body: JSON.stringify(input) }));
@@ -277,16 +317,24 @@ test('global counts require broad access while scoped reads and writes expose on
   assert.equal(body.revision, 2);
   assert.deepEqual(await (await send()).json(), body, 'replay retains the same limited response');
   assert.equal(store.snapshot().contacts.length, 2);
+  store.execute({ generation: 0, revision: 2, commandId: 'same-id-inventory', command: { type: 'item.upsert', item: {
+    id: 'customer', sku: 'SKU-CUSTOMER', name: 'Inventory record with a colliding identifier', stock: 1, reorderAt: 0, supplier: '',
+  } } });
   const page = (collection, id) => routes.get('/api/clawmaster/enterprise/query')(new Request(`http://fixture/enterprise/query?${new URLSearchParams({ collection, offset: '0', limit: '1', ...(id ? { id } : {}) })}`, {
     headers: { authorization: 'alice' },
   }));
   for (const [collection, id] of [['contacts', undefined], ['contacts', 'secret'], ['audit', 'customer']]) assert.equal((await page(collection, id)).status, 403);
   const allowed = await page('contacts', 'customer');
   assert.equal(allowed.status, 200);
+  assert.equal((await page('inventory', 'customer')).status, 403, 'a contact grant cannot be reused for an inventory row with the same id');
   const selected = await allowed.json();
   assert.equal(selected.total, 1);
   assert.deepEqual(selected.records.map(row => row.id), ['customer']);
   assert.equal(JSON.stringify(selected).includes('Confidential'), false);
+  const exec = { agent: { id: 'session-alice' }, callId: 'typed-resource-query', signal: new AbortController().signal };
+  const toolPage = await tools.get('enterprise_query').execute({ collection: 'contacts', id: 'customer', offset: 0, limit: 1 }, exec);
+  assert.equal(toolPage.records[0].id, 'customer');
+  await assert.rejects(tools.get('enterprise_query').execute({ collection: 'inventory', id: 'customer', offset: 0, limit: 1 }, exec), { code: 'permission_denied' });
 });
 
 for (const carrier of ['http', 'tool']) test(`${carrier} task writes require authoritative approval bound to exact content and retry without another grant`, async t => {
@@ -312,7 +360,7 @@ for (const carrier of ['http', 'tool']) test(`${carrier} task writes require aut
     if (!response.ok) throw Object.assign(new Error(body.error.message), { code: body.error.code });
     return body;
   };
-  const binding = { organizationId: 'one', executorId: 'alice', action: 'task.write', resource: input.id, commandId: input.commandId,
+  const binding = { organizationId: 'one', executorId: 'alice', action: 'task.write', resource: governanceResource('task', input.id), commandId: input.commandId,
     generation: 0, revision: input.revision, commandDigest: createHash('sha256').update(JSON.stringify(input.command)).digest('hex') };
   const caller = await h.access.http(new Request('http://fixture', { headers: { authorization: 'alice' } }));
   await assert.rejects(invoke(input), { code: 'permission_denied' });
@@ -488,7 +536,7 @@ for (const carrier of ['http', 'tool']) for (const type of ['create', 'revise'])
   if (type === 'revise') store.tasks.execute(identity, { id: 'owner-task', commandId: 'seed', revision: 0, command: { type: 'create', task: definition } });
   const revision = type === 'revise' ? 1 : 0;
   const input = { id: 'owner-task', commandId: 'revoked-owner', revision, command: { type, task: { ...definition, goal: 'Changed goal' } } };
-  h.grants.set(JSON.stringify({ organizationId: 'one', executorId: 'alice', action: 'task.write', resource: input.id,
+  h.grants.set(JSON.stringify({ organizationId: 'one', executorId: 'alice', action: 'task.write', resource: governanceResource('task', input.id),
     commandId: input.commandId, generation: 0, revision, commandDigest: createHash('sha256').update(JSON.stringify(input.command)).digest('hex') }),
   { id: 'independent-grant', approverId: 'bob' });
   const invoke = async () => {

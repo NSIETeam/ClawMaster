@@ -7,6 +7,36 @@ export type GovernanceAction = 'records.read' | 'records.write' | 'backup.export
   | 'audit.read' | 'task.read' | 'task.write' | 'task.review' | 'attachments.read' | 'workspace.create';
 export type GovernanceRole = 'administrator' | 'executor' | 'approver' | 'auditor';
 
+/** Return the canonical resource key used by grants for one resource type and identifier.
+ * @param kind Resource family such as `record/contact` or `schedule`.
+ * @param id Resource identifier, or `*` for every resource in that family.
+ * @returns A namespaced key that cannot collide with another resource family.
+ */
+export function governanceResource(kind: 'record/contact' | 'record/inventory' | 'record/order' | 'record/audit' | 'task' | 'schedule' | 'workspace', id: string): string {
+  return `${kind}/${encodeURIComponent(id)}`;
+}
+
+/** Return the family-wide grant key for a resource collection.
+ * @param kind Resource family.
+ * @returns The canonical collection wildcard.
+ */
+export function governanceResourceCollection(kind: 'record/contact' | 'record/inventory' | 'record/order' | 'record/audit' | 'task' | 'schedule' | 'workspace'): string {
+  return `${kind}/*`;
+}
+
+function resourceMatchesAction(action: GovernanceAction, resource: string): boolean {
+  if (resource === '*') return true;
+  if (action === 'records.read' || action === 'records.write') return /^record\/(contact|inventory|order)\/[^/]+$/.test(resource)
+    || /^record\/(contact|inventory|order)\/\*$/.test(resource);
+  if (action === 'audit.read') return /^record\/audit\/[^/]+$/.test(resource) || resource === 'record/audit/*';
+  if (action === 'task.review') return /^task\/[^/]+$/.test(resource) || resource === 'task/*';
+  if (action === 'task.read' || action === 'task.write') return /^(task|schedule)\/[^/]+$/.test(resource)
+    || resource === 'task/*' || resource === 'schedule/*';
+  if (action === 'attachments.read') return /^attachment\/[^/]+$/.test(resource) || resource === 'attachment/*';
+  if (action === 'workspace.create') return /^workspace\/[^/]+$/.test(resource) || resource === 'workspace/*';
+  return false;
+}
+
 /** A principal is resolved from authenticated transport state, never caller JSON or a desktop token. */
 export interface GovernancePrincipal {
   organizationId: string;
@@ -212,8 +242,9 @@ export class GovernanceAccess {
         .map(async member => authorityResult(authorityMembershipSchema,
           await config.authority.membership(config.organizationId, member, signal), 'membership'))));
       identity.policyVersion = Math.max(0, ...memberships.map(member => member?.policyVersion ?? 0));
-      if (memberships.some(member => !member?.active || !member.roles.some(role => roleActions[role].includes(action))
-        || (!member.resources.includes('*') && !member.resources.includes(resource)))
+      if (!resourceMatchesAction(action, resource) || memberships.some(member => !member?.active || !member.roles.some(role => roleActions[role].includes(action))
+        || (!member.resources.includes('*') && !member.resources.includes(resource)
+          && !member.resources.some(grant => grant.endsWith('/*') && resource.startsWith(grant.slice(0, -1)))))
         || (action === 'task.review' && principal.actor !== 'human')) throw new GovernanceDenied();
       return { ...identity };
     };

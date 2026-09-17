@@ -11,7 +11,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt';
 import ToolRuntime from '@deepseek-ai/dsh-tools';
 import ApprovalService from '@deepseek-ai/dsh-user-approval';
 import { Session, SessionId } from '@deepseek-ai/dsh-session';
-import { GovernanceAccess } from '../src/governance-access.ts';
+import { GovernanceAccess, governanceResource } from '../src/governance-access.ts';
 import { LOCAL_HTTP_IDENTITY } from '../src/governance-audit.ts';
 import { mountEnterpriseRoutes, openEnterpriseStore } from '../src/enterprise-host.ts';
 import { applyEnterpriseTools } from '../src/enterprise-tools.ts';
@@ -87,7 +87,7 @@ async function fixture(t) {
   const url = `http://127.0.0.1:${server.address().port}`;
   const grant = (family, input, executorId = 'alice') => grants.set(JSON.stringify({
     organizationId: 'one', executorId, action: family === 'records' ? 'records.write' : 'task.write',
-    resource: family === 'records' ? contact.id : input.id, commandId: input.commandId, generation: input.generation ?? 0,
+    resource: governanceResource(family === 'records' ? 'record/contact' : 'task', family === 'records' ? contact.id : input.id), commandId: input.commandId, generation: input.generation ?? 0,
     revision: input.revision, commandDigest: createHash('sha256').update(JSON.stringify(input.command)).digest('hex'),
   }), { id: randomUUID(), approverId: 'reviewer' });
   const invoke = async (family, carrier, input, caller = 'alice') => {

@@ -10,7 +10,7 @@ import { GovernanceCommandInput, CommandInputError } from './command-input.ts';
 import { createHash } from 'node:crypto';
 import type { EnterpriseHostContext, EnterpriseStore } from './enterprise-host.ts';
 import type { EnterpriseToolContext } from './enterprise-tools.ts';
-import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
+import { auditGovernanceOutcome, governanceResource, governanceResourceCollection, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
 import type { GovernanceCaller } from './governance-access.ts';
 import { EnterpriseError } from './enterprise-types.ts';
 import { taskRequestSchema, TaskError } from './watchdog-tasks.ts';
@@ -125,7 +125,7 @@ async function assertExecutionSessionOwner(access: GovernanceAccess, identity: A
   sessionId: string, taskId: string, signal: AbortSignal): Promise<void> {
   if (access.mode !== 'enterprise') return;
   const target = await access.agent(sessionId, undefined, signal);
-  const targetIdentity = await target.check('task.write', taskId);
+  const targetIdentity = await target.check('task.write', governanceResource('task', taskId));
   if (targetIdentity.organizationId !== identity.organizationId || targetIdentity.principalId !== identity.principalId) {
     throw new GovernanceDenied('The target Session does not belong to the task owner in this organization.');
   }
@@ -300,7 +300,8 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       }
       const input = querySchema.parse(values);
       const caller = await access.http(request, signal);
-      const identity = await auditGovernanceOutcome(caller, store, 'task.read', undefined, () => caller.check('task.read', input.id ?? '*'));
+      const resource = input.id ? governanceResource('task', input.id) : governanceResourceCollection('task');
+      const identity = await auditGovernanceOutcome(caller, store, 'task.read', undefined, () => caller.check('task.read', resource));
       lifetime.signal.throwIfAborted(); request.signal.throwIfAborted();
       return Response.json(query(identity, input), { headers: { 'cache-control': 'no-store' } });
     }).catch(failure) }));
@@ -310,18 +311,19 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       const input = taskRequestSchema.parse(value);
       return auditGovernanceOutcome(caller, store, `task.${input.command.type}`, input.commandId, async () => {
         const action = input.command.type === 'review' ? 'task.review' : 'task.write';
-        const checked = await caller.check(action, input.id);
+        const resource = governanceResource('task', input.id);
+        const checked = await caller.check(action, resource);
         if (input.command.type === 'start') await assertExecutionSessionOwner(access, checked, input.command.sessionId, input.id, signal);
         if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
         const replay = store.tasks.replay(checked, input);
         const identity = access.mode === 'enterprise' && action === 'task.write' && !replay
-          ? await caller.approve(action, input.id, input.commandId, 0, input.revision,
+          ? await caller.approve(action, resource, input.commandId, 0, input.revision,
             createHash('sha256').update(JSON.stringify(input.command)).digest('hex'))
           : checked;
         signal.throwIfAborted();
         if (replay) return Response.json(replay, { headers: { 'cache-control': 'no-store' } });
         if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
-        if (input.command.type === 'start') await assertExecutionSessionOwner(access, await caller.check(action, input.id), input.command.sessionId, input.id, signal);
+        if (input.command.type === 'start') await assertExecutionSessionOwner(access, await caller.check(action, resource), input.command.sessionId, input.id, signal);
         signal.throwIfAborted();
         return Response.json(store.tasks.execute(identity, input), { headers: { 'cache-control': 'no-store' } });
       }, signal);
@@ -331,7 +333,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       const { caller, value } = await commands.receive(request, signal, inputSignal => access.http(request, inputSignal));
       const input = taskExecutionOutcomeSchema.parse(value);
       if (input.outcome !== 'uncertain') throw new GovernanceDenied('The browser cannot certify a DSH Session admission outcome.');
-      const identity = await caller.check('task.write', input.taskId);
+      const identity = await caller.check('task.write', governanceResource('task', input.taskId));
       await assertExecutionSessionOwner(access, identity, input.sessionId, input.taskId, signal);
       signal.throwIfAborted();
       const task = store.tasks.get(identity, input.taskId);
@@ -353,7 +355,8 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
         const input = querySchema.parse(args);
         const signal = AbortSignal.any([exec.signal, lifetime.signal]);
         const caller = await access.agent(exec.agent?.id, exec.callId, signal);
-        const identity = await auditGovernanceOutcome(caller, store, 'task.read', undefined, () => caller.check('task.read', input.id ?? '*'));
+        const resource = input.id ? governanceResource('task', input.id) : governanceResourceCollection('task');
+        const identity = await auditGovernanceOutcome(caller, store, 'task.read', undefined, () => caller.check('task.read', resource));
         lifetime.signal.throwIfAborted(); exec.signal.throwIfAborted();
         return query(identity, input);
       }),
@@ -370,7 +373,8 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
         const input = taskRequestSchema.parse(args);
         return auditGovernanceOutcome(caller, store, `task.${input.command.type}`, input.commandId, async () => {
           if (['review', 'cancel', 'reopen'].includes(input.command.type)) throw new GovernanceDenied('This task action requires a human.');
-          const checked = await caller.check('task.write', input.id);
+          const resource = governanceResource('task', input.id);
+          const checked = await caller.check('task.write', resource);
           if (input.command.type === 'start') await assertExecutionSessionOwner(access, checked, input.command.sessionId, input.id, signal);
           if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
           if (!exec.agent) throw new GovernanceDenied();
@@ -381,11 +385,11 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
             reason: `Approve this business task action at revision ${input.revision}: ${JSON.stringify(input)}`, signal });
           if (outcome !== 'allowed-once') throw new GovernanceDenied(`Task action ${outcome}.`, `approval_${outcome}`);
           if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
-          if (input.command.type === 'start') await assertExecutionSessionOwner(access, await caller.check('task.write', input.id), input.command.sessionId, input.id, signal);
+          if (input.command.type === 'start') await assertExecutionSessionOwner(access, await caller.check('task.write', resource), input.command.sessionId, input.id, signal);
           const identity = access.mode === 'enterprise'
-            ? await caller.approve('task.write', input.id, input.commandId, 0, input.revision,
+            ? await caller.approve('task.write', resource, input.commandId, 0, input.revision,
               createHash('sha256').update(JSON.stringify(input.command)).digest('hex'))
-            : await caller.check('task.write', input.id);
+            : await caller.check('task.write', resource);
           if (input.command.type === 'start') await assertExecutionSessionOwner(access, identity, input.command.sessionId, input.id, signal);
           if (access.mode === 'local') identity.approval = { kind: 'dsh-one-shot' };
           if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);

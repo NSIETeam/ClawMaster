@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import type { EnterpriseHostContext } from './enterprise-host.ts';
-import { GovernanceAccess, GovernanceDenied } from './governance-access.ts';
+import { GovernanceAccess, GovernanceDenied, governanceResource } from './governance-access.ts';
 
 export interface WorkspaceHostContext extends EnterpriseHostContext {
   workspaceRegistry: { create(path: string, title?: string): Promise<{ id: string; path: string }> };
@@ -40,7 +40,7 @@ export function applyManagedWorkspaces(ctx: WorkspaceHostContext, managedRoot: s
         || Object.keys(input).some(key => key !== 'kind')) {
         return Response.json({ error: { code: 'invalid_request' } }, { status: 400 });
       }
-      try { await caller.check('workspace.create', input.kind); }
+      try { await caller.check('workspace.create', governanceResource('workspace', input.kind)); }
       catch (error) {
         return error instanceof GovernanceDenied
           ? Response.json({ error: { code: error.code } }, { status: 403 })

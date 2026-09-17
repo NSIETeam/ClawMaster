@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { GovernanceCommandInput } from './command-input.ts';
 import { createHash } from 'node:crypto';
 import type { ExecutionIdentity } from './governance-audit.ts';
-import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
+import { auditGovernanceOutcome, governanceResource, governanceResourceCollection, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
 import { parseEnterpriseRequest, enterpriseQuerySchema } from './enterprise-schema.ts';
 import type ToolRuntime from '@deepseek-ai/dsh-tools';
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools';
@@ -105,7 +105,10 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
       const caller = await access.agent(exec.agent?.id, exec.callId, signal);
       const query = querySchema.parse(args);
       const action = query.collection === 'audit' ? 'audit.read' : 'records.read';
-      await auditGovernanceOutcome(caller, store, action, undefined, () => caller.check(action, query.id ?? '*'));
+      const family = query.collection === 'contacts' ? 'record/contact' : query.collection === 'inventory' ? 'record/inventory'
+        : query.collection === 'orders' ? 'record/order' : 'record/audit';
+      const resource = query.id ? governanceResource(family, query.id) : governanceResourceCollection(family);
+      await auditGovernanceOutcome(caller, store, action, undefined, () => caller.check(action, resource));
       return readPage(store, args, config);
     }),
     presentCall: args => querySchema.safeParse(args).success ? { card: 'generic', title: 'Query enterprise records', kind: 'search', rawInput: JSON.stringify(args) } : undefined,
@@ -126,12 +129,17 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
       commands.checkArguments(args);
       const candidate = parseEnterpriseRequest(commandEnvelope.parse(args).request);
       const candidateCommand = candidate.command;
-      const candidateResource = 'id' in candidateCommand ? candidateCommand.id : 'contact' in candidateCommand ? candidateCommand.contact.id
+      const family = candidateCommand.type.startsWith('contact.') ? 'record/contact' : candidateCommand.type.startsWith('item.') ? 'record/inventory' : 'record/order';
+      const entityId = 'id' in candidateCommand ? candidateCommand.id : 'contact' in candidateCommand ? candidateCommand.contact.id
         : 'item' in candidateCommand ? candidateCommand.item.id : candidateCommand.order.id;
+      const candidateResource = governanceResource(family, entityId);
       const { identity, prepared } = await auditGovernanceOutcome(caller, store, candidateCommand.type, candidate.commandId, async () => {
         let identity: ExecutionIdentity = await caller.check('records.write', candidateResource);
         const prepared = store.prepare(candidate, identity);
         if (prepared.receipt) return { identity, prepared };
+        if (candidateCommand.type === 'order.submit' && prepared.before && 'lines' in prepared.before) {
+          await Promise.all(prepared.before.lines.map(line => caller.check('records.write', governanceResource('record/inventory', line.itemId))));
+        }
         const { request } = prepared;
         const outcome = await ctx.approval.request({
           agent, callId: exec.callId, toolName: exec.name,
@@ -141,7 +149,7 @@ export async function applyEnterpriseTools(ctx: EnterpriseToolContext, store: En
           throw new GovernanceDenied(`approval_${outcome}: Enterprise command was not committed.`, `approval_${outcome}`);
         }
         const command = request.command;
-        const resource = 'id' in command ? command.id : 'contact' in command ? command.contact.id : 'item' in command ? command.item.id : command.order.id;
+        const resource = candidateResource;
         if (access.mode === 'enterprise') {
           identity = await caller.approve('records.write', resource, request.commandId, request.generation, request.revision,
             createHash('sha256').update(JSON.stringify(command)).digest('hex'));

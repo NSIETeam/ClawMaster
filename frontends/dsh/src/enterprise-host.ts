@@ -13,7 +13,7 @@ import { appendResponsibility, initializeResponsibilityHistory, listPendingTaskE
   recordTaskExecutionOutcome as appendTaskExecutionOutcome, verifyResponsibility, UNKNOWN_IDENTITY } from './governance-audit.ts';
 import type { ExecutionIdentity, ObservedTaskExecutionOutcome, PendingTaskExecutionOutcome, TaskExecutionOutcomeReport, ResponsibilityRecord } from './governance-audit.ts';
 import { assertCommandReceipt, initializeCommandReceipts, recordCommandReceipt } from './command-receipts.ts';
-import { auditGovernanceOutcome, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
+import { auditGovernanceOutcome, governanceResource, governanceResourceCollection, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
 import { initializeTasks, resolveWatchdogTaskConfig, WatchdogTaskStore, type WatchdogTaskConfig } from './watchdog-tasks.ts';
 import {
   EnterpriseError, ENTERPRISE_COMMAND_PATH, ENTERPRISE_SNAPSHOT_PATH, ENTERPRISE_QUERY_PATH,
@@ -989,7 +989,10 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
         if (query.limit > store.readLimits.maxPageRows) throw new EnterpriseError('invalid_request', 'Page size exceeds the configured maximum.');
         const caller = await access.http(request, signal);
         const action = query.collection === 'audit' ? 'audit.read' : 'records.read';
-        await auditGovernanceOutcome(caller, store, action, undefined, () => caller.check(action, query.id ?? '*'), signal);
+        const family = query.collection === 'contacts' ? 'record/contact' : query.collection === 'inventory' ? 'record/inventory'
+          : query.collection === 'orders' ? 'record/order' : 'record/audit';
+        const resource = query.id ? governanceResource(family, query.id) : governanceResourceCollection(family);
+        await auditGovernanceOutcome(caller, store, action, undefined, () => caller.check(action, resource), signal);
         if (closing || signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
         return store.queryPage(query, store.readLimits.maxPageBytes);
       }),
@@ -1002,10 +1005,16 @@ export async function mountEnterpriseRoutes(ctx: EnterpriseHostContext, store: E
         if (closing || signal.aborted) throw new EnterpriseError('storage_unavailable', 'Enterprise request was cancelled.');
         const parsed = parseEnterpriseRequest(value);
         const command = parsed.command;
-        const resource = 'id' in command ? command.id : 'contact' in command ? command.contact.id : 'item' in command ? command.item.id : command.order.id;
+        const family = command.type.startsWith('contact.') ? 'record/contact' : command.type.startsWith('item.') ? 'record/inventory' : 'record/order';
+        const entityId = 'id' in command ? command.id : 'contact' in command ? command.contact.id : 'item' in command ? command.item.id : command.order.id;
+        const resource = governanceResource(family, entityId);
         const identity = await auditGovernanceOutcome(caller, store, command.type, parsed.commandId, async () => {
           const checked = await caller.check('records.write', resource);
-          const replay = store.prepare(parsed, checked).receipt;
+          const prepared = store.prepare(parsed, checked);
+          if (command.type === 'order.submit' && prepared.before && 'lines' in prepared.before) {
+            await Promise.all(prepared.before.lines.map(line => caller.check('records.write', governanceResource('record/inventory', line.itemId))));
+          }
+          const replay = prepared.receipt;
           return access.mode === 'enterprise' && !replay
             ? await caller.approve('records.write', resource, parsed.commandId, parsed.generation, parsed.revision,
               createHash('sha256').update(JSON.stringify(command)).digest('hex'))
