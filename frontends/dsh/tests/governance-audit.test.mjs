@@ -23,19 +23,37 @@ test('A backup, B mutation and restore retain B responsibility with actor and ap
   const agent = { ...LOCAL_HTTP_IDENTITY, actor: { kind: 'agent', id: 'session-1' }, source: 'tool', sessionId: 'session-1', callId: 'call-2',
     approval: { kind: 'authority', id: 'approved-2', approverId: 'reviewer-2', generation: 0, revision: 1 } };
   store.execute({ revision: 1, commandId: 'b', command: contact('B') }, agent);
-  const restored = store.restore(backup, 2, 0, LOCAL_HTTP_IDENTITY, 'restore-a');
+  const restoreIdentity = { ...LOCAL_HTTP_IDENTITY, actor: { kind: 'member', id: 'restore-operator' },
+    approval: { kind: 'authority', id: 'restore-approved', approverId: 'restore-reviewer', generation: 0, revision: 2 } };
+  const restored = store.restore(backup, 2, 0, restoreIdentity, 'restore-a');
   assert.equal(restored.contacts[0].name, 'A');
   assert.equal(restored.audit.some(row => row.commandId === 'b'), false);
   const responsibility = store.responsibility({ commandId: 'b' }).records;
   assert.equal(responsibility.length, 1);
   assert.deepEqual(responsibility[0].identity, agent);
   assert.equal(JSON.stringify(responsibility).includes('"name":"B"'), false);
+  const restoreRecords = store.responsibility({ commandId: 'restore-a' }).records;
+  assert.equal(restoreRecords.length, 1);
+  assert.equal(restoreRecords[0].operation, 'backup.restore');
+  assert.equal(restoreRecords[0].outcome, 'succeeded');
+  assert.deepEqual(restoreRecords[0].identity, restoreIdentity);
+  assert.equal(restoreRecords[0].generationBefore, 0);
+  assert.equal(restoreRecords[0].revisionBefore, 2);
+  assert.equal(restoreRecords[0].generationAfter, 1);
+  assert.equal(restoreRecords[0].revisionAfter, 1);
+  assert.match(restoreRecords[0].backupSha256, /^[a-f0-9]{64}$/);
   const beforeRetry = store.responsibility().records;
-  assert.deepEqual(store.restore(backup, 2, 0, LOCAL_HTTP_IDENTITY, 'restore-a'), restored);
+  assert.deepEqual(store.restore(backup, 2, 0, restoreIdentity, 'restore-a'), restored);
   assert.deepEqual(store.responsibility().records, beforeRetry);
-  assert.throws(() => store.restore(backup, 1, 0, LOCAL_HTTP_IDENTITY, 'restore-a'), { code: 'command_conflict' });
+  assert.throws(() => store.restore(backup, 1, 0, restoreIdentity, 'restore-a'), { code: 'command_conflict' });
   const reopened = await openEnterpriseStore(path);
-  try { assert.deepEqual(reopened.responsibility({ commandId: 'b' }).records, responsibility); }
+  try {
+    assert.deepEqual(reopened.responsibility({ commandId: 'b' }).records, responsibility);
+    const reopenedRestoreRecords = reopened.responsibility({ commandId: 'restore-a' }).records;
+    assert.deepEqual(reopenedRestoreRecords[0], restoreRecords[0]);
+    assert.deepEqual(reopenedRestoreRecords.map(row => row.outcome), ['succeeded', 'failed']);
+    assert.equal(reopenedRestoreRecords[1].reasonCode, 'command_conflict');
+  }
   finally { reopened.close(); }
 });
 
