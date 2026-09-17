@@ -6,7 +6,7 @@
 
 下载的 Node 压缩包必须匹配所选 Node 版本与平台对应的官方固定 SHA-256。配置镜像只改变下载地址，不改变预期摘要。预配仅复用经过校验的缓存，将替代下载写入私有临时文件，校验通过后才原子替换缓存；中断、取消或摘要错误都会保留现有缓存，并保持已安装 Node 不变。后续尝试会重新下载无效缓存。原生与 WSL 预配共用此检查。这些压缩包检查不能证明主机提供的 Node 二进制可信，也不能替代已安装平台验收。
 
-桌面包版本：**0.2.4**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
+桌面包版本：**0.2.5**。`build:harness` 选择 ClawMaster 客户端 profile，在插件加载前设置浏览器标题，并把已有产品图标写入构建后的 favicon 与 PWA manifest。构建记录最终客户端摘要；打包拒绝标题、profile、manifest 名称、图标或摘要不符的产物。上游 Web 资源源码保留默认品牌。
 
 Tauri 包名为 `@deepseek-ai/dsh-desktop-tauri`，与上游 Electron 应用独立。Host 启动地址只在内存中传给独立 WebView，由上游认证流程签发登录 cookie。原生 capability 只匹配包内 `main` 外壳 WebView；启动页、独立 Host 内容及其文档 frame 不获得原生命令。Host 主视图导航限定到包含端口的精确回环来源。不含凭据的外部 HTTP(S) 链接使用 `target="_blank"` 时交系统默认浏览器打开；回环目标与可执行 scheme 被拒绝。同源 `/clawmaster/office/runtime/NOTICE.html` 页面在没有查询参数时通过独立的 `office-notice` WebView 打开，该标签没有原生权限。启动日志不记录认证令牌。裁剪包包含 `native/system`，并仅在裁剪树中允许开发工具补丁未使用；实际补丁应用失败仍会阻止安装。
 
@@ -139,7 +139,7 @@ pnpm install
 pnpm run build:win
 ```
 
-安装包输出：`src-tauri/target/release/bundle/nsis/ClawMaster_0.2.4_x64-setup.exe`
+安装包输出：`src-tauri/target/release/bundle/nsis/ClawMaster_0.2.5_x64-setup.exe`
 
 NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语言自动跟随操作系统 locale，不显示语言选择器；不支持的 locale 使用英语。原生启动页、托盘、关闭对话框和启动状态文案遵循同一规则（`zh*` 用中文，其余用英语）。嵌入的 `dsh web` 客户端仍使用自己的 Settings 语言。复制文件前，安装器会静默关闭 `dsh-desktop.exe` 及其子进程树。安装后，安装器使用独立的版本化 ICO 资源重建已有桌面快捷方式，并通知 Explorer 清除陈旧的图标缓存记录。
 
@@ -148,7 +148,7 @@ NSIS 安装包包含**英语**、**简体中文**和**繁体中文**。安装语
 
 发布矩阵不包含 Intel Mac 安装包。已有 Intel Mac 安装保留原版本；受支持的桌面目标为 Apple Silicon、Windows x64 与 Linux x64。[安装后发布验收说明](acceptance/README.zh.md)定义独立的 Android 证据项及发布前必须具备的证据。
 
-推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)，只构建、不自动发布。它生成 Windows x64 NSIS 安装包、macOS Apple Silicon DMG、Linux x64 AppImage/deb，并保留原生冒烟证据。手动触发也默认为仅构建。发布需要单独手动触发，启用 `publish`，提供成功的源码构建 run ID，以及包含 `release-evidence/acceptance-manifest.json` 和其引用证据文件的完整 40 位提交 SHA。发布任务从该 run 下载原始构建产物，校验仓库、工作流、结果、源码提交与发布标签，再核对每项证据摘要与未改动的安装包，最后执行严格验收和来源检查。它还会载入该 run 的 macOS 与 Windows 原生报告；验收清单必须在相应平台的 `exit-restart` 证据中引用它们。这两份自动生成的报告由发布任务从原 run 获取，不要复制进 `release-evidence/`。GitHub 的 `desktop-release` 环境必须配置独立审核人；该保护属于仓库设置，工作流单测无法证明。验收门检查证据的完整性和完整度，不证明人工观察内容真实。本工作流没有 Android 安装包构建器，因此 APK 验收项不完整时会持续阻止发布。程序版本 `0.2.4` 对应正式版 `desktop-v0.2.4`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
+推送 `desktop-v*` 标签会运行[桌面发布工作流](../../.github/workflows/desktop-release.yml)，只构建、不自动发布。它生成 Windows x64 NSIS 安装包、macOS Apple Silicon DMG、Linux x64 AppImage/deb，并保留原生冒烟证据。手动触发也默认为仅构建。发布需要单独手动触发，启用 `publish`，提供成功的源码构建 run ID，以及包含 `release-evidence/acceptance-manifest.json` 和其引用证据文件的完整 40 位提交 SHA。发布任务从该 run 下载原始构建产物，校验仓库、工作流、结果、源码提交与发布标签，再核对每项证据摘要与未改动的安装包，最后执行严格验收和来源检查。它还会载入该 run 的 macOS 与 Windows 原生报告；验收清单必须在相应平台的 `exit-restart` 证据中引用它们。这两份自动生成的报告由发布任务从原 run 获取，不要复制进 `release-evidence/`。GitHub 的 `desktop-release` 环境必须配置独立审核人；该保护属于仓库设置，工作流单测无法证明。验收门检查证据的完整性和完整度，不证明人工观察内容真实。本工作流没有 Android 安装包构建器，因此 APK 验收项不完整时会持续阻止发布。程序版本 `0.2.5` 对应正式版 `desktop-v0.2.5`；预发行程序版本不进入 GitHub Latest。已有正式版本禁止覆盖。每个更新产物携带 Tauri 签名；版本附件包含 `latest.json`、`clawmaster-release-signing.pub` 与 `SHA256SUMS.txt`。manifest 将 DEB 安装映射到单独签名的 DEB，并为通用 Linux 目标保留 AppImage。[发布通道决策](../../.agents/notes/implemented/architecture/2026-09-13-desktop-stable-confirmed-updates.zh.md)负责版本与更新确认规则。
 
 Windows 构建步骤使用原生 PowerShell。每个 PowerShell 发布步骤要求 7.4 或更高版本，并在原生命令失败时立即停止；后续成功命令不能覆盖该失败。仅供 macOS/Linux 使用的 Bash 步骤保留 shell 失败处理。[发布命令决策](../../.agents/notes/implemented/process/2026-09-15-desktop-release-native-command-failures.zh.md)负责其理由与反向控制要求。
 

@@ -322,52 +322,70 @@
     },
     {
       "name": "rpa_call",
-      "description": "Run a recovered ClawMaster native RPA tool, for example rpa_windows, rpa_snapshot, rpa_extract, rpa_wait, rpa_status or rpa_cancel. Use rpa_native with command=definitions to list the exact tool names and their arguments. Window and element references come from a prior snapshot artifact; no coordinate is ever supplied. A step that acts on the desktop requires one-time user approval; a refusal prevents native execution. Use wechat_read for approved, selected-chat reading.",
+      "description": "Run a recovered ClawMaster native RPA tool, for example rpa_windows, rpa_snapshot, rpa_extract, rpa_wait, rpa_status or rpa_cancel. Use rpa_native with command=definitions to list the exact tool names and their arguments. Window and element references come from a prior snapshot artifact; no coordinate is ever supplied. A step that acts on the desktop requires one-time user approval; a refusal prevents native execution. DSH approval is followed by a separate ClawMaster system confirmation before the exact call is dispatched. Use wechat_read for approved, selected-chat reading.",
       "parameters": {
-        "tool": {
-          "type": "string",
-          "required": true,
-          "description": "Recovered tool name, for example rpa_windows"
+        "type": "object",
+        "properties": {
+          "tool": {
+            "type": "string",
+            "description": "Recovered tool name, for example rpa_windows"
+          },
+          "arguments": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Tool arguments exactly as the definitions catalog documents them"
+          }
         },
-        "arguments": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Tool arguments exactly as the definitions catalog documents them"
-        }
+        "required": [
+          "tool"
+        ],
+        "additionalProperties": false
       }
     },
     {
       "name": "rpa_native",
       "description": "Inspect the ClawMaster native RPA helper. Read-only: it reports the helper capability manifest, the recovered native tool catalog, or a bounded accessibility snapshot of the desktop. It cannot click, type or otherwise act, and it reports the exact macOS permission to grant when access is missing.",
       "parameters": {
-        "command": {
-          "type": "string",
-          "required": true,
-          "description": "capabilities | definitions | desktop-snapshot"
-        }
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "capabilities | definitions | desktop-snapshot"
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "additionalProperties": false
       }
     },
     {
       "name": "rpa_run",
       "description": "Drive a governed RPA workflow run. Workflows are operator-installed; a model can start one and advance it step by step but cannot define steps. Steps with an external side effect are refused while no approval bridge is wired, and an interrupted external action is never replayed automatically.",
       "parameters": {
-        "action": {
-          "type": "string",
-          "required": true,
-          "description": "start | run_next | recover | status | take_over"
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "start | run_next | recover | status | take_over"
+          },
+          "workflowId": {
+            "type": "string",
+            "description": "Installed workflow id, for action=start"
+          },
+          "runId": {
+            "type": "string",
+            "description": "Run id returned by a previous call"
+          },
+          "note": {
+            "type": "string",
+            "description": "Human takeover note, for action=take_over"
+          }
         },
-        "workflowId": {
-          "type": "string",
-          "description": "Installed workflow id, for action=start"
-        },
-        "runId": {
-          "type": "string",
-          "description": "Run id returned by a previous call"
-        },
-        "note": {
-          "type": "string",
-          "description": "Human takeover note, for action=take_over"
-        }
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
       }
     },
     {
