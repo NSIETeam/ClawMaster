@@ -34,6 +34,7 @@ Status: implemented
 
 - Host tsc 对 `tsconfig.host.json` 执行 `tsc -b`，把逐模块 `.js`、`.d.ts`、`.js.map` 与 `.d.ts.map` 输出到 Host 图各包的 `lib/types`；Host tsdown 随后读取这些 JS，生成发布入口并运行 Host Typert。
 - Client tsc 在 Host Typert 已生成 Remote Client 声明后对 `tsconfig.client.json` 执行 `tsc -b`；Client tsdown 再读取 Client 图发射的 JS，生成 Client 包的 Node loader 入口与 browser bundle。
+- 两个 tsdown 阶段都从匹配到的 `package.json` 文件推导 workspace 目录。`packages/<group>/<name>` 下没有清单的目录不是构建包，无法通过 tsdown 的向上配置查找继承仓库根清单。
 - Web build 只在两个 lib 阶段完成后启动。
 
 `tsdown` 不再负责 TypeScript 编译或声明文件输出。
@@ -71,6 +72,7 @@ tsx scripts/clean.ts
 - **用一个根目录严格程序覆盖包、vendor、示例、测试和脚本**：vendor 源码在根目录严格标志下会触发不属于本项目所有权范围的类型错误；带有逐项目严格度的 project references 才是可行的边界。
 - **每次构建前都执行清理**：即使工作区布局没有变化，这也会丢弃 `tsc` 和打包器拥有的增量状态。
 - **删除所有包级 `node_modules`**：有效的包依赖链接不会导致工作区发现失败，而删除这些链接会使构建清理变成重新安装依赖。
+- **把包布局 glob 匹配到的每个目录都视为包**：生成目录或无关目录可能占用相同层级却没有清单；若接纳这些目录，向上查找包时会把父级清单错误归给它们。
 
 ## 后果
 

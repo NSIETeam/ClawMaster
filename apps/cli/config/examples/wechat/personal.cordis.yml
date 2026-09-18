@@ -1,0 +1,19 @@
+# Opt-in: wechat-mcp-server 0.2.0, macOS + Python 3.12 + uv.
+# uv downloads the pinned server on first activation; transitive dependencies are not locked.
+- insert:
+    - id: wechat-personal-approval
+      name: './approval.mjs'
+      config:
+        serverName: wechat_personal
+    - id: wechat-personal
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: wechat_personal
+        transport: stdio
+        command: uvx
+        args: [--from, 'wechat-mcp-server==0.2.0', wechat-mcp, --transport, stdio]
+        connectionTimeoutMs: 120000
+        toolCallTimeoutMs: 60000
+        failOnStartupError: true
+        reconnect:
+          enabled: false

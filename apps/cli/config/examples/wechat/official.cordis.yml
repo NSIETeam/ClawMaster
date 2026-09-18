@@ -1,0 +1,22 @@
+# Opt-in: @wenyan-md/mcp 2.0.3, local stdio mode; credentials stay in the host environment.
+# npm downloads the pinned server on first activation; transitive dependencies are not locked.
+- insert:
+    - id: wechat-official-approval
+      name: './approval.mjs'
+      config:
+        serverName: wechat_official
+    - id: wechat-official
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: wechat_official
+        transport: stdio
+        command: npx
+        args: [--yes, '@wenyan-md/mcp@2.0.3']
+        env:
+          WECHAT_APP_ID: !!js process.env.WECHAT_APP_ID || ''
+          WECHAT_APP_SECRET: !!js process.env.WECHAT_APP_SECRET || ''
+        connectionTimeoutMs: 120000
+        toolCallTimeoutMs: 60000
+        failOnStartupError: true
+        reconnect:
+          enabled: false

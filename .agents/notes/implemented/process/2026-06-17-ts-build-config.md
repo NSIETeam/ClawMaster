@@ -34,6 +34,7 @@ In-package relative imports use explicit `.ts` specifiers.
 
 - Host tsc runs `tsc -b` against `tsconfig.host.json`, emitting per-module `.js`, `.d.ts`, `.js.map`, and `.d.ts.map` into `lib/types` for each package in the Host graph; Host tsdown then reads that JavaScript, produces published entries, and runs Host Typert.
 - Client tsc runs `tsc -b` against `tsconfig.client.json` after Host Typert has generated the Remote Client declarations; Client tsdown then reads the JavaScript emitted by the Client graph and produces the Client packages' Node loader entries and browser bundles.
+- Both tsdown phases derive their workspace directories from matching `package.json` files. A directory at `packages/<group>/<name>` without a manifest is not a build package and cannot inherit the repository root manifest through tsdown's upward config lookup.
 - The Web build starts only after both lib phases complete.
 
 `tsdown` is no longer the owner of TypeScript compilation or declaration output.
@@ -71,6 +72,7 @@ The source-mode demos run through their declared TypeScript launchers and the ro
 - **One root strict program over packages, vendor, examples, tests, and scripts** — vendor source triggers type errors outside this project's ownership under the root strict flags; project references with per-project strictness are the boundary that works.
 - **Clean before every build** — this would discard the incremental state owned by `tsc` and the bundler even when the workspace layout is unchanged.
 - **Remove every package-level `node_modules`** — valid package dependency links do not cause the workspace-discovery failure, and deleting them would turn build cleanup into dependency reinstallation.
+- **Treat every directory matched by the package-layout glob as a package** — generated or unrelated directories can occupy the same depth without a manifest; admitting them lets upward package discovery assign a parent manifest to the wrong directory.
 
 ## Consequences
 

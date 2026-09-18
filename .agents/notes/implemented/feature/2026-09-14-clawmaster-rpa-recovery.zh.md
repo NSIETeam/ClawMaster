@@ -20,6 +20,8 @@ Rust 控制面不需要任何改造：它对 `tauri::` 的引用为零，也没�
 
 治理需要的是修复，而不只是接线。`native_rpa::is_write` 把八个工具归类为触碰外部世界，但 `NativeRpa::execute` 只对其中一部分强制审批绑定：`rpa_start` 会一路走到 `launch` 而自身不做任何检查——这一点是测出来的而不是假设的：一次未经批准的 `rpa_start` 创建了运行记录、真实的浏览器 profile 目录和状态库，并报告 `state: "running"`。恢复出的设计把这个决定放在调用方，而 DSH 之前的应用就是那个调用方；现在调用方成了这个适配器，所以由 `rpa_cli.rs` 执行恢复出的闸门：`is_write_call` 决定是否需要审批，`approval_summary` 组装运维当年会看到的请求文本，`record_rejection` 通过恢复出的路径留下拒绝回执。同一调用在改动之后不创建任何 profile，并给出 `state: "rejected"`、`idempotencyKey: "rejected:launch"`、以审批提示文本为原因的收据。
 
+拒绝记录在步骤层面，运行本身保持 `pending` 而不是失败。这是有意的：被拒绝的审批不应冻结整次运行，之后单独获批的一次尝试仍可继续。`rpa_cli` 里的一项 Rust 测试同时钉住这两个事实——未经批准的 `rpa_start` 得到空 `profilePath` 与一条被拒绝的收据，而运行仍为 pending——因此这段安全关键的行为不再依赖 JavaScript 工具链是否可用。
+
 因此宿主半永远发送 `approvalId: null`，绝不自己发明审批；它也不在 TypeScript 里复制写分类，因为适配器与分类本身在同一个进程、同一种语言里强制执行它。`rpa_native` 另外把命令行限制在只读集合内，所以裸坐标的 `input` 子命令对模型不可达。
 
 宿主半直接以字面量声明工具定义，而不是调用 harness 的工厂函数，因此它的产物除了 Node 内建模块之外不导入任何东西。这与其它内置组件一致，也让这个组件能从干净的检出直接测试：它自己没有 `node_modules`，但 `node scripts/build.mjs` 与 `node --import tsx/esm --test tests/*.test.mjs` 都能跑。裸定义要自己负责输入校验，因此各处理器显式校验 action、子命令与工具名，而不是依赖 schema 包装。
@@ -30,9 +32,9 @@ Rust 控制面不需要任何改造：它对 `tauri::` 的引用为零，也没�
 
 ## Consequences
 
-`native_tools.rs` 是个混合模块：它同时装着 RPA 的操作系统适配层和文档写入器（docx、pptx、pdf、chart），所以这个 crate 为了 RPA 路径根本不会走到的代码背上了 `lopdf` 和 `zip`。拆分被推迟，在那之前恢复出的文件保持不动。
+`native_tools` 原本是个混合模块：它同时装着 RPA 的操作系统适配层和文档写入器（docx、pptx、pdf、chart），于是一个自动化组件对外宣称了五项文档能力，并为 RPA 路径根本不会走到的代码编译了 `lopdf` 与 `zip`。现在写入器连同它们的 OpenXML 资产与测试一起住在 `native_documents`，分发的各分支委托给它们；`native_tools` 只保留辅助功能与输入适配层。这个 crate 仍然会编译两者，因为那些文档子命令依然是助手命令行的一部分，所以要真正去掉这两个依赖，需要一个独立 crate 或一个可选的 Cargo feature，而不是一次模块搬迁。
 
-桌面动作仍然跑不起来：没有接审批桥，所以每个写步骤都会被拒绝并留下回执。交付它需要在宿主半接上 harness 的审批能力，并就哪些动作可以预先授权作出决定。
+桌面动作现在只有在拿到 harness 授权后才能运行。宿主半先问助手该工具是否对外部世界有影响、以及提示文本怎么措辞，再通过审批能力把这段提示提出来，并且只在结果为 `allowed-once` 时才带着审批绑定转发该调用；它携带的绑定就是审批审计对（approval audit pair）所对应的工具调用 id。因此在没有应答方的会话里是 fail-closed 的，与 guard 采取的姿态一致。运维可以预先授权哪些动作仍是一个策略决定，而本构建不预先授权任何动作。
 
 已发布的应用程序是 ad-hoc 签名且没有任何 entitlement，所以 macOS 的辅助功能与屏幕录制授权撑不过一次重装。这是分发任务而不是组件任务，并且不受今天 `updater` 端点为空的影响。
 
@@ -40,10 +42,12 @@ Rust 控制面不需要任何改造：它对 `tauri::` 的引用为零，也没�
 
 ## Verification
 
-在 `frontends/rpa/native` 下 `cargo check --lib` 与 `cargo build --bin clawmaster-rpa-native` 都以 0 退出（一条 `write_docx_content` 的 dead-code 警告，恢复出的分发够得到它但 RPA 路径不会走），工作区锁定了恢复出的 crate 版本，包括 `xa11y = "=0.13.0"`。
+在 `frontends/rpa/native` 下 `cargo build --lib` 与 `cargo build --bin clawmaster-rpa-native` 都以 0 退出，只有一条 `write_docx_content` 的 dead-code 警告——那是 DSH 之前的 agent 工具层调用的便利函数，现在没有任何随产品发布的调用方。这个 crate 锁定了恢复出的版本，包括 `xa11y = "=0.13.0"`、`lopdf`、`zip`、`sled`、`aes-gcm` 与 `keyring`。
+
+`cargo test --lib` 可以编译并通过：**51 通过、0 失败、2 忽略**。为此需要恢复出的 `tempfile` 开发依赖，以及模型测试读取的三个 model-stream SSE 夹具，两者都在这里补回。该套件覆盖状态库的幂等重放与内容寻址产物校验、进程被强制退出后的恢复、桌面标签截断与可编辑值脱敏、跨平台热键解析、没有辅助功能授权时原生输入 fail-closed，以及三个 `rpa_cli` 用例：审批闸门、只读工具仍能到达分发器、以及畸形请求大声失败。唯一被移除的恢复出的测试是清单与目录的一致性检查，它串联了 `crate::native_agent_tools`——一个本 crate 并不随附的模块——因此在这里永远无法编译。
 
 构建出的助手在 `--native-tool capabilities` 下返回七项清单，其中 `desktop.input` 项声明了 `rust:xa11y-input` 提供方与 `rpa_click` 工具；在 `--native-tool definitions` 下返回全部十六个恢复出的工具；在 `--native-tool desktop-snapshot` 下以退出码 2 拒绝，并给出指明确切系统设置面板的消息——这独立复现了在本机另行测得的权限状态。
 
-恢复出的缝自带测试套件在这个组件内通过（13 通过，1 个 e2e 在未设 `RUN_RPA_BROWSER_E2E=1` 时跳过）。宿主半与桥接合计通过 22 项测试。宿主演习覆盖持久化运行回路、跨处理器实例的带版本校验持久化、外部副作用拒绝、工具注册，以及 `approve` 对模型不可达。桥接测试覆盖 JSON 解析、非零退出的原因传递、非 JSON 输出、超时、取消、二进制缺失、只读子命令白名单、未构建助手报告为不可用、宿主半为语义调用发送的确切请求，以及两个真实助手用例。
+恢复出的缝自带测试套件在这个组件内通过（13 通过，1 个 e2e 在未设 `RUN_RPA_BROWSER_E2E=1` 时跳过）。宿主半与桥接合计通过 26 项测试，其中包含审批桥接：助手对写工具的归类与提示措辞、授权绑定确实会打开闸门（证据是导航策略成为下一个拒绝原因，而不是审批错误），以及注册的工具在写之前会询问 harness、并在结果不是授权时 fail-closed。宿主演习覆盖持久化运行回路、跨处理器实例的带版本校验持久化、外部副作用拒绝、工具注册，以及 `approve` 对模型不可达。桥接测试覆盖 JSON 解析、非零退出的原因传递、非 JSON 输出、超时、取消、二进制缺失、只读子命令白名单、未构建助手报告为不可用、宿主半为语义调用发送的确切请求，以及两个真实助手用例。
 
 第一个真实助手用例直接断言审批闸门：只读的 `rpa_status` 返回 `{"run": null}`，而 `rpa_start` 返回空的 `profilePath` 与一条收据，其 `state` 为 `"rejected"`、`externalSideEffect` 为 `true`、`approvalId` 为 `null`、原因为审批提示文本。第二个接受桌面快照成功或权限拒绝，但不接受静默的空快照，并检查浏览器半返回的条目带有 `id`、`installed` 与 `webdriverContract` 标志。在这台 macOS ARM64 机器上，该浏览器半报告 Chrome 已安装、`/usr/bin/safaridriver` 已安装且具备 WebDriver 契约，`rpa_webdriver_probe` 对 `safari-webdriver` 适配器返回 `Included with Safari 26.5 (21624.2.5.11.4)`。`node scripts/build.mjs --check` 与 `dist/` 一致。

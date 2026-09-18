@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-14-clawmaster-rpa-recovery.md
-2026-09-14-clawmaster-rpa-recovery.md: 207162e8e4fe00b5a1380ae5d0241b20d0678d48
-2026-09-14-clawmaster-rpa-recovery.zh.md: c26da82d3609aa7975c0196444fb30fde32a9679
+2026-09-14-clawmaster-rpa-recovery.md: 05b3bcb8ef3d6b59696e0b8b3a06b4c4cd7484e2
+2026-09-14-clawmaster-rpa-recovery.zh.md: 38b86530560ee4b96cce0ba55ab23c78cb5c1c98
