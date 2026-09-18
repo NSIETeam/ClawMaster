@@ -162,7 +162,7 @@ test('missing required targets, unknown targets and Intel asset disagreement ret
       edit(next)
       next.files.set('latest.json', JSON.stringify(next.manifest))
       next.refresh()
-      await assert.rejects(syncUpdaterChannel(options, next), /exactly the supported platform targets|targets differ/)
+      await assert.rejects(syncUpdaterChannel(options, next), /exactly (?:the supported platform targets|a supported stable, legacy, or beta platform target set)|targets differ/)
       assert.equal(await readFile(latest, 'utf8'), before)
       assert.deepEqual(await readdir(join(options.stateDir, 'public', 'versions')), ['0.2.1'])
     }
