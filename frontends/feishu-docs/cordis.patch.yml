@@ -1,0 +1,5 @@
+# Built-in ClawMaster Feishu reads: read-only Docx/Wiki/Drive access for the agent.
+# Every registered tool is read-only and needs no approval; no write tool exists here.
+- insert:
+    - id: clawmaster-feishu-docs
+      name: '@clawmaster/dsh-feishu-docs'
