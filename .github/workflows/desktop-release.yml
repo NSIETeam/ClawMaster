@@ -9,7 +9,7 @@ on:
       tag:
         description: Existing desktop-v* tag to rebuild and publish
         required: true
-        default: desktop-v0.2.0-beta.2
+        default: desktop-v0.2.1
 
 permissions:
   contents: read
@@ -37,11 +37,6 @@ jobs:
             target: x86_64-pc-windows-msvc
             bundles: nsis
             asset_platform: windows
-            asset_arch: x64
-          - runner: macos-15-intel
-            target: x86_64-apple-darwin
-            bundles: app,dmg
-            asset_platform: macos
             asset_arch: x64
           - runner: macos-15
             target: aarch64-apple-darwin
@@ -101,6 +96,12 @@ jobs:
 
       - name: Build ClawMaster harness
         run: pnpm --dir apps/desktop-tauri run build:harness
+
+      - name: Verify Graph Memory component
+        run: |
+          npm --prefix frontends/graph-memory test
+          npm --prefix frontends/graph-memory run typecheck
+          npm --prefix frontends/graph-memory run check
 
       - name: Verify provenance and plugin rejection cases
         run: pnpm --dir apps/desktop-tauri run test:bundle
@@ -215,9 +216,6 @@ jobs:
           $expected = @(
             '*-windows-x64-setup.exe',
             '*-windows-x64-setup.exe.sig',
-            '*-macos-x64.dmg',
-            '*-macos-x64.app.tar.gz',
-            '*-macos-x64.app.tar.gz.sig',
             '*-macos-arm64.dmg',
             '*-macos-arm64.app.tar.gz',
             '*-macos-arm64.app.tar.gz.sig',
@@ -225,7 +223,6 @@ jobs:
             '*-linux-x64.AppImage.sig',
             '*-linux-x64.deb',
             '*-windows-x64-build.json',
-            '*-macos-x64-build.json',
             '*-macos-arm64-build.json',
             '*-linux-x64-build.json'
           )
