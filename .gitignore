@@ -44,3 +44,9 @@ worktrees/
 .agents/worktrees/
 .typert-*/
 native/system/test/bin/
+
+# Local scratch, runtime state and generated outputs (recovered 2026-09-18).
+.codex-tmp/
+.clawmaster/
+output/
+outputs/
