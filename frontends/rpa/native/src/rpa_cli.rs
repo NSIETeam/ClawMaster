@@ -87,3 +87,69 @@ fn call_id() -> String {
         .unwrap_or(0);
     format!("cli-{}-{millis}", std::process::id())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// The gate this adapter owns. `is_write` classifies `rpa_start` as external,
+    /// and `execute` reaches `launch` without checking approval itself, so an
+    /// unapproved start must produce a receipted refusal instead of a browser.
+    #[test]
+    fn refuses_a_write_tool_without_an_approval_binding() {
+        let root = tempfile::tempdir().unwrap();
+        let request = json!({
+            "root": root.path(),
+            "tool": "rpa_start",
+            "arguments": {
+                "runId": "rpa-55555555-5555-4555-8555-555555555555",
+                "tenantId": "t1",
+                "platformId": "p1",
+                "url": "https://example.com",
+            },
+            "approvalId": null,
+        });
+
+        let value = run_blocking(&request.to_string()).expect("a refusal is a successful call");
+
+        assert_eq!(value["profilePath"], "", "no browser profile may be created");
+        let receipt = &value["receipts"][0];
+        assert_eq!(receipt["state"], "rejected");
+        assert_eq!(receipt["externalSideEffect"], true);
+        assert_eq!(receipt["approvalId"], Value::Null);
+        assert_eq!(receipt["idempotencyKey"], "rejected:launch");
+        assert!(
+            receipt["error"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("允许 RPA 执行 rpa_start"),
+            "the refusal must carry the recovered approval prompt"
+        );
+        // The refusal is recorded at step level on purpose: the run stays pending
+        // so a later, separately approved attempt can still proceed.
+        assert_eq!(value["state"], "pending");
+    }
+
+    /// A read-only tool still reaches the dispatcher.
+    #[test]
+    fn runs_a_read_only_tool() {
+        let root = tempfile::tempdir().unwrap();
+        let request = json!({
+            "root": root.path(),
+            "tool": "rpa_status",
+            "arguments": { "runId": "rpa-66666666-6666-4666-8666-666666666666" },
+            "approvalId": null,
+        });
+
+        let value = run_blocking(&request.to_string()).unwrap();
+        assert_eq!(value, json!({ "run": null }));
+    }
+
+    /// A malformed request fails loudly rather than defaulting to anything.
+    #[test]
+    fn rejects_a_malformed_request() {
+        let error = run_blocking("not json").unwrap_err();
+        assert!(error.contains("RPA 请求 JSON 无效"), "got: {error}");
+    }
+}

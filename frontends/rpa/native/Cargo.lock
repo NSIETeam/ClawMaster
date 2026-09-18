@@ -354,6 +354,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sled",
+ "tempfile",
  "tokio",
  "url",
  "xa11y",

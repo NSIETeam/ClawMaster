@@ -59,7 +59,11 @@ export class PlaywrightWebSessionFactory implements RpaWebSessionFactory {
   async create(): Promise<RpaWebSession> {
     let module: PlaywrightModule;
     try {
-      module = (await import('playwright-core')) as unknown as PlaywrightModule;
+      // The specifier stays non-literal on purpose: playwright-core is an optional dependency that a
+      // headless or managed-browser deployment may legitimately omit, so this must not be a static
+      // (compile-time checked) import. Missing package is reported as a runtime error below.
+      const specifier: string = 'playwright-core';
+      module = (await import(specifier)) as unknown as PlaywrightModule;
     } catch {
       throw new Error('RPA Web Driver requires the optional "playwright-core" package.');
     }

@@ -9,6 +9,7 @@
 //! reference and an element reference from an artifact produced by this crate,
 //! and this crate resolves the element centre and issues the input event.
 
+pub mod native_documents;
 pub mod native_models;
 pub mod native_pptx;
 pub mod native_rpa;

@@ -101,7 +101,7 @@ export class RpaRunner {
       return this.store.save(run, run.revision);
     }
     active.state = 'pending';
-    active.error = undefined;
+    delete active.error;
     run.currentStepId = null;
     run.state = 'pending';
     return this.store.save(run, run.revision);
@@ -118,7 +118,7 @@ export class RpaRunner {
     if (!receipt) throw new Error(`RPA receipt is missing for ${run.currentStepId}.`);
     receipt.approvalId = approvalId;
     receipt.approvedAt = new Date().toISOString();
-    run.approvalId = undefined;
+    delete run.approvalId;
     run.currentStepId = null;
     run.state = 'pending';
     return this.store.save(run, run.revision);

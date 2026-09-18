@@ -25,6 +25,48 @@ fn print_definitions() -> i32 {
     }
 }
 
+/// Answer whether a tool needs approval, and with what wording.
+///
+/// The host half asks this before running a tool so it can raise the recovered
+/// prompt through the harness approval capability. It executes nothing: the
+/// classification and the wording stay here, next to `is_write`, instead of
+/// being duplicated in TypeScript where they could drift.
+fn print_approval_request(tool: Option<&String>, arguments: Option<&String>) -> i32 {
+    let Some(tool) = tool else {
+        eprintln!("approval-request requires a tool name");
+        return 64;
+    };
+    let arguments: serde_json::Value = match arguments {
+        Some(json) => match serde_json::from_str(json) {
+            Ok(value) => value,
+            Err(error) => {
+                eprintln!("approval-request arguments are not JSON: {error}");
+                return 64;
+            }
+        },
+        None => serde_json::Value::Object(serde_json::Map::new()),
+    };
+    let call = clawmaster_rpa_native::native_models::ModelToolCall {
+        id: "approval-request".to_string(),
+        name: tool.clone(),
+        arguments,
+    };
+    let report = serde_json::json!({
+        "write": clawmaster_rpa_native::native_rpa::is_write_call(&call),
+        "summary": clawmaster_rpa_native::native_rpa::approval_summary(&call),
+    });
+    match serde_json::to_string(&report) {
+        Ok(json) => {
+            println!("{json}");
+            0
+        }
+        Err(error) => {
+            eprintln!("{error}");
+            2
+        }
+    }
+}
+
 /// Run one recovered `rpa_*` tool call and print its canonical JSON result.
 ///
 /// The request arrives as a single JSON argument, so a tool's arguments never
@@ -66,6 +108,10 @@ fn main() {
 
     if subcommand == Some("rpa-call") {
         std::process::exit(run_rpa_call(args.get(2)));
+    }
+
+    if subcommand == Some("approval-request") {
+        std::process::exit(print_approval_request(args.get(2), args.get(3)));
     }
 
     match clawmaster_rpa_native::native_tools::dispatch_from_args(&args) {

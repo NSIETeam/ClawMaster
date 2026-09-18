@@ -40,7 +40,8 @@ and waits for a human.
 
 - Workflows are operator-declared. A model can start an installed workflow but cannot invent steps.
 - The helper's `input` subcommand is not exposed, so this build cannot type or click at raw coordinates.
-- A step with an external side effect is denied rather than queued while no approval bridge is wired.
+- A step with an external side effect runs only with a harness approval grant; a session without an answerer fails closed.
+- The gate is enforced by the adapter that owns the write classification, not by the tool, so the model cannot grant itself anything.
 - `approve` is not a model action, so nothing can approve its own external action.
 - An interrupted external action becomes `unknown_outcome` and is never retried automatically.
 

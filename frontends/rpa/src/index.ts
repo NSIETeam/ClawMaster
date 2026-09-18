@@ -45,6 +45,28 @@ function defineRpaTool(definition: ToolDefinition): ToolDefinition {
   return definition;
 }
 
+/** Build the object-rooted JSON Schema required by model tool APIs. */
+function objectParameters(
+  properties: Record<string, unknown>,
+  required: string[],
+): Record<string, unknown> {
+  return { type: 'object', properties, required, additionalProperties: false };
+}
+
+/**
+ * Render a canonical tool value as one text content block.
+ *
+ * Every tool here declares a string canonical value, but the registry types the
+ * renderer's value as arbitrary JSON, so the string case is narrowed rather than
+ * assumed.
+ *
+ * @param value The tool's canonical value.
+ * @returns One text content block.
+ */
+function renderAsText(value: unknown): Array<{ type: 'text'; text: string }> {
+  return [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }];
+}
+
 export const name = 'clawmaster-rpa';
 
 export {
@@ -56,8 +78,44 @@ export {
   type NativeHelperSpec,
 } from './native-helper.ts';
 
-/** The tool registry is the only service this component consumes. */
-export const inject = ['tools'];
+/**
+ * Services this component consumes.
+ *
+ * `approval` is what lets a desktop action ever run: it is the only thing that
+ * can grant one, and a session with no answerer fails closed.
+ */
+export const inject = ['tools', 'approval'];
+
+/**
+ * The harness approval capability.
+ *
+ * It is declared structurally rather than imported, so the host bundle keeps
+ * importing nothing but Node built-ins.
+ */
+export interface RpaApprovalService {
+  /**
+   * @param request The action asking for a one-shot grant.
+   * @returns `allowed-once` for a grant; every other outcome withholds it.
+   */
+  request(request: {
+    agent: unknown;
+    callId: string;
+    toolName: string;
+    reason: string;
+    signal: AbortSignal;
+  }): Promise<string>;
+}
+
+/** Whether a recovered tool needs approval, and the prompt to raise. */
+export interface RpaApprovalQuestion {
+  write: boolean;
+  summary: string;
+}
+
+/** The one message for a helper that has not been built yet. */
+const UNBUILT_HELPER =
+  'The native helper is not built. Build it with `cargo build --release` in frontends/rpa/native, ' +
+  'or set config.helper to an existing binary.';
 
 /** Operations a model may request. `approve` is deliberately absent. */
 export const RPA_ACTIONS = ['start', 'run_next', 'recover', 'status', 'take_over'] as const;
@@ -217,17 +275,24 @@ export interface RpaHandlers {
    */
   native(command: string, signal?: AbortSignal): Promise<RpaOutcome>;
   /**
-   * Forward one recovered semantic tool call to the dispatcher.
+   * Ask the helper whether a tool needs approval, and with what wording.
    *
-   * The approval binding is always absent, so a write step is refused (and
-   * receipted) by the dispatcher itself rather than executed. Governance has one
-   * authority — the recovered Rust dispatcher — and this method never grants it.
+   * The classification and the prompt stay in the recovered crate next to
+   * `is_write`, so the host half never carries a second copy that could drift.
+   *
+   * @param request The recovered tool name and its arguments.
+   * @returns The write classification and the recovered approval prompt.
+   */
+  approvalFor(request: RpaCallRequest): Promise<RpaApprovalQuestion>;
+  /**
+   * Forward one recovered semantic tool call to the dispatcher.
    *
    * @param request The recovered tool name and its arguments.
    * @param signal Cancels the in-flight helper invocation.
+   * @param approvalId The harness grant bound to this call; absent for a read tool.
    * @returns The dispatcher's canonical JSON result.
    */
-  call(request: RpaCallRequest, signal?: AbortSignal): Promise<RpaOutcome>;
+  call(request: RpaCallRequest, signal?: AbortSignal, approvalId?: string): Promise<RpaOutcome>;
 }
 
 /**
@@ -288,29 +353,23 @@ export function createRpaHandlers(config: RpaConfig = {}): RpaHandlers {
     }
     const spec = resolveHelperSpec(config.helper);
     if (!spec) {
-      return {
-        kind: 'native_unavailable',
-        reason:
-          'The native helper is not built. Build it with `cargo build --release` in frontends/rpa/native, ' +
-          'or set config.helper to an existing binary.',
-      };
+      return { kind: 'native_unavailable', reason: UNBUILT_HELPER };
     }
     const helper = createNativeHelper(spec, config.nativeTimeoutMs ?? 30_000);
     return { kind: 'native', command, payload: await helper.run(command, [], signal) };
   }
 
-  async function call(request: RpaCallRequest, signal?: AbortSignal): Promise<RpaOutcome> {
+  async function call(
+    request: RpaCallRequest,
+    signal?: AbortSignal,
+    approvalId?: string,
+  ): Promise<RpaOutcome> {
     if (typeof request.tool !== 'string' || request.tool.trim().length === 0) {
       throw new Error('rpa_call requires a non-empty tool name.');
     }
     const spec = resolveHelperSpec(config.helper);
     if (!spec) {
-      return {
-        kind: 'native_unavailable',
-        reason:
-          'The native helper is not built. Build it with `cargo build --release` in frontends/rpa/native, ' +
-          'or set config.helper to an existing binary.',
-      };
+      return { kind: 'native_unavailable', reason: UNBUILT_HELPER };
     }
     const helper = createNativeHelper(spec, config.nativeTimeoutMs ?? 30_000);
     const payload = await helper.run(
@@ -320,7 +379,7 @@ export function createRpaHandlers(config: RpaConfig = {}): RpaHandlers {
           root: path.join(stateDir, 'native'),
           tool: request.tool,
           arguments: request.arguments ?? {},
-          approvalId: null,
+          approvalId: approvalId ?? null,
         }),
       ],
       signal,
@@ -328,7 +387,48 @@ export function createRpaHandlers(config: RpaConfig = {}): RpaHandlers {
     return { kind: 'native', command: `rpa-call:${request.tool}`, payload };
   }
 
-  return { stateDir, workflowIds: workflows.map((workflow) => workflow.id), run, native, call };
+  async function approvalFor(request: RpaCallRequest): Promise<RpaApprovalQuestion> {
+    if (typeof request.tool !== 'string' || request.tool.trim().length === 0) {
+      throw new Error('rpa_call requires a non-empty tool name.');
+    }
+    const spec = resolveHelperSpec(config.helper);
+    if (!spec) throw new Error(UNBUILT_HELPER);
+    const helper = createNativeHelper(spec, config.nativeTimeoutMs ?? 30_000);
+    const answer = (await helper.run('approval-request', [
+      request.tool,
+      JSON.stringify(request.arguments ?? {}),
+    ])) as Partial<RpaApprovalQuestion> | null;
+    if (typeof answer?.write !== 'boolean' || typeof answer.summary !== 'string') {
+      throw new Error('The native helper returned an unusable approval answer.');
+    }
+    return { write: answer.write, summary: answer.summary };
+  }
+
+  return {
+    stateDir,
+    workflowIds: workflows.map((workflow) => workflow.id),
+    run,
+    native,
+    call,
+    approvalFor,
+  };
+}
+
+/**
+ * Resolve the approval capability, failing closed when it is absent.
+ *
+ * A missing service must never read as permission: without it, no desktop
+ * action is granted.
+ *
+ * @param ctx The plugin context.
+ * @returns The approval service.
+ */
+function requireApproval(ctx: Context): RpaApprovalService {
+  const approval = (ctx as Context & { approval?: RpaApprovalService }).approval;
+  if (approval === undefined || typeof approval.request !== 'function') {
+    throw new Error('The approval capability is unavailable, so no desktop action can be granted.');
+  }
+  return approval;
 }
 
 function requireRunId(invocation: RpaInvocation): string {
@@ -354,15 +454,15 @@ export function apply(ctx: Context, config: RpaConfig = {}): void {
             'Drive a governed RPA workflow run. Workflows are operator-installed; a model can start one and advance it ' +
             'step by step but cannot define steps. Steps with an external side effect are refused while no approval ' +
             'bridge is wired, and an interrupted external action is never replayed automatically.',
-          parameters: {
-            action: { type: 'string', required: true, description: RPA_ACTIONS.join(' | ') },
+          parameters: objectParameters({
+            action: { type: 'string', description: RPA_ACTIONS.join(' | ') },
             workflowId: { type: 'string', description: 'Installed workflow id, for action=start' },
             runId: { type: 'string', description: 'Run id returned by a previous call' },
             note: { type: 'string', description: 'Human takeover note, for action=take_over' },
-          },
+          }, ['action']),
           output: {
             schema: { type: 'string' },
-            render: (_args, value) => [{ type: 'text', text: value }],
+            render: (_args, value) => renderAsText(value),
           },
           async execute(args, exec) {
             if (exec.signal.aborted) throw new Error('RPA invocation was cancelled before it started.');
@@ -383,12 +483,12 @@ export function apply(ctx: Context, config: RpaConfig = {}): void {
             'Inspect the ClawMaster native RPA helper. Read-only: it reports the helper capability manifest, the ' +
             'recovered native tool catalog, or a bounded accessibility snapshot of the desktop. It cannot click, ' +
             'type or otherwise act, and it reports the exact macOS permission to grant when access is missing.',
-          parameters: {
-            command: { type: 'string', required: true, description: NATIVE_READ_ONLY_COMMANDS.join(' | ') },
-          },
+          parameters: objectParameters({
+            command: { type: 'string', description: NATIVE_READ_ONLY_COMMANDS.join(' | ') },
+          }, ['command']),
           output: {
             schema: { type: 'string' },
-            render: (_args, value) => [{ type: 'text', text: value }],
+            render: (_args, value) => renderAsText(value),
           },
           async execute(args, exec) {
             const outcome = await handlers.native((args as { command: string }).command, exec.signal);
@@ -410,21 +510,43 @@ export function apply(ctx: Context, config: RpaConfig = {}): void {
             'names and their arguments. Window and element references come from a prior snapshot artifact; no ' +
             'coordinate is ever supplied. A step that acts on the desktop needs an approval binding, and none is ' +
             'wired yet, so such a step is refused and receipted instead of executed.',
-          parameters: {
-            tool: { type: 'string', required: true, description: 'Recovered tool name, for example rpa_windows' },
+          parameters: objectParameters({
+            tool: { type: 'string', description: 'Recovered tool name, for example rpa_windows' },
             arguments: {
               type: 'object',
               additionalProperties: true,
               description: 'Tool arguments exactly as the definitions catalog documents them',
             },
-          },
+          }, ['tool']),
           output: {
             schema: { type: 'string' },
-            render: (_args, value) => [{ type: 'text', text: value }],
+            render: (_args, value) => renderAsText(value),
           },
           async execute(args, exec) {
             const request = args as { tool: string; arguments?: Record<string, unknown> };
-            const outcome = await handlers.call(request, exec.signal);
+
+            // The helper owns the classification and the wording; the harness
+            // owns the grant. A read tool asks for nothing, and a session with no
+            // answerer yields an outcome that is not `allowed-once`, so the call
+            // fails closed instead of reaching the desktop.
+            const question = await handlers.approvalFor(request);
+            let approvalId: string | undefined;
+            if (question.write) {
+              const outcome = await requireApproval(ctx).request({
+                agent: exec.agent,
+                callId: exec.callId,
+                toolName: exec.name,
+                reason: question.summary,
+                signal: exec.signal,
+              });
+              if (outcome !== 'allowed-once') {
+                throw new Error(`approval_${outcome}: ${question.summary}`);
+              }
+              exec.signal.throwIfAborted();
+              approvalId = exec.callId;
+            }
+
+            const outcome = await handlers.call(request, exec.signal, approvalId);
             return JSON.stringify(outcome, null, 2);
           },
         }),
