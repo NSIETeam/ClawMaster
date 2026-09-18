@@ -82,7 +82,7 @@ patchedDependencies:
   const trimmed = buildTrimmedWorkspaceYaml(source)
 
   assert.match(trimmed, /^packages:\n(?:  - .*\n)+/)
-  for (const name of ['vendor/*', 'packages/*/*', 'native/system', 'native/system/packages/*', 'apps/cli', 'apps/web', 'apps/desktop-defaults', 'frontends/dsh', 'frontends/guard', 'frontends/notes', 'frontends/office']) {
+  for (const name of ['vendor/*', 'packages/*/*', 'native/system', 'native/system/packages/*', 'apps/cli', 'apps/web', 'apps/desktop-defaults', 'frontends/dsh', 'frontends/guard', 'frontends/notes', 'frontends/graph-memory', 'frontends/office']) {
     assert.ok(trimmed.includes(`  - ${name}\n`), `trimmed packages must include ${name}`)
   }
   assert.ok(!trimmed.includes('apps/*'))
@@ -134,6 +134,7 @@ test('desktop dependencies resolve the built frontend and exact reviewed plugin 
     '@clawmaster/dsh-frontend': 'workspace:*',
     '@clawmaster/dsh-guard': 'workspace:*',
     '@clawmaster/dsh-notes': 'workspace:*',
+    '@clawmaster/dsh-graph-memory': 'workspace:*',
     '@clawmaster/dsh-office': 'workspace:*',
     '@clawmaster/dsh-rpa': 'workspace:*',
   })

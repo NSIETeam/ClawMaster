@@ -133,7 +133,11 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     const patch = join(home, 'smoke.patch.yml')
     const notesRoot = join(await realpath(home), 'notes-vault')
     // Notes defaults to the real Documents folder, independently of DSH_HOME.
-    await writeFile(patch, `${JSON.stringify([{ id: 'clawmaster-notes', config: { vaultRoot: notesRoot } }])}\n`)
+    await writeFile(patch, `${JSON.stringify([
+      { id: 'clawmaster-notes', config: { vaultRoot: notesRoot, notesContext: 'off' } },
+      { id: 'clawmaster-graph-memory-storage', config: { path: join(home, 'graph-memory.sqlite') } },
+      { id: 'clawmaster-graph-memory', config: { memory: 'off' } },
+    ])}\n`)
     const environment = Object.fromEntries(Object.entries(process.env)
       .filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD/i.test(name)))
     const request = (url, options) => fetch(url, {
@@ -168,7 +172,7 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     assert.ok(serializedGraph, '首页必须提供客户端启动图')
     const graph = JSON.parse(serializedGraph)
     const entries = new Set(graph.entries.map(entry => entry.id))
-    for (const name of ['@xmanrui/dsh-im', 'dsh-better-sidebar', '@clawmaster/dsh-frontend', '@clawmaster/dsh-notes', '@clawmaster/dsh-office']) {
+    for (const name of ['@xmanrui/dsh-im', 'dsh-better-sidebar', '@clawmaster/dsh-frontend', '@clawmaster/dsh-notes', '@clawmaster/dsh-graph-memory', '@clawmaster/dsh-office']) {
       assert.ok(entries.has(name), `全新主目录缺少默认客户端插件：${name}`)
     }
     const snapshotPath = '/api/clawmaster/enterprise'
@@ -178,6 +182,7 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     const workspacePath = '/api/clawmaster/workspace'
     const notesTreePath = '/api/clawmaster/notes/tree'
     const notesCommandPath = '/api/clawmaster/notes/command'
+    const graphMemoryPath = '/api/clawmaster/graph-memory/graph'
     const noteId = '验收/冷启动 #1.md'
     const noteText = '# 冷启动验收\n\n仅临时笔记库。\n'
     const editedNoteText = `${noteText}\n已保存的修改。\n`
@@ -204,6 +209,7 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     assert.equal((await request(new URL(notesTreePath, first.base))).status, 401)
     assert.equal((await request(noteUrl(first.base))).status, 401)
     assert.equal((await post(first.base, notesCommandPath, createNote)).status, 401)
+    assert.equal((await request(new URL(graphMemoryPath, first.base))).status, 401)
     const authenticated = { cookie: first.cookie, origin: new URL(first.base).origin }
     const notesEntry = graph.entries.find(entry => entry.id === '@clawmaster/dsh-notes')
     const notesScriptUrl = new URL(notesEntry.url, first.base)
@@ -212,6 +218,10 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     assert.equal(notesScript.status, 200)
     assert.match(notesScript.headers.get('content-type'), /javascript/)
     assert.match(await notesScript.text(), /window\.__ModuleLoader__\.load\(\{ id: "@clawmaster\/dsh-notes"/)
+    const graphMemoryEntry = graph.entries.find(entry => entry.id === '@clawmaster/dsh-graph-memory')
+    const graphMemoryScript = await request(new URL(graphMemoryEntry.url, first.base), { headers: authenticated })
+    assert.equal(graphMemoryScript.status, 200)
+    assert.match(await graphMemoryScript.text(), /window\.__ModuleLoader__\.load\(\{ id: "@clawmaster\/dsh-graph-memory"/)
     const officeUrl = new URL('/clawmaster/office/runtime/index.html', first.base)
     assert.equal((await request(officeUrl)).status, 401)
     const office = await request(officeUrl, { headers: authenticated })
@@ -241,6 +251,10 @@ test('裁剪包在全新主目录加载默认插件，企业数据与笔记通�
     assert.equal(originalNote.id, noteId)
     assert.equal(originalNote.text, noteText)
     assert.equal(originalNote.revision, creation.revision)
+    const graphMemory = await request(new URL(graphMemoryPath, first.base), { headers: authenticated })
+    assert.equal(graphMemory.status, 200)
+    const indexed = await graphMemory.json()
+    assert.ok(indexed.graph.nodes.some(node => node.path === noteId && node.kind === 'note'))
     const saveNote = { request: { action: 'save', id: noteId, text: editedNoteText, expectedRevision: creation.revision } }
     const savedNote = await post(first.base, notesCommandPath, saveNote, authenticated)
     assert.equal(savedNote.status, 200)

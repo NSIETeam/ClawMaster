@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 ClawMaster's Rust/WebView shell over the existing `dsh web` runtime. The installer ships **harness source** without `node_modules`; first run scans the host for compatible Node.js and pnpm installations and an existing `~/.dsh` home, downloads missing Node.js or pnpm, then installs production dependencies against the bundled tree. Application metadata, the splash, notifications, and Web UI use the ClawMaster name, icon, and slogan “开启AI时代的企业协作”.
 
-Desktop package version: **0.2.0-beta.2**. `build:harness` selects the ClawMaster client profile, sets the browser title before plugins load, and projects the existing product icon into the built favicon and PWA manifest. It records the resulting client digest; packaging rejects a different title, profile, manifest name, icon, or digest. Upstream Web asset sources retain their default branding.
+Desktop package version: **0.2.1**. `build:harness` selects the ClawMaster client profile, sets the browser title before plugins load, and projects the existing product icon into the built favicon and PWA manifest. It records the resulting client digest; packaging rejects a different title, profile, manifest name, icon, or digest. Upstream Web asset sources retain their default branding.
 
 The Tauri package is `@deepseek-ai/dsh-desktop-tauri`, independent of upstream Electron. The Host launch URL passes only in memory to a separate WebView, where upstream authentication issues the login cookie. Application commands belong to the local shell; loopback Host content receives only window dragging and double-click maximization permissions. Boot logs omit the launch token. The trimmed bundle includes `native/system` and permits unused development-tool patches only in that tree; patch application failures still stop installation.
 
@@ -129,11 +129,13 @@ pnpm install
 pnpm run build:win
 ```
 
-Installer output: `src-tauri/target/release/bundle/nsis/ClawMaster_0.2.0-beta.2_x64-setup.exe`
+Installer output: `src-tauri/target/release/bundle/nsis/ClawMaster_0.2.1_x64-setup.exe`
 
 The NSIS installer bundles **English**, **Simplified Chinese**, and **Traditional Chinese**. Language follows the OS locale automatically (no language picker); if the locale is unsupported, English is used. Native splash, tray, close-dialog, and splash-status copy follow the same rule (`zh*` → Chinese, otherwise English). The embedded `dsh web` client keeps its own Settings language. Before copying files, the installer silently closes `dsh-desktop.exe` and its child process tree. After installation, it recreates an existing desktop shortcut with the versioned standalone ICO resource and notifies Explorer to invalidate stale icon cache entries.
 
 ## Release
+
+The release matrix includes Windows x64, macOS Apple Silicon, and Linux x64. ClawMaster no longer publishes an Intel Mac installer; Intel Mac users must keep their existing version or migrate to a supported platform.
 
 Pushing a `desktop-v*` tag runs [the desktop release workflow](../../.github/workflows/desktop-release.yml). It builds Windows x64 NSIS installers, macOS Intel/Apple Silicon DMGs, and Linux x64 AppImage/deb packages, then publishes one prerelease after every matrix job succeeds. Each updater artifact carries a Tauri signature; the versioned release includes `latest.json`, `clawmaster-release-signing.pub`, and `SHA256SUMS.txt`. The workflow uses ad-hoc macOS application signing and verifies the resulting bundle, without Apple notarization or Windows publisher signing. A manual dispatch rebuilds an existing matching tag. The default application includes the release public key but leaves `plugins.updater.endpoints` empty, so it sends no update requests and these prereleases do not automatically replace installed applications. Release owners must configure a ClawMaster-controlled HTTPS manifest matching that key to enable updates; nonempty endpoints without a public key return an error.
 

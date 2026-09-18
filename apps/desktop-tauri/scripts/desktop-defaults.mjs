@@ -20,6 +20,7 @@ export const DESKTOP_BUNDLES = Object.freeze([
   '@clawmaster/dsh-frontend',
   '@clawmaster/dsh-guard',
   '@clawmaster/dsh-notes',
+  '@clawmaster/dsh-graph-memory',
   '@clawmaster/dsh-office',
   '@clawmaster/dsh-rpa',
 ])

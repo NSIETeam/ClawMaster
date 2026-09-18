@@ -284,6 +284,9 @@ importers:
       '@clawmaster/dsh-frontend':
         specifier: workspace:*
         version: link:../../frontends/dsh
+      '@clawmaster/dsh-graph-memory':
+        specifier: workspace:*
+        version: link:../../frontends/graph-memory
       '@clawmaster/dsh-guard':
         specifier: workspace:*
         version: link:../../frontends/guard
@@ -866,6 +869,9 @@ importers:
       '@deepseek-ai/dsh-storage':
         specifier: link:../../packages/storage/storage
         version: link:../../packages/storage/storage
+      '@deepseek-ai/dsh-storage-sqlite':
+        specifier: link:../../packages/storage/storage-sqlite
+        version: link:../../packages/storage/storage-sqlite
       '@deepseek-ai/dsh-storage-domain':
         specifier: link:../../packages/storage/storage-domain
         version: link:../../packages/storage/storage-domain
@@ -1125,6 +1131,21 @@ importers:
       papaparse:
         specifier: 5.7.0
         version: 5.7.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  frontends/graph-memory:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: link:../../vendor/cordis
+      '@deepseek-ai/dsh-storage':
+        specifier: link:../../packages/storage/storage
+        version: link:../../packages/storage/storage
+      '@deepseek-ai/dsh-tools':
+        specifier: link:../../packages/core/tools
+        version: link:../../packages/core/tools
       zod:
         specifier: 4.4.3
         version: 4.4.3
