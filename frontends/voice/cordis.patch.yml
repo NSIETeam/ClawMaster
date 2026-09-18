@@ -1,0 +1,5 @@
+# Built-in ClawMaster Voice: offline Whisper dictation with speaker separation,
+# authenticated Fetch routes, approval-gated agent tools and a Sidebar panel.
+- insert:
+    - id: clawmaster-voice
+      name: '@clawmaster/dsh-voice'
