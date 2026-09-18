@@ -1,0 +1,5 @@
+# Built-in ClawMaster PDF: lightweight PDF tools in the sidebar, with Stirling-PDF as an
+# optional on-demand component rather than a bundled runtime.
+- insert:
+    - id: clawmaster-pdf
+      name: '@clawmaster/dsh-pdf'
