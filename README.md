@@ -1,3 +1,12 @@
+> ## ⚠️ 本仓库仅作为旧版本 ClawMaster 的代码参考
+>
+> 这里保留的是**旧版 ClawMaster 的源码**，仅用于查阅与对照：**不再开发，也不再发布新版本**。
+> 当前活跃的 ClawMaster 代码、安装包与发布产物都在 → **[NSIETeam/ClawMaster-Desktop](https://github.com/NSIETeam/ClawMaster-Desktop)**
+>
+> ---
+>
+> **Legacy / code reference only.** This repository is kept as a code reference for **older ClawMaster versions**. It is no longer developed or released. Active development, installers and releases live in → **[NSIETeam/ClawMaster-Desktop](https://github.com/NSIETeam/ClawMaster-Desktop)**
+
 # ClawMaster
 
 ClawMaster 是桌面优先的 AI 智能操作中台。它把 Agent 执行、项目记忆、
