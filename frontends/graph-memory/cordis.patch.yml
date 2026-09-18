@@ -1,0 +1,9 @@
+# Graph Memory owns a separate SQLite medium outside every indexed directory.
+- insert:
+    - id: clawmaster-graph-memory-storage
+      name: '@deepseek-ai/dsh-storage-sqlite'
+      config:
+        path: !!js "(process.env.HOME ?? process.env.USERPROFILE) + '/.clawmaster/components/graph-memory/graph.sqlite'"
+
+    - id: clawmaster-graph-memory
+      name: '@clawmaster/dsh-graph-memory'

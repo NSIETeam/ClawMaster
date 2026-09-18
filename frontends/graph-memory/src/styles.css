@@ -1,0 +1,58 @@
+.cm-graph-memory {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 12px;
+  overflow: auto;
+  color: var(--dsw-alias-label-primary, #1f2329);
+  font: var(--dsw-font-xs-13, 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+}
+
+.cm-graph-memory dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.cm-graph-memory dl div {
+  padding: 10px;
+  border: 1px solid var(--dsw-alias-border-l1, rgba(0, 0, 0, .08));
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2, rgba(0, 0, 0, .03));
+}
+
+.cm-graph-memory dt {
+  color: var(--dsw-alias-label-secondary, #5b6270);
+}
+
+.cm-graph-memory dd {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.cm-graph-memory h3 {
+  margin: 18px 0 8px;
+  font-size: 13px;
+}
+
+.cm-graph-memory ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cm-graph-memory li {
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid var(--dsw-alias-border-l1, rgba(0, 0, 0, .08));
+  border-radius: 8px;
+}
+
+.cm-graph-memory li span {
+  color: var(--dsw-alias-label-secondary, #5b6270);
+  font-size: 12px;
+}
