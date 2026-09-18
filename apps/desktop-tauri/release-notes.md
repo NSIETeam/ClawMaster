@@ -1,8 +1,8 @@
-# ClawMaster WatchDog 0.2.5
+# ClawMaster WatchDog 0.2.6
 
 ## 中文
 
-开启 AI 时代的企业协作。WatchDog 0.2.5 集中修复企业任务治理、组件故障隔离、桌面凭据迁移和更新恢复中的可靠性问题，让单个可选能力不可用时核心应用仍能打开并继续工作。
+开启 AI 时代的企业协作。WatchDog 0.2.6 集中修复企业任务治理、组件故障隔离、桌面凭据迁移和更新恢复中的可靠性问题，让单个可选能力不可用时核心应用仍能打开并继续工作。
 
 - **企业任务与权限**：加强任务状态回执、重试幂等、审计责任归属、审批绑定和恢复冲突保护；工作区分配会在写入前重新核对权限与资源状态。
 - **运行状态与调度恢复**：补充 WatchDog 状态胶囊、队列和调度故障可见性、容量准入约束及恢复后的一致性校验。
@@ -15,7 +15,7 @@
 
 ## English
 
-ClawMaster WatchDog 0.2.5 opens the era of AI-powered enterprise collaboration. This release strengthens enterprise task governance, optional-component isolation, desktop credential migration and update recovery so an unavailable optional capability does not prevent the core application from opening and working.
+ClawMaster WatchDog 0.2.6 opens the era of AI-powered enterprise collaboration. This release strengthens enterprise task governance, optional-component isolation, desktop credential migration and update recovery so an unavailable optional capability does not prevent the core application from opening and working.
 
 - **Enterprise tasks and permissions**: Improve task outcome receipts, retry idempotency, audit responsibility, approval binding and recovery conflict protection. Workspace allocation rechecks permissions and resource state before writes.
 - **Runtime status and schedule recovery**: Add WatchDog state capsules, visible queue and scheduler failures, capacity admission controls and consistency checks after recovery.

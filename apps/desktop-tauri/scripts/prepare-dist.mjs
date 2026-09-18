@@ -9,6 +9,9 @@ import { captureBuildSource, desktopBuildMode, PREPARED_PROVENANCE_PATH, recordP
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const repository = join(root, '..', '..')
+const version = spawnSync(process.execPath, [join(root, 'scripts', 'desktop-version.mjs'), '--check'], { stdio: 'inherit', cwd: root })
+if (version.error) throw version.error
+if (version.status !== 0) process.exit(version.status ?? 1)
 const updater = spawnSync(process.execPath, [join(repository, 'frontends/updates/scripts/build.mjs'), '--check'], { stdio: 'inherit', cwd: repository })
 if (updater.error) throw updater.error
 if (updater.status !== 0) process.exit(updater.status ?? 1)

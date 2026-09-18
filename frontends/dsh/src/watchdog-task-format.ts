@@ -52,6 +52,8 @@ export interface TaskRecord extends z.infer<typeof definition> {
   execution: { sessionId: string; requestId: string; locale: 'zh-CN' | 'en-US'; commandId?: string } | null;
   waitingFor: string | null;
   evidence: Array<z.infer<typeof evidence>>;
+  /** Read-time evidence status; absent from durable rows and mutation requests. */
+  evidenceAvailability?: 'available' | 'unavailable' | 'unchecked';
   stateCapsules: z.infer<typeof stateCapsulesSchema>;
   completedCriteria: string[];
   submittedBy: string | null;
@@ -63,7 +65,8 @@ export const taskRecordSchema = z.object({ ...taskFields, id, organizationId: au
   status: z.enum(['draft', 'ready', 'in_progress', 'awaiting_review', 'accepted', 'failed', 'cancelled']),
   createdAt: z.string().datetime(), updatedAt: z.string().datetime(), source: z.enum(['new', 'imported-session']),
   sessionIds: z.array(id), execution: z.object({ sessionId: id, requestId: id, locale: z.enum(['zh-CN', 'en-US']).default('en-US'), commandId: id.optional() }).strict().nullable().default(null),
-  waitingFor: text.nullable(), evidence: z.array(evidence), stateCapsules: stateCapsulesSchema.default([]), completedCriteria: z.array(id),
+  waitingFor: text.nullable(), evidence: z.array(evidence), evidenceAvailability: z.enum(['available', 'unavailable', 'unchecked']).optional(),
+  stateCapsules: stateCapsulesSchema.default([]), completedCriteria: z.array(id),
   submittedBy: authorityId.nullable(), lastReview: z.object({ actorId: authorityId, decision: z.enum(['accept', 'reject']), comment: text, at: z.string().datetime() }).strict().nullable(),
 }).strict();
 
@@ -92,7 +95,7 @@ export type TaskHistoryPage = z.infer<typeof taskHistorySchema>;
 /** Task indicators never use Session.running as evidence of completion. */
 export function taskIndicators(task: TaskRecord, now = Date.now()) {
   return { overdue: task.dueAt !== null && Date.parse(task.dueAt) < now && task.status !== 'accepted' && task.status !== 'cancelled',
-    waiting: task.waitingFor !== null && (task.status === 'ready' || task.status === 'in_progress'), evidenceAvailability: 'unchecked' as const };
+    waiting: task.waitingFor !== null && (task.status === 'ready' || task.status === 'in_progress'), evidenceAvailability: task.evidenceAvailability ?? 'unchecked' };
 }
 
 /** Counts durable task signals for the WatchDog home result view. */

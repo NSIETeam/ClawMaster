@@ -30,6 +30,7 @@ async function fixture(locale = 'en-US', onRunExecution = async () => {}) {
   const routes = new Map();
   const remove = await mountWatchdogTasks({
     connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return async () => routes.delete(route.path); } } },
+    sessions: { get: id => String(id) === 'follow-up-session' ? { id } : undefined },
     tools: { register() { return () => {}; } }, approval: { request: async () => 'allowed-once' },
   }, store, new GovernanceAccess());
   disposals.push(remove);
@@ -73,8 +74,9 @@ it('creates, links, submits, rejects, resubmits and accepts a durable task witho
   expect(screen.getByText('Session idle')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: /Open execution session/ }));
   expect(opened).toEqual(['follow-up-session']);
-  const submit = async summary => {
-    fill('Evidence location', 'https://example.invalid/follow-up-report');
+  const submit = async (summary, useLinkedSession = false) => {
+    if (useLinkedSession) fill('Reference a linked Session', 'follow-up-session');
+    else fill('Evidence location', 'https://example.invalid/follow-up-report');
     fill('Evidence summary', summary);
     fill('Evidence observed at', '2026-09-16T10:00');
     fireEvent.click(screen.getByLabelText('Inspect the follow-up report'));
@@ -82,14 +84,16 @@ it('creates, links, submits, rejects, resubmits and accepts a durable task witho
     await status(client, 'awaiting_review');
   };
   await submit('Initial risk report');
-  expect(screen.getByText(/Evidence has not been verified/)).toBeTruthy();
+  expect(screen.getByText(/could not be checked automatically/)).toBeTruthy();
   fill('Review comment or action reason', 'Include the response from the customer');
   fireEvent.click(screen.getByRole('button', { name: 'Request rework' }));
   await status(client, 'ready');
   fill('Execution session', 'follow-up-session');
   fireEvent.click(screen.getByRole('button', { name: 'Start and submit task goal' }));
   await status(client, 'in_progress');
-  await submit('Updated report with customer response');
+  await submit('Updated report with customer response', true);
+  expect(client.getSnapshot().selected.evidence[0].location).toBe('dsh-session://follow-up-session');
+  expect(screen.getByText(/linked DSH Session is accessible/)).toBeTruthy();
   fill('Review comment or action reason', 'Reviewed the report and response');
   fireEvent.click(screen.getByRole('button', { name: 'Accept result' }));
   await status(client, 'accepted');

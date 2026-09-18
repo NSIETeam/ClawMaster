@@ -148,7 +148,9 @@ function Evidence({ task, locale }: { task: TaskRecord; locale: ProductLocale })
       <time dateTime={item.observedAt}>{dateText(item.observedAt, locale)}</time>
       {externalEvidence(item.location) && <a href={externalEvidence(item.location)} target="_blank" rel="noopener noreferrer">{copy.openEvidence}</a>}
     </div>)}
-    {task.evidence.length > 0 && <p className="cm-help">{copy.evidenceUnchecked}</p>}
+    {task.evidence.length > 0 && <p className="cm-help">{copy[
+      task.evidenceAvailability === 'available' ? 'evidenceAvailable'
+        : task.evidenceAvailability === 'unavailable' ? 'evidenceUnavailable' : 'evidenceUnchecked']}</p>}
   </div>;
 }
 
@@ -159,6 +161,7 @@ function TaskDetail({ task, locale, sessions, onOpenSession, disabled, onCommand
   const [sessionId, setSessionId] = useState(task.execution?.sessionId ?? task.sessionIds.at(-1) ?? '');
   const [comment, setComment] = useState('');
   const [dateError, setDateError] = useState(false);
+  const [evidenceLocationError, setEvidenceLocationError] = useState(false);
   const [editing, setEditing] = useState(false);
   const closed = task.status === 'accepted' || task.status === 'cancelled';
   return <section className="cm-task-detail" aria-label={copy.details}>
@@ -193,10 +196,16 @@ function TaskDetail({ task, locale, sessions, onOpenSession, disabled, onCommand
       const form = new FormData(event.currentTarget);
       const observed = new Date(String(form.get('observedAt')));
       if (!Number.isFinite(observed.getTime())) { setDateError(true); return; }
+      const evidenceSession = String(form.get('evidenceSession') ?? '');
+      const location = evidenceSession ? `dsh-session://${evidenceSession}` : String(form.get('location') ?? '').trim();
+      if (!location) { setEvidenceLocationError(true); return; }
       setDateError(false);
-      void onCommand({ type: 'submit', evidence: [{ id: crypto.randomUUID(), location: String(form.get('location')), observedAt: observed.toISOString(), summary: String(form.get('summary')) }],
+      setEvidenceLocationError(false);
+      void onCommand({ type: 'submit', evidence: [{ id: crypto.randomUUID(), location, observedAt: observed.toISOString(), summary: String(form.get('summary')) }],
         completedCriteria: form.getAll('criteria').map(String) });
-    }}><fieldset disabled={disabled}><label>{copy.evidenceLocation}<input name="location" required maxLength={2000} /></label>
+    }}><fieldset disabled={disabled}><label>{copy.evidenceSession}<select name="evidenceSession"><option value="">{copy.noEvidenceSession}</option>{task.sessionIds.map(id => <option key={id} value={id}>{sessions.find(session => session.id === id)?.title ?? id}</option>)}</select></label>
+      <p className="cm-help">{copy.evidenceLocationHint}</p><label>{copy.evidenceLocation}<input name="location" maxLength={2000} /></label>
+      {evidenceLocationError && <p role="alert">{copy.evidenceLocationRequired}</p>}
       <label>{copy.evidenceSummary}<textarea name="summary" required maxLength={4000} rows={2} /></label>
       <label>{copy.evidenceObserved}<input name="observedAt" required type="datetime-local" /></label>
       <fieldset><legend>{copy.checkedCriteria}</legend>{task.checklist.map(item => <label key={item.id}><input name="criteria" type="checkbox" value={item.id} required />{item.description}</label>)}</fieldset>

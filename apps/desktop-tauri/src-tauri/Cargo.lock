@@ -1223,7 +1223,7 @@ dependencies = [
 
 [[package]]
 name = "dsh-desktop"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "clawmaster-rpa-native",
  "dirs",

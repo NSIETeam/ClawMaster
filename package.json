@@ -14,6 +14,7 @@
     "native/system",
     "native/system/packages/*",
     "apps/*",
+    "frontends/credentials-keychain",
     "website"
   ],
   "scripts": {

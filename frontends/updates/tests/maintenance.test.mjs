@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -74,6 +74,54 @@ test('an unconfirmed startup is restored on the next maintenance pass and never 
   assert.equal((await maintainRestartComponents(f.dshHome))[0].state, 'rolled-back')
   assert.equal(await readFile(f.patch, 'utf8'), f.before)
   assert.deepEqual(await maintainRestartComponents(f.dshHome), [])
+})
+
+test('a maintenance process killed after updater selection but before the health receipt rolls back on the next launch', async t => {
+  const f = await fixture(t)
+  const child = spawn(process.execPath, ['--import', 'tsx/esm', '--input-type=module', '-e', `
+    import { maintainRestartComponents } from ${JSON.stringify(new URL('../src/components.ts', import.meta.url).href)};
+    const result = await maintainRestartComponents(${JSON.stringify(f.dshHome)});
+    process.stdout.write(JSON.stringify(result) + '\\n');
+    setInterval(() => {}, 60_000);
+  `], { stdio: ['ignore', 'pipe', 'pipe'] })
+  let output = ''
+  child.stdout.setEncoding('utf8').on('data', chunk => { output += chunk })
+  t.after(() => { if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL') })
+  const deadline = Date.now() + 10_000
+  while (!output.includes('\n')) {
+    if (child.exitCode !== null || child.signalCode !== null) throw new Error(`Maintenance child exited before selection: ${output}`)
+    if (Date.now() >= deadline) throw new Error(`Maintenance child did not report selection: ${output}`)
+    await new Promise(resolve => setTimeout(resolve, 10))
+  }
+  assert.deepEqual(JSON.parse(output.trim()), [{ token: f.operation.rollbackToken, id: 'updates', version: '0.1.3', state: 'awaiting-health', activation: 'restart' }])
+  assert.match(await readFile(f.patch, 'utf8'), /0\.1\.3/)
+  child.kill('SIGKILL')
+  const [code, signal] = await once(child, 'exit')
+  assert.equal(code, null)
+  assert.equal(signal, 'SIGKILL')
+
+  assert.equal((await maintainRestartComponents(f.dshHome))[0].state, 'rolled-back')
+  assert.equal(await readFile(f.patch, 'utf8'), f.before)
+  assert.equal((await listComponentOperations(f.dshHome)).find(row => row.token === f.operation.rollbackToken).state, 'rolled-back')
+})
+
+test('a filesystem size quota failure while journaling leaves the staged update and live profile intact', { skip: process.platform === 'win32' }, async t => {
+  const f = await fixture(t)
+  const child = spawn('sh', ['-c', 'ulimit -f 0; trap "" XFSZ; exec "$@"', 'sh', process.execPath,
+    '--import', 'tsx/esm', '--input-type=module', '-e', `
+      import { maintainRestartComponents } from ${JSON.stringify(new URL('../src/components.ts', import.meta.url).href)};
+      await maintainRestartComponents(${JSON.stringify(f.dshHome)});
+    `], { stdio: ['ignore', 'ignore', 'pipe'] })
+  let stderr = ''
+  child.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk })
+  t.after(() => { if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL') })
+  const [code, signal] = await once(child, 'exit')
+  assert.notEqual(code, 0)
+  assert.equal(signal, null)
+  assert.match(stderr, /EFBIG|file too large|File too large/)
+  assert.equal(JSON.parse(await readFile(f.journal, 'utf8')).state, 'staged')
+  assert.equal(await readFile(f.patch, 'utf8'), f.before)
+  assert.deepEqual((await readdir(join(f.dshHome, 'clawmaster-updates/operations'))).filter(name => name.endsWith('.tmp')), [])
 })
 
 test('crashes on either side of the profile replacement restore the last approved working selection', async t => {

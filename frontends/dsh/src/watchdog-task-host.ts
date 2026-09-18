@@ -13,7 +13,7 @@ import type { EnterpriseToolContext } from './enterprise-tools.ts';
 import { auditGovernanceOutcome, governanceResource, governanceResourceCollection, GovernanceAccess, GovernanceDenied } from './governance-access.ts';
 import type { GovernanceCaller } from './governance-access.ts';
 import { EnterpriseError } from './enterprise-types.ts';
-import { taskRequestSchema, TaskError } from './watchdog-tasks.ts';
+import { taskRequestSchema, taskResponseBytes, TaskError } from './watchdog-tasks.ts';
 import { taskExecutionOutcomeSchema, taskQuerySchema as querySchema } from './watchdog-task-format.ts';
 import { taskCommandOutput, taskCommandParameters, taskQueryOutput, taskQueryParameters } from './watchdog-task-schemas.ts';
 import type { ObservedTaskExecutionOutcome } from './governance-audit.ts';
@@ -87,6 +87,67 @@ function taskQueryWithVisibleCapsules(value: TaskRecord | TaskListPage | TaskHis
   identity: ExecutionIdentity, ctx: WatchdogTaskHostContext): TaskRecord | TaskListPage | TaskHistoryPage {
   if ('tasks' in value) return { ...value, tasks: value.tasks.map(task => taskWithVisibleCapsules(task, identity, ctx)) };
   return taskWithVisibleCapsules(value, identity, ctx);
+}
+
+function sessionEvidenceId(location: string): string | undefined {
+  const match = /^dsh-session:\/\/([A-Za-z0-9_-]{1,128})$/.exec(location);
+  return match?.[1];
+}
+
+async function sessionEvidenceAvailability(task: TaskRecord, identity: ExecutionIdentity, sessionId: string,
+  ctx: WatchdogTaskHostContext, access: GovernanceAccess, signal: AbortSignal): Promise<'available' | 'unavailable' | 'unchecked'> {
+  if (!task.sessionIds.includes(sessionId)) return 'unavailable';
+  try {
+    if (access.mode === 'enterprise') {
+      const target = await access.agent(sessionId, undefined, signal);
+      const targetIdentity = await target.check('task.read', governanceResource('task', task.id));
+      if (targetIdentity.organizationId !== identity.organizationId
+        || targetIdentity.principalId !== identity.principalId) return 'unavailable';
+    }
+    signal.throwIfAborted();
+    if (ctx.sessions.get(SessionId(sessionId))) return 'available';
+    if (!ctx.sessionPersistence) return 'unavailable';
+    const handle = await ctx.sessionPersistence.open(SessionId(sessionId), 'read', { signal });
+    try { signal.throwIfAborted(); return 'available'; }
+    finally { await handle.close(); }
+  } catch (error) {
+    if (signal.aborted) throw error;
+    if (error instanceof GovernanceDenied) return 'unavailable';
+    if (error instanceof Error && (('code' in error && error.code === 'not_found')
+      || error.name === 'SessionPersistenceNotFoundError')) return 'unavailable';
+    return 'unchecked';
+  }
+}
+
+/** Add non-persistent, owner-authorized availability for supported internal Session references. */
+async function taskWithEvidenceAvailability(task: TaskRecord, identity: ExecutionIdentity,
+  ctx: WatchdogTaskHostContext, access: GovernanceAccess, signal: AbortSignal): Promise<TaskRecord> {
+  if (task.evidence.length === 0) return task;
+  const states = await Promise.all(task.evidence.map(item => {
+    const sessionId = sessionEvidenceId(item.location);
+    return sessionId === undefined ? 'unchecked' : sessionEvidenceAvailability(task, identity, sessionId, ctx, access, signal);
+  }));
+  const evidenceAvailability = states.includes('unavailable') ? 'unavailable'
+    : states.every(state => state === 'available') ? 'available' : 'unchecked';
+  return { ...task, evidenceAvailability };
+}
+
+async function taskResultWithVisibleEvidence(task: TaskRecord, identity: ExecutionIdentity,
+  ctx: WatchdogTaskHostContext, access: GovernanceAccess, signal: AbortSignal, maxResponseBytes: number): Promise<TaskRecord> {
+  const result = await taskWithEvidenceAvailability(taskWithVisibleCapsules(task, identity, ctx), identity, ctx, access, signal);
+  if (taskResponseBytes(result) <= maxResponseBytes) return result;
+  const { evidenceAvailability: _evidenceAvailability, ...bounded } = result;
+  return bounded;
+}
+
+async function taskPageWithVisibleEvidence(value: TaskRecord | TaskListPage | TaskHistoryPage, identity: ExecutionIdentity,
+  ctx: WatchdogTaskHostContext, access: GovernanceAccess, signal: AbortSignal, maxResponseBytes: number): Promise<TaskRecord | TaskListPage | TaskHistoryPage> {
+  if ('tasks' in value) {
+    const result = { ...value, tasks: await Promise.all(value.tasks.map(task => taskWithEvidenceAvailability(taskWithVisibleCapsules(task, identity, ctx), identity, ctx, access, signal))) };
+    if (taskResponseBytes(result) <= maxResponseBytes) return result;
+    return { ...result, tasks: result.tasks.map(task => { const { evidenceAvailability: _availability, ...bounded } = task; return bounded; }) };
+  }
+  return taskResultWithVisibleEvidence(value, identity, ctx, access, signal, maxResponseBytes);
 }
 
 function taskExecutionOutcome(reason: { kind: string }): { outcome: 'succeeded' } | { outcome: 'failed'; reasonCode: string } | undefined {
@@ -287,13 +348,17 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       }
     }
   };
-  const query = (identity: Awaited<ReturnType<GovernanceAccess['http']>>['identity'], value: unknown) => {
+  const query = async (identity: Awaited<ReturnType<GovernanceAccess['http']>>['identity'], value: unknown, signal: AbortSignal) => {
     const parsed = querySchema.parse(value);
-    if (parsed.id) return taskQueryWithVisibleCapsules(parsed.history
+    let result: TaskRecord | TaskListPage | TaskHistoryPage;
+    if (parsed.id) result = taskQueryWithVisibleCapsules(parsed.history
       ? store.tasks.history(identity, parsed.id, parsed.after, parsed.limit)
       : store.tasks.get(identity, parsed.id), identity, ctx);
-    if (parsed.history) throw new EnterpriseError('invalid_request', 'History requires a task identifier.');
-    return taskQueryWithVisibleCapsules(store.tasks.list(identity, { ...(parsed.cursor ? { cursor: parsed.cursor } : {}), limit: parsed.limit }), identity, ctx);
+    else {
+      if (parsed.history) throw new EnterpriseError('invalid_request', 'History requires a task identifier.');
+      result = taskQueryWithVisibleCapsules(store.tasks.list(identity, { ...(parsed.cursor ? { cursor: parsed.cursor } : {}), limit: parsed.limit }), identity, ctx);
+    }
+    return taskPageWithVisibleEvidence(result, identity, ctx, access, signal, store.tasks.maxResponseBytes);
   };
   const dispose = (): Promise<void> => disposal ??= (async () => {
     lifetime.abort(new Error('Task consumers were unloaded.'));
@@ -369,7 +434,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
       const resource = input.id ? governanceResource('task', input.id) : governanceResourceCollection('task');
       const identity = await auditGovernanceOutcome(caller, store, 'task.read', undefined, () => caller.check('task.read', resource));
       lifetime.signal.throwIfAborted(); request.signal.throwIfAborted();
-      return Response.json(query(identity, input), { headers: { 'cache-control': 'no-store' } });
+      return Response.json(await query(identity, input, signal), { headers: { 'cache-control': 'no-store' } });
     }).catch(failure) }));
     removals.push(ctx.connection.fetch.register({ path: commandPath, methods: ['POST'], requestBody: 'streaming', fetch: request => run(() => commands.run(AbortSignal.any([request.signal, lifetime.signal]), async () => {
       const signal = AbortSignal.any([request.signal, lifetime.signal]);
@@ -389,13 +454,13 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
             createHash('sha256').update(JSON.stringify(input.command)).digest('hex'))
           : checked;
         signal.throwIfAborted();
-        if (replay) return Response.json(taskWithVisibleCapsules(replay, checked, ctx), { headers: { 'cache-control': 'no-store' } });
+        if (replay) return Response.json(await taskResultWithVisibleEvidence(replay, checked, ctx, access, signal, store.tasks.maxResponseBytes), { headers: { 'cache-control': 'no-store' } });
         if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
         if (input.command.type === 'start') await assertExecutionSessionOwner(access, await caller.check(action, resource), input.command.sessionId, input.id, signal);
         if (input.command.type === 'capsule') await validateCapsuleScope(ctx, access, identity,
           store.tasks.get(identity, input.id), input.command.scope, input.id, signal);
         signal.throwIfAborted();
-        return Response.json(taskWithVisibleCapsules(store.tasks.execute(identity, input), identity, ctx), { headers: { 'cache-control': 'no-store' } });
+        return Response.json(await taskResultWithVisibleEvidence(store.tasks.execute(identity, input), identity, ctx, access, signal, store.tasks.maxResponseBytes), { headers: { 'cache-control': 'no-store' } });
       }, signal);
     })).catch(failure) }));
     removals.push(ctx.connection.fetch.register({ path: `${tasksPath}/execution-outcome`, methods: ['POST'], requestBody: 'streaming', fetch: request => run(() => commands.run(AbortSignal.any([request.signal, lifetime.signal]), async () => {
@@ -428,7 +493,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
         const resource = input.id ? governanceResource('task', input.id) : governanceResourceCollection('task');
         const identity = await auditGovernanceOutcome(caller, store, 'task.read', undefined, () => caller.check('task.read', resource));
         lifetime.signal.throwIfAborted(); exec.signal.throwIfAborted();
-        return query(identity, input);
+        return query(identity, input, signal);
       }),
       presentCall: args => ({ card: 'generic', title: 'Read business task', kind: 'search', rawInput: JSON.stringify(args) }),
       presentResult: (_args, result) => ({ card: 'generic', title: 'Business task', content: result.content }),
@@ -452,7 +517,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
           if (!exec.agent) throw new GovernanceDenied();
           signal.throwIfAborted();
           const replay = store.tasks.replay(checked, input);
-          if (replay) return taskWithVisibleCapsules(replay, checked, ctx);
+          if (replay) return taskResultWithVisibleEvidence(replay, checked, ctx, access, signal, store.tasks.maxResponseBytes);
           const outcome = await ctx.approval.request({ agent: exec.agent, callId: exec.callId, toolName: exec.name,
             reason: `Approve this business task action at revision ${input.revision}: ${JSON.stringify(input)}`, signal });
           if (outcome !== 'allowed-once') throw new GovernanceDenied(`Task action ${outcome}.`, `approval_${outcome}`);
@@ -468,7 +533,7 @@ export async function mountWatchdogTasks(ctx: EnterpriseHostContext & Enterprise
           if (access.mode === 'local') identity.approval = { kind: 'dsh-one-shot' };
           if (input.command.type === 'create' || input.command.type === 'revise') await caller.checkOwner(input.command.task.owner);
           signal.throwIfAborted();
-          return taskWithVisibleCapsules(store.tasks.execute(identity, input), identity, ctx);
+          return taskResultWithVisibleEvidence(store.tasks.execute(identity, input), identity, ctx, access, signal, store.tasks.maxResponseBytes);
         }, signal);
       })),
       presentCall: args => ({ card: 'generic', title: 'Update business task', kind: 'edit', rawInput: JSON.stringify(args) }),

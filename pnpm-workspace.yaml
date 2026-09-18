@@ -7,6 +7,7 @@ packages:
   - native/system/packages/*
   # Product assemblies over the package tier; apps/cli owns the `dsh` bin.
   - apps/*
+  - frontends/credentials-keychain
   # Private package owning repository-level benchmark dependencies.
   - benchmarks
   - website

@@ -97,6 +97,79 @@ test('business status, waiting and overdue are independent of one linked idle Se
   }
 });
 
+test('task reads resolve only linked DSH Session references and leave external locations unchecked', async t => {
+  const { store } = await fixture(t);
+  const seed = (id, sessionId, location) => {
+    const run = (revision, command) => store.tasks.execute(LOCAL_HTTP_IDENTITY, { id, revision, commandId: randomUUID(), command });
+    run(0, { type: 'create', task: definition, ...(sessionId ? { importedSessionId: sessionId } : {}) });
+    run(1, { type: 'queue' });
+    run(2, { type: 'start', sessionId: sessionId ?? 'linked-session', requestId: `request-${id}` });
+    run(3, { type: 'submit', evidence: [{ id: 'evidence-1', location, observedAt: '2026-09-18T00:00:00.000Z', summary: 'Review source' }], completedCriteria: ['follow-up'] });
+  };
+  seed('task-available', 'session-persisted', 'dsh-session://session-persisted');
+  seed('task-missing', 'session-missing', 'dsh-session://session-missing');
+  seed('task-unlinked', 'session-live', 'dsh-session://other-session');
+  seed('task-external', 'session-live', 'https://example.invalid/report');
+  const routes = new Map();
+  let opened = 0; let closed = 0;
+  const originalFetch = globalThis.fetch;
+  let networkRequests = 0;
+  globalThis.fetch = async () => { networkRequests++; throw new Error('Evidence resolver must not fetch URLs.'); };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const ctx = { sessions: { get: id => id === SessionId('session-live') ? { id } : undefined },
+    sessionPersistence: { async open(id, mode) {
+      assert.equal(mode, 'read'); opened++;
+      if (id === SessionId('session-missing')) throw Object.assign(new Error('not found'), { name: 'SessionPersistenceNotFoundError' });
+      return { async close() { closed++; } };
+    } },
+    connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return async () => routes.delete(route.path); } } },
+    tools: { register() { return () => {}; } }, approval: { request: async () => 'allowed-once' },
+    on: () => () => {}, logger: { warn() {} } };
+  const remove = await mountWatchdogTasks(ctx, store, new GovernanceAccess());
+  t.after(remove);
+  const read = async id => {
+    const response = await routes.get('/api/clawmaster/tasks')(new Request(`http://fixture/api/clawmaster/tasks?id=${id}`));
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  assert.equal((await read('task-available')).evidenceAvailability, 'available');
+  assert.equal((await read('task-missing')).evidenceAvailability, 'unavailable');
+  assert.equal((await read('task-unlinked')).evidenceAvailability, 'unavailable');
+  assert.equal((await read('task-external')).evidenceAvailability, 'unchecked');
+  assert.equal(opened, 2);
+  assert.equal(closed, 1);
+  assert.equal(networkRequests, 0);
+});
+
+test('enterprise Session evidence requires a linked Session bound to the task owner', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'watchdog-enterprise-evidence-'));
+  const store = await openEnterpriseStore(join(root, 'enterprise.sqlite'), 5000, 'org-a');
+  t.after(async () => { store.close(); await rm(root, { recursive: true, force: true }); });
+  const owner = { actor: { kind: 'member', id: 'alice' }, principalId: 'alice', organizationId: 'org-a', source: 'http', policyVersion: 1 };
+  const seed = (id, sessionId) => {
+    const run = (revision, command) => store.tasks.execute(owner, { id, revision, commandId: randomUUID(), command });
+    run(0, { type: 'create', task: { ...definition, owner: { kind: 'member', id: 'alice' } }, importedSessionId: sessionId });
+    run(1, { type: 'queue' }); run(2, { type: 'start', sessionId, requestId: `request-${id}` });
+    run(3, { type: 'submit', evidence: [{ id: 'ev', location: `dsh-session://${sessionId}`, observedAt: '2026-09-18T00:00:00.000Z', summary: 'Review Session' }], completedCriteria: ['follow-up'] });
+  };
+  seed('task-owner-session', 'owner-session'); seed('task-foreign-session', 'foreign-session');
+  const authority = {
+    http: async () => ({ organizationId: 'org-a', memberId: 'alice', actor: 'human' }),
+    agent: async sessionId => ({ organizationId: 'org-a', memberId: sessionId === 'owner-session' ? 'alice' : 'bob', actor: 'agent', sessionId }),
+    membership: async () => ({ active: true, roles: ['administrator'], policyVersion: 1, resources: ['task/*'] }),
+    consumeApproval: async () => undefined,
+  };
+  const routes = new Map();
+  const ctx = { sessions: { get: () => undefined }, sessionPersistence: { async open() { return { async close() {} }; } },
+    connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return async () => routes.delete(route.path); } } },
+    tools: { register() { return () => {}; } }, approval: { request: async () => 'allowed-once' }, on: () => () => {}, logger: { warn() {} } };
+  const remove = await mountWatchdogTasks(ctx, store, new GovernanceAccess({ mode: 'enterprise', organizationId: 'org-a', authority }));
+  t.after(remove);
+  const read = async id => (await routes.get('/api/clawmaster/tasks')(new Request(`http://fixture/api/clawmaster/tasks?id=${id}`))).json();
+  assert.equal((await read('task-owner-session')).evidenceAvailability, 'available');
+  assert.equal((await read('task-foreign-session')).evidenceAvailability, 'unavailable');
+});
+
 test('state capsules survive store reopen, refresh target and approval state, and enforce owner and scope ACLs', async t => {
   const { store, path } = await fixture(t);
   const owner = { ...LOCAL_HTTP_IDENTITY, organizationId: 'org-1', principalId: 'alice+工作@example.com', actor: { kind: 'member', id: 'member-1' } };

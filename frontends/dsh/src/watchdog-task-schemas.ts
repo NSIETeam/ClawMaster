@@ -52,7 +52,8 @@ const task = { type: 'object', additionalProperties: false, properties: { ...tas
   id: text, organizationId: text, revision: integer, status: { ...text, enum: ['draft', 'ready', 'in_progress', 'awaiting_review', 'accepted', 'failed', 'cancelled'] },
   createdAt: text, updatedAt: text, source: { ...text, enum: ['new', 'imported-session'] }, sessionIds: strings,
   execution: { required: true, oneOf: [{ type: 'null' }, { type: 'object', additionalProperties: false, properties: { sessionId: text, requestId: text, locale: { type: 'string', enum: ['zh-CN', 'en-US'] }, commandId: { type: 'string' } } }] },
-  waitingFor: nullableText, evidence, stateCapsules, completedCriteria: strings, submittedBy: nullableText,
+  waitingFor: nullableText, evidence, evidenceAvailability: { type: 'string', enum: ['available', 'unavailable', 'unchecked'] },
+  stateCapsules, completedCriteria: strings, submittedBy: nullableText,
   lastReview: { required: true, oneOf: [{ type: 'null' }, { type: 'object', additionalProperties: false,
     properties: { actorId: text, decision: { ...text, enum: ['accept', 'reject'] }, comment: text, at: text } }] },
 } } as const;
