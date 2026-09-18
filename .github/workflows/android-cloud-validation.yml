@@ -26,6 +26,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Guard the production Node build target
+        run: node --test apps/android/scripts/android-node-build-workflow.test.mjs
+
       - name: Install Android NDK
         shell: bash
         run: |
@@ -52,7 +55,7 @@ jobs:
           cd "$RUNNER_TEMP/node-v22.19.0"
           export CC_host=gcc CXX_host=g++ AR_host=gcc-ar
           ./android-configure "$ANDROID_HOME/ndk/28.2.13676358" 26 "${{ matrix.arch }}"
-          make -j"$(nproc)"
+          make -C out BUILDTYPE=Release V=0 node -j"$(nproc)"
 
       - name: Verify Android ELF alignment and collect runtime files
         shell: bash
