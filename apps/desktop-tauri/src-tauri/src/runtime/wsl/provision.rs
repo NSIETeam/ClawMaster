@@ -505,6 +505,8 @@ mod tests {
         let harness_bin =
             format!("/home/u/.local/share/dsh-desktop/harness-versions/{hash}/apps/cli/lib/bin.js");
         let preferred_node = "/home/u/.local/share/dsh-desktop/runtime/node/bin/node";
+        let cred_dest = "/home/u/.credentials.yaml";
+        let env_dest = "/home/u/.env";
 
         let runner = Scripted::new(vec![
             (
