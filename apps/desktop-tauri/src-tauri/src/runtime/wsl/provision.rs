@@ -669,7 +669,7 @@ mod tests {
         assert_eq!(paths.linux_dsh_home, "/home/u/.dsh");
         assert_eq!(
             paths.linux_credential_roots,
-            vec![super::windows_to_wsl_mount(&fs::canonicalize(&windows_home).unwrap()).unwrap()]
+            vec![super::windows_to_wsl_mount(&windows_home).unwrap()]
         );
         assert_eq!(
             paths.linux_harness_root,
