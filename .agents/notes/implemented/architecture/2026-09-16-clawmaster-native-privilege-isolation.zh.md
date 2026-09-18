@@ -14,6 +14,19 @@ Status: implemented
 
 [包内页面 CSP](../../../../apps/desktop-tauri/src-tauri/tauri.conf.json) 默认拒绝资源，仅允许同源脚本、样式与图片，连接限于 Tauri IPC。外壳和启动页加载本地脚本及样式表文件；策略不授予 `unsafe-inline` 或 `unsafe-eval`。frame、对象嵌入、表单提交与基础 URL 覆盖均被拒绝。该策略不能替代独立 Host 的网页资源策略或 DSH 工具权限。[运行治理决策](2026-09-13-clawmaster-runtime-governance.zh.md)继续负责执行策略；插件仍是具有 Host 进程权限的可信代码。
 
+## 各入口的威胁面
+
+| 入口 | 允许的权限 | 强制限制 | 证据与限制 |
+| --- | --- | --- | --- |
+| 包内 `main` 外壳 | 窗口拖动与三个已注册外壳命令 | 唯一 capability 仅匹配 `main` WebView；包内资源使用上述精确 CSP | capability 与 CSP 源码测试；安装后的 WebView 行为仍需平台验收 |
+| `splash` WebView | 无原生命令 | 无匹配 capability，并使用包内页面 CSP | capability 与页面资源测试；平台行为仍未验证 |
+| 已认证 Host WebView | Host HTTP 内容及其 DSH 工具 | 独立 WebView；精确数字回环 HTTP 来源与端口；无原生 capability | Rust URL 单元测试；不会约束 MCP、Office 或 RPA provider 中的每项操作 |
+| Office 许可说明文档视图 | 显示精确的同源说明页 | 无原生 capability；路径精确且不带查询参数；导航保持在该路径 | URL 分类测试；跨平台文档渲染与文件副作用仍未验证 |
+| 外部浏览器交接 | 不含凭据的外部 HTTP(S) 引用 | 启动前拒绝回环地址、本地名称、内嵌凭据及可执行协议 | URL 分类测试；操作系统浏览器行为不由应用强制 |
+| 进程内插件 | Host 进程权限 | WebView ACL 不会隔离加载到 Host 进程中的插件 | 仅采用可信代码假设；尚未实现恶意同进程插件隔离 |
+
+桌面 profile 的只读 sandbox 与需询问审批默认值适用于新 profile 中的 DSH 工具执行；这不能证明每个集成都通过这些控制处理所有副作用。现有用户设置会保留。跨平台真实文件副作用、完整 MCP/Office/RPA 执行约束及恶意同进程插件隔离，不在这些源码检查的验收范围内。
+
 ## Alternatives considered
 
 **授权给父窗口或 localhost 通配符。** 这些规则会授权子视图或无关监听器。[原生窗口决策](../feature/2026-09-13-clawmaster-native-window-titlebar.zh.md)已经将拖动与窗口控件交给原生装饰。

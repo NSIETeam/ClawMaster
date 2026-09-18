@@ -14,6 +14,19 @@ The [capability](../../../../apps/desktop-tauri/src-tauri/capabilities/default.j
 
 The [packaged-page CSP](../../../../apps/desktop-tauri/src-tauri/tauri.conf.json) defaults to denying resources and permits same-origin scripts, styles and images, with connections limited to Tauri IPC. The shell and splash pages load local script and stylesheet files; the policy grants neither `unsafe-inline` nor `unsafe-eval`. Frames, object embeds, form actions and base-URL overrides are denied. This policy does not replace the separate Host's web-resource policy or DSH tool permissions. The [runtime-governance decision](2026-09-13-clawmaster-runtime-governance.md) retains execution-policy ownership; plugins remain trusted code with Host-process authority.
 
+## Entry-point threat surface
+
+| Entry point | Allowed authority | Enforced restriction | Evidence and limit |
+| --- | --- | --- | --- |
+| Packaged `main` shell | Window dragging and the three registered shell commands | The only capability targets WebView `main`; packaged resources use the exact CSP above | Capability and CSP source tests; installed WebView behavior still needs platform acceptance |
+| `splash` WebView | No native command | It has no matching capability and uses the packaged-page CSP | Capability and page-resource tests; platform behavior remains unverified |
+| Authenticated Host WebView | Host HTTP content and its DSH tools | Separate WebView; exact numeric loopback HTTP origin and port; no native capability | Rust URL unit tests; they do not constrain every action in MCP, Office, or RPA providers |
+| Office notice document view | Display of the exact same-origin notice | No native capability; exact notice path and no query; navigation remains on that path | URL classifier tests; cross-platform document rendering and file side effects remain unverified |
+| External browser handoff | External credential-free HTTP(S) references | Loopback and local names, embedded credentials, and executable schemes are rejected before launch | URL classifier tests; OS browser behavior is outside the app's enforcement |
+| In-process plugins | Their Host-process authority | WebView ACL does not isolate plugins loaded into the Host process | Trusted-code assumption only; malicious same-process plugin containment is not implemented |
+
+The desktop profile's read-only sandbox and ask-for-approval defaults govern DSH tool execution for a fresh profile; they do not prove that every integration routes all effects through those controls. Existing user settings are retained. Cross-platform real-file side effects, complete MCP/Office/RPA mediation, and hostile same-process plugin isolation are not accepted by these source checks.
+
 ## Alternatives considered
 
 **Grant permissions to the parent window or localhost wildcard.** These rules authorize child views or unrelated listeners. The [native-window decision](../feature/2026-09-13-clawmaster-native-window-titlebar.md) already assigns dragging and controls to native decorations.

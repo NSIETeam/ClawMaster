@@ -61,15 +61,17 @@ function enterpriseAuthority() {
   let active = true, afterApproval = false, checks = 0;
   let policyVersion = 1;
   let finalCheck = async () => {};
+  let approvalRequest;
   const authority = {
     async http() { return { organizationId: 'acme', memberId: 'admin', actor: 'human' }; }, async agent() { return undefined; },
     async membership(_org, member) {
       if (afterApproval && member === 'admin') await finalCheck(++checks);
       return { active, roles: member === 'reviewer' ? ['approver'] : ['administrator'], policyVersion, resources: ['*'] };
     },
-    async consumeApproval() { afterApproval = true; return { id: 'approved', approverId: 'reviewer' }; },
+    async consumeApproval(request) { approvalRequest = request; afterApproval = true; return { id: 'approved', approverId: 'reviewer' }; },
   };
-  return { access: new GovernanceAccess({ mode: 'enterprise', organizationId: 'acme', authority }), revoke() { active = false; }, changePolicy() { policyVersion++; }, onFinalCheck(callback) { finalCheck = callback; } };
+  return { access: new GovernanceAccess({ mode: 'enterprise', organizationId: 'acme', authority }), revoke() { active = false; },
+    changePolicy() { policyVersion++; }, approvalRequest() { return approvalRequest; }, onFinalCheck(callback) { finalCheck = callback; } };
 }
 test('restore responsibility records the final checked policy and retains the independently consumed approval', async t => {
   const authority = enterpriseAuthority(); const f = await fixture(t, { access: authority.access, organizationId: 'acme' });
@@ -82,6 +84,10 @@ test('restore responsibility records the final checked policy and retains the in
   assert.equal(entry.identity.approval.kind, 'authority');
   assert.equal(entry.identity.approval.id, 'approved');
   assert.equal(entry.identity.approval.approverId, 'reviewer');
+  assert.equal(entry.identity.approval.generation, 0);
+  assert.equal(entry.identity.approval.revision, 1);
+  assert.deepEqual(authority.approvalRequest(), { organizationId: 'acme', executorId: 'admin', action: 'backup.restore', resource: '*',
+    commandId: 'restore-one', generation: 0, revision: 1, commandDigest: prepared.backupSha256 });
 });
 test('authority revoked across approval prevents restore and records denial', async t => {
   const authority = enterpriseAuthority();

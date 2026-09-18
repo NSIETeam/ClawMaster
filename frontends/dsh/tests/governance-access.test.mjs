@@ -312,6 +312,54 @@ test('HTTP read/export/write paths refuse cross-organization and missing identit
   assert.equal(store.snapshot().revision, 1);
 });
 
+test('foreign organization identity cannot use registered HTTP, export, or DSH tool paths', async t => {
+  const h = authorityFixture();
+  h.principals.set('foreign-member', { organizationId: 'two', memberId: 'foreign-member', actor: 'human' });
+  h.principals.set('desktop-token', undefined);
+  h.principals.set('foreign-session', { organizationId: 'two', memberId: 'foreign-member', actor: 'agent', sessionId: 'foreign-session' });
+  const store = await openEnterpriseStore(':memory:', 5000, 'one');
+  const routes = new Map();
+  const routeContext = { connection: { fetch: { register(route) { routes.set(route.path, route.fetch); return async () => routes.delete(route.path); } } } };
+  const removeRoutes = await mountEnterpriseRoutes(routeContext, store, h.access);
+  const toolDefinitions = new Map();
+  const removeTools = await applyEnterpriseTools({
+    tools: { register(definition) { toolDefinitions.set(definition.name, definition); return () => toolDefinitions.delete(definition.name); } },
+    approval: { request: async () => 'allowed-once' },
+  }, store, {}, h.access);
+  t.after(async () => { await removeTools(); await removeRoutes(); store.close(); });
+
+  const foreignHeaders = { authorization: 'foreign-member', 'content-type': 'application/json' };
+  const query = { collection: 'contacts', offset: 0, limit: 10 };
+  const snapshotPath = '/api/clawmaster/enterprise';
+  assert.equal((await routes.get(snapshotPath)(new Request(`http://fixture${snapshotPath}`, { headers: foreignHeaders }))).status, 403);
+  const exportPath = '/api/clawmaster/enterprise/backup';
+  assert.equal((await routes.get(exportPath)(new Request(`http://fixture${exportPath}`, { headers: foreignHeaders }))).status, 403);
+  const commandPath = '/api/clawmaster/enterprise/command';
+  const foreignCommand = { type: 'contact.upsert', contact: {
+    id: 'foreign-record', name: 'Must not be written', company: '', stage: 'lead', nextAction: '', nextActionDate: null,
+  } };
+  assert.equal((await routes.get(commandPath)(new Request(`http://fixture${commandPath}`, { method: 'POST', headers: foreignHeaders,
+    body: JSON.stringify({ generation: 0, revision: 0, commandId: 'foreign-write', command: foreignCommand }) }))).status, 403);
+
+  const identityForgery = await routes.get(commandPath)(new Request(`http://fixture${commandPath}`, { method: 'POST',
+    headers: { authorization: 'alice', 'content-type': 'application/json' }, body: JSON.stringify({ generation: 0, revision: 0,
+      commandId: 'forged-identity', organizationId: 'one', memberId: 'alice', actor: { kind: 'member', id: 'alice' },
+      command: foreignCommand }) }));
+  assert.equal(identityForgery.status, 400, 'strict command parsing rejects caller-supplied identity fields');
+
+  const session = Session.create(SessionId('foreign-session'));
+  await assert.rejects(toolDefinitions.get('enterprise_query').execute(query, {
+    name: 'enterprise_query', agent: { id: session.id, session }, callId: 'foreign-query', signal: new AbortController().signal,
+  }), { code: 'permission_denied' });
+  assert.equal(store.snapshot().revision, 0);
+  assert.equal(store.snapshot().contacts.length, 0);
+
+  for (const authorization of ['', 'desktop-token']) {
+    assert.equal((await routes.get(exportPath)(new Request(`http://fixture${exportPath}`, { headers: { authorization } }))).status, 403,
+      'a missing or unrecognized desktop token cannot become enterprise identity');
+  }
+});
+
 test('workspace allocation checks live organization identity and the requested resource before creating a directory', async t => {
   const h = authorityFixture();
   h.members.set('alice', { active: true, roles: ['executor'], resources: [governanceResource('workspace', 'task')], policyVersion: 2 });
@@ -697,6 +745,7 @@ test('restore approval refusal and read-tool denials retain only authenticated o
   assert.equal(restored[0].operation, 'backup.restore');
   assert.equal(restored[0].identity.actor.id, 'admin');
   assert.equal(restored[0].reasonCode, 'approval_missing');
+  assert.equal(restored[0].stage, 'authorization');
   assert.equal(store.snapshot().generation, 0);
   h.members.set('alice', { active: true, roles: ['executor'], resources: [], policyVersion: 2 });
   const exec = { agent: { id: 'session-alice' }, callId: 'denied-query', signal: new AbortController().signal };

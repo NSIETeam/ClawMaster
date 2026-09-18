@@ -32,12 +32,21 @@ test('only the packaged shell owns native controls and application commands', ()
 
 test('packaged pages limit scripts, network, frames and navigation without broad origins', () => {
   const csp = JSON.parse(readFileSync(new URL('tauri.conf.json', native), 'utf8')).app.security.csp
-  assert.equal(csp['default-src'], "'none'")
-  assert.equal(csp['script-src'], "'self'")
-  assert.equal(csp['style-src'], "'self'")
-  assert.equal(csp['connect-src'], 'ipc: http://ipc.localhost')
-  for (const name of ['object-src', 'frame-src', 'base-uri', 'form-action']) assert.equal(csp[name], "'none'")
-  assert.ok(!Object.values(csp).some(value => value.includes('*') || value.includes('unsafe-eval')))
+  assert.deepEqual(csp, {
+    'default-src': "'none'",
+    'script-src': "'self'",
+    'style-src': "'self'",
+    'img-src': "'self'",
+    'connect-src': 'ipc: http://ipc.localhost',
+    'object-src': "'none'",
+    'frame-src': "'none'",
+    'base-uri': "'none'",
+    'form-action': "'none'",
+  })
+  for (const directive of ['script-src', 'style-src', 'img-src', 'connect-src']) {
+    assert.doesNotMatch(csp[directive], /\*/u, `${directive} must not authorize wildcard origins`)
+    assert.doesNotMatch(csp[directive], /unsafe-(?:inline|eval)/u, `${directive} must not permit executable inline content`)
+  }
   for (const page of ['shell', 'splash']) {
     const html = readFileSync(new URL(`../${page}.html`, import.meta.url), 'utf8')
     assert.doesNotMatch(html, /<style[\s>]/u, `${page} must load styles from a CSP-allowed local file`)

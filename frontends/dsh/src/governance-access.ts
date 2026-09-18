@@ -143,7 +143,8 @@ export interface GovernanceCaller {
 
 /** The durable store records metadata without receiving command bodies or exception messages. */
 interface GovernanceOutcomeStore {
-  recordOutcome(identity: ExecutionIdentity, operation: string, outcome: 'denied' | 'cancelled' | 'failed', commandId: string | undefined, reasonCode: string): void;
+  recordOutcome(identity: ExecutionIdentity, operation: string, outcome: 'denied' | 'cancelled' | 'failed', commandId: string | undefined, reasonCode: string,
+    stage?: 'validation' | 'authorization' | 'revision_check' | 'apply' | 'commit'): void;
 }
 
 /** Cancellation fences each authority await; a late provider result cannot continue authorization. */
@@ -168,17 +169,19 @@ function waitForAuthority<T>(signal: AbortSignal | undefined, start: () => Promi
  * @param commandId Validated command identifier, when available.
  * @param action Work without its own unsuccessful-outcome recorder.
  * @param signal Cancellation source whose exact reason distinguishes cancellation from failure.
+ * @param failureStage Resolve the restore phase only when the operation fails.
  * @returns The action result; errors propagate after the metadata record commits.
  */
 export async function auditGovernanceOutcome<T>(caller: GovernanceCaller, store: GovernanceOutcomeStore, operation: string,
-  commandId: string | undefined, action: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  commandId: string | undefined, action: () => Promise<T>, signal?: AbortSignal,
+  failureStage?: () => 'validation' | 'authorization' | 'revision_check' | 'apply' | 'commit'): Promise<T> {
   try { return await action(); }
   catch (error) {
     const denied = error instanceof Error && 'code' in error && error.code === 'permission_denied';
     const aborted = signal?.aborted && error === signal.reason;
     const reason = error instanceof GovernanceDenied ? error.reasonCode : aborted ? 'operation_cancelled' : denied ? 'permission_denied' : 'operation_failed';
     const outcome = aborted || reason === 'approval_cancelled' ? 'cancelled' : reason === 'approval_unavailable' || !denied ? 'failed' : 'denied';
-    store.recordOutcome(caller.identity, operation, outcome, commandId, reason);
+    store.recordOutcome(caller.identity, operation, outcome, commandId, reason, failureStage?.());
     throw error;
   }
 }

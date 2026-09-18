@@ -62,6 +62,9 @@ test('restore validation and transaction failures retain distinct failed outcome
   const backup = store.backup();
   store.execute({ revision: 0, commandId: 'a', command: contact('A') });
   assert.throws(() => store.restore({}, 1, 0, LOCAL_HTTP_IDENTITY, 'invalid'));
+  assert.equal(store.responsibility({ commandId: 'invalid' }).records[0].stage, 'validation');
+  assert.throws(() => store.restore(backup, 0, 0, LOCAL_HTTP_IDENTITY, 'stale'), { code: 'revision_conflict' });
+  assert.equal(store.responsibility({ commandId: 'stale' }).records[0].stage, 'revision_check');
   const fault = new DatabaseSync(path);
   try {
     fault.exec("CREATE TRIGGER fail_restore BEFORE DELETE ON contacts BEGIN SELECT RAISE(ABORT, 'fixture'); END;");
@@ -69,6 +72,7 @@ test('restore validation and transaction failures retain distinct failed outcome
     assert.equal(store.snapshot().contacts[0].name, 'A');
     assert.equal(store.snapshot().generation, 0);
     assert.equal(store.responsibility({ commandId: 'failed' }).records[0].outcome, 'failed');
+    assert.equal(store.responsibility({ commandId: 'failed' }).records[0].stage, 'apply');
     assert.equal(store.responsibility({ commandId: 'invalid' }).records[0].reasonCode, 'backup_invalid');
     assert.equal(store.responsibility({ operation: 'backup.restore' }).records.some(row => row.outcome === 'succeeded'), false);
   } finally { fault.close(); }

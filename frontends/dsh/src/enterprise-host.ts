@@ -287,14 +287,15 @@ export class EnterpriseStore {
     } catch (error) { this.db.exec('ROLLBACK'); throw error; }
   }
 
-  /** Record a denied or cancelled action without storing its business body. */
-  recordOutcome(identity: ExecutionIdentity, operation: string, outcome: 'denied' | 'cancelled' | 'failed', commandId: string | undefined, reasonCode: string): void {
+  /** Record an unsuccessful action without business contents; restore failures include their failure phase. */
+  recordOutcome(identity: ExecutionIdentity, operation: string, outcome: 'denied' | 'cancelled' | 'failed', commandId: string | undefined, reasonCode: string,
+    stage?: 'validation' | 'authorization' | 'revision_check' | 'apply' | 'commit'): void {
     this.assertOpen();
     this.db.exec('BEGIN IMMEDIATE');
     try {
       const generation = this.generation();
       const revision = this.revision();
-      appendResponsibility(this.db, { identity, operation, outcome, ...(commandId === undefined ? {} : { commandId }), reasonCode,
+      appendResponsibility(this.db, { identity, operation, outcome, ...(commandId === undefined ? {} : { commandId }), reasonCode, ...(stage ? { stage } : {}),
         generationBefore: generation, generationAfter: generation, revisionBefore: revision, revisionAfter: revision });
       this.db.exec('COMMIT');
     } catch (error) { this.db.exec('ROLLBACK'); throw error; }
@@ -514,14 +515,16 @@ export class EnterpriseStore {
     this.assertOpen();
     let backup: EnterpriseBackup;
     try { backup = parseEnterpriseBackup(value); }
-    catch (error) { this.recordOutcome(identity, 'backup.restore', 'failed', commandId, 'backup_invalid'); throw error; }
+    catch (error) { this.recordOutcome(identity, 'backup.restore', 'failed', commandId, 'backup_invalid', 'validation'); throw error; }
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || !Number.isSafeInteger(expectedGeneration) || expectedGeneration < 0) {
+      this.recordOutcome(identity, 'backup.restore', 'failed', commandId, 'invalid_request', 'validation');
       throw new EnterpriseError('invalid_request', 'Restore confirmation revision is invalid.');
     }
     const commands = new Map(backup.auditCommands.map(entry => [entry.revision, entry.commandJson]));
     const backupSha256 = createHash('sha256').update(JSON.stringify(backup)).digest('hex');
     const requestHash = createHash('sha256').update(JSON.stringify({ backupSha256, expectedGeneration, expectedRevision, actor: identity.actor, principalId: identity.principalId ?? null, organizationId: identity.organizationId })).digest('hex');
     const before = { generation: this.generation(), revision: this.revision() };
+    let failureStage: 'revision_check' | 'apply' | 'commit' = 'revision_check';
     this.db.exec('BEGIN IMMEDIATE');
     try {
       const receipt = this.db.prepare('SELECT requestHash FROM restore_receipts WHERE commandId = ?').get(commandId);
@@ -534,6 +537,7 @@ export class EnterpriseStore {
       this.assertGeneration(expectedGeneration);
       if (this.revision() !== expectedRevision) throw new EnterpriseError('revision_conflict', 'Enterprise data changed. Refresh before restoring.', this.revision());
       if (!Number.isSafeInteger(expectedGeneration + 1)) throw new EnterpriseError('numeric_overflow', 'Enterprise restore counter exceeds the supported integer range.');
+      failureStage = 'apply';
       this.db.exec('DELETE FROM order_lines; DELETE FROM orders; DELETE FROM contacts; DELETE FROM inventory; DELETE FROM enterprise_audit;');
       const insertContact = this.db.prepare('INSERT INTO contacts (id, name, company, stage, nextAction, nextActionDate, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)');
       for (const row of backup.snapshot.contacts) insertContact.run(row.id, row.name, row.company, row.stage, row.nextAction, row.nextActionDate, row.updatedAt);
@@ -554,6 +558,7 @@ export class EnterpriseStore {
         insertAudit.run(entry.revision, entry.commandId, entry.type, entry.entityId, entry.at, commandJson, JSON.stringify(entry.before), JSON.stringify(entry.after));
       }
       this.db.prepare('UPDATE enterprise_meta SET revision = ?, generation = ? WHERE singleton = 1').run(backup.snapshot.revision, expectedGeneration + 1);
+      failureStage = 'commit';
       appendResponsibility(this.db, { identity, operation: 'backup.restore', outcome: 'succeeded', commandId, backupSha256,
         generationBefore: before.generation, revisionBefore: before.revision,
         generationAfter: expectedGeneration + 1, revisionAfter: backup.snapshot.revision });
@@ -568,7 +573,7 @@ export class EnterpriseStore {
       try {
         appendResponsibility(this.db, { identity, operation: 'backup.restore', outcome: 'failed', commandId, backupSha256,
           generationBefore: before.generation, revisionBefore: before.revision, generationAfter: this.generation(), revisionAfter: this.revision(),
-          reasonCode: error instanceof EnterpriseError ? error.code : 'transaction_failed' });
+          reasonCode: error instanceof EnterpriseError ? error.code : 'transaction_failed', stage: failureStage });
         this.db.exec('COMMIT');
       } catch (auditError) { this.db.exec('ROLLBACK'); throw new EnterpriseError('storage_unavailable', 'Restore failed and its failure could not be recorded.'); }
       if (error instanceof EnterpriseError) throw error;

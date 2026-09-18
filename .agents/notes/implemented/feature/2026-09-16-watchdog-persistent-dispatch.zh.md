@@ -34,4 +34,4 @@ Schema 2 要求升级前停止所有工作进程。未停止的新鲜心跳会�
 
 ## 验证
 
-[存储测试](../../../../frontends/dsh/tests/watchdog-schedule.test.mjs)覆盖有界漏跑、夏令时校验、命令回执、组织隔离、到期、租约隔离、滚动接纳，以及两个真实进程在单次副作用记录后崩溃的情形。[Host 重放](../../../../frontends/dsh/tests/watchdog-schedule-host.scenario.mjs)挂载正式 AgentLoop、Jobs、审批与 JSONL 持久化，验证单次持久派发、审批缺席、落盘期间的委派撤销、不确定状态和取消。[管理面板测试](../../../../frontends/dsh/tests/schedule-board.client.spec.mjs)验证有效计划没有在线进程时显示告警，并在工作进程心跳恢复后清除告警；失败与不确定实例计数会到达首页健康区；网络恢复会触发状态读取。Host 重放的包内夹具固定预定模型输入，不依赖当前墙钟。
+[存储测试](../../../../frontends/dsh/tests/watchdog-schedule.test.mjs)覆盖有界漏跑、关闭并重开 SQLite 账本后的有界补跑与稳定实例标识、夏令时校验、命令回执、组织隔离、到期、租约隔离、滚动接纳，以及两个真实进程在单次副作用记录后崩溃的情形。[Host 重放](../../../../frontends/dsh/tests/watchdog-schedule-host.scenario.mjs)挂载正式 AgentLoop、Jobs、审批与 JSONL 持久化，验证单次持久派发、审批缺席、落盘期间的委派撤销、不确定状态和取消。[管理面板测试](../../../../frontends/dsh/tests/schedule-board.client.spec.mjs)验证有效计划没有在线进程时显示告警，并在工作进程心跳恢复后清除告警；失败与不确定实例计数会到达首页健康区；网络恢复会触发状态读取。Host 重放的包内夹具固定预定模型输入，不依赖当前墙钟。

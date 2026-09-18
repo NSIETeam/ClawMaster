@@ -238,8 +238,10 @@ export async function mountEnterpriseBackupRoutes(ctx: EnterpriseHostContext, st
           const handle = await open(file, 'r');
           try { restore = restoreBackupRequestSchema.parse(JSON.parse(await handle.readFile('utf8'))); } finally { await handle.close(); }
         } finally { await rm(directory, { recursive: true, force: true }); }
+        let failureStage: 'validation' | 'authorization' | 'revision_check' | 'apply' | 'commit' = 'validation';
         return await auditGovernanceOutcome(caller, store, 'backup.restore', restore.commandId, async () => {
           let identity = await caller.check('backup.restore');
+          failureStage = 'authorization';
           const replay = store.restoreReceipt(restore, identity);
           if (replay) return Response.json(replay, { headers: { 'cache-control': 'no-store' } });
           const entry = prepared.get(restore.token);
@@ -250,16 +252,21 @@ export async function mountEnterpriseBackupRoutes(ctx: EnterpriseHostContext, st
           try {
             const result = await run('restore', entry.file, signal, async phase => {
               if (phase === 'validated') {
+                failureStage = 'authorization';
                 identity = access.mode === 'enterprise' ? await caller.approve('backup.restore', '*', restore.commandId,
                   restore.expectedGeneration, restore.expectedRevision, restore.backupSha256) : await caller.check('backup.restore');
                 signal.throwIfAborted();
+                failureStage = 'revision_check';
                 const current = store.overview();
                 if (current.generation !== restore.expectedGeneration || current.revision !== restore.expectedRevision) throw new EnterpriseError('revision_conflict', 'Enterprise data changed during review.');
                 restoreWriterWait = store.withoutWriterWait();
+                failureStage = 'apply';
                 return { phase: 'apply', database: store.backupDatabasePath(), identity };
               }
+              failureStage = 'authorization';
               const currentIdentity = await caller.check('backup.restore'); signal.throwIfAborted();
               identity = { ...currentIdentity, ...(identity.approval ? { approval: identity.approval } : {}) };
+              failureStage = 'commit';
               return { phase: 'finalize', identity };
             }, restore);
             return Response.json(restoreBackupReceiptSchema.parse(result), { headers: { 'cache-control': 'no-store' } });
@@ -269,7 +276,7 @@ export async function mountEnterpriseBackupRoutes(ctx: EnterpriseHostContext, st
             if (receipt) return Response.json(receipt, { headers: { 'cache-control': 'no-store' } });
             throw error;
           } finally { restoreWriterWait?.(); await rm(entry.directory, { recursive: true, force: true }); }
-        }, signal);
+        }, signal, () => failureStage);
       } finally { release(); }
     });
   } catch (error) {

@@ -10,9 +10,9 @@ An app-service connection does not prove that a model answers, a scheduled worke
 
 ## Decision
 
-WatchDog home reports app-service connection, model verification, schedule-worker observations and business-task attention counts as separate fields. A loaded Session event window containing durable `assistant/message` evidence marks a successful response as observed; this does not prove current provider availability. Schedule status uses the latest returned worker summary and displays its observation time. Business counts cover only the task page currently loaded by the client.
+WatchDog home leads with business-task outcomes. App-service connection, model-response evidence and schedule-worker observations appear in a collapsed runtime-and-service details section. Expanding it shows each observation separately. A loaded Session event window containing durable `assistant/message` evidence marks a successful response as observed; this does not prove current provider availability. Schedule status uses the latest returned worker summary and displays its observation time. Business counts cover only the task page currently loaded by the client.
 
-Each displayed value keeps its evidence source visible: the connection store, a real model request, a timestamped worker response, or the bounded task response. Errors and missing worker observations remain explicit states; no field infers health from another.
+Each observation keeps its evidence source visible when its section is open: the connection store, a real model request, a timestamped worker response, or the bounded task response. Business-task read failures remain visible in the primary summary; missing worker observations remain explicit in the details section. No field infers health from another.
 
 ## Alternatives considered
 
@@ -24,4 +24,4 @@ Each displayed value keeps its evidence source visible: the connection store, a 
 
 The model field remains unverified until a loaded Session contains a durable response. Its verified label records prior success, not present availability. A worker summary can become stale after its displayed observation time, and local counts exclude task pages that have not been loaded. The view communicates those limits and directs the next action for each status.
 
-The home-health client tests verify independent status rendering, unavailable states, bilingual copy, and loaded-page counts.
+The home-health client tests verify that business outcomes stay visible while runtime details start collapsed and remain independently readable in both locales, including unavailable states and loaded-page counts.

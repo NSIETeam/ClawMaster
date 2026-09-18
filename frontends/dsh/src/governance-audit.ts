@@ -48,6 +48,8 @@ export interface ResponsibilityInput {
   generationAfter: number;
   revisionAfter: number;
   backupSha256?: string;
+  /** Restore failure phase; success records use the transaction receipt instead. */
+  stage?: 'validation' | 'authorization' | 'revision_check' | 'apply' | 'commit';
   taskExecution?: { requestId: string; sessionId: string };
   reasonCode?: string;
 }

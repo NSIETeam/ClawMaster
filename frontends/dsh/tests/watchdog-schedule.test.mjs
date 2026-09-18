@@ -42,6 +42,33 @@ test('missed work is skipped, coalesced or bounded across long downtime and a ba
   assert.equal(f.instances('catch-up').length, 2, 'Pending capacity is shared across polls, not only one catch-up batch.');
 });
 
+test('a reopened ledger admits only the configured catch-up occurrences and preserves their identities', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'watchdog-schedule-reopen-'));
+  const path = join(root, 'schedules.sqlite');
+  let store = await openWatchdogScheduleStore(path, 'local', { ...config, maxPendingPerPlan: 4 });
+  t.after(async () => { store.close(); await rm(root, { recursive: true, force: true }); });
+  try {
+    store.command(human, scheduleCommandSchema.parse({ commandId: 'create-before-reopen', command: {
+      type: 'create', id: 'bounded-restart', sessionId: 'session', prompt: 'Inspect selected records.',
+      rule: { kind: 'every', everySeconds: 300 }, missed: 'catch-up', catchUpLimit: 2,
+    } }), start);
+  } finally { store.close(); }
+
+  store = await openWatchdogScheduleStore(path, 'local', { ...config, maxPendingPerPlan: 4 });
+  const resumedAt = start + 300_000 * 10_000 + 20_000;
+  store.materialize(resumedAt);
+  const first = store.query(human, resumedAt, 'bounded-restart').records;
+  assert.deepEqual(first.map(instance => instance.scheduledAt), [start + 300_000 * 9_999, start + 300_000 * 10_000]);
+  assert.equal(store.plan('bounded-restart').missedCount, 9_998);
+  assert.ok(first.every(instance => instance.state === 'waiting_approval'));
+
+  store.close();
+  store = await openWatchdogScheduleStore(path, 'local', { ...config, maxPendingPerPlan: 4 });
+  store.materialize(resumedAt);
+  assert.deepEqual(store.query(human, resumedAt, 'bounded-restart').records.map(instance => instance.id), first.map(instance => instance.id));
+  assert.equal(store.plan('bounded-restart').missedCount, 9_998);
+});
+
 test('official timezone validation rejects DST gaps and preserves UTC fixed-rate anchors', async t => {
   const f = await fixture(t);
   assert.throws(() => f.command({ type: 'create', id: 'dst', sessionId: 'session', prompt: 'Review', rule: { kind: 'at', at: { date: '2026-03-08', time: '02:30', time_zone: 'America/New_York' } }, missed: 'coalesce', catchUpLimit: 1 }));

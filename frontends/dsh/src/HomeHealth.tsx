@@ -19,8 +19,17 @@ export function HomeHealth({ locale, state }: { locale: ProductLocale; state: Ho
     || (state.schedule.total !== null && state.schedule.online === 0) ? 'attention'
     : state.schedule.total === null ? 'unobserved' : 'observed';
   return <section className="cm-home-health" aria-label={copy.healthHeading}>
-    <h2>{copy.healthHeading}</h2>
-    <dl>
+    <div className="cm-home-outcomes">
+      <h2>{copy.healthHeading}</h2>
+      <dl className="cm-home-business">
+        <div><dt>{copy.healthBusiness}</dt><dd data-health={state.business.error ? 'attention' : state.business.review + state.business.failed + state.business.overdue > 0 ? 'attention' : 'observed'}>
+          {state.business.error ? copy.businessUnavailable : businessHealthSummary(locale, state.business)}
+        </dd><small>{copy.businessNextStep}</small></div>
+      </dl>
+    </div>
+    <details className="cm-home-system-details">
+      <summary>{copy.systemDetails}</summary>
+      <dl>
       <div><dt>{copy.healthApp}</dt><dd data-health={state.app}>{copy[state.app]}</dd></div>
       <div><dt>{copy.healthModel}</dt><dd data-health={state.model}>{state.model === 'verified' ? copy.modelVerified : copy.modelUnverified}</dd>
         <small>{state.model === 'verified' ? copy.modelEvidenceLimit : copy.modelNextStep}</small></div>
@@ -29,9 +38,7 @@ export function HomeHealth({ locale, state }: { locale: ProductLocale; state: Ho
         {(state.schedule.failed > 0 || state.schedule.uncertain > 0) && <small role="alert">{copy.scheduleOccurrencesAttention.replace('{failed}', String(state.schedule.failed)).replace('{uncertain}', String(state.schedule.uncertain))}</small>}
         {state.schedule.observedAt !== null && <small>{copy.observedAt}: <time dateTime={new Date(state.schedule.observedAt).toISOString()}>{new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(state.schedule.observedAt)}</time></small>}
       </div>
-      <div><dt>{copy.healthBusiness}</dt><dd data-health={state.business.error ? 'attention' : state.business.review + state.business.failed + state.business.overdue > 0 ? 'attention' : 'observed'}>
-        {state.business.error ? copy.businessUnavailable : businessHealthSummary(locale, state.business)}
-      </dd><small>{copy.businessNextStep}</small></div>
-    </dl>
+      </dl>
+    </details>
   </section>;
 }

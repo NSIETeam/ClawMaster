@@ -34,8 +34,10 @@ body[data-ds-dark-theme] .cm-dsh-brand-mark > .cm-dsh-brand-dark { display: bloc
 .cm-connection::before { content:''; width:5px; height:5px; border-radius:50%; background:#b58930; }
 .cm-connection.is-connected::before { background:#329877; }
 .cm-home-health { display:grid; gap:10px; padding:14px 16px; border:1px solid var(--cm-line); border-radius:12px; background:var(--cm-surface); }
+.cm-home-outcomes { display:grid; grid-template-columns:minmax(120px,.6fr) minmax(0,2fr); align-items:center; gap:16px; }
 .cm-home-health h2 { margin:0; font-size:15px; }
-.cm-home-health dl { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:0; }
+.cm-home-health dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:0; }
+.cm-home-health .cm-home-business { display:block; }
 .cm-home-health dl > div { display:grid; align-content:start; gap:5px; min-width:0; }
 .cm-home-health dt { color:var(--cm-muted); font-size:12px; }
 .cm-home-health dd { margin:0; font-size:13px; font-weight:600; }
@@ -43,7 +45,10 @@ body[data-ds-dark-theme] .cm-dsh-brand-mark > .cm-dsh-brand-dark { display: bloc
 .cm-home-health dd[data-health="connected"],.cm-home-health dd[data-health="observed"] { color:#238267; }
 .cm-home-health dd[data-health="unobserved"] { color:var(--cm-muted); }
 .cm-home-health small { color:var(--cm-muted); font-size:11px; line-height:1.45; }
-@media (max-width:620px) { .cm-home-health dl { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+.cm-home-system-details { border-top:1px solid var(--cm-line); padding-top:8px; }
+.cm-home-system-details > summary { width:max-content; color:var(--cm-muted); font-size:11px; cursor:pointer; }
+.cm-home-system-details[open] > dl { padding-top:12px; }
+@media (max-width:620px) { .cm-home-outcomes { grid-template-columns:1fr; gap:4px; } .cm-home-health dl { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 .cm-workbench-content { max-width:1060px; margin:0 auto; padding:40px clamp(18px,4vw,48px); }
 .cm-task-launcher { max-width:760px; margin:4px auto 32px; }
 .cm-slogan { margin:0 0 7px; font-size:12px; color:var(--cm-muted); }

@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-16-enterprise-responsibility-history.md
-2026-09-16-enterprise-responsibility-history.md: 3e6b0ead33dd2149f6a75b9164cffc1d78e2c050
-2026-09-16-enterprise-responsibility-history.zh.md: 1fc8412c927c52b08c88f58dbfcfa1a751d54fa2
+2026-09-16-enterprise-responsibility-history.md: fd7c461cd6249421d628d02c247a6b1b3c88385f
+2026-09-16-enterprise-responsibility-history.zh.md: 471c8e20609991d791450796d5304822295dd535

@@ -392,7 +392,9 @@ it.each(['zh', 'en'])('the compiled WatchDog locks uncertain task text and retri
   expect(cadence.disabled).toBe(true);
   fireEvent.change(goal, { target: { value: 'Must not replace an uncertain request' } });
   fireEvent.change(cadence, { target: { value: 'hourly' } });
-  const snapshot = { goal: goal.value, cadence: cadence.value, goalDisabled: goal.disabled, cadenceDisabled: cadence.disabled, notice: within(main.container).getByRole('alert').textContent, retry: labels.retry, inspect: labels.inspect };
+  const notice = main.container.querySelector('.cm-task-launcher + .cm-error[role="alert"]');
+  expect(notice).not.toBeNull();
+  const snapshot = { goal: goal.value, cadence: cadence.value, goalDisabled: goal.disabled, cadenceDisabled: cadence.disabled, notice: notice.textContent, retry: labels.retry, inspect: labels.inspect };
   const path = resolve(`frontends/dsh/tests/expected/watchdog-admission.${locale}.json`);
   if (process.env.DSH_UPDATE_EXPECTED === '1') await writeFile(path, JSON.stringify(snapshot, null, 2) + '\n');
   expect(snapshot).toEqual(JSON.parse(await readFile(path, 'utf8')));
