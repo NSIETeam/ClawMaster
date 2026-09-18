@@ -1210,6 +1210,39 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
+  frontends/updates:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: link:../../vendor/cordis
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: link:../../packages/util/atomic-write
+        version: link:../../packages/util/atomic-write
+      '@deepseek-ai/dsh-commands':
+        specifier: link:../../packages/interaction/commands
+        version: link:../../packages/interaction/commands
+      '@deepseek-ai/dsh-tools':
+        specifier: link:../../packages/core/tools
+        version: link:../../packages/core/tools
+      '@deepseek-ai/dsh-user-approval':
+        specifier: link:../../packages/interaction/user-approval
+        version: link:../../packages/interaction/user-approval
+      '@threema/wasm-minisign-verify':
+        specifier: 0.2.0-rc.1
+        version: 0.2.0-rc.1
+      semver:
+        specifier: 7.8.5
+        version: 7.8.5
+      tar:
+        specifier: 7.5.22
+        version: 7.5.22
+      yaml:
+        specifier: 2.9.0
+        version: 2.9.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
   frontends/guard:
     dependencies:
       '@deepseek-ai/cordis':
@@ -7663,6 +7696,9 @@ packages:
       silk-wasm:
         optional: true
 
+  '@threema/wasm-minisign-verify@0.2.0-rc.1':
+    resolution: {integrity: sha512-xGUky5+pcjL7Iq45z7agpJwdxAXYKfT4d+vymc1kheodQ35hMu77lmpNxic7oGhwQAeVKqgMjgX2uvfFIQiFiA==}
+
   '@types/d3-array@3.2.2':
     resolution: {integrity: sha512-hOLWVbm7uRza0BYXpIIW5pxfrKe0W+D5lrFiAEYR+pb6w3N2SwSMaJbXdUfSEv+dT4MfHBLtn5js0LAWaO6otw==}
 
@@ -10289,6 +10325,8 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  '@threema/wasm-minisign-verify@0.2.0-rc.1': {}
 
   '@types/d3-array@3.2.2': {}
 

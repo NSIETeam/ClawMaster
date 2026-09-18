@@ -1,0 +1,11 @@
+[Unit]
+Description=Check published ClawMaster releases hourly
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5min
+Persistent=true
+Unit=clawmaster-updates.service
+
+[Install]
+WantedBy=timers.target

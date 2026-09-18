@@ -1,0 +1,26 @@
+[Unit]
+Description=Synchronize signed ClawMaster v2 stable updates
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=clawmaster-updates
+Group=clawmaster-updates
+StateDirectory=clawmaster-updates-v2
+StateDirectoryMode=0755
+WorkingDirectory=/opt/clawmaster-updates-v2
+ExecStart=/usr/bin/flock -n /var/lib/clawmaster-updates-v2/.sync.lock /usr/bin/node /opt/clawmaster-updates-v2/scripts/sync-updater-channel.mjs --state-dir /var/lib/clawmaster-updates-v2 --public-key /opt/clawmaster-updates/release-signing.pub --base-url https://8.140.52.117/updates/clawmaster/v2 --minisign /usr/bin/minisign --aria2 /usr/bin/aria2c
+TimeoutStartSec=45min
+UMask=0022
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=512M
+LimitFSIZE=2147483648
+TasksMax=32

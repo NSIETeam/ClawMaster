@@ -1,0 +1,3 @@
+# Zod's bundled code-generation templates contain significant literal whitespace.
+dist/index.js whitespace=-blank-at-eol
+dist/install.mjs whitespace=-blank-at-eol

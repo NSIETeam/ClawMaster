@@ -13,6 +13,9 @@ export const DESKTOP_PLUGIN_VERSIONS = Object.freeze({
   'dsh-routing-suite': '0.1.2',
 })
 
+/** Desktop insertion layer carried in the desktop payload rather than the published module. */
+export const DESKTOP_UPDATES_BUNDLE = '@clawmaster/dsh-updates'
+
 /** Ordered product layers appended after the shipped Web profile. */
 export const DESKTOP_BUNDLES = Object.freeze([
   ...Object.keys(DESKTOP_PLUGIN_VERSIONS),
@@ -26,6 +29,7 @@ export const DESKTOP_BUNDLES = Object.freeze([
   '@clawmaster/dsh-voice',
   '@clawmaster/dsh-pdf',
   '@clawmaster/dsh-feishu-docs',
+  DESKTOP_UPDATES_BUNDLE,
 ])
 
 /** Copy package-declared presets without replacing user files or following directory links. */
