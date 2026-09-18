@@ -299,6 +299,15 @@ importers:
       '@clawmaster/dsh-rpa':
         specifier: workspace:*
         version: link:../../frontends/rpa
+      '@clawmaster/dsh-voice':
+        specifier: workspace:*
+        version: link:../../frontends/voice
+      '@clawmaster/dsh-pdf':
+        specifier: workspace:*
+        version: link:../../frontends/pdf
+      '@clawmaster/dsh-feishu-docs':
+        specifier: workspace:*
+        version: link:../../frontends/feishu-docs
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../vendor/cordis
@@ -1146,6 +1155,60 @@ importers:
       '@deepseek-ai/dsh-tools':
         specifier: link:../../packages/core/tools
         version: link:../../packages/core/tools
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  frontends/feishu-docs:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: link:../../vendor/cordis
+      '@deepseek-ai/dsh-credentials':
+        specifier: link:../../packages/credentials/credentials
+        version: link:../../packages/credentials/credentials
+      '@deepseek-ai/dsh-tools':
+        specifier: link:../../packages/core/tools
+        version: link:../../packages/core/tools
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  frontends/pdf:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: link:../../vendor/cordis
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: link:../../packages/util/atomic-write
+        version: link:../../packages/util/atomic-write
+      '@deepseek-ai/dsh-tools':
+        specifier: link:../../packages/core/tools
+        version: link:../../packages/core/tools
+      '@deepseek-ai/dsh-user-approval':
+        specifier: link:../../packages/interaction/user-approval
+        version: link:../../packages/interaction/user-approval
+      pdf-lib:
+        specifier: 1.17.1
+        version: 1.17.1
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  frontends/voice:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: link:../../vendor/cordis
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: link:../../packages/util/atomic-write
+        version: link:../../packages/util/atomic-write
+      '@deepseek-ai/dsh-tools':
+        specifier: link:../../packages/core/tools
+        version: link:../../packages/core/tools
+      '@deepseek-ai/dsh-user-approval':
+        specifier: link:../../packages/interaction/user-approval
+        version: link:../../packages/interaction/user-approval
       zod:
         specifier: 4.4.3
         version: 4.4.3

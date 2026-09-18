@@ -23,6 +23,9 @@ export const DESKTOP_BUNDLES = Object.freeze([
   '@clawmaster/dsh-graph-memory',
   '@clawmaster/dsh-office',
   '@clawmaster/dsh-rpa',
+  '@clawmaster/dsh-voice',
+  '@clawmaster/dsh-pdf',
+  '@clawmaster/dsh-feishu-docs',
 ])
 
 /** Copy package-declared presets without replacing user files or following directory links. */

@@ -36,6 +36,9 @@ const trimmedPackages = [
   'frontends/graph-memory',
   'frontends/office',
   'frontends/rpa',
+  'frontends/voice',
+  'frontends/pdf',
+  'frontends/feishu-docs',
 ]
 
 /** Reviewed compatibility patches applied by pnpm before any desktop launch. */
@@ -237,6 +240,9 @@ export function withDesktopDependencies(manifest, workspaceOverrides = {}) {
       '@clawmaster/dsh-graph-memory': 'workspace:*',
       '@clawmaster/dsh-office': 'workspace:*',
       '@clawmaster/dsh-rpa': 'workspace:*',
+      '@clawmaster/dsh-voice': 'workspace:*',
+      '@clawmaster/dsh-pdf': 'workspace:*',
+      '@clawmaster/dsh-feishu-docs': 'workspace:*',
     },
   }
 }
@@ -288,6 +294,12 @@ function assertBuiltArtifacts() {
     cwd: repoRoot,
     stdio: 'inherit',
   })
+  for (const frontend of ['voice', 'pdf', 'feishu-docs']) {
+    execFileSync(process.execPath, [join(repoRoot, `frontends/${frontend}/scripts/build.mjs`), '--check'], {
+      cwd: repoRoot,
+      stdio: 'inherit',
+    })
+  }
   const cliBin = join(repoRoot, 'apps', 'cli', 'lib', 'bin.js')
   const webIndex = join(repoRoot, 'apps', 'web', 'dist', 'index.html')
   const systemEntry = join(repoRoot, 'native', 'system', 'packages', 'entry', 'lib', 'index.js')
@@ -311,12 +323,21 @@ function assertBuiltArtifacts() {
     if (!existsSync(join(repoRoot, 'frontends/graph-memory/dist', name))) {
       throw new Error('ClawMaster Graph Memory build missing. Run: node frontends/graph-memory/scripts/build.mjs')
     }
+    for (const frontend of ['voice', 'pdf']) {
+      if (!existsSync(join(repoRoot, `frontends/${frontend}/dist`, name))) {
+        throw new Error(`ClawMaster ${frontend} build missing. Run: node frontends/${frontend}/scripts/build.mjs`)
+      }
+    }
   }
   if (!existsSync(join(repoRoot, 'frontends/guard/dist/index.js'))) {
     throw new Error('ClawMaster guard build missing. Run: node frontends/guard/scripts/build.mjs')
   }
   if (!existsSync(join(repoRoot, 'frontends/rpa/dist/index.js'))) {
     throw new Error('ClawMaster RPA build missing. Run: node frontends/rpa/scripts/build.mjs')
+  }
+  // Feishu Docs is host-only by design: it exposes tools and routes, so it has no client bundle.
+  if (!existsSync(join(repoRoot, 'frontends/feishu-docs/dist/index.js'))) {
+    throw new Error('ClawMaster Feishu Docs build missing. Run: node frontends/feishu-docs/scripts/build.mjs')
   }
 }
 
@@ -363,7 +384,7 @@ copyTree(join(repoRoot, 'native', 'system'), join(outRoot, 'native', 'system'))
 copyTree(join(repoRoot, 'apps', 'cli'), join(outRoot, 'apps', 'cli'))
 copyTree(join(repoRoot, 'apps', 'web'), join(outRoot, 'apps', 'web'))
 copyTree(join(desktopRoot, 'defaults'), join(outRoot, 'apps', 'desktop-defaults'))
-for (const frontend of ['dsh', 'guard', 'notes', 'graph-memory', 'office', 'rpa']) {
+for (const frontend of ['dsh', 'guard', 'notes', 'graph-memory', 'office', 'rpa', 'voice', 'pdf', 'feishu-docs']) {
   for (const name of ['package.json', 'dist', 'cordis.patch.yml', 'README.md', 'README.zh.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md']) {
     copyTree(join(repoRoot, 'frontends', frontend, name), join(outRoot, 'frontends', frontend, name))
   }
