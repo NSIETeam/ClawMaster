@@ -41,6 +41,17 @@ export interface NotesAccess {
   tags(): Promise<NoteTagCount[]>;
   /** Append one composed entry to the day's note; returns the note it appended to. */
   digest(entry: DigestEntry): Promise<{ id: string; revision: string }>;
+  /**
+   * Create or replace one note on a companion's behalf.
+   *
+   * This is the only write a companion gets, and it goes through the vault's own append-or-create, so
+   * the path policy, the lock and the revision chain stay the notes plugin's. A companion that must not
+   * clobber a human edit reads the note first and sends the merged text back.
+   * @param id - Vault-relative note id ending in `.md`.
+   * @param text - The complete note body.
+   * @returns The note id and the revision the write produced.
+   */
+  writeNote(id: string, text: string): Promise<{ id: string; revision: string; previousRevision: string | null }>;
 }
 
 /**
@@ -65,6 +76,7 @@ export function createNotesAccess(service: NotesService, root: string): NotesAcc
       const result = await service.digest(entry);
       return { id: result.id, revision: result.revision };
     },
+    writeNote: (id, text) => service.writeFromCompanion(id, text),
   };
 }
 

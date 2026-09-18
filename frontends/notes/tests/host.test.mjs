@@ -448,7 +448,7 @@ describe('memory bridge', () => {
     assert.equal(again.messages.length, 1);
     const elsewhere = await listener(step({ messages: [human('再看一下笔记审查')] }, {}), enter([human('再看一下笔记审查')]));
     assert.equal(elsewhere.messages.length, 2);
-  }));
+  }, { notesContext: 'related' }));
 
   it('stays silent for a request that matches no note, for a later step, and for injected text', async () => withHost(async host => {
     const listener = host.listeners.get('agent/pre-step');
@@ -460,7 +460,7 @@ describe('memory bridge', () => {
       messages: [{ role: 'user', source: { kind: 'plugin', plugin: 'other' }, content: [{ type: 'text', text: '欢迎' }] }],
     }), enter([human('欢迎')]));
     assert.equal(pluginText.messages.length, 1);
-  }));
+  }, { notesContext: 'related' }));
 
   it('respects the note limit and the off switch', async () => withHost(async host => {
     for (const name of ['守卫一', '守卫二', '守卫三']) {
@@ -471,7 +471,7 @@ describe('memory bridge', () => {
     const decision = await listener(step({ messages: [human('守卫')] }), enter([human('守卫')]));
     assert.equal(decision.messages.length, 2);
     assert.equal(decision.messages[1].content[0].text.match(/^- /gm).length, 3);
-  }, { maxContextNotes: 3 }));
+  }, { notesContext: 'related', maxContextNotes: 3 }));
 
   it('does not subscribe at all when the bridge is off', async () => withHost(async host => {
     assert.equal(host.listeners.has('agent/pre-step'), false);
@@ -483,7 +483,7 @@ describe('memory bridge', () => {
     const decision = await listener(step({ messages: [human('欢迎')] }), enter([human('欢迎')]));
     assert.equal(decision.messages.length, 1);
     assert.ok(host.warnings.some(message => message.includes('related notes were skipped')));
-  }));
+  }, { notesContext: 'related' }));
 
   it('reads the human request out of either content shape', async () => {
     assert.equal(requestTextOf([{ source: { kind: 'user' }, content: 'plain' }]), 'plain');

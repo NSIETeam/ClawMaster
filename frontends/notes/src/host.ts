@@ -129,7 +129,7 @@ const configSchema = z.object({
    * them to the model as context, so a note the user already wrote is reachable without being asked
    * for. `off` serves the vault without ever volunteering a note.
    */
-  notesContext: z.enum(['off', 'related']).default('related'),
+  notesContext: z.enum(['off', 'related']).default('off'),
   /** Most notes one injection may name. */
   maxContextNotes: z.number().int().min(1).max(10).default(DEFAULT_CONTEXT_NOTES),
 }).strict();
