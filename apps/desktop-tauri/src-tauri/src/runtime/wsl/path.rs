@@ -9,7 +9,7 @@ pub fn windows_to_wsl_mount(path: &Path) -> Result<String, String> {
     let text = path
         .to_str()
         .ok_or_else(|| "路径包含无效的 Unicode 字符。".to_string())?;
-    parse_windows_path(text)
+    parse_windows_path(text.strip_prefix(r"\\?\").unwrap_or(text))
 }
 
 fn parse_windows_path(text: &str) -> Result<String, String> {
@@ -111,6 +111,14 @@ mod tests {
             windows_to_wsl_mount(Path::new(r"C:\Users\me\AppData\Roaming\DeepSeek Harness"))
                 .unwrap(),
             "/mnt/c/Users/me/AppData/Roaming/DeepSeek Harness"
+        );
+    }
+
+    #[test]
+    fn maps_extended_length_drive_path() {
+        assert_eq!(
+            windows_to_wsl_mount(Path::new(r"\\?\C:\Users\me\ClawMaster")).unwrap(),
+            "/mnt/c/Users/me/ClawMaster"
         );
     }
 
