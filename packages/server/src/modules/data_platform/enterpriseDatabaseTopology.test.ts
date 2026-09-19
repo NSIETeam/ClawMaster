@@ -1,0 +1,118 @@
+/**
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
+ */
+
+import { describe, expect, it } from 'vitest';
+
+import {
+  assertLocalSqliteDatabasePath,
+  describeEnterpriseDatabaseTopology,
+  requireLocalSqliteTopology,
+  resolveEnterpriseDatabaseTopology,
+} from './enterpriseDatabaseTopology.js';
+
+describe('enterprise database topology', () => {
+  it('keeps a single local SQLite database as the default desktop topology', () => {
+    expect(
+      resolveEnterpriseDatabaseTopology({
+        environment: {},
+        sqliteDatabasePath: 'D:\\clawmaster-data\\data.db',
+      }),
+    ).toEqual({
+      backend: 'sqlite',
+      databasePath: 'D:\\clawmaster-data\\data.db',
+      replicas: 1,
+    });
+  });
+
+  it('refuses multiple writers against SQLite', () => {
+    expect(() =>
+      resolveEnterpriseDatabaseTopology({
+        environment: { CLAWMASTER_ENTERPRISE_REPLICA_COUNT: '2' },
+        sqliteDatabasePath: '/var/lib/clawmaster/data.db',
+      }),
+    ).toThrow(/SQLite.*exactly one.*PostgreSQL/i);
+  });
+
+  it.each([
+    String.raw`\\server\share\clawmaster\data.db`,
+    '//server/share/clawmaster/data.db',
+    'smb://server/share/clawmaster/data.db',
+    'nfs://server/export/clawmaster/data.db',
+  ])('refuses a SQLite database on a network share: %s', (databasePath) => {
+    expect(() => assertLocalSqliteDatabasePath(databasePath)).toThrow(
+      /SQLite.*NFS|SMB|network/i,
+    );
+  });
+
+  it.each([0x6969, 0x517b, 0xff534d42])(
+    'refuses a mounted NFS/SMB filesystem type: %s',
+    (filesystemType) => {
+      expect(() =>
+        assertLocalSqliteDatabasePath('/srv/clawmaster/data.db', {
+          filesystemType: () => filesystemType,
+        }),
+      ).toThrow(/network filesystem/i);
+    },
+  );
+
+  it('requires PostgreSQL configuration and rejects SQLCipher server settings', () => {
+    expect(() =>
+      resolveEnterpriseDatabaseTopology({
+        environment: { CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql' },
+        sqliteDatabasePath: '/unused/data.db',
+      }),
+    ).toThrow(/CLAWMASTER_POSTGRES_URL is required/i);
+
+    expect(() =>
+      resolveEnterpriseDatabaseTopology({
+        environment: {
+          CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+          CLAWMASTER_POSTGRES_URL: 'postgresql://clawmaster:secret@db.internal/clawmaster',
+          CLAWMASTER_DATABASE_ENCRYPTION: 'required',
+        },
+        sqliteDatabasePath: '/unused/data.db',
+      }),
+    ).toThrow(/SQLCipher.*local SQLite/i);
+  });
+
+  it('allows multiple PostgreSQL application replicas without exposing credentials', () => {
+    const topology = resolveEnterpriseDatabaseTopology({
+      environment: {
+        CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+        CLAWMASTER_ENTERPRISE_REPLICA_COUNT: '4',
+        CLAWMASTER_POSTGRES_URL:
+          'postgresql://clawmaster:super-secret@db.internal:5432/clawmaster',
+      },
+      sqliteDatabasePath: '/unused/data.db',
+    });
+
+    expect(topology).toMatchObject({
+      backend: 'postgresql',
+      replicas: 4,
+      connectionString: 'postgresql://clawmaster:super-secret@db.internal:5432/clawmaster',
+    });
+    const description = describeEnterpriseDatabaseTopology(topology);
+    expect(description).toEqual({
+      backend: 'postgresql',
+      replicas: 4,
+      target: 'db.internal:5432/clawmaster',
+    });
+    expect(JSON.stringify(description)).not.toContain('super-secret');
+    expect(JSON.stringify(description)).not.toContain('clawmaster@');
+  });
+
+  it('does not silently fall back to SQLite when PostgreSQL is configured', () => {
+    const topology = resolveEnterpriseDatabaseTopology({
+      environment: {
+        CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+        CLAWMASTER_POSTGRES_URL: 'postgresql://clawmaster:secret@db.internal/clawmaster',
+      },
+      sqliteDatabasePath: '/unused/data.db',
+    });
+
+    expect(() => requireLocalSqliteTopology(topology)).toThrow(
+      /PostgreSQL.*repositories.*not.*migrated.*refusing.*SQLite fallback/i,
+    );
+  });
+});

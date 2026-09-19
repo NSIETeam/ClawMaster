@@ -1,0 +1,117 @@
+/**
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
+ */
+
+import { describe, expect, it } from 'vitest';
+
+import {
+  describeEnterpriseServiceTopology,
+  resolveEnterpriseServiceTopology,
+} from './enterpriseServiceTopology.js';
+
+describe('enterprise service topology', () => {
+  it('keeps local SQLite, encrypted filesystem attachments, and memory cache for offline use', () => {
+    const topology = resolveEnterpriseServiceTopology({
+      environment: {},
+      sqliteDatabasePath: '/var/lib/clawmaster/data.db',
+    });
+
+    expect(topology).toEqual({
+      mode: 'local-offline',
+      replicas: 1,
+      database: {
+        backend: 'sqlite',
+        databasePath: '/var/lib/clawmaster/data.db',
+        replicas: 1,
+      },
+      attachments: { backend: 'encrypted-filesystem' },
+      cache: { backend: 'memory' },
+    });
+  });
+
+  it('requires shared S3 attachment storage for PostgreSQL enterprise mode', () => {
+    expect(() =>
+      resolveEnterpriseServiceTopology({
+        environment: {
+          CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+          CLAWMASTER_POSTGRES_URL: 'postgresql://clawmaster:secret@db.internal/clawmaster',
+          CLAWMASTER_ENTERPRISE_CACHE_BACKEND: 'redis',
+          CLAWMASTER_REDIS_URL: 'rediss://default:secret@cache.internal:6379',
+        },
+        sqliteDatabasePath: '/var/lib/clawmaster/data.db',
+      }),
+    ).toThrow(/PostgreSQL.*S3/i);
+  });
+
+  it('requires a shared Redis-compatible cache for PostgreSQL enterprise mode', () => {
+    expect(() =>
+      resolveEnterpriseServiceTopology({
+        environment: {
+          CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+          CLAWMASTER_POSTGRES_URL: 'postgresql://clawmaster:secret@db.internal/clawmaster',
+          CLAWMASTER_ATTACHMENT_OBJECT_STORE: 's3',
+          CLAWMASTER_S3_BUCKET: 'clawmaster-private',
+          CLAWMASTER_S3_REGION: 'cn-east-1',
+          CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
+        },
+        sqliteDatabasePath: '/var/lib/clawmaster/data.db',
+      }),
+    ).toThrow(/PostgreSQL.*Redis/i);
+  });
+
+  it('rejects mixed local and clustered storage backends', () => {
+    expect(() =>
+      resolveEnterpriseServiceTopology({
+        environment: {
+          CLAWMASTER_ATTACHMENT_OBJECT_STORE: 's3',
+          CLAWMASTER_S3_BUCKET: 'clawmaster-private',
+          CLAWMASTER_S3_REGION: 'cn-east-1',
+          CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
+        },
+        sqliteDatabasePath: '/var/lib/clawmaster/data.db',
+      }),
+    ).toThrow(/SQLite.*local attachment/i);
+
+    expect(() =>
+      resolveEnterpriseServiceTopology({
+        environment: {
+          CLAWMASTER_ENTERPRISE_CACHE_BACKEND: 'redis',
+          CLAWMASTER_REDIS_URL: 'rediss://cache.internal:6379',
+        },
+        sqliteDatabasePath: '/var/lib/clawmaster/data.db',
+      }),
+    ).toThrow(/SQLite.*memory cache/i);
+  });
+
+  it('builds a credential-free stateless topology for multiple replicas', () => {
+    const topology = resolveEnterpriseServiceTopology({
+      environment: {
+        CLAWMASTER_ENTERPRISE_DATABASE_BACKEND: 'postgresql',
+        CLAWMASTER_POSTGRES_URL: 'postgresql://clawmaster:db-secret@db.internal:5432/clawmaster',
+        CLAWMASTER_ENTERPRISE_REPLICA_COUNT: '3',
+        CLAWMASTER_ENTERPRISE_CACHE_BACKEND: 'redis',
+        CLAWMASTER_REDIS_URL: 'rediss://default:cache-secret@cache.internal:6379/2',
+        CLAWMASTER_ATTACHMENT_OBJECT_STORE: 's3',
+        CLAWMASTER_S3_BUCKET: 'clawmaster-private',
+        CLAWMASTER_S3_REGION: 'cn-east-1',
+        CLAWMASTER_S3_BUCKET_PRIVATE_CONFIRMED: 'true',
+      },
+      sqliteDatabasePath: '/var/lib/clawmaster/data.db',
+    });
+
+    expect(topology.mode).toBe('clustered-enterprise');
+    const description = describeEnterpriseServiceTopology(topology);
+    expect(description).toEqual({
+      mode: 'clustered-enterprise',
+      replicas: 3,
+      database: {
+        backend: 'postgresql',
+        replicas: 3,
+        target: 'db.internal:5432/clawmaster',
+      },
+      attachments: { backend: 's3', target: 'clawmaster-private' },
+      cache: { backend: 'redis', target: 'cache.internal:6379/2' },
+    });
+    expect(JSON.stringify(description)).not.toMatch(/secret|default@/i);
+  });
+});
