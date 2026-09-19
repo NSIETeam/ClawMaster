@@ -56,6 +56,8 @@ export interface FeishuHostContext {
   tools: Pick<ToolRuntime, 'register'>;
   credentials: Pick<CredentialProvider, 'resolve'>;
   effect: Context['effect'];
+  /** Present on standard cordis contexts; used for the not-configured notice. */
+  logger?: { info(message: string): void };
 }
 
 /**
@@ -103,9 +105,16 @@ function errorResponse(error: unknown): Response {
 /**
  * Register the Feishu read surface for the plugin lifetime.
  * @param ctx - DSH Fetch, tool and credential services.
- * @param config - The deployment's Feishu app id and credential reference.
+ * @param config - The deployment's Feishu app id and credential reference. An
+ *   absent config is a normal unconfigured state, not an error: the plugin
+ *   registers nothing and logs a notice, because a host without Feishu app
+ *   credentials must still boot (tools appear once a deployment configures it).
  */
 export async function apply(ctx: FeishuHostContext, config: FeishuHostConfig): Promise<void> {
+  if (config === undefined) {
+    ctx.logger?.info('feishu-docs: not configured (no Feishu appId/appSecretRef); Feishu tools are disabled until a deployment configures them.');
+    return;
+  }
   const options = configSchema.parse(config);
 
   await ctx.effect(async () => {

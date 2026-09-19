@@ -64,7 +64,31 @@ export type GraphMemoryHostConfig = z.input<typeof configSchema>;
 
 function jsonSchema(schema: z.ZodType): Record<string, unknown> {
   const { $schema: _dialect, ...value } = z.toJSONSchema(schema);
-  return value;
+  return toolSchemaSubset(value) as Record<string, unknown>;
+}
+
+/**
+ * Constrain a JSON Schema to the keywords the tools registry accepts
+ * (type/oneOf/properties/required/additionalProperties/items/enum/const plus
+ * annotations). zod emits `anyOf` for `.nullable()` unions and `minLength`
+ * for `.min(1)` strings; the registry rejects both outright, so unions map to
+ * the equivalent `oneOf` and unsupported refinements are dropped — these
+ * schemas describe tool output for the model rather than gate validation.
+ */
+function toolSchemaSubset(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(toolSchemaSubset);
+  if (typeof value !== 'object' || value === null) return value;
+  const result: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (key === 'minLength' || key === 'maxLength' || key === 'minimum' || key === 'maximum'
+      || key === 'minItems' || key === 'maxItems' || key === 'pattern') continue;
+    if (key === 'anyOf') {
+      result.oneOf = toolSchemaSubset(child);
+      continue;
+    }
+    result[key] = toolSchemaSubset(child);
+  }
+  return result;
 }
 
 const queryParameters = jsonSchema(graphQuerySchema) as ToolDefinition['parameters'];
