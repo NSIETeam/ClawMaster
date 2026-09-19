@@ -1164,18 +1164,18 @@ mod tests {
     fn opening_new_store_does_not_read_modify_or_delete_beta_data() {
         let root = tempfile::tempdir().unwrap();
         let beta_state = root.path().join("native-runtime.json");
-        let beta_otto = root.path().join(".otto-user");
+        let beta_hidden = root.path().join(".hidden-user");
         fs::write(&beta_state, b"beta-state-byte-sentinel").unwrap();
-        fs::write(&beta_otto, b"beta-otto-byte-sentinel").unwrap();
+        fs::write(&beta_hidden, b"beta-hidden-byte-sentinel").unwrap();
         let before_state = fs::read(&beta_state).unwrap();
-        let before_otto = fs::read(&beta_otto).unwrap();
+        let before_hidden = fs::read(&beta_hidden).unwrap();
         let store = store(root.path());
         store
             .put_once(TREE_EVENTS, "event-1", "runtime", json!({"ok":true}))
             .unwrap();
         store.flush().unwrap();
         assert_eq!(fs::read(&beta_state).unwrap(), before_state);
-        assert_eq!(fs::read(&beta_otto).unwrap(), before_otto);
+        assert_eq!(fs::read(&beta_hidden).unwrap(), before_hidden);
     }
 
     #[test]
