@@ -1,0 +1,143 @@
+/**
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
+ */
+
+import { describe, expect, it, vi } from 'vitest';
+import type { ClientToServer, ServerToClient } from 'clawmaster-server';
+import {
+  createProductWorkspaceConnectionHandler,
+  initialProductWorkspaceState,
+  productWorkspaceReducer,
+} from './useProductWorkspace.js';
+
+describe('product workspace connection lifecycle', () => {
+  it('waits for the local runtime and reloads once after each reconnect', () => {
+    const send = vi.fn<(frame: ClientToServer) => void>();
+    const onConnectionChange = createProductWorkspaceConnectionHandler(send);
+
+    onConnectionChange(false);
+    expect(send).not.toHaveBeenCalled();
+
+    onConnectionChange(true);
+    expect(send.mock.calls.map(([frame]) => frame.type)).toEqual([
+      'get_product_workspace',
+      'get_schedules',
+      'get_pending_auto_skills',
+    ]);
+
+    onConnectionChange(true);
+    expect(send).toHaveBeenCalledTimes(3);
+
+    onConnectionChange(false);
+    onConnectionChange(true);
+    expect(send).toHaveBeenCalledTimes(6);
+  });
+});
+
+describe('productWorkspaceReducer', () => {
+  it('接收服务端脱敏工作区快照并切换模式', () => {
+    const frame: ServerToClient = {
+      type: 'product_workspace',
+      payload: {
+        schemaVersion: 1,
+        context: {
+          edition: 'enterprise',
+          role: 'company_owner',
+          userId: 'u1',
+          companyId: 'c1',
+          capabilities: ['agent:base', 'model:clawmaster', 'organization:read'],
+        },
+        members: [],
+        friends: [],
+        credits: { balance: 0, frozen: 0, status: 'design-preview' },
+      },
+    };
+
+    const state = productWorkspaceReducer(initialProductWorkspaceState, {
+      kind: 'frame',
+      frame,
+    });
+    expect(state.workspace?.context.edition).toBe('enterprise');
+    expect(state.loading).toBe(false);
+  });
+
+  it('保存最后生成的企业链接和日程列表', () => {
+    const inviteState = productWorkspaceReducer(initialProductWorkspaceState, {
+      kind: 'frame',
+      frame: {
+        type: 'enterprise_invite_created',
+        payload: {
+          kind: 'position',
+          link: 'clawmaster://enterprise/join?token=abc',
+          expiresAt: '2030-01-01T00:00:00.000Z',
+        },
+      },
+    });
+    const scheduleState = productWorkspaceReducer(inviteState, {
+      kind: 'frame',
+      frame: {
+        type: 'schedules_list',
+        payload: {
+          date: '2026-07-12',
+          timezone: 'Asia/Shanghai',
+          schedules: [
+            {
+              id: 's1',
+              title: '复盘',
+              startAt: '2026-07-12T01:00:00.000Z',
+              source: 'clawmaster',
+              reason: '报告完成',
+              createdAt: '2026-07-11T00:00:00.000Z',
+              updatedAt: '2026-07-11T00:00:00.000Z',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(scheduleState.lastInvite?.kind).toBe('position');
+    expect(scheduleState.schedules[0]).toMatchObject({ source: 'clawmaster', reason: '报告完成' });
+    expect(scheduleState.selectedDate).toBe('2026-07-12');
+  });
+
+  it('只接管 workspace/schedule 相关错误', () => {
+    const ignored = productWorkspaceReducer(initialProductWorkspaceState, {
+      kind: 'frame',
+      frame: { type: 'error', payload: { code: 'busy', message: '忙' } },
+    });
+    const handled = productWorkspaceReducer(initialProductWorkspaceState, {
+      kind: 'frame',
+      frame: { type: 'error', payload: { code: 'workspace_failed', message: '无权限' } },
+    });
+
+    expect(ignored.error).toBeNull();
+    expect(handled.error).toBe('无权限');
+  });
+
+  it('自动 Skill 候选只接收服务端脱敏字段和明确处理结果', () => {
+    const state = productWorkspaceReducer(initialProductWorkspaceState, {
+      kind: 'frame',
+      frame: {
+        type: 'pending_auto_skills',
+        payload: {
+          candidates: [{
+            id: 'c1',
+            name: 'auto-report',
+            description: '重复报告流程',
+            detectedPattern: '整理数据 → 生成报告',
+            occurrenceCount: 3,
+            reason: '连续三天出现',
+          }],
+          lastAction: {
+            kind: 'confirmed',
+            candidateId: 'old-candidate',
+            savedPath: '/tmp/skill/SKILL.md',
+          },
+        },
+      },
+    });
+
+    expect(state.pendingAutoSkills).toHaveLength(1);
+    expect(state.lastAutoSkillAction).toMatchObject({ kind: 'confirmed' });
+  });
+});

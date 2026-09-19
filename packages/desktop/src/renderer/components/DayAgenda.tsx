@@ -1,0 +1,179 @@
+/**
+ * @license Copyright 2026 ClawMaster SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useEffect, useMemo, useState } from 'react';
+import type { ScheduleItemInfo } from 'clawmaster-server';
+import { IconChevron } from './icons.js';
+
+function localTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '--:--';
+  return new Intl.DateTimeFormat('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+}
+
+export function DayAgenda({
+  date,
+  schedules,
+  workResults: providedWorkResults,
+  onCreate,
+  onDelete,
+  onBack,
+  backLabel = '返回对话',
+}: {
+  date: string;
+  schedules: ScheduleItemInfo[];
+  workResults?: ReadonlyArray<{
+    time: string;
+    action: string;
+    taskTitle?: string;
+    details?: string;
+  }>;
+  onCreate: (input: {
+    title: string;
+    startAt: string;
+    endAt?: string;
+    notes?: string;
+  }) => void;
+  onDelete: (id: string) => void;
+  onBack: () => void;
+  backLabel?: string;
+}): React.JSX.Element {
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState('');
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('10:00');
+  const [notes, setNotes] = useState('');
+  const [loadedWorkResults, setLoadedWorkResults] = useState<Array<{
+    time: string;
+    action: string;
+    taskTitle?: string;
+    details?: string;
+  }>>([]);
+  const sorted = useMemo(
+    () => [...schedules].sort((a, b) => a.startAt.localeCompare(b.startAt)),
+    [schedules],
+  );
+
+  useEffect(() => {
+    if (providedWorkResults) return undefined;
+    let cancelled = false;
+    const bridge = window.clawmaster;
+    if (!bridge?.workLogRecent) {
+      setLoadedWorkResults([]);
+      return () => {
+        cancelled = true;
+      };
+    }
+    void bridge.workLogRecent(92).then((days) => {
+      if (cancelled) return;
+      const day = days.find((item) => item.date === date);
+      setLoadedWorkResults(
+        (day?.entries ?? []).filter((entry) => entry.entryType === 'work_result'),
+      );
+    }).catch(() => {
+      if (!cancelled) setLoadedWorkResults([]);
+    });
+    return () => { cancelled = true; };
+  }, [date, providedWorkResults]);
+
+  const workResults = providedWorkResults ?? loadedWorkResults;
+
+  const submit = (): void => {
+    if (!title.trim() || !startTime) return;
+    const startAt = new Date(`${date}T${startTime}:00`).toISOString();
+    const endAt = endTime ? new Date(`${date}T${endTime}:00`).toISOString() : undefined;
+    onCreate({
+      title: title.trim(),
+      startAt,
+      ...(endAt ? { endAt } : {}),
+      ...(notes.trim() ? { notes: notes.trim() } : {}),
+    });
+    setTitle('');
+    setNotes('');
+    setAdding(false);
+  };
+
+  return (
+    <section className="claw-agenda-page" aria-label={`${date} 日程安排`}>
+      <header className="claw-agenda__head">
+        <div>
+          <div className="claw-agenda__eyebrow">工作日志 · 日期视图</div>
+          <h1>{date} 日程安排</h1>
+          <p>当天工作和安排集中在这里；标有“ClawMaster”的项目由 Agent 自主创建。</p>
+        </div>
+        <div className="claw-agenda__actions">
+          <button type="button" className="claw-hub__btn claw-hub__btn--primary" onClick={() => setAdding((value) => !value)}>
+            {adding ? '取消新增' : '+ 新建日程'}
+          </button>
+          <button type="button" className="claw-hub__btn" onClick={onBack}>
+            <IconChevron size={13} /> {backLabel}
+          </button>
+        </div>
+      </header>
+
+      <section className="claw-agenda__results" aria-label="当日工作成果">
+        <div className="claw-agenda__results-head">
+          <div><span>WORK RESULTS</span><h2>当日工作成果</h2></div>
+          <strong>{workResults.length}</strong>
+        </div>
+        {workResults.length > 0 ? (
+          <div className="claw-agenda__results-grid">
+            {workResults.map((entry, index) => (
+              <article key={`${entry.time}-${index}`}>
+                <div className="claw-agenda__result-time">{entry.time}</div>
+                <strong>完成 · {entry.taskTitle || entry.action}</strong>
+                {entry.details ? <p>{entry.details.replace(/\s+/g, ' ').slice(0, 220)}</p> : null}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="claw-agenda__results-empty">这一天还没有自动归纳的工作成果。</div>
+        )}
+      </section>
+
+      {adding ? (
+        <div className="claw-agenda__form">
+          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="日程标题" aria-label="日程标题" />
+          <label>开始<input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label>
+          <label>结束<input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label>
+          <input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="备注（可选）" aria-label="日程备注" />
+          <button type="button" onClick={submit}>保存</button>
+        </div>
+      ) : null}
+
+      <div className="claw-agenda__timeline">
+        {sorted.length === 0 ? (
+          <div className="claw-agenda__empty">
+            <strong>这一天还没有日程</strong>
+            <span>你可以手动新增，也可以直接告诉 ClawMaster“帮我安排一个复盘”。</span>
+          </div>
+        ) : (
+          sorted.map((item) => (
+            <article key={item.id} className="claw-agenda__item">
+              <div className="claw-agenda__time">
+                {localTime(item.startAt)}
+                {item.endAt ? <span>— {localTime(item.endAt)}</span> : null}
+              </div>
+              <div className="claw-agenda__card">
+                <div className="claw-agenda__card-title">
+                  <strong>{item.title}</strong>
+                  <span className={'claw-agenda__source ' + (item.source === 'clawmaster' ? 'is-clawmaster' : '')}>
+                    {item.source === 'clawmaster' ? 'ClawMaster 自主创建' : '手动创建'}
+                  </span>
+                </div>
+                {item.notes ? <p>{item.notes}</p> : null}
+                {item.reason ? <div className="claw-agenda__reason">创建原因：{item.reason}</div> : null}
+                <button type="button" className="claw-agenda__delete" onClick={() => onDelete(item.id)}>删除</button>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}

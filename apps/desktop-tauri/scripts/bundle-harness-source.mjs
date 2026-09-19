@@ -427,7 +427,10 @@ function installBundledCore(root) {
   })
   const failed = result.error !== undefined || result.status !== 0
   const installed = existsSync(join(root, 'node_modules', '.modules.yaml'))
-  if (installed) materializeSymlinks(root)
+  if (installed) {
+    materializeSymlinks(root)
+    pruneInstalledCore(root)
+  }
   if (!failed && !installed) {
     console.warn('bundle-harness-source: install finished without pnpm completion markers')
   }
@@ -439,6 +442,92 @@ function installBundledCore(root) {
     return
   }
   console.log('bundle-harness-source: bundled core dependencies installed')
+}
+
+/**
+ * Product decisions for the shipped core's dependency footprint. None of
+ * these packages is referenced by a static import anywhere in the shipped
+ * lib/dist trees (verified per release):
+ *
+ * - @openai/codex and @anthropic-ai/claude-agent-sdk — external subagent
+ *   backends the product does not ship; the product's in-process subagent
+ *   backends remain.
+ * - mermaid/@mermaid-js/react-icons/typescript/es-toolkit/openai/@google/
+ *   playwright-core/@opentelemetry — build-time or optional-integration
+ *   weight; every consumer bundles or lazy-loads them.
+ * - node-pty prebuilds for other platforms — each installer is
+ *   platform-specific.
+ *
+ * Deliberately kept: @earendil-works/pi-ai (the LLM provider layer),
+ * sherpa-onnx + @img (voice and image natives), pdf-lib, the office editor
+ * runtime, and node-pty for the current platform.
+ * @param {string} root - Installed harness workspace.
+ * @returns {void}
+ */
+function pruneInstalledCore(root) {
+  const modules = join(root, 'node_modules')
+  const prunedPackages = [
+    '@openai',
+    '@anthropic-ai',
+    'mermaid',
+    '@mermaid-js',
+    'react-icons',
+    'typescript',
+    'es-toolkit',
+    'openai',
+    '@google',
+    'playwright-core',
+    '@opentelemetry',
+  ]
+  let bytes = 0
+  for (const name of prunedPackages) {
+    const path = join(modules, name)
+    if (!existsSync(path)) continue
+    bytes += duEstimate(path)
+    rmSync(path, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 })
+  }
+  bytes += trimForeignPrebuilds(join(modules, 'node-pty', 'prebuilds'))
+  console.log(`bundle-harness-source: pruned unused dependency packages (${(bytes / 1048576).toFixed(1)} MiB)`)
+}
+
+function duEstimate(path) {
+  let total = 0
+  const walk = dir => {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      const child = join(dir, entry.name)
+      if (entry.isSymbolicLink()) continue
+      if (entry.isDirectory()) {
+        walk(child)
+        continue
+      }
+      try {
+        total += statSync(child).size
+      } catch {}
+    }
+  }
+  walk(path)
+  return total
+}
+
+/** Remove node-pty prebuilds for platforms other than the build target. */
+function trimForeignPrebuilds(prebuilds) {
+  if (!existsSync(prebuilds)) return 0
+  const platformKey = `${process.platform}-${process.arch}`
+  let bytes = 0
+  for (const entry of readdirSync(prebuilds, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    if (entry.name === platformKey) continue
+    const path = join(prebuilds, entry.name)
+    bytes += duEstimate(path)
+    rmSync(path, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 })
+  }
+  return bytes
 }
 
 /**
@@ -532,6 +621,12 @@ function stageBundledRuntime() {
   mkdirSync(dirname(nodeDest), { recursive: true })
   copyFileSync(process.execPath, nodeDest)
   if (process.platform !== 'win32') chmodSync(nodeDest, 0o755)
+  // macOS setup-node ships a universal binary; each installer only needs its
+  // own slice (halves the staged runtime and the installer size).
+  if (process.platform === 'darwin') {
+    const lipo = spawnSync('/usr/bin/lipo', ['-thin', process.arch, '-output', nodeDest, nodeDest])
+    if (lipo.status === 0) console.log('bundle-harness-source: staged node thinned to', process.arch)
+  }
   let pnpmStaged = false
   const pnpmCjs = process.env.DSH_PNPM_CJS
   if (pnpmCjs && existsSync(pnpmCjs)) {

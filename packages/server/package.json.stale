@@ -1,0 +1,58 @@
+{
+  "name": "clawmaster-server",
+  "version": "0.1.0",
+  "description": "ClawMaster - local app server (single source of session truth, HTTP/WS, Feishu bridge)",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "clawmaster-server": "dist/bin.js",
+    "clawmaster-database-encryption": "dist/src/modules/data_platform/databaseEncryptionCli.js",
+    "clawmaster-enterprise-infrastructure": "dist/src/modules/data_platform/enterpriseInfrastructureCli.js",
+    "clawmaster-enterprise-data-protection": "dist/src/modules/data_platform/dataProtectionCli.js",
+    "clawmaster-enterprise-postgres": "dist/src/modules/data_platform/postgresDatabaseCli.js",
+    "clawmaster-enterprise-postgres-import": "dist/src/modules/data_platform/sqlitePostgresImportCli.js",
+    "clawmaster-enterprise-postgres-promote": "dist/src/enterprise/postgresPromotionCli.js"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build_package.js",
+    "start": "node dist/bin.js start",
+    "enterprise": "node dist/src/enterprise/bin.js",
+    "enterprise:seed": "node dist/src/enterprise/bin.js --seed",
+    "enterprise:postgres:prepare": "node dist/src/enterprise/postgresPrepareCli.js",
+    "enterprise:postgres:import": "node dist/src/modules/data_platform/sqlitePostgresImportCli.js",
+    "enterprise:postgres:attachments": "node dist/src/enterprise/postgresAttachmentImportCli.js",
+    "enterprise:postgres:promote": "node dist/src/enterprise/postgresPromotionCli.js",
+    "enterprise:infrastructure:check": "node dist/src/modules/data_platform/enterpriseInfrastructureCli.js",
+    "enterprise:data-protection": "node dist/src/modules/data_platform/dataProtectionCli.js",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:ci": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "license:issue:usb": "npm run build && node scripts/issue-usb-license.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1100.0",
+    "@aws-sdk/s3-request-presigner": "3.1100.0",
+    "@google/genai": "1.35.0",
+    "@larksuiteoapi/node-sdk": "^1.71.1",
+    "better-sqlite3": "13.0.3",
+    "clawmaster-core": "file:../core",
+    "pg": "8.22.0",
+    "redis": "4.7.1",
+    "ws": "^8.21.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "@types/pg": "8.11.0",
+    "@types/ws": "^8.5.12",
+    "typescript": "5.9.3",
+    "vitest": "^3.2.7"
+  },
+  "engines": {
+    "node": ">=22.16.0"
+  }
+}
