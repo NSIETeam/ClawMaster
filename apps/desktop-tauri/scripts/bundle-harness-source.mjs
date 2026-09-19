@@ -171,6 +171,9 @@ function hashBundleWalk(current, hasher, relPrefix) {
   for (const entry of readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) {
     const path = join(current, entry.name)
     if (entry.name === '.bundle-manifest.json') continue
+    // The digest covers the source payload; an installed full core's
+    // dependency tree is derived from the lockfile and never hashed.
+    if (entry.isDirectory() && entry.name === 'node_modules') continue
     if (entry.isDirectory()) {
       const dirRel = relPrefix ? `${relPrefix}/${entry.name}`.replaceAll('\\', '/') : entry.name.replaceAll('\\', '/')
       hashBundleWalk(path, hasher, dirRel)
@@ -207,6 +210,14 @@ export function assertPreparedBundle(root, mode = desktopBuildMode()) {
       if (entry.isSymbolicLink()) throw new Error(`Prepared payload contains a symbolic link: ${path}`)
       if (entry.isDirectory()) {
         if (skipDirNames.has(entry.name)) throw new Error(`Prepared payload contains an excluded directory: ${path}`)
+        if (entry.name === 'node_modules') {
+          // A full-core payload carries its installed dependency tree (with
+          // the pnpm completion marker); an uninstalled tree is still a bug.
+          if (!existsSync(join(path, '.modules.yaml'))) {
+            throw new Error(`Prepared payload contains an uninstalled node_modules directory: ${path}`)
+          }
+          continue
+        }
         walk(path)
       }
     }

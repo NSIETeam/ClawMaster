@@ -99,6 +99,9 @@ jobs:
           npm ci --prefix frontends/guard --ignore-scripts
           npm ci --prefix frontends/rpa --ignore-scripts
           npm ci --prefix frontends/updates --ignore-scripts
+          npm ci --prefix frontends/voice --ignore-scripts
+          npm ci --prefix frontends/pdf --ignore-scripts
+          npm ci --prefix frontends/feishu-docs --ignore-scripts
 
       # Stage the per-platform runtime the installer ships so first boot needs
       # no network: the bundled core runs in place with this Node and pnpm.

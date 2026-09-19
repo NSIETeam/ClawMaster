@@ -180,7 +180,7 @@ test('Node preload prepares the profile once and consumes its inherited activati
   mkdirSync(join(f.cli, 'lib'))
   const entry = join(f.cli, 'lib/bin.js')
   writeFileSync(entry, 'if (process.env.DSH_DESKTOP_DEFAULTS !== undefined) throw new Error("activation flag leaked")\n')
-  const result = spawnSync(process.execPath, ['--import', preload, entry], {
+  const result = spawnSync(process.execPath, ['--import', pathToFileURL(preload).href, entry], {
     env: { ...process.env, DSH_HOME: f.home, DSH_DESKTOP_DEFAULTS: '1' },
     encoding: 'utf8', timeout: 15000, windowsHide: true,
   })
