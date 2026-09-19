@@ -1,4 +1,4 @@
-# ClawMaster WatchDog 0.0.1
+# ClawMaster WatchDog 0.0.1-beta.1
 
 ## 中文
 
