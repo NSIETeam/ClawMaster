@@ -156,9 +156,10 @@ jobs:
           smokeRoot="$(mktemp -d "$RUNNER_TEMP/clawmaster-production-XXXXXX")"
           # Link-preserving copy: the installed core's virtual-store symlinks
           # are load-bearing, dereferencing them explodes on circular pairs.
-          cp -R apps/desktop-tauri/bundled/harness "$smokeRoot"
+          # mktemp pre-creates the directory, so the payload lands INSIDE it.
+          cp -R apps/desktop-tauri/bundled/harness "$smokeRoot/harness"
           trap 'rm -rf "$smokeRoot"' EXIT
-          cd "$smokeRoot"
+          cd "$smokeRoot/harness"
           pnpm install --prod --frozen-lockfile
           cd "$GITHUB_WORKSPACE"
           DSH_DESKTOP_SMOKE_ROOT="$smokeRoot" node --test apps/desktop-tauri/scripts/desktop-plugin-install.test.mjs apps/desktop-tauri/scripts/harness-startup.test.mjs
