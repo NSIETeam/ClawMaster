@@ -35,6 +35,31 @@ const supported = new Set(Object.keys(writable))
 const WRITE_RETRY_LIMIT = 10
 const WRITE_RETRY_DELAY_MS = 50
 
+/**
+ * Extract the entry identifiers named in a Loader application failure. The
+ * Loader reports each rejected entry as `failed to apply|import loader entry
+ * <id> (<name> …)` — either alone or aggregated — and ids are what the
+ * include tree rows carry.
+ */
+function failedEntryNames(error: unknown): Set<string> {
+  const failures = error instanceof AggregateError ? error.errors : [error]
+  const names = new Set<string>()
+  for (const failure of failures) {
+    const message = failure instanceof Error ? failure.message : String(failure)
+    for (const match of message.matchAll(/failed to (?:apply|import) loader entry (\S+)/gu)) {
+      names.add(match[1])
+    }
+  }
+  return names
+}
+
+/** True when a loader row is (or belongs to) one of the failed entries. */
+function rowMatchesAny(row: EntryOptions, names: Set<string>): boolean {
+  if (row.id !== undefined && names.has(row.id)) return true
+  if (row.name !== undefined && names.has(row.name)) return true
+  return false
+}
+
 function retryableWriteError(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException | null)?.code
   return code === 'EACCES' || code === 'EBUSY' || code === 'EPERM'
@@ -312,12 +337,51 @@ export class Include extends EntryTree {
     return this.enqueue(() => this._apply(candidate))
   }
 
+  /** False during the initial application only — there, failures degrade. */
+  private settledBoot = false
+
   private async _apply(candidate: ReadCandidate) {
     const data = this.applyPatches(candidate.data, this.config.patches)
-    await this.root.update(data)
+    let effective = data
+    try {
+      if (this.settledBoot) {
+        await this.root.update(data)
+      } else {
+        effective = await this.updateOrDegradate(data)
+      }
+    } finally {
+      this.settledBoot = true
+    }
     this.content = candidate.content
-    this.data = candidate.data
+    this.data = effective
     await this.checkAccess()
+  }
+
+  /**
+   * Apply entries with failure isolation at boot. A single broken entry — a
+   * plugin whose config is absent, whose schema is rejected, whose files
+   * moved — must not take down the whole host. The entries named in the
+   * failure are removed for this boot (matching the desktop supervisor's
+   * rescue semantics: retried again next boot), a prominent notice goes to
+   * stderr, and boot continues with everything else. Outside the initial
+   * application the original transactional semantics hold: the last good
+   * tree stays active and the error propagates.
+   */
+  private async updateOrDegradate(data: EntryOptions[]): Promise<EntryOptions[]> {
+    try {
+      await this.root.update(data)
+      return data
+    } catch (error) {
+      const failed = failedEntryNames(error)
+      if (failed.size === 0) throw error
+      const reduced = data.filter(row => !rowMatchesAny(row, failed))
+      if (reduced.length === data.length) throw error
+      process.stderr.write(`ClawMaster: loader entries failed and were disabled for this boot: ${[...failed].sort().join(', ')}\n`)
+      await this.root.update(reduced)
+      this.data = reduced
+      await this.checkAccess()
+      return reduced
+    }
   }
 
   private async _writeFile(config: EntryOptions[]) {
