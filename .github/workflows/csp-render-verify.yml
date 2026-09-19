@@ -1,0 +1,104 @@
+name: CSP Render Verify (0.0.1-beta.1)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: csp-render-verify
+  cancel-in-progress: false
+
+jobs:
+  render-verify:
+    name: Render the beta.1 payload in a real browser
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - name: Download the beta.1 macos payload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/payload"
+          gh run download 35450188820 --repo NSIETeam/ClawMaster-Desktop \
+            -n desktop-macos-arm64 -D "$RUNNER_TEMP/payload"
+          find "$RUNNER_TEMP/payload" -maxdepth 2 | head -20
+
+      - name: Extract the app from the dmg
+        run: |
+          dmg=$(find "$RUNNER_TEMP/payload" -name '*.dmg' | head -1)
+          test -n "$dmg"
+          hdiutil attach -nobrowse -readonly -mountpoint /Volumes/cm-verify "$dmg"
+          cp -R /Volumes/cm-verify/ClawMaster.app "$RUNNER_TEMP/ClawMaster.app"
+          hdiutil detach /Volumes/cm-verify
+          test -d "$RUNNER_TEMP/ClawMaster.app/Contents/Resources/harness-source"
+          echo "app extracted"
+
+      - name: First-boot provision (pnpm install, as a real install would)
+        run: |
+          cd "$RUNNER_TEMP/ClawMaster.app/Contents/Resources/harness-source"
+          corepack enable
+          pnpm install --prod --no-frozen-lockfile --config.confirmModulesPurge=false
+          test -f node_modules/.modules.yaml
+
+      - name: Start the web host exactly like the supervisor does
+        run: |
+          cd "$RUNNER_TEMP/ClawMaster.app/Contents/Resources/harness-source"
+          export DSH_HOME="$RUNNER_TEMP/dsh-home"
+          mkdir -p "$DSH_HOME"
+          nohup /usr/bin/env node --import ./desktop-defaults.mjs apps/cli/lib/bin.js web --no-open --host 127.0.0.1 --port 0 > "$RUNNER_TEMP/host.log" 2>&1 &
+          for i in $(seq 1 60); do
+            url=$(grep -oE 'http://127\.0\.0\.1:[0-9]+/\?token=[A-Za-z0-9_-]+' "$RUNNER_TEMP/host.log" | head -1)
+            test -n "$url" && break
+            sleep 2
+          done
+          test -n "$url" || { cat "$RUNNER_TEMP/host.log"; exit 1; }
+          echo "TARGET_URL=$url" >> "$GITHUB_ENV"
+          echo "host ready: $url"
+
+      - name: Render in a real browser and assert
+        run: |
+          cd "$RUNNER_TEMP"
+          npm init -y >/dev/null 2>&1
+          npm i playwright >/dev/null 2>&1
+          npx playwright install chromium
+          cat > verify.mjs <<'EOF'
+          import { chromium } from 'playwright'
+          const url = process.env.TARGET_URL
+          const browser = await chromium.launch()
+          const page = await browser.newPage()
+          const consoleErrors = []
+          page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 300)) })
+          await page.goto(url, { waitUntil: 'domcontentloaded' })
+          await page.waitForTimeout(9000)
+          const state = await page.evaluate(() => ({
+            rootChildren: document.getElementById('root')?.children.length ?? -1,
+            loader: window.__ModuleLoader__?.mode ?? 'none',
+            pending: window.__ModuleLoader__?.pendingQueue?.length ?? -1,
+            bodyChars: (document.body.innerText || '').length,
+          }))
+          await page.screenshot({ path: 'render-proof.png' })
+          console.log('RENDER_STATE ' + JSON.stringify(state))
+          console.log('CONSOLE_ERRORS ' + JSON.stringify(consoleErrors.slice(0, 5)))
+          await browser.close()
+          if (state.rootChildren > 0 && state.loader === 'live') {
+            console.log('VERDICT: PASS - UI rendered')
+          } else {
+            console.log('VERDICT: FAIL - blank window (root empty or loader stuck: ' + state.loader + ')')
+            process.exitCode = 1
+          }
+          EOF
+          TARGET_URL="$TARGET_URL" node verify.mjs
+
+      - name: Upload render proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: csp-render-proof
+          path: |
+            render-proof.png
+            ${{ runner.temp }}/host.log
+          if-no-files-found: warn
+          retention-days: 7
