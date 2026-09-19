@@ -94,6 +94,11 @@ jobs:
         run: |
           npm ci --prefix frontends/dsh --ignore-scripts
           npm ci --prefix frontends/office --ignore-scripts
+          npm ci --prefix frontends/notes --ignore-scripts
+          npm ci --prefix frontends/graph-memory --ignore-scripts
+          npm ci --prefix frontends/guard --ignore-scripts
+          npm ci --prefix frontends/rpa --ignore-scripts
+          npm ci --prefix frontends/updates --ignore-scripts
 
       # Stage the per-platform runtime the installer ships so first boot needs
       # no network: the bundled core runs in place with this Node and pnpm.
