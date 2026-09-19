@@ -443,10 +443,12 @@ function installBundledCore(root) {
 
 /**
  * Drop dangling symlinks inside the installed dependency tree — typically
- * another platform's optional native binaries, which installers cannot
- * represent. Live links stay: pnpm uses them for circular workspace
- * dependencies (Node resolves them natively), and each platform's installer
- * is produced on that platform where they dereference correctly.
+ * another platform's optional native binaries. Live links (pnpm's virtual
+ * store and circular workspace pairs) are load-bearing: the hoisted layout
+ * of a workspace monorepo keeps packages in per-package node_modules linked
+ * into the store, so removing them breaks resolution. Consumers of the
+ * payload must copy it link-preserving (cp -R, tar) instead of
+ * dereferencing.
  * @param {string} root - Installed harness workspace.
  * @returns {void}
  */

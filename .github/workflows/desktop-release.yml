@@ -46,7 +46,7 @@ jobs:
             asset_arch: arm64
           - runner: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            bundles: appimage,deb
+            bundles: deb
             asset_platform: linux
             asset_arch: x64
     steps:
@@ -151,20 +151,17 @@ jobs:
         run: codesign --verify --deep --strict apps/desktop-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/macos/ClawMaster.app
 
       - name: Verify fresh production installation and Host restart
-        shell: pwsh
+        shell: bash
         run: |
-          $smokeRoot = Join-Path $env:RUNNER_TEMP ("clawmaster-production-" + [guid]::NewGuid().ToString())
-          Copy-Item apps/desktop-tauri/bundled/harness $smokeRoot -Recurse
-          try {
-            Push-Location $smokeRoot
-            try {
-              pnpm install --prod --frozen-lockfile
-              if ($LASTEXITCODE -ne 0) { throw "Production dependency installation failed" }
-            } finally { Pop-Location }
-            $env:DSH_DESKTOP_SMOKE_ROOT = $smokeRoot
-            node --test apps/desktop-tauri/scripts/desktop-plugin-install.test.mjs apps/desktop-tauri/scripts/harness-startup.test.mjs
-            if ($LASTEXITCODE -ne 0) { throw "Packaged Host acceptance failed" }
-          } finally { Remove-Item $smokeRoot -Recurse -Force }
+          smokeRoot="$RUNNER_TEMP/clawmaster-production-$(uuidgen)"
+          # Link-preserving copy: the installed core's virtual-store symlinks
+          # are load-bearing, dereferencing them explodes on circular pairs.
+          cp -R apps/desktop-tauri/bundled/harness "$smokeRoot"
+          trap 'rm -rf "$smokeRoot"' EXIT
+          cd "$smokeRoot"
+          pnpm install --prod --frozen-lockfile
+          cd "$GITHUB_WORKSPACE"
+          DSH_DESKTOP_SMOKE_ROOT="$smokeRoot" node --test apps/desktop-tauri/scripts/desktop-plugin-install.test.mjs apps/desktop-tauri/scripts/harness-startup.test.mjs
 
       - name: Stage release assets
         shell: pwsh
@@ -197,14 +194,16 @@ jobs:
             Copy-Item $signature.FullName "$updaterDestination.sig"
           }
           else {
-            $appImage = Get-ChildItem $bundleRoot -Recurse -File -Filter '*.AppImage' | Select-Object -First 1
             $deb = Get-ChildItem $bundleRoot -Recurse -File -Filter '*.deb' | Select-Object -First 1
-            if (-not $appImage -or -not $deb) { throw "Linux AppImage or deb not found under $bundleRoot" }
-            $signature = Get-Item "$($appImage.FullName).sig" -ErrorAction Stop
-            $appImageDestination = "release-assets/clawmaster-$version-linux-$env:ASSET_ARCH.AppImage"
-            Copy-Item $appImage.FullName $appImageDestination
-            Copy-Item $signature.FullName "$appImageDestination.sig"
+            if (-not $deb) { throw "Linux deb not found under $bundleRoot" }
             Copy-Item $deb.FullName "release-assets/clawmaster-$version-linux-$env:ASSET_ARCH.deb"
+            $appImage = Get-ChildItem $bundleRoot -Recurse -File -Filter '*.AppImage' | Select-Object -First 1
+            if ($appImage) {
+              $signature = Get-Item "$($appImage.FullName).sig" -ErrorAction Stop
+              $appImageDestination = "release-assets/clawmaster-$version-linux-$env:ASSET_ARCH.AppImage"
+              Copy-Item $appImage.FullName $appImageDestination
+              Copy-Item $signature.FullName "$appImageDestination.sig"
+            }
           }
 
       - uses: actions/upload-artifact@v4
@@ -242,8 +241,6 @@ jobs:
             '*-macos-arm64.dmg',
             '*-macos-arm64.app.tar.gz',
             '*-macos-arm64.app.tar.gz.sig',
-            '*-linux-x64.AppImage',
-            '*-linux-x64.AppImage.sig',
             '*-linux-x64.deb',
             '*-windows-x64-build.json',
             '*-macos-arm64-build.json',

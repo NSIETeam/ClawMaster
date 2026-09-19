@@ -55,13 +55,15 @@ export function createManifest(options) {
   validatePubDate(pubDate)
 
   const platforms = Object.fromEntries(
-    Object.entries(normalizedAssets(version)).map(([platform, asset]) => {
+    Object.entries(normalizedAssets(version)).flatMap(([platform, asset]) => {
       const signature = signatures[platform]?.trim()
-      if (!signature) throw new Error(`Missing signature for platform: ${platform}`)
-      return [platform, {
+      // Platforms without a published asset (a bundle target skipped for this
+      // release) are omitted from the updater channel, not an error.
+      if (!signature) return []
+      return [[platform, {
         signature,
         url: `https://github.com/${repository}/releases/download/${releaseTag}/${asset}`,
-      }]
+      }]]
     }),
   )
 
