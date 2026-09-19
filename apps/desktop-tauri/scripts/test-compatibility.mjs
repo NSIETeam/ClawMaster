@@ -28,7 +28,9 @@ function run(command, args, cwd, environment = process.env) {
   const windowsPnpm = process.platform === 'win32' && command === 'pnpm';
   const executable = windowsPnpm ? environment.ComSpec ?? 'cmd.exe' : command;
   const parameters = windowsPnpm ? ['/d', '/s', '/c', 'pnpm install --frozen-lockfile --ignore-scripts'] : args;
-  const result = spawnSync(executable, parameters, { cwd, env: environment, stdio: 'inherit', timeout: 600000 });
+  // CI mode keeps pnpm non-interactive (module-layout purges would prompt).
+  const env = { ...environment, CI: 'true' };
+  const result = spawnSync(executable, parameters, { cwd, env, stdio: 'inherit', timeout: 600000 });
   if (result.error) throw result.error;
   assert.equal(result.signal, null, `${command} was terminated before completion`);
   assert.equal(result.status, 0, `${command} failed`);

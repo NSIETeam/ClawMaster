@@ -9,7 +9,7 @@
  * first-run provisioning falls back to `pnpm install --prod` against it.
  */
 import { createHash } from 'node:crypto'
-import { spawnSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { chmodSync, copyFileSync, cpSync, existsSync, globSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -207,17 +207,24 @@ export function assertPreparedBundle(root, mode = desktopBuildMode()) {
   const walk = current => {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       const path = join(current, entry.name)
-      if (entry.isSymbolicLink()) throw new Error(`Prepared payload contains a symbolic link: ${path}`)
+      // Dependency executables are pnpm's symlinked .bin entries inside
+      // node_modules; a symlink anywhere else in the source payload is a bug.
+      if (entry.isSymbolicLink() && !path.includes(`${sep}node_modules${sep}`)) {
+        throw new Error(`Prepared payload contains a symbolic link: ${path}`)
+      }
       if (entry.isDirectory()) {
-        if (skipDirNames.has(entry.name)) throw new Error(`Prepared payload contains an excluded directory: ${path}`)
+        // A full-core payload carries its installed dependency tree — at the
+        // workspace root and linked into each workspace package (the hoisted
+        // node_modules layout holds package-local directories too, marked at
+        // the root with pnpm's completion marker). An uninstalled tree is
+        // still a bug, as is any other excluded directory name.
         if (entry.name === 'node_modules') {
-          // A full-core payload carries its installed dependency tree (with
-          // the pnpm completion marker); an uninstalled tree is still a bug.
-          if (!existsSync(join(path, '.modules.yaml'))) {
+          if (!existsSync(join(root, 'node_modules', '.modules.yaml'))) {
             throw new Error(`Prepared payload contains an uninstalled node_modules directory: ${path}`)
           }
           continue
         }
+        if (skipDirNames.has(entry.name)) throw new Error(`Prepared payload contains an excluded directory: ${path}`)
         walk(path)
       }
     }
@@ -394,10 +401,14 @@ export function stripDevDependencies(root) {
 /**
  * Install the bundle's production dependencies in place so the installer runs
  * fully offline. The hoisted node-linker keeps the packaged tree symlink-free,
- * which NSIS/DMG/DEB resource copying requires. Skipped entirely when
- * DSH_BUNDLE_FULL_CORE=0. Failure removes node_modules again and is fatal only
- * when DSH_REQUIRE_FULL_CORE=1; otherwise the payload stays source-only and
- * first-run provisioning falls back to its online install path.
+ * which NSIS/DMG/DEB resource copying requires. The install resolves the
+ * workspace manifests injected above and rewrites pnpm-lock.yaml to match, so
+ * it MUST run before the payload digest is computed and the lockfile must not
+ * be restored afterwards (an install with --frozen-lockfile against the
+ * shipped tree is exactly what the compatibility suite verifies). Skipped
+ * entirely when DSH_BUNDLE_FULL_CORE=0. Failure removes node_modules again
+ * and is fatal only when DSH_REQUIRE_FULL_CORE=1; otherwise the payload stays
+ * source-only and first-run provisioning falls back to its online install.
  * @param {string} root - Prepared harness workspace.
  * @returns {void}
  */
@@ -409,13 +420,14 @@ function installBundledCore(root) {
   const strict = process.env.DSH_REQUIRE_FULL_CORE === '1'
   const pnpmBin = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
   console.log('bundle-harness-source: installing bundled core dependencies (pnpm install --prod, hoisted)')
-  const result = spawnSync(pnpmBin, ['install', '--prod', '--no-frozen-lockfile', '--config.node-linker=hoisted'], {
+  const result = spawnSync(pnpmBin, ['install', '--prod', '--no-frozen-lockfile', '--config.node-linker=hoisted', '--config.confirmModulesPurge=false'], {
     cwd: root,
     stdio: 'inherit',
     shell: process.platform === 'win32',
   })
   const failed = result.error !== undefined || result.status !== 0
   const installed = existsSync(join(root, 'node_modules', '.modules.yaml'))
+  if (installed) materializeSymlinks(root)
   if (!failed && !installed) {
     console.warn('bundle-harness-source: install finished without pnpm completion markers')
   }
@@ -427,6 +439,39 @@ function installBundledCore(root) {
     return
   }
   console.log('bundle-harness-source: bundled core dependencies installed')
+}
+
+/**
+ * Drop dangling symlinks inside the installed dependency tree — typically
+ * another platform's optional native binaries, which installers cannot
+ * represent. Live links stay: pnpm uses them for circular workspace
+ * dependencies (Node resolves them natively), and each platform's installer
+ * is produced on that platform where they dereference correctly.
+ * @param {string} root - Installed harness workspace.
+ * @returns {void}
+ */
+function materializeSymlinks(root) {
+  let dropped = 0
+  const walk = dir => {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      const path = join(dir, entry.name)
+      if (entry.isSymbolicLink()) {
+        if (existsSync(path)) continue
+        rmSync(path, { force: true, maxRetries: 3, retryDelay: 200 })
+        dropped += 1
+        continue
+      }
+      if (entry.isDirectory()) walk(path)
+    }
+  }
+  walk(root)
+  console.log(`bundle-harness-source: dropped ${dropped} dangling symlinks`)
 }
 
 /**
@@ -568,6 +613,14 @@ writeFileSync(join(outRoot, 'package.json'), `${JSON.stringify(bundlePkg, null, 
 stripDevDependencies(outRoot)
 writeFileSync(join(outRoot, PAYLOAD_PROVENANCE_PATH), `${JSON.stringify(buildProvenance, null, 2)}\n`)
 
+// Prune debug-only weight, then install the dependency tree. Both happen
+// BEFORE the payload digest: the digest must describe the shipped tree, and
+// the digest walk skips node_modules entirely, so the installed core only
+// contributes its rewritten pnpm-lock.yaml.
+pruneBundledTree(outRoot)
+installBundledCore(outRoot)
+stageBundledRuntime()
+
 const manifest = {
   harnessVersion: rootPkg.version,
   desktopVersion: JSON.parse(readFileSync(join(desktopRoot, 'package.json'), 'utf8')).version,
@@ -579,10 +632,6 @@ const manifest = {
 writeFileSync(join(outRoot, '.bundle-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
 assertPreparedBundle(outRoot)
 verifyPreparedBuild(repoRoot)
-
-installBundledCore(outRoot)
-pruneBundledTree(outRoot)
-stageBundledRuntime()
 
 console.log(`bundle-harness-source: wrote ${outRoot}`)
 console.log(`bundle-harness-source: sha256=${manifest.contentSha256}`)

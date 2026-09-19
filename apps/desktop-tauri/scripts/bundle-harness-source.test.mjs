@@ -55,6 +55,13 @@ test('installer packaging rejects stale bytes and injected dependencies', () => 
     assert.throws(() => assertPreparedBundle(root, 'development'), /digest does not match/)
     manifest()
     mkdirSync(join(root, 'node_modules'))
+    // An installed full core carries node_modules with pnpm's completion
+    // marker at the payload root; without the marker the tree is a bug.
+    assert.throws(() => assertPreparedBundle(root, 'development'), /uninstalled node_modules directory/)
+    writeFileSync(join(root, 'node_modules', '.modules.yaml'), '')
+    assert.doesNotThrow(() => assertPreparedBundle(root, 'development'))
+    manifest()
+    mkdirSync(join(root, 'packages', 'demo', 'tests'), { recursive: true })
     assert.throws(() => assertPreparedBundle(root, 'development'), /excluded directory/)
   } finally { rmSync(root, { recursive: true, force: true }) }
 })
