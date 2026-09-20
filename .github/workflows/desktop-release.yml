@@ -414,8 +414,17 @@ jobs:
             $source = Get-ChildItem $bundleRoot -Recurse -File -Filter '*.dmg' | Select-Object -First 1
             $updater = Get-ChildItem $bundleRoot -Recurse -File -Filter '*.app.tar.gz' | Select-Object -First 1
             if (-not $source -or -not $updater) { throw "DMG or updater archive not found under $bundleRoot" }
+            # Recompress the dmg with LZMA (ULMO): same payload, meaningfully
+            # smaller download than the default UDZO (zlib) image.
+            $converted = "$env:RUNNER_TEMP/clawmaster-ulmo.dmg"
+            hdiutil convert $source.FullName -format ULMO -o $converted | Out-Null
+            $source = Get-Item $converted
             $signature = Get-Item "$($updater.FullName).sig" -ErrorAction Stop
             Copy-Item $source.FullName "release-assets/clawmaster-$version-macos-$env:ASSET_ARCH.dmg"
+            $updaterDestination = "release-assets/clawmaster-$version-macos-$env:ASSET_ARCH.app.tar.gz"
+            Copy-Item $updater.FullName $updaterDestination
+            Copy-Item $signature.FullName "$updaterDestination.sig"
+          }
             $updaterDestination = "release-assets/clawmaster-$version-macos-$env:ASSET_ARCH.app.tar.gz"
             Copy-Item $updater.FullName $updaterDestination
             Copy-Item $signature.FullName "$updaterDestination.sig"
