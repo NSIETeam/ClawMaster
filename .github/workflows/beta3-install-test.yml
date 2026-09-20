@@ -105,8 +105,9 @@ jobs:
           }
           EOF
           TARGET_URL="$TARGET_URL" node verify.mjs
-          cp "$RUNNER_TEMP/host.log" host.log
-          cp beta3-install-test.png beta3-install-test-copy.png 2>/dev/null || true
+          # Stage proof files into the workspace for the artifact upload.
+          cp "$RUNNER_TEMP/host.log" ./host.log 2>/dev/null || true
+          cp beta3-install-test.png ./beta3-install-test.png 2>/dev/null || true
 
       - name: Upload proof
         if: always()
