@@ -432,6 +432,10 @@ const bundlePkg = {
 writeFileSync(join(outRoot, 'package.json'), `${JSON.stringify(bundlePkg, null, 2)}\n`)
 
 stripDevDependencies(outRoot)
+// Runtime packages ship their built lib; TypeScript sources stay out of the payload.
+for (const dir of globSync('packages/*/*/src', { cwd: outRoot })) {
+  rmSync(join(outRoot, dir), { recursive: true, force: true, maxRetries: 3, retryDelay: 200 })
+}
 writeFileSync(join(outRoot, PAYLOAD_PROVENANCE_PATH), `${JSON.stringify(buildProvenance, null, 2)}\n`)
 
 const manifest = {
