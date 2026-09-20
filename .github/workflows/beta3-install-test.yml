@@ -1,0 +1,129 @@
+name: Beta.3 Isolated Install Test (cloud)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: beta3-install-test
+  cancel-in-progress: false
+
+jobs:
+  isolated-install-test:
+    name: Install beta.3 in isolation, render, create session, send message
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Download the beta.3 macos payload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/payload"
+          gh run download 35488130689 --repo NSIETeam/ClawMaster-Desktop \
+            -n desktop-macos-arm64 -D "$RUNNER_TEMP/payload"
+          find "$RUNNER_TEMP/payload" -maxdepth 2 | head -20
+
+      - name: Extract the app from the dmg
+        run: |
+          dmg=$(find "$RUNNER_TEMP/payload" -name '*.dmg' | head -1)
+          test -n "$dmg"
+          hdiutil attach -nobrowse -readonly -mountpoint /Volumes/cm-b3 "$dmg"
+          cp -R /Volumes/cm-b3/ClawMaster.app "$RUNNER_TEMP/ClawMaster.app"
+          hdiutil detach /Volumes/cm-b3
+          test -d "$RUNNER_TEMP/ClawMaster.app/Contents/Resources/harness-source"
+          echo "app extracted"
+
+      - name: First-boot provision (pnpm install, as a real install would)
+        run: |
+          cd "$RUNNER_TEMP/ClawMaster.app/Contents/Resources/harness-source"
+          corepack enable
+          pnpm install --prod --no-frozen-lockfile --config.confirmModulesPurge=false
+          test -f node_modules/.modules.yaml
+
+      - name: Start the web host exactly like the supervisor does
+        run: |
+          cd "$RUNNER_TEMP/ClawMaster.app/Contents/Resources/harness-source"
+          export DSH_HOME="$RUNNER_TEMP/dsh-home"
+          mkdir -p "$DSH_HOME"
+          nohup /usr/bin/env node --import ./desktop-defaults.mjs apps/cli/lib/bin.js web --no-open --host 127.0.0.1 --port 0 > "$RUNNER_TEMP/host.log" 2>&1 &
+          for i in $(seq 1 60); do
+            url=$(grep -oE 'http://127\.0\.0\.1:[0-9]+/\?token=[A-Za-z0-9_-]+' "$RUNNER_TEMP/host.log" | head -1)
+            test -n "$url" && break
+            sleep 2
+          done
+          test -n "$url" || { cat "$RUNNER_TEMP/host.log"; exit 1; }
+          echo "TARGET_URL=$url" >> "$GITHUB_ENV"
+          echo "host ready: $url"
+
+      - name: Render, create a session and send a message in a real browser
+        run: |
+          cd "$RUNNER_TEMP"
+          npm init -y >/dev/null 2>&1
+          npm i playwright >/dev/null 2>&1
+          npx playwright install chromium
+          cat > verify.mjs <<'EOF'
+          import { chromium } from 'playwright'
+          const url = process.env.TARGET_URL
+          const browser = await chromium.launch()
+          const page = await browser.newPage()
+          const consoleErrors = []
+          page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200)) })
+          await page.goto(url, { waitUntil: 'domcontentloaded' })
+          await page.waitForTimeout(9000)
+
+          const render = await page.evaluate(() => ({
+            rootChildren: document.getElementById('root')?.children.length ?? -1,
+            loader: window.__ModuleLoader__?.mode ?? 'none',
+            bodyChars: (document.body.innerText || '').length,
+          }))
+          console.log('RENDER_STATE ' + JSON.stringify(render))
+
+          // create a new session via the sidebar button
+          const newBtn = page.getByRole('button', { name: 'New session' }).last()
+          await newBtn.click()
+          await page.waitForTimeout(2500)
+
+          // type a message and send it
+          const box = page.getByRole('textbox', { name: /Describe what you want to build|Message or run a task/ }).first()
+          await box.click()
+          await box.fill('beta.3 隔离安装测试')
+          await box.press('Enter')
+          await page.waitForTimeout(5000)
+
+          const send = await page.evaluate(() => {
+            const text = document.body.innerText || ''
+            return {
+              messageVisible: text.includes('beta.3 隔离安装测试'),
+              corruptBanner: /corrupt|Failed to load history/.test(text),
+              systemPromptInjected: text.includes('System prompt'),
+            }
+          })
+          await page.screenshot({ path: 'beta3-install-test.png' })
+          const verdict = { render, send, consoleErrors: consoleErrors.slice(0, 5) }
+          console.log('SEND_STATE ' + JSON.stringify(send))
+          await browser.close()
+          if (render.rootChildren > 0 && render.loader === 'live' && send.messageVisible && !send.corruptBanner) {
+            console.log('VERDICT: PASS - isolated install renders, creates a session and accepts a message')
+          } else {
+            console.log('VERDICT: FAIL - ' + JSON.stringify(verdict))
+            process.exitCode = 1
+          }
+          EOF
+          TARGET_URL="$TARGET_URL" node verify.mjs
+          cp "$RUNNER_TEMP/host.log" host.log
+          cp beta3-install-test.png beta3-install-test-copy.png 2>/dev/null || true
+
+      - name: Upload proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta3-install-test-proof
+          path: |
+            beta3-install-test.png
+            beta3-install-test-copy.png
+            host.log
+          if-no-files-found: warn
+          retention-days: 7
