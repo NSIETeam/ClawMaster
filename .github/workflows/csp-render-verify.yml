@@ -2,6 +2,11 @@ name: CSP Render Verify (0.0.1-beta.1)
 
 on:
   workflow_dispatch:
+    inputs:
+      run_id:
+        description: CI run id whose desktop-macos-arm64 artifact should be rendered
+        required: true
+        default: '35450188820'
 
 permissions:
   contents: read
@@ -22,7 +27,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$RUNNER_TEMP/payload"
-          gh run download 35450188820 --repo NSIETeam/ClawMaster-Desktop \
+          gh run download "${{ inputs.run_id }}" --repo NSIETeam/ClawMaster-Desktop \
             -n desktop-macos-arm64 -D "$RUNNER_TEMP/payload"
           find "$RUNNER_TEMP/payload" -maxdepth 2 | head -20
 
