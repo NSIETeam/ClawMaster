@@ -7,7 +7,6 @@
  */
 
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -149,35 +148,25 @@ describe('real Loader composition', () => {
       expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8')
       expect(body).toContain('__T__')
       expect(body).toContain('shell')
+      // The policy is a fixed constant, independent of the served page: no
+      // content hashes, no nonces — it cannot drift out of sync with any
+      // frontend build (the source of two blank-window regressions).
       const csp = response.headers.get('content-security-policy')
       expect(csp).not.toBeNull()
-      const styleNonce = /\bstyle-src\b[^;]*'nonce-([^']+)'/u.exec(csp!)?.[1]
-      expect(styleNonce).toBeTruthy()
-      expect(body).toContain(`<meta name="dsh-style-nonce" content="${styleNonce}">`)
-      const scriptNonce = /\bscript-src\b[^;]*'nonce-([^']+)'/u.exec(csp!)?.[1]
-      expect(scriptNonce).toBeTruthy()
-      expect(scriptNonce).not.toBe(styleNonce)
-      expect(body).toContain(`<meta name="dsh-script-nonce" content="${scriptNonce}">`)
-      expect(csp).not.toContain("'unsafe-eval'")
       expect(csp).toContain("default-src 'self'")
-      expect(csp).toContain("script-src-attr 'none'")
+      expect(csp).toMatch(/script-src[^;]*'unsafe-eval'/u)
+      expect(csp).toMatch(/script-src[^;]*'unsafe-inline'/u)
+      expect(csp).toMatch(/style-src[^;]*'unsafe-inline'/u)
       expect(csp).toContain("object-src 'none'")
       expect(csp).toContain("frame-ancestors 'none'")
-      expect(csp).not.toMatch(/(?:^|;)\s*script-src\s[^;]*'unsafe-inline'/u)
-      expect(csp).not.toMatch(/(?:^|;)\s*style-src\s[^;]*'unsafe-inline'/u)
-      expect(csp).not.toContain("'unsafe-eval'")
+      expect(csp).not.toContain('nonce-')
+      expect(csp).not.toContain('sha256-')
       expect(csp).not.toContain('https:')
       expect(csp).not.toContain('*')
-      const inlineHash = `'sha256-${createHash('sha256').update('window.__T__=1').digest('base64')}'`
-      expect(csp).toContain(inlineHash)
-      const changedHash = `'sha256-${createHash('sha256').update('window.__T__=2').digest('base64')}'`
-      expect(csp).not.toContain(changedHash)
-      const inlineStyleHash = `'sha256-${createHash('sha256').update('body{color:red}').digest('base64')}'`
-      expect(csp).toContain(inlineStyleHash)
-      const changedStyleHash = `'sha256-${createHash('sha256').update('body{color:blue}').digest('base64')}'`
-      expect(csp).not.toContain(changedStyleHash)
-      const normalizedLineEndingHash = `'sha256-${createHash('sha256').update('window.__BASE__=1;\nwindow.__BASE__=2;').digest('base64')}'`
-      expect(csp).toContain(normalizedLineEndingHash)
+      // Runtime nonce metas remain available for code that stamps them onto
+      // the elements it injects, even though the policy itself is static.
+      expect(body).toMatch(/<meta name="dsh-style-nonce" content="[^"]+">/u)
+      expect(body).toMatch(/<meta name="dsh-script-nonce" content="[^"]+">/u)
     }
     expect(await request(port, '/', authenticated({ method: 'HEAD' }))).toEqual({
       status: 200,

@@ -13,7 +13,7 @@
  */
 
 import type { ServerResponse } from 'node:http'
-import { createHash, randomBytes } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
@@ -59,29 +59,22 @@ const STATIC_MISS_CODES: ReadonlySet<string | undefined> = new Set([
   'ENOTDIR',
 ])
 
-/** Restrict executable page resources to local assets and exact inline blocks. */
-function pageContentSecurityPolicy(html: string, scriptNonce: string): string {
-  const hashes = (tag: 'script' | 'style'): string[] => {
-    const expression = tag === 'script'
-      ? /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/giu
-      : /<style\b([^>]*)>([\s\S]*?)<\/style\s*>/giu
-    const values = new Set<string>()
-    for (const match of html.matchAll(expression)) {
-      const attributes = match[1] ?? ''
-      const content = match[2] ?? ''
-      if (tag === 'script' && /(?:^|\s)src\s*=/iu.test(attributes)) continue
-      const digest = createHash('sha256').update(content.replace(/\r\n?/gu, '\n')).digest('base64')
-      values.add(`'sha256-${digest}'`)
-    }
-    return [...values]
-  }
-  const scriptHashes = hashes('script')
+/**
+ * The page policy is a fixed constant, deliberately independent of the served
+ * content. A content-derived policy (hashes of inline blocks, nonce/unsafe
+ * interplay) regressed on frontend changes twice — the module system's
+ * top-level `new Function` for !!js patch expressions and runtime-injected
+ * plugin stylesheets each broke a release with a blank window, because the
+ * policy and the payload evolve on different lines. A static policy that
+ * allows everything the local app legitimately does cannot drift out of sync
+ * with any frontend build. The remaining value: everything stays same-origin
+ * and the page cannot be framed.
+ */
+function pageContentSecurityPolicy(): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'nonce-${scriptNonce}' ${scriptHashes.join(' ')}`.trim(),
-    'script-src-attr \'none\'',
-    `style-src 'self' 'unsafe-inline'`.trim(),
-    "style-src-attr 'unsafe-inline'",
+    "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
     "connect-src 'self'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
@@ -90,7 +83,6 @@ function pageContentSecurityPolicy(html: string, scriptNonce: string): string {
     "frame-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
     "frame-ancestors 'none'",
   ].join('; ')
 }
@@ -132,7 +124,7 @@ export async function serveStatic(
       if (!head.test(body)) throw new Error('Rendered index must contain a head element for runtime nonces.')
       body = body.replace(head, open => `${open}<meta name="dsh-style-nonce" content="${styleNonce}"><meta name="dsh-script-nonce" content="${scriptNonce}">`)
       type = HTML_MIME
-      contentSecurityPolicy = pageContentSecurityPolicy(body, scriptNonce)
+      contentSecurityPolicy = pageContentSecurityPolicy()
     } else {
       body = await readFile(target)
       type = MIME[extname(target)] ?? 'application/octet-stream'
