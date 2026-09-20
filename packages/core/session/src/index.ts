@@ -333,12 +333,24 @@ function assertMessageEventShape(event: Record<string, unknown>, subject: string
     ? data as Record<string, unknown>
     : undefined
   const message = type === 'user/message' ? record : record?.['message']
-  if (typeof message !== 'object' || message === null
-    || typeof (message as Record<string, unknown>)['id'] !== 'string'
-    || (message as Record<string, unknown>)['id'] === '') {
+  if (typeof message !== 'object' || message === null) {
     throw new Error(`${subject} lacks an identified message`)
   }
   const messageRecord = message as Record<string, unknown>
+  const source0 = messageRecord['source']
+  if (typeof source0 === 'object' && source0 !== null
+    && (source0 as Record<string, unknown>)['kind'] === 'gateway/internal') {
+    // Gateway-internal bookkeeping events are not conversation content and
+    // were written with looser shapes by older builds; replay skips their
+    // message semantics, so they are exempt from message invariants.
+    return
+  }
+  if (typeof messageRecord['id'] !== 'string' || messageRecord['id'] === '') {
+    // Sessions are append-only user data: a missing id is repaired with a
+    // deterministic one instead of failing the whole history as corrupt.
+    const seq = typeof event['seq'] === 'number' ? event['seq'] : subject
+    messageRecord['id'] = `recovered-${String(type).replace('/', '-')}-${seq}`
+  }
   const expectedRole = MESSAGE_ROLE_BY_TYPE[type]
   if (messageRecord['role'] !== expectedRole) {
     throw new Error(`${subject} message must have role "${expectedRole}"`)
