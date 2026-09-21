@@ -23,7 +23,7 @@ English | [中文](DEFECTS-DAWN.zh.md)
 | D3 | **Runtime integrity restore**: files under `harness-versions/` are restored to pristine; any runtime patch is lost on restart/maintenance | The read self-heal patch does not persist | Once the kernel is upgraded, the patch is no longer needed | Upgrade the dsh kernel |
 | D4 | **Concurrency lock conflict**: headless/probe processes and app startup hold the `graph.sqlite` write lock concurrently | notes/graph-memory plugin init failures get rescue-disabled → the UI task list empties (no UI error) | Avoid running probes concurrently with app startup; a restart recovers | Wait/retry on the plugin load lock |
 | D5 | **Overlay config rewritten**: `desktop-overlay/cordis.yml` is rewritten back to the template by the app at every boot | Custom plugins lost | Custom plugins go in the user layer `~/.dsh/cordis.patch.yml` (never rewritten) | The app preserves user inserts |
-| D6 | **MCP bridge supports stdio only** | 4 ZCode-hosted HTTP MCP plugins (Hexin/Wind/Tianyancha/finance search aggregator) cannot be used natively | Install natively from the ClawMaster plugin marketplace | MCP bridge gains the http transport |
+| D6 | **ZCode-hosted finance MCP plugins unusable** — kernel already supports streamable-http; the block is the ZCode paid-plan permission (probe: gateway reachable, JWT recognized, JSON-RPC 1006 "no permission") | 4 plugins (Hexin/Wind/Tianyancha/finance search) need a ZCode plan carrying finance MCP | Upgrade the ZCode plan, then wire via streamable-http (url + Bearer); or install ClawMaster-hosted equivalents | [#19](https://github.com/NSIETeam/ClawMaster/issues/19) |
 | D7 | **Browser launch 400 regression**: `browser-open.spec.ts` expected 200, got 400 | Stale test fixture: the dist index lacked `<head>`, required by CSP-nonce rendering — not a product regression | **Fixed** (fixture carries `<head>`, test green) | [#20](https://github.com/NSIETeam/ClawMaster/issues/20) |
 | D8 | **Hardcoded version drift**: version literals scattered across server.ts / browserPreviewBridge / enterprise bin.ts | Version-consistency gate red | **Fixed**: all literals aligned to the root package.json (gate green); single-source injection remains the long-term fix | [#21](https://github.com/NSIETeam/ClawMaster/issues/21) |
 | D9 | **Orphan gate tests**: `scripts/tests/*.test.js` were in no vitest include | CI never ran the release gates | **Fixed**: `testIncludes` now carries `scripts/tests/*.test.js` | [#22](https://github.com/NSIETeam/ClawMaster/issues/22) |
@@ -45,15 +45,15 @@ Every register entry is tracked on GitHub ([NSIETeam/ClawMaster](https://github.
 
 | Entry | Issue | State |
 |---|---|---|
-| D1 session-scan veto | [#14](https://github.com/NSIETeam/ClawMaster/issues/14) | open (mitigated: session-doctor) |
-| D2 injections missing fields | [#15](https://github.com/NSIETeam/ClawMaster/issues/15) | open — read-time heal landed in source, ships with next build |
+| D1 session-scan veto | [#14](https://github.com/NSIETeam/ClawMaster/issues/14) | closed: listing quarantine in source (4596ec2755) + read-heal deployed to the field runtime |
+| D2 injections missing fields | [#15](https://github.com/NSIETeam/ClawMaster/issues/15) | closed: write-side append heal (501/501) + read heal deployed to the field |
 | D3 runtime integrity restore | [#16](https://github.com/NSIETeam/ClawMaster/issues/16) | open |
-| D4 graph.sqlite lock conflict | [#17](https://github.com/NSIETeam/ClawMaster/issues/17) | open (documented no-concurrent-boot rule) |
+| D4 graph.sqlite lock conflict | [#17](https://github.com/NSIETeam/ClawMaster/issues/17) | open: busy_timeout landed (source+bundle+field); constructor-level timeout remains |
 | D5 overlay rewrite | [#18](https://github.com/NSIETeam/ClawMaster/issues/18) | closed (user-layer patch verified) |
 | D6 MCP stdio-only | [#19](https://github.com/NSIETeam/ClawMaster/issues/19) | open (marketplace native install pending) |
 | D7 browser-open 400 | [#20](https://github.com/NSIETeam/ClawMaster/issues/20) | closed (stale fixture) |
 | D8 version drift | [#21](https://github.com/NSIETeam/ClawMaster/issues/21) | closed (literals aligned) |
 | D9 orphan gate tests | [#22](https://github.com/NSIETeam/ClawMaster/issues/22) | closed (vitest include) |
-| D10 lint debt | [#23](https://github.com/NSIETeam/ClawMaster/issues/23) | open (deferred to kernel merge) |
-| D11 skill-catalog noise | [#24](https://github.com/NSIETeam/ClawMaster/issues/24) | open (mitigated: discipline section, probes 10/10) |
-| D12 silent degradation | [#25](https://github.com/NSIETeam/ClawMaster/issues/25) | open |
+| D10 lint debt | [#23](https://github.com/NSIETeam/ClawMaster/issues/23) | open: 94% auto-fixed (64k→3.8k, e0586a969c); remainder are type-aware rules |
+| D11 skill-catalog noise | [#24](https://github.com/NSIETeam/ClawMaster/issues/24) | closed: discipline section (probes 10/10) + zh triggers + dev-skill cold storage (134→124) |
+| D12 silent degradation | [#25](https://github.com/NSIETeam/ClawMaster/issues/25) | closed: launchd degrade-watch macOS notifications (60s) |
