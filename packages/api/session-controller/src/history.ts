@@ -90,7 +90,9 @@ export class SessionHistoryController {
     // projection cache, or a log truncated by an abnormal shutdown — pages
     // the available prefix instead of failing the whole history view: cache
     // staleness must never brick the conversation.
-    const effectiveThrough = Math.min(throughSeq, sourceCursor)
+    // 钳制结果回 branded 游标：sourceCursor 本身合法，min 不会产生非法值。
+    const effectiveThrough: SessionSeqCursor =
+      throughSeq >= 0 ? SessionSeq(Math.min(throughSeq, sourceCursor)) : -1
     /* v8 ignore next -- Session and persistence validation guarantee a dense zero-based event prefix. */
     if (effectiveThrough >= 0 && sourceLog[effectiveThrough]?.seq !== effectiveThrough) {
       throw new RemoteError('gateway/internal', `session log does not contain through seq ${String(effectiveThrough)}`, {})
